@@ -13,16 +13,84 @@ final class RunWriteLockTests: XCTestCase {
         XCTAssertEqual(a, b)
     }
 
+    func testSymlinkAliasProducesSameKey() throws {
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("runlock-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        let alias = base.deletingLastPathComponent()
+            .appendingPathComponent("runlock-alias-\(UUID().uuidString)", isDirectory: false)
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: base)
+
+        let directKey = RunWriteLock.key(repoRoot: base.path)
+        let aliasKey = RunWriteLock.key(repoRoot: alias.path)
+        XCTAssertEqual(directKey, aliasKey)
+    }
+
+    func testVarAndPrivateVarCollapseToSameKey() {
+        let viaVar = RunWriteLock.key(repoRoot: "/var/tmp")
+        let viaPrivateVar = RunWriteLock.key(repoRoot: "/private/var/tmp")
+        XCTAssertEqual(viaVar, viaPrivateVar)
+    }
+
     func testRegistryRefusesSecondAcquire() async {
         let registry = RunWriteLockRegistry()
         let key = "v1:test"
         let first = await registry.acquire(key)
         let second = await registry.acquire(key)
-        XCTAssertTrue(first)
-        XCTAssertFalse(second)
-        await registry.release(key)
+        XCTAssertNotNil(first)
+        XCTAssertNil(second)
+        await registry.release(key, token: first!)
         let third = await registry.acquire(key)
-        XCTAssertTrue(third)
+        XCTAssertNotNil(third)
+    }
+
+    func testStrayReleaseDoesNotFreeLockOrHandOff() async {
+        let registry = RunWriteLockRegistry()
+        let key = "v1:stray"
+        let otherKey = "v1:other"
+        let holder = await registry.waitToAcquire(key, timeout: .seconds(5))
+        XCTAssertNotNil(holder)
+        let otherToken = await registry.acquire(otherKey)
+        XCTAssertNotNil(otherToken)
+
+        await registry.release(key, token: otherToken!)
+
+        let stillHeld = await registry.isHeld(key)
+        XCTAssertTrue(stillHeld, "stray release must not free the lock")
+
+        let waiter = Task { await registry.waitToAcquire(key, timeout: .milliseconds(100)) }
+        let timedOut = await waiter.value
+        XCTAssertNil(timedOut, "stray release must not hand off to a waiter")
+        await registry.release(key, token: holder!)
+        await registry.release(otherKey, token: otherToken!)
+    }
+
+    func testDoubleReleaseIsSafe() async {
+        let registry = RunWriteLockRegistry()
+        let key = "v1:double"
+        let holder = await registry.waitToAcquire(key, timeout: .seconds(5))
+        XCTAssertNotNil(holder)
+
+        let granted = OrderRecorder()
+        let waiter = Task {
+            if let token = await registry.waitToAcquire(key, timeout: .seconds(5)) {
+                await granted.record(1)
+                await registry.release(key, token: token)
+            }
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        await registry.release(key, token: holder!)
+        await registry.release(key, token: holder!)
+
+        await waiter.value
+        let order = await granted.values
+        XCTAssertEqual(order, [1], "only one legitimate handoff")
+
+        let free = await registry.isHeld(key)
+        XCTAssertFalse(free, "double release must not leave a phantom holder")
     }
 
     /// FIFO: a free key is granted immediately; a held key suspends `waitToAcquire` until the
@@ -30,22 +98,30 @@ final class RunWriteLockTests: XCTestCase {
     func testWaitToAcquireGrantsInFIFOOrder() async {
         let registry = RunWriteLockRegistry()
         let key = "v1:fifo"
-        let first = await registry.waitToAcquire(key, timeout: .seconds(5))   // holder takes it immediately
-        XCTAssertTrue(first)
+        let first = await registry.waitToAcquire(key, timeout: .seconds(5))
+        XCTAssertNotNil(first)
 
         let order = OrderRecorder()
-        let w1 = Task { if await registry.waitToAcquire(key, timeout: .seconds(5)) { await order.record(1) } }
-        // Give w1 time to enqueue before w2, so arrival order is deterministic.
+        let w1 = Task {
+            if let token = await registry.waitToAcquire(key, timeout: .seconds(5)) {
+                await order.record(1)
+                await registry.release(key, token: token)
+            }
+        }
         try? await Task.sleep(nanoseconds: 50_000_000)
-        let w2 = Task { if await registry.waitToAcquire(key, timeout: .seconds(5)) { await order.record(2) } }
+        let w2 = Task {
+            if let token = await registry.waitToAcquire(key, timeout: .seconds(5)) {
+                await order.record(2)
+                await registry.release(key, token: token)
+            }
+        }
         try? await Task.sleep(nanoseconds: 50_000_000)
 
         let emptyWhileHeld = await order.isEmpty
         XCTAssertTrue(emptyWhileHeld, "both waiters suspend while the key is held")
 
-        await registry.release(key)         // → grants w1
+        await registry.release(key, token: first!)
         await w1.value
-        await registry.release(key)         // → grants w2
         await w2.value
 
         let finalOrder = await order.values
@@ -53,44 +129,44 @@ final class RunWriteLockTests: XCTestCase {
     }
 
     /// A wedged holder must not hang later runs forever: a waiter that outlives the timeout
-    /// returns `false` (no ownership) while the holder keeps the key.
+    /// returns `nil` (no ownership) while the holder keeps the key.
     func testWaitTimesOutWhenHolderNeverReleases() async {
         let registry = RunWriteLockRegistry()
         let key = "v1:timeout"
         let first = await registry.waitToAcquire(key, timeout: .seconds(5))
-        XCTAssertTrue(first)
+        XCTAssertNotNil(first)
 
         let granted = await registry.waitToAcquire(key, timeout: .milliseconds(100))
-        XCTAssertFalse(granted, "the queued waiter gives up after the timeout")
+        XCTAssertNil(granted, "the queued waiter gives up after the timeout")
         let stillHeld = await registry.isHeld(key)
         XCTAssertTrue(stillHeld, "the original holder still owns the key")
     }
 
-    /// A cancelled queued waiter returns `false`, frees its slot, and does NOT block the next
+    /// A cancelled queued waiter returns `nil`, frees its slot, and does NOT block the next
     /// waiter from being granted when the holder releases.
     func testCancelledWaiterUnblocksTheQueue() async {
         let registry = RunWriteLockRegistry()
         let key = "v1:cancel"
         let first = await registry.waitToAcquire(key, timeout: .seconds(5))
-        XCTAssertTrue(first)
+        XCTAssertNotNil(first)
 
         let cancelledFlag = OrderRecorder()
         let cancelled = Task {
             let got = await registry.waitToAcquire(key, timeout: .seconds(30))
-            await cancelledFlag.record(got ? 1 : 0)
+            await cancelledFlag.record(got == nil ? 0 : 1)
         }
         try? await Task.sleep(nanoseconds: 50_000_000)
         cancelled.cancel()
         await cancelled.value
         let cancelledResult = await cancelledFlag.values
-        XCTAssertEqual(cancelledResult, [0], "cancelled waiter returns false")
+        XCTAssertEqual(cancelledResult, [0], "cancelled waiter returns nil")
 
-        // A fresh waiter still gets granted once the holder releases — the queue isn't wedged.
         let next = Task { await registry.waitToAcquire(key, timeout: .seconds(5)) }
         try? await Task.sleep(nanoseconds: 50_000_000)
-        await registry.release(key)
+        await registry.release(key, token: first!)
         let granted = await next.value
-        XCTAssertTrue(granted, "the next waiter is granted; a cancelled waiter didn't strand the queue")
+        XCTAssertNotNil(granted, "the next waiter is granted; a cancelled waiter didn't strand the queue")
+        await registry.release(key, token: granted!)
     }
 }
 

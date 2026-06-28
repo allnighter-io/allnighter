@@ -1,6 +1,6 @@
 # RUNLOCK-S01 — Owner-token release guard
 
-Status: **ready**
+Status: **done**
 SSOT: CR-01 triage [`../../code_review/triage/CR-01-findings.md`](../../code_review/triage/CR-01-findings.md) (P1 — owner-token `release`)
 Promoted from: Phase 1 code review CR-01 (2026-06-27)
 
@@ -55,6 +55,6 @@ swift test --package-path Packages/AllnighterCore --filter RunWriteLock
 
 ## Done when
 
-- [ ] `release` without valid token cannot free lock or transfer to waiter
-- [ ] Existing FIFO / one-writer tests green
-- [ ] RunService mutating path updated
+- [x] `release` without valid token cannot free lock or transfer to waiter
+- [x] Existing FIFO / one-writer tests green
+- [x] RunService mutating path updated

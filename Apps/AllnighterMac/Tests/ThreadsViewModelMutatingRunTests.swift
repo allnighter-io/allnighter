@@ -75,8 +75,8 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
         let reg = RunWriteLockRegistry()
         let dir = tempDir()
         let key = RunWriteLock.key(repoRoot: dir)
-        let held = await reg.acquire(key)
-        XCTAssertTrue(held, "precondition: write lock is held")
+        let token = await reg.acquire(key)
+        XCTAssertNotNil(token, "precondition: write lock is held")
 
         let ready = GUIFixture.seededToolStatuses(for: AppConfig.loadConfiguration().models, now: Date(), scenario: "thread-ready")
         let vm = makeVM(toolStatuses: ready, writeLock: reg)
@@ -92,7 +92,7 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
         XCTAssertEqual(waiting?.status, .running, "a busy repo root queues (waits), never refuses")
 
         // Release the holder — the queued run is granted the lock and runs to completion.
-        await reg.release(key)
+        await reg.release(key, token: try XCTUnwrap(token))
         let settled = try await firstRunTurn(vm, kind: .mutatingRun)
         let turn = try XCTUnwrap(settled)
         XCTAssertEqual(turn.status, .done, "the queued run completes once the lock frees")

@@ -283,7 +283,7 @@ public actor RunService {
 
         let effort = request.effort ?? preset.defaultEffort
         let lockKey = RunWriteLock.key(repoRoot: root)
-        var acquiredLock = false
+        var lockToken: RunWriteLock.Token?
         let takesWriteLock = preset.writePolicy == .mutating && !request.advisoryReview
         if takesWriteLock {
             // One writer per repo root. If another mutating run holds the lock, WAIT our turn
@@ -291,13 +291,13 @@ public actor RunService {
             // instead of erroring. The bounded timeout is the safety valve: if a wedged holder
             // outlives even its own worker timeout/watchdog, we stop queueing forever and refuse
             // honestly (RUN_WRITE_LOCK_BUSY, retryable). Read-only runs never reach here.
-            guard await writeLock.waitToAcquire(lockKey, timeout: Self.writeLockWaitTimeout) else {
+            guard let token = await writeLock.waitToAcquire(lockKey, timeout: Self.writeLockWaitTimeout) else {
                 return .failure(.writeLockBusy(root))
             }
-            acquiredLock = true
+            lockToken = token
         }
         defer {
-            if acquiredLock { Task { await writeLock.release(lockKey) } }
+            if let lockToken { Task { await writeLock.release(lockKey, token: lockToken) } }
         }
 
         let runner = WorkerRunner(
