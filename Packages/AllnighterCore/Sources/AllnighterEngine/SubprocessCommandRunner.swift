@@ -302,7 +302,7 @@ public struct SubprocessCommandRunner: CommandRunner, StreamingCommandRunner {
         }
         if let stdin, let inputPipe = process.standardInput as? Pipe {
             let handle = inputPipe.fileHandleForWriting
-            handle.write(Data(stdin.utf8))
+            try? handle.write(contentsOf: Data(stdin.utf8))
             try? handle.close()
         }
         return nil

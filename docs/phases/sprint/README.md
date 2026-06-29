@@ -144,7 +144,7 @@ Source: [`planner-triage-verdict.md`](../code_review/planner-triage-verdict.md).
 | Order | Doc | Status | Source |
 | --- | --- | --- | --- |
 | 1 | [LOOPBACK-S01 — single-close stop](loopback/LOOPBACK-S01-single-close-stop.md) | **done** | CR-31/32 |
-| 2 | [SUBPROCESS-S04 — stdin throwing write](subprocess/SUBPROCESS-S04-stdin-throwing-write.md) | **ready** | CR-24 |
+| 2 | [SUBPROCESS-S04 — stdin throwing write](subprocess/SUBPROCESS-S04-stdin-throwing-write.md) | **done** | CR-24 |
 | 3 | [SUBPROCESS-S03 — cancel watchdog](subprocess/SUBPROCESS-S03-cancel-watchdog.md) | **ready** | CR-20 |
 | 4 | [PENDING-S01 — settle before transcript](pending/PENDING-S01-settle-before-transcript.md) | **ready** | CR-23 |
 | 5 | [CLASS-S04 — reviewVerify requires signal](classifier/CLASS-S04-reviewverify-requires-signal.md) | **ready** | CR-15 |
