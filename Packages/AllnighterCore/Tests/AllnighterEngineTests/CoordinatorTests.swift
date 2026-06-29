@@ -118,6 +118,25 @@ final class CoordinatorRunTests: XCTestCase {
         XCTAssertEqual(box.value, "{\"ok\":true}")
     }
 
+    func testLoopbackHealthServerStopStartCycle() throws {
+        let server = LoopbackHealthServer()
+        let port1 = try server.start { "{\"v\":1}" }
+        server.stop()
+        let port2 = try server.start { "{\"v\":2}" }
+        XCTAssertGreaterThan(port2, 0)
+
+        let box = StringBox()
+        let exp = expectation(description: "health-after-restart")
+        URLSession.shared.dataTask(with: URL(string: "http://127.0.0.1:\(port2)/health")!) { data, _, _ in
+            box.value = String(decoding: data ?? Data(), as: UTF8.self)
+            exp.fulfill()
+        }.resume()
+        wait(for: [exp], timeout: 2)
+        XCTAssertEqual(box.value, "{\"v\":2}")
+        XCTAssertNotEqual(port1, port2)
+        server.stop()
+    }
+
     func testResidentCoordinatorClearsStateOnShutdown() async throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-run-\(UUID().uuidString)")
         let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))

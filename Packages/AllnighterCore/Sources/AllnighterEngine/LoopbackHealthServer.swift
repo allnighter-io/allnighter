@@ -71,7 +71,6 @@ public final class LoopbackHealthServer: @unchecked Sendable {
         defer { lock.unlock() }
         acceptSource?.cancel()
         acceptSource = nil
-        if listenFD >= 0 { close(listenFD) }
         listenFD = -1
         boundPort = 0
         healthBody = nil

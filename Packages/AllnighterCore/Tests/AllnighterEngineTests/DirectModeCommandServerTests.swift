@@ -219,6 +219,17 @@ final class DirectModeCommandServerTests: XCTestCase {
         XCTAssertTrue(handler.entries.isEmpty)
     }
 
+    func testLoopbackCommandServerStopStartCycle() throws {
+        let handler = RecordingDirectModeHandler(envelope: Self.ackEnvelope(requestId: "req_cycle", now: now))
+        let server = DirectModeCommandServer(handler: handler)
+        let port1 = try server.start()
+        server.stop()
+        let port2 = try server.start()
+        XCTAssertGreaterThan(port2, 0)
+        XCTAssertNotEqual(port1, port2)
+        server.stop()
+    }
+
     private func post(_ entry: RemoteCommandInboxEntry, port: UInt16) throws -> HTTPResult {
         try request(
             method: "POST",

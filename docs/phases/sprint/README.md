@@ -70,6 +70,89 @@ SSOT: `docs/phases/Pair_Programming_Team.md`
 
 Source: [`code_review/triage/CR-01-findings.md`](../code_review/triage/CR-01-findings.md)
 
+### CheckRunner (from code review CR-04)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [CHECK-S01 — minimal subprocess env](checkrunner/CHECK-S01-minimal-subprocess-env.md) | **ready** |
+
+Source: [`code_review/triage/CR-04-findings.md`](../code_review/triage/CR-04-findings.md)
+
+### OpenCode serve hardening (from code review CR-05)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [OC-S02 — serve lifecycle hardening](opencode/OC-S02-serve-lifecycle-hardening.md) | **ready** |
+
+Source: [`code_review/triage/CR-05-findings.md`](../code_review/triage/CR-05-findings.md). Do before re-enabling parallel CR fan-out.
+
+### Classifier (from code review CR-02)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [CLASS-S02 — infraBackoff ordering](classifier/CLASS-S02-infra-backoff-ordering.md) | **ready** |
+| 2 | [CLASS-S03 — advisory check before empty stall](classifier/CLASS-S03-advisory-check-before-empty.md) | **ready** |
+
+Source: [`planner-triage-verdict.md`](../code_review/planner-triage-verdict.md). **CLASS-S03 before re-running GLM reviews.**
+
+### SliceGate (from code review CR-03)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [GATE-S01 — allowlist + check.method](slicegate/GATE-S01-allowlist-content.md) | **ready** |
+
+### CheckRunner follow-up (from code review CR-04)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 2 | [CHECK-S02 — skipped exitCode](checkrunner/CHECK-S02-skipped-exitcode.md) | **ready** |
+
+### Pair queue (from code review CR-06)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [QUEUE-S01 — compaction/backoff caps](queue/QUEUE-S01-compaction-backoff-caps.md) | **ready** |
+| 2 | [QUEUE-S02 — mid-slice deadline](queue/QUEUE-S02-mid-slice-deadline.md) | **ready** |
+
+### Driver spawn gate (from code review CR-08)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [DRIVER-S01 — cancel + timeout](spawn/DRIVER-S01-gate-cancel-timeout.md) | **ready** |
+
+### Timeline (from code review CR-09)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [TIMELINE-S01 — read-clear perf](timeline/TIMELINE-S01-readclear-perf.md) | **ready** |
+
+### Streaming (from code review CR-10)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [STREAM-S01 — newestSuffix O(n)](stream/STREAM-S01-newest-suffix-on.md) | **ready** |
+| 2 | [STREAM-S02 — serializer reentrancy](stream/STREAM-S02-serializer-reentrant.md) | **ready** |
+
+### Watchdog (from code review CR-07)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [WATCHDOG-S01 — slow GLM threshold](watchdog/WATCHDOG-S01-slow-glm-threshold.md) | **ready** |
+
+### Phase 2 promotions (planner triage 2026-06-29)
+
+| Order | Doc | Status | Source |
+| --- | --- | --- | --- |
+| 1 | [LOOPBACK-S01 — single-close stop](loopback/LOOPBACK-S01-single-close-stop.md) | **done** | CR-31/32 |
+| 2 | [SUBPROCESS-S04 — stdin throwing write](subprocess/SUBPROCESS-S04-stdin-throwing-write.md) | **ready** | CR-24 |
+| 3 | [SUBPROCESS-S03 — cancel watchdog](subprocess/SUBPROCESS-S03-cancel-watchdog.md) | **ready** | CR-20 |
+| 4 | [PENDING-S01 — settle before transcript](pending/PENDING-S01-settle-before-transcript.md) | **ready** | CR-23 |
+| 5 | [CLASS-S04 — reviewVerify requires signal](classifier/CLASS-S04-reviewverify-requires-signal.md) | **ready** | CR-15 |
+
+Verdict: [`planner-triage-verdict-phase2.md`](../code_review/planner-triage-verdict-phase2.md)
+
+**Suggested implement order:** LOOPBACK-S01 → SUBPROCESS-S04 → SUBPROCESS-S03 → OC-S02 → CLASS-S03 → DRIVER-S01 → QUEUE-S01/S02 → CHECK-S01 → GATE-S01 → PENDING-S01 → STREAM → TIMELINE → WATCHDOG → RUNLOCK → CLASS-S04 (when verify enabled).
+
 ## Creating a new work order
 
 ```text
