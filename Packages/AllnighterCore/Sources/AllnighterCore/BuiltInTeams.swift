@@ -7,7 +7,7 @@ import Foundation
 public enum BuiltInTeams {
 
     public static let all: [TeamPreset] = [
-        buildCore, buildBugHunter, buildBugHuntForensics, buildGUIBugHunt, buildSecurityReview, buildSpecUpgrade, buildReleaseProof,
+        buildCore, buildBugHunter, buildBugHuntForensics, buildGUIBugHunt, buildSecurityReview, buildSpecReview, buildReleaseProof,
         defaultChat, executionPlaybook,
         designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
         copyCore, copyLandingPage,
@@ -205,9 +205,9 @@ public enum BuiltInTeams {
     /// Spec Review — launch-tier spec hardening. Fan-out covers product/moat,
     /// contracts, proof, scope, doc hygiene (agent routing), and simplicity.
     /// Synthesizer returns a gem table + explicit rejects; review only.
-    static let buildSpecUpgrade = make(
-        id: "code_spec_upgrade", name: "Spec Review", lane: .code,
-        output: .specUpgrade, defaultEffort: .high,
+    static let buildSpecReview = make(
+        id: "code_spec_review", name: "Spec Review", lane: .code,
+        output: .specReview, defaultEffort: .high,
         description: "Harden a feature or phase spec before you build: find the gems, name the risks, reject noise, and verify agent routing — review only, no doc edits.",
         scout: row("spec_outside_scout", .answer, preferred: grok),
         rows: diverseRows([
@@ -219,7 +219,7 @@ public enum BuiltInTeams {
             ("spec_hype_skeptic", .review),
             ("spec_contrarian_reviewer", .review)
         ], rotation: codeWorkerRotation, startIndex: 1, strategicOpus: ["spec_first_principles_reviewer"]),
-        writer: "spec_upgrade_writer", dissent: .compareOptions,
+        writer: "spec_review_writer", dissent: .compareOptions,
         typeTags: ["launch", "spec-review"],
         starters: [
             "Review this spec. Be brief. Find the highest-leverage gems to make it best-in-market. Review only — do not edit the doc.",

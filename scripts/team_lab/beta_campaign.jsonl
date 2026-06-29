@@ -13,7 +13,7 @@
 # blocker is the validation SUITE per craft — all 3 existing suites are lane:code.
 # Once a craft suite exists, swap blocked:true for a runnable validate_team.sh job
 # using team:<built-in id>.
-{"id": "code_build__needs_suite", "cmd": ["bash", "scripts/team_lab/validate_team.sh", "team:code_core", "PLAN_SUITE_TODO", "beta_validate"], "blocked": true, "note": "Code Build = built-in team code_core (lane:code, output .plan). Blocked only on a build/plan necessity suite (spec_upgrade_mcp_lab_v1 has 1 case; want a real multi-case plan suite)."}
+{"id": "code_build__needs_suite", "cmd": ["bash", "scripts/team_lab/validate_team.sh", "team:code_core", "PLAN_SUITE_TODO", "beta_validate"], "blocked": true, "note": "Code Build = built-in team code_core (lane:code, output .plan). Blocked only on a build/plan necessity suite (spec_review_mcp_lab_v1 has 1 case; want a real multi-case plan suite)."}
 {"id": "design_board__needs_suite", "cmd": ["bash", "scripts/team_lab/validate_team.sh", "team:design_core", "DESIGN_SUITE_TODO", "beta_validate"], "blocked": true, "note": "Design = built-in team design_core (lane:design, output .designBoard). Blocked only on a design necessity suite."}
 {"id": "copy__needs_suite", "cmd": ["bash", "scripts/team_lab/validate_team.sh", "team:copy_core", "COPY_SUITE_TODO", "beta_validate"], "blocked": true, "note": "Copy = built-in team copy_core (lane:copy, output .copyBoard). Blocked only on a copy necessity suite."}
 {"id": "signal__needs_suite", "cmd": ["bash", "scripts/team_lab/validate_team.sh", "team:signal_what_to_build_next", "SIGNAL_SUITE_TODO", "beta_validate"], "blocked": true, "note": "Signal = built-in team signal_what_to_build_next (lane:signal, output .insight). Blocked only on a signal necessity suite."}

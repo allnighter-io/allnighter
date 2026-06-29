@@ -69,8 +69,8 @@ python3 scripts/team_lab/test_promote.py
 # 2. MCP smoke (no team run — hello + tools)
 python3 scripts/team_lab/run.py --suite smoke_mcp_v1 --round 1
 
-# 3. Substrate dogfood (Spec Upgrade — contract only)
-python3 scripts/team_lab/run.py --suite spec_upgrade_mcp_lab_v1 --round 1 --variant baseline
+# 3. Substrate dogfood (Spec Review — contract only)
+python3 scripts/team_lab/run.py --suite spec_review_mcp_lab_v1 --round 1 --variant baseline
 python3 scripts/team_lab/evaluate.py .lab/<dir> --rescore-contract
 # expect: fsBypass=false, runContractScore >= 0.95
 
@@ -138,7 +138,7 @@ any Team-quality conclusion.
 
 | Component | State |
 | --- | --- |
-| PRE-S0 pure-MCP scoring | **Built** — Spec Upgrade R2–R5 at `fsBypass=false`, contract ≥ 0.95 |
+| PRE-S0 pure-MCP scoring | **Built** — Spec Review R2–R5 at `fsBypass=false`, contract ≥ 0.95 |
 | `scripts/team_lab/run.py` | **Built** — MCP stdio client, full run lifecycle, lab record, inline contract eval |
 | `mcp_client.py` | **Built** — Content-Length JSON-RPC, transcript JSONL |
 | `scoring.py` + `evaluate.py` | **Built** — run-contract checks, worker facts, writer consistency; no quality score |
@@ -181,7 +181,7 @@ Terminal worker status = workerAnswers[].status (answer/review); plan.status (wr
 floor_show.summaryMarkdown is NOT the packet source (SUB-4)
 ```
 
-**Status:** Satisfied for Spec Upgrade R2–R5. Re-verify after any MCP mapper change.
+**Status:** Satisfied for Spec Review R2–R5. Re-verify after any MCP mapper change.
 
 ---
 
@@ -192,7 +192,7 @@ floor_show.summaryMarkdown is NOT the packet source (SUB-4)
 - Phase docs: parent packet + this Slice 1 spec
 - Suite JSON under `docs/team-lab/suites/`:
   - `smoke_mcp_v1` — hello/tools smoke
-  - `spec_upgrade_mcp_lab_v1` — substrate dogfood
+  - `spec_review_mcp_lab_v1` — substrate dogfood
   - `bug_hunt_repo_regressions_v1` — Bug Hunt known regressions (3 cases)
 - Burn ledger: `docs/team-lab/used_inputs/<suite-id>.jsonl`
 - Local storage: `REPO/.lab/<experiment-id>/` (gitignored)
@@ -533,7 +533,7 @@ Execute in this order. Do not skip ahead to Team mutations before the gate exist
 
 ## Done When (Slice 1)
 
-- [ ] PRE-S0 green on current `alln` binary (re-run Spec Upgrade or equivalent)
+- [ ] PRE-S0 green on current `alln` binary (re-run Spec Review or equivalent)
 - [ ] `test_scoring.py`, `test_judge.py`, `test_promote.py` all pass
 - [ ] Bug Hunt baseline R1 preserved; meta cases run at least once each
 - [ ] At least **3 live judge compare rounds** on **fresh inputs** with `evidenceValid=true`

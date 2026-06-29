@@ -12,7 +12,7 @@ final class BuiltInTeamsTests: XCTestCase {
     func testRequiredBuiltInIdsArePresent() {
         let required = [
             "code_core", "code_bug_hunt_lite", "code_bug_hunt", "code_gui_bug_hunt", "code_security_review",
-            "code_spec_upgrade", "code_release_proof",
+            "code_spec_review", "code_release_proof",
             "default_chat", "execution_playbook",
             "design_core", "design_premium_polish", "design_conversion_studio",
             "design_radical_directions", "design_usability_triage",
@@ -26,15 +26,15 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(BuiltInTeams.all.count, required.count)
     }
 
-    func testSpecUpgradeCarriesGeneralSpecReviewLineup() {
-        let team = BuiltInTeams.team("code_spec_upgrade")!
+    func testSpecReviewCarriesGeneralSpecReviewLineup() {
+        let team = BuiltInTeams.team("code_spec_review")!
         XCTAssertEqual(team.displayName, "Spec Review")
-        XCTAssertEqual(team.outputKind, .specUpgrade)
+        XCTAssertEqual(team.outputKind, .specReview)
         XCTAssertEqual(team.defaultEffort, .high)
         XCTAssertEqual(team.typeTags, ["launch", "spec-review"])
         XCTAssertEqual(team.scout?.skillId, "spec_outside_scout")
         XCTAssertEqual(team.scout?.preferredModelId, "model_grok")
-        XCTAssertEqual(team.lead.skillId, "spec_upgrade_writer")
+        XCTAssertEqual(team.lead.skillId, "spec_review_writer")
         XCTAssertEqual(team.lead.preferredModelId, "model_opus")
         XCTAssertEqual(Set(team.workerSpecs.map(\.skillId)), [
             "spec_first_principles_reviewer",
@@ -58,7 +58,7 @@ final class BuiltInTeamsTests: XCTestCase {
             Model(id: "model_sonnet", displayName: "Sonnet 4.6", modelLabel: "sonnet", driverId: "claude_code", role: .answerer),
             Model(id: "model_grok", displayName: "Grok Build", modelLabel: "grok-build", driverId: "grok", role: .answerer),
         ]
-        let team = BuiltInTeams.team("code_spec_upgrade")!
+        let team = BuiltInTeams.team("code_spec_review")!
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: ready)
         XCTAssertTrue(r.isRunnable)
         XCTAssertEqual(r.planWriter?.modelId, "model_opus")
@@ -76,7 +76,7 @@ final class BuiltInTeamsTests: XCTestCase {
             "code_bug_hunt": "contrarian_root_cause",
             "code_gui_bug_hunt": "contrarian_root_cause",
             "code_security_review": "security_fix_prioritizer",
-            "code_spec_upgrade": "spec_first_principles_reviewer",
+            "code_spec_review": "spec_first_principles_reviewer",
             "code_release_proof": "acceptance_auditor",
         ]
         for (teamId, skillId) in tierOne {

@@ -207,7 +207,7 @@ public enum FloorProjector {
         case .insight: return .insight
         case .plan: return .plan
         case .proofPacket: return .proofPacket
-        case .bugPacket, .securityRegister, .specUpgrade: return .audit
+        case .bugPacket, .securityRegister, .specReview: return .audit
         case .designBoard, .polishBoard, .copyBoard: return .board
         case .none: return .plan
         }

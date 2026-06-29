@@ -67,7 +67,7 @@ public enum TeamOutputKind: String, Codable, Sendable, CaseIterable {
     case plan
     case bugPacket
     case securityRegister
-    case specUpgrade
+    case specReview
     case proofPacket
     case designBoard
     case polishBoard

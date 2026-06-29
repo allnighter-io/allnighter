@@ -970,7 +970,7 @@ Changed variable:  one OR MORE worker prompts. Per-worker blind A/B gives clean
                    mapping and fall back to the deliverable A/B.)
 Input discipline:  WITHIN a round both arms run the SAME input. BETWEEN rounds the
                    input is FRESH and never reused (scenario.py + burn ledger).
-                   Reusing one input across rounds is overfitting (the Spec Upgrade
+                   Reusing one input across rounds is overfitting (the Spec Review
                    mistake). Power comes from input DIVERSITY across rounds.
                    compare.py refuses sameInput=false.
 N:                 1 run per arm per round is acceptable — a test of 1 beats a test
@@ -1013,7 +1013,7 @@ fsBypass=false and runContractScore >= 0.95
 Proof:
 
 ```bash
-python3 scripts/team_lab/run.py --suite spec_upgrade_mcp_lab_v1 --round 1 --variant baseline
+python3 scripts/team_lab/run.py --suite spec_review_mcp_lab_v1 --round 1 --variant baseline
 python3 scripts/team_lab/evaluate.py .lab/<experiment-dir> --rescore-contract
 # expect: pure_mcp_scoring ok, team quality not withheld
 ```
@@ -1153,7 +1153,7 @@ And any missing MCP/run truth is surfaced as a product bug, not hidden
 - Timed-out/failed workers are visible, not hidden.
 - Run-contract truth is checked separately from Team quality; P0/P1 failures
   withhold Team quality judgment.
-- Spec Upgrade self-dogfood completes with `runContractScore >= 0.95` and honest
+- Spec Review self-dogfood completes with `runContractScore >= 0.95` and honest
   judge-pending / compare records.
 - Bug Hunt has a baseline on 2–3 known regressions and at least one proven
   improvement.
