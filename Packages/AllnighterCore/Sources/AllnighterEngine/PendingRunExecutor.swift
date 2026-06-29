@@ -74,7 +74,7 @@ public struct PendingRunExecutor: Sendable {
             workingDirectoryOverride: item.safety.workingDir
         )
 
-        let transcriptRef = try writeTranscript(attemptId: attemptId, outcome: outcome)
+        let transcriptRef = writeTranscript(attemptId: attemptId, outcome: outcome)
         return try service.settleRun(
             id: item.id,
             attemptIndex: attemptIndex,
@@ -155,7 +155,7 @@ public struct PendingRunExecutor: Sendable {
 
     // MARK: - Transcript receipt
 
-    private func writeTranscript(attemptId: String, outcome: WorkerRunOutcome) throws -> String? {
+    private func writeTranscript(attemptId: String, outcome: WorkerRunOutcome) -> String? {
         let text: String?
         switch outcome.status {
         case .done:
@@ -175,8 +175,8 @@ public struct PendingRunExecutor: Sendable {
 
         let relative = "attempts/\(attemptId).txt"
         let url = service.store.rootDirectory.appendingPathComponent(relative)
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try text.write(to: url, atomically: true, encoding: .utf8)
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? text.write(to: url, atomically: true, encoding: .utf8)
         return relative
     }
 

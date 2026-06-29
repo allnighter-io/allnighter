@@ -32,11 +32,11 @@ Planner triage: [`planner-triage-verdict.md`](planner-triage-verdict.md) · [`pl
 | CR-10 P1 | `newestSuffix` O(n) | [`STREAM-S01`](../sprint/stream/STREAM-S01-newest-suffix-on.md) | ready |
 | CR-10 P1 | Serializer reentrancy | [`STREAM-S02`](../sprint/stream/STREAM-S02-serializer-reentrant.md) | ready |
 | CR-07 P1 | Slow GLM stall threshold | [`WATCHDOG-S01`](../sprint/watchdog/WATCHDOG-S01-slow-glm-threshold.md) | ready |
-| CR-15 P1 | `reviewVerify` silent pass on empty output | [`CLASS-S04`](../sprint/classifier/CLASS-S04-reviewverify-requires-signal.md) | ready |
+| CR-15 P1 | `reviewVerify` silent pass on empty output | [`CLASS-S04`](../sprint/classifier/CLASS-S04-reviewverify-requires-signal.md) | done |
 | CR-20 P1 | Subprocess watchdog not cancelled on exit | [`SUBPROCESS-S03`](../sprint/subprocess/SUBPROCESS-S03-cancel-watchdog.md) | done |
 | CR-24 P1 | Stdin `write` NSException on EPIPE | [`SUBPROCESS-S04`](../sprint/subprocess/SUBPROCESS-S04-stdin-throwing-write.md) | done |
 | CR-31+32 | Double-close listen FD in `stop()` | [`LOOPBACK-S01`](../sprint/loopback/LOOPBACK-S01-single-close-stop.md) | done |
-| CR-23 P1 | Pending stuck when transcript write fails | [`PENDING-S01`](../sprint/pending/PENDING-S01-settle-before-transcript.md) | ready |
+| CR-23 P1 | Pending stuck when transcript write fails | [`PENDING-S01`](../sprint/pending/PENDING-S01-settle-before-transcript.md) | done |
 
 Planner triage: [`planner-triage-verdict.md`](planner-triage-verdict.md) · [`planner-triage-verdict-phase2.md`](planner-triage-verdict-phase2.md)
 
