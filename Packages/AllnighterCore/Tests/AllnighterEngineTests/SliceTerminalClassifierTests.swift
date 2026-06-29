@@ -50,6 +50,17 @@ final class SliceTerminalClassifierTests: XCTestCase {
         XCTAssertEqual(terminal, .passed)
     }
 
+    func testReviewVerifyStallsWhenCheckPassesDespiteEmptyVisible() {
+        var p = packet()
+        p.mode = .reviewVerify
+        let outcome = WorkerRunOutcome(status: .done, output: "")
+        let check = CheckResult(exitCode: 0)
+        let terminal = SliceTerminalClassifier.classify(
+            .init(workerOutcome: outcome, check: check, packet: p, now: Date())
+        )
+        XCTAssertEqual(terminal, .stalled)
+    }
+
     func testDoneWithBackoffSubstringAndPassedCheckIsPassed() {
         let outcome = WorkerRunOutcome(status: .done, output: "server busy but finished")
         let check = CheckResult(exitCode: 0)

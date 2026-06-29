@@ -41,6 +41,7 @@ public enum SliceTerminalClassifier {
         if input.check.exitCode != 0 { return .failed }
         let visible = (outcome.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if visible.isEmpty {
+            if packet.mode == .reviewVerify { return .stalled }
             return packet.isAdvisoryReview ? .passed : .stalled
         }
         return .passed
