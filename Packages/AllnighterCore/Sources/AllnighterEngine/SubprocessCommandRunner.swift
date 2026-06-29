@@ -69,6 +69,26 @@ private final class ProcessBox: @unchecked Sendable {
     init(_ process: Process) { self.process = process }
 }
 
+/// Holds the timeout watchdog so the termination handler can cancel it without
+/// capturing a mutable `var` in concurrent code.
+private final class WatchdogRef: @unchecked Sendable {
+    private let lock = NSLock()
+    private var task: Task<Void, Never>?
+
+    func set(_ task: Task<Void, Never>) {
+        lock.lock()
+        self.task = task
+        lock.unlock()
+    }
+
+    func cancel() {
+        lock.lock()
+        let current = task
+        lock.unlock()
+        current?.cancel()
+    }
+}
+
 /// Runs commands as real child processes. Each command runs in **its own process
 /// group** so the whole tree can be killed on timeout/cancel. The prompt is
 /// passed as argv elements or via stdin — never concatenated into a shell
@@ -110,12 +130,14 @@ public struct SubprocessCommandRunner: CommandRunner, StreamingCommandRunner {
         return await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<CommandResult, Never>) in
                 let resumer = ResumeOnce()
+                let watchdogRef = WatchdogRef()
 
                 process.terminationHandler = { proc in
                     (proc.standardOutput as? Pipe)?.fileHandleForReading.readabilityHandler = nil
                     (proc.standardError as? Pipe)?.fileHandleForReading.readabilityHandler = nil
 
                     guard resumer.claim() else { return }
+                    watchdogRef.cancel()
                     let reason = endReason.get()
                     let result = CommandResult(
                         stdout: String(decoding: outBuffer.snapshot(), as: UTF8.self),
@@ -128,14 +150,14 @@ public struct SubprocessCommandRunner: CommandRunner, StreamingCommandRunner {
                     continuation.resume(returning: result)
                 }
 
-                // Timeout watchdog.
-                Task {
+                // Timeout watchdog — cancelled when the child exits normally.
+                watchdogRef.set(Task {
                     try? await Task.sleep(for: timeout)
                     if box.process.isRunning {
                         endReason.set(.timeout)
                         Self.killGroup(box.process)
                     }
-                }
+                })
             }
         } onCancel: {
             endReason.set(.cancel)
