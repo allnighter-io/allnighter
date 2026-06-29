@@ -8,7 +8,7 @@
       "lane": "code",
       "teamId": "code_spec_upgrade",
       "title": "Review MCP Run Factory Team Lab spec",
-      "prompt": "Run the Spec Upgrade team on docs/phases/MCP_Run_Factory_Team_Lab.md. Review only; do not edit the doc. Think from first principles. Treat every worker idea as a suggestion, not an order. Give concrete recommendations to improve the spec, including scope, contracts, proof, logging, MCP/CLI/API gaps where relevant, and what to cut or defer.",
+      "prompt": "Run Spec Review on docs/phases/MCP_Run_Factory_Team_Lab.md. Review only; do not edit the doc. Be brief. Find ranked gems (moat, closed loop, proof, doc hygiene). List explicit rejects. Treat every worker idea as a suggestion, not an order.",
       "contextPolicy": {
         "repoRoot": "/Users/mike/Documents/GitHub/Allnighter",
         "contextFiles": [

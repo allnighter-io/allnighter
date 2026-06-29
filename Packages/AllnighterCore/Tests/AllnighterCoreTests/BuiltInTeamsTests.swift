@@ -28,15 +28,17 @@ final class BuiltInTeamsTests: XCTestCase {
 
     func testSpecUpgradeCarriesGeneralSpecReviewLineup() {
         let team = BuiltInTeams.team("code_spec_upgrade")!
-        XCTAssertEqual(team.displayName, "Spec Upgrade")
+        XCTAssertEqual(team.displayName, "Spec Review")
         XCTAssertEqual(team.outputKind, .specUpgrade)
         XCTAssertEqual(team.defaultEffort, .high)
+        XCTAssertEqual(team.typeTags, ["launch", "spec-review"])
         XCTAssertEqual(team.scout?.skillId, "spec_outside_scout")
         XCTAssertEqual(team.scout?.preferredModelId, "model_grok")
         XCTAssertEqual(team.lead.skillId, "spec_upgrade_writer")
         XCTAssertEqual(team.lead.preferredModelId, "model_opus")
         XCTAssertEqual(Set(team.workerSpecs.map(\.skillId)), [
             "spec_first_principles_reviewer",
+            "spec_doc_hygiene_reviewer",
             "spec_contract_auditor",
             "spec_proof_planner",
             "spec_scope_steward",

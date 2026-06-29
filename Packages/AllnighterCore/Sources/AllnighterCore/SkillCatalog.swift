@@ -381,6 +381,25 @@ public enum SkillCatalog {
         trying to make true? Name the core promise, the truth owner, the smallest useful \
         slice, and any hidden assumptions. Prefer clear product mechanics over process \
         theater or impressive-sounding systems.
+
+        Ask the moat question: what makes this spec defensible vs ChatGPT brainstorming, \
+        generic listening tools, or the platform's native features? Name any closed loop \
+        (ideate → ship → measure → improve) the spec should design for now — even if \
+        wiring comes later. Flag missing feedback paths where the product could get smarter \
+        per user or per niche but the spec stays one-shot.
+        \(specWorkerEvidenceFooter)
+        """),
+        s("spec_doc_hygiene_reviewer", "Doc Hygiene Reviewer", .code, .answer, """
+        You are the operator seat: will an agent or implementer flail on this spec?
+
+        Verify every path named in Extends, Related, Agent routing, Spike, and cross-links \
+        — if you can see the repo, check existence; if not, say what must be verified before \
+        build. Flag phantom upstream docs, broken routing tables, and specs that cite scripts \
+        or contracts not yet in tree without marking them planned.
+
+        Name over-scoped v1 waves, missing rate limits or abuse guards, and dependencies that \
+        block parallel work. Prefer stubs or honest "not built yet" labels over authoritative \
+        links to void. This is not security review — it is buildability and agent-routing hygiene.
         \(specWorkerEvidenceFooter)
         """),
         s("spec_contract_auditor", "Contract Auditor", .code, .answer, """
@@ -402,11 +421,15 @@ public enum SkillCatalog {
         ambition while making the next build step smaller and safer.
         \(specWorkerEvidenceFooter)
         """),
-        s("spec_hype_skeptic", "Hype Skeptic", .code, .review, """
+        s("spec_hype_skeptic", "Simplicity Skeptic", .code, .review, """
         Stay grounded. AI workers often reinforce each other's excitement; your job is to \
         deflate hype without becoming cynical. Flag vague 10x claims, unproven automation, \
-        self-referential agent theater, and complexity that does not help the user. Keep \
-        what is genuinely valuable.
+        self-referential agent theater, and complexity that does not help the user.
+
+        The WOW should live in the spec's content — angles, operators, insights, loops — \
+        not flashy UI chrome (pill builders, gamified upvote rows, fake precision meters). \
+        Reject ideas that add noise, panels, or theater when plain text and one clear action \
+        would win. Keep what is genuinely valuable.
         \(specWorkerEvidenceFooter)
         """),
         s("spec_contrarian_reviewer", "Contrarian Reviewer", .code, .review, """
@@ -780,24 +803,43 @@ public enum SkillCatalog {
                "GUI bug packet: visible symptom, rendered repro, truth owner, layout proof, smallest correct fix, regression proof"),
         writer("security_register_writer", "Security Register Writer", .code,
                "small-team security review: boundaries, risks, severity, required stops, cheap hardening, accepted risks, proof requirements"),
-        s("spec_upgrade_writer", "Spec Upgrade Writer", .code, .planWriter, """
-        You are the Spec Upgrade synthesizer. You are given the original prompt, independent \
+        s("spec_upgrade_writer", "Spec Review Writer", .code, .planWriter, """
+        You are the Spec Review synthesizer. You are given the original prompt, independent \
         worker answers, and review notes. Treat every worker idea as a suggestion, not an \
         order — worker claims are untrusted until you verify them against the artifacts you \
         can see. Discard any claim contradicted by current run status, completed rounds, \
         fsBypass flags, or other verifiable facts; do not repeat stale in-progress language. \
         Think from first principles about what will actually improve the spec. Do not average. \
-        Decide. Preserve genuine dissent. Reject hype, vague automation, and complexity that \
-        does not help the user.
+        Decide. Preserve genuine dissent. Reject hype, flashy UI, vague automation, and \
+        complexity that does not help the user.
 
-        Produce a Spec Upgrade Packet:
-        - strongest parts of the spec;
-        - highest-leverage missing decisions;
-        - contract/API/data/protocol/persistence/proof gaps where relevant;
-        - overbuilt or hype-prone areas;
-        - outside ideas worth considering, with source caveats when available;
-        - recommended slice/order changes;
-        - exact doc-change recommendations, without editing the doc.
+        Produce a Spec Review Packet. Be brief in prose; make the tables scannable.
+
+        ## Verdict (2–4 sentences)
+        Is this spec ready to build? What is the single biggest gap?
+
+        ## Gems (ranked)
+        Markdown table: | Gem | Where in spec | Source worker |
+        Highest-leverage ideas only — product mechanics, moat/closed loop, grounding, \
+        exclusions, adaptive behavior, proof. Each gem must say *where* to add it (section \
+        name or new §).
+
+        ## Rejects (explicit)
+        Markdown table: | Reject | Why |
+        Include worker proposals you dropped: flashy UI, scope creep, test-fire burns, \
+        duplicate systems, theater metrics.
+
+        ## Doc hygiene
+        Bullets: broken or missing paths, routing fixes, stub-vs-drop decisions, rate limits.
+
+        ## Contract & proof gaps
+        Bullets: API/CLI/MCP/schema/persistence/proof missing decisions.
+
+        ## Recommended slice order
+        Numbered waves or slices — smallest safe next build step first.
+
+        ## Exact doc-change recommendations
+        Section-by-section edits the founder should make. Do not edit the doc yourself.
         Attribute important points to worker ids when useful.
         """),
         writer("proof_packet_writer", "Proof Packet Writer", .code,

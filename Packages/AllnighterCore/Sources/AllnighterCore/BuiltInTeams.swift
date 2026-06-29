@@ -202,13 +202,17 @@ public enum BuiltInTeams {
         ], rotation: codeWorkerRotation, strategicOpus: ["security_fix_prioritizer"]),
         writer: "security_register_writer", dissent: .riskRegister)
 
+    /// Spec Review — launch-tier spec hardening. Fan-out covers product/moat,
+    /// contracts, proof, scope, doc hygiene (agent routing), and simplicity.
+    /// Synthesizer returns a gem table + explicit rejects; review only.
     static let buildSpecUpgrade = make(
-        id: "code_spec_upgrade", name: "Spec Upgrade", lane: .code,
+        id: "code_spec_upgrade", name: "Spec Review", lane: .code,
         output: .specUpgrade, defaultEffort: .high,
-        description: "Review and improve technical specs for any repo: sharpen scope, contracts, proof, risks, and implementation order without editing the doc.",
+        description: "Harden a feature or phase spec before you build: find the gems, name the risks, reject noise, and verify agent routing — review only, no doc edits.",
         scout: row("spec_outside_scout", .answer, preferred: grok),
         rows: diverseRows([
             ("spec_first_principles_reviewer", .answer),
+            ("spec_doc_hygiene_reviewer", .answer),
             ("spec_contract_auditor", .answer),
             ("spec_proof_planner", .answer),
             ("spec_scope_steward", .answer),
@@ -216,7 +220,11 @@ public enum BuiltInTeams {
             ("spec_contrarian_reviewer", .review)
         ], rotation: codeWorkerRotation, startIndex: 1, strategicOpus: ["spec_first_principles_reviewer"]),
         writer: "spec_upgrade_writer", dissent: .compareOptions,
-        starters: ["Upgrade this technical spec. Review only; do not edit the doc."])
+        typeTags: ["launch", "spec-review"],
+        starters: [
+            "Review this spec. Be brief. Find the highest-leverage gems to make it best-in-market. Review only — do not edit the doc.",
+            "Harden docs/phases/<Spec>.md: moat, closed loop, proof, and what to cut. List explicit rejects (flashy UI, scope creep)."]
+    )
 
     static let buildReleaseProof = make(
         id: "code_release_proof", name: "Release Proof", lane: .code, output: .proofPacket, defaultEffort: .high,
