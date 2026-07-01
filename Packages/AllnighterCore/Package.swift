@@ -13,9 +13,18 @@ let package = Package(
         .executable(name: "prove-cli", targets: ["ProveCLI"]),
         .executable(name: "alln", targets: ["AllnighterCLI"])
     ],
+    dependencies: [
+        // AgentOS — the shared local-AI runtime. Allnighter is consumer #1;
+        // the CLI-runtime primitives are being seeded into AgentOSCLI (roadmap P1)
+        // and consumed back here. Local path dependency (sibling repo).
+        .package(path: "../../../AgentOS")
+    ],
     targets: [
         .target(
             name: "AllnighterCore",
+            dependencies: [
+                .product(name: "AgentOSCLI", package: "AgentOS")
+            ],
             resources: [.copy("Resources/Fixtures")],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
