@@ -25,28 +25,8 @@ public enum RunStatus: String, Codable, Sendable, CaseIterable {
     case interrupted
 }
 
-/// Lifecycle of one member (one worker answering the prompt).
-public enum WorkerAnswerStatus: String, Codable, Sendable, CaseIterable {
-    case queued
-    case running
-    case done
-    case failed
-    case timedOut = "timed_out"
-    case cancelled
-    /// A `manual_paste` worker awaiting a pasted answer.
-    case skipped
-}
-
-/// Why a member did not produce a usable answer. Surfaced to the user verbatim
-/// so a churned/unauthenticated CLI fails loudly rather than silently.
-public enum WorkerAnswerErrorKind: String, Codable, Sendable, CaseIterable {
-    case missingCLI = "missing_cli"
-    case authRequired = "auth_required"
-    case timedOut = "timed_out"
-    case nonzeroExit = "nonzero_exit"
-    case emptyOutput = "empty_output"
-    case cancelled
-}
+// WorkerAnswerStatus and WorkerAnswerErrorKind moved to AgentOSCLI (roadmap P1.5c);
+// they resolve here via the `@_exported import AgentOSCLI` re-export.
 
 /// How a team run was started. The tool surface (RB6) sets cli/mcp/http;
 /// the GUI sets gui (the default).
