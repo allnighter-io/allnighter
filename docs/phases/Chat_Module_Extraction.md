@@ -1,11 +1,20 @@
-# Chat Module Extraction — A Reusable, Best-in-Class Chat Package
+# Chat Module Extraction — Allnighter-side detail (feeds AgentOS P2/P3)
+
+> **Superseded framing / promoted to portfolio scope.** This is no longer a standalone
+> "Allnighter chat package" plan. The master plan is now
+> **[AgentOS `docs/phases/00_AgentOS_Architecture_And_Roadmap.md`](../../../AgentOS/docs/phases/00_AgentOS_Architecture_And_Roadmap.md)** —
+> a shared runtime (CLI → ChatCore → ChatUI / TeamKit) consumed by Allnighter, XTerminal (Warroom),
+> and Ikiro (SiteBuilder). Team is **not** cut out — it becomes an opt-in `AgentOSTeam` layer promoted
+> after the base. The content below remains the accurate **Allnighter-side extraction detail** (the
+> concrete seams, file set, two-substrate consolidation, and token de-coupling) that feeds AgentOS
+> **P2 (ChatCore)** and **P3 (ChatUI)**. Read the AgentOS doc first for the layering; read this for
+> the Allnighter mechanics.
 
 **Status:** PLAN (2026-07-01). Architecture mapped against live code; build not started.
-**Goal:** Extract Allnighter's single-worker **chat** into its own cleanly-exportable Swift
-package(s) that other apps can consume and benefit from every time we improve Allnighter's chat.
-**Scope:** SINGLE-WORKER CHAT ONLY (one model, one thread, one worker, streaming, attachments,
-warm workers). **Send-to-Team / team-run / fan-out is explicitly OUT of scope** — it stays in the
-Allnighter app spine. (We may extract a separate team module later; not now.)
+**Goal:** Extract Allnighter's single-worker **chat** into the shared AgentOS runtime, and consolidate
+Allnighter's two chat substrates into one warm path along the way.
+**Scope:** the Allnighter chat send path + UI. Team/fan-out is handled separately as `AgentOSTeam`
+(see the AgentOS roadmap), not amputated.
 **Companions:** [`Warm_Single_Lane_Chat.md`](./Warm_Single_Lane_Chat.md) (the warm-worker physics),
 [`Unified_Run_Model.md`](./Unified_Run_Model.md) (the run substrate we are deliberately *not* taking),
 [`Persistent_Work_Threads.md`](./Persistent_Work_Threads.md) (the thread model).
