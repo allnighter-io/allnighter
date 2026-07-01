@@ -1,13 +1,20 @@
 # GLM Code Review Queue
 
-Status: **active — advisory only**
+Status: **active — advisory only, sequential-first**
 Owner: Pair-programming control plane + Core hot paths
 Updated: 2026-06-27
 
 ## What this is
 
-A **read-bounded advisory queue** for seating GLM (OpenCode / Featherless, ~32K window)
-on the highest-leverage slices of Allnighter — without asking it to explore the repo.
+A **read-bounded advisory hardening pass** for seating GLM (OpenCode / Featherless, ~32K window)
+on load-bearing slices of Allnighter — without asking it to explore the repo.
+
+**Primary output:** structured findings that surface invariant gaps, security footguns,
+and hardening options for the sprint queue. Volume of findings is a feature, not noise.
+
+**Eternal playbook:** [`docs/operations/GLM_Worker_Best_Practices.md`](../../operations/GLM_Worker_Best_Practices.md)
+
+**Follow-up log:** [`follow-up-recommendations.md`](follow-up-recommendations.md)
 
 This is **not** implementation. GLM does not ship fixes here. It produces **structured
 findings** that a planner (Composer / you) triages into real sprint slices, perf work,
@@ -23,7 +30,7 @@ the same F1/F4 discipline to **review**:
 | **F2** — compaction ≠ stall | Review tasks that touch stall/classification get explicit false-positive lenses |
 | **F3** — executor conforms to order | Narrow review questions; required output schema |
 | **F4** — pre-resolve symbols | Task author inlines signatures + `file:line` for cross-refs |
-| **F5** — parallel breadth | Run 10 reviews overnight; triage in the morning |
+| **F5** — serial hardening breadth | Queue many bounded reviews; triage findings into sprint slices |
 
 ## How this differs from sprint work orders
 
@@ -36,21 +43,27 @@ the same F1/F4 discipline to **review**:
 
 ## PM rules (non-negotiable)
 
-### Parallel fan-out — ONLY when safe
+### Sequential by default — patience over speed
 
-Parallel is **never** the default courage move. `scripts/cr_parallel_plan.py` and
-`CodeReviewParallelSafety` enforce:
+GLM reasons slowly on hard invariants. That is fine: review is **cheap compute** and
+the product is the **findings file**, not a green slice JSON. Default posture:
 
-1. **Touch surfaces must be disjoint** — each packet writes only
-   `docs/phases/code_review/findings/<sliceId>.md` (or `-verified.md`); no two
-   concurrent packets may share a touch path.
-2. **Touch must stay under `findings/`** — no Swift edits in parallel review.
-3. **Max 4 concurrent** — matches Featherless Premium; set via `ALLNIGHTER_REVIEW_SPAWN_LIMIT`.
-4. **Read overlap is OK** — multiple reviews may read the same source file (read-only).
-5. **On any violation → serial fallback** — `run_cr_phase1.sh` refuses unsafe batches.
+1. **One review at a time** — `PAIR_CR_PARALLEL=0` (the batch script default).
+2. **Long timeouts** — `stallTimeoutSeconds: 3600` on review packets (1 hour); GLM
+   may think for a long time before writing via tools.
+3. **Success = findings + check** — triage when `findings/CR-NN.md` exists and the
+   packet check passes, even if pair status says `stalled`/`failed` (see dogfood).
+4. **Serial hardening pass is the happy path** — hard invariant chunks × patient timeout
+   is fine; false urgency (parallel + short caps) produced worse outcomes.
 
-Advisory reviews **skip `RunWriteLock`** (`RunRequest.advisoryReview`) so disjoint
-findings writes do not queue behind each other.
+Parallel fan-out is **opt-in only** after OpenCode serve/streaming is proven healthy
+(see [`OC-S02`](../sprint/opencode/OC-S02-serve-lifecycle-hardening.md)). When enabled,
+`scripts/cr_parallel_plan.py` and `CodeReviewParallelSafety` still require disjoint
+`findings/` touch paths — but that gate is **necessary, not sufficient** (single
+`:4096` serve and `maxConcurrentSpawns: 1` still serialize GLM work).
+
+Advisory reviews **skip `RunWriteLock`** (`RunRequest.advisoryReview`) so serial
+findings writes do not queue behind mutating runs.
 
 ### Verify pass (default on)
 
@@ -64,7 +77,8 @@ alln pair slice docs/phases/code_review/packets/CR-01.verify.expanded.json ...
 Verify worker defaults P0 claims to **Reject** unless upheld in inlined source.
 **Promote only P0s that survive verify** (`findings/CR-NN-verified.md`).
 
-Disable verify: `PAIR_CR_VERIFY=0`. Disable parallel: `PAIR_CR_PARALLEL=0`.
+Disable verify: `PAIR_CR_VERIFY=0` (reasonable for review-only hardening pass; verify
+when triaging). Opt into parallel: `PAIR_CR_PARALLEL=1` (not recommended until OC-S02).
 
 ### Terminal success (tool-only completions)
 
@@ -83,10 +97,20 @@ Do not hand-author symbols in packet JSON — phantom symbols produce phantom P0
 
 ```text
 expand (inline + auto symbols)
-    → review (GLM)     ─┐ parallel when safe (≤4)
-    → verify (GLM)     ─┘ serial per slice after its review
-    → triage upheld P0s only
+    → review (GLM)     serial, patient timeout
+    → verify (GLM)     optional second pass; same serial discipline
+    → triage upheld P0s only → sprint docs
 ```
+
+## GLM findings promoted so far (from triage)
+
+| Source | Upheld insight | Sprint / backlog |
+| --- | --- | --- |
+| CR-01 | Owner-token `release`; symlink canonical key | [RUNLOCK-S01/S02](../sprint/runlock/) |
+| CR-02 | `contains("compaction")` brittle; empty-output-before-check stalls file writers | backlog classifier |
+| CR-03 | Allowlist content not validated | backlog SliceGate |
+| CR-04 | Full env → `/bin/sh -c` check = secret exfiltration; skipped check `exitCode: 0` footgun | [CHECK-S01](../sprint/checkrunner/CHECK-S01-minimal-subprocess-env.md) |
+| CR-05 | `spawnedPID` never cleared on child exit; undrained pipes; health trusts any :4096 2xx | [OC-S02](../sprint/opencode/OC-S02-serve-lifecycle-hardening.md) |
 
 ## Workflow
 
@@ -109,10 +133,11 @@ python3 scripts/expand_cr_packet.py . docs/phases/code_review/packets/CR-01.json
 # → writes CR-01.expanded.json with mode=review + inlinedSources
 ```
 
-Or batch Phase 1:
+Or run the Phase 1 serial hardening pass (default):
 
 ```bash
 scripts/run_cr_phase1.sh Allnighter
+# subset: PAIR_CR_PARALLEL=0 scripts/run_cr_phase1.sh Allnighter 06 07 08
 ```
 
 **A — MCP `pair_slice` (preferred when pair plumbing is up)**
@@ -185,12 +210,16 @@ Bad CR targets:
 
 ```text
 docs/phases/code_review/
-  README.md           ← this file
-  queue.md            ← status board
-  tasks/CR-0N-*.md    ← one screen per review task
-  packets/CR-0N.json          ← source stubs (readPaths only)
-  packets/CR-0N.expanded.json ← generated: mode=review + inlinedSources (gitignored)
-  findings/           ← GLM output lands here (gitignored until triaged)
+  README.md
+  queue.md                      ← status board
+  follow-up-recommendations.md  ← master log (promote / backlog / reject)
+  phase1-runlog.md
+  phase2-runlog.md
+  phase2-hardening-queue.md
+  tasks/CR-0N-*.md
+  packets/CR-0N.json
+  triage/CR-0N-findings.md
+  findings/                     ← gitignored GLM output
 ```
 
 Add `docs/phases/code_review/findings/` to `.gitignore` if you want raw GLM output
