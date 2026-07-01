@@ -349,5 +349,3 @@ app as implementations of the module's injected protocols.
 - No git management in the module ([`allnighter-no-git-management`]).
 - Not rebuilding the markdown renderer — `AllnighterMarkdown` is already standalone and is a
   dependency, not a rewrite.
-</content>
-</invoke>
