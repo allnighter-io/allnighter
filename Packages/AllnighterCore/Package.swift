@@ -38,7 +38,10 @@ let package = Package(
         // contains all the I/O so Core stays pure. The Mac app imports this.
         .target(
             name: "AllnighterEngine",
-            dependencies: ["AllnighterCore"],
+            dependencies: [
+                "AllnighterCore",
+                .product(name: "AgentOSCLI", package: "AgentOS")
+            ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]
