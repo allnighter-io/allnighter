@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-16",
+  "title": "Review runQueue compaction and infraBackoff bounds",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "280-295"
+    }
+  ],
+  "intent": "READ-ONLY. CR-06 P1: unbounded compaction/infraBackoff. Lenses: executorAttempt decrement, max retries, queue hang, escalate path. Write findings to docs/phases/code_review/findings/CR-16.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-16.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-16.md && grep -q '## Findings' docs/phases/code_review/findings/CR-16.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

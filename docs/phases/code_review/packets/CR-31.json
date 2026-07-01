@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-31",
+  "title": "Review DirectModeCommandServer boundary",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/DirectModeCommandServer.swift",
+      "lineRange": "520-650"
+    }
+  ],
+  "intent": "READ-ONLY. Loopback command server: auth boundary, request size, path traversal, error leakage. Write findings to docs/phases/code_review/findings/CR-31.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-31.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-31.md && grep -q '## Findings' docs/phases/code_review/findings/CR-31.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

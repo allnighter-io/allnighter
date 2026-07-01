@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-30",
+  "title": "Review ResidentCoordinatorProbe liveness",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinatorProbe.swift"
+    }
+  ],
+  "intent": "READ-ONLY. Background coordinator probe: false dead, stale PID, processAlive accuracy. Write findings to docs/phases/code_review/findings/CR-30.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-30.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-30.md && grep -q '## Findings' docs/phases/code_review/findings/CR-30.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

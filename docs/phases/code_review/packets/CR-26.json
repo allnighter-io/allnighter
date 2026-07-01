@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-26",
+  "title": "Review Timeline read-clear and ThreadTurn kinds",
+  "readPaths": [
+    {
+      "path": "Apps/AllnighterMac/Sources/TimelineVisibility.swift"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/ThreadTurn.swift",
+      "lineRange": "1-120"
+    }
+  ],
+  "intent": "READ-ONLY. CR-09 follow-up: team-run kind gap, O(n\u00b2) fixes cross-check against ThreadTurn.Kind enum. Write findings to docs/phases/code_review/findings/CR-26.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-26.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-26.md && grep -q '## Findings' docs/phases/code_review/findings/CR-26.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-25",
+  "title": "Review Nudge and planner takeover prompts",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/NudgePrompt.swift"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/PlannerTakeoverPrompt.swift"
+    }
+  ],
+  "intent": "READ-ONLY. Pair retry prose and planner takeover: check semantics, stdout tail injection, attempt budget context. Write findings to docs/phases/code_review/findings/CR-25.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-25.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-25.md && grep -q '## Findings' docs/phases/code_review/findings/CR-25.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

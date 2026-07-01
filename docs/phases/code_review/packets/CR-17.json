@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-17",
+  "title": "Review runQueue until deadline mid-slice",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "185-210"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "325-350"
+    }
+  ],
+  "intent": "READ-ONLY. CR-06 P1: options.until only at outer loop. Lenses: mid-slice overrun, sleep clamp, planner takeover unbounded. Write findings to docs/phases/code_review/findings/CR-17.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-17.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-17.md && grep -q '## Findings' docs/phases/code_review/findings/CR-17.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

@@ -17,7 +17,7 @@
     "command": "test -f docs/phases/code_review/findings/CR-07.md && grep -q '## Findings' docs/phases/code_review/findings/CR-07.md"
   },
   "maxRetries": 1,
-  "stallTimeoutSeconds": 600,
+  "stallTimeoutSeconds": 3600,
   "compactionGraceSeconds": 180,
   "dangerFlags": []
 }

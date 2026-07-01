@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-21",
+  "title": "Review DriverConcurrencyGate cancellation and timeout",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/DriverConcurrencyGate.swift"
+    }
+  ],
+  "intent": "READ-ONLY. CR-08 P1: cancelled waiters run body; no acquire timeout; withPermit throw leak. Lenses: limit=1 deadlock, OpenCode gate waits. Write findings to docs/phases/code_review/findings/CR-21.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-21.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-21.md && grep -q '## Findings' docs/phases/code_review/findings/CR-21.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

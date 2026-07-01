@@ -17,7 +17,7 @@
     "command": "test -f docs/phases/code_review/findings/CR-06.md && grep -q runQueue docs/phases/code_review/findings/CR-06.md"
   },
   "maxRetries": 1,
-  "stallTimeoutSeconds": 1200,
+  "stallTimeoutSeconds": 3600,
   "compactionGraceSeconds": 300,
   "dangerFlags": []
 }

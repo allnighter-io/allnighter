@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-23",
+  "title": "Review PendingRunExecutor queue drain",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PendingRunExecutor.swift"
+    }
+  ],
+  "intent": "READ-ONLY. Lenses: stale pending resurrection, double dispatch, error propagation, coordinator interaction. Write findings to docs/phases/code_review/findings/CR-23.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-23.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-23.md && grep -q '## Findings' docs/phases/code_review/findings/CR-23.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

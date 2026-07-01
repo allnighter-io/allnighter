@@ -9,13 +9,15 @@
     }
   ],
   "intent": "READ-ONLY perf review (lines 199-257). Lenses: coalesced reload races, railRows staleness, checkpoint crash window, store.get on hot path, markRead bypass.",
-  "touchAllowlist": ["docs/phases/code_review/findings/CR-13.md"],
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-13.md"
+  ],
   "check": {
     "method": "command",
     "command": "test -f docs/phases/code_review/findings/CR-13.md && grep -q '## Findings' docs/phases/code_review/findings/CR-13.md"
   },
   "maxRetries": 1,
-  "stallTimeoutSeconds": 900,
-  "compactionGraceSeconds": 300,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
   "dangerFlags": []
 }

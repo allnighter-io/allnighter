@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-28",
+  "title": "Review ThreadView scroll and live-follow",
+  "readPaths": [
+    {
+      "path": "Apps/AllnighterMac/Sources/ThreadView.swift",
+      "lineRange": "265-360"
+    }
+  ],
+  "intent": "READ-ONLY. CR-09 P2: live-follow, scrollToBottom second pass, isAtBottom gating. Pair with TimelineScrollPolicy. Write findings to docs/phases/code_review/findings/CR-28.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-28.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-28.md && grep -q '## Findings' docs/phases/code_review/findings/CR-28.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

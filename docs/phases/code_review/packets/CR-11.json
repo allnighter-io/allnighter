@@ -9,13 +9,15 @@
     }
   ],
   "intent": "READ-ONLY review of runOpenCode (lines 251-331). Lenses: redundant ensureRunning, stream-without-terminal, cwd fallback, stream vs sync parity, error kind mapping.",
-  "touchAllowlist": ["docs/phases/code_review/findings/CR-11.md"],
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-11.md"
+  ],
   "check": {
     "method": "command",
     "command": "test -f docs/phases/code_review/findings/CR-11.md && grep -q '## Findings' docs/phases/code_review/findings/CR-11.md"
   },
   "maxRetries": 1,
-  "stallTimeoutSeconds": 900,
-  "compactionGraceSeconds": 300,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
   "dangerFlags": []
 }

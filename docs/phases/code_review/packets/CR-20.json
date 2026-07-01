@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-20",
+  "title": "Review SubprocessCommandRunner lifecycle",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/SubprocessCommandRunner.swift",
+      "lineRange": "1-160"
+    }
+  ],
+  "intent": "READ-ONLY. CR-04 follow-up: subprocess timeout, SIGKILL, waitpid, zombie leak. Lenses: timedOut propagation, orphan children, stdin/stdout drain. Write findings to docs/phases/code_review/findings/CR-20.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-20.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-20.md && grep -q '## Findings' docs/phases/code_review/findings/CR-20.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-19",
+  "title": "Review CheckResult exitCode consumers",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/CheckRunner.swift",
+      "lineRange": "1-25"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/SliceTerminalClassifier.swift",
+      "lineRange": "40-47"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "388-400"
+    }
+  ],
+  "intent": "READ-ONLY. CR-04 P1: skipped exitCode==0; direct exitCode reads. Lenses: .passed vs raw exitCode, planner takeover check, CLI display. Write findings to docs/phases/code_review/findings/CR-19.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-19.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-19.md && grep -q '## Findings' docs/phases/code_review/findings/CR-19.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

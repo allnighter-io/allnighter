@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-27",
+  "title": "Review ThreadStore write serialization",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/ThreadStoreWriteSerializer.swift"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/ThreadStore.swift",
+      "lineRange": "1-120"
+    }
+  ],
+  "intent": "READ-ONLY. CR-10 P1: reentrant sync deadlock; lane registry never evicts; symlink roots. Write findings to docs/phases/code_review/findings/CR-27.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-27.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-27.md && grep -q '## Findings' docs/phases/code_review/findings/CR-27.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

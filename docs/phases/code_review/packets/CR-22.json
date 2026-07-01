@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-22",
+  "title": "Review RunService OpenCode execution branch",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift",
+      "lineRange": "548-615"
+    }
+  ],
+  "intent": "READ-ONLY. OpenCode streaming in runExecution: gate acquire, ensureRunning, invokeOpenCodeStreaming, empty terminal fallback invoke. Write findings to docs/phases/code_review/findings/CR-22.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-22.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-22.md && grep -q '## Findings' docs/phases/code_review/findings/CR-22.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

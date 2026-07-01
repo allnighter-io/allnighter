@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-18",
+  "title": "Review SliceGate allowlist and check.method",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/SliceGate.swift"
+    }
+  ],
+  "intent": "READ-ONLY. CR-03 P1: touchAllowlist [\"\"] passes; default check.method. Lenses: trim entries, exhaustive switch, danger flags, executor cardinality. Write findings to docs/phases/code_review/findings/CR-18.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-18.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-18.md && grep -q '## Findings' docs/phases/code_review/findings/CR-18.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}

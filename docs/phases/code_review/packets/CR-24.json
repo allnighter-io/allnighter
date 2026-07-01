@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-24",
+  "title": "Review SubprocessCommandRunner resolution",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/SubprocessCommandRunner.swift",
+      "lineRange": "160-336"
+    }
+  ],
+  "intent": "READ-ONLY. Upstream of CheckRunner: executable resolution, PATH, env forwarding, streaming runner. Write findings to docs/phases/code_review/findings/CR-24.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-24.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-24.md && grep -q '## Findings' docs/phases/code_review/findings/CR-24.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": []
+}
