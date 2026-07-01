@@ -43,6 +43,9 @@ if rg -n 'testPersistCursor' "$ROOT/Apps" --glob '*.swift' 2>/dev/null; then
 fi
 ran_any=true
 
+bash "$ROOT/scripts/check_spawn_policy.sh"
+ran_any=true
+
 if [[ -f "$ROOT/Packages/AllnighterCore/Package.swift" ]]; then
   echo "==> swift test AllnighterCore"
   swift test --package-path "$ROOT/Packages/AllnighterCore"

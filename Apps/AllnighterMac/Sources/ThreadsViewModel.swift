@@ -116,7 +116,7 @@ final class ThreadsViewModel {
         store = ThreadStore()
         runStore = RunStore()
         #endif
-        let commandRunner = SubprocessCommandRunner()
+        let commandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy())
         self.init(
             store: store,
             runStore: runStore,
@@ -159,7 +159,7 @@ final class ThreadsViewModel {
         self.registry = registry
         self.models = models
         self.toolStatuses = toolStatuses
-        self.commandRunner = commandRunner ?? SubprocessCommandRunner()
+        self.commandRunner = commandRunner ?? SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy())
         self.writeLock = writeLock
         self.projectStore = projectStore
         self.isAppActiveForReadClear = isAppActiveForReadClear

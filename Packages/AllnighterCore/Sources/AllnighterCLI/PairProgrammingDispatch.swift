@@ -30,7 +30,7 @@ enum PairProgrammingDispatch {
                 teams: runtime.teams,
                 invocations: runtime.invocations
             ),
-            checkRunner: CheckRunner(commandRunner: SubprocessCommandRunner())
+            checkRunner: CheckRunner(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
         )
     }
 

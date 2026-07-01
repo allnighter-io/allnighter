@@ -170,7 +170,7 @@ enum MCPPendingHandlers {
         return PendingRunExecutor(
             service: service,
             registry: runtime.registry,
-            commandRunner: commandRunner ?? SubprocessCommandRunner(),
+            commandRunner: commandRunner ?? SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
             invocations: runtime.invocations
         )
     }

@@ -14,7 +14,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
         public init(
             models: [Model],
             registry: DriverRegistry,
-            commandRunner: CommandRunner = SubprocessCommandRunner(),
+            commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
             invocations: [String: ToolInvocation] = [:]
         ) {
             self.models = models

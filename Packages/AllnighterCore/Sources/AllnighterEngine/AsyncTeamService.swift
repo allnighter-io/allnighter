@@ -73,7 +73,7 @@ public actor AsyncTeamService {
         teams: [TeamPreset] = TeamCatalog.all,
         config: ToolConfig = ToolConfig(),
         runStore: RunStore = RunStore(),
-        commandRunner: CommandRunner = SubprocessCommandRunner(),
+        commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
         governor: TeamGovernor? = nil,
         idempotency: IdempotencyStore = IdempotencyStore(),
         remoteEventJournal: RemoteRunEventJournal? = nil,

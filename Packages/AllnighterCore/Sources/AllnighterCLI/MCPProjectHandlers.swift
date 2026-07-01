@@ -122,7 +122,7 @@ enum MCPProjectHandlers {
         switch project(args) {
         case .failure(let o): return o
         case .success(let p):
-            let detector = ProjectWorkerReadinessDetector(runner: SubprocessCommandRunner())
+            let detector = ProjectWorkerReadinessDetector(runner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
             let now = Date()
             var results: [ProjectWorkerReadiness] = []
             for manifest in runtime.registry.all.sorted(by: { $0.id < $1.id }) {

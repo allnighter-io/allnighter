@@ -410,7 +410,7 @@ final class AppModel {
     func runDoctor() {
         guard !isDoctorRunning else { return }
         isDoctorRunning = true
-        let doctor = Doctor(commandRunner: SubprocessCommandRunner())
+        let doctor = Doctor(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
         let snapshot = models
         let registryCopy = registry
         Task { @MainActor [weak self] in
@@ -631,7 +631,7 @@ final class AppModel {
     /// Every WorkerRunner the app spawns goes through this so runs reuse the
     /// detected invocation rather than the bare command on the ambient PATH.
     private func makeWorkerRunner() -> WorkerRunner {
-        WorkerRunner(commandRunner: SubprocessCommandRunner(), invocations: runnerInvocations)
+        WorkerRunner(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), invocations: runnerInvocations)
     }
 
     /// HOTFIX (Launch Authority TCC): the cache-only launch path. Loads the
@@ -703,7 +703,7 @@ final class AppModel {
         let storeCopy = setupStore
         let completedAt = cached.setupCompletedAt
         Task { @MainActor [weak self] in
-            let detector = CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
+            let detector = CLIDetector(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), interactive: true)
             let records: [ToolProbeRecord]
             if let onlyDriverId,
                let manifest = registryCopy.all.first(where: { $0.id == onlyDriverId }) {
@@ -775,7 +775,7 @@ final class AppModel {
         isRunningCensus = true
         lastCensusSummary = nil
         Task { @MainActor [weak self] in
-            let runner = WorkerRunner(commandRunner: SubprocessCommandRunner(), invocations: invocations)
+            let runner = WorkerRunner(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), invocations: invocations)
             let outcome = await runner.invoke(
                 worker: agent, manifest: manifest, prompt: prompt,
                 workingDirectoryOverride: AllnighterPaths.ensuredProbeScratchPath(),
@@ -787,7 +787,7 @@ final class AppModel {
                 self.isRunningCensus = false
                 return
             }
-            let discovered = await CLIDetector(commandRunner: SubprocessCommandRunner())
+            let discovered = await CLIDetector(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
                 .ingestCensus(census, manifests: registryCopy.all, models: modelLabels, now: Date(), smoke: true)
             let before = Set(self.toolStatuses.filter { $0.status.isReady }.map(\.driverId))
             self.toolStatuses = AppCensusModel.mergedToolStatuses(existing: self.toolStatuses, discovered: discovered)

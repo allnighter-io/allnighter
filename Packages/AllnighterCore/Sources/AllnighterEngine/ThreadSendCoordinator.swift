@@ -116,7 +116,7 @@ public struct ThreadSendCoordinator: Sendable {
     ) {
         self.store = store
         self.runner = runner
-        self.imageInvoker = imageInvoker ?? WorkerImageInvoker(commandRunner: SubprocessCommandRunner(), now: now)
+        self.imageInvoker = imageInvoker ?? WorkerImageInvoker(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), now: now)
         self.registry = registry
         self.contextBuilder = contextBuilder
         self.seedResolver = seedResolver

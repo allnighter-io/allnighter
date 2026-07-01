@@ -87,7 +87,7 @@ enum ThreadSendCLI {
 
         let coordinator = ThreadSendCoordinator(
             store: store,
-            commandRunner: SubprocessCommandRunner(),
+            commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
             invocations: runtime.invocations,
             registry: runtime.registry,
             models: runtime.readyModels,
@@ -326,7 +326,7 @@ enum MCPThreadSendHandlers {
 
         let coordinator = ThreadSendCoordinator(
             store: store,
-            commandRunner: SubprocessCommandRunner(),
+            commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
             invocations: runtime.invocations,
             registry: runtime.registry,
             models: runtime.readyModels

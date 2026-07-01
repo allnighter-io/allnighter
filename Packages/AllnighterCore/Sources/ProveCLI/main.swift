@@ -35,7 +35,7 @@ enum ProveCLI {
         }
 
         let prompt = "Reply with exactly the two words: hello world"
-        let runner = WorkerRunner(commandRunner: SubprocessCommandRunner())
+        let runner = WorkerRunner(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
         let cases: [(name: String, worker: Model)] = [
             ("claude", Model(id: "prove_claude", displayName: "Claude", modelLabel: "sonnet", driverId: "claude_code")),
             ("grok", Model(id: "prove_grok", displayName: "Grok", modelLabel: "grok-build", driverId: "grok")),
@@ -70,7 +70,7 @@ enum ProveCLI {
     private static func proveDesign(driversDir: URL) async {
         let which = CommandLine.arguments.first { ["grok", "codex", "antigravity"].contains($0) }
         let names = which.map { ["\($0).json"] } ?? ["grok.json", "antigravity.json", "codex.json"]
-        let runner = DesignImageRunner(commandRunner: SubprocessCommandRunner())
+        let runner = DesignImageRunner(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
         var anyFailed = false
         for name in names {
             let driverId = (name as NSString).deletingPathExtension

@@ -213,7 +213,7 @@ enum PendingCLI {
         return PendingRunExecutor(
             service: service,
             registry: runtime.registry,
-            commandRunner: SubprocessCommandRunner(),
+            commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
             invocations: runtime.invocations
         )
     }

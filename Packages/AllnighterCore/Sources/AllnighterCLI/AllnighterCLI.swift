@@ -346,7 +346,7 @@ struct AllnighterCLI {
         let labels = sourceId.map { id in modelLabels.filter { $0.key == id } } ?? modelLabels
         // CLI runs in the user's terminal, so resolve interactively (-lic) to see
         // the same PATH the terminal does (Track 0.1).
-        let records = await CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
+        let records = await CLIDetector(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), interactive: true)
             .probeAll(manifests, models: labels, now: Date(), smoke: full)
         let inputs = DoctorReport.Inputs(
             binaryVersion: binaryVersion,
@@ -403,7 +403,7 @@ struct AllnighterCLI {
     /// bundle registry, not here.
     static func runDetect(_ runtime: ToolRuntime) async {
         let models = ModelCatalog.probeModelLabels(registry: runtime.registry)
-        let records = await CLIDetector(commandRunner: SubprocessCommandRunner(), interactive: true)
+        let records = await CLIDetector(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), interactive: true)
             .probeAll(runtime.registry.all, models: models, now: Date())
 
         // Persist detection + assemble/persist the Bench/default team (the truth

@@ -33,7 +33,7 @@ public struct PendingWakeScheduler: Sendable {
         store: PendingStore = PendingStore(),
         models: [Model],
         registry: DriverRegistry,
-        commandRunner: CommandRunner = SubprocessCommandRunner(),
+        commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
         invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,
         sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),

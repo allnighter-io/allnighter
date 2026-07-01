@@ -127,7 +127,7 @@ public actor TeamService {
         teams: [TeamPreset] = TeamCatalog.all,
         config: ToolConfig = ToolConfig(),
         runStore: RunStore = RunStore(),
-        commandRunner: CommandRunner = SubprocessCommandRunner(),
+        commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
         governor: TeamGovernor? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         invocations: [String: ToolInvocation] = [:],

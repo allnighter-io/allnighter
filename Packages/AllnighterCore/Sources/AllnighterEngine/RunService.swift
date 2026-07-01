@@ -128,7 +128,7 @@ public actor RunService {
         registry: DriverRegistry,
         teams: [TeamPreset] = TeamCatalog.all,
         runStore: RunStore = RunStore(),
-        commandRunner: CommandRunner = SubprocessCommandRunner(),
+        commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
         writeLock: RunWriteLockRegistry = .shared,
         invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,

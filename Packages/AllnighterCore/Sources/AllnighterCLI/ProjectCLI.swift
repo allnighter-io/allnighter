@@ -192,7 +192,7 @@ enum ProjectCLI {
         guard let idOrName = opts.positional.first else { usageError("usage: alln project recheck-workers <project-id-or-name> [--json]") }
         let store = ProjectStore()
         let project = resolve(idOrName, store)
-        let detector = ProjectWorkerReadinessDetector(runner: SubprocessCommandRunner())
+        let detector = ProjectWorkerReadinessDetector(runner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
         let now = Date()
         var results: [ProjectWorkerReadiness] = []
         for manifest in runtime.registry.all.sorted(by: { $0.id < $1.id }) {

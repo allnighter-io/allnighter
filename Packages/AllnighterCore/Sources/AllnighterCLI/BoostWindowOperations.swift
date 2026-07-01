@@ -46,7 +46,7 @@ enum BoostWindowOperations {
         let executor = UtilizationSeedExecutor(
             models: runtime.models,
             registry: runtime.registry,
-            commandRunner: SubprocessCommandRunner(),
+            commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
             invocations: runtime.invocations
         )
         let event = await executor.execute(sourceId: sourceId, settings: settings, force: true)

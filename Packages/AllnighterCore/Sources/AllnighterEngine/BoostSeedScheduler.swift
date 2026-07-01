@@ -18,7 +18,7 @@ public struct BoostSeedScheduler: Sendable {
         seedLedger: UtilizationSeedLedger = UtilizationSeedLedger(),
         registry: DriverRegistry,
         models: [Model] = [],
-        commandRunner: CommandRunner = SubprocessCommandRunner(),
+        commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
         invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,
         calendar: Calendar = .current,
