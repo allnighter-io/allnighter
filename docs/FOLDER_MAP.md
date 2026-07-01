@@ -43,6 +43,7 @@ Allnighter/
 - `docs/archive/`: superseded docs; history only after closeout.
 - `docs/workflows/SSOT_*.md`: founder intake and feature packet shape.
 - `docs/operations/Execution-Playbook.md`: slice process and closeout checklist.
+- `docs/operations/GLM_Worker_Best_Practices.md`: GLM seating, serial hardening pass, F1–F5.
 - `docs/operations/code-maintainer/SKILL.md`: rotating repo health loop.
 - `scripts/commit_handoff_queue.py`: retired commit-handoff queue (dormant; agents
   now commit directly — see `docs/operations/Execution-Playbook.md` § Commits).
