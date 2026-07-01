@@ -1,21 +1,8 @@
 import Foundation
 
-/// What a model is allowed to do in a team run.
-/// A model may answer only (`answerer`), write the plan (`planWriter`),
-/// or both (e.g. Opus 4.8 answers the prompt *and* writes the plan).
-public enum ModelRole: String, Codable, Sendable, CaseIterable {
-    case answerer
-    case planWriter
-    case both
-}
-
-/// How a worker's CLI is invoked.
-/// MVP supports two; the constitution's richer set (protocol, ide_handoff,
-/// local_model) attaches later without changing existing manifests.
-public enum DriverKind: String, Codable, Sendable, CaseIterable {
-    case headlessCLI = "headless_cli"
-    case manualPaste = "manual_paste"
-}
+// ModelRole and DriverKind moved to AgentOSCLI (AgentOS runtime seam, roadmap
+// P1.2); they resolve here via `@_exported import AgentOSCLI` in
+// AgentOSReexports.swift.
 
 /// Lifecycle of one team run. See `TeamRun.canTransition(to:)`.
 public enum RunStatus: String, Codable, Sendable, CaseIterable {

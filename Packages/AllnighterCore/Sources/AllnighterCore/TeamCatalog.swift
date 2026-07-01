@@ -27,38 +27,8 @@ public enum WorkLane: String, Codable, Sendable, CaseIterable {
 }
 
 /// The model's reasoning level for a run. Canonical machine values are
-/// `low | med | high` (no `medium`, never `quick/standard/deep`). Effort sets each
-/// worker model's reasoning effort where the source supports it; it NEVER changes
-/// worker count, review depth, or team shape — a bigger pass is a different (named)
-/// team. Never a runtime/cost forecast.
-public enum EffortLevel: String, Codable, Sendable, CaseIterable, Comparable {
-    case low
-    case med
-    case high
-
-    /// Ordering for display/comparison only (low < med < high). Effort never gates
-    /// worker activation.
-    public var rank: Int {
-        switch self {
-        case .low: return 0
-        case .med: return 1
-        case .high: return 2
-        }
-    }
-
-    /// Display label (`Low` / `Med` / `High`).
-    public var displayLabel: String {
-        switch self {
-        case .low: return "Low"
-        case .med: return "Med"
-        case .high: return "High"
-        }
-    }
-
-    public static func < (lhs: EffortLevel, rhs: EffortLevel) -> Bool {
-        lhs.rank < rhs.rank
-    }
-}
+// EffortLevel moved to AgentOSCLI (AgentOS runtime seam, roadmap P1.2); it
+// resolves here via `@_exported import AgentOSCLI` in AgentOSReexports.swift.
 
 /// What a team produces. `outputKind` chooses the synthesis profile, result
 /// renderer, and default stage shape so a Security Review is never forced into a
