@@ -265,20 +265,24 @@ public struct WorkerRunner: Sendable {
         spawnConcurrencyLimit: Int? = nil
     ) async -> WorkerRunOutcome {
         let gateLimit = spawnConcurrencyLimit ?? manifest.maxConcurrentSpawns
-        if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: manifest.id, limit: gateLimit) {
+        let driverId = manifest.id
+        if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: driverId, limit: gateLimit) {
             return gateFailure
         }
-        defer { if gateLimit != nil { Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) } } }
+        func finish(_ outcome: WorkerRunOutcome) async -> WorkerRunOutcome {
+            if gateLimit != nil { await releaseDriverSpawnGate(driverId: driverId) }
+            return outcome
+        }
 
         let startedAt = now()
         do {
             try await OpenCodeServeCoordinator().ensureRunning()
         } catch {
-            return WorkerRunOutcome(
+            return await finish(WorkerRunOutcome(
                 status: .failed, errorKind: .missingCLI,
                 errorReason: "opencode serve: \(error)",
                 startedAt: startedAt, finishedAt: now()
-            )
+            ))
         }
         let directory = workingDirectoryOverride ?? defaultWorkingDirectory
             ?? AllnighterPaths.ensuredProbeScratchPath()
@@ -300,18 +304,18 @@ public struct WorkerRunner: Sendable {
                     }
                 }
             } catch {
-                return WorkerRunOutcome(
+                return await finish(WorkerRunOutcome(
                     status: .failed, errorKind: .nonzeroExit,
                     errorReason: "opencode stream: \(error)",
                     startedAt: startedAt, finishedAt: now()
-                )
+                ))
             }
-            if let terminal { return terminal }
-            return WorkerRunOutcome(
+            if let terminal { return await finish(terminal) }
+            return await finish(WorkerRunOutcome(
                 status: .failed, errorKind: .emptyOutput,
                 errorReason: "opencode stream ended without terminal",
                 startedAt: startedAt, finishedAt: now()
-            )
+            ))
         }
 
         do {
@@ -320,23 +324,23 @@ public struct WorkerRunner: Sendable {
                 autoApprove: true, timeout: timeout
             )
             let finishedAt = now()
-            return WorkerRunOutcome(
+            return await finish(WorkerRunOutcome(
                 status: .done,
                 output: answer.text,
                 startedAt: startedAt,
                 finishedAt: finishedAt,
                 durationMs: Int(finishedAt.timeIntervalSince(startedAt) * 1000),
                 reasoning: answer.reasoning
-            )
+            ))
         } catch {
             let finishedAt = now()
             let kind: WorkerAnswerErrorKind =
                 (error as? OpenCodeServeClient.ClientError) == .emptyAnswer ? .emptyOutput : .nonzeroExit
-            return WorkerRunOutcome(
+            return await finish(WorkerRunOutcome(
                 status: .failed, errorKind: kind,
                 errorReason: "opencode: \(error)",
                 startedAt: startedAt, finishedAt: finishedAt
-            )
+            ))
         }
     }
 
@@ -575,11 +579,15 @@ public struct WorkerRunner: Sendable {
                 // Per-driver spawn gate (see invoke()): fragile CLIs serialize here; the
                 // streamed run is timeout-bounded so the permit always releases.
                 let gateLimit = manifest.maxConcurrentSpawns
-                if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: manifest.id, limit: gateLimit) {
-                    continuation.yield(.failed(gateFailure))
-                    return
+                let driverId = manifest.id
+                var gateHeld = false
+                if let gateLimit {
+                    if let gateFailure = await acquireDriverSpawnGate(driverId: driverId, limit: gateLimit) {
+                        continuation.yield(.failed(gateFailure))
+                        return
+                    }
+                    gateHeld = true
                 }
-                defer { if gateLimit != nil { Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) } } }
                 // Stamp the work-time baseline AFTER the gate (matches invoke()) so durationMs and
                 // ttftMs exclude serialization wait; gateWaitMs captures that wait on its own. Before
                 // this, streaming stamped startedAt pre-gate and folded queue wait into durationMs —
@@ -735,6 +743,7 @@ public struct WorkerRunner: Sendable {
                 } catch {
                     continuation.finish(throwing: error)
                 }
+                if gateHeld { await releaseDriverSpawnGate(driverId: driverId) }
             }
             continuation.onTermination = { @Sendable _ in consume.cancel() }
         }

@@ -1,21 +1,28 @@
 #!/usr/bin/env bash
 # Expand and dispatch Phase 1 code-review packets (CR-01 … CR-10).
-# PM RULE: parallel fan-out ONLY when touch allowlists are disjoint (findings-scoped).
+# Default: SERIAL hardening pass — GLM reasons on hard invariants; findings file is the product.
+# Opt into parallel only after OC-S02 (serve lifecycle) is proven: PAIR_CR_PARALLEL=1
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 PROJECT="${1:-Allnighter}"
 EXECUTOR_WORKER="${PAIR_CR_EXECUTOR_WORKER:-model_opencode_glm_5_2}"
-VERIFY="${PAIR_CR_VERIFY:-1}"
-PARALLEL="${PAIR_CR_PARALLEL:-1}"
-MAX_PARALLEL="${ALLNIGHTER_REVIEW_SPAWN_LIMIT:-4}"
+VERIFY="${PAIR_CR_VERIFY:-0}"
+PARALLEL="${PAIR_CR_PARALLEL:-0}"
+MAX_PARALLEL="${ALLNIGHTER_REVIEW_SPAWN_LIMIT:-1}"
 shift || true
 IDS=("$@")
 if [[ ${#IDS[@]} -eq 0 ]]; then
   IDS=(01 02 03 04 05 06 07 08 09 10)
 fi
 
-ALLN=(swift run --package-path "$ROOT/Packages/AllnighterCore" alln)
+# Prefer prebuilt binary — avoids SwiftPM lock when running back-to-back slices.
+ALLN_BIN="$ROOT/Packages/AllnighterCore/.build/arm64-apple-macosx/debug/alln"
+if [[ -x "$ALLN_BIN" ]]; then
+  ALLN=("$ALLN_BIN")
+else
+  ALLN=(swift run --package-path "$ROOT/Packages/AllnighterCore" alln)
+fi
 
 run_slice() {
   local expanded="$1"

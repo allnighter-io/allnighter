@@ -10,9 +10,22 @@ public enum OpenCodeServeCoordinatorError: Error, Sendable, Equatable {
 public struct OpenCodeServeCoordinator: Sendable {
     public static let defaultPort = 4096
 
+    /// Kill an idle `opencode serve` we spawned after this many seconds (default 15 min).
+    /// Override: `ALLNIGHTER_OPENCODE_SERVE_IDLE_SECONDS`.
+    public static var idleTTLSeconds: Int {
+        if let raw = ProcessInfo.processInfo.environment["ALLNIGHTER_OPENCODE_SERVE_IDLE_SECONDS"],
+           let value = Int(raw), value > 0 {
+            return value
+        }
+        return 15 * 60
+    }
+
     public static var defaultURL: URL {
         URL(string: "http://127.0.0.1:\(defaultPort)")!
     }
+
+    /// Process-wide spawn state — every coordinator instance shares ownership of one child.
+    private static let sharedState = SpawnState()
 
     private let healthCheck: @Sendable () async -> Bool
     private let portListenerPID: @Sendable (Int) -> Int32?
@@ -43,12 +56,13 @@ public struct OpenCodeServeCoordinator: Sendable {
     init(
         healthCheck: @escaping @Sendable () async -> Bool,
         portListenerPID: @escaping @Sendable (Int) -> Int32?,
-        launchServe: @escaping @Sendable () async throws -> LaunchedServe
+        launchServe: @escaping @Sendable () async throws -> LaunchedServe,
+        state: SpawnState = OpenCodeServeCoordinator.sharedState
     ) {
         self.healthCheck = healthCheck
         self.portListenerPID = portListenerPID
         self.launchServe = launchServe
-        self.state = SpawnState()
+        self.state = state
     }
 
     public func isHealthy() async -> Bool {
@@ -56,7 +70,13 @@ public struct OpenCodeServeCoordinator: Sendable {
     }
 
     public func ensureRunning() async throws {
-        if try await isOwnedAndHealthy() { return }
+        await state.reapIfIdle(maxIdleSeconds: Self.idleTTLSeconds)
+        await reclaimForeignListenerIfNeeded()
+
+        if try await isOwnedAndHealthy() {
+            await state.touchActivity()
+            return
+        }
 
         if await state.claimSpawn() {
             do {
@@ -78,7 +98,10 @@ public struct OpenCodeServeCoordinator: Sendable {
                 throw failure
             }
 
-            if try await isOwnedAndHealthy() { return }
+            if try await isOwnedAndHealthy() {
+                await state.touchActivity()
+                return
+            }
 
             if await state.shouldClearDeadChild() {
                 await state.releaseSpawn()
@@ -104,15 +127,26 @@ public struct OpenCodeServeCoordinator: Sendable {
         throw OpenCodeServeCoordinatorError.healthCheckTimedOut(diagnostics: diagnostics)
     }
 
+    /// Stop the child we spawned. Safe to call when nothing is running.
     public func stop() async {
         await state.terminateChild()
+    }
+
+    private func reclaimForeignListenerIfNeeded() async {
+        guard await state.currentSpawnedPID() == nil else { return }
+        guard let foreignPID = portListenerPID(Self.defaultPort), foreignPID > 0 else { return }
+        Self.terminateProcess(foreignPID)
+        for _ in 0..<40 {
+            if portListenerPID(Self.defaultPort) == nil { break }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
     }
 
     private func isOwnedAndHealthy() async throws -> Bool {
         guard await healthCheck() else { return false }
         guard let spawnedPID = await state.currentSpawnedPID(), spawnedPID > 0 else {
-            if let foreignPID = portListenerPID(Self.defaultPort), foreignPID > 0 {
-                throw OpenCodeServeCoordinatorError.portOwnedByForeignProcess(listenerPID: foreignPID)
+            if portListenerPID(Self.defaultPort) != nil {
+                return false
             }
             return true
         }
@@ -121,6 +155,18 @@ public struct OpenCodeServeCoordinator: Sendable {
             return false
         }
         return true
+    }
+
+    static func terminateProcess(_ pid: Int32) {
+        guard pid > 0, RunStore.processAlive(pid) else { return }
+        kill(pid, SIGTERM)
+        for _ in 0..<40 {
+            if !RunStore.processAlive(pid) { return }
+            usleep(50_000)
+        }
+        if RunStore.processAlive(pid) {
+            kill(pid, SIGKILL)
+        }
     }
 
     static func portListenerPID(port: Int) -> Int32? {
@@ -236,12 +282,13 @@ final class PipeDrain: @unchecked Sendable {
     }
 }
 
-private actor SpawnState {
+actor SpawnState {
     private var process: Process?
     private var spawnedPID: Int32?
     private var spawnInProgress = false
     private var lastSpawnFailure: OpenCodeServeCoordinatorError?
     private var stderrDrain: PipeDrain?
+    private var lastActivity = Date()
 
     func claimSpawn() -> Bool {
         guard spawnedPID == nil, !spawnInProgress, lastSpawnFailure == nil else { return false }
@@ -255,6 +302,7 @@ private actor SpawnState {
         stderrDrain = launched.stderrDrain
         spawnInProgress = false
         lastSpawnFailure = nil
+        lastActivity = Date()
 
         let state = self
         launched.process.terminationHandler = { _ in
@@ -287,6 +335,16 @@ private actor SpawnState {
         spawnedPID
     }
 
+    func touchActivity() {
+        lastActivity = Date()
+    }
+
+    func reapIfIdle(maxIdleSeconds: Int) {
+        guard let pid = spawnedPID, pid > 0 else { return }
+        guard Date().timeIntervalSince(lastActivity) >= Double(maxIdleSeconds) else { return }
+        terminateChild()
+    }
+
     func shouldClearDeadChild() -> Bool {
         guard let pid = spawnedPID, pid > 0 else { return spawnInProgress == false && spawnedPID == nil }
         return !RunStore.processAlive(pid)
@@ -308,6 +366,9 @@ private actor SpawnState {
     func terminateChild() {
         if let process, process.isRunning {
             process.terminate()
+        }
+        if let pid = spawnedPID, pid > 0 {
+            OpenCodeServeCoordinator.terminateProcess(pid)
         }
         handleChildExit()
     }

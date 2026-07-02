@@ -22,7 +22,8 @@ final class OpenCodeServeCoordinatorTests: XCTestCase {
             launchServe: {
                 launchCount.increment()
                 throw OpenCodeServeCoordinatorError.opencodeExecutableNotFound
-            }
+            },
+            state: SpawnState()
         )
         try await c.ensureRunning()
         XCTAssertEqual(launchCount.value, 0)
@@ -34,7 +35,8 @@ final class OpenCodeServeCoordinatorTests: XCTestCase {
             portListenerPID: { _ in nil },
             launchServe: {
                 throw OpenCodeServeCoordinatorError.opencodeExecutableNotFound
-            }
+            },
+            state: SpawnState()
         )
 
         do {
@@ -72,7 +74,8 @@ final class OpenCodeServeCoordinatorTests: XCTestCase {
                 health.setListener(process.processIdentifier)
                 health.setHealthy(true)
                 return LaunchedServe(process: process, pid: process.processIdentifier, stderrDrain: drain)
-            }
+            },
+            state: SpawnState()
         )
 
         try await c.ensureRunning()
@@ -86,22 +89,80 @@ final class OpenCodeServeCoordinatorTests: XCTestCase {
         XCTAssertEqual(launchCount.value, 2)
     }
 
-    func testEnsureRunning_foreignPortOwnerThrows() async throws {
+    func testEnsureRunning_reclaimsForeignPortListener() async throws {
+        let health = HealthBox()
+        let launchCount = LaunchCountBox()
+        var foreignKilled = false
+
         let c = OpenCodeServeCoordinator(
-            healthCheck: { true },
-            portListenerPID: { _ in 4242 },
+            healthCheck: { health.isHealthy() },
+            portListenerPID: { _ in health.listener() },
             launchServe: {
-                XCTFail("should not spawn")
-                throw OpenCodeServeCoordinatorError.opencodeExecutableNotFound
-            }
+                launchCount.increment()
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+                process.arguments = ["30"]
+                try process.run()
+                let stdoutPipe = Pipe()
+                let stderrPipe = Pipe()
+                let drain = PipeDrain(stdout: stdoutPipe, stderr: stderrPipe)
+                drain.start()
+                health.setListener(process.processIdentifier)
+                health.setHealthy(true)
+                return LaunchedServe(process: process, pid: process.processIdentifier, stderrDrain: drain)
+            },
+            state: SpawnState()
         )
 
-        do {
-            try await c.ensureRunning()
-            XCTFail("expected foreign port error")
-        } catch OpenCodeServeCoordinatorError.portOwnedByForeignProcess(let pid) {
-            XCTAssertEqual(pid, 4242)
-        }
+        let foreign = Process()
+        foreign.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        foreign.arguments = ["60"]
+        try foreign.run()
+        health.setListener(foreign.processIdentifier)
+        health.setHealthy(true)
+
+        try await c.ensureRunning()
+        XCTAssertEqual(launchCount.value, 1)
+        foreignKilled = !RunStore.processAlive(foreign.processIdentifier)
+        XCTAssertTrue(foreignKilled)
+        await c.stop()
+    }
+
+    func testEnsureRunning_reapsIdleChild() async throws {
+        setenv("ALLNIGHTER_OPENCODE_SERVE_IDLE_SECONDS", "1", 1)
+        defer { unsetenv("ALLNIGHTER_OPENCODE_SERVE_IDLE_SECONDS") }
+
+        let health = HealthBox()
+        let launchCount = LaunchCountBox()
+
+        let c = OpenCodeServeCoordinator(
+            healthCheck: { health.isHealthy() },
+            portListenerPID: { _ in health.listener() },
+            launchServe: {
+                launchCount.increment()
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+                process.arguments = ["30"]
+                try process.run()
+                let stdoutPipe = Pipe()
+                let stderrPipe = Pipe()
+                let drain = PipeDrain(stdout: stdoutPipe, stderr: stderrPipe)
+                drain.start()
+                health.setListener(process.processIdentifier)
+                health.setHealthy(true)
+                return LaunchedServe(process: process, pid: process.processIdentifier, stderrDrain: drain)
+            },
+            state: SpawnState()
+        )
+
+        try await c.ensureRunning()
+        XCTAssertEqual(launchCount.value, 1)
+        try await Task.sleep(nanoseconds: 1_100_000_000)
+        health.setHealthy(false)
+        health.setListener(nil)
+        try await c.ensureRunning()
+        XCTAssertEqual(launchCount.value, 2)
+        await c.stop()
     }
 
     func testEnsureRunning_live_opencode() async throws {

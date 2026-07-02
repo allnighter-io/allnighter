@@ -145,3 +145,8 @@ func acquireDriverSpawnGate(driverId: String, limit: Int) async -> WorkerRunOutc
         )
     }
 }
+
+/// Release a spawn-gate permit acquired via `acquireDriverSpawnGate`.
+func releaseDriverSpawnGate(driverId: String) async {
+    await DriverConcurrencyGate.shared.release(driverId: driverId)
+}

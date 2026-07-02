@@ -30,7 +30,7 @@ public enum CodeReviewParallelSafety {
   }
 
   public static let findingsPrefix = "docs/phases/code_review/findings/"
-  public static let defaultMaxConcurrent = 4
+  public static let defaultMaxConcurrent = 1
 
   /// Returns violations; empty ⇒ safe to run `packets` together (up to `maxConcurrent`).
   public static func violations(

@@ -112,6 +112,33 @@ public struct PairCoordinator: Sendable {
         seats: Seats = .testDefaults,
         nudge: String? = nil
     ) async -> Result<Outcome, RunServiceError> {
+        let usesOpenCodeServe = Self.usesOpenCodeServe(
+            executorTeamId: executorTeamId, executorWorkerId: seats.executorWorkerId
+        )
+        let result = await runSliceOnce(
+            packet: packet,
+            repoRoot: repoRoot,
+            projectId: projectId,
+            executorTeamId: executorTeamId,
+            origin: origin,
+            seats: seats,
+            nudge: nudge
+        )
+        if usesOpenCodeServe {
+            await serveCoordinator.stop()
+        }
+        return result
+    }
+
+    private func runSliceOnce(
+        packet: WorkSlicePacket,
+        repoRoot: String,
+        projectId: String?,
+        executorTeamId: String,
+        origin: RunOrigin,
+        seats: Seats,
+        nudge: String?
+    ) async -> Result<Outcome, RunServiceError> {
         let executorFacts = await runService.tryFixExecutorFacts(teamId: executorTeamId)
         let gate = SliceGate.evaluate(packet: packet, executor: executorFacts)
         guard gate.isAllowed else {
@@ -119,7 +146,9 @@ public struct PairCoordinator: Sendable {
         }
 
         do {
-            try await ensureServeIfNeeded(executorTeamId: executorTeamId)
+            try await ensureServeIfNeeded(
+                executorTeamId: executorTeamId, executorWorkerId: seats.executorWorkerId
+            )
         } catch {
             return .failure(.teamResolution("opencode serve: \(error)", code: "PAIR_SERVE_UNAVAILABLE"))
         }
@@ -146,6 +175,7 @@ public struct PairCoordinator: Sendable {
             presetId: executorTeamId,
             workerId: seats.executorWorkerId,
             advisoryReview: packet.isAdvisoryReview,
+            workerTimeoutSeconds: packet.isAdvisoryReview ? packet.stallTimeoutSeconds : nil,
             spawnConcurrencyLimit: packet.isAdvisoryReview ? spawnLimit : nil
         )
 
@@ -442,7 +472,9 @@ public struct PairCoordinator: Sendable {
         origin: RunOrigin
     ) async -> PlannerTakeoverOutcome {
         do {
-            try await ensureServeIfNeeded(executorTeamId: executorTeamId)
+            try await ensureServeIfNeeded(
+                executorTeamId: executorTeamId, executorWorkerId: seats.executorWorkerId
+            )
         } catch {
             return .init(check: nil, plannerRun: nil, passed: false, errorReason: "opencode serve: \(error)")
         }
@@ -499,8 +531,13 @@ public struct PairCoordinator: Sendable {
         }
     }
 
-    private func ensureServeIfNeeded(executorTeamId: String) async throws {
-        guard let team = TeamCatalog.get(executorTeamId), team.executionSourceId == "opencode" else { return }
+    private static func usesOpenCodeServe(executorTeamId: String, executorWorkerId: String) -> Bool {
+        if TeamCatalog.get(executorTeamId)?.executionSourceId == "opencode" { return true }
+        return ModelCatalog.get(executorWorkerId)?.driverId == "opencode"
+    }
+
+    private func ensureServeIfNeeded(executorTeamId: String, executorWorkerId: String) async throws {
+        guard Self.usesOpenCodeServe(executorTeamId: executorTeamId, executorWorkerId: executorWorkerId) else { return }
         try await serveCoordinator.ensureRunning()
     }
 

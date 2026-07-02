@@ -33,6 +33,8 @@ public struct RunRequest: Sendable, Equatable {
     public var timing: RunTimingReport?
     /// Code-review advisory slice: findings-only writes; skips repo `RunWriteLock`.
     public var advisoryReview: Bool
+    /// Override manifest `invoke.timeoutSeconds` (e.g. packet `stallTimeoutSeconds` for GLM review).
+    public var workerTimeoutSeconds: Int?
     /// Override `DriverManifest.maxConcurrentSpawns` for this run (parallel CR fan-out).
     public var spawnConcurrencyLimit: Int?
 
@@ -51,6 +53,7 @@ public struct RunRequest: Sendable, Equatable {
         executorTeamId: String? = nil,
         timing: RunTimingReport? = nil,
         advisoryReview: Bool = false,
+        workerTimeoutSeconds: Int? = nil,
         spawnConcurrencyLimit: Int? = nil
     ) {
         self.message = message
@@ -67,6 +70,7 @@ public struct RunRequest: Sendable, Equatable {
         self.executorTeamId = executorTeamId
         self.timing = timing
         self.advisoryReview = advisoryReview
+        self.workerTimeoutSeconds = workerTimeoutSeconds
         self.spawnConcurrencyLimit = spawnConcurrencyLimit
     }
 }
@@ -312,6 +316,7 @@ public actor RunService {
                 projectId: request.projectId, workerOverride: effectiveWorkerId,
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
                 deliveries: request.deliveries, requestedAt: requestedAt, timing: timing, events: events,
+                workerTimeoutSeconds: request.workerTimeoutSeconds,
                 spawnConcurrencyLimit: request.spawnConcurrencyLimit
             )
         }
@@ -348,9 +353,11 @@ public actor RunService {
         requestedAt: Date? = nil,
         timing seedTiming: RunTimingReport,
         events: AsyncStream<RunEvent>.Continuation?,
+        workerTimeoutSeconds: Int? = nil,
         spawnConcurrencyLimit: Int? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
+        let timeoutOverride = workerTimeoutSeconds.map { Duration.seconds($0) }
         var seq: Int64 = 0
         func emit(_ kind: String, _ payload: [String: JSONValue]) {
             seq += 1
@@ -546,18 +553,16 @@ public actor RunService {
                 StreamDebugLog.log("WARM FALLBACK source=\(manifest.id): \(error) — cold invoke")
                 outcome = await runner.invoke(
                     worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                    workingDirectoryOverride: repoRoot, spawnConcurrencyLimit: spawnConcurrencyLimit)
+                    workingDirectoryOverride: repoRoot, timeoutOverride: timeoutOverride,
+                    spawnConcurrencyLimit: spawnConcurrencyLimit)
             }
         } else if manifest.id == "opencode", manifest.canStream {
             let gateLimit = spawnConcurrencyLimit ?? manifest.maxConcurrentSpawns
-            if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: manifest.id, limit: gateLimit) {
+            let driverId = manifest.id
+            if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: driverId, limit: gateLimit) {
                 outcome = gateFailure
             } else {
-                defer {
-                    if gateLimit != nil {
-                        Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) }
-                    }
-                }
+                var gateHeld = gateLimit != nil
                 // OpenCode streams over warm serve HTTP SSE (not CLI stdout).
                 var answer = StreamingPartialBuffer()
                 var reasoning = ""
@@ -577,7 +582,7 @@ public actor RunService {
                     ])
                     lastReasoningEmit = now()
                 }
-                let timeout = Duration.seconds(manifest.invoke?.timeoutSeconds ?? 600)
+                let timeout = timeoutOverride ?? Duration.seconds(manifest.invoke?.timeoutSeconds ?? 600)
                 do {
                     try await OpenCodeServeCoordinator().ensureRunning()
                     for try await streamEvent in runner.invokeOpenCodeStreaming(
@@ -611,10 +616,16 @@ public actor RunService {
                     errorReason: "opencode stream ended without a terminal event")
                 if outcome.status != .done, (outcome.output ?? "").isEmpty {
                     StreamDebugLog.log("FALLBACK source=opencode: streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
+                    if gateHeld {
+                        await releaseDriverSpawnGate(driverId: driverId)
+                        gateHeld = false
+                    }
                     outcome = await runner.invoke(
                         worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                        workingDirectoryOverride: repoRoot, spawnConcurrencyLimit: spawnConcurrencyLimit)
+                        workingDirectoryOverride: repoRoot, timeoutOverride: timeoutOverride,
+                        spawnConcurrencyLimit: spawnConcurrencyLimit)
                 }
+                if gateHeld { await releaseDriverSpawnGate(driverId: driverId) }
             }
         } else if manifest.canStream, runner.supportsStreaming,
            let parser = WorkerStreamParsers.make(for: manifest) {
@@ -639,7 +650,8 @@ public actor RunService {
             do {
                 for try await streamEvent in runner.invokeStreaming(
                     worker: model, manifest: manifest, prompt: assembled, parser: parser,
-                    effort: effort, workingDirectoryOverride: repoRoot, sessionPlan: sessionPlan
+                    effort: effort, workingDirectoryOverride: repoRoot,
+                    timeoutOverride: timeoutOverride, sessionPlan: sessionPlan
                 ) {
                     switch streamEvent {
                     case .answerDelta(let text, _, _):
@@ -665,12 +677,14 @@ public actor RunService {
                 StreamDebugLog.log("FALLBACK source=\(manifest.id): streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
                 outcome = await runner.invoke(
                     worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                    workingDirectoryOverride: repoRoot, spawnConcurrencyLimit: spawnConcurrencyLimit)
+                    workingDirectoryOverride: repoRoot, timeoutOverride: timeoutOverride,
+                    spawnConcurrencyLimit: spawnConcurrencyLimit)
             }
         } else {
             outcome = await runner.invoke(
                 worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                workingDirectoryOverride: repoRoot, spawnConcurrencyLimit: spawnConcurrencyLimit
+                workingDirectoryOverride: repoRoot, timeoutOverride: timeoutOverride,
+                spawnConcurrencyLimit: spawnConcurrencyLimit
             )
         }
         // A non-streaming worker (agy) can carry its step narration separated from the answer
