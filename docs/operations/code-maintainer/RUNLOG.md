@@ -1,6 +1,18 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-07-02 - AgentOS runner cutover (F2_B)
+
+Scope: Cut Allnighter (AgentOS consumer #1) onto the shared AgentOS DefaultWorkerRunner
+Class: Single-core adoption — delete Allnighter's duplicate worker runtime, drive AgentOS's core directly via WorkerInvoking
+Files touched: DELETED Packages/AllnighterCore/Sources/AllnighterEngine/{WorkerRunner,WorkerStreaming,Claude/Codex/Cursor/Grok StreamParser}.swift + Sources/AllnighterCore/WorkerAnswer.swift (WorkerAnswer struct); NEW AllnighterEngine/{WorkerInvokerFactory,CommandRunnerAsStreaming,WorkerInvocationCWD,WorkerRunOutcome,GatedWorkerRunner,AntigravityAwareWorkerRunner,SpawnResolvingCommandRunner,OpenCodeRoutingWorkerRunner}.swift; retyped WorkerAnswer->AgentOSTeam.TeamAnswer/WorkerRunResult across ~35 files (RunService, TeamRun, both team coordinators, ThreadSendCoordinator, Mac app AppModel/views, etc.); Package.swift + AgentOSReexports (AgentOSTeam dep, plain import); AGENTS-side plan in AgentOS repo
+Behavior guarantee: Runtime behavior preserved; mutation write-lock/one-writer spine intact (ThreadsViewModelMutatingRunTests green). Parsing/normalization/session/capacity/timeout now single-sourced in AgentOS DefaultWorkerRunner (parity-netted). No API keys. Only thin app-specific glue (gate, opencode-serve routing, agy transcript, ToolInvocation, TCC cwd) remains Allnighter-side.
+Proof: swift test --package-path Packages/AllnighterCore (1392 tests, 9 pre-existing failures — AgentBootstrap/CodeReviewParallelSafety/ExitCodeContract/DefaultConfigDrift/MCPPairHandlers, all unrelated to this cutover, A/B-confirmed); xcodegen + xcodebuild test -scheme AllnighterMac (139 tests, 0 failures); AgentOS bash scripts/check.sh (180 tests, 0 failures)
+Before/after signal: -664 net LOC in the cutover commit (deleted the 896-line WorkerRunner + 4 parser classes + local WorkerAnswer); Allnighter no longer owns any worker-runtime core. Follow-ups: migrate DriverConcurrencyGate + OpenCode-serve INTO AgentOS (D3); build a run.json schema migration for pre-cutover persisted runs.
+Next lens: Per MAINTENANCE-QUEUE or next scheduled maintainer pass
+```
+
+```text
 ## 2026-06-19 - Batch 3
 
 Scope: Dead weight lens (index 2)
