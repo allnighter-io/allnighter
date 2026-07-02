@@ -53,4 +53,18 @@ final class DefaultConfigDriftTests: XCTestCase {
                 "driver \(manifest.id) missing probe label")
         }
     }
+
+    /// The shipped manifests carry the spike-proven `DriverConcurrencyGate` values
+    /// (`scripts/cli-concurrency-spike.py`): agy & cursor = 1 (both deadlock/race under
+    /// concurrent headless invocation); the parallel-safe CLIs stay unlimited (nil).
+    /// Moved here from the (now AgentOSCLI-hosted) `DriverConcurrencyGateTests` — this
+    /// asserts Allnighter's own config data, not the gate's behavior.
+    func testShippedManifestConcurrencyValues() {
+        let reg = DefaultConfig.registry
+        XCTAssertEqual(reg.manifest(id: "antigravity")?.maxConcurrentSpawns, 1)
+        XCTAssertEqual(reg.manifest(id: "cursor_agent")?.maxConcurrentSpawns, 1)
+        XCTAssertNil(reg.manifest(id: "claude_code")?.maxConcurrentSpawns)
+        XCTAssertNil(reg.manifest(id: "codex")?.maxConcurrentSpawns)
+        XCTAssertNil(reg.manifest(id: "grok")?.maxConcurrentSpawns)
+    }
 }
