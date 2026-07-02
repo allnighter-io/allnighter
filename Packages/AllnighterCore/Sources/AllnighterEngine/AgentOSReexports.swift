@@ -4,3 +4,7 @@ import Foundation
 // tests resolve them (CommandRunner, SubprocessCommandRunner, MockCommandRunner,
 // StreamingCommandRunner, CommandEvent, CommandResult) unqualified, without churn.
 @_exported import AgentOSCLI
+// AgentOSTeam — the opt-in fan-out layer (F2_B.3b prep). See the Core-layer
+// AgentOSReexports.swift for the collision note (Allnighter's dead local
+// `WorkerPrompt` was deleted so AgentOSTeam's resolves unqualified).
+@_exported import AgentOSTeam

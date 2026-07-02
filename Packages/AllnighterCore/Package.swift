@@ -23,7 +23,8 @@ let package = Package(
         .target(
             name: "AllnighterCore",
             dependencies: [
-                .product(name: "AgentOSCLI", package: "AgentOS")
+                .product(name: "AgentOSCLI", package: "AgentOS"),
+                .product(name: "AgentOSTeam", package: "AgentOS")
             ],
             resources: [.copy("Resources/Fixtures")],
             swiftSettings: [
@@ -40,7 +41,8 @@ let package = Package(
             name: "AllnighterEngine",
             dependencies: [
                 "AllnighterCore",
-                .product(name: "AgentOSCLI", package: "AgentOS")
+                .product(name: "AgentOSCLI", package: "AgentOS"),
+                .product(name: "AgentOSTeam", package: "AgentOS")
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
