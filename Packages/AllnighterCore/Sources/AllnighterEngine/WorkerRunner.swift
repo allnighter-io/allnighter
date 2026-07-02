@@ -453,6 +453,12 @@ public struct WorkerRunner: Sendable {
             outcome.output = preservedPartial()
             return outcome
         }
+        if result.bufferOverflowed {
+            outcome.status = .failed
+            outcome.errorReason = "worker output exceeded the buffered-bytes cap"
+            outcome.output = preservedPartial()
+            return outcome
+        }
 
         outcome.exitCode = result.exitCode.map(Int.init)
 
@@ -724,6 +730,27 @@ public struct WorkerRunner: Sendable {
                             let result = CommandResult(
                                 stdout: String(decoding: partialOut, as: UTF8.self),
                                 stderr: String(decoding: partialErr, as: UTF8.self), cancelled: true)
+                            let finalText = parser.finalAnswer(result: result, outputFileText: nil)
+                            var outcome = finalize(
+                                result: result, worker: worker, manifest: manifest, invoke: invoke,
+                                outputFileURL: outputFileURL, startedAt: startedAt, finishedAt: now(),
+                                overrideFinalText: finalText,
+                                timeoutKind: .idle,
+                                spawnCommand: spawnCommand,
+                                spawnArgCount: spawnArgs.count,
+                                spawnWorkingDir: spawnWorkingDir,
+                                invocationKind: invocationKind)
+                            applyStreamMetrics(to: &outcome)
+                            outcome.gateWaitMs = gateWaitMs
+                            continuation.yield(.failed(outcome))
+                        case .bufferOverflow(let partialOut, let partialErr):
+                            // Fail-closed backstop (SubprocessBudget.maxBufferedBytes): the
+                            // process group was killed for exceeding the buffered-bytes cap.
+                            // Partial buffers preserved, distinct from `.timedOut` so a
+                            // consumer can tell an OOM backstop apart from a hung worker.
+                            let result = CommandResult(
+                                stdout: String(decoding: partialOut, as: UTF8.self),
+                                stderr: String(decoding: partialErr, as: UTF8.self), bufferOverflowed: true)
                             let finalText = parser.finalAnswer(result: result, outputFileText: nil)
                             var outcome = finalize(
                                 result: result, worker: worker, manifest: manifest, invoke: invoke,
