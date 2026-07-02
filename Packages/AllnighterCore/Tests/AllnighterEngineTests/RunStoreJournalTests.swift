@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 
@@ -15,7 +16,8 @@ final class RunStoreJournalTests: XCTestCase {
     private func run(_ id: String, status: RunStatus) -> TeamRun {
         TeamRun(id: id, prompt: "p", status: status,
                 workers: [Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
-                workerAnswers: [WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: status.isTerminal ? .done : .running)],
+                workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
+                                           result: WorkerRunResult(status: status.isTerminal ? .done : .running))],
                 createdAt: Date())
     }
 
@@ -123,7 +125,7 @@ final class RunStoreJournalTests: XCTestCase {
         XCTAssertTrue(resolved.isRunnable)
 
         let log = StatusLog()
-        let coordinator = CatalogRunCoordinator(workerRunner: WorkerRunner(commandRunner: mock), registry: registry)
+        let coordinator = CatalogRunCoordinator(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)), registry: registry)
         _ = await coordinator.run(resolved: resolved, prompt: "p", models: [opus]) { run in
             log.add(run.status, answered: run.answeredWorkers.count)
         }
@@ -161,12 +163,12 @@ final class RunStoreJournalTests: XCTestCase {
             var get: Bool { lock.withLock { value } }
         }
         let sawRunningPersist = RunningFlag()
-        let coordinator = CatalogRunCoordinator(workerRunner: WorkerRunner(commandRunner: mock), registry: registry)
+        let coordinator = CatalogRunCoordinator(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)), registry: registry)
         let run = await coordinator.run(
             resolved: resolved, prompt: "p", models: [opus], runId: "status-live",
             persist: { saved in
                 _ = try? store.save(saved, models: [opus])
-                if saved.workerAnswers.contains(where: { $0.status == .running }) {
+                if saved.workerAnswers.contains(where: { $0.result.status == .running }) {
                     sawRunningPersist.set()
                     let status = AsyncTeamStatusMapper.statusResponse(for: saved)
                     XCTAssertEqual(status.status, .running)
@@ -186,7 +188,7 @@ final class RunStoreJournalTests: XCTestCase {
             workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"))
         let resolved = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus])
-        let coordinator = CatalogRunCoordinator(workerRunner: WorkerRunner(commandRunner: mock), registry: registry)
+        let coordinator = CatalogRunCoordinator(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)), registry: registry)
         let run = await coordinator.run(resolved: resolved, prompt: "founder prompt", models: [opus])
         let answerWorker = run.workers.first { $0.skillId == "bug_reproducer" }
         XCTAssertNotNil(answerWorker?.resolvedWorkerPromptSnapshot)
@@ -217,7 +219,7 @@ final class RunStoreJournalTests: XCTestCase {
         try TeamCatalog.saveCustom(team)
 
         let resolved = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus])
-        let coordinator = CatalogRunCoordinator(workerRunner: WorkerRunner(commandRunner: mock), registry: registry)
+        let coordinator = CatalogRunCoordinator(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)), registry: registry)
         let run = await coordinator.run(resolved: resolved, prompt: "question", models: [opus])
         let snapshot = run.workers.first { $0.skillId == skill.id }?.resolvedWorkerPromptSnapshot
         XCTAssertTrue(snapshot?.contains("WT Code Contrarian") == true)
@@ -242,7 +244,8 @@ final class RunStoreJournalTests: XCTestCase {
         try CoreJSON.encode(TeamRun(
             id: "async-orphan", prompt: "p", status: .fanningOut,
             workers: [Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
-            workerAnswers: [WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .running)],
+            workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
+                                       result: WorkerRunResult(status: .running))],
             createdAt: Date()
         )).write(to: runDir.appendingPathComponent("run.json"))
         try Data("2000000".utf8).write(to: runDir.appendingPathComponent("owner.pid"))

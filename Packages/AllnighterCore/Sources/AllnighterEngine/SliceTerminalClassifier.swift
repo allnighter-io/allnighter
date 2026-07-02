@@ -53,6 +53,18 @@ public enum SliceTerminalClassifier {
     }
 
     private static func isInfraBackoff(_ outcome: WorkerRunOutcome) -> Bool {
+        // Prefer the structured capacity fact when present (F2_B.3c: `DefaultWorkerRunner`
+        // folds a classified capacity kind into `errorReason` as "capacity: <kind>" instead
+        // of the raw vendor text `WorkerRunner` used to leave there, so the text heuristic
+        // below can no longer see "429"/"rate limit" on a classified failure). Falls back to
+        // the original text sniff for failures `CapacityClassifier` didn't structure (e.g. an
+        // agy vendor-stdout timeout, which is a `.timedOut` errorKind, not a capacity fact).
+        if let kind = outcome.capacityObservation?.kind {
+            switch kind {
+            case .accountRateLimit, .providerBusy, .cooldown, .unknownCapacity: return true
+            case .authRequired, .manualRequired: break
+            }
+        }
         let text = [outcome.errorReason, outcome.output].compactMap { $0 }.joined(separator: " ").lowercased()
         return text.contains("429") || text.contains("busy") || text.contains("rate limit")
     }

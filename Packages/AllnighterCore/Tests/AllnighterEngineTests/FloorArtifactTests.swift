@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 
@@ -28,9 +29,12 @@ final class FloorArtifactTests: XCTestCase {
                    skillName: "Project Fit", purpose: .answer)
         ]
         let answers = [
-            WorkerAnswer(workerId: "model_a#0", modelId: "model_a", status: .done, output: "answer A", finishedAt: now),
-            WorkerAnswer(workerId: "model_b#0", modelId: "model_b", status: .done, output: "review B", finishedAt: now),
-            WorkerAnswer(workerId: "model_c#0", modelId: "model_c", status: .failed, errorReason: "auth expired", finishedAt: now)
+            TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
+                      result: WorkerRunResult(status: .done, output: "answer A", timing: RunTiming(finishedAt: now))),
+            TeamAnswer(memberId: "model_b#0", modelId: "model_b", role: "review",
+                      result: WorkerRunResult(status: .done, output: "review B", timing: RunTiming(finishedAt: now))),
+            TeamAnswer(memberId: "model_c#0", modelId: "model_c", role: "answer",
+                      result: WorkerRunResult(status: .failed, errorReason: "auth expired", timing: RunTiming(finishedAt: now)))
         ]
         return TeamRun(id: "floorart1", prompt: "p", status: .complete, origin: .cli,
                        presetId: "signal_post_to_project", workers: workers, workerAnswers: answers,

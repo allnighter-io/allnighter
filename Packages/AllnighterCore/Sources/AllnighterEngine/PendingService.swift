@@ -416,7 +416,7 @@ public struct PendingService: Sendable {
                 item.resume = nil
             case .failed, .interrupted:
                 attempt.status = .failed
-                attempt.reason = run.failedWorkerAnswers.first?.errorReason ?? run.status.rawValue
+                attempt.reason = run.failedWorkerAnswers.first?.result.errorReason ?? run.status.rawValue
                 item.status = .failed
                 item.resume = nil
             default:
@@ -435,7 +435,7 @@ public struct PendingService: Sendable {
     }
 
     private func dominantCapacityObservation(in run: TeamRun) -> CapacityObservation? {
-        run.failedWorkerAnswers.compactMap(\.capacityObservation).first
+        run.failedWorkerAnswers.compactMap(\.result.capacityObservation).first
     }
 
     private func resume(from observation: CapacityObservation, attemptId: String, transcriptRef: String?) -> PendingResume? {

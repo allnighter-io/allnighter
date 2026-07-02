@@ -1,5 +1,6 @@
 import Foundation
 import AllnighterCore
+import AgentOSTeam
 
 /// Owns one design run's parallel image generation (Lane 2). Mirrors `TeamRunCoordinator`:
 /// builds per-seat image requests (one image worker × one design persona), runs
@@ -57,14 +58,17 @@ public actor DesignCoordinator {
             origin: .gui,
             presetId: "design_board",
             workers: teamWorkers,
-            workerAnswers: teamWorkers.map { WorkerAnswer(workerId: $0.id, modelId: $0.modelId, status: .queued) },
+            workerAnswers: teamWorkers.map {
+                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                          result: WorkerRunResult(status: .queued))
+            },
             createdAt: now()
         )
 
         run = transition(run, to: .fanningOut)
-        for index in run.workerAnswers.indices where run.workerAnswers[index].status == .queued {
-            run.workerAnswers[index].status = .running
-            run.workerAnswers[index].startedAt = now()
+        for index in run.workerAnswers.indices where run.workerAnswers[index].result.status == .queued {
+            run.workerAnswers[index].result.status = .running
+            run.workerAnswers[index].result.timing.startedAt = now()
             emitWorkerStatus(run.workerAnswers[index], runId: run.id, from: .queued)
         }
 
@@ -108,12 +112,12 @@ public actor DesignCoordinator {
             }
             for await option in group {
                 options.append(option)
-                guard let index = run.workerAnswers.firstIndex(where: { $0.workerId == option.workerId }) else { continue }
-                let previous = run.workerAnswers[index].status
-                run.workerAnswers[index].status = Self.memberStatus(for: option.status)
-                run.workerAnswers[index].output = option.imagePath
-                run.workerAnswers[index].errorReason = option.failureReason
-                run.workerAnswers[index].finishedAt = now()
+                guard let index = run.workerAnswers.firstIndex(where: { $0.memberId == option.workerId }) else { continue }
+                let previous = run.workerAnswers[index].result.status
+                run.workerAnswers[index].result.status = Self.memberStatus(for: option.status)
+                run.workerAnswers[index].result.output = option.imagePath
+                run.workerAnswers[index].result.errorReason = option.failureReason
+                run.workerAnswers[index].result.timing.finishedAt = now()
                 emitWorkerStatus(run.workerAnswers[index], runId: run.id, from: previous, imagePath: option.imagePath)
             }
         }
@@ -175,11 +179,11 @@ public actor DesignCoordinator {
         return updated
     }
 
-    private func emitWorkerStatus(_ answer: WorkerAnswer, runId: String, from: WorkerAnswerStatus, imagePath: String? = nil) {
+    private func emitWorkerStatus(_ answer: TeamAnswer, runId: String, from: WorkerAnswerStatus, imagePath: String? = nil) {
         var payload: [String: JSONValue] = [
-            "runId": .string(runId), "workerId": .string(answer.workerId),
+            "runId": .string(runId), "workerId": .string(answer.memberId),
             "modelId": .string(answer.modelId), "from": .string(from.rawValue),
-            "to": .string(answer.status.rawValue)
+            "to": .string(answer.result.status.rawValue)
         ]
         if let imagePath { payload["output"] = .string(imagePath) }   // the run-relative image, for progressive board reveal
         continuation.yield(RunEvent(id: idFactory(), seq: nextSeq(), ts: now(),

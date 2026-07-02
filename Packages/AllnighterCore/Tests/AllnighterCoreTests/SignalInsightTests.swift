@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 @testable import AllnighterCore
 
 /// F-S03 Works Test (WT-FLOOR03): Signal produces a typed Insight with receipts,
@@ -67,7 +68,8 @@ final class SignalInsightTests: XCTestCase {
         let run = TeamRun(id: "sigrun", prompt: "p", status: .complete, origin: .cli,
                           presetId: "signal_post_to_project",
                           workers: [Worker(id: "w#0", modelId: "model_grok", instanceIndex: 0, purpose: .plan)],
-                          workerAnswers: [WorkerAnswer(workerId: "w#0", modelId: "model_grok", status: .done, output: "x")],
+                          workerAnswers: [TeamAnswer(memberId: "w#0", modelId: "model_grok", role: "plan",
+                                                     result: WorkerRunResult(status: .done, output: "x"))],
                           stages: [plan], createdAt: now, lane: .signal, outputKind: .insight)
         let floor = FloorProjector.project(run)
         XCTAssertEqual(floor.floorReturn?.kind, .insight)

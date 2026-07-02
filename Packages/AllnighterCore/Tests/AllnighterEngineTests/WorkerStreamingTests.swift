@@ -55,16 +55,13 @@ final class WorkerInvokeStreamingTests: XCTestCase {
             .stdout(Data(ndjson.utf8)),
             .completed(CommandResult(stdout: ndjson, exitCode: 0)),
         ])
-        let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: [:]),
-                                  streamingCommandRunner: streamingRunner)
+        let runner = DefaultWorkerRunner(streamingRunner: streamingRunner)
 
         var deltas: [String] = []
         var terminal: WorkerRunOutcome?
         var sawStarted = false
         do {
-            for try await event in runner.invokeStreaming(
-                worker: worker, manifest: manifest, prompt: "hi",
-                parser: StreamParserFactory.make(for: manifest)!) {
+            for try await event in runner.invoke(WorkerInvocation(model: worker, manifest: manifest, prompt: "hi")) {
                 switch event {
                 case .started: sawStarted = true
                 case .answerDelta(let text, _, _): deltas.append(text)
@@ -88,13 +85,10 @@ final class WorkerInvokeStreamingTests: XCTestCase {
             .started(startedAt: Date()),
             .completed(CommandResult(stdout: "", stderr: "boom", exitCode: 1)),
         ])
-        let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: [:]),
-                                  streamingCommandRunner: streamingRunner)
+        let runner = DefaultWorkerRunner(streamingRunner: streamingRunner)
         var terminal: WorkerRunOutcome?
         do {
-            for try await event in runner.invokeStreaming(
-                worker: worker, manifest: manifest, prompt: "hi",
-                parser: StreamParserFactory.make(for: manifest)!) {
+            for try await event in runner.invoke(WorkerInvocation(model: worker, manifest: manifest, prompt: "hi")) {
                 if case .failed(let outcome) = event { terminal = outcome }
             }
         } catch { XCTFail("threw: \(error)") }

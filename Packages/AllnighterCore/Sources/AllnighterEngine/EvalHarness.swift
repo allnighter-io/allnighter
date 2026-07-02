@@ -10,9 +10,9 @@ import AllnighterCore
 /// path (`EvalCorpus`) that the panel/reduce prompt builders never read, and eval
 /// runs are written outside `Runs/` (see `AllnighterPaths.evals`).
 public struct EvalHarness: Sendable {
-    private let workerRunner: WorkerRunner
+    private let workerRunner: any WorkerInvoking
 
-    public init(workerRunner: WorkerRunner) {
+    public init(workerRunner: any WorkerInvoking) {
         self.workerRunner = workerRunner
     }
 
@@ -29,7 +29,7 @@ public struct EvalHarness: Sendable {
         var passTotals: [String: [Double]] = [:]
         for _ in 0..<config.passes {
             let prompt = scoringPrompt(rubric: evalCase.rubric, artifact: artifact)
-            let outcome = await workerRunner.invoke(worker: judge, manifest: manifest, prompt: prompt)
+            let outcome = await workerRunner.collect(WorkerInvocation(model: judge, manifest: manifest, prompt: prompt))
             guard outcome.hasOutput, let raw = outcome.output, let scores = parseScores(raw) else { continue }
             for s in scores { passTotals[s.criterionId, default: []].append(s.score) }
         }

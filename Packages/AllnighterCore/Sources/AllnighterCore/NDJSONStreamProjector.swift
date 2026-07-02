@@ -1,4 +1,5 @@
 import Foundation
+import AgentOSTeam
 
 /// Projects a settled `TeamRun` into the public NDJSON event sequence for
 /// `alln team --stream` (docs/phases/CLI_Implementation_Contract.md §NDJSON
@@ -47,7 +48,7 @@ public enum NDJSONStreamProjector {
         }
 
         let created = run.createdAt
-        let lastFinish = run.workerAnswers.compactMap(\.finishedAt).max() ?? created
+        let lastFinish = run.workerAnswers.compactMap(\.result.timing.finishedAt).max() ?? created
 
         add("teamRunStarted", created, EventData(
             status: TeamRunJSON.Status.running.rawValue,
@@ -57,13 +58,13 @@ public enum NDJSONStreamProjector {
 
         for worker in run.workers {
             let answer = run.workerAnswer(workerId: worker.id)
-            let startedAt = answer?.startedAt ?? created
+            let startedAt = answer?.result.timing.startedAt ?? created
             add("workerStarted", startedAt, EventData(workerId: worker.id, modelId: worker.modelId, skillId: worker.skillId))
             guard let answer else { continue }
-            let endAt = answer.finishedAt ?? startedAt
-            switch answer.status {
+            let endAt = answer.result.timing.finishedAt ?? startedAt
+            switch answer.result.status {
             case .done:
-                add("workerAnswered", endAt, EventData(workerId: worker.id, durationMs: answer.durationMs))
+                add("workerAnswered", endAt, EventData(workerId: worker.id, durationMs: answer.result.timing.durationMs))
             case .failed, .timedOut:
                 add("workerFailed", endAt, EventData(workerId: worker.id, error: workerError(answer, runId: run.id)))
             default:
@@ -172,11 +173,11 @@ public enum NDJSONStreamProjector {
         return f.string(from: date)
     }
 
-    private static func workerError(_ a: WorkerAnswer, runId: String) -> ErrorEnvelope {
+    private static func workerError(_ a: TeamAnswer, runId: String) -> ErrorEnvelope {
         ErrorEnvelope(
-            code: a.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "WORKER_FAILED",
-            message: a.errorReason ?? "worker did not produce an answer",
-            requiresManual: false, retryable: true, runId: runId, workerId: a.workerId
+            code: a.result.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "WORKER_FAILED",
+            message: a.result.errorReason ?? "worker did not produce an answer",
+            requiresManual: false, retryable: true, runId: runId, workerId: a.memberId
         )
     }
 }

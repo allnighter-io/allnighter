@@ -20,11 +20,11 @@ final class TeamRunAttachmentDeliveryTests: XCTestCase {
     }
 
     func testTeamWorkersGetVisionAndNonVisionDeliveries() async {
-        let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: [
+        let runner = DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(MockCommandRunner(scripts: [
             "claude": .init(stdout: "vision answer", exitCode: 0),
             "grok": .init(stdout: "blind answer", exitCode: 0),
             "gemini": .init(stdout: "# Plan", exitCode: 0)   // plan writer
-        ]))
+        ])))
         let registry = DriverRegistry([
             TestSupport.visionManifest(id: "claude_code", command: "claude"),  // reads images
             TestSupport.headlessManifest(id: "grok", command: "grok"),          // blind
@@ -62,11 +62,11 @@ final class TeamRunAttachmentDeliveryTests: XCTestCase {
     }
 
     func testTextDeliveryIsReadByPathOnEverySeatRegardlessOfVision() async {
-        let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: [
+        let runner = DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(MockCommandRunner(scripts: [
             "claude": .init(stdout: "vision answer", exitCode: 0),
             "grok": .init(stdout: "blind answer", exitCode: 0),
             "gemini": .init(stdout: "# Plan", exitCode: 0)
-        ]))
+        ])))
         let registry = DriverRegistry([
             TestSupport.visionManifest(id: "claude_code", command: "claude"),  // reads images
             TestSupport.headlessManifest(id: "grok", command: "grok"),          // blind
@@ -106,10 +106,10 @@ final class TeamRunAttachmentDeliveryTests: XCTestCase {
     }
 
     func testNoDeliveriesLeavesPromptsUnchanged() async {
-        let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: [
+        let runner = DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(MockCommandRunner(scripts: [
             "claude": .init(stdout: "answer", exitCode: 0),
             "gemini": .init(stdout: "# Plan", exitCode: 0)
-        ]))
+        ])))
         let registry = DriverRegistry([
             TestSupport.visionManifest(id: "claude_code", command: "claude"),
             TestSupport.headlessManifest(id: "antigravity", command: "gemini")

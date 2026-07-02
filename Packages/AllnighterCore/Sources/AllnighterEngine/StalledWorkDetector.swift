@@ -276,7 +276,7 @@ public enum StalledWorkDetector {
     }
 
     private static func observableEvent(for run: TeamRun) -> StallObservableEvent {
-        let workerTimes = run.workerAnswers.compactMap { $0.finishedAt ?? $0.startedAt }
+        let workerTimes = run.workerAnswers.compactMap { $0.result.timing.finishedAt ?? $0.result.timing.startedAt }
         let stageTimes = run.stages.compactMap(\.finishedAt)
         let at = (workerTimes + stageTimes + [run.createdAt]).max() ?? run.createdAt
         return StallObservableEvent(

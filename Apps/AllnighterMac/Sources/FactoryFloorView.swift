@@ -1,5 +1,6 @@
 import SwiftUI
 import AllnighterCore
+import AgentOSTeam
 import AllnighterEngine
 
 // MARK: - Factory Floor reader (docs/phases/wiring/design_handoff_team_reader)
@@ -359,8 +360,9 @@ struct FloorCastMember: Identifiable {
                 id: lead.id, role: title(lead.skillName, lead.skillId, fallback: "Lead"), isLead: true,
                 modelName: modelName(lead.modelId), driverId: driverId(lead.modelId),
                 gist: "The synthesis", markdown: run.plan ?? "(no synthesis written)",
-                status: (leadAnswer?.status ?? .done).rawValue,
-                startedAt: leadAnswer?.startedAt, finishedAt: leadAnswer?.finishedAt, durationMs: leadAnswer?.durationMs,
+                status: (leadAnswer?.result.status ?? .done).rawValue,
+                startedAt: leadAnswer?.result.timing.startedAt, finishedAt: leadAnswer?.result.timing.finishedAt,
+                durationMs: leadAnswer?.result.timing.durationMs,
                 substitutedFrom: lead.substitutedFromModelId.map(modelName),
                 failureCause: failureCause(leadAnswer)))
         }
@@ -370,19 +372,20 @@ struct FloorCastMember: Identifiable {
                 id: worker.id, role: title(worker.skillName, worker.skillId, fallback: "Worker"), isLead: false,
                 modelName: modelName(worker.modelId), driverId: driverId(worker.modelId),
                 gist: previewLine(answer?.output ?? ""),
-                markdown: answer?.output ?? "(no reply)", status: (answer?.status ?? .queued).rawValue,
-                startedAt: answer?.startedAt, finishedAt: answer?.finishedAt, durationMs: answer?.durationMs,
+                markdown: answer?.output ?? "(no reply)", status: (answer?.result.status ?? .queued).rawValue,
+                startedAt: answer?.result.timing.startedAt, finishedAt: answer?.result.timing.finishedAt,
+                durationMs: answer?.result.timing.durationMs,
                 substitutedFrom: worker.substitutedFromModelId.map(modelName),
                 failureCause: failureCause(answer)))
         }
         return members
     }
 
-    private static func failureCause(_ answer: WorkerAnswer?) -> String? {
+    private static func failureCause(_ answer: TeamAnswer?) -> String? {
         guard let answer else { return nil }
         return WorkerFailurePresenter.cause(
-            status: answer.status, errorKind: answer.errorKind,
-            errorReason: answer.errorReason, capacity: answer.capacityObservation)
+            status: answer.result.status, errorKind: answer.result.errorKind,
+            errorReason: answer.result.errorReason, capacity: answer.result.capacityObservation)
     }
 
     /// The worker's job title: the skill display name, else a humanized skill id, else a

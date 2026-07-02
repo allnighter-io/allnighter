@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 
@@ -8,8 +9,8 @@ final class ReviewCoordinatorTests: XCTestCase {
         var run = TeamRun(id: "r", prompt: "Build X", status: .complete,
                              workers: [TestSupport.seat("model_opus"), TestSupport.seat("model_grok")],
                              workerAnswers: [
-                                WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .done, output: "Use an actor."),
-                                WorkerAnswer(workerId: "model_grok#0", modelId: "model_grok", status: .done, output: "Use a queue.")
+                                TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .done, output: "Use an actor.")),
+                                TeamAnswer(memberId: "model_grok#0", modelId: "model_grok", role: "answer", result: WorkerRunResult(status: .done, output: "Use a queue."))
                              ],
                              createdAt: Date())
         run.stages = [
@@ -30,7 +31,7 @@ final class ReviewCoordinatorTests: XCTestCase {
 
     func testReviewFanoutProducesReviewStagesInOrder() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "review body", exitCode: 0)])
-        let coord = ReviewCoordinator(reduceRunner: ReduceRunner(workerRunner: WorkerRunner(commandRunner: mock)))
+        let coord = ReviewCoordinator(reduceRunner: ReduceRunner(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock))))
         let worker = TestSupport.worker("model_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
@@ -48,7 +49,7 @@ final class ReviewCoordinatorTests: XCTestCase {
             "claude": .init(stdout: "ok review", exitCode: 0),
             "grok": .init(forcesTimeout: true)
         ])
-        let coord = ReviewCoordinator(reduceRunner: ReduceRunner(workerRunner: WorkerRunner(commandRunner: mock)))
+        let coord = ReviewCoordinator(reduceRunner: ReduceRunner(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock))))
         let opus = TestSupport.worker("model_opus", driverId: "claude_code")
         let grok = TestSupport.worker("model_grok", driverId: "grok")
         let claudeM = TestSupport.headlessManifest(id: "claude_code", command: "claude")

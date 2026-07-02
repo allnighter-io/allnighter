@@ -1,12 +1,14 @@
 import Foundation
 import AllnighterCore
+import AgentOSTeam
 
 /// Runs a resolved lane-team in the fixed catalog staging order:
 /// **answer (blind, parallel) → review (sees answers) → output writer (sees
 /// everything, preserves dissent)**. Not a generic DAG (Team_Catalog §S05).
-/// Reuses `WorkerRunner`; emits `RunEvent`s for the live `--stream` projection.
+/// Reuses the composed `WorkerInvoking` stack (`WorkerInvokerFactory`); emits
+/// `RunEvent`s for the live `--stream` projection.
 public actor CatalogRunCoordinator {
-    private let workerRunner: WorkerRunner
+    private let workerRunner: any WorkerInvoking
     private let registry: DriverRegistry
     private let idFactory: @Sendable () -> String
     private let now: @Sendable () -> Date
@@ -16,7 +18,7 @@ public actor CatalogRunCoordinator {
     public nonisolated let events: AsyncStream<RunEvent>
 
     public init(
-        workerRunner: WorkerRunner,
+        workerRunner: any WorkerInvoking,
         registry: DriverRegistry,
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
         now: @escaping @Sendable () -> Date = Date.init
@@ -58,7 +60,10 @@ public actor CatalogRunCoordinator {
             originAgent: originAgent,
             presetId: resolved.teamPresetId,
             workers: resolved.allWorkers,
-            workerAnswers: seeded.map { WorkerAnswer(workerId: $0.id, modelId: $0.modelId, status: .queued) },
+            workerAnswers: seeded.map {
+                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                          result: WorkerRunResult(status: .queued))
+            },
             createdAt: now(),
             repoRoot: repoRoot
         )
@@ -133,23 +138,24 @@ public actor CatalogRunCoordinator {
         repoRoot: String?,
         deliveries: [IncludedAttachmentDelivery] = [],
         persist: (@Sendable (TeamRun) -> Void)? = nil
-    ) async -> (answers: [WorkerAnswer], snapshots: [String: String]) {
+    ) async -> (answers: [TeamAnswer], snapshots: [String: String]) {
         var snapshots: [String: String] = [:]
         let runId = run.id
         for worker in workers {
-            if let index = run.workerAnswers.firstIndex(where: { $0.workerId == worker.id }) {
-                run.workerAnswers[index].status = .running
-                run.workerAnswers[index].startedAt = now()
+            if let index = run.workerAnswers.firstIndex(where: { $0.memberId == worker.id }) {
+                run.workerAnswers[index].result.status = .running
+                run.workerAnswers[index].result.timing.startedAt = now()
             }
             emitWorker(workerId: worker.id, modelId: worker.modelId, from: .queued, to: .running, skillId: worker.skillId, runId: runId)
         }
         persist?(run)
         let runner = workerRunner
         let registry = self.registry
-        let answers = await withTaskGroup(of: WorkerAnswer.self) { group in
+        let answers = await withTaskGroup(of: TeamAnswer.self) { group in
             for worker in workers {
                 let model = modelByID[worker.modelId]
                 let manifest = model.flatMap { registry.manifest(for: $0) }
+                let role = worker.purpose?.rawValue ?? WorkerStage.answer.rawValue
                 let baseWorkerPrompt = SkillCatalog.assemblePrompt(skillId: worker.skillId, founderPrompt: prompt)
                 // Attach the user's images PER WORKER: vision models get the path block;
                 // non-vision models get an explicit "you can't see it" notice so they
@@ -162,21 +168,26 @@ public actor CatalogRunCoordinator {
                 snapshots[worker.id] = workerPrompt
                 group.addTask {
                     guard let model else {
-                        return WorkerAnswer(workerId: worker.id, modelId: worker.modelId, status: .failed,
-                                            errorKind: .missingCLI, errorReason: "no model for worker \(worker.id)")
+                        return TeamAnswer(memberId: worker.id, modelId: worker.modelId, role: role,
+                                          result: WorkerRunResult(status: .failed, errorKind: .missingCLI,
+                                                                  errorReason: "no model for worker \(worker.id)"))
                     }
                     guard let manifest else {
-                        return WorkerAnswer(workerId: worker.id, modelId: worker.modelId, status: .failed,
-                                            errorKind: .missingCLI, errorReason: "no driver manifest for \(model.driverId)")
+                        return TeamAnswer(memberId: worker.id, modelId: worker.modelId, role: role,
+                                          result: WorkerRunResult(status: .failed, errorKind: .missingCLI,
+                                                                  errorReason: "no driver manifest for \(model.driverId)"))
                     }
-                    return await runner.run(assignment: worker, model: model, manifest: manifest, prompt: workerPrompt, effort: effort, workingDirectoryOverride: repoRoot)
+                    let result = await runner.collect(WorkerInvocation(
+                        model: model, manifest: manifest, prompt: workerPrompt, effort: effort,
+                        workingDirectory: repoRoot))
+                    return TeamAnswer(memberId: worker.id, modelId: model.id, role: role, result: result)
                 }
             }
-            var collected: [WorkerAnswer] = []
+            var collected: [TeamAnswer] = []
             for await answer in group {
-                emitWorker(workerId: answer.workerId, modelId: answer.modelId, from: .running, to: answer.status,
-                           skillId: nil, durationMs: answer.durationMs, reason: answer.errorReason, runId: runId)
-                if let index = run.workerAnswers.firstIndex(where: { $0.workerId == answer.workerId }) {
+                emitWorker(workerId: answer.memberId, modelId: answer.modelId, from: .running, to: answer.result.status,
+                           skillId: nil, durationMs: answer.result.timing.durationMs, reason: answer.result.errorReason, runId: runId)
+                if let index = run.workerAnswers.firstIndex(where: { $0.memberId == answer.memberId }) {
                     run.workerAnswers[index] = answer
                     persist?(run)
                 }
@@ -203,7 +214,9 @@ public actor CatalogRunCoordinator {
             return fail("plan/output writer model unavailable")
         }
         let writerPrompt = SkillCatalog.assemblePrompt(skillId: writer.skillId, founderPrompt: writerInput(resolved: resolved, run: run, basePrompt: basePrompt))
-        let outcome = await workerRunner.invoke(worker: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort, workingDirectoryOverride: repoRoot)
+        let outcome = await workerRunner.collect(WorkerInvocation(
+            model: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort,
+            workingDirectory: repoRoot))
         guard outcome.status == .done, let markdown = outcome.output, !markdown.isEmpty else {
             return fail(outcome.errorReason ?? "plan writer produced no output")
         }
@@ -215,15 +228,15 @@ public actor CatalogRunCoordinator {
 
     // MARK: - Prompt assembly
 
-    private func answersBlock(_ answers: [WorkerAnswer], workers: [Worker]) -> String {
+    private func answersBlock(_ answers: [TeamAnswer], workers: [Worker]) -> String {
         let nameById = Dictionary(workers.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         return answers.map { a in
-            let w = nameById[a.workerId]
-            let label = "\(w?.skillName ?? w?.skillId ?? a.workerId)"
+            let w = nameById[a.memberId]
+            let label = "\(w?.skillName ?? w?.skillId ?? a.memberId)"
             if a.hasAnswer, let out = a.output {
                 return "## \(label)\n\n\(out)"
             }
-            return "## \(label)\n\n_(\(a.status.rawValue): \(a.errorReason ?? "no answer"))_"
+            return "## \(label)\n\n_(\(a.result.status.rawValue): \(a.result.errorReason ?? "no answer"))_"
         }.joined(separator: "\n\n")
     }
 
@@ -232,8 +245,8 @@ public actor CatalogRunCoordinator {
     private func writerInput(resolved: ResolvedTeamRun, run: TeamRun, basePrompt: String) -> String {
         let answerIds = Set(resolved.answerWorkers.map(\.id))
         let reviewIds = Set(resolved.reviewWorkers.map(\.id))
-        let answers = run.workerAnswers.filter { answerIds.contains($0.workerId) }
-        let reviews = run.workerAnswers.filter { reviewIds.contains($0.workerId) }
+        let answers = run.workerAnswers.filter { answerIds.contains($0.memberId) }
+        let reviews = run.workerAnswers.filter { reviewIds.contains($0.memberId) }
         // basePrompt carries the scout-distilled source so the Lead sees it too.
         var parts = [basePrompt, "# Worker answers\n\n" + answersBlock(answers, workers: resolved.answerWorkers)]
         if !reviews.isEmpty {
@@ -256,9 +269,9 @@ public actor CatalogRunCoordinator {
 
     // MARK: - Run plumbing
 
-    private func merge(_ answers: [WorkerAnswer], into run: inout TeamRun) {
+    private func merge(_ answers: [TeamAnswer], into run: inout TeamRun) {
         for answer in answers {
-            if let i = run.workerAnswers.firstIndex(where: { $0.workerId == answer.workerId }) {
+            if let i = run.workerAnswers.firstIndex(where: { $0.memberId == answer.memberId }) {
                 run.workerAnswers[i] = answer
             }
         }

@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 
@@ -67,7 +68,7 @@ final class WorkflowTests: XCTestCase {
     func testInputBuilderAssemblesSelectedSections() {
         var run = TeamRun(id: "r", prompt: "Build X", status: .complete,
                              workers: [TestSupport.seat("model_opus")],
-                             workerAnswers: [WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .done, output: "Use an actor.")],
+                             workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .done, output: "Use an actor."))],
                              createdAt: Date())
         run.stages = [
             StageOutput(id: "a", purpose: .analysis, status: .done, payload: .analysis(PlanAnalysis(consensus: [AnalysisPoint(statement: "actor")]))),
@@ -99,7 +100,7 @@ final class WorkflowTests: XCTestCase {
 
     func testReduceRunnerProducesReviewStage() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "Concern: tokens in plaintext.", exitCode: 0)])
-        let runner = ReduceRunner(workerRunner: WorkerRunner(commandRunner: mock))
+        let runner = ReduceRunner(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
         let worker = TestSupport.worker("model_opus", driverId: "claude_code")
 

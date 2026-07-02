@@ -1,5 +1,6 @@
 import Foundation
 import AllnighterCore
+import AgentOSTeam
 
 /// Pair-programming control plane: one slice or an autonomous queue (Pair_Programming_Team).
 public struct PairCoordinator: Sendable {
@@ -568,7 +569,7 @@ public struct PairCoordinator: Sendable {
             var elapsed: Int?
             if entry.status == .running {
                 if let childId = entry.childRunId, let run = runStore.load(runId: childId) {
-                    let started = run.workerAnswers.first?.startedAt ?? run.createdAt
+                    let started = run.workerAnswers.first?.result.timing.startedAt ?? run.createdAt
                     elapsed = max(0, Int(now().timeIntervalSince(started)))
                     let stall = entry.packet.stallTimeoutSeconds
                     if let elapsed, elapsed < stall {
@@ -674,17 +675,7 @@ public struct PairCoordinator: Sendable {
         return min(value, CodeReviewParallelSafety.defaultMaxConcurrent)
     }
 
-    private static func workerOutcome(from answer: WorkerAnswer?) -> WorkerRunOutcome {
-        guard let answer else {
-            return WorkerRunOutcome(status: .failed, errorReason: "no worker answer")
-        }
-        var outcome = WorkerRunOutcome(status: answer.status, output: answer.output)
-        outcome.errorKind = answer.errorKind
-        outcome.errorReason = answer.errorReason
-        outcome.timing.startedAt = answer.startedAt
-        outcome.timing.finishedAt = answer.finishedAt
-        outcome.timing.durationMs = answer.durationMs
-        outcome.exitCode = answer.exitCode
-        return outcome
+    private static func workerOutcome(from answer: TeamAnswer?) -> WorkerRunOutcome {
+        answer?.result ?? WorkerRunOutcome(status: .failed, errorReason: "no worker answer")
     }
 }

@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 
@@ -72,7 +73,8 @@ private actor StubRemoteTeamExecutor: RemoteTeamCommandExecuting {
             status: .fanningOut,
             origin: .ios,
             workerAnswers: [
-                WorkerAnswer(workerId: "model_cursor#0", modelId: "model_cursor", status: .running)
+                TeamAnswer(memberId: "model_cursor#0", modelId: "model_cursor", role: "answer",
+                          result: WorkerRunResult(status: .running))
             ],
             createdAt: now,
             threadId: request.threadId
@@ -97,12 +99,11 @@ private actor StubRemoteTeamExecutor: RemoteTeamCommandExecuting {
         guard var run = runStore.load(runId: runId) else { return }
         run.status = .complete
         run.workerAnswers = [
-            WorkerAnswer(
-                workerId: "model_cursor#0",
+            TeamAnswer(
+                memberId: "model_cursor#0",
                 modelId: "model_cursor",
-                status: .done,
-                output: output,
-                finishedAt: now
+                role: "answer",
+                result: WorkerRunResult(status: .done, output: output, timing: RunTiming(finishedAt: now))
             )
         ]
         _ = try? runStore.save(run, models: [])

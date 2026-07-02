@@ -63,7 +63,7 @@ final class DesignCoordinatorTests: XCTestCase {
         XCTAssertEqual(board?.options.map(\.persona), ["minimal", "bold", "editorial"])  // panel order
         XCTAssertEqual(board?.rendered.count, 3)
         XCTAssertEqual(board?.options.first?.sessionId, "s-minimal")
-        XCTAssertTrue(run.workerAnswers.allSatisfy { $0.status == .done })
+        XCTAssertTrue(run.workerAnswers.allSatisfy { $0.result.status == .done })
     }
 
     func testPartialBoardWhenSomeSeatsFail() async {
@@ -79,7 +79,7 @@ final class DesignCoordinatorTests: XCTestCase {
         let board = run.latestStage(.board)?.payload?.board
         XCTAssertEqual(board?.rendered.count, 1)
         XCTAssertEqual(board?.options.filter { $0.status == .failed }.count, 2)
-        XCTAssertEqual(run.workerAnswers.filter { $0.status == .failed }.count, 2)
+        XCTAssertEqual(run.workerAnswers.filter { $0.result.status == .failed }.count, 2)
     }
 
     func testNoSeatRendersIsFailedRun() async {

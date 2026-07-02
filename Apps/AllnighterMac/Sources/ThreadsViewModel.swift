@@ -123,7 +123,7 @@ final class ThreadsViewModel {
             registry: config.registry,
             models: config.models,
             toolStatuses: records,
-            runner: WorkerRunner(commandRunner: commandRunner, invocations: invocations),
+            runner: WorkerInvokerFactory.makeWorkerInvoker(commandRunner: commandRunner, invocations: invocations),
             imageInvoker: WorkerImageInvoker(commandRunner: commandRunner, invocations: invocations),
             floorStatus: floorStatus,
             notificationDelivery: MacNotificationDelivery.shared
@@ -142,7 +142,7 @@ final class ThreadsViewModel {
         registry: DriverRegistry,
         models: [Model],
         toolStatuses: [ToolProbeRecord] = [],
-        runner: WorkerRunner,
+        runner: any WorkerInvoking,
         commandRunner: CommandRunner? = nil,
         imageInvoker: WorkerImageInvoker? = nil,
         writeLock: RunWriteLockRegistry = .shared,

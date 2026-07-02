@@ -125,28 +125,3 @@ public actor DriverConcurrencyGate {
     /// Test/diagnostic: queued waiter count for a driver.
     public func waiterCount(driverId: String) -> Int { lanes[driverId]?.waiters.count ?? 0 }
 }
-
-/// Acquire a spawn-gate permit or return a terminal worker failure.
-func acquireDriverSpawnGate(driverId: String, limit: Int) async -> WorkerRunOutcome? {
-    do {
-        try await DriverConcurrencyGate.shared.acquire(driverId: driverId, limit: limit)
-        return nil
-    } catch is CancellationError {
-        return WorkerRunOutcome(status: .failed, errorKind: .cancelled, errorReason: "spawn gate cancelled")
-    } catch DriverConcurrencyGateError.acquireTimedOut(let driverId) {
-        return WorkerRunOutcome(
-            status: .failed, errorKind: .timedOut,
-            errorReason: "spawn gate timed out for \(driverId)"
-        )
-    } catch {
-        return WorkerRunOutcome(
-            status: .failed, errorKind: .timedOut,
-            errorReason: "spawn gate: \(error)"
-        )
-    }
-}
-
-/// Release a spawn-gate permit acquired via `acquireDriverSpawnGate`.
-func releaseDriverSpawnGate(driverId: String) async {
-    await DriverConcurrencyGate.shared.release(driverId: driverId)
-}

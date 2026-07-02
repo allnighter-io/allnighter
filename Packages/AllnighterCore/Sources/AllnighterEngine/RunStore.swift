@@ -157,13 +157,13 @@ public struct RunStore: Sendable {
                 workerId: worker.id, modelId: worker.modelId,
                 skillId: worker.skillId, skillName: worker.skillName,
                 purpose: worker.purpose?.rawValue,
-                status: (answer?.status ?? .queued).rawValue,
-                startedAt: answer?.startedAt, finishedAt: answer?.finishedAt,
-                durationMs: answer?.durationMs, queueMs: answer?.queueMs, ttftMs: answer?.ttftMs,
-                gateWaitMs: answer?.gateWaitMs,
-                exitCode: answer?.exitCode,
-                errorKind: answer?.errorKind?.rawValue, errorReason: answer?.errorReason,
-                spawnDiagnostics: answer?.spawnDiagnostics)
+                status: (answer?.result.status ?? .queued).rawValue,
+                startedAt: answer?.result.timing.startedAt, finishedAt: answer?.result.timing.finishedAt,
+                durationMs: answer?.result.timing.durationMs, queueMs: answer?.queueMs, ttftMs: answer?.result.timing.ttftMs,
+                gateWaitMs: answer?.result.timing.gateWaitMs,
+                exitCode: answer?.result.exitCode,
+                errorKind: answer?.result.errorKind?.rawValue, errorReason: answer?.result.errorReason,
+                spawnDiagnostics: answer?.result.spawnDiagnostics)
             try CoreJSON.encode(meta).write(
                 to: workersDir.appendingPathComponent("\(stem).metadata.json"), options: .atomic)
 

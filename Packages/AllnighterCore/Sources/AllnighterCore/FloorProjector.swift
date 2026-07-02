@@ -81,7 +81,7 @@ public enum FloorProjector {
     private static func workerLanes(for run: TeamRun) -> [FloorWorkerLane] {
         run.workers.map { worker in
             let answer = run.workerAnswer(workerId: worker.id)
-            let createdAt = answer?.finishedAt ?? answer?.startedAt ?? run.createdAt
+            let createdAt = answer?.result.timing.finishedAt ?? answer?.result.timing.startedAt ?? run.createdAt
             let stem = RunArtifactRef.safeStem(worker.id)
 
             // Metadata exists for every worker — including failed/skipped/cancelled.
@@ -112,15 +112,15 @@ public enum FloorProjector {
                 skillName: worker.skillName,
                 modelId: worker.modelId,
                 purpose: lanePurpose(worker.purpose),
-                status: (answer?.status ?? .queued).rawValue,
-                startedAt: answer?.startedAt,
-                finishedAt: answer?.finishedAt,
-                durationMs: answer?.durationMs,
-                exitCode: answer?.exitCode,
+                status: (answer?.result.status ?? .queued).rawValue,
+                startedAt: answer?.result.timing.startedAt,
+                finishedAt: answer?.result.timing.finishedAt,
+                durationMs: answer?.result.timing.durationMs,
+                exitCode: answer?.result.exitCode,
                 summary: excerpt(answer?.output),
                 artifactRefs: refs,
                 promptArtifactRef: promptRef,
-                error: answer?.errorReason
+                error: answer?.result.errorReason
             )
         }
     }
@@ -137,10 +137,10 @@ public enum FloorProjector {
             ErrorEnvelope(
                 code: "WORKER_FAILED",
                 ruleId: "worker.failed",
-                message: a.errorReason ?? "worker \(a.workerId) failed",
+                message: a.result.errorReason ?? "worker \(a.memberId) failed",
                 requiresManual: false,
                 retryable: true,
-                workerId: a.workerId
+                workerId: a.memberId
             )
         }
     }
@@ -259,12 +259,12 @@ public enum FloorProjector {
 
         add(.runQueued, run.createdAt)
         // Run started = the first worker that actually began (a real timestamp).
-        add(.runStarted, run.workerAnswers.compactMap(\.startedAt).min())
+        add(.runStarted, run.workerAnswers.compactMap(\.result.timing.startedAt).min())
 
         for a in run.workerAnswers {
-            add(.workerStarted, a.startedAt, workerId: a.workerId)
-            let returned: FloorTimelineEvent.Kind = (a.status == .failed || a.status == .timedOut) ? .workerFailed : .workerReturned
-            add(returned, a.finishedAt, workerId: a.workerId, status: a.status.rawValue)
+            add(.workerStarted, a.result.timing.startedAt, workerId: a.memberId)
+            let returned: FloorTimelineEvent.Kind = (a.result.status == .failed || a.result.status == .timedOut) ? .workerFailed : .workerReturned
+            add(returned, a.result.timing.finishedAt, workerId: a.memberId, status: a.result.status.rawValue)
         }
 
         for stage in run.stages {
@@ -277,7 +277,7 @@ public enum FloorProjector {
 
         // Run finished = the last observed terminal timestamp (never invented).
         if run.status.isTerminal {
-            let lastTimes = run.workerAnswers.compactMap(\.finishedAt) + run.stages.compactMap(\.finishedAt)
+            let lastTimes = run.workerAnswers.compactMap(\.result.timing.finishedAt) + run.stages.compactMap(\.finishedAt)
             add(.runFinished, lastTimes.max())
         }
 

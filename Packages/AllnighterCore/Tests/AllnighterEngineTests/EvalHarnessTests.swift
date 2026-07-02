@@ -23,7 +23,7 @@ final class EvalHarnessTests: XCTestCase {
         // Judge returns: correct 1.0, verbose 0.0 -> total = 2*1 + (-1)*0 = 2 >= 1 pass.
         let output = "```json\n[{\"criterionId\":\"correct\",\"score\":1.0},{\"criterionId\":\"verbose\",\"score\":0.0}]\n```"
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: output, exitCode: 0)])
-        let harness = EvalHarness(workerRunner: WorkerRunner(commandRunner: mock))
+        let harness = EvalHarness(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let score = await harness.score(
@@ -50,7 +50,7 @@ final class EvalHarnessTests: XCTestCase {
     func testCompareModesReturnsScorePerMode() async {
         let output = "```json\n[{\"criterionId\":\"correct\",\"score\":1.0},{\"criterionId\":\"verbose\",\"score\":0.0}]\n```"
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: output, exitCode: 0)])
-        let harness = EvalHarness(workerRunner: WorkerRunner(commandRunner: mock))
+        let harness = EvalHarness(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let scores = await harness.compareModes(

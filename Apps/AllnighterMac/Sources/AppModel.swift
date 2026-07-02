@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import AppKit
 import AllnighterCore
+import AgentOSTeam
 import AllnighterEngine
 
 /// The Mac app's single observable truth. Owns the panel (as seats), presets,
@@ -218,7 +219,10 @@ final class AppModel {
             id: runId, prompt: trimmed, status: .draft,
             origin: .gui, presetId: activePresetId,
             workers: seats,
-            workerAnswers: seats.map { WorkerAnswer(workerId: $0.id, modelId: $0.modelId, status: .queued) },
+            workerAnswers: seats.map {
+                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                          result: WorkerRunResult(status: .queued))
+            },
             createdAt: Date()
         )
 
@@ -293,10 +297,10 @@ final class AppModel {
     func setManualAnswer(workerId: String, text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, var current = run,
-              let index = current.workerAnswers.firstIndex(where: { $0.workerId == workerId }) else { return }
-        current.workerAnswers[index].status = .done
-        current.workerAnswers[index].output = trimmed
-        current.workerAnswers[index].finishedAt = Date()
+              let index = current.workerAnswers.firstIndex(where: { $0.memberId == workerId }) else { return }
+        current.workerAnswers[index].result.status = .done
+        current.workerAnswers[index].result.output = trimmed
+        current.workerAnswers[index].result.timing.finishedAt = Date()
         run = current
     }
 
@@ -483,7 +487,7 @@ final class AppModel {
         let observations = store.list()
             .filter { $0.createdAt >= lookback }
             .flatMap { $0.failedWorkerAnswers }
-            .compactMap { $0.capacityObservation }
+            .compactMap { $0.result.capacityObservation }
         cachedCooldowns = SourceCapacityLedger.sources(observations: observations, now: now)
     }
 
@@ -628,10 +632,11 @@ final class AppModel {
         AppSetupModel.invocations(from: toolStatuses)
     }
 
-    /// Every WorkerRunner the app spawns goes through this so runs reuse the
-    /// detected invocation rather than the bare command on the ambient PATH.
-    private func makeWorkerRunner() -> WorkerRunner {
-        WorkerRunner(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), invocations: runnerInvocations)
+    /// Every worker invocation the app spawns goes through this composed
+    /// `WorkerInvoking` stack so runs reuse the detected invocation rather than
+    /// the bare command on the ambient PATH.
+    private func makeWorkerRunner() -> any WorkerInvoking {
+        WorkerInvokerFactory.makeWorkerInvoker(invocations: runnerInvocations)
     }
 
     /// HOTFIX (Launch Authority TCC): the cache-only launch path. Loads the
@@ -775,12 +780,12 @@ final class AppModel {
         isRunningCensus = true
         lastCensusSummary = nil
         Task { @MainActor [weak self] in
-            let runner = WorkerRunner(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), invocations: invocations)
-            let outcome = await runner.invoke(
-                worker: agent, manifest: manifest, prompt: prompt,
-                workingDirectoryOverride: AllnighterPaths.ensuredProbeScratchPath(),
-                timeoutOverride: .seconds(180)
-            )
+            let runner = WorkerInvokerFactory.makeWorkerInvoker(invocations: invocations)
+            let outcome = await runner.collect(WorkerInvocation(
+                model: agent, manifest: manifest, prompt: prompt,
+                workingDirectory: AllnighterPaths.ensuredProbeScratchPath(),
+                timeout: .seconds(180)
+            ))
             guard let self else { return }
             guard let text = outcome.output, let census = try? ToolCensus.parse(text) else {
                 self.lastCensusSummary = "Discovery didn’t return readable results."
@@ -857,12 +862,12 @@ final class AppModel {
             if let workerId = event.payload["workerId"]?.stringValue,
                let to = event.payload["to"]?.stringValue,
                let status = WorkerAnswerStatus(rawValue: to),
-               let index = current.workerAnswers.firstIndex(where: { $0.workerId == workerId }) {
-                current.workerAnswers[index].status = status
+               let index = current.workerAnswers.firstIndex(where: { $0.memberId == workerId }) {
+                current.workerAnswers[index].result.status = status
                 // Design runs ride the run-relative image path on the event so the
                 // board tile fills in progressively.
                 if let output = event.payload["output"]?.stringValue {
-                    current.workerAnswers[index].output = output
+                    current.workerAnswers[index].result.output = output
                 }
             }
         default:

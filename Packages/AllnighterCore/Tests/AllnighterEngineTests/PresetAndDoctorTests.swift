@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 
@@ -10,7 +11,8 @@ final class PresetAndDoctorTests: XCTestCase {
         TeamRun(
             id: "run1", prompt: "p", status: .answersIn,
             workers: [TestSupport.seat("model_opus")],
-            workerAnswers: [WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .done, output: "answer")],
+            workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
+                                       result: WorkerRunResult(status: .done, output: "answer"))],
             createdAt: Date()
         )
     }
@@ -29,7 +31,7 @@ final class PresetAndDoctorTests: XCTestCase {
 
     func testStagesRecordTheProfileUsed() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: combined, exitCode: 0)])
-        let synth = PlanWriter(workerRunner: WorkerRunner(commandRunner: mock))
+        let synth = PlanWriter(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(

@@ -1,10 +1,11 @@
 import Foundation
 import AllnighterCore
+import AgentOSTeam
 
 /// Owns one team run: builds per-worker prompts, runs every worker in
 /// parallel, updates the run, and emits `RunEvent`s keyed by worker id.
 public actor TeamRunCoordinator {
-    private let workerRunner: WorkerRunner
+    private let workerRunner: any WorkerInvoking
     private let registry: DriverRegistry
     private let idFactory: @Sendable () -> String
     private let now: @Sendable () -> Date
@@ -14,7 +15,7 @@ public actor TeamRunCoordinator {
     public nonisolated let events: AsyncStream<RunEvent>
 
     public init(
-        workerRunner: WorkerRunner,
+        workerRunner: any WorkerInvoking,
         registry: DriverRegistry,
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
         now: @escaping @Sendable () -> Date = Date.init
@@ -48,7 +49,8 @@ public actor TeamRunCoordinator {
             presetId: presetId,
             workers: teamWorkers,
             workerAnswers: teamWorkers.map {
-                WorkerAnswer(workerId: $0.id, modelId: $0.modelId, status: .queued)
+                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                          result: WorkerRunResult(status: .queued))
             },
             createdAt: now()
         )
@@ -57,10 +59,10 @@ public actor TeamRunCoordinator {
 
         let skillByWorker = Dictionary(teamWorkers.map { ($0.id, $0.skillId) }, uniquingKeysWith: { a, _ in a })
 
-        for index in run.workerAnswers.indices where run.workerAnswers[index].status == .queued {
-            run.workerAnswers[index].status = .running
-            run.workerAnswers[index].startedAt = now()
-            let id = run.workerAnswers[index].workerId
+        for index in run.workerAnswers.indices where run.workerAnswers[index].result.status == .queued {
+            run.workerAnswers[index].result.status = .running
+            run.workerAnswers[index].result.timing.startedAt = now()
+            let id = run.workerAnswers[index].memberId
             emitWorkerAnswer(run.workerAnswers[index], runId: run.id, from: .queued, skillId: skillByWorker[id] ?? nil)
         }
 
@@ -69,7 +71,7 @@ public actor TeamRunCoordinator {
             uniqueKeysWithValues: models.map { ($0.id, registry.manifest(for: $0)) }
         )
 
-        let results: [WorkerAnswer] = await withTaskGroup(of: WorkerAnswer.self) { group in
+        let results: [TeamAnswer] = await withTaskGroup(of: TeamAnswer.self) { group in
             for assignment in teamWorkers {
                 let model = modelByID[assignment.modelId]
                 let manifest = model.flatMap { manifestByModel[$0.id] ?? nil }
@@ -77,44 +79,39 @@ public actor TeamRunCoordinator {
                     skillId: assignment.skillId,
                     founderPrompt: prompt
                 )
+                let role = assignment.purpose?.rawValue ?? WorkerStage.answer.rawValue
                 group.addTask {
                     guard let model else {
-                        return WorkerAnswer(
-                            workerId: assignment.id,
-                            modelId: assignment.modelId,
-                            status: .failed,
-                            errorKind: .missingCLI,
-                            errorReason: "no model for worker \(assignment.id)"
+                        return TeamAnswer(
+                            memberId: assignment.id, modelId: assignment.modelId, role: role,
+                            result: WorkerRunResult(status: .failed, errorKind: .missingCLI,
+                                                    errorReason: "no model for worker \(assignment.id)")
                         )
                     }
                     guard let manifest else {
-                        return WorkerAnswer(
-                            workerId: assignment.id,
-                            modelId: assignment.modelId,
-                            status: .failed,
-                            errorKind: .missingCLI,
-                            errorReason: "no driver manifest for \(model.driverId)"
+                        return TeamAnswer(
+                            memberId: assignment.id, modelId: assignment.modelId, role: role,
+                            result: WorkerRunResult(status: .failed, errorKind: .missingCLI,
+                                                    errorReason: "no driver manifest for \(model.driverId)")
                         )
                     }
-                    return await runnerCopy.run(
-                        assignment: assignment,
-                        model: model,
-                        manifest: manifest,
-                        prompt: workerPrompt
+                    let result = await runnerCopy.collect(
+                        WorkerInvocation(model: model, manifest: manifest, prompt: workerPrompt)
                     )
+                    return TeamAnswer(memberId: assignment.id, modelId: model.id, role: role, result: result)
                 }
             }
 
-            var collected: [WorkerAnswer] = []
+            var collected: [TeamAnswer] = []
             for await response in group { collected.append(response) }
             return collected
         }
 
         for result in results {
-            if let index = run.workerAnswers.firstIndex(where: { $0.workerId == result.workerId }) {
-                let previous = run.workerAnswers[index].status
+            if let index = run.workerAnswers.firstIndex(where: { $0.memberId == result.memberId }) {
+                let previous = run.workerAnswers[index].result.status
                 run.workerAnswers[index] = result
-                emitWorkerAnswer(result, runId: run.id, from: previous, skillId: skillByWorker[result.workerId] ?? nil)
+                emitWorkerAnswer(result, runId: run.id, from: previous, skillId: skillByWorker[result.memberId] ?? nil)
             }
         }
 
@@ -155,17 +152,17 @@ public actor TeamRunCoordinator {
         return updated
     }
 
-    private func emitWorkerAnswer(_ answer: WorkerAnswer, runId: String, from: WorkerAnswerStatus, skillId: String?) {
+    private func emitWorkerAnswer(_ answer: TeamAnswer, runId: String, from: WorkerAnswerStatus, skillId: String?) {
         var payload: [String: JSONValue] = [
             "runId": .string(runId),
-            "workerId": .string(answer.workerId),
+            "workerId": .string(answer.memberId),
             "modelId": .string(answer.modelId),
             "from": .string(from.rawValue),
-            "to": .string(answer.status.rawValue),
+            "to": .string(answer.result.status.rawValue),
         ]
         if let skillId { payload["skillId"] = .string(skillId) }
-        if let durationMs = answer.durationMs { payload["durationMs"] = .int(durationMs) }
-        if let reason = answer.errorReason { payload["reason"] = .string(reason) }
+        if let durationMs = answer.result.timing.durationMs { payload["durationMs"] = .int(durationMs) }
+        if let reason = answer.result.errorReason { payload["reason"] = .string(reason) }
         continuation.yield(RunEvent(
             id: idFactory(),
             seq: nextSeq(),

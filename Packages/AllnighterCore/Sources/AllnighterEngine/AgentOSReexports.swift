@@ -7,4 +7,7 @@ import Foundation
 // AgentOSTeam — the opt-in fan-out layer (F2_B.3b prep). See the Core-layer
 // AgentOSReexports.swift for the collision note (Allnighter's dead local
 // `WorkerPrompt` was deleted so AgentOSTeam's resolves unqualified).
-@_exported import AgentOSTeam
+// NOTE: plain (non-`@_exported`) import — see Core-layer file for why the
+// second `@_exported` re-export path was removed. Files referencing
+// `TeamAnswer`/`TeamMember`/`WorkerPrompt` must `import AgentOSTeam` explicitly.
+import AgentOSTeam

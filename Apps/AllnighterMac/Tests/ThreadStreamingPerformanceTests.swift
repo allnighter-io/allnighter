@@ -29,7 +29,7 @@ final class ThreadStreamingPerformanceTests: XCTestCase {
             registry: config.registry,
             models: config.models,
             toolStatuses: [],
-            runner: WorkerRunner(commandRunner: StubRunner()),
+            runner: WorkerInvokerFactory.makeWorkerInvoker(commandRunner: CommandRunnerAsStreaming(StubRunner())),
             commandRunner: StubRunner(),
             projectStore: ProjectStore(rootDirectory: root.appendingPathComponent("projects", isDirectory: true))
         )

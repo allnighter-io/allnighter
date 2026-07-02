@@ -100,7 +100,7 @@ public struct RemoteSnapshotService: Sendable {
 
     private func completedAt(for run: TeamRun) -> Date? {
         guard run.status.isTerminal else { return nil }
-        return run.workerAnswers.compactMap(\.finishedAt).max()
+        return run.workerAnswers.compactMap(\.result.timing.finishedAt).max()
             ?? run.stages.compactMap(\.finishedAt).max()
             ?? run.createdAt
     }

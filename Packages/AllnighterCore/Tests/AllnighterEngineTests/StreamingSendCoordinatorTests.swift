@@ -22,12 +22,9 @@ final class StreamingSendCoordinatorTests: XCTestCase {
     }
 
     private func coordinator(store: ThreadStore, manifest: DriverManifest,
-                             events: [CommandEvent], invokeScripts: [String: MockCommandRunner.Script] = [:]) -> ThreadSendCoordinator {
+                             events: [CommandEvent]) -> ThreadSendCoordinator {
         let clock = self.clock
-        let runner = WorkerRunner(
-            commandRunner: MockCommandRunner(scripts: invokeScripts),
-            streamingCommandRunner: MockStreamingCommandRunner(events),
-            now: { clock })
+        let runner = DefaultWorkerRunner(streamingRunner: MockStreamingCommandRunner(events), now: { clock })
         return ThreadSendCoordinator(
             store: store, runner: runner,
             registry: DriverRegistry([manifest]),
@@ -89,10 +86,14 @@ final class StreamingSendCoordinatorTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         try store.create(id: "t1", title: "chat", now: clock, defaultWorkerId: "grok")
 
-        // No streaming block ⇒ canStream is false ⇒ the one-shot invoke path runs.
+        // No streaming block on the manifest; `DefaultWorkerRunner` still drives the
+        // one seam and settles from the single terminal event (F2_B.3c: there is no
+        // longer a separate non-streaming spawn path to distinguish).
         let manifest = TestSupport.headlessManifest(id: "grok", command: "grok")
-        let coord = coordinator(store: store, manifest: manifest, events: [],
-                                invokeScripts: ["grok": .init(stdout: "Plain final answer", exitCode: 0)])
+        let coord = coordinator(store: store, manifest: manifest, events: [
+            .started(startedAt: clock),
+            .completed(CommandResult(stdout: "Plain final answer", exitCode: 0)),
+        ])
 
         let result = try await coord.send(request: .init(message: "hi"), toThreadId: "t1")
 

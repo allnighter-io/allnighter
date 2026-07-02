@@ -1,4 +1,5 @@
 import Foundation
+import AgentOSTeam
 
 /// Projects the internal `TeamRun` persistence model into the public
 /// `TeamRunJSON` contract (docs/phases/CLI_Implementation_Contract.md
@@ -57,8 +58,8 @@ public enum TeamRunJSONMapper {
                 return RunImagePathResolver.absolutePath(runDirectory: dir, relativePath: output)
             }()
             return TeamRunJSON.AnswerInfo(
-                workerId: a.workerId, modelId: a.modelId, status: mapWorker(a.status),
-                durationMs: a.durationMs, markdown: a.output,
+                workerId: a.memberId, modelId: a.modelId, status: mapWorker(a.result.status),
+                durationMs: a.result.timing.durationMs, markdown: a.output,
                 outputAbsolutePath: outputAbsolute,
                 error: errorEnvelope(for: a, runId: run.id)
             )
@@ -79,12 +80,12 @@ public enum TeamRunJSONMapper {
             )
         }()
 
-        let ran = run.workerAnswers.filter { $0.status != .skipped }.count
+        let ran = run.workerAnswers.filter { $0.result.status != .skipped }.count
         let planDone = planStage?.status == .done
         let usage = TeamRunJSON.Usage(cliCalls: ran + (planDone ? 1 : 0))
 
-        let started = run.workerAnswers.compactMap(\.startedAt).min()
-        let completed = run.status.isTerminal ? run.workerAnswers.compactMap(\.finishedAt).max() : nil
+        let started = run.workerAnswers.compactMap(\.result.timing.startedAt).min()
+        let completed = run.status.isTerminal ? run.workerAnswers.compactMap(\.result.timing.finishedAt).max() : nil
 
         // Prefer the run's own catalog facts (self-describing); fall back to
         // caller-supplied context for legacy runs that did not record them.
@@ -192,12 +193,12 @@ public enum TeamRunJSONMapper {
         )
     }
 
-    private static func errorEnvelope(for a: WorkerAnswer, runId: String) -> ErrorEnvelope? {
-        guard a.status == .failed || a.status == .timedOut else { return nil }
+    private static func errorEnvelope(for a: TeamAnswer, runId: String) -> ErrorEnvelope? {
+        guard a.result.status == .failed || a.result.status == .timedOut else { return nil }
         return ErrorEnvelope(
-            code: a.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "WORKER_FAILED",
-            message: a.errorReason ?? "worker did not produce an answer",
-            requiresManual: false, retryable: true, runId: runId, workerId: a.workerId
+            code: a.result.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "WORKER_FAILED",
+            message: a.result.errorReason ?? "worker did not produce an answer",
+            requiresManual: false, retryable: true, runId: runId, workerId: a.memberId
         )
     }
 

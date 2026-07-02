@@ -8,7 +8,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
         scripts: [String: MockCommandRunner.Script]
     ) -> TeamRunCoordinator {
         let mock = MockCommandRunner(scripts: scripts)
-        let runner = WorkerRunner(commandRunner: mock)
+        let runner = DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock))
         let registry = DriverRegistry([
             TestSupport.headlessManifest(id: "claude_code", command: "claude"),
             TestSupport.headlessManifest(id: "grok", command: "grok"),
@@ -42,7 +42,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(run.status, .answersIn)
         XCTAssertEqual(run.answeredWorkers.count, 3)
-        XCTAssertEqual(Set(run.workerAnswers.map(\.workerId)), ["model_opus#0", "model_grok#0", "model_gemini#0"])
+        XCTAssertEqual(Set(run.workerAnswers.map(\.memberId)), ["model_opus#0", "model_grok#0", "model_gemini#0"])
     }
 
     func testSelfFusionSeatsDoNotCollide() async {
@@ -52,7 +52,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
 
         let run = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: [opus], runId: "run_sf")
         XCTAssertEqual(run.workerAnswers.count, 3)
-        XCTAssertEqual(Set(run.workerAnswers.map(\.workerId)).count, 3)
+        XCTAssertEqual(Set(run.workerAnswers.map(\.memberId)).count, 3)
         XCTAssertTrue(run.workerAnswers.allSatisfy { $0.modelId == "model_opus" })
     }
 

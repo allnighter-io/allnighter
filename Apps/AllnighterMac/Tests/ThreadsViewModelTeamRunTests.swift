@@ -65,7 +65,7 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
             registry: config.registry,
             models: config.models,
             toolStatuses: toolStatuses,
-            runner: WorkerRunner(commandRunner: commandRunner),
+            runner: WorkerInvokerFactory.makeWorkerInvoker(commandRunner: CommandRunnerAsStreaming(commandRunner)),
             commandRunner: commandRunner,
             projectStore: ProjectStore(rootDirectory: root.appendingPathComponent("projects", isDirectory: true))
         )
@@ -131,7 +131,7 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
         XCTAssertEqual(board?.status, .done, "a completed run settles the board turn to done")
         let run = try XCTUnwrap(vm.teamRun(forRunId: runId), "the board must load a durable TeamRun by runId")
         XCTAssertFalse(run.workerAnswers.isEmpty)
-        XCTAssertTrue(run.workerAnswers.contains { $0.status == .done || $0.output != nil },
+        XCTAssertTrue(run.workerAnswers.contains { $0.result.status == .done || $0.output != nil },
                       "the stubbed bench produces answers")
     }
 

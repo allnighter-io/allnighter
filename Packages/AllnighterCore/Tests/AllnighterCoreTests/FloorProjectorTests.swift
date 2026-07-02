@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 @testable import AllnighterCore
 
 /// F-S00 Works Test (WT-FLOOR02 + worker visibility): the Floor projects over a
@@ -18,12 +19,15 @@ final class FloorProjectorTests: XCTestCase {
                    skillId: "insight_writer", skillName: "Insight Writer", purpose: .plan)
         ]
         let answers = [
-            WorkerAnswer(workerId: "model_grok#0", modelId: "model_grok", status: .done,
-                         output: String(repeating: "x", count: 400), startedAt: now, finishedAt: now, durationMs: 1200),
-            WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .failed,
-                         errorReason: "auth expired", startedAt: now, finishedAt: now),
-            WorkerAnswer(workerId: "model_opus#1", modelId: "model_opus", status: .done,
-                         output: "synthesized", startedAt: now, finishedAt: now)
+            TeamAnswer(memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                      result: WorkerRunResult(status: .done, output: String(repeating: "x", count: 400),
+                                              timing: RunTiming(startedAt: now, finishedAt: now, durationMs: 1200))),
+            TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "review",
+                      result: WorkerRunResult(status: .failed, errorReason: "auth expired",
+                                              timing: RunTiming(startedAt: now, finishedAt: now))),
+            TeamAnswer(memberId: "model_opus#1", modelId: "model_opus", role: "plan",
+                      result: WorkerRunResult(status: .done, output: "synthesized",
+                                              timing: RunTiming(startedAt: now, finishedAt: now)))
         ]
         let plan = StageOutput(id: "stage_plan", purpose: .plan, status: .done,
                                payload: .plan(markdown: "# Insight\nNo move today."))
@@ -117,7 +121,8 @@ final class FloorProjectorTests: XCTestCase {
     func testTimelineNeverInventsMissingTimestamps() {
         // WT-FLOOR04: a worker with a start but no finish yields workerStarted only.
         var run = signalRun(status: .planning)
-        run.workerAnswers = [WorkerAnswer(workerId: "w#0", modelId: "m", status: .running, startedAt: now)]
+        run.workerAnswers = [TeamAnswer(memberId: "w#0", modelId: "m", role: "answer",
+                                        result: WorkerRunResult(status: .running, timing: RunTiming(startedAt: now)))]
         run.workers = [Worker(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .answer)]
         run.stages = []
         let floor = FloorProjector.project(run)

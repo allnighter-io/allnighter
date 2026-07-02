@@ -1,5 +1,6 @@
 import Foundation
 import AllnighterCore
+import AgentOSTeam
 import AllnighterEngine
 
 #if DEBUG
@@ -392,12 +393,14 @@ struct ThreadsFixtureSeeder {
             status: .complete, origin: .gui, presetId: "build_panel",
             workers: [w0, w1, writer],
             workerAnswers: [
-                WorkerAnswer(workerId: w0.id, modelId: m0, status: .done,
+                TeamAnswer(memberId: w0.id, modelId: m0, role: "answer",
+                          result: WorkerRunResult(status: .done,
                              output: "**Token bucket.** Allows controlled bursts up to the bucket size while holding the long-run average to the refill rate — the right fit for per-user API limits.",
-                             durationMs: 4200),
-                WorkerAnswer(workerId: w1.id, modelId: m1, status: .done,
+                             timing: RunTiming(durationMs: 4200))),
+                TeamAnswer(memberId: w1.id, modelId: m1, role: "answer",
+                          result: WorkerRunResult(status: .done,
                              output: "**Sliding-window counter.** Smoother than fixed windows and cheap to store (two counters per user); slightly approximates the boundary but avoids the double-burst edge of fixed windows.",
-                             durationMs: 5100),
+                             timing: RunTiming(durationMs: 5100))),
             ],
             createdAt: Date()
         )
@@ -438,10 +441,11 @@ struct ThreadsFixtureSeeder {
                                            modelId: workerId, instanceIndex: 0,
                                            skillId: "first_principles_builder", purpose: .answer)],
                           workerAnswers: [
-                              WorkerAnswer(
-                                  workerId: Worker.makeID(modelId: workerId, instanceIndex: 0),
-                                  modelId: workerId, status: .done,
-                                  output: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing."
+                              TeamAnswer(
+                                  memberId: Worker.makeID(modelId: workerId, instanceIndex: 0),
+                                  modelId: workerId, role: "answer",
+                                  result: WorkerRunResult(status: .done,
+                                     output: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing.")
                               )
                           ],
                           createdAt: Date(),
@@ -570,8 +574,10 @@ struct ThreadsFixtureSeeder {
                 status: .complete, origin: .gui, presetId: "design_core",
                 workers: [w0, w1],
                 workerAnswers: [
-                    WorkerAnswer(workerId: w0.id, modelId: m0, status: .done, output: path0, durationMs: 8000),
-                    WorkerAnswer(workerId: w1.id, modelId: m1, status: .done, output: path1, durationMs: 9000),
+                    TeamAnswer(memberId: w0.id, modelId: m0, role: "answer",
+                              result: WorkerRunResult(status: .done, output: path0, timing: RunTiming(durationMs: 8000))),
+                    TeamAnswer(memberId: w1.id, modelId: m1, role: "answer",
+                              result: WorkerRunResult(status: .done, output: path1, timing: RunTiming(durationMs: 9000))),
                 ],
                 createdAt: Date(),
                 lane: .design,

@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import AllnighterCore
+import AgentOSTeam
 
 // Conversation thread pane (docs/phases/wiring/compose-routing, reference/app.jsx
 // ThreadPane + NewPane). CR4a: userMessage turns + docked RoutingComposer; worker
@@ -892,8 +893,8 @@ private struct ThreadBoardRow: View {
 
     /// The worker's job title for this answer — the skill name, else a humanized skill id,
     /// else a generic fallback (never the raw `model_x#0` worker id).
-    private func workerTitle(_ answer: WorkerAnswer) -> String {
-        let worker = run?.workers.first { $0.id == answer.workerId }
+    private func workerTitle(_ answer: TeamAnswer) -> String {
+        let worker = run?.workers.first { $0.id == answer.memberId }
         if let name = worker?.skillName, !name.isEmpty { return name }
         if let id = worker?.skillId, !id.isEmpty {
             return id.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
@@ -909,7 +910,7 @@ private struct ThreadBoardRow: View {
         return flat.isEmpty ? "Show answer" : String(flat.prefix(220))
     }
 
-    private func answerCard(_ answer: WorkerAnswer) -> some View {
+    private func answerCard(_ answer: TeamAnswer) -> some View {
         let bench = appModel.composeBench.first { $0.id == answer.modelId }
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
@@ -923,9 +924,9 @@ private struct ThreadBoardRow: View {
                         .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                StatusPill(kind: ThreadsPresenter.pillKind(for: workerTurnStatus(answer.status)))
+                StatusPill(kind: ThreadsPresenter.pillKind(for: workerTurnStatus(answer.result.status)))
             }
-            switch answer.status {
+            switch answer.result.status {
             case .done:
                 if expanded.contains(answer.id) {
                     AnswerBody(markdown: answer.output ?? "")
@@ -948,8 +949,8 @@ private struct ThreadBoardRow: View {
                 // no-output — not a single collapsed "timed out". Partial output preserved below.
                 VStack(alignment: .leading, spacing: 5) {
                     Text(WorkerFailurePresenter.cause(
-                        status: answer.status, errorKind: answer.errorKind,
-                        errorReason: answer.errorReason, capacity: answer.capacityObservation) ?? "No answer.")
+                        status: answer.result.status, errorKind: answer.result.errorKind,
+                        errorReason: answer.result.errorReason, capacity: answer.result.capacityObservation) ?? "No answer.")
                         .font(.system(size: 12.5, weight: .medium)).foregroundStyle(ALPalette.red400).textSelection(.enabled)
                     if WorkerFailurePresenter.hasPartialOutput(answer.output) {
                         Text(answer.output ?? "")
@@ -965,7 +966,7 @@ private struct ThreadBoardRow: View {
                     ProgressView().controlSize(.small)
                     // Anchor to THIS worker's own start, not the whole board's, and only while
                     // actually running — a cancelled/skipped worker must not tick forever.
-                    RunningStatusLabel(verb: "Working", start: answer.startedAt ?? turn.createdAt)
+                    RunningStatusLabel(verb: "Working", start: answer.result.timing.startedAt ?? turn.createdAt)
                 }
             case .queued:
                 HStack(spacing: 6) {

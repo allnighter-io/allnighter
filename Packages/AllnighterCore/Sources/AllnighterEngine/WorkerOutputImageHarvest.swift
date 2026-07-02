@@ -63,7 +63,7 @@ public enum WorkerOutputImageHarvest {
             guard results.count < maxImagesPerTurn,
                   let model = modelById[answer.modelId],
                   model.driverId == "codex" else { continue }
-            let sessionId = answer.vendorSessionId?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let sessionId = answer.result.capturedSessionId?.trimmingCharacters(in: .whitespacesAndNewlines)
             // Locate the rollout by captured session id when present, else by the run's
             // working directory + time window (session ids aren't reliably captured for Codex).
             guard (sessionId?.isEmpty == false) || cwd != nil else { continue }
@@ -71,8 +71,8 @@ public enum WorkerOutputImageHarvest {
             let images = harvester.images(
                 sessionId: sessionId,
                 cwd: cwd,
-                after: answer.startedAt,
-                before: answer.finishedAt
+                after: answer.result.timing.startedAt,
+                before: answer.result.timing.finishedAt
             )
             results.append(contentsOf: images.prefix(remaining))
         }

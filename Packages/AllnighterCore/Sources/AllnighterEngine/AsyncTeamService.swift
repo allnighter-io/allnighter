@@ -1,5 +1,6 @@
 import Foundation
 import AllnighterCore
+import AgentOSTeam
 
 /// Refusal from async `team start` before a run id is minted.
 public struct AsyncTeamStartRefusal: Error, Sendable, Equatable {
@@ -188,7 +189,10 @@ public actor AsyncTeamService {
             originAgent: request.originAgent,
             presetId: resolved.teamPresetId,
             workers: resolved.allWorkers,
-            workerAnswers: answerAndReview.map { WorkerAnswer(workerId: $0.id, modelId: $0.modelId, status: .queued) },
+            workerAnswers: answerAndReview.map {
+                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                          result: WorkerRunResult(status: .queued))
+            },
             createdAt: acceptedAt,
             lane: resolvedRequest.lane,
             type: resolvedRequest.type,
@@ -238,7 +242,8 @@ public actor AsyncTeamService {
         }
 
         let coordinator = CatalogRunCoordinator(
-            workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations),
+            workerRunner: WorkerInvokerFactory.makeWorkerInvoker(
+                commandRunner: (commandRunner as? StreamingCommandRunner) ?? CommandRunnerAsStreaming(commandRunner), invocations: invocations),
             registry: registry,
             idFactory: idFactory,
             now: now
@@ -319,8 +324,8 @@ public actor AsyncTeamService {
         cancelledRuns.cancelAndSave(runId) {
             var run = self.runStore.load(runId: runId) ?? loaded
             run.status = .cancelled
-            for i in run.workerAnswers.indices where !run.workerAnswers[i].status.isTerminal {
-                run.workerAnswers[i].status = .cancelled
+            for i in run.workerAnswers.indices where !run.workerAnswers[i].result.status.isTerminal {
+                run.workerAnswers[i].result.status = .cancelled
             }
             _ = try? self.runStore.save(run, models: self.models)
         }

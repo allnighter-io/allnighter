@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 @testable import AllnighterCore
 
 /// Drift proof for the generated JSON Schemas and the markdown reference: the
@@ -52,7 +53,8 @@ final class ContractSchemaTests: XCTestCase {
         let run = TeamRun(
             id: "r1", prompt: "p", status: .complete, origin: .cli, presetId: "signal_post_to_project",
             workers: [Worker(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .plan)],
-            workerAnswers: [WorkerAnswer(workerId: "w#0", modelId: "m", status: .done, output: "x", finishedAt: now)],
+            workerAnswers: [TeamAnswer(memberId: "w#0", modelId: "m", role: "plan",
+                                       result: WorkerRunResult(status: .done, output: "x", timing: RunTiming(finishedAt: now)))],
             stages: [StageOutput(id: "s1", purpose: .plan, status: .done, payload: .plan(markdown: "md"))],
             createdAt: now, lane: .signal, outputKind: .insight)
         let floor = FloorProjector.project(run)

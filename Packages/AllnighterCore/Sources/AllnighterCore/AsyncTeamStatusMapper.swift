@@ -17,7 +17,7 @@ public enum AsyncTeamStatusMapper {
             return run.plan != nil ? .completed : .failed
         case .planning: return .synthesizing
         case .fanningOut:
-            let active = run.workerAnswers.contains { $0.status == .running || $0.status == .done || $0.status == .failed }
+            let active = run.workerAnswers.contains { $0.result.status == .running || $0.result.status == .done || $0.result.status == .failed }
             return active ? .running : .accepted
         case .answersIn, .reviewing, .finalizing: return .running
         case .draft: return .accepted
@@ -31,7 +31,7 @@ public enum AsyncTeamStatusMapper {
         case .fanningOut, .answersIn:
             let reviewIds = Set(run.workers.filter { $0.purpose == .review }.map(\.id))
             if !reviewIds.isEmpty,
-               run.workerAnswers.contains(where: { reviewIds.contains($0.workerId) && $0.status != .queued }) {
+               run.workerAnswers.contains(where: { reviewIds.contains($0.memberId) && $0.result.status != .queued }) {
                 return "review"
             }
             return "answer"
@@ -63,11 +63,11 @@ public enum AsyncTeamStatusMapper {
                                   uniquingKeysWith: { a, _ in a })
         return run.workerAnswers.map { answer in
             TeamStatusWorker(
-                workerId: answer.workerId,
-                displayName: nameById[answer.workerId] ?? answer.workerId,
-                status: mapWorkerLive(answer.status),
-                startedAt: answer.startedAt,
-                finishedAt: answer.finishedAt
+                workerId: answer.memberId,
+                displayName: nameById[answer.memberId] ?? answer.memberId,
+                status: mapWorkerLive(answer.result.status),
+                startedAt: answer.result.timing.startedAt,
+                finishedAt: answer.result.timing.finishedAt
             )
         }
     }

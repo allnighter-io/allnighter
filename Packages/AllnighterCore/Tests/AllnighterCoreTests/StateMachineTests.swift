@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 @testable import AllnighterCore
 
 final class StateMachineTests: XCTestCase {
@@ -57,32 +58,32 @@ final class StateMachineTests: XCTestCase {
     // MARK: Member state machine
 
     func testMemberHappyPath() {
-        XCTAssertTrue(WorkerAnswer(workerId: "w#0", modelId: "w", status: .queued).canTransition(to: .running))
-        XCTAssertTrue(WorkerAnswer(workerId: "w#0", modelId: "w", status: .running).canTransition(to: .done))
+        XCTAssertTrue(TeamAnswer(memberId: "w#0", modelId: "w", role: "answer", result: WorkerRunResult(status: .queued)).canTransition(to: .running))
+        XCTAssertTrue(TeamAnswer(memberId: "w#0", modelId: "w", role: "answer", result: WorkerRunResult(status: .running)).canTransition(to: .done))
     }
 
     func testMemberTimeoutAndFailureFromRunning() {
-        let running = WorkerAnswer(workerId: "w#0", modelId: "w", status: .running)
+        let running = TeamAnswer(memberId: "w#0", modelId: "w", role: "answer", result: WorkerRunResult(status: .running))
         XCTAssertTrue(running.canTransition(to: .timedOut))
         XCTAssertTrue(running.canTransition(to: .failed))
         XCTAssertTrue(running.canTransition(to: .cancelled))
     }
 
     func testManualPasteSkippedCanComplete() {
-        let skipped = WorkerAnswer(workerId: "w#0", modelId: "w", status: .skipped)
+        let skipped = TeamAnswer(memberId: "w#0", modelId: "w", role: "answer", result: WorkerRunResult(status: .skipped))
         XCTAssertTrue(skipped.canTransition(to: .done))
         XCTAssertTrue(skipped.canTransition(to: .running))
     }
 
     func testMemberIllegalTransitionsRejected() {
-        XCTAssertFalse(WorkerAnswer(workerId: "w#0", modelId: "w", status: .queued).canTransition(to: .done))
-        XCTAssertFalse(WorkerAnswer(workerId: "w#0", modelId: "w", status: .done).canTransition(to: .running))
+        XCTAssertFalse(TeamAnswer(memberId: "w#0", modelId: "w", role: "answer", result: WorkerRunResult(status: .queued)).canTransition(to: .done))
+        XCTAssertFalse(TeamAnswer(memberId: "w#0", modelId: "w", role: "answer", result: WorkerRunResult(status: .done)).canTransition(to: .running))
     }
 
     func testMemberTerminalStatesAreSinks() {
         for status in [WorkerAnswerStatus.done, .failed, .timedOut, .cancelled] {
             XCTAssertTrue(status.isTerminal)
-            let member = WorkerAnswer(workerId: "w#0", modelId: "w", status: status)
+            let member = TeamAnswer(memberId: "w#0", modelId: "w", role: "answer", result: WorkerRunResult(status: status))
             for next in WorkerAnswerStatus.allCases {
                 XCTAssertFalse(member.canTransition(to: next), "\(status) is terminal; -> \(next) must be rejected")
             }

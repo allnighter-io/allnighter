@@ -8,20 +8,152 @@
   "presetId": "preset_six_default",
   "createdAt": "2026-06-14T20:01:00Z",
   "workers": [
-    { "id": "model_chatgpt#0", "modelId": "model_chatgpt", "instanceIndex": 0 },
-    { "id": "model_opus#0", "modelId": "model_opus", "instanceIndex": 0 },
-    { "id": "model_sonnet#0", "modelId": "model_sonnet", "instanceIndex": 0 },
-    { "id": "model_composer#0", "modelId": "model_composer", "instanceIndex": 0 },
-    { "id": "model_gemini#0", "modelId": "model_gemini", "instanceIndex": 0 },
-    { "id": "model_grok#0", "modelId": "model_grok", "instanceIndex": 0 }
+    {
+      "id": "model_chatgpt#0",
+      "modelId": "model_chatgpt",
+      "instanceIndex": 0
+    },
+    {
+      "id": "model_opus#0",
+      "modelId": "model_opus",
+      "instanceIndex": 0
+    },
+    {
+      "id": "model_sonnet#0",
+      "modelId": "model_sonnet",
+      "instanceIndex": 0
+    },
+    {
+      "id": "model_composer#0",
+      "modelId": "model_composer",
+      "instanceIndex": 0
+    },
+    {
+      "id": "model_gemini#0",
+      "modelId": "model_gemini",
+      "instanceIndex": 0
+    },
+    {
+      "id": "model_grok#0",
+      "modelId": "model_grok",
+      "instanceIndex": 0
+    }
   ],
   "workerAnswers": [
-    { "workerId": "model_chatgpt#0", "modelId": "model_chatgpt", "status": "done", "output": "Lead with team accounts; analytics can wait one cycle.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:30Z", "durationMs": 29010, "exitCode": 0 },
-    { "workerId": "model_opus#0", "modelId": "model_opus", "status": "done", "output": "Team accounts first: billing analytics is meaningless without multi-seat data to slice.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:22Z", "durationMs": 21450, "exitCode": 0 },
-    { "workerId": "model_sonnet#0", "modelId": "model_sonnet", "status": "done", "output": "Agree on team accounts first, but ship a thin analytics event schema now.", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:25Z", "durationMs": 24300, "exitCode": 0 },
-    { "workerId": "model_composer#0", "modelId": "model_composer", "status": "skipped" },
-    { "workerId": "model_gemini#0", "modelId": "model_gemini", "status": "failed", "errorKind": "auth_required", "errorReason": "gemini CLI is not logged in (run: gemini auth login)", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:01:03Z", "exitCode": 1 },
-    { "workerId": "model_grok#0", "modelId": "model_grok", "status": "timed_out", "errorKind": "timed_out", "errorReason": "no output for 120s", "startedAt": "2026-06-14T20:01:01Z", "finishedAt": "2026-06-14T20:03:01Z" }
+    {
+      "memberId": "model_chatgpt#0",
+      "modelId": "model_chatgpt",
+      "role": "answer",
+      "result": {
+        "status": "done",
+        "output": "Lead with team accounts; analytics can wait one cycle.",
+        "exitCode": 0,
+        "timing": {
+          "rawStdoutChunkCount": 0,
+          "rawStderrChunkCount": 0,
+          "parsedStreamEventCount": 0,
+          "answerDeltaCount": 0,
+          "reasoningDeltaCount": 0,
+          "startedAt": "2026-06-14T20:01:01Z",
+          "finishedAt": "2026-06-14T20:01:30Z",
+          "durationMs": 29010
+        }
+      }
+    },
+    {
+      "memberId": "model_opus#0",
+      "modelId": "model_opus",
+      "role": "answer",
+      "result": {
+        "status": "done",
+        "output": "Team accounts first: billing analytics is meaningless without multi-seat data to slice.",
+        "exitCode": 0,
+        "timing": {
+          "rawStdoutChunkCount": 0,
+          "rawStderrChunkCount": 0,
+          "parsedStreamEventCount": 0,
+          "answerDeltaCount": 0,
+          "reasoningDeltaCount": 0,
+          "startedAt": "2026-06-14T20:01:01Z",
+          "finishedAt": "2026-06-14T20:01:22Z",
+          "durationMs": 21450
+        }
+      }
+    },
+    {
+      "memberId": "model_sonnet#0",
+      "modelId": "model_sonnet",
+      "role": "answer",
+      "result": {
+        "status": "done",
+        "output": "Agree on team accounts first, but ship a thin analytics event schema now.",
+        "exitCode": 0,
+        "timing": {
+          "rawStdoutChunkCount": 0,
+          "rawStderrChunkCount": 0,
+          "parsedStreamEventCount": 0,
+          "answerDeltaCount": 0,
+          "reasoningDeltaCount": 0,
+          "startedAt": "2026-06-14T20:01:01Z",
+          "finishedAt": "2026-06-14T20:01:25Z",
+          "durationMs": 24300
+        }
+      }
+    },
+    {
+      "memberId": "model_composer#0",
+      "modelId": "model_composer",
+      "role": "answer",
+      "result": {
+        "status": "skipped",
+        "timing": {
+          "rawStdoutChunkCount": 0,
+          "rawStderrChunkCount": 0,
+          "parsedStreamEventCount": 0,
+          "answerDeltaCount": 0,
+          "reasoningDeltaCount": 0
+        }
+      }
+    },
+    {
+      "memberId": "model_gemini#0",
+      "modelId": "model_gemini",
+      "role": "answer",
+      "result": {
+        "status": "failed",
+        "errorKind": "auth_required",
+        "errorReason": "gemini CLI is not logged in (run: gemini auth login)",
+        "exitCode": 1,
+        "timing": {
+          "rawStdoutChunkCount": 0,
+          "rawStderrChunkCount": 0,
+          "parsedStreamEventCount": 0,
+          "answerDeltaCount": 0,
+          "reasoningDeltaCount": 0,
+          "startedAt": "2026-06-14T20:01:01Z",
+          "finishedAt": "2026-06-14T20:01:03Z"
+        }
+      }
+    },
+    {
+      "memberId": "model_grok#0",
+      "modelId": "model_grok",
+      "role": "answer",
+      "result": {
+        "status": "timed_out",
+        "errorKind": "timed_out",
+        "errorReason": "no output for 120s",
+        "timing": {
+          "rawStdoutChunkCount": 0,
+          "rawStderrChunkCount": 0,
+          "parsedStreamEventCount": 0,
+          "answerDeltaCount": 0,
+          "reasoningDeltaCount": 0,
+          "startedAt": "2026-06-14T20:01:01Z",
+          "finishedAt": "2026-06-14T20:03:01Z"
+        }
+      }
+    }
   ],
   "stages": [
     {
@@ -34,17 +166,44 @@
         "kind": "analysis",
         "analysis": {
           "consensus": [
-            { "statement": "Team accounts come first.", "sourceWorkerIds": ["model_opus#0", "model_chatgpt#0", "model_sonnet#0"], "strength": "strong" }
+            {
+              "statement": "Team accounts come first.",
+              "sourceWorkerIds": [
+                "model_opus#0",
+                "model_chatgpt#0",
+                "model_sonnet#0"
+              ],
+              "strength": "strong"
+            }
           ],
           "contradictions": [
-            { "topic": "Analytics timing", "positions": [{ "workerId": "model_chatgpt#0", "summary": "analytics can wait" }, { "workerId": "model_sonnet#0", "summary": "ship a thin event schema now" }], "recommendedResolution": "Ship a minimal event schema now, full analytics later." }
+            {
+              "topic": "Analytics timing",
+              "positions": [
+                {
+                  "workerId": "model_chatgpt#0",
+                  "summary": "analytics can wait"
+                },
+                {
+                  "workerId": "model_sonnet#0",
+                  "summary": "ship a thin event schema now"
+                }
+              ],
+              "recommendedResolution": "Ship a minimal event schema now, full analytics later."
+            }
           ],
           "partialCoverage": [],
           "uniqueInsights": [],
           "blindSpots": [],
           "failedWorkers": [
-            { "workerId": "model_gemini#0", "reason": "auth_required" },
-            { "workerId": "model_grok#0", "reason": "no output for 120s" }
+            {
+              "workerId": "model_gemini#0",
+              "reason": "auth_required"
+            },
+            {
+              "workerId": "model_grok#0",
+              "reason": "no output for 120s"
+            }
           ],
           "confidenceNote": "Two seats failed; treat with care."
         }

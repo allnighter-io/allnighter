@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 
@@ -188,11 +189,11 @@ final class StalledWorkDetectorTests: XCTestCase {
             prompt: "READ-ONLY advisory review for CR-07",
             status: .fanningOut,
             workerAnswers: [
-                WorkerAnswer(
-                    workerId: "model_glm",
+                TeamAnswer(
+                    memberId: "model_glm",
                     modelId: "model_glm",
-                    status: .running,
-                    startedAt: old
+                    role: "answer",
+                    result: WorkerRunResult(status: .running, timing: RunTiming(startedAt: old))
                 )
             ],
             createdAt: old,
@@ -230,11 +231,11 @@ final class StalledWorkDetectorTests: XCTestCase {
             prompt: "READ-ONLY advisory review for CR-07",
             status: .fanningOut,
             workerAnswers: [
-                WorkerAnswer(
-                    workerId: "model_glm",
+                TeamAnswer(
+                    memberId: "model_glm",
                     modelId: "model_glm",
-                    status: .running,
-                    startedAt: veryOld
+                    role: "answer",
+                    result: WorkerRunResult(status: .running, timing: RunTiming(startedAt: veryOld))
                 )
             ],
             createdAt: veryOld,
@@ -300,11 +301,11 @@ final class StalledWorkDetectorTests: XCTestCase {
             prompt: "Build feature",
             status: .fanningOut,
             workerAnswers: [
-                WorkerAnswer(
-                    workerId: "model_opus",
+                TeamAnswer(
+                    memberId: "model_opus",
                     modelId: "model_opus",
-                    status: .running,
-                    startedAt: recentRunActivity
+                    role: "answer",
+                    result: WorkerRunResult(status: .running, timing: RunTiming(startedAt: recentRunActivity))
                 )
             ],
             createdAt: old,
@@ -340,11 +341,11 @@ final class StalledWorkDetectorTests: XCTestCase {
             prompt: "Build feature",
             status: .fanningOut,
             workerAnswers: [
-                WorkerAnswer(
-                    workerId: "model_opus",
+                TeamAnswer(
+                    memberId: "model_opus",
                     modelId: "model_opus",
-                    status: .running,
-                    startedAt: old
+                    role: "answer",
+                    result: WorkerRunResult(status: .running, timing: RunTiming(startedAt: old))
                 )
             ],
             createdAt: old,

@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 @testable import AllnighterCore
 @testable import AllnighterEngine
 import CoreGraphics
@@ -207,14 +208,19 @@ final class WorkerOutputImageHarvestTests: XCTestCase {
             status: .complete,
             workers: [TestSupport.seat("chatgpt")],
             workerAnswers: [
-                WorkerAnswer(
-                    workerId: "chatgpt#0",
+                TeamAnswer(
+                    memberId: "chatgpt#0",
                     modelId: "chatgpt",
-                    status: .done,
-                    output: "Here is the generated image.",
-                    startedAt: isoDate("2026-06-22T19:09:30.000Z"),
-                    finishedAt: isoDate("2026-06-22T19:09:50.000Z"),
-                    vendorSessionId: sessionId
+                    role: "answer",
+                    result: WorkerRunResult(
+                        status: .done,
+                        output: "Here is the generated image.",
+                        capturedSessionId: sessionId,
+                        timing: RunTiming(
+                            startedAt: isoDate("2026-06-22T19:09:30.000Z"),
+                            finishedAt: isoDate("2026-06-22T19:09:50.000Z")
+                        )
+                    )
                 )
             ],
             createdAt: isoDate("2026-06-22T19:09:30.000Z")

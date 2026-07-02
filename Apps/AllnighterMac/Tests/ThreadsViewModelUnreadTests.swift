@@ -24,7 +24,7 @@ final class ThreadsViewModelUnreadTests: XCTestCase {
             runStore: RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
             registry: config.registry,
             models: config.models,
-            runner: WorkerRunner(commandRunner: StubRunner()),
+            runner: WorkerInvokerFactory.makeWorkerInvoker(commandRunner: CommandRunnerAsStreaming(StubRunner())),
             isAppActiveForReadClear: { active }
         )
         return (vm, store)

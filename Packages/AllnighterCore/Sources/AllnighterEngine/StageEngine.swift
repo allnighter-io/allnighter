@@ -74,12 +74,12 @@ public enum ReuseKey {
 /// wrap the result into a `StageOutput`. The shared primitive RB2 (review fanout),
 /// RB3 (final spec), and RB5 (return review) reuse.
 public struct ReduceRunner: Sendable {
-    private let workerRunner: WorkerRunner
+    private let workerRunner: any WorkerInvoking
     private let idFactory: @Sendable () -> String
     private let now: @Sendable () -> Date
 
     public init(
-        workerRunner: WorkerRunner,
+        workerRunner: any WorkerInvoking,
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
         now: @escaping @Sendable () -> Date = Date.init
     ) {
@@ -100,7 +100,7 @@ public struct ReduceRunner: Sendable {
         makePayload: @Sendable (String) -> StagePayload
     ) async -> StageOutput {
         let started = now()
-        let outcome = await workerRunner.invoke(worker: worker, manifest: manifest, prompt: prompt)
+        let outcome = await workerRunner.collect(WorkerInvocation(model: worker, manifest: manifest, prompt: prompt))
         let finished = now()
         if outcome.hasOutput, let out = outcome.output {
             return StageOutput(

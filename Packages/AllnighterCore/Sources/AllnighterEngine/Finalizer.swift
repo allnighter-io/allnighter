@@ -10,12 +10,12 @@ import AllnighterCore
 public struct Finalizer: Sendable {
     public static let decisionsDelimiter = "===DECISIONS==="
 
-    private let workerRunner: WorkerRunner
+    private let workerRunner: any WorkerInvoking
     private let idFactory: @Sendable () -> String
     private let now: @Sendable () -> Date
 
     public init(
-        workerRunner: WorkerRunner,
+        workerRunner: any WorkerInvoking,
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
         now: @escaping @Sendable () -> Date = Date.init
     ) {
@@ -41,7 +41,7 @@ public struct Finalizer: Sendable {
         let reviewBoardRan = run.stages.contains { $0.purpose == .review && $0.status == .done }
         let prompt = StageInputBuilder.assemble(instructions: profile.template, selectors: selectors, run: run, models: models)
         let started = now()
-        let outcome = await workerRunner.invoke(worker: finalizer, manifest: manifest, prompt: prompt)
+        let outcome = await workerRunner.collect(WorkerInvocation(model: finalizer, manifest: manifest, prompt: prompt))
         let finished = now()
 
         guard outcome.hasOutput, let raw = outcome.output else {

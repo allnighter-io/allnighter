@@ -2,7 +2,7 @@ import Foundation
 import AllnighterCore
 
 /// Executes and settles one Pending item (workerChat or non-mutating teamRun) through
-/// `WorkerRunner` / `CatalogRunCoordinator` (WTK-S02a/S02b).
+/// the composed `WorkerInvoking` stack / `CatalogRunCoordinator` (WTK-S02a/S02b).
 public struct PendingRunExecutor: Sendable {
     public struct RunOptions: Sendable {
         public var beginRun: PendingService.BeginRunOptions
@@ -66,13 +66,14 @@ public struct PendingRunExecutor: Sendable {
             throw PendingServiceError.invalidWorker("no driver manifest for \(model.driverId)")
         }
 
-        let runner = WorkerRunner(commandRunner: commandRunner, invocations: invocations, now: now)
-        let outcome = await runner.invoke(
-            worker: model,
+        let runner = WorkerInvokerFactory.makeWorkerInvoker(
+            commandRunner: (commandRunner as? StreamingCommandRunner) ?? CommandRunnerAsStreaming(commandRunner), invocations: invocations, now: now)
+        let outcome = await runner.collect(WorkerInvocation(
+            model: model,
             manifest: manifest,
             prompt: item.prompt,
-            workingDirectoryOverride: item.safety.workingDir
-        )
+            workingDirectory: item.safety.workingDir
+        ))
 
         let transcriptRef = writeTranscript(attemptId: attemptId, outcome: outcome)
         return try service.settleRun(
@@ -116,7 +117,8 @@ public struct PendingRunExecutor: Sendable {
         }
 
         let coordinator = CatalogRunCoordinator(
-            workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations, now: now),
+            workerRunner: WorkerInvokerFactory.makeWorkerInvoker(
+                commandRunner: (commandRunner as? StreamingCommandRunner) ?? CommandRunnerAsStreaming(commandRunner), invocations: invocations, now: now),
             registry: registry,
             now: now
         )
@@ -184,7 +186,7 @@ public struct PendingRunExecutor: Sendable {
         let summary = [
             run.status.rawValue,
             run.plan.map { "plan:\($0.prefix(200))" },
-            run.failedWorkerAnswers.map(\.errorReason).compactMap { $0 }.joined(separator: "; ")
+            run.failedWorkerAnswers.map(\.result.errorReason).compactMap { $0 }.joined(separator: "; ")
         ].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.joined(separator: "\n")
         guard !summary.isEmpty else { return nil }
         let relative = "attempts/\(attemptId).txt"

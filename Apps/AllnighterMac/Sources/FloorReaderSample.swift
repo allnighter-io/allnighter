@@ -1,6 +1,7 @@
 #if DEBUG
 import Foundation
 import AllnighterCore
+import AgentOSTeam
 
 /// A designer-mock TeamRun for the Factory Floor reader GUI proof (DEBUG only —
 /// never real data). Mirrors the handoff's CAST: a Lead synthesis + workers, each
@@ -16,13 +17,17 @@ enum FloorReaderSample {
             Worker(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0, skillId: "signal_product_ideas", skillName: "Copy Strategist", purpose: .answer),
             Worker(id: "model_grok#1", modelId: "model_grok", instanceIndex: 1, skillId: "signal_skeptic", skillName: "Skeptic", purpose: .review),
         ]
+        func answer(_ memberId: String, _ modelId: String, _ role: String, _ output: String) -> TeamAnswer {
+            TeamAnswer(memberId: memberId, modelId: modelId, role: role,
+                      result: WorkerRunResult(status: .done, output: output, timing: RunTiming(finishedAt: now)))
+        }
         let answers = [
-            WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .done, output: "", finishedAt: now),
-            WorkerAnswer(workerId: "model_grok#0", modelId: "model_grok", status: .done, output: scout, finishedAt: now),
-            WorkerAnswer(workerId: "model_gemini#0", modelId: "model_gemini", status: .done, output: market, finishedAt: now),
-            WorkerAnswer(workerId: "model_chatgpt#0", modelId: "model_chatgpt", status: .done, output: build, finishedAt: now),
-            WorkerAnswer(workerId: "model_sonnet#0", modelId: "model_sonnet", status: .done, output: copy, finishedAt: now),
-            WorkerAnswer(workerId: "model_grok#1", modelId: "model_grok", status: .done, output: skeptic, finishedAt: now),
+            answer("model_opus#0", "model_opus", "plan", ""),
+            answer("model_grok#0", "model_grok", "answer", scout),
+            answer("model_gemini#0", "model_gemini", "answer", market),
+            answer("model_chatgpt#0", "model_chatgpt", "answer", build),
+            answer("model_sonnet#0", "model_sonnet", "answer", copy),
+            answer("model_grok#1", "model_grok", "review", skeptic),
         ]
         let plan = StageOutput(id: "stage_plan", purpose: .plan, status: .done, payload: .plan(markdown: lead))
         return TeamRun(

@@ -92,7 +92,7 @@ public struct ThreadSendCoordinator: Sendable {
     }
 
     private let store: ThreadStore
-    private let runner: WorkerRunner
+    private let runner: any WorkerInvoking
     private let imageInvoker: WorkerImageInvoker
     private let registry: DriverRegistry
     private let contextBuilder: ThreadContextBuilder
@@ -104,7 +104,7 @@ public struct ThreadSendCoordinator: Sendable {
 
     public init(
         store: ThreadStore,
-        runner: WorkerRunner,
+        runner: any WorkerInvoking,
         imageInvoker: WorkerImageInvoker? = nil,
         registry: DriverRegistry,
         models: [Model],
@@ -141,7 +141,8 @@ public struct ThreadSendCoordinator: Sendable {
     ) {
         self.init(
             store: store,
-            runner: WorkerRunner(commandRunner: commandRunner, invocations: invocations, now: now),
+            runner: WorkerInvokerFactory.makeWorkerInvoker(
+                commandRunner: (commandRunner as? StreamingCommandRunner) ?? CommandRunnerAsStreaming(commandRunner), invocations: invocations, now: now),
             imageInvoker: WorkerImageInvoker(commandRunner: commandRunner, invocations: invocations, now: now),
             registry: registry,
             models: models,
@@ -205,20 +206,14 @@ public struct ThreadSendCoordinator: Sendable {
 
         switch pending.invokeProfile {
         case .regularText:
-            let outcome: WorkerRunOutcome
-            // STR-S07: stream live partials onto the running turn when the worker is
-            // stream-capable and a parser exists; otherwise the existing one-shot
-            // invoke. Settlement reloads the latest turn either way.
-            if manifest.canStream, runner.supportsStreaming,
-               let parser = StreamParserFactory.make(for: manifest) {
-                outcome = await runStreamingText(
-                    pending: pending, model: model, manifest: manifest, parser: parser)
-            } else {
-                outcome = await runner.invoke(
-                    worker: model, manifest: manifest, prompt: pending.prompt,
-                    workingDirectoryOverride: pending.workingDir
-                )
-            }
+            // STR-S07: stream live partials onto the running turn as they arrive.
+            // `DefaultWorkerRunner` (inside the composed `runner`) degrades internally
+            // to a terminal-only stream for a driver with no parser / that can't stream,
+            // so there is no separate stream-capable-vs-not branch to maintain here
+            // anymore — one call always drives the live-partial path, and settlement
+            // (which reloads the latest turn) is identical either way (F2_B.3c).
+            let outcome = await runStreamingText(
+                pending: pending, model: model, manifest: manifest)
             let thread = try settleStreamingAware(
                 turnId: pending.workerTurn.id, fallback: pending.workerTurn,
                 with: outcome, inThreadId: pending.threadId
@@ -619,12 +614,16 @@ public struct ThreadSendCoordinator: Sendable {
         return try store.updateTurn(settled, inThreadId: threadId, now: now())
     }
 
-    /// Drives `invokeStreaming`, flushing visible partial text onto the running
-    /// worker turn at a throttled cadence (≥2 KB OR ≥~150 ms), and returns the
-    /// terminal outcome. The buffer caps visible text at 64 KB. Each flush RELOADS
+    /// Drives the composed `WorkerInvoking` stack, flushing visible partial text onto
+    /// the running worker turn at a throttled cadence (≥2 KB OR ≥~150 ms), and returns
+    /// the terminal outcome. The buffer caps visible text at 64 KB. Each flush RELOADS
     /// the latest running turn before writing so a concurrent settle can't be lost.
+    /// The old "empty stream -> retry via a second non-streaming invoke" fallback is
+    /// dropped: `DefaultWorkerRunner` is now the ONE code path (no separate streaming
+    /// vs non-streaming spawn), so a second call would deterministically reproduce the
+    /// same result, not a different degraded path (F2_B.3c).
     private func runStreamingText(
-        pending: PendingSend, model: Model, manifest: DriverManifest, parser: WorkerStreamParser
+        pending: PendingSend, model: Model, manifest: DriverManifest
     ) async -> WorkerRunOutcome {
         var buffer = StreamingPartialBuffer()
         var reasoning = ""
@@ -645,10 +644,10 @@ public struct ThreadSendCoordinator: Sendable {
         }
 
         do {
-            for try await event in runner.invokeStreaming(
-                worker: model, manifest: manifest, prompt: pending.prompt,
-                parser: parser, workingDirectoryOverride: pending.workingDir
-            ) {
+            for try await event in runner.invoke(WorkerInvocation(
+                model: model, manifest: manifest, prompt: pending.prompt,
+                workingDirectory: pending.workingDir
+            )) {
                 switch event {
                 case .answerDelta(let text, _, _):
                     let byteDue = buffer.append(text)
@@ -668,18 +667,9 @@ public struct ThreadSendCoordinator: Sendable {
         }
         // Final flush so the last sub-threshold delta is visible before settlement.
         flush()
-        var outcome = terminal ?? WorkerRunOutcome(
+        return terminal ?? WorkerRunOutcome(
             status: .failed, errorKind: .emptyOutput,
             errorReason: "stream ended without a terminal event")
-        // Robustness: streaming produced no usable answer → retry non-streaming so the
-        // worker still replies (matches the proven invoke path).
-        if outcome.status != .done, (outcome.output ?? "").isEmpty {
-            StreamDebugLog.log("FALLBACK source=\(manifest.id): streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
-            outcome = await runner.invoke(
-                worker: model, manifest: manifest, prompt: pending.prompt,
-                workingDirectoryOverride: pending.workingDir)
-        }
-        return outcome
     }
 
     /// Settles a worker turn by RELOADING the latest stored turn first (the

@@ -1,4 +1,5 @@
 import Foundation
+import AgentOSTeam
 
 /// One prompt sent to a team of workers plus the stage sequence that
 /// follows (analysis, plan, reviews, and final output).
@@ -28,8 +29,10 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var presetId: String?
     /// The workers the prompt was sent to, in display order.
     public var workers: [Worker]
-    /// One result per answer/review worker (keyed by `workerId`).
-    public var workerAnswers: [WorkerAnswer]
+    /// One result per answer/review worker (keyed by `memberId`, F2_B.3c: was
+    /// `[WorkerAnswer]`, now AgentOSTeam's `[TeamAnswer]` — same shape, `result:
+    /// WorkerRunResult` instead of the flat inline fields).
+    public var workerAnswers: [TeamAnswer]
     /// Everything after the answer stage: review/plan/output stages.
     public var stages: [StageOutput]
     public var createdAt: Date
@@ -76,7 +79,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         originAgent: String? = nil,
         presetId: String? = nil,
         workers: [Worker] = [],
-        workerAnswers: [WorkerAnswer] = [],
+        workerAnswers: [TeamAnswer] = [],
         stages: [StageOutput] = [],
         createdAt: Date,
         lane: WorkLane? = nil,
@@ -122,17 +125,17 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
 // MARK: - Derived state
 
 public extension TeamRun {
-    var answeredWorkers: [WorkerAnswer] {
+    var answeredWorkers: [TeamAnswer] {
         workerAnswers.filter(\.hasAnswer)
     }
 
-    var failedWorkerAnswers: [WorkerAnswer] {
-        workerAnswers.filter { $0.status == .failed || $0.status == .timedOut }
+    var failedWorkerAnswers: [TeamAnswer] {
+        workerAnswers.filter { $0.result.status == .failed || $0.result.status == .timedOut }
     }
 
     /// True once every non-skipped member has reached a terminal state.
     var allWorkerAnswersSettled: Bool {
-        workerAnswers.allSatisfy { $0.status.isTerminal || $0.status == .skipped }
+        workerAnswers.allSatisfy { $0.result.status.isTerminal || $0.result.status == .skipped }
     }
 
     /// The latest stage output of a given purpose (stages are append-only; the
@@ -152,8 +155,8 @@ public extension TeamRun {
         return plan.payload?.markdown
     }
 
-    func workerAnswer(workerId: String) -> WorkerAnswer? {
-        workerAnswers.first { $0.workerId == workerId }
+    func workerAnswer(workerId: String) -> TeamAnswer? {
+        workerAnswers.first { $0.memberId == workerId }
     }
 }
 
@@ -227,8 +230,8 @@ public extension WorkerAnswerStatus {
     }
 }
 
-public extension WorkerAnswer {
+public extension TeamAnswer {
     func canTransition(to next: WorkerAnswerStatus) -> Bool {
-        status.allowedTransitions().contains(next)
+        result.status.allowedTransitions().contains(next)
     }
 }

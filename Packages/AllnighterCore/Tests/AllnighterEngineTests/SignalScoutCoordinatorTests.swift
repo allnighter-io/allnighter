@@ -7,7 +7,7 @@ import AllnighterCore
 final class SignalScoutCoordinatorTests: XCTestCase {
 
     private func coordinator(_ scripts: [String: MockCommandRunner.Script]) -> CatalogRunCoordinator {
-        let runner = WorkerRunner(commandRunner: MockCommandRunner(scripts: scripts))
+        let runner = DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(MockCommandRunner(scripts: scripts)))
         let registry = DriverRegistry([
             TestSupport.headlessManifest(id: "grok", command: "grok"),
             TestSupport.headlessManifest(id: "antigravity", command: "gemini"),
@@ -42,7 +42,7 @@ final class SignalScoutCoordinatorTests: XCTestCase {
         let run = await coord.run(resolved: resolved, prompt: "what does this mean for us?", models: models, runId: "r_scout")
 
         // The scout produced the distilled source.
-        let scoutAnswer = run.workerAnswers.first { $0.workerId == "model_grok#0" }
+        let scoutAnswer = run.workerAnswers.first { $0.memberId == "model_grok#0" }
         XCTAssertEqual(scoutAnswer?.output, distilled)
 
         // The interpreter's assembled prompt contains the scout's distilled source.

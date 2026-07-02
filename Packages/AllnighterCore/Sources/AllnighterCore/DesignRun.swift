@@ -2,7 +2,7 @@ import Foundation
 
 /// The design lane (Lane 2). A design run reuses the team spine: the panel
 /// fans out (one image worker × one design persona per seat) and each seat's
-/// `WorkerAnswer.output` carries the **local path of a generated image** instead
+/// `TeamAnswer.output` carries the **local path of a generated image** instead
 /// of prose. A `board` stage (`BoardPayload`) then organizes those images into the
 /// gallery the human picks from. Image engines design; coding agents build
 /// (`ImplementationBrief` carries the chosen image, Design2). See `docs/mvp/Design0`.

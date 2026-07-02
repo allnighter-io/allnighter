@@ -49,8 +49,8 @@ public enum SpecRetrieval {
         let plan = run.plan
         let modelCount = Set(run.workers.map(\.modelId)).count
         let failed = run.failedWorkerAnswers.map {
-            FailedWorker(workerId: $0.workerId, skillName: skillNameByWorker[$0.workerId] ?? nil,
-                         reason: $0.errorReason ?? $0.status.rawValue)
+            FailedWorker(workerId: $0.memberId, skillName: skillNameByWorker[$0.memberId] ?? nil,
+                         reason: $0.result.errorReason ?? $0.result.status.rawValue)
         }
 
         var summaryLines = [

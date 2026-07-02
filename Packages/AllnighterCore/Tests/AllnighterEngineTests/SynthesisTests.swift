@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 
@@ -11,9 +12,9 @@ final class SynthesisTests: XCTestCase {
             status: .answersIn,
             workers: [TestSupport.seat("model_opus"), TestSupport.seat("model_grok"), TestSupport.seat("model_gemini")],
             workerAnswers: [
-                WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .done, output: "Team accounts first."),
-                WorkerAnswer(workerId: "model_grok#0", modelId: "model_grok", status: .done, output: "Accounts, then analytics."),
-                WorkerAnswer(workerId: "model_gemini#0", modelId: "model_gemini", status: .timedOut, errorKind: .timedOut, errorReason: "no output for 120s")
+                TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .done, output: "Team accounts first.")),
+                TeamAnswer(memberId: "model_grok#0", modelId: "model_grok", role: "answer", result: WorkerRunResult(status: .done, output: "Accounts, then analytics.")),
+                TeamAnswer(memberId: "model_gemini#0", modelId: "model_gemini", role: "answer", result: WorkerRunResult(status: .timedOut, errorKind: .timedOut, errorReason: "no output for 120s"))
             ],
             createdAt: Date()
         )
@@ -53,7 +54,7 @@ final class SynthesisTests: XCTestCase {
 
     func testCombinedProducesAnalysisAndPlanStages() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: combinedOutput, exitCode: 0)])
-        let synth = PlanWriter(workerRunner: WorkerRunner(commandRunner: mock))
+        let synth = PlanWriter(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(
@@ -74,7 +75,7 @@ final class SynthesisTests: XCTestCase {
         // No JSON block, but a plan after the sentinel — never lose the plan.
         let output = "garble garble\n===PLAN===\n# Plan\nShip it."
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: output, exitCode: 0)])
-        let synth = PlanWriter(workerRunner: WorkerRunner(commandRunner: mock))
+        let synth = PlanWriter(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(
@@ -91,7 +92,7 @@ final class SynthesisTests: XCTestCase {
         // Same command for both; the mock returns the same script — craft one
         // that satisfies analysis (JSON) and a plan extraction is non-empty.
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: analysisJSON, exitCode: 0)])
-        let synth = PlanWriter(workerRunner: WorkerRunner(commandRunner: mock))
+        let synth = PlanWriter(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(
@@ -106,7 +107,7 @@ final class SynthesisTests: XCTestCase {
 
     func testPlanWriterFailureIsReported() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(stderr: "boom", exitCode: 1)])
-        let synth = PlanWriter(workerRunner: WorkerRunner(commandRunner: mock))
+        let synth = PlanWriter(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stages = await synth.synthesize(

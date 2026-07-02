@@ -9,7 +9,7 @@ public enum UtilizationCapacityReader {
     runStore.list()
       .filter { $0.createdAt >= since }
       .flatMap(\.failedWorkerAnswers)
-      .compactMap(\.capacityObservation)
+      .compactMap(\.result.capacityObservation)
   }
 
   public static func observations(from seedLedger: UtilizationSeedLedger) -> [CapacityObservation] {

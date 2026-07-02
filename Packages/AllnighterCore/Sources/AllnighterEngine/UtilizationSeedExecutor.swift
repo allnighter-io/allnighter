@@ -64,15 +64,16 @@ public struct UtilizationSeedExecutor: Sendable {
                     rawSnippet: "no enabled model for source")
     }
 
-    let runner = WorkerRunner(commandRunner: commandRunner, invocations: invocations, now: now)
-    let run = await runner.invoke(
-      worker: worker,
+    let runner = WorkerInvokerFactory.makeWorkerInvoker(
+      commandRunner: (commandRunner as? StreamingCommandRunner) ?? CommandRunnerAsStreaming(commandRunner), invocations: invocations, now: now)
+    let run = await runner.collect(WorkerInvocation(
+      model: worker,
       manifest: manifest,
       prompt: UtilizationSeedPrompt.text,
       effort: .low,
-      workingDirectoryOverride: AllnighterPaths.ensuredProbeScratchPath(),
-      timeoutOverride: .seconds(min(manifest.invoke?.timeoutSeconds ?? 120, 120))
-    )
+      workingDirectory: AllnighterPaths.ensuredProbeScratchPath(),
+      timeout: .seconds(min(manifest.invoke?.timeoutSeconds ?? 120, 120))
+    ))
 
     let outcome = mapOutcome(run)
     let snippet = run.capacityObservation?.rawSnippet

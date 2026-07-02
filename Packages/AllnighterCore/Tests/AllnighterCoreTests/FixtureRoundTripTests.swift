@@ -53,7 +53,7 @@ final class FixtureRoundTripTests: XCTestCase {
         XCTAssertEqual(run.origin, .gui)
         XCTAssertEqual(run.presetId, "preset_six_default")
         // seats are keyed independently
-        XCTAssertEqual(Set(run.workerAnswers.map(\.workerId)).count, 6)
+        XCTAssertEqual(Set(run.workerAnswers.map(\.memberId)).count, 6)
     }
 
     func testPresetFixturesRoundTrip() throws {

@@ -11,7 +11,19 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
     private struct StubRunner: CommandRunner {
         func run(command: String, args: [String], stdin: String?, env: [String: String],
                  workingDirectory: String?, timeout: Duration) async -> CommandResult {
-            CommandResult(stdout: "Added retry with backoff; ran tests — all green.", exitCode: 0)
+            let answer = "Added retry with backoff; ran tests — all green."
+            // Mirror a real file-capture CLI (codex's `-o <path>`, `finalAnswerSource:
+            // "output_file"`): write the answer to the output file so
+            // `DefaultWorkerRunner.normalize` can read it there, exactly like a real
+            // codex run would. A plain-prose stub that only answers on stdout leaves the
+            // manifest's declared output file empty, which F2_B.0's file-capture guard
+            // (deliberately ignoring noisy stdout for these drivers) then reads as an
+            // empty answer. Without this, a real vendor CLI would settle `.done`, but the
+            // test double wouldn't — a fixture-realism gap, not a production bug.
+            if let flagIndex = args.firstIndex(of: "-o"), args.indices.contains(flagIndex + 1) {
+                try? answer.write(toFile: args[flagIndex + 1], atomically: true, encoding: .utf8)
+            }
+            return CommandResult(stdout: answer, exitCode: 0)
         }
     }
 
@@ -32,7 +44,7 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
             store: ThreadStore(rootDirectory: root),
             runStore: RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
             registry: config.registry, models: config.models, toolStatuses: toolStatuses,
-            runner: WorkerRunner(commandRunner: stub), commandRunner: stub, writeLock: writeLock,
+            runner: WorkerInvokerFactory.makeWorkerInvoker(commandRunner: CommandRunnerAsStreaming(stub)), commandRunner: stub, writeLock: writeLock,
             projectStore: ProjectStore(rootDirectory: root.appendingPathComponent("projects", isDirectory: true))
         )
     }

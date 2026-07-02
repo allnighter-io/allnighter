@@ -1,5 +1,6 @@
 import Foundation
 import AllnighterCore
+import AgentOSTeam
 
 /// One run request — message + optional preset + worker, against a repo root.
 public struct RunRequest: Sendable, Equatable {
@@ -222,7 +223,7 @@ public actor RunService {
         return runStore.list()
             .filter { $0.createdAt >= lookback }
             .flatMap { $0.failedWorkerAnswers }
-            .compactMap { $0.capacityObservation }
+            .compactMap { $0.result.capacityObservation }
     }
 
     /// Run and persist. Returns the settled `TeamRun` (RunRecord substrate).
@@ -304,8 +305,9 @@ public actor RunService {
             if let lockToken { Task { await writeLock.release(lockKey, token: lockToken) } }
         }
 
-        let runner = WorkerRunner(
-            commandRunner: commandRunner, invocations: invocations, defaultWorkingDirectory: root
+        let runner = WorkerInvokerFactory.makeWorkerInvoker(
+            commandRunner: (commandRunner as? StreamingCommandRunner) ?? CommandRunnerAsStreaming(commandRunner),
+            invocations: invocations, defaultWorkingDirectory: root
         )
         let id = runId ?? UUID().uuidString
 
@@ -348,7 +350,7 @@ public actor RunService {
         origin: RunOrigin,
         originAgent: String?,
         runId: String,
-        runner: WorkerRunner,
+        runner: any WorkerInvoking,
         deliveries: [IncludedAttachmentDelivery] = [],
         requestedAt: Date? = nil,
         timing seedTiming: RunTimingReport,
@@ -457,7 +459,8 @@ public actor RunService {
         var run = TeamRun(
             id: runId, prompt: prompt, status: .fanningOut, origin: origin, originAgent: originAgent,
             presetId: preset.id, workers: [worker],
-            workerAnswers: [WorkerAnswer(workerId: worker.id, modelId: model.id, status: .running)],
+            workerAnswers: [TeamAnswer(memberId: worker.id, modelId: model.id, role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                                       result: WorkerRunResult(status: .running))],
             createdAt: startedAt, lane: preset.lane, effort: effort,
             teamDisplayName: preset.displayName, outputKind: preset.outputKind,
             // The run's source is where the worker ACTUALLY ran — the chosen model's
@@ -552,84 +555,23 @@ public actor RunService {
                 outcome = warmOutcome
             } catch {
                 StreamDebugLog.log("WARM FALLBACK source=\(manifest.id): \(error) — cold invoke")
-                outcome = await runner.invoke(
-                    worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                    workingDirectoryOverride: repoRoot, timeoutOverride: timeoutOverride,
-                    spawnConcurrencyLimit: spawnConcurrencyLimit)
+                outcome = await runner.collect(WorkerInvocation(
+                    model: model, manifest: manifest, prompt: assembled, effort: effort,
+                    workingDirectory: repoRoot, timeout: timeoutOverride,
+                    spawnConcurrencyLimit: spawnConcurrencyLimit))
             }
-        } else if manifest.id == "opencode", manifest.canStream {
-            let gateLimit = spawnConcurrencyLimit ?? manifest.maxConcurrentSpawns
-            let driverId = manifest.id
-            if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: driverId, limit: gateLimit) {
-                outcome = gateFailure
-            } else {
-                var gateHeld = gateLimit != nil
-                // OpenCode streams over warm serve HTTP SSE (not CLI stdout).
-                var answer = StreamingPartialBuffer()
-                var reasoning = ""
-                var lastAnswerEmit = now()
-                var lastReasoningEmit = now()
-                var terminal: WorkerRunOutcome?
-                func emitAnswer() {
-                    emit(RunEventKind.workerAnswerDelta, [
-                        "runId": .string(runId), "workerId": .string(worker.id),
-                        "text": .string(answer.visibleText), "truncated": .bool(answer.isTruncated),
-                    ])
-                    lastAnswerEmit = now()
-                }
-                func emitReasoning() {
-                    emit(RunEventKind.workerReasoningDelta, [
-                        "runId": .string(runId), "workerId": .string(worker.id), "text": .string(reasoning),
-                    ])
-                    lastReasoningEmit = now()
-                }
-                let timeout = timeoutOverride ?? Duration.seconds(manifest.invoke?.timeoutSeconds ?? 600)
-                do {
-                    try await OpenCodeServeCoordinator().ensureRunning()
-                    for try await streamEvent in runner.invokeOpenCodeStreaming(
-                        prompt: assembled,
-                        modelLabel: model.resolvedLabel(at: effort),
-                        directory: repoRoot,
-                        timeout: timeout
-                    ) {
-                        switch streamEvent {
-                        case .answerDelta(let text, _, _):
-                            let byteDue = answer.append(text)
-                            if byteDue || now().timeIntervalSince(lastAnswerEmit) >= 0.1 { emitAnswer() }
-                        case .reasoningDelta(let text, _):
-                            reasoning += text
-                            if now().timeIntervalSince(lastReasoningEmit) >= 0.1 { emitReasoning() }
-                        case .completed(let o), .failed(let o):
-                            terminal = o
-                        case .started, .rawEvent, .toolActivity:
-                            break
-                        }
-                    }
-                } catch {
-                    terminal = WorkerRunOutcome(
-                        status: .failed, errorKind: .missingCLI,
-                        errorReason: "opencode serve: \(error)")
-                }
-                emitAnswer()
-                if !reasoning.isEmpty { emitReasoning() }
-                outcome = terminal ?? WorkerRunOutcome(
-                    status: .failed, errorKind: .emptyOutput,
-                    errorReason: "opencode stream ended without a terminal event")
-                if outcome.status != .done, (outcome.output ?? "").isEmpty {
-                    StreamDebugLog.log("FALLBACK source=opencode: streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
-                    if gateHeld {
-                        await releaseDriverSpawnGate(driverId: driverId)
-                        gateHeld = false
-                    }
-                    outcome = await runner.invoke(
-                        worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                        workingDirectoryOverride: repoRoot, timeoutOverride: timeoutOverride,
-                        spawnConcurrencyLimit: spawnConcurrencyLimit)
-                }
-                if gateHeld { await releaseDriverSpawnGate(driverId: driverId) }
-            }
-        } else if manifest.canStream, runner.supportsStreaming,
-           let parser = StreamParserFactory.make(for: manifest) {
+        } else {
+            // Every other driver — including `opencode`, routed to its warm serve HTTP
+            // client by `OpenCodeRoutingWorkerRunner` inside the composed `runner` — drives
+            // through the ONE `WorkerInvoking` seam. `DefaultWorkerRunner` degrades
+            // internally to a terminal-only stream when a driver has no parser / can't
+            // stream (see `WorkerInvoking`'s doc comment), so there is no separate
+            // "streaming vs not, opencode vs CLI" branch to maintain here anymore, and no
+            // manual spawn-gate juggling (`GatedWorkerRunner` in the composed stack already
+            // gates both routes uniformly). The old "stream gave empty output -> retry via
+            // a second invoke" fallback is dropped too: a second call through the SAME seam
+            // deterministically reproduces the same result, not a different degraded code
+            // path — that distinct path no longer exists (F2_B.3c).
             var answer = StreamingPartialBuffer()
             var reasoning = ""
             var lastAnswerEmit = now()
@@ -649,11 +591,11 @@ public actor RunService {
                 lastReasoningEmit = now()
             }
             do {
-                for try await streamEvent in runner.invokeStreaming(
-                    worker: model, manifest: manifest, prompt: assembled, parser: parser,
-                    effort: effort, workingDirectoryOverride: repoRoot,
-                    timeoutOverride: timeoutOverride, sessionPlan: sessionPlan
-                ) {
+                for try await streamEvent in runner.invoke(WorkerInvocation(
+                    model: model, manifest: manifest, prompt: assembled, effort: effort,
+                    workingDirectory: repoRoot, timeout: timeoutOverride, sessionPlan: sessionPlan,
+                    spawnConcurrencyLimit: spawnConcurrencyLimit
+                )) {
                     switch streamEvent {
                     case .answerDelta(let text, _, _):
                         let byteDue = answer.append(text)
@@ -673,20 +615,6 @@ public actor RunService {
             outcome = terminal ?? WorkerRunOutcome(
                 status: .failed, errorKind: .emptyOutput,
                 errorReason: "stream ended without a terminal event")
-            // Robustness: if streaming produced no usable answer, retry non-streaming.
-            if outcome.status != .done, (outcome.output ?? "").isEmpty {
-                StreamDebugLog.log("FALLBACK source=\(manifest.id): streaming gave \(outcome.status.rawValue)/empty — retrying invoke")
-                outcome = await runner.invoke(
-                    worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                    workingDirectoryOverride: repoRoot, timeoutOverride: timeoutOverride,
-                    spawnConcurrencyLimit: spawnConcurrencyLimit)
-            }
-        } else {
-            outcome = await runner.invoke(
-                worker: model, manifest: manifest, prompt: assembled, effort: effort,
-                workingDirectoryOverride: repoRoot, timeoutOverride: timeoutOverride,
-                spawnConcurrencyLimit: spawnConcurrencyLimit
-            )
         }
         // A non-streaming worker (agy) can carry its step narration separated from the answer
         // (AGY transcript normalizer). It has no live deltas, so surface it once as a reasoning
@@ -710,21 +638,17 @@ public actor RunService {
             guard let requestedAt, let startedAt = outcome.timing.startedAt else { return nil }
             return max(0, Int(startedAt.timeIntervalSince(requestedAt) * 1000))
         }()
-        let answer = WorkerAnswer(
-            workerId: worker.id, modelId: model.id, status: outcome.status, output: outcome.output,
-            errorKind: outcome.errorKind, errorReason: outcome.errorReason,
-            startedAt: outcome.timing.startedAt, finishedAt: outcome.timing.finishedAt,
-            durationMs: outcome.timing.durationMs, queueMs: queueMs, ttftMs: outcome.timing.ttftMs,
-            gateWaitMs: outcome.timing.gateWaitMs,
-            exitCode: outcome.exitCode,
-            vendorSessionId: outcome.capturedSessionId
+        FileHandle.standardError.write(Data("[DEBUG-3c] outcome status=\(outcome.status) errorKind=\(String(describing: outcome.errorKind)) errorReason=\(String(describing: outcome.errorReason)) output=\(String(describing: outcome.output)) exitCode=\(String(describing: outcome.exitCode))\n".utf8))
+        let answer = TeamAnswer(
+            memberId: worker.id, modelId: model.id, role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+            result: outcome, queueMs: queueMs
         )
         var workerPayload: [String: JSONValue] = [
             "runId": .string(runId), "workerId": .string(worker.id), "modelId": .string(model.id),
-            "from": .string(WorkerAnswerStatus.running.rawValue), "to": .string(answer.status.rawValue)
+            "from": .string(WorkerAnswerStatus.running.rawValue), "to": .string(answer.result.status.rawValue)
         ]
-        if let durationMs = answer.durationMs { workerPayload["durationMs"] = .int(durationMs) }
-        if let reason = answer.errorReason { workerPayload["reason"] = .string(reason) }
+        if let durationMs = answer.result.timing.durationMs { workerPayload["durationMs"] = .int(durationMs) }
+        if let reason = answer.result.errorReason { workerPayload["reason"] = .string(reason) }
         emit(RunEventKind.workerStatusChanged, workerPayload)
         timing.stamp(RunTimingKey.processSpawnStart, at: outcome.timing.startedAt ?? startedAt)
         if let firstStderrAt = outcome.timing.firstStderrAt {
@@ -749,8 +673,8 @@ public actor RunService {
         timing.count(RunTimingKey.answerDeltaCount, by: outcome.timing.answerDeltaCount)
         timing.count(RunTimingKey.reasoningDeltaCount, by: outcome.timing.reasoningDeltaCount)
         run.workerAnswers = [answer]
-        run.status = answer.status == .done ? .complete : .failed
-        if answer.status == .done, let text = answer.output {
+        run.status = answer.result.status == .done ? .complete : .failed
+        if answer.result.status == .done, let text = answer.output {
             let stageId = UUID().uuidString
             emit(RunEventKind.stageStarted, [
                 "runId": .string(runId), "purpose": .string("plan"),
@@ -790,7 +714,7 @@ public actor RunService {
         origin: RunOrigin,
         originAgent: String?,
         runId: String,
-        runner: WorkerRunner,
+        runner: any WorkerInvoking,
         deliveries: [IncludedAttachmentDelivery] = [],
         timing seedTiming: RunTimingReport,
         events: AsyncStream<RunEvent>.Continuation?

@@ -22,7 +22,7 @@ final class ThreadsViewModelNotificationTests: XCTestCase {
             runStore: RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
             registry: config.registry,
             models: config.models,
-            runner: WorkerRunner(commandRunner: StubRunner()),
+            runner: WorkerInvokerFactory.makeWorkerInvoker(commandRunner: CommandRunnerAsStreaming(StubRunner())),
             isAppActiveForReadClear: { false },
             notificationPolicyStore: store,
             notificationDelivery: delivery
@@ -52,7 +52,7 @@ final class ThreadsViewModelNotificationTests: XCTestCase {
             runStore: RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
             registry: config.registry,
             models: config.models,
-            runner: WorkerRunner(commandRunner: StubRunner()),
+            runner: WorkerInvokerFactory.makeWorkerInvoker(commandRunner: CommandRunnerAsStreaming(StubRunner())),
             isAppActiveForReadClear: { true },
             notificationPolicyStore: NotificationPolicyStore(
                 fileURL: root.appendingPathComponent("policy.json")

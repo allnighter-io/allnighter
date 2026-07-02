@@ -243,7 +243,8 @@ public actor TeamService {
         let persist: @Sendable (TeamRun) -> Void = { try? store.save(stamped($0), models: allModels) }
 
         let coordinator = CatalogRunCoordinator(
-            workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations),
+            workerRunner: WorkerInvokerFactory.makeWorkerInvoker(
+                commandRunner: (commandRunner as? StreamingCommandRunner) ?? CommandRunnerAsStreaming(commandRunner), invocations: invocations),
             registry: registry
         )
         let forwarder: Task<Void, Never>? = events.map { sink in
@@ -263,7 +264,7 @@ public actor TeamService {
         return TeamToolResult(
             runId: run.id, origin: origin, preset: resolvedRequest.team.id, status: run.status, createdAt: run.createdAt,
             plan: run.plan, analysis: run.analysis,
-            partials: run.failedWorkerAnswers.map { WorkerFailure(workerId: $0.workerId, reason: $0.errorReason ?? $0.status.rawValue) },
+            partials: run.failedWorkerAnswers.map { WorkerFailure(workerId: $0.memberId, reason: $0.result.errorReason ?? $0.result.status.rawValue) },
             contextTruncated: contextTruncated, invocations: invocations, warnings: resolved.warnings
         )
     }

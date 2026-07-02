@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 
@@ -7,7 +8,7 @@ final class FinalizerTests: XCTestCase {
     private func run(withReview: Bool) -> TeamRun {
         var run = TeamRun(id: "r", prompt: "Build X", status: .complete,
                              workers: [TestSupport.seat("model_opus")],
-                             workerAnswers: [WorkerAnswer(workerId: "model_opus#0", modelId: "model_opus", status: .done, output: "Use an actor.")],
+                             workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .done, output: "Use an actor."))],
                              createdAt: Date())
         run.stages = [
             StageOutput(id: "a", purpose: .analysis, status: .done, payload: .analysis(PlanAnalysis(contradictions: [Contradiction(topic: "store", positions: [], recommendedResolution: "actor")]))),
@@ -39,7 +40,7 @@ final class FinalizerTests: XCTestCase {
 
     func testFinalizerProducesStructuredDecisionsAndProofFlag() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: goodOutput, exitCode: 0)])
-        let fin = Finalizer(workerRunner: WorkerRunner(commandRunner: mock))
+        let fin = Finalizer(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stage = await fin.finalize(run: run(withReview: true), finalizer: finalizerModel(), manifest: manifest, models: [finalizerModel()], profile: profile)
@@ -56,7 +57,7 @@ final class FinalizerTests: XCTestCase {
 
     func testFinalizerDegradesWhenDecisionsUnparseable() async {
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "## Final Spec\nJust prose, no decisions block.", exitCode: 0)])
-        let fin = Finalizer(workerRunner: WorkerRunner(commandRunner: mock))
+        let fin = Finalizer(workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)))
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
         let stage = await fin.finalize(run: run(withReview: false), finalizer: finalizerModel(), manifest: manifest, models: [finalizerModel()], profile: profile)

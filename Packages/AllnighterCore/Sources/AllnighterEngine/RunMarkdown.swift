@@ -88,8 +88,8 @@ public enum RunMarkdown {
             if let member, member.hasAnswer {
                 lines.append(member.output ?? "")
             } else {
-                let status = member?.status.rawValue ?? "no answer"
-                lines.append("_\(status): \(member?.errorReason ?? "no answer")_")
+                let status = member?.result.status.rawValue ?? "no answer"
+                lines.append("_\(status): \(member?.result.errorReason ?? "no answer")_")
             }
             lines.append("")
         }

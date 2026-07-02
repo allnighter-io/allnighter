@@ -10,10 +10,9 @@ public enum PendingCapacityResumeWriter {
         threadId: String? = nil,
         runId: String? = nil,
         outcome: WorkerRunOutcome? = nil,
-        workerAnswer: WorkerAnswer? = nil,
         now: Date = Date()
     ) throws {
-        guard let observation = outcome?.capacityObservation ?? workerAnswer?.capacityObservation else { return }
+        guard let observation = outcome?.capacityObservation else { return }
         switch observation.kind {
         case .authRequired, .manualRequired: return
         default: break

@@ -51,7 +51,7 @@ public actor WorkerChatCoordinator {
 
     public init(
         store: ThreadStore,
-        runner: WorkerRunner,
+        runner: any WorkerInvoking,
         imageInvoker: WorkerImageInvoker? = nil,
         registry: DriverRegistry,
         models: [Model],

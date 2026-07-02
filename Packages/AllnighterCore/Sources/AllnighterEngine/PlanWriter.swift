@@ -205,7 +205,7 @@ public enum SynthesisPromptBuilder {
         let missing = run.workers.compactMap { assignment -> String? in
             guard let answer = run.workerAnswer(workerId: assignment.id), !answer.hasAnswer else { return nil }
             let label = workerLabel(assignment, model: modelByID[assignment.modelId], sharesModel: sharesModel(assignment, in: run.workers))
-            return "- \(label): \(answer.errorReason ?? answer.status.rawValue)"
+            return "- \(label): \(answer.result.errorReason ?? answer.result.status.rawValue)"
         }
         if !missing.isEmpty {
             lines.append("# Team completeness\nThese workers did not return an answer; account for their absence:\n" + missing.joined(separator: "\n"))
@@ -237,14 +237,15 @@ public enum SynthesisPromptBuilder {
 
 /// Runs the synthesis reduces (analysis → plan) and returns the resulting stage
 /// outputs. `combined` is one plan-writer call split into two stages; `separate`
-/// is two calls. Reuses `WorkerRunner` — the plan writer is itself a worker.
+/// is two calls. Reuses the composed `WorkerInvoking` stack — the plan writer is
+/// itself a worker.
 public struct PlanWriter: Sendable {
-    private let workerRunner: WorkerRunner
+    private let workerRunner: any WorkerInvoking
     private let idFactory: @Sendable () -> String
     private let now: @Sendable () -> Date
 
     public init(
-        workerRunner: WorkerRunner,
+        workerRunner: any WorkerInvoking,
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
         now: @escaping @Sendable () -> Date = Date.init
     ) {
@@ -276,7 +277,7 @@ public struct PlanWriter: Sendable {
     ) async -> [StageOutput] {
         let prompt = SynthesisPromptBuilder.combinedPrompt(run: run, models: models, analysisInstructions: analysisInstructions, planInstructions: planInstructions)
         let startedAt = now()
-        let outcome = await workerRunner.invoke(worker: planWriter, manifest: manifest, prompt: prompt)
+        let outcome = await workerRunner.collect(WorkerInvocation(model: planWriter, manifest: manifest, prompt: prompt))
         let finishedAt = now()
 
         guard outcome.hasOutput, let raw = outcome.output else {
@@ -299,7 +300,7 @@ public struct PlanWriter: Sendable {
         // Stage 1: analysis.
         let aPrompt = SynthesisPromptBuilder.analysisPrompt(run: run, models: models, instructions: analysisInstructions)
         let aStart = now()
-        let aOutcome = await workerRunner.invoke(worker: planWriter, manifest: manifest, prompt: aPrompt)
+        let aOutcome = await workerRunner.collect(WorkerInvocation(model: planWriter, manifest: manifest, prompt: aPrompt))
         let aFinish = now()
         let (analysis, analysisError): (PlanAnalysis?, String?) = aOutcome.hasOutput
             ? PlanOutputParser.parseAnalysis(aOutcome.output ?? "")
@@ -310,7 +311,7 @@ public struct PlanWriter: Sendable {
         let groundingAnalysis = analysis ?? PlanAnalysis()
         let pPrompt = SynthesisPromptBuilder.planPrompt(run: run, models: models, analysis: groundingAnalysis, instructions: planInstructions)
         let pStart = now()
-        let pOutcome = await workerRunner.invoke(worker: planWriter, manifest: manifest, prompt: pPrompt)
+        let pOutcome = await workerRunner.collect(WorkerInvocation(model: planWriter, manifest: manifest, prompt: pPrompt))
         let pFinish = now()
         let planStage = pOutcome.hasOutput
             ? planStage(markdown: pOutcome.output, planWriter: planWriter, profileId: config.planProfileId, startedAt: pStart, finishedAt: pFinish)

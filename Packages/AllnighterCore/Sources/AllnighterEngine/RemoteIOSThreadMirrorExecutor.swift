@@ -1,5 +1,6 @@
 import Foundation
 import AllnighterCore
+import AgentOSTeam
 
 /// Mirrors iOS-originated async team runs into `ThreadStore` so `alln serve` can
 /// publish thread snapshots the phone actually reads. Without this, runs execute in
@@ -119,14 +120,14 @@ public actor RemoteIOSThreadMirrorExecutor: RemoteTeamCommandExecuting {
             }
 
             let answer = run.workerAnswers.first
-            let status = chatStatus(for: answer?.status ?? .failed)
+            let status = chatStatus(for: answer?.result.status ?? .failed)
             let text = settlementText(for: answer, run: run)
             try? updateWorkerTurn(
                 threadId: mirror.threadId,
                 workerTurnId: mirror.workerTurnId,
                 text: text,
                 status: status,
-                completedAt: answer?.finishedAt ?? now()
+                completedAt: answer?.result.timing.finishedAt ?? now()
             )
             activeMirrors[runId] = nil
             return
@@ -149,25 +150,25 @@ public actor RemoteIOSThreadMirrorExecutor: RemoteTeamCommandExecuting {
     }
 
     private func partialWorkerText(from run: TeamRun) -> String? {
-        guard let answer = run.workerAnswers.first(where: { $0.status == .running || $0.status == .done }) else {
+        guard let answer = run.workerAnswers.first(where: { $0.result.status == .running || $0.result.status == .done }) else {
             return nil
         }
         let text = (answer.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return text.isEmpty ? nil : text
     }
 
-    private func settlementText(for answer: WorkerAnswer?, run: TeamRun) -> String {
+    private func settlementText(for answer: TeamAnswer?, run: TeamRun) -> String {
         guard let answer else {
             return "Run finished without a worker reply."
         }
-        switch answer.status {
+        switch answer.result.status {
         case .done:
             let text = (answer.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             return text.isEmpty ? "Done." : text
         case .cancelled:
             return "Stopped on your Mac."
         case .failed, .timedOut, .skipped:
-            return answer.errorReason ?? "Run failed on your Mac."
+            return answer.result.errorReason ?? "Run failed on your Mac."
         case .queued, .running:
             return "Working on this on your Mac…"
         }
