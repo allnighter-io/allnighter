@@ -681,9 +681,9 @@ public struct PairCoordinator: Sendable {
         var outcome = WorkerRunOutcome(status: answer.status, output: answer.output)
         outcome.errorKind = answer.errorKind
         outcome.errorReason = answer.errorReason
-        outcome.startedAt = answer.startedAt
-        outcome.finishedAt = answer.finishedAt
-        outcome.durationMs = answer.durationMs
+        outcome.timing.startedAt = answer.startedAt
+        outcome.timing.finishedAt = answer.finishedAt
+        outcome.timing.durationMs = answer.durationMs
         outcome.exitCode = answer.exitCode
         return outcome
     }

@@ -73,7 +73,7 @@ final class SliceTerminalClassifierTests: XCTestCase {
     func testCompactionMarkerWhileRunning() {
         let started = Date().addingTimeInterval(-30)
         var outcome = WorkerRunOutcome(status: .running, output: "Compaction in progress")
-        outcome.startedAt = started
+        outcome.timing.startedAt = started
         let check = CheckResult()
         let terminal = SliceTerminalClassifier.classify(
             .init(workerOutcome: outcome, check: check, packet: packet(), now: Date())

@@ -205,18 +205,18 @@ public struct OpenCodeServeClient: Sendable {
                     let sawCleanIdle = await idleGate.sawCleanIdle
 
                     func done(_ output: String) {
-                        var outcome = WorkerRunOutcome(
-                            status: .done, output: output,
-                            startedAt: startedAt, finishedAt: finishedAt)
-                        outcome.durationMs = durationMs
+                        var outcome = WorkerRunOutcome(status: .done, output: output)
+                        outcome.timing.startedAt = startedAt
+                        outcome.timing.finishedAt = finishedAt
+                        outcome.timing.durationMs = durationMs
                         outcome.reasoning = reasoning.isEmpty ? nil : reasoning
                         continuation.yield(.completed(outcome))
                     }
                     func failed(_ kind: WorkerAnswerErrorKind, _ reason: String) {
-                        var outcome = WorkerRunOutcome(
-                            status: .failed, errorKind: kind, errorReason: reason,
-                            startedAt: startedAt, finishedAt: finishedAt)
-                        outcome.durationMs = durationMs
+                        var outcome = WorkerRunOutcome(status: .failed, errorKind: kind, errorReason: reason)
+                        outcome.timing.startedAt = startedAt
+                        outcome.timing.finishedAt = finishedAt
+                        outcome.timing.durationMs = durationMs
                         continuation.yield(.failed(outcome))
                     }
 

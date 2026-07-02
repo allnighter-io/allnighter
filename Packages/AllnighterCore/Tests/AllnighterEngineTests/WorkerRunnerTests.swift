@@ -17,7 +17,7 @@ final class WorkerRunnerTests: XCTestCase {
         XCTAssertEqual(response.status, .done)
         XCTAssertEqual(response.output, "Here is my answer.")
         XCTAssertEqual(response.exitCode, 0)
-        XCTAssertNotNil(response.durationMs)
+        XCTAssertNotNil(response.timing.durationMs)
     }
 
     func testAnsiIsStripped() async {
@@ -296,7 +296,7 @@ Here is the fixture:
         // Serialized, nothing dropped: both seats ran to done.
         XCTAssertTrue(results.allSatisfy { $0.status == .done })
 
-        let waits = results.compactMap(\.gateWaitMs).sorted()
+        let waits = results.compactMap(\.timing.gateWaitMs).sorted()
         XCTAssertEqual(waits.count, 2, "both seats report a gateWaitMs")
         XCTAssertLessThan(waits[0], 150, "the lead seat acquires immediately — ~0 wait")
         XCTAssertGreaterThan(waits[1], 150, "the trailing seat queues behind the lead seat's work")
@@ -304,8 +304,8 @@ Here is the fixture:
         // durationMs stays pure work-time on BOTH paths — the queued seat's ~250ms wait is
         // NOT folded into its duration (which would make it read as a ~500ms run).
         for r in results {
-            XCTAssertNotNil(r.durationMs)
-            XCTAssertLessThan(r.durationMs!, 600, "durationMs excludes gate wait (≈250ms work)")
+            XCTAssertNotNil(r.timing.durationMs)
+            XCTAssertLessThan(r.timing.durationMs!, 600, "durationMs excludes gate wait (≈250ms work)")
         }
     }
 
@@ -317,7 +317,7 @@ Here is the fixture:
 
         let response = await run.invoke(worker: worker, manifest: manifest, prompt: "hi")
         XCTAssertEqual(response.status, .done)
-        XCTAssertNil(response.gateWaitMs, "ungated drivers have no gate wait to report")
+        XCTAssertNil(response.timing.gateWaitMs, "ungated drivers have no gate wait to report")
     }
 
     func testRunPropagatesCapacityObservationToWorkerAnswer() async {

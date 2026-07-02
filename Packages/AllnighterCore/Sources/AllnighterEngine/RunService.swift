@@ -530,24 +530,25 @@ public actor RunService {
                 }
                 emitWarmAnswer(); if !reasoning.isEmpty { emitWarmReasoning() }
                 let text = answer.visibleText
-                var warmOutcome = WorkerRunOutcome(
-                    status: text.isEmpty ? .failed : .done, startedAt: startedAt, finishedAt: now())
+                var warmOutcome = WorkerRunOutcome(status: text.isEmpty ? .failed : .done)
+                warmOutcome.timing.startedAt = startedAt
+                warmOutcome.timing.finishedAt = now()
                 warmOutcome.output = text.isEmpty ? nil : text
                 if text.isEmpty { warmOutcome.errorKind = .emptyOutput; warmOutcome.errorReason = "warm worker returned no text" }
-                warmOutcome.durationMs = Int(now().timeIntervalSince(startedAt) * 1000)
+                warmOutcome.timing.durationMs = Int(now().timeIntervalSince(startedAt) * 1000)
                 if let firstTokenAt {
-                    warmOutcome.firstTokenAt = firstTokenAt
-                    warmOutcome.ttftMs = Int(firstTokenAt.timeIntervalSince(startedAt) * 1000)
+                    warmOutcome.timing.firstTokenAt = firstTokenAt
+                    warmOutcome.timing.ttftMs = Int(firstTokenAt.timeIntervalSince(startedAt) * 1000)
                 }
                 // Capture the vendor session id the warm driver established, so a later turn can
                 // durably resume after the warm worker dies (and so Codex image harvest can map
                 // the run to its rollout). The warm worker persists in-memory continuity already;
                 // this is the durable record.
                 warmOutcome.capturedSessionId = await warm.vendorSessionId()
-                warmOutcome.firstAnswerDeltaAt = firstAnswerDeltaAt
-                warmOutcome.lastAnswerDeltaAt = lastAnswerDeltaAt
-                warmOutcome.answerDeltaCount = warmAnswerDeltaCount
-                warmOutcome.reasoningDeltaCount = warmReasoningDeltaCount
+                warmOutcome.timing.firstAnswerDeltaAt = firstAnswerDeltaAt
+                warmOutcome.timing.lastAnswerDeltaAt = lastAnswerDeltaAt
+                warmOutcome.timing.answerDeltaCount = warmAnswerDeltaCount
+                warmOutcome.timing.reasoningDeltaCount = warmReasoningDeltaCount
                 outcome = warmOutcome
             } catch {
                 StreamDebugLog.log("WARM FALLBACK source=\(manifest.id): \(error) — cold invoke")
@@ -628,7 +629,7 @@ public actor RunService {
                 if gateHeld { await releaseDriverSpawnGate(driverId: driverId) }
             }
         } else if manifest.canStream, runner.supportsStreaming,
-           let parser = WorkerStreamParsers.make(for: manifest) {
+           let parser = StreamParserFactory.make(for: manifest) {
             var answer = StreamingPartialBuffer()
             var reasoning = ""
             var lastAnswerEmit = now()
@@ -706,15 +707,15 @@ public actor RunService {
         }
         // Queue wait: request accepted → CLI spawned. Lane/lock wait + resolution + staging.
         let queueMs: Int? = {
-            guard let requestedAt, let startedAt = outcome.startedAt else { return nil }
+            guard let requestedAt, let startedAt = outcome.timing.startedAt else { return nil }
             return max(0, Int(startedAt.timeIntervalSince(requestedAt) * 1000))
         }()
         let answer = WorkerAnswer(
             workerId: worker.id, modelId: model.id, status: outcome.status, output: outcome.output,
             errorKind: outcome.errorKind, errorReason: outcome.errorReason,
-            startedAt: outcome.startedAt, finishedAt: outcome.finishedAt,
-            durationMs: outcome.durationMs, queueMs: queueMs, ttftMs: outcome.ttftMs,
-            gateWaitMs: outcome.gateWaitMs,
+            startedAt: outcome.timing.startedAt, finishedAt: outcome.timing.finishedAt,
+            durationMs: outcome.timing.durationMs, queueMs: queueMs, ttftMs: outcome.timing.ttftMs,
+            gateWaitMs: outcome.timing.gateWaitMs,
             exitCode: outcome.exitCode,
             vendorSessionId: outcome.capturedSessionId
         )
@@ -725,28 +726,28 @@ public actor RunService {
         if let durationMs = answer.durationMs { workerPayload["durationMs"] = .int(durationMs) }
         if let reason = answer.errorReason { workerPayload["reason"] = .string(reason) }
         emit(RunEventKind.workerStatusChanged, workerPayload)
-        timing.stamp(RunTimingKey.processSpawnStart, at: outcome.startedAt ?? startedAt)
-        if let firstStderrAt = outcome.firstStderrAt {
+        timing.stamp(RunTimingKey.processSpawnStart, at: outcome.timing.startedAt ?? startedAt)
+        if let firstStderrAt = outcome.timing.firstStderrAt {
             timing.stamp(RunTimingKey.firstStderr, at: firstStderrAt)
         }
-        if let firstStdoutAt = outcome.firstStdoutAt {
+        if let firstStdoutAt = outcome.timing.firstStdoutAt {
             timing.stamp(RunTimingKey.firstStdoutChunk, at: firstStdoutAt)
         }
-        if let firstParsedEventAt = outcome.firstParsedEventAt {
+        if let firstParsedEventAt = outcome.timing.firstParsedEventAt {
             timing.stamp(RunTimingKey.firstParsedEvent, at: firstParsedEventAt)
         }
-        if let firstAnswerDeltaAt = outcome.firstAnswerDeltaAt {
+        if let firstAnswerDeltaAt = outcome.timing.firstAnswerDeltaAt {
             timing.stamp(RunTimingKey.firstAnswerDelta, at: firstAnswerDeltaAt)
         }
-        if let lastAnswerDeltaAt = outcome.lastAnswerDeltaAt {
+        if let lastAnswerDeltaAt = outcome.timing.lastAnswerDeltaAt {
             timing.stamp(RunTimingKey.lastAnswerDelta, at: lastAnswerDeltaAt)
         }
-        timing.stamp(RunTimingKey.processExit, at: outcome.finishedAt ?? now())
-        timing.count(RunTimingKey.rawStdoutChunks, by: outcome.rawStdoutChunkCount)
-        timing.count(RunTimingKey.rawStderrChunks, by: outcome.rawStderrChunkCount)
-        timing.count(RunTimingKey.parsedStreamEvents, by: outcome.parsedStreamEventCount)
-        timing.count(RunTimingKey.answerDeltaCount, by: outcome.answerDeltaCount)
-        timing.count(RunTimingKey.reasoningDeltaCount, by: outcome.reasoningDeltaCount)
+        timing.stamp(RunTimingKey.processExit, at: outcome.timing.finishedAt ?? now())
+        timing.count(RunTimingKey.rawStdoutChunks, by: outcome.timing.rawStdoutChunkCount)
+        timing.count(RunTimingKey.rawStderrChunks, by: outcome.timing.rawStderrChunkCount)
+        timing.count(RunTimingKey.parsedStreamEvents, by: outcome.timing.parsedStreamEventCount)
+        timing.count(RunTimingKey.answerDeltaCount, by: outcome.timing.answerDeltaCount)
+        timing.count(RunTimingKey.reasoningDeltaCount, by: outcome.timing.reasoningDeltaCount)
         run.workerAnswers = [answer]
         run.status = answer.status == .done ? .complete : .failed
         if answer.status == .done, let text = answer.output {

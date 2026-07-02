@@ -4,102 +4,12 @@ import AllnighterCore
 /// The neutral result of invoking one worker's CLI once — shared by workers
 /// (wrapped into a `WorkerAnswer`) and reduce stages (wrapped into a
 /// `StageOutput`). Pure of orchestration concerns.
-public struct WorkerRunOutcome: Sendable, Equatable {
-    public var status: WorkerAnswerStatus
-    public var output: String?
-    public var errorKind: WorkerAnswerErrorKind?
-    public var errorReason: String?
-    public var startedAt: Date?
-    public var finishedAt: Date?
-    public var durationMs: Int?
-    /// Time-to-first-token: ms from CLI spawn (`startedAt`) to the FIRST visible streamed
-    /// delta (answer or reasoning). The "dead air before anything appears" — the latency a
-    /// user perceives as "it's taking forever". nil on the non-streaming path (no deltas).
-    public var firstTokenAt: Date?
-    public var ttftMs: Int?
-    /// Spawn-gate wait: ms a serialized driver (`maxConcurrentSpawns`) spent blocked in the
-    /// per-driver FIFO `DriverConcurrencyGate` before this seat could spawn its CLI. nil when the
-    /// driver is ungated. Measured identically on the streaming and non-streaming paths, and
-    /// EXCLUDED from `durationMs` on both, so durationMs stays pure work-time. This is the
-    /// sub-portion of `WorkerAnswer.queueMs` attributable to queuing behind earlier long runners.
-    public var gateWaitMs: Int?
-    public var firstStdoutAt: Date?
-    public var firstStderrAt: Date?
-    public var firstParsedEventAt: Date?
-    public var firstAnswerDeltaAt: Date?
-    public var lastAnswerDeltaAt: Date?
-    public var rawStdoutChunkCount: Int = 0
-    public var rawStderrChunkCount: Int = 0
-    public var parsedStreamEventCount: Int = 0
-    public var answerDeltaCount: Int = 0
-    public var reasoningDeltaCount: Int = 0
-    public var exitCode: Int?
-    /// Sourced capacity/cooldown fact from raw CLI output (nonzero exit only).
-    public var capacityObservation: CapacityObservation?
-    /// Worker_Session_Continuity: the vendor CLI session id this run used/established — the
-    /// minted id (acquire=set), the captured id (acquire=capture), or the resumed id. The
-    /// caller persists it against (thread, source, model) so the next turn resumes it.
-    public var capturedSessionId: String?
-    /// Spawn cwd/timeout/byte-count facts for run artifacts.
-    public var spawnDiagnostics: WorkerSpawnDiagnostics?
-    /// The worker's step narration / thinking, separated from the answer. Set by the AGY
-    /// transcript normalizer (its `--print` stdout can dump every "I will X" step before the
-    /// real answer on long/compaction runs); the caller surfaces this on the Thinking bar.
-    public var reasoning: String?
-
-    public var hasOutput: Bool { status == .done && (output?.isEmpty == false) }
-}
-
-/// What the runner needs to piggyback ONE vendor CLI session across a thread's turns.
-public struct WorkerSessionPlan: Sendable, Equatable {
-    /// The driver's session config (from its manifest).
-    public let session: DriverManifest.Session
-    /// Resume this vendor session id (a later turn). nil ⇒ first turn on this (thread,source,model).
-    public let resumeSessionId: String?
-    /// First turn with acquire=set: the uuid the caller minted to assign via `--session-id`.
-    public let mintSessionId: String?
-
-    public init(session: DriverManifest.Session, resumeSessionId: String?, mintSessionId: String?) {
-        self.session = session
-        self.resumeSessionId = resumeSessionId
-        self.mintSessionId = mintSessionId
-    }
-}
-
-/// Pure decision layer for session-aware invocation — what argv to run and what session id
-/// the run will carry. Keeps the (testable) policy out of the streaming method's plumbing.
-public enum WorkerSessionPlanner {
-    /// The session args override (nil ⇒ run the base args) and the id to substitute/mint.
-    /// `resolveArgs` resolves `manifest.resolvedSessionArgs` against a context carrying the id.
-    public static func plan(
-        _ plan: WorkerSessionPlan?,
-        resolveArgs: (_ sessionId: String?, _ resuming: Bool) -> [String]?
-    ) -> (args: [String]?, sessionId: String?) {
-        guard let plan, plan.session.continuity == .vendorSession else { return (nil, nil) }
-        if let resumeId = plan.resumeSessionId {
-            return (resolveArgs(resumeId, true), resumeId)
-        }
-        if plan.session.acquire == .set {
-            let minted = plan.mintSessionId ?? UUID().uuidString.lowercased()
-            return (resolveArgs(minted, false), minted)  // firstTurnArgs, --session-id <minted>
-        }
-        return (nil, nil)  // acquire=capture/create first turn → base args; id captured after
-    }
-
-    /// The id to persist after the run: the resumed/minted id straight through, else the
-    /// captured id from output (acquire=capture). nil ⇒ no continuity established this turn.
-    public static func capturedId(
-        _ plan: WorkerSessionPlan?,
-        plannedSessionId: String?,
-        stdout: String,
-        outputFileContents: String?
-    ) -> String? {
-        guard let plan, plan.session.continuity == .vendorSession else { return nil }
-        if let plannedSessionId { return plannedSessionId }   // resume or mint(set)
-        guard plan.session.acquire == .capture, let rule = plan.session.capture else { return nil }
-        return WorkerSessionCapture.extract(capture: rule, stdout: stdout, outputFileContents: outputFileContents)
-    }
-}
+///
+/// This is AgentOSCLI's `WorkerRunResult` (F2_B.1+.2 cutover): the telemetry fields this
+/// type used to carry inline (`startedAt`, `ttftMs`, `rawStdoutChunkCount`, etc.) now live
+/// under `.timing` (a `RunTiming`). Kept as a local alias so the ~70 `WorkerRunOutcome`
+/// call sites keep resolving by name.
+public typealias WorkerRunOutcome = WorkerRunResult
 
 /// Runs one worker's CLI for one prompt and normalizes the raw command result.
 /// The coordinator runs many of these in parallel.
@@ -246,7 +156,7 @@ public struct WorkerRunner: Sendable {
             spawnWorkingDir: spawnDiagBase.workingDirectory,
             invocationKind: spawnDiagBase.invocationKind
         )
-        outcome.gateWaitMs = gateWaitMs
+        outcome.timing.gateWaitMs = gateWaitMs
         applyAntigravityTranscript(&outcome, snapshot: brainSnapshot)
         return outcome
     }
@@ -278,11 +188,12 @@ public struct WorkerRunner: Sendable {
         do {
             try await OpenCodeServeCoordinator().ensureRunning()
         } catch {
-            return await finish(WorkerRunOutcome(
+            var outcome = WorkerRunOutcome(
                 status: .failed, errorKind: .missingCLI,
-                errorReason: "opencode serve: \(error)",
-                startedAt: startedAt, finishedAt: now()
-            ))
+                errorReason: "opencode serve: \(error)")
+            outcome.timing.startedAt = startedAt
+            outcome.timing.finishedAt = now()
+            return await finish(outcome)
         }
         let directory = workingDirectoryOverride ?? defaultWorkingDirectory
             ?? AllnighterPaths.ensuredProbeScratchPath()
@@ -304,18 +215,20 @@ public struct WorkerRunner: Sendable {
                     }
                 }
             } catch {
-                return await finish(WorkerRunOutcome(
+                var outcome = WorkerRunOutcome(
                     status: .failed, errorKind: .nonzeroExit,
-                    errorReason: "opencode stream: \(error)",
-                    startedAt: startedAt, finishedAt: now()
-                ))
+                    errorReason: "opencode stream: \(error)")
+                outcome.timing.startedAt = startedAt
+                outcome.timing.finishedAt = now()
+                return await finish(outcome)
             }
             if let terminal { return await finish(terminal) }
-            return await finish(WorkerRunOutcome(
+            var outcome = WorkerRunOutcome(
                 status: .failed, errorKind: .emptyOutput,
-                errorReason: "opencode stream ended without terminal",
-                startedAt: startedAt, finishedAt: now()
-            ))
+                errorReason: "opencode stream ended without terminal")
+            outcome.timing.startedAt = startedAt
+            outcome.timing.finishedAt = now()
+            return await finish(outcome)
         }
 
         do {
@@ -324,23 +237,21 @@ public struct WorkerRunner: Sendable {
                 autoApprove: true, timeout: timeout
             )
             let finishedAt = now()
-            return await finish(WorkerRunOutcome(
-                status: .done,
-                output: answer.text,
-                startedAt: startedAt,
-                finishedAt: finishedAt,
-                durationMs: Int(finishedAt.timeIntervalSince(startedAt) * 1000),
-                reasoning: answer.reasoning
-            ))
+            var outcome = WorkerRunOutcome(status: .done, output: answer.text, reasoning: answer.reasoning)
+            outcome.timing.startedAt = startedAt
+            outcome.timing.finishedAt = finishedAt
+            outcome.timing.durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
+            return await finish(outcome)
         } catch {
             let finishedAt = now()
             let kind: WorkerAnswerErrorKind =
                 (error as? OpenCodeServeClient.ClientError) == .emptyAnswer ? .emptyOutput : .nonzeroExit
-            return await finish(WorkerRunOutcome(
+            var outcome = WorkerRunOutcome(
                 status: .failed, errorKind: kind,
-                errorReason: "opencode: \(error)",
-                startedAt: startedAt, finishedAt: finishedAt
-            ))
+                errorReason: "opencode: \(error)")
+            outcome.timing.startedAt = startedAt
+            outcome.timing.finishedAt = finishedAt
+            return await finish(outcome)
         }
     }
 
@@ -414,8 +325,10 @@ public struct WorkerRunner: Sendable {
         invocationKind: String? = nil
     ) -> WorkerRunOutcome {
         let durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)
-        var outcome = WorkerRunOutcome(
-            status: .running, startedAt: startedAt, finishedAt: finishedAt, durationMs: durationMs)
+        var outcome = WorkerRunOutcome(status: .running)
+        outcome.timing.startedAt = startedAt
+        outcome.timing.finishedAt = finishedAt
+        outcome.timing.durationMs = durationMs
         if let spawnCommand, let spawnArgCount {
             outcome.spawnDiagnostics = Self.spawnDiagnostics(
                 result: result, command: spawnCommand, argCount: spawnArgCount,
@@ -633,20 +546,20 @@ public struct WorkerRunner: Sendable {
                 }
 
                 func applyStreamMetrics(to outcome: inout WorkerRunOutcome) {
-                    outcome.firstTokenAt = firstTokenAt
+                    outcome.timing.firstTokenAt = firstTokenAt
                     if let firstTokenAt {
-                        outcome.ttftMs = Int(firstTokenAt.timeIntervalSince(startedAt) * 1000)
+                        outcome.timing.ttftMs = Int(firstTokenAt.timeIntervalSince(startedAt) * 1000)
                     }
-                    outcome.firstStdoutAt = firstStdoutAt
-                    outcome.firstStderrAt = firstStderrAt
-                    outcome.firstParsedEventAt = firstParsedEventAt
-                    outcome.firstAnswerDeltaAt = firstAnswerDeltaAt
-                    outcome.lastAnswerDeltaAt = lastAnswerDeltaAt
-                    outcome.rawStdoutChunkCount = rawStdoutChunkCount
-                    outcome.rawStderrChunkCount = rawStderrChunkCount
-                    outcome.parsedStreamEventCount = parsedStreamEventCount
-                    outcome.answerDeltaCount = answerDeltaCount
-                    outcome.reasoningDeltaCount = reasoningDeltaCount
+                    outcome.timing.firstStdoutAt = firstStdoutAt
+                    outcome.timing.firstStderrAt = firstStderrAt
+                    outcome.timing.firstParsedEventAt = firstParsedEventAt
+                    outcome.timing.firstAnswerDeltaAt = firstAnswerDeltaAt
+                    outcome.timing.lastAnswerDeltaAt = lastAnswerDeltaAt
+                    outcome.timing.rawStdoutChunkCount = rawStdoutChunkCount
+                    outcome.timing.rawStderrChunkCount = rawStderrChunkCount
+                    outcome.timing.parsedStreamEventCount = parsedStreamEventCount
+                    outcome.timing.answerDeltaCount = answerDeltaCount
+                    outcome.timing.reasoningDeltaCount = reasoningDeltaCount
                 }
 
                 do {
@@ -698,15 +611,17 @@ public struct WorkerRunner: Sendable {
                                     before: dc.before, after: Self.directoryEntryNames(dc.url))
                             }
                             applyStreamMetrics(to: &outcome)
-                            outcome.gateWaitMs = gateWaitMs
+                            outcome.timing.gateWaitMs = gateWaitMs
                             StreamDebugLog.log("OUTCOME status=\(outcome.status.rawValue) exit=\(result.exitCode.map(String.init) ?? "nil") outputLen=\(outcome.output?.count ?? 0) finalTextLen=\(finalText?.count ?? -1) session=\(outcome.capturedSessionId ?? "-")")
                             continuation.yield(outcome.status == .done ? .completed(outcome) : .failed(outcome))
                         case .failed(let launchError):
-                            var outcome = WorkerRunOutcome(status: .failed, startedAt: startedAt, finishedAt: now())
+                            var outcome = WorkerRunOutcome(status: .failed)
+                            outcome.timing.startedAt = startedAt
+                            outcome.timing.finishedAt = now()
                             outcome.errorKind = .missingCLI
                             outcome.errorReason = launchError
                             applyStreamMetrics(to: &outcome)
-                            outcome.gateWaitMs = gateWaitMs
+                            outcome.timing.gateWaitMs = gateWaitMs
                             StreamDebugLog.log("OUTCOME launch-failed: \(launchError)")
                             continuation.yield(.failed(outcome))
                         case .timedOut(let partialOut, let partialErr):
@@ -724,7 +639,7 @@ public struct WorkerRunner: Sendable {
                                 spawnWorkingDir: spawnWorkingDir,
                                 invocationKind: invocationKind)
                             applyStreamMetrics(to: &outcome)
-                            outcome.gateWaitMs = gateWaitMs
+                            outcome.timing.gateWaitMs = gateWaitMs
                             continuation.yield(outcome.status == .done ? .completed(outcome) : .failed(outcome))
                         case .cancelled(let partialOut, let partialErr):
                             let result = CommandResult(
@@ -741,7 +656,7 @@ public struct WorkerRunner: Sendable {
                                 spawnWorkingDir: spawnWorkingDir,
                                 invocationKind: invocationKind)
                             applyStreamMetrics(to: &outcome)
-                            outcome.gateWaitMs = gateWaitMs
+                            outcome.timing.gateWaitMs = gateWaitMs
                             continuation.yield(.failed(outcome))
                         case .bufferOverflow(let partialOut, let partialErr):
                             // Fail-closed backstop (SubprocessBudget.maxBufferedBytes): the
@@ -762,7 +677,7 @@ public struct WorkerRunner: Sendable {
                                 spawnWorkingDir: spawnWorkingDir,
                                 invocationKind: invocationKind)
                             applyStreamMetrics(to: &outcome)
-                            outcome.gateWaitMs = gateWaitMs
+                            outcome.timing.gateWaitMs = gateWaitMs
                             continuation.yield(.failed(outcome))
                         }
                     }
@@ -786,7 +701,7 @@ public struct WorkerRunner: Sendable {
         workingDirectoryOverride: String? = nil
     ) async -> WorkerAnswer {
         let outcome: WorkerRunOutcome
-        if manifest.canStream, supportsStreaming, let parser = WorkerStreamParsers.make(for: manifest) {
+        if manifest.canStream, supportsStreaming, let parser = StreamParserFactory.make(for: manifest) {
             var terminal: WorkerRunOutcome?
             do {
                 for try await event in invokeStreaming(
@@ -829,11 +744,11 @@ public struct WorkerRunner: Sendable {
             output: outcome.output,
             errorKind: outcome.errorKind,
             errorReason: outcome.errorReason,
-            startedAt: outcome.startedAt,
-            finishedAt: outcome.finishedAt,
-            durationMs: outcome.durationMs,
-            ttftMs: outcome.ttftMs,
-            gateWaitMs: outcome.gateWaitMs,
+            startedAt: outcome.timing.startedAt,
+            finishedAt: outcome.timing.finishedAt,
+            durationMs: outcome.timing.durationMs,
+            ttftMs: outcome.timing.ttftMs,
+            gateWaitMs: outcome.timing.gateWaitMs,
             exitCode: outcome.exitCode,
             capacityObservation: outcome.capacityObservation,
             spawnDiagnostics: outcome.spawnDiagnostics

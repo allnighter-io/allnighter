@@ -58,7 +58,7 @@ public enum SliceTerminalClassifier {
     }
 
     private static func isStalled(outcome: WorkerRunOutcome, packet: WorkSlicePacket, now: Date) -> Bool {
-        guard let started = outcome.startedAt else { return true }
+        guard let started = outcome.timing.startedAt else { return true }
         let age = now.timeIntervalSince(started)
         return age >= TimeInterval(packet.stallTimeoutSeconds)
     }

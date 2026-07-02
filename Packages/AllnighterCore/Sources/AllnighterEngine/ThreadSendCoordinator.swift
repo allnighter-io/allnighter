@@ -210,7 +210,7 @@ public struct ThreadSendCoordinator: Sendable {
             // stream-capable and a parser exists; otherwise the existing one-shot
             // invoke. Settlement reloads the latest turn either way.
             if manifest.canStream, runner.supportsStreaming,
-               let parser = WorkerStreamParsers.make(for: manifest) {
+               let parser = StreamParserFactory.make(for: manifest) {
                 outcome = await runStreamingText(
                     pending: pending, model: model, manifest: manifest, parser: parser)
             } else {
@@ -606,7 +606,7 @@ public struct ThreadSendCoordinator: Sendable {
     ) throws -> WorkThread {
         var settled = workerTurn
         settled.status = chatStatus(for: outcome.status)
-        settled.completedAt = outcome.finishedAt ?? now()
+        settled.completedAt = outcome.timing.finishedAt ?? now()
         switch settled.status {
         case .done:
             settled.text = captionText ?? outcome.output
@@ -696,7 +696,7 @@ public struct ThreadSendCoordinator: Sendable {
         var settled = store.get(threadId)?.turn(id: turnId) ?? fallback
         let partial = settled.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         settled.status = chatStatus(for: outcome.status)
-        settled.completedAt = outcome.finishedAt ?? now()
+        settled.completedAt = outcome.timing.finishedAt ?? now()
         switch settled.status {
         case .done:
             settled.text = outcome.output
@@ -769,13 +769,10 @@ public struct ThreadSendCoordinator: Sendable {
     }
 
     private static func outcome(from invoke: WorkerImageInvokeOutcome) -> WorkerRunOutcome {
-        var outcome = WorkerRunOutcome(
-            status: .running,
-            startedAt: invoke.startedAt,
-            finishedAt: invoke.finishedAt,
-            durationMs: invoke.durationMs,
-            exitCode: invoke.exitCode.map(Int.init)
-        )
+        var outcome = WorkerRunOutcome(status: .running, exitCode: invoke.exitCode.map(Int.init))
+        outcome.timing.startedAt = invoke.startedAt
+        outcome.timing.finishedAt = invoke.finishedAt
+        outcome.timing.durationMs = invoke.durationMs
         if let launchError = invoke.launchError {
             outcome.status = .failed
             outcome.errorKind = .missingCLI
