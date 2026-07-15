@@ -27,9 +27,14 @@ final class MCPPairHandlersTests: XCTestCase {
     }
 
     func testRegistryAdvertisesPairTools() {
+        // Slice 1 atomic cut (3db9509a, "61→30 tools") folded standalone `pair_slice`
+        // into `pair_run` (packet|packetPath mode) — only pair_run/pair_status are
+        // advertised MCP tools now. `MCPPairHandlers.slice` still exists internally
+        // (MCPMergedHandlers.pairRun dispatches to it) but is no longer a top-level
+        // tool name, so it must not appear in the registry.
         let names = Set(ContractRegistry.milestone1.mcpTools.map(\.name))
-        XCTAssertTrue(names.contains("pair_slice"))
         XCTAssertTrue(names.contains("pair_run"))
         XCTAssertTrue(names.contains("pair_status"))
+        XCTAssertFalse(names.contains("pair_slice"), "pair_slice was absorbed into pair_run")
     }
 }
