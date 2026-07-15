@@ -45,31 +45,34 @@ holds the safety rails, and never sleeps.
 
 ---
 
-## 1. Why not slices? (what this supersedes)
+## 1. Why not slices? (what this replaces)
 
-The `WorkSlicePacket` queue (`Pair_Programming_Team.md`) exists because a **weak, free
-executor** (GLM, 32K window) chokes on reads — orders had to be pre-decomposed,
-pre-resolved, read-bounded *before* dispatch. That was life support for one regime,
-and it leaked into the general design as "the planner must compile the doc into a
-queue up front."
+The `WorkSlicePacket` queue (`Pair_Programming_Team.md`) was built around a
+tiny-context executor experiment: orders pre-decomposed, symbols pre-resolved, reads
+pre-inlined and bounded *before* dispatch. **That whole regime is dead — founder call,
+2026-07-15.** Allnighter's seats are capable coding CLIs; nothing in the product
+sizes work by context window, budgets reads, or spoon-feeds an executor. If a model
+needs its reads pre-chewed to function, it doesn't get a seat.
 
-For the seats actually in use — frontier dev CLIs — decomposition up front is
-unnecessary ceremony. **Granularity is a per-round judgment call by the PM**, made in
-prose, differently for different surfaces (the same PM batched three slices in one
-round, then demanded single-slice gating for the next). A compile step can't do that.
+With capable seats, up-front decomposition is pure ceremony. **Granularity is a
+per-round judgment call by the PM**, made in prose, differently for different
+surfaces (the same PM batched three slices in one round, then demanded single-slice
+gating for the next). A compile step can't do that.
 
-Consequences (founder call, 2026-07-15 — **full replacement, no special case**):
+Consequences (**full replacement, no special case, no tiny-context legacy**):
 
 - **PPT-S13 (doc → packet compiler) is DEAD.** The relay makes decomposition lazy and
   conversational; there is nothing to compile.
 - **The entire slice-queue machinery is deleted** once the relay's works test passes
-  (R-S09). No "weak-executor special case" survives: seating a weak executor is a
-  *seating choice* — put GLM in the dev chair and the PM writes small, read-inlined
-  handovers, exactly as a good PM does for a risky surface. Keeping a second loop
-  is the migration-hedging the foundation-first rule bans, and half-dead machinery
-  misleads repo-scoped agents (the PRJ deletion taught this: `ca40036d`).
-- One salvage: the **compaction≠stall** logic in `SliceTerminalClassifier` — paid for
-  in real overnight runs — moves into the relay's turn classifier. The rest dies.
+  (R-S09) — including every tiny-context concept it carried: read budgets
+  (`estReadTokens`), pre-resolved symbols, `inlinedSources`, nudge templates,
+  attempts-before-takeover. None of it is salvaged into the relay. Keeping a second
+  loop is the migration-hedging the foundation-first rule bans, and half-dead
+  machinery misleads repo-scoped agents (the PRJ deletion taught this: `ca40036d`).
+- One salvage: the **compaction≠stall** logic in `SliceTerminalClassifier` — not a
+  tiny-context artifact; every major CLI agent auto-compacts on long turns, and
+  killing a compacting worker is the loop's worst false positive. It moves into the
+  relay's turn classifier. The rest dies.
 
 ---
 
@@ -207,7 +210,7 @@ Small, contract-first, CLI/MCP before GUI — house rules.
 | R-S06 | MCP: `pair_relay` / `pair_relay_status` / `pair_relay_resume` — full structured envelopes | `MCPPairHandlers` |
 | R-S07 | Relay-as-thread: each relay is a `WorkThread`; rounds are turns; escalation raises `needsAttention` — the inbox shows the loop live for free | `ThreadStore`, threads GUI |
 | R-S08 | Composer entry (GUI, last): `@`-link the doc, pick PM seat + dev seat, go — a team-lane preset (`pm_relay`: seat 1 PM, seat 2 dev) | attachments + team picker |
-| R-S09 | **Kill the slice queue** (gated on R-S07/works test PASS): delete `WorkSlicePacket`, `SliceGate`, `SliceQueue`/`Store`, `SliceAttemptPrompt`, `NudgePrompt`, `ReviewAttemptPrompt`, `PlannerTakeoverPrompt`, `CheckRunner`, `PairCoordinator`, `PairSliceJSON`, `PairProgrammingCLI`/`Dispatch`, `pair_slice`/`pair_run`/`pair_status` MCP + registry entries, `Pair_Programming_Team.md` (outright, no archive). Salvage compaction≠stall from `SliceTerminalClassifier` first. **Device pairing in `PairCLI` (list/approve/revoke/begin) is DirectMode iOS — untouched.** Keep: `TryFixGate`/`FixPacket` (Auto-Fix), `OpenCodeServeCoordinator` (driver-owned), code_review run logs (history) | — |
+| R-S09 | **Kill the slice queue** (gated on R-S07/works test PASS): delete `WorkSlicePacket`, `SliceGate`, `SliceQueue`/`Store`, `SliceAttemptPrompt`, `NudgePrompt`, `ReviewAttemptPrompt`, `PlannerTakeoverPrompt`, `CheckRunner`, `PairCoordinator`, `PairSliceJSON`, `PairProgrammingCLI`/`Dispatch`, `pair_slice`/`pair_run`/`pair_status` MCP + registry entries, `Pair_Programming_Team.md` (outright, no archive). Salvage compaction≠stall from `SliceTerminalClassifier` first. **Device pairing in `PairCLI` (list/approve/revoke/begin) is DirectMode iOS — untouched.** Keep: `TryFixGate`/`FixPacket` (Auto-Fix), `OpenCodeServeCoordinator` (belongs to the opencode *driver* like any warm dialect — no special role in any loop; whether that driver stays on the bench is a separate, unrelated call), code_review run logs (history) | — |
 
 Pre-work (before R-S04): **post-cutover smoke** — the pair path hasn't run since the
 AgentOS runner cutover (2026-07-02) and `MCPPairHandlers` is among the known test
