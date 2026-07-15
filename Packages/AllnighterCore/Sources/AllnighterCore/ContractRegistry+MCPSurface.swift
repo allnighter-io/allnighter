@@ -410,6 +410,44 @@ public extension ContractRegistry {
             title: "Pair queue status"
         ),
 
+        // MARK: PM Relay (1)
+
+        // One tool, action-dispatched (start | status | resume) — NOT three. The
+        // CLI keeps three separate subcommands (`pair relay` / `relay-status` /
+        // `relay-resume` — different flag shapes read better as distinct verbs at
+        // a terminal), but the MCP surface is under the T1 tool-count cap (§3):
+        // adding three tools would land at 33 (over the ≤32 cap with only 2 slots
+        // of headroom); folding status/resume into one `action`-dispatched tool —
+        // the same shape `teams_edit`/`skills_edit`/`pending_update` already use —
+        // costs exactly one new slot (30 → 31).
+        MCPToolSpec(
+            "pair_relay",
+            command: "pair relay",
+            summary: """
+            DOES: Start, check status of, or resume the PM Relay — a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.
+            USE WHEN: Automating the founder's PM↔dev copy-paste loop unattended on a spec doc, or checking/answering an in-flight relay.
+            NOT WHEN: A single synchronous change (use team_run).
+            NEXT: action:status to inspect a relay; action:resume once status is escalated.
+            ACTION: start → doc/project/pmWorker/devWorker required, begins a new relay and runs to done/escalate/a ceiling; status → relay required, reads durable state; resume → relay+answer required, injects the founder's answer into an escalated relay and continues.
+            """,
+            params: [
+                .init("action", required: true, summary: "start | status | resume."),
+                .init("doc", summary: "Repo-relative spec doc path (action:start) — the PM re-reads it fresh each round."),
+                .init("project", summary: "Project id, name, or repo path (action:start)."),
+                .init("pmWorker", summary: "PM seat model id (action:start)."),
+                .init("devWorker", summary: "Dev seat model id (action:start)."),
+                .init("relay", summary: "Relay id (action:status/resume)."),
+                .init("answer", summary: "The founder's answer to the escalation (action:resume)."),
+                .init("until", summary: "Hard stop clock HH:MM local (action:start/resume)."),
+                .init("maxRounds", type: "integer", summary: "Round ceiling, default 20 (action:start/resume)."),
+                .init("pmReadOnly", type: "boolean", summary: "Flag PM turns as non-mutating, advisory (action:start; default false)."),
+            ],
+            outputSchema: .relayJSON,
+            errors: ["PROJECT_NOT_FOUND", "RELAY_NOT_FOUND", "RELAY_INVALID_STATE", "CLI_USAGE_ERROR"],
+            idempotency: .notIdempotent,
+            title: "PM relay"
+        ),
+
         // MARK: Threads (3)
 
         MCPToolSpec(

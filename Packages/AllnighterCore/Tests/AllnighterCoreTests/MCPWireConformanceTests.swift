@@ -12,7 +12,10 @@ final class MCPWireConformanceTests: XCTestCase {
 
     func testToolCountRatchet() {
         XCTAssertLessThanOrEqual(tools.count, 32, "T1 cap — edit MCP_Tool_Upgrade.md §3 before raising")
-        XCTAssertEqual(tools.count, 30, "Slice 1 surface is exactly 30 tools")
+        // Slice 1 surface (30) + PM Relay R-S06's single action-dispatched
+        // `pair_relay` tool (start | status | resume) = 31 — still one slot under
+        // the ≤32 cap, so no cap-raise or doc edit was needed.
+        XCTAssertEqual(tools.count, 31, "Slice 1 (30) + pair_relay (1) = 31 tools")
     }
 
     func testWireDefinitionsHaveTitleAndInputSchema() {

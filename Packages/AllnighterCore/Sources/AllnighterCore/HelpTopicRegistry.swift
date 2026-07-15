@@ -136,6 +136,37 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
+            id: "pm_relay", title: "PM Relay", audience: .both,
+            summary: "Mechanizes the founder's PM↔dev copy-paste loop: a PM seat reviews the repo and writes a handover, a dev seat builds and commits, round after round, unattended.",
+            bodyMarkdown: """
+            The PM Relay automates a two-seat loop that used to be a human relaying prose \
+            between two CLI sessions. Each round: the PM seat re-reads the spec doc and the \
+            actual commit range, writes free-form review plus a handover, and ends with one \
+            small verdict block — continue (with a handover for the dev), done (closing \
+            summary), or escalate (a specific question for the founder). A safety scan runs \
+            over every handover before it reaches the dev seat; a danger instruction (leaking \
+            credentials, destructive git, signing, sandbox/TCC changes, mass deletion) blocks \
+            dispatch and escalates instead. The dev seat builds, commits through its own \
+            tooling, and writes a delivery report that becomes the next round's review input. \
+            The loop stops only on done, escalate, or a ceiling (`--until`, `--max-rounds`, or \
+            repeated no-progress rounds) — never by inference. `pair_relay` is one \
+            action-dispatched tool: start begins a new relay, status reads its durable state, \
+            resume injects the founder's answer into an escalated relay and continues.
+            """,
+            aliases: ["pm relay", "relay", "pair relay", "automate pm dev loop", "spec doc relay"],
+            sections: [
+                .init("verdict", "The only structure", "Everything the PM writes is free prose except one JSON tail: verdict continue/done/escalate. Missing or unparseable triggers one re-ask, then escalate — never a guess."),
+                .init("gate", "Handover safety", "Every continue verdict's handover passes a danger scan before the dev seat ever sees it. Danger blocks and escalates; mere doubt does not block."),
+                .init("ceilings", "Stopping", "`--until HH:MM`, `--max-rounds`, and a stagnation cap (repeated no-change rounds) are hard stops — the relay always ends on done, escalate, or a ceiling."),
+                .init("resume", "Escalation is not failure", "An escalated relay is a real question for the founder, not an error. `pair_relay(action:resume)` injects the answer and the loop continues from there."),
+            ],
+            relatedToolIds: ["pair_relay", "project_get", "run_get"],
+            relatedCommandNames: ["pair relay", "pair relay-status", "pair relay-resume", "project add", "project show"],
+            schemaRefs: ["relayJSON"],
+            errorRefs: ["RELAY_NOT_FOUND", "RELAY_INVALID_STATE", "RELAY_HANDOVER_UNSAFE", "PROJECT_NOT_FOUND"],
+            needsLiveCheck: true),
+
+        HelpTopic(
             id: "teams_and_workers", title: "Teams, Workers & Skills", audience: .both,
             summary: "Teams are lane-scoped rosters of workers (a model + skill); manage built-ins and custom copies in the catalog.",
             bodyMarkdown: """

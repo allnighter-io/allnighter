@@ -4907,6 +4907,82 @@
       "title" : "Pair queue status"
     },
     {
+      "command" : "pair relay",
+      "errors" : [
+        "PROJECT_NOT_FOUND",
+        "RELAY_NOT_FOUND",
+        "RELAY_INVALID_STATE",
+        "CLI_USAGE_ERROR"
+      ],
+      "idempotency" : "not_idempotent",
+      "name" : "pair_relay",
+      "outputSchema" : "relayJSON",
+      "params" : [
+        {
+          "name" : "action",
+          "required" : true,
+          "summary" : "start | status | resume.",
+          "type" : "string"
+        },
+        {
+          "name" : "doc",
+          "required" : false,
+          "summary" : "Repo-relative spec doc path (action:start) — the PM re-reads it fresh each round.",
+          "type" : "string"
+        },
+        {
+          "name" : "project",
+          "required" : false,
+          "summary" : "Project id, name, or repo path (action:start).",
+          "type" : "string"
+        },
+        {
+          "name" : "pmWorker",
+          "required" : false,
+          "summary" : "PM seat model id (action:start).",
+          "type" : "string"
+        },
+        {
+          "name" : "devWorker",
+          "required" : false,
+          "summary" : "Dev seat model id (action:start).",
+          "type" : "string"
+        },
+        {
+          "name" : "relay",
+          "required" : false,
+          "summary" : "Relay id (action:status\/resume).",
+          "type" : "string"
+        },
+        {
+          "name" : "answer",
+          "required" : false,
+          "summary" : "The founder's answer to the escalation (action:resume).",
+          "type" : "string"
+        },
+        {
+          "name" : "until",
+          "required" : false,
+          "summary" : "Hard stop clock HH:MM local (action:start\/resume).",
+          "type" : "string"
+        },
+        {
+          "name" : "maxRounds",
+          "required" : false,
+          "summary" : "Round ceiling, default 20 (action:start\/resume).",
+          "type" : "integer"
+        },
+        {
+          "name" : "pmReadOnly",
+          "required" : false,
+          "summary" : "Flag PM turns as non-mutating, advisory (action:start; default false).",
+          "type" : "boolean"
+        }
+      ],
+      "summary" : "DOES: Start, check status of, or resume the PM Relay — a PM seat reviews the repo and a dev seat builds, round after round, until done\/escalate\/a ceiling.\nUSE WHEN: Automating the founder's PM↔dev copy-paste loop unattended on a spec doc, or checking\/answering an in-flight relay.\nNOT WHEN: A single synchronous change (use team_run).\nNEXT: action:status to inspect a relay; action:resume once status is escalated.\nACTION: start → doc\/project\/pmWorker\/devWorker required, begins a new relay and runs to done\/escalate\/a ceiling; status → relay required, reads durable state; resume → relay+answer required, injects the founder's answer into an escalated relay and continues.",
+      "title" : "PM relay"
+    },
+    {
       "command" : "thread send",
       "errors" : [
         "THREAD_NOT_FOUND",

@@ -143,6 +143,8 @@ struct MCPServer {
             await respondMerged(id: id, outcome: await MCPMergedHandlers.pairRun(runtime: runtime, args: args))
         case "pair_status":
             await respondPair(id: id, outcome: MCPPairHandlers.status(runtime: runtime, args: args))
+        case "pair_relay":
+            await respondRelay(id: id, outcome: await MCPRelayHandlers.pairRelay(runtime: runtime, args: args))
 
         case "thread_send":
             let outcome = await MCPThreadSendHandlers.runSend(args: args, runtime: runtime)
@@ -245,6 +247,15 @@ struct MCPServer {
     }
 
     private func respondPair(id: Any?, outcome: MCPPairHandlers.Outcome) {
+        switch outcome {
+        case .success(let json, let summary):
+            respond(id: id, result: toolText(summary, structured: json))
+        case .toolError(let envelope):
+            respondToolError(id: id, code: envelope.code, message: envelope.message)
+        }
+    }
+
+    private func respondRelay(id: Any?, outcome: MCPRelayHandlers.Outcome) {
         switch outcome {
         case .success(let json, let summary):
             respond(id: id, result: toolText(summary, structured: json))
