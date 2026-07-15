@@ -1,0 +1,249 @@
+import Foundation
+
+/// PM-turn prompt (docs/phases/PM_Relay.md §2, §4). Round 1 has no dev report; round N
+/// carries the previous dev turn's report verbatim plus the exact commit range to review.
+/// The prompt teaches loop mechanics only — batching, gating, and review depth are the
+/// PM's judgment call (§3), never prescribed here.
+public enum RelayPMPrompt {
+    public struct Context: Sendable, Equatable {
+        /// Repo-relative path to the spec doc — the PM re-reads it fresh from disk.
+        public var docPath: String
+        public var roundNumber: Int
+        /// git HEAD when this round began (read-only, via `GitObserver`).
+        public var baselineHead: String
+        /// git HEAD after the dev's turn. Nil on round 1 — there is no dev turn yet.
+        public var currentHead: String?
+        /// The previous dev turn's report, verbatim. Nil on round 1.
+        public var devReport: String?
+        /// Injected on `--resume` after an escalation — the founder's answer.
+        public var founderNote: String?
+        public var maxRounds: Int
+        public var roundsRemaining: Int
+
+        public init(
+            docPath: String,
+            roundNumber: Int,
+            baselineHead: String,
+            currentHead: String? = nil,
+            devReport: String? = nil,
+            founderNote: String? = nil,
+            maxRounds: Int,
+            roundsRemaining: Int
+        ) {
+            self.docPath = docPath
+            self.roundNumber = roundNumber
+            self.baselineHead = baselineHead
+            self.currentHead = currentHead
+            self.devReport = devReport
+            self.founderNote = founderNote
+            self.maxRounds = maxRounds
+            self.roundsRemaining = roundsRemaining
+        }
+    }
+
+    public static func assemble(context: Context) -> String {
+        var parts = [
+            "# PM Relay — round \(context.roundNumber) (PM seat)",
+            """
+            You are the project manager driving delivery of the spec doc for this repo. \
+            The doc lives at `\(context.docPath)` — read it fresh from disk right now, plus \
+            anything it links to. Do not rely on any memory of it from an earlier round; the \
+            doc or the repo may have moved. You run at the repo root with full read access.
+            """,
+            "You have \(context.roundsRemaining) of \(context.maxRounds) rounds left before this relay stops itself. Plan the remaining work with that ceiling in mind — escalate rather than let it run out silently.",
+        ]
+
+        if let founderNote = context.founderNote, !founderNote.isEmpty {
+            parts.append("## Founder note (injected on resume)\n\(founderNote)")
+        }
+
+        if let devReport = context.devReport {
+            let headForRange = context.currentHead ?? "HEAD"
+            parts.append(
+                """
+                ## The dev's round \(max(context.roundNumber - 1, 1)) report
+                What follows, between the markers, is the dev's report — verbatim, unedited.
+                \(devReportBlock(devReport, round: max(context.roundNumber - 1, 1)))
+                """
+            )
+            parts.append(
+                """
+                ## Review the actual work, not just the report
+                - Diff the real commits yourself: `git log \(context.baselineHead)..\(headForRange)` \
+                and `git diff \(context.baselineHead)..\(headForRange)`. The report's prose is a \
+                claim, not proof — check it against what actually landed.
+                - Read any artifacts the report names (screenshots, logs, output files) at the \
+                paths it gives.
+                - Weigh the report's claims against what you find. Approve what holds, flag what \
+                doesn't, and fix small things yourself if that's faster than bouncing them back — \
+                both are fine.
+                """
+            )
+            parts.append(
+                """
+                ## Decide
+                Either write the next handover, declare the relay done (only if the doc's own \
+                acceptance criteria are actually met), or escalate with one specific question the \
+                founder must answer.
+                """
+            )
+        } else {
+            parts.append(
+                """
+                ## Round 1 — no dev report yet
+                Review the doc and the current state of the repo yourself. Decide the first unit \
+                of work and write the first handover for the dev.
+                """
+            )
+        }
+
+        parts.append(
+            """
+            ## This loop carries transport only
+            Batching, gating, how deep to review, and whether to fix something yourself versus \
+            send it back — all of that is your judgment call, made fresh each round. Nothing here \
+            prescribes a process; different rounds can call for different depths.
+            """
+        )
+
+        parts.append(
+            """
+            ## Honesty
+            Never claim work you haven't verified. Never fake-green a check. Declare done only \
+            when the doc's own acceptance criteria are actually met — not when it feels close.
+            """
+        )
+
+        parts.append(verdictContractBlock())
+
+        return parts.joined(separator: "\n\n")
+    }
+}
+
+/// Dev-turn prompt (docs/phases/PM_Relay.md §2, §4.1). Deliberately thin: a short standing
+/// preamble wrapped around the PM's handover, passed through untouched — the dev sees
+/// exactly what the founder would have pasted. No verdict contract; the dev's report is
+/// free prose.
+public enum RelayDevPrompt {
+    public struct Context: Sendable, Equatable {
+        /// The PM's handover text, verbatim — never paraphrased or decorated.
+        public var handover: String
+        public var docPath: String
+        public var roundNumber: Int
+
+        public init(handover: String, docPath: String, roundNumber: Int) {
+            self.handover = handover
+            self.docPath = docPath
+            self.roundNumber = roundNumber
+        }
+    }
+
+    public static func assemble(context: Context) -> String {
+        let parts = [
+            "# PM Relay — round \(context.roundNumber) (dev seat)",
+            """
+            You are the developer on this repo. The spec doc is `\(context.docPath)`; the PM \
+            reviewed it and the repo state and wrote the order below. Do the work the order \
+            describes. Commit through your own tooling as the order implies — this loop does no \
+            git of its own. When you're done, end your reply with a delivery report: what you \
+            did, what you committed, what you verified, and what remains. Be honest — no \
+            fake-green.
+            """,
+            """
+            ## The PM's order
+            What follows, between the markers, is the PM's handover — verbatim, unedited.
+            \(handoverBlock(context.handover))
+            """,
+        ]
+        return parts.joined(separator: "\n\n")
+    }
+}
+
+/// The one-re-ask nudge (§4.1) when a PM turn's verdict tail was missing or malformed. Asks
+/// for the SAME review conclusion re-emitted with a valid tail — never a redo of the review.
+public enum RelayReaskPrompt {
+    public static func assemble(previousOutput: String, parseError: RelayVerdictParser.ExtractError) -> String {
+        let parts = [
+            "# PM Relay — verdict re-ask",
+            """
+            Your last reply didn't end with a usable `RelayVerdict` tail: \(describe(parseError))
+            """,
+            """
+            ## What you just wrote (for reference — verbatim, unedited)
+            \(previousOutputBlock(previousOutput))
+            """,
+            verdictContractBlock(),
+            """
+            ## What to do
+            Do not redo the review. Re-emit the SAME conclusion you already reached, ending this \
+            reply with exactly one valid ```json fenced `RelayVerdict` object per the contract above.
+            """,
+        ]
+        return parts.joined(separator: "\n\n")
+    }
+
+    private static func describe(_ error: RelayVerdictParser.ExtractError) -> String {
+        switch error {
+        case .noVerdictFound:
+            return "no JSON object anywhere in the reply carried a `verdict` key — the tail was missing entirely."
+        case .unknownVerdict(let raw):
+            return "the `verdict` value `\"\(raw)\"` isn't one of `continue`, `done`, `escalate`."
+        case .continueWithoutHandover:
+            return "`verdict: \"continue\"` was sent but `handover` was missing or empty — it's required whenever the relay continues."
+        }
+    }
+}
+
+// MARK: - Shared building blocks
+
+/// The `RelayVerdict` contract, restated identically wherever the PM needs to see it. Kept
+/// as one source of truth so the PM prompt and the re-ask prompt never drift apart.
+private func verdictContractBlock() -> String {
+    """
+    ## End every reply with exactly one RelayVerdict
+    Everything above is free prose. End this reply with exactly one ```json fenced object — \
+    the only structure in this loop:
+
+    - `verdict`: `"continue"` | `"done"` | `"escalate"`
+    - `handover`: required when `verdict` is `"continue"` — the verbatim text for the dev's \
+    next turn. It is sent to the dev untouched, so write it as the actual order, not a summary.
+    - `note`: closing summary when `"done"`; the specific question the founder must answer \
+    when `"escalate"`.
+
+    Example:
+    ```json
+    {"verdict": "continue", "handover": "Add a test for the empty-list case, then re-run the suite."}
+    ```
+    """
+}
+
+/// Sentinel markers for embedding verbatim third-party text (dev reports, handovers, prior
+/// PM output) inside a prompt. Plain text lines rather than ``` fences on purpose: the
+/// embedded content itself may contain ```json fences (a dev report quoting a RelayVerdict
+/// example, a code sample with triple backticks) — nesting fences would either terminate
+/// early at the embedded content's own closing fence or force escaping that mutates the
+/// "verbatim" guarantee. A unique-enough text sentinel needs no escaping and can never be
+/// truncated by anything the embedded content contains.
+private func devReportBlock(_ text: String, round: Int) -> String {
+    """
+    ----- DEV REPORT (VERBATIM, ROUND \(round)) BEGIN -----
+    \(text)
+    ----- DEV REPORT END -----
+    """
+}
+
+private func handoverBlock(_ text: String) -> String {
+    """
+    ----- PM HANDOVER (VERBATIM) BEGIN -----
+    \(text)
+    ----- PM HANDOVER END -----
+    """
+}
+
+private func previousOutputBlock(_ text: String) -> String {
+    """
+    ----- PREVIOUS PM OUTPUT (VERBATIM) BEGIN -----
+    \(text)
+    ----- PREVIOUS PM OUTPUT END -----
+    """
+}
