@@ -60,6 +60,12 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Stalled", isDirectory: true)
     }
 
+    /// `…/Allnighter/Relays/` — durable PM Relay state (`docs/phases/PM_Relay.md`), one
+    /// folder per relay (`relays/<id>/relay.json`), mirroring the `Runs/` layout.
+    public static var relays: URL {
+        support.appendingPathComponent("Relays", isDirectory: true)
+    }
+
     /// `…/Allnighter/Evals/` — eval-harness runs, kept OUT of `Runs/` so history
     /// and `team_recall` (RB6) never surface them (contamination guard).
     public static var evals: URL {

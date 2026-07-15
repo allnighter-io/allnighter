@@ -1,0 +1,156 @@
+import Foundation
+
+/// One round of a PM Relay (docs/phases/PM_Relay.md §2, §6 R-S04). A round pins the repo
+/// HEAD before the PM turn, threads exactly that plus the dev's HEAD after their turn into
+/// the review range for the FOLLOWING round's PM prompt (`RelayPMPrompt.Context`), and
+/// records durable coordination facts only — the actual PM/dev transcripts live in
+/// `RunStore` under `pmRunId`/`devRunId`; this is never a second copy of run-truth.
+public struct RelayRound: Sendable, Codable, Equatable {
+    /// How this round settled. `continued` is the only outcome that leads to another round;
+    /// every other case ends the relay (the coordinator persists the terminal `RelayState`
+    /// alongside it).
+    public enum Outcome: String, Sendable, Codable, CaseIterable {
+        case continued
+        case done
+        case escalated
+        case stopped
+    }
+
+    public var roundNumber: Int
+    /// git HEAD pinned via `GitObserver` immediately before the PM turn dispatches.
+    public var baselineHead: String?
+    /// git HEAD pinned immediately after the dev turn completes. `nil` when the round never
+    /// reached (or finished) a dev turn — e.g. `done`/`escalate`/an error before then.
+    public var headAfterDev: String?
+    /// `RunStore` id for the PM turn — the LAST PM run this round. A verdict-parse re-ask
+    /// (§4.1) supersedes the first attempt's id here; the first attempt is still durably
+    /// recorded under `RunStore`, just not linked from this round.
+    public var pmRunId: String?
+    /// `RunStore` id for the dev turn. `nil` when the round never reached the dev turn.
+    public var devRunId: String?
+    public var verdict: RelayVerdict?
+    /// `HandoverGate.evaluate` result for this round's handover, when one was checked.
+    public var gate: RelayGateSummary?
+    public var startedAt: Date
+    public var finishedAt: Date?
+    public var outcome: Outcome?
+
+    public init(
+        roundNumber: Int,
+        baselineHead: String? = nil,
+        headAfterDev: String? = nil,
+        pmRunId: String? = nil,
+        devRunId: String? = nil,
+        verdict: RelayVerdict? = nil,
+        gate: RelayGateSummary? = nil,
+        startedAt: Date,
+        finishedAt: Date? = nil,
+        outcome: Outcome? = nil
+    ) {
+        self.roundNumber = roundNumber
+        self.baselineHead = baselineHead
+        self.headAfterDev = headAfterDev
+        self.pmRunId = pmRunId
+        self.devRunId = devRunId
+        self.verdict = verdict
+        self.gate = gate
+        self.startedAt = startedAt
+        self.finishedAt = finishedAt
+        self.outcome = outcome
+    }
+}
+
+/// `HandoverGate.Decision` flattened to a durable, `Codable` summary (PM_Relay.md §5 item
+/// 1) — a small mirror of the live `Decision` enum, which itself isn't `Codable` (its
+/// associated values are exactly what a round needs to persist, so this simply names them
+/// as stored fields instead of re-deriving a wire format for the enum itself).
+public struct RelayGateSummary: Sendable, Codable, Equatable {
+    public var allowed: Bool
+    public var dangerClass: String?
+    public var code: String?
+    public var reason: String?
+    public var snippet: String?
+
+    public init(
+        allowed: Bool, dangerClass: String? = nil, code: String? = nil,
+        reason: String? = nil, snippet: String? = nil
+    ) {
+        self.allowed = allowed
+        self.dangerClass = dangerClass
+        self.code = code
+        self.reason = reason
+        self.snippet = snippet
+    }
+
+    public init(decision: HandoverGate.Decision) {
+        switch decision {
+        case .allowed:
+            self.init(allowed: true)
+        case .blocked(let dangerClass, let code, let reason, let snippet):
+            self.init(allowed: false, dangerClass: dangerClass.rawValue, code: code, reason: reason, snippet: snippet)
+        }
+    }
+}
+
+/// One PM↔dev relay (docs/phases/PM_Relay.md) — the durable ledger `RelayCoordinator`
+/// reads/writes after every state change so the loop is resumable from disk at any point,
+/// never held only in memory (R-S04).
+public struct RelayState: Sendable, Codable, Equatable {
+    public enum Status: String, Sendable, Codable, CaseIterable {
+        case running
+        case done
+        case escalated
+        /// A ceiling fired (`--max-rounds`, `--until`, or stagnation) — always carries
+        /// `stoppedReason`.
+        case stopped
+    }
+
+    public var id: String
+    public var projectRoot: String
+    public var docPath: String
+    public var pmWorkerId: String
+    public var devWorkerId: String
+    public var status: Status
+    public var rounds: [RelayRound]
+    public var createdAt: Date
+    public var finishedAt: Date?
+    /// The founder-facing text: the PM's closing summary when `done`, or the specific
+    /// question the founder must answer when `escalated` — verbatim from
+    /// `RelayVerdict.note` (or a coordinator-authored explanation for a structural failure
+    /// that never reached a PM verdict, e.g. a dispatch error or a blocked handover).
+    public var note: String?
+    /// Set only when `status == .stopped` — which ceiling fired and why.
+    public var stoppedReason: String?
+    /// Injected via `--resume`: the founder's answer to an escalation, carried into the
+    /// next PM turn's prompt context (`RelayPMPrompt.Context.founderNote`), then cleared
+    /// once consumed.
+    public var founderNote: String?
+
+    public init(
+        id: String,
+        projectRoot: String,
+        docPath: String,
+        pmWorkerId: String,
+        devWorkerId: String,
+        status: Status,
+        rounds: [RelayRound] = [],
+        createdAt: Date,
+        finishedAt: Date? = nil,
+        note: String? = nil,
+        stoppedReason: String? = nil,
+        founderNote: String? = nil
+    ) {
+        self.id = id
+        self.projectRoot = projectRoot
+        self.docPath = docPath
+        self.pmWorkerId = pmWorkerId
+        self.devWorkerId = devWorkerId
+        self.status = status
+        self.rounds = rounds
+        self.createdAt = createdAt
+        self.finishedAt = finishedAt
+        self.note = note
+        self.stoppedReason = stoppedReason
+        self.founderNote = founderNote
+    }
+}
