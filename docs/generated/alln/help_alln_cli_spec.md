@@ -524,6 +524,45 @@ Flags:
 
 Output schema: `pairStatusJSON`.
 
+### `alln pair relay`
+
+Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.
+
+Flags:
+- `--doc <path>` — Repo-relative spec doc path (required) — the PM re-reads it fresh each round.
+- `--project <id>` — Project id, name, or repo path (required).
+- `--pm-worker <id>` — PM seat model id (required).
+- `--dev-worker <id>` — Dev seat model id (required).
+- `--until <time>` — Hard stop HH:MM (local).
+- `--max-rounds <integer>` — Round ceiling (default 20).
+- `--pm-read-only` — PM turns are flagged non-mutating (advisory; default off).
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
+
+Output schema: `relayJSON`.
+
+### `alln pair relay-status`
+
+Read a PM Relay's durable state — rounds, verdicts, gate decisions.
+
+Flags:
+- `--relay <id>` — Relay id (required).
+- `--json` — Emit RelayJSON.
+
+Output schema: `relayJSON`.
+
+### `alln pair relay-resume`
+
+Resume an escalated PM Relay with the founder's answer, then continue the loop.
+
+Flags:
+- `--relay <id>` — Relay id (required).
+- `--answer <string>` — The founder's answer to the escalation (required).
+- `--until <time>` — Hard stop HH:MM (local) for the resumed stretch.
+- `--max-rounds <integer>` — Round ceiling for the resumed stretch (default 20).
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
+
+Output schema: `relayJSON`.
+
 ### `alln team`
 
 Run a lane team on a prompt, foreground.
@@ -1183,6 +1222,9 @@ Output schema: `helpTopicsJSON`.
 | `PAIR_SLICE_UNSAFE` | yes | no | Fix the packet: remove danger flags, name intent, allowlist, and a complete check. |
 | `PAIR_SLICE_EXECUTOR_INVALID` | yes | no | Run `alln team show --json`; pick a single mutating runnable team for --executor. |
 | `PAIR_SERVE_UNAVAILABLE` | yes | yes | Install/start OpenCode serve or pick a non-opencode executor. |
+| `RELAY_NOT_FOUND` | yes | no | Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`. |
+| `RELAY_INVALID_STATE` | yes | no | Only an `escalated` relay can be resumed; check status first with `pair relay-status`. |
+| `RELAY_HANDOVER_UNSAFE` | yes | no | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
 | `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
 | `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |

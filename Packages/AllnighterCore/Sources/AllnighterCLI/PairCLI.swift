@@ -21,7 +21,10 @@ enum PairCLI {
         case "slice": await PairProgrammingCLI.runSlice(Array(args.dropFirst()), runtime: runtime)
         case "run": await PairProgrammingCLI.runQueue(Array(args.dropFirst()), runtime: runtime)
         case "status": await PairProgrammingCLI.runStatus(Array(args.dropFirst()), runtime: runtime)
-        default: usage("list|approve|revoke|begin|slice|run|status")
+        case "relay": await RelayCLI.runRelay(Array(args.dropFirst()), runtime: runtime)
+        case "relay-status": RelayCLI.runStatus(Array(args.dropFirst()))
+        case "relay-resume": await RelayCLI.runResume(Array(args.dropFirst()), runtime: runtime)
+        default: usage("list|approve|revoke|begin|slice|run|status|relay|relay-status|relay-resume")
         }
     }
 
@@ -190,7 +193,7 @@ enum PairCLI {
         }
     }
 
-    private static func usage(_ detail: String = "list|approve|revoke|begin|slice|run|status") -> Never {
+    private static func usage(_ detail: String = "list|approve|revoke|begin|slice|run|status|relay|relay-status|relay-resume") -> Never {
         FileHandle.standardError.write(Data("usage: alln pair \(detail)\n".utf8))
         exit(2)
     }

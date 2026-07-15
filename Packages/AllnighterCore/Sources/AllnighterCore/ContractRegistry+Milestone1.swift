@@ -350,6 +350,39 @@ public extension ContractRegistry {
             outputSchema: .pairStatusJSON
         ),
         CommandSpec(
+            "pair relay", summary: "Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.", milestone: .m1,
+            flags: [
+                FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the PM re-reads it fresh each round."),
+                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
+                FlagSpec("pm-worker", takesValue: true, valueType: "id", summary: "PM seat model id (required)."),
+                FlagSpec("dev-worker", takesValue: true, valueType: "id", summary: "Dev seat model id (required)."),
+                FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local)."),
+                FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling (default 20)."),
+                FlagSpec("pm-read-only", summary: "PM turns are flagged non-mutating (advisory; default off)."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope."),
+            ],
+            outputSchema: .relayJSON
+        ),
+        CommandSpec(
+            "pair relay-status", summary: "Read a PM Relay's durable state — rounds, verdicts, gate decisions.", milestone: .m1,
+            flags: [
+                FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
+                FlagSpec("json", summary: "Emit RelayJSON."),
+            ],
+            outputSchema: .relayJSON
+        ),
+        CommandSpec(
+            "pair relay-resume", summary: "Resume an escalated PM Relay with the founder's answer, then continue the loop.", milestone: .m1,
+            flags: [
+                FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
+                FlagSpec("answer", takesValue: true, valueType: "string", summary: "The founder's answer to the escalation (required)."),
+                FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the resumed stretch."),
+                FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the resumed stretch (default 20)."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope."),
+            ],
+            outputSchema: .relayJSON
+        ),
+        CommandSpec(
             "team", summary: "Run a lane team on a prompt, foreground.", milestone: .m1,
             args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
             flags: [
@@ -784,6 +817,9 @@ public extension ContractRegistry {
         ErrorSpec("PAIR_SLICE_UNSAFE", ruleId: "pair.slice.unsafe", agentAction: "Fix the packet: remove danger flags, name intent, allowlist, and a complete check.", requiresManual: true, retryable: false, explain: "The slice packet failed the safety gate (danger, missing allowlist, incomplete check, etc.)."),
         ErrorSpec("PAIR_SLICE_EXECUTOR_INVALID", ruleId: "pair.slice.executor_invalid", agentAction: "Run `alln team show --json`; pick a single mutating runnable team for --executor.", requiresManual: true, retryable: false, explain: "The executor team is missing, not mutating, not runnable, or does not resolve to exactly one worker."),
         ErrorSpec("PAIR_SERVE_UNAVAILABLE", ruleId: "pair.serve.unavailable", agentAction: "Install/start OpenCode serve or pick a non-opencode executor.", requiresManual: true, retryable: true, explain: "The OpenCode serve coordinator could not start or pass health check for an opencode executor."),
+        ErrorSpec("RELAY_NOT_FOUND", ruleId: "relay.not_found", agentAction: "Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`.", requiresManual: true, retryable: false, explain: "No PM Relay matches the given id."),
+        ErrorSpec("RELAY_INVALID_STATE", ruleId: "relay.invalid_state", agentAction: "Only an `escalated` relay can be resumed; check status first with `pair relay-status`.", requiresManual: true, retryable: false, explain: "The requested relay transition is not valid for its current status (e.g. resuming a relay that is not escalated)."),
+        ErrorSpec("RELAY_HANDOVER_UNSAFE", ruleId: "relay.handover.unsafe", agentAction: "The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent.", requiresManual: true, retryable: false, explain: "HandoverGate blocked a PM handover before it reached the dev seat — danger blocks, doubt does not."),
         ErrorSpec("THREAD_SEND_FAILED", ruleId: "thread.send.failed", agentAction: "Inspect the error detail; retry the send or fix the worker.", requiresManual: false, retryable: true, explain: "The thread send did not complete (worker or transport failure). Inspect the detail, then retry."),
         ErrorSpec("MODEL_NOT_FOUND", ruleId: "model.not_found", agentAction: "Run `alln models --json` and retry with a valid model id.", requiresManual: true, retryable: false, explain: "No model matches the given id. List models and retry with a valid ModelID."),
         ErrorSpec("MODEL_BUILTIN_IMMUTABLE", ruleId: "model.builtin.immutable", agentAction: "Duplicate the built-in model, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in models cannot be edited or deleted. Duplicate to a custom model and edit that copy."),

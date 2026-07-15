@@ -1373,6 +1373,143 @@
     },
     {
       "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "doc",
+          "summary" : "Repo-relative spec doc path (required) — the PM re-reads it fresh each round.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "project",
+          "summary" : "Project id, name, or repo path (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "pm-worker",
+          "summary" : "PM seat model id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "dev-worker",
+          "summary" : "Dev seat model id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "until",
+          "summary" : "Hard stop HH:MM (local).",
+          "takesValue" : true,
+          "valueType" : "time"
+        },
+        {
+          "name" : "max-rounds",
+          "summary" : "Round ceiling (default 20).",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "pm-read-only",
+          "summary" : "PM turns are flagged non-mutating (advisory; default off).",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pair relay",
+      "outputSchema" : "relayJSON",
+      "summary" : "Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done\/escalate\/a ceiling."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "relay",
+          "summary" : "Relay id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit RelayJSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pair relay-status",
+      "outputSchema" : "relayJSON",
+      "summary" : "Read a PM Relay's durable state — rounds, verdicts, gate decisions."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "relay",
+          "summary" : "Relay id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "answer",
+          "summary" : "The founder's answer to the escalation (required).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "until",
+          "summary" : "Hard stop HH:MM (local) for the resumed stretch.",
+          "takesValue" : true,
+          "valueType" : "time"
+        },
+        {
+          "name" : "max-rounds",
+          "summary" : "Round ceiling for the resumed stretch (default 20).",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pair relay-resume",
+      "outputSchema" : "relayJSON",
+      "summary" : "Resume an escalated PM Relay with the founder's answer, then continue the loop."
+    },
+    {
+      "args" : [
         {
           "name" : "prompt",
           "required" : false,
@@ -3565,6 +3702,33 @@
       "requiresManual" : true,
       "retryable" : true,
       "ruleId" : "pair.serve.unavailable"
+    },
+    {
+      "agentAction" : "Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`.",
+      "code" : "RELAY_NOT_FOUND",
+      "exitClass" : "operational",
+      "explain" : "No PM Relay matches the given id.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "relay.not_found"
+    },
+    {
+      "agentAction" : "Only an `escalated` relay can be resumed; check status first with `pair relay-status`.",
+      "code" : "RELAY_INVALID_STATE",
+      "exitClass" : "operational",
+      "explain" : "The requested relay transition is not valid for its current status (e.g. resuming a relay that is not escalated).",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "relay.invalid_state"
+    },
+    {
+      "agentAction" : "The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox\/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent.",
+      "code" : "RELAY_HANDOVER_UNSAFE",
+      "exitClass" : "operational",
+      "explain" : "HandoverGate blocked a PM handover before it reached the dev seat — danger blocks, doubt does not.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "relay.handover.unsafe"
     },
     {
       "agentAction" : "Inspect the error detail; retry the send or fix the worker.",

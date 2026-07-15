@@ -60,6 +60,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case stallEpisodeJSON
         case pendingQueueJSON
         case pairSliceJSON, pairQueueJSON, pairStatusJSON, pairQueueProgressJSON
+        case relayJSON
     }
 
     public struct ArgSpec: Codable, Sendable, Equatable {
