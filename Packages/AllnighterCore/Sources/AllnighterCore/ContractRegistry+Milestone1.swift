@@ -314,42 +314,6 @@ public extension ContractRegistry {
             outputSchema: .teamRunJSON
         ),
         CommandSpec(
-            "pair slice", summary: "Dispatch one bounded work slice through the pair-programming control plane.", milestone: .m1,
-            args: [ArgSpec("packet-path", required: true, summary: "WorkSlicePacket .json or markdown with work-slice-packet fence.")],
-            flags: [
-                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
-                FlagSpec("executor", takesValue: true, valueType: "id", summary: "Mutating executor team id."),
-                FlagSpec("planner-worker", takesValue: true, valueType: "id", summary: "Planner model id (recorded on envelope)."),
-                FlagSpec("executor-worker", takesValue: true, valueType: "id", summary: "Executor model id."),
-                FlagSpec("json", summary: "Emit PairSliceJSON."),
-            ],
-            outputSchema: .pairSliceJSON
-        ),
-        CommandSpec(
-            "pair run", summary: "Run a durable slice queue unattended until empty or deadline.", milestone: .m1,
-            flags: [
-                FlagSpec("queue", takesValue: true, valueType: "path", summary: "Directory of slice packet JSON files."),
-                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
-                FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local)."),
-                FlagSpec("max-retries", takesValue: true, valueType: "integer", summary: "Legacy stall nudge cap."),
-                FlagSpec("executor-attempts", takesValue: true, valueType: "integer", summary: "Executor attempts before planner takeover (default 3)."),
-                FlagSpec("executor", takesValue: true, valueType: "id", summary: "Mutating executor team id."),
-                FlagSpec("planner-worker", takesValue: true, valueType: "id", summary: "Planner model id."),
-                FlagSpec("executor-worker", takesValue: true, valueType: "id", summary: "Executor model id."),
-                FlagSpec("verbose", summary: "Append progress + run event tails to pair-verbose.log in the queue dir."),
-                FlagSpec("json", summary: "Emit NDJSON progress events, then PairQueueJSON."),
-            ],
-            outputSchema: .pairQueueJSON
-        ),
-        CommandSpec(
-            "pair status", summary: "Inspect slice queue progress, child run ages, and stall guidance.", milestone: .m1,
-            flags: [
-                FlagSpec("queue", takesValue: true, valueType: "path", summary: "Directory containing queue.json."),
-                FlagSpec("json", summary: "Emit PairStatusJSON."),
-            ],
-            outputSchema: .pairStatusJSON
-        ),
-        CommandSpec(
             "pair relay", summary: "Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.", milestone: .m1,
             flags: [
                 FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the PM re-reads it fresh each round."),
@@ -813,10 +777,6 @@ public extension ContractRegistry {
         ErrorSpec("TRY_FIX_PACKET_MISSING", ruleId: "try_fix.packet.missing", agentAction: "Re-run the Bug Hunt diagnosis; the fix attempt needs a typed fix packet.", requiresManual: false, retryable: true, explain: "The Bug Hunt answer run produced no typed fix packet (the writer emitted no fenced fix-packet block), so there is no hypothesis to try. Re-run the diagnosis with a sharper report."),
         ErrorSpec("TRY_FIX_PACKET_UNSAFE", ruleId: "try_fix.packet.unsafe", agentAction: "Read the gate reason; resolve the danger flag / add an actionable hypothesis + proof, then retry.", requiresManual: true, retryable: false, explain: "The fix packet is not safe to execute: it carries a danger flag (credentials, deletion, deploy…), lacks an actionable hypothesis (a fix within a boundary), names no truth owner, or its proof method is incomplete. Danger blocks; doubt does not."),
         ErrorSpec("TRY_FIX_EXECUTOR_INVALID", ruleId: "try_fix.executor.invalid", agentAction: "Pass --executor a single mutating team that is runnable on this bench (default execution_playbook).", requiresManual: true, retryable: false, explain: "The chosen fix executor is not a single, mutating, runnable team. The fix attempt must resolve to exactly one mutating worker."),
-        ErrorSpec("PAIR_SLICE_PACKET_MISSING", ruleId: "pair.slice.packet_missing", agentAction: "Pass `packet` (inline JSON) or `packetPath` to a WorkSlicePacket file.", requiresManual: true, retryable: false, explain: "No typed work slice packet was provided or the file could not be parsed."),
-        ErrorSpec("PAIR_SLICE_UNSAFE", ruleId: "pair.slice.unsafe", agentAction: "Fix the packet: remove danger flags, name intent, allowlist, and a complete check.", requiresManual: true, retryable: false, explain: "The slice packet failed the safety gate (danger, missing allowlist, incomplete check, etc.)."),
-        ErrorSpec("PAIR_SLICE_EXECUTOR_INVALID", ruleId: "pair.slice.executor_invalid", agentAction: "Run `alln team show --json`; pick a single mutating runnable team for --executor.", requiresManual: true, retryable: false, explain: "The executor team is missing, not mutating, not runnable, or does not resolve to exactly one worker."),
-        ErrorSpec("PAIR_SERVE_UNAVAILABLE", ruleId: "pair.serve.unavailable", agentAction: "Install/start OpenCode serve or pick a non-opencode executor.", requiresManual: true, retryable: true, explain: "The OpenCode serve coordinator could not start or pass health check for an opencode executor."),
         ErrorSpec("RELAY_NOT_FOUND", ruleId: "relay.not_found", agentAction: "Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`.", requiresManual: true, retryable: false, explain: "No PM Relay matches the given id."),
         ErrorSpec("RELAY_INVALID_STATE", ruleId: "relay.invalid_state", agentAction: "Only an `escalated` relay can be resumed; check status first with `pair relay-status`.", requiresManual: true, retryable: false, explain: "The requested relay transition is not valid for its current status (e.g. resuming a relay that is not escalated)."),
         ErrorSpec("RELAY_HANDOVER_UNSAFE", ruleId: "relay.handover.unsafe", agentAction: "The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent.", requiresManual: true, retryable: false, explain: "HandoverGate blocked a PM handover before it reached the dev seat — danger blocks, doubt does not."),

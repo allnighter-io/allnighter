@@ -2,13 +2,19 @@
 
 Status: **living doc** — update as we learn
 Owner: Operations + pair-programming control plane
-Updated: 2026-06-28
+Updated: 2026-07-16
 
 This is the **eternal playbook** for seating GLM (OpenCode / Featherless, ~32K context)
 productively in Allnighter. It captures lessons that survive any single batch or tool
 version. The active hardening queue lives in
 [`docs/phases/code_review/`](../phases/code_review/README.md); this doc is the *why* and
 *how*, not the task list.
+
+> The `alln pair slice`/`pair run`/`pair status` dispatch commands this doc describes
+> were deleted outright at PM Relay R-S09 (the slice queue is gone — see
+> [`docs/phases/PM_Relay.md`](../phases/PM_Relay.md) §1/§6). The F1–F5 lessons below
+> are still real GLM-seating knowledge; the dispatch mechanics (`pair slice`, `pair
+> status`, `scripts/run_cr_phase1.sh`) are historical and no longer run.
 
 ---
 
@@ -44,7 +50,8 @@ Same worker chair; different contract. Review never edits Swift.
 
 ## Eternal lessons (F1–F5)
 
-From [`Pair_Programming_Team.md`](../phases/Pair_Programming_Team.md), adapted for GLM:
+From the deleted slice queue (`Pair_Programming_Team.md`, R-S09 — see
+[`PM_Relay.md`](../phases/PM_Relay.md)), adapted for GLM:
 
 ### F1 — Reads choke the window
 
@@ -232,7 +239,7 @@ Fifteen sprint work orders from Phase 1 planner triage (2026-06-28).
 | --- | --- |
 | [`docs/phases/code_review/README.md`](../phases/code_review/README.md) | Active queue, packets, runlog |
 | [`docs/phases/code_review/phase2-hardening-queue.md`](../phases/code_review/phase2-hardening-queue.md) | Next slices (CR-07–32) |
-| [`docs/phases/Pair_Programming_Team.md`](../phases/Pair_Programming_Team.md) | F1–F4 origin, implement mode |
+| [`docs/phases/PM_Relay.md`](../phases/PM_Relay.md) | F1–F4 origin (`Pair_Programming_Team.md`, implement mode) — deleted R-S09 |
 | [`docs/phases/sprint/README.md`](../phases/sprint/README.md) | Work orders from triaged findings |
 | [`docs/operations/Execution-Playbook.md`](Execution-Playbook.md) | Slice closeout, commits, proof |
 

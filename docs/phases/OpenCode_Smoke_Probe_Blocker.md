@@ -8,7 +8,7 @@ Severity: **T2 SSOT** (setup truth vs lie-prone probe layer)
 Related:
 - Driver SSOT: [`setup/OpenCode_CLI_Support.md`](setup/OpenCode_CLI_Support.md)
 - Sprint slices (code landed): [`sprint/opencode/`](sprint/opencode/)
-- Pair programming (separate track): [`Pair_Programming_Team.md`](Pair_Programming_Team.md)
+- Pair programming (separate track, historical — slice queue deleted R-S09): [`PM_Relay.md`](PM_Relay.md)
 - Debugger intake: [`operations/Debugger.md`](../operations/Debugger.md)
 
 ---

@@ -139,10 +139,6 @@ struct MCPServer {
         case "run_get":
             respondMerged(id: id, outcome: MCPMergedHandlers.runGet(runtime: runtime, args: args))
 
-        case "pair_run":
-            await respondMerged(id: id, outcome: await MCPMergedHandlers.pairRun(runtime: runtime, args: args))
-        case "pair_status":
-            await respondPair(id: id, outcome: MCPPairHandlers.status(runtime: runtime, args: args))
         case "pair_relay":
             await respondRelay(id: id, outcome: await MCPRelayHandlers.pairRelay(runtime: runtime, args: args))
 
@@ -238,15 +234,6 @@ struct MCPServer {
     }
 
     private func respondRun(id: Any?, outcome: MCPRunHandlers.Outcome) {
-        switch outcome {
-        case .success(let json, let summary):
-            respond(id: id, result: toolText(summary, structured: json))
-        case .toolError(let envelope):
-            respondToolError(id: id, code: envelope.code, message: envelope.message)
-        }
-    }
-
-    private func respondPair(id: Any?, outcome: MCPPairHandlers.Outcome) {
         switch outcome {
         case .success(let json, let summary):
             respond(id: id, result: toolText(summary, structured: json))

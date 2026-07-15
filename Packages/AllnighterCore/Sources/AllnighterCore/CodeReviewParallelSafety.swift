@@ -13,12 +13,6 @@ public enum CodeReviewParallelSafety {
       self.touchAllowlist = touchAllowlist
       self.readPaths = readPaths
     }
-
-    public init(packet: WorkSlicePacket) {
-      sliceId = packet.sliceId
-      touchAllowlist = packet.touchAllowlist
-      readPaths = packet.readPaths.map(\.path)
-    }
   }
 
   public enum Violation: Sendable, Equatable {

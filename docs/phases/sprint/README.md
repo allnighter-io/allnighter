@@ -49,17 +49,20 @@ Each sprint file must fit on **one to two screens** and include:
 
 SSOT: `docs/phases/setup/OpenCode_CLI_Support.md`
 
-Pair-programming loop (supervisor + hammer, stall/nudge):
-[`Pair_Programming_Team.md`](../Pair_Programming_Team.md)
+Pair-programming loop (supervisor + hammer, stall/nudge): historical — the
+slice-queue system (`Pair_Programming_Team.md`) was deleted outright at R-S09;
+the PM↔dev unattended loop it prototyped now lives in
+[`docs/phases/PM_Relay.md`](../PM_Relay.md).
 
-### Pair programming (PPT)
+### Pair programming (PPT) — historical, slice queue deleted (R-S09)
 
 | Order | Doc | Status |
 | --- | --- | --- |
 | smoke | [PPT-smoke.json](pair/PPT-smoke.json) | ready |
 | S01 | [PPT-S01 — packet + parser](pair/PPT-S01-packet-parser.md) | **done** |
 
-SSOT: `docs/phases/Pair_Programming_Team.md`
+SSOT was `docs/phases/Pair_Programming_Team.md` (deleted R-S09); superseded by
+`docs/phases/PM_Relay.md`.
 
 ### RunWriteLock (from code review CR-01)
 

@@ -360,56 +360,6 @@ public extension ContractRegistry {
             title: "Get run"
         ),
 
-        // MARK: Pair executor (2)
-
-        MCPToolSpec(
-            "pair_run",
-            command: "pair run",
-            summary: """
-            DOES: Run a durable slice queue unattended, or dispatch one inline slice packet (absorbs pair_slice).
-            USE WHEN: Sprint/pair-programming automation with gate → executor → repo check.
-            NOT WHEN: A single synchronous team_run suffices or you only need queue status (use pair_status).
-            NEXT: pair_status while running; run_get on child run ids.
-            MODE: queueDir → unattended queue; packet|packetPath → one bounded slice (absorbs pair_slice).
-            """,
-            params: [
-                .init("project", required: true, summary: "Project id, name, or repo path."),
-                .init("queueDir", summary: "Directory of slice packets for queue mode (pair run)."),
-                .init("packetPath", summary: "Path to one WorkSlicePacket .json or markdown fence (single-slice mode)."),
-                .init("packet", type: "object", summary: "Inline WorkSlicePacket JSON (single-slice mode)."),
-                .init("until", summary: "Hard stop clock HH:MM (local) for queue mode."),
-                .init("maxRetries", type: "integer", summary: "Legacy stall nudge cap (queue mode)."),
-                .init("executorAttemptsBeforePlanner", type: "integer", summary: "GLM attempts per packet before planner takeover (default 3)."),
-                .init("executor", summary: "Mutating executor team id (default default_chat)."),
-                .init("plannerWorker", summary: "Planner model id (default Composer 2.5)."),
-                .init("executorWorker", summary: "Executor model id (default Gemini 3.5 Flash)."),
-            ],
-            outputSchema: .pairQueueJSON,
-            errors: [
-                "PROJECT_NOT_FOUND", "PAIR_SLICE_PACKET_MISSING", "PAIR_SLICE_UNSAFE",
-                "PAIR_SLICE_EXECUTOR_INVALID", "PAIR_SERVE_UNAVAILABLE", "RUN_WRITE_LOCK_BUSY",
-                "WORKER_NOT_READY", "CLI_USAGE_ERROR",
-            ],
-            idempotency: .notIdempotent,
-            title: "Run pair queue"
-        ),
-
-        MCPToolSpec(
-            "pair_status",
-            command: "pair status",
-            summary: """
-            DOES: Read slice queue state — per-entry status, child run id, elapsed time, stall guidance.
-            USE WHEN: Monitoring an in-flight pair_run queue.
-            NOT WHEN: Starting or advancing the queue (use pair_run).
-            NEXT: pair_run to continue; run_get on the active child run id.
-            """,
-            params: [.init("queueDir", required: true, summary: "Directory containing queue.json and slice packets.")],
-            outputSchema: .pairStatusJSON,
-            errors: ["CLI_USAGE_ERROR"],
-            idempotency: .idempotent,
-            title: "Pair queue status"
-        ),
-
         // MARK: PM Relay (1)
 
         // One tool, action-dispatched (start | status | resume) — NOT three. The

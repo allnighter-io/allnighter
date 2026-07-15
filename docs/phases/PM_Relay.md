@@ -1,8 +1,10 @@
 # PM Relay — automate the copy-paste monkey
 
-Status: **Specced — supersedes up-front slicing as the front door**
+Status: **SHIPPED — R-S01–R-S07 + R-S09 done; works test PASSED live 2026-07-16
+(relay_3c94928f: 2 rounds, PM=Claude Code/Sonnet, dev=Cursor/Composer,
+done-by-declaration, independently verified)**
 Owner: AllnighterCore + CLI/MCP (GUI last)
-Updated: 2026-07-15
+Updated: 2026-07-16
 
 > Vocabulary follows the locked cutover — **Chat / Delegate / Execute**, **Team**,
 > **worker**, one `team.run` primitive. "PM" and "dev" are *role names for the two
@@ -202,15 +204,15 @@ Small, contract-first, CLI/MCP before GUI — house rules.
 
 | Slice | Deliverable | Reuses |
 | --- | --- | --- |
-| R-S01 | `RelayVerdict` + parser (tolerant tail-extraction, one re-ask policy) + published schema + tests | `firstJSONObject` pattern |
-| R-S02 | Prompt templates: PM system+turn prompt (doc path, `baseline..HEAD`, dev report verbatim, verdict contract), dev preamble wrapper + tests | `PlannerTakeoverPrompt` shape |
-| R-S03 | `HandoverGate.evaluate(handoverText:) -> Decision` + tests | `TryFixGate`/`SliceGate` |
-| R-S04 | `RelayCoordinator` loop: turn dispatch via `RunService`, `GitObserver` baseline pinning, `RelayState` durable store (round log, verdicts, run ids), ceilings, stall reuse, NDJSON progress | `PairCoordinator` skeleton, `RunStore` folder pattern |
-| R-S05 | `alln pair relay --doc <path> --project <id\|path> --pm-worker <id> --dev-worker <id> [--until HH:MM] [--max-rounds N] [--pm-read-only] [--resume <relayId>] [--json]` + `relay status` | `PairProgrammingCLI` |
-| R-S06 | MCP: `pair_relay` / `pair_relay_status` / `pair_relay_resume` — full structured envelopes | `MCPPairHandlers` |
-| R-S07 | Relay-as-thread: each relay is a `WorkThread`; rounds are turns; escalation raises `needsAttention` — the inbox shows the loop live for free | `ThreadStore`, threads GUI |
-| R-S08 | Composer entry (GUI, last): `@`-link the doc, pick PM seat + dev seat, go — a team-lane preset (`pm_relay`: seat 1 PM, seat 2 dev) | attachments + team picker |
-| R-S09 | **Kill the slice queue** (gated on R-S07/works test PASS): delete `WorkSlicePacket`, `SliceGate`, `SliceQueue`/`Store`, `SliceAttemptPrompt`, `NudgePrompt`, `ReviewAttemptPrompt`, `PlannerTakeoverPrompt`, `CheckRunner`, `PairCoordinator`, `PairSliceJSON`, `PairProgrammingCLI`/`Dispatch`, `pair_slice`/`pair_run`/`pair_status` MCP + registry entries, `Pair_Programming_Team.md` (outright, no archive). Salvage compaction≠stall from `SliceTerminalClassifier` first. **Device pairing in `PairCLI` (list/approve/revoke/begin) is DirectMode iOS — untouched.** Keep: `TryFixGate`/`FixPacket` (Auto-Fix), `OpenCodeServeCoordinator` (belongs to the opencode *driver* like any warm dialect — no special role in any loop; whether that driver stays on the bench is a separate, unrelated call), code_review run logs (history) | — |
+| R-S01 ✅ | `RelayVerdict` + parser (tolerant tail-extraction, one re-ask policy) + published schema + tests | `firstJSONObject` pattern |
+| R-S02 ✅ | Prompt templates: PM system+turn prompt (doc path, `baseline..HEAD`, dev report verbatim, verdict contract), dev preamble wrapper + tests | `PlannerTakeoverPrompt` shape |
+| R-S03 ✅ | `HandoverGate.evaluate(handoverText:) -> Decision` + tests | `TryFixGate`/`SliceGate` |
+| R-S04 ✅ | `RelayCoordinator` loop: turn dispatch via `RunService`, `GitObserver` baseline pinning, `RelayState` durable store (round log, verdicts, run ids), ceilings, stall reuse, NDJSON progress | `PairCoordinator` skeleton, `RunStore` folder pattern |
+| R-S05 ✅ | `alln pair relay --doc <path> --project <id\|path> --pm-worker <id> --dev-worker <id> [--until HH:MM] [--max-rounds N] [--pm-read-only] [--resume <relayId>] [--json]` + `relay status` | `PairProgrammingCLI` |
+| R-S06 ✅ | MCP: `pair_relay` / `pair_relay_status` / `pair_relay_resume` — full structured envelopes | `MCPPairHandlers` |
+| R-S07 ✅ | Relay-as-thread: each relay is a `WorkThread`; rounds are turns; escalation raises `needsAttention` — the inbox shows the loop live for free | `ThreadStore`, threads GUI |
+| R-S08 | **Open — the only remaining slice.** Composer entry (GUI, last): `@`-link the doc, pick PM seat + dev seat, go — a team-lane preset (`pm_relay`: seat 1 PM, seat 2 dev) | attachments + team picker |
+| R-S09 ✅ | **Killed the slice queue** (gated on R-S07/works test PASS — done): deleted `WorkSlicePacket`, `SliceGate`, `SliceQueue`/`Store`, `SliceAttemptPrompt`, `NudgePrompt`, `ReviewAttemptPrompt`, `PlannerTakeoverPrompt`, `ReviewVerifyPrompt`, `CheckRunner`, `PairCoordinator`, `PairSliceJSON`, `PairProgrammingCLI`/`Dispatch`, `MCPPairHandlers`, `pair_slice`/`pair_run`/`pair_status` MCP + registry entries, `Pair_Programming_Team.md` + `Pair_Programming_Improvements_Backlog.md` (outright, no archive). Salvaged compaction≠stall into `RelayTurnClassifier` first (already landed pre-R-S09). **Device pairing in `PairCLI` (list/approve/revoke/begin) is DirectMode iOS — untouched.** Kept: `TryFixGate`/`FixPacket` (Auto-Fix), `OpenCodeServeCoordinator` (belongs to the opencode *driver* like any warm dialect — no special role in any loop; whether that driver stays on the bench is a separate, unrelated call), code_review run logs (history) | — |
 
 Pre-work (before R-S04): **post-cutover smoke** — the pair path hasn't run since the
 AgentOS runner cutover (2026-07-02) and `MCPPairHandlers` is among the known test
@@ -254,12 +256,12 @@ If the founder is still pasting, the feature is not done.
 
 | Work | Read |
 | --- | --- |
-| Loop skeleton / seats / ceilings | `AllnighterEngine/PairCoordinator.swift` |
+| Loop skeleton / seats / ceilings | `AllnighterEngine/RelayCoordinator.swift` |
 | Dispatch + write lock | `AllnighterEngine/RunService.swift`, `RunWriteLock.swift` |
 | Baseline pinning | `AllnighterEngine/GitObserver.swift` |
-| Gate shape | `AllnighterCore/TryFixGate.swift`, `SliceGate.swift` |
-| Stall / compaction | `AllnighterEngine/StalledWorkDetector.swift`, `SliceTerminalClassifier.swift` |
+| Gate shape | `AllnighterCore/TryFixGate.swift`, `HandoverGate.swift` |
+| Stall / compaction | `AllnighterEngine/StalledWorkDetector.swift`, `RelayTurnClassifier.swift` |
 | Verdict-tail extraction pattern | `firstJSONObject` (proposal-engine lineage) |
-| Thread projection | `AllnighterEngine/ThreadStore.swift` |
-| CLI / MCP | `AllnighterCLI/PairProgrammingCLI.swift`, `MCPPairHandlers.swift` |
-| What this replaces | `Pair_Programming_Team.md` (slice queue — deleted at R-S09; reference until then) |
+| Thread projection | `AllnighterEngine/ThreadStore.swift`, `RelayThreadProjector.swift` |
+| CLI / MCP | `AllnighterCLI/RelayCLI.swift`, `RelayDispatch.swift`, `MCPRelayHandlers.swift` |
+| What this replaced | `Pair_Programming_Team.md` — the slice queue, deleted at R-S09 (this doc §1/§6 is the only remaining record) |

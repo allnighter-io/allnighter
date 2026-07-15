@@ -2,8 +2,9 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// Shared PM Relay dispatch for CLI + MCP (same engine path, same JSON). Mirrors
-/// `PairProgrammingDispatch` (docs/phases/PM_Relay.md §6 R-S05/R-S06).
+/// Shared PM Relay dispatch for CLI + MCP (same engine path, same JSON). Mirrors the
+/// old `PairProgrammingDispatch` shape (docs/phases/PM_Relay.md §6 R-S05/R-S06) —
+/// that type was deleted at R-S09; this is now the only such dispatch enum.
 enum RelayDispatch {
     static func makeCoordinator(runtime: ToolRuntime) -> RelayCoordinator {
         RelayCoordinator(
@@ -92,9 +93,28 @@ enum RelayDispatch {
         }.joined(separator: "\n")
     }
 
-    /// `--until HH:MM` reuses the pair-programming parser — one house parser, not a
-    /// second copy.
+    /// `--until HH:MM` → next occurrence of that local clock time (today if still
+    /// ahead, else tomorrow). Ported from the deleted `PairProgrammingDispatch`
+    /// (R-S09) — the relay is now the only caller, so this is its one house parser.
     static func parseUntil(_ raw: String?) -> Date? {
-        PairProgrammingDispatch.parseUntil(raw)
+        guard let raw else { return nil }
+        let parts = raw.split(separator: ":")
+        guard parts.count == 2,
+              let hour = Int(parts[0]),
+              let minute = Int(parts[1]),
+              (0..<24).contains(hour),
+              (0..<60).contains(minute) else { return nil }
+        var calendar = Calendar.current
+        calendar.timeZone = .current
+        let now = Date()
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+        guard var deadline = calendar.date(from: components) else { return nil }
+        if deadline <= now {
+            deadline = calendar.date(byAdding: .day, value: 1, to: deadline) ?? deadline
+        }
+        return deadline
     }
 }

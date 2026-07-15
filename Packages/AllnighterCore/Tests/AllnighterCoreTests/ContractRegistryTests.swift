@@ -33,7 +33,7 @@ final class ContractRegistryTests: XCTestCase {
             "team hello", "team preflight",
             "team start", "team status", "team result", "team cancel",
             "thread send", "thread get", "thread attachment", "thread rename", "thread status",
-            "run", "pair slice", "pair run", "pair status", "pair status",
+            "run",
             "pair relay", "pair relay-status", "pair relay-resume",
             "team", "show", "floor show", "spec", "history", "export", "dev export-contracts", "serve",
             "pending add", "pending list", "pending queue", "pending show", "pending submit", "pending edit",
@@ -59,14 +59,14 @@ final class ContractRegistryTests: XCTestCase {
             "mcp_hello", "doctor", "error_explain", "help", "defaults_get", "history",
             "teams_get", "teams_edit", "skills_get", "skills_edit",
             "team_ask", "team_run", "team_start", "team_result", "team_cancel", "run_get",
-            "pair_run", "pair_status", "pair_relay",
+            "pair_relay",
             "thread_send", "thread_get", "thread_rename",
             "pending_list", "pending_edit", "pending_update", "pending_run",
             "stalled_list", "stalled_update",
             "project_get", "project_context", "project_workers",
         ]
         XCTAssertEqual(Set(names).sorted(), expected.sorted())
-        XCTAssertEqual(names.count, 31, "Slice 1 surface (30) + PM Relay R-S06's single action-dispatched pair_relay tool")
+        XCTAssertEqual(names.count, 29, "Slice 1 surface (30) − pair_run/pair_status (2, deleted R-S09) + PM Relay R-S06's single action-dispatched pair_relay tool")
         XCTAssertFalse(names.contains("team_preflight"))
         XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))

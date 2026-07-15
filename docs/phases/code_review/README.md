@@ -2,7 +2,12 @@
 
 Status: **active — advisory only, sequential-first**
 Owner: Pair-programming control plane + Core hot paths
-Updated: 2026-06-27
+Updated: 2026-07-16
+
+> The pair queue this doc dispatches through (`alln pair slice`, `scripts/run_cr_phase1.sh`)
+> was replaced by the PM Relay ([`PM_Relay.md`](../PM_Relay.md)) and deleted outright at
+> R-S09 — the `alln pair slice`/`pair run`/`pair status` commands no longer exist. The
+> packets, findings, and run logs below are historical run logs, kept for record.
 
 ## What this is
 
@@ -20,9 +25,9 @@ This is **not** implementation. GLM does not ship fixes here. It produces **stru
 findings** that a planner (Composer / you) triages into real sprint slices, perf work,
 or rejects.
 
-The pair-programming loop already proved the executor chair works (see
-[`Pair_Programming_Team.md`](../Pair_Programming_Team.md) §3). This program applies
-the same F1/F4 discipline to **review**:
+The pair-programming loop already proved the executor chair works (see the deleted
+`Pair_Programming_Team.md` §3, superseded by [`PM_Relay.md`](../PM_Relay.md)). This
+program applies the same F1/F4 discipline to **review**:
 
 | Lesson | Review adaptation |
 | --- | --- |
@@ -227,7 +232,7 @@ local-only; or commit triaged findings for history.
 
 ## Related docs
 
-- Pair loop law: [`Pair_Programming_Team.md`](../Pair_Programming_Team.md)
+- Pair loop law (historical — deleted R-S09): [`PM_Relay.md`](../PM_Relay.md)
 - Implementation slices: [`sprint/README.md`](../sprint/README.md)
 - Perf hot paths: [`Team_Run_Load_Performance.md`](../Team_Run_Load_Performance.md)
 - Maintainer lenses: [`docs/operations/code-maintainer/SKILL.md`](../../operations/code-maintainer/SKILL.md)

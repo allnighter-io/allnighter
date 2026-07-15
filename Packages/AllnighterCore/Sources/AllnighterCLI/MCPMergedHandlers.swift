@@ -323,20 +323,4 @@ enum MCPMergedHandlers {
         case .toolError(let e): return .toolError(e)
         }
     }
-
-    // MARK: - Pair
-
-    static func pairRun(runtime: ToolRuntime, args: [String: Any]) async -> Outcome {
-        let hasQueue = (args["queueDir"] as? String).map { !$0.isEmpty } ?? false
-        if !hasQueue, args["packet"] != nil || (args["packetPath"] as? String).map({ !$0.isEmpty }) == true {
-            switch await MCPPairHandlers.slice(runtime: runtime, args: args) {
-            case .success(let j, let s): return .success(j, summary: s)
-            case .toolError(let e): return .toolError(e)
-            }
-        }
-        switch await MCPPairHandlers.run(runtime: runtime, args: args) {
-        case .success(let j, let s): return .success(j, summary: s)
-        case .toolError(let e): return .toolError(e)
-        }
-    }
 }

@@ -86,7 +86,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Team lab seat economics, roster ablation, named variants, necessity suite | `docs/phases/Team_Lab_Composition_And_Seat_Economics.md` |
 | Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
 | **Implement one bounded slice (32K agents)** | `docs/phases/sprint/README.md` — one work order only |
-| Supervisor + Hammer pair team (sprint queue, stall/nudge) | `docs/phases/Pair_Programming_Team.md` + `Try_Fix_Auto_Implement.md` |
+| PM↔dev unattended loop (mechanized copy-paste relay) | `docs/phases/PM_Relay.md` (supersedes the old slice-queue pair team, deleted R-S09) |
 | GLM advisory review / serial hardening pass | `docs/operations/GLM_Worker_Best_Practices.md` + `docs/phases/code_review/README.md` |
 | OpenCode smoke probe blocked (handoff) | `docs/phases/OpenCode_Smoke_Probe_Blocker.md` |
 | Sprint closeout / committing work | `docs/operations/Execution-Playbook.md` § Commits |

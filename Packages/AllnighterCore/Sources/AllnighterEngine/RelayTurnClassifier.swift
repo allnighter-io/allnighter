@@ -1,14 +1,16 @@
 import Foundation
 import AllnighterCore
 
-/// Terminal classification for ONE PM Relay turn (PM or dev). Adapted from
-/// `SliceTerminalClassifier` (Pair_Programming_Team §5) per PM_Relay.md §1's one named
-/// salvage: **compaction ≠ stall**. Ported verbatim (same logic, same text/structured-fact
-/// checks): the compaction-marker text sniff (`isCompactionMarker`) and the infra-backoff
-/// detection (`isInfraBackoff` — structured capacity fact preferred, text sniff fallback).
-/// Both apply unchanged to a single synchronous `RunService.run()` turn: a compacting or
-/// rate-limited CLI is exactly as real a worker outcome here as it was mid-slice, and
-/// killing a compacting worker is still the loop's worst false positive (PM_Relay.md §5.4).
+/// Terminal classification for ONE PM Relay turn (PM or dev). Adapted from the old
+/// slice queue's `SliceTerminalClassifier` (`Pair_Programming_Team.md` §5, deleted at
+/// R-S09 — see `PM_Relay.md` §1/§6) per PM_Relay.md §1's one named salvage:
+/// **compaction ≠ stall**. Ported verbatim (same logic, same text/structured-fact
+/// checks) before deletion: the compaction-marker text sniff (`isCompactionMarker`)
+/// and the infra-backoff detection (`isInfraBackoff` — structured capacity fact
+/// preferred, text sniff fallback). Both apply unchanged to a single synchronous
+/// `RunService.run()` turn: a compacting or rate-limited CLI is exactly as real a
+/// worker outcome here as it was mid-slice, and killing a compacting worker is still
+/// the loop's worst false positive (PM_Relay.md §5.4).
 ///
 /// Simplified vs. the original for a single relay turn: `SliceTerminalClassifier` split
 /// `.stalled` (not-done, aged past a packet-scoped timeout) from `.failed` (not-done, fast)
