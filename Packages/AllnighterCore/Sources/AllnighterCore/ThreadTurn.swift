@@ -236,6 +236,14 @@ public enum SystemEventKind: String, Codable, Sendable, CaseIterable {
     case waiting
     case signInRequired = "sign_in_required"
     case manualPaste = "manual_paste"
+    /// A PM Relay round escalated — the founder must answer a real question before
+    /// the relay can continue (`docs/phases/PM_Relay.md` §4.1). Blocks like
+    /// `signInRequired`/`manualPaste`; clears when `RelayCoordinator.resume` runs
+    /// (R-S07 `RelayThreadProjector`).
+    case relayEscalated = "relay_escalated"
+    /// A PM Relay hit a hard ceiling (`--max-rounds`/`--until`/stagnation) and
+    /// stopped. Informational only — never resumable, so never blocking.
+    case relayStopped = "relay_stopped"
 }
 
 // MARK: - Turn state machine
@@ -286,9 +294,9 @@ public extension ThreadTurn {
         }
         if kind == .systemEvent {
             switch systemEvent {
-            case .signInRequired, .manualPaste:
+            case .signInRequired, .manualPaste, .relayEscalated:
                 return !status.isTerminal   // open and blocking
-            case .migrationImported, .waiting, .none:
+            case .migrationImported, .waiting, .relayStopped, .none:
                 return false
             }
         }

@@ -81,6 +81,11 @@ public struct RelayCoordinator: Sendable {
     private let gitObserver: GitObserver
     private let stateStore: RelayStateStore
     private let runStore: RunStore
+    /// Optional (PM_Relay.md §6 R-S07): projects the relay onto a `WorkThread` so the
+    /// Mac inbox shows the loop live. Pure composition — `nil` by default so every
+    /// existing test/headless caller keeps working unchanged; CLI/MCP construct one via
+    /// `RelayDispatch.makeCoordinator` so real relays always show in the inbox.
+    private let threadProjector: RelayThreadProjector?
     private let now: @Sendable () -> Date
     private let idFactory: @Sendable () -> String
 
@@ -89,6 +94,7 @@ public struct RelayCoordinator: Sendable {
         gitObserver: GitObserver = GitObserver(),
         stateStore: RelayStateStore = RelayStateStore(),
         runStore: RunStore = RunStore(),
+        threadProjector: RelayThreadProjector? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         idFactory: @escaping @Sendable () -> String = { "relay_\(UUID().uuidString.lowercased())" }
     ) {
@@ -96,6 +102,7 @@ public struct RelayCoordinator: Sendable {
         self.gitObserver = gitObserver
         self.stateStore = stateStore
         self.runStore = runStore
+        self.threadProjector = threadProjector
         self.now = now
         self.idFactory = idFactory
     }
@@ -114,6 +121,7 @@ public struct RelayCoordinator: Sendable {
             status: .running,
             createdAt: now()
         )
+        threadProjector?.started(state: state, projectId: config.projectId)
         persist(state)
         await loop(state: &state, config: config, events: events)
         return state
@@ -139,6 +147,10 @@ public struct RelayCoordinator: Sendable {
         state.founderNote = founderAnswer
         state.status = .running
         state.finishedAt = nil
+        // Re-affirms the thread's projectId (a no-op when already bound) and guarantees
+        // the thread exists even if the original `run()` call never had a projector
+        // attached — `sync` below is then guaranteed a thread to project onto.
+        threadProjector?.started(state: state, projectId: config.projectId)
         persist(state)
         await loop(state: &state, config: resumedConfig, events: events)
         return state
@@ -493,8 +505,13 @@ public struct RelayCoordinator: Sendable {
         persist(state)
     }
 
+    /// The single choke point every `RelayState` mutation already runs through — the
+    /// natural, minimal-diff hook for `threadProjector?.sync` (R-S07): it fires
+    /// synchronously right after each state change, so a round's escalation note is
+    /// always captured before a LATER round could overwrite `state.note`.
     private func persist(_ state: RelayState) {
         try? stateStore.save(state)
+        threadProjector?.sync(state: state, now: now())
     }
 
     private func isPastDeadline(_ config: Config) -> Bool {

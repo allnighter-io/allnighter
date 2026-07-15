@@ -12,7 +12,12 @@ enum RelayDispatch {
                 registry: runtime.registry,
                 teams: runtime.teams,
                 invocations: runtime.invocations
-            )
+            ),
+            // R-S07: real relays (CLI + MCP both dispatch through here) always project
+            // into the inbox — default `ThreadStore()`/`RunStore()` roots, same as
+            // `RunService`'s own default `RunStore()`, so the projector reads back the
+            // exact runs this coordinator just dispatched.
+            threadProjector: RelayThreadProjector()
         )
     }
 

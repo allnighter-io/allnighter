@@ -181,7 +181,11 @@ public enum NotificationCandidateDetection {
             return .turnAwaitingManualPaste
         case .signInRequired:
             return .turnAuthRequired
-        case .migrationImported, .waiting, .none:
+        // `relayEscalated` blocks (see `isOpenBlockingSystem`/`ThreadTurn.requiresUserAttention`)
+        // and still raises the thread-level `.threadNeedsAttention` notification via
+        // `candidates()`'s generic needsAttention transition — a per-event specific push
+        // ("PM Relay needs an answer") is GUI polish deferred to PM_Relay.md R-S08.
+        case .migrationImported, .waiting, .relayEscalated, .relayStopped, .none:
             return nil
         }
     }
@@ -191,7 +195,9 @@ public enum NotificationCandidateDetection {
         switch turn.systemEvent {
         case .manualPaste, .signInRequired:
             return true
-        case .migrationImported, .waiting, .none:
+        // Deliberately excluded here (see `blockingSystemEvent` above) — the thread-level
+        // needsAttention notification still fires via `ThreadTurn.requiresUserAttention`.
+        case .migrationImported, .waiting, .relayEscalated, .relayStopped, .none:
             return false
         }
     }

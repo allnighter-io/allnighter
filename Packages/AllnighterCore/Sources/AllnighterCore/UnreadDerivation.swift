@@ -77,9 +77,9 @@ public enum UnreadDerivation {
                 return true
             case .running:
                 switch turn.systemEvent {
-                case .signInRequired, .manualPaste:
+                case .signInRequired, .manualPaste, .relayEscalated:
                     return true
-                case .migrationImported, .waiting, .none:
+                case .migrationImported, .waiting, .relayStopped, .none:
                     return false
                 }
             case .draft, .queued, .done, .cancelled:
