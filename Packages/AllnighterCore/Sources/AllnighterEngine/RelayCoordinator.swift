@@ -127,17 +127,22 @@ public struct RelayCoordinator: Sendable {
         return state
     }
 
-    /// Resumes an `.escalated` relay: injects the founder's answer as `founderNote` for the
-    /// next PM turn, then continues the loop. `config` re-supplies the ceilings
-    /// (`maxRounds`/`until`/`stagnationRoundCap`) — these are per-invocation, not part of
-    /// the persisted `RelayState`, so a resumed run can widen or tighten them (e.g. a fresh
-    /// `--until` for the next stretch); `projectRoot`/`docPath`/worker ids are taken from
-    /// the loaded state, not `config`, so a resume can never silently redirect a relay at a
-    /// different doc or repo. Returns `nil` when no such relay exists or it isn't
-    /// `.escalated` (the only resumable status) — the caller (CLI/MCP) turns that into a
-    /// clean, honest error rather than the coordinator guessing.
+    /// Resumes an `.escalated` relay (a real founder question) OR a reconciled-`.stopped`
+    /// one (`RelayState.isReconciledStopped` — its owner process died mid-round; works-test
+    /// hazard #1: "escalated-only was too narrow"): injects the founder's answer as
+    /// `founderNote` for the next PM turn, then continues the loop from the last durable
+    /// round. `config` re-supplies the ceilings (`maxRounds`/`until`/`stagnationRoundCap`)
+    /// — these are per-invocation, not part of the persisted `RelayState`, so a resumed run
+    /// can widen or tighten them (e.g. a fresh `--until` for the next stretch);
+    /// `projectRoot`/`docPath`/worker ids are taken from the loaded state, not `config`, so
+    /// a resume can never silently redirect a relay at a different doc or repo. Returns
+    /// `nil` when no such relay exists, or its status isn't resumable (`.done`, or a
+    /// ceiling-fired `.stopped` — a deliberate stop, never silently resumable) — the caller
+    /// (CLI/MCP) turns that into a clean, honest error rather than the coordinator guessing.
     public func resume(relayId: String, founderAnswer: String, config: Config, events: EventSink? = nil) async -> RelayState? {
-        guard var state = stateStore.load(id: relayId), state.status == .escalated else { return nil }
+        guard let loaded = stateStore.load(id: relayId) else { return nil }
+        var state = reconcileIfOrphaned(loaded)
+        guard state.isResumable else { return nil }
         var resumedConfig = config
         resumedConfig.projectRoot = state.projectRoot
         resumedConfig.docPath = state.docPath
@@ -154,6 +159,57 @@ public struct RelayCoordinator: Sendable {
         persist(state)
         await loop(state: &state, config: resumedConfig, events: events)
         return state
+    }
+
+    /// `pair relay-status` / MCP `pair_relay(action: status)` — the read path that also
+    /// reconciles (works-test hazard #1: "on load/list/status/start"). Returns `nil` only
+    /// when no such relay exists.
+    public func status(relayId: String) -> RelayState? {
+        guard let state = stateStore.load(id: relayId) else { return nil }
+        return reconcileIfOrphaned(state)
+    }
+
+    /// Reconciles a `.running` relay whose owner process died mid-round back to a durable
+    /// `.stopped`, using this coordinator's own `stateStore`/`threadProjector`. Delegates to
+    /// `RelayCoordinator.reconcileOrphan` — the standalone, static, `RunService`-free
+    /// implementation `RelayCLI.runStatus`/`MCPRelayHandlers.status` also call directly for a
+    /// plain status read (building a full coordinator there would mean spinning up a
+    /// `RunService` for a read-only check).
+    @discardableResult
+    private func reconcileIfOrphaned(_ state: RelayState) -> RelayState {
+        Self.reconcileOrphan(state, stateStore: stateStore, threadProjector: threadProjector, now: now)
+    }
+
+    /// The ONE place orphan reconciliation happens (works-test hazard #1: "on
+    /// load/list/status/start") — `RelayCoordinator.status`/`resume` (above) and
+    /// `RelayCLI.runStatus`/`MCPRelayHandlers.status` (which have no `RunService` to build a
+    /// full coordinator from) all funnel through this static, `RunService`-free function, so
+    /// the brief's four read paths can never drift into separate half-implementations.
+    /// Mirrors `PairCoordinator.reconcileStaleRunning`'s write-back-on-detection shape,
+    /// using `RelayStateStore.isOwnerDead`'s owner.pid liveness signal (the same convention
+    /// `RunStore` uses). Settles the round in flight (if it hadn't already recorded an
+    /// outcome) so `RelayThreadProjector.sync`'s existing self-heal branches in
+    /// `syncPMTurn`/`syncDevTurn` close the open PM/dev thread turn and `syncStopped` records
+    /// the stopped system event. A no-op — returns `state` unchanged, no save, no sync — for
+    /// anything other than a dead-owner `.running` relay: a genuinely live `.running` relay,
+    /// or one already `.done`/`.escalated`/`.stopped`, passes through untouched.
+    @discardableResult
+    public static func reconcileOrphan(
+        _ state: RelayState, stateStore: RelayStateStore,
+        threadProjector: RelayThreadProjector?, now: @escaping @Sendable () -> Date
+    ) -> RelayState {
+        guard state.status == .running, stateStore.isOwnerDead(id: state.id) else { return state }
+        var reconciled = state
+        if let lastIndex = reconciled.rounds.indices.last, reconciled.rounds[lastIndex].outcome == nil {
+            reconciled.rounds[lastIndex].outcome = .stopped
+            reconciled.rounds[lastIndex].finishedAt = now()
+        }
+        reconciled.status = .stopped
+        reconciled.stoppedReason = RelayState.orphanReconciledReason
+        reconciled.finishedAt = now()
+        try? stateStore.save(reconciled)
+        threadProjector?.sync(state: reconciled, now: now())
+        return reconciled
     }
 
     // MARK: - Loop

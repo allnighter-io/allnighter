@@ -31,11 +31,20 @@ enum RelayCLI {
         emitTerminal(state, json: emitJSON)
     }
 
-    static func runStatus(_ args: [String], stateStore: RelayStateStore = RelayStateStore()) {
+    /// Reconciles via `RelayCoordinator.reconcileOrphan` (not a raw `RelayStateStore.load`)
+    /// so a `.running` relay whose owner process died mid-round reconciles to `.stopped`
+    /// here — works-test hazard #1: "on load/list/status/start".
+    static func runStatus(
+        _ args: [String],
+        stateStore: RelayStateStore = RelayStateStore(),
+        threadProjector: RelayThreadProjector? = RelayThreadProjector()
+    ) {
         guard !args.isEmpty else { usage("relay-status --relay <id> [--json]") }
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        guard let state = stateStore.load(id: relayId) else { fail(.relayNotFound(relayId)) }
+        guard let loaded = stateStore.load(id: relayId) else { fail(.relayNotFound(relayId)) }
+        let state = RelayCoordinator.reconcileOrphan(
+            loaded, stateStore: stateStore, threadProjector: threadProjector, now: Date.init)
 
         let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         if opts.flag("json") {
@@ -114,7 +123,14 @@ enum RelayCLI {
             throw RelayCLIError.missingRequired("--answer <text>")
         }
         guard let priorState = stateStore.load(id: relayId) else { throw RelayCLIError.relayNotFound(relayId) }
-        guard priorState.status == .escalated else {
+        // `priorState` here is the raw persisted read — `RelayCoordinator.resume` (which
+        // this request feeds) is what durably reconciles a dead-owner `.running` relay to
+        // `.stopped`; this pre-check only needs to know THAT it would be eligible, via the
+        // same owner.pid liveness signal, so a founder never sees a stale "not escalated"
+        // rejection for a relay that's actually about to reconcile-and-resume (works-test
+        // hazard #1: "escalated-only was too narrow").
+        let orphaned = priorState.status == .running && stateStore.isOwnerDead(id: relayId)
+        guard priorState.isResumable || orphaned else {
             throw RelayCLIError.relayNotEscalated(status: priorState.status.rawValue)
         }
         guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else {
@@ -147,7 +163,7 @@ enum RelayCLI {
 
     private static func emit(_ event: RelayCoordinator.RelayEvent, json: Bool) {
         if json {
-            print(AllnighterCLI.jsonString(RelayDispatch.progressJSON(event)))
+            print(RelayDispatch.progressJSONLine(event))
         } else {
             print(RelayDispatch.humanProgressLine(event))
         }
@@ -186,7 +202,7 @@ enum RelayCLI {
         case .relayNotFound(let id):
             return ("RELAY_NOT_FOUND", "relay not found: \(id)")
         case .relayNotEscalated(let status):
-            return ("RELAY_INVALID_STATE", "relay is \(status), not escalated — only an escalated relay can be resumed")
+            return ("RELAY_INVALID_STATE", "relay is \(status), not resumable — only an escalated relay, or one reconciled after its owner process died, can be resumed")
         }
     }
 

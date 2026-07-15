@@ -19,10 +19,22 @@ public struct RelayStateStore: Sendable {
     }
 
     /// Atomic write (temp + rename) so a concurrent reader never sees a torn file.
+    /// Also records/clears an `owner.pid` liveness marker — the SAME convention
+    /// `RunStore.save` uses (owner.pid written FIRST for a non-terminal `.running`
+    /// state so a reader can never see `relay.json` without it, removed on a terminal
+    /// save) — the signal `RelayCoordinator.reconcileIfOrphaned` reads to detect a
+    /// relay whose process died mid-round (works-test hazard #1).
     @discardableResult
     public func save(_ state: RelayState) throws -> URL {
         let directory = try relayDirectory(id: state.id)
+        let ownerURL = directory.appendingPathComponent("owner.pid")
+        if state.status == .running {
+            try Data("\(RelayStateStore.currentPID)".utf8).write(to: ownerURL, options: .atomic)
+        }
         try CoreJSON.encode(state).write(to: directory.appendingPathComponent("relay.json"), options: .atomic)
+        if state.status != .running {
+            try? FileManager.default.removeItem(at: ownerURL)
+        }
         return directory
     }
 
@@ -31,6 +43,20 @@ public struct RelayStateStore: Sendable {
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? CoreJSON.decode(RelayState.self, from: data)
     }
+
+    /// True when `id`'s `owner.pid` marker is missing/unparsable, or names a process
+    /// that is no longer alive. Missing counts as dead — a relay whose folder predates
+    /// this marker (or was hand-edited) is never assumed alive without proof, matching
+    /// `RunStore`'s "never falsely running" rule. Pure read, no side effects; the
+    /// caller (`RelayCoordinator.reconcileIfOrphaned`) owns the write-back.
+    public func isOwnerDead(id: String) -> Bool {
+        let ownerURL = rootDirectory.appendingPathComponent(id, isDirectory: true).appendingPathComponent("owner.pid")
+        guard let raw = try? String(contentsOf: ownerURL, encoding: .utf8),
+              let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)) else { return true }
+        return !RunStore.processAlive(pid)
+    }
+
+    private static var currentPID: Int32 { ProcessInfo.processInfo.processIdentifier }
 
     /// All relays, newest first. Skips any folder whose `relay.json` fails to decode rather
     /// than failing the whole listing.

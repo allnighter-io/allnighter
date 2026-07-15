@@ -349,6 +349,131 @@ final class RelayCoordinatorTests: XCTestCase {
         let reloaded = stateStore.load(id: "relay_durability_test")
         XCTAssertEqual(reloaded, final)
     }
+
+    // MARK: - Orphan reconciliation (works-test hazard #1)
+
+    /// Simulates `RelayCoordinator.run()`'s own bootstrap up through the exact durable
+    /// checkpoint a real relay leaves on disk the instant it dispatches round 1's PM turn —
+    /// `started` (creates the thread), append the round, `save` (records THIS test
+    /// process's pid as owner) — then overwrites the marker with a pid that cannot
+    /// possibly be alive (mirrors `RunStoreJournalTests.testOrphanWithDeadPidResolvesToInterrupted`)
+    /// to stand in for "the process was killed mid-round."
+    @discardableResult
+    private func makeOrphanedRunningRelay(
+        id: String, projectRoot: String, stateStore: RelayStateStore, projector: RelayThreadProjector
+    ) throws -> RelayState {
+        var state = RelayState(
+            id: id, projectRoot: projectRoot, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Self.flooredNow()
+        )
+        projector.started(state: state, projectId: nil)
+        state.rounds.append(RelayRound(roundNumber: 1, baselineHead: "abc123", startedAt: Self.flooredNow()))
+        try stateStore.save(state)
+        projector.sync(state: state, now: Self.flooredNow())
+
+        let ownerURL = stateStore.rootDirectory.appendingPathComponent(id, isDirectory: true).appendingPathComponent("owner.pid")
+        try Data("2000000".utf8).write(to: ownerURL)
+        return state
+    }
+
+    func testStatusReconcilesDeadOwnerRunningRelayAndSettlesTheThread() throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
+        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        try makeOrphanedRunningRelay(id: "relay_orphan_status", projectRoot: tmp.path, stateStore: stateStore, projector: projector)
+
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, threadProjector: projector)
+
+        let reconciled = coordinator.status(relayId: "relay_orphan_status")
+        XCTAssertEqual(reconciled?.status, .stopped)
+        XCTAssertEqual(reconciled?.stoppedReason, RelayState.orphanReconciledReason)
+        XCTAssertEqual(reconciled?.rounds.last?.outcome, .stopped)
+
+        // Durable: a fresh read (a different process re-opening the same file) sees the
+        // SAME reconciled result, not just an in-memory view.
+        XCTAssertEqual(stateStore.load(id: "relay_orphan_status")?.status, .stopped)
+
+        // Thread projection settled: the open PM turn closes, and a stopped system event lands.
+        let thread = threadStore.get("relay_orphan_status")
+        XCTAssertEqual(thread?.turn(id: "relay_orphan_status_pm1")?.status, .cancelled)
+        let stopped = thread?.turn(id: "relay_orphan_status_stopped")
+        XCTAssertNotNil(stopped)
+        XCTAssertEqual(stopped?.text, RelayState.orphanReconciledReason)
+    }
+
+    func testResumeAfterOrphanReconciliationContinuesFromLastDurableRound() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
+        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        try makeOrphanedRunningRelay(id: "relay_resume_after_kill", projectRoot: repo.path, stateStore: stateStore, projector: projector)
+
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Recovered after kill.\n\n" + verdictJSON("done", note: "Finished after resume.")),
+        ]
+        let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, threadProjector: projector)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+        )
+        let resumed = await coordinator.resume(relayId: "relay_resume_after_kill", founderAnswer: "continue please", config: config)
+
+        XCTAssertEqual(resumed?.status, .done)
+        // The killed round stays recorded as stopped — reconciliation never silently
+        // erases it, it settles it — and the resumed attempt is a NEW round after it.
+        XCTAssertEqual(resumed?.rounds.count, 2)
+        XCTAssertEqual(resumed?.rounds.first?.outcome, .stopped)
+        XCTAssertEqual(resumed?.rounds.last?.outcome, .done)
+    }
+
+    func testResumeNeverAcceptsADoneRelayEvenThoughReconciliationOnlyTouchesRunning() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_done_never_resumable", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .done, createdAt: Date(), note: "Shipped."
+        )
+        try stateStore.save(state)
+
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = RelayCoordinator.Config(
+            projectRoot: "/repo", docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+        let result = await coordinator.resume(relayId: "relay_done_never_resumable", founderAnswer: "anything", config: config)
+        XCTAssertNil(result)
+        XCTAssertEqual(stateStore.load(id: "relay_done_never_resumable")?.status, .done, "never mutated")
+    }
+
+    /// A ceiling-fired `.stopped` relay (`--max-rounds`/`--until`/stagnation) is a
+    /// deliberate stop, not an orphan — `reconcileOrphan`'s `.running`-only guard means it
+    /// is never mistaken for one, and `relay-resume` must keep refusing it.
+    func testCeilingStoppedRelayIsNeitherReconciledNorResumable() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_ceiling_stopped", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .stopped, createdAt: Date(),
+            stoppedReason: "reached --max-rounds (5)"
+        )
+        try stateStore.save(state)
+
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+
+        XCTAssertEqual(coordinator.status(relayId: "relay_ceiling_stopped")?.stoppedReason, "reached --max-rounds (5)", "untouched by reconciliation")
+
+        let config = RelayCoordinator.Config(
+            projectRoot: "/repo", docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+        let result = await coordinator.resume(relayId: "relay_ceiling_stopped", founderAnswer: "anything", config: config)
+        XCTAssertNil(result)
+    }
 }
 
 // MARK: - RelayStateStore
@@ -387,6 +512,52 @@ final class RelayStateStoreTests: XCTestCase {
         let store = RelayStateStore(rootDirectory: tmp)
         XCTAssertNil(store.load(id: "does_not_exist"))
         XCTAssertEqual(store.list(), [])
+    }
+
+    // MARK: - owner.pid liveness marker (works-test hazard #1; mirrors RunStore)
+
+    func testRunningSaveWritesOwnerPidThenTerminalSaveClearsIt() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relaystore-owner-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let store = RelayStateStore(rootDirectory: tmp)
+        let ownerURL = tmp.appendingPathComponent("relay_owner").appendingPathComponent("owner.pid")
+        var state = RelayState(
+            id: "relay_owner", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+        )
+        try store.save(state)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: ownerURL.path), "a running relay records its owner pid")
+        XCTAssertEqual(String(decoding: (try? Data(contentsOf: ownerURL)) ?? Data(), as: UTF8.self),
+                       "\(ProcessInfo.processInfo.processIdentifier)")
+
+        state.status = .done
+        try store.save(state)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: ownerURL.path), "a terminal save clears the marker")
+    }
+
+    func testIsOwnerDeadTrueWhenMarkerMissingOrDeadFalseWhenAlive() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relaystore-dead-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let store = RelayStateStore(rootDirectory: tmp)
+
+        // No relay folder at all — missing counts as dead (never assumed alive without proof).
+        XCTAssertTrue(store.isOwnerDead(id: "relay_never_saved"))
+
+        // A live owner (this test process) is not dead.
+        let live = RelayState(
+            id: "relay_live", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+        )
+        try store.save(live)
+        XCTAssertFalse(store.isOwnerDead(id: "relay_live"))
+
+        // A marker naming a pid well above macOS's max — dead (mirrors
+        // RunStoreJournalTests' `testOrphanWithDeadPidResolvesToInterrupted`).
+        try Data("2000000".utf8).write(to: tmp.appendingPathComponent("relay_live").appendingPathComponent("owner.pid"))
+        XCTAssertTrue(store.isOwnerDead(id: "relay_live"))
     }
 }
 

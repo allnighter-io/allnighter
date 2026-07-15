@@ -75,13 +75,22 @@ enum MCPRelayHandlers {
         return respond(state)
     }
 
-    static func status(args: [String: Any], stateStore: RelayStateStore = RelayStateStore()) -> Outcome {
+    /// Reconciles via `RelayCoordinator.reconcileOrphan` (not a raw `RelayStateStore.load`)
+    /// so a `.running` relay whose owner process died mid-round reconciles to `.stopped`
+    /// here — works-test hazard #1: "on load/list/status/start".
+    static func status(
+        args: [String: Any],
+        stateStore: RelayStateStore = RelayStateStore(),
+        threadProjector: RelayThreadProjector? = RelayThreadProjector()
+    ) -> Outcome {
         guard let relayId = args["relay"] as? String, !relayId.isEmpty else {
             return usageError("relay required")
         }
-        guard let state = stateStore.load(id: relayId) else {
+        guard let loaded = stateStore.load(id: relayId) else {
             return relayNotFound(relayId)
         }
+        let state = RelayCoordinator.reconcileOrphan(
+            loaded, stateStore: stateStore, threadProjector: threadProjector, now: Date.init)
         return respond(state)
     }
 
@@ -98,10 +107,15 @@ enum MCPRelayHandlers {
         guard let priorState = stateStore.load(id: relayId) else {
             return relayNotFound(relayId)
         }
-        guard priorState.status == .escalated else {
+        // `priorState` is the raw persisted read; `RelayCoordinator.resume` (which this
+        // feeds) durably reconciles a dead-owner `.running` relay to `.stopped` — this
+        // pre-check only needs to know THAT it would be eligible, via the same owner.pid
+        // liveness signal (works-test hazard #1: "escalated-only was too narrow").
+        let orphaned = priorState.status == .running && stateStore.isOwnerDead(id: relayId)
+        guard priorState.isResumable || orphaned else {
             return .toolError(ErrorEnvelope(
                 code: "RELAY_INVALID_STATE",
-                message: "relay \(relayId) is \(priorState.status.rawValue), not escalated — only an escalated relay can be resumed",
+                message: "relay \(relayId) is \(priorState.status.rawValue), not resumable — only an escalated relay, or one reconciled after its owner process died, can be resumed",
                 requiresManual: true, retryable: false))
         }
         guard let maxRounds = maxRoundsArg(args["maxRounds"]) else {

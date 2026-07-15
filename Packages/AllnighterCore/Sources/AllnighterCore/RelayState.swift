@@ -153,4 +153,31 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.stoppedReason = stoppedReason
         self.founderNote = founderNote
     }
+
+    // MARK: - Orphan reconciliation (works-test hazard #1)
+
+    /// Stamped as `stoppedReason` when a `.running` relay is reconciled after its
+    /// owner process died mid-round (`RelayCoordinator.reconcileIfOrphaned`, mirroring
+    /// `RunStore`'s owner.pid liveness signal + `PairCoordinator.reconcileStaleRunning`'s
+    /// write-back-on-detection). A stable string, not a new field, so the wire contract
+    /// (`RelayJSON.stoppedReason`) needs no shape change — CLI/MCP callers that only
+    /// look at `status`/`stoppedReason` already see everything they need.
+    public static let orphanReconciledReason = "owner process died mid-round (reconciled)"
+
+    /// True for a relay reconciled by `reconcileIfOrphaned` rather than a ceiling
+    /// (`--max-rounds`/`--until`/stagnation) firing — the ONLY kind of `.stopped` relay
+    /// `relay-resume` accepts (PM_Relay.md works-test hazard #1: "escalated-only was
+    /// too narrow" for `relay-resume`, but a ceiling stop is still a deliberate stop,
+    /// never silently resumable).
+    public var isReconciledStopped: Bool {
+        status == .stopped && stoppedReason == Self.orphanReconciledReason
+    }
+
+    /// `relay-resume`'s eligibility gate: an `.escalated` relay (a real founder
+    /// question) or a reconciled-stopped one (the process died — resuming continues
+    /// from the last durable round). `.done` and a ceiling-`.stopped` relay are never
+    /// resumable.
+    public var isResumable: Bool {
+        status == .escalated || isReconciledStopped
+    }
 }

@@ -638,7 +638,6 @@ public actor RunService {
             guard let requestedAt, let startedAt = outcome.timing.startedAt else { return nil }
             return max(0, Int(startedAt.timeIntervalSince(requestedAt) * 1000))
         }()
-        FileHandle.standardError.write(Data("[DEBUG-3c] outcome status=\(outcome.status) errorKind=\(String(describing: outcome.errorKind)) errorReason=\(String(describing: outcome.errorReason)) output=\(String(describing: outcome.output)) exitCode=\(String(describing: outcome.exitCode))\n".utf8))
         let answer = TeamAnswer(
             memberId: worker.id, modelId: model.id, role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
             result: outcome, queueMs: queueMs

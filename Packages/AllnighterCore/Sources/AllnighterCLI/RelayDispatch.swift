@@ -40,6 +40,19 @@ enum RelayDispatch {
         }
     }
 
+    /// One compact, single-line JSON object per progress event — NDJSON (PM_Relay.md
+    /// §6 R-S05, works-test hazard #3). `AllnighterCLI.jsonString`/`CoreJSON.encode`
+    /// always pretty-prints (multi-line), which is right for the one final envelope
+    /// but wrong for a per-event stream; this mirrors the house NDJSON convention
+    /// (`NDJSONStreamProjector.encodeLine`'s plain `JSONEncoder` with only
+    /// `.sortedKeys`, no `.prettyPrinted`) rather than inventing a second one.
+    static func progressJSONLine(_ event: RelayCoordinator.RelayEvent) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = (try? encoder.encode(progressJSON(event))) ?? Data("{}".utf8)
+        return String(decoding: data, as: UTF8.self)
+    }
+
     static func humanProgressLine(_ event: RelayCoordinator.RelayEvent) -> String {
         switch event {
         case .roundStarted(let round):

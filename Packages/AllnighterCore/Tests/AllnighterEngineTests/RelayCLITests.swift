@@ -168,6 +168,30 @@ final class RelayCLITests: XCTestCase {
         }
     }
 
+    /// Works-test hazard #1: "escalated-only was too narrow" — a `.running` relay whose
+    /// owner process died mid-round must be accepted by `relay-resume`, not rejected the
+    /// way a genuinely-still-running relay correctly is (see
+    /// `testParseResumeRequestNonEscalatedRelayThrowsInvalidState` above).
+    func testParseResumeRequestOrphanedRunningRelayIsEligible() throws {
+        let stateStore = makeRelayStateStore()
+        let running = RelayState(
+            id: "relay_orphaned", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+        )
+        try stateStore.save(running)
+        // Simulate the owner process dying mid-round (mirrors RunStoreJournalTests'
+        // dead-pid fixture): overwrite the marker `save` just wrote for THIS (alive) test
+        // process with a pid that cannot possibly be alive.
+        let ownerURL = stateStore.rootDirectory.appendingPathComponent("relay_orphaned", isDirectory: true)
+            .appendingPathComponent("owner.pid")
+        try Data("2000000".utf8).write(to: ownerURL)
+
+        let request = try RelayCLI.parseResumeRequest(
+            ["--relay", "relay_orphaned", "--answer", "76"], stateStore: stateStore
+        )
+        XCTAssertEqual(request.relayId, "relay_orphaned")
+    }
+
     func testParseResumeRequestEscalatedRelayResolvesConfigFromPersistedState() throws {
         let stateStore = makeRelayStateStore()
         let projectStore = makeProjectStore()

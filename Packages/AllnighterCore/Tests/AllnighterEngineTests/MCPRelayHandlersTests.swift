@@ -104,6 +104,33 @@ final class MCPRelayHandlersTests: XCTestCase {
         XCTAssertFalse(summary.isEmpty)
     }
 
+    // MARK: - status (orphan reconciliation — works-test hazard #1)
+
+    func testStatusReconcilesDeadOwnerRunningRelayToStopped() throws {
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_mcp_orphan_status", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+        )
+        try stateStore.save(state)
+        let ownerURL = stateStore.rootDirectory.appendingPathComponent("relay_mcp_orphan_status", isDirectory: true)
+            .appendingPathComponent("owner.pid")
+        try Data("2000000".utf8).write(to: ownerURL)
+
+        // `threadProjector: nil` — this test only cares about the durable RelayState
+        // transition; RelayThreadProjectionTests covers the thread side separately, and a
+        // real default projector would touch the machine's actual Application Support
+        // ThreadStore, which no test should ever do.
+        let outcome = MCPRelayHandlers.status(args: ["relay": "relay_mcp_orphan_status"], stateStore: stateStore, threadProjector: nil)
+        guard case .success(let encoded, _) = outcome else { return XCTFail("expected success") }
+        let json = try CoreJSON.decode(RelayJSON.self, from: Data(encoded.utf8))
+        XCTAssertEqual(json.status, "stopped")
+        XCTAssertEqual(json.stoppedReason, RelayState.orphanReconciledReason)
+
+        // Durable — a second read sees the same result.
+        XCTAssertEqual(stateStore.load(id: "relay_mcp_orphan_status")?.status, .stopped)
+    }
+
     // MARK: - resume
 
     func testResumeMissingRelayReturnsUsageError() async {
@@ -140,6 +167,30 @@ final class MCPRelayHandlersTests: XCTestCase {
         )
         guard case .toolError(let env) = outcome else { return XCTFail("expected tool error") }
         XCTAssertEqual(env.code, "RELAY_INVALID_STATE")
+    }
+
+    /// Works-test hazard #1: "escalated-only was too narrow" — a `.running` relay whose
+    /// owner process died mid-round must pass the resumability gate (unlike a genuinely
+    /// still-running relay, per `testResumeNonEscalatedRelayReturnsInvalidState` above). An
+    /// invalid `maxRounds` short-circuits AFTER that gate but BEFORE dispatch, so a
+    /// `CLI_USAGE_ERROR` here (rather than `RELAY_INVALID_STATE`) proves the gate passed.
+    func testResumeAcceptsOrphanedRunningRelayPastInvalidStateGate() async throws {
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let running = RelayState(
+            id: "relay_mcp_orphaned", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+        )
+        try stateStore.save(running)
+        let ownerURL = stateStore.rootDirectory.appendingPathComponent("relay_mcp_orphaned", isDirectory: true)
+            .appendingPathComponent("owner.pid")
+        try Data("2000000".utf8).write(to: ownerURL)
+
+        let runtime = ToolRuntime()
+        let outcome = await MCPRelayHandlers.resume(
+            runtime: runtime, args: ["relay": "relay_mcp_orphaned", "answer": "76", "maxRounds": "-1"], stateStore: stateStore
+        )
+        guard case .toolError(let env) = outcome else { return XCTFail("expected tool error") }
+        XCTAssertEqual(env.code, "CLI_USAGE_ERROR")
     }
 
     func testResumeInvalidMaxRoundsReturnsUsageErrorBeforeDispatch() async throws {
