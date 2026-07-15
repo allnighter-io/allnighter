@@ -1,8 +1,10 @@
 # Pair Programming Team — the Control Plane, proven with a free executor
 
-Status: **In progress — PPT-1 + PPT-2 implemented (CLI + queue loop)**
+Status: **In progress — PPT-1 + PPT-2 implemented (CLI + queue loop). DEMOTED to the
+weak-executor special case: the front door is now the PM Relay (`PM_Relay.md`) —
+lazy, conversational decomposition by a PM seat; no up-front slicing. PPT-S13 is dead.**
 Owner: AllnighterCore + CLI + Mac GUI
-Updated: 2026-06-26
+Updated: 2026-07-15
 
 > Vocabulary follows the locked cutover — **Chat / Delegate / Execute**, **Team**,
 > **worker**, one `team.run` primitive. "Supervisor" and "hammer" are *role names within
@@ -275,7 +277,7 @@ already did the work — leverage → 1) and any notion that Allnighter authors 
 
 | Slice | Deliverable | Status |
 | --- | --- | --- |
-| PPT-S13 | `WorkSlicePlan` authoring: large-context worker (or Composer seat) emits the batch as structured output | open |
+| PPT-S13 | ~~`WorkSlicePlan` authoring: large-context worker emits the batch as structured output~~ | **DEAD — superseded by the PM Relay (`PM_Relay.md`): decomposition is lazy + conversational, nothing to compile** |
 | PPT-S14 | Auto re-engage planner on escalation — **three GLM attempts → planner takeover once → advance queue** | **done (MCP + CLI)** |
 
 ### PPT-4 — Mac GUI (last; "send to team", projection-only)
