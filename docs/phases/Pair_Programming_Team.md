@@ -1,8 +1,9 @@
 # Pair Programming Team — the Control Plane, proven with a free executor
 
-Status: **In progress — PPT-1 + PPT-2 implemented (CLI + queue loop). DEMOTED to the
-weak-executor special case: the front door is now the PM Relay (`PM_Relay.md`) —
-lazy, conversational decomposition by a PM seat; no up-front slicing. PPT-S13 is dead.**
+Status: **REPLACED by the PM Relay (`PM_Relay.md`) — founder call 2026-07-15.
+This doc and the entire slice-queue machinery are DELETED at relay slice R-S09
+(gated on the relay works test passing). Until then this code is the battle-tested
+reference for the relay build. Do NOT extend it; PPT-S13/S15–S18 are dead.**
 Owner: AllnighterCore + CLI + Mac GUI
 Updated: 2026-07-15
 

@@ -58,14 +58,18 @@ unnecessary ceremony. **Granularity is a per-round judgment call by the PM**, ma
 prose, differently for different surfaces (the same PM batched three slices in one
 round, then demanded single-slice gating for the next). A compile step can't do that.
 
-Consequences:
+Consequences (founder call, 2026-07-15 — **full replacement, no special case**):
 
 - **PPT-S13 (doc → packet compiler) is DEAD.** The relay makes decomposition lazy and
   conversational; there is nothing to compile.
-- **The slice queue survives as the special case** for the weak-executor overnight
-  regime (pre-bounded reads, touch allowlists). It is no longer the front door. The
-  two can nest later: a PM handover for a big mechanical batch may *be* "run this
-  queue" — not in V1.
+- **The entire slice-queue machinery is deleted** once the relay's works test passes
+  (R-S09). No "weak-executor special case" survives: seating a weak executor is a
+  *seating choice* — put GLM in the dev chair and the PM writes small, read-inlined
+  handovers, exactly as a good PM does for a risky surface. Keeping a second loop
+  is the migration-hedging the foundation-first rule bans, and half-dead machinery
+  misleads repo-scoped agents (the PRJ deletion taught this: `ca40036d`).
+- One salvage: the **compaction≠stall** logic in `SliceTerminalClassifier` — paid for
+  in real overnight runs — moves into the relay's turn classifier. The rest dies.
 
 ---
 
@@ -203,6 +207,7 @@ Small, contract-first, CLI/MCP before GUI — house rules.
 | R-S06 | MCP: `pair_relay` / `pair_relay_status` / `pair_relay_resume` — full structured envelopes | `MCPPairHandlers` |
 | R-S07 | Relay-as-thread: each relay is a `WorkThread`; rounds are turns; escalation raises `needsAttention` — the inbox shows the loop live for free | `ThreadStore`, threads GUI |
 | R-S08 | Composer entry (GUI, last): `@`-link the doc, pick PM seat + dev seat, go — a team-lane preset (`pm_relay`: seat 1 PM, seat 2 dev) | attachments + team picker |
+| R-S09 | **Kill the slice queue** (gated on R-S07/works test PASS): delete `WorkSlicePacket`, `SliceGate`, `SliceQueue`/`Store`, `SliceAttemptPrompt`, `NudgePrompt`, `ReviewAttemptPrompt`, `PlannerTakeoverPrompt`, `CheckRunner`, `PairCoordinator`, `PairSliceJSON`, `PairProgrammingCLI`/`Dispatch`, `pair_slice`/`pair_run`/`pair_status` MCP + registry entries, `Pair_Programming_Team.md` (outright, no archive). Salvage compaction≠stall from `SliceTerminalClassifier` first. **Device pairing in `PairCLI` (list/approve/revoke/begin) is DirectMode iOS — untouched.** Keep: `TryFixGate`/`FixPacket` (Auto-Fix), `OpenCodeServeCoordinator` (driver-owned), code_review run logs (history) | — |
 
 Pre-work (before R-S04): **post-cutover smoke** — the pair path hasn't run since the
 AgentOS runner cutover (2026-07-02) and `MCPPairHandlers` is among the known test
@@ -237,7 +242,6 @@ If the founder is still pasting, the feature is not done.
 - Parallel dev seats (one mutating worker — inviolable).
 - External-dev mode (dev outside Allnighter, git-commit watching as the turn signal) —
   real, named, later.
-- Nesting the slice queue under a relay handover — later.
 - Allnighter judging correctness, doing git, or authoring checks — unchanged laws.
 - Streaming dev tokens to the UI (the value is waking up to results).
 
@@ -255,4 +259,4 @@ If the founder is still pasting, the feature is not done.
 | Verdict-tail extraction pattern | `firstJSONObject` (proposal-engine lineage) |
 | Thread projection | `AllnighterEngine/ThreadStore.swift` |
 | CLI / MCP | `AllnighterCLI/PairProgrammingCLI.swift`, `MCPPairHandlers.swift` |
-| What this supersedes | `Pair_Programming_Team.md` (queue = weak-executor special case; PPT-S13 dead) |
+| What this replaces | `Pair_Programming_Team.md` (slice queue — deleted at R-S09; reference until then) |
