@@ -90,6 +90,10 @@ public struct RelayThreadProjector: Sendable {
     /// text instead of leaving the discarded first attempt behind (§4.1).
     private func syncPMTurn(round: RelayRound, state: RelayState, thread: inout WorkThread, now: Date) {
         let turnId = "\(state.id)_pm\(round.roundNumber)"
+        if let submission = round.externalSubmission {
+            syncExternalPMTurn(turnId: turnId, submission: submission, round: round, thread: &thread, now: now)
+            return
+        }
         guard let existing = thread.turn(id: turnId) else {
             let turn = ThreadTurn(
                 id: turnId, threadId: thread.id, kind: .workerChat, status: .running,
@@ -127,6 +131,33 @@ public struct RelayThreadProjector: Sendable {
                 if let updated = try? store.updateTurn(settled, inThreadId: thread.id, now: now) { thread = updated }
             }
         }
+    }
+
+    /// Pilot's PM turn (`docs/phases/Pilot_Relay.md` PL-S05, `pmMode == .external`):
+    /// there is no PM model dispatch to wait on — `RelayCoordinator.runExternalRound`
+    /// only ever persists a round AFTER the piloting session's submission already
+    /// parsed (and, for `continue`, cleared `HandoverGate`), so the round is a complete,
+    /// immutable record from the moment it first lands. Rendered `.done` immediately
+    /// (never an optimistic `.running` placeholder — there's nothing left to wait for),
+    /// with the submission verbatim — verdict tail included, same "verbatim, unedited"
+    /// contract a spawned PM turn's text carries.
+    ///
+    /// Attribution is the "distinct from a spawned PM" signal the doc calls for:
+    /// `author: .user` (a live human/agent session) instead of `.worker`, and
+    /// `workerId: nil` (no model dispatched) instead of `state.pmWorkerId`'s sentinel —
+    /// existing `ThreadTurn` fields carry this with no new type.
+    ///
+    /// A pilot round's `verdict`/`gate`/`externalSubmission` never change after the
+    /// round first lands (unlike a spawned round's verdict-parse re-ask, which
+    /// supersedes `pmRunId`), so this turn is written once and never revisited.
+    private func syncExternalPMTurn(turnId: String, submission: String, round: RelayRound, thread: inout WorkThread, now: Date) {
+        guard thread.turn(id: turnId) == nil else { return }
+        let turn = ThreadTurn(
+            id: turnId, threadId: thread.id, kind: .workerChat, status: .done,
+            createdAt: round.startedAt, completedAt: round.finishedAt ?? round.startedAt,
+            author: .user, text: submission, workerId: nil
+        )
+        if let updated = try? store.appendTurn(turn, toThreadId: thread.id, now: now) { thread = updated }
     }
 
     /// The dev turn: only ever dispatched when the PM verdict was `continue` AND the
