@@ -1,6 +1,16 @@
 # Field Reports 1 — the four remaining Opus dogfood findings
 
-Status: In progress — piloted delivery #5 (PM = live Claude session; dev = Cursor Grok 4.5)
+Status: SHIPPED — piloted delivery #5, relay_5a2894bc (PM = live Claude session; dev
+= Cursor Grok 4.5). FR1 `3cc2728e` (run in top-level help + CLIHelpDriftTests
+registry↔help gate, bite-verified), FR2 `e11d45c2` (RunIdentity: worker · lane ·
+mutating|readOnly headline, "Default Team" honest display, preset id demoted to
+provenance; additive TeamRunJSON fields), FR3 `430b5c8e` (RepoDelta via read-only
+GitObserver range queries: baseline/head/commits/files in TeamRunJSON + "committed
+<sha>: N files" human line; relay dev turns inherit through RunService with zero
+relay code), FR4 `10fd73a4` (ProvenanceConvention trailer ask in RelayDevPrompt +
+bare mutating runs, exactly once; convention-not-mechanism noted in PM_Relay.md).
+PM independently verified: 260 tests green, contracts clean. **All seven Opus
+dogfood field reports are now closed** (1/3/4 by Agent_Front_Door, 2/5/6/7 here).
 Owner: AllnighterCore + CLI
 Updated: 2026-07-16
 
