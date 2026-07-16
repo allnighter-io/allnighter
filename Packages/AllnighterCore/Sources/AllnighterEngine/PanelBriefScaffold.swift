@@ -14,7 +14,7 @@ public enum PanelBriefScaffold {
 
         <!-- Refuted last round: … — do not re-litigate -->
 
-        <!-- focus: what this round should pressure-test -->
+        <!-- focus: what this round should scrutinize -->
 
         <!-- out of scope: what seats must not chase -->
 

@@ -1378,7 +1378,7 @@ Output schema: `helpTopicsJSON`.
 | `PANEL_NOT_FOUND` | yes | no | Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`. |
 | `PANEL_ROUND_IN_FLIGHT` | no | yes | Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`. |
 | `PANEL_TARGET_MISSING` | yes | no | Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one. |
-| `PANEL_NOT_AWAITING` | yes | no | Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to pressure-test). |
+| `PANEL_NOT_AWAITING` | yes | no | Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to scrutinize). |
 | `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
 | `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |

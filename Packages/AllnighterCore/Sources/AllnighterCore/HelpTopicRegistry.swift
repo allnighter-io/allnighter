@@ -192,11 +192,11 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "panel", title: "Panel (blind jury)", audience: .both,
-            summary: "Session-led blind jury on any target: Allnighter fans out read-only seats, stores structured findings, you synthesize and edit. Pressure-test specs, then chain into Pilot to build.",
+            summary: "Session-led blind jury on any target: Allnighter fans out read-only seats, stores structured findings, you synthesize and edit. Run Spec Review on specs, then chain into Pilot to build.",
             bodyMarkdown: """
             Panel is "I am always the lead; the seats are always a blind jury" — for any \
-            target a session judges (a spec, a PR, an architecture call). Spec hardening \
-            (the Pressure Test loop) is the hero recipe, not the product's name. \
+            target a session judges (a spec, a PR, an architecture call). Spec Review \
+            is the hero recipe, not the product's name. \
             `alln panel start --doc <path> --project .` resolves a team roster (or \
             remembered/lane-default), pins a target content hash, scaffolds a focus brief, \
             and parks `awaitingPM`. `alln panel round --panel <id>` blocks through N blind \
@@ -210,8 +210,8 @@ public enum HelpTopicRegistry {
             is refused for lacking a RO mode.
             """,
             aliases: [
-                "panel this", "blind jury", "pressure test", "panel round", "panel start",
-                "spec hardening", "jury", "pressure-test", "alln panel",
+                "panel this", "blind jury", "spec review", "panel round", "panel start",
+                "spec hardening", "jury", "alln panel",
             ],
             sections: [
                 .init("roster", "Team catalog is the roster", "`--team <alias>` fuzzy-resolves a TeamPreset (unique→echoed, ambiguous→candidates with seat count). Zero-config uses remembered-else-lane-default. `--seat <alias>:<lens>` resolves the alias via PilotSeatResolver at start (real model id stored; never a raw alias) and echoes `isolation` per seat (`driverReadOnly` | `clone`)."),

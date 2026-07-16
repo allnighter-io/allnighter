@@ -499,7 +499,7 @@ struct ThreadsFixtureSeeder {
         let base = Date().addingTimeInterval(-600)
 
         guard (try? store.create(
-            id: id, title: "PM Relay: Pressure Test", now: base, workingDir: "/Users/you/code/allnighter"
+            id: id, title: "PM Relay: Spec Review", now: base, workingDir: "/Users/you/code/allnighter"
         )) != nil else { return }
 
         func turn(_ suffix: String, workerId: String, text: String, at offset: TimeInterval) -> ThreadTurn {

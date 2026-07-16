@@ -19,7 +19,7 @@ public extension BuiltInProfiles {
             lens("security_privacy", "Security & Privacy", "Find obvious security, privacy, permission, and data-leak gaps."),
             lens("code_maintainer", "Code Maintainer", "Keep the diff, architecture, and state ownership simple. Flag complexity."),
             lens("proof_qa", "Proof / QA", "Define the Works Test, proof wall, and the likely failure cases."),
-            lens("ui_ux", "UI / UX", "Pressure-test the interaction model, empty/error states, and visual simplicity."),
+            lens("ui_ux", "UI / UX", "Probe the interaction model, empty/error states, and visual simplicity."),
             lens("customer_advocate", "Customer Advocate", "Ask whether a paying user cares and whether this solves the real pain."),
             lens("dissent_preserver", "Dissent Preserver", "Recover dissent or nuance the draft synthesis may have flattened. You get the raw worker answers — find what was lost."),
             lens("scope_discipline", "Scope discipline", "Challenge unnecessary stages, duplicated review, vague run instructions, and runaway workflow shape. Do not estimate provider cost, quota, or runtime."),

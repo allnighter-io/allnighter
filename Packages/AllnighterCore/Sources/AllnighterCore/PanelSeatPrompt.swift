@@ -7,7 +7,7 @@ import Foundation
 public enum PanelSeatPrompt {
     /// Built-in round-1 brief (decision 6). Sessions may override with `--brief`.
     public static let builtinBrief =
-        "Pressure-test this target; structured findings only; no material findings is a valid answer."
+        "Stress-test this target; structured findings only; no material findings is a valid answer."
 
     /// The finding-schema contract block. Appears exactly once at the end of every
     /// seat prompt so seats end with a fenced JSON findings block.

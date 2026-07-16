@@ -693,7 +693,7 @@
     "ruleId" : "panel.target.missing"
   },
   {
-    "agentAction" : "Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to pressure-test).",
+    "agentAction" : "Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to scrutinize).",
     "code" : "PANEL_NOT_AWAITING",
     "exitClass" : "operational",
     "explain" : "`panel round` was called against a panel that isn't parked at `awaitingPM` — it already reached done, or is otherwise not ready for a new dispatch.",

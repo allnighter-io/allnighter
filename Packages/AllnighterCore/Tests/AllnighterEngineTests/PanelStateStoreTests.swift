@@ -24,7 +24,7 @@ final class PanelStateStoreTests: XCTestCase {
             projectRoot: "/tmp/proj",
             projectId: "proj_1",
             targetPath: "docs/phases/X.md",
-            teamId: "architecture_pressure_test",
+            teamId: "code_spec_review",
             seats: [
                 PanelSeat(workerId: "model_opus", lens: "adversary", lensInstruction: "Find holes."),
                 PanelSeat(workerId: "model_sonnet", lens: "simplicity"),
@@ -53,7 +53,7 @@ final class PanelStateStoreTests: XCTestCase {
         let round = PanelRound(
             roundNumber: 1,
             targetHash: PanelState.contentHash(of: Data("hello".utf8)),
-            brief: "Pressure-test this target",
+            brief: "Scrutinize this target",
             briefSource: .builtin,
             seatResults: [
                 SeatResult(
@@ -170,7 +170,7 @@ final class PanelStateStoreTests: XCTestCase {
         let openRound = PanelRound(
             roundNumber: 1,
             targetHash: "abc",
-            brief: "Pressure-test",
+            brief: "Spec review",
             briefSource: .builtin,
             seatResults: [
                 SeatResult(

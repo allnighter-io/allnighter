@@ -9,7 +9,7 @@
     "lane": "code",
     "type": "feature",
     "effort": "deep",
-    "prompt": "Pressure-test this launch plan.",
+    "prompt": "Stress-test this launch plan.",
     "promptSource": { "kind": "positional", "path": null },
     "createdAt": "2026-06-15T22:14:00Z",
     "startedAt": "2026-06-15T22:14:01Z",
@@ -17,7 +17,7 @@
     "threadId": null,
     "teamPresetId": "preset_quality",
     "planWriterWorkerId": "model_opus#0",
-    "reproduceCommand": "alln team --lane build --type feature --effort deep \"Pressure-test this launch plan.\""
+    "reproduceCommand": "alln team --lane build --type feature --effort deep \"Stress-test this launch plan.\""
   },
   "models": [
     {

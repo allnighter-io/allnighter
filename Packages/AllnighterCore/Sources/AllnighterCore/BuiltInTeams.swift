@@ -157,7 +157,7 @@ public enum BuiltInTeams {
     /// 4 plus specialists for those failure modes, with two anti-fixation
     /// reviewers — Contrarian (wrong *theory*) and Fix Altitude (wrong *level*)
     /// — and the carry-law writer so specialist evidence is never flattened in
-    /// synthesis. Description keeps the forensics framing (Team_Depth_Naming).
+    /// synthesis. Description keeps the deep-trace Max framing (Team_Depth_Naming).
     static let buildBugHuntMax = make(
         id: "code_bug_hunt_max", name: "Bug Hunt Max", lane: .code, output: .bugPacket, defaultEffort: .high,
         description: "Escalation for nasty bugs — seam-crossing, hidden state, and fixes that keep failing. Deeper trace, state, and wrong-level checks.",

@@ -940,7 +940,7 @@ public enum SkillCatalog {
         Project plausibly is; do not invent a different company.
         """),
         s("signal_skeptic", "Signal Skeptic", .signal, .review, """
-        Pressure-test the read before it becomes a move. Is the signal fresh or stale? \
+        Challenge the read before it becomes a move. Is the signal fresh or stale? \
         Is the topic already saturated or owned by a larger account where we would just \
         be noise? Is the supposed urgency real, or hype that decays in a day? "No move \
         today" is a valid, useful verdict when the signal is stale, saturated, or not a \
