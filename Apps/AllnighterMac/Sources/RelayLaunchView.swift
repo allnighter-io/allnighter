@@ -27,7 +27,6 @@ struct RelayLaunchView: View {
     @State private var docQuery = ""
     @State private var docCandidates: [ProjectFileCatalog.Candidate] = []
     @State private var docSnapshot: ProjectFileCatalog.Snapshot?
-    @State private var docFieldFocused = false
 
     private var project: Project? { projects.projects.first { $0.id == projectId } }
     private var readySeats: [ComposeBenchModel] { appModel.composeBench.filter(\.ready) }
@@ -181,19 +180,26 @@ struct RelayLaunchView: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionLabel(title)
             Text(subtitle).font(ALFont.caption).foregroundStyle(ALColor.textFaint)
-            VStack(spacing: 2) {
-                ForEach(readySeats) { seat in
-                    let reason = readOnlyGated ? unsupportedReason(seat.id) : nil
-                    seatRow(seat, selected: selected.wrappedValue == seat.id, disabledReason: reason) {
-                        selected.wrappedValue = seat.id
+            // Height-capped + independently scrollable: the bench can run to 9+ ready
+            // seats, and two of these plus the doc/toggle/ceilings sections in one outer
+            // ScrollView would bury "Dev seat" and Start behind a long scroll. Each
+            // picker gets its own short, bounded viewport instead (~4.5 rows visible).
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(readySeats) { seat in
+                        let reason = readOnlyGated ? unsupportedReason(seat.id) : nil
+                        seatRow(seat, selected: selected.wrappedValue == seat.id, disabledReason: reason) {
+                            selected.wrappedValue = seat.id
+                        }
+                    }
+                    if readySeats.isEmpty {
+                        Text("No ready CLIs — check Setup.").font(ALFont.caption).foregroundStyle(ALColor.textFaint)
+                            .padding(.vertical, 6)
                     }
                 }
-                if readySeats.isEmpty {
-                    Text("No ready CLIs — check Setup.").font(ALFont.caption).foregroundStyle(ALColor.textFaint)
-                        .padding(.vertical, 6)
-                }
+                .padding(6)
             }
-            .padding(6)
+            .frame(maxHeight: 168)
             .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
             .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
         }

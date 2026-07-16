@@ -44,6 +44,20 @@ struct HomeView: View {
                 .transition(.opacity)
             }
         }
+        #if DEBUG
+        // GUI Visual Proof Gate: a `.sheet()` is a genuinely separate NSWindow, invisible
+        // to the in-process content-view snapshot the proof harness uses (the same class
+        // of gotcha as an NSMenu/NSPopover — see RoutingComposer's `composeTargetInline`).
+        // Render the SAME view inline, over the workspace, only for this fixture.
+        .overlay {
+            if GUIFixture.opensRelayLaunch, let request = relayLaunchRequest {
+                ALColor.overlay.ignoresSafeArea()
+                RelayLaunchView(projectId: request.projectId)
+                    .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.xxl))
+                    .shadow(radius: 24)
+            }
+        }
+        #endif
     }
 
     @ViewBuilder
