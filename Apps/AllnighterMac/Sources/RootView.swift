@@ -32,6 +32,10 @@ struct RootView: View {
     /// Title-bar pending-count source (drives the conditional `N pending` pill).
     @State private var pendingVM: PendingViewModel?
     @State private var commands = CommandCenter()
+    /// R-S08: resume-from-GUI for an escalated relay thread (`RelayEscalationRow` in
+    /// ThreadView.swift). One shared instance so repeated resumes across relay threads
+    /// share in-flight/error state, mirroring `commands`'s app-wide singleton shape.
+    @State private var relayResume = RelayResumeController()
     /// DEBUG GUI-proof only: render the Factory Floor reader over a sample run.
     @State private var showFloorReaderProof = false
     @State private var pairingPromptRequest: RemotePairRequest?
@@ -234,6 +238,7 @@ struct RootView: View {
         .ignoresSafeArea(.container, edges: .top)
         .environment(threads)
         .environment(commands)
+        .environment(relayResume)
         .focusedSceneValue(\.appCommands, appCommands)
         .overlay {
             if commands.palettePresented {

@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import AllnighterCore
+import AllnighterEngine
 import AgentOSTeam
 
 // Conversation thread pane (docs/phases/wiring/compose-routing, reference/app.jsx
@@ -628,6 +629,11 @@ private struct ThreadTurnRow: View {
             ThreadBoardRow(turn: turn)
         case .mutatingRun:
             ThreadMutatingRunRow(turn: turn, isLastTurn: isLastTurn)
+        case .systemEvent where turn.systemEvent == .relayEscalated && turn.status == .running:
+            // R-S08: the ONE open, actionable system event — a PM Relay round asked the
+            // founder a real question and is waiting. Every other system event (including
+            // an already-resumed/settled relayEscalated turn) stays the plain stub below.
+            RelayEscalationRow(turn: turn)
         default:
             stubTurn
         }
@@ -758,6 +764,70 @@ private struct ThreadTurnRow: View {
             StatusPill(kind: ThreadsPresenter.pillKind(for: turn.status))
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - R-S08 relay escalation (resume-from-GUI)
+
+/// The one place a PM Relay round asks the founder a real question
+/// (`docs/phases/PM_Relay.md` §4.1) and stops. `turn.threadId` IS the relay id
+/// (`RelayThreadProjector`'s identity rule — no separate lookup). No existing composer
+/// seam answers an open system event inline (`ThreadTurnRow` had no case for
+/// `.systemEvent` at all before this), so this ships as its own affordance rather than
+/// routing through `RoutingComposer`/`sendRouting` — see `RelayResumeController`'s doc
+/// comment for why that would be invasive surgery instead of seam reuse.
+private struct RelayEscalationRow: View {
+    @Environment(RelayResumeController.self) private var relayResume
+    @Environment(ThreadsViewModel.self) private var threads
+    let turn: ThreadTurn
+    @State private var answer = ""
+    @FocusState private var answerFocused: Bool
+
+    private var relayId: String { turn.threadId }
+    private var isResuming: Bool { relayResume.isResuming(relayId) }
+    private var canSubmit: Bool { !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isResuming }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "questionmark.circle.fill").font(.system(size: 13)).foregroundStyle(ALPalette.amber400)
+                Text("PM Relay needs an answer").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+            }
+            if let note = turn.text, !note.isEmpty {
+                Text(note).font(.system(size: 13)).foregroundStyle(ALColor.textSecondary).textSelection(.enabled)
+            }
+            HStack(spacing: 8) {
+                TextField("Your answer…", text: $answer, onCommit: submit)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .focused($answerFocused)
+                    .padding(.horizontal, 10).frame(height: ALControl.height)
+                    .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                    .overlay { RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                    .disabled(isResuming)
+                Button(isResuming ? "Resuming…" : "Answer & resume", action: submit)
+                    .buttonStyle(.alPrimary)
+                    .disabled(!canSubmit)
+            }
+            if let error = relayResume.lastError[relayId] {
+                Text(error).font(.system(size: 11)).foregroundStyle(ALPalette.red400)
+            }
+        }
+        .padding(12)
+        .background(ALColor.warningSurface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.accentBorder, lineWidth: 1) }
+    }
+
+    private func submit() {
+        guard canSubmit else { return }
+        let text = answer
+        // `RelayCoordinator.resume` — same construction path as launch
+        // (`RelayGUIRuntime.makeCoordinator`), never a normal chat turn.
+        guard relayResume.resume(relayId: relayId, answer: text, onEvent: { _ in
+            Task { @MainActor in threads.requestReload() }
+        }) else { return }
+        answer = ""
+        answerFocused = false
     }
 }
 

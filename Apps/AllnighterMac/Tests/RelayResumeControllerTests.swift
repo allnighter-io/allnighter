@@ -1,0 +1,164 @@
+import XCTest
+import AllnighterCore
+import AllnighterEngine
+@testable import AllnighterMac
+
+/// R-S08 — resume-from-GUI. `RelayResumeController.resume` must route through
+/// `RelayCoordinator.resume` (same construction path as launch), never a normal chat
+/// turn, and must refuse an empty answer or a relay that isn't actually resumable.
+@MainActor
+final class RelayResumeControllerTests: XCTestCase {
+    private struct DoneVerdictRunner: CommandRunner {
+        func run(command: String, args: [String], stdin: String?, env: [String: String],
+                  workingDirectory: String?, timeout: Duration) async -> CommandResult {
+            CommandResult(stdout: """
+            Answered.
+            ```json
+            {"verdict":"done","note":"Resolved."}
+            ```
+            """, exitCode: 0)
+        }
+    }
+
+    private func tempRoot(_ label: String) -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-relay-resume-\(label)-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    private func stubbedFactory(root: URL, models: [Model], registry: DriverRegistry)
+        -> (@escaping @Sendable () -> String) -> RelayCoordinator {
+        let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true))
+        let runStore = RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
+        let stateStore = RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
+        return { idFactory in
+            RelayCoordinator(
+                runService: RunService(
+                    models: models, registry: registry, runStore: runStore,
+                    commandRunner: DoneVerdictRunner()
+                ),
+                stateStore: stateStore,
+                runStore: runStore,
+                threadProjector: RelayThreadProjector(store: store, runStore: runStore),
+                idFactory: idFactory
+            )
+        }
+    }
+
+    /// A directly-persisted `.escalated` `RelayState` — the shape a real escalated round
+    /// leaves behind (`RelayCoordinator.escalate`), written straight to the store so the
+    /// test doesn't need a full round to reach it.
+    private func seedEscalated(
+        id: String, root: URL, projectRoot: String, pmWorkerId: String, devWorkerId: String
+    ) -> RelayStateStore {
+        let stateStore = RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
+        let state = RelayState(
+            id: id, projectRoot: projectRoot, docPath: "docs/spec.md",
+            pmWorkerId: pmWorkerId, devWorkerId: devWorkerId, status: .escalated,
+            createdAt: Date(), note: "76/77 or 88 — say which?"
+        )
+        try? stateStore.save(state)
+        return stateStore
+    }
+
+    private func repoRoot() -> String {
+        let url = tempRoot("repo")
+        return url.path
+    }
+
+    // MARK: - Eligibility
+
+    func testCanResumeTrueForEscalatedFalseForUnknown() {
+        let root = tempRoot("eligibility")
+        let stateStore = seedEscalated(
+            id: "relay_a", root: root, projectRoot: repoRoot(),
+            pmWorkerId: "pm", devWorkerId: "dev")
+        let controller = RelayResumeController(
+            makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
+            stateStore: stateStore
+        )
+        XCTAssertTrue(controller.canResume(relayId: "relay_a"))
+        XCTAssertFalse(controller.canResume(relayId: "relay_does_not_exist"))
+    }
+
+    func testCanResumeFalseForDoneRelay() {
+        let root = tempRoot("done")
+        let stateStore = RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
+        let state = RelayState(
+            id: "relay_done", projectRoot: repoRoot(), docPath: "docs/spec.md",
+            pmWorkerId: "pm", devWorkerId: "dev", status: .done, createdAt: Date())
+        try? stateStore.save(state)
+        let controller = RelayResumeController(
+            makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
+            stateStore: stateStore
+        )
+        XCTAssertFalse(controller.canResume(relayId: "relay_done"), "a done relay is never resumable")
+    }
+
+    // MARK: - Resume routing
+
+    func testResumeRefusesEmptyAnswer() {
+        let root = tempRoot("empty")
+        let stateStore = seedEscalated(
+            id: "relay_b", root: root, projectRoot: repoRoot(),
+            pmWorkerId: "pm", devWorkerId: "dev")
+        let controller = RelayResumeController(
+            makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
+            stateStore: stateStore
+        )
+        XCTAssertFalse(controller.resume(relayId: "relay_b", answer: "   "))
+        XCTAssertFalse(controller.isResuming("relay_b"))
+    }
+
+    func testResumeRefusesIneligibleRelay() {
+        let root = tempRoot("ineligible")
+        let controller = RelayResumeController(
+            makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
+            stateStore: RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
+        )
+        XCTAssertFalse(controller.resume(relayId: "relay_never_existed", answer: "76/77"))
+    }
+
+    /// End-to-end: an escalated relay resumed with a real answer routes through
+    /// `RelayCoordinator.resume` and reaches `done` via the stubbed PM turn — proving the
+    /// wiring dispatches through the coordinator, not a normal chat send (there is no
+    /// chat path in this test's stores at all).
+    func testResumeRoutesThroughCoordinatorAndReachesDone() async throws {
+        let config = AppConfig.loadConfiguration()
+        try XCTSkipIf(config.models.count < 2, "need two distinct worker ids to seat PM + dev")
+        let root = tempRoot("full")
+        let relayId = "relay_full_\(UUID().uuidString)"
+        let stateStore = seedEscalated(
+            id: relayId, root: root, projectRoot: repoRoot(),
+            pmWorkerId: config.models[0].id, devWorkerId: config.models[1].id)
+        let controller = RelayResumeController(
+            makeCoordinator: stubbedFactory(root: root, models: config.models, registry: config.registry),
+            stateStore: stateStore
+        )
+
+        XCTAssertTrue(controller.resume(relayId: relayId, answer: "Go with 88."))
+        XCTAssertTrue(controller.isResuming(relayId))
+
+        // The seed state is ALREADY `.escalated` — wait for the stubbed PM turn's `done`
+        // verdict specifically (not merely "no longer .running"), since the pre-resume
+        // status would otherwise satisfy a weaker check on the very first poll.
+        var settled: RelayState?
+        for _ in 0..<200 {
+            if let state = stateStore.load(id: relayId), state.status == .done {
+                settled = state; break
+            }
+            try await Task.sleep(nanoseconds: 15_000_000)
+        }
+        XCTAssertEqual(settled?.status, .done, "note: \(settled?.note ?? "nil")")
+
+        // Disk settles a beat before `RelayResumeController` clears its in-flight flag
+        // (the flag clears only once `coordinator.resume`'s `await` actually returns
+        // control) — poll briefly rather than asserting on the exact same tick.
+        for _ in 0..<50 {
+            if !controller.isResuming(relayId) { break }
+            try await Task.sleep(nanoseconds: 15_000_000)
+        }
+        XCTAssertFalse(controller.isResuming(relayId))
+    }
+}

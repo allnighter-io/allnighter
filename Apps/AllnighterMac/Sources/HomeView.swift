@@ -69,6 +69,8 @@ private struct HomeSidebar: View {
     @State private var newChatHover = false
     /// Thread ids with an armed Pending item — drives the neutral pending row dot.
     @State private var armedPendingThreadIds: Set<String> = []
+    /// R-S08: the project a "Start relay" tap opened the launch sheet for.
+    @State private var relayLaunchRequest: RelayLaunchRequest?
     /// DEBUG-only: opens the developer GUI-routes sheet from the sidebar footer.
     var onOpenDevRoutes: () -> Void = {}
 
@@ -144,6 +146,9 @@ private struct HomeSidebar: View {
         .onChange(of: commands.focusSearchTick) { _, _ in searchFocused = true }
         .onAppear(perform: refreshArmedPending)
         .onChange(of: threads.railRows.count) { _, _ in refreshArmedPending() }
+        .sheet(item: $relayLaunchRequest) { request in
+            RelayLaunchView(projectId: request.projectId)
+        }
     }
 
     #if DEBUG
@@ -187,7 +192,8 @@ private struct HomeSidebar: View {
                         group: group,
                         collapsed: collapsed.contains(group.id),
                         onToggle: { toggle(group.id) },
-                        onNewAgent: { newAgent(in: group.project.id) }
+                        onNewAgent: { newAgent(in: group.project.id) },
+                        onStartRelay: { relayLaunchRequest = RelayLaunchRequest(projectId: group.project.id) }
                     )
                     if !collapsed.contains(group.id) {
                         let shown = expanded.contains(group.id) ? group.rows : Array(group.rows.prefix(4))
@@ -543,6 +549,9 @@ private struct ProjectGroupHeader: View {
     let collapsed: Bool
     let onToggle: () -> Void
     let onNewAgent: (() -> Void)?
+    /// R-S08: launches the PM Relay sheet for this project. `nil` in contexts (fixtures)
+    /// that don't wire the affordance — no button renders.
+    var onStartRelay: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 7) {
@@ -564,6 +573,10 @@ private struct ProjectGroupHeader: View {
             }
             .buttonStyle(.plain)
             Spacer(minLength: 0)
+            if let onStartRelay {
+                IconButton(systemImage: "arrow.triangle.2.circlepath", accessibilityLabel: "Start relay", small: true, action: onStartRelay)
+                    .help("Start a PM ↔ dev relay against a spec doc")
+            }
             if let onNewAgent {
                 IconButton(systemImage: "plus", accessibilityLabel: "New agent in project", small: true, action: onNewAgent)
             }
