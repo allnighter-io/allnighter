@@ -18,9 +18,11 @@ users are lost, and Allnighter never becomes a habit.
 ## The rule
 
 1. **Family name = the job, named by what it does.** Spec Review, Bug Hunt,
-   Security Review, Release Proof. Function beats brand: "Pressure Test" stays
-   a marketing/loop name in docs and landing copy ("the Pressure Test workflow:
-   run Spec Review before you build") — it is never a team name.
+   Security Review, Release Proof. Function beats brand, **marketing included**
+   (founder, 2026-07-16): "Pressure Test" is retired everywhere — picker,
+   docs, landing copy. One name per job, described in plain words ("run Spec
+   Review before you build"). Clear language helps everywhere; a hero loop
+   marketed under one name and invoked under another can't become a habit.
 2. **Depth = one universal closed vocabulary: Min / (bare name) / Max.** The
    same two suffix words on every family, like model effort levels. Users
    memorize `families + 1` things, not `families × depths`.
@@ -72,6 +74,14 @@ ID migration ordering note: today's `code_bug_hunt` must move to
 be migrated with their team or explicitly invalidated — decide in the slice,
 never silently orphaned.
 
+## Routing law (founder, 2026-07-16)
+
+- **Every default send resolves to the bare (Default) team.** Auto and any
+  automatic routing never select Min. Min is an explicit user choice, always.
+- Escalation may **recommend** Max (`escalationRecommended`, LAB-C08) but
+  never silently switches teams — unchanged from the seat-economics spec,
+  relabeled.
+
 ## UI consequences
 
 - Depth is **one segmented control (Min / Default / Max)** rendered next to
@@ -81,10 +91,33 @@ never silently orphaned.
   *"Bug Hunt thinks this runs deeper than it looks — rerun as Bug Hunt Max?"*
   (`escalationRecommended` routing, LAB-C08 — unchanged, relabeled.)
 
-## Deferred
+## Execution order (decided 2026-07-16)
 
-- The rename slice itself (frozen behind `Language_Cutover.md` landing;
-  hard-rename, no aliases).
-- Cutting `code_spec_review_min` (Team Lab necessity work, not a hand guess).
-- Sweep remaining built-ins for depth-words-in-disguise once the first two
-  families land.
+1. **The rename slice runs FIRST — before any Team Lab implementation.**
+   `Language_Cutover.md` is DONE (2026-06-18), so nothing blocks it; only its
+   no-alias rule carries forward. Team Lab writes champion overlays and suites
+   keyed by team IDs (`docs/team-lab/champions/<suite>/<team_id>.json`) —
+   calibrating against IDs that are about to be hard-renamed would mint dead
+   names on day one. Rename first so every lab artifact is born with final
+   names.
+2. **Then Team Lab** (`Team_Lab_Slice_1_Full_Package.md` +
+   `Team_Lab_Composition_And_Seat_Economics.md`), re-based on the final names
+   — and re-based off MCP: `MCP_Run_Factory_Team_Lab.md` is specced MCP-only,
+   but MCP was retired 2026-07-16 (`MCP_Retirement.md`). The lab harness must
+   be CLI-native (`alln`) before implementation starts.
+3. **Later:** cutting `code_spec_review_min` (Team Lab necessity work, not a
+   hand guess) and sweeping remaining built-ins for depth-words-in-disguise.
+
+## Rename slice scope (zero users → zero dead names)
+
+- Built-in team IDs + display names per the rename map above, including
+  edit-in-place override migration.
+- **All user-facing strings**: team descriptions, starter prompts, picker
+  copy — no "harden"/"pressure test"/"forensics"/"lite" survivors where a
+  depth word or the family name is meant.
+- **Marketing/docs sweep**: `Pressure_Test.md` renamed/reframed around Spec
+  Review as the one name; active specs updated in place. Historical/shipped
+  phase docs get a superseded banner, not a rewrite.
+- Acceptance: case-insensitive repo grep for the retired names
+  (`pressure test`, `forensics`, `lite`) is clean in code, user-facing
+  strings, and active specs (banner'd history docs excepted).
