@@ -89,6 +89,18 @@ public enum PanelUnstructuredSeats {
     }
 }
 
+/// One path-overlap convergence entry (`docs/phases/Panel_Polish.md` §1 decision 4).
+/// Flag only — no scores, no importance ordering.
+public struct PanelConvergenceJSON: Codable, Equatable, Sendable {
+    public var anchor: String
+    public var seats: [String]
+
+    public init(anchor: String, seats: [String]) {
+        self.anchor = anchor
+        self.seats = seats
+    }
+}
+
 /// `PanelJSON` — public machine contract for `alln panel status|watch|done|start`
 /// (`docs/phases/Pilot_Panel.md` PN-S04). Thin projection of `PanelState`.
 public struct PanelJSON: Codable, Equatable, Sendable {
@@ -176,6 +188,8 @@ public struct PanelRoundJSON: Codable, Equatable, Sendable {
     /// Worker ids with `status == done && findings == nil` (done-but-unstructured).
     /// Derived at envelope-build time — always present (`[]` when clean).
     public var unstructuredSeats: [String]
+    /// Path-overlap anchors cited by ≥2 distinct seats. Always present (`[]` when none).
+    public var convergence: [PanelConvergenceJSON]
 
     public init(
         schemaVersion: Int = 1,
@@ -186,7 +200,8 @@ public struct PanelRoundJSON: Codable, Equatable, Sendable {
         targetHash: String,
         briefSource: String,
         seatResults: [SeatResultJSON],
-        unstructuredSeats: [String]
+        unstructuredSeats: [String],
+        convergence: [PanelConvergenceJSON] = []
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -197,6 +212,7 @@ public struct PanelRoundJSON: Codable, Equatable, Sendable {
         self.briefSource = briefSource
         self.seatResults = seatResults
         self.unstructuredSeats = unstructuredSeats
+        self.convergence = convergence
     }
 }
 

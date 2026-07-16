@@ -556,6 +556,7 @@ enum PanelCLI {
     ) {
         let panelJSON = PanelJSON.project(payload.state, contractVersion: ContractRegistry.contractVersion)
         let unstructuredSeats = PanelUnstructuredSeats.project(from: payload.round.seatResults)
+        let convergence = PanelConvergence.project(from: payload.round.seatResults)
         if json {
             print(AllnighterCLI.jsonLine(PanelRoundJSON(
                 contractVersion: ContractRegistry.contractVersion,
@@ -565,7 +566,8 @@ enum PanelCLI {
                 targetHash: payload.round.targetHash,
                 briefSource: payload.round.briefSource.rawValue,
                 seatResults: payload.round.seatResults.map(SeatResultJSON.init),
-                unstructuredSeats: unstructuredSeats
+                unstructuredSeats: unstructuredSeats,
+                convergence: convergence
             )))
         } else {
             print("panel \(payload.state.id) round \(payload.round.roundNumber) attempt \(payload.attempt.attemptNumber)")
@@ -573,6 +575,9 @@ enum PanelCLI {
             print("targetHash: \(payload.round.targetHash)")
             for workerId in unstructuredSeats {
                 print("⚠ unstructured seat: \(workerId) — no parseable findings block; read its verbatim report (content may be real)")
+            }
+            for entry in convergence {
+                print("◎ convergence: \(entry.anchor) — seats: \(entry.seats.joined(separator: ", "))")
             }
             for seat in payload.round.seatResults {
                 print("\n----- seat \(seat.workerId) (\(seat.lens)) [\(seat.status.rawValue)] -----")
