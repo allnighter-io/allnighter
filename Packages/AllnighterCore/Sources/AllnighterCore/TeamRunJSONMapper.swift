@@ -103,7 +103,8 @@ public enum TeamRunJSONMapper {
             workerId: workerModelId,
             writePolicy: RunIdentity.writePolicyLabel(mutating: run.mutating),
             identitySummary: RunIdentity.summary(
-                workerId: workerModelId, lane: run.lane, mutating: run.mutating),
+                workerId: workerModelId, lane: run.lane, mutating: run.mutating,
+                laneContextOnly: run.laneContextOnly == true),
             planWriterWorkerId: plan?.writerWorkerId, reproduceCommand: context.reproduceCommand
         )
 

@@ -296,6 +296,7 @@ public actor RunService {
 
         let effort = request.effort ?? preset.defaultEffort
         let explicitTeamChosen = request.presetId.map { !$0.isEmpty } ?? false
+        let laneContextOnly = request.lane != nil && !(request.workerId ?? "").isEmpty
         let lockKey = RunWriteLock.key(repoRoot: root)
         var lockToken: RunWriteLock.Token?
         let takesWriteLock = preset.writePolicy == .mutating && !request.advisoryReview
@@ -324,7 +325,7 @@ public actor RunService {
             return await runExecution(
                 preset: preset, prompt: prompt, context: request.context, threadId: request.threadId,
                 effort: effort, repoRoot: root, requestLane: request.lane,
-                explicitTeamChosen: explicitTeamChosen,
+                explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
                 projectId: request.projectId, workerOverride: effectiveWorkerId,
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
                 deliveries: request.deliveries, requestedAt: requestedAt, timing: timing, events: events,
@@ -341,7 +342,7 @@ public actor RunService {
         return await runAnswer(
             preset: preset, prompt: answerPrompt, effort: effort, repoRoot: root,
             projectId: request.projectId, lane: request.lane ?? preset.lane,
-            explicitTeamChosen: explicitTeamChosen,
+            explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
             origin: origin, originAgent: originAgent, runId: id, runner: runner,
             deliveries: request.deliveries, timing: timing, events: events
         )
@@ -358,6 +359,7 @@ public actor RunService {
         repoRoot: String,
         requestLane: WorkLane?,
         explicitTeamChosen: Bool,
+        laneContextOnly: Bool,
         projectId: String?,
         workerOverride: String?,
         origin: RunOrigin,
@@ -488,7 +490,8 @@ public actor RunService {
             // driver. For the default route, Auto/override can pick a model on a CLI
             // other than the preset's declared executionSourceId, so the model's driver
             // is the truth (lane safety keys on repo root, not this field).
-            mutating: true, executionSourceId: model.driverId
+            mutating: true, executionSourceId: model.driverId,
+            laneContextOnly: laneContextOnly ? true : nil
         )
         timing.count(RunTimingKey.runStoreSaveCount, by: 1)
         run.timing = timing
@@ -734,6 +737,7 @@ public actor RunService {
         projectId: String?,
         lane: WorkLane,
         explicitTeamChosen: Bool,
+        laneContextOnly: Bool,
         origin: RunOrigin,
         originAgent: String?,
         runId: String,
@@ -762,6 +766,7 @@ public actor RunService {
         @Sendable func stamped(_ run: TeamRun) -> TeamRun {
             var r = run
             r.lane = lane; r.effort = effort
+            r.laneContextOnly = laneContextOnly ? true : nil
             r.teamDisplayName = RunIdentity.teamDisplayName(
                 presetId: preset.id, catalogDisplayName: resolved.teamDisplayName,
                 explicitTeamChosen: explicitTeamChosen)

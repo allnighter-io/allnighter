@@ -96,7 +96,7 @@ final class RunRepoDeltaTests: XCTestCase {
         XCTAssertTrue(outcome.committed)
         XCTAssertEqual(
             outcome.headline,
-            "worker model_grok · lane code · mutating · committed \(String(delta.head!.prefix(7))): 1 file")
+            "worker model_grok · lane code (context — --team routes) · mutating · committed \(String(delta.head!.prefix(7))): 1 file")
         XCTAssertTrue(RunIdentity.cliFooter(run).contains(outcome.headline))
     }
 

@@ -21,11 +21,21 @@ public enum RunIdentity {
         mutating ? "mutating" : "readOnly"
     }
 
+    /// Lane fragment for identity lines — appends the FR7 clarifier when `--lane` was context only.
+    public static func laneLabel(_ lane: WorkLane?, contextOnly: Bool) -> String {
+        guard let lane else { return "lane ?" }
+        if contextOnly {
+            return "lane \(lane.rawValue) (context — --team routes)"
+        }
+        return "lane \(lane.rawValue)"
+    }
+
     /// Headline identity: `worker <id> · lane <lane> · mutating|readOnly`.
-    public static func summary(workerId: String?, lane: WorkLane?, mutating: Bool) -> String {
+    public static func summary(
+        workerId: String?, lane: WorkLane?, mutating: Bool, laneContextOnly: Bool = false
+    ) -> String {
         let worker = workerId ?? "?"
-        let laneLabel = lane?.rawValue ?? "?"
-        return "worker \(worker) · lane \(laneLabel) · \(writePolicyLabel(mutating: mutating))"
+        return "worker \(worker) · \(laneLabel(lane, contextOnly: laneContextOnly)) · \(writePolicyLabel(mutating: mutating))"
     }
 
     public static func primaryWorkerModelId(_ run: TeamRun) -> String? {
@@ -34,7 +44,11 @@ public enum RunIdentity {
 
     /// Headline for `TeamRunJSON.outcome` and human stderr: identity + repo delta when mutating.
     public static func outcomeHeadline(_ run: TeamRun) -> String {
-        var parts = [summary(workerId: primaryWorkerModelId(run), lane: run.lane, mutating: run.mutating)]
+        var parts = [
+            summary(
+                workerId: primaryWorkerModelId(run), lane: run.lane, mutating: run.mutating,
+                laneContextOnly: run.laneContextOnly == true)
+        ]
         if run.mutating, let deltaLine = repoDeltaSummary(run.repoDelta) {
             parts.append(deltaLine)
         }
@@ -48,7 +62,14 @@ public enum RunIdentity {
             outcomeHeadline(run),
         ]
         if let name = run.teamDisplayName { parts.append(name) }
-        if let preset = run.presetId { parts.append(preset) }
+        if let preset = run.presetId {
+            // Default route: preset id is provenance, not the actor — never bare `default_chat`.
+            if preset == defaultTeamPresetId {
+                parts.append("preset \(preset)")
+            } else {
+                parts.append(preset)
+            }
+        }
         return parts.joined(separator: " · ")
     }
 

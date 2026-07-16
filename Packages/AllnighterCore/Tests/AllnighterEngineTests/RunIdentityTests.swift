@@ -69,10 +69,10 @@ final class RunIdentityTests: XCTestCase {
         XCTAssertEqual(trj.teamRun.teamPresetId, "default_chat")
         XCTAssertEqual(trj.teamRun.workerId, "model_grok")
         XCTAssertEqual(trj.teamRun.writePolicy, "mutating")
-        XCTAssertEqual(trj.teamRun.identitySummary, "worker model_grok · lane code · mutating")
+        XCTAssertEqual(trj.teamRun.identitySummary, "worker model_grok · lane code (context — --team routes) · mutating")
 
         XCTAssertEqual(
             RunIdentity.cliFooter(run),
-            "run identity-run · worker model_grok · lane code · mutating · no repo change · Default Team · default_chat")
+            "run identity-run · worker model_grok · lane code (context — --team routes) · mutating · no repo change · Default Team · preset default_chat")
     }
 }

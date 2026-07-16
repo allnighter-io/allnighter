@@ -70,6 +70,9 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var timing: RunTimingReport?
     /// Observed git delta for mutating runs (Field_Reports_1.md §FR3). `nil` for read-only runs.
     public var repoDelta: RepoDelta? = nil
+    /// True when `--lane` was passed alongside an explicit `--worker` — lane is context
+    /// metadata on the run identity, not the router (`Field_Reports_3.md` FR7).
+    public var laneContextOnly: Bool? = nil
     /// Non-optional view of `links` for callers.
     public var runLinks: [RunLink] { links ?? [] }
 
@@ -97,7 +100,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         originMessageId: String? = nil,
         repoRoot: String? = nil,
         timing: RunTimingReport? = nil,
-        repoDelta: RepoDelta? = nil
+        repoDelta: RepoDelta? = nil,
+        laneContextOnly: Bool? = nil
     ) {
         self.id = id
         self.prompt = prompt
@@ -123,6 +127,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.repoRoot = repoRoot
         self.timing = timing
         self.repoDelta = repoDelta
+        self.laneContextOnly = laneContextOnly
     }
 }
 
