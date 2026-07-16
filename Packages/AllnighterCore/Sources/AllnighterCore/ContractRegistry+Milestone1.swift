@@ -353,6 +353,43 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
+            "pair pilot start", summary: "Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat + rails). Parks awaitingPM.", milestone: .m1,
+            flags: [
+                FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the piloting session re-reads it fresh each round."),
+                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
+                FlagSpec("dev-worker", takesValue: true, valueType: "id", summary: "Dev seat model id (required)."),
+                FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling, set once here — Pilot has no long-lived process to re-supply it per handoff (default 20)."),
+                FlagSpec("json", summary: "Emit RelayJSON."),
+            ],
+            outputSchema: .relayJSON
+        ),
+        CommandSpec(
+            "pair pilot handoff", summary: "Submit this round's review + RelayVerdict tail; blocks through the dev turn by default and prints the dev's report verbatim.", milestone: .m1,
+            flags: [
+                FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
+                FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the submission markdown from a file (omit to read stdin)."),
+                FlagSpec("no-wait", summary: "Return immediately after dispatch instead of blocking through the dev turn."),
+                FlagSpec("json", summary: "Emit RelayJSON (+ devReport when the dev turn delivered in this call)."),
+            ],
+            outputSchema: .relayJSON
+        ),
+        CommandSpec(
+            "pair pilot status", summary: "Read a Pilot relay's durable state — rounds, verdicts, gate decisions, dirty-tree snapshots.", milestone: .m1,
+            flags: [
+                FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
+                FlagSpec("json", summary: "Emit RelayJSON."),
+            ],
+            outputSchema: .relayJSON
+        ),
+        CommandSpec(
+            "pair pilot watch", summary: "Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status).", milestone: .m1,
+            flags: [
+                FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
+                FlagSpec("json", summary: "Emit RelayJSON."),
+            ],
+            outputSchema: .relayJSON
+        ),
+        CommandSpec(
             "team", summary: "Run a lane team on a prompt, foreground.", milestone: .m1,
             args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
             flags: [
@@ -780,6 +817,9 @@ public extension ContractRegistry {
         ErrorSpec("RELAY_NOT_FOUND", ruleId: "relay.not_found", agentAction: "Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`.", requiresManual: true, retryable: false, explain: "No PM Relay matches the given id."),
         ErrorSpec("RELAY_INVALID_STATE", ruleId: "relay.invalid_state", agentAction: "Only an `escalated` relay can be resumed; check status first with `pair relay-status`.", requiresManual: true, retryable: false, explain: "The requested relay transition is not valid for its current status (e.g. resuming a relay that is not escalated)."),
         ErrorSpec("RELAY_HANDOVER_UNSAFE", ruleId: "relay.handover.unsafe", agentAction: "The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent.", requiresManual: true, retryable: false, explain: "HandoverGate blocked a PM handover before it reached the dev seat — danger blocks, doubt does not."),
+        ErrorSpec("RELAY_ROUND_IN_FLIGHT", ruleId: "relay.round.in_flight", agentAction: "Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`.", requiresManual: false, retryable: true, explain: "A pilot relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent `pilot handoff` on the same relay is refused rather than racing a second dev turn onto one repo root."),
+        ErrorSpec("RELAY_NOT_AWAITING_PM", ruleId: "relay.not_awaiting_pm", agentAction: "Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to).", requiresManual: true, retryable: false, explain: "`pilot handoff` was called against a relay that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a Pilot relay's normal between-rounds state."),
+        ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "Pilot's `pilot handoff` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the piloting session is live and just resubmits."),
         ErrorSpec("THREAD_SEND_FAILED", ruleId: "thread.send.failed", agentAction: "Inspect the error detail; retry the send or fix the worker.", requiresManual: false, retryable: true, explain: "The thread send did not complete (worker or transport failure). Inspect the detail, then retry."),
         ErrorSpec("MODEL_NOT_FOUND", ruleId: "model.not_found", agentAction: "Run `alln models --json` and retry with a valid model id.", requiresManual: true, retryable: false, explain: "No model matches the given id. List models and retry with a valid ModelID."),
         ErrorSpec("MODEL_BUILTIN_IMMUTABLE", ruleId: "model.builtin.immutable", agentAction: "Duplicate the built-in model, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in models cannot be edited or deleted. Duplicate to a custom model and edit that copy."),

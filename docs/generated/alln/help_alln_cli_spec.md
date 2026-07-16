@@ -530,6 +530,51 @@ Flags:
 
 Output schema: `relayJSON`.
 
+### `alln pair pilot start`
+
+Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat + rails). Parks awaitingPM.
+
+Flags:
+- `--doc <path>` — Repo-relative spec doc path (required) — the piloting session re-reads it fresh each round.
+- `--project <id>` — Project id, name, or repo path (required).
+- `--dev-worker <id>` — Dev seat model id (required).
+- `--max-rounds <integer>` — Round ceiling, set once here — Pilot has no long-lived process to re-supply it per handoff (default 20).
+- `--json` — Emit RelayJSON.
+
+Output schema: `relayJSON`.
+
+### `alln pair pilot handoff`
+
+Submit this round's review + RelayVerdict tail; blocks through the dev turn by default and prints the dev's report verbatim.
+
+Flags:
+- `--relay <id>` — Relay id (required).
+- `--file <path>` — Read the submission markdown from a file (omit to read stdin).
+- `--no-wait` — Return immediately after dispatch instead of blocking through the dev turn.
+- `--json` — Emit RelayJSON (+ devReport when the dev turn delivered in this call).
+
+Output schema: `relayJSON`.
+
+### `alln pair pilot status`
+
+Read a Pilot relay's durable state — rounds, verdicts, gate decisions, dirty-tree snapshots.
+
+Flags:
+- `--relay <id>` — Relay id (required).
+- `--json` — Emit RelayJSON.
+
+Output schema: `relayJSON`.
+
+### `alln pair pilot watch`
+
+Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status).
+
+Flags:
+- `--relay <id>` — Relay id (required).
+- `--json` — Emit RelayJSON.
+
+Output schema: `relayJSON`.
+
 ### `alln team`
 
 Run a lane team on a prompt, foreground.
@@ -1179,6 +1224,9 @@ Output schema: `helpTopicsJSON`.
 | `RELAY_NOT_FOUND` | yes | no | Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`. |
 | `RELAY_INVALID_STATE` | yes | no | Only an `escalated` relay can be resumed; check status first with `pair relay-status`. |
 | `RELAY_HANDOVER_UNSAFE` | yes | no | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
+| `RELAY_ROUND_IN_FLIGHT` | no | yes | Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`. |
+| `RELAY_NOT_AWAITING_PM` | yes | no | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
+| `RELAY_VERDICT_UNPARSEABLE` | yes | yes | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
 | `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
 | `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |

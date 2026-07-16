@@ -1390,7 +1390,7 @@ struct Options {
     /// `alln team --json "prompt"` keeps "prompt" as the positional.
     static let booleanFlags: Set<String> = [
         "json", "stream", "full", "check", "errors", "schema", "examples", "quiet", "auto-fix", "health", "submit",
-        "bench", "disabled",
+        "bench", "disabled", "no-wait",
     ]
     var positional: [String] = []
     var values: [String: String] = [:]

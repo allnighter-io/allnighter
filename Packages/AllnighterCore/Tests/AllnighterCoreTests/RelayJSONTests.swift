@@ -126,6 +126,54 @@ final class RelayJSONTests: XCTestCase {
         XCTAssertNil(json.verdict)
     }
 
+    // MARK: - Pilot (pmMode, dirtyFilesCount, hasExternalSubmission)
+
+    func testProjectsSpawnedRelayWithSpawnedPMMode() {
+        let state = RelayState(
+            id: "relay_spawned", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running,
+            createdAt: now
+        )
+        XCTAssertEqual(RelayJSON.project(state, contractVersion: "1.0.0").pmMode, "spawned")
+    }
+
+    func testProjectsPilotRelayWithExternalPMModeAndAwaitingPMStatus() {
+        let round = RelayRound(
+            roundNumber: 1, baselineHead: "abc123", headAfterDev: "def456", devRunId: "run_dev_1",
+            verdict: RelayVerdict(verdict: .continueRelay, handover: "Implement the thing."),
+            gate: RelayGateSummary(allowed: true), startedAt: now, finishedAt: now, outcome: .continued,
+            externalSubmission: "PM review text.\n\n```json\n{\"verdict\": \"continue\", \"handover\": \"Implement the thing.\"}\n```",
+            dirtyFiles: ["a.swift", "b.swift"]
+        )
+        let state = RelayState(
+            id: "relay_pilot", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev", status: .awaitingPM,
+            pmMode: .external, rounds: [round], createdAt: now
+        )
+
+        let json = RelayJSON.project(state, contractVersion: "1.0.0")
+
+        XCTAssertEqual(json.pmMode, "external")
+        XCTAssertEqual(json.status, "awaitingPM")
+        XCTAssertNil(json.roundLog[0].pmRunId, "no PM turn dispatches in Pilot")
+        XCTAssertEqual(json.roundLog[0].dirtyFilesCount, 2)
+        XCTAssertTrue(json.roundLog[0].hasExternalSubmission)
+    }
+
+    func testSpawnedRoundNeverCarriesPilotOnlyFields() {
+        let json = RelayJSON.project(
+            RelayState(
+                id: "relay_spawned_round", projectRoot: "/repo", docPath: "docs/spec.md",
+                pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running,
+                rounds: [makeRound(1, baseline: "a", head: "b", pmRunId: "p1", devRunId: "d1", verdict: nil)],
+                createdAt: now
+            ),
+            contractVersion: "1.0.0"
+        )
+        XCTAssertNil(json.roundLog[0].dirtyFilesCount)
+        XCTAssertFalse(json.roundLog[0].hasExternalSubmission)
+    }
+
     func testRoundTripsThroughCoreJSON() throws {
         let state = RelayState(
             id: "relay_5", projectRoot: "/repo", docPath: "docs/spec.md",

@@ -10,8 +10,13 @@ public struct RelayJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var contractVersion: String
     public var relayId: String
-    /// `RelayState.Status` raw value: running | done | escalated | stopped.
+    /// `RelayState.Status` raw value: running | done | escalated | stopped | awaitingPM
+    /// (`awaitingPM` is Pilot only — a parked relay between `pilot handoff` calls).
     public var status: String
+    /// `RelayState.PMMode` raw value: spawned | external. `external` is Pilot
+    /// (`docs/phases/Pilot_Relay.md`) — a live session outside Allnighter holds the
+    /// PM seat; `spawned` is the shipped PM Relay.
+    public var pmMode: String
     public var rounds: Int
     /// The last round's `RelayVerdict.Verdict` raw value (continue | done | escalate),
     /// or nil before any round has produced one.
@@ -31,6 +36,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         contractVersion: String,
         relayId: String,
         status: String,
+        pmMode: String = "spawned",
         rounds: Int,
         verdict: String? = nil,
         note: String? = nil,
@@ -44,6 +50,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         self.contractVersion = contractVersion
         self.relayId = relayId
         self.status = status
+        self.pmMode = pmMode
         self.rounds = rounds
         self.verdict = verdict
         self.note = note
@@ -62,6 +69,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
             contractVersion: contractVersion,
             relayId: state.id,
             status: state.status.rawValue,
+            pmMode: state.pmMode.rawValue,
             rounds: state.rounds.count,
             verdict: state.rounds.last?.verdict?.verdict.rawValue,
             note: state.note,
@@ -89,6 +97,15 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
     /// reached a parsed verdict (e.g. a dispatch failure).
     public var verdict: String?
     public var gate: RelayGateSummary?
+    /// Pilot only: count of `GitObserver.dirtyFiles` at `handoff` time
+    /// (`RelayRound.dirtyFiles`) — a count, not the paths themselves, to keep the
+    /// envelope small; `nil` for a spawned round (the field was never captured).
+    public var dirtyFilesCount: Int?
+    /// Pilot only: whether this round carries an `externalSubmission` (the piloting
+    /// session's raw markdown, verbatim) — a presence flag, not the text itself, so
+    /// the round log stays a compact log, not a second copy of run-truth. Always
+    /// `false` for a spawned round.
+    public var hasExternalSubmission: Bool
 
     public init(
         round: Int,
@@ -97,7 +114,9 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         pmRunId: String? = nil,
         devRunId: String? = nil,
         verdict: String? = nil,
-        gate: RelayGateSummary? = nil
+        gate: RelayGateSummary? = nil,
+        dirtyFilesCount: Int? = nil,
+        hasExternalSubmission: Bool = false
     ) {
         self.round = round
         self.baseline = baseline
@@ -106,6 +125,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         self.devRunId = devRunId
         self.verdict = verdict
         self.gate = gate
+        self.dirtyFilesCount = dirtyFilesCount
+        self.hasExternalSubmission = hasExternalSubmission
     }
 
     public init(_ round: RelayRound) {
@@ -116,7 +137,9 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
             pmRunId: round.pmRunId,
             devRunId: round.devRunId,
             verdict: round.verdict?.verdict.rawValue,
-            gate: round.gate
+            gate: round.gate,
+            dirtyFilesCount: round.dirtyFiles?.count,
+            hasExternalSubmission: round.externalSubmission != nil
         )
     }
 }

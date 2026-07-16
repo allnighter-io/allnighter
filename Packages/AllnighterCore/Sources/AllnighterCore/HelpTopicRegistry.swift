@@ -147,18 +147,38 @@ public enum HelpTopicRegistry {
             repeated no-progress rounds) — never by inference. `pair_relay` is one \
             action-dispatched tool: start begins a new relay, status reads its durable state, \
             resume injects the founder's answer into an escalated relay and continues.
+
+            Pilot is the sibling mode on the SAME substrate: instead of Allnighter spawning \
+            a PM model, YOUR live CLI session holds the PM seat. `alln pair pilot start` \
+            parks a new relay `awaitingPM` (no clock — nothing advances until you say so); \
+            `alln pair pilot handoff --relay <id> --file <md>` (or piped stdin) submits your \
+            review + the same RelayVerdict tail, blocks through the dev turn, and prints the \
+            dev's report verbatim — read it, write the next round, call `handoff` again. A \
+            `continue` verdict still passes HandoverGate, but a block or an unparseable \
+            verdict leaves the relay `awaitingPM` untouched rather than escalating — you're \
+            right there to rephrase and resubmit. `pilot status`/`pilot watch` read the same \
+            durable state a spawned relay uses; the Mac inbox shows a pilot relay exactly \
+            like a spawned one.
             """,
-            aliases: ["pm relay", "relay", "pair relay", "automate pm dev loop", "spec doc relay"],
+            aliases: ["pm relay", "relay", "pair relay", "automate pm dev loop", "spec doc relay",
+                      "pilot", "pair pilot", "pilot mode", "i am the pm", "drive from my session"],
             sections: [
                 .init("verdict", "The only structure", "Everything the PM writes is free prose except one JSON tail: verdict continue/done/escalate. Missing or unparseable triggers one re-ask, then escalate — never a guess."),
                 .init("gate", "Handover safety", "Every continue verdict's handover passes a danger scan before the dev seat ever sees it. Danger blocks and escalates; mere doubt does not block."),
                 .init("ceilings", "Stopping", "`--until HH:MM`, `--max-rounds`, and a stagnation cap (repeated no-change rounds) are hard stops — the relay always ends on done, escalate, or a ceiling."),
                 .init("resume", "Escalation is not failure", "An escalated relay is a real question for the founder, not an error. `pair_relay(action:resume)` injects the answer and the loop continues from there."),
+                .init("pilot", "Pilot: you hold the PM seat", "`pair pilot start|handoff|status|watch` — no `--pm-worker` (there is no PM model) and no `--until` (no clock). `handoff` is the only mutation boundary: a parse failure or a gate block never escalates in Pilot, it just leaves the relay `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the relay exactly like a spawned round."),
             ],
             relatedToolIds: ["pair_relay", "project_get", "run_get"],
-            relatedCommandNames: ["pair relay", "pair relay-status", "pair relay-resume", "project add", "project show"],
+            relatedCommandNames: [
+                "pair relay", "pair relay-status", "pair relay-resume", "project add", "project show",
+                "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch",
+            ],
             schemaRefs: ["relayJSON"],
-            errorRefs: ["RELAY_NOT_FOUND", "RELAY_INVALID_STATE", "RELAY_HANDOVER_UNSAFE", "PROJECT_NOT_FOUND"],
+            errorRefs: [
+                "RELAY_NOT_FOUND", "RELAY_INVALID_STATE", "RELAY_HANDOVER_UNSAFE", "PROJECT_NOT_FOUND",
+                "RELAY_ROUND_IN_FLIGHT", "RELAY_NOT_AWAITING_PM", "RELAY_VERDICT_UNPARSEABLE",
+            ],
             needsLiveCheck: true),
 
         HelpTopic(
