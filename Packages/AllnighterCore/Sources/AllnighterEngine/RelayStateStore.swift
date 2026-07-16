@@ -24,6 +24,12 @@ public struct RelayStateStore: Sendable {
     /// state so a reader can never see `relay.json` without it, removed on a terminal
     /// save) — the signal `RelayCoordinator.reconcileIfOrphaned` reads to detect a
     /// relay whose process died mid-round (works-test hazard #1).
+    ///
+    /// Pilot's `awaitingPM` (`docs/phases/Pilot_Relay.md` §2) is a PARKED, UNOWNED
+    /// state, not `.running` — this `if` only ever fires for `.running`, so an
+    /// `awaitingPM` save never writes (and always clears, same as any other
+    /// terminal-shaped save) `owner.pid`. A pilot relay can sit parked for days with
+    /// no process behind it; that is by design, not an oversight.
     @discardableResult
     public func save(_ state: RelayState) throws -> URL {
         let directory = try relayDirectory(id: state.id)

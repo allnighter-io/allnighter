@@ -34,6 +34,17 @@ public struct RelayRound: Sendable, Codable, Equatable {
     public var startedAt: Date
     public var finishedAt: Date?
     public var outcome: Outcome?
+    /// Pilot only (`pmMode == .external`, `docs/phases/Pilot_Relay.md` §2 "round log
+    /// truth"): the piloting session's raw markdown submission for this round,
+    /// verbatim — the PM turn's run-truth when there is no `pmRunId`/`RunStore` entry
+    /// to point at (there was no PM dispatch; the submission itself IS the record).
+    /// `nil` for a spawned round.
+    public var externalSubmission: String?
+    /// Pilot only: `GitObserver.dirtyFiles` snapshot taken at `handoff` time (§2.1
+    /// "the write-lock boundary" — honesty over ceremony: the piloting session may
+    /// have edited the repo between rounds, and this records exactly what was dirty
+    /// when the round began, rather than hiding it). `nil` for a spawned round.
+    public var dirtyFiles: [String]?
 
     public init(
         roundNumber: Int,
@@ -45,7 +56,9 @@ public struct RelayRound: Sendable, Codable, Equatable {
         gate: RelayGateSummary? = nil,
         startedAt: Date,
         finishedAt: Date? = nil,
-        outcome: Outcome? = nil
+        outcome: Outcome? = nil,
+        externalSubmission: String? = nil,
+        dirtyFiles: [String]? = nil
     ) {
         self.roundNumber = roundNumber
         self.baselineHead = baselineHead
@@ -57,6 +70,8 @@ public struct RelayRound: Sendable, Codable, Equatable {
         self.startedAt = startedAt
         self.finishedAt = finishedAt
         self.outcome = outcome
+        self.externalSubmission = externalSubmission
+        self.dirtyFiles = dirtyFiles
     }
 }
 
@@ -92,6 +107,17 @@ public struct RelayGateSummary: Sendable, Codable, Equatable {
     }
 }
 
+/// Who holds the PM seat for a relay (`docs/phases/Pilot_Relay.md` §1 decision 1).
+/// `spawned` is the shipped PM Relay — Allnighter dispatches a PM model each round.
+/// `external` is Pilot — a live human/agent session outside Allnighter IS the PM;
+/// Allnighter only ever dispatches the dev seat, driven by `RelayCoordinator.
+/// runExternalRound`. Same `RelayState`, same rounds, same thread — this field is the
+/// only fork ("one substrate, two entries").
+public enum PMMode: String, Sendable, Codable, CaseIterable {
+    case spawned
+    case external
+}
+
 /// One PM↔dev relay (docs/phases/PM_Relay.md) — the durable ledger `RelayCoordinator`
 /// reads/writes after every state change so the loop is resumable from disk at any point,
 /// never held only in memory (R-S04).
@@ -103,6 +129,14 @@ public struct RelayState: Sendable, Codable, Equatable {
         /// A ceiling fired (`--max-rounds`, `--until`, or stagnation) — always carries
         /// `stoppedReason`.
         case stopped
+        /// Pilot only (`pmMode == .external`, `docs/phases/Pilot_Relay.md` §2): parked
+        /// between rounds, waiting on the piloting session's next `pilot handoff`. A
+        /// **parked, UNOWNED** state — no process lives here, `RelayStateStore.save`
+        /// never writes an `owner.pid` marker for it (only `.running` does), and
+        /// `RelayCoordinator.reconcileOrphan`'s `.running`-only guard means orphan
+        /// reconciliation always skips it. A pilot relay can sit `awaitingPM` for days;
+        /// that is the mode's definition, not a bug.
+        case awaitingPM
     }
 
     public var id: String
@@ -111,6 +145,9 @@ public struct RelayState: Sendable, Codable, Equatable {
     public var pmWorkerId: String
     public var devWorkerId: String
     public var status: Status
+    /// `spawned` (default) or `external` (Pilot). Legacy relays persisted before this
+    /// field existed decode as `spawned` — the only mode that ever ran.
+    public var pmMode: PMMode
     public var rounds: [RelayRound]
     public var createdAt: Date
     public var finishedAt: Date?
@@ -125,6 +162,17 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// next PM turn's prompt context (`RelayPMPrompt.Context.founderNote`), then cleared
     /// once consumed.
     public var founderNote: String?
+    /// Pilot only (`pmMode == .external`): the round ceiling set once at `pilot start`
+    /// and re-read at every later `pilot handoff`. A spawned relay gets its ceiling
+    /// fresh from `RelayCoordinator.Config` on every `run`/`resume` call (one
+    /// long-lived process holds it); a pilot relay has no such process — each
+    /// `handoff` is a brand-new CLI invocation — so the ceiling has to be durable.
+    /// `nil` reads as the house default (20), matching `Config.maxRounds`'s default.
+    public var pilotMaxRounds: Int?
+    /// Pilot only: the stagnation cap set once at `pilot start`, same reasoning as
+    /// `pilotMaxRounds`. `nil` reads as the house default (3), matching
+    /// `Config.stagnationRoundCap`'s default.
+    public var pilotStagnationRoundCap: Int?
 
     public init(
         id: String,
@@ -133,12 +181,15 @@ public struct RelayState: Sendable, Codable, Equatable {
         pmWorkerId: String,
         devWorkerId: String,
         status: Status,
+        pmMode: PMMode = .spawned,
         rounds: [RelayRound] = [],
         createdAt: Date,
         finishedAt: Date? = nil,
         note: String? = nil,
         stoppedReason: String? = nil,
-        founderNote: String? = nil
+        founderNote: String? = nil,
+        pilotMaxRounds: Int? = nil,
+        pilotStagnationRoundCap: Int? = nil
     ) {
         self.id = id
         self.projectRoot = projectRoot
@@ -146,13 +197,22 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.pmWorkerId = pmWorkerId
         self.devWorkerId = devWorkerId
         self.status = status
+        self.pmMode = pmMode
         self.rounds = rounds
         self.createdAt = createdAt
         self.finishedAt = finishedAt
         self.note = note
         self.stoppedReason = stoppedReason
         self.founderNote = founderNote
+        self.pilotMaxRounds = pilotMaxRounds
+        self.pilotStagnationRoundCap = pilotStagnationRoundCap
     }
+
+    /// Pilot only: the sentinel `pmWorkerId` stamped on an `external`-mode relay —
+    /// there is no PM model to dispatch (the piloting session IS the PM), so this
+    /// documents the field's meaning rather than leaving it a real, dispatchable
+    /// worker id. Never resolved through `RunService`.
+    public static let externalPMWorkerId = "external"
 
     // Lenient decode: tolerates relays persisted before later fields existed
     // (mirrors `FixPacket.init(from:)`'s partial-model tolerance).
@@ -164,12 +224,17 @@ public struct RelayState: Sendable, Codable, Equatable {
         pmWorkerId = try c.decode(String.self, forKey: .pmWorkerId)
         devWorkerId = try c.decode(String.self, forKey: .devWorkerId)
         status = try c.decode(Status.self, forKey: .status)
+        // Legacy decode: every relay persisted before Pilot existed only ever ran
+        // `spawned` (Pilot_Relay.md §1 decision 1, PL-S01).
+        pmMode = try c.decodeIfPresent(PMMode.self, forKey: .pmMode) ?? .spawned
         rounds = try c.decodeIfPresent([RelayRound].self, forKey: .rounds) ?? []
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         finishedAt = try c.decodeIfPresent(Date.self, forKey: .finishedAt)
         note = try c.decodeIfPresent(String.self, forKey: .note)
         stoppedReason = try c.decodeIfPresent(String.self, forKey: .stoppedReason)
         founderNote = try c.decodeIfPresent(String.self, forKey: .founderNote)
+        pilotMaxRounds = try c.decodeIfPresent(Int.self, forKey: .pilotMaxRounds)
+        pilotStagnationRoundCap = try c.decodeIfPresent(Int.self, forKey: .pilotStagnationRoundCap)
     }
 
     // MARK: - Orphan reconciliation (works-test hazard #1)

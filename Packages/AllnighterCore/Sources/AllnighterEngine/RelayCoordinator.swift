@@ -70,6 +70,53 @@ public struct RelayCoordinator: Sendable {
 
     public typealias EventSink = @Sendable (RelayEvent) -> Void
 
+    // MARK: - Pilot types (docs/phases/Pilot_Relay.md)
+
+    /// `startPilot` failure. A usage error, not a domain state — Pilot has no clock,
+    /// so a non-nil `Config.until` is refused rather than silently ignored.
+    public enum PilotStartError: Swift.Error, Sendable, Equatable {
+        case untilNotSupported
+    }
+
+    /// `runExternalRound` failure. Every case except `.relayNotFound`/`.notPilotRelay`
+    /// leaves the relay's durable state exactly as it was before the call — a pilot
+    /// round only ever lands on the ledger once it actually starts (verdict parsed,
+    /// and, for `continue`, the handover cleared `HandoverGate`).
+    public enum PilotRoundError: Swift.Error, Sendable, Equatable {
+        case relayNotFound
+        /// The relay exists but isn't a pilot relay (`pmMode != .external`) — use
+        /// `pair relay`/`pair relay-resume` for a spawned relay instead.
+        case notPilotRelay
+        /// A round is already dispatching (durable check: `status == .running`) —
+        /// one mutating dev turn at a time, unchanged law.
+        case roundInFlight
+        /// The relay is in some OTHER non-`awaitingPM` status (`done`/`escalated`/
+        /// `stopped`) — there's nothing to hand off to.
+        case notAwaitingPM(status: String)
+        /// `submission`'s tail didn't parse as a `RelayVerdict`. No re-ask machinery
+        /// in Pilot — the piloting session is live and just resubmits.
+        case verdictUnparseable(RelayVerdictParser.ExtractError)
+        /// `HandoverGate` blocked the `continue` verdict's handover before it ever
+        /// reached the dev seat. Pilot never escalates on a gate block (unlike a
+        /// spawned relay) — the piloting session is right there to rephrase.
+        case handoverBlocked(dangerClass: String, code: String, reason: String, snippet: String)
+    }
+
+    /// `runExternalRound`'s success payload: the updated `RelayState` plus, when a dev
+    /// turn actually dispatched and delivered this call, its report text verbatim —
+    /// so the CLI can print it without a second `RunStore` lookup keyed off
+    /// `state.rounds.last?.devRunId` (`docs/phases/Pilot_Relay.md` §2 "read dev report
+    /// ← report + round log returned in the same call").
+    public struct PilotRoundResult: Sendable, Equatable {
+        public var state: RelayState
+        public var devReport: String?
+
+        public init(state: RelayState, devReport: String? = nil) {
+            self.state = state
+            self.devReport = devReport
+        }
+    }
+
     private let runService: RunService
     private let gitObserver: GitObserver
     private let stateStore: RelayStateStore
@@ -118,6 +165,207 @@ public struct RelayCoordinator: Sendable {
         persist(state)
         await loop(state: &state, config: config, events: events)
         return state
+    }
+
+    // MARK: - Pilot (docs/phases/Pilot_Relay.md) — `pmMode: .external`
+
+    /// `pilot start` — creates a parked, PM-less relay: `pmMode: .external`,
+    /// `status: .awaitingPM`, zero rounds. Pilot has no clock (`until` is meaningless
+    /// without a process advancing the loop between rounds), so a non-nil
+    /// `config.until` is a usage error rather than silently ignored — the founder
+    /// should learn immediately that `--until` doesn't apply here, not have it
+    /// quietly do nothing. `config.maxRounds`/`config.stagnationRoundCap` are captured
+    /// onto the durable state (`RelayState.pilotMaxRounds`/`pilotStagnationRoundCap`)
+    /// because, unlike a spawned relay's `run`/`resume`, there is no long-lived process
+    /// to re-supply them at every later round — each `pilot handoff` is a fresh CLI
+    /// invocation. `config.pmWorkerId` is ignored; the durable `pmWorkerId` is always
+    /// `RelayState.externalPMWorkerId` (there is no PM model to dispatch).
+    public func startPilot(config: Config) -> Result<RelayState, PilotStartError> {
+        guard config.until == nil else { return .failure(.untilNotSupported) }
+        let state = RelayState(
+            id: idFactory(),
+            projectRoot: config.projectRoot,
+            docPath: config.docPath,
+            pmWorkerId: RelayState.externalPMWorkerId,
+            devWorkerId: config.devWorkerId,
+            status: .awaitingPM,
+            pmMode: .external,
+            createdAt: now(),
+            pilotMaxRounds: config.maxRounds,
+            pilotStagnationRoundCap: config.stagnationRoundCap
+        )
+        threadProjector?.started(state: state, projectId: config.projectId)
+        persist(state)
+        return .success(state)
+    }
+
+    /// `pilot handoff` — runs exactly ONE external round: the piloting session's raw
+    /// markdown `submission` stands in for a spawned PM turn. Reuses the shipped round
+    /// machinery end to end (`RelayVerdictParser`, `HandoverGate`, `RelayDevPrompt`,
+    /// `dispatchTurn`'s classifier/retries) — Pilot never invents a second dispatch
+    /// path (Pilot_Relay.md §1 decision 1).
+    ///
+    /// Durability doubles as mutual exclusion: `awaitingPM` is the only status this
+    /// accepts a round from, and the very first thing a successful call does is flip
+    /// the persisted status to `.running` BEFORE the (possibly long) dev dispatch —
+    /// so a second `pilot handoff` racing against this one sees `.running` on disk
+    /// and refuses with `.roundInFlight`, exactly the durable check the doc calls for.
+    ///
+    /// A parse failure or a gate block leaves NO round on the ledger and the relay
+    /// stays `awaitingPM` untouched — there is no re-ask machinery here (unlike the
+    /// spawned PM's one-re-ask-then-escalate ladder): the piloting session is a live
+    /// human/agent right there to fix its own submission and call `handoff` again.
+    /// `done`/`escalate` verdicts DO record a round (the submission is this round's
+    /// entire run-truth, not a payload to discard) and settle the relay exactly like
+    /// a spawned round would.
+    public func runExternalRound(
+        relayId: String, submission: String, projectId: String? = nil, events: EventSink? = nil
+    ) async -> Result<PilotRoundResult, PilotRoundError> {
+        guard var state = stateStore.load(id: relayId) else { return .failure(.relayNotFound) }
+        guard state.pmMode == .external else { return .failure(.notPilotRelay) }
+        if state.status == .running { return .failure(.roundInFlight) }
+        guard state.status == .awaitingPM else { return .failure(.notAwaitingPM(status: state.status.rawValue)) }
+
+        let roundNumber = state.rounds.count + 1
+        let maxRounds = state.pilotMaxRounds ?? 20
+        if roundNumber > maxRounds {
+            stop(&state, reason: "reached --max-rounds (\(maxRounds))")
+            events?(.stopped(reason: state.stoppedReason ?? ""))
+            return .success(PilotRoundResult(state: state, devReport: nil))
+        }
+        let stagnationCap = state.pilotStagnationRoundCap ?? 3
+        if trailingStagnationStreak(state.rounds) >= stagnationCap {
+            stop(&state, reason: "stagnation: \(stagnationCap) consecutive rounds with no repo change and verdict continue — likely PM↔dev deadlock")
+            events?(.stopped(reason: state.stoppedReason ?? ""))
+            return .success(PilotRoundResult(state: state, devReport: nil))
+        }
+
+        let extraction: RelayVerdictParser.Extraction
+        switch RelayVerdictParser.extract(from: submission) {
+        case .success(let ex): extraction = ex
+        case .failure(let parseError): return .failure(.verdictUnparseable(parseError))
+        }
+        events?(.pmTurnFinished(round: roundNumber, verdict: extraction.verdict.verdict))
+
+        switch extraction.verdict.verdict {
+        case .done:
+            state.rounds.append(RelayRound(
+                roundNumber: roundNumber, baselineHead: gitObserver.observe(rootPath: state.projectRoot).head,
+                verdict: extraction.verdict, startedAt: now(), finishedAt: now(), outcome: .done,
+                externalSubmission: submission
+            ))
+            finish(&state, note: extraction.verdict.note)
+            events?(.done(note: state.note))
+            return .success(PilotRoundResult(state: state, devReport: nil))
+
+        case .escalate:
+            state.rounds.append(RelayRound(
+                roundNumber: roundNumber, baselineHead: gitObserver.observe(rootPath: state.projectRoot).head,
+                verdict: extraction.verdict, startedAt: now(), finishedAt: now(), outcome: .escalated,
+                externalSubmission: submission
+            ))
+            let note = extraction.verdict.note ?? "PM escalated with no note (round \(roundNumber))"
+            escalate(&state, note: note)
+            events?(.escalated(note: state.note ?? ""))
+            return .success(PilotRoundResult(state: state, devReport: nil))
+
+        case .continueRelay:
+            guard let handover = extraction.verdict.handover, !handover.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                // Unreachable in practice — `RelayVerdictParser` already guarantees a
+                // non-empty handover for `continue` — kept as a defensive mirror of
+                // the spawned loop's equivalent guard.
+                return .failure(.verdictUnparseable(.continueWithoutHandover))
+            }
+
+            let gateDecision = HandoverGate.evaluate(handoverText: handover)
+            if case .blocked(let dangerClass, let code, let reason, let snippet) = gateDecision {
+                events?(.gateBlocked(round: roundNumber, dangerClass: dangerClass.rawValue, reason: reason))
+                return .failure(.handoverBlocked(dangerClass: dangerClass.rawValue, code: code, reason: reason, snippet: snippet))
+            }
+
+            events?(.roundStarted(round: roundNumber))
+            var round = RelayRound(
+                roundNumber: roundNumber,
+                baselineHead: gitObserver.observe(rootPath: state.projectRoot).head,
+                verdict: extraction.verdict,
+                gate: RelayGateSummary(decision: gateDecision),
+                startedAt: now(),
+                externalSubmission: submission,
+                dirtyFiles: gitObserver.dirtyFiles(rootPath: state.projectRoot)
+            )
+            state.rounds.append(round)
+            // The durable in-flight marker: a concurrent `pilot handoff` racing this
+            // one now sees `.running` on disk and refuses (`.roundInFlight`) instead
+            // of dispatching a second dev turn on the same repo root.
+            state.status = .running
+            persist(state)
+
+            let devRequest = RunRequest(
+                message: RelayDevPrompt.assemble(context: .init(handover: handover, docPath: state.docPath, roundNumber: roundNumber)),
+                repoRoot: state.projectRoot, projectId: projectId,
+                presetId: "execution_playbook", workerId: state.devWorkerId
+            )
+            // No `--until` in Pilot — `dispatchTurn` only needs `config` for its
+            // deadline plumbing, which is always inert here (`until: nil`).
+            let dispatchConfig = Config(
+                projectRoot: state.projectRoot, projectId: projectId, docPath: state.docPath,
+                pmWorkerId: state.pmWorkerId, devWorkerId: state.devWorkerId,
+                maxRounds: maxRounds, until: nil, stagnationRoundCap: stagnationCap
+            )
+            let devDispatch = await dispatchTurn(devRequest, config: dispatchConfig)
+
+            switch devDispatch {
+            case .deadline:
+                // Unreachable — Pilot never sets `until` — kept only so this switch
+                // stays exhaustive against `TurnDispatch`.
+                round.outcome = .stopped
+                round.finishedAt = now()
+                state.rounds[state.rounds.count - 1] = round
+                stop(&state, reason: "--until deadline reached during the dev turn (round \(roundNumber))")
+                events?(.stopped(reason: state.stoppedReason ?? ""))
+                return .success(PilotRoundResult(state: state, devReport: nil))
+            case .serviceError(let error):
+                round.outcome = .escalated
+                round.finishedAt = now()
+                state.rounds[state.rounds.count - 1] = round
+                escalate(&state, note: "dev turn failed to dispatch: \(error.description)")
+                events?(.escalated(note: state.note ?? ""))
+                return .success(PilotRoundResult(state: state, devReport: nil))
+            case .budgetExhausted(let reason):
+                round.outcome = .escalated
+                round.finishedAt = now()
+                state.rounds[state.rounds.count - 1] = round
+                escalate(&state, note: "dev turn \(reason) (round \(roundNumber))")
+                events?(.escalated(note: state.note ?? ""))
+                return .success(PilotRoundResult(state: state, devReport: nil))
+            case .delivered(let devRun, let devOutput):
+                round.devRunId = devRun.id
+                round.headAfterDev = gitObserver.observe(rootPath: state.projectRoot).head
+                round.outcome = .continued
+                round.finishedAt = now()
+                state.rounds[state.rounds.count - 1] = round
+                // Back to parked — the piloting session reviews the dev report and
+                // calls `pilot handoff` again when ready. No clock, no auto-advance.
+                state.status = .awaitingPM
+                persist(state)
+                events?(.devTurnFinished(round: roundNumber))
+                return .success(PilotRoundResult(state: state, devReport: devOutput))
+            }
+        }
+    }
+
+    /// Trailing streak of consecutive rounds — counted from the END of `rounds` — that
+    /// `continued` with zero repo change (`baselineHead == headAfterDev`). Mirrors the
+    /// spawned `loop()`'s in-memory `stagnationStreak`, recomputed fresh from the
+    /// persisted round log each call since Pilot has no long-lived loop to carry a
+    /// running counter across separate `pilot handoff` invocations.
+    private func trailingStagnationStreak(_ rounds: [RelayRound]) -> Int {
+        var streak = 0
+        for round in rounds.reversed() {
+            guard round.outcome == .continued, round.baselineHead == round.headAfterDev else { break }
+            streak += 1
+        }
+        return streak
     }
 
     /// Resumes an `.escalated` relay (a real founder question) OR a reconciled-`.stopped`
@@ -186,6 +434,14 @@ public struct RelayCoordinator: Sendable {
     /// the stopped system event. A no-op — returns `state` unchanged, no save, no sync — for
     /// anything other than a dead-owner `.running` relay: a genuinely live `.running` relay,
     /// or one already `.done`/`.escalated`/`.stopped`, passes through untouched.
+    ///
+    /// This `.running`-only guard is also what makes a Pilot relay's parked
+    /// `awaitingPM` (`docs/phases/Pilot_Relay.md` PL-S01) immune to orphan
+    /// reconciliation — a pilot relay can sit `awaitingPM` for days between
+    /// `pilot handoff` calls with no process behind it, and that is never mistaken
+    /// for a dead owner. Only the brief window where `runExternalRound` itself
+    /// flips a pilot relay to `.running` while a dev turn is in flight is ever
+    /// reconciliation-eligible, exactly like a spawned round.
     @discardableResult
     public static func reconcileOrphan(
         _ state: RelayState, stateStore: RelayStateStore,
