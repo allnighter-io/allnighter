@@ -1263,11 +1263,6 @@
           "valueType" : "integer"
         },
         {
-          "name" : "pm-read-only",
-          "summary" : "PM turns are flagged non-mutating (advisory; default off).",
-          "takesValue" : false
-        },
-        {
           "name" : "json",
           "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.",
           "takesValue" : false
@@ -3542,15 +3537,6 @@
       "ruleId" : "relay.handover.unsafe"
     },
     {
-      "agentAction" : "Pick a pm-worker on a driver with a confirmed mechanical read-only mode (currently claude_code or codex — see RelayReadOnlyEnforcer.supportedDriverIds), or drop --pm-read-only \/ pmReadOnly.",
-      "code" : "RELAY_PM_READONLY_UNSUPPORTED",
-      "exitClass" : "usage",
-      "explain" : "--pm-read-only (a mechanically non-mutating PM seat) was requested, but the pm-worker's driver has no confirmed read-only\/sandbox mode. Fails closed at start — never a silent prompt-only \"don't write\" fallback.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "relay.pm_readonly.unsupported"
-    },
-    {
       "agentAction" : "Inspect the error detail; retry the send or fix the worker.",
       "code" : "THREAD_SEND_FAILED",
       "exitClass" : "operational",
@@ -4692,12 +4678,6 @@
           "required" : false,
           "summary" : "Round ceiling, default 20 (action:start\/resume).",
           "type" : "integer"
-        },
-        {
-          "name" : "pmReadOnly",
-          "required" : false,
-          "summary" : "Flag PM turns as non-mutating, advisory (action:start; default false).",
-          "type" : "boolean"
         }
       ],
       "summary" : "DOES: Start, check status of, or resume the PM Relay — a PM seat reviews the repo and a dev seat builds, round after round, until done\/escalate\/a ceiling.\nUSE WHEN: Automating the founder's PM↔dev copy-paste loop unattended on a spec doc, or checking\/answering an in-flight relay.\nNOT WHEN: A single synchronous change (use team_run).\nNEXT: action:status to inspect a relay; action:resume once status is escalated.\nACTION: start → doc\/project\/pmWorker\/devWorker required, begins a new relay and runs to done\/escalate\/a ceiling; status → relay required, reads durable state; resume → relay+answer required, injects the founder's answer into an escalated relay and continues.",

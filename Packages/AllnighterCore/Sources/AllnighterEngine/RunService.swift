@@ -38,14 +38,6 @@ public struct RunRequest: Sendable, Equatable {
     public var workerTimeoutSeconds: Int?
     /// Override `DriverManifest.maxConcurrentSpawns` for this run (parallel CR fan-out).
     public var spawnConcurrencyLimit: Int?
-    /// Require the resolved worker's driver to dispatch under a CONFIRMED mechanical
-    /// read-only mode (`RelayReadOnlyEnforcer.enforce`), never a prompt-only "don't
-    /// write." `false` (default) is the ordinary path — `writePolicy` still governs the
-    /// `RunWriteLock`, unchanged. `true` is refused with `.readOnlyUnsupported` for any
-    /// driver without a confirmed mechanism — fail closed, never a silent fallback. Set
-    /// by the relay's PM turn only when `--pm-read-only` (PM_Relay.md §4.2); the dev
-    /// turn never sets this.
-    public var requireReadOnly: Bool
 
     public init(
         message: String,
@@ -63,8 +55,7 @@ public struct RunRequest: Sendable, Equatable {
         timing: RunTimingReport? = nil,
         advisoryReview: Bool = false,
         workerTimeoutSeconds: Int? = nil,
-        spawnConcurrencyLimit: Int? = nil,
-        requireReadOnly: Bool = false
+        spawnConcurrencyLimit: Int? = nil
     ) {
         self.message = message
         self.repoRoot = repoRoot
@@ -82,7 +73,6 @@ public struct RunRequest: Sendable, Equatable {
         self.advisoryReview = advisoryReview
         self.workerTimeoutSeconds = workerTimeoutSeconds
         self.spawnConcurrencyLimit = spawnConcurrencyLimit
-        self.requireReadOnly = requireReadOnly
     }
 }
 
@@ -91,10 +81,6 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
     case writeLockBusy(String)
     case teamResolution(String, code: String)
     case noWorker(String)
-    /// `RunRequest.requireReadOnly` was set but the resolved worker's driver has no
-    /// `RelayReadOnlyEnforcer`-confirmed mechanical read-only mode — fail closed
-    /// (PM_Relay.md §4.2 / Unified_Run_Model.md "Safety — the honest version").
-    case readOnlyUnsupported(driverId: String, displayName: String)
 
     public var description: String {
         switch self {
@@ -102,8 +88,6 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         case .writeLockBusy(let r): return "an agent is still editing this repo after a long wait — it looks stuck; stop it and retry (\(r))"
         case .teamResolution(let m, _): return m
         case .noWorker(let m): return m
-        case .readOnlyUnsupported(let driverId, let displayName):
-            return "\(displayName) (\(driverId)) has no confirmed mechanical read-only mode — cannot enforce --pm-read-only. Seats that can enforce it: \(RelayReadOnlyEnforcer.supportedDriverIds.joined(separator: ", "))."
         }
     }
 
@@ -113,7 +97,6 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         case .writeLockBusy: return "RUN_WRITE_LOCK_BUSY"
         case .teamResolution(_, let code): return code
         case .noWorker: return "WORKER_NOT_READY"
-        case .readOnlyUnsupported: return "RELAY_PM_READONLY_UNSUPPORTED"
         }
     }
 }
@@ -336,8 +319,7 @@ public actor RunService {
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
                 deliveries: request.deliveries, requestedAt: requestedAt, timing: timing, events: events,
                 workerTimeoutSeconds: request.workerTimeoutSeconds,
-                spawnConcurrencyLimit: request.spawnConcurrencyLimit,
-                requireReadOnly: request.requireReadOnly
+                spawnConcurrencyLimit: request.spawnConcurrencyLimit
             )
         }
 
@@ -374,8 +356,7 @@ public actor RunService {
         timing seedTiming: RunTimingReport,
         events: AsyncStream<RunEvent>.Continuation?,
         workerTimeoutSeconds: Int? = nil,
-        spawnConcurrencyLimit: Int? = nil,
-        requireReadOnly: Bool = false
+        spawnConcurrencyLimit: Int? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
         let timeoutOverride = workerTimeoutSeconds.map { Duration.seconds($0) }
@@ -416,17 +397,8 @@ public actor RunService {
             return .failure(.noWorker("no ready worker for execution team"))
         }
 
-        guard var manifest = registry.manifest(for: model) else {
+        guard let manifest = registry.manifest(for: model) else {
             return .failure(.noWorker("no driver manifest for \(model.driverId)"))
-        }
-        if requireReadOnly {
-            // Mechanical fail-closed (PM_Relay.md §4.2): a driver with no CONFIRMED
-            // read-only mechanism refuses to dispatch at all rather than running
-            // un-enforced — never a silent prompt-only "please don't write."
-            guard let readOnlyManifest = RelayReadOnlyEnforcer.enforce(on: manifest) else {
-                return .failure(.readOnlyUnsupported(driverId: manifest.id, displayName: manifest.displayName))
-            }
-            manifest = readOnlyManifest
         }
         timing.stamp(RunTimingKey.workerResolveEnd)
         timing.set(RunTimingKey.modelId, string: model.id)

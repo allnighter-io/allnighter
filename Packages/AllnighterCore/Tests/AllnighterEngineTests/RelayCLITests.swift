@@ -100,17 +100,6 @@ final class RelayCLITests: XCTestCase {
         XCTAssertEqual(config.devWorkerId, "model_dev")
         XCTAssertEqual(config.maxRounds, 20)   // default
         XCTAssertNil(config.until)
-        XCTAssertTrue(config.pmMayMutate)      // default (no --pm-read-only)
-    }
-
-    func testParseStartConfigPmReadOnlyFlagsNonMutating() throws {
-        let store = makeProjectStore()
-        let project = try addProject(store)
-        let config = try RelayCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", project.id, "--pm-worker", "model_pm", "--dev-worker", "model_dev", "--pm-read-only"],
-            projectStore: store
-        )
-        XCTAssertFalse(config.pmMayMutate)
     }
 
     func testParseStartConfigCustomMaxRoundsAndUntil() throws {

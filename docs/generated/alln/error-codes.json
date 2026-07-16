@@ -630,15 +630,6 @@
     "ruleId" : "relay.handover.unsafe"
   },
   {
-    "agentAction" : "Pick a pm-worker on a driver with a confirmed mechanical read-only mode (currently claude_code or codex — see RelayReadOnlyEnforcer.supportedDriverIds), or drop --pm-read-only \/ pmReadOnly.",
-    "code" : "RELAY_PM_READONLY_UNSUPPORTED",
-    "exitClass" : "usage",
-    "explain" : "--pm-read-only (a mechanically non-mutating PM seat) was requested, but the pm-worker's driver has no confirmed read-only\/sandbox mode. Fails closed at start — never a silent prompt-only \"don't write\" fallback.",
-    "requiresManual" : true,
-    "retryable" : false,
-    "ruleId" : "relay.pm_readonly.unsupported"
-  },
-  {
     "agentAction" : "Inspect the error detail; retry the send or fix the worker.",
     "code" : "THREAD_SEND_FAILED",
     "exitClass" : "operational",

@@ -390,7 +390,6 @@ public extension ContractRegistry {
                 .init("answer", summary: "The founder's answer to the escalation (action:resume)."),
                 .init("until", summary: "Hard stop clock HH:MM local (action:start/resume)."),
                 .init("maxRounds", type: "integer", summary: "Round ceiling, default 20 (action:start/resume)."),
-                .init("pmReadOnly", type: "boolean", summary: "Flag PM turns as non-mutating, advisory (action:start; default false)."),
             ],
             outputSchema: .relayJSON,
             errors: ["PROJECT_NOT_FOUND", "RELAY_NOT_FOUND", "RELAY_INVALID_STATE", "CLI_USAGE_ERROR"],

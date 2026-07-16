@@ -712,12 +712,6 @@
         "required" : false,
         "summary" : "Round ceiling, default 20 (action:start\/resume).",
         "type" : "integer"
-      },
-      {
-        "name" : "pmReadOnly",
-        "required" : false,
-        "summary" : "Flag PM turns as non-mutating, advisory (action:start; default false).",
-        "type" : "boolean"
       }
     ],
     "summary" : "DOES: Start, check status of, or resume the PM Relay — a PM seat reviews the repo and a dev seat builds, round after round, until done\/escalate\/a ceiling.\nUSE WHEN: Automating the founder's PM↔dev copy-paste loop unattended on a spec doc, or checking\/answering an in-flight relay.\nNOT WHEN: A single synchronous change (use team_run).\nNEXT: action:status to inspect a relay; action:resume once status is escalated.\nACTION: start → doc\/project\/pmWorker\/devWorker required, begins a new relay and runs to done\/escalate\/a ceiling; status → relay required, reads durable state; resume → relay+answer required, injects the founder's answer into an escalated relay and continues.",

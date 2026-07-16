@@ -8,12 +8,11 @@ import AllnighterEngine
 /// `AllnighterCLI` is an `executableTarget` (`Packages/AllnighterCore/Package.swift`), not
 /// a library product, so neither the Mac app nor its test target can import it — that's
 /// exactly why `RelayGUIRuntime.makeCoordinator` MIRRORS the construction instead of
-/// calling it (see that type's doc comment). These tests instead prove: (1) validation is
-/// fail-closed for `--pm-read-only` using the REAL `RelayReadOnlyEnforcer` +
-/// `AppConfig.loadConfiguration()` roster (the same source of truth the CLI pre-flight
-/// uses), and (2) `start()` actually drives a real `RelayCoordinator`/`RelayThreadProjector`
-/// end to end (temp stores, a stub `CommandRunner` standing in for the CLI subprocess) so
-/// construction wiring is exercised, not just asserted.
+/// calling it (see that type's doc comment). These tests instead prove: (1) validation
+/// enforces the doc/seat/max-rounds requirements, and (2) `start()` actually drives a real
+/// `RelayCoordinator`/`RelayThreadProjector` end to end (temp stores, a stub `CommandRunner`
+/// standing in for the CLI subprocess) so construction wiring is exercised, not just
+/// asserted.
 @MainActor
 final class RelayLaunchViewModelTests: XCTestCase {
     /// Always returns a fixed PM-turn output carrying a valid `RelayVerdict` tail — makes
@@ -77,8 +76,7 @@ final class RelayLaunchViewModelTests: XCTestCase {
 
     func testValidationRequiresDocAndSeats() {
         let issues = RelayLaunchViewModel.validate(
-            docPath: "", pmWorkerId: nil, devWorkerId: nil, pmReadOnly: false, maxRounds: 20,
-            models: [], registry: DriverRegistry())
+            docPath: "", pmWorkerId: nil, devWorkerId: nil, maxRounds: 20)
         XCTAssertTrue(issues.contains { $0.id == "doc" })
         XCTAssertTrue(issues.contains { $0.id == "pm" })
         XCTAssertTrue(issues.contains { $0.id == "dev" })
@@ -86,49 +84,14 @@ final class RelayLaunchViewModelTests: XCTestCase {
 
     func testValidationRejectsSameSeatForBothRoles() {
         let issues = RelayLaunchViewModel.validate(
-            docPath: "docs/spec.md", pmWorkerId: "model_x", devWorkerId: "model_x",
-            pmReadOnly: false, maxRounds: 20, models: [], registry: DriverRegistry())
+            docPath: "docs/spec.md", pmWorkerId: "model_x", devWorkerId: "model_x", maxRounds: 20)
         XCTAssertTrue(issues.contains { $0.id == "same-seat" })
     }
 
     func testValidationRejectsNonPositiveMaxRounds() {
         let issues = RelayLaunchViewModel.validate(
-            docPath: "docs/spec.md", pmWorkerId: "a", devWorkerId: "b",
-            pmReadOnly: false, maxRounds: 0, models: [], registry: DriverRegistry())
+            docPath: "docs/spec.md", pmWorkerId: "a", devWorkerId: "b", maxRounds: 0)
         XCTAssertTrue(issues.contains { $0.id == "max-rounds" })
-    }
-
-    /// Fail-closed: `RelayReadOnlyEnforcer.supported` only confirms `claude_code`/`codex`
-    /// (docs/phases/PM_Relay.md §4.2). A PM seat on any other driver, with the read-only
-    /// toggle on, must be a validation ERROR — never a silently-ignored preference — the
-    /// exact rule `RelayCLI.runRelay`'s CLI pre-flight enforces before dispatch.
-    func testValidationFailsClosedForUnsupportedReadOnlyDriver() throws {
-        let config = AppConfig.loadConfiguration()
-        guard let unsupported = config.models.first(where: {
-            !RelayReadOnlyEnforcer.supportedDriverIds.contains($0.driverId)
-        }) else {
-            throw XCTSkip("bundled config has no driver outside RelayReadOnlyEnforcer.supported")
-        }
-        let issues = RelayLaunchViewModel.validate(
-            docPath: "docs/spec.md", pmWorkerId: unsupported.id, devWorkerId: "dev_worker",
-            pmReadOnly: true, maxRounds: 20, models: config.models, registry: config.registry)
-        XCTAssertTrue(issues.contains { $0.id == "pm-read-only" },
-                       "an unsupported driver + --pm-read-only must fail closed, not pass silently")
-    }
-
-    /// The mirror image: a PM seat on a CONFIRMED driver (claude_code/codex) with
-    /// read-only on must NOT be blocked.
-    func testValidationAllowsSupportedReadOnlyDriver() throws {
-        let config = AppConfig.loadConfiguration()
-        guard let supported = config.models.first(where: {
-            RelayReadOnlyEnforcer.supportedDriverIds.contains($0.driverId)
-        }) else {
-            throw XCTSkip("bundled config has no claude_code/codex model")
-        }
-        let issues = RelayLaunchViewModel.validate(
-            docPath: "docs/spec.md", pmWorkerId: supported.id, devWorkerId: "dev_worker",
-            pmReadOnly: true, maxRounds: 20, models: config.models, registry: config.registry)
-        XCTAssertFalse(issues.contains { $0.id == "pm-read-only" })
     }
 
     func testCanStartTrueOnlyWhenValid() {

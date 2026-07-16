@@ -491,7 +491,6 @@ Flags:
 - `--dev-worker <id>` — Dev seat model id (required).
 - `--until <time>` — Hard stop HH:MM (local).
 - `--max-rounds <integer>` — Round ceiling (default 20).
-- `--pm-read-only` — PM turns are flagged non-mutating (advisory; default off).
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
 
 Output schema: `relayJSON`.
@@ -1177,7 +1176,6 @@ Output schema: `helpTopicsJSON`.
 | `RELAY_NOT_FOUND` | yes | no | Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`. |
 | `RELAY_INVALID_STATE` | yes | no | Only an `escalated` relay can be resumed; check status first with `pair relay-status`. |
 | `RELAY_HANDOVER_UNSAFE` | yes | no | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
-| `RELAY_PM_READONLY_UNSUPPORTED` | yes | no | Pick a pm-worker on a driver with a confirmed mechanical read-only mode (currently claude_code or codex — see RelayReadOnlyEnforcer.supportedDriverIds), or drop --pm-read-only / pmReadOnly. |
 | `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
 | `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |

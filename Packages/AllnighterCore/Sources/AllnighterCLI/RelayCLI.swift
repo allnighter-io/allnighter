@@ -13,7 +13,7 @@ import AllnighterEngine
 /// subprocess; only the thin `run*` entry points touch `exit()`.
 enum RelayCLI {
     static func runRelay(_ args: [String], runtime: ToolRuntime) async {
-        guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-worker <modelId> --dev-worker <modelId> [--until HH:MM] [--max-rounds N] [--pm-read-only] [--json]") }
+        guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-worker <modelId> --dev-worker <modelId> [--until HH:MM] [--max-rounds N] [--json]") }
         let config: RelayCoordinator.Config
         do {
             config = try parseStartConfig(args)
@@ -21,17 +21,6 @@ enum RelayCLI {
             fail(error)
         } catch {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
-        }
-
-        // `--pm-read-only` fail-closed pre-flight (PM_Relay.md §4.2): an ERROR at start,
-        // before any round dispatches — never a relay that silently runs un-enforced.
-        // `RunService`'s own dispatch-time `RelayReadOnlyEnforcer.enforce` call is the
-        // mechanical backstop this can never replace; this is the fast, honest failure
-        // for the common case (a known worker on an unsupported driver).
-        if !config.pmMayMutate,
-           let violation = RelayReadOnlyEnforcer.capabilityViolation(
-               pmWorkerId: config.pmWorkerId, models: runtime.models, registry: runtime.registry) {
-            AllnighterCLI.fail(code: "RELAY_PM_READONLY_UNSUPPORTED", message: violation)
         }
 
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
@@ -118,8 +107,7 @@ enum RelayCLI {
             pmWorkerId: pmWorkerId,
             devWorkerId: devWorkerId,
             maxRounds: maxRounds,
-            until: RelayDispatch.parseUntil(opts.value("until")),
-            pmMayMutate: !opts.flag("pm-read-only")
+            until: RelayDispatch.parseUntil(opts.value("until"))
         )
     }
 

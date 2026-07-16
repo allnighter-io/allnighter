@@ -125,13 +125,6 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// next PM turn's prompt context (`RelayPMPrompt.Context.founderNote`), then cleared
     /// once consumed.
     public var founderNote: String?
-    /// Mirrors `RelayCoordinator.Config.pmMayMutate` (PM_Relay.md §4.2) — persisted so a
-    /// `--pm-read-only` relay's guarantee survives `--resume` instead of silently
-    /// reverting to mutating (the resume path re-derives every other config field —
-    /// `projectRoot`/`docPath`/`pmWorkerId`/`devWorkerId` — from THIS persisted state
-    /// rather than the resume call's fresh `Config`; this field follows the same rule).
-    /// Defaults `true` on decode for relays persisted before this field existed.
-    public var pmMayMutate: Bool
 
     public init(
         id: String,
@@ -145,8 +138,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         finishedAt: Date? = nil,
         note: String? = nil,
         stoppedReason: String? = nil,
-        founderNote: String? = nil,
-        pmMayMutate: Bool = true
+        founderNote: String? = nil
     ) {
         self.id = id
         self.projectRoot = projectRoot
@@ -160,11 +152,10 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.note = note
         self.stoppedReason = stoppedReason
         self.founderNote = founderNote
-        self.pmMayMutate = pmMayMutate
     }
 
-    // Lenient decode: `pmMayMutate` defaults to `true` for relays persisted before this
-    // field existed (mirrors `FixPacket.init(from:)`'s partial-model tolerance).
+    // Lenient decode: tolerates relays persisted before later fields existed
+    // (mirrors `FixPacket.init(from:)`'s partial-model tolerance).
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
@@ -179,7 +170,6 @@ public struct RelayState: Sendable, Codable, Equatable {
         note = try c.decodeIfPresent(String.self, forKey: .note)
         stoppedReason = try c.decodeIfPresent(String.self, forKey: .stoppedReason)
         founderNote = try c.decodeIfPresent(String.self, forKey: .founderNote)
-        pmMayMutate = try c.decodeIfPresent(Bool.self, forKey: .pmMayMutate) ?? true
     }
 
     // MARK: - Orphan reconciliation (works-test hazard #1)

@@ -168,15 +168,10 @@ Founder decision (2026-07-15): when review finds small problems, the PM fixing t
 directly or bouncing them to the dev are both fine. Mechanically free: the PM turn
 already runs in the repo root under the same write-lock discipline, and turns are
 sequential. If the PM commits, round N+1's baseline moves with it — the dev's next
-review range is still exact. `--pm-read-only` exists for founders who want a
-mechanically non-mutating reviewer (answer-shape seat), off by default — **mechanically
-enforced, not prompted** (2026-07-16): `RelayReadOnlyEnforcer` rewrites the PM worker's
-own driver flags into its CLI's confirmed non-mutating mode (`claude_code`
-`--permission-mode plan`; `codex` `--sandbox read-only --ask-for-approval never`) before
-every PM turn dispatches; a driver with no confirmed mechanism (cursor_agent, grok,
-antigravity, opencode) fails the relay closed at start (`RELAY_PM_READONLY_UNSUPPORTED`)
-rather than silently running un-enforced, and a belt-and-braces HEAD-moved check stops
-the relay honestly if the mechanism is ever somehow defeated.
+review range is still exact. PM-may-mutate is simply how the relay works — there is
+no separate read-only mode; "reviewer, don't write" is process, and process lives in
+the PM's own prose, not a mechanized toggle (founder call 2026-07-16,
+`Relay_ReadOnly_Removal.md`).
 
 ### 4.3 Artifacts
 
@@ -215,10 +210,10 @@ Small, contract-first, CLI/MCP before GUI — house rules.
 | R-S02 ✅ | Prompt templates: PM system+turn prompt (doc path, `baseline..HEAD`, dev report verbatim, verdict contract), dev preamble wrapper + tests | `PlannerTakeoverPrompt` shape |
 | R-S03 ✅ | `HandoverGate.evaluate(handoverText:) -> Decision` + tests | `TryFixGate`/`SliceGate` |
 | R-S04 ✅ | `RelayCoordinator` loop: turn dispatch via `RunService`, `GitObserver` baseline pinning, `RelayState` durable store (round log, verdicts, run ids), ceilings, stall reuse, NDJSON progress | `PairCoordinator` skeleton, `RunStore` folder pattern |
-| R-S05 ✅ | `alln pair relay --doc <path> --project <id\|path> --pm-worker <id> --dev-worker <id> [--until HH:MM] [--max-rounds N] [--pm-read-only] [--resume <relayId>] [--json]` + `relay status` | `PairProgrammingCLI` |
+| R-S05 ✅ | `alln pair relay --doc <path> --project <id\|path> --pm-worker <id> --dev-worker <id> [--until HH:MM] [--max-rounds N] [--resume <relayId>] [--json]` + `relay status` | `PairProgrammingCLI` |
 | R-S06 ✅ | MCP: `pair_relay` / `pair_relay_status` / `pair_relay_resume` — full structured envelopes | `MCPPairHandlers` |
 | R-S07 ✅ | Relay-as-thread: each relay is a `WorkThread`; rounds are turns; escalation raises `needsAttention` — the inbox shows the loop live for free | `ThreadStore`, threads GUI |
-| R-S08 ✅ | Mac GUI entry — a "Start relay" affordance on each project's sidebar group (next to "New agent"), opening a launch sheet: doc picker (`ProjectFileCatalog`-ranked search + typed-path fallback), PM seat + dev seat pickers (`AppModel.composeBench`, plain-Button rows), `--pm-read-only` toggle with fail-closed seat annotation (`RelayReadOnlyEnforcer.capabilityViolation`), max-rounds/until, Start. `RelayLaunchViewModel.start()` constructs the coordinator via `RelayGUIRuntime.makeCoordinator` — field-for-field identical to `RelayDispatch.makeCoordinator` (same `RunService`/default-store `RelayThreadProjector`; mirrored rather than shared because `AllnighterCLI` is an executable target, not importable from the Mac app) — seeds the thread synchronously so the founder is navigated straight to the live relay thread. An escalated round shows a dedicated `RelayEscalationRow` (no existing composer seam answers an open system event inline) whose "Answer & resume" routes through `RelayCoordinator.resume` via the same construction, wired by `RelayResumeController`. GUI-sealed: `docs/qa/gui/relay-launch/`, `docs/qa/gui/thread/` (escalation row) | `ProjectFileCatalog`, `AppModel.composeBench`, `RelayCoordinator`/`RelayThreadProjector` |
+| R-S08 ✅ | Mac GUI entry — a "Start relay" affordance on each project's sidebar group (next to "New agent"), opening a launch sheet: doc picker (`ProjectFileCatalog`-ranked search + typed-path fallback), PM seat + dev seat pickers (`AppModel.composeBench`, plain-Button rows), max-rounds/until, Start. `RelayLaunchViewModel.start()` constructs the coordinator via `RelayGUIRuntime.makeCoordinator` — field-for-field identical to `RelayDispatch.makeCoordinator` (same `RunService`/default-store `RelayThreadProjector`; mirrored rather than shared because `AllnighterCLI` is an executable target, not importable from the Mac app) — seeds the thread synchronously so the founder is navigated straight to the live relay thread. An escalated round shows a dedicated `RelayEscalationRow` (no existing composer seam answers an open system event inline) whose "Answer & resume" routes through `RelayCoordinator.resume` via the same construction, wired by `RelayResumeController`. GUI-sealed: `docs/qa/gui/relay-launch/`, `docs/qa/gui/thread/` (escalation row) | `ProjectFileCatalog`, `AppModel.composeBench`, `RelayCoordinator`/`RelayThreadProjector` |
 | R-S09 ✅ | **Killed the slice queue** (gated on R-S07/works test PASS — done): deleted `WorkSlicePacket`, `SliceGate`, `SliceQueue`/`Store`, `SliceAttemptPrompt`, `NudgePrompt`, `ReviewAttemptPrompt`, `PlannerTakeoverPrompt`, `ReviewVerifyPrompt`, `CheckRunner`, `PairCoordinator`, `PairSliceJSON`, `PairProgrammingCLI`/`Dispatch`, `MCPPairHandlers`, `pair_slice`/`pair_run`/`pair_status` MCP + registry entries, `Pair_Programming_Team.md` + `Pair_Programming_Improvements_Backlog.md` (outright, no archive). Salvaged compaction≠stall into `RelayTurnClassifier` first (already landed pre-R-S09). **Device pairing in `PairCLI` (list/approve/revoke/begin) is DirectMode iOS — untouched.** Kept: `TryFixGate`/`FixPacket` (Auto-Fix), `OpenCodeServeCoordinator` (belongs to the opencode *driver* like any warm dialect — no special role in any loop; whether that driver stays on the bench is a separate, unrelated call), code_review run logs (history) | — |
 
 Pre-work (before R-S04): **post-cutover smoke** — the pair path hasn't run since the
@@ -265,7 +260,6 @@ If the founder is still pasting, the feature is not done.
 | --- | --- |
 | Loop skeleton / seats / ceilings | `AllnighterEngine/RelayCoordinator.swift` |
 | Dispatch + write lock | `AllnighterEngine/RunService.swift`, `RunWriteLock.swift` |
-| `--pm-read-only` mechanism (§4.2) | `AllnighterEngine/RelayReadOnlyEnforcer.swift` |
 | Baseline pinning | `AllnighterEngine/GitObserver.swift` |
 | Gate shape | `AllnighterCore/TryFixGate.swift`, `HandoverGate.swift` |
 | Stall / compaction | `AllnighterEngine/StalledWorkDetector.swift`, `RelayTurnClassifier.swift` |

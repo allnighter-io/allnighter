@@ -23,11 +23,6 @@ public struct RelayCoordinator: Sendable {
         public var devWorkerId: String
         public var maxRounds: Int
         public var until: Date?
-        /// Plumbed per the brief: PM turns already run under the same mutating,
-        /// write-lock-disciplined path as everything else (§4.2 — "mechanically free").
-        /// Mechanical read-only enforcement (an answer-shape PM seat, `--pm-read-only`) is
-        /// a named follow-up — this flag does not yet change dispatch behavior.
-        public var pmMayMutate: Bool
         /// Consecutive rounds with zero repo change AND verdict `continue` before the
         /// relay stops itself as a probable PM↔dev deadlock. Approximates the doc's
         /// `--max-consecutive-flags` (§5 item 3) — see `RelayCoordinator.loop`.
@@ -45,7 +40,6 @@ public struct RelayCoordinator: Sendable {
             devWorkerId: String,
             maxRounds: Int = 20,
             until: Date? = nil,
-            pmMayMutate: Bool = true,
             stagnationRoundCap: Int = 3,
             presetId: String = "execution_playbook"
         ) {
@@ -56,7 +50,6 @@ public struct RelayCoordinator: Sendable {
             self.devWorkerId = devWorkerId
             self.maxRounds = max(1, maxRounds)
             self.until = until
-            self.pmMayMutate = pmMayMutate
             self.stagnationRoundCap = max(1, stagnationRoundCap)
             self.presetId = presetId
         }
@@ -119,8 +112,7 @@ public struct RelayCoordinator: Sendable {
             pmWorkerId: config.pmWorkerId,
             devWorkerId: config.devWorkerId,
             status: .running,
-            createdAt: now(),
-            pmMayMutate: config.pmMayMutate
+            createdAt: now()
         )
         threadProjector?.started(state: state, projectId: config.projectId)
         persist(state)
@@ -149,12 +141,6 @@ public struct RelayCoordinator: Sendable {
         resumedConfig.docPath = state.docPath
         resumedConfig.pmWorkerId = state.pmWorkerId
         resumedConfig.devWorkerId = state.devWorkerId
-        // `pmMayMutate` follows the same rule as the four fields above (PM_Relay.md
-        // §4.2): a `--pm-read-only` relay's guarantee survives `--resume` from the
-        // PERSISTED state, never from the resume call's fresh `Config` (which defaults
-        // `pmMayMutate: true` when the CLI/MCP resume path builds a `Config` without
-        // re-asking for `--pm-read-only`).
-        resumedConfig.pmMayMutate = state.pmMayMutate
 
         state.founderNote = founderAnswer
         state.status = .running
@@ -312,11 +298,7 @@ public struct RelayCoordinator: Sendable {
         let pmRequest = RunRequest(
             message: RelayPMPrompt.assemble(context: pmContext),
             repoRoot: config.projectRoot, projectId: config.projectId,
-            presetId: config.presetId, workerId: config.pmWorkerId,
-            // `--pm-read-only` (PM_Relay.md §4.2): mechanically enforced via
-            // `RelayReadOnlyEnforcer`, never a prompt-only "don't write." The dev turn
-            // (below) never sets this — only the PM's turns do.
-            requireReadOnly: !config.pmMayMutate
+            presetId: config.presetId, workerId: config.pmWorkerId
         )
         let pmDispatch = await dispatchTurn(pmRequest, config: config)
 
@@ -344,24 +326,6 @@ public struct RelayCoordinator: Sendable {
             pmOutput = output
         }
 
-        // Belt-and-braces (PM_Relay.md §4.2): `RelayReadOnlyEnforcer` should make a
-        // `--pm-read-only` PM turn incapable of moving HEAD, but "should" is not
-        // "proven" — a manifest transform bug, a driver silently ignoring its own flag,
-        // or a future driver added to `RelayReadOnlyEnforcer.supported` in error could
-        // all defeat it. This check is cheap (we already pinned `baselineHead` before
-        // dispatch) and catches ANY of those honestly instead of trusting the
-        // mechanism blindly: if HEAD moved anyway, stop the relay — never proceed to
-        // the dev turn on a round whose own safety guarantee just failed.
-        if !config.pmMayMutate {
-            let headAfterPM = gitObserver.observe(rootPath: config.projectRoot).head
-            if headAfterPM != baselineHead {
-                return finishRound(&state, &round, outcome: .stopped, events: events) {
-                    stop(&$0, reason: "read-only violation: the PM turn moved HEAD (\(baselineHead ?? "?") → \(headAfterPM ?? "?")) despite --pm-read-only (round \(roundNumber)) — RelayReadOnlyEnforcer should have prevented this; treat as a bug, not a retry")
-                    events?(.stopped(reason: $0.stoppedReason ?? ""))
-                }
-            }
-        }
-
         // Parse the verdict tail; one re-ask (same PM seat) on failure, then escalate.
         var extraction: RelayVerdictParser.Extraction
         switch RelayVerdictParser.extract(from: pmOutput) {
@@ -371,8 +335,7 @@ public struct RelayCoordinator: Sendable {
             let reaskRequest = RunRequest(
                 message: RelayReaskPrompt.assemble(previousOutput: pmOutput, parseError: parseError),
                 repoRoot: config.projectRoot, projectId: config.projectId,
-                presetId: config.presetId, workerId: config.pmWorkerId,
-                requireReadOnly: !config.pmMayMutate
+                presetId: config.presetId, workerId: config.pmWorkerId
             )
             let reaskDispatch = await dispatchTurn(reaskRequest, config: config)
             switch reaskDispatch {

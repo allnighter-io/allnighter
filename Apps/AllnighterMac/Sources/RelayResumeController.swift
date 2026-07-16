@@ -72,7 +72,7 @@ final class RelayResumeController {
               canResume(relayId: relayId) else { return false }
 
         let projectId = RelayGUIRuntime.resolveProjectId(forRoot: prior.projectRoot, store: projectStore)
-        // Every OTHER config field (`projectRoot`/`docPath`/worker ids/`pmMayMutate`)
+        // Every OTHER config field (`projectRoot`/`docPath`/worker ids)
         // re-derives from the persisted `RelayState` inside `RelayCoordinator.resume`
         // itself — only the ceilings are per-invocation (PM_Relay.md, `resume`'s own doc
         // comment). This mirrors `RelayCLI.parseResumeRequest`.

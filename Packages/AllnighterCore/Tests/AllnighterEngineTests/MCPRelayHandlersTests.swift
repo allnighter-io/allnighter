@@ -74,34 +74,6 @@ final class MCPRelayHandlersTests: XCTestCase {
         XCTAssertEqual(env.code, "CLI_USAGE_ERROR")
     }
 
-    /// `--pm-read-only` fail-closed pre-flight (PM_Relay.md §4.2): `pmReadOnly: true`
-    /// with a pm-worker on a driver `RelayReadOnlyEnforcer` has no confirmed mechanism
-    /// for (grok — Grok Build CLI's docs name no headless read-only/plan flag) must
-    /// refuse to start the relay at all — never a relay that silently runs un-enforced.
-    /// Uses the REAL bundled default catalog (`ToolRuntime()`, matching every other test
-    /// in this file) so this proves the actual driver ids the shipped app resolves, not
-    /// a synthetic fixture.
-    func testRelayPmReadOnlyOnUnsupportedDriverReturnsReadonlyUnsupportedBeforeStartingAnyRelay() async throws {
-        let projectStore = ProjectStore(rootDirectory: tmp.appendingPathComponent("projects"))
-        let repoDir = tmp.appendingPathComponent("repo", isDirectory: true)
-        try FileManager.default.createDirectory(at: repoDir, withIntermediateDirectories: true)
-        let project = try projectStore.add(path: repoDir.path, name: nil)
-
-        let runtime = ToolRuntime()
-        let outcome = await MCPRelayHandlers.relay(
-            runtime: runtime,
-            args: [
-                "doc": "docs/spec.md", "project": project.id,
-                "pmWorker": "model_grok", "devWorker": "model_grok", "pmReadOnly": true,
-            ],
-            projectStore: projectStore
-        )
-        guard case .toolError(let env) = outcome else { return XCTFail("expected tool error, not a started relay") }
-        XCTAssertEqual(env.code, "RELAY_PM_READONLY_UNSUPPORTED")
-        XCTAssertTrue(env.message.contains("grok"))
-        XCTAssertTrue(env.message.contains("claude_code"), "must name a driver that CAN enforce it")
-    }
-
     // MARK: - status
 
     func testStatusMissingRelayReturnsUsageError() {

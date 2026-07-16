@@ -103,8 +103,9 @@ verdict: done/escalate  →   relay settles / parks exactly like today
   a spawned one, so the Mac app is the observer while the IDE is the cockpit.
 - **Ceilings:** `maxRounds` and stagnation apply unchanged; `--until` is meaningless
   without a clock and is rejected on `pilot start`.
-- **`--pm-read-only` is N/A** (there is no PM spawn to constrain); rejected on
-  `pilot start`. The dev seat's rails are identical in both modes.
+- **Read-only PM enforcement is N/A** (there is no PM spawn to constrain, and the
+  relay dropped the mechanism entirely — `Relay_ReadOnly_Removal.md`). The dev
+  seat's rails are identical in both modes.
 
 ## 2.1 The write-lock boundary (the one real hazard)
 

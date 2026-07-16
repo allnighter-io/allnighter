@@ -121,6 +121,14 @@ mechanically, and neither is user-facing ceremony.
    write is discarded; otherwise exclude drivers that cannot be made non-mutating from
    answer teams. **Open implementation decision — until it ships, we do not claim
    answer teams are safe.**
+
+   Confirmed headless read-only mechanisms (2026-07-16): `claude_code`
+   `--permission-mode plan`; `codex` `--sandbox read-only --ask-for-approval never`.
+   `cursor_agent` headless documents full write+shell access (no plan enforcement);
+   `grok`/`antigravity`/`opencode` expose no read-only/plan flag. (Salvaged from the
+   removed relay `--pm-read-only` toggle — see `Relay_ReadOnly_Removal.md`; that
+   mechanism was the wrong home since the relay is sequential-by-construction, not
+   concurrent answer-team fan-out.)
 2. **At most one mutating run per repo root.** Default chat can mutate, so two chats in
    one repo = two writers = corruption. A minimal internal **`RunWriteLock` keyed by the
    canonical repo root**: read/answer runs never take it; a mutating run takes it; a

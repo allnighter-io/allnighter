@@ -4,21 +4,18 @@ import AllnighterCore
 import AllnighterEngine
 
 /// R-S08 — the Mac GUI's PM Relay launch surface (`docs/phases/PM_Relay.md` §6). Owns the
-/// launch form's state (doc, seats, `--pm-read-only`, ceilings) and starts a relay via
+/// launch form's state (doc, seats, ceilings) and starts a relay via
 /// `RelayGUIRuntime.makeCoordinator` — construction-identical to `RelayDispatch.makeCoordinator`
 /// (CLI/MCP), so a GUI-launched relay is the exact same durable object the CLI/MCP produce.
 ///
-/// Validation is a pure static function (`validate`) so the fail-closed `--pm-read-only`
-/// rule (`RelayReadOnlyEnforcer.capabilityViolation` — the same source of truth the CLI
-/// pre-flight and `RunService`'s dispatch-time enforcement both use) is unit-testable
-/// without SwiftUI or a running app.
+/// Validation is a pure static function (`validate`) so it is unit-testable without SwiftUI
+/// or a running app.
 @MainActor
 @Observable
 final class RelayLaunchViewModel {
     var docPath: String = ""
     var pmWorkerId: String?
     var devWorkerId: String?
-    var pmReadOnly: Bool = false
     var maxRounds: Int = 20
     /// Optional `HH:MM` deadline. Empty = no deadline (`--max-rounds` is the only ceiling).
     var untilTime: String = ""
@@ -28,8 +25,7 @@ final class RelayLaunchViewModel {
     let projectRoot: String
     /// Full model roster (mirrors `RelayGUIRuntime.makeCoordinator`'s `RunService` — the
     /// unfiltered catalog, matching CLI/MCP; NOT `ThreadsViewModel.readyModels`). Seat
-    /// pickers still only OFFER ready models (below) — this is what validation/read-only
-    /// capability checks resolve worker ids against.
+    /// pickers still only OFFER ready models (below).
     let models: [Model]
     let registry: DriverRegistry
     /// Only ready models are offered as seats — an unreachable seat can never be picked in
@@ -72,15 +68,8 @@ final class RelayLaunchViewModel {
         let message: String
     }
 
-    /// Fail-closed by construction: a `pmReadOnly` request whose PM seat has no confirmed
-    /// mechanical enforcement (`RelayReadOnlyEnforcer.capabilityViolation`) is a validation
-    /// error, not a warning — `canStart` is false until the founder either picks a
-    /// supporting seat or turns the toggle off. Mirrors `RelayCLI.runRelay`'s start-time
-    /// pre-flight (PM_Relay.md §4.2) so the GUI can never dispatch a relay the CLI would
-    /// have refused.
     static func validate(
-        docPath: String, pmWorkerId: String?, devWorkerId: String?,
-        pmReadOnly: Bool, maxRounds: Int, models: [Model], registry: DriverRegistry
+        docPath: String, pmWorkerId: String?, devWorkerId: String?, maxRounds: Int
     ) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
         let trimmedDoc = docPath.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -99,29 +88,14 @@ final class RelayLaunchViewModel {
         if maxRounds < 1 {
             issues.append(.init(id: "max-rounds", message: "Max rounds must be at least 1."))
         }
-        if pmReadOnly, let pmWorkerId,
-           let violation = RelayReadOnlyEnforcer.capabilityViolation(
-               pmWorkerId: pmWorkerId, models: models, registry: registry) {
-            issues.append(.init(id: "pm-read-only", message: violation))
-        }
         return issues
     }
 
     var validationIssues: [ValidationIssue] {
-        Self.validate(
-            docPath: docPath, pmWorkerId: pmWorkerId, devWorkerId: devWorkerId,
-            pmReadOnly: pmReadOnly, maxRounds: maxRounds, models: models, registry: registry)
+        Self.validate(docPath: docPath, pmWorkerId: pmWorkerId, devWorkerId: devWorkerId, maxRounds: maxRounds)
     }
 
     var canStart: Bool { validationIssues.isEmpty && !isStarting }
-
-    /// `nil` when `workerId`'s driver has a confirmed mechanical read-only mode
-    /// (`RelayReadOnlyEnforcer.supported`); otherwise the reason to show/disable that seat
-    /// in the PM picker when the read-only toggle is on. Fail closed in the UI too, not
-    /// just at dispatch — the brief's explicit requirement.
-    func readOnlyUnsupportedReason(for workerId: String) -> String? {
-        RelayReadOnlyEnforcer.capabilityViolation(pmWorkerId: workerId, models: models, registry: registry)
-    }
 
     // MARK: - Start
 
@@ -141,8 +115,7 @@ final class RelayLaunchViewModel {
             pmWorkerId: pmWorkerId,
             devWorkerId: devWorkerId,
             maxRounds: maxRounds,
-            until: RelayGUIRuntime.parseUntil(untilTime),
-            pmMayMutate: !pmReadOnly
+            until: RelayGUIRuntime.parseUntil(untilTime)
         )
 
         // Pre-seed the thread (idempotent — `RelayCoordinator.run` calls `started` again
@@ -151,7 +124,7 @@ final class RelayLaunchViewModel {
         let seedState = RelayState(
             id: relayId, projectRoot: projectRoot, docPath: trimmedDoc,
             pmWorkerId: pmWorkerId, devWorkerId: devWorkerId, status: .running,
-            createdAt: Date(), pmMayMutate: !pmReadOnly
+            createdAt: Date()
         )
         makeThreadProjector().started(state: seedState, projectId: projectId)
 

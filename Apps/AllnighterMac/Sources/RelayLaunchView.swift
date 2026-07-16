@@ -13,8 +13,7 @@ struct RelayLaunchRequest: Identifiable {
 /// R-S08 — the Mac GUI's PM Relay launch surface (`docs/phases/PM_Relay.md` §6, the last
 /// open slice). A doc picker (ranked file search, reusing `ProjectFileCatalog` — the same
 /// engine the composer's `@`-file-reference picker ranks against), a PM seat + dev seat
-/// picker (the composer's own bench data, `AppModel.composeBench`), `--pm-read-only` with
-/// fail-closed seat annotation, ceilings, and Start.
+/// picker (the composer's own bench data, `AppModel.composeBench`), ceilings, and Start.
 struct RelayLaunchView: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
@@ -46,16 +45,11 @@ struct RelayLaunchView: View {
                         docSection(viewModel)
                         seatSection(
                             title: "PM seat", subtitle: "Reviews rounds, writes the handover.",
-                            selected: Binding(get: { viewModel.pmWorkerId }, set: { viewModel.pmWorkerId = $0 }),
-                            readOnlyGated: viewModel.pmReadOnly,
-                            unsupportedReason: { viewModel.readOnlyUnsupportedReason(for: $0) }
+                            selected: Binding(get: { viewModel.pmWorkerId }, set: { viewModel.pmWorkerId = $0 })
                         )
-                        readOnlyToggle(viewModel)
                         seatSection(
                             title: "Dev seat", subtitle: "Builds, commits, reports back.",
-                            selected: Binding(get: { viewModel.devWorkerId }, set: { viewModel.devWorkerId = $0 }),
-                            readOnlyGated: false,
-                            unsupportedReason: { _ in nil }
+                            selected: Binding(get: { viewModel.devWorkerId }, set: { viewModel.devWorkerId = $0 })
                         )
                         ceilingsSection(viewModel)
                         if !viewModel.validationIssues.isEmpty {
@@ -195,21 +189,19 @@ struct RelayLaunchView: View {
     // MARK: - Seat section
 
     private func seatSection(
-        title: String, subtitle: String, selected: Binding<String?>,
-        readOnlyGated: Bool, unsupportedReason: @escaping (String) -> String?
+        title: String, subtitle: String, selected: Binding<String?>
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionLabel(title)
             Text(subtitle).font(ALFont.caption).foregroundStyle(ALColor.textFaint)
             // Height-capped + independently scrollable: the bench can run to 9+ ready
-            // seats, and two of these plus the doc/toggle/ceilings sections in one outer
+            // seats, and two of these plus the doc/ceilings sections in one outer
             // ScrollView would bury "Dev seat" and Start behind a long scroll. Each
             // picker gets its own short, bounded viewport instead (~4 rows visible).
             ScrollView {
                 VStack(spacing: 2) {
                     ForEach(readySeats) { seat in
-                        let reason = readOnlyGated ? unsupportedReason(seat.id) : nil
-                        seatRow(seat, selected: selected.wrappedValue == seat.id, disabledReason: reason) {
+                        seatRow(seat, selected: selected.wrappedValue == seat.id) {
                             selected.wrappedValue = seat.id
                         }
                     }
@@ -238,19 +230,14 @@ struct RelayLaunchView: View {
     }
 
     private func seatRow(
-        _ seat: ComposeBenchModel, selected: Bool, disabledReason: String?, onSelect: @escaping () -> Void
+        _ seat: ComposeBenchModel, selected: Bool, onSelect: @escaping () -> Void
     ) -> some View {
         Button(action: onSelect) {
             HStack(spacing: 8) {
-                DriverBrandGlyph(driverId: seat.driverId, boxSize: 22, iconSize: 12, cornerRadius: 6, muted: disabledReason != nil)
+                DriverBrandGlyph(driverId: seat.driverId, boxSize: 22, iconSize: 12, cornerRadius: 6)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(seat.name).font(ALFont.label)
-                        .foregroundStyle(disabledReason != nil ? ALColor.textFaint : ALColor.textPrimary)
-                    if let disabledReason {
-                        Text(disabledReason).font(.system(size: 10)).foregroundStyle(ALPalette.amber400).lineLimit(2)
-                    } else {
-                        Text(seat.sub).font(ALFont.caption).foregroundStyle(ALColor.textFaint)
-                    }
+                    Text(seat.name).font(ALFont.label).foregroundStyle(ALColor.textPrimary)
+                    Text(seat.sub).font(ALFont.caption).foregroundStyle(ALColor.textFaint)
                 }
                 Spacer(minLength: 4)
                 if selected { Image(systemName: "checkmark").font(.system(size: 11)).foregroundStyle(ALColor.accentText) }
@@ -260,18 +247,6 @@ struct RelayLaunchView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(disabledReason != nil)
-    }
-
-    private func readOnlyToggle(_ viewModel: RelayLaunchViewModel) -> some View {
-        Toggle(isOn: Binding(get: { viewModel.pmReadOnly }, set: { viewModel.pmReadOnly = $0 })) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("PM is mechanically read-only").font(ALFont.label).foregroundStyle(ALColor.textPrimary)
-                Text("Enforced by the seat's own CLI (plan/sandbox mode) — not a prompt.")
-                    .font(ALFont.caption).foregroundStyle(ALColor.textFaint)
-            }
-        }
-        .toggleStyle(.switch)
     }
 
     // MARK: - Ceilings
