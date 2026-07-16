@@ -36,6 +36,7 @@ public enum PanelSeatPrompt {
         - severity is exactly low, medium, or high.
         - "No material findings" is first-class valid: set findings to [], noMaterialFindings to true, and give a reason. Never pad.
         - You are one blind seat. You do not see other seats' reports.
+        - The fenced JSON block must appear in the report text itself, as the last thing in it — never in an artifact, a file, an attachment, or merely described in prose. The report text is the only channel Allnighter reads.
         """
 
     /// Build the founder prompt for one seat. Brief is embedded byte-exact (embedded

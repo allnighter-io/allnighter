@@ -120,6 +120,121 @@ final class PanelFindingsParserTests: XCTestCase {
         XCTAssertEqual(seat.status, .empty)
     }
 
+    // MARK: - PP-S01 unstructuredSeats envelope projection
+
+    /// agy-style prose report (real content, no fenced block) surfaces at envelope top
+    /// on both `PanelRoundLogEntry` and `PanelRoundJSON` — never buried only in seat reason.
+    func testUnstructuredProseSurfacesInEnvelopeTop() throws {
+        let prose = """
+        The consent boundary is load-bearing; three seats already hit it independently.
+        Schema JSON is in the artifact, not the report text.
+        """
+        let unstructured = PanelFindingsParser.seatResult(
+            workerId: "model_agy_opus", lens: "adversary", report: prose
+        )
+        XCTAssertEqual(unstructured.status, .done)
+        XCTAssertNil(unstructured.findings)
+        XCTAssertFalse(prose.isEmpty, "content is real — just unstructured")
+
+        let cleanReport = """
+        Reviewed.
+
+        ```json
+        {"findings": [], "noMaterialFindings": true, "reason": "Target states the boundary clearly."}
+        ```
+        """
+        let clean = PanelFindingsParser.seatResult(
+            workerId: "model_sonnet", lens: "simplicity", report: cleanReport
+        )
+        XCTAssertEqual(clean.status, .done)
+        XCTAssertNotNil(clean.findings)
+
+        let round = PanelRound(
+            roundNumber: 1,
+            targetHash: "abc",
+            brief: "pressure-test",
+            briefSource: .builtin,
+            seatResults: [unstructured, clean],
+            startedAt: Date()
+        )
+
+        let log = PanelRoundLogEntry(round)
+        XCTAssertEqual(log.unstructuredSeats, ["model_agy_opus"])
+
+        let panel = PanelJSON.project(
+            PanelState(
+                id: "panel_pp_s01", projectRoot: "/repo", projectId: "proj",
+                targetPath: "docs/spec.md", seats: [],
+                status: .awaitingPM, rounds: [round], createdAt: Date()
+            ),
+            contractVersion: ContractRegistry.contractVersion
+        )
+        XCTAssertEqual(panel.roundLog.first?.unstructuredSeats, ["model_agy_opus"])
+
+        let envelope = PanelRoundJSON(
+            contractVersion: ContractRegistry.contractVersion,
+            panel: panel,
+            round: 1,
+            attempt: 1,
+            targetHash: "abc",
+            briefSource: "builtin",
+            seatResults: round.seatResults.map(SeatResultJSON.init),
+            unstructuredSeats: PanelUnstructuredSeats.project(from: round.seatResults)
+        )
+        XCTAssertEqual(envelope.unstructuredSeats, ["model_agy_opus"])
+    }
+
+    /// Clean round keeps `unstructuredSeats` present as `[]` (not nil / not omitted).
+    func testCleanRoundUnstructuredSeatsIsEmptyArray() throws {
+        let cleanReport = """
+        ```json
+        {"findings": [{"claim": "ok", "severity": "low", "evidence": "e"}], "noMaterialFindings": false}
+        ```
+        """
+        let clean = PanelFindingsParser.seatResult(
+            workerId: "model_sonnet", lens: "simplicity", report: cleanReport
+        )
+        let round = PanelRound(
+            roundNumber: 1,
+            targetHash: "def",
+            brief: "pressure-test",
+            briefSource: .builtin,
+            seatResults: [clean],
+            startedAt: Date()
+        )
+
+        let log = PanelRoundLogEntry(round)
+        XCTAssertEqual(log.unstructuredSeats, [])
+
+        let encoded = try JSONEncoder().encode(log)
+        let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        let seats = try XCTUnwrap(obj["unstructuredSeats"] as? [String])
+        XCTAssertEqual(seats, [], "field must be present and empty, not nil/omitted")
+
+        let envelope = PanelRoundJSON(
+            contractVersion: ContractRegistry.contractVersion,
+            panel: PanelJSON.project(
+                PanelState(
+                    id: "panel_clean", projectRoot: "/repo", projectId: "proj",
+                    targetPath: "docs/spec.md", seats: [],
+                    status: .awaitingPM, createdAt: Date()
+                ),
+                contractVersion: ContractRegistry.contractVersion
+            ),
+            round: 1,
+            attempt: 1,
+            targetHash: "def",
+            briefSource: "builtin",
+            seatResults: [SeatResultJSON(clean)],
+            unstructuredSeats: PanelUnstructuredSeats.project(from: [clean])
+        )
+        XCTAssertEqual(envelope.unstructuredSeats, [])
+        let envEncoded = try JSONEncoder().encode(envelope)
+        let envObj = try XCTUnwrap(JSONSerialization.jsonObject(with: envEncoded) as? [String: Any])
+        let envSeats = try XCTUnwrap(envObj["unstructuredSeats"] as? [String])
+        XCTAssertEqual(envSeats, [])
+    }
+
     private func unwrap<T>(_ result: Result<T, PanelFindingsParser.ExtractError>) throws -> T {
         switch result {
         case .success(let v): return v

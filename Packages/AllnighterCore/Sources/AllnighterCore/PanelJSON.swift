@@ -65,6 +65,9 @@ public struct PanelRoundLogEntry: Codable, Equatable, Sendable {
     public var briefSource: String
     public var attemptCount: Int
     public var seatResults: [SeatResultJSON]
+    /// Worker ids with `status == done && findings == nil` (done-but-unstructured).
+    /// Derived at envelope-build time — always present (`[]` when clean).
+    public var unstructuredSeats: [String]
 
     public init(_ round: PanelRound) {
         self.round = round.roundNumber
@@ -72,6 +75,17 @@ public struct PanelRoundLogEntry: Codable, Equatable, Sendable {
         self.briefSource = round.briefSource.rawValue
         self.attemptCount = max(1, round.attempts.count)
         self.seatResults = round.seatResults.map(SeatResultJSON.init)
+        self.unstructuredSeats = PanelUnstructuredSeats.project(from: round.seatResults)
+    }
+}
+
+/// Derived projection: worker ids whose seat result is done-but-unstructured
+/// (`status == done && findings == nil`). Never stored on `PanelState`.
+public enum PanelUnstructuredSeats {
+    public static func project(from results: [SeatResult]) -> [String] {
+        results
+            .filter { $0.status == .done && $0.findings == nil }
+            .map(\.workerId)
     }
 }
 
@@ -159,6 +173,9 @@ public struct PanelRoundJSON: Codable, Equatable, Sendable {
     public var targetHash: String
     public var briefSource: String
     public var seatResults: [SeatResultJSON]
+    /// Worker ids with `status == done && findings == nil` (done-but-unstructured).
+    /// Derived at envelope-build time — always present (`[]` when clean).
+    public var unstructuredSeats: [String]
 
     public init(
         schemaVersion: Int = 1,
@@ -168,7 +185,8 @@ public struct PanelRoundJSON: Codable, Equatable, Sendable {
         attempt: Int,
         targetHash: String,
         briefSource: String,
-        seatResults: [SeatResultJSON]
+        seatResults: [SeatResultJSON],
+        unstructuredSeats: [String]
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -178,6 +196,7 @@ public struct PanelRoundJSON: Codable, Equatable, Sendable {
         self.targetHash = targetHash
         self.briefSource = briefSource
         self.seatResults = seatResults
+        self.unstructuredSeats = unstructuredSeats
     }
 }
 

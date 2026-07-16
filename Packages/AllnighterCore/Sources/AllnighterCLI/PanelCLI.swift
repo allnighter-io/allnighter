@@ -555,6 +555,7 @@ enum PanelCLI {
         json: Bool
     ) {
         let panelJSON = PanelJSON.project(payload.state, contractVersion: ContractRegistry.contractVersion)
+        let unstructuredSeats = PanelUnstructuredSeats.project(from: payload.round.seatResults)
         if json {
             print(AllnighterCLI.jsonLine(PanelRoundJSON(
                 contractVersion: ContractRegistry.contractVersion,
@@ -563,12 +564,16 @@ enum PanelCLI {
                 attempt: payload.attempt.attemptNumber,
                 targetHash: payload.round.targetHash,
                 briefSource: payload.round.briefSource.rawValue,
-                seatResults: payload.round.seatResults.map(SeatResultJSON.init)
+                seatResults: payload.round.seatResults.map(SeatResultJSON.init),
+                unstructuredSeats: unstructuredSeats
             )))
         } else {
             print("panel \(payload.state.id) round \(payload.round.roundNumber) attempt \(payload.attempt.attemptNumber)")
             print("status: \(payload.state.status.rawValue)")
             print("targetHash: \(payload.round.targetHash)")
+            for workerId in unstructuredSeats {
+                print("⚠ unstructured seat: \(workerId) — no parseable findings block; read its verbatim report (content may be real)")
+            }
             for seat in payload.round.seatResults {
                 print("\n----- seat \(seat.workerId) (\(seat.lens)) [\(seat.status.rawValue)] -----")
                 if !seat.report.isEmpty {

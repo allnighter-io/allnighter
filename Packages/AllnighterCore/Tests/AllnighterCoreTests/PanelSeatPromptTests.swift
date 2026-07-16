@@ -97,4 +97,24 @@ final class PanelSeatPromptTests: XCTestCase {
         XCTAssertTrue(map["model_opus"]?.contains("adversary") == true)
         XCTAssertTrue(map["model_sonnet"]?.contains("simplicity") == true)
     }
+
+    /// PP-S01: schema contract forbids parking the findings block in an artifact/file.
+    func testSchemaContractContainsPlacementRule() {
+        let contract = PanelSeatPrompt.schemaContract
+        XCTAssertTrue(
+            contract.contains("report text itself"),
+            "placement law must require the fenced block in the report text itself"
+        )
+        XCTAssertTrue(
+            contract.contains("never in an artifact"),
+            "placement law must forbid artifact/file delegation"
+        )
+        XCTAssertTrue(
+            contract.contains("only channel Allnighter reads"),
+            "placement law must state report text is the only channel"
+        )
+        // Example fenced block still present (placement rules extend Rules; example untouched).
+        XCTAssertTrue(contract.contains("```json"))
+        XCTAssertTrue(contract.contains("\"findings\""))
+    }
 }

@@ -73,7 +73,8 @@ final class JSONStreamLawTests: XCTestCase {
             attempt: 1,
             targetHash: "abc",
             briefSource: "builtin",
-            seatResults: []
+            seatResults: [],
+            unstructuredSeats: []
         )))
         let objs = try parseLines(lines)
         XCTAssertEqual(objs.count, 4)
