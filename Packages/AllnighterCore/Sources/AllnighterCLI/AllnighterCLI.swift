@@ -16,6 +16,12 @@ struct AllnighterCLI {
         let command = args.first ?? "help"
         if !args.isEmpty { args.removeFirst() }
 
+        // Global `--help` funnel — every subcommand prints usage and exits 0.
+        if CLIUsage.helpRequested(args), let text = CLIUsage.helpText(rootCommand: command, args: args) {
+            print(text)
+            return
+        }
+
         let runtime = ToolRuntime()
         switch command {
         case "teams" where args.first == "show": runTeamsShow(Array(args.dropFirst()), runtime)
@@ -1073,6 +1079,10 @@ struct AllnighterCLI {
             return
         }
         if let topic = opts.positional.first {
+            if let markdown = HelpService.docsMarkdown(topic: topic) {
+                print(markdown)
+                return
+            }
             let cmds = reg.commands.filter { $0.name == topic || $0.name.hasPrefix(topic + " ") }
             guard !cmds.isEmpty else {
                 FileHandle.standardError.write(Data("no docs for topic: \(topic)\n".utf8)); exit(2)

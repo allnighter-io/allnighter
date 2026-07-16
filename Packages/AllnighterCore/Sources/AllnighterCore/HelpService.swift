@@ -163,6 +163,28 @@ public enum HelpService {
         }
     }
 
+    /// Markdown projection shared by `alln help get --format md` and `alln docs <topic>`.
+    public static func topicMarkdown(_ topic: HelpTopic) -> String {
+        var out = "# \(topic.title)\n\n\(topic.summary)\n\n\(topic.bodyMarkdown)"
+        for section in topic.sections {
+            out += "\n\n## \(section.title)\n\n\(section.bodyMarkdown)"
+        }
+        if !topic.relatedCommandNames.isEmpty {
+            out += "\n\n## Related commands\n"
+            for command in topic.relatedCommandNames {
+                out += "- `alln \(command)`\n"
+            }
+        }
+        return out
+    }
+
+    /// Resolve a help topic the same way as `help get` (SSOT for `alln docs <topic>`).
+    public static func docsMarkdown(topic: String) -> String? {
+        guard let id = HelpTopicRegistry.canonicalTopicId(for: topic),
+              let topic = HelpTopicRegistry.topic(id: id) else { return nil }
+        return topicMarkdown(topic)
+    }
+
     // MARK: - Helpers
 
     private static func hit(_ t: HelpTopic, section: String?) -> HelpGetResult {

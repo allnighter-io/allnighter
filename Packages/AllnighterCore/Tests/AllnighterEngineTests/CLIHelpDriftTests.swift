@@ -54,4 +54,37 @@ final class CLIHelpDriftTests: XCTestCase {
                 "top-level help missing contract command `\(name)` — add a line or comment it in excludedFromTopLevelHelp")
         }
     }
+
+    /// Every M1 registry command must project usage via the global `--help` funnel.
+    func testEveryRegistryCommandHelpProjectsUsage() {
+        let registry = ContractRegistry.milestone1
+        for spec in registry.commands where spec.milestone == .m1 {
+            let (root, args) = Self.invocationParts(for: spec.name)
+            guard let text = CLIUsage.helpText(rootCommand: root, args: args, registry: registry) else {
+                return XCTFail("no help text for `alln \(spec.name) --help`")
+            }
+            XCTAssertTrue(text.hasPrefix("usage: alln \(spec.name)"), "`\(spec.name)` help must name the command")
+            XCTAssertTrue(text.contains(spec.summary), "`\(spec.name)` help must include the registry summary")
+        }
+    }
+
+    /// `docs <topic>` and `help get <topic>` share `HelpTopicRegistry` resolution.
+    func testEveryHelpTopicResolvesViaDocsAndHelpGet() {
+        for topic in HelpTopicRegistry.topics {
+            let help = HelpService.get(topic: topic.id)
+            XCTAssertTrue(help.found, "help get must resolve `\(topic.id)`")
+            XCTAssertEqual(help.topic?.id, topic.id)
+
+            let docs = HelpService.docsMarkdown(topic: topic.id)
+            XCTAssertNotNil(docs, "docs must resolve `\(topic.id)`")
+            XCTAssertTrue(docs?.contains(topic.title) == true, "docs markdown must include title for `\(topic.id)`")
+            XCTAssertTrue(docs?.contains(topic.summary) == true, "docs markdown must include summary for `\(topic.id)`")
+        }
+    }
+
+  private static func invocationParts(for commandName: String) -> (String, [String]) {
+        let parts = commandName.split(separator: " ").map(String.init)
+        guard let root = parts.first else { return ("help", ["--help"]) }
+        return (root, Array(parts.dropFirst()) + ["--help"])
+    }
 }

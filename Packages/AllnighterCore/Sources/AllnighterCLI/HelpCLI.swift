@@ -53,8 +53,7 @@ enum HelpCLI {
         }
 
         if opts.value("format") == "md" {
-            print("# \(t.title)\n\n\(t.bodyMarkdown)")
-            for s in t.sections { print("\n## \(s.title)\n\(s.bodyMarkdown)") }
+            print(HelpService.topicMarkdown(t))
             return
         }
         print("\(t.title)\n\(t.summary)\n")
