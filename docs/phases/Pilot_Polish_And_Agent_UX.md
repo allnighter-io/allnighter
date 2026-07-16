@@ -70,9 +70,20 @@ second CLI dogfooded in the dev chair, first turn after the project-scoped
 hello payload contains zero dead references, the three searches route to auto_fix.
 `swift test --filter 'Relay|Pilot|Help|Hello'` green; contracts regenerated.
 
-## P4 — cursor allowlist override efficacy (follow-up, piloted delivery #3)
+## P4 — cursor allowlist override efficacy — SHIPPED (piloted delivery #3, relay_7e7f4346)
 
-Observed in delivery #2: a project-scoped `.cursor/cli.json` with
+VERIFIED (2026-07-16, `508976ca`, dev = the cursor-agent seat itself as test subject):
+headless cursor-agent merges `~/.cursor/cli-config.json` with repo-scoped
+`.cursor/cli.json` (same permissions schema) **at process start**; `--trust` does NOT
+bypass the allowlist; denials are a bare `Rejected:` with no reason; attempting to
+edit the permissions file locks the turn's shell (Cursor safety). Delivery #2's
+"blocked" report is explained by the bare denials + process-start loading.
+`CursorShellAllowlist` now detects the merged config (doctor reports `ok` on this
+repo), the remedy text states the verified mechanism, and the working override is
+committed at `.cursor/cli.json`. Fresh-turn confirmation: dev ran `git status` +
+`swift test` directly, no subagent.
+
+Original observation (delivery #2): a project-scoped `.cursor/cli.json` with
 `permissions.allow: ["Shell(git)", …]` did NOT unblock cursor-agent's direct shell
 in headless turns (the dev routed verification through its own subagent). Either the
 file name/location/schema is wrong, or headless cursor-agent resolves permissions
