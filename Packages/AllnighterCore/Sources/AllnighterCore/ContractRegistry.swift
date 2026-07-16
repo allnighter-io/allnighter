@@ -50,6 +50,17 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
+    /// Longest-prefix match of an invocation (`alln team preflight …`) to a registered M1 command name.
+    public static func resolveCommandName(
+        from invocation: String,
+        registry: ContractRegistry = .milestone1
+    ) -> String? {
+        var rest = invocation.trimmingCharacters(in: .whitespacesAndNewlines)
+        if rest.hasPrefix("alln ") { rest = String(rest.dropFirst(5)) }
+        let names = registry.commands.filter { $0.milestone == .m1 }.map(\.name).sorted { $0.count > $1.count }
+        return names.first { rest == $0 || rest.hasPrefix($0 + " ") }
+    }
+
     public enum Milestone: String, Codable, Sendable { case m1, deferred }
 
     /// Primary machine-output schema a command projects to.

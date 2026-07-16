@@ -1,14 +1,13 @@
 import Foundation
 
 /// Router-shaped `alln team hello` payload. No tool roster, no help sitemap —
-/// agents route through `nextToolPlan` + `workflows`.
+/// agents route through `nextCommandPlan` + `workflows`.
 public enum AgentHello {
-    public struct NextToolPlan: Codable, Sendable, Equatable {
-        public var tool: String
-        public var args: [String: String]
+    public struct NextCommandPlan: Codable, Sendable, Equatable {
+        public var command: String
         public var reason: String
-        public init(tool: String, args: [String: String] = [:], reason: String) {
-            self.tool = tool; self.args = args; self.reason = reason
+        public init(command: String, reason: String) {
+            self.command = command; self.reason = reason
         }
     }
 
@@ -32,17 +31,17 @@ public enum AgentHello {
         public var contractHash: String
         public var binaryVersion: String
         public var canStartTeamRun: Bool
-        public var nextToolPlan: NextToolPlan
+        public var nextCommandPlan: NextCommandPlan
         public var workflows: [Workflow]
         public var readiness: Readiness
         public var routingLaw: String
         public init(
-            schemaVersion: Int = 2,
+            schemaVersion: Int = 3,
             contractVersion: String,
             contractHash: String,
             binaryVersion: String,
             canStartTeamRun: Bool,
-            nextToolPlan: NextToolPlan,
+            nextCommandPlan: NextCommandPlan,
             workflows: [Workflow],
             readiness: Readiness,
             routingLaw: String = HelpService.routingLaw
@@ -52,11 +51,16 @@ public enum AgentHello {
             self.contractHash = contractHash
             self.binaryVersion = binaryVersion
             self.canStartTeamRun = canStartTeamRun
-            self.nextToolPlan = nextToolPlan
+            self.nextCommandPlan = nextCommandPlan
             self.workflows = workflows
             self.readiness = readiness
             self.routingLaw = routingLaw
         }
+    }
+
+    /// Every runnable command string embedded in a hello payload (plan + workflow steps).
+    public static func commandInvocations(in payload: Payload) -> [String] {
+        [payload.nextCommandPlan.command] + payload.workflows.flatMap(\.steps)
     }
 
     public static func build(
@@ -64,17 +68,15 @@ public enum AgentHello {
         contractHash: String,
         binaryVersion: String
     ) -> Payload {
-        let plan: NextToolPlan
+        let plan: NextCommandPlan
         if verdict.canStartTeamRun {
-            plan = NextToolPlan(
-                tool: "team_start",
-                args: ["dryRun": "true"],
-                reason: "Validate the bench before spending quota; then call team_start without dryRun."
+            plan = NextCommandPlan(
+                command: "alln team preflight --team <team-id> --json",
+                reason: "Validate the bench before spending quota; then start with `alln team start`."
             )
         } else {
-            plan = NextToolPlan(
-                tool: "doctor",
-                args: [:],
+            plan = NextCommandPlan(
+                command: "alln doctor --json",
                 reason: verdict.blockedReason ?? "Machine not ready to start team runs."
             )
         }
@@ -83,16 +85,27 @@ public enum AgentHello {
             contractHash: contractHash,
             binaryVersion: binaryVersion,
             canStartTeamRun: verdict.canStartTeamRun,
-            nextToolPlan: plan,
+            nextCommandPlan: plan,
             workflows: defaultWorkflows,
             readiness: Readiness(readyTeams: verdict.readyTeams, blockedReason: verdict.blockedReason)
         )
     }
 
     public static let defaultWorkflows: [Workflow] = [
-        Workflow(id: "run_async", steps: ["team_start", "team_result", "run_get"]),
-        Workflow(id: "diagnose", steps: ["doctor", "error_explain"]),
-        Workflow(id: "resolve_stalls", steps: ["stalled_list", "stalled_update"]),
+        Workflow(id: "run_async", steps: [
+            "alln team preflight --team <team-id> --json",
+            "alln team start --team <team-id> --json \"<message>\"",
+            "alln team result <run-id> --json",
+            "alln show <run-id> --json",
+        ]),
+        Workflow(id: "diagnose", steps: [
+            "alln doctor --json",
+            "alln doctor explain <code> --json",
+        ]),
+        Workflow(id: "resolve_stalls", steps: [
+            "alln stalled list --json",
+            "alln stalled check <episode-id> --json",
+        ]),
     ]
 
     public static func jsonString(

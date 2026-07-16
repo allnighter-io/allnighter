@@ -14,10 +14,11 @@ final class AgentHelloTests: XCTestCase {
             contractHash: ContractRegistry.contractHash(),
             binaryVersion: "test"
         )
-        XCTAssertEqual(payload.schemaVersion, 2)
+        XCTAssertEqual(payload.schemaVersion, 3)
         XCTAssertFalse(payload.contractHash.isEmpty)
-        XCTAssertEqual(payload.nextToolPlan.tool, "team_start")
-        XCTAssertEqual(payload.nextToolPlan.args["dryRun"], "true")
+        XCTAssertEqual(
+            payload.nextCommandPlan.command,
+            "alln team preflight --team <team-id> --json")
         XCTAssertFalse(payload.workflows.isEmpty)
     }
 
@@ -28,8 +29,27 @@ final class AgentHelloTests: XCTestCase {
             contractHash: "abc",
             binaryVersion: "test"
         )
-        XCTAssertEqual(payload.nextToolPlan.tool, "doctor")
+        XCTAssertEqual(payload.nextCommandPlan.command, "alln doctor --json")
         XCTAssertFalse(payload.canStartTeamRun)
+    }
+
+    func testHelloPayloadCommandsResolveAgainstRegistry() {
+        let ready = AgentReadiness.evaluate(teams: BuiltInTeams.all, readyModels: [
+            Model(id: "m1", displayName: "M", modelLabel: "m", driverId: "claude_code", role: .both),
+        ])
+        let blocked = AgentReadiness.evaluate(teams: BuiltInTeams.all, readyModels: [])
+        for verdict in [ready, blocked] {
+            let payload = AgentHello.build(
+                verdict: verdict,
+                contractHash: ContractRegistry.contractHash(),
+                binaryVersion: "test"
+            )
+            for invocation in AgentHello.commandInvocations(in: payload) {
+                XCTAssertNotNil(
+                    ContractRegistry.resolveCommandName(from: invocation),
+                    "hello references unknown command: \(invocation)")
+            }
+        }
     }
 
     func testContractHashStableAndDerivedFromCommands() {
