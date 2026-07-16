@@ -10,6 +10,8 @@ byte-identical. Bonus finding: HandoverGate blocked the PM's own handover on a
 literal mention (danger-not-doubt held; rephrase-and-resubmit worked).**
 Owner: AllnighterCore + CLI
 Updated: 2026-07-16
+Polish follow-up: first-real-use fixes (panel_753613c7) specced in
+[`Panel_Polish.md`](Panel_Polish.md) — PP-S01–S03.
 
 > One line: **Panel hardens the judgment, Pilot builds the work, Relay runs the
 > night.** Same physics as Pilot: judgment stays in the live session; Allnighter
