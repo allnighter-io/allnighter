@@ -46,6 +46,7 @@ public enum ContractSchema {
             "stages": arr(ref("StageInfo")), "plan": nullableRef("Plan"),
             "designBoard": nullableRef("DesignBoard"),
             "repoDelta": nullableRef("RepoDelta"),
+            "outcome": nullableRef("Outcome"),
             "usage": ref("Usage"), "warnings": arr(ref("Warning")),
             "errors": arr(ref("ErrorEnvelope")), "nextActions": arr(ref("NextAction")),
             "audit": ref("Audit"),
@@ -115,6 +116,10 @@ public enum ContractSchema {
             "RepoDeltaCommit": obj([
                 "sha": str, "subject": str,
             ], required: ["sha", "subject"]),
+            "Outcome": obj([
+                "status": enumStr(["completed", "partial", "failed", "timedOut"]),
+                "committed": bool, "headline": str,
+            ], required: ["status", "committed", "headline"]),
             "Usage": obj(["cliCalls": int], required: ["cliCalls"]),
             "Warning": obj(["code": nullable("string"), "message": str], required: ["message"]),
             "ErrorEnvelope": errorEnvelopeDef(),

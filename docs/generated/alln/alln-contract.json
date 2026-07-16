@@ -1321,7 +1321,7 @@
       ],
       "name" : "run",
       "outputSchema" : "teamRunJSON",
-      "summary" : "Unified run: message + optional team + worker in a project repo root."
+      "summary" : "Unified run: message + optional team + worker in a project repo root. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict."
     },
     {
       "args" : [

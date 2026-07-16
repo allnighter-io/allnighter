@@ -19,6 +19,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var workerAnswers: [AnswerInfo]
     public var designBoard: DesignBoard?
     public var repoDelta: RepoDelta?
+    /// Mechanical run verdict from worker terminal states + repo delta — never a correctness claim.
+    public var outcome: Outcome?
     public var stages: [StageInfo]
     public var plan: Plan?
     public var usage: Usage
@@ -36,6 +38,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         workerAnswers: [AnswerInfo],
         designBoard: DesignBoard? = nil,
         repoDelta: RepoDelta? = nil,
+        outcome: Outcome? = nil,
         stages: [StageInfo],
         plan: Plan?,
         usage: Usage,
@@ -52,6 +55,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.workerAnswers = workerAnswers
         self.designBoard = designBoard
         self.repoDelta = repoDelta
+        self.outcome = outcome
         self.stages = stages
         self.plan = plan
         self.usage = usage
@@ -251,6 +255,25 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
 
         public init(workerId: String, persona: String, chosenAt: String? = nil) {
             self.workerId = workerId; self.persona = persona; self.chosenAt = chosenAt
+        }
+    }
+
+    // MARK: - outcome
+
+    /// Honest mechanical summary for fast gating — derived from worker terminal states
+    /// and observed repo delta, never a judgment of work quality.
+    public struct Outcome: Codable, Equatable, Sendable {
+        public enum Status: String, Codable, Sendable {
+            case completed, partial, failed, timedOut
+        }
+        public var status: Status
+        public var committed: Bool
+        public var headline: String
+
+        public init(status: Status, committed: Bool, headline: String) {
+            self.status = status
+            self.committed = committed
+            self.headline = headline
         }
     }
 

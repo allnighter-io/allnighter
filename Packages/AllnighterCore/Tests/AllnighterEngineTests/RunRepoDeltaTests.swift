@@ -90,6 +90,14 @@ final class RunRepoDeltaTests: XCTestCase {
             RunIdentity.repoDeltaSummary(delta),
             "committed \(String(delta.head!.prefix(7))): 1 file")
         XCTAssertTrue(RunIdentity.cliFooter(run).contains("committed"))
+
+        let outcome = try XCTUnwrap(trj.outcome)
+        XCTAssertEqual(outcome.status, .completed)
+        XCTAssertTrue(outcome.committed)
+        XCTAssertEqual(
+            outcome.headline,
+            "worker model_grok · lane code · mutating · committed \(String(delta.head!.prefix(7))): 1 file")
+        XCTAssertTrue(RunIdentity.cliFooter(run).contains(outcome.headline))
     }
 
     func testMutatingRunReportsNoChangeHonestly() async throws {

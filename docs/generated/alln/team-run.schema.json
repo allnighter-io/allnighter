@@ -325,6 +325,32 @@
       ],
       "type" : "object"
     },
+    "Outcome" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "committed" : {
+          "type" : "boolean"
+        },
+        "headline" : {
+          "type" : "string"
+        },
+        "status" : {
+          "enum" : [
+            "completed",
+            "partial",
+            "failed",
+            "timedOut"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "status",
+        "committed",
+        "headline"
+      ],
+      "type" : "object"
+    },
     "Plan" : {
       "additionalProperties" : false,
       "properties" : {
@@ -757,6 +783,16 @@
         "$ref" : "#\/$defs\/NextAction"
       },
       "type" : "array"
+    },
+    "outcome" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/Outcome"
+        },
+        {
+          "type" : "null"
+        }
+      ]
     },
     "plan" : {
       "oneOf" : [

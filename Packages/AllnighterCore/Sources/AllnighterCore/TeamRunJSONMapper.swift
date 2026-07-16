@@ -116,6 +116,7 @@ public enum TeamRunJSONMapper {
             teamRun: info, models: modelInfos, workers: workers, workerAnswers: answers,
             designBoard: designBoard,
             repoDelta: run.mutating ? run.repoDelta : nil,
+            outcome: run.status.isTerminal ? mapOutcome(run) : nil,
             stages: stages, plan: plan, usage: usage,
             warnings: run.warnings.map { TeamRunJSON.Warning(message: $0) }, errors: [],
             nextActions: [
@@ -124,6 +125,24 @@ public enum TeamRunJSONMapper {
             ],
             audit: .init(traceId: "trace_\(run.id)", runJournalPath: context.runJournalPath)
         )
+    }
+
+    /// Worker terminal states → mechanical outcome status (never a correctness verdict).
+    static func mapOutcomeStatus(_ run: TeamRun) -> TeamRunJSON.Outcome.Status {
+        let answers = run.workerAnswers.filter { $0.result.status != .skipped }
+        guard !answers.isEmpty else { return .failed }
+        let doneCount = answers.filter { $0.result.status == .done }.count
+        if doneCount == answers.count { return .completed }
+        if doneCount > 0 { return .partial }
+        if answers.contains(where: { $0.result.status == .timedOut }) { return .timedOut }
+        return .failed
+    }
+
+    static func mapOutcome(_ run: TeamRun) -> TeamRunJSON.Outcome {
+        TeamRunJSON.Outcome(
+            status: mapOutcomeStatus(run),
+            committed: run.repoDelta?.changed == true,
+            headline: RunIdentity.outcomeHeadline(run))
     }
 
     // MARK: - Enum mappings

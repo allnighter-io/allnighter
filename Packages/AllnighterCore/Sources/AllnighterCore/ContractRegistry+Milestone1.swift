@@ -320,7 +320,7 @@ public extension ContractRegistry {
             outputSchema: .teamCancelResponse
         ),
         CommandSpec(
-            "run", summary: "Unified run: message + optional team + worker in a project repo root.", milestone: .m1,
+            "run", summary: "Unified run: message + optional team + worker in a project repo root. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.", milestone: .m1,
             args: [ArgSpec("message", required: true, summary: "The user's prompt.")],
             flags: [
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),

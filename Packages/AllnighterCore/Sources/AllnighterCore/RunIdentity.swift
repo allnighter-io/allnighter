@@ -32,13 +32,21 @@ public enum RunIdentity {
         run.workers.first?.modelId ?? run.workerAnswers.first?.modelId
     }
 
+    /// Headline for `TeamRunJSON.outcome` and human stderr: identity + repo delta when mutating.
+    public static func outcomeHeadline(_ run: TeamRun) -> String {
+        var parts = [summary(workerId: primaryWorkerModelId(run), lane: run.lane, mutating: run.mutating)]
+        if run.mutating, let deltaLine = repoDeltaSummary(run.repoDelta) {
+            parts.append(deltaLine)
+        }
+        return parts.joined(separator: " · ")
+    }
+
     /// stderr / human footer after a plain `alln run` (not --json).
     public static func cliFooter(_ run: TeamRun) -> String {
         var parts = [
             "run \(run.id)",
-            summary(workerId: primaryWorkerModelId(run), lane: run.lane, mutating: run.mutating),
+            outcomeHeadline(run),
         ]
-        if let deltaLine = repoDeltaSummary(run.repoDelta) { parts.append(deltaLine) }
         if let name = run.teamDisplayName { parts.append(name) }
         if let preset = run.presetId { parts.append(preset) }
         return parts.joined(separator: " · ")

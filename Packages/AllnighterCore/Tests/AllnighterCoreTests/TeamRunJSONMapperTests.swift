@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 @testable import AllnighterCore
 
 /// Proves the internal `TeamRun` → public `TeamRunJSON` projection (CLI M1 step 5
@@ -67,5 +68,77 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertEqual(TeamRunJSONMapper.mapRun(.cancelled), .cancelled)
         XCTAssertEqual(TeamRunJSONMapper.mapOrigin(.http), .localApi)
         XCTAssertEqual(TeamRunJSONMapper.mapOrigin(.ios), .ios)
+    }
+
+    // MARK: - FR5 outcome (mechanical, never a correctness verdict)
+
+    private func terminalRun(
+        status: RunStatus, answers: [TeamAnswer], mutating: Bool = true,
+        repoDelta: RepoDelta? = nil, lane: WorkLane = .code
+    ) -> TeamRun {
+        TeamRun(
+            id: "outcome-\(status.rawValue)", prompt: "p", status: status,
+            workers: [Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0)],
+            workerAnswers: answers,
+            createdAt: Date(), lane: lane, mutating: mutating, repoDelta: repoDelta)
+    }
+
+    func testOutcomeCompletedWhenAllWorkersDone() throws {
+        let delta = RepoDelta(
+            changed: true, baseline: "aaa", head: "2c07ad43", commits: [], filesChanged: 11, files: [])
+        let run = terminalRun(
+            status: .complete,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .done, output: "Done."))],
+            repoDelta: delta)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let outcome = try XCTUnwrap(trj.outcome)
+        XCTAssertEqual(outcome.status, TeamRunJSON.Outcome.Status.completed)
+        XCTAssertTrue(outcome.committed)
+        XCTAssertEqual(
+            outcome.headline,
+            "worker model_grok · lane code · mutating · committed 2c07ad4: 11 files")
+    }
+
+    func testOutcomePartialWhenSomeWorkersDone() throws {
+        let run = try Fixtures.run(.runPartial)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let outcome = try XCTUnwrap(trj.outcome)
+        XCTAssertEqual(outcome.status, TeamRunJSON.Outcome.Status.partial)
+        XCTAssertFalse(outcome.committed)
+        XCTAssertTrue(outcome.headline.contains("worker"))
+    }
+
+    func testOutcomeFailedWhenNoWorkersDone() throws {
+        let run = terminalRun(
+            status: .failed,
+            answers: [
+                TeamAnswer(memberId: "model_grok#0", modelId: "model_grok", role: "answer", result: WorkerRunResult(status: .failed)),
+                TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .failed)),
+            ],
+            mutating: false)
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: ctx())
+        let outcome = try XCTUnwrap(trj.outcome)
+        XCTAssertEqual(outcome.status, TeamRunJSON.Outcome.Status.failed)
+        XCTAssertFalse(outcome.committed)
+    }
+
+    func testOutcomeTimedOutWhenNoWorkersDoneAndAtLeastOneTimedOut() throws {
+        let run = terminalRun(
+            status: .failed,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .timedOut))])
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: ctx())
+        let outcome = try XCTUnwrap(trj.outcome)
+        XCTAssertEqual(outcome.status, TeamRunJSON.Outcome.Status.timedOut)
+        XCTAssertFalse(outcome.committed)
+    }
+
+    func testInflightRunOmitsOutcome() throws {
+        let run = try Fixtures.run(.runInflight)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertNil(trj.outcome)
     }
 }

@@ -498,7 +498,7 @@ Output schema: `teamCancelResponse`.
 
 ### `alln run`
 
-Unified run: message + optional team + worker in a project repo root.
+Unified run: message + optional team + worker in a project repo root. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.
 
 Arguments:
 - `message` (required) — The user's prompt.
