@@ -53,10 +53,12 @@ Everything below serves those two sentences; anything that doesn't is bloat.
   and dev preamble carry ONE pointer line: "read `MEMORY.md` if present." This is
   NOT a context packet (which the Unified Run Model killed) — the agent reads a
   real file in the repo, which is the law that replaced packets.
-- **Allnighter never writes it.** Allnighter does no git and never mutates the
-  repo. Consolidation is a *dispatched worker's job* — a cheap closing round
-  ("distill what this relay taught about this repo into MEMORY.md; commit it")
-  that Allnighter merely schedules. Scheduling unattended work is pillar one.
+- **Write authority (the ONE statement — everything else defers here):**
+  Allnighter the PRODUCT never writes the repo. Sessions and workers do:
+  a cockpit pilot session (the user's agent with repo hands) may write MEMORY.md
+  directly; unattended contexts write via a dispatched worker (the seed pattern);
+  a scheduled consolidation round is that worker on a clock. Concurrent-writer
+  sequencing is an open question (below).
 - **No second memory system.** Allnighter's stores stay episodic run-truth; the
   folder file is the distilled posterior. No vector DB, no embeddings, no new
   store. (Ikiro v2's exact simplification.)
@@ -88,12 +90,14 @@ Everything below serves those two sentences; anything that doesn't is bloat.
   is the product; protect it like a ledger.
 - **Hard caps.** MEMORY.md must never become AGENTS.md #2 — a long, polite,
   ignored README. Cap the file (target ≤ ~60 lines); consolidation compresses or
-  evicts, never just appends.
+  evicts, never just appends — except `decision` lines, which are exempt from
+  cap-driven eviction and die only by explicit founder revocation.
 - **Secrets refusal.** Memory never holds tokens, key paths, credentials, or
   private URLs — a consolidation-order constraint, stated in the order every time.
 - **Felt, not filed:** (a) seats that honor a line CITE it in their report
   ("honored MEMORY: cursor allowlist trap") — convention first, measured later
-  as an honor rate; (b) the consolidation round's report is a short **Learning
+  as an honor rate (a trust-based self-report — known limitation; it must never
+  feed automated decisions without a spot-check); (b) the consolidation round's report is a short **Learning
   card** — what entered, what was demoted, what remains unknown — a
   human-readable delta, never a silent rewrite. The card is for the founder;
   the file is for the agents.
@@ -113,14 +117,16 @@ Pilot cockpit sessions may write MEMORY.md directly (they are the user's agent
 with repo hands — the no-write law binds Allnighter the product, not the user's
 session); relay/overnight contexts write via an ordered worker (the seed pattern).
 
-## Smallest first slice (when unparked)
+## Remaining work (pointer + seed SHIPPED: 061b1a1b + 40235f8f)
 
-1. Relay prompts + pilot scaffold gain the one pointer line (rides on Pilot DX
-   surfaces, nearly free).
-2. Convention before mechanism (the provenance-trailer playbook): the done-round
-   order includes "fold lessons into MEMORY.md before declaring done."
-3. Only after the convention proves out: a scheduled consolidation round
-   (dispatched worker; Allnighter schedules, never writes).
+1. ~~Pointer line in relay prompts + pilot scaffold~~ DONE.
+2. Convention (live): done-round orders fold lessons / record seat observations.
+3. NEXT: the scheduled consolidation round (dispatched worker; Allnighter
+   schedules, never writes) — this is what unlocks the night-2 works test.
+4. Adoption polish (panel finding, accepted): a zero-line scaffold HEADER for new
+   repos (schema + curation rules only, zero unearned lines — compatible with the
+   no-starter-templates anti-goal) + the bootstrap snippet gains the MEMORY.md
+   pointer clause so cockpit sessions learn it too.
 
 ## Anti-goals (rejected from feedback review, 2026-07-16 — do not revive without cause)
 
@@ -136,9 +142,11 @@ session); relay/overnight contexts write via an ordered worker (the seed pattern
   system feeding memory automatically.
 - No pricing/tier design in this doc — strategy docs own that.
 
-## Works test (night-2, the conversion event)
+## Works test (night-2, the conversion event — REQUIRES the consolidation round, unshipped)
 
-Same doc, two overnight relays on consecutive nights. Night 1 runs cold and its
+Until consolidation ships, the honest variant is pilot-driven: the cockpit
+session folds lessons at done and the next session cites them (proven live
+2026-07-16, piloted delivery #9 round 1). The full unattended version: same doc, two overnight relays on consecutive nights. Night 1 runs cold and its
 closing consolidation writes MEMORY.md (Learning card emitted). Night 2's PM
 opens by citing at least one memory line, avoids at least one night-1 trap
 without re-discovering it, and the founder's morning digest shows the delta.
@@ -148,9 +156,12 @@ that was not paid twice. (Cold-vs-warm side-by-side is also the demo asset.)
 ## Open questions (harden here as dogfood teaches)
 
 - Consolidation cadence: per-relay closing round vs periodic sweep vs on-adopt?
-- What gets remembered first: repo facts (proof commands, entrypoints, gotchas) vs
-  seat behavior (which worker is fast/honest here) vs founder preferences? (Ikiro
-  says: highest-signal events first — escalations, gate blocks, failed rounds.)
+- Concurrent writers: cockpit direct-writes vs a consolidation worker could race
+  on MEMORY.md — sequencing convention needed before consolidation ships (panel
+  finding, accepted 2026-07-16).
+- Shared/public repos: default is commit-to-repo; an opt-out/redaction posture
+  for founders who can't commit a seat/trap posterior publicly (panel finding,
+  accepted — adoption note, not machinery).
 - Cross-repo priors (an Allnighter-level playbook across a founder's projects) —
   the Ikiro two-level system; likely NEVER auto-shared, but worth naming.
 - How does a pilot PM (external, already has its own memory) interplay with the
