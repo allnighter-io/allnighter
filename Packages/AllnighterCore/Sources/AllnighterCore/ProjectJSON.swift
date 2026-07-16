@@ -100,9 +100,9 @@ public struct ProjectWorkersJSON: Codable, Equatable, Sendable {
     public var projectId: String
     public var readinessSummary: String
     public var cached: Bool
-    public var workers: [ProjectWorkerReadiness]
+    public var workers: [ProjectWorkerReadinessProjector.Row]
     public var nextActions: [ProjectNextAction]
-    public init(schemaVersion: Int = 1, contractVersion: String, projectId: String, readinessSummary: String, cached: Bool, workers: [ProjectWorkerReadiness], nextActions: [ProjectNextAction] = []) {
+    public init(schemaVersion: Int = 1, contractVersion: String, projectId: String, readinessSummary: String, cached: Bool, workers: [ProjectWorkerReadinessProjector.Row], nextActions: [ProjectNextAction] = []) {
         self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
         self.projectId = projectId; self.readinessSummary = readinessSummary
         self.cached = cached; self.workers = workers; self.nextActions = nextActions

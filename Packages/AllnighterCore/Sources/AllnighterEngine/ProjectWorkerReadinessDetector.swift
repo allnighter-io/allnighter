@@ -44,7 +44,7 @@ public struct ProjectWorkerReadinessDetector: Sendable {
                 probeKind: probeKind,
                 probeCommandLabel: label,
                 lastError: nil,
-                setupHint: "No safe project probe is declared for this worker. Open its CLI in the project folder and run it once to confirm it works here."
+                setupHint: nil
             )
         }
 

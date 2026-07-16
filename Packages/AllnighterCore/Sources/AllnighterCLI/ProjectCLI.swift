@@ -297,6 +297,8 @@ enum ProjectCLI {
     }
 
     private static func emitWorkers(project: Project, workers: [ProjectWorkerReadiness], cached: Bool, json: Bool) {
+        let probeRecords = SetupStore().load().records
+        let rows = ProjectWorkerReadinessProjector.build(workers: workers, probeRecords: probeRecords)
         let ready = workers.filter { $0.status == .ready }.count
         let summary = "\(ready) ready · \(workers.count - ready) blocked"
         if json {
@@ -305,7 +307,7 @@ enum ProjectCLI {
                 projectId: project.id,
                 readinessSummary: summary,
                 cached: cached,
-                workers: workers,
+                workers: rows,
                 nextActions: [.init(kind: .recheckWorkers, label: "Recheck workers", command: "alln project recheck-workers \(project.id) --json")]
             )
             print(AllnighterCLI.jsonString(payload))
@@ -313,7 +315,11 @@ enum ProjectCLI {
             print(cached ? "(no readiness cache — `alln project recheck-workers \(project.id)`)" : "(no workers probed)")
         } else {
             print("\(project.displayName) — \(summary)\(cached ? " (cached)" : "")")
-            for w in workers { print("\(w.sourceId)\t\(w.status.rawValue)\t\(w.setupHint ?? "")") }
+            for w in rows {
+                let detail = w.setupHint ?? w.lastError ?? ""
+                let pilot = w.pilotReady ? "pilotReady" : "pilotNotReady"
+                print("\(w.sourceId)\t\(w.status.rawValue)\t\(pilot)\t\(detail)")
+            }
         }
     }
 

@@ -53,7 +53,7 @@ final class ProjectWorkerReadinessDetectorTests: XCTestCase {
         XCTAssertEqual(r.status, .unsafeToProbe)
         XCTAssertFalse(r.status.canRunInProject)
         XCTAssertNil(r.probeCommandLabel)
-        XCTAssertNotNil(r.setupHint)
+        XCTAssertNil(r.setupHint, "honest detail is projected at emit time, not in the cache")
     }
 
     func testDeclaredButMutatingProbeIsUnsafeToProbe() async throws {
