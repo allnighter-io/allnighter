@@ -1,107 +1,153 @@
-# Panel — the pilot move applied to spec hardening (session as synthesizer)
+# Panel — session-led blind jury on any target
 
-Status: **Specced — approved concept (founder 2026-07-16); build on go**
+Status: **Specced v2 — approved concept (founder 2026-07-16); mentor feedback folded
+2026-07-16; build on go**
 Owner: AllnighterCore + CLI
 Updated: 2026-07-16
 
-> One line: **Panel hardens the spec, Pilot builds it, Relay runs the night
-> shift.** Same product physics as Pilot: judgment stays in the live session;
-> Allnighter contributes fan-out, mechanical safety, durable rounds, and the
-> thread. This is the Pressure Test hero loop (`Pressure_Test.md` — challenger
-> lenses, blind fan-out law, refutation gate) with the synthesizer seat moved
-> OUT of a spawned plan-writer and INTO the session you already work in.
+> One line: **Panel hardens the judgment, Pilot builds the work, Relay runs the
+> night.** Same physics as Pilot: judgment stays in the live session; Allnighter
+> contributes blind fan-out, mechanical read-only safety, durable rounds, and the
+> thread.
 
-## 0. The copy-paste monkey, part two
+## 0. Identity (widened — the mentor's load-bearing catch)
 
-Today the founder hardens specs by hand: paste the doc to N models with N
-different challenge angles, collect the reports, synthesize, edit, repeat. The
-loop is real and proven (Pressure Test); the transport is human. Panel is that
-transport, mechanized — from inside any CLI, no app.
+Panel is NOT a phase-doc tool. It is **"I am always the lead; the seats are always
+a blind jury"** — for any target a session judges: a spec, a PR, an architecture
+decision, a bug, a kill-or-commit call. Spec hardening (the Pressure Test loop) is
+the **hero recipe**, not the product's name. `--doc` stays the default target flag;
+the identity never hard-codes to `docs/phases/`.
+
+Pilot removed the copy-paste monkey for *building*. Panel removes it for *thinking*.
 
 ```text
-alln pair panel start --doc docs/phases/X.md --project . \
-  --seat grok45:security --seat sonnet:scope --seat codex:simplify
-
-loop:  write challenge brief (scaffolded)
-       alln pair panel round --panel <id> --brief round1.md    (BLOCKS)
-       → N challenger reports return in-call, blind to each other
-       session refutes/synthesizes → edits the spec (session's own hands)
-       repeat · done-by-declaration
+alln panel start --doc docs/phases/X.md --project .        # zero config: default roster
+loop:  alln panel round --panel <id>                        # round 1: built-in brief; BLOCKS
+       → N structured finding sets return in-call, blind to each other
+       session refutes/synthesizes → edits the target (session's own hands)
+       alln panel round --panel <id> --brief focus.md       # round 2+: focus brief
+       repeat · alln panel done --panel <id> --note "…"
+then:  alln pair pilot start --doc <same>                   # harden → build, one cockpit
 ```
 
-## 1. Decisions (locked by this doc)
+## 1. Decisions (locked)
 
-1. **The session is the synthesizer.** No spawned synthesis seat, no scoring
-   machinery — the refutation gate from Pressure Test v2 is the live session's
-   judgment. Reports return verbatim; Allnighter never merges or ranks them.
-2. **Blind fan-out is LAW** (from Pressure_Test.md): challengers never see each
-   other's output within a round. Mechanically: N independent dispatches, no
-   shared transcript.
-3. **Lenses are declared at start** (`--seat <alias>:<lens>` + optional
-   `--lens-file <lens>=<path>` for standing lens instructions). Per-round, the
-   PM writes ONE brief; the assembled per-seat prompt = lens instruction + brief
-   verbatim + doc path (re-read fresh — anchor, not payload). Judgment about
-   WHAT to challenge stays in the brief; lens texts are reusable framing only.
-4. **Read-only by MECHANISM — this is its natural home.** Unlike the relay
-   (sequential, one mutating worker), a panel is N CONCURRENT seats on one repo:
-   prompt-level read-only is banned here for real safety reasons, not doctrine.
-   Per seat: drivers with a true read-only mode use it (`claude --permission-mode
-   plan`, `codex --sandbox read-only` — the salvaged capability table in
-   `Unified_Run_Model.md`); all other drivers run against an **ephemeral APFS
-   clone** of the repo (cheap copy-on-write `clonefile`, deleted after the turn —
-   a copy, not a git worktree; Allnighter still does no git). No seat is ever
-   refused: enforce where the driver can, isolate where it can't.
-5. **One substrate, no third system.** Round DISPATCH reuses the answer-team
-   run substrate (TeamRun, N read-only workers — the "one team-run substrate"
-   law) with one additive capability: per-seat messages (the blind lens
-   prompts). Panel SESSION state (rounds over days) mirrors the relay pattern:
-   `PanelState` + store beside RelayStateStore, `awaitingPM | running | done`,
-   parked-unowned semantics identical to `awaitingPM` (orphan reconcile skips).
-6. **No HandoverGate on briefs.** Nothing dispatched can mutate (decision 4);
-   the danger classes don't apply to read-only seats. Cheaper and honest.
-7. **Panel feeds memory.** Findings that survive the session's refutation are
-   the highest-grade MEMORY.md candidates; the done-round convention may fold
-   them (Folder_Native_Memory.md owns that convention).
-8. **Thread projection for free:** a panel is a WorkThread; rounds are turns
-   (PM brief = user turn; each challenger report = a worker turn); done settles.
+1. **The session is the synthesizer.** No spawned merge-brain, no ranking.
+   Allnighter stores and returns findings verbatim; the refutation gate is the
+   live session's judgment.
+2. **Blind fan-out is LAW** (Pressure_Test.md): N independent dispatches, no
+   shared transcript, seats never see each other's output within a round.
+3. **Structured findings — verbatim ≠ unstructured.** Pressure Test named the
+   failure mode: six walls of text = manual fan-out with nicer chrome. Every seat
+   returns a small finding schema: `{claim, severity, evidence (cite file/line or
+   quote), proposedChange, }` — and **"no material findings" is a first-class
+   valid answer** (an empty findings array with a stated reason, never padding).
+   Allnighter validates shape only; content judgment is the session's.
+4. **Roster = the team catalog.** No new roster noun. `--team <alias>` resolves a
+   TeamPreset (built-in like `architecture_pressure_test` or any user team) into
+   seats — DX4-style fuzzy resolution: unique match resolves and IS ECHOED;
+   ambiguous errors LIST candidates (display name + seat count); no match lists
+   available teams. Remembered last-used panel team per project; zero-config
+   `panel start` uses remembered-else-lane-default and says so. `--seat
+   <alias>:<lens>` is power mode that overrides/extends.
+5. **Lenses:** from the team's seat purposes or `--seat` declarations; optional
+   `--lens-file <lens>=<path>` for standing instructions. Per-seat prompt = lens
+   instruction + brief verbatim + target path (re-read fresh — anchor, never
+   payload).
+6. **Briefs: built-in round 1, custom later.** Round 1 default brief:
+   "Pressure-test this target; structured findings only; no material findings is
+   a valid answer." `--brief <md>` (or `--brief -` stdin) for focus rounds. The
+   scaffold's suggested sections include a **rejection-carry line** ("Refuted last
+   round: … — do not re-litigate") and a **stance line** (`stance: edit-in-place |
+   propose-first`) so the founder always knows which synthesis contract the
+   session is in. Stances are convention, never modes (the deleted PRJ approval
+   gate stays deleted).
+7. **Read-only by MECHANISM — N concurrent seats make it real safety.** Drivers
+   with true read-only modes use them (claude plan / codex sandbox — the salvaged
+   capability table in Unified_Run_Model.md); all other drivers run against an
+   **ephemeral APFS clone** (copy-on-write `clonefile`, deleted after the turn; a
+   copy, not a git worktree). **"No seat is ever refused" is the law; clonefile is
+   sequenced, not skipped** (§3). Panels NEVER take the mutating write lock —
+   read-only rounds may run beside a pilot/relay dev turn (documented invariant).
+8. **Run-truth anchors:** each round pins the target's **content hash** at
+   dispatch (panel's analog of the relay's baseline HEAD) — round N+1 provably
+   attacks the CURRENT text, and mid-round edits are detectable. Session edits
+   between rounds: expected. During `running`: refused (`PANEL_ROUND_IN_FLIGHT`).
+   `panel start` emits an ADVISORY (never a refusal) when the target is
+   untracked/dirty: "commit first so edit-in-place synthesis stays one revert
+   away" — the founder's undo-safety nudge, mechanical via GitObserver reads.
+9. **State machine mirrors pilot:** `awaitingPM | running | done`; parked-unowned
+   between rounds (orphan reconcile skips `awaitingPM`); a round with failed/
+   timed-out/empty seats still SETTLES with per-seat status + the findings that
+   arrived — the session chooses `--seats a,b` rerun; no fake convergence, done
+   only by declaration; `--max-rounds` ceiling.
+10. **One substrate:** round dispatch = the answer-team run substrate (TeamRun, N
+    read-only workers) + one additive capability (per-seat messages). Panel
+    session state = `PanelState` + store beside RelayStateStore. No second
+    team-run JSON family.
+11. **Naming: top-level `alln panel`.** `pair` means the PM↔dev couple (and
+    device pairing); a jury is not a pair. Product language everywhere: Pilot =
+    session leads a mutating crew · Panel = session leads a read-only jury ·
+    Relay = Allnighter leads when you leave. (Retired words like "fan-out" never
+    appear in user-facing strings.)
+12. **Panel feeds memory.** Findings that survive refutation + seat-behavior
+    observations (with receipts) are prime MEMORY.md fodder via the done-note
+    convention (Folder_Native_Memory.md owns it). Thread projection for free
+    (brief = user turn; each report = worker turn).
 
 ## 2. Surface
 
-- `alln pair panel start --doc <path> --project <id|path> --seat <alias>:<lens> …
-  [--max-rounds N] [--json]` → panelId, scaffolded brief path, next command.
-- `alln pair panel round --panel <id> --brief <md> [--seats a,b] [--no-wait] [--json]`
-  → BLOCKS; returns all reports verbatim + per-seat status; `--seats` reruns a
-  subset (a challenger that stalled) without a full round.
-- `alln pair panel status|watch|scaffold-brief` — mirror the pilot verbs.
-- `alln pair panel done --panel <id> --note "…"` — done-by-declaration.
-- JSON envelopes registry-projected; NDJSON progress per seat settling (reports
-  stream back as seats finish — the session can start reading early).
+- `alln panel start --doc <path> --project <id|path> [--team <alias>] [--seat
+  <alias>:<lens> …] [--max-rounds N] [--json]` → panelId, roster echo, target-hash,
+  dirty-target advisory, scaffolded brief path, exact next command.
+- `alln panel round --panel <id> [--brief <md>|-] [--seats a,b] [--no-wait]
+  [--json]` → BLOCKS; per-seat structured findings verbatim + per-seat status;
+  NDJSON streams seats as they settle (the session starts reading early).
+- `alln panel status|watch|scaffold-brief|done` — mirror the pilot verbs,
+  including the DX5 recovery semantics (dead-owner → "run panel watch").
+- Bootstrap recipe (~6 lines) added to `alln bootstrap`: start → round → refute →
+  edit → done → **`alln pair pilot start --doc <same>`** — harden then build
+  without leaving the cockpit.
 
-## 3. Slices
+## 3. Slices (sequenced so clonefile never gates first joy)
 
 | Slice | Deliverable |
 | --- | --- |
-| PN-S01 | `PanelState` + store (+ parked/unowned semantics, orphan-reconcile guard) + tests |
-| PN-S02 | Per-seat read-only dispatch: additive per-seat messages on the answer-run path; read-only mechanism per driver + ephemeral-clone isolation for non-enforcing drivers (clonefile, cleanup, tests with a fake mutating seat proving the real tree is untouched) |
-| PN-S03 | `PanelCoordinator.runRound` — blind fan-out, verbatim capture, partial-seat rerun, ceilings (maxRounds) |
-| PN-S04 | CLI verbs + envelopes + contracts + help topic (extend pm_relay topic family) |
-| PN-S05 | Thread projection + works test (below) |
+| PN-S01 | `PanelState` + store + state machine (parked/unowned, in-flight refusal, target-hash pinning) + tests |
+| PN-S02 | Per-seat blind dispatch on the answer-run path (additive per-seat messages) + finding-schema validation ("no material findings" first-class) — **v0 seats: read-only-enforcing drivers only** (claude/codex) |
+| PN-S03 | `PanelCoordinator.runRound` — blocking + NDJSON per-seat settle, partial-failure settlement, `--seats` rerun, ceilings |
+| PN-S04 | CLI verbs (`alln panel …` top-level) + team-alias roster resolution + remembered team per project + envelopes/contracts/help + bootstrap recipe |
+| PN-S05 | Thread projection + cold-agent works test (below) |
+| PN-S06 | **Clonefile isolation** for non-enforcing drivers (+ fake-mutating-seat proof that the real tree is untouched) — "no seat refused" goes live |
 
-## 4. Works test
+## 4. Works test (cold agent, not just the founder)
 
-Harden a REAL phase doc (this one is a fine candidate) across 2 rounds with 3
-seats on ≥2 different CLIs: start → round 1 (three blind reports return in one
-call) → session refutes at least one finding and hardens the doc → round 2 shows
-the survivors attacking the NEW text (fresh doc re-read proven) → done with a
-note naming what survived refutation. Verify: no seat saw another's output
-(transcripts), the real tree untouched by non-enforcing seats (clone isolation),
-panel thread readable in the inbox, reports verbatim. Filters green; contracts
-regenerated.
+A FRESH agent session given only the bootstrap snippet: `alln panel start --doc
+<real doc> --project .` (zero config — default roster echoed) → round 1 with the
+built-in brief returns 3 blind structured finding sets in one blocking call →
+the session refutes ≥1 finding, edits the doc, commits → round 2 (focus brief via
+stdin, rejection-carry line) provably attacks the new text (hash changed) → done
+with a survivors note → `alln pair pilot start --doc <same>` chains into a build
+round. Verify: transcripts show no cross-seat leakage; per-seat statuses honest on
+an induced seat failure; panel thread readable in the inbox; findings verbatim;
+real tree untouched (v0: RO drivers; PN-S06: clone proof). Filters green;
+contracts regenerated.
 
-## 5. Non-goals
+## 5. v1 boundary vs Pressure Test (named so builders don't rebuild it)
 
-- Scoring/ranking machinery, (lens,model) scoreboards — Pressure_Test.md owns
-  methodology; Panel is transport + safety. The session judges.
-- Mutating panel seats, ever. A panel that edits is a pilot — use the pilot.
-- Auto-synthesis. The day we spawn a synthesizer, that's Relay-for-specs — a
-  separate future decision, not this phase.
+Panel v1 = transport + blind RO safety + durable rounds + finding schema +
+session judgment. Pressure Test methodology — impact ledger, (lens,model)
+scoreboard, spawned refuter seat, clean-room rival protocols — stays in
+`Pressure_Test.md` as METHOD the session may apply by hand, and as candidate
+future upgrades. Building any of it into Panel v1 is scope creep; shipping walls
+of unstructured prose and calling it Panel is the opposite failure. Both are
+named so neither happens silently.
+
+## 6. Non-goals
+
+- Auto-synthesis / spawned merge-brain (that would be Relay-for-judgment — a
+  separate future decision). Scoring, ranking, leaderboards.
+- Mutating panel seats, ever — a panel that edits is a pilot; use the pilot.
+- A GUI requirement anywhere in the loop (the app is the observer, as with Pilot).
+- V1/V2 "approval modes" — synthesis stance is the session's declared convention
+  (decision 6), never product machinery.
