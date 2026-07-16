@@ -33,10 +33,14 @@ public actor CatalogRunCoordinator {
     }
 
     /// Run the staged team. `prompt` is the already-assembled founder prompt
-    /// (question + bounded context). `persist` is invoked with the run at every
-    /// status/stage transition — durable BEFORE workers start, and again as
-    /// answers/reviews/plan settle (Journal0 incremental durability). Returns the
-    /// settled `TeamRun`.
+    /// (question + bounded context). `workerPrompts` is the ONE additive per-seat
+    /// override (`docs/phases/Pilot_Panel.md` decision 10): when a worker id is
+    /// present, that seat gets its own founder prompt instead of the shared
+    /// `prompt` — answer workers stay blind and parallel either way. Nil/missing
+    /// keys keep the shared-prompt path (no behavior change for existing callers).
+    /// `persist` is invoked with the run at every status/stage transition —
+    /// durable BEFORE workers start, and again as answers/reviews/plan settle
+    /// (Journal0 incremental durability). Returns the settled `TeamRun`.
     public func run(
         resolved: ResolvedTeamRun,
         prompt: String,
@@ -46,6 +50,7 @@ public actor CatalogRunCoordinator {
         runId: String? = nil,
         repoRoot: String? = nil,
         deliveries: [IncludedAttachmentDelivery] = [],
+        workerPrompts: [String: String]? = nil,
         persist: (@Sendable (TeamRun) -> Void)? = nil
     ) async -> TeamRun {
         let modelByID = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -73,11 +78,12 @@ public actor CatalogRunCoordinator {
         // Stage 0 — the scout (e.g. an X-capable model) distills the raw source FIRST.
         // Its output is injected into every downstream worker's context so the whole
         // crew reasons over the same distilled packet (the crux of triangulation).
+        // Per-seat overrides do not apply to scout/review/writer — only answer seats.
         var downstreamPrompt = prompt
         if let scout = resolved.scoutWorker {
             let (scoutAnswers, scoutSnapshots) = await runWorkers(
                 [scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID,
-                run: &run, repoRoot: repoRoot, deliveries: deliveries, persist: persist)
+                run: &run, repoRoot: repoRoot, deliveries: deliveries, workerPrompts: nil, persist: persist)
             applySnapshots(scoutSnapshots, to: &run)
             merge(scoutAnswers, into: &run)
             if let out = scoutAnswers.first, out.hasAnswer, let text = out.output, !text.isEmpty {
@@ -88,9 +94,12 @@ public actor CatalogRunCoordinator {
         }
 
         // Stage 1 — answer workers, blind and parallel, over the distilled source.
+        // Each seat gets its own founder prompt when `workerPrompts[worker.id]` is set
+        // (Panel); otherwise the shared downstream prompt (existing answer teams).
         let (answers, answerSnapshots) = await runWorkers(
             resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort,
-            modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries, persist: persist)
+            modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries,
+            workerPrompts: workerPrompts, persist: persist)
         applySnapshots(answerSnapshots, to: &run)
         merge(answers, into: &run)
         persist?(run)
@@ -100,7 +109,8 @@ public actor CatalogRunCoordinator {
             let reviewPrompt = downstreamPrompt + "\n\n# Worker answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
             let (reviews, reviewSnapshots) = await runWorkers(
                 resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort,
-                modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries, persist: persist)
+                modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries,
+                workerPrompts: nil, persist: persist)
             applySnapshots(reviewSnapshots, to: &run)
             merge(reviews, into: &run)
             persist?(run)
@@ -137,6 +147,7 @@ public actor CatalogRunCoordinator {
         run: inout TeamRun,
         repoRoot: String?,
         deliveries: [IncludedAttachmentDelivery] = [],
+        workerPrompts: [String: String]? = nil,
         persist: (@Sendable (TeamRun) -> Void)? = nil
     ) async -> (answers: [TeamAnswer], snapshots: [String: String]) {
         var snapshots: [String: String] = [:]
@@ -156,7 +167,9 @@ public actor CatalogRunCoordinator {
                 let model = modelByID[worker.modelId]
                 let manifest = model.flatMap { registry.manifest(for: $0) }
                 let role = worker.purpose?.rawValue ?? WorkerStage.answer.rawValue
-                let baseWorkerPrompt = SkillCatalog.assemblePrompt(skillId: worker.skillId, founderPrompt: prompt)
+                // Per-seat founder prompt when provided (Panel); else shared stage prompt.
+                let founderPrompt = workerPrompts?[worker.id] ?? prompt
+                let baseWorkerPrompt = SkillCatalog.assemblePrompt(skillId: worker.skillId, founderPrompt: founderPrompt)
                 // Attach the user's images PER WORKER: vision models get the path block;
                 // non-vision models get an explicit "you can't see it" notice so they
                 // never claim to. (Delivery law §5 via AttachmentDeliveryRenderer.)

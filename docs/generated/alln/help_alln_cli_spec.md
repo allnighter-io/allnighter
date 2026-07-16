@@ -1300,6 +1300,7 @@ Output schema: `helpTopicsJSON`.
 | `RELAY_ROUND_IN_FLIGHT` | no | yes | Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
+| `PANEL_SEAT_NOT_ISOLATED` | yes | no | Use a seat whose driver has a confirmed read-only mode (claude_code or codex) until PN-S06 ships clonefile isolation for every driver. Or wait for PN-S06. |
 | `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
 | `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |

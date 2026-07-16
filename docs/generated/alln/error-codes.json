@@ -657,6 +657,15 @@
     "ruleId" : "relay.verdict.unparseable"
   },
   {
+    "agentAction" : "Use a seat whose driver has a confirmed read-only mode (claude_code or codex) until PN-S06 ships clonefile isolation for every driver. Or wait for PN-S06.",
+    "code" : "PANEL_SEAT_NOT_ISOLATED",
+    "exitClass" : "operational",
+    "explain" : "Panel v0 refuses seats whose driver cannot be mechanically read-only-enforced (only claude_code plan mode and codex read-only sandbox are confirmed). Honesty over availability — PN-S06 (clonefile) is the coming fix so no seat is refused.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "panel.seat.not_isolated"
+  },
+  {
     "agentAction" : "Inspect the error detail; retry the send or fix the worker.",
     "code" : "THREAD_SEND_FAILED",
     "exitClass" : "operational",
