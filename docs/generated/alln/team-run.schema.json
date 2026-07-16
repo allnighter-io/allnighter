@@ -328,11 +328,27 @@
     "Outcome" : {
       "additionalProperties" : false,
       "properties" : {
+        "commitMessageMatched" : {
+          "type" : [
+            "boolean",
+            "null"
+          ]
+        },
         "committed" : {
           "type" : "boolean"
         },
         "headline" : {
           "type" : "string"
+        },
+        "proof" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/OutcomeProof"
+            },
+            {
+              "type" : "null"
+            }
+          ]
         },
         "status" : {
           "enum" : [
@@ -348,6 +364,32 @@
         "status",
         "committed",
         "headline"
+      ],
+      "type" : "object"
+    },
+    "OutcomeProof" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "command" : {
+          "type" : "string"
+        },
+        "exitCode" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "outputTail" : {
+          "type" : "string"
+        },
+        "passed" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "command",
+        "passed",
+        "outputTail"
       ],
       "type" : "object"
     },

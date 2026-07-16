@@ -511,12 +511,17 @@ Flags:
 - `--lane <lane>` — Lane tags the run for context and filtering; `--team` routes.
 - `--type <type>` — Copy routing sugar.
 - `--context <string>` — Bounded context snippet.
+- `--commit-message <string>` — Exact commit message for the worker (FR12 instruct + verify; Allnighter does no git).
+- `--no-commit` — Instruct the worker to leave work uncommitted for PM review (mutually exclusive with --commit-message).
+- `--proof <string>` — Run a bounded proof command after the worker settles; surface pass/fail (never blocks git).
 - `--try-fix` — Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.
 - `--executor <id>` — Mutating executor team id (default execution_playbook).
 - `--json` — Emit TeamRunJSON.
 - `--stream` — Emit NDJSON events.
 
 Mutually exclusive: `--json`, `--stream`.
+
+Mutually exclusive: `--no-commit`, `--commit-message`.
 
 Output schema: `teamRunJSON`.
 

@@ -73,6 +73,14 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// True when `--lane` was passed alongside an explicit `--worker` — lane is context
     /// metadata on the run identity, not the router (`Field_Reports_3.md` FR7).
     public var laneContextOnly: Bool? = nil
+    /// FR12 — requested verbatim commit message (verification only).
+    public var requestedCommitMessage: String? = nil
+    /// FR12 — worker was instructed to leave work uncommitted.
+    public var noCommitOrdered: Bool? = nil
+    /// FR12 — dirty file count observed when `noCommitOrdered` and no new commits landed.
+    public var uncommittedFileCount: Int? = nil
+    /// FR13 — bounded proof subprocess result (after worker settlement).
+    public var proofResult: RunProofResult? = nil
     /// Non-optional view of `links` for callers.
     public var runLinks: [RunLink] { links ?? [] }
 
@@ -101,7 +109,11 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         repoRoot: String? = nil,
         timing: RunTimingReport? = nil,
         repoDelta: RepoDelta? = nil,
-        laneContextOnly: Bool? = nil
+        laneContextOnly: Bool? = nil,
+        requestedCommitMessage: String? = nil,
+        noCommitOrdered: Bool? = nil,
+        uncommittedFileCount: Int? = nil,
+        proofResult: RunProofResult? = nil
     ) {
         self.id = id
         self.prompt = prompt
@@ -128,6 +140,10 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.timing = timing
         self.repoDelta = repoDelta
         self.laneContextOnly = laneContextOnly
+        self.requestedCommitMessage = requestedCommitMessage
+        self.noCommitOrdered = noCommitOrdered
+        self.uncommittedFileCount = uncommittedFileCount
+        self.proofResult = proofResult
     }
 }
 

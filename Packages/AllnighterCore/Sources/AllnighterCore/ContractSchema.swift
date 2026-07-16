@@ -119,7 +119,12 @@ public enum ContractSchema {
             "Outcome": obj([
                 "status": enumStr(["completed", "partial", "failed", "timedOut"]),
                 "committed": bool, "headline": str,
+                "commitMessageMatched": nullable("boolean"),
+                "proof": nullableRef("OutcomeProof"),
             ], required: ["status", "committed", "headline"]),
+            "OutcomeProof": obj([
+                "command": str, "exitCode": nullable("integer"), "passed": bool, "outputTail": str,
+            ], required: ["command", "passed", "outputTail"]),
             "Usage": obj(["cliCalls": int], required: ["cliCalls"]),
             "Warning": obj(["code": nullable("string"), "message": str], required: ["message"]),
             "ErrorEnvelope": errorEnvelopeDef(),

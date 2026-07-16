@@ -1291,6 +1291,23 @@
           "valueType" : "string"
         },
         {
+          "name" : "commit-message",
+          "summary" : "Exact commit message for the worker (FR12 instruct + verify; Allnighter does no git).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "no-commit",
+          "summary" : "Instruct the worker to leave work uncommitted for PM review (mutually exclusive with --commit-message).",
+          "takesValue" : false
+        },
+        {
+          "name" : "proof",
+          "summary" : "Run a bounded proof command after the worker settles; surface pass\/fail (never blocks git).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
           "name" : "try-fix",
           "summary" : "Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.",
           "takesValue" : false
@@ -1317,6 +1334,10 @@
         [
           "json",
           "stream"
+        ],
+        [
+          "no-commit",
+          "commit-message"
         ]
       ],
       "name" : "run",

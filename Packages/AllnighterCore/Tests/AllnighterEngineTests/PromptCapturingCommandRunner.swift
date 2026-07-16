@@ -5,7 +5,7 @@ import AllnighterCore
 /// CI fake vision worker: captures prompts and asserts image path blocks (CIA-S01).
 public final class PromptCapturingCommandRunner: CommandRunner, @unchecked Sendable {
     private final class Box: @unchecked Sendable {
-        var prompts: [String] = []
+        var entries: [(command: String, prompt: String)] = []
     }
     private let box = Box()
 
@@ -25,12 +25,16 @@ public final class PromptCapturingCommandRunner: CommandRunner, @unchecked Senda
         } else {
             prompt = stdin ?? args.joined(separator: " ")
         }
-        box.prompts.append(prompt)
+        box.entries.append((command: URL(fileURLWithPath: command).lastPathComponent, prompt: prompt))
         return CommandResult(stdout: "FAKE_VISION_OK", stderr: "", exitCode: 0)
     }
 
     public func lastPrompt() -> String? {
-        box.prompts.last
+        box.entries.last?.prompt
+    }
+
+    public func lastPrompt(forCommand command: String) -> String? {
+        box.entries.last { $0.command == command }?.prompt
     }
 }
 

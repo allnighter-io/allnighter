@@ -266,14 +266,36 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public enum Status: String, Codable, Sendable {
             case completed, partial, failed, timedOut
         }
+        public struct Proof: Codable, Equatable, Sendable {
+            public var command: String
+            public var exitCode: Int?
+            public var passed: Bool
+            public var outputTail: String
+
+            public init(command: String, exitCode: Int?, passed: Bool, outputTail: String) {
+                self.command = command
+                self.exitCode = exitCode
+                self.passed = passed
+                self.outputTail = outputTail
+            }
+        }
         public var status: Status
         public var committed: Bool
         public var headline: String
+        /// Present when `--commit-message` was given — compares newest commit subject to the request.
+        public var commitMessageMatched: Bool?
+        /// Present when `--proof` was given — bounded subprocess result after worker settlement.
+        public var proof: Proof?
 
-        public init(status: Status, committed: Bool, headline: String) {
+        public init(
+            status: Status, committed: Bool, headline: String,
+            commitMessageMatched: Bool? = nil, proof: Proof? = nil
+        ) {
             self.status = status
             self.committed = committed
             self.headline = headline
+            self.commitMessageMatched = commitMessageMatched
+            self.proof = proof
         }
     }
 

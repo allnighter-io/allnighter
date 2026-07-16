@@ -8,8 +8,16 @@ enum RunCLI {
         let opts = Options(args)
         guard let message = opts.positional.first ?? opts.value("message") else {
             FileHandle.standardError.write(Data(
-                "usage: alln run \"<message>\" --project <id|path> [--team <id>] [--worker <modelId>] [--effort low|med|high] [--lane code|design|copy|signal] [--try-fix [--executor <id>]] [--json | --stream]\n"
+                "usage: alln run \"<message>\" --project <id|path> [--team <id>] [--worker <modelId>] [--effort low|med|high] [--lane code|design|copy|signal] [--commit-message <exact>] [--no-commit] [--proof <cmd>] [--try-fix [--executor <id>]] [--json | --stream]\n"
                     .utf8))
+            exit(2)
+        }
+
+        let noCommit = opts.flag("no-commit")
+        let commitMessage = opts.value("commit-message")
+        if noCommit, commitMessage != nil {
+            FileHandle.standardError.write(Data(
+                "usage: --no-commit and --commit-message are mutually exclusive\n".utf8))
             exit(2)
         }
 
@@ -41,7 +49,10 @@ enum RunCLI {
             lane: lane,
             type: opts.value("type"),
             context: opts.value("context"),
-            executorTeamId: opts.value("executor")
+            executorTeamId: opts.value("executor"),
+            commitMessage: commitMessage,
+            noCommit: noCommit,
+            proofCommand: opts.value("proof")
         )
 
         let service = RunService(

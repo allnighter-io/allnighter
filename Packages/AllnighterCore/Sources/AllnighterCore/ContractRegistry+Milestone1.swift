@@ -330,12 +330,15 @@ public extension ContractRegistry {
                 FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Lane tags the run for context and filtering; `--team` routes."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy routing sugar."),
                 FlagSpec("context", takesValue: true, valueType: "string", summary: "Bounded context snippet."),
+                FlagSpec("commit-message", takesValue: true, valueType: "string", summary: "Exact commit message for the worker (FR12 instruct + verify; Allnighter does no git)."),
+                FlagSpec("no-commit", summary: "Instruct the worker to leave work uncommitted for PM review (mutually exclusive with --commit-message)."),
+                FlagSpec("proof", takesValue: true, valueType: "string", summary: "Run a bounded proof command after the worker settles; surface pass/fail (never blocks git)."),
                 FlagSpec("try-fix", summary: "Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt."),
                 FlagSpec("executor", takesValue: true, valueType: "id", summary: "Mutating executor team id (default execution_playbook)."),
                 FlagSpec("json", summary: "Emit TeamRunJSON."),
                 FlagSpec("stream", summary: "Emit NDJSON events."),
             ],
-            mutuallyExclusiveFlags: [["json", "stream"]],
+            mutuallyExclusiveFlags: [["json", "stream"], ["no-commit", "commit-message"]],
             outputSchema: .teamRunJSON
         ),
         CommandSpec(

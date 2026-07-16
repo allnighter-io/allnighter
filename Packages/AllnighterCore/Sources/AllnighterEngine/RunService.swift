@@ -38,6 +38,14 @@ public struct RunRequest: Sendable, Equatable {
     public var workerTimeoutSeconds: Int?
     /// Override `DriverManifest.maxConcurrentSpawns` for this run (parallel CR fan-out).
     public var spawnConcurrencyLimit: Int?
+    /// FR12 — exact commit message the worker should use (verification only; Allnighter does no git).
+    public var commitMessage: String?
+    /// FR12 — instruct the worker to leave changes uncommitted (mutually exclusive with `commitMessage`).
+    public var noCommit: Bool
+    /// FR13 — proof command to run after worker settlement (bounded subprocess at repo root).
+    public var proofCommand: String?
+    /// FR13 — override proof timeout (seconds); default 600.
+    public var proofTimeoutSeconds: Int?
 
     public init(
         message: String,
@@ -55,7 +63,11 @@ public struct RunRequest: Sendable, Equatable {
         timing: RunTimingReport? = nil,
         advisoryReview: Bool = false,
         workerTimeoutSeconds: Int? = nil,
-        spawnConcurrencyLimit: Int? = nil
+        spawnConcurrencyLimit: Int? = nil,
+        commitMessage: String? = nil,
+        noCommit: Bool = false,
+        proofCommand: String? = nil,
+        proofTimeoutSeconds: Int? = nil
     ) {
         self.message = message
         self.repoRoot = repoRoot
@@ -73,6 +85,10 @@ public struct RunRequest: Sendable, Equatable {
         self.advisoryReview = advisoryReview
         self.workerTimeoutSeconds = workerTimeoutSeconds
         self.spawnConcurrencyLimit = spawnConcurrencyLimit
+        self.commitMessage = commitMessage
+        self.noCommit = noCommit
+        self.proofCommand = proofCommand
+        self.proofTimeoutSeconds = proofTimeoutSeconds
     }
 }
 
@@ -330,7 +346,9 @@ public actor RunService {
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
                 deliveries: request.deliveries, requestedAt: requestedAt, timing: timing, events: events,
                 workerTimeoutSeconds: request.workerTimeoutSeconds,
-                spawnConcurrencyLimit: request.spawnConcurrencyLimit
+                spawnConcurrencyLimit: request.spawnConcurrencyLimit,
+                commitMessage: request.commitMessage, noCommit: request.noCommit,
+                proofCommand: request.proofCommand, proofTimeoutSeconds: request.proofTimeoutSeconds
             )
         }
 
@@ -371,7 +389,11 @@ public actor RunService {
         timing seedTiming: RunTimingReport,
         events: AsyncStream<RunEvent>.Continuation?,
         workerTimeoutSeconds: Int? = nil,
-        spawnConcurrencyLimit: Int? = nil
+        spawnConcurrencyLimit: Int? = nil,
+        commitMessage: String? = nil,
+        noCommit: Bool = false,
+        proofCommand: String? = nil,
+        proofTimeoutSeconds: Int? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
         let timeoutOverride = workerTimeoutSeconds.map { Duration.seconds($0) }
@@ -462,6 +484,11 @@ public actor RunService {
         if !assembled.contains(ProvenanceConvention.trailerMarker) {
             assembled += "\n\n" + ProvenanceConvention.commitTrailerAsk(displayName: model.displayName)
         }
+        assembled = Self.appendRunVerificationPrompt(
+            assembled,
+            commitMessage: commitMessage,
+            noCommit: noCommit,
+            proofCommand: proofCommand)
         let baselineHead = gitObserver.observe(rootPath: repoRoot).head
         let startedAt = now()
         let effectiveLane = requestLane ?? preset.lane
@@ -699,6 +726,18 @@ public actor RunService {
         run.status = answer.result.status == .done ? .complete : .failed
         run.repoDelta = gitObserver.repoDelta(
             rootPath: repoRoot, baseline: baselineHead, head: gitObserver.observe(rootPath: repoRoot).head)
+        run.requestedCommitMessage = commitMessage
+        run.noCommitOrdered = noCommit ? true : nil
+        if noCommit, run.repoDelta?.changed != true {
+            run.uncommittedFileCount = gitObserver.dirtyFiles(rootPath: repoRoot).count
+        }
+        if let proofCommand, !proofCommand.isEmpty {
+            let proofRunner = RunProofRunner(commandRunner: commandRunner)
+            run.proofResult = await proofRunner.run(
+                command: proofCommand,
+                cwd: repoRoot,
+                timeoutSeconds: proofTimeoutSeconds ?? RunProofRunner.defaultTimeoutSeconds)
+        }
         if answer.result.status == .done, let text = answer.output {
             let stageId = UUID().uuidString
             emit(RunEventKind.stageStarted, [
@@ -788,5 +827,26 @@ public actor RunService {
         run.timing = timing
         try? runStore.save(run, models: models)
         return .success(run)
+    }
+
+    /// FR12/FR13 prompt blocks — each injected at most once via marker checks.
+    static func appendRunVerificationPrompt(
+        _ prompt: String,
+        commitMessage: String?,
+        noCommit: Bool,
+        proofCommand: String?
+    ) -> String {
+        var assembled = prompt
+        if let commitMessage, !commitMessage.isEmpty,
+           !assembled.contains(ProvenanceConvention.commitMessageMarker) {
+            assembled += "\n\n" + ProvenanceConvention.commitMessageVerbatimBlock(message: commitMessage)
+        } else if noCommit, !assembled.contains(ProvenanceConvention.noCommitMarker) {
+            assembled += "\n\n" + ProvenanceConvention.noCommitBlock()
+        }
+        if let proofCommand, !proofCommand.isEmpty,
+           !assembled.contains(ProvenanceConvention.proofVerificationMarker) {
+            assembled += "\n\n" + ProvenanceConvention.proofVerificationLine(command: proofCommand)
+        }
+        return assembled
     }
 }

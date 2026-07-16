@@ -49,8 +49,35 @@ public enum RunIdentity {
                 workerId: primaryWorkerModelId(run), lane: run.lane, mutating: run.mutating,
                 laneContextOnly: run.laneContextOnly == true)
         ]
-        if run.mutating, let deltaLine = repoDeltaSummary(run.repoDelta) {
-            parts.append(deltaLine)
+        if run.mutating {
+            if run.noCommitOrdered == true {
+                if run.repoDelta?.changed != true,
+                   let count = run.uncommittedFileCount, count > 0 {
+                    parts.append("left uncommitted for PM review (as ordered)")
+                } else if run.repoDelta?.changed == true {
+                    parts.append("committed despite no-commit order")
+                } else {
+                    parts.append("no repo change")
+                }
+            } else if let deltaLine = repoDeltaSummary(run.repoDelta) {
+                parts.append(deltaLine)
+            }
+            if let requested = run.requestedCommitMessage,
+               let matched = CommitMessageFidelity.matched(requested: requested, delta: run.repoDelta),
+               !matched {
+                parts.append("commit message mismatch")
+            }
+        }
+        if let proof = run.proofResult {
+            if proof.timedOut {
+                parts.append("PROOF FAILED (timeout)")
+            } else if proof.passed {
+                parts.append("proof passed")
+            } else if let code = proof.exitCode {
+                parts.append("PROOF FAILED (exit \(code))")
+            } else {
+                parts.append("PROOF FAILED")
+            }
         }
         return parts.joined(separator: " · ")
     }

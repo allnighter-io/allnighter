@@ -140,10 +140,19 @@ public enum TeamRunJSONMapper {
     }
 
     static func mapOutcome(_ run: TeamRun) -> TeamRunJSON.Outcome {
-        TeamRunJSON.Outcome(
+        let commitMatched = run.requestedCommitMessage.flatMap {
+            CommitMessageFidelity.matched(requested: $0, delta: run.repoDelta)
+        }
+        let proof: TeamRunJSON.Outcome.Proof? = run.proofResult.map {
+            TeamRunJSON.Outcome.Proof(
+                command: $0.command, exitCode: $0.exitCode, passed: $0.passed, outputTail: $0.outputTail)
+        }
+        return TeamRunJSON.Outcome(
             status: mapOutcomeStatus(run),
             committed: run.repoDelta?.changed == true,
-            headline: RunIdentity.outcomeHeadline(run))
+            headline: RunIdentity.outcomeHeadline(run),
+            commitMessageMatched: commitMatched,
+            proof: proof)
     }
 
     // MARK: - Enum mappings
