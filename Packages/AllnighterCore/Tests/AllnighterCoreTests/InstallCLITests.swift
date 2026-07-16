@@ -118,4 +118,79 @@ final class InstallCLITests: XCTestCase {
         XCTAssertEqual(decoded.path, installDir + "/alln")
         XCTAssertEqual(decoded.target, binary)
     }
+
+    func testResolvedRunningBinaryAbsolutePath() throws {
+        let binary = try makeBinary()
+        let resolved = InstallCLI.resolvedRunningBinary(argv0: binary, fileManager: fm)
+        XCTAssertEqual(resolved, binary)
+    }
+
+    func testResolvedRunningBinaryRelativeWithSlashUsesCwd() throws {
+        let binary = try makeBinary()
+        let cwd = tempRoot.path
+        let relative = "subdir/alln-bin"
+        let subdir = tempRoot.appendingPathComponent("subdir")
+        try fm.createDirectory(at: subdir, withIntermediateDirectories: true)
+        try fm.copyItem(atPath: binary, toPath: subdir.appendingPathComponent("alln-bin").path)
+
+        let resolved = InstallCLI.resolvedRunningBinary(
+            argv0: relative,
+            currentDirectory: cwd,
+            fileManager: fm
+        )
+        XCTAssertEqual(resolved, subdir.appendingPathComponent("alln-bin").resolvingSymlinksInPath().path)
+    }
+
+    func testResolvedRunningBinaryBareNameSearchesPATH() throws {
+        let binary = try makeBinary()
+        let binDir = tempRoot.appendingPathComponent("bin")
+        try fm.createDirectory(at: binDir, withIntermediateDirectories: true)
+        try fm.createSymbolicLink(
+            atPath: binDir.appendingPathComponent("alln").path,
+            withDestinationPath: binary
+        )
+
+        let resolved = InstallCLI.resolvedRunningBinary(
+            argv0: "alln",
+            pathEnvironment: binDir.path,
+            currentDirectory: tempRoot.appendingPathComponent("elsewhere").path,
+            fileManager: fm
+        )
+        XCTAssertEqual(resolved, binary)
+    }
+
+    func testBareNameDoesNotFabricateCwdPath() throws {
+        let elsewhere = tempRoot.appendingPathComponent("websitemd.studio")
+        try fm.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        let fake = elsewhere.appendingPathComponent("alln")
+        fm.createFile(atPath: fake.path, contents: Data("not the real binary".utf8))
+
+        let resolved = InstallCLI.resolvedRunningBinary(
+            argv0: "alln",
+            pathEnvironment: tempRoot.appendingPathComponent("empty-bin").path,
+            currentDirectory: elsewhere.path,
+            fileManager: fm
+        )
+        XCTAssertNil(resolved, "bare name must not resolve to cwd/alln when PATH misses")
+    }
+
+    func testBootstrapLiveContextBareNameOnPATH() throws {
+        let binary = try makeBinary()
+        let binDir = tempRoot.appendingPathComponent("bin")
+        try fm.createDirectory(at: binDir, withIntermediateDirectories: true)
+        try fm.createSymbolicLink(
+            atPath: binDir.appendingPathComponent("alln").path,
+            withDestinationPath: binary
+        )
+        let cwd = tempRoot.appendingPathComponent("other-cwd")
+        try fm.createDirectory(at: cwd, withIntermediateDirectories: true)
+
+        let ctx = Bootstrap.liveContext(
+            argv0: "alln",
+            pathEnvironment: binDir.path,
+            fileManager: fm
+        )
+        XCTAssertEqual(ctx.binaryPath, binary)
+        XCTAssertTrue(ctx.onPath)
+    }
 }

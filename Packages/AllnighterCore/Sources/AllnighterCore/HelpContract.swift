@@ -22,6 +22,16 @@ public extension HelpService {
         "- Never guess flags — `alln help` is version-correct local truth, not training data.",
     ]
 
+    /// Compact Pilot recipe for the bootstrap snippet (additive; `Pilot_Relay.md` §1.8).
+    static let pilotWorkflowLines = [
+        "- Pilot loop (you are the PM): `alln pair pilot start --doc <spec> --project . --dev-worker <seat>`.",
+        "- Write this round's order markdown (goal / out-of-scope / pointers / proof required).",
+        "- `alln pair pilot handoff --relay <id> --verdict continue --handover-file <order.md>` — blocks through the dev turn.",
+        "- Read the printed dev report and `repoDelta`; resubmit or declare done (`--verdict done`).",
+        "- Stuck mid-round? `alln pair pilot watch --relay <id>` returns the dev report when the turn settles.",
+        "- Pilot is done when you say so — no hidden clock; `alln help get pm_relay` for the full playbook.",
+    ]
+
     /// Static help-topic preview when live binary path is unknown (help corpus only).
     static var hostInstructionBlock: String {
         Bootstrap.snippet(binaryPath: "alln", onPath: true)

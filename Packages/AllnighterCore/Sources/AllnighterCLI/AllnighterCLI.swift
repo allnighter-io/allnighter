@@ -369,7 +369,10 @@ struct AllnighterCLI {
             cursorProjectOverrideURL: CursorShellAllowlist.projectOverrideURL(
                 near: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             ),
-            runningBinaryPath: InstallCLI.resolvedRunningBinary(argv0: CommandLine.arguments.first),
+            runningBinaryPath: InstallCLI.resolvedRunningBinary(
+                argv0: CommandLine.arguments.first,
+                pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
+            ),
             pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
         )
         var result = DoctorReport.build(

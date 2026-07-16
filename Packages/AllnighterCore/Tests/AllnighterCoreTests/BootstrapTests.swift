@@ -53,16 +53,24 @@ final class BootstrapTests: XCTestCase {
     }
 
     /// Budget-consciousness is the whole point vs. MCP's always-loaded tool
-    /// schemas — keep the snippet in the ~6-9 line range the founder specified.
+    /// schemas — keep the snippet within the founder ≤15-line budget.
     func testSnippetStaysWithinLineBudget() {
         let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertGreaterThanOrEqual(onPathLines.count, 5)
-        XCTAssertLessThanOrEqual(onPathLines.count, 7, "on-path snippet grew past budget")
+        XCTAssertGreaterThanOrEqual(onPathLines.count, 10)
+        XCTAssertLessThanOrEqual(onPathLines.count, 15, "on-path snippet grew past budget")
 
         let offPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(offPathLines.count, 9, "off-path snippet grew past budget")
+        XCTAssertLessThanOrEqual(offPathLines.count, 15, "off-path snippet grew past budget")
+    }
+
+    func testSnippetIncludesPilotRecipe() {
+        let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
+        XCTAssertTrue(s.contains("pair pilot start"))
+        XCTAssertTrue(s.contains("pair pilot handoff"))
+        XCTAssertTrue(s.contains("pair pilot watch"))
+        XCTAssertTrue(s.contains("help get pm_relay"))
     }
 
     func testSnippetIsSharedSSOTWithHelpService() {

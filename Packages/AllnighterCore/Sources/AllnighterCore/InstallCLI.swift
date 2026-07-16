@@ -56,16 +56,36 @@ public enum InstallCLI {
         case failed(code: String, message: String)
     }
 
-    /// Resolved absolute path of the running binary (`argv[0]` realpath).
+    /// Resolved absolute path of the running binary from `argv[0]`.
+    ///
+    /// Handles three shapes: absolute path; relative path with `/` (resolved against
+    /// `currentDirectory`); bare command name (searches `pathEnvironment`, never
+    /// fabricates `<cwd>/name`).
     public static func resolvedRunningBinary(
         argv0: String?,
+        pathEnvironment: String? = nil,
+        currentDirectory: String? = nil,
         fileManager: FileManager = .default
     ) -> String? {
         guard let raw = argv0, !raw.isEmpty else { return nil }
         let expanded = (raw as NSString).expandingTildeInPath
-        let url = URL(fileURLWithPath: expanded)
-        guard fileManager.fileExists(atPath: url.path) else { return url.standardizedFileURL.path }
-        return url.resolvingSymlinksInPath().standardizedFileURL.path
+
+        if expanded.hasPrefix("/") {
+            return resolveExistingExecutable(expanded, fileManager: fileManager)
+        }
+        if expanded.contains("/") {
+            let cwd = currentDirectory ?? fileManager.currentDirectoryPath
+            let absolute = URL(fileURLWithPath: cwd).appendingPathComponent(expanded).standardizedFileURL.path
+            return resolveExistingExecutable(absolute, fileManager: fileManager)
+        }
+        guard let pathEnvironment else { return nil }
+        return resolveOnPath(command: expanded, pathEnvironment: pathEnvironment, fileManager: fileManager)
+    }
+
+    private static func resolveExistingExecutable(_ path: String, fileManager: FileManager) -> String? {
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory) else { return nil }
+        return URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
     }
 
     /// Default install dir: `/usr/local/bin` when writable, else `~/.local/bin`.
@@ -111,7 +131,11 @@ public enum InstallCLI {
     }
 
     public static func run(_ request: Request) -> Outcome {
-        guard let target = resolvedRunningBinary(argv0: request.argv0, fileManager: request.fileManager) else {
+        guard let target = resolvedRunningBinary(
+            argv0: request.argv0,
+            pathEnvironment: request.pathEnvironment,
+            fileManager: request.fileManager
+        ) else {
             return .failed(code: "CLI_USAGE_ERROR", message: "could not resolve the running binary path")
         }
 

@@ -35,6 +35,7 @@ public enum Bootstrap {
             lines.append("- Run `\(binaryPath) install-cli` once so plain `alln` works everywhere.")
         }
         lines.append(contentsOf: HelpService.bootstrapWorkflowLines)
+        lines.append(contentsOf: HelpService.pilotWorkflowLines)
         return lines.joined(separator: "\n")
     }
 
@@ -95,8 +96,11 @@ public enum Bootstrap {
         pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"],
         fileManager: FileManager = .default
     ) -> (binaryPath: String, onPath: Bool) {
-        let binaryPath = InstallCLI.resolvedRunningBinary(argv0: argv0, fileManager: fileManager)
-            ?? argv0 ?? "alln"
+        let binaryPath = InstallCLI.resolvedRunningBinary(
+            argv0: argv0,
+            pathEnvironment: pathEnvironment,
+            fileManager: fileManager
+        ) ?? argv0 ?? "alln"
         let onPath = InstallCLI.onPath(
             runningBinary: binaryPath,
             pathEnvironment: pathEnvironment,
