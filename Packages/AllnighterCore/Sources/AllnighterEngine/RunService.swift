@@ -159,6 +159,11 @@ public actor RunService {
         self.gitObserver = gitObserver
     }
 
+    /// Bench display name for a model id — used by relay prompt assembly (FR4).
+    public func workerDisplayName(forModelId id: String) -> String {
+        models.first { $0.id == id }?.displayName ?? id
+    }
+
     private func readyModels() -> [Model] { models.filter(\.enabled) }
 
     // MARK: - Try Fix support (FollowUpCoordinator)
@@ -452,6 +457,9 @@ public actor RunService {
                 basePrompt: baseAssembled,
                 deliveries: deliveries,
                 readsImages: manifest.canReadImages)
+        if !assembled.contains(ProvenanceConvention.trailerMarker) {
+            assembled += "\n\n" + ProvenanceConvention.commitTrailerAsk(displayName: model.displayName)
+        }
         let baselineHead = gitObserver.observe(rootPath: repoRoot).head
         let startedAt = now()
         let effectiveLane = requestLane ?? preset.lane

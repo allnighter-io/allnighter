@@ -143,11 +143,14 @@ public enum RelayDevPrompt {
         public var handover: String
         public var docPath: String
         public var roundNumber: Int
+        /// Worker display name for the provenance trailer (FR4).
+        public var workerDisplayName: String
 
-        public init(handover: String, docPath: String, roundNumber: Int) {
+        public init(handover: String, docPath: String, roundNumber: Int, workerDisplayName: String) {
             self.handover = handover
             self.docPath = docPath
             self.roundNumber = roundNumber
+            self.workerDisplayName = workerDisplayName
         }
     }
 
@@ -162,6 +165,7 @@ public enum RelayDevPrompt {
             did, what you committed, what you verified, and what remains. Be honest — no \
             fake-green.
             """,
+            ProvenanceConvention.commitTrailerAsk(displayName: context.workerDisplayName),
             """
             ## The PM's order
             What follows, between the markers, is the PM's handover — verbatim, unedited.

@@ -29,7 +29,8 @@ final class RelayPromptsTests: XCTestCase {
         let context = RelayDevPrompt.Context(
             handover: "Build the parser.",
             docPath: "docs/phases/PM_Relay.md",
-            roundNumber: 2
+            roundNumber: 2,
+            workerDisplayName: "Cursor Composer"
         )
         let first = RelayDevPrompt.assemble(context: context)
         let second = RelayDevPrompt.assemble(context: context)
@@ -115,7 +116,8 @@ final class RelayPromptsTests: XCTestCase {
         let context = RelayDevPrompt.Context(
             handover: tricky,
             docPath: "docs/phases/PM_Relay.md",
-            roundNumber: 4
+            roundNumber: 4,
+            workerDisplayName: "Grok Build"
         )
         let prompt = RelayDevPrompt.assemble(context: context)
         XCTAssertTrue(prompt.contains(tricky), "the handover must appear byte-for-byte, embedded fences included")
@@ -141,7 +143,8 @@ final class RelayPromptsTests: XCTestCase {
         let devContext = RelayDevPrompt.Context(
             handover: "Build the first unit of work described in the doc.",
             docPath: "docs/phases/PM_Relay.md",
-            roundNumber: 1
+            roundNumber: 1,
+            workerDisplayName: "Dev Seat"
         )
         let devPrompt = RelayDevPrompt.assemble(context: devContext)
         XCTAssertFalse(devPrompt.contains("RelayVerdict"))
@@ -220,6 +223,21 @@ final class RelayPromptsTests: XCTestCase {
         XCTAssertTrue(prompt.contains("handover"))
     }
 
+    // MARK: - Provenance trailer (FR4)
+
+    func testDevPromptIncludesCommitTrailerAskExactlyOnce() {
+        let context = RelayDevPrompt.Context(
+            handover: "Ship repoDelta.",
+            docPath: "docs/phases/Field_Reports_1.md",
+            roundNumber: 2,
+            workerDisplayName: "Grok Build"
+        )
+        let prompt = RelayDevPrompt.assemble(context: context)
+        let trailer = ProvenanceConvention.commitTrailerAsk(displayName: "Grok Build")
+        XCTAssertTrue(prompt.contains(trailer))
+        XCTAssertEqual(prompt.components(separatedBy: trailer).count - 1, 1)
+    }
+
     // MARK: - Doc path anchoring
 
     func testDocPathAppearsInBothPrompts() {
@@ -238,7 +256,8 @@ final class RelayPromptsTests: XCTestCase {
         let devContext = RelayDevPrompt.Context(
             handover: "Do the thing.",
             docPath: "docs/phases/Weird_Doc.md",
-            roundNumber: 1
+            roundNumber: 1,
+            workerDisplayName: "Dev Seat"
         )
         XCTAssertTrue(RelayDevPrompt.assemble(context: devContext).contains("docs/phases/Weird_Doc.md"))
     }

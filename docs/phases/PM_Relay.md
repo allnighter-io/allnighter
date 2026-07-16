@@ -202,6 +202,8 @@ multimodal seats judge screenshots, text seats read reports. Allnighter adds not
 5. **Honest reporting** — the relay surfaces what each seat returned; it never marks
    done on its own judgment. (The PM's "don't fake-green the smoke" discipline is the
    PM's; Allnighter's is: verdicts and returns are recorded verbatim, run-truth.)
+6. **Provenance by convention** — dev-turn prompts ask workers to end commit messages
+   with `Co-Authored-By: <worker> via Allnighter`; Allnighter does no git (FR4).
 
 ---
 

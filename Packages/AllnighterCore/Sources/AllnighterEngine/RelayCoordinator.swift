@@ -300,8 +300,11 @@ public struct RelayCoordinator: Sendable {
             state.status = .running
             persist(state)
 
+            let devDisplayName = await runService.workerDisplayName(forModelId: state.devWorkerId)
             let devRequest = RunRequest(
-                message: RelayDevPrompt.assemble(context: .init(handover: handover, docPath: state.docPath, roundNumber: roundNumber)),
+                message: RelayDevPrompt.assemble(context: .init(
+                    handover: handover, docPath: state.docPath, roundNumber: roundNumber,
+                    workerDisplayName: devDisplayName)),
                 repoRoot: state.projectRoot, projectId: projectId,
                 presetId: "execution_playbook", workerId: state.devWorkerId
             )
@@ -805,8 +808,11 @@ public struct RelayCoordinator: Sendable {
                 }
             }
 
+            let devDisplayName = await runService.workerDisplayName(forModelId: config.devWorkerId)
             let devRequest = RunRequest(
-                message: RelayDevPrompt.assemble(context: .init(handover: handover, docPath: config.docPath, roundNumber: roundNumber)),
+                message: RelayDevPrompt.assemble(context: .init(
+                    handover: handover, docPath: config.docPath, roundNumber: roundNumber,
+                    workerDisplayName: devDisplayName)),
                 repoRoot: config.projectRoot, projectId: config.projectId,
                 presetId: config.presetId, workerId: config.devWorkerId
             )
