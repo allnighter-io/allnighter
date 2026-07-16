@@ -139,17 +139,18 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         self.updatedAt = updatedAt
     }
 
-    /// Fresh-install seed: 3 models per tier across multiple CLIs, so substitution
-    /// always has somewhere to go even when a user has only one or two CLIs. Each
-    /// tier's default (index 0) is on-by-default, so Auto works day-one. Demonstrates
-    /// many-to-many membership: the cheap-but-flagship-grade Composer (Grok route)
-    /// sits in Flagship (backup) AND Balanced (value), and Gemini Flash spans
-    /// Balanced + Fast. Seed only — fully user-overridable.
+    /// Fresh-install seed: ordered membership per tier across multiple CLIs so
+    /// substitution always has somewhere to go even when a user has only one or two
+    /// CLIs. Each tier's default (index 0) is on-by-default, so Auto works day-one.
+    /// Flagship leads with Claude Opus 4.8 (`model_opus`); Antigravity Opus 4.6
+    /// (`model_agy_opus`) is the immediate Opus fallback — never selected while 4.8
+    /// is ready. Composer spans Flagship (backup) AND Balanced (value); Gemini Flash
+    /// spans Balanced + Fast. Seed only — fully user-overridable.
     public static let fresh = DefaultModelSettings(
         defaultTier: .flagship,
         allowHealthySubstitutions: true,
         tiers: TierMembership(
-            flagship: ["model_opus", "model_chatgpt", "model_composer"],
+            flagship: ["model_opus", "model_agy_opus", "model_chatgpt", "model_composer"],
             balanced: ["model_sonnet", "model_composer", "model_gemini"],
             fast: ["model_cursor_auto", "model_grok", "model_gemini"]))
 

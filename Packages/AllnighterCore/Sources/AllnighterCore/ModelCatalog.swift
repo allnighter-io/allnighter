@@ -10,6 +10,13 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
             strengthRank: 100),
+        // Antigravity Opus 4.6 — fallback-only when Claude Code Opus 4.8 is unavailable.
+        // Never outrank model_opus (100); stays below ChatGPT/Sonnet so strongestReady
+        // still prefers real flagships, while tier Auto can land here as Opus substitute.
+        "model_agy_opus": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
+            strengthRank: 75),
         "model_chatgpt": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security],

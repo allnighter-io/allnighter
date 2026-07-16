@@ -92,6 +92,39 @@ final class BuiltInTeamsTests: XCTestCase {
         }
     }
 
+    func testNoBuiltInSeedPrefersAgyOpus() {
+        // Antigravity Opus 4.6 is fallback-only; seeds always prefer Claude Opus 4.8.
+        for team in BuiltInTeams.all {
+            XCTAssertNotEqual(team.lead.preferredModelId, "model_agy_opus", "\(team.id) lead")
+            for row in team.workerSpecs {
+                XCTAssertNotEqual(row.preferredModelId, "model_agy_opus",
+                                  "\(team.id) worker \(row.id)")
+            }
+            if let scout = team.scout {
+                XCTAssertNotEqual(scout.preferredModelId, "model_agy_opus", "\(team.id) scout")
+            }
+        }
+    }
+
+    func testLeadFallsBackStrongestWhenOpusUnavailableIncludingAgy() {
+        // Preferred Claude Opus down; AGY Opus + ChatGPT ready → strongestReady
+        // picks ChatGPT (rank 90) over AGY Opus (rank 75). AGY is an ordered
+        // Flagship Auto fallback, not a stronger general lead than ChatGPT.
+        let team = BuiltInTeams.team("code_core")!
+        let ready: [Model] = [
+            Model(id: "model_agy_opus", displayName: "Claude Opus 4.6",
+                  modelLabel: "Claude Opus 4.6 (Thinking)", driverId: "antigravity", role: .both),
+            Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5",
+                  driverId: "codex", role: .answerer),
+            Model(id: "model_cursor_composer_25", displayName: "Composer 2.5",
+                  modelLabel: "composer-2.5", driverId: "cursor_agent", role: .answerer),
+        ]
+        let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .med, readyModels: ready)
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.planWriter?.modelId, "model_chatgpt")
+        XCTAssertNotEqual(r.planWriter?.modelId, "model_agy_opus")
+    }
+
     func testImplementationSourceChoicesDoNotAppearAsTeams() {
         for team in BuiltInTeams.all {
             XCTAssertFalse(team.displayName.lowercased().contains("implementation"))

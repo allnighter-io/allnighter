@@ -1,5 +1,6 @@
 import XCTest
 import AgentOSCLI
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 

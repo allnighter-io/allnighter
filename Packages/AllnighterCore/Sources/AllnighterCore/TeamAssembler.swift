@@ -29,15 +29,25 @@ public enum TeamAssembler {
     /// `ready` (derive `readyDriverIds` from `ToolProbeRecord`s that `.isReady`).
     public static func assemble(models: [Model], readyDriverIds: Set<String>, now: Date) -> Assembled {
         let ready = models.filter { $0.enabled && readyDriverIds.contains($0.driverId) }
-        // Plan writer: prefer an eligible model (role planWriter/both); fall back to
-        // the first ready model so a plan can still be written truthfully.
-        let planWriter = ready.first(where: \.canWritePlan) ?? ready.first
+        // Plan writer: strongest eligible model (role planWriter/both) by catalog
+        // strengthRank so Claude Opus 4.8 beats Antigravity Opus 4.6 even when the
+        // array lists agy first. Fall back to the first ready model truthfully.
+        let planWriter = strongestPlanWriter(in: ready) ?? ready.first
         return Assembled(
             benchModelIds: ready.map(\.id),
             workerSpecs: ready.map { WorkerSpec(modelId: $0.id) },
             planWriterModelId: planWriter?.id,
             assembledAt: now
         )
+    }
+
+    /// Highest `strengthRank` among plan-writer-capable models; stable id tie-break.
+    public static func strongestPlanWriter(in models: [Model]) -> Model? {
+        models.filter(\.canWritePlan).sorted { a, b in
+            let ra = ModelCatalog.capabilities(a.id).strengthRank
+            let rb = ModelCatalog.capabilities(b.id).strengthRank
+            return ra != rb ? ra > rb : a.id < b.id
+        }.first
     }
 
     /// Convenience: derive ready driver ids from probe records.

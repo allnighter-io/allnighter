@@ -13,11 +13,12 @@ final class DefaultSettingsProjectorTests: XCTestCase {
     }
 
     /// Full catalog covering the fresh seed + one unassigned-on + one off-and-unassigned.
-    private func catalog(ready: Set<String> = ["model_opus", "model_chatgpt", "model_composer",
+    private func catalog(ready: Set<String> = ["model_opus", "model_agy_opus", "model_chatgpt", "model_composer",
                                                "model_sonnet", "model_gemini", "model_cursor_auto",
                                                "model_grok", "model_extra"]) -> [ModelListJSON.Entry] {
         [
             entry("model_opus", "Opus 4.8", ready: ready.contains("model_opus")),
+            entry("model_agy_opus", "Claude Opus 4.6", driver: "antigravity", ready: ready.contains("model_agy_opus")),
             entry("model_chatgpt", "ChatGPT 5.5", driver: "codex", ready: ready.contains("model_chatgpt")),
             entry("model_composer", "Grok Composer 2.5 Fast", driver: "grok", ready: ready.contains("model_composer")),
             entry("model_sonnet", "Sonnet 4.6", ready: ready.contains("model_sonnet")),
@@ -37,12 +38,13 @@ final class DefaultSettingsProjectorTests: XCTestCase {
 
         let flagship = p.tiers[0]
         XCTAssertTrue(flagship.isDefaultTier)
-        XCTAssertEqual(flagship.members.map(\.id), ["model_opus", "model_chatgpt", "model_composer"])
+        XCTAssertEqual(flagship.members.map(\.id),
+                       ["model_opus", "model_agy_opus", "model_chatgpt", "model_composer"])
         XCTAssertEqual(flagship.defaultModelId, "model_opus")
         XCTAssertTrue(flagship.members[0].isTierDefault)
         XCTAssertFalse(flagship.members[1].isTierDefault)
-        XCTAssertEqual(flagship.substituteCount, 2)
-        XCTAssertEqual(flagship.readyCount, 3)
+        XCTAssertEqual(flagship.substituteCount, 3)
+        XCTAssertEqual(flagship.readyCount, 4)
 
         // Composer carries both its tiers as badges (many-to-many).
         let composer = flagship.members.first { $0.id == "model_composer" }
@@ -65,12 +67,25 @@ final class DefaultSettingsProjectorTests: XCTestCase {
     }
 
     func testAutoSubstitutesWhenDefaultDown() {
-        // Opus down; ChatGPT ready → Auto substitutes within Flagship.
+        // Opus down; ChatGPT ready (agy also down) → Auto substitutes within Flagship.
         let models = catalog(ready: ["model_chatgpt"])
         let p = DefaultSettingsProjector.build(settings: .fresh, models: models, contractVersion: "1.0.0")
         XCTAssertEqual(p.auto.resolvedModelId, "model_chatgpt")
         XCTAssertTrue(p.auto.substituted)
         XCTAssertFalse(p.auto.blocked)
+    }
+
+    func testAutoPrefersOpus48AndFallsBackToAgyOpus() {
+        // Both Opus seats ready → always Claude 4.8.
+        let both = DefaultSettingsProjector.build(
+            settings: .fresh, models: catalog(ready: ["model_opus", "model_agy_opus"]), contractVersion: "1.0.0")
+        XCTAssertEqual(both.auto.resolvedModelId, "model_opus")
+        XCTAssertFalse(both.auto.substituted)
+        // Claude down, AGY Opus ready → ordered Opus fallback.
+        let agyOnly = DefaultSettingsProjector.build(
+            settings: .fresh, models: catalog(ready: ["model_agy_opus"]), contractVersion: "1.0.0")
+        XCTAssertEqual(agyOnly.auto.resolvedModelId, "model_agy_opus")
+        XCTAssertTrue(agyOnly.auto.substituted)
     }
 
     func testAutoBlocksAndCarriesWaitsMessageWhenTierDown() {

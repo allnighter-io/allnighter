@@ -50,6 +50,10 @@ final class SkillCatalogTests: XCTestCase {
 
     func testModelCapabilitiesAreDeterministicAndRanked() {
         XCTAssertEqual(ModelCatalog.capabilities("model_opus").strengthRank, 100)
+        XCTAssertEqual(ModelCatalog.capabilities("model_agy_opus").strengthRank, 75,
+                       "AGY Opus is fallback-only; never outranks Claude Opus 4.8")
+        XCTAssertLessThan(ModelCatalog.capabilities("model_agy_opus").strengthRank,
+                          ModelCatalog.capabilities("model_opus").strengthRank)
         XCTAssertTrue(ModelCatalog.capabilities("model_opus").capabilityTags.contains(.planner))
         XCTAssertTrue(ModelCatalog.capabilities("model_gemini").capabilityTags.contains(.image))
         // Unknown model -> empty defaults, never a crash.

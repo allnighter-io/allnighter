@@ -128,7 +128,7 @@ public enum ContractSchema {
             ], required: ["command", "passed", "outputTail"]),
             "OutcomeTokenUsage": obj([
                 "inputTokens": nullable("integer"), "outputTokens": nullable("integer"),
-            ]),
+            ], required: []),
             "Usage": obj(["cliCalls": int], required: ["cliCalls"]),
             "Warning": obj(["code": nullable("string"), "message": str], required: ["message"]),
             "ErrorEnvelope": errorEnvelopeDef(),

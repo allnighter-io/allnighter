@@ -22,7 +22,9 @@ public enum BuiltInTeams {
 
     // MARK: - Model routing (fan-out diversity policy)
 
-    /// Synthesis Lead — one strong model reads the crew and writes the packet.
+    /// Synthesis Lead — Claude Code Opus 4.8. Antigravity Opus 4.6 (`model_agy_opus`)
+    /// is never a preferred seed; it is fallback-only via Flagship tier order /
+    /// strongestReady ranking when Claude Code is unavailable.
     private static let leadOpus = "model_opus"
     /// Default worker anchor for code/build teams (how users actually run teams).
     private static let composer = "model_cursor_composer_25"

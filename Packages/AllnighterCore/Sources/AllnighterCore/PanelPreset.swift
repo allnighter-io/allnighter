@@ -79,7 +79,9 @@ public struct PanelPreset: Codable, Sendable, Equatable, Identifiable {
         planProfileId: String,
         planWriterModelId: String? = nil
     ) -> PanelPreset {
-        let planWriter = planWriterModelId ?? models.first(where: \.canWritePlan)?.id ?? models.first?.id
+        let planWriter = planWriterModelId
+            ?? TeamAssembler.strongestPlanWriter(in: models)?.id
+            ?? models.first?.id
         return PanelPreset(
             id: id,
             displayName: displayName,

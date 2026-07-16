@@ -16,17 +16,36 @@ final class PilotSeatResolverTests: XCTestCase {
         XCTAssertEqual(try PilotSeatResolver.resolve(alias: "opus", models: models).get(), "model_opus")
     }
 
-    func testAmbiguousAliasListsCandidates() {
+    func testOpusAliasPrefersClaude48OverAgy46() {
+        // Both catalog Opus seats match "opus"; Claude 4.8 (rank 100) must win.
+        let models = [
+            model("model_agy_opus", name: "Claude Opus 4.6", driver: "antigravity"),
+            model("model_opus", name: "Opus 4.8"),
+        ]
+        XCTAssertEqual(try PilotSeatResolver.resolve(alias: "opus", models: models).get(), "model_opus")
+    }
+
+    func testAmbiguousAliasListsCandidatesWhenRanksTie() {
+        // Two models match with equal (zero) strength — still ambiguous.
+        let models = [
+            model("model_custom_a", name: "Custom Alpha", driver: "codex"),
+            model("model_custom_b", name: "Custom Alpha Plus", driver: "codex"),
+        ]
+        let result = PilotSeatResolver.resolve(alias: "alpha", models: models)
+        guard case .failure(.ambiguous(let alias, let candidates)) = result else {
+            return XCTFail("expected ambiguous")
+        }
+        XCTAssertEqual(alias, "alpha")
+        XCTAssertEqual(candidates.map(\.id).sorted(), ["model_custom_a", "model_custom_b"])
+    }
+
+    func testSonnetAliasPrefersClaudeCodeOverAgyWhenRanksDiffer() {
+        // model_sonnet rank 80; model_agy_sonnet has no explicit rank (0) → Claude Code wins.
         let models = [
             model("model_sonnet", name: "Sonnet 4.6"),
             model("model_agy_sonnet", name: "AGY Sonnet", driver: "antigravity"),
         ]
-        let result = PilotSeatResolver.resolve(alias: "sonnet", models: models)
-        guard case .failure(.ambiguous(let alias, let candidates)) = result else {
-            return XCTFail("expected ambiguous")
-        }
-        XCTAssertEqual(alias, "sonnet")
-        XCTAssertEqual(candidates.map(\.id).sorted(), ["model_agy_sonnet", "model_sonnet"])
+        XCTAssertEqual(try PilotSeatResolver.resolve(alias: "sonnet", models: models).get(), "model_sonnet")
     }
 
     func testCaseInsensitiveSubstringMatch() {

@@ -32,8 +32,10 @@ final class ModelCatalogTests: XCTestCase {
     func testBuiltInsDefaultEnabledOnFreshInstall() {
         let registry = testRegistry()
         let models = ModelCatalog.resolvedModels(registry: registry)
-        // opus, sonnet, gpt-5.5, grok-build, Gemini 3.5 Flash, Cursor Auto, Cursor Composer 2.5.
-        XCTAssertEqual(models.filter(\.enabled).count, 7)
+        // opus, sonnet, gpt-5.5, grok, Gemini Flash, Cursor Auto, Cursor Composer 2.5, Cursor Grok 4.5.
+        // (model_agy_opus stays default-off — fallback-only.)
+        XCTAssertEqual(models.filter(\.enabled).count, 8)
+        XCTAssertFalse(models.first { $0.id == "model_agy_opus" }?.enabled ?? true)
     }
 
     func testDisableSonnetPersistsAcrossReload() throws {

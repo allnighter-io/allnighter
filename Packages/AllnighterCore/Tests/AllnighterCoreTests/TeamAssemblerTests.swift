@@ -21,6 +21,30 @@ final class TeamAssemblerTests: XCTestCase {
         XCTAssertFalse(a.isEmpty)
     }
 
+    func testPlanWriterPrefersClaudeOpusOverAgyEvenWhenAgyListedFirst() {
+        // Alphabetically model_agy_opus < model_opus; strength rank must still win.
+        let mixed = [
+            Model(id: "model_agy_opus", displayName: "Claude Opus 4.6",
+                  modelLabel: "Claude Opus 4.6 (Thinking)", driverId: "antigravity", role: .both),
+            Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus",
+                  driverId: "claude_code", role: .both),
+        ]
+        let a = TeamAssembler.assemble(
+            models: mixed, readyDriverIds: ["antigravity", "claude_code"], now: t)
+        XCTAssertEqual(a.planWriterModelId, "model_opus")
+    }
+
+    func testPlanWriterFallsBackToAgyWhenClaudeUnavailable() {
+        let onlyAgy = [
+            Model(id: "model_agy_opus", displayName: "Claude Opus 4.6",
+                  modelLabel: "Claude Opus 4.6 (Thinking)", driverId: "antigravity", role: .both),
+            Model(id: "model_sonnet", displayName: "Sonnet", modelLabel: "sonnet",
+                  driverId: "claude_code", role: .answerer),
+        ]
+        let a = TeamAssembler.assemble(models: onlyAgy, readyDriverIds: ["antigravity"], now: t)
+        XCTAssertEqual(a.planWriterModelId, "model_agy_opus")
+    }
+
     func testFallsBackToFirstReadyWhenNoEligiblePlanWriter() {
         let a = TeamAssembler.assemble(models: models, readyDriverIds: ["codex"], now: t)
         XCTAssertEqual(a.benchModelIds, ["model_codex"])

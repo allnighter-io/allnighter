@@ -10,9 +10,37 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(s.defaultTier, .flagship)
         XCTAssertTrue(s.allowHealthySubstitutions)
         XCTAssertEqual(s.tierDefault(.flagship), "model_opus")
-        XCTAssertEqual(s.tiers.flagship, ["model_opus", "model_chatgpt", "model_composer"])
+        // Opus 4.8 first; Antigravity Opus 4.6 is the ordered Opus fallback only.
+        XCTAssertEqual(s.tiers.flagship, ["model_opus", "model_agy_opus", "model_chatgpt", "model_composer"])
         XCTAssertEqual(s.tiers.balanced, ["model_sonnet", "model_composer", "model_gemini"])
         XCTAssertEqual(s.tiers.fast, ["model_cursor_auto", "model_grok", "model_gemini"])
+    }
+
+    func testAutoPrefersOpus48OverAgyOpusWhenBothReady() {
+        let r = SubstitutionResolver.resolveAuto(
+            settings: .fresh,
+            readyModelIds: ["model_opus", "model_agy_opus", "model_chatgpt"])
+        XCTAssertEqual(r.resolvedModelId, "model_opus")
+        XCTAssertFalse(r.substituted)
+    }
+
+    func testAutoFallsBackToAgyOpusWhenClaudeOpusUnavailable() {
+        // Claude Code Opus down; Antigravity Opus ready → ordered Flagship fallback.
+        let r = SubstitutionResolver.resolveAuto(
+            settings: .fresh,
+            readyModelIds: ["model_agy_opus", "model_chatgpt"])
+        XCTAssertEqual(r.resolvedModelId, "model_agy_opus")
+        XCTAssertTrue(r.substituted)
+        XCTAssertEqual(r.tier, .flagship)
+    }
+
+    func testRequestedOpusFallsBackToAgyBeforeChatGPT() {
+        let r = SubstitutionResolver.resolveRequested(
+            modelId: "model_opus",
+            settings: .fresh,
+            readyModelIds: ["model_agy_opus", "model_chatgpt"])
+        XCTAssertEqual(r.resolvedModelId, "model_agy_opus")
+        XCTAssertTrue(r.substituted)
     }
 
     func testRoundTripCodable() throws {
@@ -202,6 +230,6 @@ final class DefaultModelSettingsTests: XCTestCase {
         try p.save(s)
         let reset = try p.reset()
         XCTAssertEqual(reset.defaultTier, .flagship)
-        XCTAssertEqual(reset.tiers.flagship, ["model_opus", "model_chatgpt", "model_composer"])
+        XCTAssertEqual(reset.tiers.flagship, ["model_opus", "model_agy_opus", "model_chatgpt", "model_composer"])
     }
 }

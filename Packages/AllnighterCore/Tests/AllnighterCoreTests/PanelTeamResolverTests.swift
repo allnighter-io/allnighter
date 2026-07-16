@@ -141,17 +141,40 @@ final class PanelTeamResolverTests: XCTestCase {
         )
     }
 
-    func testResolveSeatAliasAmbiguousAmongEnabled() {
+    func testResolveSeatAliasPrefersStrongerWhenMultipleEnabledMatch() {
+        // model_sonnet (rank 80) beats unranked AGY Sonnet; same policy as pilot.
         let models = [
             model("model_sonnet", name: "Sonnet 4.6", enabled: true),
             model("model_agy_sonnet", name: "AGY Sonnet", driver: "antigravity", enabled: true),
         ]
-        let result = PanelTeamResolver.resolveSeatAlias("sonnet", models: models)
+        XCTAssertEqual(
+            try PanelTeamResolver.resolveSeatAlias("sonnet", models: models).get(),
+            "model_sonnet"
+        )
+    }
+
+    func testResolveSeatAliasOpusPrefersClaude48OverAgy() {
+        let models = [
+            model("model_agy_opus", name: "Claude Opus 4.6", driver: "antigravity", enabled: true),
+            model("model_opus", name: "Opus 4.8", enabled: true),
+        ]
+        XCTAssertEqual(
+            try PanelTeamResolver.resolveSeatAlias("opus", models: models).get(),
+            "model_opus"
+        )
+    }
+
+    func testResolveSeatAliasAmbiguousWhenRanksTieAmongEnabled() {
+        let models = [
+            model("model_custom_a", name: "Custom Alpha", driver: "codex", enabled: true),
+            model("model_custom_b", name: "Custom Alpha Plus", driver: "codex", enabled: true),
+        ]
+        let result = PanelTeamResolver.resolveSeatAlias("alpha", models: models)
         guard case .failure(.ambiguous(let alias, let candidates)) = result else {
             return XCTFail("expected ambiguous, got \(result)")
         }
-        XCTAssertEqual(alias, "sonnet")
-        XCTAssertEqual(candidates.map(\.id).sorted(), ["model_agy_sonnet", "model_sonnet"])
+        XCTAssertEqual(alias, "alpha")
+        XCTAssertEqual(candidates.map(\.id).sorted(), ["model_custom_a", "model_custom_b"])
     }
 
     func testResolveSeatAliasUnknownListsReadyViaNoMatch() {
