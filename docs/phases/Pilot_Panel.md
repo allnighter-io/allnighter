@@ -1,7 +1,13 @@
 # Panel — session-led blind jury on any target
 
-Status: **Specced v2 — approved concept (founder 2026-07-16); mentor feedback folded
-2026-07-16; build on go**
+Status: **SHIPPED — PN-S01–S06 built (piloted delivery #9, relay_17eb0a3d, Grok CLI
+dev seat, 6 rounds incl. one works-test fix: --seat alias resolution at start).
+Works test PASSED LIVE (panel_c8f410b5): 2 rounds, 3 blind seats on 3 CLIs
+(claude RO-mode / grok clone / cursor clone), target-hash change proven between
+rounds, 29 structured findings, the memory spec hardened twice by its own jury,
+done-by-declaration. Clone proof-of-truth: fake mutating seat, real tree
+byte-identical. Bonus finding: HandoverGate blocked the PM's own handover on a
+literal mention (danger-not-doubt held; rephrase-and-resubmit worked).**
 Owner: AllnighterCore + CLI
 Updated: 2026-07-16
 
