@@ -2,7 +2,7 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-/// PL-S06 works tests (`docs/phases/Pilot_Relay.md` §5 "the night-shift handover is the
+/// PL-S06 works tests (`docs/phases/Pilot_Relay.md` §5 "adopt (unattended handover) is the
 /// strategic unlock"): `RelayCoordinator.adopt` converts a PARKED pilot relay to a
 /// spawned PM relay and continues the SAME round log; `RelayCoordinator.adoptToPilot` is
 /// the trivial reverse flip. Fixtures mirror `RelayCoordinatorTests`/`PilotCoordinatorTests`

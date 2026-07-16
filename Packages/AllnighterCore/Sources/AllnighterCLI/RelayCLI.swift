@@ -86,7 +86,7 @@ enum RelayCLI {
     }
 
     /// `pair relay adopt --relay <id> --pm-worker <id>` (docs/phases/Pilot_Relay.md
-    /// §5, PL-S06) — the night-shift handover: hands a parked Pilot relay to a
+    /// §5, PL-S06) — adopt (unattended handover): hands a parked Pilot relay to a
     /// spawned PM, then lets the loop run to a terminal state exactly like `relay`/
     /// `relay-resume`. `projectRoot`/`docPath`/`devWorkerId` are always read from the
     /// loaded relay (never from a flag here) — an adopt can never silently redirect a

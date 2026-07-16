@@ -18,7 +18,7 @@ public enum RelayPMPrompt {
         /// Injected on `--resume` after an escalation — the founder's answer.
         public var founderNote: String?
         /// Injected exactly once, on the FIRST spawned PM turn after `RelayCoordinator.
-        /// adopt` (`docs/phases/Pilot_Relay.md` §5, PL-S06 "night-shift handover"):
+        /// adopt` (`docs/phases/Pilot_Relay.md` §5, PL-S06 "adopt (unattended handover)"):
         /// tells the incoming spawned PM that earlier rounds on this SAME relay ran in
         /// Pilot mode (a live session held the seat directly, no `pmRunId`), so it reads
         /// the round log as its own relay's history rather than a stranger's. `nil` on
@@ -68,7 +68,7 @@ public enum RelayPMPrompt {
         }
 
         if let adoptionNote = context.adoptionNote, !adoptionNote.isEmpty {
-            parts.append("## Adopted from Pilot (night-shift handover)\n\(adoptionNote)")
+            parts.append("## Adopted from Pilot (unattended handover)\n\(adoptionNote)")
         }
 
         if let devReport = context.devReport {

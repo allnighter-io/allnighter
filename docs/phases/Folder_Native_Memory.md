@@ -43,7 +43,7 @@ The 10x is NOT better retrieval — no vector DB, no RAG, no memory subsystem. T
 > shift. Every other surface makes agents re-earn the same scars.
 
 Product sentence: **"Stop paying the cold-start tax."** The conversion event is
-**night 2**: the first overnight run that opens by citing what night 1 learned.
+**second-run**: the first unattended relay that opens by citing what the first run learned.
 Everything below serves those two sentences; anything that doesn't is bloat.
 
 ## Design skeleton (v0 — harden as we learn)
@@ -128,7 +128,7 @@ Who writes: per the Write authority block above — no second statement here.
    schedules, never writes) — emits the Learning card (that card IS the founder
    digest surface; no separate surface). "Fold lessons" means: WRITE the lines
    into MEMORY.md; a done-note observation alone is fodder, not a fold. This
-   unlocks the night-2 works test.
+   unlocks the second-run works test.
 5. Adoption polish (panel finding, accepted): a zero-line scaffold HEADER for new
    repos (schema + curation rules only, zero unearned lines — compatible with the
    no-starter-templates anti-goal) + the bootstrap snippet gains the MEMORY.md
@@ -149,14 +149,15 @@ Who writes: per the Write authority block above — no second statement here.
   system feeding memory automatically.
 - No pricing/tier design in this doc — strategy docs own that.
 
-## Works test (night-2, the conversion event — REQUIRES the consolidation round, unshipped)
+## Works test (second-run, the conversion event — REQUIRES the consolidation round, unshipped)
 
 Until consolidation ships, the honest variant is pilot-driven: the cockpit
 session folds lessons at done and the next session cites them (proven live
-2026-07-16, piloted delivery #9 round 1). The full unattended version: same doc, two overnight relays on consecutive nights. Night 1 runs cold and its
-closing consolidation writes MEMORY.md (Learning card emitted). Night 2's PM
-opens by citing at least one memory line, avoids at least one night-1 trap
-without re-discovering it, and the founder's morning digest shows the delta.
+2026-07-16, piloted delivery #9 round 1). The full unattended version: same doc, two
+unattended relays back-to-back. The first run goes cold and its closing consolidation
+writes MEMORY.md (Learning card emitted). The second run's PM opens by citing at least
+one memory line, avoids at least one first-run trap without re-discovering it, and the
+founder's digest shows the delta.
 PASS = a reviewer comparing the two round logs can point at the cold-start tax
 that was not paid twice. (Cold-vs-warm side-by-side is also the demo asset.)
 
@@ -188,7 +189,7 @@ that was not paid twice. (Cold-vs-warm side-by-side is also the demo asset.)
 - 2026-07-16 (hardening pass, external feedback triaged): incorporated — typed
   memory lines (control surface not diary), claim→burned→verify line shape,
   ruthless curation order, invalidation-as-half-the-feature, hard caps, secrets
-  refusal, cite-or-it-didn't-happen + Learning card, night-2 works test, "stop
+  refusal, cite-or-it-didn't-happen + Learning card, second-run works test, "stop
   paying the cold-start tax" positioning. Rejected — Repo IQ score, starter
   templates, pricing tiers (recorded as anti-goals). Sharpest reframe kept: the
   product is not "memory," it is the **repo posterior maintained as a process**

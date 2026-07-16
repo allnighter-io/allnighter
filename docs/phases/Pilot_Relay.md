@@ -129,7 +129,7 @@ any PM mutation. The rules that keep it safe:
 | --- | --- |
 | "Never spawn a PM — my session is the PM" | Pilot mode, exactly. Judgment never leaves your session. |
 | Automate while I'm in this IDE? | Yes — one blocking `handoff` call per round; the playbook loop plus Allnighter's rails. |
-| Automate after I leave? | Not in pilot (no clock, by definition). Either come back and `handoff` again — state is durable — or **hand the relay to the night shift** (§5). |
+| Automate after I leave? | Not in pilot (no clock, by definition). Either come back and `handoff` again — state is durable — or **adopt** the relay to a spawned PM (§5). |
 | Can't Allnighter push to my chat? | No, and it doesn't try. Pull-based: blocking calls + `watch`/`status`. |
 | Two products or one? | One substrate, two entries. Marketing: "Pilot: stay in the cockpit. Relay: go to sleep." |
 
@@ -144,15 +144,15 @@ any PM mutation. The rules that keep it safe:
 | PL-S03 | CLI `alln pair pilot start|handoff|status|watch` (+`--file`/stdin verdict-tail input; handoff blocks by default) + RelayJSON additions (pmMode, awaitingPM) + contracts | RelayCLI, RelayVerdictParser | DONE |
 | PL-S04 | ~~MCP actions~~ **DEAD — MCP retired (`MCP_Retirement.md`); the CLI verbs in PL-S03 are the only agent surface** | — | DEAD |
 | PL-S05 | Thread projection for external PM turns (submission verbatim as the PM turn; awaitingPM renders as a calm parked state, not running) | RelayThreadProjector | DONE |
-| PL-S06 | **Night-shift handover:** `alln pair relay adopt --relay <id> --pm-worker <id>` converts a parked pilot relay to `pmMode: spawned` mid-flight — same state, same thread; the spawned PM reads the round log and keeps going. (Reverse — relay→pilot — falls out of the same move.) | RelayCoordinator.resume lineage | DONE |
+| PL-S06 | **Adopt (unattended handover):** `alln pair relay adopt --relay <id> --pm-worker <id>` converts a parked pilot relay to `pmMode: spawned` mid-flight — same state, same thread; the spawned PM reads the round log and keeps going. (Reverse — relay→pilot — falls out of the same move.) | RelayCoordinator.resume lineage | DONE |
 | PL-S07 | Works test: drive a real pilot relay from a Claude Code session via the CLI (`pilot start` → 2× `handoff` → `done`), then `adopt` a parked pilot relay and let a spawned PM finish it | — | DONE — evidence in §8 |
 
-## 5. The night-shift handover (PL-S06) is the strategic unlock
+## 5. Adopt (unattended handover) (PL-S06) is the strategic unlock
 
 "What you cannot get without a spawned PM" stops being a wall and becomes a throttle:
 pilot the first rounds from your IDE while context is hot, then `adopt` hands the SAME
-relay — state, round log, thread — to a spawned PM for the night. Wake up, read the
-thread, take the seat back or let it finish. That is the full "own the bookends"
+relay — state, round log, thread — to a spawned PM to keep going unattended. Come back,
+read the thread, take the seat back or let it finish. That is the full "own the bookends"
 story in one feature.
 
 ## 6. Non-goals

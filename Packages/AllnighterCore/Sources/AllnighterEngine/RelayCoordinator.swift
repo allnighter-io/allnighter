@@ -357,7 +357,7 @@ public struct RelayCoordinator: Sendable {
         }
     }
 
-    // MARK: - Adopt (docs/phases/Pilot_Relay.md §5, PL-S06) — the night-shift handover
+    // MARK: - Adopt (docs/phases/Pilot_Relay.md §5, PL-S06) — adopt (unattended handover)
 
     /// `alln pair relay adopt` failure. Every case leaves the relay's durable state
     /// exactly as it was before the call.
@@ -373,7 +373,7 @@ public struct RelayCoordinator: Sendable {
     }
 
     /// `alln pair relay adopt --relay <id> --pm-worker <id>` (`docs/phases/
-    /// Pilot_Relay.md` §5 "the night-shift handover is the strategic unlock") —
+    /// Pilot_Relay.md` §5 "adopt (unattended handover) is the strategic unlock") —
     /// converts a PARKED pilot relay (`pmMode == .external`, `status == .awaitingPM`
     /// or `.escalated`) to `pmMode: .spawned` with `pmWorkerId` as the new PM seat,
     /// then CONTINUES the SAME relay — same id, same round log, same thread — from
