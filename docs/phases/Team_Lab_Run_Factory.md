@@ -19,14 +19,21 @@ surface we expect OpenClaw, Hermes, Codex, Claude, and other agents to use.
 The goal is to make every default Team measurably excellent:
 
 ```text
-default Team starts as 4/10
+default Team starts as 4/10          # narrative only; never written to experiment.json
 -> CLI-only factory runs many cases
 -> every worker, prompt, artifact, timeout, and result is logged
 -> run-contract checks prove whether the run told the truth
+-> outcome anchors (decisive facts) prove judges track reality
 -> blind A/B judges compare candidate output against the champion
 -> team shape / prompts / model routing improve
 -> fresh comparable inputs prove the Team is actually getting better
+-> human-gated promotion until outcome oracles are green
 ```
+
+**v1 stance — Oracle-anchored Run Factory (Option C, Spec Review 2026-07-16):**
+decisive-fact outcome anchors are the Done When bar. Judges are retained and
+measured against those anchors. Shipping/promotion stays human-gated until oracles
+are green. See § Outcome Anchors and § Contrarian Dissent (preserved).
 
 This is product dogfooding at the contract layer. The Mac app is not in the
 loop. If the factory discovers CLI, run-journal, artifact, prompt, or status
@@ -122,6 +129,11 @@ Useful substrate already exists:
 - Team lifecycle verbs: `alln team hello`, `alln team preflight`, `alln team start`,
   `alln team status`, `alln team result`, `alln team cancel`, plus synchronous
   `alln team --json` where appropriate.
+- Catalog write/read verbs (live; not greenfield): `alln teams definition`,
+  `alln teams edit`, `alln teams duplicate`, `alln teams show`,
+  `alln teams set-default`, `alln teams delete`, `alln teams restore`;
+  `alln skills show`, `alln skills duplicate`, `alln skills new`,
+  `alln skills edit`, `alln skills delete`.
 - Floor / inspect: `alln floor show <run-id|latest> --json`.
 - Help and contract surfaces: `alln docs`, `alln help`, error catalog, generated
   schemas; discovery without a second wire format.
@@ -136,26 +148,35 @@ Useful substrate already exists:
   `CLI_Implementation_Contract.md`.
 - `TeamCatalog` and `SkillCatalog` own default Team and Skill definitions.
 - Agent front door: `alln bootstrap`, `alln team hello` (`Agent_Front_Door.md`).
+- Depth rename already landed in Swift/catalog: bare `code_bug_hunt` is default
+  send; Max is `code_bug_hunt_max` (`Team_Depth_Naming.md`). Lab artifacts that
+  still hardcode `code_bug_hunt_lite` are **rot** (PRE-S0 / slice 1).
 
-Landed in v1 harness (2026-06-21 dogfood; surface must be re-based CLI-native):
+**Harness status (plain):** the v1 Python harness under `scripts/team_lab/` is
+**dead code on the wire today**. `run.py` still opens
+`alln mcp serve --stdio` (retired; command is unknown). ~8k lines of orchestration
+exist and must be **mechanically re-based** to CLI argv — not rewritten greenfield.
+Do not treat the harness as landed or production-ready until PRE-S0 is green on
+pure CLI (`fsBypass=false`, no MCP process).
 
-- `scripts/team_lab/` factory (`run.py`, `evaluate.py`, `scoring.py`) — still
-  speaks the retired wire in places; implementation must drive `alln` only.
-- `team status` carries `workersDone` / `workersTotal` and `nextPollAfterMs`.
-- `team result` with full detail embeds worker prompt snapshots and answer markdown.
-- `floor show` / spec getters accept the canonical run argument.
-- CLI-first scoring with `fsBypass` gate and team-quality withholding.
-- Local scratch records: `REPO/.lab/<experiment-id>/`.
+Local scratch records: `REPO/.lab/<experiment-id>/` (fiat; see § Experiment Record).
 
 Known gaps still open:
 
-- No Bug Hunt regression benchmark suite with seeded known failures yet.
+- Harness still speaks MCP transport; mechanical CLI re-base is the next build slice.
+- Depth-rename artifact rot: `champions/`, `candidates/`, `beta_campaign.jsonl`,
+  `macro_overlay.py` may still reference dead `code_bug_hunt_lite` ids.
+- Deterministic `lab_*` team id seed + full overlay round-trip through
+  `teams edit --file` unproven (PRE-S0).
+- Frozen suite refresh: two MCP-era cases need historical provenance (see
+  § Historical suite cases).
 - Live two-judge CLI path still needs validation; mock judges only prove orchestration.
-- `alln dev team-lab` Swift wrapper not built (Python is canonical v1).
+- Outcome-anchored cases not yet seeded as the Done When bar.
+- Corpus retention (input + both arms + verdicts) not wired — `used_inputs` stores
+  hashes only today.
+- Judge pair not process-pinned despite intent; re-baseline must fire on
+  judge-version change.
 - Stage artifact inline retrieval may still require FS diff-oracle.
-- Async run ownership still depends on a living process. The factory process can
-  own a run while connected; durable overnight use should route through resident
-  `alln serve` when that coordinator is the owner.
 - Team admission can fail before model work if the harness process cannot create or
   lock Allnighter's support-path governor slots. This must be reported as slot
   store unavailable, not as a fake "busy" capacity state.
@@ -163,6 +184,35 @@ Known gaps still open:
   sandbox, support root, shell, or credential scope than the detector that wrote
   `SetupStore`. For lab purposes, "ready" means runnable by this `alln` process,
   not merely present in an old cache.
+
+**Async ownership (pinned v1):** subprocess ownership only. Resident `alln serve`
+is **v2**. Do not half-build both.
+
+### Vocabulary debt (law — writer-first rename)
+
+MCP-era field names remain in scoring until the re-base slice renames them.
+**Direction is law for implementers** (script rename is a later slice; pin tests
+in `test_scoring.py`):
+
+| Debt | Trap | Rename direction |
+| --- | --- | --- |
+| `scoringSource: "mcp"` | Identity of pure-CLI path | Prefer `"cli"` / `"envelope"` once writers emit it |
+| `pure_mcp_scoring` check name | Name lies after MCP death | Rename with writer |
+| `mcp-transcript.jsonl` / `mcp_worker_*` | Paths and check ids | CLI transcript names |
+| `fs_bypass = scoring_source != "mcp"` (`scoring.py:175-176`) | **Fails open** if the comparison string is renamed before the writer | **Writer-first:** new writers emit the new source value, then flip the gate to fail-safe (`fs_bypass` true unless pure CLI source), then rename the constant. Never rename the string first. |
+
+### Historical suite cases (MCP-era provenance)
+
+These cases cite deleted MCP surface (`MCPServer.swift` / `alln mcp serve`). They
+are **historical replays**, not live CLI-era acceptance criteria, until a suite
+refresh rewrites them:
+
+| Case id | Provenance | Status |
+| --- | --- | --- |
+| `floor_show_wrong_run_v1` | MCP-era floor-arg regression; suite still lists it | Historical replay — keep with this label or drop on suite refresh |
+| `mcp_fs_bypass_scoring_v1` | MCP-era pure-scoring gate; name is MCP-era | Historical replay — keep with this label or drop on suite refresh |
+
+Do not treat either as a green PRE-S0 pure-CLI proof without re-authoring.
 
 ## Confirmed Substrate Bugs (Bug Hunt baseline r1, 2026-06-21)
 
@@ -243,7 +293,7 @@ invoke: alln <verb> ... --json
 stream: alln <verb> ... --stream   # NDJSON events when supported
 call: alln team hello --json
 call: alln help / alln docs / alln docs --errors / --schema
-call: alln team show --json
+# Lifecycle
 call: alln team preflight ... --json
 call: alln team start ... --json
 call: alln team status <run-id> --json
@@ -251,7 +301,28 @@ call: alln team result <run-id> --json
 call: alln team cancel <run-id> --json
 call: alln floor show <run-id|latest> --json
 call: alln doctor / alln doctor explain <code> --json when blocked
+# Catalog deploy / round-trip (six-verb acceptance matrix for re-base)
+call: alln teams definition ... --json
+call: alln teams edit ... --json
+call: alln teams duplicate ... --json
+call: alln teams show ... --json
+call: alln skills duplicate ... --json
+call: alln skills edit ... --json
+# Also live when needed (not the re-base matrix spine):
+#   teams set-default / delete / restore
+#   skills show / new / delete
 ```
+
+**Singular vs plural — do not "work around" with a file write:**
+
+| Verb | Meaning |
+| --- | --- |
+| `alln team show` | Default team **per lane** (runtime default), not full definition dump |
+| `alln teams show` / `alln teams definition` | Catalog listing / full `TeamPreset` definition round-trip |
+
+Overlay deploy and champion banking use the **plural** `teams *` / `skills *`
+registry verbs. Never bypass the CLI by writing catalog files under Application
+Support or repo paths because `team show` looked incomplete.
 
 Not allowed:
 
@@ -262,6 +333,7 @@ import AllnighterCore into the factory
 call TeamService or RunStore directly for run creation
 patch run files by hand
 infer missing CLI truth from app-only behavior
+resurrect MCP transport (alln mcp serve is gone)
 ```
 
 Artifact capture rule:
@@ -332,9 +404,9 @@ with `--json` (and `--stream` when polling). It does not call Core/Engine run
 APIs directly.
 ```
 
-No new public CLI verb is required for S00-S04 because the lab is testing the
-existing team/run/floor contract. Add new CLI surfaces only when a real retrieval or
-artifact gap is found, such as:
+No new public CLI verb is required for the re-base / PRE-S0 path because the lab
+is testing the existing team/run/floor/catalog contract. Add new CLI surfaces only
+when a real retrieval or artifact gap is found, such as:
 
 ```text
 alln run artifact get
@@ -349,10 +421,10 @@ factory depends on them.
 
 Every case run creates one local immutable lab record.
 
-Suggested path:
+**Storage fiat (2026-07-16):** all lab experiment records live under the repo:
 
 ```text
-~/Library/Application Support/Allnighter/Labs/<experiment-id>/
+REPO/.lab/<experiment-id>/
   experiment.json
   cli-transcript.jsonl
   run/
@@ -371,6 +443,8 @@ Suggested path:
     notes.md
   report.md
 ```
+
+No Application Support lab root. Scripts already use `.lab/`; the spec matches them.
 
 Committed benchmark definitions may live in:
 
@@ -447,13 +521,14 @@ Draft shape:
     "includeDebugLogs": true,
     "maxBytes": 120000
   },
-  "expectedQualities": [
+  "humanNotes": [
     "classifies repeated bug as T3",
     "inspects current diff before root-cause confidence",
     "preserves dissent",
     "rejects weak majority theories with evidence",
     "names missing proof"
   ],
+  "decisiveFacts": [],
   "knownTraps": [
     "stale-binding theory overfit",
     "isolated text-view tests treated as proof",
@@ -544,34 +619,43 @@ The loop:
 
 ```text
 0. Substrate gate: both runs must be run-contract green (compare.py refuses otherwise).
-1. Pick a FRESH input (scenario.py); run champion and candidate on that SAME input.
-2. BLIND output A/B: each judge sees only the two outputs (anonymized, order seeded),
+1. Outcome-anchor gate (when case has decisiveFacts): both arms scored against the
+   oracle; judges that invert the oracle ordering are under calibration, not shipping.
+2. Pick a FRESH input (scenario.py for transfer rounds; frozen for anchor cases);
+   run champion and candidate on that SAME input with the SAME evidence packet.
+3. BLIND output A/B: each judge sees only the two outputs (anonymized, order seeded),
    never the prompts, model names, or which side is the candidate.
-3. Per WORKER: two different-family judges each pick A/B/tie. Bank the candidate's
+4. Per WORKER: two different-family judges each pick A/B/tie. Bank the candidate's
    prompt for that role iff BOTH pick the candidate. Tie/split/baseline -> incumbent.
-4. DELIVERABLE A/B (same blind method): the unit of suspicion. If a worker was banked
-   but the deliverable regressed, raise an interaction warning — do NOT unbank.
-5. Un-blind: the idea-engine reads the prompt diffs + verdicts and proposes the next
+5. DELIVERABLE A/B (same blind method): banking is per-role; promotion/shipping is
+   blocked by deliverable regression (interactionWarning / baseline deliverable).
+6. Un-blind: the idea-engine reads the prompt diffs + verdicts and proposes the next
    single-variable changes. It is NON-VOTING — it never decides keep/discard.
-6. Burn the input. Next round uses a new one.
+7. Retain the corpus (input + both arms' outputs + verdicts). Mark input burned for
+   reuse as a fresh generator seed, but never forget the labeled pair.
 ```
 
 Why this is more valid than judging prompts: the prompt is the method, the output
 is the result. A prompt that looks ridiculous but whose output two blind judges
-prefer, repeatedly, on fresh inputs, is working. Optimize for results.
+prefer, repeatedly, on fresh inputs, is working — **and** must not invert a
+decisive-fact oracle on frozen anchor cases. Optimize for results, anchored to truth.
 
 Roles:
 
 | Thing | Role | Decides? |
 | --- | --- | --- |
-| Per-worker blind A/B | unit of optimization — bank each role independently | YES (unanimous) |
-| Deliverable blind A/B | unit of suspicion — audit for interaction regressions | No (audit only) |
+| Outcome anchor (`decisiveFacts`) | Done When bar — packet naming F must beat one missing it | Calibration gate |
+| Per-worker blind A/B | unit of optimization — **bank** each role independently | YES (unanimous bank) |
+| Deliverable blind A/B | **blocks promotion** on regression; does not unbank per-role wins | YES (promote gate) |
 | Idea-engine (un-blind) | propose next-round single-variable changes | No (advisory) |
 | Run contract (deterministic) | truth gate — may the run even be judged | Gate |
+| Human gate (v1) | shipping until oracles are green on anchor suite | YES (ship) |
 
 Bias controls (the reason this is run in orchestration/isolation):
 
-- Two **different model families**; same model twice is a correlated echo, not a vote.
+- Two **different model families**, **pinned + version-stamped**; same model twice is
+  a correlated echo, not a vote. **Genesis re-baseline fires on judge-version change**
+  (not "periodically") — the multi-round transfer chain assumes a stable instrument.
 - **Isolated, parallel, sealed** verdicts — no judge sees another's before committing.
 - **Blind + order-seeded** — the judge cannot tell which output is the new one.
 - **Incumbent wins ties** — the `AND` gate trades false-negatives for near-zero
@@ -580,8 +664,8 @@ Bias controls (the reason this is run in orchestration/isolation):
 - The input generator must not be the same model that judges that round.
 
 Honest limit: judges evaluate **artifacts, not outcomes**. Two judges preferring a
-packet is shared taste, not proof the diagnosis is right. Seed a few **verifiable
-cases** (known bug, known kill-test) to confirm "judges' better" tracks reality.
+packet is shared taste, not proof the diagnosis is right. **Outcome Anchors**
+(§ below) make that falsifiable.
 
 Harness:
 
@@ -598,15 +682,23 @@ python3 scripts/team_lab/advance.py --suite <suite-id> --team <team-id> --round 
   --champion-overlay docs/team-lab/champions/<suite>/<team>.json
 ```
 
-### Autopromote policy (no founder gate for routine wins)
+### Banking vs promotion policy (human-gated until oracles green)
 
-The lab promotes champions from compare evidence automatically. Founder review is
-async — the loop never stops to wait.
+**Banking is per-role.** A clean unanimous per-worker win banks that role's
+candidate prompt into the working candidate overlay.
 
-**Promote when** (`promote.py` gate): `judgeMode=live`, `evidenceValid=true`,
-`sameInput=true`, `interactionWarning=false`, no unmatched roles, `bankedRoles`
-non-empty, `championConfigHash != candidateConfigHash` (material candidate delta),
-and `deliverableOutcome` is `candidate` (or a narrow tie with few banks).
+**Promotion / shipping is a separate gate.** Deliverable regression blocks
+promotion (`promote.py` already escalates on `interactionWarning` and deliverable
+`baseline` — code is right; this prose matches it). Until outcome anchors on the
+frozen suite are green and judges do not invert them, **shipping stays human-gated**.
+No silent champion flip into production TeamCatalog.
+
+**Machine-propose promote when** (`promote.py` gate, still subject to human ship):
+`judgeMode=live`, `evidenceValid=true`, `sameInput=true`, `interactionWarning=false`,
+no unmatched roles, `bankedRoles` non-empty,
+`championConfigHash != candidateConfigHash` (material candidate delta),
+`deliverableOutcome` is `candidate` (or a narrow tie with few banks), and
+outcome-anchor calibration has not failed on the suite's anchor cases.
 
 **HOLD** when: `championConfigHash == candidateConfigHash` → `no material candidate delta`.
 R3-style identical-config rounds are automation smoke, not quality improvement.
@@ -615,34 +707,58 @@ R3-style identical-config rounds are automation smoke, not quality improvement.
 deliverable while many roles bank; deliverable regresses to baseline; run-contract
 not green; mock judges; structural role mismatch; model/source failures make
 evidence suspect; overlay declares template changes but CLI cannot wire lab skills
-into team rows; or the change would touch privacy, credentials, billing,
-destructive actions, or distribution.
+into team rows; outcome anchor inverted; or the change would touch privacy,
+credentials, billing, destructive actions, or distribution.
 
 **Quality rounds** (`advance.py`): require `--hypotheses-from` or `--candidate-overlay`
 so the candidate arm differs (hypothesis patch, skill fork, etc.). Use
 `--calibration-smoke` only for automation calibration (skips promotion).
 
-**Teams definition surface:** full `TeamPreset` JSON must round-trip through the
-CLI team show/save path used by the harness. Summary-only views stay summary-only.
+**Teams definition surface:** full `TeamPreset` JSON (including `workerSpecs`,
+skill refs, effort) must round-trip byte-faithfully through
+`alln teams definition` / `alln teams edit --file` / `alln teams show`. Summary-only
+views stay summary-only. Do not use singular `team show` as the definition path.
 
 **SkillCatalog shipping:** after enough clean fresh-input wins with material deltas,
 `promote.py` writes a reviewable patch under `docs/team-lab/patches/` (only roles
-whose template differs from built-in). Not hand-picked by founder.
+whose template differs from built-in). Human reviews before catalog merge.
 
-Champion overlay: `docs/team-lab/champions/<suite>/<team>.json` — banked role
-provenance + templates. `run.py --champion-overlay` deploys a lab team via CLI
-before `alln team start`.
+**Champion key:** `docs/team-lab/champions/<suite>/<team>.json` — banked role
+provenance + templates. **Reserve a scope dimension** in the key path (e.g. future
+`champions/<suite>/<scope>/<team>.json` for per-user / per-root learning). Name the
+axis; do **not** wire per-user learning in v1. `run.py --champion-overlay` deploys
+a lab team via CLI before `alln team start`.
+
+**Catalog refresh semantics:** each `alln team start` is a **fresh process**. Unlike
+the retired MCP harness (which snapshotted the catalog at `mcp serve` init and
+needed a restart after save), CLI-native deploy does not require process restart
+for the next start to see `teams edit` / `teams duplicate` results. Spec must
+state this; harness must not invent a restart ritual.
+
+### Pinned judge pair
+
+| Seat | Family (pinned) | How |
+| --- | --- | --- |
+| Judge 1 | Anthropic Claude family via provider CLI | `ALLN_JUDGE1_CMD` |
+| Judge 2 | OpenAI / Codex family via provider CLI | `ALLN_JUDGE2_CMD` |
+
+Both commands are **version-stamped into every compare record**. When either
+judge binary/version changes, **force genesis re-baseline** before banking or
+shipping further champion deltas. Silent provider updates without re-baseline are
+a measurement bug.
 
 ## Evaluation Rubrics
 
 Only the **Run Contract Score** below is deterministic (it measures truth). The
 Worker / Writer / Team Quality criteria are **judge guidance for the blind A/B in
 the Judge Loop** — things a judge should weigh — NOT checklists that produce a
-score. Do not turn them back into deterministic counts.
+score. Do not turn them back into deterministic counts. There is **no lab score-band
+artifact**; founder `4/10 → 9/10` language lives only in Founder Intent (narrative).
 
-### Run Contract Score
+### Run Contract Score (checklist)
 
-Measures whether Allnighter told the truth:
+Measures whether Allnighter told the truth. PRE-S0 / harness must also cover the
+items under **Contract & proof checklist** in Implementation Slices.
 
 - preflight blocked bad runs before quota;
 - `alln team start` returned a run id only after journal creation;
@@ -654,14 +770,18 @@ Measures whether Allnighter told the truth:
   check: `statusedAnswerCount == nonPlanWorkerCount` and `writerStatusPresent`);
   a dropped/hidden worker fails this check and withholds team quality;
 - failed/timed-out workers were not hidden;
-- prompts and outputs were retrievable;
+- prompts and outputs were retrievable via pure CLI envelopes (`fsBypass=false`);
 - writer/stage outputs were retrievable;
 - `TeamRunJSON` matched Floor/artifact truth;
 - idempotency behaved correctly;
 - interrupted/orphaned runs recovered honestly;
-- CLI schemas matched generated contract docs (`alln docs` / export-contracts).
+- CLI schemas matched generated contract docs (`alln docs` / export-contracts);
+- **SUB-1 withhold:** `completedAt` still derives from last worker-answer finish
+  (`TeamRunJSONMapper`) — do not treat it as post-synthesis completion until fixed;
+- **SUB-2 withhold:** `StageInfo` still omits markdown/timestamps — stage temporal
+  truth is not CLI-proven until fixed.
 
-### Worker Score
+### Worker Judge guidance
 
 Measures each worker independently:
 
@@ -676,7 +796,7 @@ Measures each worker independently:
 - produced output the writer actually used;
 - caused harm through wrong confidence or broad fix advice.
 
-### Writer Score
+### Writer Judge guidance
 
 Measures synthesis:
 
@@ -691,9 +811,11 @@ Measures synthesis:
 - returned a typed packet when the Team contract requires one;
 - made next actions executable by a human or Try Fix gate.
 
-### Team Quality Score
+### Team Quality Judge guidance
 
-Measures the final result against the Team's job.
+Measures the final result against the Team's job. **v1 lab focus is Bug Hunt**;
+other lanes are deferred (LAB-S06+) and listed only as guidance when those teams
+enter the factory.
 
 Bug Hunt:
 
@@ -708,54 +830,9 @@ Bug Hunt:
 - names regression proof;
 - produces a high-confidence `FixPacket` only when justified.
 
-Code planning:
-
-- scopes the slice tightly;
-- matches repo architecture;
-- names truth owners;
-- identifies risks;
-- sequences implementation;
-- names proof;
-- avoids broad cleanup.
-
-Design:
-
-- critiques the actual surface;
-- honors the design system;
-- distinguishes taste, usability, and implementation constraints;
-- gives concrete revisions;
-- requires visual proof when needed.
-
-Copy:
-
-- fits audience and brand voice;
-- improves specificity;
-- preserves factual constraints;
-- produces usable final copy;
-- avoids generic marketing filler.
-
-Signal:
-
-- uses source-labeled receipts;
-- separates observation from inference;
-- assesses freshness;
-- produces actionable insight;
-- avoids unsupported trend claims.
-
-## Score Bands
-
-```text
-0-3  unusable or misleading
-4    useful fragments, unsafe to trust
-5-6  helpful but inconsistent
-7    good enough with expert review
-8    strong, with visible remaining gaps
-9    excellent default Team behavior
-10   reserved for narrow benchmark perfection
-```
-
-The target for default Teams is not a perfect 10. The target is repeatable 9/10
-behavior on the benchmark suite, with known residual risks named.
+Deferred lane guidance (not v1 acceptance): code planning, design, copy, signal —
+same judge-guidance pattern when those teams enter the factory; do not expand
+rubric surface in v1.
 
 ## Default Team Calibration Loop
 
@@ -795,22 +872,25 @@ this lab is designed to improve:
 - some roles overlapped or ran at the wrong phase;
 - the system did not present a run-quality scorecard by default.
 
-Initial Bug Hunt experiments:
+Initial Bug Hunt experiments (**micro / prompt loop only** — roster shape changes
+belong to the composition macro packet, not this table):
 
 | Experiment | Variable |
 | --- | --- |
-| Baseline | current built-in Bug Hunt (`code_bug_hunt`) |
-| Evidence Packet | add CLI-collected `git status`, diff, logs, prior attempts before workers |
-| Reduced Team | keep Reproducer, Truth Owner, Trace, Regression, Contrarian, Writer |
-| Phase-Split | run Correct Fix Planner and Change Impact only after root-cause ranking |
+| Baseline | current built-in bare Bug Hunt (`code_bug_hunt`) |
+| Evidence Packet | same CLI-collected packet held constant across arms |
 | Model Routing | reserve Opus for Contrarian + Writer, use faster code-local workers for answer roles |
 | Discriminator Role | add explicit cheap-test splitter |
 | Writer Contract | require rank/reject/dissent/next-observation fields |
 | Typed Return | require `BugPacket`/`FixPacket` eligibility fields |
+| Outcome Anchor | frozen case with known decisive fact F (see § Outcome Anchors) |
+
+**Not in the micro loop:** Reduced Team / Phase-Split / seat add-remove — those are
+macro composition experiments (`Team_Lab_Composition_And_Seat_Economics.md`).
 
 Depth note (see `Team_Depth_Naming.md`): bare `code_bug_hunt` / "Bug Hunt" is the
-default tier. Escalation depth is `code_bug_hunt_max` / "Bug Hunt Max". Min tiers
-exist only where Team Lab proves them.
+default send. Escalation depth is `code_bug_hunt_max` / "Bug Hunt Max". Min tiers
+exist only where Team Lab proves them; **nothing may say default → Min**.
 
 ## Lab model policy
 
@@ -857,7 +937,11 @@ Diversity is a goal, not a hard invariant, when fallback or rotation collides.
 ## Evidence Packet
 
 Many Team failures are upstream context failures. For bug and code teams, the
-factory should be able to create a shared evidence packet before workers start.
+factory creates a shared evidence packet before workers start.
+
+**Held constant across arms.** Champion and candidate in the same round receive
+the **same** evidence packet bytes. The factory does **not** "max context" for one
+arm. Seat wins that come from context inflation are invalid.
 
 For Bug Hunt, the evidence packet includes:
 
@@ -953,23 +1037,87 @@ Rules:
 
 ## Measurement Validity (v1)
 
-The `4/10 -> 9/10` headline is aspiration until these rules bind:
+The `4/10 -> 9/10` headline is **founder narrative only** (see Founder Intent) until
+these rules bind — never a field on `experiment.json`:
 
 - Run-contract lane must be green (`fsBypass=false`, `runContractScore >= 0.95`) before
   any Team-quality judgment is interpreted.
 - Compare **logical workers once** (not duplicate artifact paths).
-- Fresh inputs across rounds; within one round both arms must share the exact same input.
+- Fresh inputs across rounds; within one round both arms must share the exact same
+  input **and the same evidence packet**.
 - Built-in Team mutations require **>= 3 clean live compare rounds** on fresh inputs
-  with live judge preference and no run-contract regression.
+  with live judge preference, no run-contract regression, **human ship gate**, and
+  **no outcome-anchor inversion**.
 - Writer consistency: discard worker claims contradicted by `experiment.json` and
   run-contract artifacts.
 
 There is **no deterministic quality score** (removed 2026-06-21 — see § Judge Loop).
 Keyword/structure scoring rewarded the template words the prompts already mandate
-(Goodhart), so it optimized for theater. Quality is decided only by the two-judge
-blind A/B in `compare.py`. What stays deterministic is **truth**: the run-contract
-lane and the worker "did it return content" / writer-consistency checks, with their
-own kill tests (`test_scoring.py`, `test_judge.py`).
+(Goodhart), so it optimized for theater. Quality is decided by the two-judge
+blind A/B in `compare.py`, **calibrated against outcome anchors**. What stays
+deterministic is **truth**: the run-contract lane, the worker "did it return content"
+/ writer-consistency checks, and decisive-fact oracles on frozen anchor cases
+(`test_scoring.py`, `test_judge.py`).
+
+## Outcome Anchors
+
+**Done When bar (v1):** the suite ships with **≥1 outcome-anchored case** where a
+known decisive fact **F** exists. A packet that **names F** (and uses it correctly)
+must beat a packet that **misses F**, under both (a) the deterministic oracle check
+and (b) the pinned judge pair. If judges systematically invert that ordering, the
+**judges are under test** — stop shipping prompt banks until calibration recovers.
+
+Schema (case-level, optional):
+
+```json
+{
+  "decisiveFacts": [
+    {
+      "id": "paste_override_uncommitted",
+      "mustMention": ["uncommitted", "paste", "override"],
+      "humanNote": "current diff shows the uncommitted paste override"
+    }
+  ]
+}
+```
+
+- Frozen for the anchor case; `scenario.py` generation is for **transfer** rounds only.
+- Oracles are coarse by design — they do not replace synthesis judgment (writer
+  demoting a weak majority). They stop the closed taste loop from being the only
+  instrument.
+- New champions must not regress the outcome-anchor bank (see § Burn Ledger / Corpus).
+
+## Burn Ledger / Corpus Retention
+
+Burn discipline means **remember, then refuse reuse as a "fresh" generator seed** —
+not forget.
+
+Each round already produces a labeled preference pair no competitor can reconstruct.
+Retain permanently (keyed for replay under `.lab/` and/or `docs/team-lab/corpus/`):
+
+- input prompt + case id + content hash;
+- evidence packet hash;
+- both arms' worker outputs + deliverable markdown;
+- compare record / verdicts / judge versions;
+- banked roles and promote decision.
+
+`used_inputs/*.jsonl` hash-only entries are insufficient alone. Wire corpus
+retention **before the first live quality round** after re-base — retroactive
+capture is impossible. New champions must not regress the corpus bank on
+outcome-anchored cases.
+
+## Lab Budget
+
+The lab is a quota product. One quality round ≈ 2 full team runs + ~16 per-worker
+judge calls + 2 deliverable judges (+ ~8 idea-engine calls). Policy:
+
+| Rule | v1 |
+| --- | --- |
+| Pinned judge pair | Claude-family + OpenAI/Codex-family only (§ Judge Loop) |
+| Concurrent rounds | Cap concurrent lab rounds in `run.py` / `advance.py` (default 1 live quality round) |
+| Mock default for orchestration | `--mock` for harness/orchestration CI; mock never supports banking or ship |
+| Macro suite | Necessity / composition suite **never** runs on the micro prompt loop |
+| Campaign spend | Explicit budget or founder cap before multi-round campaigns; record spend proxy in experiment metadata |
 
 ## Experiment Design (v1)
 
@@ -982,25 +1130,27 @@ Changed variable:  one OR MORE worker prompts. Per-worker blind A/B gives clean
                    per-role attribution, so you are NOT limited to one variable for
                    role-local prompt changes — change several, see which banked.
                    (Structural changes — add/remove a worker — break 1:1 role
-                   mapping and fall back to the deliverable A/B.)
-Input discipline:  WITHIN a round both arms run the SAME input. BETWEEN rounds the
-                   input is FRESH and never reused (scenario.py + burn ledger).
-                   Reusing one input across rounds is overfitting (the Spec Review
-                   mistake). Power comes from input DIVERSITY across rounds.
+                   mapping and fall back to the deliverable A/B; those are macro.)
+Input discipline:  WITHIN a round both arms run the SAME input + SAME evidence
+                   packet. BETWEEN rounds the input is FRESH (scenario.py + burn
+                   ledger). Reusing one input across rounds is overfitting.
+                   Power comes from input DIVERSITY across rounds.
                    compare.py refuses sameInput=false.
 N:                 1 run per arm per round is acceptable — a test of 1 beats a test
                    of 0, and diversity across rounds accumulates the signal. Replay
                    the same input >=3x only to MEASURE variance, never to claim a win.
 Decision rule:     bank a worker's candidate prompt iff BOTH blind judges pick the
                    candidate for that role; any tie/split/baseline keeps incumbent.
-                   The deliverable A/B AUDITS (interaction warning) but never vetoes
-                   a clean per-worker win. No deterministic score decides anything.
+                   Banking is per-role. Promotion is blocked by deliverable
+                   regression. Human-gated ship until outcome oracles are green.
+                   No deterministic quality score decides banking.
 Mock rule:         --mock validates orchestration only. Mock compare records are marked
                    evidenceValid=false and must never support a Team mutation.
 Transfer guard:    a banked change must keep winning on FRESH inputs over rounds;
-                   re-baseline periodically against GENESIS (not just last champion)
-                   to catch slow drift, and re-challenge banked workers occasionally.
-Negative results:  recorded, not discarded.
+                   re-baseline against GENESIS on judge-version change (and when
+                   drift is suspected), not only last champion; re-challenge banked
+                   workers occasionally.
+Negative results:  recorded, not discarded; corpus retains the pair.
 ```
 
 The two judges are different model families, pinned + version-stamped, run in
@@ -1008,140 +1158,87 @@ isolation. See § Judge Loop for the full mechanism.
 
 ## Implementation Slices
 
-**Full Slice 1 execution spec (whole v1 package + good-to-great roadmap):**
-[`Team_Lab_Slice_1_Full_Package.md`](Team_Lab_Slice_1_Full_Package.md)
+**These are spec slices — do not execute them in a docs-only pass.**
 
-**Post–Slice 1 composition / seat economics (mentor review):**
+**Wire / full package note:** [`Team_Lab_Slice_1_Full_Package.md`](Team_Lab_Slice_1_Full_Package.md)
+is superseded **for wire format** (MCP dead). This doc owns the CLI wire.
+Historical micro-loop intent in that packet still informs scope.
+
+**Post–micro composition / seat economics:**
 [`Team_Lab_Composition_And_Seat_Economics.md`](Team_Lab_Composition_And_Seat_Economics.md)
 
-### PRE-S0 - Pure-CLI Reconstruction Proof (blocking)
+### PRE-S0 gates (blocking — above everything)
 
-Before LAB-S03+ truth and compare records are trusted:
+Hard gates before any quality claim is trusted:
 
-```text
-alln team result <run-id> --json (detail=full) returns worker prompt snapshots + answer markdown + plan
-alln floor show <run-id> --json returns the requested run (not latest-by-accident)
-journal copy under .lab/run/ is diff-oracle only — zero score weight
-fsBypass=false and runContractScore >= 0.95
-```
+1. **Depth rename landed (artifact rot).** `code_bug_hunt_lite` must not remain as a
+   live champion/candidate/daemon id. Migrate `champions/`, `candidates/`,
+   `beta_campaign.jsonl`, `macro_overlay.py`. Check `run_lab_daemon.sh` history —
+   if a daemon still calls the dead id, it is an outage, not fixture rot.
+2. **Pure CLI.** No MCP process. `fsBypass=false`, `runContractScore >= 0.95` on a
+   real Bug Hunt case.
+3. **Deterministic `lab_*` id seed.** Deploy a team with a predictable
+   `lab_<team>_r<N>_<arm>` id (not only opaque `custom_*` from bare duplicate).
+4. **Full overlay round-trip.** `TeamPreset` with `workerSpecs`, skill refs, and
+   effort through `teams edit --file` → `teams definition` / `teams show`,
+   **diffed** byte-faithfully.
+5. **Retrieval.** `alln team result … --json` (detail=full) returns worker prompt
+   snapshots + answer markdown + plan; `alln floor show <run-id>` returns the
+   requested run (not latest-by-accident). Journal under `.lab/run/` is
+   diff-oracle only — zero score weight.
+6. **Contract withholds named.** SUB-1 (`completedAt`) and SUB-2 (`StageInfo`
+   missing markdown/timestamps) remain explicit withholds — do not claim temporal
+   stage truth over CLI until fixed.
+7. **Catalog refresh stated.** Next `alln team start` after `teams edit` sees new
+   definition without MCP restart ritual (fresh process each start).
+8. **Async ownership.** Subprocess-only v1; `alln serve` is v2.
 
-Proof:
+Proof sketch:
 
 ```bash
+# after mechanical re-base (slice 2)
 python3 scripts/team_lab/run.py --suite bug_hunt_repo_regressions_v1 --round 1 --variant baseline
 python3 scripts/team_lab/evaluate.py .lab/<experiment-dir> --rescore-contract
-# expect: pure CLI scoring ok (fsBypass=false), team quality not withheld
+# expect: pure CLI scoring ok (fsBypass=false), no mcp process, team quality not withheld for wire reasons
 ```
 
-### LAB-S00 - Lab Constitution and Fixtures
+### Recommended slice order (v1)
 
-- Add this phase doc.
-- Define suite/case/rubric JSON shapes.
-- Add one tiny synthetic suite and one Bug Hunt dogfood suite definition.
-- Decide local storage path and redaction rules.
+Replace greenfield LAB-S00–S04. The harness is an 8k-line transport swap, not a
+rewrite.
 
-Proof:
+| # | Slice | Acceptance |
+| --- | --- | --- |
+| **1** | **Fix artifact rot** | No live `code_bug_hunt_lite` in champions/candidates/campaign/macro_overlay; daemon history checked |
+| **2** | **Mechanical CLI re-base** | `run.py` / `overlay.py` / `scoring.py` use the **six-verb map** as acceptance matrix (`teams definition/edit/duplicate/show`, `skills duplicate/edit`). Rename `scoringSource` **writer-first** so `fs_bypass` fails safe |
+| **3** | **PRE-S0 green** | Real Bug Hunt case, `fsBypass=false`, pure CLI, deterministic `lab_*` seed + full overlay round-trip |
+| **4** | **Frozen suite refresh + one outcome-anchored case** | MCP-era cases labeled historical or rewritten; ≥1 decisive-fact anchor |
+| **5** | **Corpus retention** | Input + both arms + verdicts retained before first live quality round |
+| **6** | **Judges pinned + genesis re-baseline on version change** | First live quality round; human-gated promotion only |
+| **7** | **Macro / composition / autopromote-to-overlay** | Only after 5–6 are boring |
 
-```bash
-python3 scripts/team_lab/run.py --suite bug_hunt_repo_regressions_v1 --round 1
-# planned: alln dev team-lab suites --json
-```
+### MCP-tool → CLI-verb acceptance matrix (re-base)
 
-### LAB-S01 - CLI Transcript Harness
+| Retired MCP-era intent | CLI verb (argv) |
+| --- | --- |
+| Read team definition | `alln teams definition … --json` |
+| Write / patch team | `alln teams edit --file … --json` |
+| Clone team for lab arm | `alln teams duplicate … --json` |
+| List / inspect teams | `alln teams show … --json` |
+| Clone skill template | `alln skills duplicate … --json` |
+| Patch skill body | `alln skills edit … --json` |
+| Run lifecycle | `alln team preflight/start/status/result/cancel --json` |
+| Floor / artifacts | `alln floor show … --json` |
 
-- Build a small harness that spawns `alln` with `--json` / `--stream`.
-- Implement subprocess invoke, envelope parse, and `alln team hello --json`.
-- Write raw CLI transcript JSONL (argv, stdout, stderr, exit, timestamps).
-- Hash docs/contract snapshot when used.
-- Fail if required CLI verbs or envelope fields are absent.
+**Warning:** `alln team show` ≠ `alln teams show`. Definition round-trip is plural.
 
-Proof:
+### Deferred (v2)
 
-```bash
-python3 scripts/team_lab/run.py --suite bug_hunt_repo_regressions_v1 --case hello --round 1
-# planned: alln dev team-lab run --suite <suite-id> --case hello --json
-```
-
-### LAB-S02 - Run Factory Driver
-
-- Add `alln team preflight`, `start`, `status`, `result`, and `cancel` calls.
-- Generate idempotency keys.
-- Respect `nextPollAfterMs` (or consume NDJSON `--stream` events).
-- Record every status response.
-- Mark timeout/cancel/interrupted honestly.
-
-Proof:
-
-```bash
-python3 scripts/team_lab/run.py --suite bug_hunt_repo_regressions_v1 --team code_bug_hunt --round 1
-```
-
-### LAB-S03 - Artifact Collector
-
-- Retrieve Floor and artifact refs through CLI envelopes.
-- Persist worker prompts, worker answers, stage outputs, final packet, and
-  metadata into lab record.
-- If any required artifact cannot be reached through CLI, emit a P1 run-contract
-  bug and block Team scoring.
-
-Proof:
-
-```bash
-python3 scripts/team_lab/evaluate.py .lab/<experiment-dir> --rescore-contract
-ls .lab/<experiment-dir>/evaluation/
-```
-
-### LAB-S04 - Evaluator and Report Model
-
-- Deterministic run-contract checks (`evaluation/run-contract-score.json`).
-- Deterministic worker facts only (`evaluation/worker-facts.json`): content present,
-  writer present, writer consistency. No quality score.
-- Blind A/B compare records (`evaluation/compare-record.json`, `compare.md`).
-- Persist evaluator record (`evaluation/evaluator-record.json`).
-- Writer consistency check against `experiment.json`.
-- Produce `report.md`.
-
-Proof:
-
-```bash
-python3 scripts/team_lab/evaluate.py .lab/<experiment-dir>
-python3 scripts/team_lab/compare.py <baseline> <candidate> --mock
-# planned: alln dev team-lab compare <baseline> <candidate> --json
-```
-
-### LAB-S05 - Bug Hunt Calibration
-
-- Create Bug Hunt benchmark suite from known Allnighter regressions.
-- Run current Bug Hunt baseline (`code_bug_hunt`).
-- Test evidence packet, reduced lineup, phase-split planner, model routing, and
-  writer contract variants.
-- Update `TeamCatalog`/`SkillCatalog` only after repeated wins.
-
-Proof:
-
-```bash
-python3 scripts/team_lab/run.py --suite bug_hunt_repo_regressions_v1 --team code_bug_hunt --round 1
-```
-
-### LAB-S06 - Default Team Sweep (deferred v2)
-
-Deferred until one Team (Bug Hunt) proves the loop with `fsBypass=false` and
-repeatable live judge wins on fresh inputs. Do not sweep all built-in Teams before that.
-
-### LAB-S07 - Regression Gates (deferred v2)
-
-- Add a cheap CLI smoke gate that runs in normal checks without spending real
-  quota, using mock/fake workers where possible.
-- Keep quota-heavy benchmark suites manual or nightly.
-- Gate generated CLI schema drift (`alln dev export-contracts --check`).
-- Gate artifact completeness.
-
-Proof:
-
-```bash
-swift test --filter TeamRunJSON
-alln dev team-lab run --suite smoke_team_mock_v1 --json
-```
+- Default-Team sweep beyond Bug Hunt.
+- Cheap mock smoke gate in normal CI; nightly quota-heavy suites.
+- `alln serve` ownership for overnight batches.
+- Per-user / scope-keyed champions (axis reserved; unwired).
+- `alln dev team-lab` Swift wrapper (rejected as v1; Python harness is canonical).
 
 ## Works Test
 
@@ -1161,30 +1258,93 @@ And any missing CLI/run truth is surfaced as a product bug, not hidden
 
 ## Done When (v1)
 
-- Team Lab Run Factory runs at least one benchmark case without the Mac app.
+- Team Lab Run Factory runs at least one benchmark case without the Mac app,
+  pure CLI (`fsBypass=false`), no MCP process.
 - Every run has a complete local lab record under `.lab/`.
-- Worker prompts and outputs are retrievable via CLI envelopes (`fsBypass=false`).
+- Worker prompts and outputs are retrievable via CLI envelopes.
 - Timed-out/failed workers are visible, not hidden.
 - Run-contract truth is checked separately from Team quality; P0/P1 failures
-  withhold Team quality judgment.
-- Spec Review self-dogfood completes with `runContractScore >= 0.95` and honest
-  judge-pending / compare records.
+  withhold Team quality judgment. SUB-1/SUB-2 remain explicit withholds.
+- **Outcome Anchors:** ≥1 frozen case with decisive fact F; a packet naming F
+  must beat one missing F — if judges invert that ordering, judges fail
+  calibration and shipping stops.
+- Spec Review / Bug Hunt dogfood completes with `runContractScore >= 0.95` and
+  honest judge / compare records on pinned judges.
+- Corpus retention is on before live quality rounds.
+- Promotion remains human-gated until anchors are green.
 - Bug Hunt has a baseline on 2–3 known regressions and at least one proven
-  improvement.
-
-Deferred to v2: default-Team sweep (LAB-S06), full regression gates (LAB-S07),
-`alln dev team-lab` Swift wrapper.
+  improvement that does not invert anchors.
 - Any CLI contract gaps found by the lab have Debugger packets and either fixes or
   explicit blockers.
 - The app remains only a presenter; it is not part of the lab's proof path.
 
+Deferred to v2: default-Team sweep, full regression gates, `alln serve` ownership,
+`alln dev team-lab` Swift wrapper, per-user scope wiring.
+
+## Contrarian Dissent (preserved)
+
+Spec Review (2026-07-16) preserved this dissent in substance:
+
+The Contrarian would **cut live judges and `scenario.py` from v1 entirely**,
+shipping only a Contract Regression Oracle (frozen suite + `decisiveFacts[]`)
+and re-introducing judges only if oracles fail to discriminate gold packets from
+eloquent-wrong packets on the three repo regressions.
+
+**Falsification test (binds the Option C compromise):** if decisive-fact oracles
+discriminate cleanly on the frozen anchor suite **and** live judges add no
+separation beyond the oracle, **the judge tax dies** — switch to oracle-primary
+and drop dual-judge cost from the micro loop. Slice 4 (frozen suite + one
+outcome-anchored case) produces the evidence that settles this. Do not re-litigate
+the diagnosis without that evidence.
+
 ## Open Questions
 
-- Should lab records live only in Application Support, or should selected
-  sanitized reports be committed under `docs/team-lab/reports/`?
-- Which live judge model families should be pinned for comparison consistency?
+Resolved by this packet (do not re-open without new evidence):
+
+- Lab storage → **`.lab/`** only.
+- Judge families → **pinned** Claude-family + OpenAI/Codex-family; re-baseline on
+  version change.
+- Async ownership → **subprocess v1**; `alln serve` is v2.
+
+Still open:
+
 - What is the minimum benchmark count before changing a built-in Team?
 - Should `alln floor show` be enough for artifact retrieval, or do we need a
   dedicated `alln run artifact get` verb?
-- Should long-running factory batches require resident `alln serve`, or is
-  subprocess ownership sufficient for v1 manual experiments?
+- Should selected sanitized reports be committed under `docs/team-lab/reports/`?
+
+## Review ledger (2026-07-16)
+
+Accepted gems (source seat):
+
+| Gem | Source |
+| --- | --- |
+| Outcome-verifiable cases as hard Done When bar; judges under test if they invert | First Principles; Contrarian (`decisiveFacts[]`) |
+| Retain burnt inputs + both arms + verdicts as permanent regression corpus | First Principles |
+| Fix CLI-Only allowlist to plural `teams *` / `skills *`; warn `team show` vs `teams show` | First Principles; Contract Auditor; Doc Hygiene |
+| Genesis re-baseline on **judge-version change**, not "periodically" | First Principles |
+| Depth rename as blocking PRE-S0; artifact rot around `code_bug_hunt_lite` | Proof Planner; First Principles |
+| Re-base as mechanical transport swap with MCP→CLI acceptance matrix | First Principles; Contract Auditor |
+| Banking per-role; promotion blocked by deliverable regression (prose matches `promote.py`) | Contract Auditor; Proof Planner |
+| Evidence packet held constant across arms | Outside Scout |
+| Option C — Oracle-anchored Run Factory (oracles Done When; judges retained; human-gated ship) | Synthesis / PM |
+| Contrarian falsification test preserved (if oracles discriminate and judges add nothing, judge tax dies) | Contrarian |
+| Storage fiat `.lab/`; verb hygiene; suite historical provenance; scoringSource writer-first; Lab Budget | Doc Hygiene |
+| Contract gaps folded into PRE-S0 (lab_* seed, overlay round-trip, catalog refresh, SUB-1/2, async pin) | Contract Auditor |
+
+### Rejects (do not re-litigate)
+
+| Reject | Why |
+| --- | --- |
+| "No CLI catalog write path exists" → Debugger packet (Outside Scout's headline hole) | Falsified. `teams duplicate` → real team → `teams delete` round-tripped live. The scout reasoned from the abbreviated `alln --help`, which omits these verbs. It's a re-base task, not a product gap. |
+| Resurrecting MCP "temporarily" | Nothing to resurrect — `MCPServer.swift` and the `mcp` verb are gone from source. `alln mcp serve --stdio` returns `unknown command`. |
+| Greenfield rewrite of LAB-S00–S04 | 8k lines exist; only the transport is wrong. |
+| Numeric quality band tables as a lab artifact | Sits far from "there is no deterministic quality score." Someone will implement `teamQualityScore = 8.2` and be textually correct. Keep `4/10 → 9/10` as founder narrative in Intent only. |
+| `expectedQualities` in the machine case schema | A keyword-scoring surface aimed at a loop that just deleted keyword scoring. Demote to human notes. |
+| Design/Copy/Signal/Code-planning rubrics in v1 | ~50 lines of guidance for lanes the default-team sweep explicitly defers. |
+| Reduced Team / Phase-Split inside Bug Hunt First | Roster changes are the composition packet's macro loop, not a prompt A/B. |
+| Per-user learning in v1 | Right instinct, wrong slice. Reserve the scope axis in the champion key; don't wire it. |
+| Importing SWE-bench/Arena-class public benchmarks as v1 SSOT | Wrong surface — the product is the `alln` contract over Allnighter teams. |
+| `alln dev team-lab` Swift wrapper | Wrapper on a broken wire. |
+| 40-bullet Logging Requirements as v1 acceptance | Keep contract-critical + spawn/failure taxonomy; the rest is polish. |
+| Contrarian's full deferral of live judges and `scenario.py` in v1 | Diagnosis right; amputation too broad — Option C anchors judges instead of killing them (falsification test preserved above). |

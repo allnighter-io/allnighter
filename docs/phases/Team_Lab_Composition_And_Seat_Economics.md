@@ -45,7 +45,7 @@ Two loops, one promise:
 
 ## Product Value
 
-Users pick a **named Team** (`Bug Hunt Lite`, `Bug Hunt`, `Bug Hunt Forensics`), not
+Users pick a **named Team** (`Bug Hunt`, `Bug Hunt Max` — see depth naming law), not
 a hidden worker tax. Allnighter should learn:
 
 - which lineup fits which bug class;
@@ -88,8 +88,8 @@ Every macro arm records a **cost ledger** from lab artifacts (`experiment.json`,
 | **Synthesis noise** | Writer input token volume; judge-flagged contradiction density |
 
 A seat that adds a small deliverable edge but **materially** raises timeout rate or
-doubles wall-clock on T3 cases does **not** earn a **default** seat. It may still
-earn a **Forensics-only** seat (see named variants).
+doubles wall-clock on T3 cases does **not** earn a **default** (bare) seat. It may
+still earn a **Max-only** seat (see named variants).
 
 ### Margin verdict
 
@@ -100,7 +100,7 @@ KEEP     — margin > 0 on necessity suite (or tie + neutral/negative cost)
 ADD      — forward selection: margin > 0 on hard cases OR genesis lift
 REMOVE   — margin ≤ 0 across ≥ N fresh necessity inputs AND no VNRC lost
 MERGE    — two seats: redundant VNRC, deliverable unchanged, cost reduced
-ESCALATE — variant too small for case class (Lite → Bug Hunt → Forensics)
+ESCALATE — variant too small for case class (bare → Max; never default → Min)
 HOLD     — insufficient evidence; do not mutate roster
 ```
 
@@ -286,12 +286,12 @@ No **REMOVE** from prompt-tuning suite evidence.
 
 ## Named Team Variants
 
-> **Naming superseded (2026-07-16):** depth-tier names in this section follow
-> the old Lite/Forensics vocabulary. The decided convention is
-> **Min / (bare name) / Max** — see [`Team_Depth_Naming.md`](Team_Depth_Naming.md).
-> Under it, today's Lite roster becomes the bare default "Bug Hunt"
-> (`code_bug_hunt`) and Forensics becomes "Bug Hunt Max" (`code_bug_hunt_max`).
-> Rosters, seat economics, and routing mechanics below are unchanged.
+> **Naming superseded (2026-07-16):** body vocabulary below follows
+> [`Team_Depth_Naming.md`](Team_Depth_Naming.md) — **Min / (bare name) / Max**.
+> Historical rename record only: old Lite roster → bare default "Bug Hunt"
+> (`code_bug_hunt`); old Forensics roster → "Bug Hunt Max" (`code_bug_hunt_max`).
+> Nothing may ship "default → Min." Min exists only where Team Lab proves it
+> and is always an explicit user choice.
 
 **Team shape is a named Team, not a generic depth dial** (`Team_And_Skill_Catalogs.md`,
 `Language_Cutover.md`). `ALLNIGHTER_TEAM_DEPTH` / effort gating of worker rows is
@@ -300,18 +300,17 @@ not Low/Med/High toggles.
 
 | Team ID (lab) | Seats (v1 target) | Case class |
 | --- | --- | --- |
-| `code_bug_hunt_lite` | Reproducer, Truth Owner, Fix Planner, Regression Guard | T1 / first pass |
-| `code_bug_hunt` | Lite + Trace Mapper, State Skeptic, Change Impact Reviewer | T2 cross-layer |
-| `code_bug_hunt_forensics` | Bug Hunt + User Impact, Contrarian Root Cause | T3 repeated / seam / trust |
+| `code_bug_hunt` | Reproducer, Truth Owner, Fix Planner, Regression Guard | T1 / first pass — **default send** |
+| `code_bug_hunt_max` | Bare + Trace Mapper, State Skeptic, Change Impact Reviewer, User Impact, Contrarian Root Cause | T2/T3 cross-layer / repeated / seam / trust |
 
-**Product-facing names** (marketing may differ from lab IDs):
+**Product-facing names** (IDs follow names; UI label "Default" is never typed):
 
-- Bug Hunt Lite
-- Bug Hunt
-- Bug Hunt Forensics (preferred over "Exterminator" — vivid internal codename OK)
+- Bug Hunt (bare — default send)
+- Bug Hunt Max (escalation depth; description may keep the historical forensics framing)
+- Bug Hunt Min — only if necessity suite proves a smaller roster; never auto-selected
 
 Each variant = **separate champion overlay** under `docs/team-lab/champions/` — not
-an amputated copy of the nine-seat High roster.
+an amputated copy of a larger roster.
 
 ### Variant selection (product — not fully built)
 
@@ -319,18 +318,19 @@ Users do not know T1/T2/T3 when filing a bug. Classification is Bug Hunt's job.
 
 **v1 routing (spec):**
 
-1. **Default send** → `code_bug_hunt_lite` for new "something's broken" reports.
-2. **Packet recommends escalation** when Lite deliverable flags `escalationRecommended:
+1. **Default send** → bare `code_bug_hunt` for new "something's broken" reports.
+   Never auto-route to Min.
+2. **Packet recommends escalation** when bare deliverable flags `escalationRecommended:
    hard_seam | repeated_failure | insufficient_proof` (writer field — LAB-C08).
-3. **User override** — picker always shows all three named teams.
-4. **Auto-Fix failure** (`Try_Fix_Auto_Implement.md`) → suggest Forensics re-run;
+3. **User override** — picker shows available depth tiers (Min if proven / Default / Max).
+4. **Auto-Fix failure** (`Try_Fix_Auto_Implement.md`) → suggest Max re-run;
    does not silently mutate team without user approval.
 
 **Lab implication:** calibrate each variant on its necessity slice. Wrong routing
 moots calibration — LAB-C08 adds routing recommendation eval on mixed-tier suite.
 
 Macro necessity runs **within** the variant under test. Do not ask whether
-`trace_mapper` is justified when the correct product choice was Lite.
+`trace_mapper` is justified when the correct product choice was bare Bug Hunt.
 
 ## Macro Gates (asymmetric)
 
@@ -399,7 +399,7 @@ Every later script (`compose.py`, `ablate.py`, `promote.py --macro`) emits this 
 LAB-C00 schema landed
 -> seed bug_hunt_necessity_v1 (debugger + lab failures, T2/T3)
 -> genesis baseline per case (same context, minimal roster, record pass/fail)
--> forward selection round: Lite + candidate seat (same context)
+-> forward selection round: bare Bug Hunt + candidate seat (same context)
 -> deliverable A/B + VNRC extraction + judge audit on borderline
 -> cost ledger comparison
 -> macro verdict record (add/hold/escalate)
@@ -412,7 +412,7 @@ LAB-C00 schema landed
 
 | ID | Hypothesis | Macro test |
 | --- | --- | --- |
-| **H1** | `code_bug_hunt_lite` solves T1 as well as nine-seat roster | Lite vs full on T1 necessity subset |
+| **H1** | Bare `code_bug_hunt` solves T1 as well as Max roster | Bare vs Max on T1 necessity subset |
 | **H2** | Trace Mapper earns margin on T2 seam cases | Forward add on `seam_trace` cases |
 | **H3** | Fix-level discipline needs new seat vs writer field vs prompt patch | Three structural arms on same T3 cases |
 | **H4** | Contrarian + State Skeptic interact | Joint pair probe vs greedy single adds |
@@ -425,11 +425,11 @@ LAB-C00 schema landed
 | **LAB-C01** | Suite schema: `tier`, `requiredCapabilities`, `provenance`, `genesisRequired` | Schema test on 3 committed cases |
 | **LAB-C02** | `bug_hunt_necessity_v1` + `.lab/genesis/` records | ≥5 cases; ≥2 debugger_packet; genesis fail on file |
 | **LAB-C03** | `compose.py` forward-add one seat; VNRC + cost ledger + writer disposition | Mock judge unit test; one live dogfood |
-| **LAB-C04** | `code_bug_hunt_lite.json` overlay (separate team ID) | Necessity suite: Lite vs genesis on T1; contract green |
-| **LAB-C05** | Forward selection: Lite → +Trace Mapper on T2 seam cases | Macro verdict `add` with evidenceValid |
+| **LAB-C04** | Bare `code_bug_hunt.json` champion overlay (default-send roster) | Necessity suite: bare vs genesis on T1; contract green |
+| **LAB-C05** | Forward selection: bare → +Trace Mapper on T2 seam cases | Macro verdict `add` with evidenceValid |
 | **LAB-C06** | **H3** fix-level discipline — three arms (seat / writer field / prompt patch) | Deliverable + bad-fix judge audit on T3 |
 | **LAB-C07** | `promote.py --macro` gate; asymmetric ADD/REMOVE bars | `test_promote.py` composition fixtures |
-| **LAB-C08** | Writer `escalationRecommended` field + routing eval | Mixed-tier suite; Lite under-routing flagged |
+| **LAB-C08** | Writer `escalationRecommended` field + routing eval | Mixed-tier suite; bare under-routing (should escalate to Max) flagged |
 
 **Order:** C00 → C01 → C02 → C03 before product overlays (C04+).
 
@@ -441,7 +441,7 @@ pass ships after forward baseline exists.
 ```text
 Given bug_hunt_necessity_v1 with tier T2/T3 and requiredCapabilities only (no worker filters)
 And genesis baseline failed with the SAME context packet as full roster
-When forward selection adds trace_mapper to code_bug_hunt_lite on seam_trace cases
+When forward selection adds trace_mapper to bare code_bug_hunt on seam_trace cases
 Then macro verdict is add or keep with evidenceValid=true
 And cost ledger shows no material contract regression
 And VNRC attributes seam pins to trace_mapper with writer disposition logged
@@ -462,15 +462,15 @@ python3 scripts/team_lab/test_macro_schema.py
 # C03 — forward selection (primary methodology)
 python3 scripts/team_lab/compose.py \
   --suite bug_hunt_necessity_v1 \
-  --baseline-overlay docs/team-lab/champions/bug_hunt_repo_regressions_v1/code_bug_hunt_lite.json \
+  --baseline-overlay docs/team-lab/champions/bug_hunt_repo_regressions_v1/code_bug_hunt.json \
   --add trace_mapper#0 \
   --round 1
 # expect: macro-verdict.json verdict=add|hold; costLedger populated; vnrcDelta judged
 
-# C04 — Lite overlay (quality + contract, not contract alone)
+# C04 — bare default-send overlay (quality + contract, not contract alone)
 python3 scripts/team_lab/run.py --suite bug_hunt_necessity_v1 \
-  --champion-overlay docs/team-lab/champions/.../code_bug_hunt_lite.json \
-  --round 1 --variant lite-baseline
+  --champion-overlay docs/team-lab/champions/.../code_bug_hunt.json \
+  --round 1 --variant bare-baseline
 python3 scripts/team_lab/compose.py ... --compare-genesis
 # expect: runContractScore>=0.95 AND deliverable non-worse than genesis on T1 subset
 ```
@@ -498,7 +498,7 @@ python3 scripts/team_lab/compose.py ... --compare-genesis
 - Corroboration scored as redundancy → false MERGE
 - Context mismatch genesis vs full roster → false ADD
 - Writer drop scored as no_value → false REMOVE
-- `runContractScore` alone → false "Lite is good"
+- `runContractScore` alone → false "bare roster is good"
 - Pre-tagged load-bearing workers as case filter → confirmation bias
 - Greedy selection without pair probes → false REJECT interaction seats
 - Tie + positive cost → ratchet bloat
@@ -519,7 +519,7 @@ python3 scripts/team_lab/compose.py ... --compare-genesis
 - [ ] Forward selection dogfood with `evidenceValid=true` on one ADD or HOLD with reason.
 - [ ] Asymmetric gate: REMOVE refused at N<5; ADD at N≥3.
 - [ ] H3 fix-level discipline tested as three-arm hypothesis (not pre-picked seat).
-- [ ] Lite champion overlay proven on necessity T1 subset vs genesis (not contract only).
+- [ ] Bare `code_bug_hunt` champion overlay proven on necessity T1 subset vs genesis (not contract only).
 
 ## Resolved Decisions (was open questions)
 
@@ -538,8 +538,9 @@ python3 scripts/team_lab/compose.py ... --compare-genesis
 
 - [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md) — factory thesis; micro deliverable audit rule preserved.
 - [`Team_Lab_Slice_1_Full_Package.md`](Team_Lab_Slice_1_Full_Package.md) — Slice 10 = LAB-C*.
-- [`Try_Fix_Auto_Implement.md`](Try_Fix_Auto_Implement.md) — Forensics escalation after failed auto-fix.
-- [`docs/archive/phases/Team_Catalog.md`](../archive/phases/Team_Catalog.md) — historical Lite/Med/High seat gating; lab uses named overlays instead.
+- [`Try_Fix_Auto_Implement.md`](Try_Fix_Auto_Implement.md) — Max escalation after failed auto-fix.
+- [`docs/archive/phases/Team_Catalog.md`](../archive/phases/Team_Catalog.md) — historical Lite/Med/High seat gating (rename-record only); lab uses named overlays instead.
+- [`Team_Depth_Naming.md`](Team_Depth_Naming.md) — Min / bare / Max law; no default → Min.
 
 ## Routing
 

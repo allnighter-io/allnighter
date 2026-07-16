@@ -1,5 +1,11 @@
 # Team Lab Slice 1 — Full Package
 
+> **SUPERSEDED FOR WIRE FORMAT (2026-07-16).** MCP is retired — the MCP wire
+> described in this packet is dead. **`Team_Lab_Run_Factory.md` owns the wire**
+> (CLI-native `alln` only). Any works-test step that requires
+> `alln mcp serve --stdio` is **void**. Keep this packet for historical slice
+> scope, fixtures, and micro-loop intent; do not re-implement MCP transport.
+
 Status: **Active implementation spec** — authoritative execution packet for v1
 Owner: Founder + CLI/MCP + Team Quality
 Created: 2026-06-21
