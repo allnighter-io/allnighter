@@ -11,7 +11,7 @@ final class BuiltInTeamsTests: XCTestCase {
 
     func testRequiredBuiltInIdsArePresent() {
         let required = [
-            "code_core", "code_bug_hunt_lite", "code_bug_hunt", "code_gui_bug_hunt", "code_security_review",
+            "code_core", "code_bug_hunt", "code_bug_hunt_max", "code_gui_bug_hunt", "code_security_review",
             "code_spec_review", "code_release_proof",
             "default_chat", "execution_playbook",
             "design_core", "design_premium_polish", "design_conversion_studio",
@@ -73,7 +73,7 @@ final class BuiltInTeamsTests: XCTestCase {
     func testTierOneTeamsCarryOneStrategicOpusWorker() {
         let tierOne: [String: String] = [
             "code_core": "first_principles_builder",
-            "code_bug_hunt": "contrarian_root_cause",
+            "code_bug_hunt_max": "contrarian_root_cause",
             "code_gui_bug_hunt": "contrarian_root_cause",
             "code_security_review": "security_fix_prioritizer",
             "code_spec_review": "spec_first_principles_reviewer",
@@ -169,11 +169,11 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(BuiltInTeams.team("copy_landing_page")?.typeTags, ["landing-page"])
     }
 
-    // MARK: - Headline proof: one ready CLI runs Bug Hunter Forensics High
+    // MARK: - Headline proof: one ready CLI runs Bug Hunt Max High
 
-    func testBugHuntForensicsHighWithOnlyOpusResolvesEightWorkersPlusWriter() {
-        let team = BuiltInTeams.team("code_bug_hunt")!
-        XCTAssertEqual(team.displayName, "Bug Hunter Forensics")
+    func testBugHuntMaxHighWithOnlyOpusResolvesEightWorkersPlusWriter() {
+        let team = BuiltInTeams.team("code_bug_hunt_max")!
+        XCTAssertEqual(team.displayName, "Bug Hunt Max")
         XCTAssertEqual(team.defaultEffort, .high)
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: [opus()])
 
@@ -221,7 +221,7 @@ final class BuiltInTeamsTests: XCTestCase {
     // MARK: - Works Test E: preferred Codex unavailable falls back deterministically
 
     func testRegressionGuardFallsBackWhenPreferredUnavailable() {
-        let team = BuiltInTeams.team("code_bug_hunt")!
+        let team = BuiltInTeams.team("code_bug_hunt_max")!
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus()])
         let regression = r.answerWorkers.first { $0.skillId == "regression_guard" }
         XCTAssertEqual(regression?.modelId, "model_opus")
@@ -231,14 +231,14 @@ final class BuiltInTeamsTests: XCTestCase {
     // MARK: - Built-in immutability via duplicate-to-customize
 
     func testDuplicateLeavesBuiltInUnchanged() {
-        let original = BuiltInTeams.team("code_bug_hunt")!
+        let original = BuiltInTeams.team("code_bug_hunt_max")!
         let custom = original.duplicated(newId: "mike_bug_hunt", newName: "Mike's Bug Hunt")
         XCTAssertEqual(custom.id, "mike_bug_hunt")
         XCTAssertEqual(custom.displayName, "Mike's Bug Hunt")
         XCTAssertFalse(custom.builtIn)
         XCTAssertFalse(custom.isDefaultForLane)
         // The built-in is untouched.
-        XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.displayName, "Bug Hunter Forensics")
-        XCTAssertTrue(BuiltInTeams.team("code_bug_hunt")?.builtIn ?? false)
+        XCTAssertEqual(BuiltInTeams.team("code_bug_hunt_max")?.displayName, "Bug Hunt Max")
+        XCTAssertTrue(BuiltInTeams.team("code_bug_hunt_max")?.builtIn ?? false)
     }
 }

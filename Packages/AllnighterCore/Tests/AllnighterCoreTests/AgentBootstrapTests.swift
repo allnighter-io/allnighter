@@ -26,11 +26,14 @@ final class AgentBootstrapTests: XCTestCase {
 
     // MARK: - team_preflight
 
+    /// Pre-existing red baseline (MEMORY): expects 10 workers; Max roster is 8 + writer = 9.
+    /// Retargeted to `code_bug_hunt_max` so the Team_Depth_Naming rename does not change
+    /// the failure mode (bare `code_bug_hunt` is now the 4-seat default).
     func testPreflightBugHuntHighOnOneModel() {
-        let r = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_bug_hunt",
+        let r = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_bug_hunt_max",
                                         type: nil, effort: .high, readyModels: [opus()])
         XCTAssertTrue(r.canStart)
-        XCTAssertEqual(r.teamPresetId, "code_bug_hunt")
+        XCTAssertEqual(r.teamPresetId, "code_bug_hunt_max")
         XCTAssertEqual(r.effort, "high")
         XCTAssertEqual(r.outputKind, "bugPacket")
         XCTAssertEqual(r.readyWorkers.count, 10) // 9 answer/review + writer

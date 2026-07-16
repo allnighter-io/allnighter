@@ -7,7 +7,7 @@ import Foundation
 public enum BuiltInTeams {
 
     public static let all: [TeamPreset] = [
-        buildCore, buildBugHunter, buildBugHuntForensics, buildGUIBugHunt, buildSecurityReview, buildSpecReview, buildReleaseProof,
+        buildCore, buildBugHunt, buildBugHuntMax, buildGUIBugHunt, buildSecurityReview, buildSpecReview, buildReleaseProof,
         defaultChat, executionPlaybook,
         designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
         copyCore, copyLandingPage,
@@ -137,11 +137,11 @@ public enum BuiltInTeams {
         starters: ["Turn this rough idea into an implementable plan with scope and proof.",
                    "Plan the smallest correct slice for <feature>."])
 
-    /// Bug Hunter — the default, fast bug team. Lean 4-seat roster (formerly the
-    /// lab "Lite" champion). Two-judge A/B proved it ties the heavier roster on
-    /// deliverable quality at lower seat cost, so it is the everyday choice.
-    static let buildBugHunter = make(
-        id: "code_bug_hunt_lite", name: "Bug Hunter", lane: .code, output: .bugPacket, defaultEffort: .high,
+    /// Bug Hunt — bare/default depth tier. Lean 4-seat roster; two-judge A/B
+    /// proved it ties the heavier roster on deliverable quality at lower seat
+    /// cost, so it is the everyday choice (Team_Depth_Naming).
+    static let buildBugHunt = make(
+        id: "code_bug_hunt", name: "Bug Hunt", lane: .code, output: .bugPacket, defaultEffort: .high,
         description: "Find the real cause of a bug and plan the smallest correct fix: reproduce, name the truth owner, fix at the right level, prove it.",
         rows: diverseRows([
             ("bug_reproducer", .answer),
@@ -152,14 +152,14 @@ public enum BuiltInTeams {
         writer: "bug_packet_writer",
         starters: ["Find the real cause of <broken behavior> and plan the smallest correct fix."])
 
-    /// Bug Hunter Forensics — escalation team for nasty bugs: seam-crossing,
-    /// hidden/stale state, and bugs that survived earlier fix attempts. Keeps the
-    /// core 4 plus the specialists that target those failure modes, with two
-    /// anti-fixation reviewers — Contrarian (wrong *theory*) and Fix Altitude
-    /// (wrong *level*) — and the carry-law writer so specialist evidence is never
-    /// flattened in synthesis.
-    static let buildBugHuntForensics = make(
-        id: "code_bug_hunt", name: "Bug Hunter Forensics", lane: .code, output: .bugPacket, defaultEffort: .high,
+    /// Bug Hunt Max — escalation depth for nasty bugs: seam-crossing, hidden/
+    /// stale state, and bugs that survived earlier fix attempts. Keeps the core
+    /// 4 plus specialists for those failure modes, with two anti-fixation
+    /// reviewers — Contrarian (wrong *theory*) and Fix Altitude (wrong *level*)
+    /// — and the carry-law writer so specialist evidence is never flattened in
+    /// synthesis. Description keeps the forensics framing (Team_Depth_Naming).
+    static let buildBugHuntMax = make(
+        id: "code_bug_hunt_max", name: "Bug Hunt Max", lane: .code, output: .bugPacket, defaultEffort: .high,
         description: "Escalation for nasty bugs — seam-crossing, hidden state, and fixes that keep failing. Deeper trace, state, and wrong-level checks.",
         rows: diverseRows([
             ("bug_reproducer", .answer),
