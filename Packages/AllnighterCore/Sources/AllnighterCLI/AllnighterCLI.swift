@@ -891,7 +891,6 @@ struct AllnighterCLI {
         let verdict = AgentReadiness.evaluate(teams: runtime.teams, readyModels: runtime.readyModels)
         return AgentHello.jsonString(
             verdict: verdict,
-            tools: ContractRegistry.milestone1.mcpTools,
             binaryVersion: binaryVersion
         )
     }

@@ -23,7 +23,7 @@ final class ContractExportTests: XCTestCase {
         XCTAssertEqual(a, b, "export is not deterministic")
         XCTAssertEqual(a.map(\.filename), [
             "alln-contract.json", "error-codes.json", "ndjson-events.json", "example-recipes.json",
-            "mcp-tools.json", "team-run.schema.json", "doctor-result.schema.json",
+            "team-run.schema.json", "doctor-result.schema.json",
             "coordinator-health.schema.json", "pending-item.schema.json", "model-list.schema.json",
             "floor-run.schema.json", "spec-result.schema.json",
             "team-catalog.schema.json", "skill-catalog.schema.json",

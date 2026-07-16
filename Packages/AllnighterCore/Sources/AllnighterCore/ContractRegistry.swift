@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// `ContractRegistry` — the Core-owned source of truth for the `alln` command
@@ -20,7 +21,6 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
     public var events: [EventSpec]
     public var nextActionKinds: [NextActionKindSpec]
     public var examples: [ExampleRecipe]
-    public var mcpTools: [MCPToolSpec]
 
     public init(
         schemaVersion: Int = 1,
@@ -30,8 +30,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         doctorChecks: [DoctorCheckSpec],
         events: [EventSpec],
         nextActionKinds: [NextActionKindSpec],
-        examples: [ExampleRecipe],
-        mcpTools: [MCPToolSpec] = []
+        examples: [ExampleRecipe]
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -41,7 +40,14 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         self.events = events
         self.nextActionKinds = nextActionKinds
         self.examples = examples
-        self.mcpTools = mcpTools
+    }
+
+    /// Stable hash over CLI command names + contract version — agents can detect a
+    /// stale cached contract snapshot (`alln team hello`'s `contractHash`).
+    public static func contractHash(_ registry: ContractRegistry = .milestone1) -> String {
+        let payload = registry.contractVersion + "\n" + registry.commands.map(\.name).sorted().joined(separator: "\n")
+        let digest = SHA256.hash(data: Data(payload.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     public enum Milestone: String, Codable, Sendable { case m1, deferred }
@@ -172,92 +178,4 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public init(_ id: String, title: String, command: String) { self.id = id; self.title = title; self.command = command }
     }
 
-    /// An MCP tool — a thin projection of an `alln` command. MCP descriptors and
-    /// behavior derive from these; no MCP-only schemas (contract §MCP Projection).
-    /// Whether re-invoking a tool with the same arguments is safe (M-A).
-    public enum Idempotency: String, Codable, Sendable, CaseIterable {
-        /// Read-only, or a convergent write whose repeat reaches the same end state
-        /// (set-default, save, delete).
-        case idempotent
-        /// Re-invoking may duplicate work or side effects (start a fresh run, create
-        /// a new entity).
-        case notIdempotent = "not_idempotent"
-        /// De-duplicated by a client-supplied idempotency key within a retention
-        /// window (`team_start`, `thread_send`).
-        case keyed
-    }
-
-    public struct MCPToolSpec: Codable, Sendable, Equatable {
-        public var name: String            // MCP tool name, e.g. "team_ask"
-        public var command: String         // the alln command it projects, e.g. "team"
-        public var summary: String
-        public var params: [Param]
-        public var outputSchema: OutputSchema
-        /// Catalog error codes this tool can surface (M-A). Every entry must exist
-        /// in the error catalog (`ContractRegistryTests` enforces this).
-        public var errors: [String]
-        /// Retry-safety contract for this tool (M-A).
-        public var idempotency: Idempotency
-        /// Human label for MCP host UIs (T7). Auto-derived from `name` when nil.
-        public var title: String?
-        public struct Param: Codable, Sendable, Equatable {
-            public var name: String
-            public var type: String        // "string" | "boolean" | "array" | "object"
-            public var required: Bool
-            public var summary: String
-            public var arrayItems: ArrayItemsSpec?
-
-            public struct ArrayItemsSpec: Codable, Sendable, Equatable {
-                public var oneOf: [UnionItemSpec]
-                public init(oneOf: [UnionItemSpec]) { self.oneOf = oneOf }
-            }
-
-            public struct UnionItemSpec: Codable, Sendable, Equatable {
-                public var type: String?
-                public var properties: [String: PropertySpec]?
-                public var required: [String]?
-                public init(type: String? = nil, properties: [String: PropertySpec]? = nil, required: [String]? = nil) {
-                    self.type = type; self.properties = properties; self.required = required
-                }
-            }
-
-            public struct PropertySpec: Codable, Sendable, Equatable {
-                public var type: String
-                public init(type: String) { self.type = type }
-            }
-
-            public init(
-                _ name: String,
-                type: String = "string",
-                required: Bool = false,
-                summary: String,
-                arrayItems: ArrayItemsSpec? = nil
-            ) {
-                self.name = name; self.type = type; self.required = required; self.summary = summary
-                self.arrayItems = arrayItems
-            }
-        }
-        public init(_ name: String, command: String, summary: String, params: [Param] = [], outputSchema: OutputSchema = .none, errors: [String] = [], idempotency: Idempotency = .notIdempotent, title: String? = nil) {
-            self.name = name; self.command = command; self.summary = summary
-            self.params = params; self.outputSchema = outputSchema
-            self.errors = errors; self.idempotency = idempotency; self.title = title
-        }
-
-        private enum CodingKeys: String, CodingKey {
-            case name, command, summary, params, outputSchema, errors, idempotency, title
-        }
-        // Tolerant decode: a pre-M-A artifact without `errors`/`idempotency` reads
-        // as no declared errors and not-idempotent.
-        public init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            name = try c.decode(String.self, forKey: .name)
-            command = try c.decode(String.self, forKey: .command)
-            summary = try c.decode(String.self, forKey: .summary)
-            params = try c.decode([Param].self, forKey: .params)
-            outputSchema = try c.decode(OutputSchema.self, forKey: .outputSchema)
-            errors = try c.decodeIfPresent([String].self, forKey: .errors) ?? []
-            idempotency = try c.decodeIfPresent(Idempotency.self, forKey: .idempotency) ?? .notIdempotent
-            title = try c.decodeIfPresent(String.self, forKey: .title)
-        }
-    }
 }

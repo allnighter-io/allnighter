@@ -351,15 +351,6 @@
     "ruleId" : "permission.required"
   },
   {
-    "agentAction" : "Approve or configure the MCP client before retrying.",
-    "code" : "MCP_CLIENT_UNAPPROVED",
-    "exitClass" : "operational",
-    "explain" : "The calling MCP client is not approved. Approve or configure it, then retry.",
-    "requiresManual" : true,
-    "retryable" : false,
-    "ruleId" : "mcp.client.unapproved"
-  },
-  {
     "agentAction" : "Re-ingest or re-send the attachment; do not retry with stale bytes.",
     "code" : "ATTACHMENT_HASH_MISMATCH",
     "exitClass" : "operational",

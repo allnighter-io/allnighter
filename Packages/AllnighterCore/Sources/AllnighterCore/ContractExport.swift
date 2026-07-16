@@ -27,7 +27,6 @@ public enum ContractExport {
             Artifact(filename: "error-codes.json", contents: try jsonString(registry.errors)),
             Artifact(filename: "ndjson-events.json", contents: try jsonString(registry.events)),
             Artifact(filename: "example-recipes.json", contents: try jsonString(registry.examples)),
-            Artifact(filename: "mcp-tools.json", contents: try jsonString(registry.mcpTools)),
             Artifact(filename: "team-run.schema.json", contents: try ContractSchema.json(ContractSchema.teamRunSchema())),
             Artifact(filename: "doctor-result.schema.json", contents: try ContractSchema.json(ContractSchema.doctorResultSchema())),
             Artifact(filename: "coordinator-health.schema.json", contents: try ContractSchema.json(ContractSchema.coordinatorHealthSchema())),

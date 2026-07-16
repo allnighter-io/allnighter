@@ -4,7 +4,20 @@ import XCTest
 final class HelpTopicRegistryTests: XCTestCase {
     private let reg = ContractRegistry.milestone1
 
-    private var toolNames: Set<String> { Set(reg.mcpTools.map(\.name)) }
+    /// The `relatedToolIds` vocabulary predates the MCP retirement and is renamed to
+    /// `alln` verb strings in the MCP_Retirement.md docs/help-content sweep; frozen
+    /// here in the interim so cross-link validation still has a known-id set to check
+    /// against now that the registry no longer carries an MCP tool catalog.
+    private var toolNames: Set<String> {
+        ["mcp_hello", "doctor", "error_explain", "help", "defaults_get", "history",
+         "teams_get", "teams_edit", "skills_get", "skills_edit",
+         "team_ask", "team_run", "team_start", "team_result", "team_cancel", "run_get",
+         "pair_relay",
+         "thread_send", "thread_get", "thread_rename",
+         "pending_list", "pending_edit", "pending_update", "pending_run",
+         "stalled_list", "stalled_update",
+         "project_get", "project_context", "project_workers"]
+    }
     private var m1Commands: Set<String> { Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name)) }
     private var errorCodes: Set<String> { Set(reg.errors.map(\.code)) }
     private var schemaNames: Set<String> { Set(ContractRegistry.OutputSchema.allCases.map(\.rawValue)) }

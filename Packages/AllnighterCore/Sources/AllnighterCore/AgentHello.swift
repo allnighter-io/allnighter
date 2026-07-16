@@ -1,7 +1,7 @@
 import Foundation
 
-/// Router-shaped `mcp_hello` payload (MCP_Tool_Upgrade.md §6.4). No tool roster,
-/// no help sitemap — agents route through `nextToolPlan` + `workflows`.
+/// Router-shaped `alln team hello` payload. No tool roster, no help sitemap —
+/// agents route through `nextToolPlan` + `workflows`.
 public enum AgentHello {
     public struct NextToolPlan: Codable, Sendable, Equatable {
         public var tool: String
@@ -97,12 +97,11 @@ public enum AgentHello {
 
     public static func jsonString(
         verdict: AgentReadiness.Verdict,
-        tools: [ContractRegistry.MCPToolSpec],
         binaryVersion: String
     ) -> String {
         let payload = build(
             verdict: verdict,
-            contractHash: MCPWire.contractHash(tools: tools),
+            contractHash: ContractRegistry.contractHash(),
             binaryVersion: binaryVersion
         )
         let data = (try? CoreJSON.encode(payload)) ?? Data()

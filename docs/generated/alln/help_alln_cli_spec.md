@@ -755,13 +755,6 @@ Mutually exclusive: `--json`, `--stream`.
 
 Output schema: `pendingItemJSON`.
 
-### `alln mcp serve`
-
-Run the MCP stdio server.
-
-Flags:
-- `--stdio` — Use stdio transport (default).
-
 ### `alln project list`
 
 List projects (active by default; --all includes archived).
@@ -1100,7 +1093,6 @@ Output schema: `helpTopicsJSON`.
 
 - `alln pending stop` — Stop a running Pending item.
 - `alln pair` — Approve iOS/Mac pairing.
-- `alln mcp install` — Write MCP config with user consent.
 
 ## Error codes
 
@@ -1145,7 +1137,6 @@ Output schema: `helpTopicsJSON`.
 | `CATALOG_ID_INVALID` | yes | no | Use a canonical lowercase id matching the catalog rules. |
 | `JSON_SCHEMA_VIOLATION` | yes | no | Treat as implementation bug; run export-contracts check. |
 | `PERMISSION_REQUIRED` | yes | no | Ask the user for the named permission. |
-| `MCP_CLIENT_UNAPPROVED` | yes | no | Approve or configure the MCP client before retrying. |
 | `ATTACHMENT_HASH_MISMATCH` | yes | no | Re-ingest or re-send the attachment; do not retry with stale bytes. |
 | `ATTACHMENT_NOT_FOUND` | no | no | Use thread_get to list resolved attachments for the turn. |
 | `ATTACHMENT_TOO_MANY` | yes | no | Remove attachments until within the count cap. |

@@ -38,7 +38,6 @@ final class ContractRegistryTests: XCTestCase {
             "team", "show", "floor show", "spec", "history", "export", "dev export-contracts", "serve",
             "pending add", "pending list", "pending queue", "pending show", "pending submit", "pending edit",
             "pending reorder", "pending cancel", "pending run",
-            "mcp serve",
             "project list", "project add", "project show", "project archive", "project unarchive",
             "project threads", "project pending", "project stalled", "project context",
             "stalled list", "stalled check", "stalled wait", "stalled dismiss",
@@ -50,29 +49,6 @@ final class ContractRegistryTests: XCTestCase {
             "help search", "help get", "help topics",
         ]
         XCTAssertEqual(m1.sorted(), expected.sorted())
-    }
-
-    /// MCP tools are a clean projection of M1 commands — no retired vocabulary.
-    func testMCPToolsAreCleanAndDeriveFromCommands() {
-        let names = reg.mcpTools.map(\.name)
-        let expected: Set<String> = [
-            "mcp_hello", "doctor", "error_explain", "help", "defaults_get", "history",
-            "teams_get", "teams_edit", "skills_get", "skills_edit",
-            "team_ask", "team_run", "team_start", "team_result", "team_cancel", "run_get",
-            "pair_relay",
-            "thread_send", "thread_get", "thread_rename",
-            "pending_list", "pending_edit", "pending_update", "pending_run",
-            "stalled_list", "stalled_update",
-            "project_get", "project_context", "project_workers",
-        ]
-        XCTAssertEqual(Set(names).sorted(), expected.sorted())
-        XCTAssertEqual(names.count, 29, "Slice 1 surface (30) − pair_run/pair_status (2, deleted R-S09) + PM Relay R-S06's single action-dispatched pair_relay tool")
-        XCTAssertFalse(names.contains("team_preflight"))
-        XCTAssertFalse(names.contains("team_recall"), "team_recall was retired in step 8")
-        let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
-        for tool in reg.mcpTools {
-            XCTAssertTrue(m1.contains(tool.command), "MCP tool \(tool.name) maps to non-M1 command \(tool.command)")
-        }
     }
 
     func testCommandNamesAreUnique() {

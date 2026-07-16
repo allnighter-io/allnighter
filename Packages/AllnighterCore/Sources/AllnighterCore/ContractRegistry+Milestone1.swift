@@ -15,8 +15,7 @@ public extension ContractRegistry {
         doctorChecks: m1DoctorChecks,
         events: m1Events,
         nextActionKinds: m1NextActionKinds,
-        examples: m1Examples,
-        mcpTools: upgradedMCPTools
+        examples: m1Examples
     )
 
     // MARK: - Commands (in scope)
@@ -487,10 +486,6 @@ public extension ContractRegistry {
             mutuallyExclusiveFlags: [["json", "stream"]],
             outputSchema: .pendingItemJSON
         ),
-        CommandSpec(
-            "mcp serve", summary: "Run the MCP stdio server.", milestone: .m1,
-            flags: [FlagSpec("stdio", summary: "Use stdio transport (default).")]
-        ),
         // Project foundation (PRJ-S07). list/add/show/archive the local work
         // floors and read the threads/pending/context bound to one.
         CommandSpec(
@@ -703,7 +698,6 @@ public extension ContractRegistry {
     static let deferredCommands: [CommandSpec] = [
         CommandSpec("pending stop", summary: "Stop a running Pending item.", milestone: .deferred),
         CommandSpec("pair", summary: "Approve iOS/Mac pairing.", milestone: .deferred),
-        CommandSpec("mcp install", summary: "Write MCP config with user consent.", milestone: .deferred),
     ]
 
     // MARK: - Error catalog
@@ -748,7 +742,6 @@ public extension ContractRegistry {
         ErrorSpec("CATALOG_ID_INVALID", ruleId: "catalog.id.invalid", agentAction: "Use a canonical lowercase id matching the catalog rules.", requiresManual: true, retryable: false, explain: "The catalog id fails canonical ID rules."),
         ErrorSpec("JSON_SCHEMA_VIOLATION", ruleId: "json.schema.violation", agentAction: "Treat as implementation bug; run export-contracts check.", requiresManual: true, retryable: false, explain: "Output failed to match its declared schema. This is an implementation bug; run the export-contracts drift check."),
         ErrorSpec("PERMISSION_REQUIRED", ruleId: "permission.required", agentAction: "Ask the user for the named permission.", requiresManual: true, retryable: false, explain: "The action needs a user-granted permission that is not present. Request the named permission before retrying."),
-        ErrorSpec("MCP_CLIENT_UNAPPROVED", ruleId: "mcp.client.unapproved", agentAction: "Approve or configure the MCP client before retrying.", requiresManual: true, retryable: false, explain: "The calling MCP client is not approved. Approve or configure it, then retry."),
         ErrorSpec("ATTACHMENT_HASH_MISMATCH", ruleId: "attachment.hash.mismatch", agentAction: "Re-ingest or re-send the attachment; do not retry with stale bytes.", requiresManual: true, retryable: false, explain: "Attachment storedSha256 does not match on-disk bytes."),
         ErrorSpec("ATTACHMENT_NOT_FOUND", ruleId: "attachment.not_found", agentAction: "Use thread_get to list resolved attachments for the turn.", requiresManual: false, retryable: false, explain: "No attachment record exists for the requested id."),
         ErrorSpec("ATTACHMENT_TOO_MANY", ruleId: "attachment.too_many", agentAction: "Remove attachments until within the count cap.", requiresManual: true, retryable: false, explain: "Too many images attached for one send."),
@@ -826,7 +819,6 @@ public extension ContractRegistry {
         DoctorCheckSpec("journal.orphanRecovery", meaning: "Orphaned async runs resolve to interrupted."),
         DoctorCheckSpec("pending.storeReadable", meaning: "Pending store can be read."),
         DoctorCheckSpec("pending.storeWritable", meaning: "Pending store can be mutated."),
-        DoctorCheckSpec("mcpDescriptorsCurrent", meaning: "Deferred until MCP scope, but registry name reserved."),
     ]
 
     // MARK: - NDJSON events
