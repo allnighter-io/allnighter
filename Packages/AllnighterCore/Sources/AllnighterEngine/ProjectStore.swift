@@ -89,6 +89,19 @@ public final class ProjectStore: @unchecked Sendable {
         return matches.count == 1 ? matches.first : nil
     }
 
+    /// Resolve a project token and re-observe git metadata — pilot paths must never
+    /// serve stale branch/head/dirty from the cache (`Pilot_DX.md` §DX5).
+    public func resolveFresh(_ idOrPath: String) -> Project? {
+        let project: Project?
+        if let byId = try? get(idOrPath) { project = byId }
+        else {
+            let key = RootNormalization.normalize(idOrPath).key
+            project = try? activeProjects().first { $0.normalizedRootPath == key }
+        }
+        guard let project else { return nil }
+        return (try? refreshObservation(id: project.id)) ?? project
+    }
+
     // MARK: - Commands
 
     /// Add (or return the existing) Project for a local path. Duplicate detection

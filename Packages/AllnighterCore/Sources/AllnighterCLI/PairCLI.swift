@@ -3,6 +3,9 @@ import AllnighterCore
 import AllnighterEngine
 
 enum PairCLI {
+    /// Retired slice-queue tombstone (`Pilot_DX.md` §DX5) — one stderr line + exit 2.
+    static let sliceQueueRetiredMessage = "the slice queue was retired — see `alln help get pm_relay`"
+
     static func run(
         _ args: [String],
         runtime: ToolRuntime,
@@ -22,6 +25,9 @@ enum PairCLI {
         case "relay-status": RelayCLI.runStatus(Array(args.dropFirst()))
         case "relay-resume": await RelayCLI.runResume(Array(args.dropFirst()), runtime: runtime)
         case "pilot": await PilotCLI.run(Array(args.dropFirst()), runtime: runtime)
+        // Retired slice-queue verbs — tombstone only; do NOT re-register as commands.
+        case "run", "slice":
+            sliceQueueRetired()
         default: usage("list|approve|revoke|begin|relay|relay-status|relay-resume|pilot")
         }
     }
@@ -189,6 +195,11 @@ enum PairCLI {
         case .trustedDeviceNotFound(let deviceId):
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "no trusted device for \(deviceId)")
         }
+    }
+
+    private static func sliceQueueRetired() -> Never {
+        FileHandle.standardError.write(Data("\(sliceQueueRetiredMessage)\n".utf8))
+        exit(2)
     }
 
     private static func usage(_ detail: String = "list|approve|revoke|begin|relay|relay-status|relay-resume|pilot") -> Never {

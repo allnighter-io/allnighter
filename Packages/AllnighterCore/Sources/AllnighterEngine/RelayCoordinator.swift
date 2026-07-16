@@ -932,6 +932,13 @@ public struct RelayCoordinator: Sendable {
 
     // MARK: - Small helpers
 
+    /// Dev report for a settled round — the same `RunStore` lookup `runExternalRound`
+    /// uses when building `PilotRoundResult.devReport` (`Pilot_DX.md` §DX5).
+    public static func settledDevReport(for state: RelayState, runStore: RunStore = RunStore()) -> String? {
+        guard let devRunId = state.rounds.last?.devRunId else { return nil }
+        return runStore.load(runId: devRunId)?.workerAnswers.first?.output
+    }
+
     private func devReportText(runId: String) -> String? {
         runStore.load(runId: runId)?.workerAnswers.first?.output
     }

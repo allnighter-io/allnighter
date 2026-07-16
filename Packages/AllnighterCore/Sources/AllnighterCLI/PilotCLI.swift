@@ -94,7 +94,7 @@ enum PilotCLI {
         let opts = Options(args)
         guard let docPath = opts.value("doc") else { throw PilotCLIError.missingRequired("--doc <path>") }
         guard let projectToken = opts.value("project") else { throw PilotCLIError.missingRequired("--project <id|path>") }
-        guard let project = AllnighterCLI.resolveProject(projectToken, store: projectStore) else {
+        guard let project = projectStore.resolveFresh(projectToken) else {
             throw PilotCLIError.projectNotFound(projectToken)
         }
         guard let maxRounds = RelayCLI.parseMaxRounds(opts.value("max-rounds")) else {
@@ -197,7 +197,10 @@ enum PilotCLI {
 
         let stateStore = RelayStateStore()
         guard stateStore.load(id: relayId) != nil else { fail(.relayNotFound(relayId)) }
-        let projectId = AllnighterCLI.resolveProject(loadedProjectRoot(relayId, stateStore: stateStore) ?? "", store: ProjectStore())?.id
+        let projectStore = ProjectStore()
+        let projectId = projectStore.resolveFresh(
+            loadedProjectRoot(relayId, stateStore: stateStore) ?? ""
+        )?.id
 
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
         let result = await coordinator.runExternalRound(relayId: relayId, submission: submission, projectId: projectId)
@@ -386,6 +389,34 @@ enum PilotCLI {
 
     // MARK: - status
 
+    /// How a `.running` relay should be recovered — productizes detached-handoff survival
+    /// vs orphan reconciliation (`Pilot_DX.md` §DX5).
+    enum InFlightRecovery: Equatable {
+        case none
+        case handoffAlive
+        case orphanReconciled
+    }
+
+    /// Loads relay state, optionally reconciling a dead-owner `.running` relay.
+    static func loadRelayState(
+        relayId: String,
+        stateStore: RelayStateStore,
+        threadProjector: RelayThreadProjector?,
+        reconcileOrphans: Bool
+    ) -> (state: RelayState, recovery: InFlightRecovery)? {
+        guard var state = stateStore.load(id: relayId) else { return nil }
+        guard state.status == .running else { return (state, .none) }
+        if stateStore.isOwnerDead(id: relayId) {
+            if reconcileOrphans {
+                state = RelayCoordinator.reconcileOrphan(
+                    state, stateStore: stateStore, threadProjector: threadProjector, now: Date.init
+                )
+            }
+            return (state, .orphanReconciled)
+        }
+        return (state, .handoffAlive)
+    }
+
     static func runStatus(
         _ args: [String],
         stateStore: RelayStateStore = RelayStateStore(),
@@ -394,33 +425,49 @@ enum PilotCLI {
         guard !args.isEmpty else { usage("pilot status --relay <id> [--json]") }
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        guard let loaded = stateStore.load(id: relayId) else { fail(.relayNotFound(relayId)) }
-        let state = RelayCoordinator.reconcileOrphan(loaded, stateStore: stateStore, threadProjector: threadProjector, now: Date.init)
-        emitState(state, json: opts.flag("json"))
+        guard let loaded = loadRelayState(
+            relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: true
+        ) else { fail(.relayNotFound(relayId)) }
+        refreshPilotProjectGit(relayId: relayId, stateStore: stateStore)
+        emitStatusResult(loaded.state, recovery: loaded.recovery, json: opts.flag("json"))
     }
 
     // MARK: - watch
 
     /// Polls until the in-flight round settles (`status != .running`) — `.running` only
     /// ever happens transiently, while a `pilot handoff` dev turn is dispatching.
+    /// When settled (or nothing was in flight), returns the same envelope as a blocking
+    /// handoff: `relay` + verbatim `devReport` + optional `note`.
     static func runWatch(
         _ args: [String],
         stateStore: RelayStateStore = RelayStateStore(),
         threadProjector: RelayThreadProjector? = RelayThreadProjector(),
+        runStore: RunStore = RunStore(),
         pollInterval: TimeInterval = 1.0,
         sleep: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
     ) {
         guard !args.isEmpty else { usage("pilot watch --relay <id> [--json]") }
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        guard var state = stateStore.load(id: relayId) else { fail(.relayNotFound(relayId)) }
-        state = RelayCoordinator.reconcileOrphan(state, stateStore: stateStore, threadProjector: threadProjector, now: Date.init)
-        while state.status == .running {
-            sleep(pollInterval)
-            guard let reloaded = stateStore.load(id: relayId) else { fail(.relayNotFound(relayId)) }
-            state = RelayCoordinator.reconcileOrphan(reloaded, stateStore: stateStore, threadProjector: threadProjector, now: Date.init)
+        guard var loaded = loadRelayState(
+            relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: false
+        ) else { fail(.relayNotFound(relayId)) }
+
+        let note: String?
+        if loaded.state.status != .running {
+            note = watchSettledNote(recovery: loaded.recovery, status: loaded.state.status)
+        } else {
+            note = nil
+            while loaded.state.status == .running {
+                sleep(pollInterval)
+                guard let reloaded = loadRelayState(
+                    relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: true
+                ) else { fail(.relayNotFound(relayId)) }
+                loaded = reloaded
+            }
         }
-        emitState(state, json: opts.flag("json"))
+        refreshPilotProjectGit(relayId: relayId, stateStore: stateStore)
+        emitWatchResult(loaded.state, note: note, json: opts.flag("json"), runStore: runStore)
     }
 
     // MARK: - adopt (reverse flip: spawned → pilot)
@@ -497,6 +544,92 @@ enum PilotCLI {
         }
     }
 
+    private static func emitStatusResult(_ state: RelayState, recovery: InFlightRecovery, json: Bool) {
+        let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let recoveryLine = recoveryActionLine(for: state, recovery: recovery)
+        if json {
+            print(AllnighterCLI.jsonString(PilotStatusJSON(
+                relay: relayJSON,
+                recovery: recoveryLine,
+                nextActions: recoveryNextActions(for: state, recovery: recovery)
+            )))
+        } else {
+            print(RelayDispatch.humanRelaySummary(relayJSON))
+            let log = RelayDispatch.humanRoundLog(relayJSON)
+            if !log.isEmpty { print(log) }
+            if let recoveryLine { print(recoveryLine) }
+            print(nextActionLine(for: state))
+        }
+    }
+
+    private static func emitWatchResult(
+        _ state: RelayState, note: String?, json: Bool, runStore: RunStore
+    ) {
+        let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let devReport = RelayCoordinator.settledDevReport(for: state, runStore: runStore)
+        if json {
+            print(AllnighterCLI.jsonString(PilotWatchJSON(relay: relayJSON, devReport: devReport, note: note)))
+        } else {
+            print(RelayDispatch.humanRelaySummary(relayJSON))
+            if let note { print(note) }
+            if let devReport {
+                print("\n----- dev report (round \(relayJSON.rounds)) -----\n\(devReport)")
+            }
+            let log = RelayDispatch.humanRoundLog(relayJSON)
+            if !log.isEmpty { print("\n" + log) }
+            print("\n" + nextActionLine(for: state))
+        }
+        if state.status == .escalated || state.status == .stopped { exit(1) }
+    }
+
+    /// Re-observe git metadata for the relay's project — pilot paths must never serve
+    /// stale branch/head/dirty from the project cache (`Pilot_DX.md` §DX5).
+    private static func refreshPilotProjectGit(relayId: String, stateStore: RelayStateStore) {
+        guard let root = stateStore.load(id: relayId)?.projectRoot else { return }
+        _ = ProjectStore().resolveFresh(root)
+    }
+
+    static func watchSettledNote(recovery: InFlightRecovery, status: RelayState.Status) -> String {
+        switch recovery {
+        case .handoffAlive:
+            return "note: no round was in flight — relay is \(status.rawValue)."
+        case .orphanReconciled:
+            return "note: handoff owner died mid-round — relay reconciled to \(status.rawValue)."
+        case .none:
+            return "note: no round in flight — relay is \(status.rawValue)."
+        }
+    }
+
+    static func recoveryActionLine(for state: RelayState, recovery: InFlightRecovery) -> String? {
+        switch recovery {
+        case .none:
+            return nil
+        case .handoffAlive:
+            return "in flight — handoff process alive; run `alln pair pilot watch --relay \(state.id)` to block until it settles."
+        case .orphanReconciled:
+            return "handoff owner died mid-round — relay reconciled (\(state.stoppedReason ?? RelayState.orphanReconciledReason)); inspect `alln pair pilot status --relay \(state.id) --json` before retrying."
+        }
+    }
+
+    static func recoveryNextActions(for state: RelayState, recovery: InFlightRecovery) -> [AgentSurfaceNextAction] {
+        switch recovery {
+        case .none:
+            return []
+        case .handoffAlive:
+            return [.init(
+                kind: "pilotWatch",
+                label: "Block until the in-flight round settles",
+                command: "alln pair pilot watch --relay \(state.id) --json"
+            )]
+        case .orphanReconciled:
+            return [.init(
+                kind: "pilotStatus",
+                label: "Read reconciled relay state",
+                command: "alln pair pilot status --relay \(state.id) --json"
+            )]
+        }
+    }
+
     /// The next-action discipline (Pilot_Relay.md §1 decision 5): every non-JSON print
     /// says, in one line, what the piloting session should do next.
     static func nextActionLine(for state: RelayState) -> String {
@@ -504,7 +637,7 @@ enum PilotCLI {
         case .awaitingPM:
             return "next: write this round's order markdown, then `alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file <order.md>` (or `--file <md>` with a RelayVerdict tail for scripted PM output)."
         case .running:
-            return "a round is in flight — poll with `alln pair pilot status --relay \(state.id) --json` or `alln pair pilot watch --relay \(state.id)`."
+            return "a round is in flight — run `alln pair pilot watch --relay \(state.id)` to block until it settles (or `alln pair pilot status --relay \(state.id) --json` for recovery detail)."
         case .done:
             return "relay done — nothing left to hand off."
         case .escalated:
@@ -629,4 +762,19 @@ enum PilotCLI {
 struct PilotHandoffJSON: Encodable {
     let relay: RelayJSON
     let devReport: String?
+}
+
+/// `pilot status --json` envelope: relay state plus typed recovery when `.running`.
+struct PilotStatusJSON: Encodable {
+    let relay: RelayJSON
+    let recovery: String?
+    let nextActions: [AgentSurfaceNextAction]
+}
+
+/// `pilot watch --json` envelope: same as a blocking handoff when settled, plus an
+/// optional note when nothing was in flight.
+struct PilotWatchJSON: Encodable {
+    let relay: RelayJSON
+    let devReport: String?
+    let note: String?
 }

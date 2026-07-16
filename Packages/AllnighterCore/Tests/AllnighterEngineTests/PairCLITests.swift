@@ -75,6 +75,11 @@ final class PairCLITests: XCTestCase {
         XCTAssertEqual(try sessionStore.active(now: now).map(\.id), ["session_1"])
     }
 
+    func testSliceQueueVerbsPrintTombstone() {
+        XCTAssertTrue(PairCLI.sliceQueueRetiredMessage.contains("pm_relay"))
+        XCTAssertTrue(PairCLI.sliceQueueRetiredMessage.contains("retired"))
+    }
+
     private func payload(fromPairingLink link: String) throws -> RemotePairingPayload {
         let components = try XCTUnwrap(URLComponents(string: link))
         let encodedPayload = try XCTUnwrap(components.queryItems?.first { $0.name == "payload" }?.value)

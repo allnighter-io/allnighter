@@ -298,4 +298,61 @@ final class PilotCLITests: XCTestCase {
         XCTAssertFalse(PilotCLI.nextActionLine(for: state(.stopped)).isEmpty)
         XCTAssertFalse(PilotCLI.nextActionLine(for: state(.running)).isEmpty)
     }
+
+    // MARK: - in-flight recovery (DX5)
+
+    func testLoadRelayStateHandoffAliveWhenOwnerLive() throws {
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_live", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external, createdAt: Date()
+        )
+        try store.save(state)
+        let ownerURL = store.rootDirectory.appendingPathComponent("relay_live/owner.pid")
+        try Data("\(ProcessInfo.processInfo.processIdentifier)".utf8).write(to: ownerURL)
+
+        let loaded = PilotCLI.loadRelayState(
+            relayId: "relay_live", stateStore: store, threadProjector: nil, reconcileOrphans: true
+        )
+        XCTAssertEqual(loaded?.recovery, .handoffAlive)
+        XCTAssertEqual(loaded?.state.status, .running)
+    }
+
+    func testLoadRelayStateOrphanReconciledWhenOwnerDead() throws {
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays2"))
+        var state = RelayState(
+            id: "relay_dead", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external,
+            rounds: [RelayRound(roundNumber: 1, baselineHead: "abc", startedAt: Date())],
+            createdAt: Date()
+        )
+        try store.save(state)
+        let ownerURL = store.rootDirectory.appendingPathComponent("relay_dead/owner.pid")
+        try Data("999999999".utf8).write(to: ownerURL)
+
+        let loaded = PilotCLI.loadRelayState(
+            relayId: "relay_dead", stateStore: store, threadProjector: nil, reconcileOrphans: true
+        )
+        XCTAssertEqual(loaded?.recovery, .orphanReconciled)
+        XCTAssertEqual(loaded?.state.status, .stopped)
+    }
+
+    func testRecoveryNextActionsNameWatchForAliveHandoff() {
+        let state = RelayState(
+            id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external, createdAt: Date()
+        )
+        let actions = PilotCLI.recoveryNextActions(for: state, recovery: .handoffAlive)
+        XCTAssertEqual(actions.count, 1)
+        XCTAssertTrue(actions[0].command.contains("pilot watch"))
+    }
+
+    func testWatchSettledNoteWhenNothingInFlight() {
+        let note = PilotCLI.watchSettledNote(recovery: .none, status: .awaitingPM)
+        XCTAssertTrue(note.contains("no round in flight"))
+        XCTAssertTrue(note.contains("awaitingPM"))
+    }
 }
