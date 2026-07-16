@@ -56,11 +56,24 @@ Print a paste-ready agent-activation snippet for a host's context file (never ed
 
 Flags:
 - `--host <host>` — claude | cursor | codex | generic (default generic).
-- `--json` — Structured { host, pasteTarget, snippet }.
+- `--json` — Structured { host, pasteTarget, snippet, binaryPath, onPath }.
 
 Output schema: `bootstrapJSON`.
 
 Examples: `bootstrap_json`.
+
+### `alln install-cli`
+
+Symlink the running `alln` binary onto PATH (running the command is consent).
+
+Flags:
+- `--path <path>` — Install directory override (default /usr/local/bin if writable, else ~/.local/bin).
+- `--print` — Print install instructions only (legacy print-only behavior).
+- `--json` — Structured { action, path, target, onPath }.
+
+Output schema: `installCLIJSON`.
+
+Examples: `install_cli_json`.
 
 ### `alln models`
 
@@ -1191,6 +1204,7 @@ Output schema: `helpTopicsJSON`.
 | Code | Manual | Retryable | Agent action |
 | --- | --- | --- | --- |
 | `CLI_USAGE_ERROR` | yes | no | Re-run `alln docs <command>` and fix arguments. |
+| `INSTALL_CLI_TARGET_UNWRITABLE` | yes | yes | Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory. |
 | `CONTRACT_DRIFT` | yes | no | Run `alln dev export-contracts`, then rebuild. |
 | `DEFAULTS_TIER_INVALID` | yes | no | Use one of flagship | balanced | fast. |
 | `DEFAULTS_MODEL_UNKNOWN` | yes | no | Run `alln models --json` and pass a known model id. |
@@ -1320,6 +1334,7 @@ Output schema: `helpTopicsJSON`.
 - `doctor_json` — Structured diagnostics: `alln doctor --json`
 - `doctor_explain` — Explain an error code: `alln doctor explain SOURCE_AUTH_EXPIRED --json`
 - `bootstrap_json` — Agent activation snippet for Claude Code: `alln bootstrap --host claude --json`
+- `install_cli_json` — Install the running binary onto PATH: `alln install-cli --json`
 - `models_json` — List model catalog and Bench state: `alln models --json`
 - `team_show_json` — Show the current team: `alln team show --json`
 - `teams_code_json` — List Code teams: `alln teams --lane code --json`

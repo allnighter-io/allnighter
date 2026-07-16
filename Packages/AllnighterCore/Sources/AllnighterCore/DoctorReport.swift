@@ -26,6 +26,10 @@ public enum DoctorReport {
         public var cursorCLIConfigURL: URL?
         /// Optional repo-scoped override (`.cursor/cli.json` near cwd). Injectable for tests.
         public var cursorProjectOverrideURL: URL?
+        /// Resolved absolute path of the running `alln` binary. `nil` → `binary.onPath` is `notChecked`.
+        public var runningBinaryPath: String?
+        /// PATH used to resolve `alln`. `nil` → `binary.onPath` is `notChecked`.
+        public var pathEnvironment: String?
 
         public init(
             binaryVersion: String,
@@ -37,7 +41,9 @@ public enum DoctorReport {
             coordinator: DoctorResult.Coordinator? = nil,
             full: Bool,
             cursorCLIConfigURL: URL? = nil,
-            cursorProjectOverrideURL: URL? = nil
+            cursorProjectOverrideURL: URL? = nil,
+            runningBinaryPath: String? = nil,
+            pathEnvironment: String? = nil
         ) {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
@@ -49,6 +55,8 @@ public enum DoctorReport {
             self.full = full
             self.cursorCLIConfigURL = cursorCLIConfigURL
             self.cursorProjectOverrideURL = cursorProjectOverrideURL
+            self.runningBinaryPath = runningBinaryPath
+            self.pathEnvironment = pathEnvironment
         }
     }
 
@@ -96,6 +104,12 @@ public enum DoctorReport {
         )
         checks.append(shellAllowlist)
 
+        let binaryOnPath = BinaryOnPath.check(
+            runningBinary: inputs.runningBinaryPath,
+            pathEnvironment: inputs.pathEnvironment
+        )
+        checks.append(binaryOnPath)
+
         // Bench-readiness aggregate.
         if inputs.full {
             let ready = records.filter { $0.status.isReady }.count
@@ -137,7 +151,8 @@ public enum DoctorReport {
                 records: records,
                 sourcesLoaded: sourcesLoaded,
                 inputs: inputs,
-                shellAllowlistRestrictive: shellAllowlist.status == .degraded
+                shellAllowlistRestrictive: shellAllowlist.status == .degraded,
+                binaryOffPath: binaryOnPath.status == .degraded
             ),
             binaryVersion: inputs.binaryVersion,
             contractVersion: inputs.contractVersion,
@@ -260,7 +275,8 @@ public enum DoctorReport {
         records: [ToolProbeRecord],
         sourcesLoaded: Bool,
         inputs: Inputs,
-        shellAllowlistRestrictive: Bool = false
+        shellAllowlistRestrictive: Bool = false,
+        binaryOffPath: Bool = false
     ) -> DoctorResult.Status {
         let nothingInstalled = !records.isEmpty && records.allSatisfy {
             if case .notInstalled = $0.status { return true } else { return false }
@@ -271,7 +287,7 @@ public enum DoctorReport {
         if inputs.full && records.allSatisfy({ !$0.status.isReady }) && !records.isEmpty {
             return .critical   // probed and nothing is ready
         }
-        let problem = !inputs.docsVersionMatchesBinary || shellAllowlistRestrictive || records.contains {
+        let problem = !inputs.docsVersionMatchesBinary || shellAllowlistRestrictive || binaryOffPath || records.contains {
             switch $0.status {
             case .notInstalled, .shimmedNeedsConfirm, .probeFailed, .installedNotSignedIn: return true
             default: return false

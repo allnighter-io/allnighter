@@ -62,7 +62,7 @@ struct AllnighterCLI {
         case "stalled": StalledCLI.run(args.first, Array(args.dropFirst()))
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "bootstrap": runBootstrap(args)
-        case "install-cli": printInstallCLI()
+        case "install-cli": runInstallCLI(args)
         case "--help", "-h": printHelp()   // "help" is handled above via HelpCLI
         default:
             FileHandle.standardError.write(Data("unknown command: \(command)\n".utf8)); printHelp(); exit(2)
@@ -357,7 +357,9 @@ struct AllnighterCLI {
             cursorCLIConfigURL: CursorShellAllowlist.defaultConfigURL,
             cursorProjectOverrideURL: CursorShellAllowlist.projectOverrideURL(
                 near: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            )
+            ),
+            runningBinaryPath: InstallCLI.resolvedRunningBinary(argv0: CommandLine.arguments.first),
+            pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
         )
         var result = DoctorReport.build(
             models: runtime.models,
@@ -1244,20 +1246,41 @@ struct AllnighterCLI {
         guard let host = Bootstrap.Host(argument: hostArg) else {
             fail(code: "CLI_USAGE_ERROR", message: "unknown host: \(hostArg) (use claude|cursor|codex|generic)")
         }
+        let ctx = Bootstrap.liveContext()
         if opts.flag("json") {
-            print(Bootstrap.jsonString(host: host))
+            print(Bootstrap.jsonString(host: host, binaryPath: ctx.binaryPath, onPath: ctx.onPath))
         } else {
-            print(Bootstrap.render(host: host))
+            print(Bootstrap.render(host: host, binaryPath: ctx.binaryPath, onPath: ctx.onPath))
         }
     }
 
-    static func printInstallCLI() {
-        let path = CommandLine.arguments.first ?? "alln"
-        print("""
-        To call `alln` from any shell/agent, symlink it onto your PATH:
-          ln -sf "\(path)" /usr/local/bin/alln
-        (Distribution is deferred; this is the dev-build path.)
-        """)
+    static func runInstallCLI(_ args: [String]) {
+        let opts = Options(args)
+        let request = InstallCLI.Request(
+            argv0: CommandLine.arguments.first,
+            pathOverride: opts.value("path"),
+            printOnly: opts.flag("print"),
+            pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
+        )
+        switch InstallCLI.run(request) {
+        case .printed(let json):
+            if opts.flag("json") {
+                print(jsonString(json))
+            } else {
+                let target = json.target ?? "alln"
+                let installDir = request.pathOverride
+                    ?? InstallCLI.defaultInstallDirectory(homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+                print(InstallCLI.printInstructions(target: target, installDir: installDir))
+            }
+        case .installed(let json):
+            if opts.flag("json") {
+                print(jsonString(json))
+            } else {
+                print(InstallCLI.humanLine(json))
+            }
+        case .failed(let code, let message):
+            fail(code: code, message: message)
+        }
     }
 
     static func printHelp() {
@@ -1285,7 +1308,7 @@ struct AllnighterCLI {
           dev export-contracts [--check]                            regenerate/verify generated contract artifacts
           serve [--health --json]                                 resident coordinator (Serve0 skeleton)
           pair list|approve|revoke|begin [--json]                   manage trusted remote devices
-          install-cli                                               symlink alln onto your PATH
+          install-cli [--path <dir>] [--print] [--json]              symlink alln onto your PATH
         """)
     }
 

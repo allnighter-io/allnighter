@@ -9,6 +9,15 @@
     "ruleId" : "cli.usage.error"
   },
   {
+    "agentAction" : "Retry with `alln install-cli --path ~\/.local\/bin` or choose a writable directory.",
+    "code" : "INSTALL_CLI_TARGET_UNWRITABLE",
+    "exitClass" : "operational",
+    "explain" : "The install-cli target directory is missing or not writable. Use --path to a writable directory (e.g. ~\/.local\/bin) or fix permissions on \/usr\/local\/bin.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "install_cli.target.unwritable"
+  },
+  {
     "agentAction" : "Run `alln dev export-contracts`, then rebuild.",
     "code" : "CONTRACT_DRIFT",
     "exitClass" : "operational",

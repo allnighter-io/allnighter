@@ -203,5 +203,6 @@ final class CursorShellAllowlistTests: XCTestCase {
     func testCheckNameIsContractListed() {
         let names = ContractRegistry.milestone1.doctorChecks.map(\.name)
         XCTAssertTrue(names.contains(CursorShellAllowlist.checkName))
+        XCTAssertTrue(names.contains(BinaryOnPath.checkName))
     }
 }

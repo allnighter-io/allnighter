@@ -7,6 +7,8 @@ import XCTest
 /// JSON envelope shape) rather than pinning the full snippet byte-for-byte, so
 /// prose tightening doesn't make this brittle.
 final class BootstrapTests: XCTestCase {
+    private let sampleBinary = "/tmp/allnighter-build/alln"
+
     // MARK: - Host resolution
 
     func testHostArgumentParsingIsCaseInsensitive() {
@@ -24,7 +26,6 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(Bootstrap.Host.claude.pasteTarget.contains("CLAUDE.md"))
         XCTAssertTrue(Bootstrap.Host.cursor.pasteTarget.contains(".cursor/rules"))
         XCTAssertTrue(Bootstrap.Host.codex.pasteTarget.contains("AGENTS.md"))
-        // The host-neutral target names all three common locations.
         let generic = Bootstrap.Host.generic.pasteTarget
         for needle in ["CLAUDE.md", ".cursor/rules", "AGENTS.md"] {
             XCTAssertTrue(generic.contains(needle), "generic paste target missing \(needle)")
@@ -33,9 +34,10 @@ final class BootstrapTests: XCTestCase {
 
     // MARK: - The snippet teaches the trusted workflow (founder mandate, one per line)
 
-    func testSnippetTeachesTheTrustedWorkflow() {
-        let s = Bootstrap.snippet
+    func testSnippetTeachesTheTrustedWorkflowOnPath() {
+        let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
         XCTAssertTrue(s.contains("`alln` CLI"), "must name the CLI surface")
+        XCTAssertTrue(s.contains("fallback: `\(sampleBinary)`"), "must carry binary fallback")
         XCTAssertTrue(s.contains("alln team hello --json"), "must teach quota-free discovery")
         XCTAssertTrue(s.contains("alln help search"), "must teach help search")
         XCTAssertTrue(s.contains("alln help get"), "must teach help get")
@@ -44,57 +46,67 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.lowercased().contains("never guess flags"), "must forbid guessing flags")
     }
 
+    func testSnippetIncludesInstallStepWhenNotOnPath() {
+        let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
+        XCTAssertTrue(s.contains("\(sampleBinary) install-cli"))
+        XCTAssertTrue(s.contains("plain `alln` works everywhere"))
+    }
+
     /// Budget-consciousness is the whole point vs. MCP's always-loaded tool
-    /// schemas — keep the snippet in the ~6-8 line range the founder specified.
+    /// schemas — keep the snippet in the ~6-9 line range the founder specified.
     func testSnippetStaysWithinLineBudget() {
-        let lines = Bootstrap.snippet.split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertGreaterThanOrEqual(lines.count, 4)
-        XCTAssertLessThanOrEqual(lines.count, 8, "snippet grew past the paste-ready budget")
+        let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
+            .split(separator: "\n", omittingEmptySubsequences: false)
+        XCTAssertGreaterThanOrEqual(onPathLines.count, 5)
+        XCTAssertLessThanOrEqual(onPathLines.count, 7, "on-path snippet grew past budget")
+
+        let offPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
+            .split(separator: "\n", omittingEmptySubsequences: false)
+        XCTAssertLessThanOrEqual(offPathLines.count, 9, "off-path snippet grew past budget")
     }
 
     func testSnippetIsSharedSSOTWithHelpService() {
-        XCTAssertEqual(Bootstrap.snippet, HelpService.hostInstructionBlock)
+        XCTAssertEqual(Bootstrap.snippet(binaryPath: "alln", onPath: true), HelpService.hostInstructionBlock)
     }
 
     // MARK: - Render (non-JSON path)
 
     func testRenderIncludesPasteTargetAndSnippetVerbatim() {
-        let out = Bootstrap.render(host: .claude)
+        let out = Bootstrap.render(host: .claude, binaryPath: sampleBinary, onPath: true)
         XCTAssertTrue(out.contains(Bootstrap.Host.claude.pasteTarget))
-        XCTAssertTrue(out.contains(Bootstrap.snippet))
+        XCTAssertTrue(out.contains(Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)))
     }
 
     // MARK: - JSON envelope shape (agent-first: an agent can install itself)
 
     func testJSONEnvelopeShape() {
-        let j = Bootstrap.json(host: .cursor)
+        let j = Bootstrap.json(host: .cursor, binaryPath: sampleBinary, onPath: false)
         XCTAssertEqual(j.schemaVersion, 1)
         XCTAssertEqual(j.host, "cursor")
         XCTAssertEqual(j.pasteTarget, Bootstrap.Host.cursor.pasteTarget)
-        XCTAssertEqual(j.snippet, Bootstrap.snippet)
+        XCTAssertEqual(j.binaryPath, sampleBinary)
+        XCTAssertFalse(j.onPath)
+        XCTAssertTrue(j.snippet.contains(sampleBinary))
     }
 
     func testJSONStringRoundTrips() throws {
-        let json = Bootstrap.jsonString(host: .codex)
+        let json = Bootstrap.jsonString(host: .codex, binaryPath: sampleBinary, onPath: true)
         let decoded = try CoreJSON.decode(Bootstrap.JSON.self, from: Data(json.utf8))
-        XCTAssertEqual(decoded, Bootstrap.json(host: .codex))
+        XCTAssertEqual(decoded, Bootstrap.json(host: .codex, binaryPath: sampleBinary, onPath: true))
     }
 
     func testEveryHostProducesDistinctJSON() {
-        let all = Bootstrap.Host.allCases.map(Bootstrap.json(host:))
+        let all = Bootstrap.Host.allCases.map { Bootstrap.json(host: $0, binaryPath: sampleBinary, onPath: true) }
         XCTAssertEqual(Set(all.map(\.host)).count, Bootstrap.Host.allCases.count)
-        // Every host shares the identical snippet — it's the paste target that differs.
         XCTAssertEqual(Set(all.map(\.snippet)).count, 1)
+        XCTAssertTrue(all.allSatisfy { $0.binaryPath == sampleBinary })
     }
 
     // MARK: - Never edits files (consent posture parity with the retired MCP install)
 
     func testBootstrapNeverTouchesTheFilesystem() {
-        // Pure string builders — no FileManager import in this file is the
-        // structural guarantee; this test pins the observable behavior:
-        // repeated calls are side-effect free and deterministic.
-        let a = Bootstrap.render(host: .generic)
-        let b = Bootstrap.render(host: .generic)
+        let a = Bootstrap.render(host: .generic, binaryPath: sampleBinary, onPath: true)
+        let b = Bootstrap.render(host: .generic, binaryPath: sampleBinary, onPath: true)
         XCTAssertEqual(a, b)
     }
 }

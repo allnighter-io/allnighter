@@ -11,20 +11,21 @@ public extension HelpService {
     static let routingLaw =
         "For Allnighter product questions, run `alln help search <query>` or `alln help get <topic>` before answering from memory."
 
-    /// The permanent host-agent instruction block — pasted verbatim into any
-    /// terminal agent's own context (Claude Code, Codex, Cursor, Grok, …) via
-    /// `alln bootstrap`. One SSOT so the quickstart topic, the `bootstrap` help
-    /// topic, and `alln bootstrap`'s output all agree. Kept short on purpose —
-    /// budget-consciousness vs. MCP's always-loaded tool schemas is the point
-    /// (docs/phases/MCP_Retirement.md).
-    static let hostInstructionBlock = """
-        Allnighter is available via the `alln` CLI — orchestrate CLI coding agents (teams, relays, projects) on this machine.
-        - Start every session with `alln team hello --json`: quota-free readiness, contract hash, and next-action plan.
-        - Find anything with `alln help search "<query>"`, then `alln help get <topic>`.
-        - Prefer `--json` envelopes over prose.
-        - On any error, follow the envelope's help pointer; for environment/setup problems run `alln doctor --json`.
-        - Never guess flags — `alln help` is version-correct local truth, not training data.
-        """
+    /// Workflow bullets shared by `Bootstrap.snippet` and static help topics.
+    /// Line 1 (CLI surface + binary fallback) and the optional install step are
+    /// assembled by `Bootstrap.snippet(binaryPath:onPath:)`.
+    static let bootstrapWorkflowLines = [
+        "- Start every session with `alln team hello --json`: quota-free readiness, contract hash, and next-action plan.",
+        "- Find anything with `alln help search \"<query>\"`, then `alln help get <topic>`.",
+        "- Prefer `--json` envelopes over prose.",
+        "- On any error, follow the envelope's help pointer; for environment/setup problems run `alln doctor --json`.",
+        "- Never guess flags — `alln help` is version-correct local truth, not training data.",
+    ]
+
+    /// Static help-topic preview when live binary path is unknown (help corpus only).
+    static var hostInstructionBlock: String {
+        Bootstrap.snippet(binaryPath: "alln", onPath: true)
+    }
 }
 
 /// One ordered next-tool call so host agents don't synthesize orchestration from prose.

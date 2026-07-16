@@ -20,6 +20,11 @@
     "title" : "Agent activation snippet for Claude Code"
   },
   {
+    "command" : "alln install-cli --json",
+    "id" : "install_cli_json",
+    "title" : "Install the running binary onto PATH"
+  },
+  {
     "command" : "alln models --json",
     "id" : "models_json",
     "title" : "List model catalog and Bench state"

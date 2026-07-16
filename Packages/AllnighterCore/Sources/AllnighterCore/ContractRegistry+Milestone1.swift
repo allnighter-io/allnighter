@@ -53,9 +53,18 @@ public extension ContractRegistry {
             "bootstrap", summary: "Print a paste-ready agent-activation snippet for a host's context file (never edits files).", milestone: .m1,
             flags: [
                 FlagSpec("host", takesValue: true, valueType: "host", summary: "claude | cursor | codex | generic (default generic)."),
-                FlagSpec("json", summary: "Structured { host, pasteTarget, snippet }."),
+                FlagSpec("json", summary: "Structured { host, pasteTarget, snippet, binaryPath, onPath }."),
             ],
             outputSchema: .bootstrapJSON, exampleIds: ["bootstrap_json"]
+        ),
+        CommandSpec(
+            "install-cli", summary: "Symlink the running `alln` binary onto PATH (running the command is consent).", milestone: .m1,
+            flags: [
+                FlagSpec("path", takesValue: true, valueType: "path", summary: "Install directory override (default /usr/local/bin if writable, else ~/.local/bin)."),
+                FlagSpec("print", summary: "Print install instructions only (legacy print-only behavior)."),
+                FlagSpec("json", summary: "Structured { action, path, target, onPath }."),
+            ],
+            outputSchema: .installCLIJSON, exampleIds: ["install_cli_json"]
         ),
         CommandSpec(
             "models", summary: "List model catalog and Bench state.", milestone: .m1,
@@ -775,6 +784,7 @@ public extension ContractRegistry {
 
     static let m1Errors: [ErrorSpec] = [
         ErrorSpec("CLI_USAGE_ERROR", ruleId: "cli.usage.error", agentAction: "Re-run `alln docs <command>` and fix arguments.", requiresManual: true, retryable: false, explain: "The command was called with invalid or conflicting arguments. Consult the generated docs for the command and correct the invocation.", exitClass: .usage),
+        ErrorSpec("INSTALL_CLI_TARGET_UNWRITABLE", ruleId: "install_cli.target.unwritable", agentAction: "Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory.", requiresManual: true, retryable: true, explain: "The install-cli target directory is missing or not writable. Use --path to a writable directory (e.g. ~/.local/bin) or fix permissions on /usr/local/bin."),
         ErrorSpec("CONTRACT_DRIFT", ruleId: "contract.drift", agentAction: "Run `alln dev export-contracts`, then rebuild.", requiresManual: true, retryable: false, explain: "Generated artifacts no longer match the registry. Regenerate and rebuild before relying on output."),
         ErrorSpec("DEFAULTS_TIER_INVALID", ruleId: "defaults.tier.invalid", agentAction: "Use one of flagship | balanced | fast.", requiresManual: true, retryable: false, explain: "The tier name was not one of flagship, balanced, or fast.", exitClass: .usage),
         ErrorSpec("DEFAULTS_MODEL_UNKNOWN", ruleId: "defaults.model.unknown", agentAction: "Run `alln models --json` and pass a known model id.", requiresManual: true, retryable: false, explain: "The model id is not in the catalog, so it cannot be assigned to a tier. List models and use a real id."),
@@ -877,6 +887,7 @@ public extension ContractRegistry {
 
     static let m1DoctorChecks: [DoctorCheckSpec] = [
         DoctorCheckSpec("binaryVersion", meaning: "CLI binary reports version."),
+        DoctorCheckSpec("binary.onPath", meaning: "`alln` resolves on PATH to this binary."),
         DoctorCheckSpec("docsVersion", meaning: "Generated docs match binary contract."),
         DoctorCheckSpec("configDir", meaning: "Allnighter config dir exists and is writable."),
         DoctorCheckSpec("runsDir", meaning: "Run journal dir exists and is writable."),
@@ -937,6 +948,7 @@ public extension ContractRegistry {
         ExampleRecipe("doctor_json", title: "Structured diagnostics", command: "alln doctor --json"),
         ExampleRecipe("doctor_explain", title: "Explain an error code", command: "alln doctor explain SOURCE_AUTH_EXPIRED --json"),
         ExampleRecipe("bootstrap_json", title: "Agent activation snippet for Claude Code", command: "alln bootstrap --host claude --json"),
+        ExampleRecipe("install_cli_json", title: "Install the running binary onto PATH", command: "alln install-cli --json"),
         ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
         ExampleRecipe("team_show_json", title: "Show the current team", command: "alln team show --json"),
         ExampleRecipe("teams_code_json", title: "List Code teams", command: "alln teams --lane code --json"),
