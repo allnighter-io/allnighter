@@ -50,6 +50,7 @@ enum PanelCLI {
         let store = PanelStateStore()
         let coordinator = PanelCoordinator(
             stateStore: store,
+            threadProjector: PanelThreadProjector(),
             workerRunner: WorkerInvokerFactory.makeWorkerInvoker(invocations: runtime.invocations),
             models: runtime.models,
             registry: runtime.registry
@@ -247,6 +248,7 @@ enum PanelCLI {
 
         let coordinator = PanelCoordinator(
             stateStore: store,
+            threadProjector: PanelThreadProjector(),
             workerRunner: WorkerInvokerFactory.makeWorkerInvoker(invocations: runtime.invocations),
             models: runtime.models,
             registry: runtime.registry
@@ -298,6 +300,9 @@ enum PanelCLI {
         if stateStore.isOwnerDead(id: panelId) {
             if reconcileOrphans {
                 state = stateStore.reconcileIfOrphaned(state)
+                // Orphan settle bypasses PanelCoordinator.persist — heal the projected
+                // thread here so running seat placeholders do not stick (PN-S05).
+                PanelThreadProjector().sync(state: state, now: Date())
             }
             return (state, .orphanReconciled)
         }
@@ -378,7 +383,10 @@ enum PanelCLI {
         guard !args.isEmpty else { usage("panel done --panel <id> [--note …] [--json]") }
         let opts = Options(args)
         guard let panelId = opts.value("panel") else { fail(.missingRequired("--panel <id>")) }
-        let coordinator = PanelCoordinator(stateStore: stateStore)
+        let coordinator = PanelCoordinator(
+            stateStore: stateStore,
+            threadProjector: PanelThreadProjector()
+        )
         switch coordinator.done(panelId: panelId, note: opts.value("note")) {
         case .success(let state):
             emitDoneResult(state, json: opts.flag("json"))

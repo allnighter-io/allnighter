@@ -98,12 +98,18 @@ public struct PanelCoordinator: Sendable {
 
     private let stateStore: PanelStateStore
     private let seatDispatch: SeatDispatch
+    /// Optional (Pilot_Panel.md decision 12 / PN-S05): projects the panel onto a
+    /// `WorkThread` so the Mac inbox shows the jury live. Pure composition — `nil` by
+    /// default so every existing test/headless caller keeps working unchanged; CLI
+    /// constructs one so real panels always show in the inbox.
+    private let threadProjector: PanelThreadProjector?
     private let now: @Sendable () -> Date
     private let idFactory: @Sendable () -> String
 
     public init(
         stateStore: PanelStateStore = PanelStateStore(),
         seatDispatch: SeatDispatch? = nil,
+        threadProjector: PanelThreadProjector? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         idFactory: @escaping @Sendable () -> String = { PanelState.makeId() },
         workerRunner: (any WorkerInvoking)? = nil,
@@ -111,6 +117,7 @@ public struct PanelCoordinator: Sendable {
         registry: DriverRegistry = DriverRegistry()
     ) {
         self.stateStore = stateStore
+        self.threadProjector = threadProjector
         self.now = now
         self.idFactory = idFactory
         if let seatDispatch {
@@ -167,6 +174,7 @@ public struct PanelCoordinator: Sendable {
             rounds: [],
             createdAt: now()
         )
+        threadProjector?.started(state: state, projectId: config.projectId)
         persist(state)
         return .success(state)
     }
@@ -356,8 +364,12 @@ public struct PanelCoordinator: Sendable {
 
     // MARK: - helpers
 
+    /// Single choke point every `PanelState` mutation already runs through — the natural
+    /// hook for `threadProjector?.sync` (PN-S05): fires synchronously right after each
+    /// save so in-flight running turns and settled reports stay aligned with the ledger.
     private func persist(_ state: PanelState) {
         _ = try? stateStore.save(state)
+        threadProjector?.sync(state: state, now: now())
     }
 
     /// Resolve a possibly-relative target path against the project root.
