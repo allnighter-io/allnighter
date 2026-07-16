@@ -1,0 +1,106 @@
+import Foundation
+import AllnighterCore
+
+/// Persists `PanelState` to disk as one folder per panel — `panels/<id>/panel.json` —
+/// mirroring `RelayStateStore`'s per-id folder + atomic-write pattern
+/// (`docs/phases/Pilot_Panel.md` PN-S01).
+///
+/// `owner.pid` is written ONLY while `status == .running`. `awaitingPM` is parked/
+/// unowned — orphan reconcile must skip it (mirror the relay guard exactly).
+public struct PanelStateStore: Sendable {
+    public let rootDirectory: URL
+
+    public init(rootDirectory: URL? = nil) {
+        self.rootDirectory = rootDirectory ?? AllnighterPaths.panels
+    }
+
+    private func panelDirectory(id: String) throws -> URL {
+        let directory = rootDirectory.appendingPathComponent(id, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    /// Atomic write (temp + rename) so a concurrent reader never sees a torn file.
+    /// Records/clears an `owner.pid` liveness marker — written FIRST for a non-terminal
+    /// `.running` state so a reader can never see `panel.json` without it; removed on
+    /// any non-running save. `awaitingPM` is parked/unowned and never writes owner.pid.
+    @discardableResult
+    public func save(_ state: PanelState) throws -> URL {
+        let directory = try panelDirectory(id: state.id)
+        let ownerURL = directory.appendingPathComponent("owner.pid")
+        if state.status == .running {
+            try Data("\(PanelStateStore.currentPID)".utf8).write(to: ownerURL, options: .atomic)
+        }
+        try CoreJSON.encode(state).write(to: directory.appendingPathComponent("panel.json"), options: .atomic)
+        if state.status != .running {
+            try? FileManager.default.removeItem(at: ownerURL)
+        }
+        return directory
+    }
+
+    public func load(id: String) -> PanelState? {
+        let url = rootDirectory.appendingPathComponent(id, isDirectory: true).appendingPathComponent("panel.json")
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? CoreJSON.decode(PanelState.self, from: data)
+    }
+
+    /// True when `id`'s `owner.pid` marker is missing/unparsable, or names a process
+    /// that is no longer alive. Missing counts as dead — never assume alive without
+    /// proof, matching `RunStore` / `RelayStateStore`. Pure read, no side effects.
+    public func isOwnerDead(id: String) -> Bool {
+        let ownerURL = rootDirectory
+            .appendingPathComponent(id, isDirectory: true)
+            .appendingPathComponent("owner.pid")
+        guard let raw = try? String(contentsOf: ownerURL, encoding: .utf8),
+              let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            return true
+        }
+        return !RunStore.processAlive(pid)
+    }
+
+    private static var currentPID: Int32 { ProcessInfo.processInfo.processIdentifier }
+
+    /// All panels, newest first. Skips folders whose `panel.json` fails to decode.
+    public func list() -> [PanelState] {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: rootDirectory, includingPropertiesForKeys: nil
+        ) else {
+            return []
+        }
+        return entries
+            .compactMap { load(id: $0.lastPathComponent) }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Reconciles a `.running` panel whose owner process died mid-round into a settled
+    /// partial round parked at `awaitingPM`. The `.running`-only guard makes
+    /// `awaitingPM` immune (parked for days with no process is by design).
+    ///
+    /// Settles the open round (if any) with `finishedAt` so the session sees honest
+    /// partial seat results, stamps `note` with `PanelState.orphanReconciledNote`, and
+    /// persists. No-op for live `.running`, already-parked, or terminal panels.
+    @discardableResult
+    public func reconcileIfOrphaned(
+        _ state: PanelState,
+        now: @escaping @Sendable () -> Date = Date.init
+    ) -> PanelState {
+        guard state.status == .running, isOwnerDead(id: state.id) else { return state }
+        var reconciled = state
+        if let lastIndex = reconciled.rounds.indices.last,
+           reconciled.rounds[lastIndex].finishedAt == nil {
+            // Mark any seat that never produced a report as timed-out so the partial
+            // round is honest about what arrived vs what was cut short.
+            var seats = reconciled.rounds[lastIndex].seatResults
+            for i in seats.indices where seats[i].report.isEmpty && seats[i].status == .done {
+                seats[i].status = .timedOut
+                seats[i].reason = seats[i].reason ?? PanelState.orphanReconciledNote
+            }
+            reconciled.rounds[lastIndex].seatResults = seats
+            reconciled.rounds[lastIndex].finishedAt = now()
+        }
+        reconciled.status = .awaitingPM
+        reconciled.note = PanelState.orphanReconciledNote
+        try? save(reconciled)
+        return reconciled
+    }
+}

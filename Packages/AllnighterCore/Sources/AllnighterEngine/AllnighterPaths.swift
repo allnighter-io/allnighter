@@ -66,6 +66,12 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Relays", isDirectory: true)
     }
 
+    /// `…/Allnighter/Panels/` — durable Panel session state (`docs/phases/Pilot_Panel.md`),
+    /// one folder per panel (`panels/<id>/panel.json`), mirroring the Relays layout.
+    public static var panels: URL {
+        support.appendingPathComponent("Panels", isDirectory: true)
+    }
+
     /// `…/Allnighter/Evals/` — eval-harness runs, kept OUT of `Runs/` so history
     /// and `team_recall` (RB6) never surface them (contamination guard).
     public static var evals: URL {
