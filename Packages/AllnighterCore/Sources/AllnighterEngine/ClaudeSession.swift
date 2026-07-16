@@ -59,7 +59,8 @@ public actor ClaudeSession: WarmSessionDriver {
             if let turn = activeTurn, !text.isEmpty { turn.yield(.answerDelta(text)) }
         case let .reasoningDelta(text):
             if let turn = activeTurn, !text.isEmpty { turn.yield(.reasoningDelta(text)) }
-        case .turnCompleted:
+        case let .turnCompleted(usage):
+            if let usage, !usage.isEmpty, let turn = activeTurn { turn.yield(.reportedUsage(usage)) }
             activeTurn?.finish(); activeTurn = nil
         case let .failure(message):
             activeTurn?.finish(throwing: ACPError.agentError(code: 0, message: message)); activeTurn = nil

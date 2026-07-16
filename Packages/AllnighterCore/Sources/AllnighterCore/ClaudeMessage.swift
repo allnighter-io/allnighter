@@ -21,7 +21,7 @@ public enum ClaudeMsg {
     public enum Inbound: Equatable, Sendable {
         case answerDelta(String)      // stream_event content_block_delta text_delta
         case reasoningDelta(String)   // stream_event content_block_delta thinking_delta
-        case turnCompleted            // {"type":"result"} — the turn-end signal
+        case turnCompleted(usage: ReportedTokenUsage?) // {"type":"result"} — turn-end + optional usage
         case failure(message: String) // result with is_error, or an error message
         case other                    // system/init, assistant snapshot, tool events, …
     }
@@ -50,10 +50,24 @@ public enum ClaudeMsg {
             if (obj["is_error"] as? Bool) == true {
                 return .failure(message: (obj["result"] as? String) ?? (obj["subtype"] as? String) ?? "error")
             }
-            return .turnCompleted
+            return .turnCompleted(usage: usage(from: obj["usage"] as? [String: Any]))
 
         default:
             return .other
         }
+    }
+
+    private static func usage(from dict: [String: Any]?) -> ReportedTokenUsage? {
+        guard let dict else { return nil }
+        let input = intValue(dict["input_tokens"])
+        let output = intValue(dict["output_tokens"])
+        let usage = ReportedTokenUsage(inputTokens: input, outputTokens: output)
+        return usage.isEmpty ? nil : usage
+    }
+
+    private static func intValue(_ value: Any?) -> Int? {
+        if let n = value as? Int { return n }
+        if let n = value as? NSNumber { return n.intValue }
+        return nil
     }
 }

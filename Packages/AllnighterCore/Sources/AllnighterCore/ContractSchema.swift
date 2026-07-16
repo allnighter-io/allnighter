@@ -121,10 +121,14 @@ public enum ContractSchema {
                 "committed": bool, "headline": str,
                 "commitMessageMatched": nullable("boolean"),
                 "proof": nullableRef("OutcomeProof"),
+                "usage": nullableRef("OutcomeTokenUsage"),
             ], required: ["status", "committed", "headline"]),
             "OutcomeProof": obj([
                 "command": str, "exitCode": nullable("integer"), "passed": bool, "outputTail": str,
             ], required: ["command", "passed", "outputTail"]),
+            "OutcomeTokenUsage": obj([
+                "inputTokens": nullable("integer"), "outputTokens": nullable("integer"),
+            ]),
             "Usage": obj(["cliCalls": int], required: ["cliCalls"]),
             "Warning": obj(["code": nullable("string"), "message": str], required: ["message"]),
             "ErrorEnvelope": errorEnvelopeDef(),

@@ -50,7 +50,7 @@ public enum Codex {
         case failure(id: Int?, message: String)
         case answerDelta(String)      // item/agentMessage/delta
         case reasoningDelta(String)   // item/reasoning/textDelta | summaryTextDelta
-        case turnCompleted            // the turn-end signal (a NOTIFICATION, not a result)
+        case turnCompleted(usage: ReportedTokenUsage?) // turn-end notification + optional usage
         case serverRequest(id: Int)   // app-server asks us something; ack so it doesn't block
         case other
     }
@@ -85,7 +85,7 @@ public enum Codex {
         case "item/reasoning/textDelta", "item/reasoning/summaryTextDelta":
             return .reasoningDelta(deltaText(params) ?? "")
         case "turn/completed":
-            return .turnCompleted
+            return .turnCompleted(usage: usage(from: params))
         case "error":
             return .failure(id: nil, message: (params?["message"] as? String) ?? "error")
         default:
@@ -98,6 +98,23 @@ public enum Codex {
         for key in ["delta", "text", "content"] {
             if let s = params?[key] as? String, !s.isEmpty { return s }
         }
+        return nil
+    }
+
+    private static func usage(from params: [String: Any]?) -> ReportedTokenUsage? {
+        guard let params else { return nil }
+        let usageDict = (params["usage"] as? [String: Any])
+            ?? ((params["turn"] as? [String: Any])?["usage"] as? [String: Any])
+        guard let usageDict else { return nil }
+        let input = intValue(usageDict["input_tokens"])
+        let output = intValue(usageDict["output_tokens"])
+        let usage = ReportedTokenUsage(inputTokens: input, outputTokens: output)
+        return usage.isEmpty ? nil : usage
+    }
+
+    private static func intValue(_ value: Any?) -> Int? {
+        if let n = value as? Int { return n }
+        if let n = value as? NSNumber { return n.intValue }
         return nil
     }
 }

@@ -79,6 +79,9 @@ public enum RunIdentity {
                 parts.append("PROOF FAILED")
             }
         }
+        if let suffix = run.workerAnswers.first?.result.reportedTokenUsage?.headlineSuffix {
+            parts.append(suffix)
+        }
         return parts.joined(separator: " · ")
     }
 

@@ -555,6 +555,7 @@ public actor RunService {
             var lastAnswerDeltaAt: Date?
             var warmAnswerDeltaCount = 0
             var warmReasoningDeltaCount = 0
+            var warmReportedUsage: ReportedTokenUsage?
             do {
                 let warmKey = ExternalWorkerSession.Key(
                     threadId: threadId, sourceId: manifest.id, modelId: model.id, repoRoot: repoRoot)
@@ -578,6 +579,8 @@ public actor RunService {
                         if firstTokenAt == nil { firstTokenAt = now() }
                         warmReasoningDeltaCount += 1
                         reasoning += text; emitWarmReasoning()
+                    case .reportedUsage(let usage):
+                        warmReportedUsage = (warmReportedUsage ?? ReportedTokenUsage()).merged(with: usage)
                     case .toolActivity:
                         break
                     }
@@ -603,6 +606,7 @@ public actor RunService {
                 warmOutcome.timing.lastAnswerDeltaAt = lastAnswerDeltaAt
                 warmOutcome.timing.answerDeltaCount = warmAnswerDeltaCount
                 warmOutcome.timing.reasoningDeltaCount = warmReasoningDeltaCount
+                warmOutcome.reportedTokenUsage = warmReportedUsage
                 outcome = warmOutcome
             } catch {
                 StreamDebugLog.log("WARM FALLBACK source=\(manifest.id): \(error) — cold invoke")

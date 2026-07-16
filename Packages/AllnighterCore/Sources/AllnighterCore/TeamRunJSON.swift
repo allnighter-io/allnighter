@@ -279,6 +279,16 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
                 self.outputTail = outputTail
             }
         }
+        /// Driver-reported token counts (absent when the dialect emits none — never zero).
+        public struct TokenUsage: Codable, Equatable, Sendable {
+            public var inputTokens: Int?
+            public var outputTokens: Int?
+
+            public init(inputTokens: Int? = nil, outputTokens: Int? = nil) {
+                self.inputTokens = inputTokens
+                self.outputTokens = outputTokens
+            }
+        }
         public var status: Status
         public var committed: Bool
         public var headline: String
@@ -286,16 +296,19 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var commitMessageMatched: Bool?
         /// Present when `--proof` was given — bounded subprocess result after worker settlement.
         public var proof: Proof?
+        /// Present when the execution driver reported token usage on the wire.
+        public var usage: TokenUsage?
 
         public init(
             status: Status, committed: Bool, headline: String,
-            commitMessageMatched: Bool? = nil, proof: Proof? = nil
+            commitMessageMatched: Bool? = nil, proof: Proof? = nil, usage: TokenUsage? = nil
         ) {
             self.status = status
             self.committed = committed
             self.headline = headline
             self.commitMessageMatched = commitMessageMatched
             self.proof = proof
+            self.usage = usage
         }
     }
 

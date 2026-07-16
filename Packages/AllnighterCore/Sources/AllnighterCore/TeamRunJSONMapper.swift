@@ -147,12 +147,19 @@ public enum TeamRunJSONMapper {
             TeamRunJSON.Outcome.Proof(
                 command: $0.command, exitCode: $0.exitCode, passed: $0.passed, outputTail: $0.outputTail)
         }
+        let usage: TeamRunJSON.Outcome.TokenUsage? = run.workerAnswers.first?.result.reportedTokenUsage
+            .flatMap { reported in
+                guard !reported.isEmpty else { return nil }
+                return TeamRunJSON.Outcome.TokenUsage(
+                    inputTokens: reported.inputTokens, outputTokens: reported.outputTokens)
+            }
         return TeamRunJSON.Outcome(
             status: mapOutcomeStatus(run),
             committed: run.repoDelta?.changed == true,
             headline: RunIdentity.outcomeHeadline(run),
             commitMessageMatched: commitMatched,
-            proof: proof)
+            proof: proof,
+            usage: usage)
     }
 
     // MARK: - Enum mappings

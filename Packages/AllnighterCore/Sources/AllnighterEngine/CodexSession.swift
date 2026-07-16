@@ -86,7 +86,8 @@ public actor CodexSession: WarmSessionDriver {
         case let .reasoningDelta(text):
             if let turn = activeTurn, !text.isEmpty { turn.continuation.yield(.reasoningDelta(text)) }
 
-        case .turnCompleted:
+        case .turnCompleted(let usage):
+            if let usage, !usage.isEmpty, let turn = activeTurn { turn.continuation.yield(.reportedUsage(usage)) }
             if let turn = activeTurn { turn.continuation.finish(); activeTurn = nil }
 
         case let .serverRequest(id):

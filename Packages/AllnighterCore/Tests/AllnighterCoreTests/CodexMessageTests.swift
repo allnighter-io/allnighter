@@ -66,7 +66,12 @@ final class CodexMessageTests: XCTestCase {
 
     func testTurnCompletedIsTheTurnEndSignal() {
         XCTAssertEqual(Codex.parse(#"{"method":"turn/completed","params":{"turn":{"status":"completed"}}}"#),
-                       .turnCompleted)
+                       .turnCompleted(usage: nil))
+    }
+
+    func testTurnCompletedUsageExtracted() {
+        let line = #"{"method":"turn/completed","params":{"usage":{"input_tokens":120,"output_tokens":3}}}"#
+        XCTAssertEqual(Codex.parse(line), .turnCompleted(usage: ReportedTokenUsage(inputTokens: 120, outputTokens: 3)))
     }
 
     func testErrorIsFailure() {

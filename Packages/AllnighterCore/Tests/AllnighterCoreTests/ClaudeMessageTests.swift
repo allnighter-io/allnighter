@@ -33,7 +33,12 @@ final class ClaudeMessageTests: XCTestCase {
 
     func testResultIsTurnCompleted() {
         XCTAssertEqual(ClaudeMsg.parse(#"{"type":"result","subtype":"success","result":"OK","is_error":false}"#),
-                       .turnCompleted)
+                       .turnCompleted(usage: nil))
+    }
+
+    func testResultUsageExtracted() {
+        let line = #"{"type":"result","subtype":"success","is_error":false,"usage":{"input_tokens":2655,"output_tokens":18,"cache_read_input_tokens":15626}}"#
+        XCTAssertEqual(ClaudeMsg.parse(line), .turnCompleted(usage: ReportedTokenUsage(inputTokens: 2655, outputTokens: 18)))
     }
 
     func testErrorResultIsFailure() {

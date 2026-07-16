@@ -6,6 +6,8 @@ public enum ACPTurnEvent: Sendable, Equatable {
     case answerDelta(String)      // agent_message_chunk — visible answer text
     case reasoningDelta(String)   // agent_thought_chunk — visible reasoning
     case toolActivity(String)     // tool_call title — "read_file", "git status", …
+    /// Driver-reported token counts observed on the wire this turn (absent dialects never emit).
+    case reportedUsage(ReportedTokenUsage)
 }
 
 public enum ACPError: Error, Equatable {
