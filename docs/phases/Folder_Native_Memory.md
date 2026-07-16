@@ -98,6 +98,21 @@ Everything below serves those two sentences; anything that doesn't is bloat.
   human-readable delta, never a silent rewrite. The card is for the founder;
   the file is for the agents.
 
+## The team-improvement loop (decided 2026-07-16 — it is the `seat` line, nothing else)
+
+Teams (TeamPresets) improve through memory, with ZERO new machinery: every panel/
+pilot **done-note records seat-behavior observations WITH receipts** ("model_X
+stalled 3/4 long turns, panel r2 7/16") → consolidation distills them into `seat`
+lines → every session reads the posterior before composing rosters or picking
+seats → a human or their session edits the team (existing `alln teams`
+edit-in-place) when evidence accumulates. Rare, deliberate, judgment-owned.
+Scope note: teams are global, MEMORY.md is per-repo — a seat blocked by a repo
+fact (allowlist) means fix the repo, not the team; per-repo duplication of global
+observations is cheap and honest until cross-repo priors are ever unparked.
+Pilot cockpit sessions may write MEMORY.md directly (they are the user's agent
+with repo hands — the no-write law binds Allnighter the product, not the user's
+session); relay/overnight contexts write via an ordered worker (the seed pattern).
+
 ## Smallest first slice (when unparked)
 
 1. Relay prompts + pilot scaffold gain the one pointer line (rides on Pilot DX
@@ -115,6 +130,10 @@ Everything below serves those two sentences; anything that doesn't is bloat.
 - No starter MEMORY templates — shipping unearned wisdom is fake-green for
   memory; the file starts empty and earns every line.
 - No cross-repo auto-sharing, ever by default (priors are gold AND liability).
+- No auto-tuning of TeamPresets from seat lines/stats — judgment theft + roster
+  churn; teams change only when a person or their session decides. Seat stats,
+  if ever wanted, are an on-demand projection over existing round logs, never a
+  system feeding memory automatically.
 - No pricing/tier design in this doc — strategy docs own that.
 
 ## Works test (night-2, the conversion event)
