@@ -315,7 +315,14 @@ public struct RelayCoordinator: Sendable {
                 pmWorkerId: state.pmWorkerId, devWorkerId: state.devWorkerId,
                 maxRounds: maxRounds, until: nil, stagnationRoundCap: stagnationCap
             )
-            let devDispatch = await dispatchTurn(devRequest, config: dispatchConfig)
+            let devDispatch = await dispatchTurn(
+                devRequest,
+                config: dispatchConfig,
+                deliveryGuard: .init(
+                    projectRoot: state.projectRoot,
+                    baselineHead: round.baselineHead ?? gitObserver.observe(rootPath: state.projectRoot).head ?? ""
+                )
+            )
 
             switch devDispatch {
             case .deadline:
@@ -816,7 +823,14 @@ public struct RelayCoordinator: Sendable {
                 repoRoot: config.projectRoot, projectId: config.projectId,
                 presetId: config.presetId, workerId: config.devWorkerId
             )
-            let devDispatch = await dispatchTurn(devRequest, config: config)
+            let devDispatch = await dispatchTurn(
+                devRequest,
+                config: config,
+                deliveryGuard: .init(
+                    projectRoot: config.projectRoot,
+                    baselineHead: round.baselineHead ?? baselineHead ?? ""
+                )
+            )
             switch devDispatch {
             case .deadline:
                 return finishRound(&state, &round, outcome: .stopped, events: events) {
@@ -876,13 +890,30 @@ public struct RelayCoordinator: Sendable {
         case serviceError(RunServiceError)
     }
 
+    private struct TurnDeliveryGuard: Sendable {
+        var projectRoot: String
+        var baselineHead: String
+    }
+
+    private static let partialCompletionRetryHint =
+        "A prior attempt may have partially completed; verify existing state before redoing work."
+
     /// Dispatches ONE turn through `RunService`, retrying on `.stalled`/`.emptyResult`/
     /// `.infraBackoff`/`.compacting` per `RelayTurnClassifier.RetryCeiling` (a bare retry —
     /// simpler than `PairCoordinator`'s nudge-prompt retries, since the relay's retries are
     /// for infra hiccups/compaction/hangs, not "your check failed, try differently"; the PM
     /// or dev's own free prose already carries anything it needs to try differently).
     /// `--until` is honored between attempts (mirrors QUEUE-S02).
-    private func dispatchTurn(_ request: RunRequest, config: Config) async -> TurnDispatch {
+    ///
+    /// When `deliveryGuard` is set (mutating dev turns), a stall/empty retry first re-observes
+    /// HEAD: if it moved past the turn baseline, classify delivered-not-stalled instead of
+    /// re-dispatching (FR9). Ambiguous cases (output but no commit) append one retry hint.
+    private func dispatchTurn(
+        _ request: RunRequest,
+        config: Config,
+        deliveryGuard: TurnDeliveryGuard? = nil
+    ) async -> TurnDispatch {
+        var request = request
         var stalledAttempts = 0
         var emptyAttempts = 0
         var infraAttempts = 0
@@ -903,11 +934,17 @@ public struct RelayCoordinator: Sendable {
             case .delivered(let text):
                 return .delivered(run, text)
             case .stalled:
+                if let delivered = deliveredDespiteStallSignal(
+                    run: run, outcome: outcome, request: &request, deliveryGuard: deliveryGuard
+                ) { return delivered }
                 stalledAttempts += 1
                 if stalledAttempts > RelayTurnClassifier.RetryCeiling.maxStalledAttempts {
                     return .budgetExhausted("stalled repeatedly (\(stalledAttempts) attempts)")
                 }
             case .emptyResult:
+                if let delivered = deliveredDespiteStallSignal(
+                    run: run, outcome: outcome, request: &request, deliveryGuard: deliveryGuard
+                ) { return delivered }
                 emptyAttempts += 1
                 if emptyAttempts > RelayTurnClassifier.RetryCeiling.maxEmptyResultAttempts {
                     return .budgetExhausted("returned empty output repeatedly (\(emptyAttempts) attempts)")
@@ -928,6 +965,28 @@ public struct RelayCoordinator: Sendable {
 
             if isPastDeadline(config) { return .deadline }
         }
+    }
+
+    /// FR9 — before a mutating dev-turn stall/empty retry, re-observe HEAD; if the repo
+    /// advanced past the turn baseline, treat the turn as delivered. Otherwise, when output
+    /// exists but HEAD is unchanged, annotate the next retry prompt once.
+    private func deliveredDespiteStallSignal(
+        run: TeamRun,
+        outcome: WorkerRunOutcome,
+        request: inout RunRequest,
+        deliveryGuard: TurnDeliveryGuard?
+    ) -> TurnDispatch? {
+        guard let deliveryGuard else { return nil }
+        let head = gitObserver.observe(rootPath: deliveryGuard.projectRoot).head
+        if head != deliveryGuard.baselineHead {
+            let output = (outcome.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return .delivered(run, output.isEmpty ? "(worker committed; settlement signal missed — repo advanced)" : output)
+        }
+        let visible = (outcome.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !visible.isEmpty && !request.message.contains(Self.partialCompletionRetryHint) {
+            request.message += "\n\n" + Self.partialCompletionRetryHint
+        }
+        return nil
     }
 
     // MARK: - Small helpers

@@ -56,7 +56,8 @@ final class RelayCoordinatorTests: XCTestCase {
         devScripts: [MockCommandRunner.Script],
         runStore: RunStore,
         pmDriverId: String = "pm_cli",
-        devDriverId: String = "dev_cli"
+        devDriverId: String = "dev_cli",
+        commandRunner: CommandRunner? = nil
     ) -> (RunService, SequencedCommandRunner) {
         let pmModel = Model(id: "model_pm", displayName: "PM", modelLabel: "pm", driverId: pmDriverId, role: .both)
         let devModel = Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: devDriverId, role: .both)
@@ -69,7 +70,7 @@ final class RelayCoordinatorTests: XCTestCase {
             models: [pmModel, devModel],
             registry: registry,
             runStore: runStore,
-            commandRunner: runner,
+            commandRunner: commandRunner ?? runner,
             writeLock: RunWriteLockRegistry(),
             defaultSettings: { DefaultModelSettings() },
             probeRecords: { [] }
@@ -171,6 +172,71 @@ final class RelayCoordinatorTests: XCTestCase {
             prompt.contains("# PM Relay — round 1 (dev seat)"),
             "RelayDevPrompt wrapper must still be present after the single preamble"
         )
+    }
+
+    // MARK: - FR9 delivered-not-stalled
+
+    func testCommitThenStallSettlesDeliveredWithOneDevDispatch() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Commit a file.")),
+            .init(stdout: "Shipped.\n\n" + verdictJSON("done", note: "Observed delivery.")),
+        ]
+        let devRunner = CommittingThenStallingCommandRunner(repoRoot: repo)
+        let pmRunner = SequencedCommandRunner(queues: ["pm_cli": pmScripts])
+        let routingRunner = RelayTestCommandRouter(pm: pmRunner, dev: devRunner)
+        let (service, _) = makeService(
+            pmScripts: pmScripts, devScripts: [], runStore: runStore, commandRunner: routingRunner
+        )
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+        )
+        let state = await coordinator.run(config: config)
+
+        XCTAssertEqual(devRunner.callCount, 1, "delivered-not-stalled must not re-dispatch")
+        XCTAssertEqual(pmRunner.callCount(for: "pm_cli"), 2)
+        XCTAssertEqual(state.rounds.count, 2)
+        XCTAssertEqual(state.rounds[0].outcome, .continued)
+        XCTAssertNotEqual(state.rounds[0].baselineHead, state.rounds[0].headAfterDev)
+        XCTAssertNotNil(state.rounds[0].devRunId)
+        let devRun = runStore.load(runId: try XCTUnwrap(state.rounds[0].devRunId))
+        XCTAssertTrue(try XCTUnwrap(devRun?.repoDelta).changed)
+        XCTAssertEqual(state.status, .done)
+    }
+
+    func testAmbiguousStallRetryAppendsPartialCompletionHint() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Try the fix.")),
+            .init(stdout: "Done.\n\n" + verdictJSON("done", note: "Eventually shipped.")),
+        ]
+        let devScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "partial output without commit", exitCode: 1),
+            .init(stdout: "finished cleanly."),
+        ]
+        let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+        )
+        let state = await coordinator.run(config: config)
+
+        XCTAssertEqual(runner.callCount(for: "dev_cli"), 2)
+        let secondPrompt = runner.capturedArgs(for: "dev_cli")[1].joined(separator: " ")
+        XCTAssertTrue(
+            secondPrompt.contains("A prior attempt may have partially completed"),
+            "ambiguous stall retry must warn before redoing work"
+        )
+        XCTAssertEqual(state.status, .done)
     }
 
     // MARK: - Verdict re-ask
@@ -719,5 +785,70 @@ final class SequencedCommandRunner: CommandRunner, @unchecked Sendable {
         try? await Task.sleep(for: script.delay)
         if script.forcesTimeout { return CommandResult(timedOut: true) }
         return CommandResult(stdout: script.stdout, stderr: script.stderr, exitCode: script.exitCode)
+    }
+}
+
+/// Routes PM vs dev CLI invocations in relay coordinator tests.
+final class RelayTestCommandRouter: CommandRunner, @unchecked Sendable {
+    private let pm: CommandRunner
+    private let dev: CommandRunner
+
+    init(pm: CommandRunner, dev: CommandRunner) {
+        self.pm = pm
+        self.dev = dev
+    }
+
+    func run(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) async -> CommandResult {
+        switch command {
+        case "pm_cli":
+            return await pm.run(command: command, args: args, stdin: stdin, env: env, workingDirectory: workingDirectory, timeout: timeout)
+        case "dev_cli":
+            return await dev.run(command: command, args: args, stdin: stdin, env: env, workingDirectory: workingDirectory, timeout: timeout)
+        default:
+            return CommandResult(stdout: "", stderr: "unknown command", exitCode: 1)
+        }
+    }
+}
+
+/// Fake mutating dev worker: commits in the repo, then returns a non-zero exit so the
+/// relay classifier sees `.stalled` even though delivery already happened.
+final class CommittingThenStallingCommandRunner: CommandRunner, @unchecked Sendable {
+    private let repoRoot: URL
+    private let lock = NSLock()
+    private var calls = 0
+
+    var callCount: Int { lock.withLock { calls } }
+
+    init(repoRoot: URL) {
+        self.repoRoot = repoRoot
+    }
+
+    func run(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) async -> CommandResult {
+        _ = command
+        _ = args
+        _ = stdin
+        _ = env
+        _ = workingDirectory
+        _ = timeout
+        lock.withLock { calls += 1 }
+        let file = repoRoot.appendingPathComponent("worker-change.txt")
+        try? "worker change".write(to: file, atomically: true, encoding: .utf8)
+        runGit(["add", "worker-change.txt"], cwd: repoRoot)
+        runGit(["commit", "-q", "-m", "worker: test change"], cwd: repoRoot)
+        return CommandResult(stdout: "committed but stalled", stderr: "", exitCode: 1)
+    }
+
+    private func runGit(_ args: [String], cwd: URL) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        p.arguments = ["-C", cwd.path] + args
+        p.standardOutput = Pipe(); p.standardError = Pipe(); p.standardInput = FileHandle.nullDevice
+        try? p.run(); p.waitUntilExit()
     }
 }
