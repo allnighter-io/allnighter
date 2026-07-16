@@ -530,6 +530,19 @@ Flags:
 
 Output schema: `relayJSON`.
 
+### `alln pair relay adopt`
+
+Night-shift handover: converts a parked Pilot relay (awaitingPM or escalated) to a spawned PM relay and continues the loop from the durable round log.
+
+Flags:
+- `--relay <id>` — Relay id (required).
+- `--pm-worker <id>` — The spawned PM seat's model id (required).
+- `--max-rounds <integer>` — Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20).
+- `--until <time>` — Hard stop HH:MM (local) for the adopted stretch.
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
+
+Output schema: `relayJSON`.
+
 ### `alln pair pilot start`
 
 Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat + rails). Parks awaitingPM.
@@ -568,6 +581,16 @@ Output schema: `relayJSON`.
 ### `alln pair pilot watch`
 
 Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status).
+
+Flags:
+- `--relay <id>` — Relay id (required).
+- `--json` — Emit RelayJSON.
+
+Output schema: `relayJSON`.
+
+### `alln pair pilot adopt`
+
+Reverse flip: hands a parked spawned relay's PM seat to a piloting session (pmMode → external, status → awaitingPM). No dispatch.
 
 Flags:
 - `--relay <id>` — Relay id (required).

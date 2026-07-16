@@ -13,6 +13,13 @@ import AllnighterEngine
 /// subprocess; only the thin `run*` entry points touch `exit()`.
 enum RelayCLI {
     static func runRelay(_ args: [String], runtime: ToolRuntime) async {
+        // "pair relay adopt" is a nested verb (mirrors "pair pilot start|handoff|…"),
+        // not a flag on "pair relay" — every other flag here starts with "--", so this
+        // check can never misfire against a real start invocation.
+        if args.first == "adopt" {
+            await runAdopt(Array(args.dropFirst()), runtime: runtime)
+            return
+        }
         guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-worker <modelId> --dev-worker <modelId> [--until HH:MM] [--max-rounds N] [--json]") }
         let config: RelayCoordinator.Config
         do {
@@ -76,6 +83,43 @@ enum RelayCLI {
             fail(.relayNotFound(request.relayId))
         }
         emitTerminal(state, json: emitJSON)
+    }
+
+    /// `pair relay adopt --relay <id> --pm-worker <id>` (docs/phases/Pilot_Relay.md
+    /// §5, PL-S06) — the night-shift handover: hands a parked Pilot relay to a
+    /// spawned PM, then lets the loop run to a terminal state exactly like `relay`/
+    /// `relay-resume`. `projectRoot`/`docPath`/`devWorkerId` are always read from the
+    /// loaded relay (never from a flag here) — an adopt can never silently redirect a
+    /// relay at a different doc or repo, same discipline `resume` already follows.
+    static func runAdopt(_ args: [String], runtime: ToolRuntime) async {
+        guard !args.isEmpty else { usage("relay adopt --relay <id> --pm-worker <modelId> [--max-rounds N] [--until HH:MM] [--json]") }
+        let opts = Options(args)
+        guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
+        guard let pmWorkerId = opts.value("pm-worker") else { fail(.missingRequired("--pm-worker <modelId>")) }
+        guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else {
+            fail(.invalidMaxRounds(opts.value("max-rounds") ?? ""))
+        }
+
+        let stateStore = RelayStateStore()
+        guard let priorState = stateStore.load(id: relayId) else { fail(.relayNotFound(relayId)) }
+        let projectId = AllnighterCLI.resolveProject(priorState.projectRoot, store: ProjectStore())?.id
+        let config = RelayCoordinator.Config(
+            projectRoot: priorState.projectRoot, projectId: projectId, docPath: priorState.docPath,
+            pmWorkerId: pmWorkerId, devWorkerId: priorState.devWorkerId,
+            maxRounds: maxRounds, until: RelayDispatch.parseUntil(opts.value("until"))
+        )
+
+        let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
+        let emitJSON = opts.flag("json")
+        let result = await coordinator.adopt(relayId: relayId, pmWorkerId: pmWorkerId, config: config) { event in
+            emit(event, json: emitJSON)
+        }
+        switch result {
+        case .success(let state):
+            emitTerminal(state, json: emitJSON)
+        case .failure(let error):
+            failAdopt(error)
+        }
     }
 
     // MARK: - Parsing (throwing, exit-free — unit-testable)
@@ -202,6 +246,22 @@ enum RelayCLI {
             return ("RELAY_NOT_FOUND", "relay not found: \(id)")
         case .relayNotEscalated(let status):
             return ("RELAY_INVALID_STATE", "relay is \(status), not resumable — only an escalated relay, or one reconciled after its owner process died, can be resumed")
+        }
+    }
+
+    private static func failAdopt(_ error: RelayCoordinator.AdoptError) -> Never {
+        let (code, message) = adoptErrorEnvelope(error)
+        AllnighterCLI.fail(code: code, message: message)
+    }
+
+    static func adoptErrorEnvelope(_ error: RelayCoordinator.AdoptError) -> (code: String, message: String) {
+        switch error {
+        case .relayNotFound:
+            return ("RELAY_NOT_FOUND", "relay not found")
+        case .notPilotRelay:
+            return ("RELAY_INVALID_STATE", "relay is not a Pilot relay (pmMode != external) — only a Pilot relay can be adopted by a spawned PM")
+        case .notAdoptable(let status):
+            return ("RELAY_INVALID_STATE", "relay is \(status), not adoptable — only a parked Pilot relay (awaitingPM or escalated) can be adopted")
         }
     }
 

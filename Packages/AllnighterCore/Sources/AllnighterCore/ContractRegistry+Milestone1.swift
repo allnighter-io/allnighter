@@ -353,6 +353,17 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
+            "pair relay adopt", summary: "Night-shift handover: converts a parked Pilot relay (awaitingPM or escalated) to a spawned PM relay and continues the loop from the durable round log.", milestone: .m1,
+            flags: [
+                FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
+                FlagSpec("pm-worker", takesValue: true, valueType: "id", summary: "The spawned PM seat's model id (required)."),
+                FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20)."),
+                FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the adopted stretch."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope."),
+            ],
+            outputSchema: .relayJSON
+        ),
+        CommandSpec(
             "pair pilot start", summary: "Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat + rails). Parks awaitingPM.", milestone: .m1,
             flags: [
                 FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the piloting session re-reads it fresh each round."),
@@ -383,6 +394,14 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "pair pilot watch", summary: "Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status).", milestone: .m1,
+            flags: [
+                FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
+                FlagSpec("json", summary: "Emit RelayJSON."),
+            ],
+            outputSchema: .relayJSON
+        ),
+        CommandSpec(
+            "pair pilot adopt", summary: "Reverse flip: hands a parked spawned relay's PM seat to a piloting session (pmMode → external, status → awaitingPM). No dispatch.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("json", summary: "Emit RelayJSON."),

@@ -354,6 +354,141 @@ public struct RelayCoordinator: Sendable {
         }
     }
 
+    // MARK: - Adopt (docs/phases/Pilot_Relay.md §5, PL-S06) — the night-shift handover
+
+    /// `alln pair relay adopt` failure. Every case leaves the relay's durable state
+    /// exactly as it was before the call.
+    public enum AdoptError: Swift.Error, Sendable, Equatable {
+        case relayNotFound
+        /// The relay isn't a Pilot relay (`pmMode != .external`) — nothing to adopt
+        /// FROM (use `resume` for a spawned relay instead).
+        case notPilotRelay
+        /// Anything other than a parked pilot relay (`awaitingPM` or `escalated`): a
+        /// round in flight (`running`), a finished relay (`done`), or a ceiling-fired
+        /// one (`stopped`). Only a genuinely parked relay can be handed to a spawned PM.
+        case notAdoptable(status: String)
+    }
+
+    /// `alln pair relay adopt --relay <id> --pm-worker <id>` (`docs/phases/
+    /// Pilot_Relay.md` §5 "the night-shift handover is the strategic unlock") —
+    /// converts a PARKED pilot relay (`pmMode == .external`, `status == .awaitingPM`
+    /// or `.escalated`) to `pmMode: .spawned` with `pmWorkerId` as the new PM seat,
+    /// then CONTINUES the SAME relay — same id, same round log, same thread — from
+    /// exactly where the piloting session left it.
+    ///
+    /// Round-N context threading needs no new machinery: `runRound`'s existing
+    /// `previousRound` lookup (`state.rounds[state.rounds.count - 2]`) reads the last
+    /// round's `baselineHead`/`headAfterDev`/`devRunId` regardless of whether that
+    /// round was piloted or spawned — a pilot round's dev turn dispatched through the
+    /// SAME `RunService`/`RunStore` a spawned round's does, so `devReportText(runId:)`
+    /// already resolves it. The one genuinely new piece is `adoptionNote`
+    /// (`RelayPMPrompt.Context`): rendered exactly once, on the FIRST spawned PM turn,
+    /// telling the incoming PM that earlier rounds ran in Pilot mode so it reads the
+    /// round log as its own relay's history, not a stranger's.
+    ///
+    /// `config.maxRounds`/`config.stagnationRoundCap` behave exactly like a spawned
+    /// `run`/`resume` — supplied fresh by the caller every call, never read from the
+    /// pilot relay's `pilotMaxRounds`/`pilotStagnationRoundCap` (those existed only
+    /// because Pilot has no long-lived process to re-supply a config; a spawned loop
+    /// always gets one fresh). Because `loop`'s ceiling check is `state.rounds.count +
+    /// 1 > config.maxRounds`, and `state.rounds` already carries every piloted round,
+    /// the ceiling counts TOTAL rounds — piloted plus spawned — never a fresh budget
+    /// that pretends the piloted rounds didn't happen.
+    public func adopt(
+        relayId: String, pmWorkerId: String, config: Config, events: EventSink? = nil
+    ) async -> Result<RelayState, AdoptError> {
+        guard var state = stateStore.load(id: relayId) else { return .failure(.relayNotFound) }
+        guard state.pmMode == .external else { return .failure(.notPilotRelay) }
+        guard state.status == .awaitingPM || state.status == .escalated else {
+            return .failure(.notAdoptable(status: state.status.rawValue))
+        }
+
+        let priorEscalationNote = state.status == .escalated ? state.note : nil
+        let note = Self.adoptionNoteText(roundsSoFar: state.rounds.count, priorEscalationNote: priorEscalationNote)
+
+        state.pmMode = .spawned
+        state.pmWorkerId = pmWorkerId
+        state.status = .running
+        state.finishedAt = nil
+
+        var adoptedConfig = config
+        adoptedConfig.projectRoot = state.projectRoot
+        adoptedConfig.docPath = state.docPath
+        adoptedConfig.pmWorkerId = pmWorkerId
+        adoptedConfig.devWorkerId = state.devWorkerId
+
+        threadProjector?.started(state: state, projectId: config.projectId)
+        persist(state)
+        await loop(state: &state, config: adoptedConfig, events: events, adoptionNote: note)
+        return .success(state)
+    }
+
+    private static func adoptionNoteText(roundsSoFar: Int, priorEscalationNote: String?) -> String {
+        var text = """
+        This relay's first \(roundsSoFar) round\(roundsSoFar == 1 ? "" : "s") ran in Pilot \
+        mode (`docs/phases/Pilot_Relay.md`) — a live human/agent session held the PM seat \
+        directly and wrote each handover itself; those rounds carry no `pmRunId`, their \
+        submission IS the PM turn's run-truth. You are the spawned PM taking over this SAME \
+        relay from here — read the doc fresh, review the actual commits in the range above \
+        like any other round, and continue exactly where the piloting session left off.
+        """
+        if let priorEscalationNote, !priorEscalationNote.isEmpty {
+            text += """
+            \n\nThe piloting session had escalated with this open question before you were \
+            adopted onto the relay — resolve it if it's still live, or proceed past it if \
+            events have moved on: "\(priorEscalationNote)"
+            """
+        }
+        return text
+    }
+
+    // MARK: - Reverse adopt (docs/phases/Pilot_Relay.md §5 "falls out of the same move")
+
+    /// `alln pair pilot adopt` failure.
+    public enum ReverseAdoptError: Swift.Error, Sendable, Equatable {
+        case relayNotFound
+        /// The relay isn't a spawned relay (`pmMode != .spawned`) — nothing to hand to
+        /// a piloting session (it's already Pilot's).
+        case notSpawnedRelay
+        /// Anything other than a parked spawned relay (`RelayState.isResumable`) — a
+        /// round in flight, a finished relay, or a ceiling-`stopped` one that never
+        /// reconciled. Only a relay `relay-resume` would also accept is eligible here.
+        case notAdoptable(status: String)
+    }
+
+    /// `alln pair pilot adopt --relay <id>` — the reverse of `adopt` above: hands a
+    /// PARKED SPAWNED relay's PM seat to a piloting session. Genuinely trivial (`docs/
+    /// phases/Pilot_Relay.md` §5 "falls out of the same move"): unlike `adopt`, this
+    /// never dispatches anything and needs no `RunService` at all — a parked spawned
+    /// relay (`RelayState.isResumable`: `escalated`, or ceiling-`stopped` and
+    /// reconciled) is EXACTLY the set `relay-resume` already accepts, so this simply
+    /// re-labels it `pmMode: .external`, `status: .awaitingPM`,
+    /// `pmWorkerId: RelayState.externalPMWorkerId` and persists — the round log and
+    /// thread carry over untouched, and the piloting session picks it up with an
+    /// ordinary `pilot handoff` next. `static` for the same reason `reconcileOrphan`
+    /// is: a plain state mutation shouldn't need a full `RelayCoordinator` (and the
+    /// `RunService` its initializer requires) built just to flip two fields.
+    @discardableResult
+    public static func adoptToPilot(
+        relayId: String, stateStore: RelayStateStore, threadProjector: RelayThreadProjector?,
+        now: @escaping @Sendable () -> Date = Date.init
+    ) -> Result<RelayState, ReverseAdoptError> {
+        guard let loaded = stateStore.load(id: relayId) else { return .failure(.relayNotFound) }
+        let reconciled = reconcileOrphan(loaded, stateStore: stateStore, threadProjector: threadProjector, now: now)
+        guard reconciled.pmMode == .spawned else { return .failure(.notSpawnedRelay) }
+        guard reconciled.isResumable else { return .failure(.notAdoptable(status: reconciled.status.rawValue)) }
+
+        var state = reconciled
+        state.pmMode = .external
+        state.pmWorkerId = RelayState.externalPMWorkerId
+        state.status = .awaitingPM
+        state.finishedAt = nil
+        state.stoppedReason = nil
+        try? stateStore.save(state)
+        threadProjector?.sync(state: state, now: now())
+        return .success(state)
+    }
+
     /// Trailing streak of consecutive rounds — counted from the END of `rounds` — that
     /// `continued` with zero repo change (`baselineHead == headAfterDev`). Mirrors the
     /// spawned `loop()`'s in-memory `stagnationStreak`, recomputed fresh from the
@@ -468,8 +603,12 @@ public struct RelayCoordinator: Sendable {
     /// continued — a round that ends any other way (`done`/`escalated`/a mid-round
     /// deadline stop) already returned from `runRound` having persisted its own terminal
     /// state, so the loop just returns.
-    private func loop(state: inout RelayState, config: Config, events: EventSink?) async {
+    private func loop(state: inout RelayState, config: Config, events: EventSink?, adoptionNote: String? = nil) async {
         var stagnationStreak = 0
+        // Consumed after the FIRST round attempt this `loop` call makes (win or lose) —
+        // `RelayCoordinator.adopt`'s note is a one-time "here's the story so far" for
+        // the very next PM turn, never repeated on later rounds of the same call.
+        var pendingAdoptionNote = adoptionNote
         while true {
             let roundNumber = state.rounds.count + 1
             if roundNumber > config.maxRounds {
@@ -483,7 +622,8 @@ public struct RelayCoordinator: Sendable {
                 return
             }
 
-            let result = await runRound(state: &state, config: config, roundNumber: roundNumber, events: events)
+            let result = await runRound(state: &state, config: config, roundNumber: roundNumber, events: events, adoptionNote: pendingAdoptionNote)
+            pendingAdoptionNote = nil
             switch result {
             case .done, .escalated, .stoppedMidRound:
                 return
@@ -520,7 +660,7 @@ public struct RelayCoordinator: Sendable {
     /// unparseable verdict), `HandoverGate`, dev turn, pin the post-dev HEAD. Persists the
     /// round after EVERY state change so a crash or `--until` stop mid-round leaves a
     /// resumable, honest record rather than a half-written one.
-    private func runRound(state: inout RelayState, config: Config, roundNumber: Int, events: EventSink?) async -> RoundResult {
+    private func runRound(state: inout RelayState, config: Config, roundNumber: Int, events: EventSink?, adoptionNote: String? = nil) async -> RoundResult {
         events?(.roundStarted(round: roundNumber))
 
         let baselineHead = gitObserver.observe(rootPath: config.projectRoot).head
@@ -542,6 +682,7 @@ public struct RelayCoordinator: Sendable {
             currentHead: previousRound?.headAfterDev,
             devReport: devReport,
             founderNote: founderNote,
+            adoptionNote: adoptionNote,
             maxRounds: config.maxRounds,
             roundsRemaining: max(0, config.maxRounds - roundNumber + 1)
         )

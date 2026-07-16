@@ -21,6 +21,7 @@ enum PilotCLI {
         case "handoff": await runHandoff(Array(args.dropFirst()), runtime: runtime)
         case "status": runStatus(Array(args.dropFirst()))
         case "watch": runWatch(Array(args.dropFirst()))
+        case "adopt": runAdopt(Array(args.dropFirst()))
         default: usage()
         }
     }
@@ -218,6 +219,30 @@ enum PilotCLI {
         emitState(state, json: opts.flag("json"))
     }
 
+    // MARK: - adopt (reverse flip: spawned → pilot)
+
+    /// `alln pair pilot adopt --relay <id>` (docs/phases/Pilot_Relay.md §5 "falls out
+    /// of the same move") — hands a PARKED SPAWNED relay's PM seat to a piloting
+    /// session. Genuinely trivial: `RelayCoordinator.adoptToPilot` is a static state
+    /// flip, no dispatch, so this needs no `ToolRuntime`/`RunService` at all — the
+    /// only CLI verb in this file that doesn't.
+    static func runAdopt(
+        _ args: [String],
+        stateStore: RelayStateStore = RelayStateStore(),
+        threadProjector: RelayThreadProjector? = RelayThreadProjector()
+    ) {
+        guard !args.isEmpty else { usage("pilot adopt --relay <id> [--json]") }
+        let opts = Options(args)
+        guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
+        let result = RelayCoordinator.adoptToPilot(relayId: relayId, stateStore: stateStore, threadProjector: threadProjector)
+        switch result {
+        case .success(let state):
+            emitState(state, json: opts.flag("json"))
+        case .failure(let error):
+            failReverseAdopt(error)
+        }
+    }
+
     // MARK: - Output
 
     private static func emitState(_ state: RelayState, json: Bool) {
@@ -294,6 +319,17 @@ enum PilotCLI {
         }
     }
 
+    static func reverseAdoptErrorEnvelope(_ error: RelayCoordinator.ReverseAdoptError) -> (code: String, message: String) {
+        switch error {
+        case .relayNotFound:
+            return ("RELAY_NOT_FOUND", "relay not found")
+        case .notSpawnedRelay:
+            return ("RELAY_INVALID_STATE", "relay is not a spawned relay (pmMode != spawned) — only a spawned relay can be handed to a piloting session")
+        case .notAdoptable(let status):
+            return ("RELAY_INVALID_STATE", "relay is \(status), not adoptable — only an escalated or ceiling-stopped (and reconciled) spawned relay can be handed to Pilot")
+        }
+    }
+
     private static func describeParseError(_ error: RelayVerdictParser.ExtractError) -> String {
         switch error {
         case .noVerdictFound:
@@ -315,7 +351,12 @@ enum PilotCLI {
         AllnighterCLI.fail(code: code, message: message)
     }
 
-    private static func usage(_ detail: String = "pilot start|handoff|status|watch") -> Never {
+    private static func failReverseAdopt(_ error: RelayCoordinator.ReverseAdoptError) -> Never {
+        let (code, message) = reverseAdoptErrorEnvelope(error)
+        AllnighterCLI.fail(code: code, message: message)
+    }
+
+    private static func usage(_ detail: String = "pilot start|handoff|status|watch|adopt") -> Never {
         FileHandle.standardError.write(Data("usage: alln pair \(detail)\n".utf8))
         exit(2)
     }

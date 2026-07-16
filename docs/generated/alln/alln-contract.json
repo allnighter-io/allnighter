@@ -1387,6 +1387,52 @@
       ],
       "flags" : [
         {
+          "name" : "relay",
+          "summary" : "Relay id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "pm-worker",
+          "summary" : "The spawned PM seat's model id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "max-rounds",
+          "summary" : "Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20).",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "until",
+          "summary" : "Hard stop HH:MM (local) for the adopted stretch.",
+          "takesValue" : true,
+          "valueType" : "time"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pair relay adopt",
+      "outputSchema" : "relayJSON",
+      "summary" : "Night-shift handover: converts a parked Pilot relay (awaitingPM or escalated) to a spawned PM relay and continues the loop from the durable round log."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
           "name" : "doc",
           "summary" : "Repo-relative spec doc path (required) — the piloting session re-reads it fresh each round.",
           "takesValue" : true,
@@ -1518,6 +1564,34 @@
       "name" : "pair pilot watch",
       "outputSchema" : "relayJSON",
       "summary" : "Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status)."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "relay",
+          "summary" : "Relay id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit RelayJSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pair pilot adopt",
+      "outputSchema" : "relayJSON",
+      "summary" : "Reverse flip: hands a parked spawned relay's PM seat to a piloting session (pmMode → external, status → awaitingPM). No dispatch."
     },
     {
       "args" : [
