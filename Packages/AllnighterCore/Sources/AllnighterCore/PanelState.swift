@@ -71,8 +71,46 @@ public struct SeatResult: Sendable, Codable, Equatable {
     }
 }
 
+/// One dispatch attempt within a panel round (`docs/phases/Pilot_Panel.md` PN-S03).
+/// A full round starts as attempt 1. A `--seats a,b` rerun appends an attempt on the
+/// **same** round (never a new round number) and REPLACE those seats' results in the
+/// round's merged `seatResults`. Partial failures stay on the ledger.
+public struct PanelRoundAttempt: Sendable, Codable, Equatable {
+    public var attemptNumber: Int
+    /// Worker ids this attempt dispatched; `nil` means the full roster for the round.
+    public var seatFilter: [String]?
+    /// SHA256 hex of the target file bytes, pinned at this attempt's dispatch.
+    public var targetHash: String
+    public var brief: String
+    public var briefSource: PanelRound.BriefSource
+    public var seatResults: [SeatResult]
+    public var startedAt: Date
+    public var finishedAt: Date?
+
+    public init(
+        attemptNumber: Int,
+        seatFilter: [String]? = nil,
+        targetHash: String,
+        brief: String,
+        briefSource: PanelRound.BriefSource,
+        seatResults: [SeatResult] = [],
+        startedAt: Date,
+        finishedAt: Date? = nil
+    ) {
+        self.attemptNumber = attemptNumber
+        self.seatFilter = seatFilter
+        self.targetHash = targetHash
+        self.brief = brief
+        self.briefSource = briefSource
+        self.seatResults = seatResults
+        self.startedAt = startedAt
+        self.finishedAt = finishedAt
+    }
+}
+
 /// One panel round: pins the target's content hash at dispatch (panel analog of the
-/// relay's `baselineHead`) and records every seat's result.
+/// relay's `baselineHead`) and records every seat's result. Reruns of a subset of
+/// seats land as additional `attempts` on this same round.
 public struct PanelRound: Sendable, Codable, Equatable {
     public enum BriefSource: String, Sendable, Codable, CaseIterable {
         case builtin
@@ -80,12 +118,16 @@ public struct PanelRound: Sendable, Codable, Equatable {
     }
 
     public var roundNumber: Int
-    /// SHA256 hex of the target file bytes, pinned at dispatch.
+    /// SHA256 hex of the target file bytes, pinned at the latest dispatch for this round.
     public var targetHash: String
-    /// Verbatim brief text the seats saw.
+    /// Verbatim brief text the seats saw on the latest attempt.
     public var brief: String
     public var briefSource: BriefSource
+    /// Merged seat results: latest result per seat after any `--seats` reruns.
     public var seatResults: [SeatResult]
+    /// Per-attempt history. Attempt 1 is the full-round dispatch; later attempts are
+    /// seat-subset reruns that REPLACE those seats in `seatResults`.
+    public var attempts: [PanelRoundAttempt]
     public var startedAt: Date
     public var finishedAt: Date?
 
@@ -95,6 +137,7 @@ public struct PanelRound: Sendable, Codable, Equatable {
         brief: String,
         briefSource: BriefSource,
         seatResults: [SeatResult] = [],
+        attempts: [PanelRoundAttempt] = [],
         startedAt: Date,
         finishedAt: Date? = nil
     ) {
@@ -103,8 +146,25 @@ public struct PanelRound: Sendable, Codable, Equatable {
         self.brief = brief
         self.briefSource = briefSource
         self.seatResults = seatResults
+        self.attempts = attempts
         self.startedAt = startedAt
         self.finishedAt = finishedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case roundNumber, targetHash, brief, briefSource, seatResults, attempts, startedAt, finishedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        roundNumber = try c.decode(Int.self, forKey: .roundNumber)
+        targetHash = try c.decode(String.self, forKey: .targetHash)
+        brief = try c.decode(String.self, forKey: .brief)
+        briefSource = try c.decode(BriefSource.self, forKey: .briefSource)
+        seatResults = try c.decode([SeatResult].self, forKey: .seatResults)
+        attempts = try c.decodeIfPresent([PanelRoundAttempt].self, forKey: .attempts) ?? []
+        startedAt = try c.decode(Date.self, forKey: .startedAt)
+        finishedAt = try c.decodeIfPresent(Date.self, forKey: .finishedAt)
     }
 }
 
