@@ -20,6 +20,10 @@ public enum DoctorReport {
         public var coordinator: DoctorResult.Coordinator?
         /// True when smoke probes ran (`--full`); false for the quota-free path.
         public var full: Bool
+        /// Optional path to Cursor's global CLI config (`~/.cursor/cli-config.json`).
+        /// Injectable for tests — never read the real user file from unit tests.
+        /// `nil` → the shell-allowlist check reports `notChecked`.
+        public var cursorCLIConfigURL: URL?
 
         public init(
             binaryVersion: String,
@@ -29,7 +33,8 @@ public enum DoctorReport {
             runsDirWritable: Bool,
             pendingDirWritable: Bool = true,
             coordinator: DoctorResult.Coordinator? = nil,
-            full: Bool
+            full: Bool,
+            cursorCLIConfigURL: URL? = nil
         ) {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
@@ -39,6 +44,7 @@ public enum DoctorReport {
             self.pendingDirWritable = pendingDirWritable
             self.coordinator = coordinator
             self.full = full
+            self.cursorCLIConfigURL = cursorCLIConfigURL
         }
     }
 
@@ -79,6 +85,10 @@ public enum DoctorReport {
             }
         }
 
+        // Cursor shell allowlist — read-only vendor config; never mutated.
+        let shellAllowlist = CursorShellAllowlist.check(configURL: inputs.cursorCLIConfigURL)
+        checks.append(shellAllowlist)
+
         // Bench-readiness aggregate.
         if inputs.full {
             let ready = records.filter { $0.status.isReady }.count
@@ -116,7 +126,12 @@ public enum DoctorReport {
         }
 
         return DoctorResult(
-            status: overallStatus(records: records, sourcesLoaded: sourcesLoaded, inputs: inputs),
+            status: overallStatus(
+                records: records,
+                sourcesLoaded: sourcesLoaded,
+                inputs: inputs,
+                shellAllowlistRestrictive: shellAllowlist.status == .degraded
+            ),
             binaryVersion: inputs.binaryVersion,
             contractVersion: inputs.contractVersion,
             docsVersionMatchesBinary: inputs.docsVersionMatchesBinary,
@@ -234,7 +249,12 @@ public enum DoctorReport {
 
     // MARK: - Overall status
 
-    private static func overallStatus(records: [ToolProbeRecord], sourcesLoaded: Bool, inputs: Inputs) -> DoctorResult.Status {
+    private static func overallStatus(
+        records: [ToolProbeRecord],
+        sourcesLoaded: Bool,
+        inputs: Inputs,
+        shellAllowlistRestrictive: Bool = false
+    ) -> DoctorResult.Status {
         let nothingInstalled = !records.isEmpty && records.allSatisfy {
             if case .notInstalled = $0.status { return true } else { return false }
         }
@@ -244,7 +264,7 @@ public enum DoctorReport {
         if inputs.full && records.allSatisfy({ !$0.status.isReady }) && !records.isEmpty {
             return .critical   // probed and nothing is ready
         }
-        let problem = !inputs.docsVersionMatchesBinary || records.contains {
+        let problem = !inputs.docsVersionMatchesBinary || shellAllowlistRestrictive || records.contains {
             switch $0.status {
             case .notInstalled, .shimmedNeedsConfirm, .probeFailed, .installedNotSignedIn: return true
             default: return false

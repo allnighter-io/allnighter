@@ -878,6 +878,10 @@ public extension ContractRegistry {
         DoctorCheckSpec("source.<sourceId>.auth", meaning: "Source auth appears valid when safely probeable."),
         DoctorCheckSpec("source.<sourceId>.headlessTrust", meaning: "Headless trust/mutation posture is declared for sources that require it."),
         DoctorCheckSpec("source.<sourceId>.smoke", meaning: "Bounded smoke test when --full."),
+        DoctorCheckSpec(
+            "source.cursor_agent.shellAllowlist",
+            meaning: "Cursor CLI global shell allowlist is not so restrictive that headless turns cannot run git/python (read-only; Allnighter never writes vendor config)."
+        ),
         DoctorCheckSpec("benchReadyCount", meaning: "At least one model is ready."),
         DoctorCheckSpec("defaultTeamValid", meaning: "Default team has runnable workers."),
         DoctorCheckSpec("planWriterReady", meaning: "Default team has a ready plan worker."),

@@ -3072,6 +3072,10 @@
       "name" : "source.<sourceId>.smoke"
     },
     {
+      "meaning" : "Cursor CLI global shell allowlist is not so restrictive that headless turns cannot run git\/python (read-only; Allnighter never writes vendor config).",
+      "name" : "source.cursor_agent.shellAllowlist"
+    },
+    {
       "meaning" : "At least one model is ready.",
       "name" : "benchReadyCount"
     },

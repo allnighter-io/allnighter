@@ -353,7 +353,8 @@ struct AllnighterCLI {
             runsDirWritable: ensureWritable(AllnighterPaths.runs),
             pendingDirWritable: ensureWritable(AllnighterPaths.pending),
             coordinator: ResidentCoordinatorProbe().doctorCoordinator(),
-            full: full
+            full: full,
+            cursorCLIConfigURL: CursorShellAllowlist.defaultConfigURL
         )
         var result = DoctorReport.build(
             models: runtime.models,

@@ -146,7 +146,9 @@ public enum HelpTopicRegistry {
             The loop stops only on done, escalate, or a ceiling (`--until`, `--max-rounds`, or \
             repeated no-progress rounds) — never by inference. `pair_relay` is one \
             action-dispatched tool: start begins a new relay, status reads its durable state, \
-            resume injects the founder's answer into an escalated relay and continues.
+            resume injects the founder's answer into an escalated relay and continues. A \
+            spawned PM with repo access may complete small mechanical work itself rather \
+            than dispatching another dev round — by design (PM-may-fix), not a defect.
 
             Pilot is the sibling mode on the SAME substrate: instead of Allnighter spawning \
             a PM model, YOUR live CLI session holds the PM seat. `alln pair pilot start` \
@@ -264,7 +266,11 @@ public enum HelpTopicRegistry {
             Allnighter uses your existing CLI subscriptions and logins — never API keys. If a \
             source is blocked, run `alln doctor` (optionally for one agent) to see the exact \
             failing check, then `error_explain` for the recovery text. Auth is live state: the \
-            help bundle cannot know it — call doctor.
+            help bundle cannot know it — call doctor. Cursor gotcha: a restrictive shell \
+            allowlist in `~/.cursor/cli-config.json` (e.g. `Shell(ls)` only) silently caps \
+            headless cursor-agent turns even under `--trust` — `alln doctor` reports this as \
+            `source.cursor_agent.shellAllowlist` (Allnighter never writes vendor config; widen \
+            the allowlist yourself or override with project-scoped `.cursor/cli.json`).
             """,
             aliases: ["auth", "login", "sign in", "blocked", "why can't allnighter run codex", "api key"],
             sections: [

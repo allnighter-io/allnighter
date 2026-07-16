@@ -36,6 +36,8 @@ final class DoctorReportTests: XCTestCase {
         XCTAssertEqual(check(r, "benchReadyCount")?.status, .notChecked)
         XCTAssertEqual(check(r, "planWriterReady")?.status, .notChecked)
         XCTAssertEqual(check(r, "source.claude_code.installed")?.status, .ok)
+        // Cursor shell allowlist: nil path in unit inputs → notChecked (never hits real ~/.cursor).
+        XCTAssertEqual(check(r, "source.cursor_agent.shellAllowlist")?.status, .notChecked)
         // No readiness inferred: every model is unknown.
         XCTAssertTrue(r.models.allSatisfy { $0.status == .unknown })
         XCTAssertFalse(r.coordinator.available)
