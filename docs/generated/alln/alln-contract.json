@@ -1486,9 +1486,32 @@
         },
         {
           "name" : "file",
-          "summary" : "Read the submission markdown from a file (omit to read stdin).",
+          "summary" : "Read the full submission markdown from a file (verdict tail included; omit to read stdin).",
           "takesValue" : true,
           "valueType" : "path"
+        },
+        {
+          "name" : "verdict",
+          "summary" : "Required with --handover-file\/--handover-stdin; synthesizes the RelayVerdict tail internally.",
+          "takesValue" : true,
+          "valueType" : "continue|done|escalate"
+        },
+        {
+          "name" : "handover-file",
+          "summary" : "Raw order markdown for the dev seat (mutually exclusive with --file).",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "handover-stdin",
+          "summary" : "Read the handover markdown from stdin (mutually exclusive with --file).",
+          "takesValue" : false
+        },
+        {
+          "name" : "note",
+          "summary" : "Optional closing note for done\/escalate verdicts.",
+          "takesValue" : true,
+          "valueType" : "string"
         },
         {
           "name" : "no-wait",
@@ -1503,11 +1526,22 @@
       ],
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
-
+        [
+          "file",
+          "handover-file"
+        ],
+        [
+          "file",
+          "handover-stdin"
+        ],
+        [
+          "handover-file",
+          "handover-stdin"
+        ]
       ],
       "name" : "pair pilot handoff",
       "outputSchema" : "relayJSON",
-      "summary" : "Submit this round's review + RelayVerdict tail; blocks through the dev turn by default and prints the dev's report verbatim."
+      "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim."
     },
     {
       "args" : [

@@ -375,13 +375,18 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot handoff", summary: "Submit this round's review + RelayVerdict tail; blocks through the dev turn by default and prints the dev's report verbatim.", milestone: .m1,
+            "pair pilot handoff", summary: "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
-                FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the submission markdown from a file (omit to read stdin)."),
+                FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the full submission markdown from a file (verdict tail included; omit to read stdin)."),
+                FlagSpec("verdict", takesValue: true, valueType: "continue|done|escalate", summary: "Required with --handover-file/--handover-stdin; synthesizes the RelayVerdict tail internally."),
+                FlagSpec("handover-file", takesValue: true, valueType: "path", summary: "Raw order markdown for the dev seat (mutually exclusive with --file)."),
+                FlagSpec("handover-stdin", summary: "Read the handover markdown from stdin (mutually exclusive with --file)."),
+                FlagSpec("note", takesValue: true, valueType: "string", summary: "Optional closing note for done/escalate verdicts."),
                 FlagSpec("no-wait", summary: "Return immediately after dispatch instead of blocking through the dev turn."),
                 FlagSpec("json", summary: "Emit RelayJSON (+ devReport when the dev turn delivered in this call)."),
             ],
+            mutuallyExclusiveFlags: [["file", "handover-file"], ["file", "handover-stdin"], ["handover-file", "handover-stdin"]],
             outputSchema: .relayJSON
         ),
         CommandSpec(

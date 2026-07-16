@@ -80,12 +80,14 @@ enum PilotCLI {
     // MARK: - handoff
 
     static func runHandoff(_ args: [String], runtime: ToolRuntime) async {
-        guard !args.isEmpty else { usage("pilot handoff --relay <id> (--file <md> | stdin) [--no-wait] [--json]") }
+        guard !args.isEmpty else {
+            usage("pilot handoff --relay <id> (--file <md> | --verdict continue|done|escalate [--handover-file <path>|--handover-stdin] [--note …]) [--no-wait] [--json]")
+        }
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
         let submission: String
         do {
-            submission = try readSubmission(opts)
+            submission = try parseHandoffSubmission(opts)
         } catch let error as PilotCLIError {
             fail(error)
         } catch {
@@ -93,7 +95,7 @@ enum PilotCLI {
         }
 
         if opts.flag("no-wait") {
-            dispatchHandoffInBackground(relayId: relayId, submission: submission, jsonRequested: opts.flag("json"))
+            dispatchHandoffInBackground(relayId: relayId, opts: opts, submission: submission, jsonRequested: opts.flag("json"))
             return
         }
 
@@ -111,9 +113,30 @@ enum PilotCLI {
         }
     }
 
-    /// Reads the round's markdown from `--file`, or stdin when omitted (the doc's
-    /// `(--file <md> | stdin)`).
-    static func readSubmission(_ opts: Options) throws -> String {
+    /// Resolves a `pilot handoff` submission: the legacy `--file`/stdin path (markdown +
+    /// RelayVerdict tail) or the frictionless `--verdict` + `--handover-file`/`--handover-stdin`
+    /// path that synthesizes the tail internally (`docs/phases/Pilot_Polish_And_Agent_UX.md` P1).
+    static func parseHandoffSubmission(_ opts: Options) throws -> String {
+        let hasFile = opts.value("file") != nil
+        let hasHandoverFile = opts.value("handover-file") != nil
+        let hasHandoverStdin = opts.flag("handover-stdin")
+        let hasVerdict = opts.value("verdict") != nil
+
+        if hasFile && (hasHandoverFile || hasHandoverStdin || hasVerdict) {
+            throw PilotCLIError.mutuallyExclusive("--file", "--handover-file/--handover-stdin/--verdict")
+        }
+        if hasHandoverFile && hasHandoverStdin {
+            throw PilotCLIError.mutuallyExclusive("--handover-file", "--handover-stdin")
+        }
+
+        if hasHandoverFile || hasHandoverStdin || hasVerdict {
+            return try synthesizeSubmissionFromFlags(opts)
+        }
+        return try readLegacySubmission(opts)
+    }
+
+    /// Legacy path: the round's full markdown from `--file`, or stdin when omitted.
+    static func readLegacySubmission(_ opts: Options) throws -> String {
         let text: String
         if let path = opts.value("file") {
             guard let contents = try? String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8) else {
@@ -130,6 +153,66 @@ enum PilotCLI {
         return text
     }
 
+    /// Reads handover prose for the frictionless path (`--handover-file` or `--handover-stdin`).
+    static func readHandoverText(_ opts: Options) throws -> String {
+        let text: String
+        if let path = opts.value("handover-file") {
+            guard let contents = try? String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8) else {
+                throw PilotCLIError.fileUnreadable(path)
+            }
+            text = contents
+        } else {
+            let data = FileHandle.standardInput.readDataToEndOfFile()
+            text = String(decoding: data, as: UTF8.self)
+        }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw PilotCLIError.noHandover
+        }
+        return text
+    }
+
+    private static func synthesizeSubmissionFromFlags(_ opts: Options) throws -> String {
+        guard let verdictRaw = opts.value("verdict") else {
+            throw PilotCLIError.missingRequired("--verdict continue|done|escalate")
+        }
+        guard let verdict = RelayVerdict.Verdict(rawValue: verdictRaw) else {
+            throw PilotCLIError.invalidVerdict(verdictRaw)
+        }
+
+        let note = opts.value("note")
+        var handover: String?
+        if opts.value("handover-file") != nil || opts.flag("handover-stdin") {
+            handover = try readHandoverText(opts)
+        }
+
+        if verdict == .continueRelay {
+            guard let handover, !handover.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw PilotCLIError.missingRequired("--handover-file <path> or --handover-stdin")
+            }
+        }
+
+        return try synthesizeSubmission(verdict: verdict, handover: handover, note: note)
+    }
+
+    /// Builds the markdown `runExternalRound` expects: optional prose + a trailing fenced
+    /// RelayVerdict block. The dev seat receives `handover` byte-exact from the verdict JSON.
+    static func synthesizeSubmission(
+        verdict: RelayVerdict.Verdict, handover: String?, note: String?
+    ) throws -> String {
+        let relayVerdict = RelayVerdict(verdict: verdict, handover: handover, note: note)
+        let json = String(decoding: try CoreJSON.encode(relayVerdict), as: UTF8.self)
+        let tail = "```json\n\(json)\n```"
+        if let handover, !handover.isEmpty {
+            return handover + "\n\n" + tail
+        }
+        return tail
+    }
+
+    /// Legacy alias kept for existing tests.
+    static func readSubmission(_ opts: Options) throws -> String {
+        try readLegacySubmission(opts)
+    }
+
     private static func loadedProjectRoot(_ relayId: String, stateStore: RelayStateStore) -> String? {
         stateStore.load(id: relayId)?.projectRoot
     }
@@ -139,18 +222,43 @@ enum PilotCLI {
     /// submission — one dispatch path, no second in-process implementation to drift
     /// from the default. The foreground call returns as soon as the child is launched;
     /// the caller polls with `pilot status`/`pilot watch`.
-    private static func dispatchHandoffInBackground(relayId: String, submission: String, jsonRequested: Bool) {
-        let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("alln-pilot-handoff-\(relayId)-\(UUID().uuidString).md")
-        do {
-            try submission.write(to: tempURL, atomically: true, encoding: .utf8)
-        } catch {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not stage handoff submission: \(error)")
-        }
-
+    private static func dispatchHandoffInBackground(
+        relayId: String, opts: Options, submission: String, jsonRequested: Bool
+    ) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
-        var childArgs = ["pair", "pilot", "handoff", "--relay", relayId, "--file", tempURL.path]
+        var childArgs = ["pair", "pilot", "handoff", "--relay", relayId]
+
+        if opts.value("verdict") != nil {
+            if let verdict = opts.value("verdict") { childArgs += ["--verdict", verdict] }
+            if let note = opts.value("note") { childArgs += ["--note", note] }
+            if let handoverPath = opts.value("handover-file") {
+                childArgs += ["--handover-file", handoverPath]
+            } else if opts.flag("handover-stdin") {
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("alln-pilot-handoff-\(relayId)-\(UUID().uuidString).md")
+                guard case .success(let extraction) = RelayVerdictParser.extract(from: submission),
+                      let handover = extraction.verdict.handover else {
+                    AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not stage handover-stdin submission")
+                }
+                do {
+                    try handover.write(to: tempURL, atomically: true, encoding: .utf8)
+                } catch {
+                    AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not stage handoff submission: \(error)")
+                }
+                childArgs += ["--handover-file", tempURL.path]
+            }
+        } else {
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("alln-pilot-handoff-\(relayId)-\(UUID().uuidString).md")
+            do {
+                try submission.write(to: tempURL, atomically: true, encoding: .utf8)
+            } catch {
+                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not stage handoff submission: \(error)")
+            }
+            childArgs += ["--file", tempURL.path]
+        }
+
         if jsonRequested { childArgs.append("--json") }
         process.arguments = childArgs
         process.standardInput = FileHandle.nullDevice
@@ -262,7 +370,7 @@ enum PilotCLI {
     static func nextActionLine(for state: RelayState) -> String {
         switch state.status {
         case .awaitingPM:
-            return "next: write this round's review + RelayVerdict tail, then `alln pair pilot handoff --relay \(state.id) --file <md>` (or pipe markdown via stdin)."
+            return "next: write this round's order markdown, then `alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file <order.md>` (or `--file <md>` with a RelayVerdict tail for scripted PM output)."
         case .running:
             return "a round is in flight — poll with `alln pair pilot status --relay \(state.id) --json` or `alln pair pilot watch --relay \(state.id)`."
         case .done:
@@ -282,7 +390,10 @@ enum PilotCLI {
         case projectNotFound(String)
         case relayNotFound(String)
         case noSubmission
+        case noHandover
         case fileUnreadable(String)
+        case invalidVerdict(String)
+        case mutuallyExclusive(String, String)
     }
 
     static func errorEnvelope(_ error: PilotCLIError) -> (code: String, message: String) {
@@ -297,8 +408,14 @@ enum PilotCLI {
             return ("RELAY_NOT_FOUND", "relay not found: \(id)")
         case .noSubmission:
             return ("CLI_USAGE_ERROR", "no submission text — pass --file <md> or pipe markdown via stdin")
+        case .noHandover:
+            return ("CLI_USAGE_ERROR", "no handover text — pass --handover-file <path> or --handover-stdin")
         case .fileUnreadable(let path):
             return ("CLI_USAGE_ERROR", "could not read submission file: \(path)")
+        case .invalidVerdict(let raw):
+            return ("CLI_USAGE_ERROR", "--verdict must be continue, done, or escalate — got '\(raw)'")
+        case .mutuallyExclusive(let a, let b):
+            return ("CLI_USAGE_ERROR", "\(a) cannot be combined with \(b)")
         }
     }
 

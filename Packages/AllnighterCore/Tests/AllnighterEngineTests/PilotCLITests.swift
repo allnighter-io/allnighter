@@ -93,7 +93,7 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(config.maxRounds, 7)
     }
 
-    // MARK: - readSubmission
+    // MARK: - readSubmission (legacy)
 
     func testReadSubmissionFromFile() throws {
         let path = tmp.appendingPathComponent("round.md")
@@ -108,6 +108,76 @@ final class PilotCLITests: XCTestCase {
         }
     }
 
+    // MARK: - parseHandoffSubmission (P1 frictionless handoff)
+
+    func testParseHandoffSubmissionFromHandoverFileSynthesizesTail() throws {
+        let orderPath = tmp.appendingPathComponent("order.md")
+        let handover = "# Round 1\n\nUse ```json fenced examples.\n"
+        try handover.write(to: orderPath, atomically: true, encoding: .utf8)
+
+        let submission = try PilotCLI.parseHandoffSubmission(Options([
+            "--relay", "relay_x", "--verdict", "continue", "--handover-file", orderPath.path,
+        ]))
+        let extraction = try XCTUnwrap(try unwrapRelayVerdict(RelayVerdictParser.extract(from: submission)))
+        XCTAssertEqual(extraction.verdict.handover, handover)
+        XCTAssertEqual(extraction.verdict.verdict, .continueRelay)
+    }
+
+    func testParseHandoffSubmissionDoneWithNoteOnly() throws {
+        let submission = try PilotCLI.parseHandoffSubmission(Options([
+            "--relay", "relay_x", "--verdict", "done", "--note", "Shipped.",
+        ]))
+        let extraction = try XCTUnwrap(try unwrapRelayVerdict(RelayVerdictParser.extract(from: submission)))
+        XCTAssertEqual(extraction.verdict.verdict, RelayVerdict.Verdict.done)
+        XCTAssertEqual(extraction.verdict.note, "Shipped.")
+    }
+
+    func testParseHandoffSubmissionFileAndHandoverFileMutuallyExclusive() {
+        XCTAssertThrowsError(try PilotCLI.parseHandoffSubmission(Options([
+            "--relay", "relay_x", "--file", "a.md", "--verdict", "done", "--handover-file", "b.md",
+        ]))) { error in
+            XCTAssertEqual(
+                error as? PilotCLI.PilotCLIError,
+                .mutuallyExclusive("--file", "--handover-file/--handover-stdin/--verdict")
+            )
+        }
+    }
+
+    func testParseHandoffSubmissionContinueWithoutHandoverThrows() {
+        XCTAssertThrowsError(try PilotCLI.parseHandoffSubmission(Options([
+            "--relay", "relay_x", "--verdict", "continue",
+        ]))) { error in
+            XCTAssertEqual(
+                error as? PilotCLI.PilotCLIError,
+                .missingRequired("--handover-file <path> or --handover-stdin")
+            )
+        }
+    }
+
+    func testParseHandoffSubmissionInvalidVerdictThrows() {
+        XCTAssertThrowsError(try PilotCLI.parseHandoffSubmission(Options([
+            "--relay", "relay_x", "--verdict", "maybe",
+        ]))) { error in
+            XCTAssertEqual(error as? PilotCLI.PilotCLIError, .invalidVerdict("maybe"))
+        }
+    }
+
+    func testSynthesizeSubmissionPreservesHandoverBytesIncludingTrailingNewline() throws {
+        let handover = "# Order\n\nMention ```json in prose.\n"
+        let submission = try PilotCLI.synthesizeSubmission(verdict: .continueRelay, handover: handover, note: nil)
+        let extraction = try XCTUnwrap(try unwrapRelayVerdict(RelayVerdictParser.extract(from: submission)))
+        XCTAssertEqual(extraction.verdict.handover, handover)
+    }
+
+    private func unwrapRelayVerdict(
+        _ result: Result<RelayVerdictParser.Extraction, RelayVerdictParser.ExtractError>
+    ) throws -> RelayVerdictParser.Extraction {
+        switch result {
+        case .success(let extraction): return extraction
+        case .failure(let error): throw error
+        }
+    }
+
     // MARK: - errorEnvelope (the recovery-ladder mapping the exit funnel uses)
 
     func testErrorEnvelopeMapsEveryCaseToACatalogCode() {
@@ -118,7 +188,10 @@ final class PilotCLITests: XCTestCase {
             .projectNotFound("x"),
             .relayNotFound("relay_1"),
             .noSubmission,
+            .noHandover,
             .fileUnreadable("/x"),
+            .invalidVerdict("bogus"),
+            .mutuallyExclusive("--file", "--handover-file"),
         ]
         for c in cases {
             let (code, message) = PilotCLI.errorEnvelope(c)
@@ -167,6 +240,7 @@ final class PilotCLITests: XCTestCase {
         )
         let line = PilotCLI.nextActionLine(for: state)
         XCTAssertTrue(line.contains("pilot handoff"))
+        XCTAssertTrue(line.contains("handover-file"))
         XCTAssertTrue(line.contains("relay_x"))
     }
 

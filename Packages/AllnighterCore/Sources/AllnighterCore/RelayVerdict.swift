@@ -106,8 +106,10 @@ public enum RelayVerdictParser {
     }
 
     /// All ```<lang>\n…\n``` fenced blocks in document order (lang tag optional/blank).
+    /// Closing fences must start on their own line — otherwise a ```json mention inside a
+    /// JSON string value (e.g. a handover quoting fenced examples) terminates the block early.
     private static func fencedBlocks(in text: String) -> [FencedMatch] {
-        guard let regex = try? NSRegularExpression(pattern: "```[^\\n]*\\n([\\s\\S]*?)```") else { return [] }
+        guard let regex = try? NSRegularExpression(pattern: "```[^\\n]*\\n([\\s\\S]*?)\\n```") else { return [] }
         let nsText = text as NSString
         let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
         return matches.compactMap { match in

@@ -558,13 +558,23 @@ Output schema: `relayJSON`.
 
 ### `alln pair pilot handoff`
 
-Submit this round's review + RelayVerdict tail; blocks through the dev turn by default and prints the dev's report verbatim.
+Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim.
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--file <path>` — Read the submission markdown from a file (omit to read stdin).
+- `--file <path>` — Read the full submission markdown from a file (verdict tail included; omit to read stdin).
+- `--verdict <continue|done|escalate>` — Required with --handover-file/--handover-stdin; synthesizes the RelayVerdict tail internally.
+- `--handover-file <path>` — Raw order markdown for the dev seat (mutually exclusive with --file).
+- `--handover-stdin` — Read the handover markdown from stdin (mutually exclusive with --file).
+- `--note <string>` — Optional closing note for done/escalate verdicts.
 - `--no-wait` — Return immediately after dispatch instead of blocking through the dev turn.
 - `--json` — Emit RelayJSON (+ devReport when the dev turn delivered in this call).
+
+Mutually exclusive: `--file`, `--handover-file`.
+
+Mutually exclusive: `--file`, `--handover-stdin`.
+
+Mutually exclusive: `--handover-file`, `--handover-stdin`.
 
 Output schema: `relayJSON`.
 

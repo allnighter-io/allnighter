@@ -151,6 +151,23 @@ final class RelayVerdictTests: XCTestCase {
         XCTAssertEqual(result.failureError, .noVerdictFound)
     }
 
+    /// Regression: a handover string that literally mentions a ```json fence must not
+    /// make the outer verdict fence terminate early (Pilot_Polish P1 live bug).
+    func testVerdictParsesWhenHandoverMentionsFencedJsonMarker() throws {
+        let handover = "Document config snippets in ```json blocks when you add examples."
+        let handoverJSON = String(decoding: try CoreJSON.encode(handover), as: UTF8.self)
+        let output = """
+        Round 1 review — one nit left.
+
+        ```json
+        {"verdict": "continue", "handover": \(handoverJSON)}
+        ```
+        """
+        let extraction = try unwrap(RelayVerdictParser.extract(from: output))
+        XCTAssertEqual(extraction.verdict.verdict, .continueRelay)
+        XCTAssertEqual(extraction.verdict.handover, handover)
+    }
+
     // MARK: - strippedOutput correctness
 
     func testStrippedOutputPreservesSurroundingProseVerbatim() throws {

@@ -1,5 +1,6 @@
 import XCTest
 import AllnighterCore
+@testable import AllnighterCLI
 @testable import AllnighterEngine
 
 /// PL-S01/S02 works tests: Pilot (`docs/phases/Pilot_Relay.md`) is the SAME substrate
@@ -140,6 +141,46 @@ final class PilotCoordinatorTests: XCTestCase {
 
         // Durable: the loaded on-disk state agrees.
         XCTAssertEqual(stateStore.load(id: "relay_pilot_continue")?.status, .awaitingPM)
+    }
+
+    /// P1: `--verdict continue --handover-file` delivers the order markdown byte-exact to
+    /// the dev prompt through the real dispatch capture seam.
+    func testHandoverFilePathDeliversHandoverByteExactToDev() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let (service, runner) = makeService(devScripts: [.init(stdout: "Implemented and committed.")], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_handover_file" })
+
+        _ = coordinator.startPilot(config: .init(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev"
+        ))
+
+        let handover = """
+        # PM Relay — round 1 (dev seat)
+
+        Mention ```json fenced blocks in the handover prose.
+
+        """
+        let orderPath = tmp.appendingPathComponent("order.md")
+        try handover.write(to: orderPath, atomically: true, encoding: .utf8)
+
+        let submission = try PilotCLI.parseHandoffSubmission(Options([
+            "--relay", "relay_pilot_handover_file", "--verdict", "continue",
+            "--handover-file", orderPath.path,
+        ]))
+        let result = await coordinator.runExternalRound(relayId: "relay_pilot_handover_file", submission: submission)
+        guard case .success = result else { return XCTFail("expected success") }
+
+        XCTAssertEqual(runner.callCount(for: "dev_cli"), 1)
+        let devArgs = runner.capturedArgs(for: "dev_cli").first ?? []
+        let prompt: String
+        if let index = devArgs.firstIndex(of: "-p"), index + 1 < devArgs.count {
+            prompt = devArgs[index + 1]
+        } else {
+            prompt = devArgs.joined(separator: " ")
+        }
+        XCTAssertTrue(prompt.contains(handover), "dev prompt must carry the handover file text byte-exact")
     }
 
     func testDirtyTreeAtHandoffIsSnapshottedOnTheRound() async throws {

@@ -153,8 +153,9 @@ public enum HelpTopicRegistry {
             Pilot is the sibling mode on the SAME substrate: instead of Allnighter spawning \
             a PM model, YOUR live CLI session holds the PM seat. `alln pair pilot start` \
             parks a new relay `awaitingPM` (no clock — nothing advances until you say so); \
-            `alln pair pilot handoff --relay <id> --file <md>` (or piped stdin) submits your \
-            review + the same RelayVerdict tail, blocks through the dev turn, and prints the \
+            `alln pair pilot handoff --relay <id> --verdict continue --handover-file <order.md>` \
+            (or `--file <md>` with a RelayVerdict tail for scripted PM output) submits your \
+            review, blocks through the dev turn, and prints the \
             dev's report verbatim — read it, write the next round, call `handoff` again. A \
             `continue` verdict still passes HandoverGate, but a block or an unparseable \
             verdict leaves the relay `awaitingPM` untouched rather than escalating — you're \
