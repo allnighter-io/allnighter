@@ -62,6 +62,17 @@ Output schema: `bootstrapJSON`.
 
 Examples: `bootstrap_json`.
 
+### `alln version`
+
+Print the running binary version and contract hash.
+
+Flags:
+- `--json` — Structured VersionJSON.
+
+Output schema: `versionJSON`.
+
+Examples: `version_json`.
+
 ### `alln install-cli`
 
 Symlink the running `alln` binary onto PATH (running the command is consent).
@@ -1335,6 +1346,7 @@ Output schema: `helpTopicsJSON`.
 - `doctor_explain` — Explain an error code: `alln doctor explain SOURCE_AUTH_EXPIRED --json`
 - `bootstrap_json` — Agent activation snippet for Claude Code: `alln bootstrap --host claude --json`
 - `install_cli_json` — Install the running binary onto PATH: `alln install-cli --json`
+- `version_json` — Print binary and contract identity: `alln version --json`
 - `models_json` — List model catalog and Bench state: `alln models --json`
 - `team_show_json` — Show the current team: `alln team show --json`
 - `teams_code_json` — List Code teams: `alln teams --lane code --json`

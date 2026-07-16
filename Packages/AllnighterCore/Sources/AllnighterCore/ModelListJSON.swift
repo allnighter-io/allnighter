@@ -6,6 +6,9 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
     public var contractVersion: String
     public var models: [Entry]
     public var diagnostics: [ModelCatalogDiagnostic]
+    /// Present when `models` is empty — never return a bare `[]` without guidance.
+    public var counsel: String?
+    public var nextActions: [AgentSurfaceNextAction]
 
     public struct Entry: Codable, Sendable, Equatable {
         public var id: ModelID
@@ -54,15 +57,43 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
         }
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, contractVersion, models, diagnostics, counsel, nextActions
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        contractVersion = try c.decode(String.self, forKey: .contractVersion)
+        models = try c.decode([Entry].self, forKey: .models)
+        diagnostics = try c.decodeIfPresent([ModelCatalogDiagnostic].self, forKey: .diagnostics) ?? []
+        counsel = try c.decodeIfPresent(String.self, forKey: .counsel)
+        nextActions = try c.decodeIfPresent([AgentSurfaceNextAction].self, forKey: .nextActions) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(schemaVersion, forKey: .schemaVersion)
+        try c.encode(contractVersion, forKey: .contractVersion)
+        try c.encode(models, forKey: .models)
+        try c.encode(diagnostics, forKey: .diagnostics)
+        try c.encodeIfPresent(counsel, forKey: .counsel)
+        try c.encode(nextActions, forKey: .nextActions)
+    }
+
     public init(
         schemaVersion: Int = 1,
         contractVersion: String,
         models: [Entry],
-        diagnostics: [ModelCatalogDiagnostic] = []
+        diagnostics: [ModelCatalogDiagnostic] = [],
+        counsel: String? = nil,
+        nextActions: [AgentSurfaceNextAction] = []
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
         self.models = models
         self.diagnostics = diagnostics
+        self.counsel = counsel
+        self.nextActions = nextActions
     }
 }

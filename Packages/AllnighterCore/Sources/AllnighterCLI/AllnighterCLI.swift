@@ -9,6 +9,10 @@ import AllnighterEngine
 struct AllnighterCLI {
     static func main() async {
         var args = Array(CommandLine.arguments.dropFirst())
+        if args.first == "--version" {
+            runVersion([])
+            return
+        }
         let command = args.first ?? "help"
         if !args.isEmpty { args.removeFirst() }
 
@@ -63,6 +67,7 @@ struct AllnighterCLI {
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "bootstrap": runBootstrap(args)
         case "install-cli": runInstallCLI(args)
+        case "version": runVersion(args)
         case "--help", "-h": printHelp()   // "help" is handled above via HelpCLI
         default:
             FileHandle.standardError.write(Data("unknown command: \(command)\n".utf8)); printHelp(); exit(2)
@@ -383,6 +388,7 @@ struct AllnighterCLI {
 
     private static func printDoctorHuman(_ r: DoctorResult, full: Bool) {
         print("alln doctor — \(r.status.rawValue)\(full ? " (full)" : "")")
+        if let counsel = r.counsel { print(counsel) }
         for c in r.checks {
             let mark: String
             switch c.status {
@@ -397,6 +403,7 @@ struct AllnighterCLI {
         if !full {
             print("\nAuth/readiness not probed (quota-free). Run `alln doctor --full` to confirm — spends quota.")
         }
+        for action in r.nextActions { print("→ \(action.command)") }
     }
 
     /// First-run CLI detection, headless — proves the detector on a real machine
@@ -542,9 +549,18 @@ struct AllnighterCLI {
             print(teamsCatalogJSONString(runtime, lane: lane, includeInactive: includeInactive))
         } else {
             let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams
-            for t in teams where includeInactive || TeamVisibility.isEnabled(t.id) {
-                let off = TeamVisibility.isEnabled(t.id) ? "" : "\t(inactive)"
-                print("\(t.id)\t\(t.displayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\t\(t.workerSpecs.count) workers\(t.isDefaultForLane ? "\t(default)" : "")\(off)")
+            let visible = teams.filter { includeInactive || TeamVisibility.isEnabled($0.id) }
+            if visible.isEmpty {
+                let payload = TeamCatalogJSON.project(teams, lane: lane,
+                                                      contractVersion: ContractRegistry.contractVersion,
+                                                      includeInactive: includeInactive)
+                if let counsel = payload.counsel { print(counsel) }
+                for action in payload.nextActions { print("→ \(action.command)") }
+            } else {
+                for t in visible {
+                    let off = TeamVisibility.isEnabled(t.id) ? "" : "\t(inactive)"
+                    print("\(t.id)\t\(t.displayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\t\(t.workerSpecs.count) workers\(t.isDefaultForLane ? "\t(default)" : "")\(off)")
+                }
             }
         }
     }
@@ -1236,6 +1252,17 @@ struct AllnighterCLI {
         }
     }
 
+    /// `alln version [--json]` / `alln --version` — binary + contract identity.
+    static func runVersion(_ args: [String]) {
+        let opts = Options(args)
+        let payload = VersionJSON(binaryVersion: binaryVersion)
+        if opts.flag("json") {
+            print(jsonString(payload))
+        } else {
+            print("alln \(payload.binaryVersion) (contract \(payload.contractVersion), hash \(payload.contractHash.prefix(12))…)")
+        }
+    }
+
     /// `alln bootstrap [--host claude|cursor|codex|generic] [--json]` — the
     /// activation surface that replaced `alln mcp install` (docs/phases/
     /// MCP_Retirement.md §Activation). Prints, never writes: same consent
@@ -1303,6 +1330,7 @@ struct AllnighterCLI {
           doctor [--json] [--full]                                  recovery surface; --full smoke-probes (spends quota)
           doctor explain <code> [--json]                            explain an error/recovery code
           bootstrap [--host claude|cursor|codex|generic] [--json]   paste-ready agent-activation snippet (never edits files)
+          version [--json]                                          binary version + contract hash
           docs [topic] [--errors|--schema|--examples]               generated agent-facing reference
           detect                                                    first-run CLI detection, headless
           dev export-contracts [--check]                            regenerate/verify generated contract artifacts

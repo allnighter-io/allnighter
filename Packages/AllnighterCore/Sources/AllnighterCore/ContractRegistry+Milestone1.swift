@@ -58,6 +58,11 @@ public extension ContractRegistry {
             outputSchema: .bootstrapJSON, exampleIds: ["bootstrap_json"]
         ),
         CommandSpec(
+            "version", summary: "Print the running binary version and contract hash.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Structured VersionJSON.")],
+            outputSchema: .versionJSON, exampleIds: ["version_json"]
+        ),
+        CommandSpec(
             "install-cli", summary: "Symlink the running `alln` binary onto PATH (running the command is consent).", milestone: .m1,
             flags: [
                 FlagSpec("path", takesValue: true, valueType: "path", summary: "Install directory override (default /usr/local/bin if writable, else ~/.local/bin)."),
@@ -949,6 +954,7 @@ public extension ContractRegistry {
         ExampleRecipe("doctor_explain", title: "Explain an error code", command: "alln doctor explain SOURCE_AUTH_EXPIRED --json"),
         ExampleRecipe("bootstrap_json", title: "Agent activation snippet for Claude Code", command: "alln bootstrap --host claude --json"),
         ExampleRecipe("install_cli_json", title: "Install the running binary onto PATH", command: "alln install-cli --json"),
+        ExampleRecipe("version_json", title: "Print binary and contract identity", command: "alln version --json"),
         ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
         ExampleRecipe("team_show_json", title: "Show the current team", command: "alln team show --json"),
         ExampleRecipe("teams_code_json", title: "List Code teams", command: "alln teams --lane code --json"),

@@ -138,6 +138,28 @@
 
       ],
       "exampleIds" : [
+        "version_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured VersionJSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "version",
+      "outputSchema" : "versionJSON",
+      "summary" : "Print the running binary version and contract hash."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
         "install_cli_json"
       ],
       "flags" : [
@@ -4174,6 +4196,11 @@
       "command" : "alln install-cli --json",
       "id" : "install_cli_json",
       "title" : "Install the running binary onto PATH"
+    },
+    {
+      "command" : "alln version --json",
+      "id" : "version_json",
+      "title" : "Print binary and contract identity"
     },
     {
       "command" : "alln models --json",

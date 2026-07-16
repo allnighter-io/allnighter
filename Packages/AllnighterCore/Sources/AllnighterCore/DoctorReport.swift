@@ -146,6 +146,14 @@ public enum DoctorReport {
             return TeamRunJSON.ModelInfo(id: m.id, displayName: m.displayName, sourceId: m.driverId, sourceName: sourceName(m.driverId), status: status)
         }
 
+        var counsel: String?
+        var nextActions: [AgentSurfaceNextAction] = []
+        if !inputs.configDirWritable {
+            let frontDoor = AgentFrontDoor.missingConfigCounsel()
+            counsel = frontDoor.counsel
+            nextActions = frontDoor.nextActions
+        }
+
         return DoctorResult(
             status: overallStatus(
                 records: records,
@@ -160,7 +168,9 @@ public enum DoctorReport {
             checks: checks,
             fixes: [],
             models: modelInfos,
-            coordinator: coordinator
+            coordinator: coordinator,
+            counsel: counsel,
+            nextActions: nextActions
         )
     }
 

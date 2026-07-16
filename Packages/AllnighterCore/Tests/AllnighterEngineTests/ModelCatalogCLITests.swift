@@ -48,7 +48,13 @@ final class ModelCatalogCLITests: XCTestCase {
         XCTAssertNotNil(obj?["contractVersion"])
         XCTAssertNotNil(obj?["models"])
         XCTAssertNotNil(obj?["diagnostics"])
+        XCTAssertNotNil(obj?["nextActions"])
         XCTAssertTrue((obj?["models"] as? [Any])?.isEmpty == false)
+    }
+
+    func testHumanAndJSONShareModelCount() {
+        let json = ModelsCLI.modelListJSON(runtime: runtime())
+        XCTAssertEqual(json.models.count, ModelCatalog.list().count)
     }
 
     func testDriverFilter() throws {

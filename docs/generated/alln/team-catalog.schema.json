@@ -1,5 +1,25 @@
 {
   "$defs" : {
+    "AgentSurfaceNextAction" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "command" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "type" : "string"
+        },
+        "label" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "kind",
+        "label",
+        "command"
+      ],
+      "type" : "object"
+    },
     "TeamCatalogEntry" : {
       "additionalProperties" : false,
       "properties" : {
@@ -62,11 +82,23 @@
     "contractVersion" : {
       "type" : "string"
     },
+    "counsel" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
     "lane" : {
       "type" : [
         "string",
         "null"
       ]
+    },
+    "nextActions" : {
+      "items" : {
+        "$ref" : "#\/$defs\/AgentSurfaceNextAction"
+      },
+      "type" : "array"
     },
     "schemaVersion" : {
       "type" : "integer"
@@ -81,7 +113,8 @@
   "required" : [
     "schemaVersion",
     "contractVersion",
-    "teams"
+    "teams",
+    "nextActions"
   ],
   "title" : "TeamCatalogJSON",
   "type" : "object"

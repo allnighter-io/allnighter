@@ -25,6 +25,7 @@ final class ContractExportTests: XCTestCase {
             "alln-contract.json", "error-codes.json", "ndjson-events.json", "example-recipes.json",
             "team-run.schema.json", "doctor-result.schema.json",
             "coordinator-health.schema.json", "pending-item.schema.json", "model-list.schema.json",
+            "version.schema.json",
             "floor-run.schema.json", "spec-result.schema.json",
             "team-catalog.schema.json", "skill-catalog.schema.json",
             "history.schema.json", "thread-status.schema.json",

@@ -79,6 +79,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case relayJSON
         case bootstrapJSON
         case installCLIJSON
+        case versionJSON
     }
 
     public struct ArgSpec: Codable, Sendable, Equatable {

@@ -90,6 +90,20 @@ final class ContractSchemaTests: XCTestCase {
         XCTAssertEqual(try properties(teamSchema), labels(team), "TeamCatalogJSON top-level schema drifted")
         XCTAssertEqual(try properties(def(teamSchema, "TeamCatalogEntry")), labels(try XCTUnwrap(team.teams.first)), "TeamCatalogEntry schema drifted")
 
+        let emptyTeam = TeamCatalogJSON.project([], lane: nil, contractVersion: ContractRegistry.contractVersion)
+        XCTAssertEqual(try properties(teamSchema), labels(emptyTeam), "TeamCatalogJSON counsel fields drifted")
+
+        let model = ModelListProjector.build(
+            registry: DriverRegistry([]),
+            definitions: ModelCatalog.list(),
+            probeRecords: [],
+            diagnostics: [])
+        let modelSchema = ContractSchema.modelListSchema()
+        XCTAssertEqual(try properties(modelSchema), labels(model), "ModelListJSON top-level schema drifted")
+
+        let version = VersionJSON(binaryVersion: "0.1.0")
+        XCTAssertEqual(try properties(ContractSchema.versionSchema()), labels(version), "VersionJSON schema drifted")
+
         let skill = SkillCatalogJSON.project(SkillCatalog.list(lane: .signal), lane: .signal,
                                              contractVersion: ContractRegistry.contractVersion)
         let skillSchema = ContractSchema.skillCatalogSchema()

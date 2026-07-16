@@ -1,5 +1,25 @@
 {
   "$defs" : {
+    "AgentSurfaceNextAction" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "command" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "type" : "string"
+        },
+        "label" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "kind",
+        "label",
+        "command"
+      ],
+      "type" : "object"
+    },
     "Check" : {
       "additionalProperties" : false,
       "properties" : {
@@ -206,6 +226,12 @@
     "coordinator" : {
       "$ref" : "#\/$defs\/Coordinator"
     },
+    "counsel" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
     "docsVersionMatchesBinary" : {
       "type" : "boolean"
     },
@@ -218,6 +244,12 @@
     "models" : {
       "items" : {
         "$ref" : "#\/$defs\/ModelInfo"
+      },
+      "type" : "array"
+    },
+    "nextActions" : {
+      "items" : {
+        "$ref" : "#\/$defs\/AgentSurfaceNextAction"
       },
       "type" : "array"
     },
@@ -242,7 +274,8 @@
     "checks",
     "fixes",
     "models",
-    "coordinator"
+    "coordinator",
+    "nextActions"
   ],
   "title" : "DoctorResult",
   "type" : "object"

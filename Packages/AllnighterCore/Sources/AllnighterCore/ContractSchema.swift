@@ -129,9 +129,11 @@ public enum ContractSchema {
             "binaryVersion": str, "contractVersion": str, "docsVersionMatchesBinary": bool,
             "checks": arr(ref("Check")), "fixes": arr(ref("ErrorEnvelope")),
             "models": arr(ref("ModelInfo")), "coordinator": ref("Coordinator"),
+            "counsel": nullable("string"),
+            "nextActions": arr(ref("AgentSurfaceNextAction")),
         ], required: [
             "schemaVersion", "status", "binaryVersion", "contractVersion",
-            "docsVersionMatchesBinary", "checks", "fixes", "models", "coordinator",
+            "docsVersionMatchesBinary", "checks", "fixes", "models", "coordinator", "nextActions",
         ])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
@@ -150,6 +152,7 @@ public enum ContractSchema {
                 "sourceName": nullable("string"), "status": enumStr(["ready", "unavailable", "unknown"]),
             ], required: ["id", "displayName", "sourceId", "status"]),
             "ErrorEnvelope": errorEnvelopeDef(),
+            "AgentSurfaceNextAction": agentSurfaceNextActionDef(),
         ]
         return schema
     }
@@ -287,7 +290,9 @@ public enum ContractSchema {
             "schemaVersion": int, "contractVersion": str,
             "models": arr(ref("ModelEntry")),
             "diagnostics": arr(ref("ModelDiagnostic")),
-        ], required: ["schemaVersion", "contractVersion", "models", "diagnostics"])
+            "counsel": nullable("string"),
+            "nextActions": arr(ref("AgentSurfaceNextAction")),
+        ], required: ["schemaVersion", "contractVersion", "models", "diagnostics", "nextActions"])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
             "ModelEntry": obj([
@@ -311,7 +316,25 @@ public enum ContractSchema {
             "ModelDiagnostic": obj([
                 "code": str, "modelId": nullable("string"), "driverId": nullable("string"), "message": str,
             ], required: ["code", "message"]),
+            "AgentSurfaceNextAction": agentSurfaceNextActionDef(),
         ]
+        return schema
+    }
+
+    private static func agentSurfaceNextActionDef() -> [String: Any] {
+        obj(["kind": str, "label": str, "command": str], required: ["kind", "label", "command"])
+    }
+
+    public static func versionSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/version.schema.json",
+            "title": "VersionJSON",
+        ]
+        let top = obj([
+            "schemaVersion": int, "binaryVersion": str, "contractVersion": str, "contractHash": str,
+        ], required: ["schemaVersion", "binaryVersion", "contractVersion", "contractHash"])
+        schema.merge(top) { _, new in new }
         return schema
     }
 
@@ -443,7 +466,9 @@ public enum ContractSchema {
         let top = obj([
             "schemaVersion": int, "contractVersion": str, "lane": nullable("string"),
             "teams": arr(ref("TeamCatalogEntry")),
-        ], required: ["schemaVersion", "contractVersion", "teams"])
+            "counsel": nullable("string"),
+            "nextActions": arr(ref("AgentSurfaceNextAction")),
+        ], required: ["schemaVersion", "contractVersion", "teams", "nextActions"])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
             "TeamCatalogEntry": obj([
@@ -451,6 +476,7 @@ public enum ContractSchema {
                 "mutating": bool, "builtIn": bool, "isDefaultForLane": bool,
                 "workerCount": int, "active": bool, "disabledReason": nullable("string"),
             ], required: ["id", "displayName", "lane", "outputKind", "defaultEffort", "mutating", "builtIn", "isDefaultForLane", "workerCount", "active"]),
+            "AgentSurfaceNextAction": agentSurfaceNextActionDef(),
         ]
         return schema
     }

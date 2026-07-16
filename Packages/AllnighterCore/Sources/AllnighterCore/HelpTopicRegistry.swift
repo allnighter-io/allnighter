@@ -56,26 +56,31 @@ public enum HelpTopicRegistry {
     public static let topics: [HelpTopic] = [
         HelpTopic(
             id: "quickstart", title: "Quickstart", audience: .both,
-            summary: "Allnighter runs your installed CLIs as a team in a repo; start with a default run or a named team.",
+            summary: "Ensure `alln` is on your PATH, then check readiness with `alln team hello` or `alln doctor`.",
             bodyMarkdown: """
+            Step zero: make sure `alln` resolves on your PATH. If `which alln` fails, run \
+            `alln install-cli` (or invoke the built binary by absolute path and follow its \
+            install step). Then check what your machine can do with `alln team hello` or \
+            `alln doctor`.
+
             Allnighter turns the AI CLIs you already have (Claude Code, Codex, Cursor, \
             Grok, Antigravity) into one team that works in a repo. A default run sends \
             your message to the Default model (Auto) in the project root. Pick a named \
-            team when you want a multi-worker pass. Check what your machine can do right \
-            now with `alln team hello` or `alln doctor`.
+            team when you want a multi-worker pass.
 
             Other agents: run `alln bootstrap` for a paste-ready context snippet that teaches \
             the whole loop in one paste (no MCP server, no config file edits).
             """,
             aliases: ["getting started", "first run", "what is allnighter"],
             relatedToolIds: ["team_hello", "doctor"],
-            relatedCommandNames: ["run", "doctor", "bootstrap"],
+            relatedCommandNames: ["install-cli", "run", "doctor", "bootstrap"],
             needsLiveCheck: false),
 
         HelpTopic(
             id: "bootstrap", title: "Bootstrap (agent activation)", audience: .agent,
             summary: "`alln bootstrap [--host claude|cursor|codex|generic] [--json]` prints a paste-ready context snippet — no MCP server, no config file edits.",
             bodyMarkdown: """
+            Step zero: ensure `alln` is on PATH (`alln install-cli` if `which alln` fails). \
             Allnighter has no MCP server and no daemon to install — the CLI is the whole \
             agent surface, no humans in the loop. `alln bootstrap` PRINTS (never edits \
             files) a short, paste-ready instruction block for a host agent's own context: \
@@ -84,12 +89,12 @@ public enum HelpTopicRegistry {
             teaches the whole loop in one paste — `alln team hello --json` for quota-free \
             readiness, `alln help search`/`alln help get` for anything else, prefer `--json` \
             envelopes, follow the error envelope's help pointer, never guess flags. \
-            `--json` returns `{ host, pasteTarget, snippet }` so an agent can install itself.
+            `--json` returns `{ host, pasteTarget, snippet, binaryPath, onPath }` so an agent can install itself.
             """,
             aliases: ["install", "setup", "connect agent", "activation", "add to agent",
                      "wire up allnighter", "onboard agent", "mcp install", "mcp", "install mcp"],
             relatedToolIds: ["help", "team_hello", "doctor"],
-            relatedCommandNames: ["bootstrap"],
+            relatedCommandNames: ["install-cli", "bootstrap"],
             schemaRefs: [],
             needsLiveCheck: false),
 

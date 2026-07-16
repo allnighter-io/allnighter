@@ -1,0 +1,27 @@
+{
+  "$id" : "https:\/\/allnighter.app\/schemas\/version.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "binaryVersion" : {
+      "type" : "string"
+    },
+    "contractHash" : {
+      "type" : "string"
+    },
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "binaryVersion",
+    "contractVersion",
+    "contractHash"
+  ],
+  "title" : "VersionJSON",
+  "type" : "object"
+}

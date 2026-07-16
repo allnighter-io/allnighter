@@ -1,5 +1,25 @@
 {
   "$defs" : {
+    "AgentSurfaceNextAction" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "command" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "type" : "string"
+        },
+        "label" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "kind",
+        "label",
+        "command"
+      ],
+      "type" : "object"
+    },
     "HeadlessTrustPolicy" : {
       "additionalProperties" : false,
       "properties" : {
@@ -163,6 +183,12 @@
     "contractVersion" : {
       "type" : "string"
     },
+    "counsel" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
     "diagnostics" : {
       "items" : {
         "$ref" : "#\/$defs\/ModelDiagnostic"
@@ -175,6 +201,12 @@
       },
       "type" : "array"
     },
+    "nextActions" : {
+      "items" : {
+        "$ref" : "#\/$defs\/AgentSurfaceNextAction"
+      },
+      "type" : "array"
+    },
     "schemaVersion" : {
       "type" : "integer"
     }
@@ -183,7 +215,8 @@
     "schemaVersion",
     "contractVersion",
     "models",
-    "diagnostics"
+    "diagnostics",
+    "nextActions"
   ],
   "title" : "ModelListJSON",
   "type" : "object"

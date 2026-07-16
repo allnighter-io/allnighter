@@ -97,11 +97,7 @@ public enum CatalogRoots {
         modelsOverride ?? defaultSupport.appendingPathComponent("Catalogs/models", isDirectory: true)
     }
 
-    private static var defaultSupport: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSTemporaryDirectory())
-        return base.appendingPathComponent("Allnighter", isDirectory: true)
-    }
+    private static var defaultSupport: URL { AllnighterSupportRoot.support }
 
     public static func overrideForTesting(teams: URL, skills: URL, models: URL? = nil) {
         teamsOverride = teams

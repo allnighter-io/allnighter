@@ -25,6 +25,11 @@
     "title" : "Install the running binary onto PATH"
   },
   {
+    "command" : "alln version --json",
+    "id" : "version_json",
+    "title" : "Print binary and contract identity"
+  },
+  {
     "command" : "alln models --json",
     "id" : "models_json",
     "title" : "List model catalog and Bench state"

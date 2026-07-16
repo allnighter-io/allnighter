@@ -32,6 +32,7 @@ public enum ContractExport {
             Artifact(filename: "coordinator-health.schema.json", contents: try ContractSchema.json(ContractSchema.coordinatorHealthSchema())),
             Artifact(filename: "pending-item.schema.json", contents: try ContractSchema.json(ContractSchema.pendingItemSchema())),
             Artifact(filename: "model-list.schema.json", contents: try ContractSchema.json(ContractSchema.modelListSchema())),
+            Artifact(filename: "version.schema.json", contents: try ContractSchema.json(ContractSchema.versionSchema())),
             Artifact(filename: "floor-run.schema.json", contents: try ContractSchema.json(ContractSchema.floorRunSchema())),
             Artifact(filename: "spec-result.schema.json", contents: try ContractSchema.json(ContractSchema.specResultSchema())),
             Artifact(filename: "team-catalog.schema.json", contents: try ContractSchema.json(ContractSchema.teamCatalogSchema())),

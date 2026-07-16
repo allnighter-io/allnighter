@@ -2,56 +2,6 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-enum ModelListProjector {
-    static func build(
-        registry: DriverRegistry,
-        definitions: [ModelDefinition],
-        probeRecords: [ToolProbeRecord],
-        diagnostics: [ModelCatalogDiagnostic]
-    ) -> ModelListJSON {
-        let recordsByDriver = Dictionary(uniqueKeysWithValues: probeRecords.map { ($0.driverId, $0) })
-        let manifestIDs = Set(registry.all.map(\.id))
-        let resolved = ModelCatalog.resolvedModels(registry: registry)
-        let enabledMap = Dictionary(uniqueKeysWithValues: resolved.map { ($0.id, $0.enabled) })
-        let entries = definitions.sorted { $0.id < $1.id }.map { def -> ModelListJSON.Entry in
-            let enabled = enabledMap[def.id] ?? def.defaultEnabled
-            let driverMissing = !manifestIDs.contains(def.driverId)
-            let record = recordsByDriver[def.driverId]
-            let ready = !driverMissing && (record?.status.isReady ?? false)
-            let status: String
-            if driverMissing {
-                status = "driverMissing"
-            } else if let record {
-                status = record.status.isReady ? "ready" : "notReady"
-            } else {
-                status = "notChecked"
-            }
-            let driverName = registry.manifest(id: def.driverId)?.displayName ?? def.driverId
-            let headlessTrust = registry.manifest(id: def.driverId)?.setup?.headlessTrust
-            return ModelListJSON.Entry(
-                id: def.id,
-                displayName: def.displayName,
-                modelLabel: def.modelLabel,
-                driverId: def.driverId,
-                driverName: driverName,
-                role: def.role.rawValue,
-                origin: def.origin.rawValue,
-                enabled: enabled,
-                ready: ready,
-                status: status,
-                state: enabled ? "onBench" : "available",
-                capabilities: ModelCatalog.capabilities(def.id),
-                headlessTrust: headlessTrust
-            )
-        }
-        return ModelListJSON(
-            contractVersion: ContractRegistry.contractVersion,
-            models: entries,
-            diagnostics: diagnostics
-        )
-    }
-}
-
 enum ModelsCLI {
     static func run(_ args: [String], runtime: ToolRuntime) async {
         guard let sub = args.first else {
@@ -68,6 +18,7 @@ enum ModelsCLI {
         }
     }
 
+    /// Single resolution path for human + `--json` (Agent_Front_Door.md §F3).
     static func modelListJSON(
         runtime: ToolRuntime,
         driverId: String? = nil,
@@ -83,7 +34,9 @@ enum ModelsCLI {
             registry: runtime.registry,
             definitions: defs,
             probeRecords: records,
-            diagnostics: ModelCatalog.diagnostics(registry: runtime.registry)
+            diagnostics: ModelCatalog.diagnostics(registry: runtime.registry),
+            benchOnly: benchOnly,
+            driverId: driverId
         )
     }
 
@@ -95,11 +48,20 @@ enum ModelsCLI {
         if opts.flag("json") {
             print(AllnighterCLI.jsonString(list))
         } else {
-            for m in list.models {
-                let benchMark = m.enabled ? "onBench" : "available"
-                let readyMark = m.ready ? "ready" : m.status
-                print("\(m.id)\t\(m.displayName)\t\(m.driverId)\t\(benchMark)\t\(readyMark)")
-            }
+            printHuman(list)
+        }
+    }
+
+    static func printHuman(_ list: ModelListJSON) {
+        if list.models.isEmpty {
+            if let counsel = list.counsel { print(counsel) }
+            for action in list.nextActions { print("→ \(action.command)") }
+            return
+        }
+        for m in list.models {
+            let benchMark = m.enabled ? "onBench" : "available"
+            let readyMark = m.ready ? "ready" : m.status
+            print("\(m.id)\t\(m.displayName)\t\(m.driverId)\t\(benchMark)\t\(readyMark)")
         }
     }
 

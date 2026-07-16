@@ -423,11 +423,7 @@ public enum ModelCatalog {
 }
 
 enum ModelCatalogPaths {
-    static var config: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSTemporaryDirectory())
-        return base.appendingPathComponent("Allnighter/Config", isDirectory: true)
-    }
+    static var config: URL { AllnighterSupportRoot.config }
 }
 
 enum ModelIDGenerator {
