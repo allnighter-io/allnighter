@@ -1766,7 +1766,7 @@
         },
         {
           "name" : "seat",
-          "summary" : "Power mode: override\/extend a seat as <alias>:<lens>. Repeatable.",
+          "summary" : "Power mode: override\/extend a seat as <alias>:<lens>. Alias resolves via PilotSeatResolver at start (real model id stored). Repeatable.",
           "takesValue" : true,
           "valueType" : "alias:lens"
         },

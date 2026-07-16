@@ -4,15 +4,19 @@ import Foundation
 public struct PanelSeatJSON: Codable, Equatable, Sendable {
     public var workerId: String
     public var lens: String
+    /// `driverReadOnly` | `clone` — echoed on `panel start` roster block (PN-S06 / works-test).
+    public var isolationMode: String?
 
-    public init(workerId: String, lens: String) {
+    public init(workerId: String, lens: String, isolationMode: String? = nil) {
         self.workerId = workerId
         self.lens = lens
+        self.isolationMode = isolationMode
     }
 
-    public init(_ seat: PanelSeat) {
+    public init(_ seat: PanelSeat, isolationMode: String? = nil) {
         self.workerId = seat.workerId
         self.lens = seat.lens
+        self.isolationMode = isolationMode
     }
 }
 
@@ -119,7 +123,8 @@ public struct PanelJSON: Codable, Equatable, Sendable {
     public static func project(
         _ state: PanelState,
         contractVersion: String,
-        targetHash: String? = nil
+        targetHash: String? = nil,
+        isolationBySeat: [String: String]? = nil
     ) -> PanelJSON {
         let hash = targetHash
             ?? state.rounds.last?.targetHash
@@ -133,7 +138,9 @@ public struct PanelJSON: Codable, Equatable, Sendable {
             targetPath: state.targetPath,
             targetHash: hash,
             teamId: state.teamId,
-            roster: state.seats.map(PanelSeatJSON.init),
+            roster: state.seats.map {
+                PanelSeatJSON($0, isolationMode: isolationBySeat?[$0.workerId])
+            },
             rounds: state.rounds.count,
             maxRounds: state.maxRounds,
             roundLog: state.rounds.map(PanelRoundLogEntry.init),

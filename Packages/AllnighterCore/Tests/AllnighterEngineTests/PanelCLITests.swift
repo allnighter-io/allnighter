@@ -35,10 +35,13 @@ final class PanelCLITests: XCTestCase {
 
     private func roModels() -> [Model] {
         [
-            Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both),
-            Model(id: "model_sonnet", displayName: "Sonnet", modelLabel: "sonnet", driverId: "claude_code", role: .both),
-            Model(id: "model_codex", displayName: "Codex", modelLabel: "codex", driverId: "codex", role: .both),
-            Model(id: "model_cursor_composer_25", displayName: "Composer", modelLabel: "composer", driverId: "cursor", role: .both),
+            Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both, enabled: true),
+            Model(id: "model_sonnet", displayName: "Sonnet", modelLabel: "sonnet", driverId: "claude_code", role: .both, enabled: true),
+            Model(id: "model_codex", displayName: "Codex", modelLabel: "codex", driverId: "codex", role: .both, enabled: true),
+            Model(id: "model_cursor_composer_25", displayName: "Composer", modelLabel: "composer", driverId: "cursor", role: .both, enabled: true),
+            Model(id: "model_grok", displayName: "Grok 4.5", modelLabel: "grok-4.5", driverId: "grok", role: .both, enabled: true),
+            Model(id: "model_cursor_grok_45", displayName: "Cursor Grok 4.5", modelLabel: "cursor-grok-4.5", driverId: "cursor", role: .both, enabled: false),
+            Model(id: "model_agy_sonnet", displayName: "Claude Sonnet 4.6", modelLabel: "agy-sonnet", driverId: "antigravity", role: .both, enabled: false),
         ]
     }
 
@@ -52,6 +55,8 @@ final class PanelCLITests: XCTestCase {
             TestSupport.headlessManifest(id: "claude_code", command: "claude"),
             codex,
             TestSupport.headlessManifest(id: "cursor", command: "cursor-agent"),
+            TestSupport.headlessManifest(id: "grok", command: "grok"),
+            TestSupport.headlessManifest(id: "antigravity", command: "agy"),
         ])
     }
 
@@ -246,6 +251,127 @@ final class PanelCLITests: XCTestCase {
         )) { error in
             XCTAssertEqual(error as? PanelCLI.PanelCLIError, .invalidMaxRounds("0"))
         }
+    }
+
+    // MARK: - --seat alias resolution at start (works-test fix)
+
+    func testParseStartSeatAliasHappyPathResolvesRealIds() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let request = try PanelCLI.parseStartConfig(
+            [
+                "--doc", "docs/spec.md", "--project", project.id,
+                "--seat", "sonnet:failure-modes",
+                "--seat", "grok 4.5:simplify",
+                "--seat", "cursor_grok:adoption",
+            ],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams()
+        )
+        XCTAssertEqual(
+            request.seats.map(\.workerId),
+            ["model_sonnet", "model_grok", "model_cursor_grok_45"]
+        )
+        XCTAssertEqual(request.seats.map(\.lens), ["failure-modes", "simplify", "adoption"])
+        // PanelState must never hold the raw alias strings.
+        for seat in request.seats {
+            XCTAssertFalse(seat.workerId == "sonnet")
+            XCTAssertFalse(seat.workerId == "grok 4.5")
+            XCTAssertFalse(seat.workerId == "cursor_grok")
+            XCTAssertTrue(seat.workerId.hasPrefix("model_"))
+        }
+        let plan = PanelCoordinator.isolationPlan(
+            seats: request.seats, models: roModels(), registry: roRegistry()
+        )
+        let byId = Dictionary(uniqueKeysWithValues: plan.map { ($0.workerId, $0.mode) })
+        XCTAssertEqual(byId["model_sonnet"], .driverReadOnly)
+        XCTAssertEqual(byId["model_grok"], .clone)
+        XCTAssertEqual(byId["model_cursor_grok_45"], .clone)
+    }
+
+    func testParseStartSeatAliasAmbiguousErrors() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        // Two enabled models matching "sonnet".
+        let models = [
+            Model(id: "model_sonnet", displayName: "Sonnet", modelLabel: "sonnet", driverId: "claude_code", role: .both, enabled: true),
+            Model(id: "model_agy_sonnet", displayName: "AGY Sonnet", modelLabel: "agy", driverId: "antigravity", role: .both, enabled: true),
+        ]
+        XCTAssertThrowsError(try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--seat", "sonnet:x"],
+            projectStore: store,
+            models: models,
+            registry: roRegistry(),
+            teams: sampleTeams()
+        )) { error in
+            guard case .ambiguousSeat(let alias, let candidates) = error as? PanelCLI.PanelCLIError else {
+                return XCTFail("expected ambiguousSeat, got \(error)")
+            }
+            XCTAssertEqual(alias, "sonnet")
+            XCTAssertTrue(candidates.contains("model_sonnet"))
+            XCTAssertTrue(candidates.contains("model_agy_sonnet"))
+        }
+    }
+
+    func testParseStartSeatAliasUnknownErrorsWithReadySeats() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        XCTAssertThrowsError(try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--seat", "not_a_model:x"],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams()
+        )) { error in
+            guard case .seatNotFound(let alias, let ready) = error as? PanelCLI.PanelCLIError else {
+                return XCTFail("expected seatNotFound, got \(error)")
+            }
+            XCTAssertEqual(alias, "not_a_model")
+            XCTAssertTrue(ready.contains("model_sonnet"))
+        }
+    }
+
+    func testParseStartTeamRosterValidatesModelsExist() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        // Team prefers a model id that is not in the catalog → fail at start.
+        let badTeam = TeamPreset(
+            id: "bad_team", displayName: "Bad", lane: .code,
+            outputKind: .plan,
+            workerSpecs: [
+                TeamWorkerSpec(id: "a", skillId: "x", purpose: .answer, preferredModelId: "model_does_not_exist"),
+            ],
+            lead: TeamLeadSpec(skillId: "writer"),
+            builtIn: true
+        )
+        XCTAssertThrowsError(try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--team", "bad_team"],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: [badTeam]
+        )) { error in
+            guard case .unknownSeatModel = error as? PanelCLI.PanelCLIError else {
+                return XCTFail("expected unknownSeatModel, got \(error)")
+            }
+        }
+    }
+
+    func testErrorEnvelopeSeatAliasCodes() {
+        XCTAssertEqual(
+            PanelCLI.errorEnvelope(.ambiguousSeat(alias: "s", candidates: "a, b")).code,
+            "CLI_USAGE_ERROR"
+        )
+        XCTAssertEqual(
+            PanelCLI.errorEnvelope(.seatNotFound(alias: "x", readySeats: "m")).code,
+            "CLI_USAGE_ERROR"
+        )
+        XCTAssertEqual(
+            PanelCLI.errorEnvelope(.unknownSeatModel(workerId: "w", modelId: "m")).code,
+            "CLI_USAGE_ERROR"
+        )
     }
 
     // MARK: - scaffold content

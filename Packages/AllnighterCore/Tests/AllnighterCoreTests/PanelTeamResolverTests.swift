@@ -98,9 +98,111 @@ final class PanelTeamResolverTests: XCTestCase {
 
     func testParseSeatFlag() {
         let seat = PanelTeamResolver.parseSeatFlag("model_opus:adversary")
-        XCTAssertEqual(seat?.workerId, "model_opus")
+        XCTAssertEqual(seat?.alias, "model_opus")
         XCTAssertEqual(seat?.lens, "adversary")
         XCTAssertNil(PanelTeamResolver.parseSeatFlag("no-colon"))
         XCTAssertNil(PanelTeamResolver.parseSeatFlag(":empty"))
+    }
+
+    private func model(_ id: String, name: String, driver: String = "claude_code", enabled: Bool = true) -> Model {
+        Model(id: id, displayName: name, modelLabel: name.lowercased(), driverId: driver, role: .both, enabled: enabled)
+    }
+
+    func testResolveSeatAliasPrefersEnabledUnique() {
+        let models = [
+            model("model_agy_sonnet", name: "Claude Sonnet 4.6", driver: "antigravity", enabled: false),
+            model("model_sonnet", name: "Sonnet 4.6", enabled: true),
+        ]
+        XCTAssertEqual(
+            try PanelTeamResolver.resolveSeatAlias("sonnet", models: models).get(),
+            "model_sonnet"
+        )
+    }
+
+    func testResolveSeatAliasFallsBackToFullCatalogForOffBench() {
+        let models = [
+            model("model_sonnet", name: "Sonnet 4.6", enabled: true),
+            model("model_cursor_grok_45", name: "Cursor Grok 4.5", driver: "cursor_agent", enabled: false),
+        ]
+        XCTAssertEqual(
+            try PanelTeamResolver.resolveSeatAlias("cursor_grok", models: models).get(),
+            "model_cursor_grok_45"
+        )
+    }
+
+    func testResolveSeatAliasExactDisplayNamePrefersEnabled() {
+        let models = [
+            model("model_cursor_grok_45", name: "Cursor Grok 4.5", driver: "cursor_agent", enabled: false),
+            model("model_grok", name: "Grok 4.5", driver: "grok", enabled: true),
+        ]
+        XCTAssertEqual(
+            try PanelTeamResolver.resolveSeatAlias("grok 4.5", models: models).get(),
+            "model_grok"
+        )
+    }
+
+    func testResolveSeatAliasAmbiguousAmongEnabled() {
+        let models = [
+            model("model_sonnet", name: "Sonnet 4.6", enabled: true),
+            model("model_agy_sonnet", name: "AGY Sonnet", driver: "antigravity", enabled: true),
+        ]
+        let result = PanelTeamResolver.resolveSeatAlias("sonnet", models: models)
+        guard case .failure(.ambiguous(let alias, let candidates)) = result else {
+            return XCTFail("expected ambiguous, got \(result)")
+        }
+        XCTAssertEqual(alias, "sonnet")
+        XCTAssertEqual(candidates.map(\.id).sorted(), ["model_agy_sonnet", "model_sonnet"])
+    }
+
+    func testResolveSeatAliasUnknownListsReadyViaNoMatch() {
+        let models = [
+            model("model_sonnet", name: "Sonnet 4.6", enabled: true),
+        ]
+        let result = PanelTeamResolver.resolveSeatAlias("nope", models: models)
+        guard case .failure(.noMatch(let alias, let ready)) = result else {
+            return XCTFail("expected noMatch, got \(result)")
+        }
+        XCTAssertEqual(alias, "nope")
+        XCTAssertEqual(ready.map(\.id), ["model_sonnet"])
+    }
+
+    func testResolveSeatFlagStoresResolvedModelIdNotAlias() {
+        let models = [model("model_sonnet", name: "Sonnet 4.6")]
+        guard case .success(let seat)? = PanelTeamResolver.resolveSeatFlag(
+            "sonnet:failure-modes", models: models
+        ) else {
+            return XCTFail("expected resolved seat")
+        }
+        XCTAssertEqual(seat.workerId, "model_sonnet")
+        XCTAssertEqual(seat.lens, "failure-modes")
+        XCTAssertNotEqual(seat.workerId, "sonnet")
+    }
+
+    func testValidateRosterUnknownModel() {
+        let seats = [PanelSeat(workerId: "model_missing", lens: "x")]
+        let models = [model("model_sonnet", name: "Sonnet")]
+        let registry = DriverRegistry([
+            // minimal: any manifest id matching driver
+        ])
+        // Empty registry — still unknown model first.
+        let result = PanelTeamResolver.validateRoster(seats: seats, models: models, registry: registry)
+        guard case .failure(.unknownModel(let workerId, let modelId)) = result else {
+            return XCTFail("expected unknownModel, got \(result)")
+        }
+        XCTAssertEqual(workerId, "model_missing")
+        XCTAssertEqual(modelId, "model_missing")
+    }
+
+    func testValidateRosterKnownModelWithDriverPasses() throws {
+        let seats = [PanelSeat(workerId: "model_sonnet", lens: "x")]
+        let models = [model("model_sonnet", name: "Sonnet")]
+        let manifest = DriverManifest(
+            id: "claude_code", displayName: "Claude", kind: .headlessCLI,
+            invoke: .init(command: "claude", args: ["-p", "{{prompt}}"])
+        )
+        let registry = DriverRegistry([manifest])
+        XCTAssertNoThrow(try PanelTeamResolver.validateRoster(
+            seats: seats, models: models, registry: registry
+        ).get())
     }
 }

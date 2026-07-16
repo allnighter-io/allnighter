@@ -214,7 +214,7 @@ public enum HelpTopicRegistry {
                 "spec hardening", "jury", "pressure-test", "alln panel",
             ],
             sections: [
-                .init("roster", "Team catalog is the roster", "`--team <alias>` fuzzy-resolves a TeamPreset (unique→echoed, ambiguous→candidates with seat count). Zero-config uses remembered-else-lane-default. `--seat <alias>:<lens>` overrides/extends."),
+                .init("roster", "Team catalog is the roster", "`--team <alias>` fuzzy-resolves a TeamPreset (unique→echoed, ambiguous→candidates with seat count). Zero-config uses remembered-else-lane-default. `--seat <alias>:<lens>` resolves the alias via PilotSeatResolver at start (real model id stored; never a raw alias) and echoes isolationMode per seat."),
                 .init("rounds", "Blocking rounds + NDJSON", "`panel round` blocks; seats stream as they settle. Partial failures still settle. Built-in brief on round 1; focus brief required later."),
                 .init("safety", "Read-only by mechanism", "Panels never take the mutating write lock. RO-enforcing drivers keep plan/sandbox args on the real root; other seats get an ephemeral clone under panels/<id>/clones/. PANEL_SEAT_NOT_ISOLATED means clone materialization failed, not “driver banned”."),
                 .init("chain", "Harden then build", "After `panel done`, `alln pair pilot start --doc <same>` continues in the same cockpit."),

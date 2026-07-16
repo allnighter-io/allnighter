@@ -435,9 +435,12 @@ public struct PanelCoordinator: Sendable {
         for seat in seats {
             let modelId = PanelTeamResolver.modelId(for: seat.workerId)
             guard let model = models.first(where: { $0.id == modelId }) else {
+                // Unreachable after panel-start roster preflight under normal flow.
+                // Kept only for catalog drift between start and round / test injection.
                 earlyFailures.append(SeatResult(
                     workerId: seat.workerId, lens: seat.lens, status: .failed,
-                    reason: "Panel seat '\(seat.workerId)' is not a known model", report: ""
+                    reason: "Panel seat '\(seat.workerId)' missing from model catalog (catalog drift after start)",
+                    report: ""
                 ))
                 continue
             }

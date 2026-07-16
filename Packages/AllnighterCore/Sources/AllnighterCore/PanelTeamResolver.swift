@@ -17,6 +17,13 @@ public enum PanelTeamResolver {
         case noTeams
     }
 
+    public enum RosterValidationError: Swift.Error, Equatable, Sendable {
+        /// Model id not present in the catalog (team preferredModelId stale, etc.).
+        case unknownModel(workerId: String, modelId: String)
+        /// Model exists but its driver has no registered manifest.
+        case noDriver(workerId: String, modelId: String, driverId: String)
+    }
+
     public struct ResolvedRoster: Sendable, Equatable {
         public var team: TeamPreset?
         public var seats: [PanelSeat]
@@ -35,6 +42,17 @@ public enum PanelTeamResolver {
             self.seats = seats
             self.rememberedTeam = rememberedTeam
             self.laneDefault = laneDefault
+        }
+    }
+
+    /// Parsed `--seat <alias>:<lens>` before model-id resolution.
+    public struct ParsedSeatFlag: Sendable, Equatable {
+        public var alias: String
+        public var lens: String
+
+        public init(alias: String, lens: String) {
+            self.alias = alias
+            self.lens = lens
         }
     }
 
@@ -92,15 +110,56 @@ public enum PanelTeamResolver {
         return workerId
     }
 
-    /// Parse one `--seat <alias>:<lens>` entry. Alias is treated as workerId
-    /// (model id or seat id); lens is free text.
-    public static func parseSeatFlag(_ raw: String) -> PanelSeat? {
+    /// Parse one `--seat <alias>:<lens>` entry. Alias is NOT stored as workerId —
+    /// resolve it with `resolveSeatAlias` (PilotSeatResolver) before building state.
+    public static func parseSeatFlag(_ raw: String) -> ParsedSeatFlag? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let colon = trimmed.firstIndex(of: ":") else { return nil }
-        let workerId = String(trimmed[..<colon]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let alias = String(trimmed[..<colon]).trimmingCharacters(in: .whitespacesAndNewlines)
         let lens = String(trimmed[trimmed.index(after: colon)...]).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !workerId.isEmpty, !lens.isEmpty else { return nil }
-        return PanelSeat(workerId: workerId, lens: lens)
+        guard !alias.isEmpty, !lens.isEmpty else { return nil }
+        return ParsedSeatFlag(alias: alias, lens: lens)
+    }
+
+    /// Resolve a seat alias to a real model id via the same `PilotSeatResolver`
+    /// algorithm as `pilot start --dev-worker` (case-insensitive substring/suffix
+    /// over model id + displayName).
+    ///
+    /// Call-site policy (panel start only): prefer **enabled** (on-bench) models so
+    /// short aliases like `sonnet` resolve uniquely when only one match is enabled;
+    /// fall back to the full catalog so off-bench seats stay addressable
+    /// (`cursor_grok` → `model_cursor_grok_45`). Ambiguous among enabled → error.
+    public static func resolveSeatAlias(
+        _ alias: String,
+        models: [Model]
+    ) -> Result<String, PilotSeatResolver.Error> {
+        let enabled = models.filter(\.enabled)
+        if !enabled.isEmpty {
+            switch PilotSeatResolver.resolve(alias: alias, models: enabled) {
+            case .success(let id):
+                return .success(id)
+            case .failure(.ambiguous(let a, let candidates)):
+                return .failure(.ambiguous(alias: a, candidates: candidates))
+            case .failure(.noMatch), .failure(.noReadySeats):
+                break
+            }
+        }
+        return PilotSeatResolver.resolve(alias: alias, models: models)
+    }
+
+    /// Parse + resolve one `--seat` flag into a durable `PanelSeat` with a real model id.
+    /// Returns `nil` when the flag shape is invalid (`alias:lens` missing).
+    public static func resolveSeatFlag(
+        _ raw: String,
+        models: [Model]
+    ) -> Result<PanelSeat, PilotSeatResolver.Error>? {
+        guard let parsed = parseSeatFlag(raw) else { return nil }
+        switch resolveSeatAlias(parsed.alias, models: models) {
+        case .success(let modelId):
+            return .success(PanelSeat(workerId: modelId, lens: parsed.lens))
+        case .failure(let error):
+            return .failure(error)
+        }
     }
 
     /// Apply `--seat` overrides/extends on top of a base roster.
@@ -119,6 +178,26 @@ public enum PanelTeamResolver {
             byId[seat.workerId] = seat
         }
         return order.compactMap { byId[$0] }
+    }
+
+    /// End-to-end roster preflight: every seat's model id exists in the catalog and
+    /// has a driver manifest so isolation mode is determinable (RO vs clone). Failures
+    /// belong at `panel start` (exit 2), never as mid-round "not a known model".
+    public static func validateRoster(
+        seats: [PanelSeat],
+        models: [Model],
+        registry: DriverRegistry
+    ) -> Result<Void, RosterValidationError> {
+        for seat in seats {
+            let modelId = modelId(for: seat.workerId)
+            guard let model = models.first(where: { $0.id == modelId }) else {
+                return .failure(.unknownModel(workerId: seat.workerId, modelId: modelId))
+            }
+            guard registry.manifest(for: model) != nil else {
+                return .failure(.noDriver(workerId: seat.workerId, modelId: modelId, driverId: model.driverId))
+            }
+        }
+        return .success(())
     }
 
     public static func formatCandidates(_ teams: [TeamPreset]) -> String {

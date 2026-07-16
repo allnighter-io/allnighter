@@ -655,7 +655,7 @@ Flags:
 - `--doc <path>` — Target path to judge (required) — re-read fresh each round; not hard-coded to docs/phases/.
 - `--project <id>` — Project id, name, or repo path (required).
 - `--team <alias>` — Team alias (fuzzy); unique match is echoed. Zero-config uses remembered-else-lane-default.
-- `--seat <alias:lens>` — Power mode: override/extend a seat as <alias>:<lens>. Repeatable.
+- `--seat <alias:lens>` — Power mode: override/extend a seat as <alias>:<lens>. Alias resolves via PilotSeatResolver at start (real model id stored). Repeatable.
 - `--max-rounds <integer>` — Ceiling on new rounds (default 10). Seat reruns are exempt.
 - `--json` — Emit PanelStartJSON.
 

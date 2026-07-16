@@ -171,12 +171,37 @@ enum PanelCLI {
         }
 
         // --seat entries override/extend (Options only keeps last --seat; collect all).
+        // Resolve each alias through PilotSeatResolver AT START — never store the raw
+        // alias string as workerId in PanelState (decision 4 / works-test fix).
+        let registryForValidation = registry.all.isEmpty ? DefaultConfig.registry : registry
+        let catalogModels = models.isEmpty
+            ? ModelCatalog.resolvedModels(registry: registryForValidation)
+            : models
+        let readyForErrors = catalogModels.filter(\.enabled)
         var overrides: [PanelSeat] = []
         for raw in seatFlags {
-            guard let seat = PanelTeamResolver.parseSeatFlag(raw) else {
+            guard let resolved = PanelTeamResolver.resolveSeatFlag(raw, models: catalogModels) else {
                 throw PanelCLIError.invalidSeat(raw)
             }
-            overrides.append(seat)
+            switch resolved {
+            case .success(let seat):
+                overrides.append(seat)
+            case .failure(.ambiguous(let alias, let candidates)):
+                throw PanelCLIError.ambiguousSeat(
+                    alias: alias,
+                    candidates: PilotSeatResolver.formatCandidates(candidates)
+                )
+            case .failure(.noMatch(let alias, _)):
+                throw PanelCLIError.seatNotFound(
+                    alias: alias,
+                    readySeats: PilotSeatResolver.formatReadySeats(readyForErrors)
+                )
+            case .failure(.noReadySeats):
+                throw PanelCLIError.seatNotFound(
+                    alias: aliasFromSeatFlag(raw) ?? raw,
+                    readySeats: PilotSeatResolver.formatReadySeats(readyForErrors)
+                )
+            }
         }
         let seats = PanelTeamResolver.applySeatOverrides(base: baseSeats, overrides: overrides)
         guard !seats.isEmpty else {
@@ -184,11 +209,19 @@ enum PanelCLI {
                 available: PanelTeamResolver.formatAvailable(catalog)
             )
         }
-        // PN-S06: no seat is refused at start. Isolation modes (driver RO vs clone)
-        // are planned and echoed on start; clone materialization happens at dispatch.
-        // models/registry remain on the signature for call-site compatibility + future
-        // preflight; isolation planning itself runs after start with the live catalog.
-        let _ = (models, registry)
+
+        // End-to-end roster preflight: model exists + driver manifest present so
+        // isolation mode is determinable. Fail at start (exit 2), never mid-round.
+        switch PanelTeamResolver.validateRoster(
+            seats: seats, models: catalogModels, registry: registryForValidation
+        ) {
+        case .success:
+            break
+        case .failure(.unknownModel(let workerId, let modelId)):
+            throw PanelCLIError.unknownSeatModel(workerId: workerId, modelId: modelId)
+        case .failure(.noDriver(let workerId, let modelId, let driverId)):
+            throw PanelCLIError.seatNoDriver(workerId: workerId, modelId: modelId, driverId: driverId)
+        }
 
         let config = PanelCoordinator.Config(
             projectRoot: project.normalizedRootPath,
@@ -435,8 +468,18 @@ enum PanelCLI {
         isolation: [PanelSeatIsolation.SeatPlan],
         json: Bool
     ) {
+        let modeBySeat = Dictionary(uniqueKeysWithValues: isolation.map { ($0.workerId, $0) })
+        let isolationModes = Dictionary(uniqueKeysWithValues: isolation.map {
+            ($0.workerId, $0.mode.rawValue)
+        })
+        let rosterJSON = state.seats.map {
+            PanelSeatJSON($0, isolationMode: isolationModes[$0.workerId])
+        }
         let panelJSON = PanelJSON.project(
-            state, contractVersion: ContractRegistry.contractVersion, targetHash: targetHash
+            state,
+            contractVersion: ContractRegistry.contractVersion,
+            targetHash: targetHash,
+            isolationBySeat: isolationModes
         )
         let next = "alln panel round --panel \(state.id)"
         let isolationJSON = isolation.map {
@@ -451,7 +494,7 @@ enum PanelCLI {
             print(AllnighterCLI.jsonString(PanelStartJSON(
                 contractVersion: ContractRegistry.contractVersion,
                 panel: panelJSON,
-                roster: state.seats.map(PanelSeatJSON.init),
+                roster: rosterJSON,
                 targetHash: targetHash,
                 dirtyTargetAdvisory: dirtyAdvisory,
                 scaffoldPath: scaffoldPath,
@@ -471,7 +514,6 @@ enum PanelCLI {
                 print("team: \(teamId)\(source)")
             }
             print("roster:")
-            let modeBySeat = Dictionary(uniqueKeysWithValues: isolation.map { ($0.workerId, $0) })
             for seat in state.seats {
                 let mode = modeBySeat[seat.workerId]?.mode.rawValue ?? "unknown"
                 print("  - \(seat.workerId) lens=\(seat.lens) isolation=\(mode)")
@@ -710,6 +752,10 @@ enum PanelCLI {
         case panelNotFound(String)
         case invalidMaxRounds(String)
         case invalidSeat(String)
+        case ambiguousSeat(alias: String, candidates: String)
+        case seatNotFound(alias: String, readySeats: String)
+        case unknownSeatModel(workerId: String, modelId: String)
+        case seatNoDriver(workerId: String, modelId: String, driverId: String)
         case ambiguousTeam(alias: String, candidates: String)
         case teamNotFound(alias: String, available: String)
         case missingRoster(available: String)
@@ -729,6 +775,20 @@ enum PanelCLI {
             return ("CLI_USAGE_ERROR", "--max-rounds must be a positive integer (got \(raw.isEmpty ? "empty" : raw))")
         case .invalidSeat(let raw):
             return ("CLI_USAGE_ERROR", "invalid --seat '\(raw)' — expected <alias>:<lens>")
+        case .ambiguousSeat(let alias, let candidates):
+            return ("CLI_USAGE_ERROR", "ambiguous --seat alias '\(alias)' — candidates: \(candidates)")
+        case .seatNotFound(let alias, let readySeats):
+            return ("CLI_USAGE_ERROR", "no seat matches '\(alias)' — ready seats: \(readySeats)")
+        case .unknownSeatModel(let workerId, let modelId):
+            return (
+                "CLI_USAGE_ERROR",
+                "panel seat '\(workerId)' is not a known model (\(modelId)) — fix the roster at start (team preferredModelId or --seat alias)"
+            )
+        case .seatNoDriver(let workerId, _, let driverId):
+            return (
+                "CLI_USAGE_ERROR",
+                "panel seat '\(workerId)' has no registered driver manifest for '\(driverId)'"
+            )
         case .ambiguousTeam(let alias, let candidates):
             return ("CLI_USAGE_ERROR", "ambiguous --team '\(alias)' — candidates: \(candidates)")
         case .teamNotFound(let alias, let available):
@@ -740,6 +800,11 @@ enum PanelCLI {
         case .noBrief:
             return ("CLI_USAGE_ERROR", "--brief - produced empty stdin")
         }
+    }
+
+    /// Extract the alias side of `--seat alias:lens` for error messages.
+    private static func aliasFromSeatFlag(_ raw: String) -> String? {
+        PanelTeamResolver.parseSeatFlag(raw)?.alias
     }
 
     static func roundErrorEnvelope(_ error: PanelCoordinator.RoundError) -> (code: String, message: String) {

@@ -447,7 +447,7 @@ public extension ContractRegistry {
                 FlagSpec("doc", takesValue: true, valueType: "path", summary: "Target path to judge (required) — re-read fresh each round; not hard-coded to docs/phases/."),
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
                 FlagSpec("team", takesValue: true, valueType: "alias", summary: "Team alias (fuzzy); unique match is echoed. Zero-config uses remembered-else-lane-default."),
-                FlagSpec("seat", takesValue: true, valueType: "alias:lens", summary: "Power mode: override/extend a seat as <alias>:<lens>. Repeatable."),
+                FlagSpec("seat", takesValue: true, valueType: "alias:lens", summary: "Power mode: override/extend a seat as <alias>:<lens>. Alias resolves via PilotSeatResolver at start (real model id stored). Repeatable."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Ceiling on new rounds (default 10). Seat reruns are exempt."),
                 FlagSpec("json", summary: "Emit PanelStartJSON."),
             ],
