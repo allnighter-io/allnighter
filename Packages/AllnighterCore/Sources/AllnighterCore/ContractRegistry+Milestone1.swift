@@ -320,14 +320,14 @@ public extension ContractRegistry {
             outputSchema: .teamCancelResponse
         ),
         CommandSpec(
-            "run", summary: "Unified run: message + optional team + worker in a project repo root. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.", milestone: .m1,
+            "run", summary: "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.", milestone: .m1,
             args: [ArgSpec("message", required: true, summary: "The user's prompt.")],
             flags: [
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id; omit for Default Team."),
                 FlagSpec("worker", takesValue: true, valueType: "id", summary: "Override worker model id."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
-                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Without --team/--worker: picks the lane's default answer team. With an explicit --worker or mutating --team: context metadata only — recorded on run identity, does not reroute the worker."),
+                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Lane tags the run for context and filtering; `--team` routes."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy routing sugar."),
                 FlagSpec("context", takesValue: true, valueType: "string", summary: "Bounded context snippet."),
                 FlagSpec("try-fix", summary: "Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt."),

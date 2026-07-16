@@ -498,7 +498,7 @@ Output schema: `teamCancelResponse`.
 
 ### `alln run`
 
-Unified run: message + optional team + worker in a project repo root. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.
+Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.
 
 Arguments:
 - `message` (required) — The user's prompt.
@@ -508,7 +508,7 @@ Flags:
 - `--team <id>` — Team preset id; omit for Default Team.
 - `--worker <id>` — Override worker model id.
 - `--effort <effort>` — low | med | high.
-- `--lane <lane>` — Without --team/--worker: picks the lane's default answer team. With an explicit --worker or mutating --team: context metadata only — recorded on run identity, does not reroute the worker.
+- `--lane <lane>` — Lane tags the run for context and filtering; `--team` routes.
 - `--type <type>` — Copy routing sugar.
 - `--context <string>` — Bounded context snippet.
 - `--try-fix` — Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.

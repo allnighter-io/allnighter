@@ -1274,7 +1274,7 @@
         },
         {
           "name" : "lane",
-          "summary" : "Without --team\/--worker: picks the lane's default answer team. With an explicit --worker or mutating --team: context metadata only — recorded on run identity, does not reroute the worker.",
+          "summary" : "Lane tags the run for context and filtering; `--team` routes.",
           "takesValue" : true,
           "valueType" : "lane"
         },
@@ -1321,7 +1321,7 @@
       ],
       "name" : "run",
       "outputSchema" : "teamRunJSON",
-      "summary" : "Unified run: message + optional team + worker in a project repo root. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict."
+      "summary" : "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict."
     },
     {
       "args" : [
