@@ -545,11 +545,8 @@ enum PanelCLI {
             line = PanelProgressJSON(event: "roundSettled", round: round, attempt: attempt)
         }
         // Always NDJSON for progress (transport for early reading).
-        if let data = try? CoreJSON.encode(line),
-           let s = String(data: data, encoding: .utf8) {
-            print(s)
-            fflush(stdout)
-        }
+        print(AllnighterCLI.jsonLine(line))
+        fflush(stdout)
         _ = json
     }
 
@@ -559,7 +556,7 @@ enum PanelCLI {
     ) {
         let panelJSON = PanelJSON.project(payload.state, contractVersion: ContractRegistry.contractVersion)
         if json {
-            print(AllnighterCLI.jsonString(PanelRoundJSON(
+            print(AllnighterCLI.jsonLine(PanelRoundJSON(
                 contractVersion: ContractRegistry.contractVersion,
                 panel: panelJSON,
                 round: payload.round.roundNumber,

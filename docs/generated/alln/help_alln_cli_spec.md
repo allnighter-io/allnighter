@@ -596,7 +596,7 @@ Flags:
 - `--handover-stdin` — Read the handover markdown from stdin (mutually exclusive with --file).
 - `--note <string>` — Optional closing note for done/escalate verdicts.
 - `--no-wait` — Return immediately after dispatch instead of blocking through the dev turn.
-- `--json` — Emit RelayJSON (+ devReport when the dev turn delivered in this call).
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (single-line).
 
 Mutually exclusive: `--file`, `--handover-file`.
 
@@ -622,7 +622,7 @@ Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a te
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--json` — Emit PilotWatchJSON (relay + devReport + note when nothing was in flight).
+- `--json` — Emit PilotWatchJSON (single-line; relay + devReport + note when nothing was in flight).
 
 Output schema: `relayJSON`.
 
@@ -670,7 +670,7 @@ Flags:
 - `--brief <path>` — Focus brief markdown path, or `-` for stdin. Built-in on round 1 when omitted; required on round 2+.
 - `--seats <list>` — Comma-separated worker ids to rerun on the SAME round (new attempt; replaces those seats only).
 - `--no-wait` — Dispatch in the background; poll with panel status/watch.
-- `--json` — Emit PanelRoundJSON envelope after settle.
+- `--json` — Emit NDJSON progress events, then a final PanelRoundJSON envelope (single-line).
 
 Output schema: `panelRoundJSON`.
 

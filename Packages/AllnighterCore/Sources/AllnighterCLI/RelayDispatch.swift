@@ -48,10 +48,7 @@ enum RelayDispatch {
     /// (`NDJSONStreamProjector.encodeLine`'s plain `JSONEncoder` with only
     /// `.sortedKeys`, no `.prettyPrinted`) rather than inventing a second one.
     static func progressJSONLine(_ event: RelayCoordinator.RelayEvent) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        let data = (try? encoder.encode(progressJSON(event))) ?? Data("{}".utf8)
-        return String(decoding: data, as: UTF8.self)
+        AllnighterCLI.jsonLine(progressJSON(event))
     }
 
     static func humanProgressLine(_ event: RelayCoordinator.RelayEvent) -> String {

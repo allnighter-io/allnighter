@@ -1434,6 +1434,16 @@ struct AllnighterCLI {
         guard let data = try? CoreJSON.encode(value) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
     }
+
+    /// One compact, single-line JSON object — the house law for any `--json` command that
+    /// streams progress (FR8): every stdout line, including the final envelope, must
+    /// parse independently. Single-envelope commands keep `jsonString` (pretty).
+    static func jsonLine<T: Encodable>(_ value: T) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(value) else { return "{}" }
+        return String(decoding: data, as: UTF8.self)
+    }
 }
 
 /// Loads tool config + builds a `TeamService` from `DefaultConfig` (+ `Config/`

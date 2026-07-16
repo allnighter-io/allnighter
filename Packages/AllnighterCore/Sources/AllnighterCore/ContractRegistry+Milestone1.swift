@@ -402,7 +402,7 @@ public extension ContractRegistry {
                 FlagSpec("handover-stdin", summary: "Read the handover markdown from stdin (mutually exclusive with --file)."),
                 FlagSpec("note", takesValue: true, valueType: "string", summary: "Optional closing note for done/escalate verdicts."),
                 FlagSpec("no-wait", summary: "Return immediately after dispatch instead of blocking through the dev turn."),
-                FlagSpec("json", summary: "Emit RelayJSON (+ devReport when the dev turn delivered in this call)."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (single-line)."),
             ],
             mutuallyExclusiveFlags: [["file", "handover-file"], ["file", "handover-stdin"], ["handover-file", "handover-stdin"]],
             outputSchema: .relayJSON
@@ -419,7 +419,7 @@ public extension ContractRegistry {
             "pair pilot watch", summary: "Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status).", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
-                FlagSpec("json", summary: "Emit PilotWatchJSON (relay + devReport + note when nothing was in flight)."),
+                FlagSpec("json", summary: "Emit PilotWatchJSON (single-line; relay + devReport + note when nothing was in flight)."),
             ],
             outputSchema: .relayJSON
         ),
@@ -460,7 +460,7 @@ public extension ContractRegistry {
                 FlagSpec("brief", takesValue: true, valueType: "path", summary: "Focus brief markdown path, or `-` for stdin. Built-in on round 1 when omitted; required on round 2+."),
                 FlagSpec("seats", takesValue: true, valueType: "list", summary: "Comma-separated worker ids to rerun on the SAME round (new attempt; replaces those seats only)."),
                 FlagSpec("no-wait", summary: "Dispatch in the background; poll with panel status/watch."),
-                FlagSpec("json", summary: "Emit PanelRoundJSON envelope after settle."),
+                FlagSpec("json", summary: "Emit NDJSON progress events, then a final PanelRoundJSON envelope (single-line)."),
             ],
             outputSchema: .panelRoundJSON
         ),

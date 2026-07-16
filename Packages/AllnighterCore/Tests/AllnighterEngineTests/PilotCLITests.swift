@@ -359,7 +359,7 @@ final class PilotCLITests: XCTestCase {
     func testHandoffDispatchAckJSONEncodesSingleLine() throws {
         let ack = PilotHandoffDispatchJSON(
             relayId: "relay_test", status: "dispatched", roundInFlight: false, pid: 4242)
-        let line = PilotCLI.compactJSONString(ack)
+        let line = AllnighterCLI.jsonLine(ack)
         XCTAssertFalse(line.contains("\n"))
         let data = try XCTUnwrap(line.data(using: .utf8))
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])

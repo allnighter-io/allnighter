@@ -202,8 +202,17 @@ enum PilotCLI {
             loadedProjectRoot(relayId, stateStore: stateStore) ?? ""
         )?.id
 
+        let emitJSON = opts.flag("json")
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        let result = await coordinator.runExternalRound(relayId: relayId, submission: submission, projectId: projectId)
+        let progressSink: RelayCoordinator.EventSink? = emitJSON ? { @Sendable event in
+            print(RelayDispatch.progressJSONLine(event))
+        } : nil
+        let result = await coordinator.runExternalRound(
+            relayId: relayId,
+            submission: submission,
+            projectId: projectId,
+            events: progressSink
+        )
         switch result {
         case .success(let payload):
             emitHandoffResult(payload, json: opts.flag("json"))
@@ -373,7 +382,7 @@ enum PilotCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background handoff: \(error)")
         }
         if jsonRequested {
-            print(PilotCLI.compactJSONString(PilotHandoffDispatchJSON(
+            print(AllnighterCLI.jsonLine(PilotHandoffDispatchJSON(
                 relayId: relayId, status: "dispatched", roundInFlight: roundInFlight,
                 pid: process.processIdentifier)))
         } else {
@@ -384,7 +393,7 @@ enum PilotCLI {
     private static func emitHandoffResult(_ payload: RelayCoordinator.PilotRoundResult, json: Bool) {
         let relayJSON = RelayJSON.project(payload.state, contractVersion: ContractRegistry.contractVersion)
         if json {
-            print(AllnighterCLI.jsonString(PilotHandoffJSON(relay: relayJSON, devReport: payload.devReport)))
+            print(AllnighterCLI.jsonLine(PilotHandoffJSON(relay: relayJSON, devReport: payload.devReport)))
         } else {
             print(RelayDispatch.humanRelaySummary(relayJSON))
             if let devReport = payload.devReport {
@@ -578,7 +587,7 @@ enum PilotCLI {
         let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         let devReport = RelayCoordinator.settledDevReport(for: state, runStore: runStore)
         if json {
-            print(AllnighterCLI.jsonString(PilotWatchJSON(relay: relayJSON, devReport: devReport, note: note)))
+            print(AllnighterCLI.jsonLine(PilotWatchJSON(relay: relayJSON, devReport: devReport, note: note)))
         } else {
             print(RelayDispatch.humanRelaySummary(relayJSON))
             if let note { print(note) }
@@ -763,14 +772,6 @@ enum PilotCLI {
     private static func usage(_ detail: String = "pilot start|handoff|status|watch|adopt|scaffold-handover") -> Never {
         FileHandle.standardError.write(Data("usage: alln pair \(detail)\n".utf8))
         exit(2)
-    }
-
-    /// One-line JSON for agent parsers (`Field_Reports_3.md` FR10).
-    static func compactJSONString<T: Encodable>(_ value: T) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        guard let data = try? encoder.encode(value) else { return "{}" }
-        return String(decoding: data, as: UTF8.self)
     }
 }
 

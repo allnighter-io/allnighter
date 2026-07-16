@@ -1597,7 +1597,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit RelayJSON (+ devReport when the dev turn delivered in this call).",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (single-line).",
           "takesValue" : false
         }
       ],
@@ -1664,7 +1664,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit PilotWatchJSON (relay + devReport + note when nothing was in flight).",
+          "summary" : "Emit PilotWatchJSON (single-line; relay + devReport + note when nothing was in flight).",
           "takesValue" : false
         }
       ],
@@ -1823,7 +1823,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit PanelRoundJSON envelope after settle.",
+          "summary" : "Emit NDJSON progress events, then a final PanelRoundJSON envelope (single-line).",
           "takesValue" : false
         }
       ],

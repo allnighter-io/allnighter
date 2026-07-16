@@ -220,7 +220,7 @@ enum RelayCLI {
     private static func emitTerminal(_ state: RelayState, json: Bool) {
         let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         if json {
-            print(AllnighterCLI.jsonString(relayJSON))
+            print(AllnighterCLI.jsonLine(relayJSON))
         } else {
             print(RelayDispatch.humanRelaySummary(relayJSON))
         }
