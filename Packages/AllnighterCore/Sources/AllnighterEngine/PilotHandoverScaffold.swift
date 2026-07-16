@@ -14,6 +14,8 @@ public enum PilotHandoverScaffold {
         
         <!-- pointers: spec paths, code areas, prior round context -->
         
+        <!-- memory: if MEMORY.md exists at repo root, point dev at relevant lines; dev reads it before anything else and cites honored lines in report -->
+        
         <!-- proof required: commands or outputs the dev must capture -->
         
         <!-- stop conditions: when to escalate or stop early -->

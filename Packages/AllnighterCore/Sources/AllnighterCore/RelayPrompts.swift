@@ -59,6 +59,7 @@ public enum RelayPMPrompt {
             anything it links to. Do not rely on any memory of it from an earlier round; the \
             doc or the repo may have moved. You run at the repo root with full read access.
             """,
+            memoryPointerLine(),
             "You have \(context.roundsRemaining) of \(context.maxRounds) rounds left before this relay stops itself. Plan the remaining work with that ceiling in mind — escalate rather than let it run out silently.",
         ]
 
@@ -165,6 +166,7 @@ public enum RelayDevPrompt {
             did, what you committed, what you verified, and what remains. Be honest — no \
             fake-green.
             """,
+            memoryPointerLine(),
             ProvenanceConvention.commitTrailerAsk(displayName: context.workerDisplayName),
             """
             ## The PM's order
@@ -212,6 +214,15 @@ public enum RelayReaskPrompt {
 }
 
 // MARK: - Shared building blocks
+
+/// One read seam for folder-native memory (`docs/phases/Folder_Native_Memory.md`).
+private func memoryPointerLine() -> String {
+    """
+    If MEMORY.md exists at the repo root, read it before anything else; when a memory line \
+    changes what you do, cite it in your report (e.g. honored MEMORY: <line>). If reality \
+    contradicts a line, say so explicitly — do not silently work around it.
+    """
+}
 
 /// The `RelayVerdict` contract, restated identically wherever the PM needs to see it. Kept
 /// as one source of truth so the PM prompt and the re-ask prompt never drift apart.

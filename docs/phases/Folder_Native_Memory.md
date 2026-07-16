@@ -1,11 +1,7 @@
 # Folder-Native Memory — the repo remembers, no matter which CLI touched it
 
-Status: **UNPARKED — smallest slice executing (founder call 2026-07-16).** The
-original "wait for overnight dogfood" sequencing was defeated by its own logic:
-the signals already exist (six piloted deliveries of pilot-PM lessons held in a
-mortal session). Smallest slice: seed this repo's MEMORY.md from those lessons
-(a piloted round — the worker writes and commits, per the law) + the one pointer
-line in relay prompts/scaffold. Consolidation mechanism stays future work.
+Status: **smallest slice SHIPPED** (seed `061b1a1b` + pointer `a3dac9a7`).
+Consolidation mechanism stays future work.
 Owner: AllnighterCore + conventions (repo owns the memory content)
 Sibling design: Ikiro Phase 88 (`websitemd.studio/Docs/phases/88_Folder_Native_Memory.md`,
 LOCKED v2) — deliberately share its design language: one read seam, consolidation as
@@ -145,6 +141,13 @@ that was not paid twice. (Cold-vs-warm side-by-side is also the demo asset.)
 
 - 2026-07-16: doc created from the founder brainstorm + Ikiro 88 read. First week
   of piloted deliveries recorded as the motivating evidence above.
+- 2026-07-16 (round 2, pointer line): relay prompts + pilot scaffold carry the one
+  MEMORY.md pointer; prompt-assembly tests assert presence and cite wording. Pointer
+  commit: `a3dac9a7`.
+  Candidate future memory line: dev-seat stall-retry can double-commit the same
+  message if a turn re-runs after work is already committed (`e545a289` +
+  `061b1a1b`, 11 min apart — harmless here). Provenance trailer's first live
+  appearance was the memory seed commit (`061b1a1b`).
 - 2026-07-16 (hardening pass, external feedback triaged): incorporated — typed
   memory lines (control surface not diary), claim→burned→verify line shape,
   ruthless curation order, invalidation-as-half-the-feature, hard caps, secrets

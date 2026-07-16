@@ -223,6 +223,42 @@ final class RelayPromptsTests: XCTestCase {
         XCTAssertTrue(prompt.contains("handover"))
     }
 
+    // MARK: - Folder-native memory pointer (Folder_Native_Memory.md)
+
+  private static let memoryPointerMarker = "If MEMORY.md exists at the repo root, read it before anything else"
+
+    func testPMPromptIncludesMemoryPointerExactlyOnce() {
+        let context = RelayPMPrompt.Context(
+            docPath: "docs/phases/Folder_Native_Memory.md",
+            roundNumber: 1,
+            baselineHead: "abc123",
+            currentHead: nil,
+            devReport: nil,
+            founderNote: nil,
+            maxRounds: 20,
+            roundsRemaining: 20
+        )
+        let prompt = RelayPMPrompt.assemble(context: context)
+        XCTAssertTrue(prompt.contains(Self.memoryPointerMarker))
+        XCTAssertTrue(prompt.contains("honored MEMORY: <line>"))
+        XCTAssertTrue(prompt.contains("do not silently work around it"))
+        XCTAssertEqual(prompt.components(separatedBy: Self.memoryPointerMarker).count - 1, 1)
+    }
+
+    func testDevPromptIncludesMemoryPointerExactlyOnce() {
+        let context = RelayDevPrompt.Context(
+            handover: "Add the pointer line.",
+            docPath: "docs/phases/Folder_Native_Memory.md",
+            roundNumber: 2,
+            workerDisplayName: "Grok Build"
+        )
+        let prompt = RelayDevPrompt.assemble(context: context)
+        XCTAssertTrue(prompt.contains(Self.memoryPointerMarker))
+        XCTAssertTrue(prompt.contains("honored MEMORY: <line>"))
+        XCTAssertTrue(prompt.contains("do not silently work around it"))
+        XCTAssertEqual(prompt.components(separatedBy: Self.memoryPointerMarker).count - 1, 1)
+    }
+
     // MARK: - Provenance trailer (FR4)
 
     func testDevPromptIncludesCommitTrailerAskExactlyOnce() {
