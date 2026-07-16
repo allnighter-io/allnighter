@@ -36,8 +36,13 @@ struct RelayLaunchView: View {
             header
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
             if let viewModel {
+                // `.safeAreaInset` (not a sibling-below layout, and never an `.overlay`) is
+                // the structural fix for the sticky footer: it reserves the footer's actual
+                // rendered height as bottom inset on the scroll content automatically, so the
+                // last row can never sit flush against — let alone under — the footer, at any
+                // scroll position or content length. No magic-number padding to keep in sync.
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 14) {
                         docSection(viewModel)
                         seatSection(
                             title: "PM seat", subtitle: "Reviews rounds, writes the handover.",
@@ -57,14 +62,27 @@ struct RelayLaunchView: View {
                             issuesBlock(viewModel)
                         }
                     }
-                    .padding(20)
+                    .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 16)
                 }
-                footer(viewModel)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    footer(viewModel)
+                }
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(width: 480, height: 640)
+        // 640 was too short for its own content: with two ~168pt-tall bounded seat
+        // lists plus doc/toggle/ceilings sections, the form's natural height comfortably
+        // exceeds 640, so the *outer* form ScrollView's own clip edge (not the footer)
+        // landed mid-row inside the Dev seat list — flush against the footer with zero
+        // gap, reading as the footer overlapping the list. 680 (+ the tighter spacing
+        // above) gives both seat sections room to render without the outer scroll
+        // clipping into either box on first open, while staying inside the fixed
+        // 1100x720 GUI-proof capture window (and the app's real 720pt minHeight) with
+        // margin to spare — a taller frame (tried 740) overflowed that window's top
+        // edge. The form still scrolls for ceilings/issues or an unusually deep bench
+        // (9+ ready seats); each seat box scrolls independently within its own bound.
+        .frame(width: 480, height: 680)
         .background(ALColor.surface)
         .task { bootstrap() }
         .task(id: docQuery) { rankDocCandidates() }
@@ -129,6 +147,9 @@ struct RelayLaunchView: View {
             }
             .padding(16)
         }
+        // Opaque: this now lives in the ScrollView's reserved `.safeAreaInset` region, so
+        // scroll-bounce content must never show through underneath it.
+        .background(ALColor.surface)
     }
 
     // MARK: - Doc section
@@ -183,7 +204,7 @@ struct RelayLaunchView: View {
             // Height-capped + independently scrollable: the bench can run to 9+ ready
             // seats, and two of these plus the doc/toggle/ceilings sections in one outer
             // ScrollView would bury "Dev seat" and Start behind a long scroll. Each
-            // picker gets its own short, bounded viewport instead (~4.5 rows visible).
+            // picker gets its own short, bounded viewport instead (~4 rows visible).
             ScrollView {
                 VStack(spacing: 2) {
                     ForEach(readySeats) { seat in
@@ -199,9 +220,20 @@ struct RelayLaunchView: View {
                 }
                 .padding(6)
             }
-            .frame(maxHeight: 168)
+            .frame(maxHeight: 152)
             .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
             .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+            // Scroll cue: the list is intentionally height-capped to ~4.5 rows so a partial
+            // row hints "more below" — but with no gradient it reads as a hard clip rather
+            // than an affordance. Soft-fade the last few points to the box's own background.
+            .overlay(alignment: .bottom) {
+                LinearGradient(
+                    colors: [ALColor.raised.opacity(0), ALColor.raised],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .frame(height: 22)
+                .allowsHitTesting(false)
+            }
         }
     }
 
