@@ -1,0 +1,78 @@
+# MCP Retirement — Allnighter goes CLI-only for agents
+
+Status: **Approved — founder call 2026-07-16 (pre-launch; consumer check PASSED)**
+Owner: AllnighterCore + CLI
+Updated: 2026-07-16
+
+## Why (first principles)
+
+Allnighter is a local Mac product whose callers are CLI agents (Claude Code, Cursor,
+Codex, Grok) — **every one of them has a shell.** The founder killed MCP on two prior
+products (XTerminal, Ikiro) for the same reason rediscovered independently by
+OpenClaw: **MCP preloads the entire tool surface into every session's context**
+(29 tool schemas, thousands of tokens, used or not), while a CLI costs ~one line
+("Allnighter is `alln`; run `alln help`") with help on demand. Local CLI-to-CLI is
+10–100x more token-efficient, and Allnighter already consumes AgentOS — which is
+CLI-only by design. Every simplification so far has improved the product.
+
+**Killing MCP loses zero capability.** Both surfaces are projections of the same
+`ContractRegistry`; CLI parity is enforced by tests today. The capability (structured
+envelopes, schemas, help, error bridge) lives in the registry and stays. Only the
+second wire format dies.
+
+## Consumer check (performed 2026-07-16 — the gate for this cutover)
+
+- **Mac app:** links the library directly; every "MCP" hit in `Apps/AllnighterMac`
+  is a doc comment. Zero runtime MCP consumption.
+- **iOS/remote:** Supabase + R2 transport (cloud-first spine), not MCP.
+- **Repo:** no `.mcp.json`; the only host wiring is `alln mcp install` *printing*
+  config for the user to paste. Pre-launch, external consumers = the founder.
+- **Shell-less hosts** (Claude Desktop chat, web): not a target user for a local
+  CLI-orchestration product.
+
+## Kill list (outright, no shims)
+
+- `MCPServer.swift`; CLI verbs `mcp` / `mcp serve` / `mcp install` / `mcp-install`
+- All `MCP*Handlers.swift` (Async/BoostWindow/Defaults/Help/Merged/Pending/Project/
+  Relay/Resource/Run/Stalled) + their test suites
+- Registry MCP surface: `MCPToolSpec`, `mcpTools`, `ContractRegistry+MCPSurface.swift`,
+  tool-level `errors[]`/`idempotency` advertisement, the tool-count ratchet
+- `MCPParityTests`, `MCPWireConformanceTests`, `MCPToolContractTests`
+- Generated MCP artifacts (regenerate `alln dev export-contracts`; the export set
+  shrinks — update the drift-gate expectations)
+- Docs sweep: AGENTS.md / phase docs / README references to MCP tools → point to the
+  `alln` verbs; delete `MCP_Retirement`-obsoleted phase docs' *routing* references,
+  keep history
+
+## Keep (the actual product — untouched)
+
+- `ContractRegistry`, `CommandSpec`s, `OutputSchema`, every public JSON envelope
+- The help system (`alln help` topics/search, error→help bridge) — **rewrite content**
+  that referenced MCP: host snippets become the one-liner CLI snippet ("add to your
+  agent's context: Allnighter is available via `alln`; `alln help <topic>`");
+  `mcp_hello` guidance becomes `alln team hello` (already exists, keep it)
+- `alln dev export-contracts` (CLI artifacts only)
+- NDJSON streaming, exit-code discipline, error catalog
+
+## Guardrails for the executor
+
+1. **No capability may die.** Before deleting any handler, confirm its CLI twin
+   exists (parity tests are the map — read them before removing them). Anything
+   MCP-only found (there should be nothing) gets a CLI verb FIRST, in its own commit.
+2. Help topics must not 404: run the help works test after the content rewrite.
+3. The Mac app must not reference deleted symbols (doc comments mentioning "MCP"
+   may simply be reworded).
+4. Commit in reviewable units: (a) handlers+server+verbs, (b) registry surface +
+   tests + regenerated artifacts, (c) help content + docs sweep.
+
+## Works test
+
+```bash
+alln team hello --json          # agent front door, quota-free
+alln help search "start a relay"
+alln pair relay --doc … --json  # the loop, pure CLI
+alln nosuchverb                 # error envelope → help bridge still routes
+swift test --package-path Packages/AllnighterCore   # green minus known WIP baseline
+```
+An agent session given only the one-liner context snippet can discover and drive
+the full surface. Nothing anywhere instructs configuring an MCP server.

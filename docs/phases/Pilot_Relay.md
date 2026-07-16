@@ -50,18 +50,17 @@ upgrade path when you want a clock is §5.
 3. **Two verb families, not a flag.** `alln pair pilot start|handoff|status|watch`
    beside `alln pair relay ...`. Easier to say out loud; both are thin projections
    over the same coordinator.
-4. **MCP stays ONE tool.** `pair_relay` gains actions (`pilot_start`, `handoff`,
-   `watch`) instead of new tools — the ≤32 ratchet stays untouched and agents get one
-   front door for both modes.
-5. **The blocking handoff IS the product.** The MCP `handoff` action (and CLI
-   `handoff` by default) blocks until the dev turn settles and RETURNS the dev's
-   report in the same call. From a Claude/Cursor session the whole loop is: call tool
-   → read report in the tool result → think → call tool. No polling ceremony on the
-   happy path (`wait:false` + `watch`/`status` exist for long dev turns).
+4. **CLI is the only agent surface.** MCP is retired (`MCP_Retirement.md`, founder
+   call 2026-07-16) — piloting sessions drive the loop by running `alln` directly.
+   Every CLI agent has a shell; the integration cost is one context line.
+5. **The blocking handoff IS the product.** `alln pair pilot handoff` blocks until
+   the dev turn settles and PRINTS the dev's report + round envelope. From a
+   Claude/Cursor session the whole loop is: run command → read report in the command
+   output → think → run command. No polling ceremony on the happy path
+   (`--no-wait` + `watch`/`status` exist for long dev turns).
 6. **Verdict format is identical.** The piloting session submits the same 3-field
-   RelayVerdict + handover prose the spawned PM emits — via structured MCP params
-   (agent-first) or a markdown file/stdin whose tail the existing parser extracts
-   (CLI). One schema, one gate, both modes.
+   RelayVerdict + handover prose the spawned PM emits — a markdown file (or stdin)
+   whose tail the existing parser extracts. One schema, one gate, both modes.
 7. **Escalate keeps its meaning.** In pilot mode `escalate` = the piloting session
    raising a question to the HUMAN: relay parks (`escalated`), the inbox thread
    raises `needsAttention`, and `resume`/the GUI answer row work unchanged. `done`
@@ -142,10 +141,10 @@ any PM mutation. The rules that keep it safe:
 | PL-S01 | `pmMode` on RelayState/Config + `awaitingPM` status + store/reconcile guard (awaitingPM never reconciled, no owner.pid) + tests | RelayState, RelayStateStore |
 | PL-S02 | `RelayCoordinator.runExternalRound(relayId:submission:events:)` — parse/validate verdict, gate, pin, ONE dev turn, persist, return report; `RELAY_ROUND_IN_FLIGHT`; dirty-tree snapshot on the round | the whole shipped round machinery |
 | PL-S03 | CLI `alln pair pilot start|handoff|status|watch` (+`--file`/stdin verdict-tail input; handoff blocks by default) + RelayJSON additions (pmMode, awaitingPM) + contracts | RelayCLI, RelayVerdictParser |
-| PL-S04 | MCP `pair_relay` actions `pilot_start`/`handoff`/`watch` — structured verdict params, blocking handoff returns the dev report | MCPRelayHandlers |
+| PL-S04 | ~~MCP actions~~ **DEAD — MCP retired (`MCP_Retirement.md`); the CLI verbs in PL-S03 are the only agent surface** | — |
 | PL-S05 | Thread projection for external PM turns (submission verbatim as the PM turn; awaitingPM renders as a calm parked state, not running) | RelayThreadProjector |
 | PL-S06 | **Night-shift handover:** `alln pair relay adopt --relay <id> --pm-worker <id>` converts a parked pilot relay to `pmMode: spawned` mid-flight — same state, same thread; the spawned PM reads the round log and keeps going. (Reverse — relay→pilot — falls out of the same move.) | RelayCoordinator.resume lineage |
-| PL-S07 | Works test: drive a real pilot relay from a Claude Code session via MCP (`pilot_start` → 2× `handoff` → `done`), then `adopt` a parked pilot relay and let a spawned PM finish it | — |
+| PL-S07 | Works test: drive a real pilot relay from a Claude Code session via the CLI (`pilot start` → 2× `handoff` → `done`), then `adopt` a parked pilot relay and let a spawned PM finish it | — |
 
 ## 5. The night-shift handover (PL-S06) is the strategic unlock
 
