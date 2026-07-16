@@ -1,8 +1,11 @@
 # Folder-Native Memory — the repo remembers, no matter which CLI touched it
 
-Status: **PARKED — spec-hardening only, no execution.** Sequenced AFTER Pilot DX and
-the first overnight relay dogfood (the dogfood generates the signals this design
-feeds on; design from observed lack, not imagination).
+Status: **UNPARKED — smallest slice executing (founder call 2026-07-16).** The
+original "wait for overnight dogfood" sequencing was defeated by its own logic:
+the signals already exist (six piloted deliveries of pilot-PM lessons held in a
+mortal session). Smallest slice: seed this repo's MEMORY.md from those lessons
+(a piloted round — the worker writes and commits, per the law) + the one pointer
+line in relay prompts/scaffold. Consolidation mechanism stays future work.
 Owner: AllnighterCore + conventions (repo owns the memory content)
 Sibling design: Ikiro Phase 88 (`websitemd.studio/Docs/phases/88_Folder_Native_Memory.md`,
 LOCKED v2) — deliberately share its design language: one read seam, consolidation as
