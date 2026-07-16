@@ -13,6 +13,7 @@
       "{{prompt}}",
       "-m",
       "{{model}}",
+      "{{effortArgs}}",
       "--output-format",
       "streaming-json",
       "--always-approve",
@@ -25,7 +26,15 @@
     "promptVia": "arg",
     "env": {},
     "workingDir": null,
-    "timeoutSeconds": 300
+    "timeoutSeconds": 300,
+    "effortFlag": {
+      "flag": "--reasoning-effort",
+      "levels": {
+        "low": "low",
+        "med": "medium",
+        "high": "high"
+      }
+    }
   },
   "output": {
     "capture": "stdout",
@@ -97,6 +106,7 @@
       "{{prompt}}",
       "-m",
       "{{model}}",
+      "{{effortArgs}}",
       "--output-format",
       "streaming-json",
       "--always-approve",

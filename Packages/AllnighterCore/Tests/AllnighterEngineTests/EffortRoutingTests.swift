@@ -4,7 +4,7 @@ import AllnighterCore
 
 /// The run's team effort now reaches each CLI: as a `--effort` flag for drivers
 /// that take one (Claude), and as a model-label variant for drivers that encode
-/// effort in the model name (Antigravity). Grok has no effort axis.
+/// effort in the model name (Antigravity). Grok 4.5 uses `--reasoning-effort`.
 final class EffortRoutingTests: XCTestCase {
 
     private func manifest(_ id: String) -> DriverManifest {
@@ -25,9 +25,10 @@ final class EffortRoutingTests: XCTestCase {
             ["--effort", "low"])
     }
 
-    func testGrokHasNoEffortFlag() {
-        let args = manifest("grok").resolvedArgs(.init(prompt: "hi", model: "grok-build", effort: .high))
-        XCTAssertFalse(args.contains("--effort"), "Grok has no effort axis")
+    func testGrokPassesReasoningEffortFlag() {
+        let args = manifest("grok").resolvedArgs(.init(prompt: "hi", model: "grok-4.5", effort: .high))
+        let idx = try! XCTUnwrap(args.firstIndex(of: "--reasoning-effort"))
+        XCTAssertEqual(args[idx + 1], "high")
     }
 
     func testCodexPassesModelAndReasoningEffortBeforePrompt() {
@@ -78,13 +79,18 @@ final class EffortRoutingTests: XCTestCase {
         XCTAssertTrue(chatgpt.supportsEffort(manifest: manifest("codex")))
     }
 
-    func testGrokAndCursorModelsDoNotSupportEffort() {
-        let grokComposer = Model(id: "model_composer", displayName: "Grok Composer 2.5 Fast",
-                                 modelLabel: "grok-composer-2.5-fast", driverId: "grok")
-        XCTAssertFalse(grokComposer.supportsEffort(manifest: manifest("grok")))
+    func testCursorModelsDoNotSupportEffort() {
         let cursorFast = Model(id: "model_cursor_composer_25_fast", displayName: "Composer 2.5 Fast",
                                modelLabel: "composer-2.5-fast", driverId: "cursor_agent")
         XCTAssertFalse(cursorFast.supportsEffort(manifest: manifest("cursor_agent")))
+    }
+
+    func testGrok45SupportsEffort() {
+        let grok = Model(id: "model_grok", displayName: "Grok 4.5", modelLabel: "grok-4.5", driverId: "grok")
+        XCTAssertTrue(grok.supportsEffort(manifest: manifest("grok")))
+        let composer = Model(id: "model_composer", displayName: "Grok Composer 2.5 Fast",
+                             modelLabel: "grok-composer-2.5-fast", driverId: "grok")
+        XCTAssertTrue(composer.supportsEffort(manifest: manifest("grok")))
     }
 
     func testAntigravityEffortVariantsGateEffortDial() {
@@ -98,8 +104,8 @@ final class EffortRoutingTests: XCTestCase {
         XCTAssertFalse(fixedModel.supportsEffort(manifest: manifest("antigravity")))
     }
 
-    func testUnknownCustomModelWithoutEffortFlagStaysHidden() {
+    func testUnknownCustomModelInheritsDriverEffortFlag() {
         let custom = Model(id: "custom_grok_fast", displayName: "Mystery", modelLabel: "mystery", driverId: "grok")
-        XCTAssertFalse(custom.supportsEffort(manifest: manifest("grok")))
+        XCTAssertTrue(custom.supportsEffort(manifest: manifest("grok")))
     }
 }

@@ -6,7 +6,7 @@
   { "id": "model_chatgpt_54", "displayName": "ChatGPT 5.4", "modelLabel": "gpt-5.4", "driverId": "codex", "role": "answerer", "enabled": false },
   { "id": "model_chatgpt_54_mini", "displayName": "ChatGPT 5.4 mini", "modelLabel": "gpt-5.4-mini", "driverId": "codex", "role": "answerer", "enabled": false },
   { "id": "model_codex_spark", "displayName": "Codex Spark", "modelLabel": "gpt-5.3-codex-spark", "driverId": "codex", "role": "answerer", "enabled": false },
-  { "id": "model_grok", "displayName": "Grok Build", "modelLabel": "grok-build", "driverId": "grok", "role": "answerer", "enabled": true },
+  { "id": "model_grok", "displayName": "Grok 4.5", "modelLabel": "grok-4.5", "driverId": "grok", "role": "answerer", "enabled": true },
   { "id": "model_composer", "displayName": "Grok Composer 2.5 Fast", "modelLabel": "grok-composer-2.5-fast", "driverId": "grok", "role": "answerer", "enabled": false },
   { "id": "model_gemini", "displayName": "Gemini 3.5 Flash", "modelLabel": "Gemini 3.5 Flash (Medium)", "driverId": "antigravity", "role": "answerer", "enabled": true },
   { "id": "model_gemini_pro", "displayName": "Gemini 3.1 Pro", "modelLabel": "Gemini 3.1 Pro (High)", "driverId": "antigravity", "role": "answerer", "enabled": false },

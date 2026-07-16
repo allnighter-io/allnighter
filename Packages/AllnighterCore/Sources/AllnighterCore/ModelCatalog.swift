@@ -72,8 +72,8 @@ public enum ModelCatalog {
             def("model_chatgpt_54", "ChatGPT 5.4", "gpt-5.4", "codex", .answerer, defaultEnabled: false),
             def("model_chatgpt_54_mini", "ChatGPT 5.4 mini", "gpt-5.4-mini", "codex", .answerer, defaultEnabled: false),
             def("model_codex_spark", "Codex Spark", "gpt-5.3-codex-spark", "codex", .answerer, defaultEnabled: false),
-            // Grok — recognized from `grok models` (no effort axis).
-            def("model_grok", "Grok Build", "grok-build", "grok", .answerer, defaultEnabled: true),
+            // Grok — recognized from `grok models`; effort via `--reasoning-effort`.
+            def("model_grok", "Grok 4.5", "grok-4.5", "grok", .answerer, defaultEnabled: true),
             def("model_composer", "Grok Composer 2.5 Fast", "grok-composer-2.5-fast", "grok", .answerer, defaultEnabled: false),
             // Cursor Agent — Auto is the default; regular Composer 2.5 stays on-bench;
             // Fast is explicit opt-in (6× cost).
