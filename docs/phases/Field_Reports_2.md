@@ -1,6 +1,6 @@
 # Field Reports 2 — one-glance run outcome + trailer wiring truth
 
-Status: In progress — piloted delivery #8 (PM = live Claude session; dev = Cursor Grok 4.5)
+Status: SHIPPED — FR5 + FR6 (piloted delivery #8)
 Owner: AllnighterCore + CLI
 Updated: 2026-07-16
 
@@ -36,6 +36,16 @@ appends the same trailer once." Meanwhile the trailer DID appear on the memory
 seed commit (a relay dev turn). So either (a) the founder's run predated FR4,
 (b) the `alln run` path misses the append, or (c) the ask was present and the
 worker ignored it (convention is best-effort).
+
+**Finding (2026-07-16, verified): (a) timing.** The Ikiro commit `2c07ad43` is from
+the same 2026-07-16 dogfood session that produced Field Reports 1 finding #7 (plain
+commits, no trailer) — documented in `Field_Reports_1.md` as predating the FR4
+fix. FR4 landed at `10fd73a4` on **2026-07-16 13:48:19 +0200**. The field run used a
+binary built before that commit. **Not (b):** code trace confirms `alln run`
+→ `RunCLI` → `RunService.run` → `runExecution` (execution teams use
+`runShape == .execution`) appends `ProvenanceConvention.commitTrailerAsk` when the
+assembled prompt lacks `Co-Authored-By:` (`RunService.swift` ~460–461). Pinned by
+`RunRepoDeltaTests.testBareMutatingRunDispatchIncludesCommitTrailerAskExactlyOnce`.
 
 **Acceptance:** investigate and NAME which of a/b/c it was (git dates + the
 actual dispatch path for `alln run` mutating runs). If (b): fix the wiring +
