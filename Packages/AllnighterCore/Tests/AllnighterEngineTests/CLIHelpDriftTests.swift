@@ -19,7 +19,7 @@ final class CLIHelpDriftTests: XCTestCase {
         "thread send", "thread get", "thread rename", "thread attachment", "thread status",
         // PM Relay + Pilot — long-form `alln help get pm_relay`.
         "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt",
-        "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt",
+        "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
         // Run inspection beyond show/export.
         "floor show", "spec",
         // Pending + project + stalled families.

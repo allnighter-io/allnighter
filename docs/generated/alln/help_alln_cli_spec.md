@@ -576,9 +576,9 @@ Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat 
 Flags:
 - `--doc <path>` — Repo-relative spec doc path (required) — the piloting session re-reads it fresh each round.
 - `--project <id>` — Project id, name, or repo path (required).
-- `--dev-worker <id>` — Dev seat model id (required).
+- `--dev-worker <id|alias>` — Dev seat model id or alias (optional when a seat was remembered for this project).
 - `--max-rounds <integer>` — Round ceiling, set once here — Pilot has no long-lived process to re-supply it per handoff (default 20).
-- `--json` — Emit RelayJSON.
+- `--json` — Emit PilotStartJSON (relay + nextCommand + scaffoldPath).
 
 Output schema: `relayJSON`.
 
@@ -631,6 +631,17 @@ Reverse flip: hands a parked spawned relay's PM seat to a piloting session (pmMo
 Flags:
 - `--relay <id>` — Relay id (required).
 - `--json` — Emit RelayJSON.
+
+Output schema: `relayJSON`.
+
+### `alln pair pilot scaffold-handover`
+
+Write or re-emit a suggested PM handover markdown template for a relay round.
+
+Flags:
+- `--relay <id>` — Relay id (required).
+- `--round <integer>` — Round number for the filename (default 1).
+- `--json` — Emit scaffold path as JSON.
 
 Output schema: `relayJSON`.
 

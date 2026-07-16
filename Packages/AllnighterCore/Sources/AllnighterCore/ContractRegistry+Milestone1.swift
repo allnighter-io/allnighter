@@ -384,9 +384,9 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the piloting session re-reads it fresh each round."),
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
-                FlagSpec("dev-worker", takesValue: true, valueType: "id", summary: "Dev seat model id (required)."),
+                FlagSpec("dev-worker", takesValue: true, valueType: "id|alias", summary: "Dev seat model id or alias (optional when a seat was remembered for this project)."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling, set once here — Pilot has no long-lived process to re-supply it per handoff (default 20)."),
-                FlagSpec("json", summary: "Emit RelayJSON."),
+                FlagSpec("json", summary: "Emit PilotStartJSON (relay + nextCommand + scaffoldPath)."),
             ],
             outputSchema: .relayJSON
         ),
@@ -426,6 +426,15 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("json", summary: "Emit RelayJSON."),
+            ],
+            outputSchema: .relayJSON
+        ),
+        CommandSpec(
+            "pair pilot scaffold-handover", summary: "Write or re-emit a suggested PM handover markdown template for a relay round.", milestone: .m1,
+            flags: [
+                FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
+                FlagSpec("round", takesValue: true, valueType: "integer", summary: "Round number for the filename (default 1)."),
+                FlagSpec("json", summary: "Emit scaffold path as JSON."),
             ],
             outputSchema: .relayJSON
         ),

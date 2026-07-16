@@ -181,7 +181,7 @@ public enum HelpTopicRegistry {
             relatedToolIds: ["pair_relay", "project_get", "run_get"],
             relatedCommandNames: [
                 "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt", "project add", "project show",
-                "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt",
+                "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
             ],
             schemaRefs: ["relayJSON"],
             errorRefs: [

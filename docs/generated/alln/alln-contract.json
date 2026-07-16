@@ -1512,9 +1512,9 @@
         },
         {
           "name" : "dev-worker",
-          "summary" : "Dev seat model id (required).",
+          "summary" : "Dev seat model id or alias (optional when a seat was remembered for this project).",
           "takesValue" : true,
-          "valueType" : "id"
+          "valueType" : "id|alias"
         },
         {
           "name" : "max-rounds",
@@ -1524,7 +1524,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit RelayJSON.",
+          "summary" : "Emit PilotStartJSON (relay + nextCommand + scaffoldPath).",
           "takesValue" : false
         }
       ],
@@ -1692,6 +1692,40 @@
       "name" : "pair pilot adopt",
       "outputSchema" : "relayJSON",
       "summary" : "Reverse flip: hands a parked spawned relay's PM seat to a piloting session (pmMode → external, status → awaitingPM). No dispatch."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "relay",
+          "summary" : "Relay id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "round",
+          "summary" : "Round number for the filename (default 1).",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit scaffold path as JSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "pair pilot scaffold-handover",
+      "outputSchema" : "relayJSON",
+      "summary" : "Write or re-emit a suggested PM handover markdown template for a relay round."
     },
     {
       "args" : [

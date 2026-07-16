@@ -14,6 +14,15 @@ import AllnighterEngine
 /// start` once, then one blocking `pilot handoff` call per round — read the printed dev
 /// report, think, call `handoff` again.
 enum PilotCLI {
+    /// Resolved `pilot start` inputs after flag parsing, alias resolution, and optional recall.
+    struct StartRequest {
+        var config: RelayCoordinator.Config
+        var devWorkerId: String
+        /// The raw `--dev-worker` token when it differed from the resolved model id.
+        var devWorkerAlias: String?
+        var rememberedDevWorker: Bool
+    }
+
     static func run(_ args: [String], runtime: ToolRuntime) async {
         guard let sub = args.first else { usage() }
         switch sub {
@@ -22,6 +31,7 @@ enum PilotCLI {
         case "status": runStatus(Array(args.dropFirst()))
         case "watch": runWatch(Array(args.dropFirst()))
         case "adopt": runAdopt(Array(args.dropFirst()))
+        case "scaffold-handover": runScaffoldHandover(Array(args.dropFirst()))
         default: usage()
         }
     }
@@ -29,10 +39,15 @@ enum PilotCLI {
     // MARK: - start
 
     static func runStart(_ args: [String], runtime: ToolRuntime) async {
-        guard !args.isEmpty else { usage("pilot start --doc <path> --project <id|path> --dev-worker <modelId> [--max-rounds N] [--json]") }
-        let config: RelayCoordinator.Config
+        guard !args.isEmpty else { usage("pilot start --doc <path> --project <id|path> [--dev-worker <seat|alias>] [--max-rounds N] [--json]") }
+        let opts = Options(args)
+        let request: StartRequest
         do {
-            config = try parseStartConfig(args)
+            request = try parseStartConfig(
+                args,
+                models: runtime.models,
+                probeRecords: SetupStore().load().records
+            )
         } catch let error as PilotCLIError {
             fail(error)
         } catch {
@@ -40,9 +55,27 @@ enum PilotCLI {
         }
 
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        switch coordinator.startPilot(config: config) {
+        switch coordinator.startPilot(config: request.config) {
         case .success(let state):
-            emitState(state, json: Options(args).flag("json"))
+            let scaffoldPath: String
+            do {
+                scaffoldPath = try PilotHandoverScaffold.writeRoundFile(relayId: state.id, round: 1)
+            } catch {
+                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not write handover scaffold: \(error)")
+            }
+            do {
+                try PilotDevSeatStore().save(projectId: request.config.projectId ?? "", devWorkerId: request.devWorkerId)
+            } catch {
+                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not remember dev seat: \(error)")
+            }
+            emitStartResult(
+                state,
+                devWorkerId: request.devWorkerId,
+                devWorkerAlias: request.devWorkerAlias,
+                rememberedDevWorker: request.rememberedDevWorker,
+                scaffoldPath: scaffoldPath,
+                json: opts.flag("json")
+            )
         case .failure(.untilNotSupported):
             AllnighterCLI.fail(
                 code: "CLI_USAGE_ERROR",
@@ -51,30 +84,93 @@ enum PilotCLI {
         }
     }
 
-    static func parseStartConfig(_ args: [String], projectStore: ProjectStore = ProjectStore()) throws -> RelayCoordinator.Config {
+    static func parseStartConfig(
+        _ args: [String],
+        projectStore: ProjectStore = ProjectStore(),
+        models: [Model] = [],
+        probeRecords: [ToolProbeRecord] = [],
+        devSeatStore: PilotDevSeatStore = PilotDevSeatStore()
+    ) throws -> StartRequest {
         let opts = Options(args)
         guard let docPath = opts.value("doc") else { throw PilotCLIError.missingRequired("--doc <path>") }
         guard let projectToken = opts.value("project") else { throw PilotCLIError.missingRequired("--project <id|path>") }
-        guard let devWorkerId = opts.value("dev-worker") else { throw PilotCLIError.missingRequired("--dev-worker <modelId>") }
         guard let project = AllnighterCLI.resolveProject(projectToken, store: projectStore) else {
             throw PilotCLIError.projectNotFound(projectToken)
         }
         guard let maxRounds = RelayCLI.parseMaxRounds(opts.value("max-rounds")) else {
             throw PilotCLIError.invalidMaxRounds(opts.value("max-rounds") ?? "")
         }
-        return RelayCoordinator.Config(
+
+        let catalogModels = models.isEmpty ? ModelCatalog.resolvedModels(registry: DefaultConfig.registry) : models
+        let records = probeRecords
+        let readySeats = PilotSeatResolver.readySeats(from: catalogModels, probeRecords: records)
+
+        let devWorkerId: String
+        let devWorkerAlias: String?
+        let remembered: Bool
+        if let token = opts.value("dev-worker") {
+            switch PilotSeatResolver.resolve(alias: token, models: catalogModels) {
+            case .success(let resolved):
+                devWorkerId = resolved
+                devWorkerAlias = resolved == token ? nil : token
+                remembered = false
+            case .failure(.ambiguous(let alias, let candidates)):
+                throw PilotCLIError.ambiguousDevWorker(
+                    alias: alias,
+                    candidates: PilotSeatResolver.formatCandidates(candidates)
+                )
+            case .failure(.noMatch(let alias, _)):
+                throw PilotCLIError.devWorkerNotFound(
+                    alias: alias,
+                    readySeats: PilotSeatResolver.formatReadySeats(readySeats)
+                )
+            case .failure(.noReadySeats):
+                throw PilotCLIError.noReadyDevSeats
+            }
+        } else if let rememberedId = devSeatStore.load(projectId: project.id)?.devWorkerId {
+            devWorkerId = rememberedId
+            devWorkerAlias = nil
+            remembered = true
+        } else {
+            throw PilotCLIError.missingDevWorker(
+                readySeats: PilotSeatResolver.formatReadySeats(readySeats)
+            )
+        }
+
+        let config = RelayCoordinator.Config(
             projectRoot: project.normalizedRootPath,
             projectId: project.id,
             docPath: docPath,
-            // No PM model dispatches in Pilot — the sentinel documents that, RunService
-            // never resolves it.
             pmWorkerId: RelayState.externalPMWorkerId,
             devWorkerId: devWorkerId,
             maxRounds: maxRounds
-            // `until` deliberately never wired from a flag here — Pilot exposes no
-            // `--until`, so `RelayCoordinator.startPilot`'s guard never fires from this
-            // path; it exists as the coordinator's own defense in depth.
         )
+        return StartRequest(
+            config: config,
+            devWorkerId: devWorkerId,
+            devWorkerAlias: devWorkerAlias,
+            rememberedDevWorker: remembered
+        )
+    }
+
+    // MARK: - scaffold-handover
+
+    static func runScaffoldHandover(_ args: [String]) {
+        guard !args.isEmpty else { usage("pilot scaffold-handover --relay <id> [--round N]") }
+        let opts = Options(args)
+        guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
+        let round = Int(opts.value("round") ?? "1") ?? 1
+        guard round > 0 else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--round must be a positive integer")
+        }
+        let stateStore = RelayStateStore()
+        guard stateStore.load(id: relayId) != nil else { fail(.relayNotFound(relayId)) }
+        let template = PilotHandoverScaffold.template(round: round)
+        if opts.flag("json") {
+            print(AllnighterCLI.jsonString(["relayId": relayId, "round": String(round), "template": template]))
+        } else {
+            print(template, terminator: "")
+        }
     }
 
     // MARK: - handoff
@@ -353,6 +449,42 @@ enum PilotCLI {
 
     // MARK: - Output
 
+    static func handoffNextCommand(relayId: String, scaffoldPath: String) -> String {
+        "alln pair pilot handoff --relay \(relayId) --verdict continue --handover-file \(scaffoldPath)"
+    }
+
+    private static func emitStartResult(
+        _ state: RelayState,
+        devWorkerId: String,
+        devWorkerAlias: String?,
+        rememberedDevWorker: Bool,
+        scaffoldPath: String,
+        json: Bool
+    ) {
+        let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let nextCommand = handoffNextCommand(relayId: state.id, scaffoldPath: scaffoldPath)
+        if json {
+            print(AllnighterCLI.jsonString(PilotStartJSON(
+                relay: relayJSON,
+                nextCommand: nextCommand,
+                scaffoldPath: scaffoldPath,
+                devWorkerId: devWorkerId,
+                rememberedDevWorker: rememberedDevWorker ? true : nil
+            )))
+        } else {
+            print(RelayDispatch.humanRelaySummary(relayJSON))
+            if let alias = devWorkerAlias {
+                print("dev seat: \(devWorkerId) (resolved from alias \"\(alias)\")")
+            } else if rememberedDevWorker {
+                print("dev seat: \(devWorkerId) (remembered from last pilot start on this project)")
+            } else {
+                print("dev seat: \(devWorkerId)")
+            }
+            print("scaffold: \(scaffoldPath)")
+            print("next: \(nextCommand)")
+        }
+    }
+
     private static func emitState(_ state: RelayState, json: Bool) {
         let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         if json {
@@ -394,6 +526,10 @@ enum PilotCLI {
         case fileUnreadable(String)
         case invalidVerdict(String)
         case mutuallyExclusive(String, String)
+        case ambiguousDevWorker(alias: String, candidates: String)
+        case devWorkerNotFound(alias: String, readySeats: String)
+        case missingDevWorker(readySeats: String)
+        case noReadyDevSeats
     }
 
     static func errorEnvelope(_ error: PilotCLIError) -> (code: String, message: String) {
@@ -416,6 +552,14 @@ enum PilotCLI {
             return ("CLI_USAGE_ERROR", "--verdict must be continue, done, or escalate — got '\(raw)'")
         case .mutuallyExclusive(let a, let b):
             return ("CLI_USAGE_ERROR", "\(a) cannot be combined with \(b)")
+        case .ambiguousDevWorker(let alias, let candidates):
+            return ("CLI_USAGE_ERROR", "ambiguous dev seat alias \"\(alias)\" — matches: \(candidates)")
+        case .devWorkerNotFound(let alias, let readySeats):
+            return ("CLI_USAGE_ERROR", "no dev seat matches \"\(alias)\" — ready seats: \(readySeats)")
+        case .missingDevWorker(let readySeats):
+            return ("CLI_USAGE_ERROR", "--dev-worker <seat|alias> required (no remembered seat for this project) — ready seats: \(readySeats)")
+        case .noReadyDevSeats:
+            return ("CLI_USAGE_ERROR", "no ready dev seats — run `alln doctor --full`")
         }
     }
 
@@ -473,7 +617,7 @@ enum PilotCLI {
         AllnighterCLI.fail(code: code, message: message)
     }
 
-    private static func usage(_ detail: String = "pilot start|handoff|status|watch|adopt") -> Never {
+    private static func usage(_ detail: String = "pilot start|handoff|status|watch|adopt|scaffold-handover") -> Never {
         FileHandle.standardError.write(Data("usage: alln pair \(detail)\n".utf8))
         exit(2)
     }

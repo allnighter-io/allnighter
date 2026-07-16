@@ -44,16 +44,12 @@ final class PilotCLITests: XCTestCase {
         }
     }
 
-    func testParseStartConfigMissingDevWorkerThrows() {
-        XCTAssertThrowsError(try PilotCLI.parseStartConfig(["--doc", "docs/spec.md", "--project", "x"])) { error in
-            XCTAssertEqual(error as? PilotCLI.PilotCLIError, .missingRequired("--dev-worker <modelId>"))
-        }
-    }
-
     func testParseStartConfigUnknownProjectThrowsProjectNotFound() throws {
         let store = makeProjectStore()
         XCTAssertThrowsError(try PilotCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", "does_not_exist", "--dev-worker", "b"], projectStore: store
+            ["--doc", "docs/spec.md", "--project", "does_not_exist", "--dev-worker", "model_dev"],
+            projectStore: store,
+            models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
         )) { error in
             XCTAssertEqual(error as? PilotCLI.PilotCLIError, .projectNotFound("does_not_exist"))
         }
@@ -63,18 +59,57 @@ final class PilotCLITests: XCTestCase {
         let store = makeProjectStore()
         try addProject(store)
         XCTAssertThrowsError(try PilotCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", "repo", "--dev-worker", "b", "--max-rounds", "0"], projectStore: store
+            ["--doc", "docs/spec.md", "--project", "repo", "--dev-worker", "model_dev", "--max-rounds", "0"],
+            projectStore: store,
+            models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
         )) { error in
             XCTAssertEqual(error as? PilotCLI.PilotCLIError, .invalidMaxRounds("0"))
         }
     }
 
+    func testParseStartConfigMissingDevWorkerThrowsWhenNoneRemembered() throws {
+        let store = makeProjectStore()
+        try addProject(store)
+        let models = [
+            Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both),
+        ]
+        XCTAssertThrowsError(try PilotCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", "repo"],
+            projectStore: store,
+            models: models,
+            probeRecords: [],
+            devSeatStore: PilotDevSeatStore(rootDirectory: tmp.appendingPathComponent("readiness"))
+        )) { error in
+            XCTAssertEqual(
+                error as? PilotCLI.PilotCLIError,
+                .missingDevWorker(readySeats: PilotSeatResolver.formatReadySeats([]))
+            )
+        }
+    }
+
+    func testParseStartConfigRecallsRememberedDevWorker() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let seatStore = PilotDevSeatStore(rootDirectory: tmp.appendingPathComponent("readiness"))
+        try seatStore.save(projectId: project.id, devWorkerId: "model_dev")
+        let request = try PilotCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id],
+            projectStore: store,
+            models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)],
+            devSeatStore: seatStore
+        )
+        XCTAssertEqual(request.devWorkerId, "model_dev")
+        XCTAssertTrue(request.rememberedDevWorker)
+    }
+
     func testParseStartConfigHappyPathHasNoPMWorkerFlagAndSentinelPMWorkerId() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
-        let config = try PilotCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", project.id, "--dev-worker", "model_dev"], projectStore: store
+        let request = try PilotCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--dev-worker", "model_dev"], projectStore: store,
+            models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
         )
+        let config = request.config
         XCTAssertEqual(config.projectRoot, project.normalizedRootPath)
         XCTAssertEqual(config.projectId, project.id)
         XCTAssertEqual(config.docPath, "docs/spec.md")
@@ -87,10 +122,12 @@ final class PilotCLITests: XCTestCase {
     func testParseStartConfigCustomMaxRounds() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
-        let config = try PilotCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", project.id, "--dev-worker", "model_dev", "--max-rounds", "7"], projectStore: store
+        let request = try PilotCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--dev-worker", "model_dev", "--max-rounds", "7"],
+            projectStore: store,
+            models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
         )
-        XCTAssertEqual(config.maxRounds, 7)
+        XCTAssertEqual(request.config.maxRounds, 7)
     }
 
     // MARK: - readSubmission (legacy)
@@ -192,6 +229,10 @@ final class PilotCLITests: XCTestCase {
             .fileUnreadable("/x"),
             .invalidVerdict("bogus"),
             .mutuallyExclusive("--file", "--handover-file"),
+            .ambiguousDevWorker(alias: "sonnet", candidates: "model_sonnet, model_agy_sonnet"),
+            .devWorkerNotFound(alias: "bogus", readySeats: "model_dev (Dev)"),
+            .missingDevWorker(readySeats: "model_dev (Dev)"),
+            .noReadyDevSeats,
         ]
         for c in cases {
             let (code, message) = PilotCLI.errorEnvelope(c)
