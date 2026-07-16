@@ -69,3 +69,18 @@ second CLI dogfooded in the dev chair, first turn after the project-scoped
 `.cursor/cli.json` allowlist override). PM verifies: byte-exact handover delivery,
 hello payload contains zero dead references, the three searches route to auto_fix.
 `swift test --filter 'Relay|Pilot|Help|Hello'` green; contracts regenerated.
+
+## P4 — cursor allowlist override efficacy (follow-up, piloted delivery #3)
+
+Observed in delivery #2: a project-scoped `.cursor/cli.json` with
+`permissions.allow: ["Shell(git)", …]` did NOT unblock cursor-agent's direct shell
+in headless turns (the dev routed verification through its own subagent). Either the
+file name/location/schema is wrong, or headless cursor-agent resolves permissions
+differently than documented. Our doctor check's fix hint currently recommends this
+exact override — if it doesn't work, the hint lies.
+
+**Acceptance:** the true headless permission mechanism is identified and demonstrated
+(a cursor-agent dev turn runs `git status` and a test command DIRECTLY, no subagent);
+the repo carries a working override; `CursorShellAllowlist`'s detection + doctor fix
+hint + setup help line state the VERIFIED remedy; fixture tests updated if the
+override file/schema differs from what D2 assumed.
