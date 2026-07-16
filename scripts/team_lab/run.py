@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MCP-only team lab driver — LAB-S01/S02 from MCP_Run_Factory_Team_Lab.md."""
+"""Team lab driver — LAB-S01/S02 from docs/phases/Team_Lab_Run_Factory.md."""
 from __future__ import annotations
 
 import argparse

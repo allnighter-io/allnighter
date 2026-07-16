@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """LLM-judge evaluation for the team lab.
 
-Design (locked 2026-06-21, see docs/phases/MCP_Run_Factory_Team_Lab.md):
+Design (locked 2026-06-21, see docs/phases/Team_Lab_Run_Factory.md):
 
 - NO deterministic scoring of judgment. Quality is decided by LLM judges only.
 - The GATE is output-only and BLIND: judges see two anonymized outputs (A/B in

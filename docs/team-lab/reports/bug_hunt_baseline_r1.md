@@ -43,7 +43,7 @@ The baseline exposed lab defects, not just team behavior. Fixed in `scripts/team
 
 ## Confirmed substrate bugs (filed for the substrate dev)
 
-See `docs/phases/MCP_Run_Factory_Team_Lab.md` § Confirmed Substrate Bugs: SUB-1
+See `docs/phases/Team_Lab_Run_Factory.md` § Confirmed Substrate Bugs: SUB-1
 `completedAt` predates synthesis (`TeamRunJSONMapper.swift:74-86`); SUB-2 stage
 markdown/timestamps + `plan.status` not projected; SUB-3 `workerAnswers[].finishedAt`
 not serialized; SUB-4 `floor_show.summaryMarkdown` empty. None hide a worker or

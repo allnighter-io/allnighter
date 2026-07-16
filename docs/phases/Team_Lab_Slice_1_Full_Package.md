@@ -4,15 +4,15 @@ Status: **Active implementation spec** — authoritative execution packet for v1
 Owner: Founder + CLI/MCP + Team Quality
 Created: 2026-06-21
 Updated: 2026-06-21
-Depends on: [`MCP_Run_Factory_Team_Lab.md`](MCP_Run_Factory_Team_Lab.md),
+Depends on: [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md),
 [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md),
-[`Agent_First_MCP_And_Messaging_Workflows.md`](Agent_First_MCP_And_Messaging_Workflows.md),
+[`CLI_Product_Spine.md`](CLI_Product_Spine.md),
 [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md)
 
-Parent packet: [`MCP_Run_Factory_Team_Lab.md`](MCP_Run_Factory_Team_Lab.md) owns the
+Parent packet: [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md) owns the
 product thesis, vocabulary, and long-range slices. **This doc is the full Slice 1
 execution contract** — everything required to go from "interesting harness" to a
-repeatable, MCP-only calibration loop that can improve one default Team with
+repeatable, CLI-native calibration loop that can improve one default Team with
 evidence.
 
 ## Purpose
@@ -728,8 +728,8 @@ nine-seat prompt wins as proof every seat is necessary.
 
 | Task | Read |
 | --- | --- |
-| Product thesis, inference bans, rubric guidance | [`MCP_Run_Factory_Team_Lab.md`](MCP_Run_Factory_Team_Lab.md) |
+| Product thesis, inference bans, rubric guidance | [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md) |
 | Execute Slice 1 | **This doc** |
-| MCP tool contracts | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) |
+| CLI contracts / envelopes | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) |
 | Team/skill source truth | [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md) |
 | Bug Hunt → Try Fix chain | [`Try_Fix_Auto_Implement.md`](Try_Fix_Auto_Implement.md) |

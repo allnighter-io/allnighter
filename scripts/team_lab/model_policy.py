@@ -17,7 +17,7 @@ Policy (2026-06-22+):
   preferred is down.” Set `ALLN_LAB_STRICT_MODEL_SEATS=1` to fail instead.
 
 Wired by `overlay.ensure_model_policy_team` on every `run.py` experiment unless
-`ALLN_LAB_MODEL_POLICY=0`. See `docs/phases/MCP_Run_Factory_Team_Lab.md` § Lab model policy.
+`ALLN_LAB_MODEL_POLICY=0`. See `docs/phases/Team_Lab_Run_Factory.md` § Lab model policy.
 """
 from __future__ import annotations
 

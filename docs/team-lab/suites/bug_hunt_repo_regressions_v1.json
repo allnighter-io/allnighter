@@ -31,11 +31,11 @@
       "lane": "code",
       "teamId": "code_bug_hunt",
       "title": "Team lab scored from filesystem while claiming MCP-only",
-      "prompt": "The team lab harness historically copied run journals from ~/Library/Application Support/Allnighter and scored artifact presence from disk while advertising MCP-only dogfooding. Review docs/phases/MCP_Run_Factory_Team_Lab.md and scripts/team_lab/scoring.py. Produce a Bug Hunt packet: what was the lie, what is the truth owner, what proof now gates team quality, and what negative tests are still missing.",
+      "prompt": "The team lab harness historically copied run journals from ~/Library/Application Support/Allnighter and scored artifact presence from disk while advertising MCP-only dogfooding. Review docs/phases/Team_Lab_Run_Factory.md and scripts/team_lab/scoring.py. Produce a Bug Hunt packet: what was the lie, what is the truth owner, what proof now gates team quality, and what negative tests are still missing.",
       "contextPolicy": {
         "repoRoot": "/Users/mike/Documents/GitHub/Allnighter",
         "contextFiles": [
-          "docs/phases/MCP_Run_Factory_Team_Lab.md",
+          "docs/phases/Team_Lab_Run_Factory.md",
           "scripts/team_lab/scoring.py",
           "scripts/team_lab/run.py"
         ]

@@ -3,7 +3,7 @@
 Status: **Active implementation spec** — mentor review incorporated; ready for LAB-C00+
 Owner: Founder + Team Quality + CLI/MCP
 Updated: 2026-06-23
-Depends on: [`MCP_Run_Factory_Team_Lab.md`](MCP_Run_Factory_Team_Lab.md),
+Depends on: [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md),
 [`Team_Lab_Slice_1_Full_Package.md`](Team_Lab_Slice_1_Full_Package.md),
 [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md)
 Supersedes nothing — extends Slice 1 after Bug Hunt R7/R8 calibration evidence
@@ -536,7 +536,7 @@ python3 scripts/team_lab/compose.py ... --compare-genesis
 
 ## Relationship to Existing Docs
 
-- [`MCP_Run_Factory_Team_Lab.md`](MCP_Run_Factory_Team_Lab.md) — factory thesis; micro deliverable audit rule preserved.
+- [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md) — factory thesis; micro deliverable audit rule preserved.
 - [`Team_Lab_Slice_1_Full_Package.md`](Team_Lab_Slice_1_Full_Package.md) — Slice 10 = LAB-C*.
 - [`Try_Fix_Auto_Implement.md`](Try_Fix_Auto_Implement.md) — Forensics escalation after failed auto-fix.
 - [`docs/archive/phases/Team_Catalog.md`](../archive/phases/Team_Catalog.md) — historical Lite/Med/High seat gating; lab uses named overlays instead.
@@ -546,6 +546,6 @@ python3 scripts/team_lab/compose.py ... --compare-genesis
 | Task | Read first |
 | --- | --- |
 | Seat economics, macro loop, necessity suite | This doc |
-| Per-worker prompt banking | `MCP_Run_Factory_Team_Lab.md` + `Team_Lab_Slice_1_Full_Package.md` |
+| Per-worker prompt banking | `Team_Lab_Run_Factory.md` + `Team_Lab_Slice_1_Full_Package.md` |
 | Named Bug Hunt variants | This doc § Named Team Variants + `Team_And_Skill_Catalogs.md` |
 | Bug tier vocabulary | `docs/operations/Debugger.md` |

@@ -101,10 +101,9 @@ never silently orphaned.
    names on day one. Rename first so every lab artifact is born with final
    names.
 2. **Then Team Lab** (`Team_Lab_Slice_1_Full_Package.md` +
-   `Team_Lab_Composition_And_Seat_Economics.md`), re-based on the final names
-   — and re-based off MCP: `MCP_Run_Factory_Team_Lab.md` is specced MCP-only,
-   but MCP was retired 2026-07-16 (`MCP_Retirement.md`). The lab harness must
-   be CLI-native (`alln`) before implementation starts.
+   `Team_Lab_Composition_And_Seat_Economics.md` + `Team_Lab_Run_Factory.md`),
+   re-based on the final names. `Team_Lab_Run_Factory.md` is the CLI-native
+   factory thesis (re-based 2026-07-16 after `MCP_Retirement.md`).
 3. **Later:** cutting `code_spec_review_min` (Team Lab necessity work, not a
    hand guess) and sweeping remaining built-ins for depth-words-in-disguise.
 
