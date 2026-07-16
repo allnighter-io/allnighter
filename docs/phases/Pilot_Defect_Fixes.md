@@ -1,6 +1,12 @@
 # Pilot Defect Fixes — the three works-test findings
 
-Status: In progress — first real piloted delivery on the Allnighter repo itself
+Status: SHIPPED — delivered via relay_7b91f59f in 2 piloted rounds (PM = a live
+Claude session over `alln pair pilot`; dev = Grok 4.5 / `model_grok`). D1 `db058e63`
+(root cause: RunService mutating-starter prepend + SkillCatalog.assemblePrompt both
+injected ExecutionPlaybookPreset.prompt; fixed at the data root, fail-first test),
+D2 `7f023679` (doctor `source.cursor_agent.shellAllowlist`, degraded on this machine's
+real restrictive config, fixture-tested), D3 `1958cbd7`. All independently verified
+by the PM: 263 Relay/Pilot/Doctor/Help tests green, contracts clean.
 Owner: AllnighterCore + docs
 Updated: 2026-07-16
 
