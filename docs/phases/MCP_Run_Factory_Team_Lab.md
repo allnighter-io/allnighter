@@ -178,7 +178,7 @@ non-plan worker has a `workerAnswers` status and that writer status is present.
 
 ## First-Principles Decision
 
-The Team Lab is not a GUI QA harness. It is an MCP contract pressure test plus a
+The Team Lab is not a GUI QA harness. It is an MCP contract stress test plus a
 Team-quality calibration loop.
 
 The lab must answer two questions separately:

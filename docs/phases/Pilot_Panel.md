@@ -22,7 +22,7 @@ Polish follow-up: first-real-use fixes (panel_753613c7) specced in
 
 Panel is NOT a phase-doc tool. It is **"I am always the lead; the seats are always
 a blind jury"** — for any target a session judges: a spec, a PR, an architecture
-decision, a bug, a kill-or-commit call. Spec hardening (the Pressure Test loop) is
+decision, a bug, a kill-or-commit call. Spec hardening (the Spec Review loop) is
 the **hero recipe**, not the product's name. `--doc` stays the default target flag;
 the identity never hard-codes to `docs/phases/`.
 
@@ -43,16 +43,16 @@ then:  alln pair pilot start --doc <same>                   # harden → build, 
 1. **The session is the synthesizer.** No spawned merge-brain, no ranking.
    Allnighter stores and returns findings verbatim; the refutation gate is the
    live session's judgment.
-2. **Blind fan-out is LAW** (Pressure_Test.md): N independent dispatches, no
+2. **Blind fan-out is LAW** (Spec_Review.md): N independent dispatches, no
    shared transcript, seats never see each other's output within a round.
-3. **Structured findings — verbatim ≠ unstructured.** Pressure Test named the
+3. **Structured findings — verbatim ≠ unstructured.** Spec Review (né Pressure Test) named the
    failure mode: six walls of text = manual fan-out with nicer chrome. Every seat
    returns a small finding schema: `{claim, severity, evidence (cite file/line or
    quote), proposedChange, }` — and **"no material findings" is a first-class
    valid answer** (an empty findings array with a stated reason, never padding).
    Allnighter validates shape only; content judgment is the session's.
 4. **Roster = the team catalog.** No new roster noun. `--team <alias>` resolves a
-   TeamPreset (built-in like `architecture_pressure_test` or any user team) into
+   TeamPreset (built-in like `code_spec_review` or any user team) into
    seats — DX4-style fuzzy resolution: unique match resolves and IS ECHOED;
    ambiguous errors LIST candidates (display name + seat count); no match lists
    available teams. Remembered last-used panel team per project; zero-config
@@ -63,7 +63,7 @@ then:  alln pair pilot start --doc <same>                   # harden → build, 
    instruction + brief verbatim + target path (re-read fresh — anchor, never
    payload).
 6. **Briefs: built-in round 1, custom later.** Round 1 default brief:
-   "Pressure-test this target; structured findings only; no material findings is
+   "Stress-test this target; structured findings only; no material findings is
    a valid answer." `--brief <md>` (or `--brief -` stdin) for focus rounds. The
    scaffold's suggested sections include a **rejection-carry line** ("Refuted last
    round: … — do not re-litigate") and a **stance line** (`stance: edit-in-place |
@@ -141,12 +141,12 @@ an induced seat failure; panel thread readable in the inbox; findings verbatim;
 real tree untouched (v0: RO drivers; PN-S06: clone proof). Filters green;
 contracts regenerated.
 
-## 5. v1 boundary vs Pressure Test (named so builders don't rebuild it)
+## 5. v1 boundary vs Spec Review (named so builders don't rebuild it)
 
 Panel v1 = transport + blind RO safety + durable rounds + finding schema +
-session judgment. Pressure Test methodology — impact ledger, (lens,model)
+session judgment. Spec Review methodology — impact ledger, (lens,model)
 scoreboard, spawned refuter seat, clean-room rival protocols — stays in
-`Pressure_Test.md` as METHOD the session may apply by hand, and as candidate
+`Spec_Review.md` as METHOD the session may apply by hand, and as candidate
 future upgrades. Building any of it into Panel v1 is scope creep; shipping walls
 of unstructured prose and calling it Panel is the opposite failure. Both are
 named so neither happens silently.

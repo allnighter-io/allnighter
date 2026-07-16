@@ -150,7 +150,7 @@ Trusted workflow slice:
    Grok) who each interpret independently -> triangulation across minds.
 4. The Analyst compares this signal to prior signals in the Signal Graph and
    surfaces the cross-signal AHA.
-5. The Skeptic pressure-tests; the Insight Writer DECIDES.
+5. The Skeptic stress-tests; the Insight Writer DECIDES.
 6. The user gets a decisive, DOUBLY-GROUNDED answer right now — plus an "in
    light of your prior signals…" section richer than a month ago.
 7. The signal + packet + topic tags + edges are written back to the graph; if a

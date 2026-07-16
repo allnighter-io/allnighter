@@ -1,11 +1,13 @@
-# Pressure Test — the spec-hardening loop
+# Spec Review — the spec-hardening loop
 
-**Working name: Pressure Test.** Verb-able ("pressure-test this spec"), self-explanatory, no fantasy.
-The artifact it produces is a **hardened spec**. Rename is a one-shot find/replace now (zero users);
-alternates considered: *Spec Hardening* (outcome-named), *Red Team* (instant dev recognition,
-security-scented). Decide once, no aliases.
+> **Renamed from "Pressure Test" (2026-07-16)** per `Team_Depth_Naming.md`: the team is
+> named for what it does, one name everywhere — picker, docs, marketing.
 
-**The one-liner:** Agents fail because specs are mediocre. Pressure Test puts every frontier model
+**Name: Spec Review.** Named for what it does, self-explanatory, no fantasy.
+The artifact it produces is a **hardened spec**.
+Names considered and retired: *Pressure Test* (brand over function), *Spec Hardening*, *Red Team*. Decided once, no aliases.
+
+**The one-liner:** Agents fail because specs are mediocre. Spec Review puts every frontier model
 in a room to tear the plan apart until it holds — then any one of them can build it in one pass,
 and shows you it working.
 
@@ -45,7 +47,7 @@ propose → approve → dispatch → verify path.
 
 **Cross-vendor is a tier, not a prerequisite.** A single model running the full lens panel
 over multiple passes captures a large share of the value (hardening is mostly the passes,
-not the vendor spread). Single-model Pressure Test = the on-ramp (works with one CLI
+not the vendor spread). Single-model Spec Review = the on-ramp (works with one CLI
 subscription, free-tier candidate). Cross-vendor panel = the premium claim — and it is a
 claim the ledger can *measure* (§7), not assert.
 
@@ -185,7 +187,7 @@ gate, §4).
 
 ## 6. Substrate fit (build notes, not a new system)
 
-- **One team-run substrate.** Pressure Test is a team run with a non-mutating posture and an
+- **One team-run substrate.** Spec Review is a team run with a non-mutating posture and an
   insight-class output — a preset + synthesis contract, NOT a second fan-out system. If it
   can't be expressed as a team run, fix the substrate, don't fork it.
 - Workers = lens critics/challengers; plan writer = synthesizer/gatekeeper; refuter/steelman

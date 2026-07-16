@@ -8,7 +8,7 @@ seat economics, and routing mechanics there are unchanged — names only).
 ## The problem
 
 The founder could not name his own hero team: the spec-hardening loop is
-marketed as "Pressure Test" (`Pressure_Test.md`) while the team in the picker
+marketed as "Pressure Test" (now `Spec_Review.md`) while the team in the picker
 is "Spec Review". The bug family is worse — `code_bug_hunt_lite` displays as
 "Bug Hunter" and `code_bug_hunt` displays as "Bug Hunter Forensics", so IDs and
 display names disagree on which one is the base. Unique flavor names per depth
@@ -115,8 +115,9 @@ never silently orphaned.
 - **All user-facing strings**: team descriptions, starter prompts, picker
   copy — no "harden"/"pressure test"/"forensics"/"lite" survivors where a
   depth word or the family name is meant.
-- **Marketing/docs sweep**: `Pressure_Test.md` renamed/reframed around Spec
-  Review as the one name; active specs updated in place. Historical/shipped
+- **Marketing/docs sweep** (DONE 2026-07-16): `Pressure_Test.md` renamed to
+  `Spec_Review.md` and reframed around Spec Review as the one name; active specs
+  updated in place. Historical/shipped
   phase docs get a superseded banner, not a rewrite.
 - Acceptance: case-insensitive repo grep for the retired names
   (`pressure test`, `forensics`, `lite`) is clean in code, user-facing

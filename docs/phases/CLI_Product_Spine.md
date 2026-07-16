@@ -157,7 +157,7 @@ The default command should read like the product promise. `team` asks models to
 show up as workers:
 
 ```bash
-alln team "Pressure-test this launch plan."
+alln team "Stress-test this launch plan."
 alln team --file prompt.md
 alln team --lane build --team build_core "Plan this feature."
 alln team --lane copy --team copy_landing_page "Rewrite this page."
@@ -399,7 +399,7 @@ Sketch:
     "lane": "build",
     "type": null,
     "reasoningEffort": null,
-    "prompt": "Pressure-test this launch plan.",
+    "prompt": "Stress-test this launch plan.",
     "createdAt": "2026-06-15T22:14:00Z",
     "completedAt": "2026-06-15T22:16:08Z",
     "threadId": null,
