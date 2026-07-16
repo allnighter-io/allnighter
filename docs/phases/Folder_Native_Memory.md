@@ -90,10 +90,13 @@ Everything below serves those two sentences; anything that doesn't is bloat.
   is the product; protect it like a ledger.
 - **Hard caps.** MEMORY.md must never become AGENTS.md #2 — a long, polite,
   ignored README. Cap the file (target ≤ ~60 lines); consolidation compresses or
-  evicts, never just appends — except `decision` lines, which are exempt from
-  cap-driven eviction and die only by explicit founder revocation.
-- **Secrets refusal.** Memory never holds tokens, key paths, credentials, or
-  private URLs — a consolidation-order constraint, stated in the order every time.
+  evicts, never just appends. `decision` lines are never auto-evicted — but they
+  COUNT against the cap; if decisions alone crowd the file, consolidation flags
+  it for founder revocation hygiene rather than evicting scar tissue silently.
+- **Secrets refusal binds EVERY writer** — cockpit sessions, ordered workers, and
+  consolidation alike: memory never holds tokens, key paths, credentials, or
+  private URLs. Consolidation orders state it explicitly; sessions are bound by
+  it as a standing decision line.
 - **Felt, not filed:** (a) seats that honor a line CITE it in their report
   ("honored MEMORY: cursor allowlist trap") — convention first, measured later
   as an honor rate (a trust-based self-report — known limitation; it must never
@@ -113,17 +116,20 @@ edit-in-place) when evidence accumulates. Rare, deliberate, judgment-owned.
 Scope note: teams are global, MEMORY.md is per-repo — a seat blocked by a repo
 fact (allowlist) means fix the repo, not the team; per-repo duplication of global
 observations is cheap and honest until cross-repo priors are ever unparked.
-Pilot cockpit sessions may write MEMORY.md directly (they are the user's agent
-with repo hands — the no-write law binds Allnighter the product, not the user's
-session); relay/overnight contexts write via an ordered worker (the seed pattern).
+Who writes: per the Write authority block above — no second statement here.
 
 ## Remaining work (pointer + seed SHIPPED: 061b1a1b + 40235f8f)
 
 1. ~~Pointer line in relay prompts + pilot scaffold~~ DONE.
 2. Convention (live): done-round orders fold lessons / record seat observations.
-3. NEXT: the scheduled consolidation round (dispatched worker; Allnighter
-   schedules, never writes) — this is what unlocks the night-2 works test.
-4. Adoption polish (panel finding, accepted): a zero-line scaffold HEADER for new
+3. NEXT: concurrent-writer sequencing convention (cockpit vs ordered workers —
+   simplest candidate: writers rebase-on-conflict and re-fold; decide before 4).
+4. THEN: the scheduled consolidation round (dispatched worker; Allnighter
+   schedules, never writes) — emits the Learning card (that card IS the founder
+   digest surface; no separate surface). "Fold lessons" means: WRITE the lines
+   into MEMORY.md; a done-note observation alone is fodder, not a fold. This
+   unlocks the night-2 works test.
+5. Adoption polish (panel finding, accepted): a zero-line scaffold HEADER for new
    repos (schema + curation rules only, zero unearned lines — compatible with the
    no-starter-templates anti-goal) + the bootstrap snippet gains the MEMORY.md
    pointer clause so cockpit sessions learn it too.
@@ -134,7 +140,8 @@ session); relay/overnight contexts write via an ordered worker (the seed pattern
 - No "Repo IQ" score for now — gamification sludge risk exceeds the value; the
   Learning card + honor rate cover the visible-compounding need honestly.
 - No starter MEMORY templates — shipping unearned wisdom is fake-green for
-  memory; the file starts empty and earns every line.
+  memory; the file starts with ZERO lines (a schema/rules HEADER is allowed —
+  contract, not wisdom) and earns every line.
 - No cross-repo auto-sharing, ever by default (priors are gold AND liability).
 - No auto-tuning of TeamPresets from seat lines/stats — judgment theft + roster
   churn; teams change only when a person or their session decides. Seat stats,
