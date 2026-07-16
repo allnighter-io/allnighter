@@ -3,8 +3,8 @@ import AllnighterCore
 import AllnighterEngine
 
 /// `alln` — Team-as-Tool (RB6). The universal shell surface any terminal
-/// agent can call, plus an MCP stdio server. Judgment only: links the team
-/// engine, never worker-runner code. Local Fusion at zero marginal cost.
+/// agent can call. Judgment only: links the team engine, never
+/// worker-runner code. Local Fusion at zero marginal cost.
 @main
 struct AllnighterCLI {
     static func main() async {
@@ -35,7 +35,7 @@ struct AllnighterCLI {
         case "thread" where args.first == "rename": await ThreadRenameCLI.runRename(Array(args.dropFirst()), runtime: runtime)
         case "run": await RunCLI.run(args, runtime: runtime)
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
-        case "team" where args.first == "hello": print(mcpHelloJSONString(runtime))
+        case "team" where args.first == "hello": print(teamHelloJSONString(runtime))
         case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
         case "team" where args.first == "start": await runTeamStart(Array(args.dropFirst()), runtime)
         case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()), runtime)
@@ -56,15 +56,12 @@ struct AllnighterCLI {
         case "doctor": await runDoctor(args, runtime)
         case "detect": await runDetect(runtime)
         case "dev": runDev(args)
-        case "mcp" where args.first == "install": printMCPInstall(Array(args.dropFirst()))   // consent-gated: prints config, never edits it
-        case "mcp": await MCPServer(runtime: runtime).serve()         // `mcp serve --stdio` (or bare)
         case "serve": await runServe(args)
         case "pair": await PairCLI.run(args, runtime: runtime)
         case "pending": await PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "stalled": StalledCLI.run(args.first, Array(args.dropFirst()))
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "install-cli": printInstallCLI()
-        case "mcp-install": printMCPInstall()
         case "--help", "-h": printHelp()   // "help" is handled above via HelpCLI
         default:
             FileHandle.standardError.write(Data("unknown command: \(command)\n".utf8)); printHelp(); exit(2)
@@ -338,8 +335,7 @@ struct AllnighterCLI {
         }
     }
 
-    /// Builds a `DoctorResult` — shared by `alln doctor` and the MCP `doctor` tool
-    /// so both project the same contract.
+    /// Builds a `DoctorResult` for `alln doctor`.
     static func doctorResult(_ runtime: ToolRuntime, full: Bool, sourceId: String? = nil) async -> DoctorResult {
         let manifests = sourceId.map { id in runtime.registry.all.filter { $0.id == id } } ?? runtime.registry.all
         let modelLabels = ModelCatalog.probeModelLabels(registry: runtime.registry)
@@ -502,8 +498,7 @@ struct AllnighterCLI {
         }
     }
 
-    /// The default-team-per-lane snapshot JSON — shared by `alln team show --json`
-    /// and the MCP `team_show` tool.
+    /// The default-team-per-lane snapshot JSON for `alln team show --json`.
     static func teamShowJSONString(_ runtime: ToolRuntime, lane: WorkLane? = nil) -> String {
         let lanes = lane.map { [$0] } ?? WorkLane.allCases
         struct TeamView: Encodable {
@@ -547,9 +542,8 @@ struct AllnighterCLI {
         }
     }
 
-    /// The lane-scoped catalog summary JSON — shared by `alln teams --json`
-    /// and the MCP `teams_list` tool. Inactive (switched-OFF) teams are dropped
-    /// unless `includeInactive` is true.
+    /// The lane-scoped catalog summary JSON for `alln teams --json`. Inactive
+    /// (switched-OFF) teams are dropped unless `includeInactive` is true.
     static func teamsCatalogJSONString(_ runtime: ToolRuntime, lane: WorkLane?, includeInactive: Bool = false) -> String {
         let teams = lane.map { runtime.teams.teams(in: $0) } ?? runtime.teams
         return jsonString(TeamCatalogJSON.project(teams, lane: lane,
@@ -715,7 +709,7 @@ struct AllnighterCLI {
         catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
-    /// Shared restore-acknowledgement JSON for CLI + MCP parity.
+    /// Restore-acknowledgement JSON for `alln teams restore`.
     static func teamRestoreJSONString(id: TeamID, restored: Bool) -> String {
         struct RestoreAck: Encodable {
             let schemaVersion = 1
@@ -891,9 +885,9 @@ struct AllnighterCLI {
         let deleted: String
     }
 
-    /// The agent bootstrap snapshot JSON — shared by `alln team hello` and the MCP
-    /// `mcp_hello` tool. Cheap, non-mutating, quota-free (cached readiness).
-    static func mcpHelloJSONString(_ runtime: ToolRuntime) -> String {
+    /// The agent bootstrap snapshot JSON for `alln team hello`. Cheap, non-mutating,
+    /// quota-free (cached readiness).
+    static func teamHelloJSONString(_ runtime: ToolRuntime) -> String {
         let verdict = AgentReadiness.evaluate(teams: runtime.teams, readyModels: runtime.readyModels)
         return AgentHello.jsonString(
             verdict: verdict,
@@ -911,7 +905,7 @@ struct AllnighterCLI {
         print(jsonString(preflight(runtime, args: dict)))
     }
 
-    /// Run preflight from CLI/MCP args (lane/team/type/effort) against the ready bench.
+    /// Run preflight from CLI args (lane/team/type/effort) against the ready bench.
     static func preflight(_ runtime: ToolRuntime, args: [String: Any]) -> TeamPreflight.Result {
         var result = TeamPreflight.preflight(
             teams: runtime.teams,
@@ -1072,14 +1066,13 @@ struct AllnighterCLI {
         print(ContractDocs.markdown(reg))
     }
 
-    /// Resolves a run reference (`latest` or an id). Shared by `alln show` and the
-    /// MCP `show` tool.
+    /// Resolves a run reference (`latest` or an id) for `alln show`.
     static func resolveRun(_ ref: String) -> TeamRun? {
         if ref == "latest" { return RunStore().list().max(by: { $0.createdAt < $1.createdAt }) }
         return loadRun(ref)
     }
 
-    /// Query-style MCP tools (show, spec_get, floor_show) accept `run`; team lifecycle tools use `runId`.
+    /// Query-style verbs (show, spec, floor show) accept `run`; team lifecycle verbs use `runId`.
     /// Accept both keys defensively to prevent silent "latest" drift when callers mix conventions.
     static func runRef(from args: [String: Any]) -> String {
         let ref = (args["run"] as? String) ?? (args["runId"] as? String)
@@ -1089,8 +1082,8 @@ struct AllnighterCLI {
         return "latest"
     }
 
-    /// Resolve a project token (id or repo-root path) to a Project. One SSOT for the run/MCP
-    /// entrypoints — both `alln run` and `team_run` resolve the same way.
+    /// Resolve a project token (id or repo-root path) to a Project. One SSOT for the
+    /// run entrypoints — `alln run` and the team engine resolve the same way.
     static func resolveProject(_ token: String, store: ProjectStore) -> Project? {
         if let byId = try? store.get(token) { return byId }
         let key = RootNormalization.normalize(token).key
@@ -1098,7 +1091,7 @@ struct AllnighterCLI {
     }
 
     /// Resolve a thread reference (`latest` or an id) to a concrete thread id, or nil if no
-    /// thread matches. One SSOT for `thread send` / `thread rename` (CLI + MCP).
+    /// thread matches. One SSOT for `thread send` / `thread rename`.
     static func resolveThreadId(_ ref: String, store: ThreadStore) -> String? {
         if ref == "latest" { return store.list().first?.id }
         return store.get(ref) != nil ? ref : nil
@@ -1117,8 +1110,7 @@ struct AllnighterCLI {
         )
     }
 
-    /// The Floor projection JSON for a persisted run — shared by `alln floor show`
-    /// and the MCP `floor_show` tool.
+    /// The Floor projection JSON for a persisted run, for `alln floor show`.
     static func floorRunJSONString(_ run: TeamRun) -> String {
         let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?
             .appendingPathComponent("run.json").path
@@ -1171,7 +1163,7 @@ struct AllnighterCLI {
     }
 
     /// `alln spec [<run-id>|latest] [--detail summary|full|artifactRefsOnly] [--json]`
-    /// — retrieve a run's spec/result packet. Shared with the MCP `spec_get` tool.
+    /// — retrieve a run's spec/result packet.
     static func runSpec(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         let ref = opts.positional.first ?? "latest"
@@ -1187,7 +1179,7 @@ struct AllnighterCLI {
         }
     }
 
-    /// Project a persisted run into a `SpecRetrieval.Result` (shared CLI/MCP).
+    /// Project a persisted run into a `SpecRetrieval.Result`.
     static func specResult(_ run: TeamRun, runtime: ToolRuntime, detail: String?) -> SpecRetrieval.Result {
         let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?.appendingPathComponent("run.json").path
         return SpecRetrieval.project(
@@ -1247,29 +1239,6 @@ struct AllnighterCLI {
         """)
     }
 
-    static func printMCPInstall(_ args: [String] = []) {
-        let opts = Options(args)
-        let path = CommandLine.arguments.first ?? "/path/to/alln"
-        let target = opts.value("target")?.lowercased()
-        let configHint: String
-        switch target {
-        case "claude": configHint = "Claude Code — add to ~/.claude/mcp.json (or settings):"
-        case "codex":  configHint = "Codex — add to your Codex MCP config:"
-        case "cursor": configHint = "Cursor — add to .cursor/mcp.json (project) or global settings:"
-        case "openclaw", "hermes": configHint = "Messaging agent (\(target!)) — register this MCP server in its bootstrap config:"
-        default: configHint = "Add this MCP server to your agent's config (Claude Code / Codex / Cursor), then restart the agent:"
-        }
-        print("""
-        \(configHint)
-          { "mcpServers": { "alln": { "command": "\(path)", "args": ["mcp"] } } }
-
-        Then give the agent these standing instructions (\(target ?? "any host")):
-        \(HelpService.hostInstructionBlock)
-
-        Reachability check: `alln models` should list the Bench models; call mcp_hello.
-        """)
-    }
-
     static func printHelp() {
         print("""
         alln — local team run, callable by any agent (zero API cost)
@@ -1294,8 +1263,7 @@ struct AllnighterCLI {
           dev export-contracts [--check]                            regenerate/verify generated contract artifacts
           serve [--health --json]                                 resident coordinator (Serve0 skeleton)
           pair list|approve|revoke|begin [--json]                   manage trusted remote devices
-          mcp                                                       run as an MCP stdio server
-          install-cli | mcp-install                                 setup helpers
+          install-cli                                               symlink alln onto your PATH
         """)
     }
 
@@ -1337,7 +1305,7 @@ struct ToolRuntime {
         self.readyModelsOverride = nil
     }
 
-    /// Injected runtime for MCP/CLI handler tests (isolated async team store).
+    /// Injected runtime for CLI handler tests (isolated async team store).
     init(
         models: [Model],
         registry: DriverRegistry,
