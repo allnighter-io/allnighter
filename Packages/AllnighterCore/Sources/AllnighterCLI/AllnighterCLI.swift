@@ -1310,9 +1310,10 @@ struct AllnighterCLI {
         }
     }
 
-    static func printHelp() {
-        print("""
+    static func helpText() -> String {
+        """
         alln — local team run, callable by any agent (zero API cost)
+          run "<message>" --project <id|path> [--worker <modelId>] [--lane code|design|copy|signal] [--try-fix]  mutating project run (--try-fix: Bug Hunt → gate → one fix)
           team "<question>" [--team id] [--json | --stream]          run a team (--json: TeamRunJSON; --stream: NDJSON)
           team show [--json]                                        show the current default team
           team start "<question>" --json [--lane ...] [--team id]   start async team run (returns run id)
@@ -1337,7 +1338,11 @@ struct AllnighterCLI {
           serve [--health --json]                                 resident coordinator (Serve0 skeleton)
           pair list|approve|revoke|begin [--json]                   manage trusted remote devices
           install-cli [--path <dir>] [--print] [--json]              symlink alln onto your PATH
-        """)
+        """
+    }
+
+    static func printHelp() {
+        print(helpText())
     }
 
     static func jsonString<T: Encodable>(_ value: T) -> String {
