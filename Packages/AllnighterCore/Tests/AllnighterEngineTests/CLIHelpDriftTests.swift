@@ -20,6 +20,8 @@ final class CLIHelpDriftTests: XCTestCase {
         // PM Relay + Pilot — long-form `alln help get pm_relay`.
         "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt",
         "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
+        // Panel — long-form `alln help get panel` (top-level help names the family).
+        "panel start", "panel round", "panel status", "panel watch", "panel scaffold-brief", "panel done",
         // Run inspection beyond show/export.
         "floor show", "spec",
         // Pending + project + stalled families.

@@ -143,8 +143,9 @@ public struct PanelCoordinator: Sendable {
     ) -> Result<PanelState, StartError> {
         guard !config.seats.isEmpty else { return .failure(.emptyRoster) }
         for seat in config.seats {
+            let modelId = PanelTeamResolver.modelId(for: seat.workerId)
             if let violation = PanelReadOnlyArgs.capabilityViolation(
-                workerId: seat.workerId, models: models, registry: registry
+                workerId: modelId, models: models, registry: registry
             ) {
                 return .failure(.seatNotIsolated(workerId: seat.workerId, message: violation.message))
             }
@@ -394,8 +395,9 @@ public struct PanelCoordinator: Sendable {
         var earlyFailures: [SeatResult] = []
         var runnableSeats: [PanelSeat] = []
         for seat in seats {
+            let modelId = PanelTeamResolver.modelId(for: seat.workerId)
             if let violation = PanelReadOnlyArgs.capabilityViolation(
-                workerId: seat.workerId, models: models, registry: registry
+                workerId: modelId, models: models, registry: registry
             ) {
                 earlyFailures.append(SeatResult(
                     workerId: seat.workerId, lens: seat.lens, status: .failed,
@@ -403,7 +405,7 @@ public struct PanelCoordinator: Sendable {
                 ))
                 continue
             }
-            if let model = models.first(where: { $0.id == seat.workerId }),
+            if let model = models.first(where: { $0.id == modelId }),
                let manifest = registry.manifest(for: model),
                let ro = PanelReadOnlyArgs.enforce(on: manifest) {
                 enforced = enforced.replacing(ro)
@@ -413,11 +415,12 @@ public struct PanelCoordinator: Sendable {
 
         guard !runnableSeats.isEmpty else { return earlyFailures }
 
-        let workers: [Worker] = runnableSeats.map { seat in
-            Worker(
+        let workers: [Worker] = runnableSeats.enumerated().map { offset, seat in
+            let modelId = PanelTeamResolver.modelId(for: seat.workerId)
+            return Worker(
                 id: seat.workerId,
-                modelId: seat.workerId,
-                instanceIndex: 0,
+                modelId: modelId,
+                instanceIndex: offset,
                 skillId: nil,
                 purpose: .answer
             )

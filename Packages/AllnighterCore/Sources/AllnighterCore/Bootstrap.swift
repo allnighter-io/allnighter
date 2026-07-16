@@ -35,7 +35,7 @@ public enum Bootstrap {
             lines.append("- Run `\(binaryPath) install-cli` once so plain `alln` works everywhere.")
         }
         lines.append(contentsOf: HelpService.bootstrapWorkflowLines)
-        lines.append(contentsOf: HelpService.pilotWorkflowLines)
+        lines.append(contentsOf: HelpService.panelWorkflowLines)
         return lines.joined(separator: "\n")
     }
 

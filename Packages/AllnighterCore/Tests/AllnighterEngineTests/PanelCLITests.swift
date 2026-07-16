@@ -1,0 +1,278 @@
+import XCTest
+import AllnighterCore
+import AllnighterEngine
+@testable import AllnighterCLI
+
+/// PN-S04: `alln panel …` parse/validation + roster resolution
+/// (`docs/phases/Pilot_Panel.md`). Mirrors PilotCLITests: exit-free `parse*` helpers.
+final class PanelCLITests: XCTestCase {
+    private var tmp: URL!
+
+    override func setUpWithError() throws {
+        tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-panel-cli-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: tmp)
+    }
+
+    private func makeProjectStore() -> ProjectStore {
+        ProjectStore(rootDirectory: tmp.appendingPathComponent("projects"))
+    }
+
+    @discardableResult
+    private func addProject(_ store: ProjectStore, path: String = "repo") throws -> Project {
+        let dir = tmp.appendingPathComponent(path, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: dir.appendingPathComponent("docs"), withIntermediateDirectories: true
+        )
+        try "target".write(to: dir.appendingPathComponent("docs/spec.md"), atomically: true, encoding: .utf8)
+        return try store.add(path: dir.path, name: nil)
+    }
+
+    private func roModels() -> [Model] {
+        [
+            Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both),
+            Model(id: "model_sonnet", displayName: "Sonnet", modelLabel: "sonnet", driverId: "claude_code", role: .both),
+            Model(id: "model_codex", displayName: "Codex", modelLabel: "codex", driverId: "codex", role: .both),
+            Model(id: "model_cursor_composer_25", displayName: "Composer", modelLabel: "composer", driverId: "cursor", role: .both),
+        ]
+    }
+
+    private func roRegistry() -> DriverRegistry {
+        // Codex enforce needs args that start with `exec` (real driver shape).
+        let codex = DriverManifest(
+            id: "codex", displayName: "Codex", kind: .headlessCLI,
+            invoke: .init(command: "codex", args: ["exec", "-m", "{{model}}", "{{prompt}}"])
+        )
+        return DriverRegistry([
+            TestSupport.headlessManifest(id: "claude_code", command: "claude"),
+            codex,
+            TestSupport.headlessManifest(id: "cursor", command: "cursor-agent"),
+        ])
+    }
+
+    private func sampleTeams() -> [TeamPreset] {
+        [
+            TeamPreset(
+                id: "code_spec_review", displayName: "Spec Review", lane: .code,
+                outputKind: .specReview,
+                workerSpecs: [
+                    TeamWorkerSpec(id: "a", skillId: "spec_first", purpose: .answer, preferredModelId: "model_opus"),
+                    TeamWorkerSpec(id: "b", skillId: "spec_scope", purpose: .answer, preferredModelId: "model_sonnet"),
+                ],
+                lead: TeamLeadSpec(skillId: "writer", preferredModelId: "model_opus"),
+                builtIn: true
+            ),
+            TeamPreset(
+                id: "code_core", displayName: "Code Core", lane: .code,
+                outputKind: .plan, isDefaultForLane: true,
+                workerSpecs: [
+                    TeamWorkerSpec(id: "p", skillId: "product_architect", purpose: .answer, preferredModelId: "model_opus"),
+                ],
+                lead: TeamLeadSpec(skillId: "plan_writer"),
+                builtIn: true
+            ),
+            TeamPreset(
+                id: "code_security_review", displayName: "Security Review", lane: .code,
+                outputKind: .securityRegister,
+                workerSpecs: [
+                    TeamWorkerSpec(id: "s", skillId: "boundary", purpose: .answer, preferredModelId: "model_opus"),
+                ],
+                lead: TeamLeadSpec(skillId: "sec_writer"),
+                builtIn: true
+            ),
+        ]
+    }
+
+    // MARK: - parseStartConfig validation
+
+    func testParseStartMissingDoc() {
+        XCTAssertThrowsError(try PanelCLI.parseStartConfig(["--project", "x"])) { error in
+            XCTAssertEqual(error as? PanelCLI.PanelCLIError, .missingRequired("--doc <path>"))
+        }
+    }
+
+    func testParseStartMissingProject() {
+        XCTAssertThrowsError(try PanelCLI.parseStartConfig(["--doc", "docs/spec.md"])) { error in
+            XCTAssertEqual(error as? PanelCLI.PanelCLIError, .missingRequired("--project <id|path>"))
+        }
+    }
+
+    func testParseStartUnknownProject() {
+        let store = makeProjectStore()
+        XCTAssertThrowsError(try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", "nope", "--seat", "model_opus:adversary"],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams()
+        )) { error in
+            XCTAssertEqual(error as? PanelCLI.PanelCLIError, .projectNotFound("nope"))
+        }
+    }
+
+    func testParseStartUniqueTeam() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let request = try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--team", "spec_review"],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams()
+        )
+        XCTAssertEqual(request.teamId, "code_spec_review")
+        XCTAssertEqual(request.seats.count, 2)
+        XCTAssertEqual(request.seats[0].workerId, "model_opus")
+        XCTAssertFalse(request.rememberedTeam)
+    }
+
+    func testParseStartAmbiguousTeam() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        XCTAssertThrowsError(try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--team", "review"],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams()
+        )) { error in
+            guard case .ambiguousTeam = error as? PanelCLI.PanelCLIError else {
+                return XCTFail("expected ambiguousTeam, got \(error)")
+            }
+        }
+    }
+
+    func testParseStartNoMatchTeam() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        XCTAssertThrowsError(try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--team", "pressure"],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams()
+        )) { error in
+            guard case .teamNotFound = error as? PanelCLI.PanelCLIError else {
+                return XCTFail("expected teamNotFound, got \(error)")
+            }
+        }
+    }
+
+    func testParseStartSeatOverride() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let request = try PanelCLI.parseStartConfig(
+            [
+                "--doc", "docs/spec.md", "--project", project.id, "--team", "spec_review",
+                "--seat", "model_opus:adversary",
+                "--seat", "model_codex:contracts",
+            ],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams()
+        )
+        XCTAssertEqual(request.seats.count, 3)
+        XCTAssertEqual(request.seats.first { $0.workerId == "model_opus" }?.lens, "adversary")
+        XCTAssertTrue(request.seats.contains { $0.workerId == "model_codex" && $0.lens == "contracts" })
+    }
+
+    func testParseStartRememberedFallback() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let teamStore = PanelTeamStore(rootDirectory: tmp.appendingPathComponent("readiness"))
+        try teamStore.save(projectId: project.id, teamId: "code_spec_review")
+        let request = try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams(),
+            teamStore: teamStore
+        )
+        XCTAssertTrue(request.rememberedTeam)
+        XCTAssertEqual(request.teamId, "code_spec_review")
+    }
+
+    func testParseStartLaneDefaultFallback() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let teamStore = PanelTeamStore(rootDirectory: tmp.appendingPathComponent("readiness-empty"))
+        let request = try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams(),
+            teamStore: teamStore
+        )
+        XCTAssertTrue(request.laneDefault)
+        XCTAssertEqual(request.teamId, "code_core")
+    }
+
+    func testParseStartNonROSeatRefused() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        // cursor is not RO-enforcing in v0
+        XCTAssertThrowsError(try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--seat", "model_cursor_composer_25:x"],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams()
+        )) { error in
+            guard case .seatNotIsolated(let workerId, _) = error as? PanelCLI.PanelCLIError else {
+                return XCTFail("expected seatNotIsolated, got \(error)")
+            }
+            XCTAssertEqual(workerId, "model_cursor_composer_25")
+        }
+    }
+
+    func testParseStartInvalidMaxRounds() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        XCTAssertThrowsError(try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--team", "spec_review", "--max-rounds", "0"],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: sampleTeams()
+        )) { error in
+            XCTAssertEqual(error as? PanelCLI.PanelCLIError, .invalidMaxRounds("0"))
+        }
+    }
+
+    // MARK: - scaffold content
+
+    func testScaffoldIncludesRejectionCarryAndStance() {
+        let t = PanelBriefScaffold.template(round: 2)
+        XCTAssertTrue(t.contains("stance: edit-in-place | propose-first"))
+        XCTAssertTrue(t.contains("Refuted last round"))
+        XCTAssertTrue(t.contains("do not re-litigate"))
+    }
+
+    // MARK: - error envelopes
+
+    func testErrorEnvelopesMapCodes() {
+        XCTAssertEqual(PanelCLI.errorEnvelope(.panelNotFound("x")).code, "PANEL_NOT_FOUND")
+        XCTAssertEqual(PanelCLI.roundErrorEnvelope(.roundInFlight).code, "PANEL_ROUND_IN_FLIGHT")
+        XCTAssertEqual(PanelCLI.roundErrorEnvelope(.targetMissing(path: "p")).code, "PANEL_TARGET_MISSING")
+        XCTAssertEqual(PanelCLI.roundErrorEnvelope(.notAwaitingPM(status: "done")).code, "PANEL_NOT_AWAITING")
+        XCTAssertEqual(PanelCLI.roundErrorEnvelope(.briefRequired).code, "CLI_USAGE_ERROR")
+    }
+
+    // MARK: - dirty advisory never refuses
+
+    func testDirtyTargetAdvisoryIsOptionalString() throws {
+        let root = tmp.appendingPathComponent("git-repo")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        // Without a git repo, dirty list is empty → nil advisory.
+        let advisory = PanelCLI.dirtyTargetAdvisory(projectRoot: root.path, targetPath: "docs/spec.md")
+        XCTAssertNil(advisory)
+    }
+}

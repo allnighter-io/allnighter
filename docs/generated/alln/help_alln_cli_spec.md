@@ -647,6 +647,75 @@ Flags:
 
 Output schema: `relayJSON`.
 
+### `alln panel start`
+
+Start a Panel session: session-led blind jury on any target. Parks awaitingPM with a resolved roster.
+
+Flags:
+- `--doc <path>` — Target path to judge (required) — re-read fresh each round; not hard-coded to docs/phases/.
+- `--project <id>` — Project id, name, or repo path (required).
+- `--team <alias>` — Team alias (fuzzy); unique match is echoed. Zero-config uses remembered-else-lane-default.
+- `--seat <alias:lens>` — Power mode: override/extend a seat as <alias>:<lens>. Repeatable.
+- `--max-rounds <integer>` — Ceiling on new rounds (default 10). Seat reruns are exempt.
+- `--json` — Emit PanelStartJSON.
+
+Output schema: `panelJSON`.
+
+### `alln panel round`
+
+Dispatch one panel round (or a --seats subset rerun). Blocks; prints per-seat findings verbatim + statuses; NDJSON progress while running.
+
+Flags:
+- `--panel <id>` — Panel id (required).
+- `--brief <path>` — Focus brief markdown path, or `-` for stdin. Built-in on round 1 when omitted; required on round 2+.
+- `--seats <list>` — Comma-separated worker ids to rerun on the SAME round (new attempt; replaces those seats only).
+- `--no-wait` — Dispatch in the background; poll with panel status/watch.
+- `--json` — Emit PanelRoundJSON envelope after settle.
+
+Output schema: `panelRoundJSON`.
+
+### `alln panel status`
+
+Read a Panel session's durable state — roster, rounds, target hash, recovery nextActions when in flight.
+
+Flags:
+- `--panel <id>` — Panel id (required).
+- `--json` — Emit PanelJSON (+ recovery when in flight).
+
+Output schema: `panelJSON`.
+
+### `alln panel watch`
+
+Poll a Panel until its in-flight round settles back to awaitingPM (or a terminal status). Dead-owner → run panel watch (DX5).
+
+Flags:
+- `--panel <id>` — Panel id (required).
+- `--json` — Emit PanelJSON + optional note.
+
+Output schema: `panelJSON`.
+
+### `alln panel scaffold-brief`
+
+Write or re-emit a suggested focus-brief template (rejection-carry + stance lines) for a panel round.
+
+Flags:
+- `--panel <id>` — Panel id (required).
+- `--round <integer>` — Round number for the template (default 1).
+- `--json` — Emit JSON with the template text.
+
+Output schema: `panelJSON`.
+
+### `alln panel done`
+
+Declare a Panel session done (session judgment only — never auto-converges). Optional survivors note.
+
+Flags:
+- `--panel <id>` — Panel id (required).
+- `--note <string>` — Optional done note (survivors / MEMORY fodder).
+- `--json` — Emit PanelJSON.
+
+Output schema: `panelJSON`.
+
 ### `alln team`
 
 Run a lane team on a prompt, foreground.
@@ -1301,6 +1370,10 @@ Output schema: `helpTopicsJSON`.
 | `RELAY_NOT_AWAITING_PM` | yes | no | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
 | `PANEL_SEAT_NOT_ISOLATED` | yes | no | Use a seat whose driver has a confirmed read-only mode (claude_code or codex) until PN-S06 ships clonefile isolation for every driver. Or wait for PN-S06. |
+| `PANEL_NOT_FOUND` | yes | no | Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`. |
+| `PANEL_ROUND_IN_FLIGHT` | no | yes | Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`. |
+| `PANEL_TARGET_MISSING` | yes | no | Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one. |
+| `PANEL_NOT_AWAITING` | yes | no | Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to pressure-test). |
 | `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
 | `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |

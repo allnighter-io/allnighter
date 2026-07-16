@@ -68,6 +68,7 @@ struct AllnighterCLI {
         case "dev": runDev(args)
         case "serve": await runServe(args)
         case "pair": await PairCLI.run(args, runtime: runtime)
+        case "panel": await PanelCLI.run(args, runtime: runtime)
         case "pending": await PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "stalled": StalledCLI.run(args.first, Array(args.dropFirst()))
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
@@ -1420,6 +1421,7 @@ struct AllnighterCLI {
           dev export-contracts [--check]                            regenerate/verify generated contract artifacts
           serve [--health --json]                                 resident coordinator (Serve0 skeleton)
           pair list|approve|revoke|begin [--json]                   manage trusted remote devices
+          panel start|round|status|watch|scaffold-brief|done        session-led blind jury on any target
           install-cli [--path <dir>] [--print] [--json]              symlink alln onto your PATH
         """
     }

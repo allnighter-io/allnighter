@@ -666,6 +666,42 @@
     "ruleId" : "panel.seat.not_isolated"
   },
   {
+    "agentAction" : "Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`.",
+    "code" : "PANEL_NOT_FOUND",
+    "exitClass" : "operational",
+    "explain" : "No Panel session matches the given id.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "panel.not_found"
+  },
+  {
+    "agentAction" : "Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`.",
+    "code" : "PANEL_ROUND_IN_FLIGHT",
+    "exitClass" : "operational",
+    "explain" : "A panel round is already dispatching (status == running). A concurrent `panel round` on the same panel is refused rather than racing a second dispatch.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "panel.round.in_flight"
+  },
+  {
+    "agentAction" : "Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one.",
+    "code" : "PANEL_TARGET_MISSING",
+    "exitClass" : "operational",
+    "explain" : "The panel target file is missing or unreadable at dispatch time — no hash can be pinned.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "panel.target.missing"
+  },
+  {
+    "agentAction" : "Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to pressure-test).",
+    "code" : "PANEL_NOT_AWAITING",
+    "exitClass" : "operational",
+    "explain" : "`panel round` was called against a panel that isn't parked at `awaitingPM` — it already reached done, or is otherwise not ready for a new dispatch.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "panel.not_awaiting"
+  },
+  {
     "agentAction" : "Inspect the error detail; retry the send or fix the worker.",
     "code" : "THREAD_SEND_FAILED",
     "exitClass" : "operational",

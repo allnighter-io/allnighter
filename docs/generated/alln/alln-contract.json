@@ -1740,6 +1740,227 @@
     },
     {
       "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "doc",
+          "summary" : "Target path to judge (required) — re-read fresh each round; not hard-coded to docs\/phases\/.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "project",
+          "summary" : "Project id, name, or repo path (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "team",
+          "summary" : "Team alias (fuzzy); unique match is echoed. Zero-config uses remembered-else-lane-default.",
+          "takesValue" : true,
+          "valueType" : "alias"
+        },
+        {
+          "name" : "seat",
+          "summary" : "Power mode: override\/extend a seat as <alias>:<lens>. Repeatable.",
+          "takesValue" : true,
+          "valueType" : "alias:lens"
+        },
+        {
+          "name" : "max-rounds",
+          "summary" : "Ceiling on new rounds (default 10). Seat reruns are exempt.",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit PanelStartJSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "panel start",
+      "outputSchema" : "panelJSON",
+      "summary" : "Start a Panel session: session-led blind jury on any target. Parks awaitingPM with a resolved roster."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "panel",
+          "summary" : "Panel id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "brief",
+          "summary" : "Focus brief markdown path, or `-` for stdin. Built-in on round 1 when omitted; required on round 2+.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "seats",
+          "summary" : "Comma-separated worker ids to rerun on the SAME round (new attempt; replaces those seats only).",
+          "takesValue" : true,
+          "valueType" : "list"
+        },
+        {
+          "name" : "no-wait",
+          "summary" : "Dispatch in the background; poll with panel status\/watch.",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit PanelRoundJSON envelope after settle.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "panel round",
+      "outputSchema" : "panelRoundJSON",
+      "summary" : "Dispatch one panel round (or a --seats subset rerun). Blocks; prints per-seat findings verbatim + statuses; NDJSON progress while running."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "panel",
+          "summary" : "Panel id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit PanelJSON (+ recovery when in flight).",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "panel status",
+      "outputSchema" : "panelJSON",
+      "summary" : "Read a Panel session's durable state — roster, rounds, target hash, recovery nextActions when in flight."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "panel",
+          "summary" : "Panel id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit PanelJSON + optional note.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "panel watch",
+      "outputSchema" : "panelJSON",
+      "summary" : "Poll a Panel until its in-flight round settles back to awaitingPM (or a terminal status). Dead-owner → run panel watch (DX5)."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "panel",
+          "summary" : "Panel id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "round",
+          "summary" : "Round number for the template (default 1).",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit JSON with the template text.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "panel scaffold-brief",
+      "outputSchema" : "panelJSON",
+      "summary" : "Write or re-emit a suggested focus-brief template (rejection-carry + stance lines) for a panel round."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "panel",
+          "summary" : "Panel id (required).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "note",
+          "summary" : "Optional done note (survivors \/ MEMORY fodder).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit PanelJSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "panel done",
+      "outputSchema" : "panelJSON",
+      "summary" : "Declare a Panel session done (session judgment only — never auto-converges). Optional survivors note."
+    },
+    {
+      "args" : [
         {
           "name" : "prompt",
           "required" : false,
@@ -3923,6 +4144,42 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "panel.seat.not_isolated"
+    },
+    {
+      "agentAction" : "Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`.",
+      "code" : "PANEL_NOT_FOUND",
+      "exitClass" : "operational",
+      "explain" : "No Panel session matches the given id.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "panel.not_found"
+    },
+    {
+      "agentAction" : "Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`.",
+      "code" : "PANEL_ROUND_IN_FLIGHT",
+      "exitClass" : "operational",
+      "explain" : "A panel round is already dispatching (status == running). A concurrent `panel round` on the same panel is refused rather than racing a second dispatch.",
+      "requiresManual" : false,
+      "retryable" : true,
+      "ruleId" : "panel.round.in_flight"
+    },
+    {
+      "agentAction" : "Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one.",
+      "code" : "PANEL_TARGET_MISSING",
+      "exitClass" : "operational",
+      "explain" : "The panel target file is missing or unreadable at dispatch time — no hash can be pinned.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "panel.target.missing"
+    },
+    {
+      "agentAction" : "Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to pressure-test).",
+      "code" : "PANEL_NOT_AWAITING",
+      "exitClass" : "operational",
+      "explain" : "`panel round` was called against a panel that isn't parked at `awaitingPM` — it already reached done, or is otherwise not ready for a new dispatch.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "panel.not_awaiting"
     },
     {
       "agentAction" : "Inspect the error detail; retry the send or fix the worker.",

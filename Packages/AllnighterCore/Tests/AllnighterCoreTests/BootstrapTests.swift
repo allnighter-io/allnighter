@@ -65,12 +65,14 @@ final class BootstrapTests: XCTestCase {
         XCTAssertLessThanOrEqual(offPathLines.count, 15, "off-path snippet grew past budget")
     }
 
-    func testSnippetIncludesPilotRecipe() {
+    func testSnippetIncludesPanelRecipeEndingWithPilotChain() {
         let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
-        XCTAssertTrue(s.contains("pair pilot start"))
+        XCTAssertTrue(s.contains("panel start"))
+        XCTAssertTrue(s.contains("panel round"))
+        XCTAssertTrue(s.contains("panel done"))
+        XCTAssertTrue(s.contains("pair pilot start --doc <same>"), "panel recipe must end with pilot chain")
         XCTAssertTrue(s.contains("pair pilot handoff"))
-        XCTAssertTrue(s.contains("pair pilot watch"))
-        XCTAssertTrue(s.contains("help get pm_relay"))
+        XCTAssertTrue(s.contains("help get panel") || s.contains("pm_relay"))
     }
 
     func testSnippetIsSharedSSOTWithHelpService() {

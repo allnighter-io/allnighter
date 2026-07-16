@@ -191,6 +191,45 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
+            id: "panel", title: "Panel (blind jury)", audience: .both,
+            summary: "Session-led blind jury on any target: Allnighter fans out read-only seats, stores structured findings, you synthesize and edit. Pressure-test specs, then chain into Pilot to build.",
+            bodyMarkdown: """
+            Panel is "I am always the lead; the seats are always a blind jury" — for any \
+            target a session judges (a spec, a PR, an architecture call). Spec hardening \
+            (the Pressure Test loop) is the hero recipe, not the product's name. \
+            `alln panel start --doc <path> --project .` resolves a team roster (or \
+            remembered/lane-default), pins a target content hash, scaffolds a focus brief, \
+            and parks `awaitingPM`. `alln panel round --panel <id>` blocks through N blind \
+            seats and returns structured findings verbatim (no material findings is valid). \
+            Round 1 uses a built-in brief; round 2+ needs `--brief` with a rejection-carry \
+            line. You refute and edit the target with your own hands. `--seats a,b` reruns \
+            replace those seats on the SAME round (new attempt). `panel done` is declaration \
+            only. Then chain: `alln pair pilot start --doc <same>`. v0 seats require \
+            read-only-enforcing drivers (claude/codex); PN-S06 adds clonefile for the rest.
+            """,
+            aliases: [
+                "panel this", "blind jury", "pressure test", "panel round", "panel start",
+                "spec hardening", "jury", "pressure-test", "alln panel",
+            ],
+            sections: [
+                .init("roster", "Team catalog is the roster", "`--team <alias>` fuzzy-resolves a TeamPreset (unique→echoed, ambiguous→candidates with seat count). Zero-config uses remembered-else-lane-default. `--seat <alias>:<lens>` overrides/extends."),
+                .init("rounds", "Blocking rounds + NDJSON", "`panel round` blocks; seats stream as they settle. Partial failures still settle. Built-in brief on round 1; focus brief required later."),
+                .init("safety", "Read-only by mechanism", "Panels never take the mutating write lock. v0 refuses non-RO drivers with PANEL_SEAT_NOT_ISOLATED (PN-S06 clonefile is the fix)."),
+                .init("chain", "Harden then build", "After `panel done`, `alln pair pilot start --doc <same>` continues in the same cockpit."),
+            ],
+            relatedToolIds: [],
+            relatedCommandNames: [
+                "panel start", "panel round", "panel status", "panel watch", "panel scaffold-brief", "panel done",
+                "pair pilot start",
+            ],
+            schemaRefs: ["panelJSON", "panelRoundJSON"],
+            errorRefs: [
+                "PANEL_NOT_FOUND", "PANEL_ROUND_IN_FLIGHT", "PANEL_SEAT_NOT_ISOLATED",
+                "PANEL_TARGET_MISSING", "PANEL_NOT_AWAITING", "PROJECT_NOT_FOUND", "TEAM_NOT_FOUND",
+            ],
+            needsLiveCheck: true),
+
+        HelpTopic(
             id: "teams_and_workers", title: "Teams, Workers & Skills", audience: .both,
             summary: "Teams are lane-scoped rosters of workers (a model + skill); manage built-ins and custom copies in the catalog.",
             bodyMarkdown: """

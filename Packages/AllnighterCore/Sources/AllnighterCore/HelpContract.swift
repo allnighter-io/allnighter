@@ -16,21 +16,23 @@ public extension HelpService {
     /// assembled by `Bootstrap.snippet(binaryPath:onPath:)`.
     static let bootstrapWorkflowLines = [
         "- Start every session with `alln team hello --json`: quota-free readiness, contract hash, and next-action plan.",
-        "- Find anything with `alln help search \"<query>\"`, then `alln help get <topic>`.",
-        "- Prefer `--json` envelopes over prose.",
-        "- On any error, follow the envelope's help pointer; for environment/setup problems run `alln doctor --json`.",
-        "- Never guess flags — `alln help` is version-correct local truth, not training data.",
+        "- Find anything with `alln help search \"<query>\"`, then `alln help get <topic>`. Prefer `--json` envelopes.",
+        "- On errors follow the envelope; environment issues → `alln doctor --json`. Never guess flags.",
     ]
 
-    /// Compact Pilot recipe for the bootstrap snippet (additive; `Pilot_Relay.md` §1.8).
-    static let pilotWorkflowLines = [
-        "- Pilot loop (you are the PM): `alln pair pilot start --doc <spec> --project . --dev-worker <seat>`.",
-        "- Write this round's order markdown (goal / out-of-scope / pointers / proof required).",
-        "- `alln pair pilot handoff --relay <id> --verdict continue --handover-file <order.md>` — blocks through the dev turn.",
-        "- Read the printed dev report and `repoDelta`; resubmit or declare done (`--verdict done`).",
-        "- Stuck mid-round? `alln pair pilot watch --relay <id>` returns the dev report when the turn settles.",
-        "- Pilot is done when you say so — no hidden clock; `alln help get pm_relay` for the full playbook.",
+    /// Compact Panel recipe for the bootstrap snippet (PN-S04). Ends with the pilot
+    /// chain line so harden→build stays one cockpit. Keep the whole snippet ≤15 lines.
+    static let panelWorkflowLines = [
+        "- Panel (blind jury): `alln panel start --doc <path> --project .` → roster + next command echoed.",
+        "- `alln panel round --panel <id>` (round 1 built-in brief); refute findings, edit target yourself.",
+        "- Round 2+: `alln panel round --panel <id> --brief focus.md` (rejection-carry line required).",
+        "- `alln panel done --panel <id> --note \"…\"` then chain: `alln pair pilot start --doc <same>`.",
+        "- Pilot (you are PM): `alln pair pilot handoff --relay <id> --verdict continue --handover-file <order.md>`.",
+        "- Stuck? `alln panel watch` / `alln pair pilot watch`; `alln help get panel` or `pm_relay`.",
     ]
+
+    /// Compact Pilot recipe kept for callers that still name it; bootstrap uses panel lines.
+    static let pilotWorkflowLines = panelWorkflowLines
 
     /// Static help-topic preview when live binary path is unknown (help corpus only).
     static var hostInstructionBlock: String {

@@ -440,6 +440,64 @@ public extension ContractRegistry {
             ],
             outputSchema: .relayJSON
         ),
+        // Panel — top-level blind jury (docs/phases/Pilot_Panel.md decision 11 / PN-S04)
+        CommandSpec(
+            "panel start", summary: "Start a Panel session: session-led blind jury on any target. Parks awaitingPM with a resolved roster.", milestone: .m1,
+            flags: [
+                FlagSpec("doc", takesValue: true, valueType: "path", summary: "Target path to judge (required) — re-read fresh each round; not hard-coded to docs/phases/."),
+                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
+                FlagSpec("team", takesValue: true, valueType: "alias", summary: "Team alias (fuzzy); unique match is echoed. Zero-config uses remembered-else-lane-default."),
+                FlagSpec("seat", takesValue: true, valueType: "alias:lens", summary: "Power mode: override/extend a seat as <alias>:<lens>. Repeatable."),
+                FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Ceiling on new rounds (default 10). Seat reruns are exempt."),
+                FlagSpec("json", summary: "Emit PanelStartJSON."),
+            ],
+            outputSchema: .panelJSON
+        ),
+        CommandSpec(
+            "panel round", summary: "Dispatch one panel round (or a --seats subset rerun). Blocks; prints per-seat findings verbatim + statuses; NDJSON progress while running.", milestone: .m1,
+            flags: [
+                FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
+                FlagSpec("brief", takesValue: true, valueType: "path", summary: "Focus brief markdown path, or `-` for stdin. Built-in on round 1 when omitted; required on round 2+."),
+                FlagSpec("seats", takesValue: true, valueType: "list", summary: "Comma-separated worker ids to rerun on the SAME round (new attempt; replaces those seats only)."),
+                FlagSpec("no-wait", summary: "Dispatch in the background; poll with panel status/watch."),
+                FlagSpec("json", summary: "Emit PanelRoundJSON envelope after settle."),
+            ],
+            outputSchema: .panelRoundJSON
+        ),
+        CommandSpec(
+            "panel status", summary: "Read a Panel session's durable state — roster, rounds, target hash, recovery nextActions when in flight.", milestone: .m1,
+            flags: [
+                FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
+                FlagSpec("json", summary: "Emit PanelJSON (+ recovery when in flight)."),
+            ],
+            outputSchema: .panelJSON
+        ),
+        CommandSpec(
+            "panel watch", summary: "Poll a Panel until its in-flight round settles back to awaitingPM (or a terminal status). Dead-owner → run panel watch (DX5).", milestone: .m1,
+            flags: [
+                FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
+                FlagSpec("json", summary: "Emit PanelJSON + optional note."),
+            ],
+            outputSchema: .panelJSON
+        ),
+        CommandSpec(
+            "panel scaffold-brief", summary: "Write or re-emit a suggested focus-brief template (rejection-carry + stance lines) for a panel round.", milestone: .m1,
+            flags: [
+                FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
+                FlagSpec("round", takesValue: true, valueType: "integer", summary: "Round number for the template (default 1)."),
+                FlagSpec("json", summary: "Emit JSON with the template text."),
+            ],
+            outputSchema: .panelJSON
+        ),
+        CommandSpec(
+            "panel done", summary: "Declare a Panel session done (session judgment only — never auto-converges). Optional survivors note.", milestone: .m1,
+            flags: [
+                FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
+                FlagSpec("note", takesValue: true, valueType: "string", summary: "Optional done note (survivors / MEMORY fodder)."),
+                FlagSpec("json", summary: "Emit PanelJSON."),
+            ],
+            outputSchema: .panelJSON
+        ),
         CommandSpec(
             "team", summary: "Run a lane team on a prompt, foreground.", milestone: .m1,
             args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
@@ -873,6 +931,10 @@ public extension ContractRegistry {
         ErrorSpec("RELAY_NOT_AWAITING_PM", ruleId: "relay.not_awaiting_pm", agentAction: "Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to).", requiresManual: true, retryable: false, explain: "`pilot handoff` was called against a relay that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a Pilot relay's normal between-rounds state."),
         ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "Pilot's `pilot handoff` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the piloting session is live and just resubmits."),
         ErrorSpec("PANEL_SEAT_NOT_ISOLATED", ruleId: "panel.seat.not_isolated", agentAction: "Use a seat whose driver has a confirmed read-only mode (claude_code or codex) until PN-S06 ships clonefile isolation for every driver. Or wait for PN-S06.", requiresManual: true, retryable: false, explain: "Panel v0 refuses seats whose driver cannot be mechanically read-only-enforced (only claude_code plan mode and codex read-only sandbox are confirmed). Honesty over availability — PN-S06 (clonefile) is the coming fix so no seat is refused."),
+        ErrorSpec("PANEL_NOT_FOUND", ruleId: "panel.not_found", agentAction: "Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`.", requiresManual: true, retryable: false, explain: "No Panel session matches the given id."),
+        ErrorSpec("PANEL_ROUND_IN_FLIGHT", ruleId: "panel.round.in_flight", agentAction: "Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`.", requiresManual: false, retryable: true, explain: "A panel round is already dispatching (status == running). A concurrent `panel round` on the same panel is refused rather than racing a second dispatch."),
+        ErrorSpec("PANEL_TARGET_MISSING", ruleId: "panel.target.missing", agentAction: "Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one.", requiresManual: true, retryable: false, explain: "The panel target file is missing or unreadable at dispatch time — no hash can be pinned."),
+        ErrorSpec("PANEL_NOT_AWAITING", ruleId: "panel.not_awaiting", agentAction: "Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to pressure-test).", requiresManual: true, retryable: false, explain: "`panel round` was called against a panel that isn't parked at `awaitingPM` — it already reached done, or is otherwise not ready for a new dispatch."),
         ErrorSpec("THREAD_SEND_FAILED", ruleId: "thread.send.failed", agentAction: "Inspect the error detail; retry the send or fix the worker.", requiresManual: false, retryable: true, explain: "The thread send did not complete (worker or transport failure). Inspect the detail, then retry."),
         ErrorSpec("MODEL_NOT_FOUND", ruleId: "model.not_found", agentAction: "Run `alln models --json` and retry with a valid model id.", requiresManual: true, retryable: false, explain: "No model matches the given id. List models and retry with a valid ModelID."),
         ErrorSpec("MODEL_BUILTIN_IMMUTABLE", ruleId: "model.builtin.immutable", agentAction: "Duplicate the built-in model, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in models cannot be edited or deleted. Duplicate to a custom model and edit that copy."),

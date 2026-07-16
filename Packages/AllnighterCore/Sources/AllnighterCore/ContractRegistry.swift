@@ -77,6 +77,8 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case stallEpisodeJSON
         case pendingQueueJSON
         case relayJSON
+        case panelJSON
+        case panelRoundJSON
         case bootstrapJSON
         case installCLIJSON
         case versionJSON
