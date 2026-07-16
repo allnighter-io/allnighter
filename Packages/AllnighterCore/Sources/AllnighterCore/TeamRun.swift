@@ -68,6 +68,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// Timing ladder and counters captured from the GUI/engine hot path. Optional so
     /// legacy persisted runs decode unchanged.
     public var timing: RunTimingReport?
+    /// Observed git delta for mutating runs (Field_Reports_1.md §FR3). `nil` for read-only runs.
+    public var repoDelta: RepoDelta? = nil
     /// Non-optional view of `links` for callers.
     public var runLinks: [RunLink] { links ?? [] }
 
@@ -94,7 +96,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         originConversationId: String? = nil,
         originMessageId: String? = nil,
         repoRoot: String? = nil,
-        timing: RunTimingReport? = nil
+        timing: RunTimingReport? = nil,
+        repoDelta: RepoDelta? = nil
     ) {
         self.id = id
         self.prompt = prompt
@@ -119,6 +122,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.originMessageId = originMessageId
         self.repoRoot = repoRoot
         self.timing = timing
+        self.repoDelta = repoDelta
     }
 }
 

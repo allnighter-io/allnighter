@@ -83,6 +83,54 @@ public struct GitObserver: Sendable {
         return out.split(separator: "\n").map(String.init)
     }
 
+    /// Commits reachable from `head` but not `baseline` (`baseline..head`), newest first.
+    public func commitsInRange(rootPath: String, baseline: String, head: String) -> [RepoDelta.CommitInfo] {
+        guard baseline != head,
+              let out = runGit(["log", "\(baseline)..\(head)", "--pretty=format:%H %s"], cwd: rootPath),
+              !out.isEmpty else { return [] }
+        return out.split(separator: "\n").compactMap { line in
+            let entry = String(line)
+            guard let space = entry.firstIndex(of: " ") else { return nil }
+            let sha = String(entry[..<space])
+            let subject = String(entry[entry.index(after: space)...])
+            return RepoDelta.CommitInfo(sha: sha, subject: subject)
+        }
+    }
+
+    /// Root-relative paths changed between `baseline` and `head` (`baseline..head`), observed.
+    public func changedFilesInRange(rootPath: String, baseline: String, head: String) -> [String] {
+        guard baseline != head,
+              let out = runGit(["diff", "--name-only", "\(baseline)..\(head)"], cwd: rootPath),
+              !out.isEmpty else { return [] }
+        return out.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+    }
+
+    /// Observed repo delta for a mutating run window. When `baseline` and `head` are equal
+    /// or either is missing, `changed` is `false` and commit/file lists are empty.
+    public func repoDelta(
+        rootPath: String, baseline: String?, head: String?, fileCap: Int = 50
+    ) -> RepoDelta {
+        let cap = max(1, fileCap)
+        guard let baseline, let head else {
+            return RepoDelta(changed: false, baseline: baseline, head: head)
+        }
+        guard baseline != head else {
+            return RepoDelta(changed: false, baseline: baseline, head: head)
+        }
+        let commits = commitsInRange(rootPath: rootPath, baseline: baseline, head: head)
+        let allFiles = changedFilesInRange(rootPath: rootPath, baseline: baseline, head: head)
+        let truncated = allFiles.count > cap
+        return RepoDelta(
+            changed: true,
+            baseline: baseline,
+            head: head,
+            commits: commits,
+            filesChanged: allFiles.count,
+            files: Array(allFiles.prefix(cap)),
+            truncated: truncated
+        )
+    }
+
     /// Run a read-only git command, returning raw stdout with only the trailing
     /// newline removed (leading whitespace preserved — porcelain status columns
     /// depend on it). `nil` on launch failure / non-zero exit.

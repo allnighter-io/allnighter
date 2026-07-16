@@ -115,6 +115,7 @@ public enum TeamRunJSONMapper {
             contractVersion: ContractRegistry.contractVersion,
             teamRun: info, models: modelInfos, workers: workers, workerAnswers: answers,
             designBoard: designBoard,
+            repoDelta: run.mutating ? run.repoDelta : nil,
             stages: stages, plan: plan, usage: usage,
             warnings: run.warnings.map { TeamRunJSON.Warning(message: $0) }, errors: [],
             nextActions: [

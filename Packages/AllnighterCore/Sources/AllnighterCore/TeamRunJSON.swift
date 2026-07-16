@@ -18,6 +18,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var workers: [WorkerInfo]
     public var workerAnswers: [AnswerInfo]
     public var designBoard: DesignBoard?
+    public var repoDelta: RepoDelta?
     public var stages: [StageInfo]
     public var plan: Plan?
     public var usage: Usage
@@ -34,6 +35,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         workers: [WorkerInfo],
         workerAnswers: [AnswerInfo],
         designBoard: DesignBoard? = nil,
+        repoDelta: RepoDelta? = nil,
         stages: [StageInfo],
         plan: Plan?,
         usage: Usage,
@@ -49,6 +51,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.workers = workers
         self.workerAnswers = workerAnswers
         self.designBoard = designBoard
+        self.repoDelta = repoDelta
         self.stages = stages
         self.plan = plan
         self.usage = usage

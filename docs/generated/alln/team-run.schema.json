@@ -386,6 +386,68 @@
       ],
       "type" : "object"
     },
+    "RepoDelta" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "baseline" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "changed" : {
+          "type" : "boolean"
+        },
+        "commits" : {
+          "items" : {
+            "$ref" : "#\/$defs\/RepoDeltaCommit"
+          },
+          "type" : "array"
+        },
+        "files" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "filesChanged" : {
+          "type" : "integer"
+        },
+        "head" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "truncated" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "changed",
+        "commits",
+        "filesChanged",
+        "files",
+        "truncated"
+      ],
+      "type" : "object"
+    },
+    "RepoDeltaCommit" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "sha" : {
+          "type" : "string"
+        },
+        "subject" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "sha",
+        "subject"
+      ],
+      "type" : "object"
+    },
     "RunInfo" : {
       "additionalProperties" : false,
       "properties" : {
@@ -700,6 +762,16 @@
       "oneOf" : [
         {
           "$ref" : "#\/$defs\/Plan"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
+    "repoDelta" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/RepoDelta"
         },
         {
           "type" : "null"

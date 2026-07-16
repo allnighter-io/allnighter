@@ -45,6 +45,7 @@ public enum ContractSchema {
             "workers": arr(ref("WorkerInfo")), "workerAnswers": arr(ref("AnswerInfo")),
             "stages": arr(ref("StageInfo")), "plan": nullableRef("Plan"),
             "designBoard": nullableRef("DesignBoard"),
+            "repoDelta": nullableRef("RepoDelta"),
             "usage": ref("Usage"), "warnings": arr(ref("Warning")),
             "errors": arr(ref("ErrorEnvelope")), "nextActions": arr(ref("NextAction")),
             "audit": ref("Audit"),
@@ -106,6 +107,14 @@ public enum ContractSchema {
             "DesignBoardChosen": obj([
                 "workerId": str, "persona": str, "chosenAt": nullable("string"),
             ], required: ["workerId", "persona"]),
+            "RepoDelta": obj([
+                "changed": bool, "baseline": nullable("string"), "head": nullable("string"),
+                "commits": arr(ref("RepoDeltaCommit")),
+                "filesChanged": int, "files": arr(str), "truncated": bool,
+            ], required: ["changed", "commits", "filesChanged", "files", "truncated"]),
+            "RepoDeltaCommit": obj([
+                "sha": str, "subject": str,
+            ], required: ["sha", "subject"]),
             "Usage": obj(["cliCalls": int], required: ["cliCalls"]),
             "Warning": obj(["code": nullable("string"), "message": str], required: ["message"]),
             "ErrorEnvelope": errorEnvelopeDef(),

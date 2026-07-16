@@ -73,6 +73,6 @@ final class RunIdentityTests: XCTestCase {
 
         XCTAssertEqual(
             RunIdentity.cliFooter(run),
-            "run identity-run · worker model_grok · lane code · mutating · Default Team · default_chat")
+            "run identity-run · worker model_grok · lane code · mutating · no repo change · Default Team · default_chat")
     }
 }

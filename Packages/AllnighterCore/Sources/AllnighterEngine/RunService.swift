@@ -121,6 +121,7 @@ public actor RunService {
     /// Warm_Single_Lane_Chat: process-global warm-worker registry (default = shared singleton so
     /// warmth survives the per-turn RunService instances; tests inject a fresh pool).
     private let warmPool: WarmWorkerPool
+    private let gitObserver: GitObserver
 
     /// How long a mutating run waits in the per-repo FIFO before refusing. Generous on purpose:
     /// normal queuing clears in seconds-to-minutes (and a stuck holder is killed by its own
@@ -140,7 +141,8 @@ public actor RunService {
         defaultSettings: @escaping @Sendable () -> DefaultModelSettings = { DefaultModelSettingsPersistence().load() },
         probeRecords: @escaping @Sendable () -> [ToolProbeRecord] = { SetupStore().load().records },
         sessionStore: ExternalWorkerSessionStore = ExternalWorkerSessionStore(),
-        warmPool: WarmWorkerPool = .shared
+        warmPool: WarmWorkerPool = .shared,
+        gitObserver: GitObserver = GitObserver()
     ) {
         self.models = models
         self.registry = registry
@@ -154,6 +156,7 @@ public actor RunService {
         self.loadProbeRecords = probeRecords
         self.sessionStore = sessionStore
         self.warmPool = warmPool
+        self.gitObserver = gitObserver
     }
 
     private func readyModels() -> [Model] { models.filter(\.enabled) }
@@ -444,11 +447,12 @@ public actor RunService {
         let baseAssembled = SkillCatalog.assemblePrompt(skillId: skillId, founderPrompt: founderPrompt)
         // Attach the user's images: a vision worker gets the path block; a non-vision
         // worker gets an explicit notice so it never claims to have seen them.
-        let assembled = deliveries.isEmpty ? baseAssembled
+        var assembled = deliveries.isEmpty ? baseAssembled
             : TeamRunAttachmentMapper.teamRunSeatPrompt(
                 basePrompt: baseAssembled,
                 deliveries: deliveries,
                 readsImages: manifest.canReadImages)
+        let baselineHead = gitObserver.observe(rootPath: repoRoot).head
         let startedAt = now()
         let effectiveLane = requestLane ?? preset.lane
         emit(RunEventKind.runStatusChanged, [
@@ -682,6 +686,8 @@ public actor RunService {
         timing.count(RunTimingKey.reasoningDeltaCount, by: outcome.timing.reasoningDeltaCount)
         run.workerAnswers = [answer]
         run.status = answer.result.status == .done ? .complete : .failed
+        run.repoDelta = gitObserver.repoDelta(
+            rootPath: repoRoot, baseline: baselineHead, head: gitObserver.observe(rootPath: repoRoot).head)
         if answer.result.status == .done, let text = answer.output {
             let stageId = UUID().uuidString
             emit(RunEventKind.stageStarted, [
