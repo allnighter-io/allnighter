@@ -31,6 +31,8 @@ Flags:
 - `--full` — Deeper probes, bounded timeout.
 - `--auto-fix` — Apply safe Allnighter-owned fixes.
 - `--agent <sourceId>` — Limit probes and checks to one source (e.g. cursor_agent).
+- `--pilot` — Include a `pilot` summary check (can pilot start on this project?).
+- `--project <id>` — Project for `--pilot` (default: cwd).
 
 Output schema: `doctorResult`.
 
@@ -610,7 +612,7 @@ Read a Pilot relay's durable state — rounds, verdicts, gate decisions, dirty-t
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--json` — Emit RelayJSON.
+- `--json` — Emit PilotStatusJSON (relay + recovery nextActions when in flight).
 
 Output schema: `relayJSON`.
 
@@ -620,7 +622,7 @@ Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a te
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--json` — Emit RelayJSON.
+- `--json` — Emit PilotWatchJSON (relay + devReport + note when nothing was in flight).
 
 Output schema: `relayJSON`.
 

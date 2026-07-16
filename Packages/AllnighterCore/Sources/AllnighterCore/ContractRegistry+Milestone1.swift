@@ -39,6 +39,8 @@ public extension ContractRegistry {
                 FlagSpec("full", summary: "Deeper probes, bounded timeout."),
                 FlagSpec("auto-fix", summary: "Apply safe Allnighter-owned fixes."),
                 FlagSpec("agent", takesValue: true, valueType: "sourceId", summary: "Limit probes and checks to one source (e.g. cursor_agent)."),
+                FlagSpec("pilot", summary: "Include a `pilot` summary check (can pilot start on this project?)."),
+                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project for `--pilot` (default: cwd)."),
             ],
             outputSchema: .doctorResult, exampleIds: ["doctor_json"]
         ),
@@ -409,7 +411,7 @@ public extension ContractRegistry {
             "pair pilot status", summary: "Read a Pilot relay's durable state — rounds, verdicts, gate decisions, dirty-tree snapshots.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
-                FlagSpec("json", summary: "Emit RelayJSON."),
+                FlagSpec("json", summary: "Emit PilotStatusJSON (relay + recovery nextActions when in flight)."),
             ],
             outputSchema: .relayJSON
         ),
@@ -417,7 +419,7 @@ public extension ContractRegistry {
             "pair pilot watch", summary: "Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status).", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
-                FlagSpec("json", summary: "Emit RelayJSON."),
+                FlagSpec("json", summary: "Emit PilotWatchJSON (relay + devReport + note when nothing was in flight)."),
             ],
             outputSchema: .relayJSON
         ),

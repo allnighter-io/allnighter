@@ -30,6 +30,8 @@ public enum DoctorReport {
         public var runningBinaryPath: String?
         /// PATH used to resolve `alln`. `nil` → `binary.onPath` is `notChecked`.
         public var pathEnvironment: String?
+        /// When set (via `alln doctor --pilot`), emits a `pilot` summary check.
+        public var pilot: PilotContext?
 
         public init(
             binaryVersion: String,
@@ -43,7 +45,8 @@ public enum DoctorReport {
             cursorCLIConfigURL: URL? = nil,
             cursorProjectOverrideURL: URL? = nil,
             runningBinaryPath: String? = nil,
-            pathEnvironment: String? = nil
+            pathEnvironment: String? = nil,
+            pilot: PilotContext? = nil
         ) {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
@@ -57,6 +60,31 @@ public enum DoctorReport {
             self.cursorProjectOverrideURL = cursorProjectOverrideURL
             self.runningBinaryPath = runningBinaryPath
             self.pathEnvironment = pathEnvironment
+            self.pilot = pilot
+        }
+    }
+
+    /// Inputs for the `doctor.pilot` summary check (`Pilot_DX.md` §DX6).
+    public struct PilotContext: Sendable, Equatable {
+        public var projectLabel: String?
+        public var devWorkerId: String?
+        public var devWorkerLabel: String?
+        public var driverInstalled: Bool
+        /// `nil` on the quota-free path — readiness not smoke-probed.
+        public var driverReady: Bool?
+
+        public init(
+            projectLabel: String? = nil,
+            devWorkerId: String? = nil,
+            devWorkerLabel: String? = nil,
+            driverInstalled: Bool = false,
+            driverReady: Bool? = nil
+        ) {
+            self.projectLabel = projectLabel
+            self.devWorkerId = devWorkerId
+            self.devWorkerLabel = devWorkerLabel
+            self.driverInstalled = driverInstalled
+            self.driverReady = driverReady
         }
     }
 
@@ -135,6 +163,9 @@ public enum DoctorReport {
             detail: "foreground CLI only; resident coordinator not running"
         )
         checks.append(coordinatorCheck(coordinator))
+        if let pilot = inputs.pilot {
+            checks.append(pilotCheck(pilot, inputs: inputs))
+        }
 
         let modelInfos = models.map { m -> TeamRunJSON.ModelInfo in
             let status: TeamRunJSON.ModelStatus
@@ -264,6 +295,74 @@ public enum DoctorReport {
             return .init(name: "coordinator", status: .degraded, detail: coordinator.detail,
                          fixCommand: "alln serve", requiresManual: false)
         }
+    }
+
+    private static func pilotCheck(_ pilot: PilotContext, inputs: Inputs) -> DoctorResult.Check {
+        let seat = pilot.devWorkerLabel ?? pilot.devWorkerId ?? "(none remembered)"
+        let project = pilot.projectLabel ?? "(project not found)"
+        if !inputs.configDirWritable || !inputs.runsDirWritable || !inputs.pendingDirWritable {
+            return .init(
+                name: "pilot",
+                status: .critical,
+                detail: "pilot cannot start with \(seat) on \(project) — config or journal dirs are not writable",
+                fixCommand: "alln doctor --json",
+                requiresManual: true
+            )
+        }
+        if pilot.projectLabel == nil {
+            return .init(
+                name: "pilot",
+                status: .critical,
+                detail: "pilot cannot start — project not found (pass `--project <id|path>`)",
+                fixCommand: "alln project list --json",
+                requiresManual: true
+            )
+        }
+        if pilot.devWorkerId == nil {
+            return .init(
+                name: "pilot",
+                status: .degraded,
+                detail: "pilot cannot start on \(project) — no remembered dev seat (pass `--dev-worker` on first `pilot start`)",
+                fixCommand: "alln pair pilot start --doc <spec> --project \(projectToken(from: pilot)) --dev-worker <seat>",
+                requiresManual: true
+            )
+        }
+        if !pilot.driverInstalled {
+            return .init(
+                name: "pilot",
+                status: .critical,
+                detail: "pilot cannot start with \(seat) on \(project) — dev driver not installed",
+                fixCommand: "alln doctor --full",
+                requiresManual: true
+            )
+        }
+        if let ready = pilot.driverReady, !ready {
+            return .init(
+                name: "pilot",
+                status: .degraded,
+                detail: "pilot cannot start with \(seat) on \(project) — dev seat driver not ready (auth/smoke failed)",
+                fixCommand: "alln doctor --full",
+                requiresManual: true
+            )
+        }
+        if pilot.driverReady == nil {
+            return .init(
+                name: "pilot",
+                status: .ok,
+                detail: "pilot can start with \(seat) on \(project) — driver installed; auth/readiness not checked on quota-free path",
+                fixCommand: Self.fullFix
+            )
+        }
+        return .init(
+            name: "pilot",
+            status: .ok,
+            detail: "pilot can start with \(seat) on \(project) — dev seat ready"
+        )
+    }
+
+    private static func projectToken(from pilot: PilotContext) -> String {
+        pilot.projectLabel?.components(separatedBy: " (").last?
+            .trimmingCharacters(in: CharacterSet(charactersIn: ")")) ?? "."
     }
 
     private static func planWriterCheck(models: [Model], recByDriver: [String: ToolProbeRecord], full: Bool) -> DoctorResult.Check {

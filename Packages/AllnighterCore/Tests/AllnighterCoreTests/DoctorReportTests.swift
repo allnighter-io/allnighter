@@ -110,4 +110,33 @@ final class DoctorReportTests: XCTestCase {
         let statusEnum = Set(try XCTUnwrap((props["status"] as? [String: Any])?["enum"] as? [String]))
         XCTAssertTrue(Set(r.checks.map { $0.status.rawValue }).isSubset(of: statusEnum))
     }
+
+    func testPilotCheckOkWhenDriverInstalledAndSeatRemembered() {
+        let records = [
+            ToolProbeRecord(driverId: "claude_code", status: .installedNotProbed(version: "1.2"), version: "1.2", lastProbeAt: t),
+        ]
+        var base = inputs(full: false)
+        base.pilot = .init(
+            projectLabel: "Allnighter (prj_abc)",
+            devWorkerId: "model_sonnet",
+            devWorkerLabel: "model_sonnet (Sonnet)",
+            driverInstalled: true,
+            driverReady: nil
+        )
+        let r = DoctorReport.build(models: models, manifests: manifests, records: records, inputs: base)
+        let pilot = check(r, "pilot")
+        XCTAssertEqual(pilot?.status, .ok)
+        XCTAssertTrue(pilot?.detail.contains("can start") ?? false)
+        XCTAssertEqual(pilot?.fixCommand, "alln doctor --full")
+    }
+
+    func testPilotCheckCriticalWhenNoProject() {
+        let records = [
+            ToolProbeRecord(driverId: "claude_code", status: .installedNotProbed(version: "1.2"), version: "1.2", lastProbeAt: t),
+        ]
+        var base = inputs(full: false)
+        base.pilot = .init(projectLabel: nil, devWorkerId: nil, driverInstalled: false)
+        let r = DoctorReport.build(models: models, manifests: manifests, records: records, inputs: base)
+        XCTAssertEqual(check(r, "pilot")?.status, .critical)
+    }
 }

@@ -69,6 +69,17 @@
           "summary" : "Limit probes and checks to one source (e.g. cursor_agent).",
           "takesValue" : true,
           "valueType" : "sourceId"
+        },
+        {
+          "name" : "pilot",
+          "summary" : "Include a `pilot` summary check (can pilot start on this project?).",
+          "takesValue" : false
+        },
+        {
+          "name" : "project",
+          "summary" : "Project for `--pilot` (default: cwd).",
+          "takesValue" : true,
+          "valueType" : "id"
         }
       ],
       "milestone" : "m1",
@@ -1625,7 +1636,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit RelayJSON.",
+          "summary" : "Emit PilotStatusJSON (relay + recovery nextActions when in flight).",
           "takesValue" : false
         }
       ],
@@ -1653,7 +1664,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit RelayJSON.",
+          "summary" : "Emit PilotWatchJSON (relay + devReport + note when nothing was in flight).",
           "takesValue" : false
         }
       ],

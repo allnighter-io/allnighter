@@ -256,11 +256,18 @@ struct AllnighterCLI {
     static func runDoctor(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         let full = opts.flag("full")
+        let pilot = opts.flag("pilot")
         let sourceId = opts.value("agent")
         if let sourceId, runtime.registry.manifest(id: sourceId) == nil {
             fail(code: "SOURCE_NOT_FOUND", message: "no source manifest '\(sourceId)'")
         }
-        let result = await doctorResult(runtime, full: full, sourceId: sourceId)
+        let result = await doctorResult(
+            runtime,
+            full: full,
+            sourceId: sourceId,
+            pilot: pilot,
+            projectToken: opts.value("project")
+        )
         if opts.flag("json") {
             print(jsonString(result))   // exactly one JSON object, no prose
         } else {
@@ -348,14 +355,20 @@ struct AllnighterCLI {
     }
 
     /// Builds a `DoctorResult` for `alln doctor`.
-    static func doctorResult(_ runtime: ToolRuntime, full: Bool, sourceId: String? = nil) async -> DoctorResult {
+    static func doctorResult(
+        _ runtime: ToolRuntime,
+        full: Bool,
+        sourceId: String? = nil,
+        pilot: Bool = false,
+        projectToken: String? = nil
+    ) async -> DoctorResult {
         let manifests = sourceId.map { id in runtime.registry.all.filter { $0.id == id } } ?? runtime.registry.all
         let modelLabels = ModelCatalog.probeModelLabels(registry: runtime.registry)
         let labels = sourceId.map { id in modelLabels.filter { $0.key == id } } ?? modelLabels
-        // CLI runs in the user's terminal, so resolve interactively (-lic) to see
-        // the same PATH the terminal does (Track 0.1).
-        let records = await CLIDetector(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), interactive: true)
-            .probeAll(manifests, models: labels, now: Date(), smoke: full)
+        let records = await doctorProbeRecords(manifests: manifests, labels: labels, full: full)
+        let pilotContext = pilot ? doctorPilotContext(
+            runtime: runtime, projectToken: projectToken, records: records, full: full
+        ) : nil
         let inputs = DoctorReport.Inputs(
             binaryVersion: binaryVersion,
             contractVersion: ContractRegistry.contractVersion,
@@ -373,7 +386,8 @@ struct AllnighterCLI {
                 argv0: CommandLine.arguments.first,
                 pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
             ),
-            pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
+            pathEnvironment: ProcessInfo.processInfo.environment["PATH"],
+            pilot: pilotContext
         )
         var result = DoctorReport.build(
             models: runtime.models,
@@ -383,11 +397,67 @@ struct AllnighterCLI {
         )
         if let sourceId {
             let prefix = "source.\(sourceId)."
-            let global = Set(["binaryVersion", "docsVersion", "configDir", "runsDir", "sources"])
+            let global = Set(["binaryVersion", "docsVersion", "configDir", "runsDir", "sources", "pilot"])
             result.checks = result.checks.filter { global.contains($0.name) || $0.name.hasPrefix(prefix) }
             result.models = result.models.filter { $0.sourceId == sourceId }
         }
         return result
+    }
+
+    /// Quota-free default uses cached detection records; `--full` runs live smoke probes.
+    static func doctorProbeRecords(
+        manifests: [DriverManifest],
+        labels: [String: String],
+        full: Bool,
+        setupStore: SetupStore = SetupStore(),
+        commandRunner: CommandRunner? = nil
+    ) async -> [ToolProbeRecord] {
+        let runner = commandRunner ?? SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy())
+        if full {
+            return await CLIDetector(
+                commandRunner: runner,
+                detectTimeout: .seconds(8),
+                smokeTimeout: .seconds(60),
+                interactive: true
+            ).probeAll(manifests, models: labels, now: Date(), smoke: true)
+        }
+        let headlessIds = Set(manifests.filter { $0.kind == .headlessCLI }.map(\.id))
+        let cached = setupStore.load().records.filter { headlessIds.contains($0.driverId) }
+        if cached.count == headlessIds.count, !cached.isEmpty {
+            return cached.sorted { $0.driverId < $1.driverId }
+        }
+        return await CLIDetector(
+            commandRunner: runner,
+            resolver: ShellResolver(commandRunner: runner, timeout: .seconds(2), interactive: false),
+            detectTimeout: .seconds(2),
+            smokeTimeout: .seconds(2),
+            interactive: false
+        ).probeAll(manifests, models: labels, now: Date(), smoke: false)
+    }
+
+    private static func doctorPilotContext(
+        runtime: ToolRuntime,
+        projectToken: String?,
+        records: [ToolProbeRecord],
+        full: Bool
+    ) -> DoctorReport.PilotContext {
+        let token = projectToken ?? "."
+        let project = ProjectStore().resolveFresh(token)
+        let devWorkerId = project.flatMap { PilotDevSeatStore().load(projectId: $0.id)?.devWorkerId }
+        let model = devWorkerId.flatMap { id in runtime.models.first { $0.id == id } }
+        let record = model.flatMap { m in records.first { $0.driverId == m.driverId } }
+        let driverInstalled: Bool = {
+            guard let record else { return false }
+            if case .notInstalled = record.status { return false }
+            return true
+        }()
+        return .init(
+            projectLabel: project.map { "\($0.displayName) (\($0.id))" },
+            devWorkerId: devWorkerId,
+            devWorkerLabel: model.map { "\($0.id) (\($0.displayName))" },
+            driverInstalled: driverInstalled,
+            driverReady: full ? (record?.status.isReady ?? false) : nil
+        )
     }
 
     private static func ensureWritable(_ url: URL) -> Bool {
