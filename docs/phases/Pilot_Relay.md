@@ -1,7 +1,7 @@
 # Pilot — your live session is the PM; Allnighter runs the crew
 
 Status: **Specced — sibling mode of the shipped PM Relay (`PM_Relay.md`), same substrate**
-Owner: AllnighterCore + CLI/MCP (GUI observes for free)
+Owner: AllnighterCore + CLI (GUI observes for free)
 Updated: 2026-07-16
 
 > One sentence: **Pilot** = this session is the PM, Allnighter is the crew chief
@@ -170,6 +170,6 @@ story in one feature.
 | State/status/store | `AllnighterCore/RelayState.swift`, `AllnighterEngine/RelayStateStore.swift` |
 | Verdict parse (CLI file path) | `AllnighterCore/RelayVerdict.swift` |
 | Gate | `AllnighterCore/HandoverGate.swift` |
-| CLI/MCP surfaces | `AllnighterCLI/RelayCLI.swift`, `MCPRelayHandlers.swift` |
+| CLI surface | `AllnighterCLI/RelayCLI.swift` |
 | Thread projection | `AllnighterEngine/RelayThreadProjector.swift` |
 | The shipped sibling | `docs/phases/PM_Relay.md` |
