@@ -50,6 +50,18 @@ Output schema: `errorExplainJSON`.
 
 Examples: `doctor_explain`.
 
+### `alln bootstrap`
+
+Print a paste-ready agent-activation snippet for a host's context file (never edits files).
+
+Flags:
+- `--host <host>` — claude | cursor | codex | generic (default generic).
+- `--json` — Structured { host, pasteTarget, snippet }.
+
+Output schema: `bootstrapJSON`.
+
+Examples: `bootstrap_json`.
+
 ### `alln models`
 
 List model catalog and Bench state.
@@ -1224,6 +1236,7 @@ Output schema: `helpTopicsJSON`.
 - `docs_all` — Generate the full reference: `alln docs`
 - `doctor_json` — Structured diagnostics: `alln doctor --json`
 - `doctor_explain` — Explain an error code: `alln doctor explain SOURCE_AUTH_EXPIRED --json`
+- `bootstrap_json` — Agent activation snippet for Claude Code: `alln bootstrap --host claude --json`
 - `models_json` — List model catalog and Bench state: `alln models --json`
 - `team_show_json` — Show the current team: `alln team show --json`
 - `teams_code_json` — List Code teams: `alln teams --lane code --json`

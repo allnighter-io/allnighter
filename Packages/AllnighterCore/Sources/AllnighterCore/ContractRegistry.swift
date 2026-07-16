@@ -66,6 +66,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case stallEpisodeJSON
         case pendingQueueJSON
         case relayJSON
+        case bootstrapJSON
     }
 
     public struct ArgSpec: Codable, Sendable, Equatable {

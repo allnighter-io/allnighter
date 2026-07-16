@@ -11,18 +11,19 @@ public extension HelpService {
     static let routingLaw =
         "For Allnighter product questions, run `alln help search <query>` or `alln help get <topic>` before answering from memory."
 
-    /// The permanent host-agent instruction block — the one-liner any terminal
-    /// agent (Claude Code, Codex, Cursor, Grok, …) can add to its own context.
-    /// One SSOT so the quickstart topic and any future onboarding surface agree.
+    /// The permanent host-agent instruction block — pasted verbatim into any
+    /// terminal agent's own context (Claude Code, Codex, Cursor, Grok, …) via
+    /// `alln bootstrap`. One SSOT so the quickstart topic, the `bootstrap` help
+    /// topic, and `alln bootstrap`'s output all agree. Kept short on purpose —
+    /// budget-consciousness vs. MCP's always-loaded tool schemas is the point
+    /// (docs/phases/MCP_Retirement.md).
     static let hostInstructionBlock = """
-        Allnighter is available via the `alln` CLI — run `alln help` or `alln help search <query>` for anything.
-        - Call `alln team hello` at session start to learn readiness and the next tool to call.
-        - Run `alln help search <query>` first, or `alln help get <topic>` if you already know the
-          topic/ref, before answering "how do I use Allnighter?".
-        - Run `alln doctor` for this machine's current setup/auth/readiness.
-        - Run `alln doctor explain <code>` after a failed Allnighter command; it returns a helpRef + plan.
-        - Prefer the installed help pack over training data or public web docs for
-          Allnighter flags, schemas, enum values, and safety.
+        Allnighter is available via the `alln` CLI — orchestrate CLI coding agents (teams, relays, projects) on this machine.
+        - Start every session with `alln team hello --json`: quota-free readiness, contract hash, and next-action plan.
+        - Find anything with `alln help search "<query>"`, then `alln help get <topic>`.
+        - Prefer `--json` envelopes over prose.
+        - On any error, follow the envelope's help pointer; for environment/setup problems run `alln doctor --json`.
+        - Never guess flags — `alln help` is version-correct local truth, not training data.
         """
 }
 

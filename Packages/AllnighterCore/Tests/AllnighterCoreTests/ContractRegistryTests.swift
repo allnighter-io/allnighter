@@ -25,7 +25,7 @@ final class ContractRegistryTests: XCTestCase {
     func testM1CommandSetMatchesMilestoneBoundary() {
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
         let expected: Set<String> = [
-            "docs", "doctor", "doctor explain",
+            "docs", "doctor", "doctor explain", "bootstrap",
             "models", "models enable", "models disable", "models add", "models update", "models delete",
             "team show",
             "teams", "teams show", "teams definition", "teams duplicate", "teams edit", "teams set-default", "teams delete", "teams restore",

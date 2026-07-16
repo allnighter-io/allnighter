@@ -107,3 +107,22 @@ the full surface. Nothing anywhere instructs configuring an MCP server.
 - Mac app (`xcodebuild -scheme AllnighterMac build`) — **BUILD SUCCEEDED**; zero
   references to deleted MCP symbols found (only doc comments + a few Settings
   help-text strings, all reworded to drop "MCP").
+
+## Activation (the replacement surface)
+
+Retiring MCP could not mean retiring activation — the old `alln mcp install`
+was the product's onboarding UX (print a paste-ready host snippet), and losing
+it without a replacement would mean agents never find Allnighter at all. The
+founder's soft spot: treat the bootstrap snippet as first-class product
+surface, not a docs footnote. `alln bootstrap [--host claude|cursor|codex|generic]
+[--json]` is that replacement — same consent posture as the old install
+(prints, never edits files), now a real CLI verb with a `CommandSpec`, a
+`bootstrap` help topic (findable via `alln help search "install"` / "setup" /
+"connect agent"), and a `--json` envelope (`{ host, pasteTarget, snippet }`)
+so an agent can install itself. The snippet itself (`HelpService.
+hostInstructionBlock`, shared SSOT with the `quickstart` topic) teaches the
+whole trusted workflow in ~6 lines: `alln team hello --json` for quota-free
+discovery, `alln help search`/`alln help get` for anything else, prefer
+`--json` envelopes, follow the error envelope's help pointer (`alln doctor
+--json` for environment problems), never guess flags. No humans in the loop —
+CLI-to-CLI and agent-first is still a thing without MCP.

@@ -61,6 +61,7 @@ struct AllnighterCLI {
         case "pending": await PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "stalled": StalledCLI.run(args.first, Array(args.dropFirst()))
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
+        case "bootstrap": runBootstrap(args)
         case "install-cli": printInstallCLI()
         case "--help", "-h": printHelp()   // "help" is handled above via HelpCLI
         default:
@@ -1229,6 +1230,23 @@ struct AllnighterCLI {
         }
     }
 
+    /// `alln bootstrap [--host claude|cursor|codex|generic] [--json]` — the
+    /// activation surface that replaced `alln mcp install` (docs/phases/
+    /// MCP_Retirement.md §Activation). Prints, never writes: same consent
+    /// posture as the retired MCP install.
+    static func runBootstrap(_ args: [String]) {
+        let opts = Options(args)
+        let hostArg = opts.value("host") ?? "generic"
+        guard let host = Bootstrap.Host(argument: hostArg) else {
+            fail(code: "CLI_USAGE_ERROR", message: "unknown host: \(hostArg) (use claude|cursor|codex|generic)")
+        }
+        if opts.flag("json") {
+            print(Bootstrap.jsonString(host: host))
+        } else {
+            print(Bootstrap.render(host: host))
+        }
+    }
+
     static func printInstallCLI() {
         let path = CommandLine.arguments.first ?? "alln"
         print("""
@@ -1257,6 +1275,7 @@ struct AllnighterCLI {
           boost-window show|set|seed|observations [--json]           configure the Boost window
           doctor [--json] [--full]                                  recovery surface; --full smoke-probes (spends quota)
           doctor explain <code> [--json]                            explain an error/recovery code
+          bootstrap [--host claude|cursor|codex|generic] [--json]   paste-ready agent-activation snippet (never edits files)
           docs [topic] [--errors|--schema|--examples]               generated agent-facing reference
           detect                                                    first-run CLI detection, headless
           dev export-contracts [--check]                            regenerate/verify generated contract artifacts

@@ -110,6 +110,34 @@
 
       ],
       "exampleIds" : [
+        "bootstrap_json"
+      ],
+      "flags" : [
+        {
+          "name" : "host",
+          "summary" : "claude | cursor | codex | generic (default generic).",
+          "takesValue" : true,
+          "valueType" : "host"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured { host, pasteTarget, snippet }.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "bootstrap",
+      "outputSchema" : "bootstrapJSON",
+      "summary" : "Print a paste-ready agent-activation snippet for a host's context file (never edits files)."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
         "models_json"
       ],
       "flags" : [
@@ -3799,6 +3827,11 @@
       "command" : "alln doctor explain SOURCE_AUTH_EXPIRED --json",
       "id" : "doctor_explain",
       "title" : "Explain an error code"
+    },
+    {
+      "command" : "alln bootstrap --host claude --json",
+      "id" : "bootstrap_json",
+      "title" : "Agent activation snippet for Claude Code"
     },
     {
       "command" : "alln models --json",

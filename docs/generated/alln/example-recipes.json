@@ -15,6 +15,11 @@
     "title" : "Explain an error code"
   },
   {
+    "command" : "alln bootstrap --host claude --json",
+    "id" : "bootstrap_json",
+    "title" : "Agent activation snippet for Claude Code"
+  },
+  {
     "command" : "alln models --json",
     "id" : "models_json",
     "title" : "List model catalog and Bench state"

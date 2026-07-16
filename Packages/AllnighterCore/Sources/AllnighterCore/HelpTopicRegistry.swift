@@ -64,12 +64,33 @@ public enum HelpTopicRegistry {
             team when you want a multi-worker pass. Check what your machine can do right \
             now with `alln team hello` or `alln doctor`.
 
-            Other agents: add this to your context — Allnighter is available via the `alln` \
-            CLI; run `alln help` or `alln help search <query>` for anything.
+            Other agents: run `alln bootstrap` for a paste-ready context snippet that teaches \
+            the whole loop in one paste (no MCP server, no config file edits).
             """,
             aliases: ["getting started", "first run", "what is allnighter"],
             relatedToolIds: ["team_hello", "doctor"],
-            relatedCommandNames: ["run", "doctor"],
+            relatedCommandNames: ["run", "doctor", "bootstrap"],
+            needsLiveCheck: false),
+
+        HelpTopic(
+            id: "bootstrap", title: "Bootstrap (agent activation)", audience: .agent,
+            summary: "`alln bootstrap [--host claude|cursor|codex|generic] [--json]` prints a paste-ready context snippet — no MCP server, no config file edits.",
+            bodyMarkdown: """
+            Allnighter has no MCP server and no daemon to install — the CLI is the whole \
+            agent surface, no humans in the loop. `alln bootstrap` PRINTS (never edits \
+            files) a short, paste-ready instruction block for a host agent's own context: \
+            CLAUDE.md for Claude, `.cursor/rules`/AGENTS.md for Cursor, AGENTS.md for Codex, \
+            or a host-neutral block naming all three when `--host` is omitted. The block \
+            teaches the whole loop in one paste — `alln team hello --json` for quota-free \
+            readiness, `alln help search`/`alln help get` for anything else, prefer `--json` \
+            envelopes, follow the error envelope's help pointer, never guess flags. \
+            `--json` returns `{ host, pasteTarget, snippet }` so an agent can install itself.
+            """,
+            aliases: ["install", "setup", "connect agent", "activation", "add to agent",
+                     "wire up allnighter", "onboard agent", "mcp install", "mcp", "install mcp"],
+            relatedToolIds: ["help", "team_hello", "doctor"],
+            relatedCommandNames: ["bootstrap"],
+            schemaRefs: [],
             needsLiveCheck: false),
 
         HelpTopic(

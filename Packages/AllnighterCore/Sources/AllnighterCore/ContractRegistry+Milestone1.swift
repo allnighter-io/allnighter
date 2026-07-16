@@ -50,6 +50,14 @@ public extension ContractRegistry {
             exampleIds: ["doctor_explain"]
         ),
         CommandSpec(
+            "bootstrap", summary: "Print a paste-ready agent-activation snippet for a host's context file (never edits files).", milestone: .m1,
+            flags: [
+                FlagSpec("host", takesValue: true, valueType: "host", summary: "claude | cursor | codex | generic (default generic)."),
+                FlagSpec("json", summary: "Structured { host, pasteTarget, snippet }."),
+            ],
+            outputSchema: .bootstrapJSON, exampleIds: ["bootstrap_json"]
+        ),
+        CommandSpec(
             "models", summary: "List model catalog and Bench state.", milestone: .m1,
             flags: [
                 FlagSpec("json", summary: "Structured ModelListJSON."),
@@ -858,6 +866,7 @@ public extension ContractRegistry {
         ExampleRecipe("docs_all", title: "Generate the full reference", command: "alln docs"),
         ExampleRecipe("doctor_json", title: "Structured diagnostics", command: "alln doctor --json"),
         ExampleRecipe("doctor_explain", title: "Explain an error code", command: "alln doctor explain SOURCE_AUTH_EXPIRED --json"),
+        ExampleRecipe("bootstrap_json", title: "Agent activation snippet for Claude Code", command: "alln bootstrap --host claude --json"),
         ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
         ExampleRecipe("team_show_json", title: "Show the current team", command: "alln team show --json"),
         ExampleRecipe("teams_code_json", title: "List Code teams", command: "alln teams --lane code --json"),
