@@ -173,6 +173,11 @@ no separate read-only mode; "reviewer, don't write" is process, and process live
 the PM's own prose, not a mechanized toggle (founder call 2026-07-16,
 `Relay_ReadOnly_Removal.md`).
 
+A spawned PM with repo access may complete small mechanical work itself rather than
+dispatching another dev round — by design, not a defect. Observed in the PL-S07
+adopt leg: the PM finished cleanup + commit instead of burning a round on a blocked
+dev seat. Prefer that when the remainder is small and already verified.
+
 ### 4.3 Artifacts
 
 Artifacts travel as **repo paths in prose** (exactly like the real transcript:
