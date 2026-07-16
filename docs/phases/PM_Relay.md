@@ -169,7 +169,14 @@ directly or bouncing them to the dev are both fine. Mechanically free: the PM tu
 already runs in the repo root under the same write-lock discipline, and turns are
 sequential. If the PM commits, round N+1's baseline moves with it — the dev's next
 review range is still exact. `--pm-read-only` exists for founders who want a
-mechanically non-mutating reviewer (answer-shape seat), off by default.
+mechanically non-mutating reviewer (answer-shape seat), off by default — **mechanically
+enforced, not prompted** (2026-07-16): `RelayReadOnlyEnforcer` rewrites the PM worker's
+own driver flags into its CLI's confirmed non-mutating mode (`claude_code`
+`--permission-mode plan`; `codex` `--sandbox read-only --ask-for-approval never`) before
+every PM turn dispatches; a driver with no confirmed mechanism (cursor_agent, grok,
+antigravity, opencode) fails the relay closed at start (`RELAY_PM_READONLY_UNSUPPORTED`)
+rather than silently running un-enforced, and a belt-and-braces HEAD-moved check stops
+the relay honestly if the mechanism is ever somehow defeated.
 
 ### 4.3 Artifacts
 
@@ -258,6 +265,7 @@ If the founder is still pasting, the feature is not done.
 | --- | --- |
 | Loop skeleton / seats / ceilings | `AllnighterEngine/RelayCoordinator.swift` |
 | Dispatch + write lock | `AllnighterEngine/RunService.swift`, `RunWriteLock.swift` |
+| `--pm-read-only` mechanism (§4.2) | `AllnighterEngine/RelayReadOnlyEnforcer.swift` |
 | Baseline pinning | `AllnighterEngine/GitObserver.swift` |
 | Gate shape | `AllnighterCore/TryFixGate.swift`, `HandoverGate.swift` |
 | Stall / compaction | `AllnighterEngine/StalledWorkDetector.swift`, `RelayTurnClassifier.swift` |

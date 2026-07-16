@@ -54,13 +54,15 @@ final class RelayCoordinatorTests: XCTestCase {
     private func makeService(
         pmScripts: [MockCommandRunner.Script],
         devScripts: [MockCommandRunner.Script],
-        runStore: RunStore
+        runStore: RunStore,
+        pmDriverId: String = "pm_cli",
+        devDriverId: String = "dev_cli"
     ) -> (RunService, SequencedCommandRunner) {
-        let pmModel = Model(id: "model_pm", displayName: "PM", modelLabel: "pm", driverId: "pm_cli", role: .both)
-        let devModel = Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "dev_cli", role: .both)
+        let pmModel = Model(id: "model_pm", displayName: "PM", modelLabel: "pm", driverId: pmDriverId, role: .both)
+        let devModel = Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: devDriverId, role: .both)
         let registry = DriverRegistry([
-            TestSupport.headlessManifest(id: "pm_cli", command: "pm_cli"),
-            TestSupport.headlessManifest(id: "dev_cli", command: "dev_cli"),
+            TestSupport.headlessManifest(id: pmDriverId, command: "pm_cli"),
+            TestSupport.headlessManifest(id: devDriverId, command: "dev_cli"),
         ])
         let runner = SequencedCommandRunner(queues: ["pm_cli": pmScripts, "dev_cli": devScripts])
         let service = RunService(
@@ -201,6 +203,102 @@ final class RelayCoordinatorTests: XCTestCase {
         XCTAssertTrue(state.note?.contains("RELAY_HANDOVER_UNSAFE") ?? false)
     }
 
+    // MARK: - --pm-read-only mechanical enforcement (PM_Relay.md §4.2)
+
+    /// The PM's driver is `claude_code` (a `RelayReadOnlyEnforcer`-supported driver) —
+    /// with `pmMayMutate: false`, the ACTUAL argv `RunService` dispatches must carry the
+    /// mechanism's flag (`--permission-mode plan`), and the dev turn's argv must NEVER
+    /// carry it, even though both turns run through the exact same `RunRequest` path.
+    func testPmReadOnlyDispatchesPmTurnThroughTheMechanismAndNeverTheDevTurn() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Reviewed, read-only.\n\n" + verdictJSON("continue", handover: "Implement the thing.")),
+            .init(stdout: "Round 2, done.\n\n" + verdictJSON("done", note: "Shipped.")),
+        ]
+        let devScripts: [MockCommandRunner.Script] = [.init(stdout: "Implemented and committed.")]
+        let (service, runner) = makeService(
+            pmScripts: pmScripts, devScripts: devScripts, runStore: runStore, pmDriverId: "claude_code")
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5, pmMayMutate: false
+        )
+        let state = await coordinator.run(config: config)
+
+        XCTAssertEqual(state.status, .done)
+        XCTAssertTrue(state.pmMayMutate == false)
+        let pmArgs = runner.capturedArgs(for: "pm_cli").first ?? []
+        XCTAssertTrue(pmArgs.contains("--permission-mode"), "PM turn must dispatch through the mechanism")
+        XCTAssertEqual(pmArgs.last, "plan")
+        let devArgs = runner.capturedArgs(for: "dev_cli").first ?? []
+        XCTAssertFalse(devArgs.contains("--permission-mode"), "the dev turn must NEVER receive the read-only mechanism")
+    }
+
+    /// A driver `RelayReadOnlyEnforcer` has no confirmed mechanism for must fail CLOSED —
+    /// the PM turn refuses to dispatch at all (never runs un-enforced with a prompt-only
+    /// "please don't write"), and the relay escalates naming the driver.
+    func testPmReadOnlyOnUnsupportedDriverFailsClosedAndEscalatesRatherThanDispatchingUnenforced() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        // pmDriverId defaults to "pm_cli" — not in RelayReadOnlyEnforcer.supported.
+        let (service, runner) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", pmMayMutate: false
+        )
+        let state = await coordinator.run(config: config)
+
+        XCTAssertEqual(state.status, .escalated)
+        XCTAssertEqual(runner.callCount(for: "pm_cli"), 0, "must never dispatch un-enforced")
+        XCTAssertTrue(state.note?.contains("no confirmed mechanical read-only mode") ?? false, state.note ?? "")
+        XCTAssertTrue(state.note?.contains("pm_cli") ?? false, state.note ?? "")
+        XCTAssertTrue(state.note?.contains("claude_code") ?? false, "must name a driver that CAN enforce it")
+    }
+
+    /// Belt-and-braces (PM_Relay.md §4.2): even if the mechanism is somehow bypassed —
+    /// here simulated by a `CommandRunner` that mutates the repo regardless of the argv
+    /// it was given — the coordinator's own HEAD-moved check must still catch it and
+    /// stop the relay, never silently proceed to the dev turn.
+    func testPmReadOnlyStopsRelayIfHeadMovedDuringPmTurnDespiteTheMechanism() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmModel = Model(id: "model_pm", displayName: "PM", modelLabel: "pm", driverId: "claude_code", role: .both)
+        let devModel = Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "dev_cli", role: .both)
+        let registry = DriverRegistry([
+            TestSupport.headlessManifest(id: "claude_code", command: "pm_cli"),
+            TestSupport.headlessManifest(id: "dev_cli", command: "dev_cli"),
+        ])
+        let runner = RepoMutatingPMCommandRunner(
+            repoPath: repo.path,
+            pmScript: .init(stdout: "Reviewed.\n\n" + verdictJSON("continue", handover: "Do the thing."))
+        )
+        let service = RunService(
+            models: [pmModel, devModel], registry: registry, runStore: runStore, commandRunner: runner,
+            writeLock: RunWriteLockRegistry(), defaultSettings: { DefaultModelSettings() }, probeRecords: { [] }
+        )
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", pmMayMutate: false
+        )
+        let state = await coordinator.run(config: config)
+
+        XCTAssertEqual(state.status, .stopped)
+        XCTAssertTrue(state.stoppedReason?.contains("read-only violation") ?? false, state.stoppedReason ?? "")
+        XCTAssertTrue(state.stoppedReason?.contains("HEAD") ?? false, state.stoppedReason ?? "")
+        XCTAssertEqual(runner.callCount(for: "dev_cli"), 0, "must never proceed to the dev turn on a failed safety guarantee")
+        XCTAssertEqual(state.rounds.count, 1)
+        XCTAssertEqual(state.rounds[0].outcome, .stopped)
+    }
+
     // MARK: - Ceilings
 
     func testMaxRoundsStops() async throws {
@@ -291,6 +389,50 @@ final class RelayCoordinatorTests: XCTestCase {
 
         let secondCallArgs = runner.capturedArgs(for: "pm_cli").last ?? []
         XCTAssertTrue(secondCallArgs.joined(separator: " ").contains("use staging"), "founder note must reach the PM prompt verbatim")
+    }
+
+    /// `pmMayMutate` follows the SAME rule as `projectRoot`/`docPath`/`pmWorkerId`/
+    /// `devWorkerId` on resume (PM_Relay.md §4.2): it's re-derived from the PERSISTED
+    /// state, never from the resume call's fresh `Config` (which the CLI/MCP resume
+    /// paths build WITHOUT re-asking for `--pm-read-only`, so it defaults `true`). A
+    /// `--pm-read-only` relay's guarantee must survive `--resume`.
+    func testResumePreservesPmMayMutateFalseFromPersistedStateEvenThoughResumeConfigDefaultsTrue() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "I need to know which env.\n\n" + verdictJSON("escalate", note: "staging or prod?")),
+        ]
+        let (service, runner) = makeService(
+            pmScripts: pmScripts, devScripts: [], runStore: runStore, pmDriverId: "claude_code")
+        let coordinator = RelayCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore,
+            idFactory: { "relay_readonly_resume_test" }
+        )
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", pmMayMutate: false
+        )
+        let escalated = await coordinator.run(config: config)
+        XCTAssertEqual(escalated.status, .escalated)
+        XCTAssertFalse(escalated.pmMayMutate)
+        XCTAssertEqual(stateStore.load(id: "relay_readonly_resume_test")?.pmMayMutate, false)
+
+        // The resume call's `Config` does NOT set `pmMayMutate` — it defaults `true`,
+        // mirroring exactly what `RelayCLI.parseResumeRequest`/`MCPRelayHandlers.resume`
+        // build (neither re-asks for --pm-read-only on resume).
+        runner.enqueue(command: "pm_cli", .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped.")))
+        let resumeConfig = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+        )
+        XCTAssertTrue(resumeConfig.pmMayMutate, "sanity: the resume call's own Config defaults to mutating")
+        let resumed = await coordinator.resume(relayId: "relay_readonly_resume_test", founderAnswer: "use staging", config: resumeConfig)
+
+        XCTAssertEqual(resumed?.status, .done)
+        XCTAssertEqual(resumed?.pmMayMutate, false, "the read-only guarantee must survive resume")
+        let secondCallArgs = runner.capturedArgs(for: "pm_cli").last ?? []
+        XCTAssertTrue(secondCallArgs.contains("--permission-mode"), "the resumed PM turn must still dispatch through the mechanism")
     }
 
     func testResumeOnNonEscalatedRelayReturnsNil() async throws {
@@ -507,6 +649,27 @@ final class RelayStateStoreTests: XCTestCase {
         XCTAssertEqual(store.list().map(\.id), ["relay_roundtrip"])
     }
 
+    /// Relays persisted before `pmMayMutate` existed have no such key in `relay.json` —
+    /// decode must default it to `true` (the field's meaning before this existed: every
+    /// relay's PM could mutate), never fail the whole load.
+    func testLoadDefaultsPmMayMutateTrueForPreExistingRelayJSONMissingTheField() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relaystore-legacy-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let store = RelayStateStore(rootDirectory: tmp)
+
+        let legacyDir = tmp.appendingPathComponent("relay_legacy", isDirectory: true)
+        try FileManager.default.createDirectory(at: legacyDir, withIntermediateDirectories: true)
+        let legacyJSON = """
+        {"id":"relay_legacy","projectRoot":"/repo","docPath":"docs/spec.md","pmWorkerId":"model_pm","devWorkerId":"model_dev","status":"done","rounds":[],"createdAt":"2026-06-01T00:00:00Z"}
+        """
+        try Data(legacyJSON.utf8).write(to: legacyDir.appendingPathComponent("relay.json"))
+
+        let loaded = store.load(id: "relay_legacy")
+        XCTAssertNotNil(loaded, "a pre-existing relay.json missing pmMayMutate must still decode")
+        XCTAssertEqual(loaded?.pmMayMutate, true)
+    }
+
     func testLoadMissingReturnsNil() {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relaystore-missing-\(UUID().uuidString)")
         let store = RelayStateStore(rootDirectory: tmp)
@@ -613,6 +776,46 @@ final class LockedBox<T>: @unchecked Sendable {
     var value: T {
         get { lock.withLock { stored } }
         set { lock.withLock { stored = newValue } }
+    }
+}
+
+// MARK: - Test double (belt-and-braces HEAD-moved guard)
+
+/// A `CommandRunner` that mutates the repo it's invoked in on EVERY `pm_cli` call,
+/// regardless of the argv it received — stands in for the read-only mechanism somehow
+/// being bypassed or silently failing (a manifest transform bug, a driver ignoring its
+/// own flag), so `RelayCoordinatorTests.testPmReadOnlyStopsRelayIfHeadMovedDuringPmTurnDespiteTheMechanism`
+/// can prove `RelayCoordinator`'s own HEAD-moved check catches it independently of
+/// `RelayReadOnlyEnforcer` actually working.
+final class RepoMutatingPMCommandRunner: CommandRunner, @unchecked Sendable {
+    private let repoPath: String
+    private let pmScript: MockCommandRunner.Script
+    private let lock = NSLock()
+    private var counts: [String: Int] = [:]
+
+    init(repoPath: String, pmScript: MockCommandRunner.Script) {
+        self.repoPath = repoPath
+        self.pmScript = pmScript
+    }
+
+    func callCount(for command: String) -> Int {
+        lock.withLock { counts[command, default: 0] }
+    }
+
+    func run(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) async -> CommandResult {
+        lock.withLock { counts[command, default: 0] += 1 }
+        if command == "pm_cli" {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            p.arguments = ["-C", repoPath, "commit", "--allow-empty", "-q", "-m", "pm mutated despite --pm-read-only"]
+            p.standardOutput = Pipe(); p.standardError = Pipe(); p.standardInput = FileHandle.nullDevice
+            try? p.run(); p.waitUntilExit()
+            return CommandResult(stdout: pmScript.stdout, stderr: pmScript.stderr, exitCode: pmScript.exitCode)
+        }
+        return CommandResult(stdout: "", stderr: "", exitCode: 0)
     }
 }
 
