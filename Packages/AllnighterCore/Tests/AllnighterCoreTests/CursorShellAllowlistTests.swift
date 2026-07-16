@@ -23,18 +23,33 @@ final class CursorShellAllowlistTests: XCTestCase {
         return url
     }
 
-    private func doctorInputs(cursorConfig: URL?) -> DoctorReport.Inputs {
+    private func writeProjectOverride(_ json: String) throws -> URL {
+        let dir = tempDir.appendingPathComponent(".cursor", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("cli.json")
+        try json.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    private func doctorInputs(
+        cursorConfig: URL?,
+        projectOverride: URL? = nil
+    ) -> DoctorReport.Inputs {
         .init(
             binaryVersion: "0.1.0",
             contractVersion: "1.0.0",
             configDirWritable: true,
             runsDirWritable: true,
             full: false,
-            cursorCLIConfigURL: cursorConfig
+            cursorCLIConfigURL: cursorConfig,
+            cursorProjectOverrideURL: projectOverride
         )
     }
 
-    private func buildDoctor(cursorConfig: URL?) -> DoctorResult {
+    private func buildDoctor(
+        cursorConfig: URL?,
+        projectOverride: URL? = nil
+    ) -> DoctorResult {
         let models = [
             Model(id: "model_cursor_auto", displayName: "Auto", modelLabel: "auto",
                   driverId: "cursor_agent", role: .answerer),
@@ -48,7 +63,7 @@ final class CursorShellAllowlistTests: XCTestCase {
         ]
         return DoctorReport.build(
             models: models, manifests: manifests, records: records,
-            inputs: doctorInputs(cursorConfig: cursorConfig)
+            inputs: doctorInputs(cursorConfig: cursorConfig, projectOverride: projectOverride)
         )
     }
 
@@ -71,13 +86,38 @@ final class CursorShellAllowlistTests: XCTestCase {
         XCTAssertEqual(c.status, .degraded)
         XCTAssertTrue(c.requiresManual)
         XCTAssertTrue(c.detail.contains(url.path), "detail must name the config file")
-        XCTAssertTrue(c.detail.contains(".cursor/cli.json"), "detail must note project-scoped override")
+        XCTAssertTrue(c.detail.contains(".cursor/cli.json"), "detail must note project override remedy")
+        XCTAssertTrue(c.detail.contains("process start"), "detail must note when override takes effect")
         XCTAssertTrue(c.detail.contains("Shell(ls)") || c.detail.lowercased().contains("restrictive"))
 
-        // Through the real doctor dispatch path.
         let r = buildDoctor(cursorConfig: url)
         XCTAssertEqual(check(r)?.status, .degraded)
         XCTAssertEqual(r.status, .degraded, "restrictive allowlist degrades overall doctor status")
+    }
+
+    func testProjectOverrideMakesRestrictiveGlobalOk() throws {
+        let global = try writeConfig("""
+        {
+          "permissions": { "allow": ["Shell(ls)"], "deny": [] },
+          "approvalMode": "allowlist",
+          "version": 1
+        }
+        """)
+        let project = try writeProjectOverride("""
+        {
+          "permissions": {
+            "allow": ["Shell(git)", "Shell(python3)", "Shell(bash)"],
+            "deny": []
+          }
+        }
+        """)
+        let c = CursorShellAllowlist.check(configURL: global, projectOverrideURL: project)
+        XCTAssertEqual(c.status, .ok)
+        XCTAssertTrue(c.detail.contains(project.path))
+
+        let r = buildDoctor(cursorConfig: global, projectOverride: project)
+        XCTAssertEqual(check(r)?.status, .ok)
+        XCTAssertEqual(r.status, .ok, "adequate project override clears degraded doctor status")
     }
 
     func testPermissiveAllowlistIsOk() throws {
@@ -107,7 +147,6 @@ final class CursorShellAllowlistTests: XCTestCase {
 
         let r = buildDoctor(cursorConfig: missing)
         XCTAssertEqual(check(r)?.status, .notChecked)
-        // Missing optional vendor config must not fail the overall report.
         XCTAssertEqual(r.status, .ok)
     }
 
@@ -142,6 +181,23 @@ final class CursorShellAllowlistTests: XCTestCase {
         let c = CursorShellAllowlist.check(configURL: url)
         XCTAssertEqual(c.status, .degraded)
         XCTAssertTrue(c.detail.contains(".cursor/cli.json"))
+    }
+
+    func testFixHintNamesVerifiedRemedy() {
+        let hint = CursorShellAllowlist.fixHint(globalPath: "/tmp/cli-config.json")
+        XCTAssertTrue(hint.contains("~/.cursor/cli-config.json") || hint.contains("/tmp/cli-config.json"))
+        XCTAssertTrue(hint.contains(".cursor/cli.json"))
+        XCTAssertTrue(hint.contains("process start"))
+        XCTAssertTrue(hint.contains("Shell(git)"))
+        XCTAssertTrue(hint.contains("Shell(python3)"))
+    }
+
+    func testProjectOverrideDiscovery() throws {
+        let project = try writeProjectOverride("""
+        { "permissions": { "allow": ["Shell(git)"], "deny": [] } }
+        """)
+        let found = CursorShellAllowlist.projectOverrideURL(near: tempDir)
+        XCTAssertEqual(found?.path, project.path)
     }
 
     func testCheckNameIsContractListed() {

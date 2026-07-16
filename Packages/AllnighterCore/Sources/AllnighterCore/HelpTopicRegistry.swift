@@ -267,11 +267,13 @@ public enum HelpTopicRegistry {
             Allnighter uses your existing CLI subscriptions and logins — never API keys. If a \
             source is blocked, run `alln doctor` (optionally for one agent) to see the exact \
             failing check, then `error_explain` for the recovery text. Auth is live state: the \
-            help bundle cannot know it — call doctor. Cursor gotcha: a restrictive shell \
-            allowlist in `~/.cursor/cli-config.json` (e.g. `Shell(ls)` only) silently caps \
-            headless cursor-agent turns even under `--trust` — `alln doctor` reports this as \
-            `source.cursor_agent.shellAllowlist` (Allnighter never writes vendor config; widen \
-            the allowlist yourself or override with project-scoped `.cursor/cli.json`).
+            help bundle cannot know it — call doctor. Cursor gotcha: headless cursor-agent \
+            respects `permissions.allow` in `~/.cursor/cli-config.json` even under `--trust`; \
+            denied shell tools fail silently. Widen the global allowlist (e.g. `Shell(git)`, \
+            `Shell(python3)`, or `Shell(**)`), or add a repo-root `.cursor/cli.json` with \
+            the same `permissions.allow` / `permissions.deny` schema — project overrides \
+            merge at cursor-agent process start (next headless turn). `alln doctor` reports \
+            this as `source.cursor_agent.shellAllowlist` (Allnighter never writes vendor config).
             """,
             aliases: ["auth", "login", "sign in", "blocked", "why can't allnighter run codex", "api key"],
             sections: [

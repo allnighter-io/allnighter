@@ -24,6 +24,8 @@ public enum DoctorReport {
         /// Injectable for tests — never read the real user file from unit tests.
         /// `nil` → the shell-allowlist check reports `notChecked`.
         public var cursorCLIConfigURL: URL?
+        /// Optional repo-scoped override (`.cursor/cli.json` near cwd). Injectable for tests.
+        public var cursorProjectOverrideURL: URL?
 
         public init(
             binaryVersion: String,
@@ -34,7 +36,8 @@ public enum DoctorReport {
             pendingDirWritable: Bool = true,
             coordinator: DoctorResult.Coordinator? = nil,
             full: Bool,
-            cursorCLIConfigURL: URL? = nil
+            cursorCLIConfigURL: URL? = nil,
+            cursorProjectOverrideURL: URL? = nil
         ) {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
@@ -45,6 +48,7 @@ public enum DoctorReport {
             self.coordinator = coordinator
             self.full = full
             self.cursorCLIConfigURL = cursorCLIConfigURL
+            self.cursorProjectOverrideURL = cursorProjectOverrideURL
         }
     }
 
@@ -86,7 +90,10 @@ public enum DoctorReport {
         }
 
         // Cursor shell allowlist — read-only vendor config; never mutated.
-        let shellAllowlist = CursorShellAllowlist.check(configURL: inputs.cursorCLIConfigURL)
+        let shellAllowlist = CursorShellAllowlist.check(
+            configURL: inputs.cursorCLIConfigURL,
+            projectOverrideURL: inputs.cursorProjectOverrideURL
+        )
         checks.append(shellAllowlist)
 
         // Bench-readiness aggregate.
