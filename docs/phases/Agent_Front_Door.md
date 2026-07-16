@@ -1,6 +1,16 @@
 # Agent Front Door — no CLI agent ever routes around alln again
 
-Status: In progress — piloted delivery #4 (PM = live Claude session; dev = Cursor Grok 4.5)
+Status: SHIPPED — piloted delivery #4, relay_c1e3c087 (PM = live Claude session; dev
+= Cursor Grok 4.5). F1+F2 `4c0d9c49`: install-cli PERFORMS (installed/repaired/
+alreadyInstalled, --path/--print, INSTALL_CLI_TARGET_UNWRITABLE guidance),
+`binary.onPath` doctor check, bootstrap self-heals (binaryPath/onPath + fallback
+line + install step off-PATH). F3+F4+version `94bd9251`: models --json empty root
+cause = CatalogRoots/ModelCatalogPaths ignored ALLNIGHTER_SUPPORT_DIR while
+SetupStore honored it (roster in a different tree → --bench filtered empty);
+unified via AllnighterSupportRoot; counsel+nextActions on empty models/teams/doctor
+(hello was already fine); `alln version`; help/AGENTS.md coherent. PM independently
+verified: real temp-dir install runs, isolated-context models now populated,
+contracts clean. Closes Opus field reports #1, #3, #4.
 Owner: AllnighterCore + CLI
 Updated: 2026-07-16
 
