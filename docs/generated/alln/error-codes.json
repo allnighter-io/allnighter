@@ -657,12 +657,12 @@
     "ruleId" : "relay.verdict.unparseable"
   },
   {
-    "agentAction" : "Use a seat whose driver has a confirmed read-only mode (claude_code or codex) until PN-S06 ships clonefile isolation for every driver. Or wait for PN-S06.",
+    "agentAction" : "Retry the panel round. If it persists, free disk space and confirm the project root is readable — clone isolation failed to materialize for a non-RO-enforcing seat.",
     "code" : "PANEL_SEAT_NOT_ISOLATED",
     "exitClass" : "operational",
-    "explain" : "Panel v0 refuses seats whose driver cannot be mechanically read-only-enforced (only claude_code plan mode and codex read-only sandbox are confirmed). Honesty over availability — PN-S06 (clonefile) is the coming fix so no seat is refused.",
-    "requiresManual" : true,
-    "retryable" : false,
+    "explain" : "A panel seat needed ephemeral clone isolation (driver has no confirmed RO mode) but the clone could not be materialised (copy failed, source unreadable, or disk full). Seats are never refused for lacking a RO mode — this code is only for clone materialization failure.",
+    "requiresManual" : false,
+    "retryable" : true,
     "ruleId" : "panel.seat.not_isolated"
   },
   {

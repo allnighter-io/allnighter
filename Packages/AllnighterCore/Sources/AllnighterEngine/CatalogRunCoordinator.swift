@@ -38,6 +38,10 @@ public actor CatalogRunCoordinator {
     /// present, that seat gets its own founder prompt instead of the shared
     /// `prompt` — answer workers stay blind and parallel either way. Nil/missing
     /// keys keep the shared-prompt path (no behavior change for existing callers).
+    /// `workerWorkingDirectories` is the additive per-seat cwd override (PN-S06
+    /// clonefile isolation): when a worker id is present, that seat's process
+    /// runs with that working directory instead of `repoRoot`. Nil/missing keys
+    /// keep the shared-root path.
     /// `persist` is invoked with the run at every status/stage transition —
     /// durable BEFORE workers start, and again as answers/reviews/plan settle
     /// (Journal0 incremental durability). Returns the settled `TeamRun`.
@@ -51,6 +55,7 @@ public actor CatalogRunCoordinator {
         repoRoot: String? = nil,
         deliveries: [IncludedAttachmentDelivery] = [],
         workerPrompts: [String: String]? = nil,
+        workerWorkingDirectories: [String: String]? = nil,
         persist: (@Sendable (TeamRun) -> Void)? = nil
     ) async -> TeamRun {
         let modelByID = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -83,7 +88,8 @@ public actor CatalogRunCoordinator {
         if let scout = resolved.scoutWorker {
             let (scoutAnswers, scoutSnapshots) = await runWorkers(
                 [scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID,
-                run: &run, repoRoot: repoRoot, deliveries: deliveries, workerPrompts: nil, persist: persist)
+                run: &run, repoRoot: repoRoot, deliveries: deliveries, workerPrompts: nil,
+                workerWorkingDirectories: workerWorkingDirectories, persist: persist)
             applySnapshots(scoutSnapshots, to: &run)
             merge(scoutAnswers, into: &run)
             if let out = scoutAnswers.first, out.hasAnswer, let text = out.output, !text.isEmpty {
@@ -99,7 +105,8 @@ public actor CatalogRunCoordinator {
         let (answers, answerSnapshots) = await runWorkers(
             resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort,
             modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries,
-            workerPrompts: workerPrompts, persist: persist)
+            workerPrompts: workerPrompts, workerWorkingDirectories: workerWorkingDirectories,
+            persist: persist)
         applySnapshots(answerSnapshots, to: &run)
         merge(answers, into: &run)
         persist?(run)
@@ -110,7 +117,8 @@ public actor CatalogRunCoordinator {
             let (reviews, reviewSnapshots) = await runWorkers(
                 resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort,
                 modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries,
-                workerPrompts: nil, persist: persist)
+                workerPrompts: nil, workerWorkingDirectories: workerWorkingDirectories,
+                persist: persist)
             applySnapshots(reviewSnapshots, to: &run)
             merge(reviews, into: &run)
             persist?(run)
@@ -148,6 +156,7 @@ public actor CatalogRunCoordinator {
         repoRoot: String?,
         deliveries: [IncludedAttachmentDelivery] = [],
         workerPrompts: [String: String]? = nil,
+        workerWorkingDirectories: [String: String]? = nil,
         persist: (@Sendable (TeamRun) -> Void)? = nil
     ) async -> (answers: [TeamAnswer], snapshots: [String: String]) {
         var snapshots: [String: String] = [:]
@@ -179,6 +188,8 @@ public actor CatalogRunCoordinator {
                         deliveries: deliveries,
                         readsImages: manifest?.canReadImages ?? false)
                 snapshots[worker.id] = workerPrompt
+                // Per-seat cwd when provided (Panel clone isolation); else shared repo root.
+                let workingDirectory = workerWorkingDirectories?[worker.id] ?? repoRoot
                 group.addTask {
                     guard let model else {
                         return TeamAnswer(memberId: worker.id, modelId: worker.modelId, role: role,
@@ -192,7 +203,7 @@ public actor CatalogRunCoordinator {
                     }
                     let result = await runner.collect(WorkerInvocation(
                         model: model, manifest: manifest, prompt: workerPrompt, effort: effort,
-                        workingDirectory: repoRoot))
+                        workingDirectory: workingDirectory))
                     return TeamAnswer(memberId: worker.id, modelId: model.id, role: role, result: result)
                 }
             }

@@ -174,6 +174,22 @@ public struct PanelRoundJSON: Codable, Equatable, Sendable {
     }
 }
 
+/// Per-seat isolation mode echoed on `panel start` (PN-S06).
+public struct PanelSeatIsolationJSON: Codable, Equatable, Sendable {
+    public var workerId: String
+    /// `driverReadOnly` | `clone`
+    public var mode: String
+    public var driverId: String?
+    public var advisory: String?
+
+    public init(workerId: String, mode: String, driverId: String? = nil, advisory: String? = nil) {
+        self.workerId = workerId
+        self.mode = mode
+        self.driverId = driverId
+        self.advisory = advisory
+    }
+}
+
 /// `panel start --json` envelope.
 public struct PanelStartJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int
@@ -186,6 +202,8 @@ public struct PanelStartJSON: Codable, Equatable, Sendable {
     public var nextCommand: String
     public var teamId: String?
     public var rememberedTeam: Bool?
+    /// Per-seat isolation mode (driver RO args on real root vs ephemeral clone).
+    public var isolation: [PanelSeatIsolationJSON]?
 
     public init(
         schemaVersion: Int = 1,
@@ -197,7 +215,8 @@ public struct PanelStartJSON: Codable, Equatable, Sendable {
         scaffoldPath: String,
         nextCommand: String,
         teamId: String? = nil,
-        rememberedTeam: Bool? = nil
+        rememberedTeam: Bool? = nil,
+        isolation: [PanelSeatIsolationJSON]? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -209,6 +228,7 @@ public struct PanelStartJSON: Codable, Equatable, Sendable {
         self.nextCommand = nextCommand
         self.teamId = teamId
         self.rememberedTeam = rememberedTeam
+        self.isolation = isolation
     }
 }
 

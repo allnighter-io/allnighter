@@ -204,8 +204,10 @@ public enum HelpTopicRegistry {
             Round 1 uses a built-in brief; round 2+ needs `--brief` with a rejection-carry \
             line. You refute and edit the target with your own hands. `--seats a,b` reruns \
             replace those seats on the SAME round (new attempt). `panel done` is declaration \
-            only. Then chain: `alln pair pilot start --doc <same>`. v0 seats require \
-            read-only-enforcing drivers (claude/codex); PN-S06 adds clonefile for the rest.
+            only. Then chain: `alln pair pilot start --doc <same>`. Every seat is \
+            isolated: claude/codex keep confirmed RO args on the real root; every other \
+            driver runs against an ephemeral APFS clone (copy, not a worktree). No seat \
+            is refused for lacking a RO mode.
             """,
             aliases: [
                 "panel this", "blind jury", "pressure test", "panel round", "panel start",
@@ -214,7 +216,7 @@ public enum HelpTopicRegistry {
             sections: [
                 .init("roster", "Team catalog is the roster", "`--team <alias>` fuzzy-resolves a TeamPreset (unique→echoed, ambiguous→candidates with seat count). Zero-config uses remembered-else-lane-default. `--seat <alias>:<lens>` overrides/extends."),
                 .init("rounds", "Blocking rounds + NDJSON", "`panel round` blocks; seats stream as they settle. Partial failures still settle. Built-in brief on round 1; focus brief required later."),
-                .init("safety", "Read-only by mechanism", "Panels never take the mutating write lock. v0 refuses non-RO drivers with PANEL_SEAT_NOT_ISOLATED (PN-S06 clonefile is the fix)."),
+                .init("safety", "Read-only by mechanism", "Panels never take the mutating write lock. RO-enforcing drivers keep plan/sandbox args on the real root; other seats get an ephemeral clone under panels/<id>/clones/. PANEL_SEAT_NOT_ISOLATED means clone materialization failed, not “driver banned”."),
                 .init("chain", "Harden then build", "After `panel done`, `alln pair pilot start --doc <same>` continues in the same cockpit."),
             ],
             relatedToolIds: [],

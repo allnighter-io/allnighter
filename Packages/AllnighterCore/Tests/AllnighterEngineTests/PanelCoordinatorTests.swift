@@ -55,7 +55,7 @@ final class PanelCoordinatorTests: XCTestCase {
         reports: [String: String] = [:],
         statuses: [String: SeatResult.Status] = [:]
     ) -> PanelCoordinator.SeatDispatch {
-        { seats, brief, targetPath, projectRoot in
+        { seats, brief, targetPath, projectRoot, _panelId in
             seats.map { seat in
                 let report = reports[seat.workerId] ?? """
                 Seat \(seat.workerId) saw brief=\(brief.prefix(20)) target=\(targetPath)
@@ -196,7 +196,7 @@ final class PanelCoordinatorTests: XCTestCase {
 
     func testSeatsRerunReplacesOnlyRerunSeatsAsNewAttempt() async throws {
         let (root, path) = try makeTarget()
-        let (coord, store) = makeCoordinator(dispatch: { seats, _, _, _ in
+        let (coord, store) = makeCoordinator(dispatch: { seats, _, _, _, _ in
             seats.map { seat in
                 PanelFindingsParser.seatResult(
                     workerId: seat.workerId,

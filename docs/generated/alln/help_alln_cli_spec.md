@@ -1369,7 +1369,7 @@ Output schema: `helpTopicsJSON`.
 | `RELAY_ROUND_IN_FLIGHT` | no | yes | Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
-| `PANEL_SEAT_NOT_ISOLATED` | yes | no | Use a seat whose driver has a confirmed read-only mode (claude_code or codex) until PN-S06 ships clonefile isolation for every driver. Or wait for PN-S06. |
+| `PANEL_SEAT_NOT_ISOLATED` | no | yes | Retry the panel round. If it persists, free disk space and confirm the project root is readable — clone isolation failed to materialize for a non-RO-enforcing seat. |
 | `PANEL_NOT_FOUND` | yes | no | Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`. |
 | `PANEL_ROUND_IN_FLIGHT` | no | yes | Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`. |
 | `PANEL_TARGET_MISSING` | yes | no | Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one. |

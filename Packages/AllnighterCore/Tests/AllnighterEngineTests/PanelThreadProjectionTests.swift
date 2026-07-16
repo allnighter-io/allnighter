@@ -61,7 +61,7 @@ final class PanelThreadProjectionTests: XCTestCase {
         runIds: [String: String] = [:],
         reasons: [String: String] = [:]
     ) -> PanelCoordinator.SeatDispatch {
-        { seats, brief, targetPath, projectRoot in
+        { seats, brief, targetPath, projectRoot, _panelId in
             seats.map { seat in
                 let report = reports[seat.workerId] ?? """
                 Seat \(seat.workerId) report on \(targetPath)
@@ -249,7 +249,7 @@ final class PanelThreadProjectionTests: XCTestCase {
             }
         }
         let counter = AttemptCounter()
-        let dispatch: PanelCoordinator.SeatDispatch = { seats, _, _, _ in
+        let dispatch: PanelCoordinator.SeatDispatch = { seats, _, _, _, _ in
             let attempt = counter.next()
             return seats.map { seat in
                 var result = PanelFindingsParser.seatResult(

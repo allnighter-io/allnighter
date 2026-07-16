@@ -215,22 +215,23 @@ final class PanelCLITests: XCTestCase {
         XCTAssertEqual(request.teamId, "code_core")
     }
 
-    func testParseStartNonROSeatRefused() throws {
+    func testParseStartNonROSeatAcceptedPlansClone() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
-        // cursor is not RO-enforcing in v0
-        XCTAssertThrowsError(try PanelCLI.parseStartConfig(
+        // PN-S06: cursor is not RO-enforcing but is no longer refused — clone isolation.
+        let request = try PanelCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id, "--seat", "model_cursor_composer_25:x"],
             projectStore: store,
             models: roModels(),
             registry: roRegistry(),
             teams: sampleTeams()
-        )) { error in
-            guard case .seatNotIsolated(let workerId, _) = error as? PanelCLI.PanelCLIError else {
-                return XCTFail("expected seatNotIsolated, got \(error)")
-            }
-            XCTAssertEqual(workerId, "model_cursor_composer_25")
-        }
+        )
+        XCTAssertEqual(request.seats.map(\.workerId), ["model_cursor_composer_25"])
+        let plan = PanelCoordinator.isolationPlan(
+            seats: request.seats, models: roModels(), registry: roRegistry()
+        )
+        XCTAssertEqual(plan.first?.mode, .clone)
+        XCTAssertTrue(plan.first?.advisory?.contains("isolation: clone") == true)
     }
 
     func testParseStartInvalidMaxRounds() throws {

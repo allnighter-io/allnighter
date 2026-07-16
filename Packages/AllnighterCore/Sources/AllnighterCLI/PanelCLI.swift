@@ -82,6 +82,11 @@ enum PanelCLI {
                 projectRoot: state.projectRoot,
                 targetPath: state.targetPath
             )
+            let isolation = PanelCoordinator.isolationPlan(
+                seats: state.seats,
+                models: runtime.models,
+                registry: runtime.registry
+            )
             emitStartResult(
                 state,
                 targetHash: targetHash,
@@ -89,12 +94,11 @@ enum PanelCLI {
                 scaffoldPath: scaffoldPath,
                 rememberedTeam: request.rememberedTeam,
                 laneDefault: request.laneDefault,
+                isolation: isolation,
                 json: opts.flag("json")
             )
         case .failure(.emptyRoster):
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "panel roster is empty — pass --team or --seat")
-        case .failure(.seatNotIsolated(_, let message)):
-            AllnighterCLI.fail(code: "PANEL_SEAT_NOT_ISOLATED", message: message)
         case .failure(.targetMissing(let path)):
             AllnighterCLI.fail(
                 code: "PANEL_TARGET_MISSING",
@@ -180,18 +184,11 @@ enum PanelCLI {
                 available: PanelTeamResolver.formatAvailable(catalog)
             )
         }
-
-        // v0 isolation enforcement at start — refuse any non-RO-enforcing seat.
-        // workerId may be `model#rowId` after roster uniquing; check the model id.
-        let catalogModels = models.isEmpty ? ModelCatalog.resolvedModels(registry: registry) : models
-        for seat in seats {
-            let modelId = PanelTeamResolver.modelId(for: seat.workerId)
-            if let violation = PanelReadOnlyArgs.capabilityViolation(
-                workerId: modelId, models: catalogModels, registry: registry
-            ) {
-                throw PanelCLIError.seatNotIsolated(workerId: seat.workerId, message: violation.message)
-            }
-        }
+        // PN-S06: no seat is refused at start. Isolation modes (driver RO vs clone)
+        // are planned and echoed on start; clone materialization happens at dispatch.
+        // models/registry remain on the signature for call-site compatibility + future
+        // preflight; isolation planning itself runs after start with the live catalog.
+        let _ = (models, registry)
 
         let config = PanelCoordinator.Config(
             projectRoot: project.normalizedRootPath,
@@ -435,12 +432,21 @@ enum PanelCLI {
         scaffoldPath: String,
         rememberedTeam: Bool,
         laneDefault: Bool,
+        isolation: [PanelSeatIsolation.SeatPlan],
         json: Bool
     ) {
         let panelJSON = PanelJSON.project(
             state, contractVersion: ContractRegistry.contractVersion, targetHash: targetHash
         )
         let next = "alln panel round --panel \(state.id)"
+        let isolationJSON = isolation.map {
+            PanelSeatIsolationJSON(
+                workerId: $0.workerId,
+                mode: $0.mode.rawValue,
+                driverId: $0.driverId,
+                advisory: $0.advisory
+            )
+        }
         if json {
             print(AllnighterCLI.jsonString(PanelStartJSON(
                 contractVersion: ContractRegistry.contractVersion,
@@ -451,7 +457,8 @@ enum PanelCLI {
                 scaffoldPath: scaffoldPath,
                 nextCommand: next,
                 teamId: state.teamId,
-                rememberedTeam: rememberedTeam ? true : (laneDefault ? false : nil)
+                rememberedTeam: rememberedTeam ? true : (laneDefault ? false : nil),
+                isolation: isolationJSON
             )))
         } else {
             print("panel \(state.id)")
@@ -464,13 +471,20 @@ enum PanelCLI {
                 print("team: \(teamId)\(source)")
             }
             print("roster:")
+            let modeBySeat = Dictionary(uniqueKeysWithValues: isolation.map { ($0.workerId, $0) })
             for seat in state.seats {
-                print("  - \(seat.workerId) lens=\(seat.lens)")
+                let mode = modeBySeat[seat.workerId]?.mode.rawValue ?? "unknown"
+                print("  - \(seat.workerId) lens=\(seat.lens) isolation=\(mode)")
             }
             print("target: \(state.targetPath)")
             print("targetHash: \(targetHash)")
             if let dirtyAdvisory {
                 print("advisory: \(dirtyAdvisory)")
+            }
+            for plan in isolation where plan.mode == .clone {
+                if let advisory = plan.advisory {
+                    print("advisory: \(advisory)")
+                }
             }
             print("scaffold: \(scaffoldPath)")
             print("next: \(next)")
@@ -699,7 +713,6 @@ enum PanelCLI {
         case ambiguousTeam(alias: String, candidates: String)
         case teamNotFound(alias: String, available: String)
         case missingRoster(available: String)
-        case seatNotIsolated(workerId: String, message: String)
         case fileUnreadable(String)
         case noBrief
     }
@@ -722,8 +735,6 @@ enum PanelCLI {
             return ("TEAM_NOT_FOUND", "no team matches '\(alias)' — available: \(available)")
         case .missingRoster(let available):
             return ("CLI_USAGE_ERROR", "pass --team <alias> or --seat <alias>:<lens> — available teams: \(available)")
-        case .seatNotIsolated(_, let message):
-            return ("PANEL_SEAT_NOT_ISOLATED", message)
         case .fileUnreadable(let path):
             return ("CLI_USAGE_ERROR", "could not read file: \(path)")
         case .noBrief:

@@ -1,25 +1,27 @@
 import Foundation
 import AllnighterCore
 
-/// Panel-scoped mechanical read-only argv injection for v0 seats
-/// (`docs/phases/Pilot_Panel.md` decision 7 / PN-S02). Reconstructs the confirmed
-/// per-driver read-only flags from the capability table in `Unified_Run_Model.md`
-/// without resurrecting the deleted `RelayReadOnlyEnforcer` wholesale.
+/// Panel-scoped mechanical read-only argv injection for seats whose drivers have
+/// a confirmed RO mode (`docs/phases/Pilot_Panel.md` decision 7 / PN-S02 + PN-S06).
+/// Reconstructs the confirmed per-driver read-only flags from the capability table
+/// in `Unified_Run_Model.md` without resurrecting the deleted `RelayReadOnlyEnforcer`.
 ///
 /// Confirmed (2026-07-16):
 ///   - `claude_code`: `--permission-mode plan`
 ///   - `codex`: `--sandbox read-only --ask-for-approval never`
 ///
-/// Every other driver is REFUSED in v0 with `PANEL_SEAT_NOT_ISOLATED` (PN-S06
-/// clonefile is the coming fix). Honesty over availability until then.
+/// Every other driver is isolated via **ephemeral clone** (`PanelSeatIsolation`) —
+/// "no seat is ever refused". This type only rewrites argv for RO-enforcing
+/// drivers; it does not refuse.
 public enum PanelReadOnlyArgs {
     public enum Mechanism: Sendable, Equatable {
         case claudePermissionModePlan
         case codexReadOnlySandbox
     }
 
-    /// Stable error code for a seat whose driver has no confirmed read-only mode.
-    public static let seatNotIsolatedCode = "PANEL_SEAT_NOT_ISOLATED"
+    /// Legacy code name — now means clone materialization failed (see
+    /// `PanelSeatIsolation.seatNotIsolatedCode`), not "driver has no RO mode".
+    public static let seatNotIsolatedCode = PanelSeatIsolation.seatNotIsolatedCode
 
     public static let supported: [String: Mechanism] = [
         "claude_code": .claudePermissionModePlan,
@@ -29,7 +31,7 @@ public enum PanelReadOnlyArgs {
     public static var supportedDriverIds: [String] { supported.keys.sorted() }
 
     /// Returns a read-only VARIANT of `manifest` with argv surfaces rewritten, or
-    /// `nil` when this driver has no confirmed mechanism (`nil` = fail closed).
+    /// `nil` when this driver has no confirmed mechanism (`nil` = use clone isolation).
     public static func enforce(on manifest: DriverManifest) -> DriverManifest? {
         guard let mechanism = supported[manifest.id] else { return nil }
         var out = manifest
@@ -78,47 +80,18 @@ public enum PanelReadOnlyArgs {
         return out
     }
 
-    /// Agent-actionable refusal when a seat's driver cannot be mechanically isolated.
-    /// Names `PANEL_SEAT_NOT_ISOLATED` and PN-S06 so the coming clonefile fix is findable.
-    public static func isolationRefusal(
-        workerId: String,
-        driverId: String,
-        displayName: String? = nil
-    ) -> (code: String, message: String) {
-        let label = displayName.map { "\($0) (\(driverId))" } ?? driverId
-        let supported = supportedDriverIds.joined(separator: ", ")
-        return (
-            seatNotIsolatedCode,
-            "Panel seat '\(workerId)' driver '\(label)' has no confirmed read-only mode in v0 — refused (\(seatNotIsolatedCode)). Seats that can enforce it: \(supported). PN-S06 (clonefile isolation) is the coming fix so no seat is refused."
-        )
-    }
-
-    /// `nil` when the worker can be isolated; otherwise the refusal message.
-    public static func capabilityViolation(
+    /// True when this worker can run with driver-enforced RO args on the real root.
+    public static func isDriverEnforced(
         workerId: String,
         models: [Model],
         registry: DriverRegistry
-    ) -> (code: String, message: String)? {
-        guard let model = models.first(where: { $0.id == workerId }) else {
-            return (
-                seatNotIsolatedCode,
-                "Panel seat '\(workerId)' is not a known model — cannot confirm read-only isolation. Seats that can enforce it: \(supportedDriverIds.joined(separator: ", ")). PN-S06 (clonefile) is the coming fix."
-            )
+    ) -> Bool {
+        guard let model = models.first(where: { $0.id == workerId }),
+              let manifest = registry.manifest(for: model),
+              enforce(on: manifest) != nil else {
+            return false
         }
-        guard let manifest = registry.manifest(for: model) else {
-            return (
-                seatNotIsolatedCode,
-                "Panel seat '\(workerId)' has no registered driver manifest — cannot confirm read-only isolation. Seats that can enforce it: \(supportedDriverIds.joined(separator: ", ")). PN-S06 (clonefile) is the coming fix."
-            )
-        }
-        guard enforce(on: manifest) != nil else {
-            return isolationRefusal(
-                workerId: workerId,
-                driverId: manifest.id,
-                displayName: manifest.displayName
-            )
-        }
-        return nil
+        return true
     }
 
     // MARK: - argv transforms
@@ -135,7 +108,7 @@ public enum PanelReadOnlyArgs {
     }
 
     /// Inserts `--sandbox read-only --ask-for-approval never` right after leading `exec`.
-    /// Empty args pass through; non-empty non-exec shapes fail closed (`nil`).
+    /// Empty args pass through; non-empty non-exec shapes fail closed (`nil` → clone).
     private static func insertCodexReadOnlySandbox(_ args: [String]) -> [String]? {
         guard !args.isEmpty else { return args }
         guard args.first == "exec" else { return nil }

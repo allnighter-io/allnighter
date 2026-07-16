@@ -2,7 +2,7 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-/// PN-S02 panel-scoped read-only argv injection + refusal for non-enforcing drivers.
+/// Panel-scoped read-only argv injection + isolation mode planning (PN-S02 + PN-S06).
 final class PanelReadOnlyArgsTests: XCTestCase {
 
     // MARK: - claude_code
@@ -53,12 +53,14 @@ final class PanelReadOnlyArgsTests: XCTestCase {
             id: "codex", displayName: "Codex", kind: .headlessCLI,
             invoke: .init(command: "codex", args: ["-p", "{{prompt}}"])
         )
+        // No confirmed RO argv shape → clone isolation (not refusal).
         XCTAssertNil(PanelReadOnlyArgs.enforce(on: manifest))
+        XCTAssertEqual(PanelSeatIsolation.mode(forManifest: manifest), .clone)
     }
 
-    // MARK: - Refusal
+    // MARK: - Isolation modes (PN-S06 — no seat refused)
 
-    func testUnsupportedDriverReturnsNilNeverPromptOnly() {
+    func testUnsupportedDriverReturnsNilEnforceUsesClone() {
         for driverId in ["cursor_agent", "grok", "antigravity", "opencode", "manual_paste"] {
             let manifest = DriverManifest(
                 id: driverId, displayName: driverId, kind: .headlessCLI,
@@ -66,7 +68,11 @@ final class PanelReadOnlyArgsTests: XCTestCase {
             )
             XCTAssertNil(
                 PanelReadOnlyArgs.enforce(on: manifest),
-                "\(driverId) must fail closed in v0"
+                "\(driverId) has no confirmed RO mode"
+            )
+            XCTAssertEqual(
+                PanelSeatIsolation.mode(forManifest: manifest), .clone,
+                "\(driverId) must plan clone isolation, never refusal"
             )
         }
     }
@@ -75,18 +81,7 @@ final class PanelReadOnlyArgsTests: XCTestCase {
         XCTAssertEqual(PanelReadOnlyArgs.supportedDriverIds, ["claude_code", "codex"])
     }
 
-    func testIsolationRefusalNamesCodeAndPN_S06() {
-        let refusal = PanelReadOnlyArgs.isolationRefusal(
-            workerId: "model_cursor", driverId: "cursor_agent", displayName: "Cursor"
-        )
-        XCTAssertEqual(refusal.code, "PANEL_SEAT_NOT_ISOLATED")
-        XCTAssertTrue(refusal.message.contains("PANEL_SEAT_NOT_ISOLATED"))
-        XCTAssertTrue(refusal.message.contains("PN-S06"))
-        XCTAssertTrue(refusal.message.contains("cursor_agent"))
-        XCTAssertTrue(refusal.message.contains("claude_code"))
-    }
-
-    func testCapabilityViolationNilForSupportedDriver() {
+    func testDriverEnforcedTrueForClaude() {
         let models = [
             Model(id: "model_claude", displayName: "Claude", modelLabel: "sonnet", driverId: "claude_code"),
         ]
@@ -96,12 +91,12 @@ final class PanelReadOnlyArgsTests: XCTestCase {
                 invoke: .init(command: "claude", args: ["-p", "{{prompt}}", "--model", "{{model}}"])
             ),
         ])
-        XCTAssertNil(PanelReadOnlyArgs.capabilityViolation(
+        XCTAssertTrue(PanelReadOnlyArgs.isDriverEnforced(
             workerId: "model_claude", models: models, registry: registry
         ))
     }
 
-    func testCapabilityViolationForUnsupportedDriver() {
+    func testDriverEnforcedFalseForCursorPlansClone() {
         let models = [
             Model(id: "model_cursor", displayName: "Cursor", modelLabel: "composer", driverId: "cursor_agent"),
         ]
@@ -111,15 +106,23 @@ final class PanelReadOnlyArgsTests: XCTestCase {
                 invoke: .init(command: "agent", args: ["-p", "{{prompt}}"])
             ),
         ])
-        let violation = PanelReadOnlyArgs.capabilityViolation(
+        XCTAssertFalse(PanelReadOnlyArgs.isDriverEnforced(
             workerId: "model_cursor", models: models, registry: registry
+        ))
+        let plan = PanelSeatIsolation.plan(
+            seats: [PanelSeat(workerId: "model_cursor", lens: "x")],
+            models: models,
+            registry: registry
         )
-        XCTAssertEqual(violation?.code, "PANEL_SEAT_NOT_ISOLATED")
-        XCTAssertTrue(violation?.message.contains("PN-S06") == true)
+        XCTAssertEqual(plan.first?.mode, .clone)
+        XCTAssertTrue(plan.first?.advisory?.contains("isolation: clone") == true)
     }
 
     func testErrorCodeIsRegistered() {
         let codes = Set(ContractRegistry.milestone1.errors.map(\.code))
         XCTAssertTrue(codes.contains("PANEL_SEAT_NOT_ISOLATED"))
+        let spec = ContractRegistry.milestone1.errors.first { $0.code == "PANEL_SEAT_NOT_ISOLATED" }
+        XCTAssertTrue(spec?.explain.contains("clone") == true, "repurposed explain must mention clone")
+        XCTAssertFalse(spec?.explain.contains("v0 refuses") == true)
     }
 }
