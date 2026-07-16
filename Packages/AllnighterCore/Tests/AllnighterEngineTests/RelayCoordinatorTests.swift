@@ -121,6 +121,58 @@ final class RelayCoordinatorTests: XCTestCase {
         // otherwise) and the relay reached `done` only via round 2's verdict.
     }
 
+    /// D1 (Pilot_Defect_Fixes): the Execution Playbook preamble must appear at most once
+    /// on a relay dev-turn dispatch. Captures the real `dev_cli` prompt through the same
+    /// `SequencedCommandRunner` seam as the other coordinator tests — not a unit of
+    /// `SkillCatalog.assemblePrompt` alone.
+    func testDevTurnPlaybookPreambleAppearsAtMostOnce() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement the D1 fix.")),
+            .init(stdout: "Shipped.\n\n" + verdictJSON("done", note: "Preamble is single.")),
+        ]
+        let devScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Fixed and committed."),
+        ]
+        let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/phases/Pilot_Defect_Fixes.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+        )
+        let state = await coordinator.run(config: config)
+        XCTAssertEqual(state.status, .done)
+        XCTAssertEqual(runner.callCount(for: "dev_cli"), 1)
+
+        let devArgs = runner.capturedArgs(for: "dev_cli").first ?? []
+        let prompt: String
+        if let index = devArgs.firstIndex(of: "-p"), index + 1 < devArgs.count {
+            prompt = devArgs[index + 1]
+        } else {
+            prompt = devArgs.joined(separator: " ")
+        }
+        XCTAssertFalse(prompt.isEmpty, "dev turn must have dispatched a prompt")
+
+        let marker = "You are executing a product slice in the user's repo. Follow the Execution Playbook:"
+        var count = 0
+        var search = prompt.startIndex..<prompt.endIndex
+        while let range = prompt.range(of: marker, range: search) {
+            count += 1
+            search = range.upperBound..<prompt.endIndex
+        }
+        XCTAssertEqual(
+            count, 1,
+            "playbook preamble must appear exactly once on the assembled dev prompt; got \(count). Prefix:\n\(String(prompt.prefix(600)))"
+        )
+        XCTAssertTrue(
+            prompt.contains("# PM Relay — round 1 (dev seat)"),
+            "RelayDevPrompt wrapper must still be present after the single preamble"
+        )
+    }
+
     // MARK: - Verdict re-ask
 
     func testContinueWithoutHandoverTriggersReaskThenContinues() async throws {

@@ -256,6 +256,10 @@ public enum BuiltInTeams {
         starters: [])
 
     /// Execution Playbook as a built-in execution preset (docs/operations/Execution-Playbook.md).
+    /// Playbook text lives only on the `execution_playbook` skill template
+    /// (`SkillCatalog.assemblePrompt`). Do not also put it in `starters` —
+    /// `RunService` prepends `starterPrompts.first` for mutating teams, which
+    /// would double-inject the same preamble (D1 / Pilot_Defect_Fixes).
     static let executionPlaybook = make(
         id: "execution_playbook", name: "Execution Playbook", lane: .code, output: .plan, defaultEffort: .high,
         description: "Disciplined senior-engineer loop: slice → narrow edits → proof → deslop → audit → commit.",
@@ -265,7 +269,7 @@ public enum BuiltInTeams {
         writer: "plan_writer_build",
         lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: composer, fallbackPolicy: .sameSource),
         mutating: true, executionSourceId: "cursor_agent",
-        starters: [ExecutionPlaybookPreset.prompt])
+        starters: [])
 
     // MARK: - Design teams
 
