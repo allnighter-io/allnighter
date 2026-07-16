@@ -485,6 +485,8 @@ Flags:
 - `--lane <lane>` — code | design | copy | signal.
 - `--type <type>` — Copy routing sugar.
 - `--context <string>` — Bounded context snippet.
+- `--try-fix` — Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.
+- `--executor <id>` — Mutating executor team id (default execution_playbook).
 - `--json` — Emit TeamRunJSON.
 - `--stream` — Emit NDJSON events.
 
@@ -1329,6 +1331,7 @@ Output schema: `helpTopicsJSON`.
 - `team_json` — Machine team run: `alln team --json "Give me one small naming test."`
 - `team_stream` — Streamed team run: `alln team --stream "Give me one tiny event-stream test."`
 - `team_start_json` — Start async team run: `alln team start --json --lane code --team code_bug_hunt --effort low "tiny async sanity"`
+- `try_fix_bug` — Auto Fix: Bug Hunt then one bounded fix: `alln run "The history view loses finished runs after restart." --project <id> --team code_bug_hunt --try-fix --executor execution_playbook --json`
 - `show_latest_json` — Show the latest run: `alln show latest --json`
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
 - `export_md` — Export the latest result: `alln export latest --format md`

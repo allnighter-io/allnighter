@@ -93,6 +93,13 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(top("why can't allnighter run codex"), "setup_and_auth")
     }
 
+    func testSearchRoutesAutoFixQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("fix a bug in my repo"), "auto_fix")
+        XCTAssertEqual(top("try fix"), "auto_fix")
+        XCTAssertEqual(top("auto fix"), "auto_fix")
+    }
+
     func testSearchScoresAreNormalizedAndOrdered() throws {
         let r = HelpService.search("team run preflight start")
         let first = try XCTUnwrap(r.results.first)

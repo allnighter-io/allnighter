@@ -1225,6 +1225,17 @@
           "valueType" : "string"
         },
         {
+          "name" : "try-fix",
+          "summary" : "Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.",
+          "takesValue" : false
+        },
+        {
+          "name" : "executor",
+          "summary" : "Mutating executor team id (default execution_playbook).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
           "name" : "json",
           "summary" : "Emit TeamRunJSON.",
           "takesValue" : false
@@ -4167,6 +4178,11 @@
       "command" : "alln team start --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\"",
       "id" : "team_start_json",
       "title" : "Start async team run"
+    },
+    {
+      "command" : "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor execution_playbook --json",
+      "id" : "try_fix_bug",
+      "title" : "Auto Fix: Bug Hunt then one bounded fix"
     },
     {
       "command" : "alln show latest --json",

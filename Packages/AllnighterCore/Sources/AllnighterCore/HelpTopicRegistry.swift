@@ -318,12 +318,43 @@ public enum HelpTopicRegistry {
             Allnighter errors are typed with a recovery ladder. After a failed tool, call \
             `error_explain` with the code to get the agent action, whether it requires a human, \
             and whether it is retryable. Do not guess recovery from the message text.
+
+            For automated bug-fix rounds (Bug Hunt → gate → one bounded fix attempt), see \
+            `alln help get auto_fix` (`alln run --try-fix`).
             """,
             aliases: ["error", "failed", "recovery", "retry"],
             relatedToolIds: ["error_explain", "doctor"],
             relatedCommandNames: ["doctor explain", "docs"],
             schemaRefs: ["errorEnvelope"],
             errorRefs: ["CLI_USAGE_ERROR", "WORKER_FAILED", "TEAM_RUN_FAILED"],
+            needsLiveCheck: false),
+
+        HelpTopic(
+            id: "auto_fix", title: "Auto Fix (Try Fix)", audience: .both,
+            summary: "`alln run --try-fix` runs Bug Hunt diagnosis, a danger-not-doubt gate, then ONE bounded fix attempt.",
+            bodyMarkdown: """
+            Auto Fix is the elimination loop for repo bugs: a read-only Bug Hunt diagnosis \
+            writes a typed fix packet, the gate blocks on danger (credentials, deletion, deploy…) \
+            not doubt, and — when allowed — exactly one mutating fix attempt runs. Prefer it over \
+            a plain team run when you have a concrete symptom and want one narrowed fix round, not \
+            open-ended editing.
+
+            Exact command (from the contract example `try_fix_bug`):
+            `alln run "<symptom>" --project <id> --team code_bug_hunt --try-fix --executor execution_playbook --json`
+
+            For open exploration or multi-step feature work, use a normal `alln run` or `alln team` \
+            instead. If the gate blocks, read the reason — danger requires human resolution; low \
+            confidence alone does not block.
+            """,
+            aliases: ["fix a bug", "fix a bug in my repo", "try fix", "auto fix", "bug fix", "try-fix", "auto-fix", "fix bug"],
+            sections: [
+                .init("chain", "The chain", "Bug Hunt (read-only) → danger-not-doubt gate → ONE bounded fix attempt (mutating)."),
+                .init("gate", "Danger blocks, doubt does not", "The gate refuses credentials, mass deletion, deploys, and packets without an actionable hypothesis — never blocks merely because confidence is low."),
+                .init("vs-run", "When to use it", "Use Auto Fix for a concrete bug symptom you want one fix round on. Use a plain `alln run` or team dispatch for open work."),
+            ],
+            relatedToolIds: ["team_run"],
+            relatedCommandNames: ["run"],
+            errorRefs: ["TRY_FIX_PACKET_MISSING", "TRY_FIX_PACKET_UNSAFE", "TRY_FIX_EXECUTOR_INVALID"],
             needsLiveCheck: false),
 
         HelpTopic(
