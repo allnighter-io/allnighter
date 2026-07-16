@@ -1,9 +1,9 @@
 # PM Relay — automate the copy-paste monkey
 
-Status: **SHIPPED — R-S01–R-S07 + R-S09 done; works test PASSED live 2026-07-16
-(relay_3c94928f: 2 rounds, PM=Claude Code/Sonnet, dev=Cursor/Composer,
-done-by-declaration, independently verified)**
-Owner: AllnighterCore + CLI/MCP (GUI last)
+Status: **FULLY SHIPPED — all slices done (R-S01–R-S09, incl. R-S08 GUI); works
+test PASSED live 2026-07-16 (relay_3c94928f: 2 rounds, PM=Claude Code/Sonnet,
+dev=Cursor/Composer, done-by-declaration, independently verified)**
+Owner: AllnighterCore + CLI/MCP + Mac app
 Updated: 2026-07-16
 
 > Vocabulary follows the locked cutover — **Chat / Delegate / Execute**, **Team**,
@@ -218,7 +218,7 @@ Small, contract-first, CLI/MCP before GUI — house rules.
 | R-S05 ✅ | `alln pair relay --doc <path> --project <id\|path> --pm-worker <id> --dev-worker <id> [--until HH:MM] [--max-rounds N] [--pm-read-only] [--resume <relayId>] [--json]` + `relay status` | `PairProgrammingCLI` |
 | R-S06 ✅ | MCP: `pair_relay` / `pair_relay_status` / `pair_relay_resume` — full structured envelopes | `MCPPairHandlers` |
 | R-S07 ✅ | Relay-as-thread: each relay is a `WorkThread`; rounds are turns; escalation raises `needsAttention` — the inbox shows the loop live for free | `ThreadStore`, threads GUI |
-| R-S08 | **Open — the only remaining slice.** Composer entry (GUI, last): `@`-link the doc, pick PM seat + dev seat, go — a team-lane preset (`pm_relay`: seat 1 PM, seat 2 dev) | attachments + team picker |
+| R-S08 ✅ | Mac GUI entry — a "Start relay" affordance on each project's sidebar group (next to "New agent"), opening a launch sheet: doc picker (`ProjectFileCatalog`-ranked search + typed-path fallback), PM seat + dev seat pickers (`AppModel.composeBench`, plain-Button rows), `--pm-read-only` toggle with fail-closed seat annotation (`RelayReadOnlyEnforcer.capabilityViolation`), max-rounds/until, Start. `RelayLaunchViewModel.start()` constructs the coordinator via `RelayGUIRuntime.makeCoordinator` — field-for-field identical to `RelayDispatch.makeCoordinator` (same `RunService`/default-store `RelayThreadProjector`; mirrored rather than shared because `AllnighterCLI` is an executable target, not importable from the Mac app) — seeds the thread synchronously so the founder is navigated straight to the live relay thread. An escalated round shows a dedicated `RelayEscalationRow` (no existing composer seam answers an open system event inline) whose "Answer & resume" routes through `RelayCoordinator.resume` via the same construction, wired by `RelayResumeController`. GUI-sealed: `docs/qa/gui/relay-launch/`, `docs/qa/gui/thread/` (escalation row) | `ProjectFileCatalog`, `AppModel.composeBench`, `RelayCoordinator`/`RelayThreadProjector` |
 | R-S09 ✅ | **Killed the slice queue** (gated on R-S07/works test PASS — done): deleted `WorkSlicePacket`, `SliceGate`, `SliceQueue`/`Store`, `SliceAttemptPrompt`, `NudgePrompt`, `ReviewAttemptPrompt`, `PlannerTakeoverPrompt`, `ReviewVerifyPrompt`, `CheckRunner`, `PairCoordinator`, `PairSliceJSON`, `PairProgrammingCLI`/`Dispatch`, `MCPPairHandlers`, `pair_slice`/`pair_run`/`pair_status` MCP + registry entries, `Pair_Programming_Team.md` + `Pair_Programming_Improvements_Backlog.md` (outright, no archive). Salvaged compaction≠stall into `RelayTurnClassifier` first (already landed pre-R-S09). **Device pairing in `PairCLI` (list/approve/revoke/begin) is DirectMode iOS — untouched.** Kept: `TryFixGate`/`FixPacket` (Auto-Fix), `OpenCodeServeCoordinator` (belongs to the opencode *driver* like any warm dialect — no special role in any loop; whether that driver stays on the bench is a separate, unrelated call), code_review run logs (history) | — |
 
 Pre-work (before R-S04): **post-cutover smoke** — the pair path hasn't run since the
@@ -272,4 +272,5 @@ If the founder is still pasting, the feature is not done.
 | Verdict-tail extraction pattern | `firstJSONObject` (proposal-engine lineage) |
 | Thread projection | `AllnighterEngine/ThreadStore.swift`, `RelayThreadProjector.swift` |
 | CLI / MCP | `AllnighterCLI/RelayCLI.swift`, `RelayDispatch.swift`, `MCPRelayHandlers.swift` |
+| Mac GUI (R-S08) | `AllnighterMac/RelayGUIRuntime.swift` (construction parity), `RelayLaunchViewModel.swift`/`RelayLaunchView.swift` (launch), `RelayResumeController.swift` + `ThreadView.swift`'s `RelayEscalationRow` (resume) |
 | What this replaced | `Pair_Programming_Team.md` — the slice queue, deleted at R-S09 (this doc §1/§6 is the only remaining record) |
