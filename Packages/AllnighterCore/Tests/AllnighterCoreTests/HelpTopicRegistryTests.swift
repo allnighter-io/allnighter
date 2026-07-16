@@ -9,7 +9,7 @@ final class HelpTopicRegistryTests: XCTestCase {
     /// here in the interim so cross-link validation still has a known-id set to check
     /// against now that the registry no longer carries an MCP tool catalog.
     private var toolNames: Set<String> {
-        ["mcp_hello", "doctor", "error_explain", "help", "defaults_get", "history",
+        ["team_hello", "doctor", "error_explain", "help", "defaults_get", "history",
          "teams_get", "teams_edit", "skills_get", "skills_edit",
          "team_ask", "team_run", "team_start", "team_result", "team_cancel", "run_get",
          "pair_relay",

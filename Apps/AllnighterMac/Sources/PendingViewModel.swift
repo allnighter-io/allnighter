@@ -3,7 +3,7 @@ import AllnighterCore
 import AllnighterEngine
 
 /// Drives the Pending screen + the top-bar pending pill. Pure projection of the Core
-/// contract: reads `PendingService.queueJSON()` (the same `PendingQueueJSON` the CLI/MCP
+/// contract: reads `PendingService.queueJSON()` (the same `PendingQueueJSON` the CLI
 /// emit) and routes every mutation back through `PendingService`. No GUI-local truth.
 @Observable
 @MainActor
@@ -50,7 +50,7 @@ final class PendingViewModel {
     }
 
     /// Re-submit from the review modal: write the edited prompt/target, then re-arm
-    /// (Draft → Pending). Mirrors the CLI/MCP edit→submit pair exactly.
+    /// (Draft → Pending). Mirrors the CLI edit→submit pair exactly.
     func rearm(_ id: String, prompt: String, team: String?, worker: String?) {
         _ = try? service.edit(id: id, .init(
             prompt: prompt,

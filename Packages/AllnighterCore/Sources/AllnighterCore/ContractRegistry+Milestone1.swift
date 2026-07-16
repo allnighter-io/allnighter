@@ -662,7 +662,7 @@ public extension ContractRegistry {
             ],
             outputSchema: .utilizationObservationsClearJSON
         ),
-        // MCP Help System — the installed product guide. `alln help` answers usage; `alln
+        // Help System — the installed product guide. `alln help` answers usage; `alln
         // docs` stays the raw generated contract reference.
         CommandSpec(
             "help search", summary: "Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan.", milestone: .m1,
@@ -678,7 +678,7 @@ public extension ContractRegistry {
             args: [ArgSpec("topic", required: false, summary: "Topic id or alln:// ref (omit when using --ref/--tool/--error).")],
             flags: [
                 FlagSpec("ref", takesValue: true, valueType: "string", summary: "An alln:// ref (help/tool/schema/error)."),
-                FlagSpec("tool", takesValue: true, valueType: "string", summary: "Find the topic that documents this MCP tool."),
+                FlagSpec("tool", takesValue: true, valueType: "string", summary: "Find the topic that documents this tool/action id."),
                 FlagSpec("error", takesValue: true, valueType: "string", summary: "Find the topic for this error code."),
                 FlagSpec("format", takesValue: true, valueType: "format", defaultValue: "json", summary: "json | md."),
                 FlagSpec("json", summary: "Emit a HelpGetJSON object."),
@@ -720,7 +720,7 @@ public extension ContractRegistry {
         ErrorSpec("TEAM_RUN_FAILED", ruleId: "team.run.failed", agentAction: "Inspect failed workers and stages; retry or adjust the team.", requiresManual: false, retryable: true, explain: "The team run ended without a usable result (e.g. failed or cancelled). Inspect the failed workers/stages in the run, then retry or change the team."),
         ErrorSpec("NESTED_TEAM_BLOCKED", ruleId: "team.nested.blocked", agentAction: "Do not recursively spawn teams without explicit depth budget.", requiresManual: true, retryable: false, explain: "A worker tried to start another team run beyond the allowed depth. Set an explicit depth budget if nesting is intended."),
         ErrorSpec("TEAM_GOVERNOR_BUSY", ruleId: "team.governor.busy", agentAction: "Wait or retry after current team run completes.", requiresManual: false, retryable: true, explain: "The concurrency governor is at capacity. Wait for a slot and retry; this is a real busy state, not a fake queue."),
-        ErrorSpec("TEAM_GOVERNOR_UNAVAILABLE", ruleId: "team.governor.unavailable", agentAction: "Run `alln doctor --json`; ensure Allnighter's support directory is writable, or set a writable support root for MCP/eval runs.", requiresManual: true, retryable: true, explain: "The team-run governor could not create, open, or lock its slot store. This is a storage/permission/configuration problem, not a capacity limit."),
+        ErrorSpec("TEAM_GOVERNOR_UNAVAILABLE", ruleId: "team.governor.unavailable", agentAction: "Run `alln doctor --json`; ensure Allnighter's support directory is writable, or set a writable support root for eval runs.", requiresManual: true, retryable: true, explain: "The team-run governor could not create, open, or lock its slot store. This is a storage/permission/configuration problem, not a capacity limit."),
         ErrorSpec("PENDING_MUTATION_DEFERRED", ruleId: "pending.mutation.deferred", agentAction: "Keep item Draft/Pending; mutating pending runs are outside Pending M1.", requiresManual: true, retryable: false, explain: "Mutating pending runs are not enabled in this milestone. Keep the item Draft/Pending."),
         ErrorSpec("PENDING_REORDER_INVALID", ruleId: "pending.reorder.invalid", agentAction: "Keep order unchanged; reorder only Pending items in the same serialized group.", requiresManual: true, retryable: false, explain: "The requested Pending reorder was rejected because the item and anchor do not share the same serialized group."),
         ErrorSpec("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD", ruleId: "idempotency.key.reused", agentAction: "Generate a new key or reuse the original payload.", requiresManual: false, retryable: false, explain: "The same idempotency key was reused with a different canonical payload. Use a new key or repeat the original request."),
@@ -748,7 +748,7 @@ public extension ContractRegistry {
         ErrorSpec("ATTACHMENT_TOO_LARGE", ruleId: "attachment.too_large", agentAction: "Use a smaller image or fewer attachments.", requiresManual: true, retryable: false, explain: "An attachment exceeds byte or megapixel limits."),
         ErrorSpec("ATTACHMENT_UNSUPPORTED_TYPE", ruleId: "attachment.unsupported_type", agentAction: "Send PNG/JPEG/GIF/WebP only.", requiresManual: true, retryable: false, explain: "Attachment MIME type is not allowed."),
         ErrorSpec("ATTACHMENT_DECODE_FAILED", ruleId: "attachment.decode_failed", agentAction: "Fix or replace the corrupt image file.", requiresManual: true, retryable: false, explain: "Image could not be decoded."),
-        ErrorSpec("ATTACHMENT_BASE64_INVALID", ruleId: "attachment.base64_invalid", agentAction: "Fix the base64 payload.", requiresManual: true, retryable: false, explain: "MCP base64 image payload is invalid."),
+        ErrorSpec("ATTACHMENT_BASE64_INVALID", ruleId: "attachment.base64_invalid", agentAction: "Fix the base64 payload.", requiresManual: true, retryable: false, explain: "Base64 image payload is invalid."),
         ErrorSpec("ATTACHMENT_STAGE_FAILED", ruleId: "attachment.stage_failed", agentAction: "Check workingDir permissions and disk space.", requiresManual: true, retryable: true, explain: "Could not copy attachment into workspace mirror."),
         ErrorSpec("ATTACHMENT_STAGE_UNIGNORED", ruleId: "attachment.stage_unignored", agentAction: "Add `.allnighter/` to gitignore or info/exclude manually.", requiresManual: true, retryable: false, explain: "Staged mirror but could not update git ignore rules."),
         ErrorSpec("CONTEXT_ATTACHMENT_CAP_EXCEEDED", ruleId: "context.attachment.cap", agentAction: "Reduce message or attachment count; never silently trim current send.", requiresManual: true, retryable: false, explain: "Protected attachment block does not fit context cap."),

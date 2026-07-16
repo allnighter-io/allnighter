@@ -153,7 +153,7 @@
     "ruleId" : "team.governor.busy"
   },
   {
-    "agentAction" : "Run `alln doctor --json`; ensure Allnighter's support directory is writable, or set a writable support root for MCP\/eval runs.",
+    "agentAction" : "Run `alln doctor --json`; ensure Allnighter's support directory is writable, or set a writable support root for eval runs.",
     "code" : "TEAM_GOVERNOR_UNAVAILABLE",
     "exitClass" : "operational",
     "explain" : "The team-run governor could not create, open, or lock its slot store. This is a storage\/permission\/configuration problem, not a capacity limit.",
@@ -408,7 +408,7 @@
     "agentAction" : "Fix the base64 payload.",
     "code" : "ATTACHMENT_BASE64_INVALID",
     "exitClass" : "operational",
-    "explain" : "MCP base64 image payload is invalid.",
+    "explain" : "Base64 image payload is invalid.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "attachment.base64_invalid"

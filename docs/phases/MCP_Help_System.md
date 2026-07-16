@@ -1,5 +1,8 @@
 # MCP Help System
 
+> MCP was retired 2026-07-16 (MCP_Retirement.md); the CLI is the only agent
+> surface. Historical.
+
 Status: H0a–H3 BUILT (agent-callable + distributable); H4 reframed; H5 + installed-bundle remain
 Owner: Founder + Shared Core + CLI/MCP + Docs/Release
 Updated: 2026-06-20

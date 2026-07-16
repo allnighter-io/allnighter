@@ -6,7 +6,7 @@ import AllnighterEngine
 /// R-S08 — the Mac GUI's PM Relay launch surface (`docs/phases/PM_Relay.md` §6). Owns the
 /// launch form's state (doc, seats, ceilings) and starts a relay via
 /// `RelayGUIRuntime.makeCoordinator` — construction-identical to `RelayDispatch.makeCoordinator`
-/// (CLI/MCP), so a GUI-launched relay is the exact same durable object the CLI/MCP produce.
+/// (CLI), so a GUI-launched relay is the exact same durable object the CLI produces.
 ///
 /// Validation is a pure static function (`validate`) so it is unit-testable without SwiftUI
 /// or a running app.
@@ -24,12 +24,12 @@ final class RelayLaunchViewModel {
     let projectId: String
     let projectRoot: String
     /// Full model roster (mirrors `RelayGUIRuntime.makeCoordinator`'s `RunService` — the
-    /// unfiltered catalog, matching CLI/MCP; NOT `ThreadsViewModel.readyModels`). Seat
+    /// unfiltered catalog, matching the CLI; NOT `ThreadsViewModel.readyModels`). Seat
     /// pickers still only OFFER ready models (below).
     let models: [Model]
     let registry: DriverRegistry
     /// Only ready models are offered as seats — an unreachable seat can never be picked in
-    /// the GUI (the CLI/MCP still accept any known worker id; the GUI is stricter by
+    /// the GUI (the CLI still accepts any known worker id; the GUI is stricter by
     /// construction, same as every other composer picker in the app).
     let readyModels: [Model]
 

@@ -2,9 +2,9 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// `alln help …` — the installed product guide (search/get/topics). Projects the same
-/// `HelpProjector` envelopes as the MCP help tools. `alln docs` stays the raw generated
-/// contract reference; `alln help` is the friendly retrieval surface.
+/// `alln help …` — the installed product guide (search/get/topics), the one help
+/// surface any calling agent uses via `HelpProjector`. `alln docs` stays the raw
+/// generated contract reference; `alln help` is the friendly retrieval surface.
 enum HelpCLI {
     static func run(_ args: [String], runtime: ToolRuntime) async {
         switch args.first {
@@ -61,7 +61,7 @@ enum HelpCLI {
         print(t.bodyMarkdown)
         if !t.relatedToolIds.isEmpty { print("\ntools: " + t.relatedToolIds.joined(separator: ", ")) }
         if !t.relatedCommandNames.isEmpty { print("commands: " + t.relatedCommandNames.map { "alln \($0)" }.joined(separator: ", ")) }
-        if t.needsLiveCheck { print("\n(this answer depends on live state — run `alln doctor` / call mcp_hello)") }
+        if t.needsLiveCheck { print("\n(this answer depends on live state — run `alln doctor` / `alln team hello`)") }
     }
 
     private static func topics(_ args: [String]) {

@@ -1,6 +1,8 @@
 # MCP Retirement — Allnighter goes CLI-only for agents
 
-Status: **Approved — founder call 2026-07-16 (pre-launch; consumer check PASSED)**
+Status: **DONE — 2026-07-16.** Cut over in three commits on `feat/design-chain`;
+build + full `swift test` green (minus the pre-existing WIP baseline, unchanged);
+works test passed (below). Mac app builds clean.
 Owner: AllnighterCore + CLI
 Updated: 2026-07-16
 
@@ -76,3 +78,32 @@ swift test --package-path Packages/AllnighterCore   # green minus known WIP base
 ```
 An agent session given only the one-liner context snippet can discover and drive
 the full surface. Nothing anywhere instructs configuring an MCP server.
+
+## Evidence (executed 2026-07-16)
+
+- `alln team hello --json` — returns the `AgentHello.Payload` (schemaVersion 2,
+  `contractHash` now derived from CLI command names via `ContractRegistry.
+  contractHash()`, `routingLaw` in CLI phrasing, `nextToolPlan.tool: "team_start"`,
+  33 ready teams). No MCP install/config text anywhere in the payload.
+- `alln help search "start a relay"` — top hit `pm_relay` (score 1.00), followed by
+  `quickstart`/`team_run_loop`/`tool_selection`/`pending`; prints `next: help_get
+  detail=machine topic=pm_relay`.
+- `alln nosuchverb` — `unknown command: nosuchverb` on stderr, full usage printed,
+  exit code `2` (usage class). Error → help bridge intact.
+- `grep -rli mcp docs/generated/alln/` — zero hits except the closed `RunOrigin`
+  enum's historical `"mcp"` case value in `pending-item.schema.json` /
+  `team-run.schema.json` (persisted-data provenance tag for old runs, not an
+  instruction — left in place so historical run/pending records still decode).
+- `swift build --package-path Packages/AllnighterCore` clean; `swift build
+  --build-tests` clean; full `swift test` — 1379 tests, 8 failures (4 unique:
+  `AgentBootstrapTests.testPreflightBugHuntHighOnOneModel`,
+  `CodeReviewParallelSafetyTests.testDisjointFindingsTouchesAreSafe`,
+  `DefaultConfigDriftTests.testEmbeddedWorkersMatchModelCatalogBuiltIns`,
+  `ExitCodeContractTests.testUsageErrorsExitTwoOperationalExitOne`) — confirmed
+  identical on the pre-cutover baseline (stash/rerun), unrelated to this cutover.
+  `swift test --filter Relay` green (161 tests).
+- `alln dev export-contracts --check` green; 18 artifacts (was 19 —
+  `mcp-tools.json` no longer emitted).
+- Mac app (`xcodebuild -scheme AllnighterMac build`) — **BUILD SUCCEEDED**; zero
+  references to deleted MCP symbols found (only doc comments + a few Settings
+  help-text strings, all reworded to drop "MCP").

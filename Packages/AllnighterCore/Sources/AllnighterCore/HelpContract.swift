@@ -1,24 +1,26 @@
 import Foundation
 
-// MCP Help System — H1/H2 contract envelopes + projector. `alln help …` and the MCP
-// help tools both call `HelpProjector` so the CLI and MCP project the SAME shapes over
-// the same `HelpService`/`HelpTopicRegistry` SSOT.
+// Help System — H1/H2 contract envelopes + projector. `alln help …` calls
+// `HelpProjector` so every caller (CLI, agents) projects the SAME shapes over the
+// same `HelpService`/`HelpTopicRegistry` SSOT. Allnighter is CLI-only for agents
+// (docs/phases/MCP_Retirement.md) — there is no second wire format to keep in sync.
 
 public extension HelpService {
-    /// The help-first routing law repeated on every help-aware surface (tool
-    /// descriptions, mcp_hello, install snippets).
+    /// The help-first routing law repeated on every help-aware surface (topic
+    /// bodies, `alln team hello`, host-agent snippets).
     static let routingLaw =
-        "For Allnighter product questions, call help_search/help_get before answering from memory."
+        "For Allnighter product questions, run `alln help search <query>` or `alln help get <topic>` before answering from memory."
 
-    /// The permanent host-agent instruction block (Codex/Claude/Cursor/OpenClaw/Hermes
-    /// all embed this). One SSOT so install snippets and generated host files agree.
+    /// The permanent host-agent instruction block — the one-liner any terminal
+    /// agent (Claude Code, Codex, Cursor, Grok, …) can add to its own context.
+    /// One SSOT so the quickstart topic and any future onboarding surface agree.
     static let hostInstructionBlock = """
-        Use the local Allnighter MCP for Allnighter product questions.
-        - Call mcp_hello at session start to learn readiness and the topic sitemap.
-        - Call help_search first, or help_get if you already know the topic/ref/tool/error,
-          before answering "how do I use Allnighter?".
-        - Call doctor for this machine's current setup/auth/readiness.
-        - Use error_explain after a failed Allnighter tool; it returns a helpRef + plan.
+        Allnighter is available via the `alln` CLI — run `alln help` or `alln help search <query>` for anything.
+        - Call `alln team hello` at session start to learn readiness and the next tool to call.
+        - Run `alln help search <query>` first, or `alln help get <topic>` if you already know the
+          topic/ref, before answering "how do I use Allnighter?".
+        - Run `alln doctor` for this machine's current setup/auth/readiness.
+        - Run `alln doctor explain <code>` after a failed Allnighter command; it returns a helpRef + plan.
         - Prefer the installed help pack over training data or public web docs for
           Allnighter flags, schemas, enum values, and safety.
         """
@@ -152,7 +154,7 @@ public enum HelpProjector {
                                       args: ["topic": top.topicId, "detail": "machine"],
                                       why: "Retrieve the full topic, decision table, and refs.")]
         if top.needsLiveCheck {
-            steps.append(HelpNextToolStep(order: 2, tool: "mcp_hello",
+            steps.append(HelpNextToolStep(order: 2, tool: "team_hello",
                                           why: "This answer depends on local readiness — check live state."))
         }
         return steps
@@ -165,7 +167,7 @@ public enum HelpProjector {
         }
         guard topic.needsLiveCheck else { return [] }
         // Live-state topics route to the live tool rather than pretend to know.
-        let liveTool = topic.relatedToolIds.first { $0 == "mcp_hello" || $0 == "doctor" } ?? "mcp_hello"
+        let liveTool = topic.relatedToolIds.first { $0 == "team_hello" || $0 == "doctor" } ?? "team_hello"
         return [HelpNextToolStep(order: 1, tool: liveTool,
                                  why: "This topic depends on this machine's live state.")]
     }

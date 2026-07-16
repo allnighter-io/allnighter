@@ -1,7 +1,7 @@
 import Foundation
 import AllnighterCore
 
-/// Pure view-state that renders a public `TeamRunJSON` (the shared CLI/MCP/iOS
+/// Pure view-state that renders a public `TeamRunJSON` (the shared CLI/iOS
 /// contract) into display-ready values for the Mac UI — with **no legacy field
 /// translation**. This is the GUI-side proof for CLI M1 step 9: the same shape
 /// `alln team --json` emits drives the app directly. Reads only new-vocabulary

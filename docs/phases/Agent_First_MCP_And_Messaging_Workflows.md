@@ -1,5 +1,8 @@
 # Agent-First MCP and Messaging Workflows
 
+> MCP was retired 2026-07-16 (MCP_Retirement.md); the CLI is the only agent
+> surface. Historical.
+
 Status: PARTIAL — bootstrap/preflight/discovery + retrieval + A0 async team loop
 BUILT. Shipped: Core `AgentReadiness` (mcp_hello readiness), `TeamPreflight`
 (pure, no run/quota), `SpecRetrieval`; MCP tools `mcp_hello`, `teams_list`,

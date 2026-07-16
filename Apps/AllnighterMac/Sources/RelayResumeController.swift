@@ -59,7 +59,7 @@ final class RelayResumeController {
 
     /// Sends the founder's answer through `RelayCoordinator.resume` — the SAME construction
     /// path (`RelayGUIRuntime.makeCoordinator`) `RelayLaunchViewModel.start` uses, so a
-    /// resumed relay is dispatched identically whether it was launched from the CLI, MCP,
+    /// resumed relay is dispatched identically whether it was launched from the CLI
     /// or this app. Returns `false` for an empty answer or an ineligible relay (no dispatch
     /// attempted); `true` once the resume `Task` has been kicked off.
     @discardableResult

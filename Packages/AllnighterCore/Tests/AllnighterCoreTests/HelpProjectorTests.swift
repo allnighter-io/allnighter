@@ -18,7 +18,7 @@ final class HelpProjectorTests: XCTestCase {
         let j = HelpProjector.get(topic: "current_setup", contractVersion: "1.0.0")
         XCTAssertTrue(j.found)
         XCTAssertEqual(j.topic?.needsLiveCheck, true)
-        XCTAssertEqual(j.nextToolPlan.first?.tool, "mcp_hello")
+        XCTAssertEqual(j.nextToolPlan.first?.tool, "team_hello")
     }
 
     func testGetByToolAndError() {

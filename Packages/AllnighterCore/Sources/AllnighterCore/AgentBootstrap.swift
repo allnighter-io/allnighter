@@ -1,9 +1,10 @@
 import Foundation
 
 /// Agent-first bootstrap + preflight projections (Agent_First_MCP_And_Messaging_
-/// Workflows.md). These are the make-or-break entry points for messaging agents
+/// Workflows.md — historical name; the CLI is now the only agent surface, see
+/// MCP_Retirement.md). These are the make-or-break entry points for messaging agents
 /// (OpenClaw/Hermes): discover readiness without guessing, and preflight a team
-/// without spending provider quota. Pure Core truth; CLI/MCP add transport facts
+/// without spending provider quota. Pure Core truth; the CLI adds transport facts
 /// (binaryVersion, tool list, traceId).
 
 /// A team an agent can start right now (passes resolution against the ready bench).
@@ -16,7 +17,7 @@ public struct ReadyTeam: Codable, Sendable, Equatable {
     }
 }
 
-/// What the agent should do next. `tool` names the MCP tool / CLI verb when one applies.
+/// What the agent should do next. `tool` names the action id / CLI verb when one applies.
 public struct AgentNextAction: Codable, Sendable, Equatable {
     /// startTeamRun | runDoctor | installOrAuthSource | waitForAdmission | performHumanAction
     public var kind: String

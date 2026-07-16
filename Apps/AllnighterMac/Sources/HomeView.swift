@@ -270,7 +270,7 @@ private struct HomeSidebar: View {
     }
 
     /// Read the armed (.pending) items from the Pending store and collect their bound
-    /// thread ids — the same `PendingQueueJSON` the CLI/MCP project, no GUI-local truth.
+    /// thread ids — the same `PendingQueueJSON` the CLI projects, no GUI-local truth.
     private func refreshArmedPending() {
         let service = PendingService(store: PendingStore(), models: appModel.models)
         let queue = try? service.queueJSON()

@@ -1,5 +1,8 @@
 # Allnighter — MCP Tool Upgrade (v2)
 
+> MCP was retired 2026-07-16 (MCP_Retirement.md); the CLI is the only agent
+> surface. Historical.
+
 **Status:** Implemented — Slice 0 + Slice 1 (2026-06-27)
 **Updated:** 2026-06-27
 **Owner:** AllnighterCore (ContractRegistry) + AllnighterCLI (MCPServer)

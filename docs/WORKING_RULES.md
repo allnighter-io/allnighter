@@ -99,7 +99,7 @@ During bootstrap, explicitly name missing validation before accepting risk.
 
 ## Forecast Guardrail
 
-SwiftUI, CLI, and MCP render work shape from `AllnighterCore` types. Core types
+SwiftUI and the CLI render work shape from `AllnighterCore` types. Core types
 **do not** compute pre-run cost, time, token, or quota forecasts. If a line of
 code implies we know the future before a run completes, delete it. See
 `docs/archive/phases/Estimate_Cleanup_And_Effort_Dial.md`.

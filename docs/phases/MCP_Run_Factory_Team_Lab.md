@@ -1,5 +1,8 @@
 # MCP Run Factory and Team Lab
 
+> MCP was retired 2026-07-16 (MCP_Retirement.md); the CLI is the only agent
+> surface. Historical.
+
 Status: Draft feature packet
 Owner: Founder + Shared Core + CLI/MCP + Team Quality
 Updated: 2026-06-23

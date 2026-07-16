@@ -10,7 +10,7 @@ team/build turn cards (the `richRow` here is a placeholder). See
 
 **Image status (2026-06-22):** backend image capture and storage are built, but
 timeline/board rendering is not. Implementation routes through
-`docs/phases/Message_Image_Rendering.md`: first enrich CLI/MCP read paths, then
+`docs/phases/Message_Image_Rendering.md`: first enrich CLI read paths, then
 render user/worker attachment chips and Design board tiles here.
 
 **Tier:** D (renders run/dispatch state, worker liveness, manual-paste)
@@ -161,7 +161,7 @@ Rules:
   come from `BoardPayload`.
 - Do not show raw `.png` path strings as the final Design board UI. A path may
   appear only in raw/debug/audit surfaces.
-- Local `canonicalPath` / `absolutePath` values are for Mac + local CLI/MCP
+- Local `canonicalPath` / `absolutePath` values are for Mac + local CLI
   clients. Remote/iOS surfaces need a separate portable media contract.
 
 ### Non-negotiables honored here

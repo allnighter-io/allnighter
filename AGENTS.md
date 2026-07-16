@@ -69,9 +69,8 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Composer `@` file references, Project file search, file chips | `docs/phases/Composer_File_References.md` |
 | Model/skill/worker/team vocabulary | `docs/phases/Work_Order_Team_Model.md` |
 | Execution/answer teams, mutating runs, source/write safety | `docs/phases/Unified_Run_Model.md` + `docs/phases/CLI_Implementation_Contract.md` |
-| CLI product surface, `alln`, TeamRunJSON, MCP/tool cutover | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
-| Installed help MCP, repo-free product docs, agent help routing | `docs/phases/MCP_Help_System.md` + `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md` |
-| MCP tool surface upgrade (count cut + wire protocol) | `docs/phases/MCP_Tool_Upgrade.md` — **§6.7** before emitting wire `outputSchema` |
+| CLI product surface, `alln`, TeamRunJSON | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
+| Agent surface, `alln team hello`, help routing (MCP retired 2026-07-16) | `docs/phases/MCP_Retirement.md` — the CLI is the only agent surface now; `docs/phases/MCP_Help_System.md` + `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md` are historical |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` + `docs/operations/ios-testing-loop.md` |
 | Shared Mac/iOS SwiftUI or `Packages/AllnighterUI` | `docs/gui/GUI_Workflow.md` §5 — default **no**; founder escalation required |
@@ -140,10 +139,10 @@ rules: `docs/operations/Execution-Playbook.md` § Commits.
 - Prefer deterministic checks over recurring agent judgment.
 - A failed worker is shown failed, never faked. Hide the plumbing (legacy panel /
   council / master-plan words, worktree, subprocess).
-- CLI, GUI, MCP, and iOS must share the same team-run contract; do not invent
+- CLI, GUI, and iOS must share the same team-run contract; do not invent
   parallel JSON around `TeamRunJSON`.
 - Mac and iOS do not share SwiftUI views or app-target GUI code; share
-  Core/Engine + CLI/MCP only (`docs/gui/GUI_Workflow.md` §5).
+  Core/Engine + CLI only (`docs/gui/GUI_Workflow.md` §5).
 - Judgment teams may mix sources; mutating/`execute` teams must resolve to one
   CLI/source before dispatch.
 - Forward Mac app work targets a standalone Dock app plus explicit background

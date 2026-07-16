@@ -383,7 +383,7 @@ struct TeamEditorView: View {
             }
             // Live Active/Inactive switch (TeamVisibility), in the title row. OFF
             // deactivates the team everywhere it's listed — Teams page, composer,
-            // CLI, and MCP — but it stays here in Settings to switch back on, and
+            // CLI — but it stays here in Settings to switch back on, and
             // still runs if invoked by id. Persists on toggle; no Save needed; works
             // for built-ins too (the seed is never touched, so it's reversible).
             if !isNew {
@@ -401,7 +401,7 @@ struct TeamEditorView: View {
                         .foregroundStyle(showOnTeamsPage ? ALColor.textMuted : ALColor.textFaint)
                 }
                 .help(showOnTeamsPage
-                      ? "Active — appears in the composer picker, the Teams page, and to agents over CLI/MCP."
+                      ? "Active — appears in the composer picker, the Teams page, and to agents over the alln CLI."
                       : "Inactive — hidden everywhere teams are listed. Still runs if invoked by id.")
             }
         }
@@ -420,8 +420,8 @@ struct TeamEditorView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Rectangle().fill(ALColor.borderSubtle).frame(height: 1).padding(.vertical, 4)
                 Text(showOnTeamsPage
-                     ? "Active — appears in the composer picker, the Teams page, and to agents over CLI/MCP. Flip the title-bar toggle off to deactivate it."
-                     : "Inactive — hidden from the picker, the Teams page, and agents over CLI/MCP. It still runs if invoked directly by id.")
+                     ? "Active — appears in the composer picker, the Teams page, and to agents over the alln CLI. Flip the title-bar toggle off to deactivate it."
+                     : "Inactive — hidden from the picker, the Teams page, and agents over the alln CLI. It still runs if invoked directly by id.")
                     .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
                 if isCustomTeam {
                     Button(role: .destructive) { confirmingDelete = true } label: {

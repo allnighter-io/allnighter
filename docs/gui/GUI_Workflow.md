@@ -66,7 +66,7 @@ Escalate to Tier D if the work touches:
 - **Voice:** calm, plain-spoken, sentence case, verbs first, no emoji, no hype
   (see `docs/design-system/readme.md`).
 - **Separate platform shells.** Mac and iOS do not share SwiftUI views or
-  app-target GUI code. Share Core/Engine truth and the CLI/MCP contract only.
+  app-target GUI code. Share Core/Engine truth and the CLI contract only.
   Full policy: §5 below.
 
 ## 5. Platform Shells (Mac vs iOS)
@@ -78,7 +78,7 @@ navigation shells, or a cross-platform UI package.
 **Shared (contract layer):**
 
 - `Packages/AllnighterCore` (+ `AllnighterEngine` on Mac for local truth)
-- `alln` CLI and MCP tools — the product surface both apps present
+- `alln` CLI — the product surface both apps present
 - JSON envelopes (`TeamRunJSON`, `ProjectListJSON`, `PendingItemJSON`, …)
 - Design-system **tokens and rules** (`docs/design-system/`) — each app maps
   tokens to its own Swift constants; shared views are not how appearance stays
@@ -101,7 +101,7 @@ requires an explicit founder-approved feature packet naming the exact component,
 why duplication is worse than coupling, and how Mac/iOS release cadences stay
 independent. Default answer: **no**.
 
-**Feature workflow:** Ship behavior in Core + CLI/MCP first; each app presents
+**Feature workflow:** Ship behavior in Core + CLI first; each app presents
 the contract in its own shell. Mac-only UX (e.g. sidebar folder drag-reorder)
 does not oblige iOS to adopt the same control.
 

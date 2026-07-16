@@ -1,9 +1,10 @@
 import Foundation
 
-// MCP Help System — H0a: pure Core lookup/search/render over the installed help
+// Help System — H0a: pure Core lookup/search/render over the installed help
 // topics. No IO, no network, no live state (topics flagged `needsLiveCheck` route the
-// caller to mcp_hello/doctor). CLI and MCP adapters call this so both project the same
-// truth. Search is deterministic local lexical scoring — no embeddings, no network.
+// caller to `alln team hello`/`alln doctor`). The `alln help` CLI adapter calls this so
+// every caller projects the same truth. Search is deterministic local lexical scoring
+// — no embeddings, no network.
 
 /// A parsed `alln://` help selector.
 public enum HelpSelector: Equatable, Sendable {

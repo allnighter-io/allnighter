@@ -3,7 +3,7 @@ import AllnighterCore
 
 /// Drives the **Default model** settings screen. Holds no durable truth of its own:
 /// it loads `DefaultModelSettings` (the Core SSOT), renders it through the SAME
-/// `DefaultSettingsProjector` the CLI/MCP use, and every mutation goes back through
+/// `DefaultSettingsProjector` the CLI uses, and every mutation goes back through
 /// Core (`TierMembership` + persistence) and re-projects. The screen is a pure
 /// projection of `DefaultSettingsJSON` — identical to `alln defaults --json`.
 @Observable

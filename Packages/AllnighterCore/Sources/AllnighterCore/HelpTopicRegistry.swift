@@ -1,10 +1,10 @@
 import Foundation
 
-// MCP Help System — H0a: the Guide-truth SSOT. `HelpTopicRegistry` owns authored
+// Help System — H0a: the Guide-truth SSOT. `HelpTopicRegistry` owns authored
 // product topics (narrative routing, task explanations, glossary). It REFERENCES the
 // Contract-truth registry (`ContractRegistry`) for tools/commands/schemas/errors — it
-// never hand-authors those facts. CLI (`alln help`) and MCP (`help`) project this same
-// project this same registry; none invents help truth locally.
+// never hand-authors those facts. `alln help` projects this same registry; nothing
+// invents help truth locally.
 
 public enum HelpAudience: String, Codable, Sendable, CaseIterable { case agent, human, both }
 
@@ -27,12 +27,12 @@ public struct HelpTopic: Codable, Sendable, Equatable, Identifiable {
     public var bodyMarkdown: String
     public var aliases: [String]         // retired/alternate terms that should find this topic
     public var sections: [Section]
-    public var relatedToolIds: [String]  // ⊆ ContractRegistry.mcpTools names
+    public var relatedToolIds: [String]  // internal action ids for cross-linking (`alln help get --tool <id>`)
     public var relatedCommandNames: [String] // ⊆ ContractRegistry M1 command names
     public var schemaRefs: [String]      // ⊆ OutputSchema rawValues
     public var errorRefs: [String]       // ⊆ error catalog codes
     /// True when the real answer depends on this machine's live state (the topic must
-    /// route to a live tool — mcp_hello/doctor — rather than pretend to know).
+    /// route to a live tool — `alln team hello` / `alln doctor` — rather than pretend to know).
     public var needsLiveCheck: Bool
 
     public init(
@@ -51,8 +51,8 @@ public struct HelpTopic: Codable, Sendable, Equatable, Identifiable {
 }
 
 public enum HelpTopicRegistry {
-    /// Authored installed topics. Every advertised MCP tool is reachable from at least
-    /// one topic (HelpCoverageTests). Prose is intentionally short and version-neutral.
+    /// Authored installed topics. Every advertised tool/action id is reachable from at
+    /// least one topic (HelpCoverageTests). Prose is intentionally short and version-neutral.
     public static let topics: [HelpTopic] = [
         HelpTopic(
             id: "quickstart", title: "Quickstart", audience: .both,
@@ -62,25 +62,28 @@ public enum HelpTopicRegistry {
             Grok, Antigravity) into one team that works in a repo. A default run sends \
             your message to the Default model (Auto) in the project root. Pick a named \
             team when you want a multi-worker pass. Check what your machine can do right \
-            now with `mcp_hello` or `alln doctor`.
+            now with `alln team hello` or `alln doctor`.
+
+            Other agents: add this to your context — Allnighter is available via the `alln` \
+            CLI; run `alln help` or `alln help search <query>` for anything.
             """,
             aliases: ["getting started", "first run", "what is allnighter"],
-            relatedToolIds: ["mcp_hello", "doctor"],
+            relatedToolIds: ["team_hello", "doctor"],
             relatedCommandNames: ["run", "doctor"],
             needsLiveCheck: false),
 
         HelpTopic(
-            id: "tool_selection", title: "Tool Selection", audience: .agent,
-            summary: "Pick the Allnighter MCP tool by intent: team_start(dryRun) for team runs, pending_run for later work, run_get for results.",
+            id: "tool_selection", title: "Command Selection", audience: .agent,
+            summary: "Pick the right `alln` command by intent: `team preflight` before `team start`, `pending run` for later work, `spec`/`show` for results.",
             bodyMarkdown: """
-            For a long team run, call `team_start` with `dryRun:true` first, then `team_start` \
-            with an idempotency key, poll `team_result` with `nextPollAfterMs`, then read \
-            `run_get`. For a quick capability check call `mcp_hello`. For full run \
-            packets use `run_get` with `view:spec`. Do not answer Allnighter product questions from \
-            training data when these tools are available.
+            For a long team run, call `alln team preflight` first, then `alln team start` \
+            with an idempotency key, poll `alln team result` with `nextPollAfterMs`, then read \
+            `alln show`. For a quick capability check call `alln team hello`. For full run \
+            packets use `alln spec`. Do not answer Allnighter product questions from \
+            training data when these commands are available.
             """,
             aliases: ["which tool", "what tool should i use", "routing", "help"],
-            relatedToolIds: ["help", "mcp_hello", "team_start", "team_result", "pending_run", "run_get"],
+            relatedToolIds: ["help", "team_hello", "team_start", "team_result", "pending_run", "run_get"],
             relatedCommandNames: ["help search", "help get", "team preflight", "team start", "spec"],
             schemaRefs: ["teamStartResponse"],
             needsLiveCheck: true),
@@ -233,14 +236,14 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "current_setup", title: "Current Setup", audience: .both,
-            summary: "What can THIS install do right now? Call mcp_hello (or doctor) — this is live state, not guide truth.",
+            summary: "What can THIS install do right now? Call `alln team hello` (or `alln doctor`) — this is live state, not guide truth.",
             bodyMarkdown: """
-            To answer "what can my install do right now?", call `mcp_hello` for a compact \
+            To answer "what can my install do right now?", call `alln team hello` for a compact \
             readiness snapshot, or `alln doctor` for the full per-source report. The help \
             bundle describes product behavior; it does not know this machine's live state.
             """,
             aliases: ["can it run", "ready", "readiness", "what can it do now", "status"],
-            relatedToolIds: ["mcp_hello", "doctor"],
+            relatedToolIds: ["team_hello", "doctor"],
             relatedCommandNames: ["doctor", "show"],
             needsLiveCheck: true),
 
@@ -279,8 +282,8 @@ public enum HelpTopicRegistry {
             summary: "Exact fields/enums come from the generated contract: run_get for a run packet, alln docs --schema for shapes.",
             bodyMarkdown: """
             Never guess Allnighter's field names or enum values. The generated contract is the \
-            source: `run_get(view:spec)` returns a run's full packet, and `alln docs --schema` prints the \
-            JSON schemas. Per-tool schemas also live at `allnighter://schemas/{tool}`.
+            source: `alln spec` returns a run's full packet, and `alln docs --schema` prints the \
+            JSON schemas. One schema by name: `alln help get --ref alln://schema/<name>`.
             """,
             aliases: ["schema", "fields", "json shape", "enum values", "contract"],
             relatedToolIds: ["run_get"],

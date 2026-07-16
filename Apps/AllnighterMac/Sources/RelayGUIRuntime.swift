@@ -6,7 +6,7 @@ import AllnighterEngine
 /// `RelayDispatch.makeCoordinator(runtime:)` (`AllnighterCLI`) field-for-field so a relay
 /// launched from the Mac app dispatches through the exact same `RunService` shape and the
 /// exact same `RelayThreadProjector` default (`ThreadStore()`/`RunStore()` roots) as the CLI
-/// and MCP paths — CLI/MCP/GUI relays are indistinguishable once running.
+/// paths — CLI/GUI relays are indistinguishable once running.
 ///
 /// This can't literally CALL `RelayDispatch.makeCoordinator` — `AllnighterCLI` is an
 /// `executableTarget` (`Packages/AllnighterCore/Package.swift`), not a library product, so
