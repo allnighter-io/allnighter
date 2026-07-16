@@ -29,6 +29,10 @@ struct RootView: View {
     /// The Factory Floor reader open over the workspace (a deep surface). Owned here so a
     /// top-bar route command can dismiss it (HomeView renders it via this binding).
     @State private var floorRun: TeamRun?
+    /// R-S08: which project's PM Relay launch sheet is open (mirrors `floorRun`'s
+    /// RootView-owned shape) — a "Start relay" tap in the sidebar, or a GUI-proof
+    /// deep-link (`GUIFixture.opensRelayLaunch`), sets this.
+    @State private var relayLaunchRequest: RelayLaunchRequest?
     /// Title-bar pending-count source (drives the conditional `N pending` pill).
     @State private var pendingVM: PendingViewModel?
     @State private var commands = CommandCenter()
@@ -133,6 +137,33 @@ struct RootView: View {
     }
 
     @ViewBuilder
+    /// Extracted from `workspaceContent`'s `if/else` chain — one more `HomeView` init
+    /// parameter (`relayLaunchRequest`, R-S08) tipped that expression over the
+    /// type-checker's complexity budget ("unable to type-check in reasonable time").
+    /// Splitting the construction into its own typed property gives it a much smaller
+    /// expression to solve.
+    private var homeViewContent: some View {
+        HomeView(
+            floorRun: $floorRun,
+            onAskAnotherTeam: { synthesis, team in
+                threads.pendingComposerContext = .init(
+                    id: UUID(), label: "Synthesis from \(team)", text: synthesis)
+                routeTo(.teams)   // open the Send-to-Team launcher
+            },
+            onContinueWithAuto: { synthesis, team in
+                threads.pendingComposerContext = .init(
+                    id: UUID(), label: "Synthesis from \(team)", text: synthesis)
+                floorRun = nil    // back to the current thread's composer
+            },
+            onOpenDevRoutes: {
+                #if DEBUG
+                showDevSettings = true
+                #endif
+            },
+            relayLaunchRequest: $relayLaunchRequest
+        )
+    }
+
     private var workspaceContent: some View {
         VStack(spacing: 0) {
             TitleBar(
@@ -196,24 +227,7 @@ struct RootView: View {
                             onAddTeam: { workspaceMode = .inbox; openTeamStudio(route: .teams(.code), newTeam: true) }
                         )
                     } else {
-                        HomeView(
-                            floorRun: $floorRun,
-                            onAskAnotherTeam: { synthesis, team in
-                                threads.pendingComposerContext = .init(
-                                    id: UUID(), label: "Synthesis from \(team)", text: synthesis)
-                                routeTo(.teams)   // open the Send-to-Team launcher
-                            },
-                            onContinueWithAuto: { synthesis, team in
-                                threads.pendingComposerContext = .init(
-                                    id: UUID(), label: "Synthesis from \(team)", text: synthesis)
-                                floorRun = nil    // back to the current thread's composer
-                            },
-                            onOpenDevRoutes: {
-                                #if DEBUG
-                                showDevSettings = true
-                                #endif
-                            }
-                        )
+                        homeViewContent
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -343,9 +357,12 @@ struct RootView: View {
                 if GUIFixture.opensHomeWorkspace {
                     model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")
                 }
-                if GUIFixture.opensProjectsRail {
+                if GUIFixture.opensProjectsRail || GUIFixture.opensRelayLaunch {
                     projects.seedForProof(ProjectsViewModel.sampleProjects(), active: "prj_halo")
                     threads.currentProjectId = "prj_halo"
+                }
+                if GUIFixture.opensRelayLaunch {
+                    relayLaunchRequest = RelayLaunchRequest(projectId: "prj_halo")
                 }
                 GUIFixture.captureAndExitIfRequested()
                 return

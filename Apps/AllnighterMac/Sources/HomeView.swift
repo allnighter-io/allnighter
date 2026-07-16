@@ -18,10 +18,14 @@ struct HomeView: View {
     var onContinueWithAuto: (String, String) -> Void = { _, _ in }
     /// DEBUG-only: open the developer GUI-routes sheet (sidebar footer link).
     var onOpenDevRoutes: () -> Void = {}
+    /// R-S08: owned by RootView (mirrors `floorRun`) so a GUI-proof deep-link
+    /// (`GUIFixture.opensRelayLaunch`) can force the sheet open deterministically at
+    /// launch, without HomeSidebar racing `ProjectsViewModel`'s fixture seeding.
+    @Binding var relayLaunchRequest: RelayLaunchRequest?
 
     var body: some View {
         HStack(spacing: 0) {
-            HomeSidebar(onOpenDevRoutes: onOpenDevRoutes)
+            HomeSidebar(onOpenDevRoutes: onOpenDevRoutes, relayLaunchRequest: $relayLaunchRequest)
                 .frame(width: 300)
             Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
             mainPane
@@ -69,10 +73,11 @@ private struct HomeSidebar: View {
     @State private var newChatHover = false
     /// Thread ids with an armed Pending item — drives the neutral pending row dot.
     @State private var armedPendingThreadIds: Set<String> = []
-    /// R-S08: the project a "Start relay" tap opened the launch sheet for.
-    @State private var relayLaunchRequest: RelayLaunchRequest?
     /// DEBUG-only: opens the developer GUI-routes sheet from the sidebar footer.
     var onOpenDevRoutes: () -> Void = {}
+    /// R-S08: the project a "Start relay" tap (or a GUI-proof deep-link) opened the
+    /// launch sheet for. Owned by RootView (see `HomeView`'s doc comment).
+    @Binding var relayLaunchRequest: RelayLaunchRequest?
 
     private var sections: (pinned: [ThreadRailRowState], groups: [ThreadsPresenter.ProjectRowGroup]) {
         ThreadsPresenter.projectSections(threads.railRows, projects: projects.projects, search: search)

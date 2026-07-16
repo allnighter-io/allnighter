@@ -143,6 +143,9 @@ enum GUIFixture {
     static var opensFloorReader: Bool { active == "floor-reader" }
     /// Deep-link: seed the project-grouped sidebar (PRJ-S14) with sample projects.
     static var opensProjectsRail: Bool { active == "projects-rail" }
+    /// R-S08: seed sample projects (same as `opensProjectsRail`) so the relay launch
+    /// sheet's doc/seat pickers have a real project + bench to render against.
+    static var opensRelayLaunch: Bool { active == "relay-launch" }
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
     /// Deep-link: open the Pending queue screen seeded with sample armed work.

@@ -58,6 +58,14 @@ struct ThreadsFixtureSeeder {
             seedFixtureProjectsRail()
             reload()
             setSelectedThreadId(nil)
+        case "relay-launch":
+            // R-S08: same project-grouped sidebar as "projects-rail" — the launch sheet
+            // (opened by RootView via GUIFixture.opensRelayLaunch) renders on top of it.
+            seedFixtureProjectsRail()
+            reload()
+            setSelectedThreadId(nil)
+        case "thread-relay-escalated":
+            seedFixtureRelayEscalated()
         default:
             break
         }
@@ -470,6 +478,55 @@ struct ThreadsFixtureSeeder {
         )
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(mutatingRun, toThreadId: id, now: Date())
+        reload()
+        setSelectedThreadId(id)
+    }
+
+    /// R-S08 proof: a PM Relay thread (id == relayId, `RelayThreadProjector`'s identity
+    /// rule) two rounds in, with round 2's PM turn escalated and still OPEN — the one
+    /// actionable system-event row (`RelayEscalationRow` in ThreadView.swift). Built
+    /// directly from `ThreadTurn`s in the SAME shape `RelayThreadProjector.sync` produces
+    /// (`.workerChat` PM/dev turns, an open `.systemEvent`/`.relayEscalated` turn) — no
+    /// `RelayCoordinator`/`RelayState` involved, this is pure UI-fixture data.
+    private func seedFixtureRelayEscalated() {
+        let id = "fixture-relay-escalated"
+        let pmWorkerId = models.first { $0.id == "model_claude_code" }?.id
+            ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI }?.id
+            ?? models.first?.id ?? "model_claude_code"
+        let devWorkerId = models.first { $0.id == "model_codex" }?.id
+            ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI && $0.id != pmWorkerId }?.id
+            ?? pmWorkerId
+        let base = Date().addingTimeInterval(-600)
+
+        guard (try? store.create(
+            id: id, title: "PM Relay: Pressure Test", now: base, workingDir: "/Users/you/code/allnighter"
+        )) != nil else { return }
+
+        func turn(_ suffix: String, workerId: String, text: String, at offset: TimeInterval) -> ThreadTurn {
+            ThreadTurn(
+                id: "\(id)_\(suffix)", threadId: id, kind: .workerChat, status: .done,
+                createdAt: base.addingTimeInterval(offset), completedAt: base.addingTimeInterval(offset + 20),
+                author: .worker, text: text, workerId: workerId
+            )
+        }
+        _ = try? store.appendTurn(turn(
+            "pm1", workerId: pmWorkerId,
+            text: "Reviewed baseline..HEAD — nothing to fix yet. Handover: implement §6 R-S08 per the slice table.",
+            at: 0
+        ), toThreadId: id, now: base)
+        _ = try? store.appendTurn(turn(
+            "dev1", workerId: devWorkerId,
+            text: "Built the launch surface + escalation row. Committed 3f2a91c. Tests green (152/152).",
+            at: 40
+        ), toThreadId: id, now: base)
+        // Round 2's PM turn escalated — an OPEN system event, the one actionable row.
+        let escalation = ThreadTurn(
+            id: "\(id)_escalate2", threadId: id, kind: .systemEvent, status: .running,
+            createdAt: base.addingTimeInterval(90), author: .system,
+            text: "Two seat pickers both resolve to \"Model\" in the composer — should the relay's PM/dev seat labels say the driver name too, or is the model name enough?",
+            systemEvent: .relayEscalated
+        )
+        _ = try? store.appendTurn(escalation, toThreadId: id, now: base)
         reload()
         setSelectedThreadId(id)
     }
