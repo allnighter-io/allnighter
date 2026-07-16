@@ -506,7 +506,7 @@ Flags:
 - `--team <id>` — Team preset id; omit for Default Team.
 - `--worker <id>` — Override worker model id.
 - `--effort <effort>` — low | med | high.
-- `--lane <lane>` — code | design | copy | signal.
+- `--lane <lane>` — Without --team/--worker: picks the lane's default answer team. With an explicit --worker or mutating --team: context metadata only — recorded on run identity, does not reroute the worker.
 - `--type <type>` — Copy routing sugar.
 - `--context <string>` — Bounded context snippet.
 - `--try-fix` — Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.

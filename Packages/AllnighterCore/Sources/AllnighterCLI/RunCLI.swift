@@ -87,7 +87,7 @@ enum RunCLI {
                 print(AllnighterCLI.jsonString(trj))
             } else {
                 print(run.plan ?? run.workerAnswers.first?.output ?? "(run \(run.status.rawValue))")
-                FileHandle.standardError.write(Data("\n[run \(run.id) · \(run.presetId ?? "default")]\n".utf8))
+                FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
             }
         }
     }

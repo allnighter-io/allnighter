@@ -325,7 +325,7 @@ public extension ContractRegistry {
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id; omit for Default Team."),
                 FlagSpec("worker", takesValue: true, valueType: "id", summary: "Override worker model id."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
-                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "code | design | copy | signal."),
+                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Without --team/--worker: picks the lane's default answer team. With an explicit --worker or mutating --team: context metadata only — recorded on run identity, does not reroute the worker."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy routing sugar."),
                 FlagSpec("context", takesValue: true, valueType: "string", summary: "Bounded context snippet."),
                 FlagSpec("try-fix", summary: "Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt."),

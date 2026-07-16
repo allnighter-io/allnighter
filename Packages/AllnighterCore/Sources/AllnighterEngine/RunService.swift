@@ -287,6 +287,7 @@ public actor RunService {
         // CLI already holds the history, so we don't re-dump it); the answer path always does.
 
         let effort = request.effort ?? preset.defaultEffort
+        let explicitTeamChosen = request.presetId.map { !$0.isEmpty } ?? false
         let lockKey = RunWriteLock.key(repoRoot: root)
         var lockToken: RunWriteLock.Token?
         let takesWriteLock = preset.writePolicy == .mutating && !request.advisoryReview
@@ -314,7 +315,8 @@ public actor RunService {
         if preset.runShape == .execution {
             return await runExecution(
                 preset: preset, prompt: prompt, context: request.context, threadId: request.threadId,
-                effort: effort, repoRoot: root,
+                effort: effort, repoRoot: root, requestLane: request.lane,
+                explicitTeamChosen: explicitTeamChosen,
                 projectId: request.projectId, workerOverride: effectiveWorkerId,
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
                 deliveries: request.deliveries, requestedAt: requestedAt, timing: timing, events: events,
@@ -331,6 +333,7 @@ public actor RunService {
         return await runAnswer(
             preset: preset, prompt: answerPrompt, effort: effort, repoRoot: root,
             projectId: request.projectId, lane: request.lane ?? preset.lane,
+            explicitTeamChosen: explicitTeamChosen,
             origin: origin, originAgent: originAgent, runId: id, runner: runner,
             deliveries: request.deliveries, timing: timing, events: events
         )
@@ -345,6 +348,8 @@ public actor RunService {
         threadId: String? = nil,
         effort: EffortLevel,
         repoRoot: String,
+        requestLane: WorkLane?,
+        explicitTeamChosen: Bool,
         projectId: String?,
         workerOverride: String?,
         origin: RunOrigin,
@@ -445,6 +450,7 @@ public actor RunService {
                 deliveries: deliveries,
                 readsImages: manifest.canReadImages)
         let startedAt = now()
+        let effectiveLane = requestLane ?? preset.lane
         emit(RunEventKind.runStatusChanged, [
             "runId": .string(runId), "from": .string(RunStatus.draft.rawValue),
             "to": .string(RunStatus.fanningOut.rawValue), "origin": .string(origin.rawValue),
@@ -461,8 +467,11 @@ public actor RunService {
             presetId: preset.id, workers: [worker],
             workerAnswers: [TeamAnswer(memberId: worker.id, modelId: model.id, role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
                                        result: WorkerRunResult(status: .running))],
-            createdAt: startedAt, lane: preset.lane, effort: effort,
-            teamDisplayName: preset.displayName, outputKind: preset.outputKind,
+            createdAt: startedAt, lane: effectiveLane, effort: effort,
+            teamDisplayName: RunIdentity.teamDisplayName(
+                presetId: preset.id, catalogDisplayName: preset.displayName,
+                explicitTeamChosen: explicitTeamChosen),
+            outputKind: preset.outputKind,
             // The run's source is where the worker ACTUALLY ran — the chosen model's
             // driver. For the default route, Auto/override can pick a model on a CLI
             // other than the preset's declared executionSourceId, so the model's driver
@@ -710,6 +719,7 @@ public actor RunService {
         repoRoot: String,
         projectId: String?,
         lane: WorkLane,
+        explicitTeamChosen: Bool,
         origin: RunOrigin,
         originAgent: String?,
         runId: String,
@@ -738,7 +748,10 @@ public actor RunService {
         @Sendable func stamped(_ run: TeamRun) -> TeamRun {
             var r = run
             r.lane = lane; r.effort = effort
-            r.teamDisplayName = resolved.teamDisplayName; r.outputKind = resolved.outputKind
+            r.teamDisplayName = RunIdentity.teamDisplayName(
+                presetId: preset.id, catalogDisplayName: resolved.teamDisplayName,
+                explicitTeamChosen: explicitTeamChosen)
+            r.outputKind = resolved.outputKind
             r.warnings = resolved.warnings; r.mutating = false
             return r
         }

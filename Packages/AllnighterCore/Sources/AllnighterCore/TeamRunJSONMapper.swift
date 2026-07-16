@@ -89,6 +89,7 @@ public enum TeamRunJSONMapper {
 
         // Prefer the run's own catalog facts (self-describing); fall back to
         // caller-supplied context for legacy runs that did not record them.
+        let workerModelId = RunIdentity.primaryWorkerModelId(run)
         let info = TeamRunJSON.RunInfo(
             id: run.id, status: mapRun(run.status), origin: mapOrigin(run.origin),
             originAgent: run.originAgent,
@@ -99,6 +100,10 @@ public enum TeamRunJSONMapper {
             createdAt: isoString(run.createdAt), startedAt: iso(started), completedAt: iso(completed),
             threadId: run.threadId, teamPresetId: run.presetId,
             teamDisplayName: run.teamDisplayName, outputKind: run.outputKind?.rawValue,
+            workerId: workerModelId,
+            writePolicy: RunIdentity.writePolicyLabel(mutating: run.mutating),
+            identitySummary: RunIdentity.summary(
+                workerId: workerModelId, lane: run.lane, mutating: run.mutating),
             planWriterWorkerId: plan?.writerWorkerId, reproduceCommand: context.reproduceCommand
         )
 

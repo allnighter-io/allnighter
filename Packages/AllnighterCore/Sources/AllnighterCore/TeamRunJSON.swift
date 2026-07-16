@@ -105,6 +105,12 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var teamPresetId: String?
         public var teamDisplayName: String?
         public var outputKind: String?
+        /// Primary worker model id — the model that ran (or leads identity for multi-worker teams).
+        public var workerId: String?
+        /// `mutating` or `readOnly` — captured at run start.
+        public var writePolicy: String?
+        /// Headline identity: `worker <id> · lane <lane> · mutating|readOnly`.
+        public var identitySummary: String?
         public var planWriterWorkerId: String?
         public var reproduceCommand: String?
 
@@ -114,6 +120,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             prompt: String, promptSource: PromptSource, createdAt: String,
             startedAt: String? = nil, completedAt: String? = nil, threadId: String? = nil,
             teamPresetId: String? = nil, teamDisplayName: String? = nil, outputKind: String? = nil,
+            workerId: String? = nil, writePolicy: String? = nil, identitySummary: String? = nil,
             planWriterWorkerId: String? = nil, reproduceCommand: String? = nil
         ) {
             self.id = id; self.status = status; self.origin = origin
@@ -122,7 +129,9 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             self.createdAt = createdAt; self.startedAt = startedAt
             self.completedAt = completedAt; self.threadId = threadId
             self.teamPresetId = teamPresetId; self.teamDisplayName = teamDisplayName
-            self.outputKind = outputKind; self.planWriterWorkerId = planWriterWorkerId
+            self.outputKind = outputKind; self.workerId = workerId
+            self.writePolicy = writePolicy; self.identitySummary = identitySummary
+            self.planWriterWorkerId = planWriterWorkerId
             self.reproduceCommand = reproduceCommand
         }
     }

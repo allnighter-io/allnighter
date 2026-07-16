@@ -1263,7 +1263,7 @@
         },
         {
           "name" : "lane",
-          "summary" : "code | design | copy | signal.",
+          "summary" : "Without --team\/--worker: picks the lane's default answer team. With an explicit --worker or mutating --team: context metadata only — recorded on run identity, does not reroute the worker.",
           "takesValue" : true,
           "valueType" : "lane"
         },
