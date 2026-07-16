@@ -286,6 +286,13 @@ No **REMOVE** from prompt-tuning suite evidence.
 
 ## Named Team Variants
 
+> **Naming superseded (2026-07-16):** depth-tier names in this section follow
+> the old Lite/Forensics vocabulary. The decided convention is
+> **Min / (bare name) / Max** — see [`Team_Depth_Naming.md`](Team_Depth_Naming.md).
+> Under it, today's Lite roster becomes the bare default "Bug Hunt"
+> (`code_bug_hunt`) and Forensics becomes "Bug Hunt Max" (`code_bug_hunt_max`).
+> Rosters, seat economics, and routing mechanics below are unchanged.
+
 **Team shape is a named Team, not a generic depth dial** (`Team_And_Skill_Catalogs.md`,
 `Language_Cutover.md`). `ALLNIGHTER_TEAM_DEPTH` / effort gating of worker rows is
 **legacy machinery** — forward product expresses shape as **distinct team IDs**,
