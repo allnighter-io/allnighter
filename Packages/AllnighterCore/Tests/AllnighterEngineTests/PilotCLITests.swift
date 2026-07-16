@@ -355,4 +355,17 @@ final class PilotCLITests: XCTestCase {
         XCTAssertTrue(note.contains("no round in flight"))
         XCTAssertTrue(note.contains("awaitingPM"))
     }
+
+    func testHandoffDispatchAckJSONEncodesSingleLine() throws {
+        let ack = PilotHandoffDispatchJSON(
+            relayId: "relay_test", status: "dispatched", roundInFlight: false, pid: 4242)
+        let line = PilotCLI.compactJSONString(ack)
+        XCTAssertFalse(line.contains("\n"))
+        let data = try XCTUnwrap(line.data(using: .utf8))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["relayId"] as? String, "relay_test")
+        XCTAssertEqual(json["status"] as? String, "dispatched")
+        XCTAssertEqual(json["roundInFlight"] as? Bool, false)
+        XCTAssertEqual(json["pid"] as? Int, 4242)
+    }
 }

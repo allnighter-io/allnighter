@@ -402,4 +402,20 @@ final class PanelCLITests: XCTestCase {
         let advisory = PanelCLI.dirtyTargetAdvisory(projectRoot: root.path, targetPath: "docs/spec.md")
         XCTAssertNil(advisory)
     }
+
+    func testPanelStartRosterEchoesIsolationPerSeat() throws {
+        let seats = [
+            PanelSeat(workerId: "model_sonnet", lens: "failure-modes"),
+            PanelSeat(workerId: "model_grok", lens: "simplify"),
+        ]
+        let isolationModes = ["model_sonnet": "driverReadOnly", "model_grok": "clone"]
+        let roster = seats.map { PanelSeatJSON($0, isolation: isolationModes[$0.workerId]) }
+        XCTAssertEqual(roster[0].isolation, "driverReadOnly")
+        XCTAssertEqual(roster[1].isolation, "clone")
+        let data = try CoreJSON.encode(roster)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        XCTAssertEqual(json[0]["isolation"] as? String, "driverReadOnly")
+        XCTAssertNil(json[0]["isolationMode"])
+        XCTAssertEqual(json[1]["isolation"] as? String, "clone")
+    }
 }

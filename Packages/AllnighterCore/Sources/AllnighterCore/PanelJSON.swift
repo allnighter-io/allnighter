@@ -5,18 +5,18 @@ public struct PanelSeatJSON: Codable, Equatable, Sendable {
     public var workerId: String
     public var lens: String
     /// `driverReadOnly` | `clone` — echoed on `panel start` roster block (PN-S06 / works-test).
-    public var isolationMode: String?
+    public var isolation: String?
 
-    public init(workerId: String, lens: String, isolationMode: String? = nil) {
+    public init(workerId: String, lens: String, isolation: String? = nil) {
         self.workerId = workerId
         self.lens = lens
-        self.isolationMode = isolationMode
+        self.isolation = isolation
     }
 
-    public init(_ seat: PanelSeat, isolationMode: String? = nil) {
+    public init(_ seat: PanelSeat, isolation: String? = nil) {
         self.workerId = seat.workerId
         self.lens = seat.lens
-        self.isolationMode = isolationMode
+        self.isolation = isolation
     }
 }
 
@@ -139,7 +139,7 @@ public struct PanelJSON: Codable, Equatable, Sendable {
             targetHash: hash,
             teamId: state.teamId,
             roster: state.seats.map {
-                PanelSeatJSON($0, isolationMode: isolationBySeat?[$0.workerId])
+                PanelSeatJSON($0, isolation: isolationBySeat?[$0.workerId])
             },
             rounds: state.rounds.count,
             maxRounds: state.maxRounds,

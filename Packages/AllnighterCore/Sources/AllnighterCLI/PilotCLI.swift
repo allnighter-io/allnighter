@@ -324,6 +324,10 @@ enum PilotCLI {
     private static func dispatchHandoffInBackground(
         relayId: String, opts: Options, submission: String, jsonRequested: Bool
     ) {
+        let stateStore = RelayStateStore()
+        let priorStatus = stateStore.load(id: relayId)?.status
+        let roundInFlight = priorStatus == .running
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
         var childArgs = ["pair", "pilot", "handoff", "--relay", relayId]
@@ -368,7 +372,13 @@ enum PilotCLI {
         } catch {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background handoff: \(error)")
         }
-        print("dispatched (pid \(process.processIdentifier)) — poll with `alln pair pilot status --relay \(relayId) --json` or `alln pair pilot watch --relay \(relayId)`")
+        if jsonRequested {
+            print(PilotCLI.compactJSONString(PilotHandoffDispatchJSON(
+                relayId: relayId, status: "dispatched", roundInFlight: roundInFlight,
+                pid: process.processIdentifier)))
+        } else {
+            print("dispatched (pid \(process.processIdentifier)) — poll with `alln pair pilot status --relay \(relayId) --json` or `alln pair pilot watch --relay \(relayId)`")
+        }
     }
 
     private static func emitHandoffResult(_ payload: RelayCoordinator.PilotRoundResult, json: Bool) {
@@ -754,6 +764,22 @@ enum PilotCLI {
         FileHandle.standardError.write(Data("usage: alln pair \(detail)\n".utf8))
         exit(2)
     }
+
+    /// One-line JSON for agent parsers (`Field_Reports_3.md` FR10).
+    static func compactJSONString<T: Encodable>(_ value: T) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(value) else { return "{}" }
+        return String(decoding: data, as: UTF8.self)
+    }
+}
+
+/// Single-line JSON ack on `pilot handoff --no-wait --json` before the detached child runs.
+struct PilotHandoffDispatchJSON: Encodable {
+    let relayId: String
+    let status: String
+    let roundInFlight: Bool
+    let pid: Int32
 }
 
 /// `pilot handoff --json` envelope: the same `RelayJSON` every other relay verb emits,

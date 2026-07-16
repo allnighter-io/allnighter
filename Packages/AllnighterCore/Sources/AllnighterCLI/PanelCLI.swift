@@ -473,7 +473,7 @@ enum PanelCLI {
             ($0.workerId, $0.mode.rawValue)
         })
         let rosterJSON = state.seats.map {
-            PanelSeatJSON($0, isolationMode: isolationModes[$0.workerId])
+            PanelSeatJSON($0, isolation: isolationModes[$0.workerId])
         }
         let panelJSON = PanelJSON.project(
             state,
