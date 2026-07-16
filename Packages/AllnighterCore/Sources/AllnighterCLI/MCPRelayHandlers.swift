@@ -70,6 +70,17 @@ enum MCPRelayHandlers {
             until: RelayDispatch.parseUntil(args["until"] as? String),
             pmMayMutate: !((args["pmReadOnly"] as? Bool) ?? false)
         )
+        // `--pm-read-only` fail-closed pre-flight (PM_Relay.md §4.2) — same check, same
+        // message, as `RelayCLI.runRelay` (agent-first: MCP never richer/different than
+        // the CLI). `RunService`'s dispatch-time `RelayReadOnlyEnforcer.enforce` call is
+        // the mechanical backstop this can never replace.
+        if !config.pmMayMutate,
+           let violation = RelayReadOnlyEnforcer.capabilityViolation(
+               pmWorkerId: pmWorkerId, models: runtime.models, registry: runtime.registry) {
+            return .toolError(ErrorEnvelope(
+                code: "RELAY_PM_READONLY_UNSUPPORTED", message: violation,
+                requiresManual: true, retryable: false))
+        }
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
         let state = await coordinator.run(config: config)
         return respond(state)

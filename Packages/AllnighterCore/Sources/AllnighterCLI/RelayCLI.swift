@@ -23,6 +23,17 @@ enum RelayCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
 
+        // `--pm-read-only` fail-closed pre-flight (PM_Relay.md §4.2): an ERROR at start,
+        // before any round dispatches — never a relay that silently runs un-enforced.
+        // `RunService`'s own dispatch-time `RelayReadOnlyEnforcer.enforce` call is the
+        // mechanical backstop this can never replace; this is the fast, honest failure
+        // for the common case (a known worker on an unsupported driver).
+        if !config.pmMayMutate,
+           let violation = RelayReadOnlyEnforcer.capabilityViolation(
+               pmWorkerId: config.pmWorkerId, models: runtime.models, registry: runtime.registry) {
+            AllnighterCLI.fail(code: "RELAY_PM_READONLY_UNSUPPORTED", message: violation)
+        }
+
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
         let emitJSON = Options(args).flag("json")
         let state = await coordinator.run(config: config) { event in
