@@ -1,6 +1,15 @@
 # Pilot Polish + Agent UX — frictionless handoff, post-MCP hello, Auto Fix discovery
 
-Status: In progress — piloted delivery #2 (PM = live Claude session; dev = Cursor Grok 4.5)
+Status: SHIPPED — piloted delivery #2, relay_af304745 (PM = live Claude session; dev
+= Cursor Grok 4.5 / `model_cursor_grok_45`, second CLI in the dev chair). P1
+`d96f332a` (+ root-cause RelayVerdictParser fence fix, found LIVE by the PM mid-relay),
+P2 `6f3f70ca` (hello schemaVersion 3, `nextCommandPlan`, registry drift gate), P3
+`3b1eba00` (auto_fix topic, all three naive queries rank 1.00). Round 2 was submitted
+via the new `--handover-file` flag with an embedded fenced block that survived
+byte-exact — the polish proved itself in its own delivery. All independently verified
+by the PM: 255 tests green, contracts clean. Note: the Cursor dev seat reported
+direct shell still blocked despite the project-scoped `.cursor/cli.json` and routed
+verification through its own subagent — allowlist override efficacy needs a look.
 Owner: AllnighterCore + CLI
 Updated: 2026-07-16
 
