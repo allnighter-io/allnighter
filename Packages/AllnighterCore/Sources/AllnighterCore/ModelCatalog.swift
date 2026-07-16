@@ -35,6 +35,10 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .fast],
             strengthRank: 85),
+        "model_cursor_grok_45": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner],
+            strengthRank: 83),
         "model_cursor_auto": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .fast],
@@ -61,6 +65,8 @@ public enum ModelCatalog {
             .low: "Gemini 3.5 Flash (Low)", .med: "Gemini 3.5 Flash (Medium)", .high: "Gemini 3.5 Flash (High)"]
         let proVariants: [EffortLevel: String] = [
             .low: "Gemini 3.1 Pro (Low)", .med: "Gemini 3.1 Pro (High)", .high: "Gemini 3.1 Pro (High)"]
+        let cursorGrokVariants: [EffortLevel: String] = [
+            .low: "cursor-grok-4.5-low", .med: "cursor-grok-4.5-medium", .high: "cursor-grok-4.5-high"]
         func fixed(_ s: String) -> [EffortLevel: String] { [.low: s, .med: s, .high: s] }
         return [
             // Claude Code — effort via the `--effort` flag (see DefaultConfig manifest).
@@ -76,9 +82,11 @@ public enum ModelCatalog {
             def("model_grok", "Grok 4.5", "grok-4.5", "grok", .answerer, defaultEnabled: true),
             def("model_composer", "Grok Composer 2.5 Fast", "grok-composer-2.5-fast", "grok", .answerer, defaultEnabled: false),
             // Cursor Agent — Auto is the default; regular Composer 2.5 stays on-bench;
-            // Fast is explicit opt-in (6× cost).
+            // Fast is explicit opt-in (6× cost). Cursor Grok 4.5 encodes effort in the
+            // model id (`agent --list-models`).
             def("model_cursor_auto", "Auto", "auto", "cursor_agent", .answerer, defaultEnabled: true),
             def("model_cursor_composer_25", "Composer 2.5", "composer-2.5", "cursor_agent", .answerer, defaultEnabled: true),
+            def("model_cursor_grok_45", "Cursor Grok 4.5", "cursor-grok-4.5-high", "cursor_agent", .answerer, defaultEnabled: true, effortVariants: cursorGrokVariants),
             def("model_cursor_composer_25_fast", "Composer 2.5 Fast", "composer-2.5-fast", "cursor_agent", .answerer, defaultEnabled: false),
             // Antigravity — a multi-model router; effort is encoded in the model name.
             def("model_gemini", "Gemini 3.5 Flash", "Gemini 3.5 Flash (Medium)", "antigravity", .answerer, defaultEnabled: true, effortVariants: flashVariants),

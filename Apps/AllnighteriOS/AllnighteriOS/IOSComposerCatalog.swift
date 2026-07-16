@@ -62,6 +62,7 @@ enum IOSComposerCatalog {
         "model_chatgpt",
         "model_grok",
         "model_cursor_composer_25",
+        "model_cursor_grok_45",
         "model_gemini",
     ]
 

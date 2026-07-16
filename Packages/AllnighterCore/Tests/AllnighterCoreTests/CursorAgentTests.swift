@@ -52,7 +52,20 @@ final class CursorAgentTests: XCTestCase {
     func testCursorModelIdsAreDriverScoped() {
         XCTAssertTrue(ModelCatalog.builtIns.contains { $0.id == "model_cursor_auto" && $0.driverId == "cursor_agent" })
         XCTAssertTrue(ModelCatalog.builtIns.contains { $0.id == "model_cursor_composer_25" && $0.driverId == "cursor_agent" })
+        XCTAssertTrue(ModelCatalog.builtIns.contains { $0.id == "model_cursor_grok_45" && $0.driverId == "cursor_agent" })
         XCTAssertNotEqual("model_cursor_composer_25", "model_composer")
+    }
+
+    func testCursorGrok45EncodesEffortInModelLabel() {
+        let def = ModelCatalog.builtIns.first { $0.id == "model_cursor_grok_45" }!
+        XCTAssertEqual(def.displayName, "Cursor Grok 4.5")
+        XCTAssertEqual(def.effortVariants?[.low], "cursor-grok-4.5-low")
+        XCTAssertEqual(def.effortVariants?[.med], "cursor-grok-4.5-medium")
+        XCTAssertEqual(def.effortVariants?[.high], "cursor-grok-4.5-high")
+        let model = Model(id: def.id, displayName: def.displayName, modelLabel: def.modelLabel,
+                          driverId: def.driverId, effortVariants: def.effortVariants)
+        XCTAssertEqual(model.resolvedLabel(at: .med), "cursor-grok-4.5-medium")
+        XCTAssertTrue(model.supportsEffort(manifest: try! Fixtures.manifest(.manifestCursor)))
     }
 
     func testProbeLabelNeverUsesFastOrAuto() throws {
