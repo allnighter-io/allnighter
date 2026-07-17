@@ -52,6 +52,13 @@ public struct RelayRound: Sendable, Codable, Equatable {
     public var devTurnOwner: ProcessOwnerRecord?
     /// PO-S02: stamped by the actor that ends the dev turn — never inferred.
     public var devTurnEndReason: DevTurnEndReason?
+    /// PO-S04: harness-owned proof-of-record results for this round's dev turn.
+    /// Empty when no `proofCommands` were declared or the turn never delivered.
+    public var proofResults: [HarnessProofResult]
+    /// PO-S04: declared proof commands for this turn (from turn state or parsed
+    /// from the dev report tail). Durable so status JSON / resume can re-surface
+    /// what the harness was asked to run — never a second subprocess path.
+    public var proofCommands: [String]
 
     public init(
         roundNumber: Int,
@@ -67,7 +74,9 @@ public struct RelayRound: Sendable, Codable, Equatable {
         externalSubmission: String? = nil,
         dirtyFiles: [String]? = nil,
         devTurnOwner: ProcessOwnerRecord? = nil,
-        devTurnEndReason: DevTurnEndReason? = nil
+        devTurnEndReason: DevTurnEndReason? = nil,
+        proofResults: [HarnessProofResult] = [],
+        proofCommands: [String] = []
     ) {
         self.roundNumber = roundNumber
         self.baselineHead = baselineHead
@@ -83,6 +92,29 @@ public struct RelayRound: Sendable, Codable, Equatable {
         self.dirtyFiles = dirtyFiles
         self.devTurnOwner = devTurnOwner
         self.devTurnEndReason = devTurnEndReason
+        self.proofResults = proofResults
+        self.proofCommands = proofCommands
+    }
+
+    // Lenient decode: relays persisted before PO-S04 lack proof fields.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        roundNumber = try c.decode(Int.self, forKey: .roundNumber)
+        baselineHead = try c.decodeIfPresent(String.self, forKey: .baselineHead)
+        headAfterDev = try c.decodeIfPresent(String.self, forKey: .headAfterDev)
+        pmRunId = try c.decodeIfPresent(String.self, forKey: .pmRunId)
+        devRunId = try c.decodeIfPresent(String.self, forKey: .devRunId)
+        verdict = try c.decodeIfPresent(RelayVerdict.self, forKey: .verdict)
+        gate = try c.decodeIfPresent(RelayGateSummary.self, forKey: .gate)
+        startedAt = try c.decode(Date.self, forKey: .startedAt)
+        finishedAt = try c.decodeIfPresent(Date.self, forKey: .finishedAt)
+        outcome = try c.decodeIfPresent(Outcome.self, forKey: .outcome)
+        externalSubmission = try c.decodeIfPresent(String.self, forKey: .externalSubmission)
+        dirtyFiles = try c.decodeIfPresent([String].self, forKey: .dirtyFiles)
+        devTurnOwner = try c.decodeIfPresent(ProcessOwnerRecord.self, forKey: .devTurnOwner)
+        devTurnEndReason = try c.decodeIfPresent(DevTurnEndReason.self, forKey: .devTurnEndReason)
+        proofResults = try c.decodeIfPresent([HarnessProofResult].self, forKey: .proofResults) ?? []
+        proofCommands = try c.decodeIfPresent([String].self, forKey: .proofCommands) ?? []
     }
 }
 

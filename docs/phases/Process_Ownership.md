@@ -178,6 +178,22 @@ Works test: dev turn declares a proof of `sleep 300`; harness times it out;
 assert group empty, `endReason: proofTimeout`, `proofResults[]` captured, and
 the next turn's proof starts clean on the same scratch (warm cache intact).
 
+**Implementation note (2026-07-17, S04 landed):**
+- **Declare:** `proofCommands` from turn state (`RelayRound.proofCommands`) or
+  the dev report tail via `HarnessProofCommandsParser` — fenced
+  ` ```proofCommands ` (JSON array or one command per line) or a JSON object
+  `{"proofCommands":[…]}` (last match wins). Turn state wins when non-empty.
+- **Run:** after the agent group is killed, the harness releases the dev-turn
+  lane hold and re-acquires as `harnessProof`, then runs
+  `ProjectVerificationService` with `ProcessGroupCommandRunner(spawnKind:
+  .harnessProof)` — no second spawn path. `endReason` becomes `proofTimeout`
+  if any proof is killed on timeout, or `laneBusy` if the proof phase cannot
+  acquire the lane.
+- **Scratch (one per root, not per-attempt):**
+  `~/Library/Application Support/Allnighter/Lanes/<lane-key>/scratch/`
+  (`ExecutionLaneFlock.ensuredScratchPath`). SwiftPM commands get
+  `--scratch-path` injected when missing.
+
 ## PO-S05 — observable ownership: `alln ps` / `alln kill`
 
 The law creates a registry as a side effect (every run/turn dir holds an

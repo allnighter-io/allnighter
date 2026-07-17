@@ -60,9 +60,9 @@ public enum DevTurnEndReason: String, Codable, Sendable, CaseIterable {
     case stalled
     /// Explicit group kill (reconcile after relay death, deadline stop mid-turn, etc.).
     case killed
-    /// Harness proof of record timed out (PO-S04; reserved, stamped only when that path ends a turn).
+    /// Harness proof of record timed out (PO-S04; stamped when the harness kills a proof).
     case proofTimeout
-    /// Execution lane held by another identity (PO-S03; reserved).
+    /// Execution lane held by another identity (PO-S03 turn acquire, or PO-S04 proof acquire).
     case laneBusy
     /// Honest "we do not know" — itself a bug report when seen in production.
     case unknown

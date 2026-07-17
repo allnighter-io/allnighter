@@ -31,6 +31,15 @@ public struct RelayCoordinator: Sendable {
         /// `execution_playbook` (`PairCoordinator.Seats` uses the same team for its
         /// executor seat).
         public var presetId: String
+        /// PO-S04: hard timeout (seconds) for each harness-owned proof command.
+        /// Defaults to `ProjectVerificationService.defaultTimeoutSeconds` (600).
+        public var proofTimeoutSeconds: Int
+        /// PO-S03/S04: how long a blocked **dev turn** waits on the execution lane
+        /// before failing with `laneBusy`. Defaults to the generous production bound.
+        public var executionLaneWaitTimeout: Duration
+        /// PO-S04: how long the proof phase waits on the execution lane after the
+        /// dev turn releases it. Defaults to the same generous bound as the turn.
+        public var proofLaneWaitTimeout: Duration
 
         public init(
             projectRoot: String,
@@ -41,7 +50,10 @@ public struct RelayCoordinator: Sendable {
             maxRounds: Int = 20,
             until: Date? = nil,
             stagnationRoundCap: Int = 3,
-            presetId: String = "execution_playbook"
+            presetId: String = "execution_playbook",
+            proofTimeoutSeconds: Int = ProjectVerificationService.defaultTimeoutSeconds,
+            executionLaneWaitTimeout: Duration = .seconds(1800),
+            proofLaneWaitTimeout: Duration = .seconds(1800)
         ) {
             self.projectRoot = projectRoot
             self.projectId = projectId
@@ -52,6 +64,9 @@ public struct RelayCoordinator: Sendable {
             self.until = until
             self.stagnationRoundCap = max(1, stagnationRoundCap)
             self.presetId = presetId
+            self.proofTimeoutSeconds = max(1, proofTimeoutSeconds)
+            self.executionLaneWaitTimeout = executionLaneWaitTimeout
+            self.proofLaneWaitTimeout = proofLaneWaitTimeout
         }
     }
 
@@ -128,6 +143,11 @@ public struct RelayCoordinator: Sendable {
     private let threadProjector: RelayThreadProjector?
     /// Per-root build/execution lane (PO-S03). Shared with `RunWriteLock` — one system.
     private let executionLane: ExecutionLaneRegistry
+    /// PO-S04: process-group runner for harness proofs only. Separate from
+    /// `RunService`'s worker runner so tests can mock workers while proofs still
+    /// exercise real `ProcessGroupCommandRunner` (or a dedicated double). Never a
+    /// second spawn *implementation* — same `ProcessGroupCommandRunner` type.
+    private let proofCommandRunner: CommandRunner
     private let now: @Sendable () -> Date
     private let idFactory: @Sendable () -> String
 
@@ -143,6 +163,10 @@ public struct RelayCoordinator: Sendable {
         runStore: RunStore = RunStore(),
         threadProjector: RelayThreadProjector? = nil,
         executionLane: ExecutionLaneRegistry = .shared,
+        proofCommandRunner: CommandRunner = ProcessGroupCommandRunner(
+            environmentPolicy: AllnighterSpawnEnvironmentPolicy(),
+            spawnKind: .harnessProof
+        ),
         now: @escaping @Sendable () -> Date = Date.init,
         idFactory: @escaping @Sendable () -> String = { "relay_\(UUID().uuidString.lowercased())" }
     ) {
@@ -152,6 +176,7 @@ public struct RelayCoordinator: Sendable {
         self.runStore = runStore
         self.threadProjector = threadProjector
         self.executionLane = executionLane
+        self.proofCommandRunner = proofCommandRunner
         self.now = now
         self.idFactory = idFactory
     }
@@ -334,7 +359,13 @@ public struct RelayCoordinator: Sendable {
                 ),
                 site: .pilotDevTurn
             )
-            applyDevTurnEnd(&round, endReason: devResult.endReason, owner: devResult.owner)
+            applyDevTurnEnd(
+                &round,
+                endReason: devResult.endReason,
+                owner: devResult.owner,
+                proofResults: devResult.proofResults,
+                proofCommands: devResult.proofCommands
+            )
             // Reload laneBlocked (if any) written during harness wait.
             if let fresh = try? stateStore.load(id: state.id) {
                 state.laneBlocked = fresh.laneBlocked
@@ -367,6 +398,16 @@ public struct RelayCoordinator: Sendable {
             case .delivered(let devRun, let devOutput):
                 round.devRunId = devRun.id
                 round.headAfterDev = gitObserver.observe(rootPath: state.projectRoot).head
+                // PO-S04: proofTimeout / laneBusy during harness proof still delivered
+                // the report, but the stamped endReason names what the harness did.
+                if devResult.endReason == .laneBusy {
+                    round.outcome = .escalated
+                    round.finishedAt = now()
+                    state.rounds[state.rounds.count - 1] = round
+                    escalate(&state, note: "harness proof blocked on execution lane (round \(roundNumber))")
+                    events?(.escalated(note: state.note ?? ""))
+                    return .success(PilotRoundResult(state: state, devReport: devOutput))
+                }
                 round.outcome = .continued
                 round.finishedAt = now()
                 state.rounds[state.rounds.count - 1] = round
@@ -875,7 +916,13 @@ public struct RelayCoordinator: Sendable {
                 ),
                 site: .relayDevTurn
             )
-            applyDevTurnEnd(&round, endReason: devResult.endReason, owner: devResult.owner)
+            applyDevTurnEnd(
+                &round,
+                endReason: devResult.endReason,
+                owner: devResult.owner,
+                proofResults: devResult.proofResults,
+                proofCommands: devResult.proofCommands
+            )
             if let fresh = try? stateStore.load(id: state.id) {
                 state.laneBlocked = fresh.laneBlocked
             }
@@ -898,6 +945,12 @@ public struct RelayCoordinator: Sendable {
             case .delivered(let devRun, _):
                 round.devRunId = devRun.id
                 round.headAfterDev = gitObserver.observe(rootPath: config.projectRoot).head
+                if devResult.endReason == .laneBusy {
+                    return finishRound(&state, &round, outcome: .escalated, events: events) {
+                        escalate(&$0, note: "harness proof blocked on execution lane (round \(roundNumber))")
+                        events?(.escalated(note: $0.note ?? ""))
+                    }
+                }
                 round.outcome = .continued
                 round.finishedAt = now()
                 state.laneBlocked = nil
@@ -945,11 +998,13 @@ public struct RelayCoordinator: Sendable {
     }
 
     /// Result of a **dev** turn dispatch: the turn outcome plus the stamped endReason
-    /// and last recorded process-group owner (PO-S02).
+    /// and last recorded process-group owner (PO-S02), plus PO-S04 harness proofs.
     private struct DevTurnDispatch {
         var dispatch: TurnDispatch
         var endReason: DevTurnEndReason
         var owner: ProcessOwnerRecord?
+        var proofResults: [HarnessProofResult] = []
+        var proofCommands: [String] = []
     }
 
     private static let partialCompletionRetryHint =
@@ -1024,16 +1079,19 @@ public struct RelayCoordinator: Sendable {
         }
     }
 
-    /// PO-S02 + PO-S03 dev-turn dispatch: acquires the per-root execution lane for
-    /// the turn duration (FIFO ticket when busy; harness owns the wait via
+    /// PO-S02 + PO-S03 + PO-S04 dev-turn dispatch: acquires the per-root execution
+    /// lane for the turn duration (FIFO ticket when busy; harness owns the wait via
     /// `laneBlocked` on relay status). Every attempt and terminal path still routes
-    /// through identity-checked group kill and stamps a `DevTurnEndReason`.
+    /// through identity-checked group kill and stamps a `DevTurnEndReason`. After a
+    /// delivered turn, the harness (not the agent) runs declared `proofCommands` under
+    /// the same root's lane with a persistent scratch (PO-S04).
     private func dispatchDevTurn(
         _ request: RunRequest,
         config: Config,
         relayId: String,
         deliveryGuard: TurnDeliveryGuard? = nil,
-        site: ExecutionLaneSite = .relayDevTurn
+        site: ExecutionLaneSite = .relayDevTurn,
+        turnStateProofCommands: [String] = []
     ) async -> DevTurnDispatch {
         let relayDir = try? stateStore.directory(for: relayId)
         if let relayDir {
@@ -1076,20 +1134,21 @@ public struct RelayCoordinator: Sendable {
         }
 
         // Harness-owned wait: surface FIFO ticket on status; agents must not busy-loop.
-        let laneToken = await executionLane.waitToAcquire(
+        // Mutable so the proof phase can release the turn hold and re-acquire as harnessProof.
+        var laneToken = await executionLane.waitToAcquire(
             laneKey,
             claim: claim,
-            timeout: Self.executionLaneWaitTimeout,
+            timeout: config.executionLaneWaitTimeout,
             now: now,
             onTicket: onTicket
         )
         defer {
             clearBlocked()
-            if let laneToken {
-                Task { await executionLane.release(laneKey, token: laneToken, endReason: "completed") }
+            if let token = laneToken {
+                Task { await executionLane.release(laneKey, token: token, endReason: "completed") }
             }
         }
-        guard let laneToken else {
+        guard laneToken != nil else {
             clearBlocked()
             // Still blocked after wait bound — typed lane busy, no worker spawn.
             if let ticket = await executionLane.currentTicket(laneKey, now: now()) {
@@ -1103,7 +1162,6 @@ public struct RelayCoordinator: Sendable {
         }
         // Clear ticket once we hold the lane (wait path may have left the last ticket).
         clearBlocked()
-        _ = laneToken
 
         var request = request
         var stalledAttempts = 0
@@ -1127,6 +1185,89 @@ public struct RelayCoordinator: Sendable {
                       let identity = ProcessOwnership.OwnerIdentity.fromRecord(record) {
                 _ = ProcessOwnership.terminateOwnerIdentityIfSafe(identity)
             }
+        }
+
+        /// PO-S04: after the agent turn ends, the harness runs proof of record.
+        /// Releases the dev-turn lane hold and re-acquires as `harnessProof` so a
+        /// foreign holder can surface `laneBusy` on the proof path (works test).
+        func finishWithHarnessProof(
+            dispatch: TurnDispatch,
+            report: String?,
+            baseEndReason: DevTurnEndReason
+        ) async -> DevTurnDispatch {
+            let commands = HarnessProofCommandsParser.resolve(
+                turnState: turnStateProofCommands,
+                report: report
+            )
+            guard !commands.isEmpty else {
+                return DevTurnDispatch(
+                    dispatch: dispatch, endReason: baseEndReason, owner: lastOwner
+                )
+            }
+
+            // Agent group is already dead (caller killed). Clear turn-owner dir before
+            // proof spawns so harnessProof children do not overwrite turn-owner identity.
+            ProcessOwnership.TurnOwnerDirectory.shared.set(nil)
+
+            // Release turn hold so the proof phase takes the lane as harnessProof.
+            if let token = laneToken {
+                await executionLane.release(laneKey, token: token, endReason: "devTurnCompleted")
+                laneToken = nil
+            }
+
+            let proofClaim = ExecutionLane.Claim.current(
+                id: "\(relayId):proof",
+                kind: ExecutionLaneSite.harnessProof.rawValue
+            ) ?? ExecutionLane.Claim(
+                id: "\(relayId):proof",
+                kind: ExecutionLaneSite.harnessProof.rawValue,
+                identity: ProcessOwnership.OwnerIdentity(
+                    pid: ProcessInfo.processInfo.processIdentifier,
+                    pgid: nil,
+                    startTimeTicks: 0,
+                    kind: .inProcess
+                )
+            )
+            let proofToken = await executionLane.waitToAcquire(
+                laneKey,
+                claim: proofClaim,
+                timeout: config.proofLaneWaitTimeout,
+                now: now,
+                onTicket: onTicket
+            )
+            laneToken = proofToken
+            guard proofToken != nil else {
+                clearBlocked()
+                if let ticket = await executionLane.currentTicket(laneKey, now: now()) {
+                    onTicket(ticket)
+                }
+                return DevTurnDispatch(
+                    dispatch: dispatch,
+                    endReason: .laneBusy,
+                    owner: lastOwner,
+                    proofResults: [],
+                    proofCommands: commands
+                )
+            }
+            clearBlocked()
+
+            let service = ProjectVerificationService(
+                commandRunner: proofCommandRunner,
+                perCommandTimeoutSeconds: config.proofTimeoutSeconds,
+                now: now
+            )
+            let results = await service.runProofs(
+                commands: commands,
+                repoRoot: config.projectRoot
+            )
+            let timedOut = results.contains(where: \.timedOut)
+            return DevTurnDispatch(
+                dispatch: dispatch,
+                endReason: timedOut ? .proofTimeout : baseEndReason,
+                owner: lastOwner,
+                proofResults: results,
+                proofCommands: commands
+            )
         }
 
         while true {
@@ -1153,18 +1294,22 @@ public struct RelayCoordinator: Sendable {
 
             switch RelayTurnClassifier.classify(.init(outcome: outcome)) {
             case .delivered(let text):
-                // Reported success: still reap any strays in the recorded group.
+                // Reported success: reap agent group, then harness-owned proof of record.
                 killTurnGroup()
-                return DevTurnDispatch(
-                    dispatch: .delivered(run, text), endReason: .reported, owner: lastOwner
+                return await finishWithHarnessProof(
+                    dispatch: .delivered(run, text),
+                    report: text,
+                    baseEndReason: .reported
                 )
             case .stalled:
                 if let delivered = deliveredDespiteStallSignal(
                     run: run, outcome: outcome, request: &request, deliveryGuard: deliveryGuard
                 ) {
                     killTurnGroup()
-                    return DevTurnDispatch(
-                        dispatch: delivered, endReason: .reported, owner: lastOwner
+                    let report: String?
+                    if case .delivered(_, let t) = delivered { report = t } else { report = nil }
+                    return await finishWithHarnessProof(
+                        dispatch: delivered, report: report, baseEndReason: .reported
                     )
                 }
                 // Retry: kill this attempt's group before the next spawn.
@@ -1181,8 +1326,10 @@ public struct RelayCoordinator: Sendable {
                     run: run, outcome: outcome, request: &request, deliveryGuard: deliveryGuard
                 ) {
                     killTurnGroup()
-                    return DevTurnDispatch(
-                        dispatch: delivered, endReason: .reported, owner: lastOwner
+                    let report: String?
+                    if case .delivered(_, let t) = delivered { report = t } else { report = nil }
+                    return await finishWithHarnessProof(
+                        dispatch: delivered, report: report, baseEndReason: .reported
                     )
                 }
                 killTurnGroup()
@@ -1223,17 +1370,25 @@ public struct RelayCoordinator: Sendable {
         }
     }
 
-    /// Stamp PO-S02 fields on the open round after a dev-turn dispatch settles.
+    /// Stamp PO-S02/S04 fields on the open round after a dev-turn dispatch settles.
     private func applyDevTurnEnd(
         _ round: inout RelayRound,
         endReason: DevTurnEndReason,
-        owner: ProcessOwnerRecord?
+        owner: ProcessOwnerRecord?,
+        proofResults: [HarnessProofResult] = [],
+        proofCommands: [String] = []
     ) {
         if round.devTurnEndReason == nil {
             round.devTurnEndReason = endReason
         }
         if let owner {
             round.devTurnOwner = owner
+        }
+        if !proofResults.isEmpty {
+            round.proofResults = proofResults
+        }
+        if !proofCommands.isEmpty {
+            round.proofCommands = proofCommands
         }
     }
 

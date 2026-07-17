@@ -80,6 +80,10 @@ public enum AllnighterPaths {
 
     /// `…/Allnighter/Lanes/` — per-root execution-lane flock + holder metadata
     /// (`docs/phases/Process_Ownership.md` PO-S03b). One directory per lane key.
+    ///
+    /// **PO-S04 persistent scratch:** each lane key also owns
+    /// `…/Lanes/<key>/scratch/` — one warm SwiftPM scratch for harness proofs on
+    /// that root (not per-attempt). See `ExecutionLaneFlock.scratchDirectory(forLaneKey:)`.
     public static var lanes: URL {
         support.appendingPathComponent("Lanes", isDirectory: true)
     }

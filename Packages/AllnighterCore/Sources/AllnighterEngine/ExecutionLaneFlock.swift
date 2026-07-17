@@ -111,6 +111,26 @@ public enum ExecutionLaneFlock {
         directory(forLaneKey: key).appendingPathComponent(waitersDirectoryName, isDirectory: true)
     }
 
+    /// PO-S04: **one persistent scratch per root** under the lane key directory.
+    /// Path: `~/Library/Application Support/Allnighter/Lanes/<key>/scratch/`.
+    /// Harness proofs inject `--scratch-path` for `swift` commands. Not per-attempt
+    /// (spec non-goal): total turn kill + the lane provide isolation; the cache stays warm.
+    public static func scratchDirectory(forLaneKey key: String) -> URL {
+        directory(forLaneKey: key).appendingPathComponent("scratch", isDirectory: true)
+    }
+
+    /// Ensures the persistent scratch exists and returns its path.
+    public static func ensuredScratchPath(forLaneKey key: String) -> String {
+        let dir = scratchDirectory(forLaneKey: key)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.path
+    }
+
+    /// Scratch path for a project root (derives the same lane key as the execution lane).
+    public static func ensuredScratchPath(repoRoot: String) -> String {
+        ensuredScratchPath(forLaneKey: ExecutionLane.key(repoRoot: repoRoot))
+    }
+
     /// Sanitize lane key (`v1:hex`) for a single path component.
     public static func sanitizedDirectoryName(for key: String) -> String {
         if key.hasPrefix("v1:"), key.count > 3 {

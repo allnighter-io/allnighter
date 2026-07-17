@@ -115,6 +115,9 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
     /// PO-S02: `DevTurnEndReason` raw value stamped when the dev turn ended, or nil
     /// when the round never reached (or finished) a dev turn. Never inferred.
     public var endReason: String?
+    /// PO-S04: harness-owned proof-of-record results (command, exit, durationMs, tail).
+    /// Empty array when no proofs ran. Always present on the wire for stable shape.
+    public var proofResults: [HarnessProofResult]
 
     public init(
         round: Int,
@@ -126,7 +129,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         gate: RelayGateSummary? = nil,
         dirtyFilesCount: Int? = nil,
         hasExternalSubmission: Bool = false,
-        endReason: String? = nil
+        endReason: String? = nil,
+        proofResults: [HarnessProofResult] = []
     ) {
         self.round = round
         self.baseline = baseline
@@ -138,6 +142,7 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         self.dirtyFilesCount = dirtyFilesCount
         self.hasExternalSubmission = hasExternalSubmission
         self.endReason = endReason
+        self.proofResults = proofResults
     }
 
     public init(_ round: RelayRound) {
@@ -151,7 +156,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
             gate: round.gate,
             dirtyFilesCount: round.dirtyFiles?.count,
             hasExternalSubmission: round.externalSubmission != nil,
-            endReason: round.devTurnEndReason?.rawValue
+            endReason: round.devTurnEndReason?.rawValue,
+            proofResults: round.proofResults
         )
     }
 }

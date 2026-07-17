@@ -199,18 +199,20 @@ public actor ExecutionLaneRegistry {
 
         // While queued, periodically reconcile a dead local holder and retry
         // the flock (cross-process holder death is kernel-released).
-        let reconcileTask = Task { [weak self] in
+        // Strong-capture `self`: weak self can drop the expire/reconcile hop and
+        // leave waiters parked forever (PO-S04 works-test hang).
+        let reconcileTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(200))
-                await self?.reconcile(key)
+                await self.reconcile(key)
                 // Cross-process: if no local holder, try to grant head waiter via flock.
-                await self?.tryGrantCrossProcessWaiters(key)
+                await self.tryGrantCrossProcessWaiters(key)
             }
         }
 
-        let timeoutTask = Task { [weak self] in
+        let timeoutTask = Task {
             try? await Task.sleep(for: timeout)
-            await self?.expire(key: key, id: waiterId)
+            await self.expire(key: key, id: waiterId)
         }
 
         let granted = await withTaskCancellationHandler {
