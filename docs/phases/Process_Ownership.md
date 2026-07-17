@@ -319,6 +319,32 @@ isolation).
   `DefaultWorkerRunner.swift:272`. PM note: verified independently in both
   directions — first suspected a dodged part (2), traced the runner, found it
   already correct; do not "re-fix" it.
+- **PO-F6 — `export-contracts` cwd-robustness (harden the F4 gate's tool).**
+  Discovered while dogfooding F5: `alln dev export-contracts [--check]` resolves
+  the generated dir from **raw `currentDirectoryPath`** (`runExportContracts` in
+  `AllnighterCLI.swift`, `ContractExport.generatedDir = "docs/generated/alln"`),
+  producing two real bugs. **(a) `--check` false-positive:** run from any
+  subdirectory, each artifact file reads `nil` (not found) and is reported as
+  `CONTRACT_DRIFT` — "not found / wrong cwd" is conflated with "content
+  drifted." **(b) write-mode litter:** run from a subdirectory, write mode
+  `createDirectory(withIntermediateDirectories:)` creates a stray
+  `<subdir>/docs/generated/alln/` (confirmed: a gitignored stray copy under
+  `Packages/AllnighterCore/docs/` from a prior errant run; removed). This
+  threatens PO-F4, whose standing invariant runs `<built alln> dev
+  export-contracts --check` — any non-root cwd would cry `contractDrift` on a
+  clean turn (F4 passes `repoRoot` to `runProofs` today, so it is correct but
+  fragile-by-dependency). Fix: **(1)** resolve the generated dir relative to the
+  **repo root** (ascend from cwd to the dir that contains `docs/generated/alln`
+  or a `.git`; reuse an existing repo-root finder), not raw cwd; **(2)**
+  `--check` must distinguish *artifacts-missing / not-at-repo-root* (a distinct
+  typed error + message, exit non-zero) from *content drift* (`CONTRACT_DRIFT`)
+  — never label missing files as drift; **(3)** write mode refuses (typed
+  error) rather than littering when no repo root is found. Works test: `--check`
+  and write both succeed identically from repo root and from a subdirectory
+  (same result, no stray dir created); a genuinely-drifted artifact still
+  reports `CONTRACT_DRIFT`; a missing generated dir reports the not-found error,
+  not drift. (Touches the `dev export-contracts` surface → exercises the F4 gate
+  again.)
 
 ## v2 review ledger (2026-07-17)
 
