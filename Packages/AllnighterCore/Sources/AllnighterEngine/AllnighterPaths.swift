@@ -78,6 +78,12 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Evals", isDirectory: true)
     }
 
+    /// `…/Allnighter/Lanes/` — per-root execution-lane flock + holder metadata
+    /// (`docs/phases/Process_Ownership.md` PO-S03b). One directory per lane key.
+    public static var lanes: URL {
+        support.appendingPathComponent("Lanes", isDirectory: true)
+    }
+
     /// `…/Allnighter/Catalogs/` — custom team and skill definitions.
     public static var catalogs: URL {
         support.appendingPathComponent("Catalogs", isDirectory: true)

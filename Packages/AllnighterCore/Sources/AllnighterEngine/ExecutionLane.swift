@@ -1,15 +1,18 @@
 import Foundation
 import AllnighterCore
 
-/// Per-root execution / build lane (`docs/phases/Process_Ownership.md` PO-S03).
+/// Per-root execution / build lane (`docs/phases/Process_Ownership.md` PO-S03 / S03b).
 ///
 /// One holder per canonical repo root. Same key derivation as the historical
 /// `ExecutionLane` / current `RunWriteLock` — **no second lane system**. Busy
 /// callers receive a **FIFO ticket** (position, holder identity/kind/id,
 /// heldSinceSeconds); silent 0%-CPU queueing without a ticket is forbidden.
 ///
-/// Death of the holder's identity releases the lane immediately (no staleness
-/// timer) with `endReason: reconciledOrphan`.
+/// **PO-S03b:** mutual exclusion is an OS-level per-root `flock` held by the
+/// owning process for the lane duration. Kernel releases on process death.
+/// Identity-based release remains a metadata/local-handoff cleanup path.
+/// Death of the holder's identity releases the in-process hold immediately
+/// (no staleness timer) with `endReason: reconciledOrphan`.
 public enum ExecutionLane {
     /// Ownership receipt. Required for `release` so stray/double release cannot
     /// free the lane under the real holder.
@@ -75,7 +78,8 @@ public enum ExecutionLane {
 }
 
 /// Process-wide per-root lane registry. Shared instance is the only holder of
-/// truth for build-class work on a root.
+/// truth for build-class work on a root **within this process**. Cross-process
+/// exclusion is the OS flock under `ExecutionLaneFlock` (PO-S03b).
 public actor ExecutionLaneRegistry {
     public static let shared = ExecutionLaneRegistry()
 
@@ -85,6 +89,8 @@ public actor ExecutionLaneRegistry {
         var heldAt: Date
         /// Same-process reentrancy (outer relay hold + inner RunService / proof).
         var depth: Int
+        /// Open flock fd — must stay alive for the hold duration.
+        var flockHandle: ExecutionLaneFlock.Handle
     }
 
     private struct Waiter {
@@ -92,6 +98,8 @@ public actor ExecutionLaneRegistry {
         let claim: ExecutionLane.Claim
         let continuation: CheckedContinuation<ExecutionLane.Token?, Never>
         let enqueuedAt: Date
+        /// Cross-process waiter file (cleaned on grant / abandon).
+        let waiterFileURL: URL?
     }
 
     private var holders: [String: HolderState] = [:]
@@ -110,6 +118,9 @@ public actor ExecutionLaneRegistry {
     /// ticket for position 1 of a *would-be* waiter (does **not** enqueue — use
     /// `waitToAcquire` for fair queue membership). Same-process re-entry (matching
     /// identity) deepens the hold and returns the existing token.
+    ///
+    /// Cross-process: contending processes fail the non-blocking flock and mint
+    /// a ticket from on-disk holder metadata.
     public func tryAcquire(
         _ key: String,
         claim: ExecutionLane.Claim,
@@ -120,15 +131,42 @@ public actor ExecutionLaneRegistry {
             holders[key]?.depth += 1
             return .success(existing.token)
         }
-        if holders[key] == nil {
-            return .success(issueToken(for: key, claim: claim, now: now))
+        if holders[key] != nil {
+            return .failure(ticket(for: key, position: 1, now: now))
         }
-        return .failure(ticket(for: key, position: 1, now: now))
+        if let token = issueTokenWithFlock(for: key, claim: claim, now: now) {
+            return .success(token)
+        }
+        // Flock held by another process (or race). Ticket from disk metadata.
+        let position = ExecutionLaneFlock.wouldBePosition(laneKey: key)
+        if let diskTicket = ExecutionLaneFlock.ticketIfBusy(
+            laneKey: key, position: position, now: now
+        ) {
+            return .failure(diskTicket)
+        }
+        // Flock failed but no metadata and not locked — treat as transient fail
+        // with a minimal ticket so callers never spin without a name.
+        return .failure(
+            ExecutionLaneTicket(
+                position: position,
+                holder: ExecutionLaneTicket.Holder(
+                    identity: ProcessOwnerRecord(
+                        pid: 0, pgid: nil, startTimeTicks: 0, kind: "unknown"
+                    ),
+                    kind: "unknown",
+                    id: "unknown"
+                ),
+                heldSinceSeconds: 0
+            )
+        )
     }
 
     /// FIFO acquire with visible tickets. Invokes `onTicket` while queued so the
     /// harness can project `laneBlocked` on status. Returns a token (caller MUST
     /// `release`) or `nil` on timeout/cancel (no ownership taken).
+    ///
+    /// In-process waiters preserve actor FIFO; cross-process waiters register
+    /// timestamped files and contend on the flock.
     public func waitToAcquire(
         _ key: String,
         claim: ExecutionLane.Claim,
@@ -142,21 +180,31 @@ public actor ExecutionLaneRegistry {
             holders[key]?.depth += 1
             return existing.token
         }
-        if holders[key] == nil {
-            return issueToken(for: key, claim: claim, now: t0)
+        if holders[key] == nil, let token = issueTokenWithFlock(for: key, claim: claim, now: t0) {
+            return token
         }
 
         let waiterId = nextWaiterId
         nextWaiterId &+= 1
-        let position = (waiters[key]?.count ?? 0) + 1
-        onTicket?(ticket(for: key, position: position, now: t0))
+        let waiterFile = ExecutionLaneFlock.registerWaiter(
+            laneKey: key, claim: claim, enqueuedAt: t0
+        )
+        let position: Int = {
+            if let waiterFile {
+                return ExecutionLaneFlock.waiterPosition(laneKey: key, waiterURL: waiterFile)
+            }
+            return (waiters[key]?.count ?? 0) + 1
+        }()
+        onTicket?(busyTicket(for: key, position: position, now: t0))
 
-        // While queued, periodically reconcile a dead holder so the FIFO advances
-        // without a staleness timer on the wait itself.
+        // While queued, periodically reconcile a dead local holder and retry
+        // the flock (cross-process holder death is kernel-released).
         let reconcileTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(200))
                 await self?.reconcile(key)
+                // Cross-process: if no local holder, try to grant head waiter via flock.
+                await self?.tryGrantCrossProcessWaiters(key)
             }
         }
 
@@ -168,7 +216,13 @@ public actor ExecutionLaneRegistry {
         let granted = await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<ExecutionLane.Token?, Never>) in
                 waiters[key, default: []].append(
-                    Waiter(id: waiterId, claim: claim, continuation: continuation, enqueuedAt: t0)
+                    Waiter(
+                        id: waiterId,
+                        claim: claim,
+                        continuation: continuation,
+                        enqueuedAt: t0,
+                        waiterFileURL: waiterFile
+                    )
                 )
             }
         } onCancel: {
@@ -176,6 +230,10 @@ public actor ExecutionLaneRegistry {
         }
         timeoutTask.cancel()
         reconcileTask.cancel()
+        // Clean waiter file if still present (expire/grant paths also clean).
+        if granted == nil {
+            ExecutionLaneFlock.unregisterWaiter(waiterFile)
+        }
         return granted
     }
 
@@ -217,13 +275,15 @@ public actor ExecutionLaneRegistry {
 
     /// If the current holder identity is dead, release immediately with
     /// `reconciledOrphan` and hand off to the next waiter. No staleness timer.
+    /// Drops the flock handle so the kernel-visible lock frees for other processes.
     @discardableResult
     public func reconcile(_ key: String, now: Date = Date()) -> Bool {
         reconcileIfHolderDead(key, now: now)
     }
 
     public func isHeld(_ key: String) -> Bool {
-        holders[key] != nil
+        if holders[key] != nil { return true }
+        return ExecutionLaneFlock.isLocked(laneKey: key)
     }
 
     public func isBusy(_ key: String) -> Bool {
@@ -236,8 +296,12 @@ public actor ExecutionLaneRegistry {
         position: Int = 1,
         now: Date = Date()
     ) -> ExecutionLaneTicket? {
-        guard holders[key] != nil else { return nil }
-        return ticket(for: key, position: max(1, position), now: now)
+        if holders[key] != nil {
+            return ticket(for: key, position: max(1, position), now: now)
+        }
+        return ExecutionLaneFlock.ticketIfBusy(
+            laneKey: key, position: max(1, position), now: now
+        )
     }
 
     public func lastReleaseEndReason(for key: String) -> String? {
@@ -245,6 +309,7 @@ public actor ExecutionLaneRegistry {
     }
 
     /// Waiter count currently enqueued for `key` (tests / status).
+    /// Includes in-process queue; disk waiter files are best-effort extras.
     public func waiterCount(for key: String) -> Int {
         waiters[key]?.count ?? 0
     }
@@ -275,23 +340,80 @@ public actor ExecutionLaneRegistry {
             return false
         }
         lastEndReason[key] = "reconciledOrphan"
-        handOffOrClear(key: key)
+        // Full drop of flock (handle deinit unlocks) + metadata; then hand off.
+        forceReleaseFlockAndMetadata(key: key)
+        grantNextWaiter(key: key, now: now)
         return true
     }
 
+    /// Outermost release: transfer flock to next in-process waiter, or unlock.
     private func handOffOrClear(key: String) {
-        holders.removeValue(forKey: key)
+        guard let old = holders.removeValue(forKey: key) else { return }
+        guard var queue = waiters[key], !queue.isEmpty else {
+            waiters[key] = nil
+            ExecutionLaneFlock.clearHolder(laneKey: key)
+            // Drop handle last so flock stays held through metadata clear.
+            old.flockHandle.unlockAndClose()
+            return
+        }
+        // Grant head waiter; transfer the same flock handle (no unlock).
+        let next = queue.removeFirst()
+        waiters[key] = queue.isEmpty ? nil : queue
+        let grantNow = Date()
+        let token = ExecutionLane.Token(id: nextTokenId)
+        nextTokenId &+= 1
+        try? ExecutionLaneFlock.writeHolder(
+            laneKey: key, claim: next.claim, acquiredAt: grantNow
+        )
+        holders[key] = HolderState(
+            token: token,
+            claim: next.claim,
+            heldAt: grantNow,
+            depth: 1,
+            flockHandle: old.flockHandle
+        )
+        ExecutionLaneFlock.unregisterWaiter(next.waiterFileURL)
+        next.continuation.resume(returning: token)
+    }
+
+    /// After flock fully released, grant next waiter by re-acquiring flock.
+    private func grantNextWaiter(key: String, now: Date) {
         guard var queue = waiters[key], !queue.isEmpty else {
             waiters[key] = nil
             return
         }
-        // Grant head waiter; re-check their identity is still meaningful.
         let next = queue.removeFirst()
         waiters[key] = queue.isEmpty ? nil : queue
-        let token = issueToken(for: key, claim: next.claim, now: next.enqueuedAt)
-        next.continuation.resume(returning: token)
-        // Notify remaining waiters' positions would require stored callbacks;
-        // harness re-polls via onTicket on next wait cycle / status.
+        if let token = issueTokenWithFlock(for: key, claim: next.claim, now: now) {
+            ExecutionLaneFlock.unregisterWaiter(next.waiterFileURL)
+            next.continuation.resume(returning: token)
+            return
+        }
+        // Flock still not available (another process won) — re-queue at head.
+        queue.insert(next, at: 0)
+        waiters[key] = queue
+    }
+
+    /// When no local holder, try to promote the head in-process waiter via flock.
+    private func tryGrantCrossProcessWaiters(_ key: String) {
+        guard holders[key] == nil else { return }
+        guard let queue = waiters[key], let head = queue.first else { return }
+        if let token = issueTokenWithFlock(for: key, claim: head.claim, now: Date()) {
+            var rest = queue
+            let granted = rest.removeFirst()
+            waiters[key] = rest.isEmpty ? nil : rest
+            ExecutionLaneFlock.unregisterWaiter(granted.waiterFileURL)
+            granted.continuation.resume(returning: token)
+        }
+    }
+
+    private func forceReleaseFlockAndMetadata(key: String) {
+        if let old = holders.removeValue(forKey: key) {
+            ExecutionLaneFlock.clearHolder(laneKey: key)
+            old.flockHandle.unlockAndClose()
+        } else {
+            ExecutionLaneFlock.clearHolder(laneKey: key)
+        }
     }
 
     private func expire(key: String, id: UInt64) {
@@ -300,17 +422,38 @@ public actor ExecutionLaneRegistry {
         }
         let waiter = queue.remove(at: idx)
         waiters[key] = queue.isEmpty ? nil : queue
+        ExecutionLaneFlock.unregisterWaiter(waiter.waiterFileURL)
         waiter.continuation.resume(returning: nil)
     }
 
-    private func issueToken(
+    /// Acquire OS flock + write holder metadata + record local HolderState.
+    private func issueTokenWithFlock(
         for key: String,
         claim: ExecutionLane.Claim,
         now: Date
-    ) -> ExecutionLane.Token {
+    ) -> ExecutionLane.Token? {
+        guard let handle = ExecutionLaneFlock.tryAcquireExclusive(laneKey: key) else {
+            return nil
+        }
+        do {
+            try ExecutionLaneFlock.writeHolder(laneKey: key, claim: claim, acquiredAt: now)
+        } catch {
+            // Still hold the flock; metadata write failure must not leave lock free
+            // without a local holder — keep handle and record what we can.
+            try? ExecutionLaneFlock.writeHolder(
+                laneKey: key,
+                metadata: .init(claim: claim, acquiredAt: now)
+            )
+        }
         let token = ExecutionLane.Token(id: nextTokenId)
         nextTokenId &+= 1
-        holders[key] = HolderState(token: token, claim: claim, heldAt: now, depth: 1)
+        holders[key] = HolderState(
+            token: token,
+            claim: claim,
+            heldAt: now,
+            depth: 1,
+            flockHandle: handle
+        )
         return token
     }
 
@@ -347,6 +490,27 @@ public actor ExecutionLaneRegistry {
             position: position,
             holder: holder.claim.ticketHolder,
             heldSinceSeconds: heldSince
+        )
+    }
+
+    /// Ticket when busy: prefer local holder, else disk metadata.
+    private func busyTicket(for key: String, position: Int, now: Date) -> ExecutionLaneTicket {
+        if holders[key] != nil {
+            return ticket(for: key, position: position, now: now)
+        }
+        if let disk = ExecutionLaneFlock.ticketIfBusy(laneKey: key, position: position, now: now) {
+            return disk
+        }
+        return ExecutionLaneTicket(
+            position: position,
+            holder: ExecutionLaneTicket.Holder(
+                identity: ProcessOwnerRecord(
+                    pid: 0, pgid: nil, startTimeTicks: 0, kind: "unknown"
+                ),
+                kind: "unknown",
+                id: "unknown"
+            ),
+            heldSinceSeconds: 0
         )
     }
 }

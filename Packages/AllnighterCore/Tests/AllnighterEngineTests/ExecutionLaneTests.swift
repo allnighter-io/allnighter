@@ -281,6 +281,150 @@ final class ExecutionLaneTests: XCTestCase {
         let third = await reg.acquire(key)
         XCTAssertNotNil(third)
     }
+
+    // MARK: - PO-S03b: cross-process flock + waiter rank
+
+    /// Real two-process seam: child /bin/sh holds the lane flock + writes holder
+    /// metadata; parent tryAcquire fails with a ticket naming that holder; kill
+    /// the child and the kernel releases the flock so acquire succeeds immediately.
+    func testCrossProcessFlockBlocksThenKernelReleaseAllowsAcquire() async throws {
+        let key = ExecutionLane.key(repoRoot: "/tmp/po-s03b-xproc-\(UUID().uuidString)")
+        let laneDir = ExecutionLaneFlock.directory(forLaneKey: key)
+        let lockPath = ExecutionLaneFlock.lockURL(forLaneKey: key).path
+        let holderPath = ExecutionLaneFlock.holderURL(forLaneKey: key).path
+        try FileManager.default.createDirectory(at: laneDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: laneDir) }
+
+        // Child: flock(LOCK_EX), write holder.json, sleep until killed.
+        // Python is the portable way to flock from /bin/sh on macOS (no flock(1)).
+        let holderJSON = """
+        {"acquiredAt":"2020-01-01T00:00:00Z","id":"child_holder","identity":{"kind":"inProcess","pid":999001,"startTimeTicks":42},"kind":"relayDevTurn"}
+        """
+        // Escape for embedding in single-quoted shell / python argv.
+        let escapedHolder = holderJSON.replacingOccurrences(of: "'", with: "'\\''")
+        let script = """
+        python3 -c '
+        import fcntl, os, time, sys
+        lock_path = sys.argv[1]
+        holder_path = sys.argv[2]
+        holder_json = sys.argv[3]
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        with open(holder_path, "w") as f:
+            f.write(holder_json)
+        sys.stdout.write("HELD\\n")
+        sys.stdout.flush()
+        time.sleep(120)
+        ' '\(lockPath)' '\(holderPath)' '\(escapedHolder)'
+        """
+
+        let child = Process()
+        child.executableURL = URL(fileURLWithPath: "/bin/sh")
+        child.arguments = ["-c", script]
+        let pipe = Pipe()
+        child.standardOutput = pipe
+        child.standardError = Pipe()
+        try child.run()
+        defer {
+            if child.isRunning {
+                child.terminate()
+                child.waitUntilExit()
+            }
+        }
+
+        // Wait until child reports it holds the flock (or timeout).
+        let ready = pipe.fileHandleForReading
+        var sawHeld = false
+        let deadline = Date().addingTimeInterval(5)
+        var buf = Data()
+        while Date() < deadline, !sawHeld {
+            let chunk = ready.availableData
+            if !chunk.isEmpty {
+                buf.append(chunk)
+                if String(data: buf, encoding: .utf8)?.contains("HELD") == true {
+                    sawHeld = true
+                    break
+                }
+            } else {
+                try await Task.sleep(nanoseconds: 20_000_000)
+            }
+        }
+        XCTAssertTrue(sawHeld, "child must flock and signal HELD")
+        XCTAssertTrue(child.isRunning)
+
+        let reg = ExecutionLaneRegistry()
+        let live = try XCTUnwrap(
+            ProcessOwnership.OwnerIdentity.current(kind: .inProcess)
+        )
+        let blocked = await reg.tryAcquire(
+            key,
+            claim: .make(id: "parent_waiter", kind: "relayDevTurn", identity: live),
+            now: Date()
+        )
+        guard case .failure(let ticket) = blocked else {
+            return XCTFail("parent must be blocked by child flock with a ticket")
+        }
+        XCTAssertEqual(ticket.holder.id, "child_holder")
+        XCTAssertEqual(ticket.holder.kind, "relayDevTurn")
+        XCTAssertEqual(ticket.holder.identity.pid, 999_001)
+        XCTAssertEqual(ticket.holder.identity.startTimeTicks, 42)
+        XCTAssertGreaterThanOrEqual(ticket.position, 1)
+
+        // Kill child → kernel releases flock; parent must acquire immediately.
+        child.terminate()
+        child.waitUntilExit()
+        // Brief settle for process death / fd close.
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        let after = await reg.tryAcquire(
+            key,
+            claim: .make(id: "parent_after", kind: "relayDevTurn", identity: live),
+            now: Date()
+        )
+        guard case .success(let token) = after else {
+            return XCTFail("after child death, flock must free and acquire must succeed")
+        }
+        await reg.release(key, token: token)
+    }
+
+    /// Waiter position = rank by timestamped filenames in waiters/.
+    func testWaiterPositionRanksTwoTimestampedFiles() throws {
+        let key = ExecutionLane.key(repoRoot: "/tmp/po-s03b-waiters-\(UUID().uuidString)")
+        let laneDir = ExecutionLaneFlock.directory(forLaneKey: key)
+        defer { try? FileManager.default.removeItem(at: laneDir) }
+
+        let identity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+        let t0 = Date(timeIntervalSince1970: 1_000)
+        let t1 = Date(timeIntervalSince1970: 1_001)
+
+        let w1 = try XCTUnwrap(
+            ExecutionLaneFlock.registerWaiter(
+                laneKey: key,
+                claim: .make(id: "W1", kind: "relayDevTurn", identity: identity),
+                enqueuedAt: t0
+            )
+        )
+        let w2 = try XCTUnwrap(
+            ExecutionLaneFlock.registerWaiter(
+                laneKey: key,
+                claim: .make(id: "W2", kind: "pilotDevTurn", identity: identity),
+                enqueuedAt: t1
+            )
+        )
+        defer {
+            ExecutionLaneFlock.unregisterWaiter(w1)
+            ExecutionLaneFlock.unregisterWaiter(w2)
+        }
+
+        XCTAssertEqual(ExecutionLaneFlock.waiterPosition(laneKey: key, waiterURL: w1), 1)
+        XCTAssertEqual(ExecutionLaneFlock.waiterPosition(laneKey: key, waiterURL: w2), 2)
+        XCTAssertEqual(ExecutionLaneFlock.waiterCount(laneKey: key), 2)
+        XCTAssertEqual(ExecutionLaneFlock.wouldBePosition(laneKey: key), 3)
+
+        ExecutionLaneFlock.unregisterWaiter(w1)
+        XCTAssertEqual(ExecutionLaneFlock.waiterPosition(laneKey: key, waiterURL: w2), 1)
+        XCTAssertEqual(ExecutionLaneFlock.waiterCount(laneKey: key), 1)
+    }
 }
 
 // MARK: - Helpers
