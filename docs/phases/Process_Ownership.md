@@ -229,6 +229,37 @@ holds a ticket naming its holder), every terminal run/turn a stamped
 `endReason`, and a warm scratch per root (no cold-build tax paid for
 isolation).
 
+## Follow-up slices (approved 2026-07-17, founder: "if nothing blocks, proceed")
+
+- **PO-F1 — watchdog consumes progress, not silence (pilot enabler, FIRST).**
+  RunService/relay stall classification must read the turn's
+  `lastProgressAt`/heartbeat (S01/S02 primitives) instead of output silence.
+  A cold-CLI turn that is identity-alive and progressing (file writes, child
+  process activity count as progress; wire the dev-turn runner to record
+  progress on stdout bytes AND on child-process spawn/exit) is never
+  classified `.stalled`. A turn identity-alive but with no progress for the
+  stall budget is stalled honestly. Works test: a scripted dev turn silent on
+  stdout for 2× the old threshold but touching progress → never reaped; same
+  turn with progress frozen → reaped with `endReason: stalled`.
+- **PO-F2 — `waitToAcquire` timeout reliability.** The lane's wait path must
+  resume within a bounded skew of its timeout under load (the flaky XCTest
+  path from S04 delta #2). Strong-capture the timeout task, test with tight
+  bounds, and stamp `laneBusy` deterministically when the wait expires.
+- **PO-F3 — blocking wait + stable exit codes.** `alln team status <id>
+  --wait-for <state> --timeout <s>` (single process, no poll spin; returns on
+  transition or timeout with nextAction + waitHintSeconds). Documented stable
+  exit-code table: distinct codes for usage error / lane-busy / run-failed /
+  timeout, exported into the contract artifacts, never renumbered.
+- **PO-S06 — scoped write lanes.** A dev turn declares `writeScope:
+  [path-prefixes]` and whether it needs the build lane. Docs-only turns
+  (no build lane) run concurrently with a code turn when scopes are disjoint;
+  overlapping scopes queue FIFO with the ticket. **Fail closed:** at turn end
+  the harness diffs the turn's commits against the declared scope — out-of-
+  scope changes reject the turn's work (typed error, PM decides); no honor
+  system. Panels remain no-lane. Works test: docs-only pilot turn and a
+  build-lane holder proceed concurrently; a "docs" turn touching `Sources/`
+  is rejected.
+
 ## v2 review ledger (2026-07-17)
 
 Accepted from mentors: owner identity record incl. start time (pid reuse =
