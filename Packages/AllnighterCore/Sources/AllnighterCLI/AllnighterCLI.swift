@@ -77,6 +77,8 @@ struct AllnighterCLI {
         case "bootstrap": runBootstrap(args)
         case "install-cli": runInstallCLI(args)
         case "version": runVersion(args)
+        case "ps": runOwnershipPs(args)
+        case "kill": runOwnershipKill(args)
         case "--help", "-h": printHelp()   // "help" is handled above via HelpCLI
         default:
             FileHandle.standardError.write(Data("unknown command: \(command)\n".utf8)); printHelp(); exit(2)
@@ -1207,6 +1209,68 @@ struct AllnighterCLI {
         print(jsonString(envelope))
     }
 
+    /// `alln ps [--json]` — read-only ownership inventory (PO-S05). Reports every
+    /// process tree Allnighter owns and what reconcile WOULD reap; kills nothing.
+    static func runOwnershipPs(_ args: [String]) {
+        let opts = Options(args)
+        let surface = ProcessOwnershipSurface()
+        let envelope = surface.list()
+        if opts.flag("json") {
+            print(jsonString(envelope))
+        } else {
+            print(ProcessOwnershipSurface.humanTable(envelope))
+        }
+    }
+
+    /// `alln kill <id> | --all [--json]` — identity-checked total group kill +
+    /// terminal `endReason: killed` (PO-S05). Refuses on identity mismatch.
+    static func runOwnershipKill(_ args: [String]) {
+        let opts = Options(args)
+        let surface = ProcessOwnershipSurface()
+        let asJSON = opts.flag("json")
+
+        if opts.flag("all") {
+            let result = surface.killAll()
+            if asJSON {
+                print(jsonString(result))
+            } else {
+                print("killed \(result.killedCount) process tree(s)")
+                for row in result.killed {
+                    print("  \(row.id) (\(row.kind)) endReason=\(row.endReason) signalled=\(row.signalled)")
+                }
+                for skip in result.skipped {
+                    print("  skip \(skip.id): \(skip.reason)")
+                }
+            }
+            return
+        }
+
+        guard let id = opts.positional.first else {
+            FileHandle.standardError.write(Data("usage: alln kill <id> | --all [--json]\n".utf8))
+            exit(2)
+        }
+        switch surface.kill(id: id) {
+        case .success(let row):
+            if asJSON {
+                print(jsonString(OwnershipKillJSON(killed: [row])))
+            } else {
+                print("killed \(row.id) (\(row.kind)) endReason=\(row.endReason) signalled=\(row.signalled)")
+            }
+        case .failure(.notFound(let missing)):
+            fail(code: "OWNERSHIP_NOT_FOUND", message: "no owned process tree matches \(missing)")
+        case .failure(.alreadyTerminal(let tid, let end)):
+            fail(
+                code: "OWNERSHIP_ALREADY_TERMINAL",
+                message: "\(tid) is already terminal\(end.map { " (endReason=\($0))" } ?? "")"
+            )
+        case .failure(.identityMismatch(let mid)):
+            fail(
+                code: "OWNERSHIP_IDENTITY_MISMATCH",
+                message: "refusing to signal \(mid): recorded identity does not match the live process (pid reuse)"
+            )
+        }
+    }
+
     /// `alln docs [topic] [--errors] [--schema] [--examples]` — the generated,
     /// agent-facing reference, projected from the contract registry.
     static func runDocs(_ args: [String]) {
@@ -1482,6 +1546,8 @@ struct AllnighterCLI {
           team result <run-id> --json                             fetch TeamRunJSON when ready
           team cancel <run-id> --json                             cancel an active async run
           team reconcile [run-id] --json                          reap identity-dead async runs
+          ps [--json]                                               list owned process trees (read-only)
+          kill <id> | --all [--json]                                identity-checked total kill + endReason=killed
           show <run-id|latest> [--json]                             show one run
           export <run-id|latest> --format md                        export a result bundle
           history "<query>" [--json]                                search prior team runs

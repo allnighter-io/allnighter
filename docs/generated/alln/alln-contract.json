@@ -1264,6 +1264,59 @@
     },
     {
       "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured OwnershipPsJSON inventory.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "ps",
+      "outputSchema" : "ownershipPsJSON",
+      "summary" : "List every process tree Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing."
+    },
+    {
+      "args" : [
+        {
+          "name" : "id",
+          "required" : false,
+          "summary" : "Owned process id (run\/relay\/pilot\/proof). Required unless --all."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "all",
+          "summary" : "Kill every identity-alive owned tree (skips identity-mismatched and already-terminal).",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured OwnershipKillJSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "kill",
+      "outputSchema" : "ownershipKillJSON",
+      "summary" : "Identity-checked total group kill of one owned tree (or --all identity-alive trees) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid)."
+    },
+    {
+      "args" : [
         {
           "name" : "message",
           "required" : true,
@@ -4227,6 +4280,33 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "panel.not_awaiting"
+    },
+    {
+      "agentAction" : "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.",
+      "code" : "OWNERSHIP_NOT_FOUND",
+      "exitClass" : "operational",
+      "explain" : "No owned process tree matches the given id in durable state (run dirs, relay dirs, lane holders).",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "ownership.not_found"
+    },
+    {
+      "agentAction" : "No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`.",
+      "code" : "OWNERSHIP_ALREADY_TERMINAL",
+      "exitClass" : "operational",
+      "explain" : "`alln kill` refused because the named work is already terminal — kill never clobbers an existing terminal endReason.",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "ownership.already_terminal"
+    },
+    {
+      "agentAction" : "Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead.",
+      "code" : "OWNERSHIP_IDENTITY_MISMATCH",
+      "exitClass" : "operational",
+      "explain" : "Kill refused: the recorded owner identity has a live pid whose start time does not match (recycled pid). Signalling would hit the wrong process.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "ownership.identity.mismatch"
     },
     {
       "agentAction" : "Inspect the error detail; retry the send or fix the worker.",

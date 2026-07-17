@@ -601,6 +601,78 @@ public enum ContractSchema {
         return schema
     }
 
+    // MARK: - Ownership (PO-S05)
+
+    public static func ownershipPsSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/ownership-ps.schema.json",
+            "title": "OwnershipPsJSON",
+        ]
+        let top = obj([
+            "schemaVersion": int,
+            "countedAt": str,
+            "processCount": int,
+            "processes": arr(ref("OwnershipProcess")),
+        ], required: ["schemaVersion", "countedAt", "processCount", "processes"])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "OwnershipProcess": obj([
+                "id": str,
+                "kind": enumStr(["run", "relay", "pilot", "proof"]),
+                "projectRoot": nullable("string"),
+                "identity": nullableRef("ProcessOwner"),
+                "identityAlive": bool,
+                "wouldReconcile": bool,
+                "lane": nullableRef("OwnershipLane"),
+                "lastProgressAt": nullable("string"),
+                "heartbeatAgeSeconds": nullable("number"),
+                "endReason": nullable("string"),
+                "status": nullable("string"),
+            ], required: [
+                "id", "kind", "identityAlive", "wouldReconcile",
+            ]),
+            "OwnershipLane": obj([
+                "state": enumStr(["held", "ticket", "none"]),
+                "holderId": nullable("string"),
+                "holderKind": nullable("string"),
+                "heldSinceSeconds": nullable("number"),
+                "ticketPosition": nullable("integer"),
+            ], required: ["state"]),
+            "ProcessOwner": obj([
+                "pid": int,
+                "pgid": nullable("integer"),
+                "startTimeTicks": int,
+                "kind": str,
+            ], required: ["pid", "startTimeTicks", "kind"]),
+        ]
+        return schema
+    }
+
+    public static func ownershipKillSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/ownership-kill.schema.json",
+            "title": "OwnershipKillJSON",
+        ]
+        let top = obj([
+            "schemaVersion": int,
+            "killedCount": int,
+            "killed": arr(ref("KillRow")),
+            "skipped": arr(ref("KillSkip")),
+        ], required: ["schemaVersion", "killedCount", "killed", "skipped"])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "KillRow": obj([
+                "id": str, "kind": str, "endReason": str, "signalled": bool,
+            ], required: ["id", "kind", "endReason", "signalled"]),
+            "KillSkip": obj([
+                "id": str, "reason": str,
+            ], required: ["id", "reason"]),
+        ]
+        return schema
+    }
+
     // MARK: - Deterministic serialization
 
     public static func json(_ schema: [String: Any]) throws -> String {

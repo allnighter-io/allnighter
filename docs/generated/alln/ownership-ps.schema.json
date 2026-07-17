@@ -1,0 +1,179 @@
+{
+  "$defs" : {
+    "OwnershipLane" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "heldSinceSeconds" : {
+          "type" : [
+            "number",
+            "null"
+          ]
+        },
+        "holderId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "holderKind" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "state" : {
+          "enum" : [
+            "held",
+            "ticket",
+            "none"
+          ],
+          "type" : "string"
+        },
+        "ticketPosition" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "state"
+      ],
+      "type" : "object"
+    },
+    "OwnershipProcess" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "endReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "heartbeatAgeSeconds" : {
+          "type" : [
+            "number",
+            "null"
+          ]
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "identity" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/ProcessOwner"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
+        "identityAlive" : {
+          "type" : "boolean"
+        },
+        "kind" : {
+          "enum" : [
+            "run",
+            "relay",
+            "pilot",
+            "proof"
+          ],
+          "type" : "string"
+        },
+        "lane" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/OwnershipLane"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
+        "lastProgressAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "projectRoot" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "status" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "wouldReconcile" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "id",
+        "kind",
+        "identityAlive",
+        "wouldReconcile"
+      ],
+      "type" : "object"
+    },
+    "ProcessOwner" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "kind" : {
+          "type" : "string"
+        },
+        "pgid" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "pid" : {
+          "type" : "integer"
+        },
+        "startTimeTicks" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "pid",
+        "startTimeTicks",
+        "kind"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/ownership-ps.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "countedAt" : {
+      "type" : "string"
+    },
+    "processCount" : {
+      "type" : "integer"
+    },
+    "processes" : {
+      "items" : {
+        "$ref" : "#\/$defs\/OwnershipProcess"
+      },
+      "type" : "array"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "countedAt",
+    "processCount",
+    "processes"
+  ],
+  "title" : "OwnershipPsJSON",
+  "type" : "object"
+}

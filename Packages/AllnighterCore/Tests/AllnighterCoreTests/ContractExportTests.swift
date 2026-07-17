@@ -29,7 +29,9 @@ final class ContractExportTests: XCTestCase {
             "floor-run.schema.json", "spec-result.schema.json",
             "team-catalog.schema.json", "skill-catalog.schema.json",
             "history.schema.json", "thread-status.schema.json",
-            "thread-get.schema.json", "thread-attachment.schema.json", "help_alln_cli_spec.md",
+            "thread-get.schema.json", "thread-attachment.schema.json",
+            "ownership-ps.schema.json", "ownership-kill.schema.json",
+            "help_alln_cli_spec.md",
         ])
         // The full contract artifact decodes back to the registry.
         let contract = try XCTUnwrap(a.first { $0.filename == "alln-contract.json" })

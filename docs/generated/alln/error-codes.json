@@ -702,6 +702,33 @@
     "ruleId" : "panel.not_awaiting"
   },
   {
+    "agentAction" : "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.",
+    "code" : "OWNERSHIP_NOT_FOUND",
+    "exitClass" : "operational",
+    "explain" : "No owned process tree matches the given id in durable state (run dirs, relay dirs, lane holders).",
+    "requiresManual" : false,
+    "retryable" : false,
+    "ruleId" : "ownership.not_found"
+  },
+  {
+    "agentAction" : "No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`.",
+    "code" : "OWNERSHIP_ALREADY_TERMINAL",
+    "exitClass" : "operational",
+    "explain" : "`alln kill` refused because the named work is already terminal — kill never clobbers an existing terminal endReason.",
+    "requiresManual" : false,
+    "retryable" : false,
+    "ruleId" : "ownership.already_terminal"
+  },
+  {
+    "agentAction" : "Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead.",
+    "code" : "OWNERSHIP_IDENTITY_MISMATCH",
+    "exitClass" : "operational",
+    "explain" : "Kill refused: the recorded owner identity has a live pid whose start time does not match (recycled pid). Signalling would hit the wrong process.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "ownership.identity.mismatch"
+  },
+  {
     "agentAction" : "Inspect the error detail; retry the send or fix the worker.",
     "code" : "THREAD_SEND_FAILED",
     "exitClass" : "operational",

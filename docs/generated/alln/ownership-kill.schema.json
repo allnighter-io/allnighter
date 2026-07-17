@@ -1,0 +1,75 @@
+{
+  "$defs" : {
+    "KillRow" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "endReason" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "type" : "string"
+        },
+        "signalled" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "id",
+        "kind",
+        "endReason",
+        "signalled"
+      ],
+      "type" : "object"
+    },
+    "KillSkip" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "id" : {
+          "type" : "string"
+        },
+        "reason" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "id",
+        "reason"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/ownership-kill.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "killed" : {
+      "items" : {
+        "$ref" : "#\/$defs\/KillRow"
+      },
+      "type" : "array"
+    },
+    "killedCount" : {
+      "type" : "integer"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "skipped" : {
+      "items" : {
+        "$ref" : "#\/$defs\/KillSkip"
+      },
+      "type" : "array"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "killedCount",
+    "killed",
+    "skipped"
+  ],
+  "title" : "OwnershipKillJSON",
+  "type" : "object"
+}

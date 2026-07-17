@@ -41,6 +41,8 @@ public enum ContractExport {
             Artifact(filename: "thread-status.schema.json", contents: try ContractSchema.json(ContractSchema.threadStatusSchema())),
             Artifact(filename: "thread-get.schema.json", contents: try ContractSchema.json(ContractSchema.threadGetSchema())),
             Artifact(filename: "thread-attachment.schema.json", contents: try ContractSchema.json(ContractSchema.threadAttachmentSchema())),
+            Artifact(filename: "ownership-ps.schema.json", contents: try ContractSchema.json(ContractSchema.ownershipPsSchema())),
+            Artifact(filename: "ownership-kill.schema.json", contents: try ContractSchema.json(ContractSchema.ownershipKillSchema())),
             Artifact(filename: "help_alln_cli_spec.md", contents: ContractDocs.markdown(registry)),
         ]
     }

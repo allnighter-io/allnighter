@@ -1,0 +1,444 @@
+import Foundation
+import AllnighterCore
+
+/// Observable ownership surface for `alln ps` / `alln kill` (PO-S05).
+///
+/// Reads durable state only — run dirs, relay dirs, lane `holder.json` files —
+/// via existing ProcessOwnership / RunStore / RelayStateStore / ExecutionLaneFlock
+/// readers. No new process machinery.
+///
+/// Law:
+/// - `list` is **read-only**: reports what reconcile WOULD reap (`wouldReconcile`);
+///   never signals, never writes.
+/// - `kill` is the big red button: identity-checked total group kill
+///   (`ProcessOwnership.terminateOwnerIdentityIfSafe`) + one atomic terminal
+///   write `endReason: killed`. Refuses on identity mismatch (recycled pid).
+public struct ProcessOwnershipSurface: Sendable {
+    public var runStore: RunStore
+    public var relayStore: RelayStateStore
+    public var lanesRoot: URL
+    public var now: @Sendable () -> Date
+
+    public init(
+        runStore: RunStore = RunStore(),
+        relayStore: RelayStateStore = RelayStateStore(),
+        lanesRoot: URL? = nil,
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
+        self.runStore = runStore
+        self.relayStore = relayStore
+        self.lanesRoot = lanesRoot ?? AllnighterPaths.lanes
+        self.now = now
+    }
+
+    // MARK: - ps (read-only)
+
+    /// Enumerate every process tree Allnighter owns. Stable order: kind, then id.
+    public func list() -> OwnershipPsJSON {
+        let countedAt = now()
+        var rows: [OwnershipProcessJSON] = []
+        rows.append(contentsOf: listRuns(now: countedAt))
+        rows.append(contentsOf: listRelays(now: countedAt))
+        rows.append(contentsOf: listProofHolders(now: countedAt, existingIds: Set(rows.map(\.id))))
+        rows.sort { lhs, rhs in
+            if lhs.kind != rhs.kind { return lhs.kind < rhs.kind }
+            return lhs.id < rhs.id
+        }
+        return OwnershipPsJSON(countedAt: countedAt, processes: rows)
+    }
+
+    /// Human-readable table for `alln ps` without `--json`.
+    public static func humanTable(_ envelope: OwnershipPsJSON) -> String {
+        if envelope.processes.isEmpty {
+            return "no owned process trees"
+        }
+        var lines: [String] = []
+        let header = pad("ID", 28) + pad("KIND", 8) + pad("ALIVE", 7)
+            + pad("WOULD_REAP", 11) + pad("END", 18) + pad("HB_AGE", 10) + "ROOT"
+        lines.append(header)
+        lines.append(String(repeating: "-", count: min(header.count, 100)))
+        for p in envelope.processes {
+            let alive = p.identityAlive ? "yes" : "no"
+            let reap = p.wouldReconcile ? "yes" : "no"
+            let end = p.endReason ?? "-"
+            let age: String
+            if let s = p.heartbeatAgeSeconds {
+                age = String(format: "%.0fs", s)
+            } else {
+                age = "-"
+            }
+            let root = p.projectRoot ?? "-"
+            lines.append(
+                pad(p.id, 28) + pad(p.kind, 8) + pad(alive, 7)
+                    + pad(reap, 11) + pad(end, 18) + pad(age, 10) + root
+            )
+        }
+        lines.append("(\(envelope.processCount) process trees)")
+        return lines.joined(separator: "\n")
+    }
+
+    // MARK: - kill
+
+    /// Identity-checked total kill of one owned tree + stamp `endReason: killed`.
+    public func kill(id: String) -> Result<OwnershipKillRowJSON, OwnershipKillError> {
+        if let run = runStore.loadRaw(runId: id) ?? runStore.load(runId: id) {
+            return killRun(run)
+        }
+        if let relay = relayStore.load(id: id) {
+            return killRelay(relay)
+        }
+        if let holder = findProofHolder(id: id) {
+            return killProofHolder(holder)
+        }
+        return .failure(.notFound(id: id))
+    }
+
+    /// Kill every identity-alive owned tree. Skips identity-mismatched, terminal,
+    /// and identity-dead (those are reconcile's job). Never signals recycled pids.
+    public func killAll() -> OwnershipKillJSON {
+        let snapshot = list()
+        var killed: [OwnershipKillRowJSON] = []
+        var skipped: [OwnershipKillSkipJSON] = []
+        for row in snapshot.processes {
+            guard row.identityAlive else {
+                skipped.append(.init(id: row.id, reason: row.endReason != nil ? "alreadyTerminal" : "identityNotAlive"))
+                continue
+            }
+            if let identity = row.identity.flatMap(ProcessOwnership.OwnerIdentity.fromRecord),
+               isIdentityMismatch(identity) {
+                skipped.append(.init(id: row.id, reason: "identityMismatch"))
+                continue
+            }
+            switch kill(id: row.id) {
+            case .success(let r):
+                killed.append(r)
+            case .failure(.alreadyTerminal(_, let end)):
+                skipped.append(.init(id: row.id, reason: "alreadyTerminal:\(end ?? "unknown")"))
+            case .failure(.identityMismatch):
+                skipped.append(.init(id: row.id, reason: "identityMismatch"))
+            case .failure(.notFound):
+                skipped.append(.init(id: row.id, reason: "notFound"))
+            }
+        }
+        return OwnershipKillJSON(killed: killed, skipped: skipped)
+    }
+
+    // MARK: - Runs
+
+    private func listRuns(now: Date) -> [OwnershipProcessJSON] {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: runStore.rootDirectory,
+            includingPropertiesForKeys: nil
+        ) else {
+            return []
+        }
+        var rows: [OwnershipProcessJSON] = []
+        for dir in entries where dir.lastPathComponent.hasPrefix("run_") {
+            guard let data = try? Data(contentsOf: dir.appendingPathComponent("run.json")),
+                  let run = try? CoreJSON.decode(TeamRun.self, from: data) else {
+                continue
+            }
+            let identity = ProcessOwnership.readOwnerIdentity(in: dir)
+            let alive = identity.map { ProcessOwnership.isIdentityAlive($0) } ?? false
+            let terminal = run.status.isTerminal
+            let would = !terminal && ProcessOwnership.isOwnerIdentityDead(in: dir)
+            let last = ProcessOwnership.lastProgressAt(in: dir)
+            let age = last.map { now.timeIntervalSince($0) }
+            rows.append(OwnershipProcessJSON(
+                id: run.id,
+                kind: "run",
+                projectRoot: run.repoRoot,
+                identity: identity?.asRecord(),
+                identityAlive: alive,
+                wouldReconcile: would,
+                lane: laneState(forRoot: run.repoRoot, workId: run.id, now: now),
+                lastProgressAt: last,
+                heartbeatAgeSeconds: age,
+                endReason: run.endReason?.rawValue,
+                status: run.status.rawValue
+            ))
+        }
+        return rows
+    }
+
+    private func killRun(_ run: TeamRun) -> Result<OwnershipKillRowJSON, OwnershipKillError> {
+        let directory: URL
+        do {
+            directory = try runStore.runDirectory(forRunId: run.id)
+        } catch {
+            return .failure(.notFound(id: run.id))
+        }
+        return ProcessOwnership.withRunLock(in: directory) {
+            guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")),
+                  var current = try? CoreJSON.decode(TeamRun.self, from: data) else {
+                return .failure(.notFound(id: run.id))
+            }
+            if current.status.isTerminal {
+                return .failure(.alreadyTerminal(id: current.id, endReason: current.endReason?.rawValue))
+            }
+            if let identity = ProcessOwnership.readOwnerIdentity(in: directory),
+               isIdentityMismatch(identity) {
+                return .failure(.identityMismatch(id: current.id))
+            }
+            let signalled = ProcessOwnership.terminateRecordedOwnerIfSafe(in: directory)
+            current.status = .cancelled
+            current.endReason = .killed
+            for i in current.workerAnswers.indices where !current.workerAnswers[i].result.status.isTerminal {
+                current.workerAnswers[i].result.status = .cancelled
+            }
+            _ = try? runStore.save(current, models: [])
+            return .success(OwnershipKillRowJSON(id: current.id, kind: "run", signalled: signalled))
+        }
+    }
+
+    // MARK: - Relays / pilots
+
+    private func listRelays(now: Date) -> [OwnershipProcessJSON] {
+        relayStore.list().map { relay in
+            let kind = relay.pmMode == .external ? "pilot" : "relay"
+            let dir = (try? relayStore.directory(for: relay.id))
+                ?? relayStore.rootDirectory.appendingPathComponent(relay.id, isDirectory: true)
+            let turnOwner = ProcessOwnership.readTurnOwner(in: dir)
+            let lastRoundOwner = relay.rounds.last?.devTurnOwner
+                .flatMap(ProcessOwnership.OwnerIdentity.fromRecord)
+            let identity = turnOwner ?? lastRoundOwner
+            let alive = identity.map { ProcessOwnership.isIdentityAlive($0) } ?? false
+            let terminal = relay.status != .running
+            // Would reconcile: .running + owner dead (same guard as reconcileOrphan).
+            let would = relay.status == .running && relayStore.isOwnerDead(id: relay.id)
+            let last = ProcessOwnership.lastProgressAt(in: dir)
+            let age = last.map { now.timeIntervalSince($0) }
+            let endReason: String?
+            if let stamped = relay.rounds.last?.devTurnEndReason {
+                endReason = stamped.rawValue
+            } else if terminal, let stopped = relay.stoppedReason {
+                endReason = stopped == RelayState.orphanReconciledReason ? "reconciledOrphan" : nil
+            } else {
+                endReason = nil
+            }
+            return OwnershipProcessJSON(
+                id: relay.id,
+                kind: kind,
+                projectRoot: relay.projectRoot,
+                identity: identity?.asRecord(),
+                identityAlive: alive,
+                wouldReconcile: would,
+                lane: laneState(forRoot: relay.projectRoot, workId: relay.id, now: now)
+                    ?? relay.laneBlocked.map { ticket in
+                        OwnershipLaneJSON(
+                            state: "ticket",
+                            holderId: ticket.holder.id,
+                            holderKind: ticket.holder.kind,
+                            heldSinceSeconds: ticket.heldSinceSeconds,
+                            ticketPosition: ticket.position
+                        )
+                    },
+                lastProgressAt: last,
+                heartbeatAgeSeconds: age,
+                endReason: endReason,
+                status: relay.status.rawValue
+            )
+        }
+    }
+
+    private func killRelay(_ state: RelayState) -> Result<OwnershipKillRowJSON, OwnershipKillError> {
+        let kind = state.pmMode == .external ? "pilot" : "relay"
+        // Terminal parked states (done/escalated/stopped/awaitingPM without a live tree).
+        if state.status != .running {
+            // Still allow kill when an in-flight turn owner file exists (edge).
+            if let dir = try? relayStore.directory(for: state.id),
+               ProcessOwnership.readTurnOwner(in: dir) == nil {
+                let end = state.rounds.last?.devTurnEndReason?.rawValue
+                return .failure(.alreadyTerminal(id: state.id, endReason: end))
+            }
+        }
+        guard var current = relayStore.load(id: state.id) else {
+            return .failure(.notFound(id: state.id))
+        }
+        let dir: URL
+        do {
+            dir = try relayStore.directory(for: current.id)
+        } catch {
+            return .failure(.notFound(id: state.id))
+        }
+
+        // Prefer live turn-owner file; fall back to last round owner; then owner.pid is not
+        // a full identity (never invent one).
+        let turnOwner = ProcessOwnership.readTurnOwner(in: dir)
+        let lastRecord = current.rounds.last?.devTurnOwner
+        let lastIdentity = lastRecord.flatMap(ProcessOwnership.OwnerIdentity.fromRecord)
+        let identity = turnOwner ?? lastIdentity
+
+        if let identity, isIdentityMismatch(identity) {
+            return .failure(.identityMismatch(id: current.id))
+        }
+
+        var signalled = false
+        if let turnOwner {
+            signalled = ProcessOwnership.terminateOwnerIdentityIfSafe(turnOwner)
+            ProcessOwnership.clearTurnOwner(in: dir)
+        } else if let lastIdentity {
+            signalled = ProcessOwnership.terminateOwnerIdentityIfSafe(lastIdentity)
+        }
+
+        if let lastIndex = current.rounds.indices.last {
+            if current.rounds[lastIndex].devTurnEndReason == nil {
+                current.rounds[lastIndex].devTurnEndReason = .killed
+            }
+            if let identity {
+                current.rounds[lastIndex].devTurnOwner =
+                    current.rounds[lastIndex].devTurnOwner ?? identity.asRecord()
+            }
+            if current.rounds[lastIndex].outcome == nil {
+                current.rounds[lastIndex].outcome = .stopped
+                current.rounds[lastIndex].finishedAt = now()
+            }
+        }
+        if current.status == .running || current.status == .awaitingPM {
+            current.status = .stopped
+            current.stoppedReason = current.stoppedReason ?? "killed"
+            current.finishedAt = current.finishedAt ?? now()
+        }
+        current.laneBlocked = nil
+        _ = try? relayStore.save(current)
+        return .success(OwnershipKillRowJSON(id: current.id, kind: kind, signalled: signalled))
+    }
+
+    // MARK: - Proof holders (lane holder.json with harnessProof)
+
+    private struct ProofHolder {
+        var laneKey: String
+        var metadata: ExecutionLaneFlock.HolderMetadata
+    }
+
+    private func listProofHolders(now: Date, existingIds: Set<String>) -> [OwnershipProcessJSON] {
+        allHolders().compactMap { holder -> OwnershipProcessJSON? in
+            guard holder.metadata.kind == ExecutionLaneSite.harnessProof.rawValue else { return nil }
+            // Prefer the run/relay row when the proof claim id already appears there;
+            // still emit a distinct proof row when the claim id is unique.
+            let id = holder.metadata.id
+            if existingIds.contains(id) {
+                // Already listed as run/relay — skip duplicate row.
+                return nil
+            }
+            let identity = holder.metadata.identity
+            let alive = ProcessOwnership.isIdentityAlive(identity)
+            let would = !alive
+            return OwnershipProcessJSON(
+                id: id,
+                kind: "proof",
+                projectRoot: nil,
+                identity: identity.asRecord(),
+                identityAlive: alive,
+                wouldReconcile: would,
+                lane: OwnershipLaneJSON(
+                    state: "held",
+                    holderId: holder.metadata.id,
+                    holderKind: holder.metadata.kind,
+                    heldSinceSeconds: max(0, now.timeIntervalSince(holder.metadata.acquiredAt))
+                ),
+                lastProgressAt: nil,
+                heartbeatAgeSeconds: nil,
+                endReason: nil,
+                status: alive ? "running" : "orphaned"
+            )
+        }
+    }
+
+    private func findProofHolder(id: String) -> ProofHolder? {
+        allHolders().first {
+            $0.metadata.id == id && $0.metadata.kind == ExecutionLaneSite.harnessProof.rawValue
+        }
+    }
+
+    private func killProofHolder(_ holder: ProofHolder) -> Result<OwnershipKillRowJSON, OwnershipKillError> {
+        let identity = holder.metadata.identity
+        if isIdentityMismatch(identity) {
+            return .failure(.identityMismatch(id: holder.metadata.id))
+        }
+        let signalled = ProcessOwnership.terminateOwnerIdentityIfSafe(identity)
+        // Clear holder metadata under the lanes root this surface was configured with
+        // (tests inject a temp tree; production uses AllnighterPaths.lanes).
+        let holderURL = lanesRoot
+            .appendingPathComponent(holder.laneKey, isDirectory: true)
+            .appendingPathComponent(ExecutionLaneFlock.holderFileName)
+        try? FileManager.default.removeItem(at: holderURL)
+        return .success(OwnershipKillRowJSON(id: holder.metadata.id, kind: "proof", signalled: signalled))
+    }
+
+    private func allHolders() -> [ProofHolder] {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: lanesRoot,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+        return entries.compactMap { dir -> ProofHolder? in
+            let url = dir.appendingPathComponent(ExecutionLaneFlock.holderFileName)
+            guard let data = try? Data(contentsOf: url),
+                  let meta = try? CoreJSON.decode(ExecutionLaneFlock.HolderMetadata.self, from: data) else {
+                return nil
+            }
+            // Directory name is the sanitized lane key (hex without v1:). Reconstruct
+            // a key only for path helpers; holder metadata is enough for kill.
+            let key = dir.lastPathComponent
+            return ProofHolder(laneKey: key, metadata: meta)
+        }
+    }
+
+    // MARK: - Lane state helper
+
+    private func laneState(forRoot root: String?, workId: String, now: Date) -> OwnershipLaneJSON? {
+        guard let root, !root.isEmpty else { return nil }
+        let key = ExecutionLane.key(repoRoot: root)
+        // Prefer the canonical path under AllnighterPaths (honors SUPPORT_DIR); also
+        // probe our injected lanesRoot for tests that redirect the tree.
+        let meta = ExecutionLaneFlock.readHolder(laneKey: key)
+            ?? readHolderUnderLanesRoot(laneKey: key)
+        if let meta {
+            if meta.id == workId {
+                return OwnershipLaneJSON(
+                    state: "held",
+                    holderId: meta.id,
+                    holderKind: meta.kind,
+                    heldSinceSeconds: max(0, now.timeIntervalSince(meta.acquiredAt))
+                )
+            }
+            // Another holder owns the root — this work may be ticketed.
+            let position = ExecutionLaneFlock.wouldBePosition(laneKey: key)
+            return OwnershipLaneJSON(
+                state: "ticket",
+                holderId: meta.id,
+                holderKind: meta.kind,
+                heldSinceSeconds: max(0, now.timeIntervalSince(meta.acquiredAt)),
+                ticketPosition: position
+            )
+        }
+        return OwnershipLaneJSON(state: "none")
+    }
+
+    private func readHolderUnderLanesRoot(laneKey: String) -> ExecutionLaneFlock.HolderMetadata? {
+        let safe = ExecutionLaneFlock.sanitizedDirectoryName(for: laneKey)
+        let url = lanesRoot.appendingPathComponent(safe, isDirectory: true)
+            .appendingPathComponent(ExecutionLaneFlock.holderFileName)
+        guard let data = try? Data(contentsOf: url),
+              let meta = try? CoreJSON.decode(ExecutionLaneFlock.HolderMetadata.self, from: data) else {
+            return nil
+        }
+        return meta
+    }
+
+    // MARK: - Identity
+
+    /// Live pid with a different start time → recycled; must never be signalled.
+    private func isIdentityMismatch(_ identity: ProcessOwnership.OwnerIdentity) -> Bool {
+        ProcessOwnership.processAlive(identity.pid)
+            && !ProcessOwnership.isIdentityAlive(identity)
+    }
+
+    private static func pad(_ s: String, _ width: Int) -> String {
+        if s.count >= width { return String(s.prefix(width - 1)) + " " }
+        return s + String(repeating: " ", count: width - s.count)
+    }
+}

@@ -506,6 +506,28 @@ Arguments:
 Flags:
 - `--json` — Structured reaped-run list.
 
+### `alln ps`
+
+List every process tree Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing.
+
+Flags:
+- `--json` — Structured OwnershipPsJSON inventory.
+
+Output schema: `ownershipPsJSON`.
+
+### `alln kill`
+
+Identity-checked total group kill of one owned tree (or --all identity-alive trees) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid).
+
+Arguments:
+- `id` (optional) — Owned process id (run/relay/pilot/proof). Required unless --all.
+
+Flags:
+- `--all` — Kill every identity-alive owned tree (skips identity-mismatched and already-terminal).
+- `--json` — Structured OwnershipKillJSON.
+
+Output schema: `ownershipKillJSON`.
+
 ### `alln run`
 
 Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.
@@ -1389,6 +1411,9 @@ Output schema: `helpTopicsJSON`.
 | `PANEL_ROUND_IN_FLIGHT` | no | yes | Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`. |
 | `PANEL_TARGET_MISSING` | yes | no | Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one. |
 | `PANEL_NOT_AWAITING` | yes | no | Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to scrutinize). |
+| `OWNERSHIP_NOT_FOUND` | no | no | Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree. |
+| `OWNERSHIP_ALREADY_TERMINAL` | no | no | No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`. |
+| `OWNERSHIP_IDENTITY_MISMATCH` | yes | no | Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead. |
 | `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
 | `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |

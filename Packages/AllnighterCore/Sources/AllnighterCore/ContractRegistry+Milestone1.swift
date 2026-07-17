@@ -324,6 +324,21 @@ public extension ContractRegistry {
             args: [ArgSpec("run-id", required: false, summary: "Optional run id; omit to sweep all.")],
             flags: [FlagSpec("json", summary: "Structured reaped-run list.")]
         ),
+        // Process ownership observability (docs/phases/Process_Ownership.md PO-S05)
+        CommandSpec(
+            "ps", summary: "List every process tree Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Structured OwnershipPsJSON inventory.")],
+            outputSchema: .ownershipPsJSON
+        ),
+        CommandSpec(
+            "kill", summary: "Identity-checked total group kill of one owned tree (or --all identity-alive trees) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid).", milestone: .m1,
+            args: [ArgSpec("id", required: false, summary: "Owned process id (run/relay/pilot/proof). Required unless --all.")],
+            flags: [
+                FlagSpec("all", summary: "Kill every identity-alive owned tree (skips identity-mismatched and already-terminal)."),
+                FlagSpec("json", summary: "Structured OwnershipKillJSON."),
+            ],
+            outputSchema: .ownershipKillJSON
+        ),
         CommandSpec(
             "run", summary: "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.", milestone: .m1,
             args: [ArgSpec("message", required: true, summary: "The user's prompt.")],
@@ -943,6 +958,9 @@ public extension ContractRegistry {
         ErrorSpec("PANEL_ROUND_IN_FLIGHT", ruleId: "panel.round.in_flight", agentAction: "Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`.", requiresManual: false, retryable: true, explain: "A panel round is already dispatching (status == running). A concurrent `panel round` on the same panel is refused rather than racing a second dispatch."),
         ErrorSpec("PANEL_TARGET_MISSING", ruleId: "panel.target.missing", agentAction: "Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one.", requiresManual: true, retryable: false, explain: "The panel target file is missing or unreadable at dispatch time — no hash can be pinned."),
         ErrorSpec("PANEL_NOT_AWAITING", ruleId: "panel.not_awaiting", agentAction: "Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to scrutinize).", requiresManual: true, retryable: false, explain: "`panel round` was called against a panel that isn't parked at `awaitingPM` — it already reached done, or is otherwise not ready for a new dispatch."),
+        ErrorSpec("OWNERSHIP_NOT_FOUND", ruleId: "ownership.not_found", agentAction: "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.", requiresManual: false, retryable: false, explain: "No owned process tree matches the given id in durable state (run dirs, relay dirs, lane holders)."),
+        ErrorSpec("OWNERSHIP_ALREADY_TERMINAL", ruleId: "ownership.already_terminal", agentAction: "No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`.", requiresManual: false, retryable: false, explain: "`alln kill` refused because the named work is already terminal — kill never clobbers an existing terminal endReason."),
+        ErrorSpec("OWNERSHIP_IDENTITY_MISMATCH", ruleId: "ownership.identity.mismatch", agentAction: "Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead.", requiresManual: true, retryable: false, explain: "Kill refused: the recorded owner identity has a live pid whose start time does not match (recycled pid). Signalling would hit the wrong process."),
         ErrorSpec("THREAD_SEND_FAILED", ruleId: "thread.send.failed", agentAction: "Inspect the error detail; retry the send or fix the worker.", requiresManual: false, retryable: true, explain: "The thread send did not complete (worker or transport failure). Inspect the detail, then retry."),
         ErrorSpec("MODEL_NOT_FOUND", ruleId: "model.not_found", agentAction: "Run `alln models --json` and retry with a valid model id.", requiresManual: true, retryable: false, explain: "No model matches the given id. List models and retry with a valid ModelID."),
         ErrorSpec("MODEL_BUILTIN_IMMUTABLE", ruleId: "model.builtin.immutable", agentAction: "Duplicate the built-in model, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in models cannot be edited or deleted. Duplicate to a custom model and edit that copy."),
