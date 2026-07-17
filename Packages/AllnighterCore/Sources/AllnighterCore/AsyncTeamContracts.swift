@@ -150,8 +150,12 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     public var resultAvailable: Bool
     public var nextPollAfterMs: Int
     public var traceId: String
-    /// Why a terminal run ended (PO-S01). Nil while still live.
+    /// Why a terminal run ended (PO-S01). Nil while still live. Never inferred.
     public var endReason: String?
+    /// Last real progress event (worker transition / output). Progress-truth only.
+    public var lastProgressAt: Date?
+    /// Identity-alive but no progress for the stale threshold — never auto-reaped.
+    public var progressStale: Bool?
 
     public init(
         schemaVersion: Int = 1,
@@ -168,7 +172,9 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         resultAvailable: Bool,
         nextPollAfterMs: Int,
         traceId: String,
-        endReason: String? = nil
+        endReason: String? = nil,
+        lastProgressAt: Date? = nil,
+        progressStale: Bool? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.runId = runId
@@ -185,6 +191,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         self.nextPollAfterMs = nextPollAfterMs
         self.traceId = traceId
         self.endReason = endReason
+        self.lastProgressAt = lastProgressAt
+        self.progressStale = progressStale
     }
 }
 

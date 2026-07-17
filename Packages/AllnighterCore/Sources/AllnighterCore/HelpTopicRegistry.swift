@@ -131,7 +131,7 @@ public enum HelpTopicRegistry {
             ],
             relatedToolIds: ["team_start", "team_result",
                              "team_cancel", "team_run", "team_ask", "run_get"],
-            relatedCommandNames: ["team preflight", "team start", "team status", "team result", "team cancel", "floor show"],
+            relatedCommandNames: ["team preflight", "team start", "team status", "team result", "team cancel", "team reconcile", "floor show"],
             schemaRefs: ["teamStartResponse", "teamStatusResponse", "teamRunJSON"],
             needsLiveCheck: true),
 

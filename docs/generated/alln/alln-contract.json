@@ -1239,6 +1239,32 @@
     {
       "args" : [
         {
+          "name" : "run-id",
+          "required" : false,
+          "summary" : "Optional run id; omit to sweep all."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured reaped-run list.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "team reconcile",
+      "outputSchema" : "none",
+      "summary" : "Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. Omit run-id to sweep all runs under the support root."
+    },
+    {
+      "args" : [
+        {
           "name" : "message",
           "required" : true,
           "summary" : "The user's prompt."

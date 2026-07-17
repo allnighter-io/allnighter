@@ -38,14 +38,16 @@ final class RunStoreJournalTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         let runDir = try store.runDirectory(forRunId: "r1")
-        let owner = runDir.appendingPathComponent("owner.pid")
+        let owner = ProcessOwnership.ownerURL(in: runDir)
 
-        // Durable before workers finish: a non-terminal save persists run.json + pid.
+        // Durable before workers finish: a non-terminal save persists run.json + identity.
         try store.save(run("r1", status: .fanningOut), models: [])
         XCTAssertTrue(FileManager.default.fileExists(atPath: runDir.appendingPathComponent("run.json").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: owner.path), "non-terminal run records its owner pid")
-        XCTAssertEqual(String(decoding: (try? Data(contentsOf: owner)) ?? Data(), as: UTF8.self),
-                       "\(ProcessInfo.processInfo.processIdentifier)")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: owner.path), "non-terminal run records owner identity")
+        let identity = try XCTUnwrap(ProcessOwnership.readOwnerIdentity(in: runDir))
+        XCTAssertEqual(identity.pid, ProcessInfo.processInfo.processIdentifier)
+        XCTAssertEqual(identity.kind, .inProcess)
+        XCTAssertNil(identity.pgid, "in-process owners never record a pgid")
 
         // Terminal save clears the marker (clean run leaves no stale liveness).
         try store.save(run("r1", status: .complete), models: [])
@@ -73,8 +75,11 @@ final class RunStoreJournalTests: XCTestCase {
 
         let runDir = try store.runDirectory(forRunId: "crashed")
         try CoreJSON.encode(run("crashed", status: .answersIn)).write(to: runDir.appendingPathComponent("run.json"))
-        // A stale marker pointing at a pid that is not alive (well above macOS max pid).
-        try Data("2000000".utf8).write(to: runDir.appendingPathComponent("owner.pid"))
+        // Identity pointing at a pid that is not alive (well above macOS max pid).
+        try ProcessOwnership.writeOwnerIdentity(
+            .init(pid: 2_000_000, pgid: 2_000_000, startTimeTicks: 1, kind: .detachedRunner),
+            in: runDir
+        )
 
         XCTAssertEqual(store.load(runId: "crashed")?.status, .interrupted)
     }
@@ -248,7 +253,10 @@ final class RunStoreJournalTests: XCTestCase {
                                        result: WorkerRunResult(status: .running))],
             createdAt: Date()
         )).write(to: runDir.appendingPathComponent("run.json"))
-        try Data("2000000".utf8).write(to: runDir.appendingPathComponent("owner.pid"))
+        try ProcessOwnership.writeOwnerIdentity(
+            .init(pid: 2_000_000, pgid: 2_000_000, startTimeTicks: 1, kind: .detachedRunner),
+            in: runDir
+        )
         XCTAssertEqual(store.load(runId: "async-orphan")?.status, .interrupted)
     }
 }

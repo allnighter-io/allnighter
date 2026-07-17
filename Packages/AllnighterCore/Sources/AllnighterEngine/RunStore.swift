@@ -25,45 +25,48 @@ public struct RunStore: Sendable {
     /// answer text grew) writes just run.json + the liveness marker, not every artifact
     /// (PERF-S05 progress fast path). The artifacts are the inspectable terminal receipt;
     /// run.json stays the truth throughout.
+    ///
+    /// `endReason` is never inferred here (PO-S01 v2). The actor that ends the run
+    /// stamps it, or leaves it nil/`unknown`.
     @discardableResult
     public func save(_ run: TeamRun, models: [Model], forceArtifacts: Bool = false) throws -> URL {
         let directory = rootDirectory.appendingPathComponent("run_\(run.id)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        // Stamp endReason on terminal saves when the writer forgot — never empty
-        // for a terminal run (PO-S01).
-        var run = run
-        if run.status.isTerminal, run.endReason == nil {
-            run.endReason = RunEndReason.inferred(from: run.status)
-        }
-
-        // Concurrency: a background coordinator saves progress while another
-        // caller (cancel/status) reads. All state files are written ATOMICALLY
-        // (temp + rename) so a reader never sees a torn/partial file, and the
-        // liveness marker + run.json are ordered so a reader can never see a live
-        // run.json without its owner.pid (which would misfire orphan recovery and
-        // flip a running run to `.interrupted`).
+        let run = run
         let runURL = directory.appendingPathComponent("run.json")
-        let ownerURL = ProcessOwnership.ownerURL(in: directory)
         if run.status.isTerminal {
-            // Terminal: publish the terminal state, then drop the marker. Readers
-            // see a terminal run and skip the orphan check entirely.
+            // Terminal: publish the terminal state, then drop ownership markers.
+            // Never clobber an existing terminal status from a concurrent reconcile —
+            // callers that need atomic terminal write use `reconcileRun` / cancel.
             try CoreJSON.encode(run).write(to: runURL, options: .atomic)
-            try? FileManager.default.removeItem(at: ownerURL)
+            try? FileManager.default.removeItem(at: ProcessOwnership.ownerURL(in: directory))
+            try? FileManager.default.removeItem(at: ProcessOwnership.legacyOwnerURL(in: directory))
             try? FileManager.default.removeItem(at: ProcessOwnership.heartbeatURL(in: directory))
+            try? FileManager.default.removeItem(at: ProcessOwnership.legacyHeartbeatURL(in: directory))
         } else {
-            // Non-terminal: write the marker FIRST so that once this run.json is
-            // visible, a complete owner.pid is guaranteed already present. Also
-            // refresh the heartbeat so progress saves keep the run alive even if
-            // the dedicated heartbeat task hiccups.
-            try Data("\(RunStore.currentPID)".utf8).write(to: ownerURL, options: .atomic)
-            try? ProcessOwnership.touchHeartbeat(in: directory)
+            // Non-terminal owner stamp (PO-S01 v2):
+            // - Preserve an identity-alive detached runner (self-owning async path).
+            //   Progress saves from the runner process must NOT demote it to
+            //   inProcess/no-pgid or cancel/reconcile lose group-kill.
+            // - Otherwise stamp current process as inProcess (Mac app, sync,
+            //   unit tests). kind=inProcess, no pgid — never PG-killed.
+            let existing = ProcessOwnership.readOwnerIdentity(in: directory)
+            let preserveDetached =
+                existing?.kind == .detachedRunner
+                && existing.map { ProcessOwnership.isIdentityAlive($0) } == true
+            if !preserveDetached {
+                if let identity = ProcessOwnership.OwnerIdentity.current(kind: .inProcess) {
+                    try ProcessOwnership.writeOwnerIdentity(identity, in: directory)
+                }
+            }
+            try? ProcessOwnership.touchHeartbeatFloor(in: directory)
             try CoreJSON.encode(run).write(to: runURL, options: .atomic)
         }
 
         // Progress fast path: a running team's intermediate save writes only the truth
-        // (run.json + owner.pid above), not every derived artifact. The full inspectable
-        // artifact set is (re)built on the terminal save.
+        // (run.json + owner identity above), not every derived artifact. The full
+        // inspectable artifact set is (re)built on the terminal save.
         guard run.status.isTerminal || forceArtifacts else { return directory }
 
         // Derived artifacts (regenerated from run.json truth on each terminal save).
@@ -189,18 +192,25 @@ public struct RunStore: Sendable {
         }
     }
 
-    /// Loads one run by id, applying orphan recovery (a non-terminal run whose
-    /// heartbeat is stale AND owning process is gone resolves to `interrupted` —
-    /// never falsely `running`, never silently absent). Returns nil only when no
-    /// `run.json` exists.
+    /// Loads one run by id. **Reads never kill** (PO-S01 v2): may project what
+    /// reconcile WOULD decide (identity-dead → interrupted) but never signals,
+    /// never writes. Explicit reconcile paths own kill + terminal write-back.
     public func load(runId: String) -> TeamRun? {
         let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
         guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")),
               let run = try? CoreJSON.decode(TeamRun.self, from: data) else { return nil }
-        return reconcileIfNeeded(run, directory: directory)
+        return projectIfOrphaned(run, directory: directory)
     }
 
-    /// Lists saved runs, newest first, with orphan recovery applied.
+    /// Raw journal without orphan projection (runner claim path).
+    public func loadRaw(runId: String) -> TeamRun? {
+        let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
+        guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")),
+              let run = try? CoreJSON.decode(TeamRun.self, from: data) else { return nil }
+        return run
+    }
+
+    /// Lists saved runs, newest first. Read-only projection (never kills).
     public func list() -> [TeamRun] {
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: rootDirectory,
@@ -212,43 +222,88 @@ public struct RunStore: Sendable {
             .filter { $0.lastPathComponent.hasPrefix("run_") }
             .compactMap { dir -> TeamRun? in
                 guard let run = try? CoreJSON.decode(TeamRun.self, from: Data(contentsOf: dir.appendingPathComponent("run.json"))) else { return nil }
-                return reconcileIfNeeded(run, directory: dir)
+                return projectIfOrphaned(run, directory: dir)
             }
             .sorted { $0.createdAt > $1.createdAt }
     }
 
-    // MARK: - Orphan recovery (PO-S01)
+    // MARK: - Orphan projection + explicit reconcile (PO-S01 v2)
 
-    /// Mark `interrupted` ONLY when heartbeat is stale AND owner pid is dead.
-    /// Owner exit alone is never death while the heartbeat is fresh; a fresh
-    /// heartbeat is never overridden by a pid check. On reconcile: PG-kill the
-    /// runner group and stamp `endReason: reconciledOrphan`.
-    private func reconcileIfNeeded(_ run: TeamRun, directory: URL) -> TeamRun {
+    /// Read-only: if the owner identity is dead, project `interrupted` +
+    /// `reconciledOrphan` without writing or signalling.
+    public func projectIfOrphaned(_ run: TeamRun, directory: URL) -> TeamRun {
         guard !run.status.isTerminal else { return run }
-
-        let ownerPid = ProcessOwnership.readOwnerPID(in: directory)
-        let ownerDead = ownerPid.map { !ProcessOwnership.processAlive($0) } ?? true
-        let heartbeatStale = ProcessOwnership.isHeartbeatStale(in: directory)
-
-        // BOTH conditions required — this is the fix for premature reaping on
-        // first external `team status` while a runner (or parent) still owns
-        // the work with a fresh heartbeat (2026-07-16 run 7A880865).
-        guard ownerDead && heartbeatStale else { return run }
-
-        if let pid = ownerPid {
-            ProcessOwnership.terminateProcessGroup(of: pid)
-        }
-
-        var orphan = run
-        orphan.status = .interrupted
-        orphan.endReason = .reconciledOrphan
-        // Write-back so subsequent polls see a durable terminal receipt, not a
-        // pure projection that re-runs kill every time.
-        try? save(orphan, models: [])
-        return orphan
+        guard ProcessOwnership.isOwnerIdentityDead(in: directory) else { return run }
+        var projected = run
+        projected.status = .interrupted
+        projected.endReason = .reconciledOrphan
+        return projected
     }
 
-    private static var currentPID: Int32 { ProcessInfo.processInfo.processIdentifier }
+    /// True when a non-terminal run's owner is identity-verified dead.
+    public func wouldReconcile(runId: String) -> Bool {
+        let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
+        guard let raw = loadRaw(runId: runId), !raw.status.isTerminal else { return false }
+        return ProcessOwnership.isOwnerIdentityDead(in: directory)
+    }
+
+    /// Explicit reconcile: under per-run flock, identity-dead → PG-kill recorded
+    /// pgid (if any), one atomic terminal write, never clobber existing terminal.
+    /// Returns the run and whether this call performed a new reap.
+    @discardableResult
+    public func reconcileRun(runId: String, models: [Model] = []) -> TeamRun? {
+        reconcileRunDetailed(runId: runId, models: models)?.run
+    }
+
+    public struct ReconcileResult: Sendable {
+        public var run: TeamRun
+        public var reaped: Bool
+    }
+
+    @discardableResult
+    public func reconcileRunDetailed(runId: String, models: [Model] = []) -> ReconcileResult? {
+        let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
+        return ProcessOwnership.withRunLock(in: directory) {
+            guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")),
+                  var run = try? CoreJSON.decode(TeamRun.self, from: data) else { return nil }
+            // Never clobber an existing terminal status.
+            if run.status.isTerminal {
+                return ReconcileResult(run: run, reaped: false)
+            }
+            guard ProcessOwnership.isOwnerIdentityDead(in: directory) else {
+                return ReconcileResult(run: run, reaped: false)
+            }
+
+            // PG-kill recorded pgid only when identity rules allow (never in-process).
+            _ = ProcessOwnership.terminateRecordedOwnerIfSafe(in: directory)
+
+            run.status = .interrupted
+            run.endReason = .reconciledOrphan
+            // Single atomic terminal write via save (clears markers).
+            _ = try? save(run, models: models)
+            return ReconcileResult(run: run, reaped: true)
+        }
+    }
+
+    /// Sweep every non-terminal run under this store (doctor / `team reconcile`).
+    /// Returns only runs this call newly reaped.
+    @discardableResult
+    public func reconcileAll(models: [Model] = []) -> [TeamRun] {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: rootDirectory,
+            includingPropertiesForKeys: nil
+        ) else {
+            return []
+        }
+        var results: [TeamRun] = []
+        for dir in entries where dir.lastPathComponent.hasPrefix("run_") {
+            let id = String(dir.lastPathComponent.dropFirst("run_".count))
+            if let detail = reconcileRunDetailed(runId: id, models: models), detail.reaped {
+                results.append(detail.run)
+            }
+        }
+        return results
+    }
 
     /// True when `pid` names a live process. Shared with `ProcessOwnership`.
     public static func processAlive(_ pid: Int32) -> Bool {

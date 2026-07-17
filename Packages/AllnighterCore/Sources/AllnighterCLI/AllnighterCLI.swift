@@ -52,6 +52,7 @@ struct AllnighterCLI {
         case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()), runtime)
         case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()), runtime)
         case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "reconcile": await runTeamReconcile(Array(args.dropFirst()), runtime)
         case "team": await runTeam(args, runtime)
         case "models": await ModelsCLI.run(args, runtime: runtime)
         case "defaults": await DefaultsCLI.run(args, runtime: runtime)
@@ -1080,7 +1081,12 @@ struct AllnighterCLI {
         if request.repoRoot == nil {
             request.repoRoot = FileManager.default.currentDirectoryPath
         }
-        let executable = CommandLine.arguments.first ?? "alln"
+        // Absolute path via _NSGetExecutablePath — never argv[0] (posix_spawn
+        // does no PATH search; chdir makes relative argv[0] resolve wrongly).
+        guard let executable = ProcessOwnership.currentExecutablePath() else {
+            emitFailure(code: "INTERNAL_ERROR", message: "could not resolve alln executable path")
+            exit(1)
+        }
         let outcome = await runtime.asyncTeamService().start(
             request,
             origin: .cli,
@@ -1165,6 +1171,40 @@ struct AllnighterCLI {
             exit(1)
         }
         print(jsonString(response))
+    }
+
+    /// `alln team reconcile [run-id] --json` — explicit ownership reconcile
+    /// (PO-S01 v2). Identity-dead owners are PG-killed (recorded pgid only) and
+    /// stamped `endReason: reconciledOrphan`. Without run-id, sweeps all runs.
+    static func runTeamReconcile(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard opts.flag("json") else {
+            FileHandle.standardError.write(Data("usage: alln team reconcile [run-id] --json\n".utf8))
+            exit(2)
+        }
+        let runId = opts.positional.first
+        let reaped = await runtime.asyncTeamService().reconcile(runId: runId)
+        struct ReconcileEnvelope: Encodable {
+            var schemaVersion = 1
+            var reapedCount: Int
+            var reaped: [ReconcileRow]
+        }
+        struct ReconcileRow: Encodable {
+            var runId: String
+            var status: String
+            var endReason: String?
+        }
+        let envelope = ReconcileEnvelope(
+            reapedCount: reaped.count,
+            reaped: reaped.map {
+                ReconcileRow(
+                    runId: $0.id,
+                    status: $0.status.rawValue,
+                    endReason: $0.endReason?.rawValue
+                )
+            }
+        )
+        print(jsonString(envelope))
     }
 
     /// `alln docs [topic] [--errors] [--schema] [--examples]` — the generated,
@@ -1441,6 +1481,7 @@ struct AllnighterCLI {
           team status <run-id> --json                             poll async run status
           team result <run-id> --json                             fetch TeamRunJSON when ready
           team cancel <run-id> --json                             cancel an active async run
+          team reconcile [run-id] --json                          reap identity-dead async runs
           show <run-id|latest> [--json]                             show one run
           export <run-id|latest> --format md                        export a result bundle
           history "<query>" [--json]                                search prior team runs

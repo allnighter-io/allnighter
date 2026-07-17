@@ -139,6 +139,14 @@ public actor CatalogRunCoordinator {
             run = transition(run, to: .planning)
             run = transition(run, to: .partial)
         }
+        // Actor that ends the run stamps endReason (never inferred later).
+        if run.status.isTerminal, run.endReason == nil {
+            switch run.status {
+            case .complete, .partial: run.endReason = .completed
+            case .failed: run.endReason = .failed
+            default: run.endReason = .unknown
+            }
+        }
         persist?(run) // terminal — clears the liveness marker
 
         continuation.finish()

@@ -320,6 +320,11 @@ public extension ContractRegistry {
             outputSchema: .teamCancelResponse
         ),
         CommandSpec(
+            "team reconcile", summary: "Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. Omit run-id to sweep all runs under the support root.", milestone: .m1,
+            args: [ArgSpec("run-id", required: false, summary: "Optional run id; omit to sweep all.")],
+            flags: [FlagSpec("json", summary: "Structured reaped-run list.")]
+        ),
+        CommandSpec(
             "run", summary: "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.", milestone: .m1,
             args: [ArgSpec("message", required: true, summary: "The user's prompt.")],
             flags: [

@@ -120,8 +120,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var identitySummary: String?
         public var planWriterWorkerId: String?
         public var reproduceCommand: String?
-        /// Why a terminal run ended (`completed|failed|cancelled|reconciledOrphan|killed`).
-        /// Present for terminal runs; nil while the run is still live (PO-S01).
+        /// Why a terminal run ended (`completed|failed|cancelled|reconciledOrphan|killed|unknown`).
+        /// Actor-stamped only — never inferred. Nil while live (PO-S01 v2).
         public var endReason: String?
 
         public init(

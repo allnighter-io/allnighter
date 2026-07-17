@@ -31,7 +31,7 @@ final class ContractRegistryTests: XCTestCase {
             "teams", "teams show", "teams definition", "teams duplicate", "teams edit", "teams set-default", "teams delete", "teams restore",
             "skills", "skills show", "skills duplicate", "skills new", "skills edit", "skills delete",
             "team hello", "team preflight",
-            "team start", "team status", "team result", "team cancel",
+            "team start", "team status", "team result", "team cancel", "team reconcile",
             "thread send", "thread get", "thread attachment", "thread rename", "thread status",
             "run",
             "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt",

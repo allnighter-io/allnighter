@@ -38,26 +38,15 @@ public enum RunOrigin: String, Codable, Sendable, CaseIterable {
     case ios
 }
 
-/// Why a terminal team run ended (`docs/phases/Process_Ownership.md` PO-S01).
-/// Never empty on a terminal run once stamped.
+/// Why a terminal team run ended (`docs/phases/Process_Ownership.md` PO-S01 v2).
+/// Stamped by the actor that knows — never inferred from status after the fact.
 public enum RunEndReason: String, Codable, Sendable, CaseIterable {
     case completed
     case failed
     case cancelled
-    /// Reconcile: heartbeat stale AND owner pid dead.
+    /// Explicit reconcile: identity-verified dead owner.
     case reconciledOrphan
     case killed
-
-    /// Best-effort map from terminal `RunStatus` when a writer did not stamp
-    /// an explicit reason. `interrupted` defaults to `reconciledOrphan`.
-    public static func inferred(from status: RunStatus) -> RunEndReason? {
-        switch status {
-        case .complete, .partial: return .completed
-        case .failed: return .failed
-        case .cancelled: return .cancelled
-        case .interrupted: return .reconciledOrphan
-        case .draft, .fanningOut, .answersIn, .planning, .reviewing, .finalizing:
-            return nil
-        }
-    }
+    /// Honest "we do not know" — itself a bug report when seen in production.
+    case unknown
 }

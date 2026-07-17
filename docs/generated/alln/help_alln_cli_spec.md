@@ -496,6 +496,16 @@ Flags:
 
 Output schema: `teamCancelResponse`.
 
+### `alln team reconcile`
+
+Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. Omit run-id to sweep all runs under the support root.
+
+Arguments:
+- `run-id` (optional) — Optional run id; omit to sweep all.
+
+Flags:
+- `--json` — Structured reaped-run list.
+
 ### `alln run`
 
 Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.

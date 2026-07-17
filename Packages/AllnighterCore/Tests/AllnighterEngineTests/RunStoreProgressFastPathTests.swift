@@ -32,7 +32,7 @@ final class RunStoreProgressFastPathTests: XCTestCase {
         let (store, root) = tempStore()
         _ = try store.save(run(status: .fanningOut), models: [])
         XCTAssertTrue(exists(root, "run.json"), "the truth is always written")
-        XCTAssertTrue(exists(root, "owner.pid"), "a running run keeps its liveness marker")
+        XCTAssertTrue(exists(root, "owner.json"), "a running run keeps its owner identity")
         XCTAssertFalse(exists(root, "bundle.md"), "no derived artifact regen on a progress save")
         XCTAssertFalse(exists(root, "workers/model_a_0.answer.md"))
     }
