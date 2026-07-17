@@ -264,6 +264,25 @@ isolation).
   system. Panels remain no-lane. Works test: docs-only pilot turn and a
   build-lane holder proceed concurrently; a "docs" turn touching `Sources/`
   is rejected.
+- **PO-F4 — harness standing invariants (contract-freshness gate).** The
+  harness proof phase (PO-S04) runs the dev's *declared* `proofCommands` plus a
+  harness-injected list of **standing invariants** the dev cannot omit. First
+  standing invariant: **contract freshness** — after building the turn's tree
+  on the persistent scratch, the harness runs `<built alln> dev
+  export-contracts --check`; drift (a registry change that did not regenerate
+  `docs/generated/alln/*`) fails the standing invariant. Motivation: S06
+  (`06294899`) changed the contract registry but did not regenerate the
+  published artifacts; nothing caught it and the PM had to (`3850a12b`). A
+  failed standing invariant is surfaced distinctly in `proofResults` (a
+  `standing: true` + `invariant: contractDrift` marker) and marks the turn
+  **not clean** — the pilot/relay does not treat the turn as done; the loop
+  continues so the next turn regenerates + commits (Allnighter never touches
+  git, so no auto-regen/commit — the harness detects, the dev fixes). Keep the
+  standing-invariant list minimal and extensible; ship only contract-freshness
+  now. Works test: a dev turn that edits the registry without regenerating
+  artifacts → standing invariant fails, turn marked not-clean, `proofResults`
+  carries the `contractDrift` marker; a clean turn → standing invariant passes
+  silently.
 
 ## v2 review ledger (2026-07-17)
 
