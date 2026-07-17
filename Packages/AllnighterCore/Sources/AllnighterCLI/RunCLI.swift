@@ -4,11 +4,21 @@ import AllnighterEngine
 
 /// `alln run` — the unified run entrypoint (Unified Run Model).
 enum RunCLI {
+    /// PO-F5: parse `--idle-timeout <seconds>` for `RunRequest.workerTimeoutSeconds`.
+    /// `nil` raw → ok(nil) (default idle budget). Non-numeric / non-positive → error message.
+    static func parseIdleTimeoutSeconds(_ raw: String?) -> (value: Int?, error: String?) {
+        guard let raw else { return (nil, nil) }
+        guard let value = Int(raw), value > 0 else {
+            return (nil, "--idle-timeout must be a positive integer number of seconds, got '\(raw)'")
+        }
+        return (value, nil)
+    }
+
     static func run(_ args: [String], runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let message = opts.positional.first ?? opts.value("message") else {
             FileHandle.standardError.write(Data(
-                "usage: alln run \"<message>\" --project <id|path> [--team <id>] [--worker <modelId>] [--effort low|med|high] [--lane code|design|copy|signal] [--commit-message <exact>] [--no-commit] [--proof <cmd>] [--try-fix [--executor <id>]] [--json | --stream]\n"
+                "usage: alln run \"<message>\" --project <id|path> [--team <id>] [--worker <modelId>] [--effort low|med|high] [--lane code|design|copy|signal] [--idle-timeout <seconds>] [--commit-message <exact>] [--no-commit] [--proof <cmd>] [--try-fix [--executor <id>]] [--json | --stream]\n"
                     .utf8))
             exit(2)
         }
@@ -37,6 +47,11 @@ enum RunCLI {
         if let raw = opts.value("lane"), lane == nil {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw)")
         }
+        let idleParsed = parseIdleTimeoutSeconds(opts.value("idle-timeout"))
+        if let message = idleParsed.error {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: message)
+        }
+        let idleTimeoutSeconds = idleParsed.value
 
         let tryFix = opts.flag("try-fix")
         let request = RunRequest(
@@ -50,6 +65,7 @@ enum RunCLI {
             type: opts.value("type"),
             context: opts.value("context"),
             executorTeamId: opts.value("executor"),
+            workerTimeoutSeconds: idleTimeoutSeconds,
             commitMessage: commitMessage,
             noCommit: noCommit,
             proofCommand: opts.value("proof")

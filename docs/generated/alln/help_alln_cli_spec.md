@@ -545,6 +545,7 @@ Flags:
 - `--lane <lane>` — Lane tags the run for context and filtering; `--team` routes.
 - `--type <type>` — Copy routing sugar.
 - `--context <string>` — Bounded context snippet.
+- `--idle-timeout <integer>` — Override the worker idle-stall budget in seconds (default = driver manifest timeout, typically 300). Resets on any streaming progress (tool-call/reasoning/stderr/child activity), not only answer tokens (PO-F5).
 - `--commit-message <string>` — Exact commit message for the worker (FR12 instruct + verify; Allnighter does no git).
 - `--no-commit` — Instruct the worker to leave work uncommitted for PM review (mutually exclusive with --commit-message).
 - `--proof <string>` — Run a bounded proof command after the worker settles; surface pass/fail (never blocks git).

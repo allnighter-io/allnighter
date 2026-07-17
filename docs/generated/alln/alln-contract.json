@@ -1382,6 +1382,12 @@
           "valueType" : "string"
         },
         {
+          "name" : "idle-timeout",
+          "summary" : "Override the worker idle-stall budget in seconds (default = driver manifest timeout, typically 300). Resets on any streaming progress (tool-call\/reasoning\/stderr\/child activity), not only answer tokens (PO-F5).",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
           "name" : "commit-message",
           "summary" : "Exact commit message for the worker (FR12 instruct + verify; Allnighter does no git).",
           "takesValue" : true,
