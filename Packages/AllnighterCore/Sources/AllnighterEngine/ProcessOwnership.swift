@@ -338,6 +338,42 @@ public enum ProcessOwnership {
         return now.timeIntervalSince(last) > threshold
     }
 
+    // MARK: - Progress-truth stall classification (PO-F1)
+
+    /// Pure stall verdict for the watchdog / seam tests. Inputs only — no I/O.
+    ///
+    /// - Identity-alive + `lastProgressAt` within `stallBudgetSeconds` → `.progressing`
+    ///   (NEVER classify stalled / never reap for silence alone).
+    /// - Identity-alive + progress frozen past the budget (or never recorded) → `.stalled`.
+    /// - Identity-dead → `.identityDead` (existing S02 reconcile path; not the progress watchdog).
+    public enum ProgressStallVerdict: String, Sendable, Equatable {
+        case progressing
+        case stalled
+        case identityDead
+    }
+
+    /// Pure decision: identity + progress + budget → verdict. Shared by
+    /// `ProcessGroupCommandRunner`'s stall watchdog and unit seam tests.
+    public static func classifyProgressStall(
+        identityAlive: Bool,
+        lastProgressAt: Date?,
+        now: Date = Date(),
+        stallBudgetSeconds: TimeInterval
+    ) -> ProgressStallVerdict {
+        if !identityAlive { return .identityDead }
+        guard let last = lastProgressAt else { return .stalled }
+        let budget = max(stallBudgetSeconds, 0)
+        if now.timeIntervalSince(last) > budget { return .stalled }
+        return .progressing
+    }
+
+    /// Record progress into the active turn directory when one is set
+    /// (`TurnOwnerDirectory`). No-op when unset (non-relay / no turn context).
+    public static func recordTurnProgress(phase: String, now: Date = Date()) {
+        guard let directory = TurnOwnerDirectory.shared.get() else { return }
+        try? recordProgress(in: directory, phase: phase, now: now)
+    }
+
     // MARK: - Handshake I/O
 
     public static func writeRunnerReady(_ handshake: RunnerReadyHandshake, in directory: URL) throws {
