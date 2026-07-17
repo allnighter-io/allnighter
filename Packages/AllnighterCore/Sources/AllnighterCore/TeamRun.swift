@@ -81,6 +81,9 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var uncommittedFileCount: Int? = nil
     /// FR13 — bounded proof subprocess result (after worker settlement).
     public var proofResult: RunProofResult? = nil
+    /// Why this run ended — required for terminal runs (PO-S01). Optional so
+    /// legacy `run.json` still decodes; reconcile/cancel/complete stamp it.
+    public var endReason: RunEndReason? = nil
     /// Non-optional view of `links` for callers.
     public var runLinks: [RunLink] { links ?? [] }
 
@@ -113,7 +116,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         requestedCommitMessage: String? = nil,
         noCommitOrdered: Bool? = nil,
         uncommittedFileCount: Int? = nil,
-        proofResult: RunProofResult? = nil
+        proofResult: RunProofResult? = nil,
+        endReason: RunEndReason? = nil
     ) {
         self.id = id
         self.prompt = prompt
@@ -144,6 +148,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.noCommitOrdered = noCommitOrdered
         self.uncommittedFileCount = uncommittedFileCount
         self.proofResult = proofResult
+        self.endReason = endReason
     }
 }
 

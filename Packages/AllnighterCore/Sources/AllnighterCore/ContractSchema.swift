@@ -68,6 +68,7 @@ public enum ContractSchema {
                 "workerId": nullable("string"), "writePolicy": nullable("string"),
                 "identitySummary": nullable("string"),
                 "planWriterWorkerId": nullable("string"), "reproduceCommand": nullable("string"),
+                "endReason": nullable("string"),
             ], required: ["id", "status", "origin", "prompt", "promptSource", "createdAt"]),
             "PromptSource": obj([
                 "kind": enumStr(["positional", "file", "stdin"]), "path": nullable("string"),

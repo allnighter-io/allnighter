@@ -120,6 +120,9 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var identitySummary: String?
         public var planWriterWorkerId: String?
         public var reproduceCommand: String?
+        /// Why a terminal run ended (`completed|failed|cancelled|reconciledOrphan|killed`).
+        /// Present for terminal runs; nil while the run is still live (PO-S01).
+        public var endReason: String?
 
         public init(
             id: String, status: Status, origin: Origin, originAgent: String? = nil,
@@ -128,7 +131,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             startedAt: String? = nil, completedAt: String? = nil, threadId: String? = nil,
             teamPresetId: String? = nil, teamDisplayName: String? = nil, outputKind: String? = nil,
             workerId: String? = nil, writePolicy: String? = nil, identitySummary: String? = nil,
-            planWriterWorkerId: String? = nil, reproduceCommand: String? = nil
+            planWriterWorkerId: String? = nil, reproduceCommand: String? = nil,
+            endReason: String? = nil
         ) {
             self.id = id; self.status = status; self.origin = origin
             self.originAgent = originAgent; self.lane = lane; self.type = type
@@ -140,6 +144,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             self.writePolicy = writePolicy; self.identitySummary = identitySummary
             self.planWriterWorkerId = planWriterWorkerId
             self.reproduceCommand = reproduceCommand
+            self.endReason = endReason
         }
     }
 

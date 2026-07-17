@@ -13,6 +13,14 @@ public struct AsyncTeamStartRefusal: Error, Sendable, Equatable {
     }
 }
 
+/// How `AsyncTeamService.start` owns the work after accepting (PO-S01).
+public enum AsyncTeamStartOwnership: Sendable {
+    /// Coordinator + heartbeat run in this process (unit tests + detached runner child).
+    case inProcess
+    /// Fork a session-leader runner; this process only accepts and returns.
+    case detachedRunner(executablePath: String)
+}
+
 /// Serializes a run's persists against its cancellation so cancel is always the
 /// last write. The background coordinator task persists progress OFF the actor
 /// (`persistDuringRun` is a plain `@Sendable` closure), so without this an
@@ -50,6 +58,7 @@ public actor AsyncTeamService {
     private struct ActiveRun {
         var slot: TeamGovernor.Slot
         var task: Task<Void, Never>
+        var heartbeatTask: Task<Void, Never>?
     }
 
     private let models: [Model]
@@ -103,7 +112,8 @@ public actor AsyncTeamService {
     public func start(
         _ request: AsyncTeamStartRequest,
         origin: RunOrigin,
-        readyModels: [Model]
+        readyModels: [Model],
+        ownership: AsyncTeamStartOwnership = .inProcess
     ) async -> Result<TeamStartResponse, AsyncTeamStartRefusal> {
         let preflight = TeamPreflight.preflight(
             teams: teams,
@@ -165,16 +175,32 @@ public actor AsyncTeamService {
             return .failure(.init(code: blocker.code, message: blocker.message, preset: resolvedRequest.team.id))
         }
 
-        let slot: TeamGovernor.Slot
-        switch governor.acquireDetailed() {
-        case .acquired(let acquired):
-            slot = acquired
-        case .busy:
-            return .failure(.init(code: "TEAM_GOVERNOR_BUSY", message: "busy: \(config.maxConcurrentTeamRuns) team runs already running",
-                                  preset: resolvedRequest.team.id))
-        case .unavailable(let reason):
-            return .failure(.init(code: "TEAM_GOVERNOR_UNAVAILABLE", message: reason,
-                                  preset: resolvedRequest.team.id))
+        // Detached parent only probes capacity — the runner process holds the flock
+        // so it outlives the accepting CLI. In-process holds the slot here.
+        let slot: TeamGovernor.Slot?
+        switch ownership {
+        case .inProcess:
+            switch governor.acquireDetailed() {
+            case .acquired(let acquired):
+                slot = acquired
+            case .busy:
+                return .failure(.init(code: "TEAM_GOVERNOR_BUSY", message: "busy: \(config.maxConcurrentTeamRuns) team runs already running",
+                                      preset: resolvedRequest.team.id))
+            case .unavailable(let reason):
+                return .failure(.init(code: "TEAM_GOVERNOR_UNAVAILABLE", message: reason,
+                                      preset: resolvedRequest.team.id))
+            }
+        case .detachedRunner:
+            switch governor.availability() {
+            case .available:
+                slot = nil
+            case .busy:
+                return .failure(.init(code: "TEAM_GOVERNOR_BUSY", message: "busy: \(config.maxConcurrentTeamRuns) team runs already running",
+                                      preset: resolvedRequest.team.id))
+            case .unavailable(let reason):
+                return .failure(.init(code: "TEAM_GOVERNOR_UNAVAILABLE", message: reason,
+                                      preset: resolvedRequest.team.id))
+            }
         }
 
         let (prompt, _) = assemblePrompt(request)
@@ -213,15 +239,129 @@ public actor AsyncTeamService {
             _ = try? idempotency.record(key: key, payload: canonical, runId: runId, now: acceptedAt)
         }
 
+        switch ownership {
+        case .inProcess:
+            guard let slot else {
+                return .failure(.init(code: "INTERNAL_ERROR", message: "missing governor slot"))
+            }
+            launchInProcess(
+                run: run, resolved: resolved, request: request, origin: origin,
+                prompt: prompt, slot: slot
+            )
+        case .detachedRunner(let executablePath):
+            if let refusal = spawnDetachedRunner(
+                run: run, request: request, origin: origin,
+                acceptedAt: acceptedAt, executablePath: executablePath
+            ) {
+                return .failure(refusal)
+            }
+        }
+
+        return .success(startResponse(for: run, acceptedAt: acceptedAt))
+    }
+
+    /// Detached runner entry: claim ownership of an already-accepted run, heartbeat,
+    /// acquire the governor, and execute. Called from `alln team __runner`.
+    public func executeRunner(runId: String, readyModels: [Model]) async -> Result<Void, AsyncTeamStartRefusal> {
+        let directory: URL
+        do {
+            directory = try runStore.runDirectory(forRunId: runId)
+        } catch {
+            return .failure(.init(code: "INTERNAL_ERROR", message: "run directory unavailable: \(error)"))
+        }
+
+        let requestURL = directory.appendingPathComponent(ProcessOwnership.runnerRequestFileName)
+        guard let data = try? Data(contentsOf: requestURL),
+              let payload = try? CoreJSON.decode(AsyncTeamRunnerRequest.self, from: data) else {
+            return .failure(.init(code: "INTERNAL_ERROR", message: "missing runner request for \(runId)"))
+        }
+
+        // Read raw journal (skip reconcile projection that could race our claim).
+        let runURL = directory.appendingPathComponent("run.json")
+        guard let raw = try? Data(contentsOf: runURL),
+              var run = try? CoreJSON.decode(TeamRun.self, from: raw) else {
+            return .failure(.init(code: "RUN_NOT_FOUND", message: "no journal for \(runId)"))
+        }
+        if run.status.isTerminal {
+            return .success(())
+        }
+
+        // Claim ownership + fresh heartbeat before any external status poll.
+        try? ProcessOwnership.writeOwnerPID(ProcessInfo.processInfo.processIdentifier, in: directory)
+        try? ProcessOwnership.touchHeartbeat(in: directory)
+
+        let request = payload.request
+        guard let resolvedRequest = resolveRequest(request) else {
+            return .failure(.init(code: "CLI_USAGE_ERROR", message: "invalid lane/team/effort combination"))
+        }
+        var resolved = TeamResolver.resolve(
+            team: resolvedRequest.team, requestLane: resolvedRequest.lane,
+            requestEffort: resolvedRequest.effort, readyModels: readyModels
+        )
+        guard resolved.isRunnable else {
+            let reason = resolved.blockReason ?? "team cannot run"
+            run.status = .failed
+            run.endReason = .failed
+            run.warnings.append(reason)
+            _ = try? runStore.save(run, models: models)
+            return .failure(.init(code: "DEFAULT_TEAM_INVALID", message: reason, preset: resolvedRequest.team.id))
+        }
+        if let modelId = Self.normalizedModelId(request.modelId),
+           let pinned = Self.applyModelPin(modelId, to: resolved, readyModels: readyModels) {
+            resolved = pinned
+        }
+
+        let slot: TeamGovernor.Slot
+        switch governor.acquireDetailed() {
+        case .acquired(let acquired):
+            slot = acquired
+        case .busy:
+            run.status = .failed
+            run.endReason = .failed
+            run.warnings.append("team governor busy at runner launch")
+            _ = try? runStore.save(run, models: models)
+            return .failure(.init(code: "TEAM_GOVERNOR_BUSY", message: "busy: \(config.maxConcurrentTeamRuns) team runs already running",
+                                  preset: resolvedRequest.team.id))
+        case .unavailable(let reason):
+            run.status = .failed
+            run.endReason = .failed
+            run.warnings.append(reason)
+            _ = try? runStore.save(run, models: models)
+            return .failure(.init(code: "TEAM_GOVERNOR_UNAVAILABLE", message: reason,
+                                  preset: resolvedRequest.team.id))
+        }
+
+        let (prompt, _) = assemblePrompt(request)
+        launchInProcess(
+            run: run, resolved: resolved, request: request, origin: payload.origin,
+            prompt: prompt, slot: slot
+        )
+        if let active = activeRuns[runId] {
+            await active.task.value
+        }
+        return .success(())
+    }
+
+    // MARK: - launch helpers
+
+    private func launchInProcess(
+        run: TeamRun,
+        resolved: ResolvedTeamRun,
+        request: AsyncTeamStartRequest,
+        origin: RunOrigin,
+        prompt: String,
+        slot: TeamGovernor.Slot
+    ) {
+        let runId = run.id
         let store = runStore
         let allModels = models
-        let lane = resolvedRequest.lane
-        let type = resolvedRequest.type
-        let effort = resolvedRequest.effort
-        let teamName = resolved.teamDisplayName
-        let outputKind = resolved.outputKind
-        let warnings = resolved.warnings
-        let mutating = resolved.mutating
+        let lane = run.lane
+        let type = run.type
+        let effort = run.effort
+        let teamName = run.teamDisplayName
+        let outputKind = run.outputKind
+        let warnings = run.warnings
+        let mutating = run.mutating
 
         @Sendable func stamped(_ r: TeamRun) -> TeamRun {
             var copy = r
@@ -232,6 +372,9 @@ public actor AsyncTeamService {
             copy.originConversationId = request.originConversationId
             copy.originMessageId = request.originMessageId
             copy.repoRoot = request.repoRoot
+            if copy.status.isTerminal, copy.endReason == nil {
+                copy.endReason = RunEndReason.inferred(from: copy.status)
+            }
             return copy
         }
         let cancelledRuns = cancelledRuns
@@ -249,6 +392,15 @@ public actor AsyncTeamService {
             now: now
         )
         let remoteEventJournal = remoteEventJournal
+        let heartbeatDirectory = try? store.runDirectory(forRunId: runId)
+
+        let heartbeatTask = Task {
+            guard let heartbeatDirectory else { return }
+            while !Task.isCancelled {
+                try? ProcessOwnership.touchHeartbeat(in: heartbeatDirectory)
+                try? await Task.sleep(nanoseconds: UInt64(ProcessOwnership.heartbeatIntervalSeconds * 1_000_000_000))
+            }
+        }
 
         let task = Task {
             async let eventRecorder: Void = Self.recordRemoteEvents(coordinator.events, to: remoteEventJournal)
@@ -258,11 +410,73 @@ public actor AsyncTeamService {
                 runId: runId, repoRoot: request.repoRoot, persist: persistDuringRun
             )
             await eventRecorder
+            heartbeatTask.cancel()
             self.finishActiveRun(runId: runId, slot: slot)
         }
-        activeRuns[runId] = ActiveRun(slot: slot, task: task)
+        activeRuns[runId] = ActiveRun(slot: slot, task: task, heartbeatTask: heartbeatTask)
+    }
 
-        return .success(startResponse(for: run, acceptedAt: acceptedAt))
+    private func spawnDetachedRunner(
+        run: TeamRun,
+        request: AsyncTeamStartRequest,
+        origin: RunOrigin,
+        acceptedAt: Date,
+        executablePath: String
+    ) -> AsyncTeamStartRefusal? {
+        let runId = run.id
+        let directory: URL
+        do {
+            directory = try runStore.runDirectory(forRunId: runId)
+        } catch {
+            return .init(code: "INTERNAL_ERROR", message: "run directory unavailable: \(error)")
+        }
+
+        let payload = AsyncTeamRunnerRequest(
+            request: request,
+            origin: origin,
+            acceptedAt: acceptedAt
+        )
+        do {
+            try CoreJSON.encode(payload).write(
+                to: directory.appendingPathComponent(ProcessOwnership.runnerRequestFileName),
+                options: .atomic
+            )
+        } catch {
+            return .init(code: "INTERNAL_ERROR", message: "could not stage runner request: \(error)")
+        }
+
+        let stdoutPath = directory.appendingPathComponent(ProcessOwnership.runnerStdoutFileName).path
+        let stderrPath = directory.appendingPathComponent(ProcessOwnership.runnerStderrFileName).path
+        let workingDir = request.repoRoot ?? FileManager.default.currentDirectoryPath
+
+        var extraEnv: [String: String] = ["ALLN_TEAM_RUNNER": "1"]
+        if let support = environment["ALLNIGHTER_SUPPORT_DIR"] ?? ProcessInfo.processInfo.environment["ALLNIGHTER_SUPPORT_DIR"] {
+            extraEnv["ALLNIGHTER_SUPPORT_DIR"] = support
+        }
+
+        let childPid: Int32
+        do {
+            childPid = try ProcessOwnership.spawnDetachedRunner(
+                executablePath: executablePath,
+                arguments: ["team", "__runner", "--run-id", runId],
+                workingDirectory: workingDir,
+                stdoutPath: stdoutPath,
+                stderrPath: stderrPath,
+                extraEnvironment: extraEnv
+            )
+        } catch {
+            var failed = run
+            failed.status = .failed
+            failed.endReason = .failed
+            failed.warnings.append("could not spawn runner: \(error)")
+            persist(failed)
+            return .init(code: "INTERNAL_ERROR", message: "could not spawn runner: \(error)")
+        }
+
+        // Runner pid is the owner-of-record from the moment of spawn.
+        try? ProcessOwnership.writeOwnerPID(childPid, in: directory)
+        try? ProcessOwnership.touchHeartbeat(in: directory)
+        return nil
     }
 
     private nonisolated static func recordRemoteEvents(
@@ -316,18 +530,25 @@ public actor AsyncTeamService {
         guard !loaded.status.isTerminal else {
             return TeamCancelResponse(runId: runId, status: AsyncTeamStatusMapper.liveStatus(for: loaded), cancelledAt: now())
         }
+
         if let active = activeRuns.removeValue(forKey: runId) {
+            active.heartbeatTask?.cancel()
             active.task.cancel()
+        } else if let directory = try? runStore.runDirectory(forRunId: runId),
+                  let ownerPid = ProcessOwnership.readOwnerPID(in: directory) {
+            ProcessOwnership.terminateProcessGroup(of: ownerPid)
         }
-        // Flip the cancelled flag and write the terminal state under the same lock
-        // the progress saves use, re-loading inside so we cancel the freshest run.
+
         cancelledRuns.cancelAndSave(runId) {
             var run = self.runStore.load(runId: runId) ?? loaded
-            run.status = .cancelled
-            for i in run.workerAnswers.indices where !run.workerAnswers[i].result.status.isTerminal {
-                run.workerAnswers[i].result.status = .cancelled
+            if !run.status.isTerminal || run.status == .interrupted {
+                run.status = .cancelled
+                run.endReason = .cancelled
+                for i in run.workerAnswers.indices where !run.workerAnswers[i].result.status.isTerminal {
+                    run.workerAnswers[i].result.status = .cancelled
+                }
+                _ = try? self.runStore.save(run, models: self.models)
             }
-            _ = try? self.runStore.save(run, models: self.models)
         }
         return TeamCancelResponse(runId: runId, status: .cancelled, cancelledAt: now())
     }
@@ -346,13 +567,19 @@ public actor AsyncTeamService {
     // MARK: - helpers
 
     private func finishActiveRun(runId: String, slot: TeamGovernor.Slot) {
-        activeRuns.removeValue(forKey: runId)
+        if let active = activeRuns.removeValue(forKey: runId) {
+            active.heartbeatTask?.cancel()
+        }
         _ = slot
     }
 
     private func persist(_ run: TeamRun) {
         cancelledRuns.saveIfActive(run.id) {
-            _ = try? self.runStore.save(run, models: self.models)
+            var r = run
+            if r.status.isTerminal, r.endReason == nil {
+                r.endReason = RunEndReason.inferred(from: r.status)
+            }
+            _ = try? self.runStore.save(r, models: self.models)
         }
     }
 

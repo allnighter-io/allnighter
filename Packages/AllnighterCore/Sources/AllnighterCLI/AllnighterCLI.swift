@@ -48,6 +48,7 @@ struct AllnighterCLI {
         case "team" where args.first == "hello": print(teamHelloJSONString(runtime))
         case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
         case "team" where args.first == "start": await runTeamStart(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "__runner": await runTeamRunner(Array(args.dropFirst()), runtime)
         case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()), runtime)
         case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()), runtime)
         case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
@@ -1053,14 +1054,16 @@ struct AllnighterCLI {
         )
     }
 
-    /// `alln team start ... --json` — async start; returns run id after preflight + journal write.
+    /// `alln team start ... --json` — async start; forks a self-owning runner
+    /// (PO-S01), prints the accepted envelope, and exits. The runner process
+    /// owns the journal + heartbeat for the life of the run.
     static func runTeamStart(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard opts.flag("json") else {
             FileHandle.standardError.write(Data("usage: alln team start \"<prompt>\" --json [--lane code|design|copy|signal] [--team id] [--effort low|med|high] [--idempotency-key key]\n".utf8))
             exit(2)
         }
-        guard let request = parseAsyncTeamStart(args, opts) else {
+        guard var request = parseAsyncTeamStart(args, opts) else {
             emitFailure(code: "CLI_USAGE_ERROR", message: "missing prompt")
             exit(2)
         }
@@ -1072,12 +1075,46 @@ struct AllnighterCLI {
             emitFailure(code: "CLI_USAGE_ERROR", message: "unknown effort: \(raw)")
             exit(2)
         }
-        let outcome = await runtime.asyncTeamService().start(request, origin: .cli, readyModels: runtime.readyModels)
+        // Default cwd is the project root workers should run in when the caller
+        // did not pass an explicit repo root.
+        if request.repoRoot == nil {
+            request.repoRoot = FileManager.default.currentDirectoryPath
+        }
+        let executable = CommandLine.arguments.first ?? "alln"
+        let outcome = await runtime.asyncTeamService().start(
+            request,
+            origin: .cli,
+            readyModels: runtime.readyModels,
+            ownership: .detachedRunner(executablePath: executable)
+        )
         switch outcome {
         case .success(let response):
             print(jsonString(response))
         case .failure(let refusal):
             emitFailure(code: refusal.code, message: refusal.message)
+            exit(1)
+        }
+    }
+
+    /// Internal: detached runner body for `team start` (PO-S01). Becomes a
+    /// session leader, claims ownership of the accepted run, and executes it.
+    /// Not part of the public agent surface.
+    static func runTeamRunner(_ args: [String], _ runtime: ToolRuntime) async {
+        _ = ProcessOwnership.becomeSessionLeader()
+        let opts = Options(args)
+        guard let runId = opts.value("run-id") ?? opts.positional.first, !runId.isEmpty else {
+            FileHandle.standardError.write(Data("usage: alln team __runner --run-id <id>\n".utf8))
+            exit(2)
+        }
+        let outcome = await runtime.asyncTeamService().executeRunner(
+            runId: runId,
+            readyModels: runtime.readyModels
+        )
+        switch outcome {
+        case .success:
+            exit(0)
+        case .failure(let refusal):
+            FileHandle.standardError.write(Data("\(refusal.code): \(refusal.message)\n".utf8))
             exit(1)
         }
     }

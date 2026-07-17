@@ -30,6 +30,13 @@ public struct RunStore: Sendable {
         let directory = rootDirectory.appendingPathComponent("run_\(run.id)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
+        // Stamp endReason on terminal saves when the writer forgot — never empty
+        // for a terminal run (PO-S01).
+        var run = run
+        if run.status.isTerminal, run.endReason == nil {
+            run.endReason = RunEndReason.inferred(from: run.status)
+        }
+
         // Concurrency: a background coordinator saves progress while another
         // caller (cancel/status) reads. All state files are written ATOMICALLY
         // (temp + rename) so a reader never sees a torn/partial file, and the
@@ -37,16 +44,20 @@ public struct RunStore: Sendable {
         // run.json without its owner.pid (which would misfire orphan recovery and
         // flip a running run to `.interrupted`).
         let runURL = directory.appendingPathComponent("run.json")
-        let ownerURL = directory.appendingPathComponent("owner.pid")
+        let ownerURL = ProcessOwnership.ownerURL(in: directory)
         if run.status.isTerminal {
             // Terminal: publish the terminal state, then drop the marker. Readers
             // see a terminal run and skip the orphan check entirely.
             try CoreJSON.encode(run).write(to: runURL, options: .atomic)
             try? FileManager.default.removeItem(at: ownerURL)
+            try? FileManager.default.removeItem(at: ProcessOwnership.heartbeatURL(in: directory))
         } else {
             // Non-terminal: write the marker FIRST so that once this run.json is
-            // visible, a complete owner.pid is guaranteed already present.
+            // visible, a complete owner.pid is guaranteed already present. Also
+            // refresh the heartbeat so progress saves keep the run alive even if
+            // the dedicated heartbeat task hiccups.
             try Data("\(RunStore.currentPID)".utf8).write(to: ownerURL, options: .atomic)
+            try? ProcessOwnership.touchHeartbeat(in: directory)
             try CoreJSON.encode(run).write(to: runURL, options: .atomic)
         }
 
@@ -179,13 +190,14 @@ public struct RunStore: Sendable {
     }
 
     /// Loads one run by id, applying orphan recovery (a non-terminal run whose
-    /// owning process is gone resolves to `interrupted` — never falsely `running`,
-    /// never silently absent). Returns nil only when no `run.json` exists.
+    /// heartbeat is stale AND owning process is gone resolves to `interrupted` —
+    /// never falsely `running`, never silently absent). Returns nil only when no
+    /// `run.json` exists.
     public func load(runId: String) -> TeamRun? {
         let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
         guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")),
               let run = try? CoreJSON.decode(TeamRun.self, from: data) else { return nil }
-        return recovered(run, directory: directory)
+        return reconcileIfNeeded(run, directory: directory)
     }
 
     /// Lists saved runs, newest first, with orphan recovery applied.
@@ -200,37 +212,46 @@ public struct RunStore: Sendable {
             .filter { $0.lastPathComponent.hasPrefix("run_") }
             .compactMap { dir -> TeamRun? in
                 guard let run = try? CoreJSON.decode(TeamRun.self, from: Data(contentsOf: dir.appendingPathComponent("run.json"))) else { return nil }
-                return recovered(run, directory: dir)
+                return reconcileIfNeeded(run, directory: dir)
             }
             .sorted { $0.createdAt > $1.createdAt }
     }
 
-    // MARK: - Orphan recovery
+    // MARK: - Orphan recovery (PO-S01)
 
-    /// Projects a non-terminal run to `interrupted` when its owning process is no
-    /// longer alive (crash/orphan). A non-terminal run with a live owner pid is
-    /// genuinely running and is returned unchanged. Pure: never writes on read.
-    private func recovered(_ run: TeamRun, directory: URL) -> TeamRun {
+    /// Mark `interrupted` ONLY when heartbeat is stale AND owner pid is dead.
+    /// Owner exit alone is never death while the heartbeat is fresh; a fresh
+    /// heartbeat is never overridden by a pid check. On reconcile: PG-kill the
+    /// runner group and stamp `endReason: reconciledOrphan`.
+    private func reconcileIfNeeded(_ run: TeamRun, directory: URL) -> TeamRun {
         guard !run.status.isTerminal else { return run }
-        if let pid = ownerPID(directory), RunStore.processAlive(pid) { return run }
+
+        let ownerPid = ProcessOwnership.readOwnerPID(in: directory)
+        let ownerDead = ownerPid.map { !ProcessOwnership.processAlive($0) } ?? true
+        let heartbeatStale = ProcessOwnership.isHeartbeatStale(in: directory)
+
+        // BOTH conditions required — this is the fix for premature reaping on
+        // first external `team status` while a runner (or parent) still owns
+        // the work with a fresh heartbeat (2026-07-16 run 7A880865).
+        guard ownerDead && heartbeatStale else { return run }
+
+        if let pid = ownerPid {
+            ProcessOwnership.terminateProcessGroup(of: pid)
+        }
+
         var orphan = run
         orphan.status = .interrupted
+        orphan.endReason = .reconciledOrphan
+        // Write-back so subsequent polls see a durable terminal receipt, not a
+        // pure projection that re-runs kill every time.
+        try? save(orphan, models: [])
         return orphan
-    }
-
-    private func ownerPID(_ directory: URL) -> Int32? {
-        guard let raw = try? String(contentsOf: directory.appendingPathComponent("owner.pid"), encoding: .utf8) else { return nil }
-        return Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     private static var currentPID: Int32 { ProcessInfo.processInfo.processIdentifier }
 
-    /// True when `pid` names a live process. `kill(pid, 0)` returns 0 when we can
-    /// signal it, or fails with `EPERM` when it exists but we may not — both mean
-    /// alive; `ESRCH` means gone.
+    /// True when `pid` names a live process. Shared with `ProcessOwnership`.
     public static func processAlive(_ pid: Int32) -> Bool {
-        guard pid > 0 else { return false }
-        if kill(pid, 0) == 0 { return true }
-        return errno == EPERM
+        ProcessOwnership.processAlive(pid)
     }
 }

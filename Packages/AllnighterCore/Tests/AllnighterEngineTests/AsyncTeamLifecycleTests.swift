@@ -32,6 +32,14 @@ private enum AsyncTeamTestHarness {
         URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("async-\(UUID().uuidString)")
     }
 
+    /// Unit tests must not inherit a host agent's `ALLNIGHTER_TEAM_DEPTH` —
+    /// a piloted/relay seat sets that and would false-fail every start as nested.
+    static var cleanEnvironment: [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        env.removeValue(forKey: "ALLNIGHTER_TEAM_DEPTH")
+        return env
+    }
+
     static func makeService(
         root: URL,
         mock: MockCommandRunner,
@@ -49,6 +57,7 @@ private enum AsyncTeamTestHarness {
             commandRunner: mock,
             governor: TeamGovernor(directory: governorDir, capacity: 2),
             idempotency: idempotency ?? IdempotencyStore(fileURL: root.appendingPathComponent("idempotency.json")),
+            environment: cleanEnvironment,
             idFactory: { runId }
         )
     }
@@ -119,6 +128,7 @@ final class TeamStartTests: XCTestCase {
                 commandRunner: mock,
                 governor: TeamGovernor(directory: root.appendingPathComponent("gov"), capacity: 2),
                 idempotency: IdempotencyStore(fileURL: root.appendingPathComponent("idempotency.json")),
+                environment: AsyncTeamTestHarness.cleanEnvironment,
                 idFactory: { "run-pin-1" }
             )
             let ready = [AsyncTeamTestHarness.opus(), sonnet]

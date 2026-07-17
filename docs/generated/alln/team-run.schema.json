@@ -565,6 +565,12 @@
             "null"
           ]
         },
+        "endReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "id" : {
           "type" : "string"
         },

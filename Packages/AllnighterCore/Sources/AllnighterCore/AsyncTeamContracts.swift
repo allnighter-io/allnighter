@@ -150,6 +150,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     public var resultAvailable: Bool
     public var nextPollAfterMs: Int
     public var traceId: String
+    /// Why a terminal run ended (PO-S01). Nil while still live.
+    public var endReason: String?
 
     public init(
         schemaVersion: Int = 1,
@@ -165,7 +167,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         warnings: [String],
         resultAvailable: Bool,
         nextPollAfterMs: Int,
-        traceId: String
+        traceId: String,
+        endReason: String? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.runId = runId
@@ -181,6 +184,7 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         self.resultAvailable = resultAvailable
         self.nextPollAfterMs = nextPollAfterMs
         self.traceId = traceId
+        self.endReason = endReason
     }
 }
 

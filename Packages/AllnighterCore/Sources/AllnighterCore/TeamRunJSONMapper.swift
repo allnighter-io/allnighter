@@ -105,7 +105,8 @@ public enum TeamRunJSONMapper {
             identitySummary: RunIdentity.summary(
                 workerId: workerModelId, lane: run.lane, mutating: run.mutating,
                 laneContextOnly: run.laneContextOnly == true),
-            planWriterWorkerId: plan?.writerWorkerId, reproduceCommand: context.reproduceCommand
+            planWriterWorkerId: plan?.writerWorkerId, reproduceCommand: context.reproduceCommand,
+            endReason: run.endReason?.rawValue ?? (run.status.isTerminal ? RunEndReason.inferred(from: run.status)?.rawValue : nil)
         )
 
         let modelInfos = models.map {

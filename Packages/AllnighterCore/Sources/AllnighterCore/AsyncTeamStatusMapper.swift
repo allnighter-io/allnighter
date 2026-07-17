@@ -77,6 +77,8 @@ public enum AsyncTeamStatusMapper {
         let workerRows = workers(for: run)
         let terminal: Set<String> = ["completed", "failed", "timedOut", "cancelled"]
         let done = workerRows.filter { terminal.contains($0.status) }.count
+        let endReason = run.endReason?.rawValue
+            ?? (run.status.isTerminal ? RunEndReason.inferred(from: run.status)?.rawValue : nil)
         return TeamStatusResponse(
             runId: run.id,
             status: live,
@@ -90,7 +92,8 @@ public enum AsyncTeamStatusMapper {
             warnings: run.warnings,
             resultAvailable: resultAvailable(for: run),
             nextPollAfterMs: nextPollAfterMs(for: live),
-            traceId: "trace_\(run.id)"
+            traceId: "trace_\(run.id)",
+            endReason: endReason
         )
     }
 
