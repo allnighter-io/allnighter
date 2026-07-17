@@ -1404,6 +1404,7 @@ Output schema: `helpTopicsJSON`.
 | `THREAD_UNASSIGNED` | yes | no | Assign the thread/pending item to a project, then retry. |
 | `WORKER_NOT_READY_IN_PROJECT` | yes | yes | Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck. |
 | `RUN_WRITE_LOCK_BUSY` | no | yes | The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry. |
+| `EXECUTION_LANE_BUSY` | no | yes | Do not busy-loop or invent a private retry cadence. The harness owns the wait: poll relay/pilot status for laneBlocked (position, holder identity/kind/id, heldSinceSeconds) until the ticket clears, or let the harness grant the lane. Never start a second concurrent build-class turn on the same root. |
 | `NO_PROJECT_ROOT` | yes | yes | Restore the project folder or pick an available project root, then retry. |
 | `WORKER_NOT_READY` | yes | yes | Pick a ready worker or run setup health, then retry. |
 | `EXECUTION_TEAM_MIXED_SOURCES` | yes | no | Pick one execution source, run as non-mutating review/propose, or split into judgment then execution. |

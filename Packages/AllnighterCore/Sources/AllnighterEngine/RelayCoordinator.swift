@@ -126,8 +126,15 @@ public struct RelayCoordinator: Sendable {
     /// existing test/headless caller keeps working unchanged; CLI/MCP construct one via
     /// `RelayDispatch.makeCoordinator` so real relays always show in the inbox.
     private let threadProjector: RelayThreadProjector?
+    /// Per-root build/execution lane (PO-S03). Shared with `RunWriteLock` — one system.
+    private let executionLane: ExecutionLaneRegistry
     private let now: @Sendable () -> Date
     private let idFactory: @Sendable () -> String
+
+    /// How long a blocked dev turn waits on the execution lane before failing with
+    /// `laneBusy`. Generous: normal holders finish in minutes; this is the wedged-holder
+    /// safety valve (mirrors `RunService.writeLockWaitTimeout`).
+    static let executionLaneWaitTimeout: Duration = .seconds(1800)
 
     public init(
         runService: RunService,
@@ -135,6 +142,7 @@ public struct RelayCoordinator: Sendable {
         stateStore: RelayStateStore = RelayStateStore(),
         runStore: RunStore = RunStore(),
         threadProjector: RelayThreadProjector? = nil,
+        executionLane: ExecutionLaneRegistry = .shared,
         now: @escaping @Sendable () -> Date = Date.init,
         idFactory: @escaping @Sendable () -> String = { "relay_\(UUID().uuidString.lowercased())" }
     ) {
@@ -143,6 +151,7 @@ public struct RelayCoordinator: Sendable {
         self.stateStore = stateStore
         self.runStore = runStore
         self.threadProjector = threadProjector
+        self.executionLane = executionLane
         self.now = now
         self.idFactory = idFactory
     }
@@ -322,9 +331,14 @@ public struct RelayCoordinator: Sendable {
                 deliveryGuard: .init(
                     projectRoot: state.projectRoot,
                     baselineHead: round.baselineHead ?? gitObserver.observe(rootPath: state.projectRoot).head ?? ""
-                )
+                ),
+                site: .pilotDevTurn
             )
             applyDevTurnEnd(&round, endReason: devResult.endReason, owner: devResult.owner)
+            // Reload laneBlocked (if any) written during harness wait.
+            if let fresh = try? stateStore.load(id: state.id) {
+                state.laneBlocked = fresh.laneBlocked
+            }
 
             switch devResult.dispatch {
             case .deadline:
@@ -356,6 +370,7 @@ public struct RelayCoordinator: Sendable {
                 round.outcome = .continued
                 round.finishedAt = now()
                 state.rounds[state.rounds.count - 1] = round
+                state.laneBlocked = nil
                 // Back to parked — the piloting session reviews the dev report and
                 // calls `pilot handoff` again when ready. No clock, no auto-advance.
                 state.status = .awaitingPM
@@ -857,9 +872,13 @@ public struct RelayCoordinator: Sendable {
                 deliveryGuard: .init(
                     projectRoot: config.projectRoot,
                     baselineHead: round.baselineHead ?? baselineHead ?? ""
-                )
+                ),
+                site: .relayDevTurn
             )
             applyDevTurnEnd(&round, endReason: devResult.endReason, owner: devResult.owner)
+            if let fresh = try? stateStore.load(id: state.id) {
+                state.laneBlocked = fresh.laneBlocked
+            }
             switch devResult.dispatch {
             case .deadline:
                 return finishRound(&state, &round, outcome: .stopped, events: events) {
@@ -881,6 +900,7 @@ public struct RelayCoordinator: Sendable {
                 round.headAfterDev = gitObserver.observe(rootPath: config.projectRoot).head
                 round.outcome = .continued
                 round.finishedAt = now()
+                state.laneBlocked = nil
                 state.rounds[state.rounds.count - 1] = round
                 persist(state)
                 events?(.devTurnFinished(round: roundNumber))
@@ -1004,14 +1024,16 @@ public struct RelayCoordinator: Sendable {
         }
     }
 
-    /// PO-S02 dev-turn dispatch: same retry loop as `dispatchTurn`, but every attempt
-    /// and every terminal path routes through identity-checked group kill and stamps
-    /// a `DevTurnEndReason` (never inferred later).
+    /// PO-S02 + PO-S03 dev-turn dispatch: acquires the per-root execution lane for
+    /// the turn duration (FIFO ticket when busy; harness owns the wait via
+    /// `laneBlocked` on relay status). Every attempt and terminal path still routes
+    /// through identity-checked group kill and stamps a `DevTurnEndReason`.
     private func dispatchDevTurn(
         _ request: RunRequest,
         config: Config,
         relayId: String,
-        deliveryGuard: TurnDeliveryGuard? = nil
+        deliveryGuard: TurnDeliveryGuard? = nil,
+        site: ExecutionLaneSite = .relayDevTurn
     ) async -> DevTurnDispatch {
         let relayDir = try? stateStore.directory(for: relayId)
         if let relayDir {
@@ -1020,6 +1042,68 @@ public struct RelayCoordinator: Sendable {
         defer {
             ProcessOwnership.TurnOwnerDirectory.shared.set(nil)
         }
+
+        // PO-S03: build-class site must take the lane; panels never call here.
+        precondition(
+            ExecutionLaneClassification.mustAcquire(site),
+            "dispatchDevTurn is build-class only; panel seats must not acquire the lane"
+        )
+
+        let laneKey = ExecutionLane.key(repoRoot: config.projectRoot)
+        let claimKind = site.rawValue
+        let claim = ExecutionLane.Claim.current(id: relayId, kind: claimKind)
+            ?? ExecutionLane.Claim(
+                id: relayId,
+                kind: claimKind,
+                identity: ProcessOwnership.OwnerIdentity(
+                    pid: ProcessInfo.processInfo.processIdentifier,
+                    pgid: nil,
+                    startTimeTicks: 0,
+                    kind: .inProcess
+                )
+            )
+
+        let store = stateStore
+        let onTicket: @Sendable (ExecutionLaneTicket) -> Void = { ticket in
+            guard var state = try? store.load(id: relayId) else { return }
+            state.laneBlocked = ticket
+            try? store.save(state)
+        }
+        let clearBlocked: @Sendable () -> Void = {
+            guard var state = try? store.load(id: relayId) else { return }
+            state.laneBlocked = nil
+            try? store.save(state)
+        }
+
+        // Harness-owned wait: surface FIFO ticket on status; agents must not busy-loop.
+        let laneToken = await executionLane.waitToAcquire(
+            laneKey,
+            claim: claim,
+            timeout: Self.executionLaneWaitTimeout,
+            now: now,
+            onTicket: onTicket
+        )
+        defer {
+            clearBlocked()
+            if let laneToken {
+                Task { await executionLane.release(laneKey, token: laneToken, endReason: "completed") }
+            }
+        }
+        guard let laneToken else {
+            clearBlocked()
+            // Still blocked after wait bound — typed lane busy, no worker spawn.
+            if let ticket = await executionLane.currentTicket(laneKey, now: now()) {
+                onTicket(ticket)
+            }
+            return DevTurnDispatch(
+                dispatch: .serviceError(.executionLaneBusy(config.projectRoot)),
+                endReason: .laneBusy,
+                owner: nil
+            )
+        }
+        // Clear ticket once we hold the lane (wait path may have left the last ticket).
+        clearBlocked()
+        _ = laneToken
 
         var request = request
         var stalledAttempts = 0

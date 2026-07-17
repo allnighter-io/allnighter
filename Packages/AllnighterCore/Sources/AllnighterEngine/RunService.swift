@@ -95,6 +95,8 @@ public struct RunRequest: Sendable, Equatable {
 public enum RunServiceError: Error, Equatable, CustomStringConvertible {
     case repoRootUnavailable(String)
     case writeLockBusy(String)
+    /// Per-root execution lane held after the harness wait bound (PO-S03).
+    case executionLaneBusy(String)
     case teamResolution(String, code: String)
     case noWorker(String)
 
@@ -102,6 +104,8 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         switch self {
         case .repoRootUnavailable(let r): return "repo root unavailable: \(r)"
         case .writeLockBusy(let r): return "an agent is still editing this repo after a long wait — it looks stuck; stop it and retry (\(r))"
+        case .executionLaneBusy(let r):
+            return "execution lane busy on \(r) — do not busy-loop; poll status for laneBlocked (FIFO ticket) until the harness grants the lane"
         case .teamResolution(let m, _): return m
         case .noWorker(let m): return m
         }
@@ -111,6 +115,7 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         switch self {
         case .repoRootUnavailable: return "NO_PROJECT_ROOT"
         case .writeLockBusy: return "RUN_WRITE_LOCK_BUSY"
+        case .executionLaneBusy: return "EXECUTION_LANE_BUSY"
         case .teamResolution(_, let code): return code
         case .noWorker: return "WORKER_NOT_READY"
         }
@@ -738,11 +743,46 @@ public actor RunService {
             run.uncommittedFileCount = gitObserver.dirtyFiles(rootPath: repoRoot).count
         }
         if let proofCommand, !proofCommand.isEmpty {
+            // PO-S03: harness proof is build-class — holds the per-root execution lane.
+            // (Dev turns already hold the lane for their full duration; a nested proof
+            // re-uses the same key via FIFO handoff if this run is not the outer holder.)
+            let laneKey = ExecutionLane.key(repoRoot: repoRoot)
+            let proofClaim = ExecutionLane.Claim.current(id: runId, kind: ExecutionLaneSite.harnessProof.rawValue)
+                ?? ExecutionLane.Claim(
+                    id: runId,
+                    kind: ExecutionLaneSite.harnessProof.rawValue,
+                    identity: ProcessOwnership.OwnerIdentity(
+                        pid: ProcessInfo.processInfo.processIdentifier,
+                        pgid: nil,
+                        startTimeTicks: 0,
+                        kind: .inProcess
+                    )
+                )
+            let proofToken = await writeLock.waitToAcquire(
+                laneKey,
+                claim: proofClaim,
+                timeout: Self.writeLockWaitTimeout
+            )
+            defer {
+                if let proofToken {
+                    Task { await writeLock.release(laneKey, token: proofToken, endReason: "completed") }
+                }
+            }
             let proofRunner = RunProofRunner(commandRunner: commandRunner)
-            run.proofResult = await proofRunner.run(
-                command: proofCommand,
-                cwd: repoRoot,
-                timeoutSeconds: proofTimeoutSeconds ?? RunProofRunner.defaultTimeoutSeconds)
+            if proofToken != nil {
+                run.proofResult = await proofRunner.run(
+                    command: proofCommand,
+                    cwd: repoRoot,
+                    timeoutSeconds: proofTimeoutSeconds ?? RunProofRunner.defaultTimeoutSeconds)
+            } else {
+                run.proofResult = RunProofResult(
+                    command: proofCommand,
+                    exitCode: nil,
+                    passed: false,
+                    timedOut: false,
+                    outputTail: "EXECUTION_LANE_BUSY: harness proof could not acquire the per-root lane"
+                )
+            }
         }
         if answer.result.status == .done, let text = answer.output {
             let stageId = UUID().uuidString

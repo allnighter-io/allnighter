@@ -837,6 +837,15 @@
     "ruleId" : "run.write_lock_busy"
   },
   {
+    "agentAction" : "Do not busy-loop or invent a private retry cadence. The harness owns the wait: poll relay\/pilot status for laneBlocked (position, holder identity\/kind\/id, heldSinceSeconds) until the ticket clears, or let the harness grant the lane. Never start a second concurrent build-class turn on the same root.",
+    "code" : "EXECUTION_LANE_BUSY",
+    "exitClass" : "operational",
+    "explain" : "The per-root execution lane is held. Busy callers receive a FIFO ticket naming position and holder; silent queueing without a ticket is forbidden (Process_Ownership.md PO-S03).",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "execution.lane.busy"
+  },
+  {
     "agentAction" : "Restore the project folder or pick an available project root, then retry.",
     "code" : "NO_PROJECT_ROOT",
     "exitClass" : "operational",

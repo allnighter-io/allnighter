@@ -184,6 +184,10 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// `pilotMaxRounds`. `nil` reads as the house default (3), matching
     /// `Config.stagnationRoundCap`'s default.
     public var pilotStagnationRoundCap: Int?
+    /// PO-S03: set while this relay's dev turn is blocked on the per-root
+    /// execution lane (FIFO ticket). Cleared when the lane is acquired or the
+    /// wait ends. Status JSON surfaces this as `laneBlocked`.
+    public var laneBlocked: ExecutionLaneTicket?
 
     public init(
         id: String,
@@ -200,7 +204,8 @@ public struct RelayState: Sendable, Codable, Equatable {
         stoppedReason: String? = nil,
         founderNote: String? = nil,
         pilotMaxRounds: Int? = nil,
-        pilotStagnationRoundCap: Int? = nil
+        pilotStagnationRoundCap: Int? = nil,
+        laneBlocked: ExecutionLaneTicket? = nil
     ) {
         self.id = id
         self.projectRoot = projectRoot
@@ -217,6 +222,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.founderNote = founderNote
         self.pilotMaxRounds = pilotMaxRounds
         self.pilotStagnationRoundCap = pilotStagnationRoundCap
+        self.laneBlocked = laneBlocked
     }
 
     /// Pilot only: the sentinel `pmWorkerId` stamped on an `external`-mode relay —
@@ -246,6 +252,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         founderNote = try c.decodeIfPresent(String.self, forKey: .founderNote)
         pilotMaxRounds = try c.decodeIfPresent(Int.self, forKey: .pilotMaxRounds)
         pilotStagnationRoundCap = try c.decodeIfPresent(Int.self, forKey: .pilotStagnationRoundCap)
+        laneBlocked = try c.decodeIfPresent(ExecutionLaneTicket.self, forKey: .laneBlocked)
     }
 
     // MARK: - Orphan reconciliation (works-test hazard #1)

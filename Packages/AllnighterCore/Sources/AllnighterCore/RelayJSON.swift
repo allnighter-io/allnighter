@@ -30,6 +30,9 @@ public struct RelayJSON: Codable, Equatable, Sendable {
     public var devWorkerId: String
     /// Set only when `status == "stopped"` — which ceiling fired and why.
     public var stoppedReason: String?
+    /// PO-S03: present while this relay's dev turn holds a FIFO ticket on the
+    /// per-root execution lane (harness-owned wait; agents must not busy-loop).
+    public var laneBlocked: ExecutionLaneTicket?
 
     public init(
         schemaVersion: Int = 1,
@@ -44,7 +47,8 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         docPath: String,
         pmWorkerId: String,
         devWorkerId: String,
-        stoppedReason: String? = nil
+        stoppedReason: String? = nil,
+        laneBlocked: ExecutionLaneTicket? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -59,6 +63,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         self.pmWorkerId = pmWorkerId
         self.devWorkerId = devWorkerId
         self.stoppedReason = stoppedReason
+        self.laneBlocked = laneBlocked
     }
 
     /// Projects a durable `RelayState` to its wire shape. The one place CLI and MCP
@@ -77,7 +82,8 @@ public struct RelayJSON: Codable, Equatable, Sendable {
             docPath: state.docPath,
             pmWorkerId: state.pmWorkerId,
             devWorkerId: state.devWorkerId,
-            stoppedReason: state.stoppedReason
+            stoppedReason: state.stoppedReason,
+            laneBlocked: state.laneBlocked
         )
     }
 }
