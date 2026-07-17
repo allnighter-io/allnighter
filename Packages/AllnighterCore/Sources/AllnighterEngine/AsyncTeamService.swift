@@ -606,7 +606,49 @@ public actor AsyncTeamService {
                 response.progressStale = true
             }
         }
-        return response
+        return AsyncTeamStatusMapper.withWaitGuidance(response)
+    }
+
+    /// In-process blocking wait for a live status (PO-F3). Single process; sleeps
+    /// on `waitHintSeconds` between re-reads — no tight poll spin, no second
+    /// process. Returns on target match, non-matching terminal, or timeout.
+    public func waitForStatus(
+        runId: String,
+        target: TeamStatusWaitTarget,
+        timeout: Duration
+    ) async -> TeamStatusWaitOutcome? {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        while true {
+            guard let response = status(runId: runId) else { return nil }
+            if target.matches(response.status) {
+                var matched = response
+                matched.waitHintSeconds = 0
+                matched.nextAction = AsyncTeamStatusMapper.nextAction(
+                    for: response.status, runId: runId
+                )
+                return TeamStatusWaitOutcome(
+                    response: matched, timedOut: false, terminalMismatch: false
+                )
+            }
+            // Different terminal state: stop waiting — the run will not reverse.
+            if response.status.isTerminal {
+                return TeamStatusWaitOutcome(
+                    response: response, timedOut: false, terminalMismatch: true
+                )
+            }
+            let now = clock.now
+            if now >= deadline {
+                // Keep waitHint for the agent; stamp timeout on the outcome.
+                return TeamStatusWaitOutcome(
+                    response: response, timedOut: true, terminalMismatch: false
+                )
+            }
+            let remaining = deadline - now
+            let hintMs = max(50, response.nextPollAfterMs)
+            let sleepFor = min(Duration.milliseconds(hintMs), remaining)
+            try? await Task.sleep(for: sleepFor, clock: ContinuousClock())
+        }
     }
 
     /// Explicit reconcile path (`alln team reconcile`). Returns only runs this

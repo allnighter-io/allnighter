@@ -245,11 +245,16 @@ isolation).
   resume within a bounded skew of its timeout under load (the flaky XCTest
   path from S04 delta #2). Strong-capture the timeout task, test with tight
   bounds, and stamp `laneBusy` deterministically when the wait expires.
+  **Landed 2026-07-17:** ContinuousClock timeout + cancel-safe expire hop;
+  `lastWaitEndReason` stamps `laneBusy` on timeout; tight-bound contention tests.
 - **PO-F3 — blocking wait + stable exit codes.** `alln team status <id>
   --wait-for <state> --timeout <s>` (single process, no poll spin; returns on
   transition or timeout with nextAction + waitHintSeconds). Documented stable
   exit-code table: distinct codes for usage error / lane-busy / run-failed /
   timeout, exported into the contract artifacts, never renumbered.
+  **Landed 2026-07-17:** in-process `waitForStatus`; exit codes 0–4 frozen in
+  `ExitCode.stableTable` + `exit-codes.json` + drift test; `STATUS_WAIT_TIMEOUT`
+  (3), lane-busy class (4).
 - **PO-S06 — scoped write lanes.** A dev turn declares `writeScope:
   [path-prefixes]` and whether it needs the build lane. Docs-only turns
   (no build lane) run concurrently with a code turn when scopes are disjoint;

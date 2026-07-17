@@ -268,6 +268,100 @@ final class ExecutionLaneTests: XCTestCase {
         XCTAssertFalse(heldAfterOuter)
     }
 
+    // MARK: - PO-F2: waitToAcquire timeout reliability
+
+    /// Under held-lane contention, `waitToAcquire` must resume within a bounded
+    /// skew of its timeout and stamp `laneBusy` deterministically (the flaky
+    /// path from S04 — hang/late resume under load).
+    func testWaitTimeoutResumesWithinSkewAndStampsLaneBusy() async throws {
+        let reg = ExecutionLaneRegistry()
+        let key = ExecutionLane.key(repoRoot: "/tmp/lane-timeout-skew-\(UUID().uuidString)")
+        let identity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+
+        guard case .success(let holderToken) = await reg.tryAcquire(
+            key,
+            claim: .make(id: "holder", kind: "relayDevTurn", identity: identity),
+            now: Date()
+        ) else {
+            return XCTFail("holder must acquire")
+        }
+        defer { Task { await reg.release(key, token: holderToken) } }
+
+        // Spawn several concurrent waiters to load the actor + timeout hop.
+        let timeout: Duration = .milliseconds(120)
+        let skew: Duration = .milliseconds(350)
+        let contenders = 6
+        var tasks: [Task<(Duration, ExecutionLane.Token?, String?), Never>] = []
+        tasks.reserveCapacity(contenders)
+        for i in 0..<contenders {
+            let idx = i
+            tasks.append(Task {
+                let clock = ContinuousClock()
+                let start = clock.now
+                let token = await reg.waitToAcquire(
+                    key,
+                    claim: .make(id: "waiter-\(idx)", kind: "relayDevTurn", identity: identity),
+                    timeout: timeout
+                )
+                let elapsed = start.duration(to: clock.now)
+                let reason = await reg.lastWaitEndReason(for: key)
+                return (elapsed, token, reason)
+            })
+        }
+
+        var results: [(Duration, ExecutionLane.Token?, String?)] = []
+        for t in tasks {
+            results.append(await t.value)
+        }
+
+        for (elapsed, token, reason) in results {
+            XCTAssertNil(token, "waiter must time out while holder keeps the lane")
+            // Resume after timeout, not earlier than ~timeout (minus tiny scheduling),
+            // and not later than timeout + skew under load.
+            XCTAssertGreaterThanOrEqual(
+                elapsed, .milliseconds(80),
+                "resumed too early (\(elapsed)) — timeout must actually wait"
+            )
+            XCTAssertLessThanOrEqual(
+                elapsed, timeout + skew,
+                "resumed too late (\(elapsed)) — timeout+skew bound is \(timeout + skew)"
+            )
+            XCTAssertEqual(reason, "laneBusy", "timeout path must stamp laneBusy, not infer nil")
+        }
+        let stamped = await reg.lastWaitEndReason(for: key)
+        XCTAssertEqual(stamped, "laneBusy")
+        let stillHeld = await reg.isHeld(key)
+        XCTAssertTrue(stillHeld, "holder must keep the lane after waiters expire")
+    }
+
+    func testWaitTimeoutStampsLaneBusyEvenForSingleWaiter() async throws {
+        let reg = ExecutionLaneRegistry()
+        let key = ExecutionLane.key(repoRoot: "/tmp/lane-timeout-stamp-\(UUID().uuidString)")
+        let identity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+
+        guard case .success(let holderToken) = await reg.tryAcquire(
+            key,
+            claim: .make(id: "holder", kind: "relayDevTurn", identity: identity),
+            now: Date()
+        ) else {
+            return XCTFail("holder must acquire")
+        }
+
+        let clock = ContinuousClock()
+        let start = clock.now
+        let token = await reg.waitToAcquire(
+            key,
+            claim: .make(id: "solo", kind: "pilotDevTurn", identity: identity),
+            timeout: .milliseconds(80)
+        )
+        let elapsed = start.duration(to: clock.now)
+        XCTAssertNil(token)
+        let stamped = await reg.lastWaitEndReason(for: key)
+        XCTAssertEqual(stamped, "laneBusy")
+        XCTAssertLessThanOrEqual(elapsed, .milliseconds(400), "solo wait timeout must be prompt")
+        await reg.release(key, token: holderToken)
+    }
+
     // MARK: - Legacy RunWriteLockRegistry façade
 
     func testRunWriteLockRegistryIsExecutionLaneRegistry() async {

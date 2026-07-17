@@ -124,18 +124,32 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         }
     }
 
-    /// The process exit class of an error code (M-C). Error codes only ever map to
-    /// `1` or `2`; `0` is success and carries no error code. See the exit-code table
-    /// in `docs/phases/CLI_Implementation_Contract.md` §Process exit codes.
+    /// The process exit class of an error code (M-C + PO-F3). Maps to the stable
+    /// `ExitCode` table (`0` is success and carries no error code). See the
+    /// exit-code table in `docs/phases/CLI_Implementation_Contract.md` §Process
+    /// exit codes. Classes must never be renumbered without a contract bump.
     public enum ErrorExitClass: String, Codable, Sendable, CaseIterable {
         /// Well-formed command, but the operation failed or an entity was
-        /// unavailable. Exit `1`.
+        /// unavailable. Exit `1` (`ExitCode.runFailed`).
         case operational
         /// The command/subcommand/flag/argument was invalid before any work
-        /// started. Exit `2`.
+        /// started. Exit `2` (`ExitCode.usageError`).
         case usage
+        /// A bounded wait expired before the target condition. Exit `3`
+        /// (`ExitCode.timeout`).
+        case timeout
+        /// Per-root execution/write lane stayed busy past the wait bound. Exit
+        /// `4` (`ExitCode.laneBusy`).
+        case laneBusy
 
-        public var processExitCode: Int32 { self == .usage ? 2 : 1 }
+        public var processExitCode: Int32 {
+            switch self {
+            case .operational: return ExitCode.runFailed
+            case .usage: return ExitCode.usageError
+            case .timeout: return ExitCode.timeout
+            case .laneBusy: return ExitCode.laneBusy
+            }
+        }
     }
 
     /// One row of the error catalog. The recovery ladder reads these fields.

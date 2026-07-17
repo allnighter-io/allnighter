@@ -58,6 +58,29 @@ public enum AsyncTeamStatusMapper {
         }
     }
 
+    /// Seconds the agent/harness should sleep before re-checking (PO-F3).
+    /// Derived from `nextPollAfterMs` so external poll loops and in-process
+    /// `--wait-for` share one cadence.
+    public static func waitHintSeconds(for status: AsyncTeamLiveStatus) -> Double {
+        Double(nextPollAfterMs(for: status)) / 1_000.0
+    }
+
+    /// Next action after a status snapshot or wait (PO-F3).
+    public static func nextAction(for status: AsyncTeamLiveStatus, runId: String) -> AsyncTeamNextAction {
+        if status.isTerminal {
+            return AsyncTeamNextAction(kind: "fetchResult", tool: "team_result", runId: runId)
+        }
+        return AsyncTeamNextAction(kind: "waitForStatus", tool: "team_status", runId: runId)
+    }
+
+    /// Attach wait guidance fields without inventing new status truth.
+    public static func withWaitGuidance(_ response: TeamStatusResponse) -> TeamStatusResponse {
+        var copy = response
+        copy.nextAction = nextAction(for: response.status, runId: response.runId)
+        copy.waitHintSeconds = waitHintSeconds(for: response.status)
+        return copy
+    }
+
     public static func workers(for run: TeamRun) -> [TeamStatusWorker] {
         let nameById = Dictionary(run.workers.map { ($0.id, $0.skillName ?? $0.label ?? $0.skillId ?? $0.id) },
                                   uniquingKeysWith: { a, _ in a })

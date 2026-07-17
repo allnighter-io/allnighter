@@ -1,0 +1,27 @@
+[
+  {
+    "code" : 0,
+    "meaning" : "Command completed; under --json the envelope is a success payload.",
+    "name" : "success"
+  },
+  {
+    "code" : 1,
+    "meaning" : "Well-formed command, but the operation failed or the requested entity\/state was unavailable.",
+    "name" : "runFailed"
+  },
+  {
+    "code" : 2,
+    "meaning" : "Command\/subcommand\/flag\/argument was invalid before any work started.",
+    "name" : "usageError"
+  },
+  {
+    "code" : 3,
+    "meaning" : "A bounded wait expired before the target condition (team status --wait-for, team-run time budget).",
+    "name" : "timeout"
+  },
+  {
+    "code" : 4,
+    "meaning" : "Per-root execution\/write lane stayed busy past the wait bound (EXECUTION_LANE_BUSY \/ RUN_WRITE_LOCK_BUSY).",
+    "name" : "laneBusy"
+  }
+]

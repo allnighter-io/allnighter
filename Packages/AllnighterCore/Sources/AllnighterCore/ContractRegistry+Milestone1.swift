@@ -302,9 +302,13 @@ public extension ContractRegistry {
             exampleIds: ["team_start_json"]
         ),
         CommandSpec(
-            "team status", summary: "Poll live state for an async team run.", milestone: .m1,
+            "team status", summary: "Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).", milestone: .m1,
             args: [ArgSpec("run-id", required: true, summary: "The run id from team start.")],
-            flags: [FlagSpec("json", summary: "Structured TeamStatusResponse.")],
+            flags: [
+                FlagSpec("json", summary: "Structured TeamStatusResponse."),
+                FlagSpec("wait-for", takesValue: true, valueType: "state", summary: "Block until this AsyncTeamLiveStatus (accepted|running|synthesizing|completed|failed|timedOut|cancelled|interrupted) or the alias `terminal`."),
+                FlagSpec("timeout", takesValue: true, valueType: "seconds", summary: "Max seconds to wait when --wait-for is set (required with --wait-for). Exit 3 (timeout) if the target is not reached."),
+            ],
             outputSchema: .teamStatusResponse
         ),
         CommandSpec(
@@ -894,7 +898,8 @@ public extension ContractRegistry {
         ErrorSpec("DEFAULT_TEAM_INVALID", ruleId: "team.default.invalid", agentAction: "Run `alln team show --json`; fix unavailable workers.", requiresManual: true, retryable: false, explain: "The default team has no runnable workers. Inspect and repair the team lineup before running."),
         ErrorSpec("WORKER_FAILED", ruleId: "worker.failed", agentAction: "Inspect `workerId` and source error; failed worker remains visible.", requiresManual: false, retryable: true, explain: "One worker failed. The failure is shown, never hidden; other workers may still have answered. Retry the worker or proceed with partial results."),
         ErrorSpec("PLAN_WRITER_FAILED", ruleId: "plan_writer.failed", agentAction: "Retry with a ready plan writer or export worker answers.", requiresManual: false, retryable: true, explain: "The plan-writer stage failed. Retry with a ready plan writer, or export the worker answers and synthesize later."),
-        ErrorSpec("TEAM_RUN_TIMEOUT", ruleId: "team.run.timeout", agentAction: "Retry with lower effort or fewer workers.", requiresManual: false, retryable: true, explain: "The team run exceeded its time budget. Reduce effort or the worker count and retry."),
+        ErrorSpec("TEAM_RUN_TIMEOUT", ruleId: "team.run.timeout", agentAction: "Retry with lower effort or fewer workers.", requiresManual: false, retryable: true, explain: "The team run exceeded its time budget. Reduce effort or the worker count and retry.", exitClass: .timeout),
+        ErrorSpec("STATUS_WAIT_TIMEOUT", ruleId: "team.status.wait_timeout", agentAction: "Re-run `alln team status <id> --wait-for <state> --timeout <s> --json` with a longer timeout, or poll with waitHintSeconds; do not busy-loop.", requiresManual: false, retryable: true, explain: "`team status --wait-for` did not observe the target state before --timeout. The response carries current status, nextAction, and waitHintSeconds.", exitClass: .timeout),
         ErrorSpec("TEAM_RUN_FAILED", ruleId: "team.run.failed", agentAction: "Inspect failed workers and stages; retry or adjust the team.", requiresManual: false, retryable: true, explain: "The team run ended without a usable result (e.g. failed or cancelled). Inspect the failed workers/stages in the run, then retry or change the team."),
         ErrorSpec("NESTED_TEAM_BLOCKED", ruleId: "team.nested.blocked", agentAction: "Do not recursively spawn teams without explicit depth budget.", requiresManual: true, retryable: false, explain: "A worker tried to start another team run beyond the allowed depth. Set an explicit depth budget if nesting is intended."),
         ErrorSpec("TEAM_GOVERNOR_BUSY", ruleId: "team.governor.busy", agentAction: "Wait or retry after current team run completes.", requiresManual: false, retryable: true, explain: "The concurrency governor is at capacity. Wait for a slot and retry; this is a real busy state, not a fake queue."),
@@ -977,14 +982,15 @@ public extension ContractRegistry {
         ErrorSpec("PROJECT_ARCHIVED", ruleId: "project.archived", agentAction: "Run `alln project unarchive <id>` before new runs.", requiresManual: true, retryable: false, explain: "The project is archived. Unarchive it before starting new runs; reads remain available."),
         ErrorSpec("THREAD_UNASSIGNED", ruleId: "thread.unassigned", agentAction: "Assign the thread/pending item to a project, then retry.", requiresManual: true, retryable: false, explain: "The thread or pending item has no project. Assign it to a project before a mutating run."),
         ErrorSpec("WORKER_NOT_READY_IN_PROJECT", ruleId: "project.worker_not_ready", agentAction: "Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck.", requiresManual: true, retryable: true, explain: "The target worker's project readiness is not `ready` for this root. The run waits until the worker is ready here."),
-        ErrorSpec("RUN_WRITE_LOCK_BUSY", ruleId: "run.write_lock_busy", agentAction: "The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry.", requiresManual: false, retryable: true, explain: "At most one mutating run per canonical repo root. A second mutating run normally QUEUES (FIFO) behind the active one and runs when it finishes; this error is the safety valve — it fires only when the active run is still holding the lock after the wait bound (it is wedged), so the queued run is refused instead of hanging forever."),
+        ErrorSpec("RUN_WRITE_LOCK_BUSY", ruleId: "run.write_lock_busy", agentAction: "The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry.", requiresManual: false, retryable: true, explain: "At most one mutating run per canonical repo root. A second mutating run normally QUEUES (FIFO) behind the active one and runs when it finishes; this error is the safety valve — it fires only when the active run is still holding the lock after the wait bound (it is wedged), so the queued run is refused instead of hanging forever.", exitClass: .laneBusy),
         ErrorSpec(
             "EXECUTION_LANE_BUSY",
             ruleId: "execution.lane.busy",
             agentAction: "Do not busy-loop or invent a private retry cadence. The harness owns the wait: poll relay/pilot status for laneBlocked (position, holder identity/kind/id, heldSinceSeconds) until the ticket clears, or let the harness grant the lane. Never start a second concurrent build-class turn on the same root.",
             requiresManual: false,
             retryable: true,
-            explain: "The per-root execution lane is held. Busy callers receive a FIFO ticket naming position and holder; silent queueing without a ticket is forbidden (Process_Ownership.md PO-S03)."
+            explain: "The per-root execution lane is held. Busy callers receive a FIFO ticket naming position and holder; silent queueing without a ticket is forbidden (Process_Ownership.md PO-S03).",
+            exitClass: .laneBusy
         ),
         ErrorSpec("NO_PROJECT_ROOT", ruleId: "run.no_project_root", agentAction: "Restore the project folder or pick an available project root, then retry.", requiresManual: true, retryable: true, explain: "The project repo root is missing or unreadable; runs require a real cwd in the repo."),
         ErrorSpec("WORKER_NOT_READY", ruleId: "run.worker_not_ready", agentAction: "Pick a ready worker or run setup health, then retry.", requiresManual: true, retryable: true, explain: "No runnable worker resolved for this run (missing CLI, wrong driver, or bench not ready)."),

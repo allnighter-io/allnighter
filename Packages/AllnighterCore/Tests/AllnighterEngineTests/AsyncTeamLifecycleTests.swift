@@ -192,8 +192,73 @@ final class AsyncTeamTests: XCTestCase {
             XCTAssertFalse(status?.status.isTerminal ?? true)
             XCTAssertGreaterThan(status?.nextPollAfterMs ?? 0, 0)
             XCTAssertFalse(status?.workers.isEmpty ?? true)
+            // PO-F3: plain status also carries nextAction + waitHintSeconds.
+            XCTAssertEqual(status?.nextAction?.tool, "team_status")
+            XCTAssertNotNil(status?.waitHintSeconds)
+            XCTAssertGreaterThan(status?.waitHintSeconds ?? 0, 0)
             _ = await service.cancel(runId: "run-status-1")
         }
+    }
+
+    /// PO-F3: in-process wait reaches terminal without an external poll loop.
+    func testWaitForTerminalReturnsOnCompletion() async throws {
+        try await asyncTeamLifecycleGate.run {
+            let root = AsyncTeamTestHarness.tempRoot()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let mock = MockCommandRunner(scripts: ["claude": .init(stdout: AsyncTeamTestHarness.planMarkdown)])
+            let service = AsyncTeamTestHarness.makeService(root: root, mock: mock, runId: "run-wait-done")
+            _ = await service.start(AsyncTeamTestHarness.startRequest(), origin: .cli, readyModels: [AsyncTeamTestHarness.opus()])
+            let outcome = await service.waitForStatus(
+                runId: "run-wait-done",
+                target: .anyTerminal,
+                timeout: .seconds(10)
+            )
+            let result = try XCTUnwrap(outcome)
+            XCTAssertFalse(result.timedOut)
+            XCTAssertTrue(result.response.status.isTerminal)
+            XCTAssertEqual(result.response.waitHintSeconds, 0)
+            XCTAssertEqual(result.response.nextAction?.tool, "team_result")
+            XCTAssertEqual(result.response.nextAction?.kind, "fetchResult")
+        }
+    }
+
+    /// PO-F3: wait times out with waitHintSeconds still set; no hang.
+    func testWaitForTimeoutReturnsPromptlyWithHint() async throws {
+        try await asyncTeamLifecycleGate.run {
+            let root = AsyncTeamTestHarness.tempRoot()
+            defer { try? FileManager.default.removeItem(at: root) }
+            // Long delay so the run stays non-terminal for the short wait.
+            let mock = MockCommandRunner(scripts: [
+                "claude": .init(stdout: AsyncTeamTestHarness.planMarkdown, delay: .seconds(30))
+            ])
+            let service = AsyncTeamTestHarness.makeService(root: root, mock: mock, runId: "run-wait-to")
+            _ = await service.start(AsyncTeamTestHarness.startRequest(), origin: .cli, readyModels: [AsyncTeamTestHarness.opus()])
+
+            let clock = ContinuousClock()
+            let start = clock.now
+            let outcome = await service.waitForStatus(
+                runId: "run-wait-to",
+                target: .live(.completed),
+                timeout: .milliseconds(250)
+            )
+            let elapsed = start.duration(to: clock.now)
+            let result = try XCTUnwrap(outcome)
+            XCTAssertTrue(result.timedOut)
+            XCTAssertFalse(result.response.status.isTerminal)
+            XCTAssertGreaterThan(result.response.waitHintSeconds ?? 0, 0)
+            XCTAssertEqual(result.response.nextAction?.tool, "team_status")
+            XCTAssertLessThanOrEqual(elapsed, .milliseconds(800), "wait-for timeout must resume promptly")
+            _ = await service.cancel(runId: "run-wait-to")
+        }
+    }
+
+    func testWaitTargetParseAcceptsTerminalAlias() {
+        XCTAssertEqual(TeamStatusWaitTarget.parse("terminal"), .anyTerminal)
+        XCTAssertEqual(TeamStatusWaitTarget.parse("completed"), .live(.completed))
+        XCTAssertEqual(TeamStatusWaitTarget.parse("running"), .live(.running))
+        XCTAssertNil(TeamStatusWaitTarget.parse("not-a-state"))
+        XCTAssertTrue(TeamStatusWaitTarget.anyTerminal.matches(.failed))
+        XCTAssertFalse(TeamStatusWaitTarget.live(.completed).matches(.failed))
     }
 
     func testResultNotReadyBeforeTerminal() async {

@@ -59,12 +59,23 @@ public enum ContractDocs {
         }
         line()
 
+        line("## Process exit codes")
+        line()
+        line("Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.")
+        line()
+        line("| Exit code | Name | Meaning |")
+        line("| --- | --- | --- |")
+        for row in ExitCode.stableTable {
+            line("| `\(row.code)` | `\(row.name)` | \(row.meaning) |")
+        }
+        line()
+
         line("## Error codes")
         line()
-        line("| Code | Manual | Retryable | Agent action |")
-        line("| --- | --- | --- | --- |")
+        line("| Code | Manual | Retryable | Exit class | Agent action |")
+        line("| --- | --- | --- | --- | --- |")
         for e in registry.errors {
-            line("| `\(e.code)` | \(e.requiresManual ? "yes" : "no") | \(e.retryable ? "yes" : "no") | \(e.agentAction) |")
+            line("| `\(e.code)` | \(e.requiresManual ? "yes" : "no") | \(e.retryable ? "yes" : "no") | `\(e.exitClass.rawValue)` | \(e.agentAction) |")
         }
         line()
 

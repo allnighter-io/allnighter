@@ -156,6 +156,12 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     public var lastProgressAt: Date?
     /// Identity-alive but no progress for the stale threshold — never auto-reaped.
     public var progressStale: Bool?
+    /// Agent next step after status / wait (PO-F3). Always set on wait-for
+    /// returns; optional on plain status for forward compatibility.
+    public var nextAction: AsyncTeamNextAction?
+    /// Seconds the harness suggests sleeping before the next check when the
+    /// target is not yet reached (PO-F3). 0 when terminal / target matched.
+    public var waitHintSeconds: Double?
 
     public init(
         schemaVersion: Int = 1,
@@ -174,7 +180,9 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         traceId: String,
         endReason: String? = nil,
         lastProgressAt: Date? = nil,
-        progressStale: Bool? = nil
+        progressStale: Bool? = nil,
+        nextAction: AsyncTeamNextAction? = nil,
+        waitHintSeconds: Double? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.runId = runId
@@ -193,6 +201,52 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         self.endReason = endReason
         self.lastProgressAt = lastProgressAt
         self.progressStale = progressStale
+        self.nextAction = nextAction
+        self.waitHintSeconds = waitHintSeconds
+    }
+}
+
+/// Target for `team status --wait-for` (PO-F3). Live status raw values plus
+/// the aggregate `terminal` alias (any `AsyncTeamLiveStatus.isTerminal`).
+public enum TeamStatusWaitTarget: Sendable, Equatable {
+    case live(AsyncTeamLiveStatus)
+    case anyTerminal
+
+    public static func parse(_ raw: String) -> TeamStatusWaitTarget? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed == "terminal" { return .anyTerminal }
+        guard let live = AsyncTeamLiveStatus(rawValue: trimmed) else { return nil }
+        return .live(live)
+    }
+
+    public func matches(_ status: AsyncTeamLiveStatus) -> Bool {
+        switch self {
+        case .live(let target): return status == target
+        case .anyTerminal: return status.isTerminal
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .live(let s): return s.rawValue
+        case .anyTerminal: return "terminal"
+        }
+    }
+}
+
+/// Outcome of an in-process `team status --wait-for` (PO-F3).
+public struct TeamStatusWaitOutcome: Sendable, Equatable {
+    public var response: TeamStatusResponse
+    /// True when the deadline elapsed without the target matching.
+    public var timedOut: Bool
+    /// True when a non-matching terminal state was observed while waiting for a
+    /// different target (agent should stop polling).
+    public var terminalMismatch: Bool
+
+    public init(response: TeamStatusResponse, timedOut: Bool, terminalMismatch: Bool = false) {
+        self.response = response
+        self.timedOut = timedOut
+        self.terminalMismatch = terminalMismatch
     }
 }
 

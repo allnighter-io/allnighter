@@ -2,34 +2,83 @@ import XCTest
 import Foundation
 @testable import AllnighterCore
 
-/// M-C Works Test: process exit codes are catalog-derived and consistent. Every
-/// error code carries an exit class; usage errors map to exit 2 and operational
-/// failures to exit 1; every error code a CLI handler can emit exists in the
-/// catalog; and `error_explain` resolves every catalog code.
+/// M-C + PO-F3 Works Test: process exit codes are catalog-derived and consistent.
+/// Every error code carries an exit class; usage → 2, run-failed → 1, timeout → 3,
+/// lane-busy → 4; every error code a CLI handler can emit exists in the catalog;
+/// and `error_explain` resolves every catalog code. The stable table is frozen
+/// so codes can never be silently renumbered.
 final class ExitCodeContractTests: XCTestCase {
     private let registry = ContractRegistry.milestone1
 
+    /// PO-F3: the numeric exit-code table is identity. Renumbering any row is a
+    /// contract break; extend only by appending with a docs update.
+    func testStableExitCodeTableNeverRenumbered() {
+        XCTAssertEqual(ExitCode.success, 0)
+        XCTAssertEqual(ExitCode.runFailed, 1)
+        XCTAssertEqual(ExitCode.operationalFailure, 1)
+        XCTAssertEqual(ExitCode.usageError, 2)
+        XCTAssertEqual(ExitCode.timeout, 3)
+        XCTAssertEqual(ExitCode.laneBusy, 4)
+
+        let expected: [(Int32, String)] = [
+            (0, "success"),
+            (1, "runFailed"),
+            (2, "usageError"),
+            (3, "timeout"),
+            (4, "laneBusy"),
+        ]
+        XCTAssertEqual(ExitCode.stableTable.count, expected.count)
+        for (i, row) in ExitCode.stableTable.enumerated() {
+            XCTAssertEqual(row.code, expected[i].0, "row \(i) code renumbered")
+            XCTAssertEqual(row.name, expected[i].1, "row \(i) name renamed")
+        }
+
+        // Exit class → process exit code mapping is frozen with the table.
+        XCTAssertEqual(ContractRegistry.ErrorExitClass.operational.processExitCode, 1)
+        XCTAssertEqual(ContractRegistry.ErrorExitClass.usage.processExitCode, 2)
+        XCTAssertEqual(ContractRegistry.ErrorExitClass.timeout.processExitCode, 3)
+        XCTAssertEqual(ContractRegistry.ErrorExitClass.laneBusy.processExitCode, 4)
+
+        // Export rows match the frozen table (byte-stable artifact content).
+        let export = ExitCodeExport.rows
+        XCTAssertEqual(export.map(\.code), expected.map { Int($0.0) })
+        XCTAssertEqual(export.map(\.name), expected.map(\.1))
+    }
+
     func testEveryCatalogCodeHasAnExitClass() {
-        // Field is non-optional, but assert the value is one of the two legal classes
-        // and that error codes only ever map to exit 1 or 2 (never 0 / >2).
+        let legal: Set<Int32> = [1, 2, 3, 4]
         for spec in registry.errors {
-            XCTAssertTrue([1, 2].contains(spec.exitClass.processExitCode), "\(spec.code) has illegal exit code")
+            XCTAssertTrue(
+                legal.contains(spec.exitClass.processExitCode),
+                "\(spec.code) has illegal exit code \(spec.exitClass.processExitCode)"
+            )
         }
     }
 
     func testUsageErrorsExitTwoOperationalExitOne() {
         XCTAssertEqual(registry.processExitCode(forErrorCode: "CLI_USAGE_ERROR"), ExitCode.usageError)
-        XCTAssertEqual(registry.processExitCode(forErrorCode: "WORKER_FAILED"), ExitCode.operationalFailure)
-        XCTAssertEqual(registry.processExitCode(forErrorCode: "THREAD_NOT_FOUND"), ExitCode.operationalFailure)
-        XCTAssertEqual(registry.processExitCode(forErrorCode: "MODEL_NOT_FOUND"), ExitCode.operationalFailure)
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "WORKER_FAILED"), ExitCode.runFailed)
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "THREAD_NOT_FOUND"), ExitCode.runFailed)
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "MODEL_NOT_FOUND"), ExitCode.runFailed)
         XCTAssertEqual(registry.processExitCode(forErrorCode: "NO_PROJECT_SELECTED"), ExitCode.usageError)
         // The usage-class (exit 2) codes: bad invocation before any work started.
         let usage = registry.errors.filter { $0.exitClass == .usage }.map(\.code)
-        XCTAssertEqual(Set(usage), ["CLI_USAGE_ERROR", "NO_PROJECT_SELECTED", "DEFAULTS_TIER_INVALID"])
+        XCTAssertEqual(Set(usage), ["CLI_USAGE_ERROR", "NO_PROJECT_SELECTED", "DEFAULTS_TIER_INVALID",
+                                     "UTILIZATION_SOURCE_NOT_FOUND", "UTILIZATION_SOURCE_UNCONFIGURED"])
+    }
+
+    func testTimeoutAndLaneBusyClassesMapToDistinctCodes() {
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "TEAM_RUN_TIMEOUT"), ExitCode.timeout)
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "STATUS_WAIT_TIMEOUT"), ExitCode.timeout)
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "EXECUTION_LANE_BUSY"), ExitCode.laneBusy)
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "RUN_WRITE_LOCK_BUSY"), ExitCode.laneBusy)
+        XCTAssertNotEqual(ExitCode.timeout, ExitCode.laneBusy)
+        XCTAssertNotEqual(ExitCode.timeout, ExitCode.runFailed)
+        XCTAssertNotEqual(ExitCode.laneBusy, ExitCode.usageError)
     }
 
     func testUnknownCodeDefaultsToOperationalNeverCrashes() {
-        XCTAssertEqual(registry.processExitCode(forErrorCode: "NOT_A_REAL_CODE"), ExitCode.operationalFailure)
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "NOT_A_REAL_CODE"), ExitCode.runFailed)
         XCTAssertNil(registry.errorSpec(for: "NOT_A_REAL_CODE"))
     }
 
@@ -81,7 +130,7 @@ final class ExitCodeContractTests: XCTestCase {
                 for m in re.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
                     let code = ns.substring(with: m.range(at: 1))
                     if ignore.contains(code) || known.contains(code) { continue }
-                    // Only flag tokens that read like error codes (contain an underscore).
+                    // Only flag tokens that look like error codes (contain an underscore).
                     if code.contains("_") { offenders[code] = file.lastPathComponent }
                 }
             }

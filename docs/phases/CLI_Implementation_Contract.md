@@ -511,13 +511,17 @@ it can be emitted.
 ### Process exit codes
 
 Every `alln` invocation returns a deterministic process exit code so shells and
-non-JSON callers can branch without parsing output:
+non-JSON callers can branch without parsing output. **Stable table (PO-F3) —
+never renumber silently.** Truth lives in `ExitCode.stableTable` and is exported
+to `docs/generated/alln/exit-codes.json`; a drift test freezes the numbers.
 
-| Exit code | Meaning | Examples |
-| --- | --- | --- |
-| `0` | Success. The command completed; under `--json` the envelope is a success payload. | A team run finished; `doctor` ran and reported a status; `models --json` printed the roster. |
-| `1` | Operational failure. The command was well-formed but the operation failed or the requested entity/state was unavailable. | `RUN_NOT_FOUND`, `SOURCE_NOT_FOUND`, `SOURCE_AUTH_EXPIRED`, `MODEL_UNAVAILABLE`, `WORKER_FAILED`, `TEAM_RUN_TIMEOUT`, `COORDINATOR_UNAVAILABLE`, `ENTITLEMENT_BLOCKED`. |
-| `2` | Usage error. The command, subcommand, flag, or argument was invalid before any work started. | `CLI_USAGE_ERROR`, `INVALID_ENUM`, unknown command/flag, missing required argument. |
+| Exit code | Name | Meaning | Examples |
+| --- | --- | --- | --- |
+| `0` | `success` | Success. The command completed; under `--json` the envelope is a success payload. | A team run finished; `doctor` ran and reported a status; `models --json` printed the roster; `team status --wait-for` reached its target. |
+| `1` | `runFailed` | Operational / run-failed. The command was well-formed but the operation failed or the requested entity/state was unavailable. | `RUN_NOT_FOUND`, `SOURCE_NOT_FOUND`, `SOURCE_AUTH_EXPIRED`, `MODEL_UNAVAILABLE`, `WORKER_FAILED`, `COORDINATOR_UNAVAILABLE`, `ENTITLEMENT_BLOCKED`. |
+| `2` | `usageError` | Usage error. The command, subcommand, flag, or argument was invalid before any work started. | `CLI_USAGE_ERROR`, `INVALID_ENUM`, unknown command/flag, missing required argument. |
+| `3` | `timeout` | A bounded wait expired before the target condition. | `TEAM_RUN_TIMEOUT`, `STATUS_WAIT_TIMEOUT` (`team status --wait-for` past `--timeout`). |
+| `4` | `laneBusy` | Per-root execution/write lane stayed busy past the wait bound. | `EXECUTION_LANE_BUSY`, `RUN_WRITE_LOCK_BUSY`. |
 
 Rules:
 
@@ -528,8 +532,9 @@ Rules:
   code is the class, the envelope `code` is the specific reason.
 - All `CLI_USAGE_ERROR` paths must exit `2`. (The current build has a few usage
   paths that exit `1`; normalize them to `2`.)
-- Exit codes above `2` are reserved; do not introduce new ones without updating
-  this table.
+- Exit classes map via `ErrorSpec.exitClass` → `ErrorExitClass.processExitCode`.
+  Adding a new numeric exit code requires extending `ExitCode.stableTable`, this
+  table, and the drift test together — never renumber an existing code.
 
 ## Doctor Contract
 

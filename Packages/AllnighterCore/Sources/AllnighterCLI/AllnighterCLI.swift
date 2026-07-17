@@ -1127,18 +1127,77 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln team status <run-id> --json`
+    /// `alln team status <run-id> --json [--wait-for <state> --timeout <seconds>]`
+    /// Plain status is a single snapshot. With `--wait-for`, blocks in-process
+    /// until the target (or a non-matching terminal) or timeout (PO-F3).
     static func runTeamStatus(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard opts.flag("json"), let runId = opts.positional.first else {
-            FileHandle.standardError.write(Data("usage: alln team status <run-id> --json\n".utf8))
-            exit(2)
+            FileHandle.standardError.write(Data("usage: alln team status <run-id> --json [--wait-for <state> --timeout <seconds>]\n".utf8))
+            exit(ExitCode.usageError)
         }
-        guard let status = await runtime.asyncTeamService().status(runId: runId) else {
-            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
-            exit(1)
+
+        let waitRaw = opts.value("wait-for")
+        let timeoutRaw = opts.value("timeout")
+        if waitRaw == nil && timeoutRaw == nil {
+            guard let status = await runtime.asyncTeamService().status(runId: runId) else {
+                fail(code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
+            }
+            print(jsonString(status))
+            return
         }
-        print(jsonString(status))
+        guard let waitRaw else {
+            fail(code: "CLI_USAGE_ERROR", message: "--timeout requires --wait-for <state>")
+        }
+        guard let timeoutRaw else {
+            fail(code: "CLI_USAGE_ERROR", message: "--wait-for requires --timeout <seconds>")
+        }
+        guard let target = TeamStatusWaitTarget.parse(waitRaw) else {
+            fail(
+                code: "CLI_USAGE_ERROR",
+                message: "unknown --wait-for state: \(waitRaw) (use accepted|running|synthesizing|completed|failed|timedOut|cancelled|interrupted|terminal)"
+            )
+        }
+        guard let timeoutSeconds = Double(timeoutRaw), timeoutSeconds >= 0 else {
+            fail(code: "CLI_USAGE_ERROR", message: "--timeout must be a non-negative number of seconds")
+        }
+
+        // Duration.seconds takes Integer; keep sub-second precision via ms.
+        let timeoutMs = max(0, Int((timeoutSeconds * 1_000.0).rounded()))
+        let timeout = Duration.milliseconds(timeoutMs)
+        guard let outcome = await runtime.asyncTeamService().waitForStatus(
+            runId: runId, target: target, timeout: timeout
+        ) else {
+            fail(code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
+        }
+
+        print(jsonString(outcome.response))
+        if outcome.timedOut {
+            // STATUS_WAIT_TIMEOUT → exit 3 (stable timeout class).
+            exit(ContractRegistry.milestone1.processExitCode(forErrorCode: "STATUS_WAIT_TIMEOUT"))
+        }
+        if outcome.terminalMismatch {
+            // Target not reached; run is terminal — class by live status.
+            switch outcome.response.status {
+            case .failed, .interrupted:
+                exit(ExitCode.runFailed)
+            case .timedOut:
+                exit(ExitCode.timeout)
+            case .completed, .cancelled:
+                exit(ExitCode.success)
+            case .accepted, .running, .synthesizing:
+                exit(ExitCode.runFailed)
+            }
+        }
+        // Target matched — exit by status class when the target itself is a failure.
+        switch outcome.response.status {
+        case .failed, .interrupted:
+            exit(ExitCode.runFailed)
+        case .timedOut:
+            exit(ExitCode.timeout)
+        case .completed, .cancelled, .accepted, .running, .synthesizing:
+            exit(ExitCode.success)
+        }
     }
 
     /// `alln team result <run-id> --json`
@@ -1542,7 +1601,7 @@ struct AllnighterCLI {
           team "<question>" [--team id] [--json | --stream]          run a team (--json: TeamRunJSON; --stream: NDJSON)
           team show [--json]                                        show the current default team
           team start "<question>" --json [--lane ...] [--team id]   start async team run (returns run id)
-          team status <run-id> --json                             poll async run status
+          team status <run-id> --json [--wait-for <state> --timeout <s>]  poll or block-wait async run status
           team result <run-id> --json                             fetch TeamRunJSON when ready
           team cancel <run-id> --json                             cancel an active async run
           team reconcile [run-id] --json                          reap identity-dead async runs

@@ -110,6 +110,11 @@ public actor ExecutionLaneRegistry {
     /// Last release endReason per key (for tests / `alln ps` foreshadowing).
     private var lastEndReason: [String: String] = [:]
 
+    /// Last wait-timeout endReason per key. Stamped `laneBusy` when a
+    /// `waitToAcquire` waiter expires (PO-F2) so callers/tests can assert the
+    /// timeout path without re-inferring from a nil token.
+    private var lastWaitEndReason: [String: String] = [:]
+
     public init() {}
 
     // MARK: - Non-blocking / ticket
@@ -199,20 +204,30 @@ public actor ExecutionLaneRegistry {
 
         // While queued, periodically reconcile a dead local holder and retry
         // the flock (cross-process holder death is kernel-released).
-        // Strong-capture `self`: weak self can drop the expire/reconcile hop and
-        // leave waiters parked forever (PO-S04 works-test hang).
+        // Strong-capture `self` on both hop tasks: weak self can drop the
+        // expire/reconcile hop and leave waiters parked forever (PO-S04 hang;
+        // PO-F2 tightens the timeout path).
         let reconcileTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(200))
+                if Task.isCancelled { return }
                 await self.reconcile(key)
                 // Cross-process: if no local holder, try to grant head waiter via flock.
                 await self.tryGrantCrossProcessWaiters(key)
             }
         }
 
+        // Strong-capture timeout task: sleep must not call expire after cancel
+        // (`try?` would swallow CancellationError and still expire — racey under
+        // load). On a real timeout, stamp laneBusy deterministically.
         let timeoutTask = Task {
-            try? await Task.sleep(for: timeout)
-            await self.expire(key: key, id: waiterId)
+            do {
+                try await Task.sleep(for: timeout, clock: ContinuousClock())
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            await self.expire(key: key, id: waiterId, endReason: "laneBusy")
         }
 
         let granted = await withTaskCancellationHandler {
@@ -228,7 +243,7 @@ public actor ExecutionLaneRegistry {
                 )
             }
         } onCancel: {
-            Task { await self.expire(key: key, id: waiterId) }
+            Task { await self.expire(key: key, id: waiterId, endReason: "cancelled") }
         }
         timeoutTask.cancel()
         reconcileTask.cancel()
@@ -308,6 +323,13 @@ public actor ExecutionLaneRegistry {
 
     public func lastReleaseEndReason(for key: String) -> String? {
         lastEndReason[key]
+    }
+
+    /// Why the most recent `waitToAcquire` on `key` returned nil without a grant
+    /// (`laneBusy` on timeout, `cancelled` on task cancel). Nil if no wait has
+    /// expired on this key yet (PO-F2).
+    public func lastWaitEndReason(for key: String) -> String? {
+        lastWaitEndReason[key]
     }
 
     /// Waiter count currently enqueued for `key` (tests / status).
@@ -418,13 +440,15 @@ public actor ExecutionLaneRegistry {
         }
     }
 
-    private func expire(key: String, id: UInt64) {
+    private func expire(key: String, id: UInt64, endReason: String = "laneBusy") {
         guard var queue = waiters[key], let idx = queue.firstIndex(where: { $0.id == id }) else {
             return
         }
         let waiter = queue.remove(at: idx)
         waiters[key] = queue.isEmpty ? nil : queue
         ExecutionLaneFlock.unregisterWaiter(waiter.waiterFileURL)
+        // Deterministic stamp for the waiter path (not a holder release).
+        lastWaitEndReason[key] = endReason
         waiter.continuation.resume(returning: nil)
     }
 

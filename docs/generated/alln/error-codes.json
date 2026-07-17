@@ -128,11 +128,20 @@
   {
     "agentAction" : "Retry with lower effort or fewer workers.",
     "code" : "TEAM_RUN_TIMEOUT",
-    "exitClass" : "operational",
+    "exitClass" : "timeout",
     "explain" : "The team run exceeded its time budget. Reduce effort or the worker count and retry.",
     "requiresManual" : false,
     "retryable" : true,
     "ruleId" : "team.run.timeout"
+  },
+  {
+    "agentAction" : "Re-run `alln team status <id> --wait-for <state> --timeout <s> --json` with a longer timeout, or poll with waitHintSeconds; do not busy-loop.",
+    "code" : "STATUS_WAIT_TIMEOUT",
+    "exitClass" : "timeout",
+    "explain" : "`team status --wait-for` did not observe the target state before --timeout. The response carries current status, nextAction, and waitHintSeconds.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "team.status.wait_timeout"
   },
   {
     "agentAction" : "Inspect failed workers and stages; retry or adjust the team.",
@@ -857,7 +866,7 @@
   {
     "agentAction" : "The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry.",
     "code" : "RUN_WRITE_LOCK_BUSY",
-    "exitClass" : "operational",
+    "exitClass" : "laneBusy",
     "explain" : "At most one mutating run per canonical repo root. A second mutating run normally QUEUES (FIFO) behind the active one and runs when it finishes; this error is the safety valve — it fires only when the active run is still holding the lock after the wait bound (it is wedged), so the queued run is refused instead of hanging forever.",
     "requiresManual" : false,
     "retryable" : true,
@@ -866,7 +875,7 @@
   {
     "agentAction" : "Do not busy-loop or invent a private retry cadence. The harness owns the wait: poll relay\/pilot status for laneBlocked (position, holder identity\/kind\/id, heldSinceSeconds) until the ticket clears, or let the harness grant the lane. Never start a second concurrent build-class turn on the same root.",
     "code" : "EXECUTION_LANE_BUSY",
-    "exitClass" : "operational",
+    "exitClass" : "laneBusy",
     "explain" : "The per-root execution lane is held. Busy callers receive a FIFO ticket naming position and holder; silent queueing without a ticket is forbidden (Process_Ownership.md PO-S03).",
     "requiresManual" : false,
     "retryable" : true,

@@ -462,13 +462,15 @@ Examples: `team_start_json`.
 
 ### `alln team status`
 
-Poll live state for an async team run.
+Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).
 
 Arguments:
 - `run-id` (required) — The run id from team start.
 
 Flags:
 - `--json` — Structured TeamStatusResponse.
+- `--wait-for <state>` — Block until this AsyncTeamLiveStatus (accepted|running|synthesizing|completed|failed|timedOut|cancelled|interrupted) or the alias `terminal`.
+- `--timeout <seconds>` — Max seconds to wait when --wait-for is set (required with --wait-for). Exit 3 (timeout) if the target is not reached.
 
 Output schema: `teamStatusResponse`.
 
@@ -1329,114 +1331,127 @@ Output schema: `helpTopicsJSON`.
 - `alln pending stop` — Stop a running Pending item.
 - `alln pair` — Approve iOS/Mac pairing.
 
+## Process exit codes
+
+Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
+
+| Exit code | Name | Meaning |
+| --- | --- | --- |
+| `0` | `success` | Command completed; under --json the envelope is a success payload. |
+| `1` | `runFailed` | Well-formed command, but the operation failed or the requested entity/state was unavailable. |
+| `2` | `usageError` | Command/subcommand/flag/argument was invalid before any work started. |
+| `3` | `timeout` | A bounded wait expired before the target condition (team status --wait-for, team-run time budget). |
+| `4` | `laneBusy` | Per-root execution/write lane stayed busy past the wait bound (EXECUTION_LANE_BUSY / RUN_WRITE_LOCK_BUSY). |
+
 ## Error codes
 
-| Code | Manual | Retryable | Agent action |
-| --- | --- | --- | --- |
-| `CLI_USAGE_ERROR` | yes | no | Re-run `alln docs <command>` and fix arguments. |
-| `INSTALL_CLI_TARGET_UNWRITABLE` | yes | yes | Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory. |
-| `CONTRACT_DRIFT` | yes | no | Run `alln dev export-contracts`, then rebuild. |
-| `DEFAULTS_TIER_INVALID` | yes | no | Use one of flagship | balanced | fast. |
-| `DEFAULTS_MODEL_UNKNOWN` | yes | no | Run `alln models --json` and pass a known model id. |
-| `STALL_EPISODE_NOT_FOUND` | no | no | Run `alln stalled list --all --json` and use a current episode id. |
-| `DOCTOR_CHECK_FAILED` | no | yes | Run `alln doctor --json`. |
-| `SOURCE_NOT_FOUND` | yes | no | Run `alln doctor --json`; add/configure the missing source. |
-| `SOURCE_AUTH_EXPIRED` | yes | no | Re-authenticate the named source. |
-| `SOURCE_KEYCHAIN_UNAVAILABLE` | yes | yes | Open the provider app once, run its login command in Terminal, then `alln doctor --full --agent <source>`. |
-| `MODEL_UNAVAILABLE` | no | yes | Run `alln models --json`; pick an on-Bench ready model or enable one. |
-| `DEFAULT_TEAM_INVALID` | yes | no | Run `alln team show --json`; fix unavailable workers. |
-| `WORKER_FAILED` | no | yes | Inspect `workerId` and source error; failed worker remains visible. |
-| `PLAN_WRITER_FAILED` | no | yes | Retry with a ready plan writer or export worker answers. |
-| `TEAM_RUN_TIMEOUT` | no | yes | Retry with lower effort or fewer workers. |
-| `TEAM_RUN_FAILED` | no | yes | Inspect failed workers and stages; retry or adjust the team. |
-| `NESTED_TEAM_BLOCKED` | yes | no | Do not recursively spawn teams without explicit depth budget. |
-| `TEAM_GOVERNOR_BUSY` | no | yes | Wait or retry after current team run completes. |
-| `TEAM_GOVERNOR_UNAVAILABLE` | yes | yes | Run `alln doctor --json`; ensure Allnighter's support directory is writable, or set a writable support root for eval runs. |
-| `PENDING_MUTATION_DEFERRED` | yes | no | Keep item Draft/Pending; mutating pending runs are outside Pending M1. |
-| `PENDING_REORDER_INVALID` | yes | no | Keep order unchanged; reorder only Pending items in the same serialized group. |
-| `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD` | no | no | Generate a new key or reuse the original payload. |
-| `RESULT_NOT_READY` | no | yes | Poll team status using nextPollAfterMs, then call team result again. |
-| `RUN_NOT_FOUND` | yes | no | Run `alln history --json`. |
-| `COORDINATOR_UNAVAILABLE` | no | yes | Use foreground CLI or start resident mode when available. |
-| `SKILL_NOT_FOUND` | yes | no | Run `alln skills --lane <lane> --json` and pick a valid skill id. |
-| `TEAM_NOT_FOUND` | yes | no | Run `alln teams --lane <lane> --json` and pick a valid team id. |
-| `TEAM_BUILTIN_IMMUTABLE` | yes | no | Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version). |
-| `TEAM_RESTORE_UNSUPPORTED` | yes | no | Only built-in teams can be restored; for a custom team, edit or delete it instead. |
-| `SKILL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in skill, then edit the custom copy. |
-| `TEAM_ID_COLLISION` | yes | no | Pick a different team id or delete the conflicting custom team. |
-| `SKILL_ID_COLLISION` | yes | no | Pick a different skill id or delete the conflicting custom skill. |
-| `TEAM_INVALID` | yes | no | Fix the team definition and retry `alln teams edit`. |
-| `SKILL_INVALID` | yes | no | Fix the skill definition and retry `alln skills edit`. |
-| `TEAM_DEFAULT_INVALID` | yes | no | Set another default team before deleting or changing the lane default. |
-| `SKILL_IN_USE` | yes | no | Remove the skill from team definitions before deleting. |
-| `SKILL_LANE_MISMATCH` | yes | no | Pick a skill from the same lane as the team. |
-| `CATALOG_ID_INVALID` | yes | no | Use a canonical lowercase id matching the catalog rules. |
-| `JSON_SCHEMA_VIOLATION` | yes | no | Treat as implementation bug; run export-contracts check. |
-| `PERMISSION_REQUIRED` | yes | no | Ask the user for the named permission. |
-| `ATTACHMENT_HASH_MISMATCH` | yes | no | Re-ingest or re-send the attachment; do not retry with stale bytes. |
-| `ATTACHMENT_NOT_FOUND` | no | no | Use thread_get to list resolved attachments for the turn. |
-| `ATTACHMENT_TOO_MANY` | yes | no | Remove attachments until within the count cap. |
-| `ATTACHMENT_TOO_LARGE` | yes | no | Use a smaller image or fewer attachments. |
-| `ATTACHMENT_UNSUPPORTED_TYPE` | yes | no | Send PNG/JPEG/GIF/WebP only. |
-| `ATTACHMENT_DECODE_FAILED` | yes | no | Fix or replace the corrupt image file. |
-| `ATTACHMENT_BASE64_INVALID` | yes | no | Fix the base64 payload. |
-| `ATTACHMENT_STAGE_FAILED` | yes | yes | Check workingDir permissions and disk space. |
-| `ATTACHMENT_STAGE_UNIGNORED` | yes | no | Add `.allnighter/` to gitignore or info/exclude manually. |
-| `CONTEXT_ATTACHMENT_CAP_EXCEEDED` | yes | no | Reduce message or attachment count; never silently trim current send. |
-| `FILE_REFERENCE_PROJECT_ROOT_MISSING` | yes | no | Bind the thread to a project/working directory, then retry. |
-| `FILE_REFERENCE_OUTSIDE_PROJECT` | yes | no | Pick a path inside the project root. |
-| `FILE_REFERENCE_NOT_FOUND` | yes | no | Refresh the file picker or choose an existing project file. |
-| `FILE_REFERENCE_UNREADABLE` | yes | no | Check file permissions or choose another file. |
-| `FILE_REFERENCE_BINARY_UNSUPPORTED` | yes | no | Reference text files only in v1. |
-| `FILE_REFERENCE_TOO_LARGE` | yes | no | Reference a smaller file or a line range. |
-| `FILE_REFERENCE_TOO_MANY` | yes | no | Remove file references until within the cap. |
-| `FILE_REFERENCE_SENSITIVE_BLOCKED` | yes | no | Do not attach secrets; summarize the needed config manually. |
-| `FILE_REFERENCE_LINE_RANGE_INVALID` | yes | no | Choose a valid 1-based line range inside the file. |
-| `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` | yes | no | Refresh the reference and re-approve the changed file before running. |
-| `FILE_REFERENCE_CATALOG_STALE` | no | yes | Refresh the Project file picker and retry. |
-| `FILE_REFERENCE_WORKER_UNSUPPORTED` | yes | no | Choose a worker that can receive referenced file text or use a chat worker. |
-| `THREAD_SEND_IDEMPOTENCY_CONFLICT` | no | no | Use a new idempotency key or repeat the original payload. |
-| `THREAD_NOT_FOUND` | yes | no | Run `alln history --json` (or create a thread); retry with a valid thread id. |
-| `TRY_FIX_PACKET_MISSING` | no | yes | Re-run the Bug Hunt diagnosis; the fix attempt needs a typed fix packet. |
-| `TRY_FIX_PACKET_UNSAFE` | yes | no | Read the gate reason; resolve the danger flag / add an actionable hypothesis + proof, then retry. |
-| `TRY_FIX_EXECUTOR_INVALID` | yes | no | Pass --executor a single mutating team that is runnable on this bench (default execution_playbook). |
-| `RELAY_NOT_FOUND` | yes | no | Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`. |
-| `RELAY_INVALID_STATE` | yes | no | Only an `escalated` relay can be resumed; check status first with `pair relay-status`. |
-| `RELAY_HANDOVER_UNSAFE` | yes | no | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
-| `RELAY_ROUND_IN_FLIGHT` | no | yes | Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`. |
-| `RELAY_NOT_AWAITING_PM` | yes | no | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
-| `RELAY_VERDICT_UNPARSEABLE` | yes | yes | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
-| `PANEL_SEAT_NOT_ISOLATED` | no | yes | Retry the panel round. If it persists, free disk space and confirm the project root is readable — clone isolation failed to materialize for a non-RO-enforcing seat. |
-| `PANEL_NOT_FOUND` | yes | no | Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`. |
-| `PANEL_ROUND_IN_FLIGHT` | no | yes | Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`. |
-| `PANEL_TARGET_MISSING` | yes | no | Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one. |
-| `PANEL_NOT_AWAITING` | yes | no | Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to scrutinize). |
-| `OWNERSHIP_NOT_FOUND` | no | no | Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree. |
-| `OWNERSHIP_ALREADY_TERMINAL` | no | no | No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`. |
-| `OWNERSHIP_IDENTITY_MISMATCH` | yes | no | Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead. |
-| `THREAD_SEND_FAILED` | no | yes | Inspect the error detail; retry the send or fix the worker. |
-| `MODEL_NOT_FOUND` | yes | no | Run `alln models --json` and retry with a valid model id. |
-| `MODEL_BUILTIN_IMMUTABLE` | yes | no | Duplicate the built-in model, then edit the custom copy. |
-| `MODEL_ID_COLLISION` | yes | no | Pick a different model id or delete the conflicting custom model. |
-| `MODEL_INVALID` | yes | no | Fix the model definition and retry the edit. |
-| `MODEL_DRIVER_MISSING` | yes | no | Reference a known driver id, or add the driver manifest first. |
-| `INTERNAL_ERROR` | yes | no | Capture the message and `traceId`; retry once, then report if it persists. |
-| `PROJECT_NOT_FOUND` | yes | no | Run `alln project list --json`; retry with a valid id or name. |
-| `NO_PROJECT_SELECTED` | yes | no | Select or add a project, then re-run the mutating action. |
-| `DUPLICATE_PROJECT_ROOT` | no | no | Use the existing project that owns this normalized root. |
-| `PROJECT_ROOT_UNAVAILABLE` | yes | yes | Restore the folder/permissions, then `alln project show <id>` to re-observe. |
-| `PROJECT_ARCHIVED` | yes | no | Run `alln project unarchive <id>` before new runs. |
-| `THREAD_UNASSIGNED` | yes | no | Assign the thread/pending item to a project, then retry. |
-| `WORKER_NOT_READY_IN_PROJECT` | yes | yes | Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck. |
-| `RUN_WRITE_LOCK_BUSY` | no | yes | The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry. |
-| `EXECUTION_LANE_BUSY` | no | yes | Do not busy-loop or invent a private retry cadence. The harness owns the wait: poll relay/pilot status for laneBlocked (position, holder identity/kind/id, heldSinceSeconds) until the ticket clears, or let the harness grant the lane. Never start a second concurrent build-class turn on the same root. |
-| `NO_PROJECT_ROOT` | yes | yes | Restore the project folder or pick an available project root, then retry. |
-| `WORKER_NOT_READY` | yes | yes | Pick a ready worker or run setup health, then retry. |
-| `EXECUTION_TEAM_MIXED_SOURCES` | yes | no | Pick one execution source, run as non-mutating review/propose, or split into judgment then execution. |
-| `UTILIZATION_SOURCE_NOT_FOUND` | yes | no | Run `alln models --json`; use a known driver id in appliesTo. |
-| `UTILIZATION_SOURCE_UNCONFIGURED` | yes | no | Add the source to Boost window appliesTo, then retry. |
-| `UTILIZATION_AUTH_REQUIRED` | yes | no | Sign in to the named CLI, then retry the seed. |
-| `UTILIZATION_BILLING_PROMPT` | yes | no | Resolve billing on the provider, then retry. |
+| Code | Manual | Retryable | Exit class | Agent action |
+| --- | --- | --- | --- | --- |
+| `CLI_USAGE_ERROR` | yes | no | `usage` | Re-run `alln docs <command>` and fix arguments. |
+| `INSTALL_CLI_TARGET_UNWRITABLE` | yes | yes | `operational` | Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory. |
+| `CONTRACT_DRIFT` | yes | no | `operational` | Run `alln dev export-contracts`, then rebuild. |
+| `DEFAULTS_TIER_INVALID` | yes | no | `usage` | Use one of flagship | balanced | fast. |
+| `DEFAULTS_MODEL_UNKNOWN` | yes | no | `operational` | Run `alln models --json` and pass a known model id. |
+| `STALL_EPISODE_NOT_FOUND` | no | no | `operational` | Run `alln stalled list --all --json` and use a current episode id. |
+| `DOCTOR_CHECK_FAILED` | no | yes | `operational` | Run `alln doctor --json`. |
+| `SOURCE_NOT_FOUND` | yes | no | `operational` | Run `alln doctor --json`; add/configure the missing source. |
+| `SOURCE_AUTH_EXPIRED` | yes | no | `operational` | Re-authenticate the named source. |
+| `SOURCE_KEYCHAIN_UNAVAILABLE` | yes | yes | `operational` | Open the provider app once, run its login command in Terminal, then `alln doctor --full --agent <source>`. |
+| `MODEL_UNAVAILABLE` | no | yes | `operational` | Run `alln models --json`; pick an on-Bench ready model or enable one. |
+| `DEFAULT_TEAM_INVALID` | yes | no | `operational` | Run `alln team show --json`; fix unavailable workers. |
+| `WORKER_FAILED` | no | yes | `operational` | Inspect `workerId` and source error; failed worker remains visible. |
+| `PLAN_WRITER_FAILED` | no | yes | `operational` | Retry with a ready plan writer or export worker answers. |
+| `TEAM_RUN_TIMEOUT` | no | yes | `timeout` | Retry with lower effort or fewer workers. |
+| `STATUS_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run `alln team status <id> --wait-for <state> --timeout <s> --json` with a longer timeout, or poll with waitHintSeconds; do not busy-loop. |
+| `TEAM_RUN_FAILED` | no | yes | `operational` | Inspect failed workers and stages; retry or adjust the team. |
+| `NESTED_TEAM_BLOCKED` | yes | no | `operational` | Do not recursively spawn teams without explicit depth budget. |
+| `TEAM_GOVERNOR_BUSY` | no | yes | `operational` | Wait or retry after current team run completes. |
+| `TEAM_GOVERNOR_UNAVAILABLE` | yes | yes | `operational` | Run `alln doctor --json`; ensure Allnighter's support directory is writable, or set a writable support root for eval runs. |
+| `PENDING_MUTATION_DEFERRED` | yes | no | `operational` | Keep item Draft/Pending; mutating pending runs are outside Pending M1. |
+| `PENDING_REORDER_INVALID` | yes | no | `operational` | Keep order unchanged; reorder only Pending items in the same serialized group. |
+| `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD` | no | no | `operational` | Generate a new key or reuse the original payload. |
+| `RESULT_NOT_READY` | no | yes | `operational` | Poll team status using nextPollAfterMs, then call team result again. |
+| `RUN_NOT_FOUND` | yes | no | `operational` | Run `alln history --json`. |
+| `COORDINATOR_UNAVAILABLE` | no | yes | `operational` | Use foreground CLI or start resident mode when available. |
+| `SKILL_NOT_FOUND` | yes | no | `operational` | Run `alln skills --lane <lane> --json` and pick a valid skill id. |
+| `TEAM_NOT_FOUND` | yes | no | `operational` | Run `alln teams --lane <lane> --json` and pick a valid team id. |
+| `TEAM_BUILTIN_IMMUTABLE` | yes | no | `operational` | Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version). |
+| `TEAM_RESTORE_UNSUPPORTED` | yes | no | `operational` | Only built-in teams can be restored; for a custom team, edit or delete it instead. |
+| `SKILL_BUILTIN_IMMUTABLE` | yes | no | `operational` | Duplicate the built-in skill, then edit the custom copy. |
+| `TEAM_ID_COLLISION` | yes | no | `operational` | Pick a different team id or delete the conflicting custom team. |
+| `SKILL_ID_COLLISION` | yes | no | `operational` | Pick a different skill id or delete the conflicting custom skill. |
+| `TEAM_INVALID` | yes | no | `operational` | Fix the team definition and retry `alln teams edit`. |
+| `SKILL_INVALID` | yes | no | `operational` | Fix the skill definition and retry `alln skills edit`. |
+| `TEAM_DEFAULT_INVALID` | yes | no | `operational` | Set another default team before deleting or changing the lane default. |
+| `SKILL_IN_USE` | yes | no | `operational` | Remove the skill from team definitions before deleting. |
+| `SKILL_LANE_MISMATCH` | yes | no | `operational` | Pick a skill from the same lane as the team. |
+| `CATALOG_ID_INVALID` | yes | no | `operational` | Use a canonical lowercase id matching the catalog rules. |
+| `JSON_SCHEMA_VIOLATION` | yes | no | `operational` | Treat as implementation bug; run export-contracts check. |
+| `PERMISSION_REQUIRED` | yes | no | `operational` | Ask the user for the named permission. |
+| `ATTACHMENT_HASH_MISMATCH` | yes | no | `operational` | Re-ingest or re-send the attachment; do not retry with stale bytes. |
+| `ATTACHMENT_NOT_FOUND` | no | no | `operational` | Use thread_get to list resolved attachments for the turn. |
+| `ATTACHMENT_TOO_MANY` | yes | no | `operational` | Remove attachments until within the count cap. |
+| `ATTACHMENT_TOO_LARGE` | yes | no | `operational` | Use a smaller image or fewer attachments. |
+| `ATTACHMENT_UNSUPPORTED_TYPE` | yes | no | `operational` | Send PNG/JPEG/GIF/WebP only. |
+| `ATTACHMENT_DECODE_FAILED` | yes | no | `operational` | Fix or replace the corrupt image file. |
+| `ATTACHMENT_BASE64_INVALID` | yes | no | `operational` | Fix the base64 payload. |
+| `ATTACHMENT_STAGE_FAILED` | yes | yes | `operational` | Check workingDir permissions and disk space. |
+| `ATTACHMENT_STAGE_UNIGNORED` | yes | no | `operational` | Add `.allnighter/` to gitignore or info/exclude manually. |
+| `CONTEXT_ATTACHMENT_CAP_EXCEEDED` | yes | no | `operational` | Reduce message or attachment count; never silently trim current send. |
+| `FILE_REFERENCE_PROJECT_ROOT_MISSING` | yes | no | `operational` | Bind the thread to a project/working directory, then retry. |
+| `FILE_REFERENCE_OUTSIDE_PROJECT` | yes | no | `operational` | Pick a path inside the project root. |
+| `FILE_REFERENCE_NOT_FOUND` | yes | no | `operational` | Refresh the file picker or choose an existing project file. |
+| `FILE_REFERENCE_UNREADABLE` | yes | no | `operational` | Check file permissions or choose another file. |
+| `FILE_REFERENCE_BINARY_UNSUPPORTED` | yes | no | `operational` | Reference text files only in v1. |
+| `FILE_REFERENCE_TOO_LARGE` | yes | no | `operational` | Reference a smaller file or a line range. |
+| `FILE_REFERENCE_TOO_MANY` | yes | no | `operational` | Remove file references until within the cap. |
+| `FILE_REFERENCE_SENSITIVE_BLOCKED` | yes | no | `operational` | Do not attach secrets; summarize the needed config manually. |
+| `FILE_REFERENCE_LINE_RANGE_INVALID` | yes | no | `operational` | Choose a valid 1-based line range inside the file. |
+| `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` | yes | no | `operational` | Refresh the reference and re-approve the changed file before running. |
+| `FILE_REFERENCE_CATALOG_STALE` | no | yes | `operational` | Refresh the Project file picker and retry. |
+| `FILE_REFERENCE_WORKER_UNSUPPORTED` | yes | no | `operational` | Choose a worker that can receive referenced file text or use a chat worker. |
+| `THREAD_SEND_IDEMPOTENCY_CONFLICT` | no | no | `operational` | Use a new idempotency key or repeat the original payload. |
+| `THREAD_NOT_FOUND` | yes | no | `operational` | Run `alln history --json` (or create a thread); retry with a valid thread id. |
+| `TRY_FIX_PACKET_MISSING` | no | yes | `operational` | Re-run the Bug Hunt diagnosis; the fix attempt needs a typed fix packet. |
+| `TRY_FIX_PACKET_UNSAFE` | yes | no | `operational` | Read the gate reason; resolve the danger flag / add an actionable hypothesis + proof, then retry. |
+| `TRY_FIX_EXECUTOR_INVALID` | yes | no | `operational` | Pass --executor a single mutating team that is runnable on this bench (default execution_playbook). |
+| `RELAY_NOT_FOUND` | yes | no | `operational` | Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`. |
+| `RELAY_INVALID_STATE` | yes | no | `operational` | Only an `escalated` relay can be resumed; check status first with `pair relay-status`. |
+| `RELAY_HANDOVER_UNSAFE` | yes | no | `operational` | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
+| `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`. |
+| `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
+| `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
+| `PANEL_SEAT_NOT_ISOLATED` | no | yes | `operational` | Retry the panel round. If it persists, free disk space and confirm the project root is readable — clone isolation failed to materialize for a non-RO-enforcing seat. |
+| `PANEL_NOT_FOUND` | yes | no | `operational` | Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`. |
+| `PANEL_ROUND_IN_FLIGHT` | no | yes | `operational` | Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`. |
+| `PANEL_TARGET_MISSING` | yes | no | `operational` | Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one. |
+| `PANEL_NOT_AWAITING` | yes | no | `operational` | Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to scrutinize). |
+| `OWNERSHIP_NOT_FOUND` | no | no | `operational` | Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree. |
+| `OWNERSHIP_ALREADY_TERMINAL` | no | no | `operational` | No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`. |
+| `OWNERSHIP_IDENTITY_MISMATCH` | yes | no | `operational` | Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead. |
+| `THREAD_SEND_FAILED` | no | yes | `operational` | Inspect the error detail; retry the send or fix the worker. |
+| `MODEL_NOT_FOUND` | yes | no | `operational` | Run `alln models --json` and retry with a valid model id. |
+| `MODEL_BUILTIN_IMMUTABLE` | yes | no | `operational` | Duplicate the built-in model, then edit the custom copy. |
+| `MODEL_ID_COLLISION` | yes | no | `operational` | Pick a different model id or delete the conflicting custom model. |
+| `MODEL_INVALID` | yes | no | `operational` | Fix the model definition and retry the edit. |
+| `MODEL_DRIVER_MISSING` | yes | no | `operational` | Reference a known driver id, or add the driver manifest first. |
+| `INTERNAL_ERROR` | yes | no | `operational` | Capture the message and `traceId`; retry once, then report if it persists. |
+| `PROJECT_NOT_FOUND` | yes | no | `operational` | Run `alln project list --json`; retry with a valid id or name. |
+| `NO_PROJECT_SELECTED` | yes | no | `usage` | Select or add a project, then re-run the mutating action. |
+| `DUPLICATE_PROJECT_ROOT` | no | no | `operational` | Use the existing project that owns this normalized root. |
+| `PROJECT_ROOT_UNAVAILABLE` | yes | yes | `operational` | Restore the folder/permissions, then `alln project show <id>` to re-observe. |
+| `PROJECT_ARCHIVED` | yes | no | `operational` | Run `alln project unarchive <id>` before new runs. |
+| `THREAD_UNASSIGNED` | yes | no | `operational` | Assign the thread/pending item to a project, then retry. |
+| `WORKER_NOT_READY_IN_PROJECT` | yes | yes | `operational` | Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck. |
+| `RUN_WRITE_LOCK_BUSY` | no | yes | `laneBusy` | The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry. |
+| `EXECUTION_LANE_BUSY` | no | yes | `laneBusy` | Do not busy-loop or invent a private retry cadence. The harness owns the wait: poll relay/pilot status for laneBlocked (position, holder identity/kind/id, heldSinceSeconds) until the ticket clears, or let the harness grant the lane. Never start a second concurrent build-class turn on the same root. |
+| `NO_PROJECT_ROOT` | yes | yes | `operational` | Restore the project folder or pick an available project root, then retry. |
+| `WORKER_NOT_READY` | yes | yes | `operational` | Pick a ready worker or run setup health, then retry. |
+| `EXECUTION_TEAM_MIXED_SOURCES` | yes | no | `operational` | Pick one execution source, run as non-mutating review/propose, or split into judgment then execution. |
+| `UTILIZATION_SOURCE_NOT_FOUND` | yes | no | `usage` | Run `alln models --json`; use a known driver id in appliesTo. |
+| `UTILIZATION_SOURCE_UNCONFIGURED` | yes | no | `usage` | Add the source to Boost window appliesTo, then retry. |
+| `UTILIZATION_AUTH_REQUIRED` | yes | no | `operational` | Sign in to the named CLI, then retry the seed. |
+| `UTILIZATION_BILLING_PROMPT` | yes | no | `operational` | Resolve billing on the provider, then retry. |
 
 ## NDJSON events
 
