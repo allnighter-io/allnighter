@@ -345,6 +345,35 @@ isolation).
   reports `CONTRACT_DRIFT`; a missing generated dir reports the not-found error,
   not drift. (Touches the `dev export-contracts` surface → exercises the F4 gate
   again.)
+- **PO-F7 — pilot/relay dev-turn idle-timeout override.** F5 added
+  `alln run --idle-timeout` → `RunRequest.workerTimeoutSeconds` → runner idle
+  timeout, but the pilot/relay dev turn dispatches through `runService.run`
+  (`RelayCoordinator.swift:~1055`) **without** setting `workerTimeoutSeconds`, so
+  dev turns are stuck at the manifest default with no operator override. Add
+  `--idle-timeout <seconds>` to **both** `alln pair pilot start` and
+  `alln pair relay`; thread it into `RelayCoordinator.Config`
+  (`devTurnIdleTimeoutSeconds: Int?`); in `dispatchDevTurn` set
+  `RunRequest.workerTimeoutSeconds` from it (reuse F5's field + parse helper —
+  no second idle system). Register both flags on the CommandSpecs + regenerate
+  contracts. Default unchanged when no flag. Motivated hard by the 2026-07-17
+  1 MB/s-connection session (a 300s default falsely reaped trickling grok turns;
+  the interim default was bumped to 1800s in `DefaultConfig.swift` — F7 is the
+  per-run operator control on top of that saner default).
+- **PO-F8 — honest turn classification (no "done" on empty work).** Surfaced by
+  the same slow-connection session: a dev turn where grok emitted only its
+  opening line before the ACP stream died — **zero diff, no commit, no declared
+  `proofCommands`** — was classified `endReason: reported` (a clean completion)
+  and parked `awaitingPM`. That is a lie: nothing was produced. The harness must
+  not treat an *empty* turn as done. Rule: a dev turn that produced **no commit
+  (baseline..head unchanged) AND declared no proofCommands AND emitted below a
+  minimal substantive-output threshold** is classified `incomplete` (a distinct
+  `endReason`, not `reported`/`stalled`) and the pilot/relay does **not** park it
+  as a clean turn — the loop continues / surfaces it to the PM. Do not
+  auto-retry blindly; surface honestly. (Connection-drop resilience is a
+  separate concern — F8 is only about not *lying* that empty work is done.)
+  Works test: a turn with unchanged HEAD + no proofCommands + trivial output →
+  `endReason: incomplete`, not parked as done; a real turn (commit or declared
+  proofs) → unaffected.
 
 ## v2 review ledger (2026-07-17)
 
