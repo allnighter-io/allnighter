@@ -122,6 +122,16 @@ Works test: dev turn spawns `sleep 300` in its shell; watchdog-kill the turn;
 assert (a) no process from the recorded group survives, (b) `endReason:
 killed` recorded, (c) an immediate next turn on the same root starts clean.
 
+**Implementation note (2026-07-17, S02 landed):** the relay stall watchdog
+classifies turns by *output silence*, which reaps long-silent cold-CLI turns
+(three pilot escalations while building this very spec). Once dev turns carry
+the S01/S02 progress heartbeat, the stall classifier must consume
+`lastProgressAt` instead of output silence — wire this when S03/S04 touch the
+turn loop. Also: mock runners in unit tests spawn no processes (owner nil,
+kill no-op, endReason still stamped); the live spawn path is covered by the
+SETPGROUP works test. ACP warm transports use post-spawn `setpgid` (group
+terminate) rather than SETPGROUP-at-spawn — same semantics, recorded here.
+
 ## PO-S03 — one lane, FIFO ticket
 
 Contract:

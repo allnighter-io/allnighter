@@ -315,16 +315,18 @@ public struct RelayCoordinator: Sendable {
                 pmWorkerId: state.pmWorkerId, devWorkerId: state.devWorkerId,
                 maxRounds: maxRounds, until: nil, stagnationRoundCap: stagnationCap
             )
-            let devDispatch = await dispatchTurn(
+            let devResult = await dispatchDevTurn(
                 devRequest,
                 config: dispatchConfig,
+                relayId: state.id,
                 deliveryGuard: .init(
                     projectRoot: state.projectRoot,
                     baselineHead: round.baselineHead ?? gitObserver.observe(rootPath: state.projectRoot).head ?? ""
                 )
             )
+            applyDevTurnEnd(&round, endReason: devResult.endReason, owner: devResult.owner)
 
-            switch devDispatch {
+            switch devResult.dispatch {
             case .deadline:
                 // Unreachable — Pilot never sets `until` — kept only so this switch
                 // stays exhaustive against `TurnDispatch`.
@@ -594,6 +596,31 @@ public struct RelayCoordinator: Sendable {
     ) -> RelayState {
         guard state.status == .running, stateStore.isOwnerDead(id: state.id) else { return state }
         var reconciled = state
+
+        // PO-S02: identity-checked group-kill of any in-flight dev-turn worker tree
+        // before settling the round. Prefer the durable turn-owner file; fall back
+        // to the last round's recorded owner. Same kill function as live turn-end.
+        if let relayDir = try? stateStore.directory(for: reconciled.id) {
+            if let turnOwner = ProcessOwnership.readTurnOwner(in: relayDir) {
+                _ = ProcessOwnership.terminateOwnerIdentityIfSafe(turnOwner)
+                ProcessOwnership.clearTurnOwner(in: relayDir)
+                if let lastIndex = reconciled.rounds.indices.last,
+                   reconciled.rounds[lastIndex].devTurnEndReason == nil {
+                    reconciled.rounds[lastIndex].devTurnOwner =
+                        reconciled.rounds[lastIndex].devTurnOwner ?? turnOwner.asRecord()
+                    // Actor ending the turn is reconcile — stamp killed, never infer.
+                    reconciled.rounds[lastIndex].devTurnEndReason = .killed
+                }
+            } else if let lastIndex = reconciled.rounds.indices.last,
+                      let record = reconciled.rounds[lastIndex].devTurnOwner,
+                      let identity = ProcessOwnership.OwnerIdentity.fromRecord(record) {
+                _ = ProcessOwnership.terminateOwnerIdentityIfSafe(identity)
+                if reconciled.rounds[lastIndex].devTurnEndReason == nil {
+                    reconciled.rounds[lastIndex].devTurnEndReason = .killed
+                }
+            }
+        }
+
         if let lastIndex = reconciled.rounds.indices.last, reconciled.rounds[lastIndex].outcome == nil {
             reconciled.rounds[lastIndex].outcome = .stopped
             reconciled.rounds[lastIndex].finishedAt = now()
@@ -823,15 +850,17 @@ public struct RelayCoordinator: Sendable {
                 repoRoot: config.projectRoot, projectId: config.projectId,
                 presetId: config.presetId, workerId: config.devWorkerId
             )
-            let devDispatch = await dispatchTurn(
+            let devResult = await dispatchDevTurn(
                 devRequest,
                 config: config,
+                relayId: state.id,
                 deliveryGuard: .init(
                     projectRoot: config.projectRoot,
                     baselineHead: round.baselineHead ?? baselineHead ?? ""
                 )
             )
-            switch devDispatch {
+            applyDevTurnEnd(&round, endReason: devResult.endReason, owner: devResult.owner)
+            switch devResult.dispatch {
             case .deadline:
                 return finishRound(&state, &round, outcome: .stopped, events: events) {
                     stop(&$0, reason: "--until deadline reached during the dev turn (round \(roundNumber))")
@@ -893,6 +922,14 @@ public struct RelayCoordinator: Sendable {
     private struct TurnDeliveryGuard: Sendable {
         var projectRoot: String
         var baselineHead: String
+    }
+
+    /// Result of a **dev** turn dispatch: the turn outcome plus the stamped endReason
+    /// and last recorded process-group owner (PO-S02).
+    private struct DevTurnDispatch {
+        var dispatch: TurnDispatch
+        var endReason: DevTurnEndReason
+        var owner: ProcessOwnerRecord?
     }
 
     private static let partialCompletionRetryHint =
@@ -964,6 +1001,155 @@ public struct RelayCoordinator: Sendable {
             }
 
             if isPastDeadline(config) { return .deadline }
+        }
+    }
+
+    /// PO-S02 dev-turn dispatch: same retry loop as `dispatchTurn`, but every attempt
+    /// and every terminal path routes through identity-checked group kill and stamps
+    /// a `DevTurnEndReason` (never inferred later).
+    private func dispatchDevTurn(
+        _ request: RunRequest,
+        config: Config,
+        relayId: String,
+        deliveryGuard: TurnDeliveryGuard? = nil
+    ) async -> DevTurnDispatch {
+        let relayDir = try? stateStore.directory(for: relayId)
+        if let relayDir {
+            ProcessOwnership.TurnOwnerDirectory.shared.set(relayDir)
+        }
+        defer {
+            ProcessOwnership.TurnOwnerDirectory.shared.set(nil)
+        }
+
+        var request = request
+        var stalledAttempts = 0
+        var emptyAttempts = 0
+        var infraAttempts = 0
+        var compactionAttempts = 0
+        var lastOwner: ProcessOwnerRecord?
+
+        func captureOwner() {
+            if let relayDir, let identity = ProcessOwnership.readTurnOwner(in: relayDir) {
+                lastOwner = identity.asRecord()
+            }
+        }
+
+        /// ONE kill path for every turn-end / retry (identity-checked group kill).
+        func killTurnGroup() {
+            captureOwner()
+            if let relayDir {
+                _ = ProcessOwnership.terminateTurnOwnerIfSafe(in: relayDir)
+            } else if let record = lastOwner,
+                      let identity = ProcessOwnership.OwnerIdentity.fromRecord(record) {
+                _ = ProcessOwnership.terminateOwnerIdentityIfSafe(identity)
+            }
+        }
+
+        while true {
+            if isPastDeadline(config) {
+                killTurnGroup()
+                return DevTurnDispatch(dispatch: .deadline, endReason: .killed, owner: lastOwner)
+            }
+
+            let result = await runService.run(request, origin: .cli)
+            captureOwner()
+
+            guard case .success(let run) = result else {
+                killTurnGroup()
+                if case .failure(let error) = result {
+                    return DevTurnDispatch(dispatch: .serviceError(error), endReason: .unknown, owner: lastOwner)
+                }
+                return DevTurnDispatch(
+                    dispatch: .serviceError(.noWorker("relay turn dispatch failed")),
+                    endReason: .unknown, owner: lastOwner
+                )
+            }
+            let outcome = run.workerAnswers.first?.result
+                ?? WorkerRunOutcome(status: .failed, errorReason: "no worker answer")
+
+            switch RelayTurnClassifier.classify(.init(outcome: outcome)) {
+            case .delivered(let text):
+                // Reported success: still reap any strays in the recorded group.
+                killTurnGroup()
+                return DevTurnDispatch(
+                    dispatch: .delivered(run, text), endReason: .reported, owner: lastOwner
+                )
+            case .stalled:
+                if let delivered = deliveredDespiteStallSignal(
+                    run: run, outcome: outcome, request: &request, deliveryGuard: deliveryGuard
+                ) {
+                    killTurnGroup()
+                    return DevTurnDispatch(
+                        dispatch: delivered, endReason: .reported, owner: lastOwner
+                    )
+                }
+                // Retry: kill this attempt's group before the next spawn.
+                killTurnGroup()
+                stalledAttempts += 1
+                if stalledAttempts > RelayTurnClassifier.RetryCeiling.maxStalledAttempts {
+                    return DevTurnDispatch(
+                        dispatch: .budgetExhausted("stalled repeatedly (\(stalledAttempts) attempts)"),
+                        endReason: .stalled, owner: lastOwner
+                    )
+                }
+            case .emptyResult:
+                if let delivered = deliveredDespiteStallSignal(
+                    run: run, outcome: outcome, request: &request, deliveryGuard: deliveryGuard
+                ) {
+                    killTurnGroup()
+                    return DevTurnDispatch(
+                        dispatch: delivered, endReason: .reported, owner: lastOwner
+                    )
+                }
+                killTurnGroup()
+                emptyAttempts += 1
+                if emptyAttempts > RelayTurnClassifier.RetryCeiling.maxEmptyResultAttempts {
+                    return DevTurnDispatch(
+                        dispatch: .budgetExhausted("returned empty output repeatedly (\(emptyAttempts) attempts)"),
+                        endReason: .stalled, owner: lastOwner
+                    )
+                }
+            case .infraBackoff:
+                killTurnGroup()
+                infraAttempts += 1
+                if infraAttempts > RelayTurnClassifier.RetryCeiling.maxInfraBackoffAttempts {
+                    return DevTurnDispatch(
+                        dispatch: .budgetExhausted("infra backoff budget exhausted (\(infraAttempts) attempts)"),
+                        endReason: .stalled, owner: lastOwner
+                    )
+                }
+                await sleepClampedToDeadline(config, seconds: RelayTurnClassifier.RetryCeiling.infraBackoffGraceSeconds)
+            case .compacting:
+                // Compaction is not a kill — leave the worker group alone and wait.
+                compactionAttempts += 1
+                if compactionAttempts > RelayTurnClassifier.RetryCeiling.maxCompactionAttempts {
+                    killTurnGroup()
+                    return DevTurnDispatch(
+                        dispatch: .budgetExhausted("still compacting after \(compactionAttempts) retries"),
+                        endReason: .stalled, owner: lastOwner
+                    )
+                }
+                await sleepClampedToDeadline(config, seconds: RelayTurnClassifier.RetryCeiling.compactionGraceSeconds)
+            }
+
+            if isPastDeadline(config) {
+                killTurnGroup()
+                return DevTurnDispatch(dispatch: .deadline, endReason: .killed, owner: lastOwner)
+            }
+        }
+    }
+
+    /// Stamp PO-S02 fields on the open round after a dev-turn dispatch settles.
+    private func applyDevTurnEnd(
+        _ round: inout RelayRound,
+        endReason: DevTurnEndReason,
+        owner: ProcessOwnerRecord?
+    ) {
+        if round.devTurnEndReason == nil {
+            round.devTurnEndReason = endReason
+        }
+        if let owner {
+            round.devTurnOwner = owner
         }
     }
 

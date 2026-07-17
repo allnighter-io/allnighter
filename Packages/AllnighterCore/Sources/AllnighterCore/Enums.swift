@@ -50,3 +50,37 @@ public enum RunEndReason: String, Codable, Sendable, CaseIterable {
     /// Honest "we do not know" — itself a bug report when seen in production.
     case unknown
 }
+
+/// Why a relay/pilot **dev turn** ended (`docs/phases/Process_Ownership.md` PO-S02).
+/// Stamped by the actor that ends the turn — never inferred after the fact.
+public enum DevTurnEndReason: String, Codable, Sendable, CaseIterable {
+    /// Dev finished and reported usable output.
+    case reported
+    /// Watchdog / stall-retry budget exhausted.
+    case stalled
+    /// Explicit group kill (reconcile after relay death, deadline stop mid-turn, etc.).
+    case killed
+    /// Harness proof of record timed out (PO-S04; reserved, stamped only when that path ends a turn).
+    case proofTimeout
+    /// Execution lane held by another identity (PO-S03; reserved).
+    case laneBusy
+    /// Honest "we do not know" — itself a bug report when seen in production.
+    case unknown
+}
+
+/// Durable process-group identity record for Core models (relay rounds, wire JSON).
+/// Engine maps to/from `ProcessOwnership.OwnerIdentity` — never a second kill identity.
+public struct ProcessOwnerRecord: Codable, Sendable, Equatable {
+    public var pid: Int32
+    public var pgid: Int32?
+    public var startTimeTicks: Int64
+    /// `ProcessOwnership.OwnerKind` raw value (`devTurn`, `detachedRunner`, …).
+    public var kind: String
+
+    public init(pid: Int32, pgid: Int32?, startTimeTicks: Int64, kind: String) {
+        self.pid = pid
+        self.pgid = pgid
+        self.startTimeTicks = startTimeTicks
+        self.kind = kind
+    }
+}

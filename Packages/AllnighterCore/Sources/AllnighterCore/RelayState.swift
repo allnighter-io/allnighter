@@ -45,6 +45,13 @@ public struct RelayRound: Sendable, Codable, Equatable {
     /// have edited the repo between rounds, and this records exactly what was dirty
     /// when the round began, rather than hiding it). `nil` for a spawned round.
     public var dirtyFiles: [String]?
+    /// PO-S02: process-group identity of the last dev-turn worker CLI for this round
+    /// (recorded at spawn; used for total turn kill + orphan reconcile). `nil` when
+    /// the round never reached a dev turn, or the spawn path did not record identity
+    /// (e.g. unit-test mock runners).
+    public var devTurnOwner: ProcessOwnerRecord?
+    /// PO-S02: stamped by the actor that ends the dev turn — never inferred.
+    public var devTurnEndReason: DevTurnEndReason?
 
     public init(
         roundNumber: Int,
@@ -58,7 +65,9 @@ public struct RelayRound: Sendable, Codable, Equatable {
         finishedAt: Date? = nil,
         outcome: Outcome? = nil,
         externalSubmission: String? = nil,
-        dirtyFiles: [String]? = nil
+        dirtyFiles: [String]? = nil,
+        devTurnOwner: ProcessOwnerRecord? = nil,
+        devTurnEndReason: DevTurnEndReason? = nil
     ) {
         self.roundNumber = roundNumber
         self.baselineHead = baselineHead
@@ -72,6 +81,8 @@ public struct RelayRound: Sendable, Codable, Equatable {
         self.outcome = outcome
         self.externalSubmission = externalSubmission
         self.dirtyFiles = dirtyFiles
+        self.devTurnOwner = devTurnOwner
+        self.devTurnEndReason = devTurnEndReason
     }
 }
 

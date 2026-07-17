@@ -106,6 +106,9 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
     /// the round log stays a compact log, not a second copy of run-truth. Always
     /// `false` for a spawned round.
     public var hasExternalSubmission: Bool
+    /// PO-S02: `DevTurnEndReason` raw value stamped when the dev turn ended, or nil
+    /// when the round never reached (or finished) a dev turn. Never inferred.
+    public var endReason: String?
 
     public init(
         round: Int,
@@ -116,7 +119,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         verdict: String? = nil,
         gate: RelayGateSummary? = nil,
         dirtyFilesCount: Int? = nil,
-        hasExternalSubmission: Bool = false
+        hasExternalSubmission: Bool = false,
+        endReason: String? = nil
     ) {
         self.round = round
         self.baseline = baseline
@@ -127,6 +131,7 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         self.gate = gate
         self.dirtyFilesCount = dirtyFilesCount
         self.hasExternalSubmission = hasExternalSubmission
+        self.endReason = endReason
     }
 
     public init(_ round: RelayRound) {
@@ -139,7 +144,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
             verdict: round.verdict?.verdict.rawValue,
             gate: round.gate,
             dirtyFilesCount: round.dirtyFiles?.count,
-            hasExternalSubmission: round.externalSubmission != nil
+            hasExternalSubmission: round.externalSubmission != nil,
+            endReason: round.devTurnEndReason?.rawValue
         )
     }
 }

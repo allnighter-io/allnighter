@@ -18,6 +18,12 @@ public struct RelayStateStore: Sendable {
         return directory
     }
 
+    /// Public directory for a relay id (creates it). Used by PO-S02 to record the
+    /// in-flight dev-turn owner under the same folder as `relay.json`.
+    public func directory(for id: String) throws -> URL {
+        try relayDirectory(id: id)
+    }
+
     /// Atomic write (temp + rename) so a concurrent reader never sees a torn file.
     /// Also records/clears an `owner.pid` liveness marker — the SAME convention
     /// `RunStore.save` uses (owner.pid written FIRST for a non-terminal `.running`

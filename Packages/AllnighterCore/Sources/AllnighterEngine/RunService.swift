@@ -150,7 +150,9 @@ public actor RunService {
         registry: DriverRegistry,
         teams: [TeamPreset] = TeamCatalog.all,
         runStore: RunStore = RunStore(),
-        commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
+        // PO-S02: process-group leaders via posix_spawn SETPGROUP so turn kill reaps
+        // the whole worker tree. Tests inject Mock/SequencedCommandRunner doubles.
+        commandRunner: CommandRunner = ProcessGroupCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
         writeLock: RunWriteLockRegistry = .shared,
         invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,

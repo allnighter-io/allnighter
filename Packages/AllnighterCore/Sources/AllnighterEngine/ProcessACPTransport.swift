@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import AllnighterCore
 
 /// The real `ACPTransport`: spawns a long-lived ACP worker process and wires its stdin/stdout to an
@@ -48,6 +49,13 @@ public final class ProcessACPTransport: ACPTransport, @unchecked Sendable {
         process.terminationHandler = { _ in cont.finish() }
 
         try process.run()
+        // Best-effort process-group leadership so terminate() can kill grandchildren
+        // (same ownership law as PO-S02; Foundation.Process has no SETPGROUP at spawn —
+        // relay/dev-turn workers use ProcessGroupCommandRunner's posix_spawn path).
+        let pid = process.processIdentifier
+        if pid > 1 {
+            setpgid(pid, pid)
+        }
     }
 
     private func ingest(_ data: Data, _ cont: AsyncStream<String>.Continuation) {
@@ -73,8 +81,18 @@ public final class ProcessACPTransport: ACPTransport, @unchecked Sendable {
     public func inboundLines() -> AsyncStream<String> { inbound }
 
     /// Stop the warm worker (thread closed / idle teardown / crash recovery).
+    /// Routes through ProcessOwnership group kill when a pgid was established.
     public func terminate() {
-        if process.isRunning { process.terminate() }
+        if process.isRunning {
+            let pid = process.processIdentifier
+            if pid > 1 {
+                // Recorded pgid == pid after setpgid in init (never invent blindly for
+                // unrelated pids — only signal the process we ourselves launched).
+                ProcessOwnership.terminateProcessGroup(pgid: pid)
+            } else {
+                process.terminate()
+            }
+        }
         stdoutPipe.fileHandleForReading.readabilityHandler = nil
         inboundCont.finish()
     }

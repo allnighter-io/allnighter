@@ -40,6 +40,19 @@ public enum ProcessOwnership {
         case detachedRunner
         /// In-process save (Mac app, sync paths, unit tests). Never PG-killed.
         case inProcess
+        /// Relay/pilot **dev-turn** worker CLI (process-group leader; may be PG-killed).
+        /// Distinct from `detachedRunner`: short-lived per-turn worker, not the async
+        /// team-run owner. Same kill rules; separate kind so `alln ps` / reconcile can
+        /// name the work without overloading runner ownership (PO-S02).
+        case devTurn
+
+        /// True when reconcile/turn-end may PG-kill a recorded pgid for this kind.
+        public var isProcessGroupKillable: Bool {
+            switch self {
+            case .detachedRunner, .devTurn: return true
+            case .inProcess: return false
+            }
+        }
     }
 
     /// Durable owner-of-record. A raw pid alone is never an identity.
@@ -65,13 +78,83 @@ public enum ProcessOwnership {
             guard let ticks = processStartTimeTicks(pid) else { return nil }
             let recordedPgid: Int32?
             switch kind {
-            case .detachedRunner:
+            case .detachedRunner, .devTurn:
                 recordedPgid = pgid ?? getpgrp()
             case .inProcess:
                 recordedPgid = nil
             }
             return OwnerIdentity(pid: pid, pgid: recordedPgid, startTimeTicks: ticks, kind: kind)
         }
+
+        /// Identity for a just-spawned process-group leader (`pgid == pid` after SETPGROUP).
+        public static func forSpawnedLeader(pid: Int32, kind: OwnerKind) -> OwnerIdentity? {
+            guard pid > 1, kind.isProcessGroupKillable else { return nil }
+            guard let ticks = processStartTimeTicks(pid) else { return nil }
+            return OwnerIdentity(pid: pid, pgid: pid, startTimeTicks: ticks, kind: kind)
+        }
+
+        public func asRecord() -> ProcessOwnerRecord {
+            ProcessOwnerRecord(pid: pid, pgid: pgid, startTimeTicks: startTimeTicks, kind: kind.rawValue)
+        }
+
+        public static func fromRecord(_ record: ProcessOwnerRecord) -> OwnerIdentity? {
+            guard let kind = OwnerKind(rawValue: record.kind) else { return nil }
+            return OwnerIdentity(
+                pid: record.pid, pgid: record.pgid,
+                startTimeTicks: record.startTimeTicks, kind: kind
+            )
+        }
+    }
+
+    // MARK: - Active turn-owner directory (PO-S02)
+
+    /// File under a relay directory naming the in-flight dev-turn process-group leader.
+    public static let turnOwnerFileName = "dev_turn_owner.json"
+
+    /// When set, process-group worker spawns write their OwnerIdentity here so a mid-turn
+    /// relay death can be reaped on the next status/reconcile (PO-S02 orphan reconcile).
+    public final class TurnOwnerDirectory: @unchecked Sendable {
+        public static let shared = TurnOwnerDirectory()
+        private let lock = NSLock()
+        private var url: URL?
+        private init() {}
+
+        public func set(_ directory: URL?) {
+            lock.lock(); url = directory; lock.unlock()
+        }
+
+        public func get() -> URL? {
+            lock.lock(); defer { lock.unlock() }
+            return url
+        }
+    }
+
+    public static func turnOwnerURL(in directory: URL) -> URL {
+        directory.appendingPathComponent(turnOwnerFileName)
+    }
+
+    public static func writeTurnOwner(_ identity: OwnerIdentity, in directory: URL) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try CoreJSON.encode(identity).write(to: turnOwnerURL(in: directory), options: .atomic)
+    }
+
+    public static func readTurnOwner(in directory: URL) -> OwnerIdentity? {
+        guard let data = try? Data(contentsOf: turnOwnerURL(in: directory)),
+              let identity = try? CoreJSON.decode(OwnerIdentity.self, from: data) else {
+            return nil
+        }
+        return identity
+    }
+
+    public static func clearTurnOwner(in directory: URL) {
+        try? FileManager.default.removeItem(at: turnOwnerURL(in: directory))
+    }
+
+    /// Record a just-spawned leader as the active turn owner (memory dir + durable file).
+    public static func recordSpawnedTurnOwner(_ identity: OwnerIdentity) {
+        guard identity.kind == .devTurn else { return }
+        guard let directory = TurnOwnerDirectory.shared.get() else { return }
+        try? writeTurnOwner(identity, in: directory)
     }
 
     // MARK: - Progress heartbeat
@@ -339,6 +422,9 @@ public enum ProcessOwnership {
     /// sending real signals. Used to prove recycled-pid / in-process paths never signal.
     nonisolated(unsafe) public static var terminateSignalHook: ((Int32) -> Void)?
 
+    /// Grace between SIGTERM and SIGKILL for group kill (PO-S01/S02).
+    public static let processGroupKillGraceMicroseconds: useconds_t = 200_000
+
     /// Terminate a recorded process group. Requires an explicit positive pgid —
     /// never invents `pgid == pid`. Best-effort; ignores ESRCH.
     public static func terminateProcessGroup(pgid: Int32) {
@@ -348,21 +434,18 @@ public enum ProcessOwnership {
             return
         }
         _ = kill(-pgid, SIGTERM)
-        usleep(200_000)
+        usleep(processGroupKillGraceMicroseconds)
         _ = kill(-pgid, SIGKILL)
     }
 
-    /// Reconcile-safe kill: only when identity matches AND a pgid was recorded
-    /// (detached runner). In-process / missing pgid → never signal.
+    /// THE one identity-checked group-kill (PO-S02): SIGTERM recorded pgid, grace,
+    /// SIGKILL — only when kind is PG-killable, pgid was recorded (never invent
+    /// `pgid == pid`), and a still-alive pid still matches startTimeTicks.
+    /// Returns true when a signal path was taken (hook or real kill).
     @discardableResult
-    public static func terminateRecordedOwnerIfSafe(in directory: URL) -> Bool {
-        guard let identity = readOwnerIdentity(in: directory) else { return false }
-        // Only kill when identity still matches (or is already dead but we have
-        // a recorded pgid from a just-died detached runner). Spec: PG-kill only
-        // the recorded pgid, only on identity match. If already dead (pid gone
-        // or recycled), still best-effort group kill for the recorded pgid when
-        // kind is detachedRunner — the group may hold strays. Never for inProcess.
-        guard identity.kind == .detachedRunner, let pgid = identity.pgid, pgid > 1 else {
+    public static func terminateOwnerIdentityIfSafe(_ identity: OwnerIdentity) -> Bool {
+        guard identity.kind.isProcessGroupKillable,
+              let pgid = identity.pgid, pgid > 1 else {
             return false
         }
         // Identity match required when the pid is still alive (wrong start time =
@@ -370,8 +453,55 @@ public enum ProcessOwnership {
         if processAlive(identity.pid) {
             guard isIdentityAlive(identity) else { return false }
         }
+        // Dead-or-matched: best-effort group kill for the *recorded* pgid (strays).
         terminateProcessGroup(pgid: pgid)
         return true
+    }
+
+    /// Directory-based reconcile/cancel: read owner.json then
+    /// `terminateOwnerIdentityIfSafe` — never a second kill implementation.
+    @discardableResult
+    public static func terminateRecordedOwnerIfSafe(in directory: URL) -> Bool {
+        guard let identity = readOwnerIdentity(in: directory) else { return false }
+        return terminateOwnerIdentityIfSafe(identity)
+    }
+
+    /// PO-S02: identity-checked kill of an in-flight dev-turn group recorded under
+    /// a relay directory. Clears the turn-owner file after.
+    @discardableResult
+    public static func terminateTurnOwnerIfSafe(in directory: URL) -> Bool {
+        guard let identity = readTurnOwner(in: directory) else { return false }
+        let killed = terminateOwnerIdentityIfSafe(identity)
+        clearTurnOwner(in: directory)
+        return killed
+    }
+
+    /// True when no live process still has process-group id `pgid` (post-kill assert).
+    public static func isProcessGroupEmpty(_ pgid: Int32) -> Bool {
+        guard pgid > 1 else { return true }
+        return processGroupMemberPids(pgid).isEmpty
+    }
+
+    /// Best-effort enumeration of live pids in `pgid` via `sysctl` KERN_PROC_ALL.
+    public static func processGroupMemberPids(_ pgid: Int32) -> [Int32] {
+        guard pgid > 1 else { return [] }
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
+        var size: size_t = 0
+        guard sysctl(&mib, 4, nil, &size, nil, 0) == 0, size > 0 else { return [] }
+        let count = size / MemoryLayout<kinfo_proc>.stride
+        var buffer = [kinfo_proc](repeating: kinfo_proc(), count: count)
+        let rc = buffer.withUnsafeMutableBufferPointer { ptr -> Int32 in
+            var sz = size
+            return sysctl(&mib, 4, ptr.baseAddress, &sz, nil, 0)
+        }
+        guard rc == 0 else { return [] }
+        return buffer.compactMap { info -> Int32? in
+            let pid = info.kp_proc.p_pid
+            guard pid > 0 else { return nil }
+            // kp_eproc.e_pgid is the process group id on Darwin.
+            let memberPgid = info.kp_eproc.e_pgid
+            return memberPgid == pgid ? pid : nil
+        }
     }
 
     /// Per-run flock for explicit reconcile / cancel terminal writes.
@@ -399,6 +529,55 @@ public enum ProcessOwnership {
         stderrPath: String,
         extraEnvironment: [String: String] = [:]
     ) throws -> Int32 {
+        try spawnProcessGroupLeader(
+            executablePath: executablePath,
+            arguments: arguments,
+            workingDirectory: workingDirectory,
+            stdinMode: .devNull,
+            stdoutMode: .path(stdoutPath),
+            stderrMode: .path(stderrPath),
+            extraEnvironment: extraEnvironment,
+            kind: .detachedRunner
+        ).pid
+    }
+
+    /// How the child's stdio FDs are wired for a process-group-leader spawn.
+    public enum SpawnStdioMode: Sendable {
+        case devNull
+        case path(String)
+        /// Parent keeps the other end of a pipe. For stdin this is the write end;
+        /// for stdout/stderr this is the read end.
+        case pipe
+    }
+
+    /// Result of `spawnProcessGroupLeader` — child is process-group leader (`pgid == pid`).
+    public struct SpawnedProcessGroup: Sendable {
+        public var pid: Int32
+        public var identity: OwnerIdentity
+        /// Parent write end when stdin was `.pipe`; else nil.
+        public var stdinWriteFD: Int32?
+        /// Parent read end when stdout was `.pipe`; else nil.
+        public var stdoutReadFD: Int32?
+        /// Parent read end when stderr was `.pipe`; else nil.
+        public var stderrReadFD: Int32?
+    }
+
+    /// Spawn a child as its own process-group leader via `posix_spawn` +
+    /// `POSIX_SPAWN_SETPGROUP` (same mechanism as the S01 async runner). Never
+    /// invents pgid after the fact — SETPGROUP makes `pgid == pid` at creation.
+    public static func spawnProcessGroupLeader(
+        executablePath: String,
+        arguments: [String],
+        workingDirectory: String?,
+        stdinMode: SpawnStdioMode = .devNull,
+        stdoutMode: SpawnStdioMode = .devNull,
+        stderrMode: SpawnStdioMode = .devNull,
+        /// When non-nil, used as the complete child environment (no inherit merge).
+        /// When nil, inherits the parent environment and applies `extraEnvironment`.
+        environment: [String: String]? = nil,
+        extraEnvironment: [String: String] = [:],
+        kind: OwnerKind = .devTurn
+    ) throws -> SpawnedProcessGroup {
         var attr: posix_spawnattr_t?
         var fileActions: posix_spawn_file_actions_t?
         posix_spawnattr_init(&attr)
@@ -410,27 +589,72 @@ public enum ProcessOwnership {
         posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETPGROUP))
         posix_spawnattr_setpgroup(&attr, 0)
 
-        // stdin <- /dev/null
-        posix_spawn_file_actions_addopen(&fileActions, STDIN_FILENO, "/dev/null", O_RDONLY, 0)
+        var parentClose: [Int32] = []
+        defer {
+            // Only close ends that were not handed back to the caller.
+        }
 
-        // stdout/stderr -> files under the run directory
-        for (fd, path) in [(STDOUT_FILENO, stdoutPath), (STDERR_FILENO, stderrPath)] {
-            let flags = O_WRONLY | O_CREAT | O_TRUNC
-            let mode: mode_t = 0o644
-            let rc = posix_spawn_file_actions_addopen(&fileActions, fd, path, flags, mode)
-            if rc != 0 {
-                throw SpawnError.posix(rc, "open \(path)")
+        func wire(childFD: Int32, mode: SpawnStdioMode) throws -> Int32? {
+            switch mode {
+            case .devNull:
+                // childFD is stdin (read null) or out/err (write null)
+                let openFlags: Int32 = (childFD == STDIN_FILENO) ? O_RDONLY : O_WRONLY
+                let rc = posix_spawn_file_actions_addopen(&fileActions, childFD, "/dev/null", openFlags, 0)
+                if rc != 0 { throw SpawnError.posix(rc, "open /dev/null for fd \(childFD)") }
+                return nil
+            case .path(let path):
+                let flags: Int32
+                let modeBits: mode_t
+                if childFD == STDIN_FILENO {
+                    flags = O_RDONLY
+                    modeBits = 0
+                } else {
+                    flags = O_WRONLY | O_CREAT | O_TRUNC
+                    modeBits = 0o644
+                }
+                let rc = posix_spawn_file_actions_addopen(&fileActions, childFD, path, flags, modeBits)
+                if rc != 0 { throw SpawnError.posix(rc, "open \(path)") }
+                return nil
+            case .pipe:
+                var fds: [Int32] = [0, 0]
+                let prc = fds.withUnsafeMutableBufferPointer { pipe($0.baseAddress!) }
+                if prc != 0 { throw SpawnError.posix(errno, "pipe for fd \(childFD)") }
+                let readEnd = fds[0]
+                let writeEnd = fds[1]
+                if childFD == STDIN_FILENO {
+                    // Child reads stdin from readEnd; parent writes to writeEnd.
+                    let rc = posix_spawn_file_actions_adddup2(&fileActions, readEnd, childFD)
+                    if rc != 0 { throw SpawnError.posix(rc, "dup2 stdin") }
+                    posix_spawn_file_actions_addclose(&fileActions, writeEnd)
+                    posix_spawn_file_actions_addclose(&fileActions, readEnd)
+                    parentClose.append(readEnd)
+                    return writeEnd
+                } else {
+                    // Child writes stdout/stderr to writeEnd; parent reads readEnd.
+                    let rc = posix_spawn_file_actions_adddup2(&fileActions, writeEnd, childFD)
+                    if rc != 0 { throw SpawnError.posix(rc, "dup2 fd \(childFD)") }
+                    posix_spawn_file_actions_addclose(&fileActions, readEnd)
+                    posix_spawn_file_actions_addclose(&fileActions, writeEnd)
+                    parentClose.append(writeEnd)
+                    return readEnd
+                }
             }
         }
+
+        let stdinParent = try wire(childFD: STDIN_FILENO, mode: stdinMode)
+        let stdoutParent = try wire(childFD: STDOUT_FILENO, mode: stdoutMode)
+        let stderrParent = try wire(childFD: STDERR_FILENO, mode: stderrMode)
 
         if let workingDirectory, !workingDirectory.isEmpty {
             let rc = posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
             if rc != 0 {
+                for fd in [stdinParent, stdoutParent, stderrParent].compactMap({ $0 }) { close(fd) }
                 throw SpawnError.posix(rc, "chdir \(workingDirectory)")
             }
         }
 
-        // argv: executable + arguments — executable must be absolute (_NSGetExecutablePath).
+        // argv: executable + arguments — executable must be absolute when from _NSGetExecutablePath;
+        // worker CLIs may be absolute after PATH resolve.
         var argv: [UnsafeMutablePointer<CChar>?] = [strdup(executablePath)]
         for arg in arguments {
             argv.append(strdup(arg))
@@ -442,9 +666,13 @@ public enum ProcessOwnership {
             }
         }
 
-        // Environment: inherit + extras
-        var env = ProcessInfo.processInfo.environment
-        for (k, v) in extraEnvironment { env[k] = v }
+        var env: [String: String]
+        if let environment {
+            env = environment
+        } else {
+            env = ProcessInfo.processInfo.environment
+            for (k, v) in extraEnvironment { env[k] = v }
+        }
         var envp: [UnsafeMutablePointer<CChar>?] = env.map { strdup("\($0.key)=\($0.value)") }
         envp.append(nil)
         defer {
@@ -462,10 +690,27 @@ public enum ProcessOwnership {
             &argv,
             &envp
         )
+        // Close child-side ends in parent.
+        for fd in parentClose { close(fd) }
         guard rc == 0 else {
+            for fd in [stdinParent, stdoutParent, stderrParent].compactMap({ $0 }) { close(fd) }
             throw SpawnError.posix(rc, "posix_spawn \(executablePath)")
         }
-        return pid
+
+        guard let identity = OwnerIdentity.forSpawnedLeader(pid: pid, kind: kind) else {
+            // Spawn succeeded but identity unreadable — still return a best-effort record.
+            let fallback = OwnerIdentity(pid: pid, pgid: pid, startTimeTicks: 0, kind: kind)
+            if kind == .devTurn { recordSpawnedTurnOwner(fallback) }
+            return SpawnedProcessGroup(
+                pid: pid, identity: fallback,
+                stdinWriteFD: stdinParent, stdoutReadFD: stdoutParent, stderrReadFD: stderrParent
+            )
+        }
+        if kind == .devTurn { recordSpawnedTurnOwner(identity) }
+        return SpawnedProcessGroup(
+            pid: pid, identity: identity,
+            stdinWriteFD: stdinParent, stdoutReadFD: stdoutParent, stderrReadFD: stderrParent
+        )
     }
 
     public enum SpawnError: Error, CustomStringConvertible {
