@@ -305,6 +305,20 @@ isolation).
   still fires on genuine total silence past budget; `--idle-timeout` flows to
   the runner. (First real exercise of the PO-F4 contract-freshness gate, since
   this touches the `run` CommandSpec.)
+  **Landed `d4f4242f` — finding corrects part (2):** investigation showed the
+  `alln run` idle timer is `ProcessGroupCommandRunner` (`RunService.swift:160`
+  default), whose F1 progress-truth **already resets on any raw stdout/stderr
+  bytes** — tool-call streaming-JSON, reasoning deltas, stderr all count, before
+  parsing (`ProcessGroupCommandRunner` runStreaming `onBytes` →
+  `progress.note(phase:"output")`). So part (2) was already satisfied at the
+  byte level; the dev's kill was a turn that emitted **zero bytes** for the full
+  budget (genuinely silent internal file reads), which no activity-based reset
+  can detect — the worker is a black box. Part (1), `--idle-timeout` (raise the
+  budget), is therefore the correct and sufficient fix; it shipped with a 9-test
+  suite. The `timeoutKind:.idle` label lives in AgentOS
+  `DefaultWorkerRunner.swift:272`. PM note: verified independently in both
+  directions — first suspected a dodged part (2), traced the runner, found it
+  already correct; do not "re-fix" it.
 
 ## v2 review ledger (2026-07-17)
 
