@@ -882,6 +882,15 @@
     "ruleId" : "execution.lane.busy"
   },
   {
+    "agentAction" : "Inspect roundLog.scopeViolation (declared writeScope + outOfScopePaths). The harness rejected the turn's work fail-closed; endReason stays reported. Do not auto-revert — the PM decides whether to keep, amend, or reverse the commits. Next turn: stay inside the declared prefixes or re-declare a broader writeScope.",
+    "code" : "WRITE_SCOPE_VIOLATION",
+    "exitClass" : "operational",
+    "explain" : "A dev turn declared writeScope path prefixes and the harness found commits (baseline..head) outside that scope. Work is rejected with scopeViolation on roundLog\/status; Allnighter never touches git (Process_Ownership.md PO-S06).",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "execution.write_scope.violation"
+  },
+  {
     "agentAction" : "Restore the project folder or pick an available project root, then retry.",
     "code" : "NO_PROJECT_ROOT",
     "exitClass" : "operational",
