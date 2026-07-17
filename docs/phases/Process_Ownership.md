@@ -283,6 +283,28 @@ isolation).
   artifacts → standing invariant fails, turn marked not-clean, `proofResults`
   carries the `contractDrift` marker; a clean turn → standing invariant passes
   silently.
+- **PO-F5 — run idle-timeout: override flag + progress-truth reset.** From a
+  dev's field report: `alln run` with a warm grok worker was killed at 300s
+  (`errorKind: timed_out, timeoutKind: idle`) while grok silently *read four
+  context files* — legitimate tool-call work that emits no answer tokens. The
+  `alln run` warm-streaming idle timer resets only on answer-token deltas, and
+  the override (`RunService.workerTimeoutSeconds`) is packet-only with no CLI
+  flag. This is PO-F1's disease (output-silence ≠ progress) in the driver/warm
+  path instead of the relay watchdog. Two parts: **(1)** add `alln run
+  --idle-timeout <seconds>` (plumb to `workerTimeoutSeconds`; register on the
+  `run` CommandSpec + regenerate contracts; typed usage error on bad value);
+  **(2)** reset the warm-streaming idle timer on *any* activity — tool-call
+  events, reasoning/thinking deltas, stderr bytes, child spawn/exit — not just
+  answer-token deltas (reuse the F1 progress concept where the streaming path
+  allows). Guard: do NOT touch the relay/pilot `ProcessGroupCommandRunner` path
+  (already progress-truth from F1); default idle budget unchanged (300s) when
+  no flag. Pointers: `RunService.swift:37/406/622/658`, grok manifest
+  `invoke.timeoutSeconds:300` in `DefaultConfig.swift`, the `WorkerInvoking`/
+  `DefaultWorkerRunner` streaming seam. Works test: idle timer resets on a
+  tool-only stream event (only tool events for > budget → NOT timed out);
+  still fires on genuine total silence past budget; `--idle-timeout` flows to
+  the runner. (First real exercise of the PO-F4 contract-freshness gate, since
+  this touches the `run` CommandSpec.)
 
 ## v2 review ledger (2026-07-17)
 
