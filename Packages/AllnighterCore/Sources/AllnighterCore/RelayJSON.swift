@@ -118,6 +118,11 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
     /// PO-S04: harness-owned proof-of-record results (command, exit, durationMs, tail).
     /// Empty array when no proofs ran. Always present on the wire for stable shape.
     public var proofResults: [HarnessProofResult]
+    /// PO-S06: declared write scope for the dev turn (`nil` = legacy full-scope + build).
+    public var writeScope: TurnWriteScope?
+    /// PO-S06: present when commit-diff found paths outside declared writeScope.
+    /// `endReason` stays `reported`; PM decides — harness never auto-reverts.
+    public var scopeViolation: ScopeViolation?
 
     public init(
         round: Int,
@@ -130,7 +135,9 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         dirtyFilesCount: Int? = nil,
         hasExternalSubmission: Bool = false,
         endReason: String? = nil,
-        proofResults: [HarnessProofResult] = []
+        proofResults: [HarnessProofResult] = [],
+        writeScope: TurnWriteScope? = nil,
+        scopeViolation: ScopeViolation? = nil
     ) {
         self.round = round
         self.baseline = baseline
@@ -143,6 +150,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         self.hasExternalSubmission = hasExternalSubmission
         self.endReason = endReason
         self.proofResults = proofResults
+        self.writeScope = writeScope
+        self.scopeViolation = scopeViolation
     }
 
     public init(_ round: RelayRound) {
@@ -157,7 +166,9 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
             dirtyFilesCount: round.dirtyFiles?.count,
             hasExternalSubmission: round.externalSubmission != nil,
             endReason: round.devTurnEndReason?.rawValue,
-            proofResults: round.proofResults
+            proofResults: round.proofResults,
+            writeScope: round.writeScope,
+            scopeViolation: round.scopeViolation
         )
     }
 }

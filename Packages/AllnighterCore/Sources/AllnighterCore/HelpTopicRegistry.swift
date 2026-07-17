@@ -187,6 +187,7 @@ public enum HelpTopicRegistry {
             errorRefs: [
                 "RELAY_NOT_FOUND", "RELAY_INVALID_STATE", "RELAY_HANDOVER_UNSAFE", "PROJECT_NOT_FOUND",
                 "RELAY_ROUND_IN_FLIGHT", "RELAY_NOT_AWAITING_PM", "RELAY_VERDICT_UNPARSEABLE",
+                "EXECUTION_LANE_BUSY", "WRITE_SCOPE_VIOLATION",
             ],
             needsLiveCheck: true),
 

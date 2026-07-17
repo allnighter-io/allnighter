@@ -59,6 +59,13 @@ public struct RelayRound: Sendable, Codable, Equatable {
     /// from the dev report tail). Durable so status JSON / resume can re-surface
     /// what the harness was asked to run — never a second subprocess path.
     public var proofCommands: [String]
+    /// PO-S06: declared write scope + build-lane flag for this turn (from turn
+    /// state or parsed from the dev report). Absent/`nil` = legacy full-scope +
+    /// build lane. Durable for status / resume.
+    public var writeScope: TurnWriteScope?
+    /// PO-S06: fail-closed commit-diff violation when the turn wrote outside
+    /// `writeScope`. `endReason` stays `reported`; PM decides — no auto-revert.
+    public var scopeViolation: ScopeViolation?
 
     public init(
         roundNumber: Int,
@@ -76,7 +83,9 @@ public struct RelayRound: Sendable, Codable, Equatable {
         devTurnOwner: ProcessOwnerRecord? = nil,
         devTurnEndReason: DevTurnEndReason? = nil,
         proofResults: [HarnessProofResult] = [],
-        proofCommands: [String] = []
+        proofCommands: [String] = [],
+        writeScope: TurnWriteScope? = nil,
+        scopeViolation: ScopeViolation? = nil
     ) {
         self.roundNumber = roundNumber
         self.baselineHead = baselineHead
@@ -94,9 +103,11 @@ public struct RelayRound: Sendable, Codable, Equatable {
         self.devTurnEndReason = devTurnEndReason
         self.proofResults = proofResults
         self.proofCommands = proofCommands
+        self.writeScope = writeScope
+        self.scopeViolation = scopeViolation
     }
 
-    // Lenient decode: relays persisted before PO-S04 lack proof fields.
+    // Lenient decode: relays persisted before PO-S04/S06 lack later fields.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         roundNumber = try c.decode(Int.self, forKey: .roundNumber)
@@ -115,6 +126,8 @@ public struct RelayRound: Sendable, Codable, Equatable {
         devTurnEndReason = try c.decodeIfPresent(DevTurnEndReason.self, forKey: .devTurnEndReason)
         proofResults = try c.decodeIfPresent([HarnessProofResult].self, forKey: .proofResults) ?? []
         proofCommands = try c.decodeIfPresent([String].self, forKey: .proofCommands) ?? []
+        writeScope = try c.decodeIfPresent(TurnWriteScope.self, forKey: .writeScope)
+        scopeViolation = try c.decodeIfPresent(ScopeViolation.self, forKey: .scopeViolation)
     }
 }
 

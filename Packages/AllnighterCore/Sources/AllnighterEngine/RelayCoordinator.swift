@@ -364,7 +364,9 @@ public struct RelayCoordinator: Sendable {
                 endReason: devResult.endReason,
                 owner: devResult.owner,
                 proofResults: devResult.proofResults,
-                proofCommands: devResult.proofCommands
+                proofCommands: devResult.proofCommands,
+                writeScope: devResult.writeScope,
+                scopeViolation: devResult.scopeViolation
             )
             // Reload laneBlocked (if any) written during harness wait.
             if let fresh = try? stateStore.load(id: state.id) {
@@ -408,6 +410,9 @@ public struct RelayCoordinator: Sendable {
                     events?(.escalated(note: state.note ?? ""))
                     return .success(PilotRoundResult(state: state, devReport: devOutput))
                 }
+                // PO-S06: scopeViolation keeps endReason=reported; work is rejected on
+                // the wire for the PM — no auto-revert. Stay awaitingPM so the pilot
+                // PM can decide.
                 round.outcome = .continued
                 round.finishedAt = now()
                 state.rounds[state.rounds.count - 1] = round
@@ -921,7 +926,9 @@ public struct RelayCoordinator: Sendable {
                 endReason: devResult.endReason,
                 owner: devResult.owner,
                 proofResults: devResult.proofResults,
-                proofCommands: devResult.proofCommands
+                proofCommands: devResult.proofCommands,
+                writeScope: devResult.writeScope,
+                scopeViolation: devResult.scopeViolation
             )
             if let fresh = try? stateStore.load(id: state.id) {
                 state.laneBlocked = fresh.laneBlocked
@@ -951,6 +958,8 @@ public struct RelayCoordinator: Sendable {
                         events?(.escalated(note: $0.note ?? ""))
                     }
                 }
+                // PO-S06: scopeViolation surfaces on roundLog; endReason stays reported;
+                // continue so the PM sees the rejection and decides (no auto-revert).
                 round.outcome = .continued
                 round.finishedAt = now()
                 state.laneBlocked = nil
@@ -998,13 +1007,16 @@ public struct RelayCoordinator: Sendable {
     }
 
     /// Result of a **dev** turn dispatch: the turn outcome plus the stamped endReason
-    /// and last recorded process-group owner (PO-S02), plus PO-S04 harness proofs.
+    /// and last recorded process-group owner (PO-S02), plus PO-S04 harness proofs
+    /// and PO-S06 write-scope declaration / fail-closed violation.
     private struct DevTurnDispatch {
         var dispatch: TurnDispatch
         var endReason: DevTurnEndReason
         var owner: ProcessOwnerRecord?
         var proofResults: [HarnessProofResult] = []
         var proofCommands: [String] = []
+        var writeScope: TurnWriteScope? = nil
+        var scopeViolation: ScopeViolation? = nil
     }
 
     private static let partialCompletionRetryHint =
@@ -1079,19 +1091,20 @@ public struct RelayCoordinator: Sendable {
         }
     }
 
-    /// PO-S02 + PO-S03 + PO-S04 dev-turn dispatch: acquires the per-root execution
-    /// lane for the turn duration (FIFO ticket when busy; harness owns the wait via
-    /// `laneBlocked` on relay status). Every attempt and terminal path still routes
-    /// through identity-checked group kill and stamps a `DevTurnEndReason`. After a
-    /// delivered turn, the harness (not the agent) runs declared `proofCommands` under
-    /// the same root's lane with a persistent scratch (PO-S04).
+    /// PO-S02 + PO-S03 + PO-S04 + PO-S06 dev-turn dispatch: acquires the per-root
+    /// execution lane for the turn duration (FIFO ticket when busy; scoped docs-only
+    /// turns may co-hold when write scopes are disjoint). Every attempt and terminal
+    /// path still routes through identity-checked group kill and stamps a
+    /// `DevTurnEndReason`. After a delivered turn, the harness runs declared
+    /// `proofCommands` and fail-closed write-scope commit-diff enforcement.
     private func dispatchDevTurn(
         _ request: RunRequest,
         config: Config,
         relayId: String,
         deliveryGuard: TurnDeliveryGuard? = nil,
         site: ExecutionLaneSite = .relayDevTurn,
-        turnStateProofCommands: [String] = []
+        turnStateProofCommands: [String] = [],
+        turnStateWriteScope: TurnWriteScope? = nil
     ) async -> DevTurnDispatch {
         let relayDir = try? stateStore.directory(for: relayId)
         if let relayDir {
@@ -1102,24 +1115,36 @@ public struct RelayCoordinator: Sendable {
         }
 
         // PO-S03: build-class site must take the lane; panels never call here.
+        // PO-S06: docs-only still uses the lane for scope coordination (not panel).
         precondition(
-            ExecutionLaneClassification.mustAcquire(site),
-            "dispatchDevTurn is build-class only; panel seats must not acquire the lane"
+            ExecutionLaneClassification.mustAcquire(site)
+                || site == .relayDevTurn
+                || site == .pilotDevTurn,
+            "dispatchDevTurn is relay/pilot only; panel seats must not acquire the lane"
         )
+
+        // PO-S06: scope must be known before acquire (concurrency). Prefer turn-state,
+        // else parse the handover/message (PM can declare writeScope up front), else
+        // legacy full-build. Report-tail re-parse after delivery is fail-closed only.
+        let acquireScope = turnStateWriteScope
+            ?? TurnWriteScopeParser.parse(from: request.message)
+            ?? .legacyFullBuild
 
         let laneKey = ExecutionLane.key(repoRoot: config.projectRoot)
         let claimKind = site.rawValue
-        let claim = ExecutionLane.Claim.current(id: relayId, kind: claimKind)
-            ?? ExecutionLane.Claim(
-                id: relayId,
-                kind: claimKind,
-                identity: ProcessOwnership.OwnerIdentity(
-                    pid: ProcessInfo.processInfo.processIdentifier,
-                    pgid: nil,
-                    startTimeTicks: 0,
-                    kind: .inProcess
-                )
-            )
+        let claim = ExecutionLane.Claim.current(
+            id: relayId, kind: claimKind, writeScope: acquireScope
+        ) ?? ExecutionLane.Claim(
+            id: relayId,
+            kind: claimKind,
+            identity: ProcessOwnership.OwnerIdentity(
+                pid: ProcessInfo.processInfo.processIdentifier,
+                pgid: nil,
+                startTimeTicks: 0,
+                kind: .inProcess
+            ),
+            writeScope: acquireScope
+        )
 
         let store = stateStore
         let onTicket: @Sendable (ExecutionLaneTicket) -> Void = { ticket in
@@ -1151,13 +1176,16 @@ public struct RelayCoordinator: Sendable {
         guard laneToken != nil else {
             clearBlocked()
             // Still blocked after wait bound — typed lane busy, no worker spawn.
-            if let ticket = await executionLane.currentTicket(laneKey, now: now()) {
+            if let ticket = await executionLane.currentTicket(
+                laneKey, now: now(), forClaim: claim
+            ) {
                 onTicket(ticket)
             }
             return DevTurnDispatch(
                 dispatch: .serviceError(.executionLaneBusy(config.projectRoot)),
                 endReason: .laneBusy,
-                owner: nil
+                owner: nil,
+                writeScope: turnStateWriteScope
             )
         }
         // Clear ticket once we hold the lane (wait path may have left the last ticket).
@@ -1187,21 +1215,69 @@ public struct RelayCoordinator: Sendable {
             }
         }
 
+        /// PO-S06: resolve declared scope from turn state / report and fail-closed
+        /// diff baseline..HEAD against path prefixes. Never reverts commits.
+        func evaluateWriteScope(
+            report: String?,
+            baselineHead: String?
+        ) -> (scope: TurnWriteScope, violation: ScopeViolation?) {
+            let scope = TurnWriteScopeParser.resolve(
+                turnState: turnStateWriteScope, report: report
+            )
+            // Undeclared / no prefixes → no fail-closed check (legacy).
+            guard scope.hasDeclaredPrefixes else {
+                return (scope, nil)
+            }
+            let head = gitObserver.observe(rootPath: config.projectRoot).head
+            guard let baselineHead, let head, baselineHead != head else {
+                return (scope, nil)
+            }
+            let changed = gitObserver.changedFilesInRange(
+                rootPath: config.projectRoot, baseline: baselineHead, head: head
+            )
+            let outOfScope = scope.outOfScopePaths(in: changed)
+            guard !outOfScope.isEmpty else { return (scope, nil) }
+            return (
+                scope,
+                ScopeViolation(
+                    declaredScope: scope.pathPrefixes,
+                    outOfScopePaths: outOfScope
+                )
+            )
+        }
+
         /// PO-S04: after the agent turn ends, the harness runs proof of record.
         /// Releases the dev-turn lane hold and re-acquires as `harnessProof` so a
         /// foreign holder can surface `laneBusy` on the proof path (works test).
+        /// PO-S06: also stamps writeScope + scopeViolation (endReason stays reported).
         func finishWithHarnessProof(
             dispatch: TurnDispatch,
             report: String?,
             baseEndReason: DevTurnEndReason
         ) async -> DevTurnDispatch {
+            let baseline = deliveryGuard?.baselineHead
+            let (resolvedScope, violation) = evaluateWriteScope(
+                report: report, baselineHead: baseline
+            )
+            // Surface declaration even when it matches legacy defaults only if
+            // turn-state/report actually declared something.
+            let declared: TurnWriteScope? = {
+                if turnStateWriteScope != nil { return resolvedScope }
+                if TurnWriteScopeParser.parse(from: report ?? "") != nil { return resolvedScope }
+                return nil
+            }()
+
             let commands = HarnessProofCommandsParser.resolve(
                 turnState: turnStateProofCommands,
                 report: report
             )
             guard !commands.isEmpty else {
                 return DevTurnDispatch(
-                    dispatch: dispatch, endReason: baseEndReason, owner: lastOwner
+                    dispatch: dispatch,
+                    endReason: baseEndReason,
+                    owner: lastOwner,
+                    writeScope: declared,
+                    scopeViolation: violation
                 )
             }
 
@@ -1215,9 +1291,11 @@ public struct RelayCoordinator: Sendable {
                 laneToken = nil
             }
 
+            // Harness proof is always build-class (full exclusive) — legacy claim.
             let proofClaim = ExecutionLane.Claim.current(
                 id: "\(relayId):proof",
-                kind: ExecutionLaneSite.harnessProof.rawValue
+                kind: ExecutionLaneSite.harnessProof.rawValue,
+                writeScope: .legacyFullBuild
             ) ?? ExecutionLane.Claim(
                 id: "\(relayId):proof",
                 kind: ExecutionLaneSite.harnessProof.rawValue,
@@ -1226,7 +1304,8 @@ public struct RelayCoordinator: Sendable {
                     pgid: nil,
                     startTimeTicks: 0,
                     kind: .inProcess
-                )
+                ),
+                writeScope: .legacyFullBuild
             )
             let proofToken = await executionLane.waitToAcquire(
                 laneKey,
@@ -1238,7 +1317,9 @@ public struct RelayCoordinator: Sendable {
             laneToken = proofToken
             guard proofToken != nil else {
                 clearBlocked()
-                if let ticket = await executionLane.currentTicket(laneKey, now: now()) {
+                if let ticket = await executionLane.currentTicket(
+                    laneKey, now: now(), forClaim: proofClaim
+                ) {
                     onTicket(ticket)
                 }
                 return DevTurnDispatch(
@@ -1246,7 +1327,9 @@ public struct RelayCoordinator: Sendable {
                     endReason: .laneBusy,
                     owner: lastOwner,
                     proofResults: [],
-                    proofCommands: commands
+                    proofCommands: commands,
+                    writeScope: declared,
+                    scopeViolation: violation
                 )
             }
             clearBlocked()
@@ -1266,7 +1349,9 @@ public struct RelayCoordinator: Sendable {
                 endReason: timedOut ? .proofTimeout : baseEndReason,
                 owner: lastOwner,
                 proofResults: results,
-                proofCommands: commands
+                proofCommands: commands,
+                writeScope: declared,
+                scopeViolation: violation
             )
         }
 
@@ -1370,13 +1455,15 @@ public struct RelayCoordinator: Sendable {
         }
     }
 
-    /// Stamp PO-S02/S04 fields on the open round after a dev-turn dispatch settles.
+    /// Stamp PO-S02/S04/S06 fields on the open round after a dev-turn dispatch settles.
     private func applyDevTurnEnd(
         _ round: inout RelayRound,
         endReason: DevTurnEndReason,
         owner: ProcessOwnerRecord?,
         proofResults: [HarnessProofResult] = [],
-        proofCommands: [String] = []
+        proofCommands: [String] = [],
+        writeScope: TurnWriteScope? = nil,
+        scopeViolation: ScopeViolation? = nil
     ) {
         if round.devTurnEndReason == nil {
             round.devTurnEndReason = endReason
@@ -1389,6 +1476,12 @@ public struct RelayCoordinator: Sendable {
         }
         if !proofCommands.isEmpty {
             round.proofCommands = proofCommands
+        }
+        if let writeScope {
+            round.writeScope = writeScope
+        }
+        if let scopeViolation {
+            round.scopeViolation = scopeViolation
         }
     }
 

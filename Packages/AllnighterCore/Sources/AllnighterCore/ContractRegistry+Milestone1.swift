@@ -992,6 +992,14 @@ public extension ContractRegistry {
             explain: "The per-root execution lane is held. Busy callers receive a FIFO ticket naming position and holder; silent queueing without a ticket is forbidden (Process_Ownership.md PO-S03).",
             exitClass: .laneBusy
         ),
+        ErrorSpec(
+            "WRITE_SCOPE_VIOLATION",
+            ruleId: "execution.write_scope.violation",
+            agentAction: "Inspect roundLog.scopeViolation (declared writeScope + outOfScopePaths). The harness rejected the turn's work fail-closed; endReason stays reported. Do not auto-revert — the PM decides whether to keep, amend, or reverse the commits. Next turn: stay inside the declared prefixes or re-declare a broader writeScope.",
+            requiresManual: true,
+            retryable: false,
+            explain: "A dev turn declared writeScope path prefixes and the harness found commits (baseline..head) outside that scope. Work is rejected with scopeViolation on roundLog/status; Allnighter never touches git (Process_Ownership.md PO-S06)."
+        ),
         ErrorSpec("NO_PROJECT_ROOT", ruleId: "run.no_project_root", agentAction: "Restore the project folder or pick an available project root, then retry.", requiresManual: true, retryable: true, explain: "The project repo root is missing or unreadable; runs require a real cwd in the repo."),
         ErrorSpec("WORKER_NOT_READY", ruleId: "run.worker_not_ready", agentAction: "Pick a ready worker or run setup health, then retry.", requiresManual: true, retryable: true, explain: "No runnable worker resolved for this run (missing CLI, wrong driver, or bench not ready)."),
         ErrorSpec("EXECUTION_TEAM_MIXED_SOURCES", ruleId: "execution.team.mixed_sources", agentAction: "Pick one execution source, run as non-mutating review/propose, or split into judgment then execution.", requiresManual: true, retryable: false, explain: "Mutating execution teams must resolve to one CLI driver. Mixed-source execution is blocked before spawn."),
