@@ -73,18 +73,24 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
             "harness kill of proof must stamp endReason=proofTimeout (never inferred)"
         )
         XCTAssertEqual(devRound.proofCommands, ["sleep 300"])
-        XCTAssertEqual(devRound.proofResults.count, 1)
-        let pr = try XCTUnwrap(devRound.proofResults.first)
+        // PO-F4: standing invariants always append after declared proofs.
+        let declared = devRound.proofResults.filter { !$0.standing }
+        XCTAssertEqual(declared.count, 1, "one declared proof (standing is separate)")
+        let pr = try XCTUnwrap(declared.first)
         XCTAssertTrue(pr.timedOut)
         XCTAssertNil(pr.exitCode)
         XCTAssertGreaterThan(pr.durationMs, 0)
         XCTAssertTrue(pr.command.contains("sleep 300"))
+        XCTAssertTrue(
+            devRound.proofResults.contains { $0.standing },
+            "standing invariant result always present after delivered turn"
+        )
 
         let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         let logEntry = try XCTUnwrap(json.roundLog.first { $0.devRunId != nil })
         XCTAssertEqual(logEntry.endReason, "proofTimeout")
-        XCTAssertEqual(logEntry.proofResults.count, 1)
-        XCTAssertTrue(logEntry.proofResults[0].timedOut)
+        XCTAssertEqual(logEntry.proofResults.filter { !$0.standing }.count, 1)
+        XCTAssertTrue(logEntry.proofResults.contains { !$0.standing && $0.timedOut })
 
         // Group empty: no leftover sleep from the harness proof's process group.
         // (We cannot re-read the pgid after the fact without recording it; assert via

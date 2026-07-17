@@ -1000,6 +1000,14 @@ public extension ContractRegistry {
             retryable: false,
             explain: "A dev turn declared writeScope path prefixes and the harness found commits (baseline..head) outside that scope. Work is rejected with scopeViolation on roundLog/status; Allnighter never touches git (Process_Ownership.md PO-S06)."
         ),
+        ErrorSpec(
+            "STANDING_INVARIANT_FAILED",
+            ruleId: "execution.standing_invariant.failed",
+            agentAction: "Inspect roundLog.standingFailed and proofResults entries with standing:true. For contractDrift: rebuild the turn tree, run `alln dev export-contracts` (regenerate docs/generated/alln/*), commit the artifacts, and re-run. The harness never auto-regenerates or auto-commits (Process_Ownership.md PO-F4).",
+            requiresManual: true,
+            retryable: false,
+            explain: "A harness standing invariant failed after the dev turn (e.g. contractDrift: registry changed without regenerating published contract artifacts). The turn is not clean; endReason stays reported; standingFailed names the invariant ids."
+        ),
         ErrorSpec("NO_PROJECT_ROOT", ruleId: "run.no_project_root", agentAction: "Restore the project folder or pick an available project root, then retry.", requiresManual: true, retryable: true, explain: "The project repo root is missing or unreadable; runs require a real cwd in the repo."),
         ErrorSpec("WORKER_NOT_READY", ruleId: "run.worker_not_ready", agentAction: "Pick a ready worker or run setup health, then retry.", requiresManual: true, retryable: true, explain: "No runnable worker resolved for this run (missing CLI, wrong driver, or bench not ready)."),
         ErrorSpec("EXECUTION_TEAM_MIXED_SOURCES", ruleId: "execution.team.mixed_sources", agentAction: "Pick one execution source, run as non-mutating review/propose, or split into judgment then execution.", requiresManual: true, retryable: false, explain: "Mutating execution teams must resolve to one CLI driver. Mixed-source execution is blocked before spawn."),

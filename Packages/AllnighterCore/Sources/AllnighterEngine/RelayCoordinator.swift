@@ -366,7 +366,8 @@ public struct RelayCoordinator: Sendable {
                 proofResults: devResult.proofResults,
                 proofCommands: devResult.proofCommands,
                 writeScope: devResult.writeScope,
-                scopeViolation: devResult.scopeViolation
+                scopeViolation: devResult.scopeViolation,
+                standingFailed: devResult.standingFailed
             )
             // Reload laneBlocked (if any) written during harness wait.
             if let fresh = try? stateStore.load(id: state.id) {
@@ -410,9 +411,9 @@ public struct RelayCoordinator: Sendable {
                     events?(.escalated(note: state.note ?? ""))
                     return .success(PilotRoundResult(state: state, devReport: devOutput))
                 }
-                // PO-S06: scopeViolation keeps endReason=reported; work is rejected on
-                // the wire for the PM — no auto-revert. Stay awaitingPM so the pilot
-                // PM can decide.
+                // PO-S06/F4: scopeViolation / standingFailed keep endReason=reported;
+                // work is rejected on the wire for the PM — no auto-revert. Stay
+                // awaitingPM so the pilot PM can decide.
                 round.outcome = .continued
                 round.finishedAt = now()
                 state.rounds[state.rounds.count - 1] = round
@@ -928,7 +929,8 @@ public struct RelayCoordinator: Sendable {
                 proofResults: devResult.proofResults,
                 proofCommands: devResult.proofCommands,
                 writeScope: devResult.writeScope,
-                scopeViolation: devResult.scopeViolation
+                scopeViolation: devResult.scopeViolation,
+                standingFailed: devResult.standingFailed
             )
             if let fresh = try? stateStore.load(id: state.id) {
                 state.laneBlocked = fresh.laneBlocked
@@ -958,8 +960,9 @@ public struct RelayCoordinator: Sendable {
                         events?(.escalated(note: $0.note ?? ""))
                     }
                 }
-                // PO-S06: scopeViolation surfaces on roundLog; endReason stays reported;
-                // continue so the PM sees the rejection and decides (no auto-revert).
+                // PO-S06/F4: scopeViolation / standingFailed surface on roundLog;
+                // endReason stays reported; continue so the PM sees the rejection
+                // and decides (no auto-revert / auto-regen / auto-commit).
                 round.outcome = .continued
                 round.finishedAt = now()
                 state.laneBlocked = nil
@@ -1007,8 +1010,9 @@ public struct RelayCoordinator: Sendable {
     }
 
     /// Result of a **dev** turn dispatch: the turn outcome plus the stamped endReason
-    /// and last recorded process-group owner (PO-S02), plus PO-S04 harness proofs
-    /// and PO-S06 write-scope declaration / fail-closed violation.
+    /// and last recorded process-group owner (PO-S02), plus PO-S04 harness proofs,
+    /// PO-S06 write-scope declaration / fail-closed violation, and PO-F4 standing
+    /// invariant failures.
     private struct DevTurnDispatch {
         var dispatch: TurnDispatch
         var endReason: DevTurnEndReason
@@ -1017,6 +1021,8 @@ public struct RelayCoordinator: Sendable {
         var proofCommands: [String] = []
         var writeScope: TurnWriteScope? = nil
         var scopeViolation: ScopeViolation? = nil
+        /// PO-F4: non-nil when one or more standing invariants failed.
+        var standingFailed: [String]? = nil
     }
 
     private static let partialCompletionRetryHint =
@@ -1250,6 +1256,8 @@ public struct RelayCoordinator: Sendable {
         /// Releases the dev-turn lane hold and re-acquires as `harnessProof` so a
         /// foreign holder can surface `laneBusy` on the proof path (works test).
         /// PO-S06: also stamps writeScope + scopeViolation (endReason stays reported).
+        /// PO-F4: always runs standing invariants (even when `proofCommands` is empty);
+        /// failures surface as `standingFailed` without rewriting endReason.
         func finishWithHarnessProof(
             dispatch: TurnDispatch,
             report: String?,
@@ -1271,18 +1279,10 @@ public struct RelayCoordinator: Sendable {
                 turnState: turnStateProofCommands,
                 report: report
             )
-            guard !commands.isEmpty else {
-                return DevTurnDispatch(
-                    dispatch: dispatch,
-                    endReason: baseEndReason,
-                    owner: lastOwner,
-                    writeScope: declared,
-                    scopeViolation: violation
-                )
-            }
 
             // Agent group is already dead (caller killed). Clear turn-owner dir before
-            // proof spawns so harnessProof children do not overwrite turn-owner identity.
+            // proof / standing-invariant spawns so harnessProof children do not
+            // overwrite turn-owner identity.
             ProcessOwnership.TurnOwnerDirectory.shared.set(nil)
 
             // Release turn hold so the proof phase takes the lane as harnessProof.
@@ -1334,24 +1334,45 @@ public struct RelayCoordinator: Sendable {
             }
             clearBlocked()
 
+            let scratch = ExecutionLaneFlock.ensuredScratchPath(repoRoot: config.projectRoot)
             let service = ProjectVerificationService(
                 commandRunner: proofCommandRunner,
                 perCommandTimeoutSeconds: config.proofTimeoutSeconds,
                 now: now
             )
-            let results = await service.runProofs(
-                commands: commands,
-                repoRoot: config.projectRoot
+
+            // Declared proofs (opt-in) — may be empty.
+            var results: [HarnessProofResult] = []
+            if !commands.isEmpty {
+                results = await service.runProofs(
+                    commands: commands,
+                    repoRoot: config.projectRoot,
+                    scratchPath: scratch
+                )
+            }
+
+            // PO-F4: standing invariants — always, not opt-in. Use the turn tree's
+            // built alln on the persistent scratch (never global/installed alln).
+            let standing = await StandingInvariants.run(
+                service: service,
+                repoRoot: config.projectRoot,
+                scratchPath: scratch
             )
-            let timedOut = results.contains(where: \.timedOut)
+            results.append(contentsOf: standing.results)
+            let standingFailed: [String]? = standing.failed.isEmpty ? nil : standing.failed
+
+            // Only declared-proof timeouts rewrite endReason; standing failures leave
+            // it as reported (analogous to scopeViolation).
+            let declaredTimedOut = results.contains { !$0.standing && $0.timedOut }
             return DevTurnDispatch(
                 dispatch: dispatch,
-                endReason: timedOut ? .proofTimeout : baseEndReason,
+                endReason: declaredTimedOut ? .proofTimeout : baseEndReason,
                 owner: lastOwner,
                 proofResults: results,
                 proofCommands: commands,
                 writeScope: declared,
-                scopeViolation: violation
+                scopeViolation: violation,
+                standingFailed: standingFailed
             )
         }
 
@@ -1455,7 +1476,7 @@ public struct RelayCoordinator: Sendable {
         }
     }
 
-    /// Stamp PO-S02/S04/S06 fields on the open round after a dev-turn dispatch settles.
+    /// Stamp PO-S02/S04/S06/F4 fields on the open round after a dev-turn dispatch settles.
     private func applyDevTurnEnd(
         _ round: inout RelayRound,
         endReason: DevTurnEndReason,
@@ -1463,7 +1484,8 @@ public struct RelayCoordinator: Sendable {
         proofResults: [HarnessProofResult] = [],
         proofCommands: [String] = [],
         writeScope: TurnWriteScope? = nil,
-        scopeViolation: ScopeViolation? = nil
+        scopeViolation: ScopeViolation? = nil,
+        standingFailed: [String]? = nil
     ) {
         if round.devTurnEndReason == nil {
             round.devTurnEndReason = endReason
@@ -1482,6 +1504,9 @@ public struct RelayCoordinator: Sendable {
         }
         if let scopeViolation {
             round.scopeViolation = scopeViolation
+        }
+        if let standingFailed {
+            round.standingFailed = standingFailed
         }
     }
 

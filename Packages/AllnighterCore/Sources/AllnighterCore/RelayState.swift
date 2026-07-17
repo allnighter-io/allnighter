@@ -66,6 +66,10 @@ public struct RelayRound: Sendable, Codable, Equatable {
     /// PO-S06: fail-closed commit-diff violation when the turn wrote outside
     /// `writeScope`. `endReason` stays `reported`; PM decides — no auto-revert.
     public var scopeViolation: ScopeViolation?
+    /// PO-F4: standing invariant ids that failed this turn (e.g. `contractDrift`).
+    /// Absent/`nil` when all standing invariants passed or none ran. Marks the
+    /// turn not-clean; `endReason` stays as reported (analogous to scopeViolation).
+    public var standingFailed: [String]?
 
     public init(
         roundNumber: Int,
@@ -85,7 +89,8 @@ public struct RelayRound: Sendable, Codable, Equatable {
         proofResults: [HarnessProofResult] = [],
         proofCommands: [String] = [],
         writeScope: TurnWriteScope? = nil,
-        scopeViolation: ScopeViolation? = nil
+        scopeViolation: ScopeViolation? = nil,
+        standingFailed: [String]? = nil
     ) {
         self.roundNumber = roundNumber
         self.baselineHead = baselineHead
@@ -105,9 +110,10 @@ public struct RelayRound: Sendable, Codable, Equatable {
         self.proofCommands = proofCommands
         self.writeScope = writeScope
         self.scopeViolation = scopeViolation
+        self.standingFailed = standingFailed
     }
 
-    // Lenient decode: relays persisted before PO-S04/S06 lack later fields.
+    // Lenient decode: relays persisted before PO-S04/S06/F4 lack later fields.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         roundNumber = try c.decode(Int.self, forKey: .roundNumber)
@@ -128,6 +134,7 @@ public struct RelayRound: Sendable, Codable, Equatable {
         proofCommands = try c.decodeIfPresent([String].self, forKey: .proofCommands) ?? []
         writeScope = try c.decodeIfPresent(TurnWriteScope.self, forKey: .writeScope)
         scopeViolation = try c.decodeIfPresent(ScopeViolation.self, forKey: .scopeViolation)
+        standingFailed = try c.decodeIfPresent([String].self, forKey: .standingFailed)
     }
 }
 

@@ -123,6 +123,10 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
     /// PO-S06: present when commit-diff found paths outside declared writeScope.
     /// `endReason` stays `reported`; PM decides — harness never auto-reverts.
     public var scopeViolation: ScopeViolation?
+    /// PO-F4: standing invariant ids that failed (e.g. `["contractDrift"]`).
+    /// Absent when all standing invariants passed or none ran. Marks turn not-clean;
+    /// `endReason` stays as reported (analogous to scopeViolation).
+    public var standingFailed: [String]?
 
     public init(
         round: Int,
@@ -137,7 +141,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         endReason: String? = nil,
         proofResults: [HarnessProofResult] = [],
         writeScope: TurnWriteScope? = nil,
-        scopeViolation: ScopeViolation? = nil
+        scopeViolation: ScopeViolation? = nil,
+        standingFailed: [String]? = nil
     ) {
         self.round = round
         self.baseline = baseline
@@ -152,6 +157,7 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         self.proofResults = proofResults
         self.writeScope = writeScope
         self.scopeViolation = scopeViolation
+        self.standingFailed = standingFailed
     }
 
     public init(_ round: RelayRound) {
@@ -168,7 +174,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
             endReason: round.devTurnEndReason?.rawValue,
             proofResults: round.proofResults,
             writeScope: round.writeScope,
-            scopeViolation: round.scopeViolation
+            scopeViolation: round.scopeViolation,
+            standingFailed: round.standingFailed
         )
     }
 }
