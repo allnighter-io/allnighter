@@ -15,11 +15,12 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
             strengthRank: 99),
-        // High seats — ChatGPT 5.6; Opus remains a strong judgment seat (not flagship-only).
+        // ChatGPT 5.6 Sol via Codex — same underlying model as model_chatgpt_sol (Cursor),
+        // so it carries Sol's capability profile. Opus remains a strong judgment seat.
         "model_chatgpt": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security],
-            strengthRank: 92),
+            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
+            strengthRank: 99),
         "model_opus": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
@@ -100,9 +101,13 @@ public enum ModelCatalog {
             def("model_fable", "Fable 5", "fable", "claude_code", .both, defaultEnabled: true),
             def("model_opus", "Opus 4.8", "opus", "claude_code", .both, defaultEnabled: true),
             def("model_sonnet", "Sonnet 5", "claude-sonnet-5", "claude_code", .answerer, defaultEnabled: true),
-            // Codex — ChatGPT 5.6 is High (not flagship-only). Label not live-probed
-            // (Codex CLI down); keep intended `gpt-5.6` and verify when Codex returns.
-            def("model_chatgpt", "ChatGPT 5.6", "gpt-5.6", "codex", .answerer, defaultEnabled: true),
+            // Codex — ChatGPT 5.6 Sol. Verified callable on codex-cli 0.144.5 (2026-07-18):
+            // `codex exec -m gpt-5.6-sol` + reasoning effort via the manifest's `-c
+            // model_reasoning_effort` flag → exit 0, real answer. The prior `gpt-5.6` label
+            // was rejected 400 ("not supported when using Codex with a ChatGPT account"),
+            // and `gpt-5.6-sol` itself needs codex >= 0.144.x ("requires a newer version of
+            // Codex"). Sol is the default ChatGPT seat via Codex.
+            def("model_chatgpt", "ChatGPT 5.6 Sol (Codex)", "gpt-5.6-sol", "codex", .both, defaultEnabled: true),
             def("model_chatgpt_54", "ChatGPT 5.4", "gpt-5.4", "codex", .answerer, defaultEnabled: false),
             def("model_chatgpt_54_mini", "ChatGPT 5.4 mini", "gpt-5.4-mini", "codex", .answerer, defaultEnabled: false),
             def("model_codex_spark", "Codex Spark", "gpt-5.3-codex-spark", "codex", .answerer, defaultEnabled: false),
@@ -115,7 +120,7 @@ public enum ModelCatalog {
             def("model_cursor_auto", "Auto", "auto", "cursor_agent", .answerer, defaultEnabled: true),
             def("model_cursor_composer_25", "Composer 2.5", "composer-2.5", "cursor_agent", .answerer, defaultEnabled: true),
             def("model_cursor_grok_45", "Cursor Grok 4.5", "cursor-grok-4.5-high", "cursor_agent", .answerer, defaultEnabled: true, effortVariants: cursorGrokVariants),
-            def("model_chatgpt_sol", "ChatGPT 5.6 Sol", "gpt-5.6-sol-high", "cursor_agent", .both, defaultEnabled: true, effortVariants: chatgptSolVariants),
+            def("model_chatgpt_sol", "ChatGPT 5.6 Sol (Cursor)", "gpt-5.6-sol-high", "cursor_agent", .both, defaultEnabled: true, effortVariants: chatgptSolVariants),
             def("model_cursor_composer_25_fast", "Composer 2.5 Fast", "composer-2.5-fast", "cursor_agent", .answerer, defaultEnabled: false),
             // Antigravity — a multi-model router; effort is encoded in the model name.
             def("model_gemini", "Gemini 3.5 Flash", "Gemini 3.5 Flash (Medium)", "antigravity", .answerer, defaultEnabled: true, effortVariants: flashVariants),
