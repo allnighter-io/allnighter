@@ -131,14 +131,18 @@ public enum BuiltInTeams {
         }
     }
 
-    /// Fable synthesizes; an ordered cross-CLI chain keeps synthesis alive when
-    /// Claude and/or ChatGPT are unavailable.
+    /// Fable synthesizes; when Fable is unavailable, **ChatGPT 5.6 Sol is the
+    /// designated deputy lead for EVERY team** (the standard). Codex route first
+    /// (`model_chatgpt` — how Sol is accessed here), then the Cursor route
+    /// (`model_chatgpt_sol`), then the rest. `.strongestReady` already prefers Sol
+    /// (rank 99, above every non-Fable model) — pinning both Sol routes as the top
+    /// two fallbacks makes the standard explicit and independent of policy/rank drift.
     private static func synthesisLead(_ writer: String, dissent: DissentPolicy = .preserveDissent) -> TeamLeadSpec {
         TeamLeadSpec(
             skillId: writer,
             preferredModelId: leadFlagship,
             fallbackModelIds: [
-                strategicFlagship, opus, kimi, cursorGrok, grok, chatgpt,
+                chatgpt, strategicFlagship, opus, kimi, cursorGrok, grok,
                 composer, sonnet, gemini, cursorAuto, agyOpus
             ],
             fallbackPolicy: .strongestReady,

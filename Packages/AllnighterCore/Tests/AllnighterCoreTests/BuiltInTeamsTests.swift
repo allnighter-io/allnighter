@@ -130,9 +130,11 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     func testEverySynthesisLeadHasOrderedCrossCLIFallbacks() {
+        // Sol is the designated deputy lead: Codex route (model_chatgpt) then Cursor
+        // route (model_chatgpt_sol) lead the fallback chain, ahead of Opus.
         let expected = [
-            "model_chatgpt_sol", "model_opus", "model_kimi_k3",
-            "model_cursor_grok_45", "model_grok", "model_chatgpt",
+            "model_chatgpt", "model_chatgpt_sol", "model_opus", "model_kimi_k3",
+            "model_cursor_grok_45", "model_grok",
             "model_cursor_composer_25", "model_sonnet", "model_gemini",
             "model_cursor_auto", "model_agy_opus"
         ]
