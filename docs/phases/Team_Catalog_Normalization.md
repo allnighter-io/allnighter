@@ -163,6 +163,14 @@ capable models (strongest reserved for the Lead), diversity front-loaded by rank
 Both are already what `TeamResolver` does — the fix is to let it, by tagging
 capability in the catalog and dropping the hardcoded arrays.
 
+**No exemptions — including the locked families.** Spec Review and Growth are
+approved as families, but their staffing is NOT special-cased: they currently
+carry hardcoded arrays (`growthPreference`, Spec Review's `strategicSeats`) and
+those come out too, so that when a new model is added or capability metadata
+changes, Spec Review and Growth benefit from the same shared components as every
+other team with zero per-team edits. Expressed as caliber + capability +
+triangulate, they resolve identically — just always on.
+
 ### Design capability — reasoning vs image (and K3 + Sol)
 
 Design has two seat kinds, and conflating them is a bug:
