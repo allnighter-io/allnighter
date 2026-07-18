@@ -519,6 +519,111 @@ final class ExecutionLaneTests: XCTestCase {
         XCTAssertEqual(ExecutionLaneFlock.waiterPosition(laneKey: key, waiterURL: w2), 1)
         XCTAssertEqual(ExecutionLaneFlock.waiterCount(laneKey: key), 1)
     }
+
+    // MARK: - PO-F9: O_CLOEXEC + meta-lock exclusivity
+
+    /// Parent holds the build flock, then releases. A spawned child must be able
+    /// to acquire the same flock immediately — proving the parent's fd was not
+    /// inherited (O_CLOEXEC). Without CLOEXEC the child's inherited fd would
+    /// keep the kernel lock alive after the parent handle released.
+    func testOCloexecSpawnedChildDoesNotKeepFlockAliveAfterParentRelease() throws {
+        let key = ExecutionLane.key(repoRoot: "/tmp/po-f9-cloexec-\(UUID().uuidString)")
+        let laneDir = ExecutionLaneFlock.directory(forLaneKey: key)
+        let lockPath = ExecutionLaneFlock.lockURL(forLaneKey: key).path
+        defer { try? FileManager.default.removeItem(at: laneDir) }
+
+        let handle = try XCTUnwrap(
+            ExecutionLaneFlock.tryAcquireExclusive(laneKey: key),
+            "parent must acquire the build flock"
+        )
+
+        // Child: after a short wait (parent releases), try LOCK_EX|LOCK_NB.
+        // Exit 0 = acquired (CLOEXEC worked); exit 2 = still busy (fd inherited).
+        let script = """
+        python3 -c '
+        import fcntl, os, sys, time
+        lock_path = sys.argv[1]
+        time.sleep(0.15)
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            sys.exit(0)
+        except BlockingIOError:
+            sys.exit(2)
+        ' '\(lockPath)'
+        """
+        let child = Process()
+        child.executableURL = URL(fileURLWithPath: "/bin/sh")
+        child.arguments = ["-c", script]
+        child.standardOutput = Pipe()
+        child.standardError = Pipe()
+        try child.run()
+
+        // Release after child has started so inheritance would already have happened.
+        Thread.sleep(forTimeInterval: 0.05)
+        handle.release()
+        child.waitUntilExit()
+
+        XCTAssertEqual(
+            child.terminationStatus, 0,
+            "child must acquire after parent release — flock fd must not be inherited (O_CLOEXEC)"
+        )
+    }
+
+    /// Two same-process threads upserting distinct holders under meta lock must
+    /// both land — the in-process mutex prevents lost updates from refcount
+    /// sharing on meta.lock (PO-F9 `#2`).
+    func testMetaLockConcurrentUpsertHolderBothLand() throws {
+        let key = ExecutionLane.key(repoRoot: "/tmp/po-f9-meta-\(UUID().uuidString)")
+        let laneDir = ExecutionLaneFlock.directory(forLaneKey: key)
+        defer { try? FileManager.default.removeItem(at: laneDir) }
+
+        let identity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+        let barrier = DispatchSemaphore(value: 0)
+        let done = DispatchSemaphore(value: 0)
+        var results: [Bool] = [false, false]
+        let resultsLock = NSLock()
+
+        for i in 0..<2 {
+            let idx = i
+            DispatchQueue.global(qos: .userInitiated).async {
+                _ = barrier.wait(timeout: .now() + 2)
+                let meta = ExecutionLaneFlock.HolderMetadata(
+                    identity: identity,
+                    kind: "relayDevTurn",
+                    id: "holder-\(idx)",
+                    acquiredAt: Date(),
+                    writeScope: ["docs/\(idx)/"],
+                    needsBuildLane: false
+                )
+                let ok = ExecutionLaneFlock.upsertHolder(laneKey: key, metadata: meta)
+                resultsLock.lock()
+                results[idx] = ok
+                resultsLock.unlock()
+                done.signal()
+            }
+        }
+
+        // Release both threads together so they contend on meta RMW.
+        barrier.signal()
+        barrier.signal()
+        _ = done.wait(timeout: .now() + 5)
+        _ = done.wait(timeout: .now() + 5)
+
+        XCTAssertTrue(results[0], "thread 0 upsert must succeed")
+        XCTAssertTrue(results[1], "thread 1 upsert must succeed")
+        let holders = ExecutionLaneFlock.readHolders(laneKey: key)
+        let ids = Set(holders.map(\.id))
+        XCTAssertEqual(ids, Set(["holder-0", "holder-1"]), "both upserts must land — no lost update")
+    }
+
+    func testSanitizedDirectoryNameDoesNotCollideV1PrefixWithRawKey() {
+        let v1 = ExecutionLaneFlock.sanitizedDirectoryName(for: "v1:abc")
+        let raw = ExecutionLaneFlock.sanitizedDirectoryName(for: "abc")
+        XCTAssertNotEqual(v1, raw, "v1:abc must not sanitize to the same path as raw abc")
+        XCTAssertEqual(v1, "abc")
+        XCTAssertTrue(raw.hasPrefix("k_"), "raw keys get escape-proof k_ prefix")
+    }
 }
 
 // MARK: - Helpers

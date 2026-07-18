@@ -21,12 +21,22 @@ import AllnighterCore
 ///
 /// Within one process, a refcounted handle table lets multiple
 /// `ExecutionLaneRegistry` instances share one OS build flock — nested re-entry
-/// must not block on our own flock.
+/// must not block on our own flock. Meta RMW also takes a per-lane in-process
+/// recursive mutex so same-process threads cannot lost-update `holder.json`
+/// (PO-F9); the flock still serializes cross-process writers.
 public enum ExecutionLaneFlock {
     public static let lockFileName = "lane.lock"
     public static let metaLockFileName = "meta.lock"
     public static let holderFileName = "holder.json"
     public static let waitersDirectoryName = "waiters"
+
+    /// Distinct outcomes for an exclusive flock attempt (PO-F9): contention vs
+    /// open/flock hard failures (EMFILE, ENOLCK, unsupported FS, …).
+    public enum AcquireOutcome: Sendable, Equatable {
+        case acquired
+        case busy
+        case unavailable(errno: Int32)
+    }
 
     /// One holder's metadata in `holder.json` so a blocked process can mint the
     /// same `ExecutionLaneTicket` shape across process boundaries (PO-S03b/S06).
@@ -184,11 +194,13 @@ public enum ExecutionLaneFlock {
     }
 
     /// Sanitize lane key (`v1:hex`) for a single path component.
+    /// PO-F9: `v1:abc` must not collide with a raw key `abc` — non-`v1:` keys get an
+    /// escape-proof `k_` prefix so they never equal a stripped hex component.
     public static func sanitizedDirectoryName(for key: String) -> String {
         if key.hasPrefix("v1:"), key.count > 3 {
             return String(key.dropFirst(3))
         }
-        return key
+        return "k_" + key
             .replacingOccurrences(of: ":", with: "_")
             .replacingOccurrences(of: "/", with: "_")
     }
@@ -198,14 +210,45 @@ public enum ExecutionLaneFlock {
     /// Non-blocking exclusive flock for this process (build-lane duration hold).
     /// If this process already holds the flock (another registry / nested path),
     /// returns another refcounted receipt without contending. Returns nil only
-    /// when **another process** holds the lock.
+    /// when **another process** holds the lock (after a few busy retries — PO-F9
+    /// `#9` so a racing `isLocked` probe does not permanently starve an acquirer).
+    /// Hard open/flock failures are not treated as contention.
     public static func tryAcquireExclusive(laneKey: String) -> Handle? {
-        ProcessLaneFlockTable.shared.tryAcquire(laneKey: laneKey)
+        // Brief retries: `isLocked` may steal the flock for a microsecond.
+        for attempt in 0..<5 {
+            switch ProcessLaneFlockTable.shared.tryAcquireDetailed(laneKey: laneKey) {
+            case .acquired(let handle):
+                return handle
+            case .busy:
+                if attempt < 4 { usleep(1_000) }
+            case .unavailable:
+                return nil
+            }
+        }
+        return nil
+    }
+
+    /// Detailed acquire for tests / callers that must distinguish errno failures
+    /// from contention (PO-F9 `#5`).
+    public static func tryAcquireExclusiveDetailed(laneKey: String) -> (AcquireOutcome, Handle?) {
+        switch ProcessLaneFlockTable.shared.tryAcquireDetailed(laneKey: laneKey) {
+        case .acquired(let handle):
+            return (.acquired, handle)
+        case .busy:
+            return (.busy, nil)
+        case .unavailable(let code):
+            return (.unavailable(errno: code), nil)
+        }
     }
 
     /// Brief exclusive meta lock for holders.json read-modify-write (PO-S06).
     /// Never held for a turn's duration — only while mutating the holder list.
+    /// Per-lane in-process recursive mutex serializes same-process threads; the
+    /// `meta.lock` flock still serializes cross-process writers (PO-F9 `#2`).
     public static func withMetaLock<T>(laneKey: String, _ body: () throws -> T) rethrows -> T? {
+        let mutex = MetaLockMutexTable.shared.mutex(for: laneKey)
+        mutex.lock()
+        defer { mutex.unlock() }
         guard let handle = ProcessLaneFlockTable.shared.tryAcquireMeta(laneKey: laneKey) else {
             return nil
         }
@@ -230,7 +273,7 @@ public enum ExecutionLaneFlock {
     }
 
     /// Replace the entire multi-holder list (caller should hold meta lock).
-    public static func writeHolders(laneKey: String, holders: [HolderMetadata]) throws {
+    static func writeHolders(laneKey: String, holders: [HolderMetadata]) throws {
         let dir = directory(forLaneKey: laneKey)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try CoreJSON.encode(HoldersFile(holders: holders))
@@ -238,11 +281,11 @@ public enum ExecutionLaneFlock {
     }
 
     /// Write a single holder as the sole entry (legacy call sites / exclusive grant).
-    public static func writeHolder(laneKey: String, metadata: HolderMetadata) throws {
+    static func writeHolder(laneKey: String, metadata: HolderMetadata) throws {
         try writeHolders(laneKey: laneKey, holders: [metadata])
     }
 
-    public static func writeHolder(laneKey: String, claim: ExecutionLane.Claim, acquiredAt: Date) throws {
+    static func writeHolder(laneKey: String, claim: ExecutionLane.Claim, acquiredAt: Date) throws {
         try writeHolder(
             laneKey: laneKey,
             metadata: HolderMetadata(claim: claim, acquiredAt: acquiredAt)
@@ -269,41 +312,100 @@ public enum ExecutionLaneFlock {
         return all.first
     }
 
-    /// Drop all holder metadata when this process no longer holds the build flock
-    /// and is not coordinating docs-only holders. Prefer `removeHolder` for scoped release.
+    /// Drop this process's holder metadata when we no longer hold the build flock.
+    /// Takes meta lock, re-reads, removes only this process's identities, deletes
+    /// the file only when empty (PO-F9 `#3` — never wipe foreign docs-only holders).
     public static func clearHolder(laneKey: String) {
         // Only clear when this process no longer holds the flock — otherwise a
         // nested release would erase the outer holder's ticket metadata.
         guard !ProcessLaneFlockTable.shared.isHeldLocally(laneKey: laneKey) else { return }
-        try? FileManager.default.removeItem(at: holderURL(forLaneKey: laneKey))
+        guard let me = ProcessOwnership.OwnerIdentity.current(kind: .inProcess) else { return }
+        _ = withMetaLockSpinning(laneKey: laneKey) { () -> Bool in
+            var holders = readHolders(laneKey: laneKey)
+            holders.removeAll { identitiesMatch($0.identity, me) }
+            if holders.isEmpty {
+                try? FileManager.default.removeItem(at: holderURL(forLaneKey: laneKey))
+            } else {
+                do {
+                    try writeHolders(laneKey: laneKey, holders: holders)
+                } catch {
+                    return false
+                }
+            }
+            return true
+        }
     }
 
-    /// Remove one holder by id under meta lock (PO-S06 multi-holder release).
-    public static func removeHolder(laneKey: String, id: String) {
+    /// Remove one holder by id **and** identity under meta lock (PO-F9 `#10`).
+    public static func removeHolder(
+        laneKey: String,
+        id: String,
+        identity: ProcessOwnership.OwnerIdentity
+    ) {
         _ = withMetaLockSpinning(laneKey: laneKey) { () -> Bool in
-            var holders = readHolders(laneKey: laneKey).filter { $0.id != id }
+            var holders = readHolders(laneKey: laneKey).filter {
+                !($0.id == id && identitiesMatch($0.identity, identity))
+            }
             // Drop identity-dead strays, but keep build holders whose flock is still
             // held by another process (kernel truth — do not wipe foreign metadata).
             holders = holders.filter { isHolderEffectivelyLive($0, laneKey: laneKey) }
             if holders.isEmpty {
                 try? FileManager.default.removeItem(at: holderURL(forLaneKey: laneKey))
             } else {
-                try? writeHolders(laneKey: laneKey, holders: holders)
+                do {
+                    try writeHolders(laneKey: laneKey, holders: holders)
+                } catch {
+                    return false
+                }
             }
             return true
         }
     }
 
-    /// Append or replace a holder under meta lock. Returns false if meta lock timed out.
+    /// Convenience: remove by id for this process's live identity, or any
+    /// identity-dead entry with that id (reconcile without an explicit identity).
+    public static func removeHolder(laneKey: String, id: String) {
+        _ = withMetaLockSpinning(laneKey: laneKey) { () -> Bool in
+            let me = ProcessOwnership.OwnerIdentity.current(kind: .inProcess)
+            var holders = readHolders(laneKey: laneKey).filter { meta in
+                guard meta.id == id else { return true }
+                if let me, identitiesMatch(meta.identity, me) { return false }
+                // Reconcile: drop identity-dead entries that are not flock-kept.
+                if !isHolderEffectivelyLive(meta, laneKey: laneKey) { return false }
+                // Live foreign holder with the same id — keep (PO-F9 `#10`).
+                return true
+            }
+            holders = holders.filter { isHolderEffectivelyLive($0, laneKey: laneKey) }
+            if holders.isEmpty {
+                try? FileManager.default.removeItem(at: holderURL(forLaneKey: laneKey))
+            } else {
+                do {
+                    try writeHolders(laneKey: laneKey, holders: holders)
+                } catch {
+                    return false
+                }
+            }
+            return true
+        }
+    }
+
+    /// Append or replace a holder under meta lock. Returns false if meta lock
+    /// timed out **or** the disk write failed (PO-F9 `#4`).
     @discardableResult
     public static func upsertHolder(laneKey: String, metadata: HolderMetadata) -> Bool {
         withMetaLockSpinning(laneKey: laneKey) { () -> Bool in
             var holders = readHolders(laneKey: laneKey)
                 .filter { isHolderEffectivelyLive($0, laneKey: laneKey) }
-            holders.removeAll { $0.id == metadata.id }
+            holders.removeAll {
+                $0.id == metadata.id && identitiesMatch($0.identity, metadata.identity)
+            }
             holders.append(metadata)
-            try? writeHolders(laneKey: laneKey, holders: holders)
-            return true
+            do {
+                try writeHolders(laneKey: laneKey, holders: holders)
+                return true
+            } catch {
+                return false
+            }
         } == true
     }
 
@@ -313,6 +415,8 @@ public enum ExecutionLaneFlock {
             return true
         }
         // Probe: try acquire; if we get it, we were free — release immediately.
+        // Real acquirers retry on busy (see `tryAcquireExclusive`) so this
+        // microsecond steal does not permanently starve them (PO-F9 `#9`).
         if let handle = tryAcquireExclusive(laneKey: laneKey) {
             handle.release()
             return false
@@ -340,16 +444,45 @@ public enum ExecutionLaneFlock {
     /// Same-process holders are never foreign conflicts: nested registry instances
     /// in one process share the OS flock via refcount (PO-S03b). Same-process
     /// multi-holder / exclusive policy is owned by `ExecutionLaneRegistry`.
+    ///
+    /// PO-F9 `#6`: when the exclusive flock is foreign-held but no conflicting
+    /// holder is visible (torn/missing `holder.json`), conservatively treat an
+    /// overlapping claim as conflicting with a presumed full-build foreign holder.
     public static func conflictingHolders(
         laneKey: String,
         claim: ExecutionLane.Claim
     ) -> [HolderMetadata] {
         let scope = claim.writeScope
-        return readHolders(laneKey: laneKey).filter { meta in
+        let visible = readHolders(laneKey: laneKey).filter { meta in
             guard isHolderEffectivelyLive(meta, laneKey: laneKey) else { return false }
             if identitiesMatch(meta.identity, claim.identity) { return false }
             return TurnWriteScope.conflicts(meta.asTurnWriteScope, scope)
         }
+        if !visible.isEmpty { return visible }
+        // Foreign flock + no visible conflict → if no build holder is registered
+        // either, presume a full-build foreign holder (TOCTOU / torn metadata).
+        // Do NOT fire when a visible non-conflicting build holder exists (S06).
+        if isLocked(laneKey: laneKey) && !isHeldLocally(laneKey: laneKey) {
+            let live = readHolders(laneKey: laneKey).filter {
+                isHolderEffectivelyLive($0, laneKey: laneKey)
+            }
+            let visibleBuild = live.contains(where: \.needsBuildLane)
+            if !visibleBuild && TurnWriteScope.conflicts(scope, .legacyFullBuild) {
+                return [
+                    HolderMetadata(
+                        identity: ProcessOwnership.OwnerIdentity(
+                            pid: 0, pgid: nil, startTimeTicks: 0, kind: .inProcess
+                        ),
+                        kind: "unknown",
+                        id: "unknown",
+                        acquiredAt: Date(timeIntervalSince1970: 0),
+                        writeScope: [],
+                        needsBuildLane: true
+                    )
+                ]
+            }
+        }
+        return []
     }
 
     // MARK: - Tickets from on-disk holder
@@ -374,14 +507,21 @@ public enum ExecutionLaneFlock {
                 if identitiesMatch($0.identity, forClaim.identity) { return false }
                 return TurnWriteScope.conflicts($0.asTurnWriteScope, forClaim.writeScope)
             }
-            // No conflicting holder: not busy for this claim (even if others hold).
+            // No conflicting holder: still busy when a foreign exclusive flock is held
+            // for a build claim (PO-F9 `#8` — drop `holders.isEmpty`). Docs-only stays
+            // admitted when a visible non-conflicting build holder exists (S06 disjoint
+            // scopes); only torn/missing build metadata trips the `#6` TOCTOU guard.
             if meta == nil {
-                // Build flock held by a dead process with torn metadata — still busy.
-                if forClaim.writeScope.needsBuildLane && isLocked(laneKey: laneKey)
-                    && !isHeldLocally(laneKey: laneKey)
-                    && holders.isEmpty
-                {
-                    return unknownTicket(position: position)
+                if isLocked(laneKey: laneKey) && !isHeldLocally(laneKey: laneKey) {
+                    if forClaim.writeScope.needsBuildLane {
+                        return unknownTicket(position: position)
+                    }
+                    let visibleBuild = holders.contains(where: \.needsBuildLane)
+                    if !visibleBuild
+                        && TurnWriteScope.conflicts(forClaim.writeScope, .legacyFullBuild)
+                    {
+                        return unknownTicket(position: position)
+                    }
                 }
                 return nil
             }
@@ -427,6 +567,15 @@ public enum ExecutionLaneFlock {
 
     // MARK: - Cross-process waiters
 
+    /// On-disk waiter record. Embeds owner identity so crashed waiters can be
+    /// filtered out and do not inflate FIFO positions (PO-F9 `#7`).
+    struct WaiterFile: Codable, Equatable {
+        var id: String
+        var kind: String
+        var enqueuedAt: Date
+        var identity: ProcessOwnership.OwnerIdentity?
+    }
+
     /// Register a timestamped waiter file. Returns the file URL (clean on acquire/abandon).
     @discardableResult
     public static func registerWaiter(
@@ -443,12 +592,12 @@ public enum ExecutionLaneFlock {
         let nanos = Int64(enqueuedAt.timeIntervalSince1970 * 1_000_000_000)
         let name = String(format: "%020lld_", nanos) + UUID().uuidString + ".json"
         let url = dir.appendingPathComponent(name)
-        struct WaiterFile: Codable {
-            var id: String
-            var kind: String
-            var enqueuedAt: Date
-        }
-        let body = WaiterFile(id: claim.id, kind: claim.kind, enqueuedAt: enqueuedAt)
+        let body = WaiterFile(
+            id: claim.id,
+            kind: claim.kind,
+            enqueuedAt: enqueuedAt,
+            identity: claim.identity
+        )
         guard let data = try? CoreJSON.encode(body) else { return nil }
         do {
             try data.write(to: url, options: .atomic)
@@ -463,16 +612,17 @@ public enum ExecutionLaneFlock {
         try? FileManager.default.removeItem(at: url)
     }
 
-    /// 1-based rank of `waiterURL` among waiter files sorted by filename (timestamp).
+    /// 1-based rank of `waiterURL` among live waiter files sorted by filename.
     public static func waiterPosition(laneKey: String, waiterURL: URL) -> Int {
         let names = waiterFileNames(laneKey: laneKey)
         guard let idx = names.firstIndex(of: waiterURL.lastPathComponent) else {
-            return max(1, names.count)
+            // Missing file → would-be position among remaining live waiters (PO-F9 `#13`).
+            return max(1, names.count + 1)
         }
         return idx + 1
     }
 
-    /// Count of registered waiter files (best-effort; stale files possible).
+    /// Count of registered live waiter files (best-effort; dead waiters filtered).
     public static func waiterCount(laneKey: String) -> Int {
         waiterFileNames(laneKey: laneKey).count
     }
@@ -492,9 +642,42 @@ public enum ExecutionLaneFlock {
             return []
         }
         return contents
+            .filter { $0.pathExtension == "json" }
+            .filter { url in
+                guard let data = try? Data(contentsOf: url),
+                      let waiter = try? CoreJSON.decode(WaiterFile.self, from: data)
+                else {
+                    // Unreadable / legacy without identity — keep for rank stability.
+                    return true
+                }
+                guard let identity = waiter.identity else { return true }
+                return ProcessOwnership.isIdentityAlive(identity)
+            }
             .map(\.lastPathComponent)
-            .filter { $0.hasSuffix(".json") }
             .sorted()
+    }
+}
+
+// MARK: - Per-lane in-process meta mutex (PO-F9 #2)
+
+/// Recursive per-lane mutex so same-process threads cannot interleave
+/// `holder.json` RMW while still allowing same-thread nested `withMetaLock`.
+/// Cross-process exclusion remains the `meta.lock` flock.
+fileprivate final class MetaLockMutexTable: @unchecked Sendable {
+    static let shared = MetaLockMutexTable()
+
+    private let lock = NSLock()
+    private var mutexes: [String: NSRecursiveLock] = [:]
+
+    private init() {}
+
+    func mutex(for laneKey: String) -> NSRecursiveLock {
+        lock.lock()
+        defer { lock.unlock() }
+        if let existing = mutexes[laneKey] { return existing }
+        let created = NSRecursiveLock()
+        mutexes[laneKey] = created
+        return created
     }
 }
 
@@ -512,6 +695,12 @@ fileprivate final class ProcessLaneFlockTable: @unchecked Sendable {
         var refCount: Int
     }
 
+    enum DetailedAcquire {
+        case acquired(ExecutionLaneFlock.Handle)
+        case busy
+        case unavailable(Int32)
+    }
+
     private let lock = NSLock()
     private var entries: [String: Entry] = [:]
 
@@ -524,7 +713,18 @@ fileprivate final class ProcessLaneFlockTable: @unchecked Sendable {
     }
 
     func tryAcquire(laneKey: String) -> ExecutionLaneFlock.Handle? {
-        tryAcquireFile(tableKey: laneKey, fileURL: ExecutionLaneFlock.lockURL(forLaneKey: laneKey), laneKey: laneKey)
+        switch tryAcquireDetailed(laneKey: laneKey) {
+        case .acquired(let handle): return handle
+        case .busy, .unavailable: return nil
+        }
+    }
+
+    func tryAcquireDetailed(laneKey: String) -> DetailedAcquire {
+        tryAcquireFile(
+            tableKey: laneKey,
+            fileURL: ExecutionLaneFlock.lockURL(forLaneKey: laneKey),
+            laneKey: laneKey
+        )
     }
 
     /// Brief exclusive hold on `meta.lock` (not the build `lane.lock`).
@@ -532,38 +732,53 @@ fileprivate final class ProcessLaneFlockTable: @unchecked Sendable {
         let tableKey = "meta:" + laneKey
         let url = ExecutionLaneFlock.directory(forLaneKey: laneKey)
             .appendingPathComponent(ExecutionLaneFlock.metaLockFileName)
-        return tryAcquireFile(tableKey: tableKey, fileURL: url, laneKey: tableKey)
+        switch tryAcquireFile(tableKey: tableKey, fileURL: url, laneKey: tableKey) {
+        case .acquired(let handle): return handle
+        case .busy, .unavailable: return nil
+        }
     }
 
     private func tryAcquireFile(
         tableKey: String,
         fileURL: URL,
         laneKey handleKey: String
-    ) -> ExecutionLaneFlock.Handle? {
+    ) -> DetailedAcquire {
+        // PO-F9 `#14`: pre-create the directory outside the table NSLock so
+        // mkdir/syscalls do not serialize unrelated lane acquires.
+        let dir = fileURL.deletingLastPathComponent()
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        } catch {
+            return .unavailable(errno)
+        }
+
         lock.lock()
         defer { lock.unlock() }
 
         if var existing = entries[tableKey], existing.refCount > 0 {
             existing.refCount += 1
             entries[tableKey] = existing
-            return ExecutionLaneFlock.Handle(laneKey: handleKey)
+            return .acquired(ExecutionLaneFlock.Handle(laneKey: handleKey))
         }
 
-        let dir = fileURL.deletingLastPathComponent()
-        do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        } catch {
-            return nil
-        }
         let path = fileURL.path
-        let fd = open(path, O_CREAT | O_RDWR, 0o600)
-        guard fd >= 0 else { return nil }
+        // PO-F9 `#1`: O_CLOEXEC so spawned workers do not inherit the flock fd
+        // (parent death must release the lane).
+        let fd = open(path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
+        guard fd >= 0 else {
+            return .unavailable(errno)
+        }
         if flock(fd, LOCK_EX | LOCK_NB) != 0 {
+            let lockErrno = errno
             close(fd)
-            return nil
+            // PO-F9 `#5`: only EWOULDBLOCK/EAGAIN is contention.
+            if lockErrno == EWOULDBLOCK || lockErrno == EAGAIN {
+                return .busy
+            }
+            return .unavailable(lockErrno)
         }
         entries[tableKey] = Entry(fd: fd, refCount: 1)
-        return ExecutionLaneFlock.Handle(laneKey: handleKey)
+        return .acquired(ExecutionLaneFlock.Handle(laneKey: handleKey))
     }
 
     func release(laneKey: String) {
