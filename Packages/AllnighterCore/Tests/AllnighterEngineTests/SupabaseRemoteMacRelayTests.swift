@@ -809,6 +809,32 @@ final class SupabaseRemoteMacRelayTests: XCTestCase {
         XCTAssertTrue(requests.isEmpty)
     }
 
+    /// SR-9 (Sol F21): after a successful backfill the stream opens the realtime subscription
+    /// and runs ONE catch-up backfill, so an event inserted between the first backfill snapshot
+    /// and the subscription becoming active is not lost from both feeds. Here the catch-up
+    /// response carries a "gap" event the first backfill missed; it must still reach the
+    /// consumer (and the shared event is de-duplicated to one).
+    func testRunEventStreamDrainsCatchUpBackfillGapEvent() async throws {
+        let backfillEvt = runEventEnvelope(id: "evt_backfill", seq: 2, macAgentId: "mac_1")
+        let gapEvt = runEventEnvelope(id: "evt_gap", seq: 3, macAgentId: "mac_1")
+        let transport = RecordingSupabaseHTTPTransport(responses: [
+            // First backfill: only the pre-snapshot event.
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([try eventEnvelopeRow(backfillEvt)])),
+            // Catch-up backfill (after the subscription opens): the gap event, plus the shared one.
+            SupabaseHTTPResponse(statusCode: 200, data: try jsonData([
+                try eventEnvelopeRow(backfillEvt), try eventEnvelopeRow(gapEvt),
+            ])),
+        ])
+        let relay = try makeRelay(transport: transport)
+
+        var ids: [String] = []
+        let stream = await relay.runEventStream(accountId: "acct_1", macAgentId: "mac_1", after: 1, limit: 10)
+        for await event in stream { ids.append(event.event.id) }
+
+        XCTAssertEqual(ids.sorted(), ["evt_backfill", "evt_gap"],
+                       "catch-up gap event must reach the consumer; the shared event de-duped to one")
+    }
+
     func testLiveSupabaseRLSIsolatesAccountMacScopesWhenConfigured() async throws {
         let config = try LiveSupabaseRLSConfig.loadOrSkip()
         let accountARelay = try SupabaseRemoteMacRelay(

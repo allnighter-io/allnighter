@@ -390,17 +390,26 @@ public actor SupabaseRemoteMacRelay: RemoteRunEventStreamingRelay {
         do {
             backfill = try await runEvents(accountId: accountId, macAgentId: macAgentId, after: seq, limit: limit)
         } catch {
+            // A failed backfill means no realtime either (auth/network broken) — see
+            // testRunEventStreamDoesNotOpenRealtimeWhenBackfillFails.
             return AsyncStream { continuation in
                 continuation.finish()
             }
         }
+        // SR-9 (Sol F21): open the realtime subscription only after a successful backfill, then
+        // run ONE catch-up backfill so an event inserted between the first backfill snapshot and
+        // the subscription becoming active is not lost from both feeds. Previously the sole
+        // backfill ran before the subscription, so any event in that window was in neither.
+        // The `yieldedIds` dedup below makes the (backfill ∪ catch-up ∪ live) overlap safe.
         let live = realtimeEventSource.stream(accountId: accountId, macAgentId: macAgentId, after: seq)
+        let catchUp: [RemoteRunEventEnvelope] =
+            (try? await runEvents(accountId: accountId, macAgentId: macAgentId, after: seq, limit: limit)) ?? []
         return AsyncStream { continuation in
             Task {
                 var yieldedIds = Set<String>()
                 var yielded = 0
 
-                for envelope in backfill where envelope.event.seq > seq {
+                for envelope in (backfill + catchUp) where envelope.event.seq > seq {
                     guard envelope.macAgentId == macAgentId, yieldedIds.insert(envelope.event.id).inserted else { continue }
                     continuation.yield(envelope)
                     yielded += 1

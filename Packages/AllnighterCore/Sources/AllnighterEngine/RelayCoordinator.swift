@@ -1111,6 +1111,24 @@ public struct RelayCoordinator: Sendable {
     /// path still routes through identity-checked group kill and stamps a
     /// `DevTurnEndReason`. After a delivered turn, the harness runs declared
     /// `proofCommands` and fail-closed write-scope commit-diff enforcement.
+    /// SR-10 (Sol F11): durably stamp the delivered dev run id + resulting HEAD on the last
+    /// round BEFORE the (possibly minutes-long) harness proof phase runs. If the coordinator
+    /// dies during proof, `reconcileOrphan` would otherwise settle the round with
+    /// `devRunId == nil`/`headAfterDev == nil` and lose the range/report linkage to work that
+    /// is ALREADY committed — a resumed/adopted PM could then re-order the completed work.
+    /// Idempotent: only fills fields not yet recorded; `runRound` stamps the final values on
+    /// a clean return.
+    private func persistDeliveredDevRun(relayId: String, runId: String, rootPath: String) {
+        guard var state = stateStore.load(id: relayId), !state.rounds.isEmpty else { return }
+        var round = state.rounds[state.rounds.count - 1]
+        if round.devRunId == nil { round.devRunId = runId }
+        if round.headAfterDev == nil {
+            round.headAfterDev = gitObserver.observe(rootPath: rootPath).head
+        }
+        state.rounds[state.rounds.count - 1] = round
+        try? stateStore.save(state)
+    }
+
     private func dispatchDevTurn(
         _ request: RunRequest,
         config: Config,
@@ -1286,6 +1304,14 @@ public struct RelayCoordinator: Sendable {
             report: String?,
             baseEndReason: DevTurnEndReason
         ) async -> DevTurnDispatch {
+            // SR-10 (Sol F11): make the delivered dev run recoverable across a crash during
+            // the proof phase by persisting its id + resulting HEAD to the round now, before
+            // any (slow) proof commands run.
+            if case .delivered(let deliveredRun, _) = dispatch {
+                persistDeliveredDevRun(
+                    relayId: relayId, runId: deliveredRun.id, rootPath: config.projectRoot
+                )
+            }
             let baseline = deliveryGuard?.baselineHead
             let (resolvedScope, violation) = evaluateWriteScope(
                 report: report, baselineHead: baseline

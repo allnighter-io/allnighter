@@ -345,35 +345,21 @@ enum PilotCLI {
         process.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
         var childArgs = ["pair", "pilot", "handoff", "--relay", relayId]
 
-        if opts.value("verdict") != nil {
-            if let verdict = opts.value("verdict") { childArgs += ["--verdict", verdict] }
-            if let note = opts.value("note") { childArgs += ["--note", note] }
-            if let handoverPath = opts.value("handover-file") {
-                childArgs += ["--handover-file", handoverPath]
-            } else if opts.flag("handover-stdin") {
-                let tempURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("alln-pilot-handoff-\(relayId)-\(UUID().uuidString).md")
-                guard case .success(let extraction) = RelayVerdictParser.extract(from: submission),
-                      let handover = extraction.verdict.handover else {
-                    AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not stage handover-stdin submission")
-                }
-                do {
-                    try handover.write(to: tempURL, atomically: true, encoding: .utf8)
-                } catch {
-                    AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not stage handoff submission: \(error)")
-                }
-                childArgs += ["--handover-file", tempURL.path]
-            }
-        } else {
-            let tempURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("alln-pilot-handoff-\(relayId)-\(UUID().uuidString).md")
-            do {
-                try submission.write(to: tempURL, atomically: true, encoding: .utf8)
-            } catch {
-                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not stage handoff submission: \(error)")
-            }
-            childArgs += ["--file", tempURL.path]
+        // SR-12 (Sol F19): stage the already-read/synthesized submission to an IMMUTABLE temp
+        // file and hand the detached child `--file <temp>`, for every path. Previously the
+        // `--handover-file` branch re-passed the caller's *live* path, so a file overwritten or
+        // deleted after the foreground ack but before the child opened it made the child run
+        // different or empty instructions. `submission` is already the complete markdown (prose
+        // + synthesized RelayVerdict tail), so `--file` reproduces it byte-for-byte — which also
+        // collapses the three divergent staging branches into one.
+        let stagedURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-pilot-handoff-\(relayId)-\(UUID().uuidString).md")
+        do {
+            try submission.write(to: stagedURL, atomically: true, encoding: .utf8)
+        } catch {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not stage handoff submission: \(error)")
         }
+        childArgs += ["--file", stagedURL.path]
 
         if jsonRequested { childArgs.append("--json") }
         process.arguments = childArgs
