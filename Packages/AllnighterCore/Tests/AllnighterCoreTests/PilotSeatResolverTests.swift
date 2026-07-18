@@ -69,6 +69,18 @@ final class PilotSeatResolverTests: XCTestCase {
     /// SR-14 (Sol F28): duplicate probe records for one driver (possible via a hand-edited or
     /// migrated `cli_setup.json`) must degrade gracefully — keep the latest — not trap the
     /// process. Before the fix `Dictionary(uniqueKeysWithValues:)` crashed `pilot start`.
+    /// An exact model id must resolve to itself even when it is a substring of other ids
+    /// that tie/beat it on strengthRank (model_chatgpt vs model_chatgpt_54/_sol).
+    func testExactModelIdResolvesToItselfNotAFuzzyMatch() {
+        let models = [
+            model("model_chatgpt", name: "ChatGPT 5.6 Sol (Codex)"),
+            model("model_chatgpt_54", name: "ChatGPT 5.4"),
+            model("model_chatgpt_sol", name: "ChatGPT 5.6 Sol (Cursor)"),
+        ]
+        XCTAssertEqual(PilotSeatResolver.resolve(alias: "model_chatgpt", models: models), .success("model_chatgpt"))
+        XCTAssertEqual(PilotSeatResolver.resolve(alias: "model_chatgpt_sol", models: models), .success("model_chatgpt_sol"))
+    }
+
     func testReadySeatsWithDuplicateDriverRecordsDoesNotCrash() {
         let models = [model("model_ready", name: "Ready", driver: "claude_code")]
         let records = [

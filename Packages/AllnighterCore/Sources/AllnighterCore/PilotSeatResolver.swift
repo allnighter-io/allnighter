@@ -20,6 +20,13 @@ public enum PilotSeatResolver {
         guard !alias.isEmpty else {
             return .failure(.noMatch(alias: raw, readySeats: readySeats(from: models.filter(\.enabled))))
         }
+        // Exact id or displayName match is unambiguous and wins over fuzzy substring/rank
+        // resolution — a full model id must always resolve to ITSELF even when it is a
+        // substring of other ids (e.g. `model_chatgpt` vs `model_chatgpt_54`/`_sol`, which
+        // otherwise tie on strengthRank and error, or silently resolve to the wrong seat).
+        if let exact = models.first(where: { $0.id.lowercased() == alias || $0.displayName.lowercased() == alias }) {
+            return .success(exact.id)
+        }
         let matches = models.filter { matchesAlias(alias, model: $0) }
         switch matches.count {
         case 0:
