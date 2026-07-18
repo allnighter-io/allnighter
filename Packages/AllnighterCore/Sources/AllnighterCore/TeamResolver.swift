@@ -119,6 +119,18 @@ public enum TeamResolver {
         var disabled: [DisabledRow] = []
         var requiredBlock: String?
 
+        // Cross-row diversity (Law 3, Team_Catalog_Normalization.md): rows that
+        // express NEED via capability tags alone (no `preferredModelId`) spread
+        // across DISTINCT models rather than piling onto the single strongest
+        // match — declaration order gives earlier rows first pick of the
+        // strongest ready capable model, later rows take the next-best distinct
+        // model, and the pool degrades to reuse (never a block) once every
+        // capable model has been claimed. Rows with an explicit preferred
+        // identity are untouched. Shared across the answer + review passes so a
+        // team's whole row list diversifies together, matching the old
+        // hand-rotated arrays this replaces.
+        var diversityUsed: Set<String> = []
+
         func makeWorker(_ model: Model, row: TeamWorkerSpec, skillName: String, stage: WorkerStage) -> Worker {
             let index = nextIndex[model.id, default: 0]
             nextIndex[model.id] = index + 1
@@ -166,12 +178,16 @@ public enum TeamResolver {
                     continue
                 }
 
+                // Only capability-only rows (no named preferred identity) participate
+                // in cross-row diversity — a row with an explicit preferred model
+                // keeps its own resolution untouched.
+                let excludeForDiversity = row.preferredModelId == nil ? diversityUsed : []
                 guard let model = selectModel(
                     preferredModelId: row.preferredModelId,
                     fallbackModelIds: row.fallbackModelIds ?? [], allowedModelIds: row.allowedModelIds,
                     requiredTags: row.requiredCapabilityTags, fallback: row.fallbackPolicy,
                     lane: team.lane, ready: readyModels, capabilities: capabilities,
-                    reserveModelId: reservedWorkerModelId
+                    reserveModelId: reservedWorkerModelId, excludeModelIds: excludeForDiversity
                 ) else {
                     let reason = "no ready model matches \(row.fallbackPolicy.rawValue)"
                         + (row.preferredModelId.map { " (preferred \($0) unavailable)" } ?? "")
@@ -181,6 +197,7 @@ public enum TeamResolver {
                 if let preferred = row.preferredModelId, preferred != model.id {
                     warnings.append("\(skillName): preferred \(preferred) unavailable; resolved to \(model.displayName).")
                 }
+                if row.preferredModelId == nil { diversityUsed.insert(model.id) }
                 for _ in 0..<want { workers.append(makeWorker(model, row: row, skillName: skillName, stage: stage)) }
             }
             return workers
@@ -267,6 +284,10 @@ public enum TeamResolver {
     /// Choose a model for one row: try the preferred, then the declared ordered
     /// cross-source substitutes, then the broad fallback policy. Rank is the final
     /// catch-all for custom models and benches outside the built-in chain.
+    /// `excludeModelIds` is the cross-row diversity set (Law 3) — models already
+    /// claimed by earlier capability-only rows in this team's resolution pass are
+    /// skipped when a distinct capable alternative remains, and reused (never
+    /// blocked) once the capable pool is exhausted.
     static func selectModel(
         preferredModelId: String?,
         fallbackModelIds: [String] = [],
@@ -276,7 +297,8 @@ public enum TeamResolver {
         lane: WorkLane,
         ready: [Model],
         capabilities: (String) -> ModelCapabilities,
-        reserveModelId: String? = nil
+        reserveModelId: String? = nil,
+        excludeModelIds: Set<String> = []
     ) -> Model? {
         let byId = Dictionary(ready.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         func allowed(_ m: Model) -> Bool { allowedModelIds.isEmpty || allowedModelIds.contains(m.id) }
@@ -308,6 +330,14 @@ public enum TeamResolver {
            pool.contains(where: { $0.id != reserved && hasTags($0) }) {
             pool.removeAll { $0.id == reserved }
         }
+        // Cross-row diversity: skip models already claimed by an earlier
+        // capability-only row in this pass, but only when a distinct capable
+        // alternative remains — otherwise keep the pool as-is and degrade to
+        // reuse rather than blocking the row.
+        if !excludeModelIds.isEmpty {
+            let alt = pool.filter { !excludeModelIds.contains($0.id) }
+            if alt.contains(where: hasTags) { pool = alt }
+        }
         // Preferred wins when ready and allowed unless it is the resolved Lead
         // model and an eligible alternative exists.
         if let pref = preferredModelId,
@@ -335,10 +365,13 @@ public enum TeamResolver {
 
     /// Pick up to `count` ready models on **distinct CLI drivers** for triangulation.
     /// Preferred ids (ready + lane-capable) are taken first in order; remaining slots
-    /// fill cheapest-first (lowest strength rank) so strong models are saved for the
-    /// Lead. `reserveModelId` (the Lead's model) is dropped from the pool when
-    /// alternatives exist. Returns distinct-driver models only — fewer than `count`
-    /// when too few drivers are ready (the caller warns; never pads with duplicates).
+    /// fill strongest-first (Law 3: "the shared resolver fills it from the ready
+    /// bench, strongest-first within caliber") so flagship-tier models are recruited
+    /// as workers when ready, never benched — the Lead's own model is reserved
+    /// separately below. `reserveModelId` (the Lead's model) is dropped from the
+    /// pool when alternatives exist. Returns distinct-driver models only — fewer
+    /// than `count` when too few drivers are ready (the caller warns; never pads
+    /// with duplicates).
     static func selectTriangle(
         count: Int,
         preferenceIds: [String],
@@ -373,7 +406,7 @@ public enum TeamResolver {
         }
         let rest = pool.filter { !seen.contains($0.id) }.sorted { a, b in
             let ra = capabilities(a.id).strengthRank, rb = capabilities(b.id).strengthRank
-            return ra != rb ? ra < rb : a.id < b.id
+            return ra != rb ? ra > rb : a.id < b.id
         }
         ordered.append(contentsOf: rest)
 

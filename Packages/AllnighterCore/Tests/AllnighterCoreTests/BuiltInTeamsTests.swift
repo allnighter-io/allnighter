@@ -61,19 +61,13 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(max.scout?.skillId, "spec_outside_scout")
         XCTAssertEqual(max.scout?.preferredModelId, "model_grok")
 
-        XCTAssertEqual(min.workerSpecs.map(\.preferredModelId), [
-            "model_kimi_k3", "model_cursor_grok_45", "model_grok"
-        ])
-        XCTAssertEqual(standard.workerSpecs.map(\.preferredModelId), [
-            "model_chatgpt_sol", "model_kimi_k3", "model_grok",
-            "model_cursor_grok_45", "model_gemini"
-        ])
-        XCTAssertEqual(max.workerSpecs.map(\.preferredModelId), [
-            "model_chatgpt_sol", "model_kimi_k3", "model_cursor_grok_45",
-            "model_chatgpt", "model_grok", "model_cursor_composer_25", "model_gemini"
-        ])
+        // Law 3 (Team_Catalog_Normalization.md): no per-row hardcoded model
+        // identity — rows express NEED (capability), and the shared resolver
+        // fills them from the ready bench. "No exemptions" applies to Spec
+        // Review too, so every row here is capability-only, not a curated
+        // per-team model list.
         XCTAssertTrue([min, standard, max].flatMap(\.workerSpecs).allSatisfy {
-            !($0.fallbackModelIds ?? []).isEmpty
+            $0.preferredModelId == nil && $0.requiredCapabilityTags.contains(.code)
         })
     }
 
@@ -98,15 +92,25 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(r.planWriter?.modelId, "model_fable")
         XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
         let crew = r.answerWorkers + r.reviewWorkers
+        // Law 3: no row pins Sol by identity any more — cross-row diversity
+        // (declaration order + capability + rank) still recruits it exactly
+        // once on a rich bench, never a pile-up, but on whichever row claims
+        // it first rather than a hardcoded skill.
         let solWorkers = crew.filter { $0.modelId == "model_chatgpt_sol" }
         XCTAssertEqual(solWorkers.count, 1, "one strategic Sol worker, not a pile-up")
-        XCTAssertEqual(solWorkers.first?.skillId, "spec_first_principles_reviewer")
         XCTAssertGreaterThan(Set(crew.map(\.modelId)).count, 2, "fan-out should spread across multiple models")
         let composerHits = crew.filter { $0.modelId == "model_cursor_composer_25" }.count
         XCTAssertLessThanOrEqual(composerHits, 1, "Composer at most once in the rotation")
     }
 
-    func testTierOneTeamsCarryOneStrategicSolWorker() {
+    /// Law 3 (Team_Catalog_Normalization.md): the old "strategic seat" rows used
+    /// to pin `model_chatgpt_sol` by identity — a per-team hardcoded model, the
+    /// exact anti-pattern the law forbids. These same rows now carry no
+    /// identity at all: they express capability, and declaration order (this
+    /// row is first among its purpose group) gives them first pick of the
+    /// strongest ready model instead — verified live on a rich bench by
+    /// `testSynthesisTeamsPreferFableLeadAndDiverseWorkersOnFullBench`.
+    func testTierOneTeamsCarryNoHardcodedWorkerIdentity() {
         let tierOne: [String: String] = [
             "code_core": "first_principles_builder",
             "code_bug_hunt_max": "contrarian_root_cause",
@@ -118,7 +122,8 @@ final class BuiltInTeamsTests: XCTestCase {
         ]
         for (teamId, skillId) in tierOne {
             let row = BuiltInTeams.team(teamId)?.workerSpecs.first { $0.skillId == skillId }
-            XCTAssertEqual(row?.preferredModelId, "model_chatgpt_sol", "\(teamId) strategic worker \(skillId)")
+            XCTAssertNil(row?.preferredModelId, "\(teamId) worker \(skillId) should express need, not identity")
+            XCTAssertEqual(row?.requiredCapabilityTags, [.code], "\(teamId) worker \(skillId)")
         }
     }
 
@@ -310,13 +315,17 @@ final class BuiltInTeamsTests: XCTestCase {
 
     // MARK: - Works Test E: preferred Codex unavailable falls back deterministically
 
-    func testRegressionGuardFallsBackWhenPreferredUnavailable() {
+    /// Law 3: `regression_guard` is a capability-only row (no pinned identity),
+    /// so on a single-model bench it just resolves to whatever is ready — no
+    /// "preferred unavailable" substitution to report, only the honest
+    /// self-fusion warning every row on this bench shares.
+    func testRegressionGuardResolvesOnSingleModelBench() {
         let team = BuiltInTeams.team("code_bug_hunt_max")!
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus()])
         let regression = r.answerWorkers.first { $0.skillId == "regression_guard" }
         XCTAssertEqual(regression?.modelId, "model_opus")
-        // Preferred in rotation for that seat may be Composer or another high/mid id.
-        XCTAssertTrue(r.warnings.contains { $0.contains("preferred model_") && $0.contains("unavailable") })
+        XCTAssertNil(regression?.substitutedFromModelId)
+        XCTAssertTrue(r.warnings.contains { $0.contains("Only one ready model") })
     }
 
     // MARK: - Built-in immutability via duplicate-to-customize

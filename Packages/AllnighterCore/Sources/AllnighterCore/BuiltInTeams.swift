@@ -41,37 +41,6 @@ public enum BuiltInTeams {
     /// External / X / web research scout (also high/mid value in rotations).
     private static let grok = "model_grok"
 
-    /// Distinct high + high/mid seats once each — Composer at most once.
-    private static let codeWorkerRotation: [String] = [
-        cursorGrok, kimi, grok, chatgpt, composer, gemini, sonnet
-    ]
-    private static let designWorkerRotation: [String] = [
-        gemini, chatgpt, cursorGrok
-    ]
-    /// Image mockup seats — one finished image per worker; only these three engines generate images.
-    private static let designImageModels: [String] = [gemini, chatgpt, grok]
-
-    private static func designMockupRows(_ specs: [(String, TeamWorkerPurpose)]) -> [TeamWorkerSpec] {
-        specs.enumerated().map { offset, spec in
-            row(spec.0, spec.1,
-                preferred: designImageModels[offset % designImageModels.count],
-                tags: [.image])
-        }
-    }
-    private static let copyWorkerRotation: [String] = [
-        chatgpt, sonnet, kimi, cursorGrok, composer, gemini, grok
-    ]
-
-    /// Growth Panel preference — ONE shared growth-hacker prompt spread across
-    /// DISTINCT models (triangulation), front-loaded by strength + lab diversity so
-    /// even a small `count` spans different labs. `count` is a cap: the row degrades
-    /// below it, dropping seats rather than double-booking or requiring any one
-    /// model. Never benches the best (a flagship is picked when ready), never fails
-    /// (Fable is reserved for the Lead; ≥1 ready model still runs).
-    private static let growthPreference: [String] = [
-        opus, strategicFlagship, grok, gemini, kimi, sonnet, chatgpt, composer, cursorGrok
-    ]
-
     // MARK: - Builders
 
     /// One worker row. Row id defaults to the skill id (unique within a team).
@@ -88,47 +57,26 @@ public enum BuiltInTeams {
                        fallbackPolicy: fallback, required: required)
     }
 
-    /// Complete built-in fallback coverage for answer teams. Role-specific
-    /// priorities come first; remaining built-ins keep a team runnable on a
-    /// different installed CLI. Unknown/custom models remain available through
-    /// the row's broad fallback policy after this list is exhausted.
-    private static func workerFallbacks(
-        preferred: String,
-        priorities: [String]
-    ) -> [String] {
-        let broad = [
-            kimi, cursorGrok, grok, strategicFlagship, opus, chatgpt,
-            leadFlagship, composer, gemini, sonnet, cursorAuto, agyOpus
-        ]
-        var seen = Set([preferred])
-        return (priorities + broad).filter { seen.insert($0).inserted }
-    }
-
-    private static func specRow(
-        _ skillId: String,
-        _ purpose: TeamWorkerPurpose,
-        preferred: String,
-        priorities: [String]
+    /// One worker row expressing NEED, not identity (Law 3,
+    /// Team_Catalog_Normalization.md): no `preferredModelId`, just the
+    /// capability the seat requires. The shared resolver fills it from the
+    /// ready bench — declaration order gives earlier rows in a team's row list
+    /// first pick of the strongest ready capable model (the old "strategic
+    /// seat" judgment now falls out of row order + rank instead of a pinned
+    /// model id), later rows spread to the next distinct capable model
+    /// (cross-row diversity), and the pool degrades to reuse rather than
+    /// blocking once every capable model is claimed.
+    private static func needRow(
+        _ skillId: String, _ purpose: TeamWorkerPurpose,
+        tags: [ModelCapabilityTag], required: Bool = true
     ) -> TeamWorkerSpec {
-        row(skillId, purpose, preferred: preferred,
-            fallbacks: workerFallbacks(preferred: preferred, priorities: priorities))
+        row(skillId, purpose, required: required, tags: tags, fallback: .anyReady)
     }
 
-    /// Spread workers across distinct models — the point of fan-out.
-    /// `strategicSeats` pins high-judgment roles to ChatGPT 5.6 Sol so the crew
-    /// gets flagship reasoning, not only Fable synthesis.
-    private static func diverseRows(
-        _ specs: [(String, TeamWorkerPurpose)],
-        rotation: [String],
-        startIndex: Int = 0,
-        strategicSeats: Set<String> = []
+    private static func needRows(
+        _ specs: [(String, TeamWorkerPurpose)], tags: [ModelCapabilityTag]
     ) -> [TeamWorkerSpec] {
-        specs.enumerated().map { offset, spec in
-            let preferred = strategicSeats.contains(spec.0)
-                ? strategicFlagship
-                : rotation[(startIndex + offset) % rotation.count]
-            return row(spec.0, spec.1, preferred: preferred)
-        }
+        specs.map { needRow($0.0, $0.1, tags: tags) }
     }
 
     /// Fable synthesizes; when Fable is unavailable, **ChatGPT 5.6 Sol is the
@@ -182,15 +130,17 @@ public enum BuiltInTeams {
     static let buildCore = make(
         id: "code_core", name: "Code Core", lane: .code, output: .plan, defaultEffort: .med, isDefault: true,
         description: "Turn a rough product/build prompt into an implementable plan with scope, architecture, risks, and proof.",
-        rows: diverseRows([
+        // first_principles_builder declared first so it claims the strongest ready
+        // model (declaration order + caliber, not a pinned identity — Law 3).
+        rows: needRows([
+            ("first_principles_builder", .answer),
             ("product_architect", .answer),
             ("proof_planner", .answer),
-            ("first_principles_builder", .answer),
             ("code_maintainer", .answer),
             ("scope_steward", .review),
             ("security_privacy_reviewer", .review),
             ("contrarian_reviewer", .review)
-        ], rotation: codeWorkerRotation, strategicSeats: ["first_principles_builder"]),
+        ], tags: [.code]),
         writer: "plan_writer_build",
         starters: ["Turn this rough idea into an implementable plan with scope and proof.",
                    "Plan the smallest correct slice for <feature>."])
@@ -201,12 +151,12 @@ public enum BuiltInTeams {
     static let buildBugHunt = make(
         id: "code_bug_hunt", name: "Bug Hunt", lane: .code, output: .bugPacket, defaultEffort: .high,
         description: "Find the real cause of a bug and plan the smallest correct fix: reproduce, name the truth owner, fix at the right level, prove it.",
-        rows: diverseRows([
+        rows: needRows([
             ("bug_reproducer", .answer),
             ("truth_owner_mapper", .answer),
             ("correct_fix_planner", .answer),
             ("regression_guard", .answer)
-        ], rotation: codeWorkerRotation),
+        ], tags: [.code]),
         writer: "bug_packet_writer",
         starters: ["Find the real cause of <broken behavior> and plan the smallest correct fix."])
 
@@ -219,7 +169,7 @@ public enum BuiltInTeams {
     static let buildBugHuntMax = make(
         id: "code_bug_hunt_max", name: "Bug Hunt Max", lane: .code, output: .bugPacket, defaultEffort: .high,
         description: "Escalation for nasty bugs — seam-crossing, hidden state, and fixes that keep failing. Deeper trace, state, and wrong-level checks.",
-        rows: diverseRows([
+        rows: needRows([
             ("bug_reproducer", .answer),
             ("truth_owner_mapper", .answer),
             ("trace_mapper", .answer),
@@ -228,14 +178,14 @@ public enum BuiltInTeams {
             ("regression_guard", .answer),
             ("contrarian_root_cause", .review),
             ("fix_altitude_reviewer", .review)
-        ], rotation: codeWorkerRotation, strategicSeats: ["contrarian_root_cause"]),
+        ], tags: [.code]),
         writer: "bug_packet_writer",
         starters: ["This bug has resisted earlier fixes — find the real cause and the right-level fix for <broken behavior>."])
 
     static let buildGUIBugHunt = make(
         id: "code_gui_bug_hunt", name: "GUI Bug Hunt", lane: .code, output: .bugPacket, defaultEffort: .high,
         description: "Fix visible native-app breakage with rendered proof, layout-watcher review, and the right truth owner.",
-        rows: diverseRows([
+        rows: needRows([
             ("gui_bug_reproducer", .answer),
             ("gui_proof_guard", .answer),
             ("correct_fix_planner", .answer),
@@ -245,13 +195,13 @@ public enum BuiltInTeams {
             ("change_impact_reviewer", .answer),
             ("gui_layout_reviewer", .review),
             ("contrarian_root_cause", .review)
-        ], rotation: codeWorkerRotation, startIndex: 2, strategicSeats: ["contrarian_root_cause"]),
+        ], tags: [.code]),
         writer: "gui_bug_packet_writer")
 
     static let buildSecurityReview = make(
         id: "code_security_review", name: "Security Review", lane: .code, output: .securityRegister, defaultEffort: .high,
         description: "Evaluate privacy, credentials, permissions, exposure, and destructive operations with small-team shipping judgment.",
-        rows: diverseRows([
+        rows: needRows([
             ("boundary_mapper", .answer),
             ("secrets_reviewer", .answer),
             ("permission_reviewer", .answer),
@@ -259,19 +209,22 @@ public enum BuiltInTeams {
             ("abuse_case_reviewer", .answer),
             ("dependency_injection_reviewer", .review),
             ("security_fix_prioritizer", .review)
-        ], rotation: codeWorkerRotation, strategicSeats: ["security_fix_prioritizer"]),
+        ], tags: [.code]),
         writer: "security_register_writer", dissent: .riskRegister)
 
     // MARK: - Growth (same prompt, diverse models)
 
-    /// Growth Min — three diverse models, no Claude/ChatGPT subscription required.
+    /// Growth Min — up to 4 diverse models, no per-team model list: triangulation
+    /// fills from the ready bench strongest-first (Law 3), reserving the Lead's
+    /// model, so it stays useful with no Claude/ChatGPT subscription required.
     static let buildGrowthMin = make(
         id: "code_growth_min", name: "Growth Min", lane: .code,
         output: .plan, defaultEffort: .high,
         description: "Fast growth read: up to 4 diverse models (a flagship when you have one) hunt the wedge that makes X builders love it — kept simple and on-core. Runs on whatever's ready; drops a seat rather than doubling up.",
         rows: [
             TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
-                           count: 4, triangulate: true, triangulatePreferenceIds: growthPreference)
+                           requiredCapabilityTags: [.code],
+                           count: 4, triangulate: true)
         ],
         writer: "growth_writer",
         typeTags: ["growth", "min"],
@@ -279,17 +232,20 @@ public enum BuiltInTeams {
             "Growth: how do we make X builders LOVE this and spread it, kept simple and on-core? Find the wedge, the shareable artifact, and the simplest lovable version."]
     )
 
-    /// Growth — the everyday default. Four genuinely different frontier models
+    /// Growth — the everyday default. Up to 6 genuinely different frontier models
     /// on ONE shared growth-hacker prompt (the diversity is the model, not the lens);
     /// a first-principles synthesizer that hunts the BEST idea — outlier or consensus —
-    /// and never rewards agreement for its own sake.
+    /// and never rewards agreement for its own sake. Triangulation fills strongest-
+    /// first from the ready bench (Law 3) — no per-team model list, so flagships are
+    /// recruited as workers automatically whenever they're ready.
     static let buildGrowth = make(
         id: "code_growth", name: "Growth", lane: .code,
         output: .plan, defaultEffort: .high,
         description: "Make X builders and influencers LOVE a feature: up to 6 diverse models — flagships recruited as workers when ready (never benched for the Lead) — swing big on the same growth question; Fable synthesizes and picks the highest-leverage wedge that stays on-core and simple, valuing the breakout outlier over safe consensus. Runs on whatever's ready; drops a seat rather than doubling up.",
         rows: [
             TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
-                           count: 6, triangulate: true, triangulatePreferenceIds: growthPreference)
+                           requiredCapabilityTags: [.code],
+                           count: 6, triangulate: true)
         ],
         writer: "growth_writer",
         typeTags: ["growth"],
@@ -298,18 +254,20 @@ public enum BuiltInTeams {
             "Review docs/phases/<Feature>.md with Growth: the loved wedge, the viral loop, the simplest lovable version, and the breakout bet."]
     )
 
-    /// Growth Max — the four-model roster plus an X/web research scout that reads
-    /// what is actually spreading in the category right now, so the ideas are grounded
-    /// in live signal, not vibes.
+    /// Growth Max — the same triangulated roster plus an X/web research scout that
+    /// reads what is actually spreading in the category right now, so the ideas are
+    /// grounded in live signal, not vibes. Grok is preferred for the scout seat on a
+    /// structural fact (it is the web-aware CLI, same reasoning as the Signal scout),
+    /// not a per-team preference list — it still degrades to any lane-capable model.
     static let buildGrowthMax = make(
         id: "code_growth_max", name: "Growth Max", lane: .code,
         output: .plan, defaultEffort: .high,
         description: "Deep growth read: an X/web signal scout on what is spreading now, then up to 8 diverse models on the wedge — every flagship and idle model recruited when ready (Sol, ChatGPT 5.6, Opus, Sonnet, Composer…) — and a synthesizer that prizes the breakout outlier over safe consensus. Drops a seat rather than doubling up.",
-        scout: specRow("signal_source_reader", .answer, preferred: grok,
-                       priorities: [cursorGrok, kimi, gemini, chatgpt]),
+        scout: row("signal_source_reader", .answer, preferred: grok, fallback: .laneCapable),
         rows: [
             TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
-                           count: 8, triangulate: true, triangulatePreferenceIds: growthPreference)
+                           requiredCapabilityTags: [.code],
+                           count: 8, triangulate: true)
         ],
         writer: "growth_writer",
         typeTags: ["growth", "max"],
@@ -317,52 +275,39 @@ public enum BuiltInTeams {
             "Growth Max: scout what is spreading in the category on X now, then find the wedge that makes builders LOVE this and the shareable viral loop — kept simple and on-core."]
     )
 
-    /// Spec Review Min — the smallest useful cross-CLI panel. Its three workers
-    /// prefer Kimi, Cursor, and Grok, so no Claude/Codex subscription is required.
+    /// Spec Review Min — the smallest useful cross-CLI panel. Rows express NEED
+    /// (capability), not identity, so it stays useful without Claude or ChatGPT —
+    /// the resolver spreads distinct models across the three lenses itself (Law 3;
+    /// no exemption for locked families).
     static let buildSpecReviewMin = make(
         id: "code_spec_review_min", name: "Spec Review Min", lane: .code,
         output: .specReview, defaultEffort: .high,
         description: "A lean spec check with first-principles, proof, and scope coverage. Built to stay useful without Claude or ChatGPT.",
-        rows: [
-            specRow(
-                "spec_first_principles_reviewer", .answer, preferred: kimi,
-                priorities: [cursorGrok, grok, strategicFlagship, opus, chatgpt, leadFlagship, composer, gemini, sonnet]),
-            specRow(
-                "spec_proof_planner", .answer, preferred: cursorGrok,
-                priorities: [grok, kimi, composer, chatgpt, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
-            specRow(
-                "spec_scope_steward", .answer, preferred: grok,
-                priorities: [kimi, cursorGrok, gemini, composer, chatgpt, strategicFlagship, opus, leadFlagship, sonnet])
-        ],
+        rows: needRows([
+            ("spec_first_principles_reviewer", .answer),
+            ("spec_proof_planner", .answer),
+            ("spec_scope_steward", .answer)
+        ], tags: [.code]),
         writer: "spec_review_writer", dissent: .compareOptions,
         typeTags: ["spec-review", "min"],
         starters: [
             "Run a lean Spec Review: challenge the premise, cut scope, and make the proof concrete. Review only — do not edit the doc."]
     )
 
-    /// Spec Review — the everyday default. Five independent lenses span Cursor,
-    /// Kimi, Grok, and Antigravity before any fallback is needed.
+    /// Spec Review — the everyday default. Five independent lenses; declaration
+    /// order gives the first-principles lens first pick of the strongest ready
+    /// model (the old Sol pin, now expressed as caliber + order, not identity).
     static let buildSpecReview = make(
         id: "code_spec_review", name: "Spec Review", lane: .code,
         output: .specReview, defaultEffort: .high,
         description: "Harden a feature or phase spec before you build: challenge the premise, audit the contract, make proof concrete, and reject noise — review only.",
-        rows: [
-            specRow(
-                "spec_first_principles_reviewer", .answer, preferred: strategicFlagship,
-                priorities: [opus, leadFlagship, kimi, cursorGrok, grok, chatgpt, composer, gemini, sonnet]),
-            specRow(
-                "spec_doc_hygiene_reviewer", .answer, preferred: kimi,
-                priorities: [cursorGrok, grok, composer, chatgpt, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
-            specRow(
-                "spec_contract_auditor", .answer, preferred: grok,
-                priorities: [cursorGrok, kimi, chatgpt, composer, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
-            specRow(
-                "spec_proof_planner", .answer, preferred: cursorGrok,
-                priorities: [grok, kimi, composer, chatgpt, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
-            specRow(
-                "spec_contrarian_reviewer", .review, preferred: gemini,
-                priorities: [grok, kimi, cursorGrok, composer, chatgpt, strategicFlagship, opus, leadFlagship, sonnet])
-        ],
+        rows: needRows([
+            ("spec_first_principles_reviewer", .answer),
+            ("spec_doc_hygiene_reviewer", .answer),
+            ("spec_contract_auditor", .answer),
+            ("spec_proof_planner", .answer),
+            ("spec_contrarian_reviewer", .review)
+        ], tags: [.code]),
         writer: "spec_review_writer", dissent: .compareOptions,
         typeTags: ["spec-review"],
         starters: [
@@ -370,38 +315,22 @@ public enum BuiltInTeams {
             "Harden docs/phases/<Spec>.md: premise, agent routing, contract, proof, and what to cut."]
     )
 
-    /// Spec Review Max — the full launch/hard-case panel. The current full roster
-    /// moved here; each lens gets its own preferred model and broad cross-CLI chain.
+    /// Spec Review Max — the full launch/hard-case panel: seven blind lenses spanning
+    /// premise, operations, contract, proof, scope, simplicity, and a rival approach.
     static let buildSpecReviewMax = make(
         id: "code_spec_review_max", name: "Spec Review Max", lane: .code,
         output: .specReview, defaultEffort: .high,
         description: "Full-depth review for launch and hard specs: outside research plus seven blind lenses spanning premise, operations, contract, proof, scope, simplicity, and a rival approach.",
-        scout: specRow(
-            "spec_outside_scout", .answer, preferred: grok,
-            priorities: [cursorGrok, kimi, strategicFlagship, chatgpt, opus, leadFlagship, gemini, composer, sonnet]),
-        rows: [
-            specRow(
-                "spec_first_principles_reviewer", .answer, preferred: strategicFlagship,
-                priorities: [opus, leadFlagship, kimi, cursorGrok, grok, chatgpt, composer, gemini, sonnet]),
-            specRow(
-                "spec_doc_hygiene_reviewer", .answer, preferred: kimi,
-                priorities: [cursorGrok, grok, composer, chatgpt, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
-            specRow(
-                "spec_contract_auditor", .answer, preferred: cursorGrok,
-                priorities: [grok, kimi, chatgpt, composer, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
-            specRow(
-                "spec_proof_planner", .answer, preferred: chatgpt,
-                priorities: [cursorGrok, kimi, grok, composer, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
-            specRow(
-                "spec_scope_steward", .answer, preferred: grok,
-                priorities: [kimi, cursorGrok, gemini, composer, chatgpt, strategicFlagship, opus, leadFlagship, sonnet]),
-            specRow(
-                "spec_hype_skeptic", .review, preferred: composer,
-                priorities: [grok, kimi, cursorGrok, gemini, chatgpt, strategicFlagship, opus, leadFlagship, sonnet]),
-            specRow(
-                "spec_contrarian_reviewer", .review, preferred: gemini,
-                priorities: [grok, kimi, cursorGrok, composer, chatgpt, strategicFlagship, opus, leadFlagship, sonnet])
-        ],
+        scout: row("spec_outside_scout", .answer, preferred: grok, fallback: .laneCapable),
+        rows: needRows([
+            ("spec_first_principles_reviewer", .answer),
+            ("spec_doc_hygiene_reviewer", .answer),
+            ("spec_contract_auditor", .answer),
+            ("spec_proof_planner", .answer),
+            ("spec_scope_steward", .answer),
+            ("spec_hype_skeptic", .review),
+            ("spec_contrarian_reviewer", .review)
+        ], tags: [.code]),
         writer: "spec_review_writer", dissent: .compareOptions,
         typeTags: ["launch", "spec-review", "max"],
         starters: [
@@ -412,14 +341,15 @@ public enum BuiltInTeams {
     static let buildReleaseProof = make(
         id: "code_release_proof", name: "Release Proof", lane: .code, output: .proofPacket, defaultEffort: .high,
         description: "Before a slice closes, prove that the owner-visible claim is actually true.",
-        rows: diverseRows([
+        // acceptance_auditor declared first so it claims the strongest ready model.
+        rows: needRows([
             ("acceptance_auditor", .answer),
             ("test_runner_planner", .answer),
             ("risk_register", .review),
             ("edge_case_hunter", .answer),
             ("contract_drift_checker", .answer),
             ("demo_narrator", .review)
-        ], rotation: codeWorkerRotation, startIndex: 3, strategicSeats: ["acceptance_auditor"]),
+        ], tags: [.code]),
         writer: "proof_packet_writer", dissent: .riskRegister,
         starters: ["Prove this slice is actually done before I believe it."])
 
@@ -456,55 +386,60 @@ public enum BuiltInTeams {
 
     // MARK: - Design teams
 
+    // Design has two seat kinds (Team_Catalog_Normalization.md): `.image` seats
+    // actually generate a mockup image (only image engines qualify — Gemini,
+    // Codex, Grok); `.design` seats are reasoning/critique/direction and a text
+    // model can hold them (Kimi K3, Sol, Fable, Grok, Gemini, Codex).
+
     static let designCore = make(
         id: "design_core", name: "Design Core", lane: .design, output: .designBoard, defaultEffort: .med, isDefault: true,
         description: "Turn a product/design prompt into three credible interface mockups, then make the tradeoffs visible.",
-        rows: designMockupRows([
+        rows: needRows([
             ("information_architect", .answer),
             ("interaction_designer", .answer),
             ("visual_system_designer", .answer),
-        ]),
+        ], tags: [.image]),
         writer: "design_board_writer", dissent: .compareOptions)
 
     static let designPremiumPolish = make(
         id: "design_premium_polish", name: "Premium Polish", lane: .design, output: .polishBoard, defaultEffort: .high,
         description: "Make an existing surface feel expensive, intentional, and native without changing its product semantics.",
-        rows: diverseRows([
+        rows: needRows([
             ("hierarchy_sculptor", .answer),
             ("type_spacing_auditor", .answer),
             ("polish_critic", .review)
-        ], rotation: designWorkerRotation),
+        ], tags: [.design]),
         writer: "polish_board_writer",
         starters: ["Give me two more polished versions of <screen> — calmer, more intentional, native."])
 
     static let designConversionStudio = make(
         id: "design_conversion_studio", name: "Conversion Studio", lane: .design, output: .designBoard, defaultEffort: .high,
         description: "Improve a product/marketing surface so users understand the offer, trust it, and know what to do next.",
-        rows: designMockupRows([
+        rows: needRows([
             ("offer_clarity", .answer),
             ("cta_path", .answer),
             ("trust_builder", .answer),
-        ]),
+        ], tags: [.image]),
         writer: "conversion_board_writer")
 
     static let designRadicalDirections = make(
         id: "design_radical_directions", name: "Radical Directions", lane: .design, output: .designBoard, defaultEffort: .med,
         description: "Generate three genuinely different design directions before the team converges too early.",
-        rows: designMockupRows([
+        rows: needRows([
             ("minimal_direction", .answer),
             ("bold_direction", .answer),
             ("editorial_direction", .answer),
-        ]),
+        ], tags: [.image]),
         writer: "direction_board_writer", dissent: .compareOptions)
 
     static let designUsabilityTriage = make(
         id: "design_usability_triage", name: "Usability Triage", lane: .design, output: .polishBoard, defaultEffort: .med,
         description: "Find why a surface feels confusing, slow, risky, or hard to repeat.",
-        rows: diverseRows([
+        rows: needRows([
             ("journey_mapper", .answer),
             ("control_ergonomics", .answer),
             ("cognitive_load_cutter", .review)
-        ], rotation: designWorkerRotation, startIndex: 1),
+        ], tags: [.design]),
         writer: "usability_triage_writer")
 
     // MARK: - Copy teams (parity; full type packs owned by docs/phases/copy)
@@ -512,7 +447,7 @@ public enum BuiltInTeams {
     static let copyCore = make(
         id: "copy_core", name: "Copy Core", lane: .copy, output: .copyBoard, defaultEffort: .med, isDefault: true,
         description: "Turn a copy prompt into clear, persuasive options grounded in the real offer.",
-        rows: diverseRows([
+        rows: needRows([
             ("offer_strategist", .answer),
             ("headline_writer", .answer),
             ("direct_response_writer", .answer),
@@ -520,14 +455,14 @@ public enum BuiltInTeams {
             ("cta_writer", .answer),
             ("proof_skeptic", .review),
             ("brand_voice", .review)
-        ], rotation: copyWorkerRotation),
+        ], tags: [.copy]),
         writer: "copy_board_writer",
         starters: ["Write clearer, more persuasive options for <copy>."])
 
     static let copyLandingPage = make(
         id: "copy_landing_page", name: "Landing Page Team", lane: .copy, output: .copyBoard, defaultEffort: .high,
         description: "Rewrite a landing page so the offer is clear, trusted, and converts.",
-        rows: diverseRows([
+        rows: needRows([
             ("offer_strategist", .answer),
             ("headline_writer", .answer),
             ("cta_writer", .answer),
@@ -535,7 +470,7 @@ public enum BuiltInTeams {
             ("objection_hunter", .answer),
             ("proof_skeptic", .review),
             ("brand_voice", .review)
-        ], rotation: copyWorkerRotation, startIndex: 2),
+        ], tags: [.copy]),
         writer: "landing_copy_writer", typeTags: ["landing-page"])
 
     // MARK: - Signal teams (the outside-world scout craft)
