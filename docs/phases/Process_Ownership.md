@@ -200,11 +200,15 @@ The law creates a registry as a side effect (every run/turn dir holds an
 identity, a pgid, a heartbeat). Expose it, or agents reimplement `ps` and
 invent competing cleanup:
 
-- `alln ps --json` — every process tree Allnighter owns: id, kind
-  (run/relay/pilot/proof), root, identity, lane state, heartbeat/progress
+- `alln ps [--all-projects] --json` — the process trees Allnighter owns: id,
+  kind (run/relay/pilot/proof), root, identity, lane state, heartbeat/progress
   age. Reconciles read-only (reports what *would* be reaped; kills nothing).
-- `alln kill <id> | --all` — the big red button: total group kill + terminal
-  `endReason: killed`. What makes overnight trust real: see everything, stop
+  Defaults to the caller's project scope (Concurrent Invocation Isolation
+  F1); `--all-projects` is the explicit machine-wide fleet view.
+- `alln kill <id> | --all [--all-projects]` — the big red button: total group
+  kill + terminal `endReason: killed`. An exact id may target any project;
+  `--all` is scoped to the caller's project root, `--all-projects` makes it
+  machine-wide. What makes overnight trust real: see everything, stop
   everything, one command.
 - `alln ps --json` is the **oracle for the works tests above** ("group
   empty", "zero orphans in the morning") — machine-checkable, not
