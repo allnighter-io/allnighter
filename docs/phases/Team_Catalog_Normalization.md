@@ -180,18 +180,23 @@ Design has two seat kinds, and conflating them is a bug:
 - **`image` capability** = actually *generates* a mockup image. Only image
   engines (Gemini, ChatGPT/Codex, Grok — per the generated-image harvest) qualify.
 
-Decision (founder note): **Kimi K3 and ChatGPT 5.6 Sol are great designers** —
-they get the **`design`** capability (reasoning/critique/direction seats), NOT
-`image`. Concretely in `ModelCatalog.builtInCapabilities`: K3 gains the `.design`
-laneTag **and** `.design` capabilityTag; Sol (and its Codex twin) gain the
-`.design` capabilityTag. Because staffing is capability-driven, that one metadata
-edit puts them on every design team's reasoning seats — no per-team edits.
+Decision (founder note): **Kimi K3, ChatGPT 5.6 Sol, and Fable are great
+designers** — they get the **`design`** capability (reasoning/critique/direction
+seats), NOT `image`. Concretely in `ModelCatalog.builtInCapabilities`: K3 gains
+the `.design` laneTag **and** `.design` capabilityTag; Sol (and its Codex twin)
+gain the `.design` capabilityTag; **Fable** gains the `.design` capabilityTag
+(it already has the `.design` laneTag). Fable is often unavailable/reserved, but
+when it is ready it should be *eligible* to be staffed on design work (its
+Lead-only worker reservation is unchanged — this only makes it design-eligible).
+Because staffing is capability-driven, those one-line metadata edits put them on
+every design team with no per-team edits. **These are just the defaults — users
+can always create/edit their own teams and settings.**
 
 ## Slices
 
 | Slice | Deliverable |
 | --- | --- |
-| CN-S05 | **Staffing by caliber (do first — lowest risk, immediate value).** (a) Metadata: add `design` to Kimi K3 (`.design` laneTag + capabilityTag), Sol, and Codex; add `image` to Codex + Grok so image seats resolve by capability; Gemini already carries both. (b) Re-author every team's rows to require capability + triangulate + caliber, and delete the hardcoded model arrays. (c) Graceful degradation verified with a reduced bench. Build + `BuiltInTeamsTests`/`PanelTeamResolverTests`/`TeamCatalogTests` green. **Independent of the rename/tier slices** — lands on the current team ids. |
+| CN-S05 | **Staffing by caliber (do first — lowest risk, immediate value).** (a) Metadata: add `design` to Kimi K3 (`.design` laneTag + capabilityTag), Sol, Codex, and Fable (capabilityTag); add `image` to Codex + Grok so image seats resolve by capability; Gemini already carries both. (b) Re-author every team's rows to require capability + triangulate + caliber, and delete the hardcoded model arrays. (c) Graceful degradation verified with a reduced bench. Build + `BuiltInTeamsTests`/`PanelTeamResolverTests`/`TeamCatalogTests` green. **Independent of the rename/tier slices** — lands on the current team ids. |
 | CN-S01 | Rename pass — Code Core→Plan, Execution Playbook→Build a Slice, Premium Polish→Polish, Usability Triage→Usability Review, Design Core→Design, Post-to-Project Signal→Outside Signal, "What should we build next?"→What to Build Next. Names + `id`s + `typeTags` + intent-phrase `description`s. |
 | CN-S02 | Tier completion — add **Bug Hunt Min**; fold **Radical Directions** into **Design Max**; confirm Spec Review + Growth unchanged. Every tiered family Min/Default/Max complete. |
 | CN-S03 | Merges/drops — retire **Conversion Studio**, route its intent to Copy Landing. |
