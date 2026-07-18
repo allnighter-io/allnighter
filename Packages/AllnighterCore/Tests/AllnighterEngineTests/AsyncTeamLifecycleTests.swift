@@ -417,4 +417,29 @@ final class IdempotencyTests: XCTestCase {
             _ = await service.cancel(runId: "run-idem-2")
         }
     }
+
+    /// F5 (Concurrent Invocation Isolation): `record()` used to be an unlocked
+    /// load → mutate → save RMW — concurrent callers lost-updated the shared
+    /// file. Under the per-file flock, every concurrent record survives.
+    func testConcurrentRecordsDoNotLoseEntries() throws {
+        let root = AsyncTeamTestHarness.tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = IdempotencyStore(fileURL: root.appendingPathComponent("idempotency.json"))
+        let payload = AsyncTeamCanonicalPayload(from: AsyncTeamTestHarness.startRequest("concurrent"))
+        let count = 32
+        let failures = NSMutableArray()
+        DispatchQueue.concurrentPerform(iterations: count) { i in
+            do {
+                _ = try store.record(key: "key-\(i)", payload: payload, runId: "run-\(i)")
+            } catch {
+                failures.add(error)
+            }
+        }
+        XCTAssertEqual(failures.count, 0, "record must not fail under concurrency: \(failures)")
+        let text = String(decoding: try Data(contentsOf: store.fileURL), as: UTF8.self)
+        for i in 0..<count {
+            XCTAssertTrue(text.contains("key-\(i)"), "lost update dropped key-\(i)")
+        }
+        XCTAssertEqual(store.lookup(key: "key-7")?.runId, "run-7")
+    }
 }

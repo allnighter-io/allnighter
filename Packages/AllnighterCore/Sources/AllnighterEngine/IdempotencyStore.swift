@@ -30,14 +30,19 @@ public struct IdempotencyStore: Sendable {
 
     @discardableResult
     public func record(key: String, payload: AsyncTeamCanonicalPayload, runId: String, now: Date = Date()) throws -> Entry {
-        var file = load()
-        pruneEntries(&file.entries, now: now)
-        let digest = Self.digest(payload)
-        let entry = Entry(key: key, payloadDigest: digest, runId: runId, acceptedAt: now)
-        file.entries.removeAll { $0.key == key }
-        file.entries.append(entry)
-        try save(file)
-        return entry
+        // F5 (Concurrent Invocation Isolation): the load → mutate → save RMW
+        // runs under the per-file flock — concurrent callers used to
+        // lost-update the shared file.
+        try withLock {
+            var file = load()
+            pruneEntries(&file.entries, now: now)
+            let digest = Self.digest(payload)
+            let entry = Entry(key: key, payloadDigest: digest, runId: runId, acceptedAt: now)
+            file.entries.removeAll { $0.key == key }
+            file.entries.append(entry)
+            try save(file)
+            return entry
+        }
     }
 
     public static func digest(_ payload: AsyncTeamCanonicalPayload) -> String {
@@ -56,15 +61,31 @@ public struct IdempotencyStore: Sendable {
 
     private func save(_ file: File) throws {
         try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try CoreJSON.encode(file).write(to: fileURL)
+        try CoreJSON.encode(file).write(to: fileURL, options: .atomic)
     }
 
     private func prune(now: Date) {
-        var file = load()
-        let before = file.entries.count
-        pruneEntries(&file.entries, now: now)
-        guard file.entries.count != before else { return }
-        try? save(file)
+        withLock {
+            var file = load()
+            let before = file.entries.count
+            pruneEntries(&file.entries, now: now)
+            guard file.entries.count != before else { return }
+            try? save(file)
+        }
+    }
+
+    /// Per-file flock serializing the load → mutate → save RMW across
+    /// concurrent callers (F5). Mirrors `ProcessOwnership.withRunLock`: a
+    /// lock-open failure degrades to the prior unlocked behavior rather than
+    /// refusing the write.
+    private func withLock<T>(_ body: () throws -> T) rethrows -> T {
+        try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let fd = open(fileURL.appendingPathExtension("lock").path, O_CREAT | O_RDWR, 0o600)
+        guard fd >= 0 else { return try body() }
+        defer { close(fd) }
+        _ = flock(fd, LOCK_EX)
+        defer { _ = flock(fd, LOCK_UN) }
+        return try body()
     }
 
     private func pruneEntries(_ entries: inout [Entry], now: Date) {
