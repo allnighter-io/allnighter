@@ -3625,6 +3625,15 @@
       "ruleId" : "contract.drift"
     },
     {
+      "agentAction" : "Run `alln dev export-contracts` from inside the repo (repo root or a subdirectory).",
+      "code" : "CONTRACT_ARTIFACTS_NOT_FOUND",
+      "exitClass" : "operational",
+      "explain" : "The repo root, the generated artifacts dir, or an individual artifact file could not be found. This is not content drift — it means the artifacts were never generated at the resolved location, or the command ran outside the repo.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "contract.artifacts.not_found"
+    },
+    {
       "agentAction" : "Use one of flagship | balanced | fast.",
       "code" : "DEFAULTS_TIER_INVALID",
       "exitClass" : "usage",

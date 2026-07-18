@@ -548,37 +548,46 @@ struct AllnighterCLI {
     }
 
     static func runExportContracts(_ opts: Options) {
-        let artifacts: [ContractExport.Artifact]
-        do { artifacts = try ContractExport.artifacts() }
-        catch {
-            FileHandle.standardError.write(Data("export failed: \(error)\n".utf8)); exit(1)
-        }
-        let baseURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent(ContractExport.generatedDir)
-
+        let cwd = FileManager.default.currentDirectoryPath
         if opts.flag("check") {
-            var drifted: [String] = []
-            for a in artifacts {
-                let onDisk = try? String(contentsOf: baseURL.appendingPathComponent(a.filename), encoding: .utf8)
-                if onDisk != a.contents { drifted.append(a.filename) }
-            }
-            if drifted.isEmpty {
-                print("contracts up to date (\(artifacts.count) artifacts)")
-            } else {
-                FileHandle.standardError.write(Data("CONTRACT_DRIFT: \(drifted.joined(separator: ", "))\nRun `alln dev export-contracts`, then rebuild.\n".utf8))
-                exit(1)
+            do {
+                switch try ContractExport.check(from: cwd) {
+                case .upToDate(let count):
+                    print("contracts up to date (\(count) artifacts)")
+                case .drifted(let files):
+                    FileHandle.standardError.write(Data("CONTRACT_DRIFT: \(files.joined(separator: ", "))\nRun `alln dev export-contracts`, then rebuild.\n".utf8))
+                    exit(ContractRegistry.milestone1.processExitCode(forErrorCode: "CONTRACT_DRIFT"))
+                }
+            } catch let notFound as ContractExport.NotFoundError {
+                failContractsNotFound(notFound)
+            } catch {
+                FileHandle.standardError.write(Data("export failed: \(error)\n".utf8)); exit(1)
             }
         } else {
             do {
-                try FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
-                for a in artifacts {
-                    try a.contents.write(to: baseURL.appendingPathComponent(a.filename), atomically: true, encoding: .utf8)
-                }
-                print("wrote \(artifacts.count) artifacts to \(ContractExport.generatedDir)/")
+                let result = try ContractExport.write(from: cwd)
+                print("wrote \(result.count) artifacts to \(result.path)")
+            } catch let notFound as ContractExport.NotFoundError {
+                failContractsNotFound(notFound)
             } catch {
                 FileHandle.standardError.write(Data("write failed: \(error)\n".utf8)); exit(1)
             }
         }
+    }
+
+    /// Emits `CONTRACT_ARTIFACTS_NOT_FOUND` — distinct from `CONTRACT_DRIFT` — for
+    /// an unresolved repo root or a missing generated dir/artifact (PO-F6).
+    static func failContractsNotFound(_ error: ContractExport.NotFoundError) -> Never {
+        let message: String
+        switch error {
+        case .repoRootNotFound(let cwd):
+            message = "could not find the repo root ascending from \(cwd) (looked for docs/generated/alln or .git); re-run from inside the repo."
+        case .generatedDirMissing(let path):
+            message = "\(path) does not exist yet; this is not content drift — run `alln dev export-contracts` to create it."
+        case .artifactsMissing(let path, let filenames):
+            message = "missing artifact file(s) under \(path): \(filenames.joined(separator: ", ")); this is not content drift — run `alln dev export-contracts` to (re)create them."
+        }
+        fail(code: "CONTRACT_ARTIFACTS_NOT_FOUND", message: message)
     }
 
     // MARK: - team show / docs / show / export / doctor explain
