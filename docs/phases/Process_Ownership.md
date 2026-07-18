@@ -456,6 +456,20 @@ isolation).
   pilot with an unresolvable `--dev-worker` escalates with the typed reason, not
   a stall. Implementer: TBD (Cursor Grok / Sonnet).
 
+- **PO-F11 — Sol review hardening (ChatGPT 5.6 Sol adversarial review, verified
+  2026-07-18).** An unbiased `alln run --worker model_chatgpt_sol` review of the
+  whole pilot/relay/lane/handover subsystem (21 files) surfaced 28 findings;
+  five adversarial verifier agents checked each against the real code (and against
+  F9/F10). 26/28 point at real code — 1 false positive (`TurnOwnerDirectory.shared`
+  is per-process), 1 non-bug stub (`publishMedia` R2 plane unwired). 15 verified
+  worth-fixing (SR-1..SR-15), 8 marginal, 3 real-but-not-worth. Highest value:
+  SR-3 (kind-chain reentry grants build access without owning the flock — the one
+  same-process route to two builders), SR-1/SR-2 (HandoverGate `"without"` cue and
+  `rm -rf` first-target-only bypasses), SR-11 (ThreadFlockLock missing `O_CLOEXEC`
+  — the O_CLOEXEC class in the one flock file F9 didn't touch), SR-4 (honest errno
+  exists at the flock layer post-F9 but isn't wired into the registry). Full
+  verified ledger + fix IDs: [Sol_Review_Hardening.md](Sol_Review_Hardening.md).
+
 ## v2 review ledger (2026-07-17)
 
 Accepted from mentors: owner identity record incl. start time (pid reuse =
