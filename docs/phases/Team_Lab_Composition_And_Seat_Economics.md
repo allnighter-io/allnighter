@@ -290,8 +290,15 @@ No **REMOVE** from prompt-tuning suite evidence.
 > [`Team_Depth_Naming.md`](Team_Depth_Naming.md) — **Min / (bare name) / Max**.
 > Historical rename record only: old Lite roster → bare default "Bug Hunt"
 > (`code_bug_hunt`); old Forensics roster → "Bug Hunt Max" (`code_bug_hunt_max`).
-> Nothing may ship "default → Min." Min exists only where Team Lab proves it
-> and is always an explicit user choice.
+> Nothing may ship "default → Min." **Min is always an explicit user choice.**
+
+> **Shipped Spec Review depth family (2026-07-18, founder):** Lab does **not**
+> invent or delete these product teams. `code_spec_review_min` / `code_spec_review`
+> / `code_spec_review_max` already ship in `BuiltInTeams.swift` with cross-CLI
+> ordered fallbacks. Team Lab's job for Spec Review is to **validate and tune**
+> those curated rosters (necessity / forward selection / overlays), never to
+> treat Min as "blocked until Lab invents it" or to collapse Max back into the
+> bare default. Canonical staffing + fallback law: `Team_Depth_Naming.md`.
 
 **Team shape is a named Team, not a generic depth dial** (`Team_And_Skill_Catalogs.md`,
 `Language_Cutover.md`). `ALLNIGHTER_TEAM_DEPTH` / effort gating of worker rows is
@@ -302,15 +309,21 @@ not Low/Med/High toggles.
 | --- | --- | --- |
 | `code_bug_hunt` | Reproducer, Truth Owner, Fix Planner, Regression Guard | T1 / first pass — **default send** |
 | `code_bug_hunt_max` | Bare + Trace Mapper, State Skeptic, Change Impact Reviewer, User Impact, Contrarian Root Cause | T2/T3 cross-layer / repeated / seam / trust |
+| `code_spec_review_min` | First Principles, Proof, Scope (+ Lead) | Lean harden — **shipped**; never Auto-selected |
+| `code_spec_review` | First Principles, Doc Hygiene, Contract, Proof, Contrarian (+ Lead) | Everyday Spec Review — **default send** |
+| `code_spec_review_max` | Full panel + Outside Scout (+ Lead) | Launch / hard-case Spec Review — **shipped** |
 
 **Product-facing names** (IDs follow names; UI label "Default" is never typed):
 
 - Bug Hunt (bare — default send)
 - Bug Hunt Max (escalation depth; description may keep the historical forensics framing)
 - Bug Hunt Min — only if necessity suite proves a smaller roster; never auto-selected
+- Spec Review Min / Spec Review / Spec Review Max — **already shipped**; Lab tunes, does not gate existence
 
 Each variant = **separate champion overlay** under `docs/team-lab/champions/` — not
-an amputated copy of a larger roster.
+an amputated copy of a larger roster. Lab overlays must key the final IDs above;
+never rewrite `BuiltInTeams` Spec Review preferreds solely to satisfy a lab-only
+model policy.
 
 ### Variant selection (product — not fully built)
 
@@ -322,7 +335,8 @@ Users do not know T1/T2/T3 when filing a bug. Classification is Bug Hunt's job.
    Never auto-route to Min.
 2. **Packet recommends escalation** when bare deliverable flags `escalationRecommended:
    hard_seam | repeated_failure | insufficient_proof` (writer field — LAB-C08).
-3. **User override** — picker shows available depth tiers (Min if proven / Default / Max).
+3. **User override** — picker shows available depth tiers (Min when shipped or
+   Lab-proven / Default / Max). Spec Review Min is already shipped.
 4. **Auto-Fix failure** (`Try_Fix_Auto_Implement.md`) → suggest Max re-run;
    does not silently mutate team without user approval.
 

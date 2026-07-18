@@ -888,25 +888,35 @@ belong to the composition macro packet, not this table):
 **Not in the micro loop:** Reduced Team / Phase-Split / seat add-remove — those are
 macro composition experiments (`Team_Lab_Composition_And_Seat_Economics.md`).
 
-Depth note (see `Team_Depth_Naming.md`): bare `code_bug_hunt` / "Bug Hunt" is the
-default send. Escalation depth is `code_bug_hunt_max` / "Bug Hunt Max". Min tiers
-exist only where Team Lab proves them; **nothing may say default → Min**.
+Depth note (see `Team_Depth_Naming.md`): bare `code_bug_hunt` / "Bug Hunt" and
+bare `code_spec_review` / "Spec Review" are the default sends. Escalation depth
+is `*_max`. Spec Review Min/Default/Max already ship as curated product teams
+(2026-07-18); Lab validates and tunes them — it does **not** invent, delete, or
+collapse those IDs. Bug Hunt Min remains optional until necessity proves it.
+**Nothing may say default → Min.**
 
 ## Lab model policy
 
 **SSOT:** `scripts/team_lab/model_policy.py` — applied on every lab experiment via
 `overlay.ensure_model_policy_team` unless `ALLN_LAB_MODEL_POLICY=0`.
 
+**Lab-only — never product rewrite.** This policy remaps seats **inside lab
+overlays / experiments**. It must not permanently edit `BuiltInTeams` Spec Review
+preferreds or ordered fallback chains (Fable lead, Sol strategic, Kimi/Grok-first
+workers). If a Spec Review lab run needs a temporary policy remap, keep it in the
+overlay and restore product truth afterward.
+
 **Do not use Antigravity / Gemini (`model_gemini`, `model_gemini_pro`, any
 `model_agy_*`) on lab worker seats.** Product teams may still roster those
-drivers; the lab excludes them after R6 (wrong-cwd fixed in product; agy still
-hit wall-clock / vendor timeouts and poisoned contract scores). Re-add only with
-an explicit policy change in `model_policy.py` plus a green calibration round —
-not ad-hoc overlay overrides.
+drivers (Spec Review Default/Max Contrarian prefers Gemini); the lab excludes
+them after R6 (wrong-cwd fixed in product; agy still hit wall-clock / vendor
+timeouts and poisoned contract scores). Re-add only with an explicit policy
+change in `model_policy.py` plus a green calibration round — not ad-hoc overlay
+overrides.
 
 | Seat class | Allowed |
 | --- | --- |
-| Lead / synthesis / writer | `model_opus` only |
+| Lead / synthesis / writer | `model_opus` only *(lab remap; product Spec Review Lead prefers Fable)* |
 | Rotating workers | `model_grok`, `model_cursor_composer_25`, `model_chatgpt`, `model_cursor_auto` |
 | Diversity (≤1 per run) | `model_sonnet` at worker index 2 |
 

@@ -701,7 +701,11 @@ Deliverables:
 5. **Forward selection** primary (`compose.py`); backward redundancy after stabilize
 6. VNRC + cost ledger + writer disposition (`no_value` / `value_suppressed` / `noise_correctly_dropped`)
 7. Asymmetric gates: ADD ≥3 fresh necessity inputs; REMOVE ≥5
-8. Separate overlays: `code_bug_hunt_lite`, `code_bug_hunt`, `code_bug_hunt_forensics`
+8. Separate overlays keyed by final depth IDs: `code_bug_hunt`, `code_bug_hunt_max`
+   (and later `code_bug_hunt_min` only if necessity proves it). Dead Lite/Forensics
+   ids are rot — do not mint new champions under them. Spec Review overlays use
+   `code_spec_review_min` / `code_spec_review` / `code_spec_review_max` (already
+   shipped in product; Lab tunes, does not invent).
 9. **H3** fix-level discipline as three-arm hypothesis (not pre-shipped seat)
 10. Macro promotion in `promote.py` (`promotionClass: composition`)
 
