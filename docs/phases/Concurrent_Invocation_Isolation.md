@@ -1,114 +1,144 @@
 # Concurrent Invocation Isolation — two `alln`s must behave like two `claude`s (P0)
 
-Status: **Proposed — P0 architecture, pre-launch.** (2026-07-18)
+Status: **Proposed — P0 architecture, pre-launch.** Hardened via Spec Review (ChatGPT 5.6
+Sol lead + 5 lenses, 2026-07-18) — this revision **retracts the original team-start causal
+thesis** (see History) and reframes the fix around durable project-root scope and an
+executable two-process proof.
 Trigger: the founder ran `alln` across three projects in parallel all day (Allnighter,
 Ikiro, XTerminal) and it kept breaking — live async runs died `reconciledOrphan`, and a
-team run reviewed the wrong doc. alln is effectively usable on **one project / one
-terminal at a time**. Two `claude` or `codex` invocations in two folders never collide;
-two `alln` invocations do. This doc is the fix epic.
+team reviewed the wrong doc. alln is effectively usable on **one project / one terminal at a
+time**. Two `claude`/`codex` invocations in two folders never collide; two `alln` do.
 
 ## The bar
 
 > Two `alln` invocations in two different projects must be as isolated as two `claude`
-> invocations. One invocation's runs, cleanup, and context must never touch another's.
+> invocations. One invocation's runs, cleanup, and context must never touch another's —
+> **but** resumable async work outlives its launcher, so isolation is scoped to the durable
+> **canonical project root**, not to the ephemeral launching process.
 
-Claude Code / Codex are share-nothing per-process: own memory, own child processes, no
-daemon, no global registry, no global identity. Nothing to collide over. `alln` funnels
-work through **global shared state**, so concurrent orchestrations reap and hijack each
-other. The number of CLIs is not the problem — the shared globals are.
+## What is already correct (do NOT re-solve, and do NOT regress)
 
-## What is already correct (do NOT re-solve this)
+- **Per-process async ownership exists.** An async run is a detached `team __runner`
+  process-group leader (`AsyncTeamService.spawnDetachedRunner @ :302`) that writes **its own**
+  `OwnerIdentity.current(kind:.detachedRunner)` (pid + startTimeTicks) behind a readiness
+  handshake the launcher blocks on (`waitForRunnerReady @ :316`, owner claim `@ :409`).
+  Liveness is **not** tied to the build identity — a rebuild does not change a live runner's
+  pid/startTicks.
+- **Reconcile reaps only a run whose own owner identity is dead**
+  (`RunStore.reconcileRunDetailed @ :273` → `isOwnerIdentityDead`). It never clobbers a
+  terminal run.
+- **`team start` does NOT sweep.** The only caller of `RunStore.reconcileAll @ :291` is the
+  **explicit** `alln team reconcile` command (`AsyncTeamService.reconcile(runId:) @ :656`,
+  bare-id branch `@ :663`). Starting a team run does not reconcile the machine. Keep this a
+  standing **regression invariant** ("start never sweeps"), not a fix.
+- **`serve` has no reconcile loop; lane keys are already canonical-root-specific.** Neither is
+  the culprit (lane keys collide only in the `nil` / `unknown-root` case — a separate edge).
+- **`ExecutionLane` and `RunWriteLock` deliberately share one canonical key system.** Do not
+  introduce a second ownership/lane/registry system.
 
-The Process Ownership epic (`Process_Ownership.md`, PO-S01–S05) already gave async runs
-**per-process** ownership — a common misdiagnosis is that liveness is tied to the build
-identity; it is not:
+## The actual flaws (verified). Two distinct incidents — do not conflate.
 
-- An async run is a **detached `team __runner`** process-group leader
-  (`AsyncTeamService.swift:302` `spawnDetachedRunner … ["team","__runner","--run-id",id]`).
-- The runner writes **its own** `OwnerIdentity.current(kind: .detachedRunner)`
-  (pid + startTimeTicks) into the run dir (`AsyncTeamService.swift:409`), behind a
-  readiness handshake the launcher blocks on (`waitForRunnerReady`, `AsyncTeamService.swift:316`).
-- Reconcile reaps a run **only if its own recorded owner identity is dead**
-  (`RunStore.reconcileRunDetailed` → `ProcessOwnership.isOwnerIdentityDead(in: directory)`,
-  `RunStore.swift:273`). A rebuild does not change a live runner's pid/startTicks.
+### Incident A — cross-project blast radius from GLOBAL aggregate mutators (verified)
 
-So the fix is **not** "add per-launcher ownership" (largely present). The fix is to stop
-one invocation's **global sweeps and kills** from touching another's runs, and to close
-the liveness edge cases that let a logically-live run read owner-dead.
+The isolation break is that the **aggregate** operations are machine-wide instead of
+project-scoped:
 
-## The actual flaws (verified, file:line)
+- `ProcessOwnershipSurface.killAll() @ :98` kills **every** owned tree on the box, and
+  `list() @ :37` enumerates every tree. `alln kill --all` from one project kills runs in all
+  projects; `alln ps` shows the union across projects.
+- `alln team reconcile` (no run id) → `reconcileAll() @ :291` sweeps **every** `run_*` under
+  the one shared store and reaps any whose owner reads dead — across all projects.
 
-1. **Global reconcile sweep.** `RunStore.reconcileAll()` (`RunStore.swift:291`) walks
-   **every** `run_*` dir under the one shared store and reaps any whose owner reads dead —
-   and it is fired from `AsyncTeamService` (`AsyncTeamService.swift:663`). So when caller B
-   starts a team run, its reconcile pass sweeps caller A's runs machine-wide. Any run of A
-   that momentarily reads owner-dead (see #4) is stamped `interrupted / reconciledOrphan`
-   by B's unrelated team-start.
-2. **Global kill.** `ProcessOwnershipSurface.killAll()` (`ProcessOwnershipSurface.swift:98`)
-   and `list()` (`:37`) operate on **every owned tree on the machine**. `alln kill --all`
-   from one project kills runs in all projects; `alln ps` shows the union (this is also why
-   the count reads ~2000 — see [Process-tree accumulation]). A cleanup in one terminal is a
-   machine-wide event.
-3. **One shared registry + one daemon.** Every run, relay, project, and lane lives under a
-   single `~/Library/Application Support/Allnighter/` tree, and a single resident
-   `alln serve` coordinator manages async work machine-wide. All callers read/write the same
-   tables; there is no per-invocation or per-project namespace on the run/relay stores.
-4. **Liveness edge cases amplified globally.** A run can read owner-dead while logically
-   alive — handshake/timeout races, a runner killed out from under its run (e.g. a manual
-   `pkill`, a `serve` restart, or a `kill --all` from another project), pid reuse windows.
-   Because reconcile is global (#1), any such blip is turned into a durable `reconciledOrphan`
-   by the next team-start anywhere on the box. **Observed 2026-07-18:** the PM (Claude)
-   `pkill`'d pilot/cursor processes, restarted `serve`, and rebuilt repeatedly while the
-   founder's other-project runs were live; on a share-nothing tool those actions are inert,
-   here they reaped live cross-project work.
-5. **Per-project mutable state / context bleed (confirm exact path).** The founder saw a
-   team run review the wrong doc — a concurrent orchestration's active brief injected into
-   another run. The relay/pilot keeps per-project active state, and context assembly
-   (`ThreadContextBuilder`/`ThreadContextPacket`) plus per-project relay docs are candidates.
-   **Action:** trace whether any project-global mutable "active doc / work order" can be read
-   by a team run instead of that run's own prompt/args/cwd, and make context strictly
-   per-invocation. (Mechanism not yet pinned to a line — verify during implementation.)
+So one project's cleanup command reaches into another project's runs. **Observed 2026-07-18:**
+the PM (Claude) `pkill`'d pilot/cursor processes and `kill`'d runs while the founder's
+other-project runs were live; because ownership surfaces and kills are machine-wide, those
+actions reaped live cross-project work. (The reap itself is *correct* once a runner is dead —
+the bug is that an unrelated project could kill/observe it at all.)
 
-## The fix epic (by impact)
+### Incident B — wrong-document delivery (mechanism UNPROVEN; needs reproduction)
 
-- **F1 — Scope reconcile to the invocation, never a machine sweep on team-start.** A team
-  start must not `reconcileAll()` the whole box. Options: reconcile only the runs *this*
-  invocation owns/launched; or gate the global sweep behind an explicit `alln team reconcile`
-  / doctor, never a side effect of starting unrelated work. Kills the cross-invocation reap.
-- **F2 — Harden run liveness so a live run never reads dead.** Never reap a run within a
-  grace of its readiness handshake; treat "identity present + process alive" as the only
-  live signal; require a positive dead-proof (identity written AND its process gone), not
-  "missing ⇒ dead," inside any cross-invocation-reachable path. Fold in "never react to the
-  binary being rebuilt" (already true, keep it true).
-- **F3 — Scope kill/reap.** `kill --all` means "this invocation's trees." Cross-invocation
-  or machine-wide kill must be explicit and opt-in (e.g. `alln kill --all --machine`), never
-  the default and never a sweep side effect.
-- **F4 — Per-invocation context, no shared active-work-order bleed.** A team/relay run's
-  context is its prompt/args/cwd + its own thread — never a project-global mutable brief set
-  by another orchestration. (Resolve #5 first.)
-- **F5 — Namespace the registry per project/launcher.** Partition run/relay tables so a sweep
-  or listing in one project cannot enumerate or mutate another's. The daemon and remote/iOS
-  floor-manager (the legitimate reasons a shared coordinator exists) query across namespaces
-  explicitly, but per-invocation operations stay scoped.
+A team run reviewed the wrong doc — a concurrent orchestration's brief reached another run.
+**No common cause with Incident A is established.** Candidates: a per-project relay active
+doc, context assembly reading ambient state instead of the run's own args, or a stale
+context packet. This must be **reproduced** and pinned to a mechanism before any fix — treat
+F4 as an investigation gate, not a claimed remedy.
 
-**Do F1 + F4 and the founder's exact pain disappears** — PM-relay and a Growth Panel could
-run side by side in two projects like two Claudes. F2/F3/F5 harden the rest.
+### Additional verified shared constraints (absent from the original F1–F5)
+
+- **`IdempotencyStore.record()` is an unlocked global RMW** (`IdempotencyStore.swift:33` `load()`
+  → mutate → `:39` `save()`, no lock/flock): two concurrent callers lost-update the shared
+  idempotency file.
+- **A machine-wide capacity governor** caps spend across the box. Making concurrency
+  per-project must not silently multiply spend — decide the budget policy explicitly first.
+
+## The fix epic (rewritten)
+
+**Scope model (foundational):** define `Scope = canonical project root`
+(`TeamRun.repoRoot` / `RelayState.projectRoot`). Aggregate commands default to the caller's
+project scope; exact run-id operations remain explicit targets and may cross projects when
+named. Unresolved / legacy / `unknown-root` scope must **never** join an implicit aggregate
+mutation (fail closed). Enforce via existing root metadata — **no physical registry
+partitioning or migration in P0** (that would break the daemon's fleet/iOS inventory).
+
+- **F1 — Scope the aggregate mutators to the project root.** `kill --all` and bare
+  `alln team reconcile` operate on the caller's canonical-root scope; `alln ps` defaults to
+  project-filtered (a `--all-projects` opt-in for the fleet view). Machine-wide is explicit,
+  never a default. **Regression invariant:** `team start` never calls `reconcileAll`.
+- **F2 — A real liveness lease contract, replacing "missing ⇒ dead" prose.** Model liveness as
+  `staged lease → owned identity → terminal`. A run within its staging lease (spawned,
+  identity not yet written) is **not** reclaimable; a run with a live owner is alive; only a
+  written-then-dead owner, or an expired stage lease with no owner, is reclaimable. Specify
+  precisely when missing/unreadable identity is reclaimable. Update the Process Ownership
+  dependency accordingly.
+- **F3 — Enforce scope from root metadata, fail closed.** Filter every aggregate op by
+  canonical root before it touches anything; a record whose scope can't be resolved is skipped,
+  never swept.
+- **F4 — Wrong-document investigation gate.** Before any fix: reproduce, then require immutable
+  context provenance on every run — resolved **absolute path + content hash + thread/run id** —
+  and reject a run whose delivered context doesn't match its own request.
+- **F5 — Fix the verified shared-state defects.** Lock the `IdempotencyStore` RMW
+  (per-file lock / atomic compare-write). Decide the capacity-governor budget policy before
+  per-project concurrency.
+- **Forensics (new).** Persist a bounded **mutation receipt** for every aggregate op:
+  initiating scope, requested scope, target run ids, owner verdict, decision. So a
+  cross-project reap is explainable after the fact, not a mystery.
+
+## Acceptance proof — the P0 gate
+
+`testTwoProjectInvocationsAreMutationAndContextIsolated`: **two real `alln` CLI subprocesses**,
+**two distinct repos**, **one shared support root**, deterministic **blocking fake workers**
+(no real models — they burn quota and add nondeterminism). Assert:
+
+1. A `kill --all` / `team reconcile` in project A does **not** reap or alter project B's live
+   run (mutation isolation).
+2. A team run in project A receives **only** its own context (path + content hash match),
+   never project B's brief (context isolation).
+
+This invariant — not logs, dry-run mode, or blast-radius metrics (useful rollout aids, but
+theater without the test) — is what proves the epic is done.
 
 ## Why the daemon is not the sin
 
-The shared coordinator is not gratuitous: `claude` doesn't need one because it doesn't
-promise resumable async runs (close the lid, run continues), an iOS remote floor-manager
-(phone querying/controlling Mac runs needs a resident daemon + a queryable registry), or
-fleet `ps`/`kill`/reap of genuinely-crashed runs. Those features require *some* shared
-state. The sin is that ownership/cleanup is **coarse and global**: the janitor that should
-reap only crashed runs sweeps the whole machine, and per-invocation context is a mutable
-singleton. Keep the daemon; scope the ownership.
+The shared coordinator is not gratuitous: `claude` needs none because it doesn't promise
+resumable async runs, an iOS remote floor-manager (phone querying/controlling Mac runs needs a
+resident daemon + queryable registry), or fleet `ps`/`kill`/reap. Those need *some* shared
+state. `serve` itself has no reconcile loop. The sin is that **aggregate ownership operations
+are machine-global instead of project-scoped**. Keep the daemon; scope the mutations.
 
 ## Priority
 
-**P0, pre-launch.** At launch, users WILL run `alln` in multiple projects and dogfood it on
-itself; today that corrupts their runs. This is the difference between "a real coding CLI"
-and "usable in one window." Sequence after the current doctor/GC hardening lands.
+**P0, pre-launch.** At launch users WILL run `alln` in multiple projects and dogfood it on
+itself; today an aggregate command in one corrupts another's runs. Sequence after the current
+doctor/GC hardening lands. Done = the two-process acceptance test passes.
+
+## History (why this was rewritten)
+
+The original commit (`db8a47f8`) claimed `reconcileAll` fired from `AsyncTeamService:663` **on
+team start**, and that "F1 + F4 removes the pain." Spec Review (Sol lead + 5 lenses) verified
+`:663` is the **explicit** `alln team reconcile` path, not startup — so the original F1 fixed a
+non-existent call path. This revision retracts that thesis, splits the two incidents, reframes
+isolation around durable project-root scope, adds the verified `IdempotencyStore`/governor
+constraints, and makes the two-process test the gate. Line numbers cited are at `db8a47f8`.
 
 Related: [Process_Ownership.md](Process_Ownership.md) (the per-process ownership this builds
 on), [Sol_Review_Hardening.md](Sol_Review_Hardening.md).
