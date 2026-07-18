@@ -268,6 +268,44 @@ final class ExecutionLaneTests: XCTestCase {
         XCTAssertFalse(heldAfterOuter)
     }
 
+    /// SR-3 (Sol F4): a docs-only dev-turn hold must not let a nested claim run BUILD work on
+    /// the strength of its flock-less token. When the inner claim escalates to the build lane,
+    /// the reentry must acquire the real build flock (upgrade in place) — otherwise a foreign
+    /// process could build the same lane concurrently. Reentry still returns the same token.
+    func testBuildEscalationOnReentryAcquiresTheFlock() async throws {
+        let reg = ExecutionLaneRegistry()
+        let key = ExecutionLane.key(repoRoot: "/tmp/lane-sr3-\(UUID().uuidString)")
+        let identity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+        // Outer relay dev turn: docs-only, does NOT take the build flock.
+        let outer = ExecutionLane.Claim.make(
+            id: "outer", kind: ExecutionLaneSite.relayDevTurn.rawValue, identity: identity,
+            writeScope: TurnWriteScope(pathPrefixes: ["docs/"], needsBuildLane: false))
+        // Inner RunService claim: escalates to the build lane.
+        let inner = ExecutionLane.Claim.make(
+            id: "inner", kind: ExecutionLaneSite.mutatingRun.rawValue, identity: identity,
+            writeScope: .legacyFullBuild)
+
+        guard case .success(let t1) = await reg.tryAcquire(key, claim: outer, now: Date()) else {
+            return XCTFail("outer docs-only acquire")
+        }
+        XCTAssertFalse(ExecutionLaneFlock.isLocked(laneKey: key),
+                       "a docs-only hold must NOT own the build flock")
+
+        guard case .success(let t2) = await reg.tryAcquire(key, claim: inner, now: Date()) else {
+            return XCTFail("inner build reentry should be granted (with the flock acquired)")
+        }
+        XCTAssertEqual(t1, t2, "reentry returns the same token")
+        XCTAssertTrue(ExecutionLaneFlock.isLocked(laneKey: key),
+                      "build escalation on reentry must acquire the real build flock (SR-3)")
+
+        await reg.release(key, token: t2)
+        XCTAssertTrue(ExecutionLaneFlock.isLocked(laneKey: key),
+                      "flock held until the outermost release")
+        await reg.release(key, token: t1)
+        XCTAssertFalse(ExecutionLaneFlock.isLocked(laneKey: key),
+                       "flock released on the outer release")
+    }
+
     // MARK: - PO-F2: waitToAcquire timeout reliability
 
     /// Under held-lane contention, `waitToAcquire` must resume within a bounded

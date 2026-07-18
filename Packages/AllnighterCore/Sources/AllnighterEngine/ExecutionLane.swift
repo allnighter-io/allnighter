@@ -130,7 +130,19 @@ public actor ExecutionLaneRegistry {
     /// timeout path without re-inferring from a nil token.
     private var lastWaitEndReason: [String: String] = [:]
 
+    /// Last hard flock errno per key (SR-4 / Sol F14). Set by `issueToken` on a
+    /// non-contention lock failure (EMFILE/ENOLCK/unsupported FS); consumed by the acquire
+    /// paths so a genuine hard failure fails fast instead of masquerading as lane-busy for
+    /// the full wait timeout.
+    private var lastHardLockErrno: [String: Int32] = [:]
+
     public init() {}
+
+    private func consumeHardLockErrno(_ key: String) -> Int32? {
+        guard let code = lastHardLockErrno[key] else { return nil }
+        lastHardLockErrno[key] = nil
+        return code
+    }
 
     // MARK: - Non-blocking / ticket
 
@@ -149,8 +161,13 @@ public actor ExecutionLaneRegistry {
     ) -> Result<ExecutionLane.Token, ExecutionLaneTicket> {
         _ = reconcileIfHolderDead(key, now: now)
         if let existing = findReenterable(key: key, claim: claim) {
-            deepen(key: key, token: existing.token)
-            return .success(existing.token)
+            if let upgraded = upgradeHoldForReentry(key: key, existing: existing, incoming: claim) {
+                deepen(key: key, token: upgraded.token)
+                return .success(upgraded.token)
+            }
+            // SR-3: escalated to the build lane but the flock is foreign-held right now —
+            // ticket instead of granting a flock-less build.
+            return .failure(ticket(from: existing, position: 1, now: now))
         }
         if let conflict = firstConflictingLocal(key: key, claim: claim) {
             return .failure(ticket(from: conflict, position: 1, now: now))
@@ -167,6 +184,9 @@ public actor ExecutionLaneRegistry {
         if let token = issueToken(for: key, claim: claim, now: now) {
             return .success(token)
         }
+        // SR-4: this non-blocking path always returns a ticket on failure; clear any hard
+        // errno issueToken recorded so it can't leak into a later waitToAcquire on this key.
+        _ = consumeHardLockErrno(key)
         // Build flock race / meta lock timeout — mint a ticket so callers never spin.
         let position = ExecutionLaneFlock.wouldBePosition(laneKey: key)
         if let diskTicket = ExecutionLaneFlock.ticketIfBusy(
@@ -202,12 +222,22 @@ public actor ExecutionLaneRegistry {
         let t0 = now()
         _ = reconcileIfHolderDead(key, now: t0)
         if let existing = findReenterable(key: key, claim: claim) {
-            deepen(key: key, token: existing.token)
-            return existing.token
+            if let upgraded = upgradeHoldForReentry(key: key, existing: existing, incoming: claim) {
+                deepen(key: key, token: upgraded.token)
+                return upgraded.token
+            }
+            // SR-3: escalated build reentry blocked by a foreign build flock — fall through
+            // to the FIFO waiter path and acquire it for real when it frees, never run a
+            // flock-less build.
         }
         if firstConflictingLocal(key: key, claim: claim) == nil,
            let token = issueToken(for: key, claim: claim, now: t0) {
             return token
+        }
+        // SR-4: a hard flock errno (not contention) must not park for the full timeout.
+        if let code = consumeHardLockErrno(key) {
+            lastWaitEndReason[key] = "lockError:\(code)"
+            return nil
         }
 
         let waiterId = nextWaiterId
@@ -271,7 +301,7 @@ public actor ExecutionLaneRegistry {
     /// APIs that pass a stable work id (relay/turn).
     @discardableResult
     public func acquire(_ key: String) -> ExecutionLane.Token? {
-        let claim = anonymousClaim(id: "anonymous-\(UUID().uuidString)")
+        guard let claim = anonymousClaim(id: "anonymous-\(UUID().uuidString)") else { return nil }
         if case .success(let token) = tryAcquire(key, claim: claim) {
             return token
         }
@@ -282,7 +312,7 @@ public actor ExecutionLaneRegistry {
     /// Unique claim id per wait so concurrent mutating runs queue FIFO; nesting
     /// under an outer relay/pilot hold still re-enters via the kind chain.
     public func waitToAcquire(_ key: String, timeout: Duration) async -> ExecutionLane.Token? {
-        let claim = anonymousClaim(id: "mutatingRun-\(UUID().uuidString)")
+        guard let claim = anonymousClaim(id: "mutatingRun-\(UUID().uuidString)") else { return nil }
         return await waitToAcquire(key, claim: claim, timeout: timeout, now: { Date() }, onTicket: nil)
     }
 
@@ -369,20 +399,14 @@ public actor ExecutionLaneRegistry {
 
     // MARK: - Private
 
-    private func anonymousClaim(id: String) -> ExecutionLane.Claim {
-        if let claim = ExecutionLane.Claim.current(id: id, kind: "mutatingRun") {
-            return claim
-        }
-        return ExecutionLane.Claim(
-            id: id,
-            kind: "mutatingRun",
-            identity: ProcessOwnership.OwnerIdentity(
-                pid: ProcessInfo.processInfo.processIdentifier,
-                pgid: nil,
-                startTimeTicks: 0,
-                kind: .inProcess
-            )
-        )
+    /// SR-15 (Sol F15): fail closed. When the process can't read its own start-ticks we
+    /// return nil rather than fabricating a `startTimeTicks: 0` identity — a live holder with
+    /// zero ticks reads as dead on the next reconcile, which would release its own flock while
+    /// the caller is still running (double-run). Refusing the lane is strictly safer than a
+    /// self-defeating identity. (The trigger — self-`sysctl(KERN_PROC)` failure — is
+    /// near-unreachable on macOS, but fail-closed is the correct posture.)
+    private func anonymousClaim(id: String) -> ExecutionLane.Claim? {
+        ExecutionLane.Claim.current(id: id, kind: "mutatingRun")
     }
 
     @discardableResult
@@ -487,20 +511,34 @@ public actor ExecutionLaneRegistry {
             }
         }
 
+        let meta = ExecutionLaneFlock.HolderMetadata(claim: claim, acquiredAt: now)
         var flockHandle: ExecutionLaneFlock.Handle?
         if claim.writeScope.needsBuildLane {
-            // Process-wide refcount: nested same-process re-entry returns
-            // another receipt without contending on our own flock.
-            guard let handle = ExecutionLaneFlock.tryAcquireExclusive(laneKey: key) else {
+            // Process-wide refcount: nested same-process re-entry returns another receipt
+            // without contending on our own flock. SR-4: keep the errno distinction so a
+            // hard lock failure (EMFILE/ENOLCK/unsupported FS) fails fast rather than reading
+            // as contention and waiting out the full timeout.
+            let (outcome, handle) = ExecutionLaneFlock.tryAcquireExclusiveOrError(laneKey: key)
+            switch outcome {
+            case .acquired:
+                flockHandle = handle
+            case .busy:
+                return nil
+            case .unavailable(let code):
+                lastHardLockErrno[key] = code
                 return nil
             }
-            flockHandle = handle
-        }
-
-        let meta = ExecutionLaneFlock.HolderMetadata(claim: claim, acquiredAt: now)
-        guard ExecutionLaneFlock.upsertHolder(laneKey: key, metadata: meta) else {
-            flockHandle?.unlockAndClose()
-            return nil
+            guard ExecutionLaneFlock.upsertHolder(laneKey: key, metadata: meta) else {
+                flockHandle?.unlockAndClose()
+                return nil
+            }
+        } else {
+            // SR-6: docs-only admission re-checks scope conflict and appends atomically under
+            // the meta lock — closes the two-overlapping-docs-claims TOCTOU where each reads
+            // "no conflict" before either registers.
+            guard ExecutionLaneFlock.admitHolderIfClear(laneKey: key, claim: claim, metadata: meta) else {
+                return nil
+            }
         }
 
         let token = ExecutionLane.Token(id: nextTokenId)
@@ -526,6 +564,39 @@ public actor ExecutionLaneRegistry {
     private func findReenterable(key: String, claim: ExecutionLane.Claim) -> HolderState? {
         guard let list = holders[key] else { return nil }
         return list.first { canReenter(existing: $0.claim, incoming: claim) }
+    }
+
+    /// SR-3 (Sol F4): a dev-turn hold that does not own the build flock must NOT let a nested
+    /// claim run build work on the strength of the metadata-only token. When a reentrant claim
+    /// escalates to the build lane (`needsBuildLane`) and the existing hold has no flock,
+    /// acquire the real flock and attach it to that hold before granting reentry. Returns the
+    /// (possibly upgraded) hold, or nil when the build flock is foreign-held right now — the
+    /// caller then tickets/waits and acquires it for real, never granting a flock-less build.
+    private func upgradeHoldForReentry(
+        key: String,
+        existing: HolderState,
+        incoming: ExecutionLane.Claim
+    ) -> HolderState? {
+        guard incoming.writeScope.needsBuildLane, existing.flockHandle == nil else {
+            return existing   // no build escalation, or the hold already owns the flock
+        }
+        let (outcome, handle) = ExecutionLaneFlock.tryAcquireExclusiveOrError(laneKey: key)
+        switch outcome {
+        case .acquired:
+            guard var list = holders[key],
+                  let idx = list.firstIndex(where: { $0.token == existing.token }) else {
+                handle?.unlockAndClose()
+                return nil
+            }
+            list[idx].flockHandle = handle
+            holders[key] = list
+            return list[idx]
+        case .busy:
+            return nil
+        case .unavailable(let code):
+            lastHardLockErrno[key] = code
+            return nil
+        }
     }
 
     private func deepen(key: String, token: ExecutionLane.Token) {

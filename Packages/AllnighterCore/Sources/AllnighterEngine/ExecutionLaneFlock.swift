@@ -243,14 +243,24 @@ public enum ExecutionLaneFlock {
                 ProcessOwnership.isIdentityAlive($0.identity)
             }
             if anyIdentityLive { continue }
-            // Live local hold or foreign flock → keep.
-            if isHeldLocally(laneKey: key) || isLocked(laneKey: key) { continue }
+            // A live hold by THIS process → keep (we're using it).
+            if isHeldLocally(laneKey: key) { continue }
+            // SR-5 (Sol F1): acquire and HOLD the exclusive flock across the delete so no
+            // other-process acquirer can be mid-flock on the inode we remove. A `nil` means
+            // another process holds it → skip. Re-read holders under the flock before
+            // unlinking; the acquirer-side st_nlink guard closes the residual window.
+            guard let handle = tryAcquireExclusive(laneKey: key) else { continue }
+            let stillDead = readHolders(laneKey: key).allSatisfy {
+                !ProcessOwnership.isIdentityAlive($0.identity)
+            }
+            guard stillDead else { handle.release(); continue }
             do {
                 try fm.removeItem(at: dir)
                 removed.append(name)
             } catch {
                 // Best-effort; leave the dir for a later pass.
             }
+            handle.release()
         }
         return removed
     }
@@ -264,18 +274,26 @@ public enum ExecutionLaneFlock {
     /// `#9` so a racing `isLocked` probe does not permanently starve an acquirer).
     /// Hard open/flock failures are not treated as contention.
     public static func tryAcquireExclusive(laneKey: String) -> Handle? {
-        // Brief retries: `isLocked` may steal the flock for a microsecond.
+        tryAcquireExclusiveOrError(laneKey: laneKey).1
+    }
+
+    /// Retrying acquire that preserves the errno distinction (SR-4 / Sol F14). Same brief
+    /// busy-retry as `tryAcquireExclusive` (`isLocked` may steal the flock for a microsecond),
+    /// but returns `.unavailable(errno)` for a hard open/flock failure (EMFILE, ENOLCK,
+    /// unsupported FS) instead of collapsing it into a `nil` that reads as contention — so
+    /// the caller can fail fast rather than wait out the full lane timeout.
+    public static func tryAcquireExclusiveOrError(laneKey: String) -> (AcquireOutcome, Handle?) {
         for attempt in 0..<5 {
             switch ProcessLaneFlockTable.shared.tryAcquireDetailed(laneKey: laneKey) {
             case .acquired(let handle):
-                return handle
+                return (.acquired, handle)
             case .busy:
                 if attempt < 4 { usleep(1_000) }
-            case .unavailable:
-                return nil
+            case .unavailable(let code):
+                return (.unavailable(errno: code), nil)
             }
         }
-        return nil
+        return (.busy, nil)
     }
 
     /// Detailed acquire for tests / callers that must distinguish errno failures
@@ -446,6 +464,38 @@ public enum ExecutionLaneFlock {
         withMetaLockSpinning(laneKey: laneKey) { () -> Bool in
             var holders = readHolders(laneKey: laneKey)
                 .filter { isHolderEffectivelyLive($0, laneKey: laneKey) }
+            holders.removeAll {
+                $0.id == metadata.id && identitiesMatch($0.identity, metadata.identity)
+            }
+            holders.append(metadata)
+            do {
+                try writeHolders(laneKey: laneKey, holders: holders)
+                return true
+            } catch {
+                return false
+            }
+        } == true
+    }
+
+    /// Atomically admit a docs-only holder only if no live holder currently conflicts with
+    /// its write scope — the read→conflict-check→append all happen under one `meta.lock`
+    /// hold. Closes the SR-6 (Sol F2) TOCTOU where two overlapping docs-only claims each
+    /// observe "no conflict" before either appends. Returns false on conflict OR meta-lock
+    /// timeout OR write failure (caller mints a busy ticket either way).
+    @discardableResult
+    public static func admitHolderIfClear(
+        laneKey: String,
+        claim: ExecutionLane.Claim,
+        metadata: HolderMetadata
+    ) -> Bool {
+        withMetaLockSpinning(laneKey: laneKey) { () -> Bool in
+            var holders = readHolders(laneKey: laneKey)
+                .filter { isHolderEffectivelyLive($0, laneKey: laneKey) }
+            let conflict = holders.contains { meta in
+                if identitiesMatch(meta.identity, claim.identity) { return false }
+                return TurnWriteScope.conflicts(meta.asTurnWriteScope, claim.writeScope)
+            }
+            if conflict { return false }
             holders.removeAll {
                 $0.id == metadata.id && identitiesMatch($0.identity, metadata.identity)
             }
@@ -826,6 +876,17 @@ fileprivate final class ProcessLaneFlockTable: @unchecked Sendable {
                 return .busy
             }
             return .unavailable(lockErrno)
+        }
+        // SR-5 (Sol F1): stale-lane GC may have unlinked this lock file between our open()
+        // and flock(). flock binds to the inode, so holding an already-unlinked inode while
+        // a fresh acquirer locks a newly-created one at the same path yields two "exclusive"
+        // holders. If st_nlink == 0 the file is gone — drop it and report busy so the
+        // caller's retry loop reopens the live inode (or recreates it).
+        var st = stat()
+        if fstat(fd, &st) == 0 && st.st_nlink == 0 {
+            _ = flock(fd, LOCK_UN)
+            close(fd)
+            return .busy
         }
         entries[tableKey] = Entry(fd: fd, refCount: 1)
         return .acquired(ExecutionLaneFlock.Handle(laneKey: handleKey))
