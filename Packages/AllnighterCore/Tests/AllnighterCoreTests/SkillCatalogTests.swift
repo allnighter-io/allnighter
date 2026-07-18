@@ -49,7 +49,11 @@ final class SkillCatalogTests: XCTestCase {
     }
 
     func testModelCapabilitiesAreDeterministicAndRanked() {
-        XCTAssertEqual(ModelCatalog.capabilities("model_opus").strengthRank, 100)
+        // Flagship-only seats top the ladder (Fable + Sol); Opus is a strong high seat.
+        XCTAssertEqual(ModelCatalog.capabilities("model_fable").strengthRank, 100)
+        XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt_sol").strengthRank, 99)
+        XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt").strengthRank, 92)
+        XCTAssertEqual(ModelCatalog.capabilities("model_opus").strengthRank, 90)
         XCTAssertEqual(ModelCatalog.capabilities("model_agy_opus").strengthRank, 75,
                        "AGY Opus is fallback-only; never outranks Claude Opus 4.8")
         XCTAssertLessThan(ModelCatalog.capabilities("model_agy_opus").strengthRank,
@@ -58,8 +62,11 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertTrue(ModelCatalog.capabilities("model_gemini").capabilityTags.contains(.image))
         // Unknown model -> empty defaults, never a crash.
         XCTAssertEqual(ModelCatalog.capabilities("ghost").strengthRank, 0)
-        // Strict ordering by rank for the known bench.
-        let ranked = ["model_opus", "model_chatgpt", "model_sonnet", "model_gemini", "model_grok", "model_composer"]
+        // Strict ordering by rank for the known bench (matches ModelCatalog.builtInCapabilities).
+        let ranked = [
+            "model_fable", "model_chatgpt_sol", "model_chatgpt", "model_opus",
+            "model_grok", "model_sonnet", "model_gemini", "model_composer",
+        ]
             .map { ModelCatalog.capabilities($0).strengthRank }
         XCTAssertEqual(ranked, ranked.sorted(by: >))
     }
