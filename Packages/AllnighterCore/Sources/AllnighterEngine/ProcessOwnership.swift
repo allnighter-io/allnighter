@@ -875,14 +875,27 @@ public enum ProcessOwnership {
 
 /// Durable payload the detached runner reloads so parent and child share one
 /// accepted run id without re-minting.
+///
+/// `provenance` (Concurrent Invocation Isolation F4) immutably binds this
+/// packet to its run: the runner refuses to execute a packet whose run id,
+/// content hash, thread id, or resolved root does not match its own request
+/// and the run's minted journal — a cross-delivered context packet (the
+/// wrong-document delivery) dies at the gate with CONTEXT_PROVENANCE_MISMATCH.
 public struct AsyncTeamRunnerRequest: Codable, Sendable, Equatable {
     public var request: AsyncTeamStartRequest
     public var origin: RunOrigin
     public var acceptedAt: Date
+    public var provenance: RunContextProvenance
 
-    public init(request: AsyncTeamStartRequest, origin: RunOrigin, acceptedAt: Date) {
+    public init(
+        request: AsyncTeamStartRequest,
+        origin: RunOrigin,
+        acceptedAt: Date,
+        provenance: RunContextProvenance
+    ) {
         self.request = request
         self.origin = origin
         self.acceptedAt = acceptedAt
+        self.provenance = provenance
     }
 }

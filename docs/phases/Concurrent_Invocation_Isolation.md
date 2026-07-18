@@ -55,13 +55,24 @@ other-project runs were live; because ownership surfaces and kills are machine-w
 actions reaped live cross-project work. (The reap itself is *correct* once a runner is dead —
 the bug is that an unrelated project could kill/observe it at all.)
 
-### Incident B — wrong-document delivery (mechanism UNPROVEN; needs reproduction)
+### Incident B — wrong-document delivery (REPRODUCED + gated 2026-07-18)
 
 A team run reviewed the wrong doc — a concurrent orchestration's brief reached another run.
-**No common cause with Incident A is established.** Candidates: a per-project relay active
-doc, context assembly reading ambient state instead of the run's own args, or a stale
-context packet. This must be **reproduced** and pinned to a mechanism before any fix — treat
-F4 as an investigation gate, not a claimed remedy.
+**Reproduced at the staged-packet seam:** `team __runner` trusted
+`runner_request.json` blindly — it re-assembled the prompt from the DELIVERED
+packet, never comparing it to the run's own minted journal, so a packet staged
+into the wrong run dir executed verbatim under that run's id (RED proof:
+`RunContextProvenanceTests.testWrongDocumentDelivery_crossDeliveredPacketIsRejected`).
+Whether the production incident crossed at exactly this seam is not established
+(no ambient-state read was found in the context paths — relay prompts assemble
+from per-relay state; thread context appends per explicit thread id), so the
+fix is a hard gate at the one seam where context crosses a process boundary:
+every staged packet carries immutable `RunContextProvenance` (resolved
+**absolute root + content hash + thread/run id**); the runner refuses
+(`CONTEXT_PROVENANCE_MISMATCH`) any packet that is not its run's own request —
+run-id match, hash recompute, then a cross-check against the minted journal.
+In-process runs never stage a packet (no process boundary) and are out of gate
+scope.
 
 ### Additional verified shared constraints (absent from the original F1–F5)
 

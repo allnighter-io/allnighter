@@ -290,7 +290,22 @@ public actor AsyncTeamService {
             return .failure(.init(code: "INTERNAL_ERROR", message: "run directory unavailable: \(error)"))
         }
 
-        let payload = AsyncTeamRunnerRequest(request: request, origin: origin, acceptedAt: stagedAt)
+        let stdoutPath = directory.appendingPathComponent(ProcessOwnership.runnerStdoutFileName).path
+        let stderrPath = directory.appendingPathComponent(ProcessOwnership.runnerStderrFileName).path
+        let workingDir = request.repoRoot ?? FileManager.default.currentDirectoryPath
+
+        // F4: immutable context provenance — resolved absolute root + content
+        // hash + thread/run id. The runner refuses any packet that is not this
+        // run's own request (wrong-document delivery dies at the gate).
+        let provenance = RunContextProvenance.make(
+            runId: runId,
+            question: request.question,
+            context: request.context,
+            threadId: request.threadId,
+            resolvedRepoRoot: RunWriteLock.normalize(workingDir)
+        )
+        let payload = AsyncTeamRunnerRequest(
+            request: request, origin: origin, acceptedAt: stagedAt, provenance: provenance)
         do {
             try CoreJSON.encode(payload).write(
                 to: directory.appendingPathComponent(ProcessOwnership.runnerRequestFileName),
@@ -300,10 +315,6 @@ public actor AsyncTeamService {
             removeRunDirectory(runId: runId)
             return .failure(.init(code: "INTERNAL_ERROR", message: "could not stage runner request: \(error)"))
         }
-
-        let stdoutPath = directory.appendingPathComponent(ProcessOwnership.runnerStdoutFileName).path
-        let stderrPath = directory.appendingPathComponent(ProcessOwnership.runnerStderrFileName).path
-        let workingDir = request.repoRoot ?? FileManager.default.currentDirectoryPath
 
         var extraEnv: [String: String] = ["ALLN_TEAM_RUNNER": "1"]
         if let support = environment["ALLNIGHTER_SUPPORT_DIR"] ?? ProcessInfo.processInfo.environment["ALLNIGHTER_SUPPORT_DIR"] {
@@ -417,17 +428,30 @@ public actor AsyncTeamService {
             return .failure(.init(code: "INTERNAL_ERROR", message: "missing runner request for \(runId)"))
         }
 
-        // Claim identity as detached runner (pgid recorded; may be PG-killed).
-        // Ownership handoff complete → drop the F2 staging lease: from here on
-        // the written owner identity is the liveness truth.
-        if let identity = ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner) {
-            try? ProcessOwnership.writeOwnerIdentity(identity, in: directory)
+        // F4 context-provenance gate: the staged packet must be THIS run's own
+        // context — run-id match, content-hash recompute, then the durable
+        // journal cross-check below. A cross-delivered packet (wrong-document
+        // delivery) is refused before any claim or execution.
+        let provenance = payload.provenance
+        let request = payload.request
+        func refuseProvenance(_ reason: String) -> Result<Void, AsyncTeamStartRefusal> {
+            try? ProcessOwnership.writeRunnerReady(
+                .refused(runId: runId, code: "CONTEXT_PROVENANCE_MISMATCH", message: reason),
+                in: directory
+            )
+            return .failure(.init(code: "CONTEXT_PROVENANCE_MISMATCH", message: reason))
         }
-        ProcessOwnership.clearStageLease(in: directory)
-        try? ProcessOwnership.recordProgress(in: directory, phase: "runner_starting", now: now())
+        guard provenance.runId == runId else {
+            return refuseProvenance("staged packet belongs to run \(provenance.runId), not \(runId)")
+        }
+        guard provenance.authenticates(
+            question: request.question, context: request.context, threadId: request.threadId
+        ) else {
+            return refuseProvenance("staged packet content does not match its stamped hash")
+        }
 
         // Read raw journal (skip projection).
-        guard var run = runStore.loadRaw(runId: runId) else {
+        guard let run = runStore.loadRaw(runId: runId) else {
             try? ProcessOwnership.writeRunnerReady(
                 .refused(runId: runId, code: "RUN_NOT_FOUND", message: "no journal for \(runId)"),
                 in: directory
@@ -442,7 +466,30 @@ public actor AsyncTeamService {
             return .success(())
         }
 
-        let request = payload.request
+        // Journal cross-check: an internally-consistent packet that belongs to
+        // a DIFFERENT run still fails — the minted journal is the run's truth.
+        let runnerCWD = FileManager.default.currentDirectoryPath
+        let (deliveredPrompt, _) = assemblePrompt(request)
+        guard run.prompt == deliveredPrompt else {
+            return refuseProvenance("delivered context does not match the run's minted prompt")
+        }
+        guard run.threadId == request.threadId else {
+            return refuseProvenance("delivered thread id does not match the run's")
+        }
+        guard RunWriteLock.normalize(request.repoRoot ?? runnerCWD) == provenance.repoRoot,
+              RunWriteLock.normalize(run.repoRoot ?? runnerCWD) == provenance.repoRoot else {
+            return refuseProvenance("delivered repo root does not match the run's resolved root")
+        }
+
+        // Claim identity as detached runner (pgid recorded; may be PG-killed).
+        // Ownership handoff complete → drop the F2 staging lease: from here on
+        // the written owner identity is the liveness truth.
+        if let identity = ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner) {
+            try? ProcessOwnership.writeOwnerIdentity(identity, in: directory)
+        }
+        ProcessOwnership.clearStageLease(in: directory)
+        try? ProcessOwnership.recordProgress(in: directory, phase: "runner_starting", now: now())
+
         guard let resolvedRequest = resolveRequest(request) else {
             try? ProcessOwnership.writeRunnerReady(
                 .refused(runId: runId, code: "CLI_USAGE_ERROR", message: "invalid lane/team/effort combination"),
