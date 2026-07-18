@@ -46,28 +46,47 @@ final class DoctorTimingTests: XCTestCase {
         XCTAssertEqual(slow.runCount, 0, "cached quota-free path must not spawn subprocesses")
     }
 
-    func testDefaultDoctorProbeCompletesWithinBoundWhenCacheEmpty() async {
+    func testDefaultDoctorProbeKillsAndReapsHungVersionProcess() async throws {
+        let executable = tmp.appendingPathComponent("hung_probe")
+        let pidFile = tmp.appendingPathComponent("hung_probe.pid")
+        try """
+        #!/bin/sh
+        printf '%s' "$$" > "\(pidFile.path)"
+        trap '' TERM
+        while true; do sleep 1; done
+        """.write(to: executable, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: executable.path
+        )
         let manifests = [
             DriverManifest(
-                id: "slow_cli", displayName: "Slow", kind: .headlessCLI,
-                detectCommand: "slow_cli --version"
+                id: "hung_probe", displayName: "Hung Probe", kind: .headlessCLI,
+                detectCommand: "hung_probe --version",
+                invoke: .init(command: "hung_probe", args: ["{{prompt}}"]),
+                setup: SetupBlock(bins: ["hung_probe"], knownPaths: [tmp.path])
             ),
         ]
-        let slow = SlowMockCommandRunner(blockSeconds: 30)
         let setupStore = SetupStore(fileURL: tmp.appendingPathComponent("empty_setup.json"))
 
         let start = ContinuousClock.now
         let records = await AllnighterCLI.doctorProbeRecords(
             manifests: manifests,
-            labels: ["slow_cli": "m"],
+            labels: ["hung_probe": "m"],
             full: false,
-            setupStore: setupStore,
-            commandRunner: slow
+            setupStore: setupStore
         )
         let elapsed = start.duration(to: .now)
 
-        XCTAssertFalse(records.isEmpty)
+        XCTAssertEqual(records.first?.status.kind, .probeFailed)
         XCTAssertLessThan(elapsed, .seconds(5), "fallback detect-only path must honor hard timeouts")
+
+        let pidText = try String(contentsOf: pidFile, encoding: .utf8)
+        let pid = try XCTUnwrap(Int32(pidText))
+        XCTAssertFalse(
+            ProcessOwnership.processAlive(pid),
+            "doctor must reap a probe that ignores SIGTERM"
+        )
     }
 }
 

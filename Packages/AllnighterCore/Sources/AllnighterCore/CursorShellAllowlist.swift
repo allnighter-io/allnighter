@@ -12,6 +12,8 @@ import Foundation
 /// See `docs/phases/Pilot_Defect_Fixes.md` D2 and `Pilot_Polish_And_Agent_UX.md` P4.
 public enum CursorShellAllowlist {
     public static let checkName = "source.cursor_agent.shellAllowlist"
+    /// Override lookup inspects at most this many directories, including the start.
+    public static let projectOverrideSearchDepth = 64
 
     /// Project-scoped override filename (repo root `.cursor/cli.json`).
     public static let projectOverrideRelativePath = ".cursor/cli.json"
@@ -28,11 +30,15 @@ public enum CursorShellAllowlist {
         fileManager: FileManager = .default
     ) -> URL? {
         var dir = directory.standardizedFileURL
-        while true {
-            let candidate = dir.appendingPathComponent(projectOverrideRelativePath)
+        var visited = Set<String>()
+        for _ in 0..<projectOverrideSearchDepth {
+            guard visited.insert(dir.path).inserted else { break }
+            let candidate = dir
+                .appendingPathComponent(".cursor", isDirectory: true)
+                .appendingPathComponent("cli.json", isDirectory: false)
             if fileManager.fileExists(atPath: candidate.path) { return candidate }
             let parent = dir.deletingLastPathComponent()
-            if parent.path == dir.path { break }
+            guard parent.path != dir.path else { break }
             dir = parent
         }
         return nil

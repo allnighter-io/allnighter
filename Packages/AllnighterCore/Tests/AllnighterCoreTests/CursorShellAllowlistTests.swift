@@ -1,6 +1,15 @@
 import XCTest
 @testable import AllnighterCore
 
+private final class MissingFileManager: FileManager, @unchecked Sendable {
+    private(set) var fileExistsCallCount = 0
+
+    override func fileExists(atPath path: String) -> Bool {
+        fileExistsCallCount += 1
+        return false
+    }
+}
+
 /// Fixture tests for `source.cursor_agent.shellAllowlist` — never reads the
 /// user's real `~/.cursor/cli-config.json` (paths are always temp fixtures).
 final class CursorShellAllowlistTests: XCTestCase {
@@ -198,6 +207,20 @@ final class CursorShellAllowlistTests: XCTestCase {
         """)
         let found = CursorShellAllowlist.projectOverrideURL(near: tempDir)
         XCTAssertEqual(found?.path, project.path)
+    }
+
+    func testProjectOverrideDiscoveryCapsDeepMissingPathTraversal() {
+        let deepPath = (0..<(CursorShellAllowlist.projectOverrideSearchDepth + 100))
+            .reduce(tempDir!) { url, index in
+                url.appendingPathComponent("missing-\(index)", isDirectory: true)
+            }
+        let fileManager = MissingFileManager()
+
+        XCTAssertNil(CursorShellAllowlist.projectOverrideURL(near: deepPath, fileManager: fileManager))
+        XCTAssertEqual(
+            fileManager.fileExistsCallCount,
+            CursorShellAllowlist.projectOverrideSearchDepth
+        )
     }
 
     func testCheckNameIsContractListed() {

@@ -388,7 +388,10 @@ struct AllnighterCLI {
             full: full,
             cursorCLIConfigURL: CursorShellAllowlist.defaultConfigURL,
             cursorProjectOverrideURL: CursorShellAllowlist.projectOverrideURL(
-                near: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+                near: URL(
+                    fileURLWithPath: FileManager.default.currentDirectoryPath,
+                    isDirectory: true
+                )
             ),
             runningBinaryPath: InstallCLI.resolvedRunningBinary(
                 argv0: CommandLine.arguments.first,
@@ -420,7 +423,12 @@ struct AllnighterCLI {
         setupStore: SetupStore = SetupStore(),
         commandRunner: CommandRunner? = nil
     ) async -> [ToolProbeRecord] {
-        let runner = commandRunner ?? SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy())
+        // Doctor is a recovery surface: its children must honor the detector's
+        // per-command deadlines even when a vendor CLI ignores SIGTERM.
+        let runner = commandRunner ?? ProcessGroupCommandRunner(
+            environmentPolicy: AllnighterSpawnEnvironmentPolicy(),
+            spawnKind: .doctorProbe
+        )
         if full {
             return await CLIDetector(
                 commandRunner: runner,

@@ -48,11 +48,14 @@ public enum ProcessOwnership {
         /// Harness-owned proof of record (PO-S04): process-group leader spawned by
         /// `ProjectVerificationService` / `ProcessGroupCommandRunner`, never by the agent.
         case harnessProof
+        /// Short-lived doctor resolve/version/smoke probe. It must be group-killable
+        /// so a CLI that ignores SIGTERM cannot wedge the recovery surface.
+        case doctorProbe
 
         /// True when reconcile/turn-end may PG-kill a recorded pgid for this kind.
         public var isProcessGroupKillable: Bool {
             switch self {
-            case .detachedRunner, .devTurn, .harnessProof: return true
+            case .detachedRunner, .devTurn, .harnessProof, .doctorProbe: return true
             case .inProcess: return false
             }
         }
@@ -81,7 +84,7 @@ public enum ProcessOwnership {
             guard let ticks = processStartTimeTicks(pid) else { return nil }
             let recordedPgid: Int32?
             switch kind {
-            case .detachedRunner, .devTurn, .harnessProof:
+            case .detachedRunner, .devTurn, .harnessProof, .doctorProbe:
                 recordedPgid = pgid ?? getpgrp()
             case .inProcess:
                 recordedPgid = nil
