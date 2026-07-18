@@ -161,6 +161,101 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
         XCTAssertTrue(table.contains("KIND"))
     }
 
+    // MARK: - Project scope (Concurrent Invocation Isolation F1/F3)
+
+    func testPsListScopedToProjectRootExcludesOtherProjectsAndUnresolvedRoots() throws {
+        let (support, runs, relays, _, surface) = try tempTree()
+        defer { try? FileManager.default.removeItem(at: support) }
+
+        try runs.save(nonTerminalRun(id: "run-a", repoRoot: "/tmp/repo-a"), models: [])
+        try runs.save(nonTerminalRun(id: "run-b", repoRoot: "/tmp/repo-b"), models: [])
+        try runs.save(nonTerminalRun(id: "run-noroot", repoRoot: nil), models: [])
+        var relay = RelayState(
+            id: "relay_b_1", projectRoot: "/tmp/repo-b", docPath: "d.md",
+            pmWorkerId: "pm", devWorkerId: "dev", status: .running, createdAt: Date()
+        )
+        relay.rounds = [RelayRound(roundNumber: 1, startedAt: Date())]
+        _ = try relays.save(relay)
+
+        // Scoped: only project A's run. Other projects and unresolved roots are
+        // excluded (fail closed — they must never join an implicit aggregate).
+        let scoped = surface.list(scopeRoot: "/tmp/repo-a")
+        XCTAssertEqual(Set(scoped.processes.map(\.id)), ["run-a"])
+
+        // A symlink/alias spelling of the same root resolves to the same scope.
+        let aliased = surface.list(scopeRoot: "/tmp/../tmp/repo-a/")
+        XCTAssertEqual(Set(aliased.processes.map(\.id)), ["run-a"])
+
+        // Machine-wide is the explicit opt-in: everything is listed.
+        let fleet = surface.list()
+        XCTAssertTrue(Set(fleet.processes.map(\.id)).isSuperset(of: ["run-a", "run-b", "run-noroot", "relay_b_1"]))
+    }
+
+    func testKillAllScopedKillsOnlyCallerProject() throws {
+        let (support, runs, _, _, surface) = try tempTree()
+        defer { try? FileManager.default.removeItem(at: support) }
+
+        // Live (in-process owner) runs in two projects sharing one store.
+        try runs.save(nonTerminalRun(id: "alive-a", repoRoot: "/tmp/repo-a"), models: [])
+        try runs.save(nonTerminalRun(id: "alive-b", repoRoot: "/tmp/repo-b"), models: [])
+
+        let result = surface.killAll(scopeRoot: "/tmp/repo-a")
+        XCTAssertEqual(Set(result.killed.map(\.id)), ["alive-a"])
+
+        let a = try XCTUnwrap(runs.loadRaw(runId: "alive-a"))
+        XCTAssertTrue(a.status.isTerminal)
+        XCTAssertEqual(a.endReason, .killed)
+
+        // Project B's run is untouched — never reaped, never stamped.
+        let b = try XCTUnwrap(runs.loadRaw(runId: "alive-b"))
+        XCTAssertFalse(b.status.isTerminal, "kill --all in project A must not touch project B")
+        XCTAssertNil(b.endReason)
+
+        // The explicit machine-wide fleet kill still reaches project B.
+        let fleet = surface.killAll()
+        XCTAssertEqual(Set(fleet.killed.map(\.id)), ["alive-b"])
+    }
+
+    func testReconcileAllScopedReapsOnlyCallerProjectAndFailsClosed() throws {
+        let (support, runs, _, _, _) = try tempTree()
+        defer { try? FileManager.default.removeItem(at: support) }
+
+        // Dead-owner runs in both projects plus one with an unresolved root.
+        for (id, root) in [("dead-a", "/tmp/repo-a"), ("dead-b", "/tmp/repo-b")] {
+            try runs.save(nonTerminalRun(id: id, repoRoot: root), models: [])
+            let dir = try runs.runDirectory(forRunId: id)
+            try ProcessOwnership.writeOwnerIdentity(
+                .init(pid: 2_100_700, pgid: 9_700, startTimeTicks: 1, kind: .detachedRunner),
+                in: dir
+            )
+        }
+        try runs.save(nonTerminalRun(id: "dead-noroot", repoRoot: nil), models: [])
+        let noRootDir = try runs.runDirectory(forRunId: "dead-noroot")
+        try ProcessOwnership.writeOwnerIdentity(
+            .init(pid: 2_100_701, pgid: 9_701, startTimeTicks: 1, kind: .detachedRunner),
+            in: noRootDir
+        )
+
+        // Scoped to A: reaps only A's dead run. B's and the unresolved-root run
+        // are skipped (fail closed), still non-terminal on disk.
+        let reapedA = runs.reconcileAll(scopeRoot: "/tmp/repo-a")
+        XCTAssertEqual(Set(reapedA.map(\.id)), ["dead-a"])
+        XCTAssertEqual(try XCTUnwrap(runs.loadRaw(runId: "dead-a")).endReason, .reconciledOrphan)
+        XCTAssertFalse(try XCTUnwrap(runs.loadRaw(runId: "dead-b")).status.isTerminal,
+                       "bare team reconcile in project A must not reap project B")
+        XCTAssertFalse(try XCTUnwrap(runs.loadRaw(runId: "dead-noroot")).status.isTerminal,
+                       "unresolved root is skipped, never swept")
+
+        // Scoped to B reaps B's; unresolved-root still skipped.
+        let reapedB = runs.reconcileAll(scopeRoot: "/tmp/repo-b")
+        XCTAssertEqual(Set(reapedB.map(\.id)), ["dead-b"])
+
+        // Explicit machine-wide sweep is the only path that reaches an
+        // unresolved-root record.
+        let reapedAll = runs.reconcileAll()
+        XCTAssertEqual(Set(reapedAll.map(\.id)), ["dead-noroot"])
+    }
+
     // MARK: - kill seam (spy hook)
 
     func testKillRunStampsEndReasonAndSignalsRecordedPgid() throws {

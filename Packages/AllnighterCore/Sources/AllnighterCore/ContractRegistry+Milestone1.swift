@@ -324,21 +324,28 @@ public extension ContractRegistry {
             outputSchema: .teamCancelResponse
         ),
         CommandSpec(
-            "team reconcile", summary: "Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. Omit run-id to sweep all runs under the support root.", milestone: .m1,
-            args: [ArgSpec("run-id", required: false, summary: "Optional run id; omit to sweep all.")],
-            flags: [FlagSpec("json", summary: "Structured reaped-run list.")]
+            "team reconcile", summary: "Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. An exact run-id may target any project; the bare sweep is scoped to the caller's canonical project root (fail closed on unresolved roots) — machine-wide only via the explicit --all-projects.", milestone: .m1,
+            args: [ArgSpec("run-id", required: false, summary: "Optional run id; omit to sweep the caller's project scope.")],
+            flags: [
+                FlagSpec("all-projects", summary: "Machine-wide fleet sweep instead of the caller's project scope."),
+                FlagSpec("json", summary: "Structured reaped-run list."),
+            ]
         ),
         // Process ownership observability (docs/phases/Process_Ownership.md PO-S05)
         CommandSpec(
-            "ps", summary: "List every process tree Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing.", milestone: .m1,
-            flags: [FlagSpec("json", summary: "Structured OwnershipPsJSON inventory.")],
+            "ps", summary: "List the process trees Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing. Defaults to the caller's project scope; --all-projects is the explicit machine-wide fleet view.", milestone: .m1,
+            flags: [
+                FlagSpec("all-projects", summary: "Machine-wide fleet view instead of the caller's project scope."),
+                FlagSpec("json", summary: "Structured OwnershipPsJSON inventory."),
+            ],
             outputSchema: .ownershipPsJSON
         ),
         CommandSpec(
-            "kill", summary: "Identity-checked total group kill of one owned tree (or --all identity-alive trees) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid).", milestone: .m1,
+            "kill", summary: "Identity-checked total group kill of one owned tree (or --all identity-alive trees in the caller's project scope) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid). An exact id may target any project.", milestone: .m1,
             args: [ArgSpec("id", required: false, summary: "Owned process id (run/relay/pilot/proof). Required unless --all.")],
             flags: [
-                FlagSpec("all", summary: "Kill every identity-alive owned tree (skips identity-mismatched and already-terminal)."),
+                FlagSpec("all", summary: "Kill every identity-alive owned tree in the caller's project scope (skips identity-mismatched and already-terminal; unresolved roots are never swept)."),
+                FlagSpec("all-projects", summary: "With --all: machine-wide fleet kill instead of the caller's project scope."),
                 FlagSpec("json", summary: "Structured OwnershipKillJSON."),
             ],
             outputSchema: .ownershipKillJSON

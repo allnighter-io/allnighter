@@ -1253,13 +1253,18 @@
         {
           "name" : "run-id",
           "required" : false,
-          "summary" : "Optional run id; omit to sweep all."
+          "summary" : "Optional run id; omit to sweep the caller's project scope."
         }
       ],
       "exampleIds" : [
 
       ],
       "flags" : [
+        {
+          "name" : "all-projects",
+          "summary" : "Machine-wide fleet sweep instead of the caller's project scope.",
+          "takesValue" : false
+        },
         {
           "name" : "json",
           "summary" : "Structured reaped-run list.",
@@ -1272,7 +1277,7 @@
       ],
       "name" : "team reconcile",
       "outputSchema" : "none",
-      "summary" : "Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. Omit run-id to sweep all runs under the support root."
+      "summary" : "Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. An exact run-id may target any project; the bare sweep is scoped to the caller's canonical project root (fail closed on unresolved roots) — machine-wide only via the explicit --all-projects."
     },
     {
       "args" : [
@@ -1282,6 +1287,11 @@
 
       ],
       "flags" : [
+        {
+          "name" : "all-projects",
+          "summary" : "Machine-wide fleet view instead of the caller's project scope.",
+          "takesValue" : false
+        },
         {
           "name" : "json",
           "summary" : "Structured OwnershipPsJSON inventory.",
@@ -1294,7 +1304,7 @@
       ],
       "name" : "ps",
       "outputSchema" : "ownershipPsJSON",
-      "summary" : "List every process tree Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing."
+      "summary" : "List the process trees Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing. Defaults to the caller's project scope; --all-projects is the explicit machine-wide fleet view."
     },
     {
       "args" : [
@@ -1310,7 +1320,12 @@
       "flags" : [
         {
           "name" : "all",
-          "summary" : "Kill every identity-alive owned tree (skips identity-mismatched and already-terminal).",
+          "summary" : "Kill every identity-alive owned tree in the caller's project scope (skips identity-mismatched and already-terminal; unresolved roots are never swept).",
+          "takesValue" : false
+        },
+        {
+          "name" : "all-projects",
+          "summary" : "With --all: machine-wide fleet kill instead of the caller's project scope.",
           "takesValue" : false
         },
         {
@@ -1325,7 +1340,7 @@
       ],
       "name" : "kill",
       "outputSchema" : "ownershipKillJSON",
-      "summary" : "Identity-checked total group kill of one owned tree (or --all identity-alive trees) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid)."
+      "summary" : "Identity-checked total group kill of one owned tree (or --all identity-alive trees in the caller's project scope) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid). An exact id may target any project."
     },
     {
       "args" : [

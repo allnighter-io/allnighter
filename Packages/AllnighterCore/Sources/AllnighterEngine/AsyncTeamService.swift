@@ -653,14 +653,17 @@ public actor AsyncTeamService {
 
     /// Explicit reconcile path (`alln team reconcile`). Returns only runs this
     /// call newly reaped (never lists already-terminal or still-alive runs).
-    public func reconcile(runId: String?) -> [TeamRun] {
+    /// An exact run id stays an explicit cross-project target; the bare sweep
+    /// is scoped to the caller's canonical project root (`scopeRoot`) — pass
+    /// nil only for the explicit machine-wide fleet sweep.
+    public func reconcile(runId: String?, scopeRoot: String? = nil) -> [TeamRun] {
         if let runId {
             if let detail = runStore.reconcileRunDetailed(runId: runId, models: models), detail.reaped {
                 return [detail.run]
             }
             return []
         }
-        return runStore.reconcileAll(models: models)
+        return runStore.reconcileAll(models: models, scopeRoot: scopeRoot)
     }
 
     public enum ResultOutcome: Sendable, Equatable {

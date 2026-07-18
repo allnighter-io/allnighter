@@ -285,10 +285,15 @@ public struct RunStore: Sendable {
         }
     }
 
-    /// Sweep every non-terminal run under this store (doctor / `team reconcile`).
+    /// Sweep non-terminal runs under this store (doctor / `team reconcile`).
     /// Returns only runs this call newly reaped.
+    ///
+    /// `scopeRoot` (Concurrent Invocation Isolation F1/F3): when non-nil, only
+    /// runs whose `repoRoot` canonicalizes to the caller's project root are
+    /// eligible. Fail closed — a run whose root can't be resolved is skipped,
+    /// never swept. `nil` is the explicit machine-wide fleet sweep.
     @discardableResult
-    public func reconcileAll(models: [Model] = []) -> [TeamRun] {
+    public func reconcileAll(models: [Model] = [], scopeRoot: String? = nil) -> [TeamRun] {
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: rootDirectory,
             includingPropertiesForKeys: nil
@@ -298,6 +303,10 @@ public struct RunStore: Sendable {
         var results: [TeamRun] = []
         for dir in entries where dir.lastPathComponent.hasPrefix("run_") {
             let id = String(dir.lastPathComponent.dropFirst("run_".count))
+            if let scopeRoot,
+               !ProjectScope.matches(scopeRoot: scopeRoot, recordRoot: loadRaw(runId: id)?.repoRoot) {
+                continue
+            }
             if let detail = reconcileRunDetailed(runId: id, models: models), detail.reaped {
                 results.append(detail.run)
             }

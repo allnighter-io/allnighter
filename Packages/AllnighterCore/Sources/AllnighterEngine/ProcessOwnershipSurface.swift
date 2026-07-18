@@ -33,13 +33,22 @@ public struct ProcessOwnershipSurface: Sendable {
 
     // MARK: - ps (read-only)
 
-    /// Enumerate every process tree Allnighter owns. Stable order: kind, then id.
-    public func list() -> OwnershipPsJSON {
+    /// Enumerate the process trees Allnighter owns. Stable order: kind, then id.
+    ///
+    /// `scopeRoot` (Concurrent Invocation Isolation F1/F3): when non-nil, only
+    /// rows whose project root canonicalizes to the caller's root are listed.
+    /// Fail closed — rows with an unresolvable root (nil, e.g. proof holders)
+    /// are excluded from a scoped listing. `nil` is the explicit machine-wide
+    /// fleet view (`alln ps --all-projects`).
+    public func list(scopeRoot: String? = nil) -> OwnershipPsJSON {
         let countedAt = now()
         var rows: [OwnershipProcessJSON] = []
         rows.append(contentsOf: listRuns(now: countedAt))
         rows.append(contentsOf: listRelays(now: countedAt))
         rows.append(contentsOf: listProofHolders(now: countedAt, existingIds: Set(rows.map(\.id))))
+        if let scopeRoot {
+            rows = rows.filter { ProjectScope.matches(scopeRoot: scopeRoot, recordRoot: $0.projectRoot) }
+        }
         rows.sort { lhs, rhs in
             if lhs.kind != rhs.kind { return lhs.kind < rhs.kind }
             return lhs.id < rhs.id
@@ -93,10 +102,13 @@ public struct ProcessOwnershipSurface: Sendable {
         return .failure(.notFound(id: id))
     }
 
-    /// Kill every identity-alive owned tree. Skips identity-mismatched, terminal,
-    /// and identity-dead (those are reconcile's job). Never signals recycled pids.
-    public func killAll() -> OwnershipKillJSON {
-        let snapshot = list()
+    /// Kill every identity-alive owned tree **in `scopeRoot`'s project scope**.
+    /// Skips identity-mismatched, terminal, and identity-dead (those are
+    /// reconcile's job). Never signals recycled pids. Rows whose root can't be
+    /// resolved are never in a scoped snapshot (fail closed). `nil` scope is
+    /// the explicit machine-wide fleet kill (`alln kill --all --all-projects`).
+    public func killAll(scopeRoot: String? = nil) -> OwnershipKillJSON {
+        let snapshot = list(scopeRoot: scopeRoot)
         var killed: [OwnershipKillRowJSON] = []
         var skipped: [OwnershipKillSkipJSON] = []
         for row in snapshot.processes {

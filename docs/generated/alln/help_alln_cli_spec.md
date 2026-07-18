@@ -500,32 +500,35 @@ Output schema: `teamCancelResponse`.
 
 ### `alln team reconcile`
 
-Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. Omit run-id to sweep all runs under the support root.
+Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. An exact run-id may target any project; the bare sweep is scoped to the caller's canonical project root (fail closed on unresolved roots) — machine-wide only via the explicit --all-projects.
 
 Arguments:
-- `run-id` (optional) — Optional run id; omit to sweep all.
+- `run-id` (optional) — Optional run id; omit to sweep the caller's project scope.
 
 Flags:
+- `--all-projects` — Machine-wide fleet sweep instead of the caller's project scope.
 - `--json` — Structured reaped-run list.
 
 ### `alln ps`
 
-List every process tree Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing.
+List the process trees Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing. Defaults to the caller's project scope; --all-projects is the explicit machine-wide fleet view.
 
 Flags:
+- `--all-projects` — Machine-wide fleet view instead of the caller's project scope.
 - `--json` — Structured OwnershipPsJSON inventory.
 
 Output schema: `ownershipPsJSON`.
 
 ### `alln kill`
 
-Identity-checked total group kill of one owned tree (or --all identity-alive trees) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid).
+Identity-checked total group kill of one owned tree (or --all identity-alive trees in the caller's project scope) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid). An exact id may target any project.
 
 Arguments:
 - `id` (optional) — Owned process id (run/relay/pilot/proof). Required unless --all.
 
 Flags:
-- `--all` — Kill every identity-alive owned tree (skips identity-mismatched and already-terminal).
+- `--all` — Kill every identity-alive owned tree in the caller's project scope (skips identity-mismatched and already-terminal; unresolved roots are never swept).
+- `--all-projects` — With --all: machine-wide fleet kill instead of the caller's project scope.
 - `--json` — Structured OwnershipKillJSON.
 
 Output schema: `ownershipKillJSON`.

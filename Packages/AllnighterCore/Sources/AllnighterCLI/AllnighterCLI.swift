@@ -1256,17 +1256,21 @@ struct AllnighterCLI {
         print(jsonString(response))
     }
 
-    /// `alln team reconcile [run-id] --json` — explicit ownership reconcile
-    /// (PO-S01 v2). Identity-dead owners are PG-killed (recorded pgid only) and
-    /// stamped `endReason: reconciledOrphan`. Without run-id, sweeps all runs.
+    /// `alln team reconcile [run-id] [--all-projects] --json` — explicit
+    /// ownership reconcile (PO-S01 v2). Identity-dead owners are PG-killed
+    /// (recorded pgid only) and stamped `endReason: reconciledOrphan`. An exact
+    /// run-id may target any project; the bare sweep is scoped to the caller's
+    /// canonical project root (Concurrent Invocation Isolation F1) — machine-wide
+    /// only via the explicit `--all-projects`.
     static func runTeamReconcile(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard opts.flag("json") else {
-            FileHandle.standardError.write(Data("usage: alln team reconcile [run-id] --json\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln team reconcile [run-id] [--all-projects] --json\n".utf8))
             exit(2)
         }
         let runId = opts.positional.first
-        let reaped = await runtime.asyncTeamService().reconcile(runId: runId)
+        let scopeRoot = opts.flag("all-projects") ? nil : FileManager.default.currentDirectoryPath
+        let reaped = await runtime.asyncTeamService().reconcile(runId: runId, scopeRoot: scopeRoot)
         struct ReconcileEnvelope: Encodable {
             var schemaVersion = 1
             var reapedCount: Int
@@ -1290,16 +1294,23 @@ struct AllnighterCLI {
         print(jsonString(envelope))
     }
 
-    /// `alln ps [--json]` — read-only ownership inventory (PO-S05). Reports every
-    /// process tree Allnighter owns and what reconcile WOULD reap; kills nothing.
+    /// `alln ps [--all-projects] [--json]` — read-only ownership inventory
+    /// (PO-S05). Reports what reconcile WOULD reap; kills nothing. Defaults to
+    /// the caller's project scope (Concurrent Invocation Isolation F1);
+    /// `--all-projects` is the explicit machine-wide fleet view.
     static func runOwnershipPs(_ args: [String]) {
         let opts = Options(args)
         let surface = ProcessOwnershipSurface()
-        let envelope = surface.list()
+        let allProjects = opts.flag("all-projects")
+        let scopeRoot = allProjects ? nil : FileManager.default.currentDirectoryPath
+        let envelope = surface.list(scopeRoot: scopeRoot)
         if opts.flag("json") {
             print(jsonString(envelope))
         } else {
             print(ProcessOwnershipSurface.humanTable(envelope))
+            if !allProjects {
+                print("(project scope: \(FileManager.default.currentDirectoryPath) — `alln ps --all-projects` for the fleet view)")
+            }
         }
     }
 
@@ -1323,15 +1334,20 @@ struct AllnighterCLI {
         print("kept after removal failure: \(result.keptRemovalFailed.count)")
     }
 
-    /// `alln kill <id> | --all [--json]` — identity-checked total group kill +
-    /// terminal `endReason: killed` (PO-S05). Refuses on identity mismatch.
+    /// `alln kill <id> | --all [--all-projects] [--json]` — identity-checked
+    /// total group kill + terminal `endReason: killed` (PO-S05). Refuses on
+    /// identity mismatch. `--all` is scoped to the caller's project root
+    /// (Concurrent Invocation Isolation F1); `--all-projects` makes it the
+    /// explicit machine-wide fleet kill. An exact id may target any project.
     static func runOwnershipKill(_ args: [String]) {
         let opts = Options(args)
         let surface = ProcessOwnershipSurface()
         let asJSON = opts.flag("json")
 
         if opts.flag("all") {
-            let result = surface.killAll()
+            let allProjects = opts.flag("all-projects")
+            let scopeRoot = allProjects ? nil : FileManager.default.currentDirectoryPath
+            let result = surface.killAll(scopeRoot: scopeRoot)
             if asJSON {
                 print(jsonString(result))
             } else {
@@ -1342,12 +1358,15 @@ struct AllnighterCLI {
                 for skip in result.skipped {
                     print("  skip \(skip.id): \(skip.reason)")
                 }
+                if !allProjects {
+                    print("(project scope: \(FileManager.default.currentDirectoryPath) — `--all-projects` for machine-wide)")
+                }
             }
             return
         }
 
         guard let id = opts.positional.first else {
-            FileHandle.standardError.write(Data("usage: alln kill <id> | --all [--json]\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln kill <id> | --all [--all-projects] [--json]\n".utf8))
             exit(2)
         }
         switch surface.kill(id: id) {
@@ -1646,9 +1665,9 @@ struct AllnighterCLI {
           team status <run-id> --json [--wait-for <state> --timeout <s>]  poll or block-wait async run status
           team result <run-id> --json                             fetch TeamRunJSON when ready
           team cancel <run-id> --json                             cancel an active async run
-          team reconcile [run-id] --json                          reap identity-dead async runs
-          ps [--json]                                               list owned process trees (read-only)
-          kill <id> | --all [--json]                                identity-checked total kill + endReason=killed
+          team reconcile [run-id] [--all-projects] --json           reap identity-dead async runs (bare: caller's project scope)
+          ps [--all-projects] [--json]                              list owned process trees (read-only; project scope by default)
+          kill <id> | --all [--all-projects] [--json]               identity-checked total kill + endReason=killed (--all: project scope)
           gc [--json]                                               prune old dead terminal ownership records
           show <run-id|latest> [--json]                             show one run
           export <run-id|latest> --format md                        export a result bundle
