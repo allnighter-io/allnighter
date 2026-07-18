@@ -422,6 +422,40 @@ isolation).
   add regression tests for O_CLOEXEC (no fd leak into a spawned child) and the
   meta-lock lost-update case. Implementer: Cursor Grok 4.5.
 
+- **PO-F10 — honest worker resolution + fresh-run robustness (founder bug, 2026-07-18).**
+  Root cause of an hour of thrash: `alln run --worker model_cursor_grok_45` (and
+  the pilot dev-turn) **silently fell back** to a different model
+  (`model_chatgpt`, enabled-but-notReady → failure) because
+  `model_cursor_grok_45` was `enabled=False` on the bench. The user explicitly
+  asked for Cursor Grok and got ChatGPT with no warning; the pilot dev turn just
+  died with `devRunId: NONE`. **A silent substitution of an explicitly-named
+  worker is a lie** — same class as F8 (turn honesty) and the "never lie about
+  state" law. Founder framing: *"if figuring out how to run a pilot/relay can
+  fail this easily it is a non-working product; a new run should assume all prior
+  runs are dead and nothing stalls it."*
+  Fixes:
+  1. **Explicit `--worker X` is honored or fails LOUD.** If `X` is not resolvable
+     (disabled, notReady, not on bench, unknown id), `alln run`/pilot/relay
+     return a typed error naming exactly why and the one-line fix
+     (`WORKER_NOT_AVAILABLE`: "model_cursor_grok_45 is disabled — run
+     `alln models enable model_cursor_grok_45`" / "is notReady — check
+     `alln doctor`"). NEVER substitute a different model behind an explicit
+     `--worker`/`--dev-worker`. (Team-resolved default routing may still
+     fall back — that path is implicit; the explicit override must not.)
+  2. **Pilot/relay dev-turn worker resolution** must surface the same typed
+     error before the stall-retry loop — a dev turn that can't resolve its
+     worker must escalate with `WORKER_NOT_AVAILABLE`, not 4 silent stalls +
+     `devRunId: NONE`.
+  3. **Stale-lane GC:** hundreds of dead-pid `holder.json` dirs accumulate under
+     `Lanes/` and never get cleaned (functionally harmless — `isHolderEffectivelyLive`
+     filters them — but noise, and a symptom). A fresh run / `alln doctor` should
+     opportunistically GC lane dirs whose holders are all identity-dead and whose
+     flock is unheld. A new run must never be blocked or confused by prior state.
+  Works test: `--worker <disabled-model>` → `WORKER_NOT_AVAILABLE` typed error
+  (exit non-zero), never a different model; enabling it → the run uses it; a
+  pilot with an unresolvable `--dev-worker` escalates with the typed reason, not
+  a stall. Implementer: TBD (Cursor Grok / Sonnet).
+
 ## v2 review ledger (2026-07-17)
 
 Accepted from mentors: owner identity record incl. start time (pid reuse =
