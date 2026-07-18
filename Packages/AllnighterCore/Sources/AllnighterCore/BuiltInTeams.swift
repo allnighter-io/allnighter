@@ -9,7 +9,7 @@ public enum BuiltInTeams {
     public static let all: [TeamPreset] = [
         buildCore, buildBugHunt, buildBugHuntMax, buildGUIBugHunt, buildSecurityReview,
         buildSpecReviewMin, buildSpecReview, buildSpecReviewMax, buildReleaseProof,
-        buildGrowthPanelMin, buildGrowthPanel, buildGrowthPanelMax,
+        buildGrowthMin, buildGrowth, buildGrowthMax,
         defaultChat, executionPlaybook,
         designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
         copyCore, copyLandingPage,
@@ -262,47 +262,47 @@ public enum BuiltInTeams {
         ], rotation: codeWorkerRotation, strategicSeats: ["security_fix_prioritizer"]),
         writer: "security_register_writer", dissent: .riskRegister)
 
-    // MARK: - Growth Panel (same prompt, diverse models)
+    // MARK: - Growth (same prompt, diverse models)
 
-    /// Growth Panel Min — three diverse models, no Claude/ChatGPT subscription required.
-    static let buildGrowthPanelMin = make(
-        id: "code_growth_panel_min", name: "Growth Panel Min", lane: .code,
+    /// Growth Min — three diverse models, no Claude/ChatGPT subscription required.
+    static let buildGrowthMin = make(
+        id: "code_growth_min", name: "Growth Min", lane: .code,
         output: .plan, defaultEffort: .high,
         description: "Fast growth read: up to 4 diverse models (a flagship when you have one) hunt the wedge that makes X builders love it — kept simple and on-core. Runs on whatever's ready; drops a seat rather than doubling up.",
         rows: [
             TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
                            count: 4, triangulate: true, triangulatePreferenceIds: growthPreference)
         ],
-        writer: "growth_panel_writer",
-        typeTags: ["growth", "growth-panel", "min"],
+        writer: "growth_writer",
+        typeTags: ["growth", "min"],
         starters: [
-            "Growth Panel: how do we make X builders LOVE this and spread it, kept simple and on-core? Find the wedge, the shareable artifact, and the simplest lovable version."]
+            "Growth: how do we make X builders LOVE this and spread it, kept simple and on-core? Find the wedge, the shareable artifact, and the simplest lovable version."]
     )
 
-    /// Growth Panel — the everyday default. Four genuinely different frontier models
+    /// Growth — the everyday default. Four genuinely different frontier models
     /// on ONE shared growth-hacker prompt (the diversity is the model, not the lens);
     /// a first-principles synthesizer that hunts the BEST idea — outlier or consensus —
     /// and never rewards agreement for its own sake.
-    static let buildGrowthPanel = make(
-        id: "code_growth_panel", name: "Growth Panel", lane: .code,
+    static let buildGrowth = make(
+        id: "code_growth", name: "Growth", lane: .code,
         output: .plan, defaultEffort: .high,
         description: "Make X builders and influencers LOVE a feature: up to 6 diverse models — flagships recruited as workers when ready (never benched for the Lead) — swing big on the same growth question; Fable synthesizes and picks the highest-leverage wedge that stays on-core and simple, valuing the breakout outlier over safe consensus. Runs on whatever's ready; drops a seat rather than doubling up.",
         rows: [
             TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
                            count: 6, triangulate: true, triangulatePreferenceIds: growthPreference)
         ],
-        writer: "growth_panel_writer",
-        typeTags: ["growth", "growth-panel"],
+        writer: "growth_writer",
+        typeTags: ["growth"],
         starters: [
-            "Growth Panel: how do we make the X builders and influencers who matter LOVE this — enough to use it daily and tell others — while keeping it simple and true to the core? Find the wedge, the aha, the shareable artifact, and what to cut.",
-            "Review docs/phases/<Feature>.md as a growth panel: the loved wedge, the viral loop, the simplest lovable version, and the breakout bet."]
+            "Growth: how do we make the X builders and influencers who matter LOVE this — enough to use it daily and tell others — while keeping it simple and true to the core? Find the wedge, the aha, the shareable artifact, and what to cut.",
+            "Review docs/phases/<Feature>.md with Growth: the loved wedge, the viral loop, the simplest lovable version, and the breakout bet."]
     )
 
-    /// Growth Panel Max — the four-model panel plus an X/web research scout that reads
+    /// Growth Max — the four-model roster plus an X/web research scout that reads
     /// what is actually spreading in the category right now, so the ideas are grounded
     /// in live signal, not vibes.
-    static let buildGrowthPanelMax = make(
-        id: "code_growth_panel_max", name: "Growth Panel Max", lane: .code,
+    static let buildGrowthMax = make(
+        id: "code_growth_max", name: "Growth Max", lane: .code,
         output: .plan, defaultEffort: .high,
         description: "Deep growth read: an X/web signal scout on what is spreading now, then up to 8 diverse models on the wedge — every flagship and idle model recruited when ready (Sol, ChatGPT 5.6, Opus, Sonnet, Composer…) — and a synthesizer that prizes the breakout outlier over safe consensus. Drops a seat rather than doubling up.",
         scout: specRow("signal_source_reader", .answer, preferred: grok,
@@ -311,10 +311,10 @@ public enum BuiltInTeams {
             TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
                            count: 8, triangulate: true, triangulatePreferenceIds: growthPreference)
         ],
-        writer: "growth_panel_writer",
-        typeTags: ["growth", "growth-panel", "max"],
+        writer: "growth_writer",
+        typeTags: ["growth", "max"],
         starters: [
-            "Growth Panel (max): scout what is spreading in the category on X now, then find the wedge that makes builders LOVE this and the shareable viral loop — kept simple and on-core."]
+            "Growth Max: scout what is spreading in the category on X now, then find the wedge that makes builders LOVE this and the shareable viral loop — kept simple and on-core."]
     )
 
     /// Spec Review Min — the smallest useful cross-CLI panel. Its three workers

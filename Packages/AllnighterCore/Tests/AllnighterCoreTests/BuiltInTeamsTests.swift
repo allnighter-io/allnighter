@@ -17,7 +17,7 @@ final class BuiltInTeamsTests: XCTestCase {
         let required = [
             "code_core", "code_bug_hunt", "code_bug_hunt_max", "code_gui_bug_hunt", "code_security_review",
             "code_spec_review_min", "code_spec_review", "code_spec_review_max", "code_release_proof",
-            "code_growth_panel_min", "code_growth_panel", "code_growth_panel_max",
+            "code_growth_min", "code_growth", "code_growth_max",
             "default_chat", "execution_playbook",
             "design_core", "design_premium_polish", "design_conversion_studio",
             "design_radical_directions", "design_usability_triage",
