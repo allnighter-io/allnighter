@@ -122,6 +122,24 @@ final class ContractSchemaTests: XCTestCase {
         XCTAssertEqual(try properties(ContractSchema.threadStatusSchema()), labels(status), "ThreadStatusResponse schema drifted")
     }
 
+    func testOwnershipGarbageCollectionSchemaMatchesType() throws {
+        let row = OwnershipGarbageCollectionRecordJSON(
+            id: "run-1",
+            kind: "run",
+            createdAt: Date(timeIntervalSince1970: 1),
+            status: "complete"
+        )
+        let result = OwnershipGarbageCollectionJSON(retentionCount: 100, pruned: [row])
+        let schema = ContractSchema.ownershipGarbageCollectionSchema()
+
+        XCTAssertEqual(try properties(schema), labels(result), "ownership GC schema drifted")
+        XCTAssertEqual(
+            try properties(def(schema, "GarbageCollectionRecord")),
+            labels(row),
+            "ownership GC record schema drifted"
+        )
+    }
+
     func testSchemasSerializeDeterministically() throws {
         XCTAssertEqual(try ContractSchema.json(ContractSchema.teamRunSchema()),
                        try ContractSchema.json(ContractSchema.teamRunSchema()))

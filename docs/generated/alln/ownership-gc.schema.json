@@ -1,0 +1,121 @@
+{
+  "$defs" : {
+    "GarbageCollectionRecord" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "createdAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "detail" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "enum" : [
+            "run",
+            "relay",
+            "pilot"
+          ],
+          "type" : "string"
+        },
+        "status" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "id",
+        "kind"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/ownership-gc.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "consideredCount" : {
+      "type" : "integer"
+    },
+    "keptAlive" : {
+      "items" : {
+        "$ref" : "#\/$defs\/GarbageCollectionRecord"
+      },
+      "type" : "array"
+    },
+    "keptCount" : {
+      "type" : "integer"
+    },
+    "keptNonTerminal" : {
+      "items" : {
+        "$ref" : "#\/$defs\/GarbageCollectionRecord"
+      },
+      "type" : "array"
+    },
+    "keptRemovalFailed" : {
+      "items" : {
+        "$ref" : "#\/$defs\/GarbageCollectionRecord"
+      },
+      "type" : "array"
+    },
+    "keptThreadReferenced" : {
+      "items" : {
+        "$ref" : "#\/$defs\/GarbageCollectionRecord"
+      },
+      "type" : "array"
+    },
+    "keptUnreadable" : {
+      "items" : {
+        "$ref" : "#\/$defs\/GarbageCollectionRecord"
+      },
+      "type" : "array"
+    },
+    "keptWithinRetention" : {
+      "items" : {
+        "$ref" : "#\/$defs\/GarbageCollectionRecord"
+      },
+      "type" : "array"
+    },
+    "pruned" : {
+      "items" : {
+        "$ref" : "#\/$defs\/GarbageCollectionRecord"
+      },
+      "type" : "array"
+    },
+    "prunedCount" : {
+      "type" : "integer"
+    },
+    "retentionCount" : {
+      "type" : "integer"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "retentionCount",
+    "consideredCount",
+    "prunedCount",
+    "keptCount",
+    "pruned",
+    "keptAlive",
+    "keptNonTerminal",
+    "keptWithinRetention",
+    "keptThreadReferenced",
+    "keptUnreadable",
+    "keptRemovalFailed"
+  ],
+  "title" : "OwnershipGarbageCollectionJSON",
+  "type" : "object"
+}

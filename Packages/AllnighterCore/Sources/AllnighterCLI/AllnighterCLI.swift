@@ -79,6 +79,7 @@ struct AllnighterCLI {
         case "version": runVersion(args)
         case "ps": runOwnershipPs(args)
         case "kill": runOwnershipKill(args)
+        case "gc": runOwnershipGC(args)
         case "--help", "-h": printHelp()   // "help" is handled above via HelpCLI
         default:
             FileHandle.standardError.write(Data("unknown command: \(command)\n".utf8)); printHelp(); exit(2)
@@ -369,6 +370,7 @@ struct AllnighterCLI {
     ) async -> DoctorResult {
         // PO-F10: opportunistic stale-lane GC (dead-holder + unheld flock).
         _ = ExecutionLaneFlock.garbageCollectStaleLanes()
+        _ = ProcessOwnershipGarbageCollector().collect()
 
         let manifests = sourceId.map { id in runtime.registry.all.filter { $0.id == id } } ?? runtime.registry.all
         let modelLabels = ModelCatalog.probeModelLabels(registry: runtime.registry)
@@ -1301,6 +1303,26 @@ struct AllnighterCLI {
         }
     }
 
+    /// `alln gc [--json]` — safely prune old dead terminal run/relay records.
+    static func runOwnershipGC(_ args: [String]) {
+        let opts = Options(args)
+        let dryRun = opts.flag("dry-run")
+        let result = ProcessOwnershipGarbageCollector(dryRun: dryRun).collect()
+        if opts.flag("json") {
+            print(jsonString(result))
+            return
+        }
+        let verb = dryRun ? "would prune" : "pruned"
+        let suffix = dryRun ? "  (dry run — nothing deleted)" : ""
+        print("\(verb) \(result.prunedCount) of \(result.consideredCount) ownership record(s)\(suffix)")
+        print("kept alive: \(result.keptAlive.count)")
+        print("kept non-terminal: \(result.keptNonTerminal.count)")
+        print("kept within retention: \(result.keptWithinRetention.count)")
+        print("kept thread-referenced: \(result.keptThreadReferenced.count)")
+        print("kept unreadable: \(result.keptUnreadable.count)")
+        print("kept after removal failure: \(result.keptRemovalFailed.count)")
+    }
+
     /// `alln kill <id> | --all [--json]` — identity-checked total group kill +
     /// terminal `endReason: killed` (PO-S05). Refuses on identity mismatch.
     static func runOwnershipKill(_ args: [String]) {
@@ -1627,6 +1649,7 @@ struct AllnighterCLI {
           team reconcile [run-id] --json                          reap identity-dead async runs
           ps [--json]                                               list owned process trees (read-only)
           kill <id> | --all [--json]                                identity-checked total kill + endReason=killed
+          gc [--json]                                               prune old dead terminal ownership records
           show <run-id|latest> [--json]                             show one run
           export <run-id|latest> --format md                        export a result bundle
           history "<query>" [--json]                                search prior team runs

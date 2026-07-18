@@ -295,6 +295,7 @@ public actor RunService {
         // PO-F10: opportunistic stale-lane GC so a fresh run is never confused by
         // prior-run cruft (dead-holder dirs with an unheld flock).
         _ = ExecutionLaneFlock.garbageCollectStaleLanes()
+        _ = ProcessOwnershipGarbageCollector(runStore: runStore).collect()
 
         // Queue-wait clock: stamp BEFORE the write-lock acquire (the real blocking wait) and
         // resolution/staging, so `queueMs = worker.startedAt − requestedAt` captures all of it.

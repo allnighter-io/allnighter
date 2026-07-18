@@ -344,6 +344,11 @@ public extension ContractRegistry {
             outputSchema: .ownershipKillJSON
         ),
         CommandSpec(
+            "gc", summary: "Prune old identity-dead terminal run/relay records beyond retention. Keeps identity-alive, non-terminal, recent, and thread-referenced records.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Structured OwnershipGarbageCollectionJSON summary with every keep reason.")],
+            outputSchema: .ownershipGarbageCollectionJSON
+        ),
+        CommandSpec(
             "run", summary: "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.", milestone: .m1,
             args: [ArgSpec("message", required: true, summary: "The user's prompt.")],
             flags: [

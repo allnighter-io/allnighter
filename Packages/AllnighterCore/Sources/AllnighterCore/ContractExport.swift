@@ -130,6 +130,7 @@ public enum ContractExport {
             Artifact(filename: "thread-attachment.schema.json", contents: try ContractSchema.json(ContractSchema.threadAttachmentSchema())),
             Artifact(filename: "ownership-ps.schema.json", contents: try ContractSchema.json(ContractSchema.ownershipPsSchema())),
             Artifact(filename: "ownership-kill.schema.json", contents: try ContractSchema.json(ContractSchema.ownershipKillSchema())),
+            Artifact(filename: "ownership-gc.schema.json", contents: try ContractSchema.json(ContractSchema.ownershipGarbageCollectionSchema())),
             Artifact(filename: "help_alln_cli_spec.md", contents: ContractDocs.markdown(registry)),
         ]
     }

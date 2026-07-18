@@ -84,6 +84,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case versionJSON
         case ownershipPsJSON
         case ownershipKillJSON
+        case ownershipGarbageCollectionJSON
     }
 
     public struct ArgSpec: Codable, Sendable, Equatable {

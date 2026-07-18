@@ -530,6 +530,15 @@ Flags:
 
 Output schema: `ownershipKillJSON`.
 
+### `alln gc`
+
+Prune old identity-dead terminal run/relay records beyond retention. Keeps identity-alive, non-terminal, recent, and thread-referenced records.
+
+Flags:
+- `--json` — Structured OwnershipGarbageCollectionJSON summary with every keep reason.
+
+Output schema: `ownershipGarbageCollectionJSON`.
+
 ### `alln run`
 
 Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.

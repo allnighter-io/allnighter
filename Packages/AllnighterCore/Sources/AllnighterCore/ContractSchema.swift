@@ -673,6 +673,44 @@ public enum ContractSchema {
         return schema
     }
 
+    public static func ownershipGarbageCollectionSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/ownership-gc.schema.json",
+            "title": "OwnershipGarbageCollectionJSON",
+        ]
+        let rows = arr(ref("GarbageCollectionRecord"))
+        let top = obj([
+            "schemaVersion": int,
+            "retentionCount": int,
+            "consideredCount": int,
+            "prunedCount": int,
+            "keptCount": int,
+            "pruned": rows,
+            "keptAlive": rows,
+            "keptNonTerminal": rows,
+            "keptWithinRetention": rows,
+            "keptThreadReferenced": rows,
+            "keptUnreadable": rows,
+            "keptRemovalFailed": rows,
+        ], required: [
+            "schemaVersion", "retentionCount", "consideredCount", "prunedCount", "keptCount",
+            "pruned", "keptAlive", "keptNonTerminal", "keptWithinRetention",
+            "keptThreadReferenced", "keptUnreadable", "keptRemovalFailed",
+        ])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "GarbageCollectionRecord": obj([
+                "id": str,
+                "kind": enumStr(["run", "relay", "pilot"]),
+                "createdAt": nullable("string"),
+                "status": nullable("string"),
+                "detail": nullable("string"),
+            ], required: ["id", "kind"]),
+        ]
+        return schema
+    }
+
     // MARK: - Deterministic serialization
 
     public static func json(_ schema: [String: Any]) throws -> String {
