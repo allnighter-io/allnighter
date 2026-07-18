@@ -571,6 +571,7 @@ Flags:
 - `--dev-worker <id>` — Dev seat model id (required).
 - `--until <time>` — Hard stop HH:MM (local).
 - `--max-rounds <integer>` — Round ceiling (default 20).
+- `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
 
 Output schema: `relayJSON`.
@@ -620,6 +621,7 @@ Flags:
 - `--project <id>` — Project id, name, or repo path (required).
 - `--dev-worker <id|alias>` — Dev seat model id or alias (optional when a seat was remembered for this project).
 - `--max-rounds <integer>` — Round ceiling, set once here — Pilot has no long-lived process to re-supply it per handoff (default 20).
+- `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout), set once here and re-read from durable state at every later `pilot handoff`. Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
 - `--json` — Emit PilotStartJSON (relay + nextCommand + scaffoldPath).
 
 Output schema: `relayJSON`.
