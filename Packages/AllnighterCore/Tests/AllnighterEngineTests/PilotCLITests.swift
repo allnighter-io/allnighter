@@ -130,6 +130,33 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(request.config.maxRounds, 7)
     }
 
+    // PO-F7: `--idle-timeout` reuses PO-F5's `RunCLI.parseIdleTimeoutSeconds` helper.
+    func testParseStartConfigIdleTimeoutFlowsToConfig() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let request = try PilotCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--dev-worker", "model_dev", "--idle-timeout", "900"],
+            projectStore: store,
+            models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
+        )
+        XCTAssertEqual(request.config.devTurnIdleTimeoutSeconds, 900)
+    }
+
+    func testParseStartConfigInvalidIdleTimeoutThrows() throws {
+        let store = makeProjectStore()
+        try addProject(store)
+        XCTAssertThrowsError(try PilotCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", "repo", "--dev-worker", "model_dev", "--idle-timeout", "0"],
+            projectStore: store,
+            models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
+        )) { error in
+            guard case .invalidIdleTimeout(let message) = error as? PilotCLI.PilotCLIError else {
+                return XCTFail("expected invalidIdleTimeout, got \(error)")
+            }
+            XCTAssertTrue(message.contains("--idle-timeout"), message)
+        }
+    }
+
     // MARK: - readSubmission (legacy)
 
     func testReadSubmissionFromFile() throws {
@@ -222,6 +249,7 @@ final class PilotCLITests: XCTestCase {
         let cases: [PilotCLI.PilotCLIError] = [
             .missingRequired("--doc <path>"),
             .invalidMaxRounds("0"),
+            .invalidIdleTimeout("--idle-timeout must be a positive integer number of seconds, got '0'"),
             .projectNotFound("x"),
             .relayNotFound("relay_1"),
             .noSubmission,

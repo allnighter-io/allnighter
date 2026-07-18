@@ -100,6 +100,7 @@ final class RelayCLITests: XCTestCase {
         XCTAssertEqual(config.devWorkerId, "model_dev")
         XCTAssertEqual(config.maxRounds, 20)   // default
         XCTAssertNil(config.until)
+        XCTAssertNil(config.devTurnIdleTimeoutSeconds)   // default: no override
     }
 
     func testParseStartConfigCustomMaxRoundsAndUntil() throws {
@@ -112,6 +113,32 @@ final class RelayCLITests: XCTestCase {
         )
         XCTAssertEqual(config.maxRounds, 7)
         XCTAssertNotNil(config.until)
+    }
+
+    // PO-F7: `--idle-timeout` reuses PO-F5's `RunCLI.parseIdleTimeoutSeconds` helper.
+    func testParseStartConfigIdleTimeoutFlowsToConfig() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let config = try RelayCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--pm-worker", "model_pm", "--dev-worker", "model_dev",
+             "--idle-timeout", "900"],
+            projectStore: store
+        )
+        XCTAssertEqual(config.devTurnIdleTimeoutSeconds, 900)
+    }
+
+    func testParseStartConfigInvalidIdleTimeoutThrows() throws {
+        let store = makeProjectStore()
+        try addProject(store)
+        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", "repo", "--pm-worker", "a", "--dev-worker", "b", "--idle-timeout", "0"],
+            projectStore: store
+        )) { error in
+            guard case .invalidIdleTimeout(let message) = error as? RelayCLI.RelayCLIError else {
+                return XCTFail("expected invalidIdleTimeout, got \(error)")
+            }
+            XCTAssertTrue(message.contains("--idle-timeout"), message)
+        }
     }
 
     // MARK: - parseResumeRequest
@@ -216,6 +243,7 @@ final class RelayCLITests: XCTestCase {
         let cases: [RelayCLI.RelayCLIError] = [
             .missingRequired("--doc <path>"),
             .invalidMaxRounds("0"),
+            .invalidIdleTimeout("--idle-timeout must be a positive integer number of seconds, got '0'"),
             .projectNotFound("x"),
             .relayNotFound("relay_1"),
             .relayNotEscalated(status: "running"),

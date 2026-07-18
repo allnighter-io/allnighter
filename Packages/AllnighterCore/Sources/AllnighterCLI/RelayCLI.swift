@@ -20,7 +20,7 @@ enum RelayCLI {
             await runAdopt(Array(args.dropFirst()), runtime: runtime)
             return
         }
-        guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-worker <modelId> --dev-worker <modelId> [--until HH:MM] [--max-rounds N] [--json]") }
+        guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-worker <modelId> --dev-worker <modelId> [--until HH:MM] [--max-rounds N] [--idle-timeout <seconds>] [--json]") }
         let config: RelayCoordinator.Config
         do {
             config = try parseStartConfig(args)
@@ -127,6 +127,7 @@ enum RelayCLI {
     enum RelayCLIError: Error, Equatable {
         case missingRequired(String)
         case invalidMaxRounds(String)
+        case invalidIdleTimeout(String)
         case projectNotFound(String)
         case relayNotFound(String)
         case relayNotEscalated(status: String)
@@ -144,6 +145,9 @@ enum RelayCLI {
         guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else {
             throw RelayCLIError.invalidMaxRounds(opts.value("max-rounds") ?? "")
         }
+        // PO-F7: reuses PO-F5's `alln run --idle-timeout` parse helper — no second idle system.
+        let idleParsed = RunCLI.parseIdleTimeoutSeconds(opts.value("idle-timeout"))
+        if let error = idleParsed.error { throw RelayCLIError.invalidIdleTimeout(error) }
         return RelayCoordinator.Config(
             projectRoot: project.normalizedRootPath,
             projectId: project.id,
@@ -151,7 +155,8 @@ enum RelayCLI {
             pmWorkerId: pmWorkerId,
             devWorkerId: devWorkerId,
             maxRounds: maxRounds,
-            until: RelayDispatch.parseUntil(opts.value("until"))
+            until: RelayDispatch.parseUntil(opts.value("until")),
+            devTurnIdleTimeoutSeconds: idleParsed.value
         )
     }
 
@@ -240,6 +245,8 @@ enum RelayCLI {
             return ("CLI_USAGE_ERROR", "\(flag) required")
         case .invalidMaxRounds(let raw):
             return ("CLI_USAGE_ERROR", "--max-rounds must be a positive integer, got '\(raw)'")
+        case .invalidIdleTimeout(let message):
+            return ("CLI_USAGE_ERROR", message)
         case .projectNotFound(let token):
             return ("PROJECT_NOT_FOUND", "project not found: \(token)")
         case .relayNotFound(let id):

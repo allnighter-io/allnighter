@@ -39,7 +39,7 @@ enum PilotCLI {
     // MARK: - start
 
     static func runStart(_ args: [String], runtime: ToolRuntime) async {
-        guard !args.isEmpty else { usage("pilot start --doc <path> --project <id|path> [--dev-worker <seat|alias>] [--max-rounds N] [--json]") }
+        guard !args.isEmpty else { usage("pilot start --doc <path> --project <id|path> [--dev-worker <seat|alias>] [--max-rounds N] [--idle-timeout <seconds>] [--json]") }
         let opts = Options(args)
         let request: StartRequest
         do {
@@ -100,6 +100,9 @@ enum PilotCLI {
         guard let maxRounds = RelayCLI.parseMaxRounds(opts.value("max-rounds")) else {
             throw PilotCLIError.invalidMaxRounds(opts.value("max-rounds") ?? "")
         }
+        // PO-F7: reuses PO-F5's `alln run --idle-timeout` parse helper — no second idle system.
+        let idleParsed = RunCLI.parseIdleTimeoutSeconds(opts.value("idle-timeout"))
+        if let error = idleParsed.error { throw PilotCLIError.invalidIdleTimeout(error) }
 
         let catalogModels = models.isEmpty ? ModelCatalog.resolvedModels(registry: DefaultConfig.registry) : models
         let records = probeRecords
@@ -143,7 +146,8 @@ enum PilotCLI {
             docPath: docPath,
             pmWorkerId: RelayState.externalPMWorkerId,
             devWorkerId: devWorkerId,
-            maxRounds: maxRounds
+            maxRounds: maxRounds,
+            devTurnIdleTimeoutSeconds: idleParsed.value
         )
         return StartRequest(
             config: config,
@@ -671,6 +675,7 @@ enum PilotCLI {
     enum PilotCLIError: Error, Equatable {
         case missingRequired(String)
         case invalidMaxRounds(String)
+        case invalidIdleTimeout(String)
         case projectNotFound(String)
         case relayNotFound(String)
         case noSubmission
@@ -690,6 +695,8 @@ enum PilotCLI {
             return ("CLI_USAGE_ERROR", "\(flag) required")
         case .invalidMaxRounds(let raw):
             return ("CLI_USAGE_ERROR", "--max-rounds must be a positive integer, got '\(raw)'")
+        case .invalidIdleTimeout(let message):
+            return ("CLI_USAGE_ERROR", message)
         case .projectNotFound(let token):
             return ("PROJECT_NOT_FOUND", "project not found: \(token)")
         case .relayNotFound(let id):

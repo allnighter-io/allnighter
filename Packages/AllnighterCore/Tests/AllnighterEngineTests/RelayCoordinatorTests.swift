@@ -209,6 +209,68 @@ final class RelayCoordinatorTests: XCTestCase {
         XCTAssertEqual(state.status, .done)
     }
 
+    // MARK: - PO-F7 dev-turn idle-timeout override
+
+    func testDevTurnIdleTimeoutOverrideReachesRunRequest() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement the thing.")),
+        ]
+        let devScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Implemented and committed."),
+        ]
+        let pmRunner = SequencedCommandRunner(queues: ["pm_cli": pmScripts])
+        let devSpy = TimeoutCapturingCommandRunner(inner: SequencedCommandRunner(queues: ["dev_cli": devScripts]))
+        let routingRunner = RelayTestCommandRouter(pm: pmRunner, dev: devSpy)
+        let (service, _) = makeService(
+            pmScripts: pmScripts, devScripts: devScripts, runStore: runStore, commandRunner: routingRunner
+        )
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 1,
+            devTurnIdleTimeoutSeconds: 555
+        )
+        _ = await coordinator.run(config: config)
+
+        XCTAssertEqual(
+            devSpy.lastTimeout?.components.seconds, 555,
+            "Config.devTurnIdleTimeoutSeconds must reach RunRequest.workerTimeoutSeconds on the dev turn"
+        )
+    }
+
+    func testDevTurnIdleTimeoutDefaultLeavesRunnerTimeoutAtManifestDefault() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement the thing.")),
+        ]
+        let devScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Implemented and committed."),
+        ]
+        let pmRunner = SequencedCommandRunner(queues: ["pm_cli": pmScripts])
+        let devSpy = TimeoutCapturingCommandRunner(inner: SequencedCommandRunner(queues: ["dev_cli": devScripts]))
+        let routingRunner = RelayTestCommandRouter(pm: pmRunner, dev: devSpy)
+        let (service, _) = makeService(
+            pmScripts: pmScripts, devScripts: devScripts, runStore: runStore, commandRunner: routingRunner
+        )
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 1
+        )
+        _ = await coordinator.run(config: config)
+
+        // `makeService`'s `TestSupport.headlessManifest` default `invoke.timeoutSeconds`
+        // (2) — no override flows through when `devTurnIdleTimeoutSeconds` is nil (default).
+        XCTAssertEqual(devSpy.lastTimeout?.components.seconds, 2)
+    }
+
     func testAmbiguousStallRetryAppendsPartialCompletionHint() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
@@ -810,6 +872,29 @@ final class RelayTestCommandRouter: CommandRunner, @unchecked Sendable {
         default:
             return CommandResult(stdout: "", stderr: "unknown command", exitCode: 1)
         }
+    }
+}
+
+/// PO-F7: wraps a `CommandRunner` and records the `timeout` passed to its last call —
+/// proves `Config.devTurnIdleTimeoutSeconds` reaches `RunRequest.workerTimeoutSeconds`
+/// on the actual dev-turn dispatch (mirrors `RunIdleTimeoutTests.TimeoutCapturingStreamingRunner`).
+final class TimeoutCapturingCommandRunner: CommandRunner, @unchecked Sendable {
+    private let inner: CommandRunner
+    private let lock = NSLock()
+    private var captured: Duration?
+
+    init(inner: CommandRunner) {
+        self.inner = inner
+    }
+
+    var lastTimeout: Duration? { lock.withLock { captured } }
+
+    func run(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) async -> CommandResult {
+        lock.withLock { captured = timeout }
+        return await inner.run(command: command, args: args, stdin: stdin, env: env, workingDirectory: workingDirectory, timeout: timeout)
     }
 }
 

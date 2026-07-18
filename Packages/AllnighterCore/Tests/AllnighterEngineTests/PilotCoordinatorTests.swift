@@ -143,6 +143,44 @@ final class PilotCoordinatorTests: XCTestCase {
         XCTAssertEqual(stateStore.load(id: "relay_pilot_continue")?.status, .awaitingPM)
     }
 
+    // MARK: - PO-F7 dev-turn idle-timeout override (pilot)
+
+    /// `pilot start --idle-timeout` is persisted onto `RelayState.pilotDevTurnIdleTimeoutSeconds`
+    /// (Pilot has no long-lived process to re-supply `Config` at each later `pilot handoff`,
+    /// same reasoning as `pilotMaxRounds`) and reaches `RunRequest.workerTimeoutSeconds` on
+    /// the actual dev-turn dispatch.
+    func testPilotStartIdleTimeoutPersistsAndReachesRunRequestOnHandoff() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let devModel = Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "dev_cli", role: .both)
+        let registry = DriverRegistry([TestSupport.headlessManifest(id: "dev_cli", command: "dev_cli")])
+        let devSpy = TimeoutCapturingCommandRunner(
+            inner: SequencedCommandRunner(queues: ["dev_cli": [.init(stdout: "Implemented and committed.")]])
+        )
+        let service = RunService(
+            models: [devModel], registry: registry, runStore: runStore, commandRunner: devSpy,
+            writeLock: RunWriteLockRegistry(), defaultSettings: { DefaultModelSettings() }, probeRecords: { [] }
+        )
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_idle_timeout" })
+
+        let started = coordinator.startPilot(config: .init(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev",
+            devTurnIdleTimeoutSeconds: 555
+        ))
+        guard case .success(let startedState) = started else { return XCTFail("start failed") }
+        XCTAssertEqual(startedState.pilotDevTurnIdleTimeoutSeconds, 555, "persisted onto durable state at pilot start")
+
+        let submission = "Reviewed the repo myself.\n\n" + verdictJSON("continue", handover: "Implement the thing.")
+        let result = await coordinator.runExternalRound(relayId: "relay_pilot_idle_timeout", submission: submission)
+        guard case .success = result else { return XCTFail("expected success") }
+
+        XCTAssertEqual(
+            devSpy.lastTimeout?.components.seconds, 555,
+            "the durable pilotDevTurnIdleTimeoutSeconds must reach RunRequest.workerTimeoutSeconds on `pilot handoff`"
+        )
+    }
+
     /// P1: `--verdict continue --handover-file` delivers the order markdown byte-exact to
     /// the dev prompt through the real dispatch capture seam.
     func testHandoverFilePathDeliversHandoverByteExactToDev() async throws {

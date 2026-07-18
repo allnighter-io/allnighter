@@ -40,6 +40,10 @@ public struct RelayCoordinator: Sendable {
         /// PO-S04: how long the proof phase waits on the execution lane after the
         /// dev turn releases it. Defaults to the same generous bound as the turn.
         public var proofLaneWaitTimeout: Duration
+        /// PO-F7: override the dev seat's per-turn worker idle-stall budget
+        /// (`RunRequest.workerTimeoutSeconds`, reusing PO-F5's field + runner plumbing).
+        /// `nil` (default) leaves the driver manifest's idle timeout untouched.
+        public var devTurnIdleTimeoutSeconds: Int?
 
         public init(
             projectRoot: String,
@@ -53,7 +57,8 @@ public struct RelayCoordinator: Sendable {
             presetId: String = "execution_playbook",
             proofTimeoutSeconds: Int = ProjectVerificationService.defaultTimeoutSeconds,
             executionLaneWaitTimeout: Duration = .seconds(1800),
-            proofLaneWaitTimeout: Duration = .seconds(1800)
+            proofLaneWaitTimeout: Duration = .seconds(1800),
+            devTurnIdleTimeoutSeconds: Int? = nil
         ) {
             self.projectRoot = projectRoot
             self.projectId = projectId
@@ -67,6 +72,7 @@ public struct RelayCoordinator: Sendable {
             self.proofTimeoutSeconds = max(1, proofTimeoutSeconds)
             self.executionLaneWaitTimeout = executionLaneWaitTimeout
             self.proofLaneWaitTimeout = proofLaneWaitTimeout
+            self.devTurnIdleTimeoutSeconds = devTurnIdleTimeoutSeconds
         }
     }
 
@@ -226,7 +232,8 @@ public struct RelayCoordinator: Sendable {
             pmMode: .external,
             createdAt: now(),
             pilotMaxRounds: config.maxRounds,
-            pilotStagnationRoundCap: config.stagnationRoundCap
+            pilotStagnationRoundCap: config.stagnationRoundCap,
+            pilotDevTurnIdleTimeoutSeconds: config.devTurnIdleTimeoutSeconds
         )
         threadProjector?.started(state: state, projectId: config.projectId)
         persist(state)
@@ -347,7 +354,8 @@ public struct RelayCoordinator: Sendable {
             let dispatchConfig = Config(
                 projectRoot: state.projectRoot, projectId: projectId, docPath: state.docPath,
                 pmWorkerId: state.pmWorkerId, devWorkerId: state.devWorkerId,
-                maxRounds: maxRounds, until: nil, stagnationRoundCap: stagnationCap
+                maxRounds: maxRounds, until: nil, stagnationRoundCap: stagnationCap,
+                devTurnIdleTimeoutSeconds: state.pilotDevTurnIdleTimeoutSeconds
             )
             let devResult = await dispatchDevTurn(
                 devRequest,
@@ -1198,6 +1206,8 @@ public struct RelayCoordinator: Sendable {
         clearBlocked()
 
         var request = request
+        // PO-F7: dev-turn idle-timeout override (reuses PO-F5's RunRequest field).
+        request.workerTimeoutSeconds = config.devTurnIdleTimeoutSeconds
         var stalledAttempts = 0
         var emptyAttempts = 0
         var infraAttempts = 0

@@ -236,6 +236,11 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// `pilotMaxRounds`. `nil` reads as the house default (3), matching
     /// `Config.stagnationRoundCap`'s default.
     public var pilotStagnationRoundCap: Int?
+    /// Pilot only (PO-F7): the dev-turn idle-timeout override set once at `pilot start`,
+    /// same reasoning as `pilotMaxRounds` — each `pilot handoff` is a fresh CLI
+    /// invocation with no long-lived `Config` to re-supply it. `nil` leaves the driver
+    /// manifest's idle timeout untouched, matching `Config.devTurnIdleTimeoutSeconds`.
+    public var pilotDevTurnIdleTimeoutSeconds: Int?
     /// PO-S03: set while this relay's dev turn is blocked on the per-root
     /// execution lane (FIFO ticket). Cleared when the lane is acquired or the
     /// wait ends. Status JSON surfaces this as `laneBlocked`.
@@ -257,6 +262,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         founderNote: String? = nil,
         pilotMaxRounds: Int? = nil,
         pilotStagnationRoundCap: Int? = nil,
+        pilotDevTurnIdleTimeoutSeconds: Int? = nil,
         laneBlocked: ExecutionLaneTicket? = nil
     ) {
         self.id = id
@@ -274,6 +280,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.founderNote = founderNote
         self.pilotMaxRounds = pilotMaxRounds
         self.pilotStagnationRoundCap = pilotStagnationRoundCap
+        self.pilotDevTurnIdleTimeoutSeconds = pilotDevTurnIdleTimeoutSeconds
         self.laneBlocked = laneBlocked
     }
 
@@ -304,6 +311,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         founderNote = try c.decodeIfPresent(String.self, forKey: .founderNote)
         pilotMaxRounds = try c.decodeIfPresent(Int.self, forKey: .pilotMaxRounds)
         pilotStagnationRoundCap = try c.decodeIfPresent(Int.self, forKey: .pilotStagnationRoundCap)
+        pilotDevTurnIdleTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .pilotDevTurnIdleTimeoutSeconds)
         laneBlocked = try c.decodeIfPresent(ExecutionLaneTicket.self, forKey: .laneBlocked)
     }
 

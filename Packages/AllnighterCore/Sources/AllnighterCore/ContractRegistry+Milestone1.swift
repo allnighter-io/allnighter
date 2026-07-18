@@ -375,6 +375,7 @@ public extension ContractRegistry {
                 FlagSpec("dev-worker", takesValue: true, valueType: "id", summary: "Dev seat model id (required)."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local)."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling (default 20)."),
+                FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7)."),
                 FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope."),
             ],
             outputSchema: .relayJSON
@@ -416,6 +417,7 @@ public extension ContractRegistry {
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
                 FlagSpec("dev-worker", takesValue: true, valueType: "id|alias", summary: "Dev seat model id or alias (optional when a seat was remembered for this project)."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling, set once here — Pilot has no long-lived process to re-supply it per handoff (default 20)."),
+                FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout), set once here and re-read from durable state at every later `pilot handoff`. Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7)."),
                 FlagSpec("json", summary: "Emit PilotStartJSON (relay + nextCommand + scaffoldPath)."),
             ],
             outputSchema: .relayJSON
