@@ -284,10 +284,13 @@ public enum BuiltInTeams {
     static let buildGrowthPanel = make(
         id: "code_growth_panel", name: "Growth Panel", lane: .code,
         output: .plan, defaultEffort: .high,
-        description: "Make X builders and influencers LOVE a feature: four diverse models swing big on the same growth question; the synthesizer picks the highest-leverage wedge that stays on-core and simple, valuing the breakout outlier over safe consensus.",
+        description: "Make X builders and influencers LOVE a feature: five diverse models — including both flagships as workers (ChatGPT 5.6 Sol) — swing big on the same growth question; Fable synthesizes and picks the highest-leverage wedge that stays on-core and simple, valuing the breakout outlier over safe consensus.",
         rows: [
-            growthRow("growth_seat_grok", preferred: grok, priorities: [cursorGrok, kimi, gemini, opus]),
+            growthRow("growth_seat_grok", preferred: grok, priorities: [cursorGrok, kimi, gemini, opus, strategicFlagship]),
             growthRow("growth_seat_opus", preferred: opus, priorities: [strategicFlagship, kimi, grok, gemini]),
+            // Never bench the best: if the user has ChatGPT 5.6 Sol, it works as a
+            // growth hacker (Fable leads). No Sol → falls back to the next strongest.
+            growthRow("growth_seat_sol", preferred: strategicFlagship, priorities: [opus, grok, kimi, gemini, chatgpt]),
             growthRow("growth_seat_kimi", preferred: kimi, priorities: [gemini, cursorGrok, grok, opus]),
             growthRow("growth_seat_gemini", preferred: gemini, priorities: [grok, kimi, cursorGrok, opus])
         ],
@@ -304,12 +307,14 @@ public enum BuiltInTeams {
     static let buildGrowthPanelMax = make(
         id: "code_growth_panel_max", name: "Growth Panel Max", lane: .code,
         output: .plan, defaultEffort: .high,
-        description: "Deep growth read: an X/web signal scout on what is spreading now, four diverse models on the wedge, and a synthesizer that prizes the breakout outlier over safe consensus.",
+        description: "Deep growth read: an X/web signal scout on what is spreading now, then six diverse models on the wedge — every flagship recruited (ChatGPT 5.6 Sol AND 5.6, Opus) — and a synthesizer that prizes the breakout outlier over safe consensus.",
         scout: specRow("signal_source_reader", .answer, preferred: grok,
                        priorities: [cursorGrok, kimi, gemini, chatgpt]),
         rows: [
             growthRow("growth_seat_grok", preferred: cursorGrok, priorities: [kimi, gemini, opus, grok]),
             growthRow("growth_seat_opus", preferred: opus, priorities: [strategicFlagship, kimi, gemini]),
+            growthRow("growth_seat_sol", preferred: strategicFlagship, priorities: [opus, chatgpt, grok, kimi]),
+            growthRow("growth_seat_chatgpt", preferred: chatgpt, priorities: [strategicFlagship, opus, grok, gemini]),
             growthRow("growth_seat_kimi", preferred: kimi, priorities: [gemini, cursorGrok, opus]),
             growthRow("growth_seat_gemini", preferred: gemini, priorities: [cursorGrok, kimi, opus])
         ],
