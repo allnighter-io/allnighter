@@ -1,6 +1,12 @@
 # Sol Review Hardening — pilot / relay / lane subsystem (PO-F11)
 
-Status: **Verified, ready to fix** (2026-07-18).
+Status: **All 15 worth-fixing items landed** (SR-1..SR-15), 2026-07-18. Each with a
+regression test; every touched suite green (HandoverGate 16/16, ExecutionLane 20/20,
+RelayCoordinator 19/19, Supabase 30/30, PilotCLI 29/29, RelayTurnClassifier 9/9).
+Commits: `cf71c968` (SR-1/2), `ce464c5b` (SR-7/8/11/13/14), `65f2a789` (SR-3/4/5/6/15),
+`c5f331c5` (SR-9/10/12). Marginal SR-16..SR-23 recorded below, not yet actioned.
+SR-10's crash-during-proof window is covered for no-regression by the existing round
+tests; a process-death-injection test is deferred (harness has no such hook).
 Reliability follow-up to [Process_Ownership.md](Process_Ownership.md) (PO-F9 Kimi
 flock hardening, PO-F10 honest worker resolution). This is **PO-F11**.
 
