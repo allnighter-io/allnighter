@@ -62,6 +62,16 @@ public enum BuiltInTeams {
         chatgpt, sonnet, kimi, cursorGrok, composer, gemini, grok
     ]
 
+    /// Growth Panel preference — ONE shared growth-hacker prompt spread across
+    /// DISTINCT models (triangulation), front-loaded by strength + lab diversity so
+    /// even a small `count` spans different labs. `count` is a cap: the row degrades
+    /// below it, dropping seats rather than double-booking or requiring any one
+    /// model. Never benches the best (a flagship is picked when ready), never fails
+    /// (Fable is reserved for the Lead; ≥1 ready model still runs).
+    private static let growthPreference: [String] = [
+        opus, strategicFlagship, grok, gemini, kimi, sonnet, chatgpt, composer, cursorGrok
+    ]
+
     // MARK: - Builders
 
     /// One worker row. Row id defaults to the skill id (unique within a team).
@@ -102,17 +112,6 @@ public enum BuiltInTeams {
     ) -> TeamWorkerSpec {
         row(skillId, purpose, preferred: preferred,
             fallbacks: workerFallbacks(preferred: preferred, priorities: priorities))
-    }
-
-    /// A Growth Panel seat: a distinct row id but the SHARED `growth_hacker` skill
-    /// (the same prompt on every seat). The diversity is the pinned model, not the
-    /// lens — the whole point of the panel is four different models on one question.
-    private static func growthRow(_ id: String, preferred: String, priorities: [String]) -> TeamWorkerSpec {
-        TeamWorkerSpec(id: id, skillId: "growth_hacker", purpose: .answer,
-                       preferredModelId: preferred,
-                       fallbackModelIds: workerFallbacks(preferred: preferred, priorities: priorities),
-                       requiredCapabilityTags: [],
-                       fallbackPolicy: .anyReady, required: true)
     }
 
     /// Spread workers across distinct models — the point of fan-out.
@@ -265,11 +264,10 @@ public enum BuiltInTeams {
     static let buildGrowthPanelMin = make(
         id: "code_growth_panel_min", name: "Growth Panel Min", lane: .code,
         output: .plan, defaultEffort: .high,
-        description: "Fast growth read: three diverse models hunt the wedge that makes X builders love it — kept simple and on-core.",
+        description: "Fast growth read: up to 4 diverse models (a flagship when you have one) hunt the wedge that makes X builders love it — kept simple and on-core. Runs on whatever's ready; drops a seat rather than doubling up.",
         rows: [
-            growthRow("growth_seat_grok", preferred: grok, priorities: [cursorGrok, kimi, gemini]),
-            growthRow("growth_seat_kimi", preferred: kimi, priorities: [gemini, grok, cursorGrok]),
-            growthRow("growth_seat_gemini", preferred: gemini, priorities: [grok, kimi, cursorGrok])
+            TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
+                           count: 4, triangulate: true, triangulatePreferenceIds: growthPreference)
         ],
         writer: "growth_panel_writer",
         typeTags: ["growth", "growth-panel", "min"],
@@ -284,15 +282,10 @@ public enum BuiltInTeams {
     static let buildGrowthPanel = make(
         id: "code_growth_panel", name: "Growth Panel", lane: .code,
         output: .plan, defaultEffort: .high,
-        description: "Make X builders and influencers LOVE a feature: five diverse models — including both flagships as workers (ChatGPT 5.6 Sol) — swing big on the same growth question; Fable synthesizes and picks the highest-leverage wedge that stays on-core and simple, valuing the breakout outlier over safe consensus.",
+        description: "Make X builders and influencers LOVE a feature: up to 6 diverse models — flagships recruited as workers when ready (never benched for the Lead) — swing big on the same growth question; Fable synthesizes and picks the highest-leverage wedge that stays on-core and simple, valuing the breakout outlier over safe consensus. Runs on whatever's ready; drops a seat rather than doubling up.",
         rows: [
-            growthRow("growth_seat_grok", preferred: grok, priorities: [cursorGrok, kimi, gemini, opus, strategicFlagship]),
-            growthRow("growth_seat_opus", preferred: opus, priorities: [strategicFlagship, kimi, grok, gemini]),
-            // Never bench the best: if the user has ChatGPT 5.6 Sol, it works as a
-            // growth hacker (Fable leads). No Sol → falls back to the next strongest.
-            growthRow("growth_seat_sol", preferred: strategicFlagship, priorities: [opus, grok, kimi, gemini, chatgpt]),
-            growthRow("growth_seat_kimi", preferred: kimi, priorities: [gemini, cursorGrok, grok, opus]),
-            growthRow("growth_seat_gemini", preferred: gemini, priorities: [grok, kimi, cursorGrok, opus])
+            TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
+                           count: 6, triangulate: true, triangulatePreferenceIds: growthPreference)
         ],
         writer: "growth_panel_writer",
         typeTags: ["growth", "growth-panel"],
@@ -307,16 +300,12 @@ public enum BuiltInTeams {
     static let buildGrowthPanelMax = make(
         id: "code_growth_panel_max", name: "Growth Panel Max", lane: .code,
         output: .plan, defaultEffort: .high,
-        description: "Deep growth read: an X/web signal scout on what is spreading now, then six diverse models on the wedge — every flagship recruited (ChatGPT 5.6 Sol AND 5.6, Opus) — and a synthesizer that prizes the breakout outlier over safe consensus.",
+        description: "Deep growth read: an X/web signal scout on what is spreading now, then up to 8 diverse models on the wedge — every flagship and idle model recruited when ready (Sol, ChatGPT 5.6, Opus, Sonnet, Composer…) — and a synthesizer that prizes the breakout outlier over safe consensus. Drops a seat rather than doubling up.",
         scout: specRow("signal_source_reader", .answer, preferred: grok,
                        priorities: [cursorGrok, kimi, gemini, chatgpt]),
         rows: [
-            growthRow("growth_seat_grok", preferred: cursorGrok, priorities: [kimi, gemini, opus, grok]),
-            growthRow("growth_seat_opus", preferred: opus, priorities: [strategicFlagship, kimi, gemini]),
-            growthRow("growth_seat_sol", preferred: strategicFlagship, priorities: [opus, chatgpt, grok, kimi]),
-            growthRow("growth_seat_chatgpt", preferred: chatgpt, priorities: [strategicFlagship, opus, grok, gemini]),
-            growthRow("growth_seat_kimi", preferred: kimi, priorities: [gemini, cursorGrok, opus]),
-            growthRow("growth_seat_gemini", preferred: gemini, priorities: [cursorGrok, kimi, opus])
+            TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
+                           count: 8, triangulate: true, triangulatePreferenceIds: growthPreference)
         ],
         writer: "growth_panel_writer",
         typeTags: ["growth", "growth-panel", "max"],
