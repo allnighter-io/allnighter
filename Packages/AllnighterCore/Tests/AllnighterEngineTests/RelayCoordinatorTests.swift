@@ -823,6 +823,22 @@ final class RelayTurnClassifierTests: XCTestCase {
         let outcome = WorkerRunOutcome(status: .failed, errorReason: "unexpected exit")
         XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .stalled)
     }
+
+    /// SR-7 (Sol F23): a bare `"busy"` in an application error must NOT be read as provider
+    /// backoff — otherwise a mutating dev turn is retried up to 10× and can repeat side
+    /// effects. This one is `.stalled` (escalates), not `.infraBackoff` (retries).
+    func testDatabaseBusyIsNotInfraBackoff() {
+        let outcome = WorkerRunOutcome(status: .failed, errorReason: "sqlite: database is busy")
+        XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .stalled)
+    }
+
+    /// SR-7 guard: genuine provider backoff phrasings still classify as `.infraBackoff`.
+    func testProviderBusyPhrasingsStillInfraBackoff() {
+        for reason in ["server is busy, try again", "the model is busy", "service temporarily unavailable", "overloaded_error"] {
+            let outcome = WorkerRunOutcome(status: .failed, errorReason: reason)
+            XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .infraBackoff, "reason: \(reason)")
+        }
+    }
 }
 
 /// Trivial `Sendable` mutable box for capturing a value inside an `@Sendable` events

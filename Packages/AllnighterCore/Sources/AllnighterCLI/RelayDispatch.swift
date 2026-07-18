@@ -93,6 +93,16 @@ enum RelayDispatch {
     /// `--until HH:MM` → next occurrence of that local clock time (today if still
     /// ahead, else tomorrow). Ported from the deleted `PairProgrammingDispatch`
     /// (R-S09) — the relay is now the only caller, so this is its one house parser.
+    /// SR-8 (Sol F18): distinguish *absent* from *invalid* `--until`. Absent → `(nil, nil)`
+    /// (no deadline, valid). Present-and-well-formed → `(date, nil)`. Present-and-garbage
+    /// (`"7am"`, `"25:00"`) → `(nil, raw)` so the caller can reject it loudly like
+    /// `--max-rounds`, instead of silently dropping an unattended-run safety ceiling.
+    static func parseUntilValidated(_ raw: String?) -> (value: Date?, invalid: String?) {
+        guard let raw, !raw.trimmingCharacters(in: .whitespaces).isEmpty else { return (nil, nil) }
+        guard let date = parseUntil(raw) else { return (nil, raw) }
+        return (date, nil)
+    }
+
     static func parseUntil(_ raw: String?) -> Date? {
         guard let raw else { return nil }
         let parts = raw.split(separator: ":")

@@ -46,7 +46,13 @@ public enum PilotSeatResolver {
 
     /// Models whose driver has a global `ready` probe — the seats `pilot start` can use.
     public static func readySeats(from models: [Model], probeRecords: [ToolProbeRecord]) -> [Model] {
-        let recordsByDriver = Dictionary(uniqueKeysWithValues: probeRecords.map { ($0.driverId, $0) })
+        // SR-14 (Sol F28): `Dictionary(uniqueKeysWithValues:)` traps at runtime on a
+        // duplicate driver id. No current path produces duplicates, but a hand-edited or
+        // migrated `cli_setup.json` with two records for one driver would crash `pilot start`
+        // (and every other readySeats caller) instead of degrading — keep the latest record.
+        let recordsByDriver = Dictionary(
+            probeRecords.map { ($0.driverId, $0) },
+            uniquingKeysWith: { _, latest in latest })
         return models.filter { m in
             m.enabled && (recordsByDriver[m.driverId]?.status.isReady ?? false)
         }.sorted { $0.id < $1.id }

@@ -520,7 +520,15 @@ enum PilotCLI {
     // MARK: - Output
 
     static func handoffNextCommand(relayId: String, scaffoldPath: String) -> String {
-        "alln pair pilot handoff --relay \(relayId) --verdict continue --handover-file \(scaffoldPath)"
+        "alln pair pilot handoff --relay \(relayId) --verdict continue --handover-file \(shellQuote(scaffoldPath))"
+    }
+
+    /// POSIX single-quote so the printed `next:` command survives copy-paste as ONE argument.
+    /// The default scaffold path lives under "…/Application Support/Allnighter/…" — the space
+    /// split the unquoted command and the first handoff failed on every default install.
+    /// (SR-13 / Sol F20.)
+    static func shellQuote(_ s: String) -> String {
+        "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     private static func emitStartResult(

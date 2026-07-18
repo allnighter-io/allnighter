@@ -65,4 +65,18 @@ final class PilotSeatResolverTests: XCTestCase {
         let ready = PilotSeatResolver.readySeats(from: models, probeRecords: records)
         XCTAssertEqual(ready.map(\.id), ["model_ready"])
     }
+
+    /// SR-14 (Sol F28): duplicate probe records for one driver (possible via a hand-edited or
+    /// migrated `cli_setup.json`) must degrade gracefully — keep the latest — not trap the
+    /// process. Before the fix `Dictionary(uniqueKeysWithValues:)` crashed `pilot start`.
+    func testReadySeatsWithDuplicateDriverRecordsDoesNotCrash() {
+        let models = [model("model_ready", name: "Ready", driver: "claude_code")]
+        let records = [
+            ToolProbeRecord(driverId: "claude_code", status: .notInstalled, lastProbeAt: now),
+            ToolProbeRecord(driverId: "claude_code", status: .ready(version: "2"), lastProbeAt: now),
+        ]
+        let ready = PilotSeatResolver.readySeats(from: models, probeRecords: records)
+        // Latest record (ready) wins → seat is offered.
+        XCTAssertEqual(ready.map(\.id), ["model_ready"])
+    }
 }

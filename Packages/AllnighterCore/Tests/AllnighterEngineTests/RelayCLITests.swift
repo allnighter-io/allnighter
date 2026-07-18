@@ -115,6 +115,21 @@ final class RelayCLITests: XCTestCase {
         XCTAssertNotNil(config.until)
     }
 
+    /// SR-8 (Sol F18): a malformed `--until` must be rejected loudly, not silently dropped
+    /// (which would leave an unattended relay running past its intended ceiling).
+    func testParseStartConfigInvalidUntilThrows() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        for bad in ["7am", "25:00", "12:99", "noon"] {
+            XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+                ["--doc", "docs/spec.md", "--project", project.id, "--pm-worker", "a", "--dev-worker", "b", "--until", bad],
+                projectStore: store
+            )) { error in
+                XCTAssertEqual(error as? RelayCLI.RelayCLIError, .invalidUntil(bad), "bad=\(bad)")
+            }
+        }
+    }
+
     // PO-F7: `--idle-timeout` reuses PO-F5's `RunCLI.parseIdleTimeoutSeconds` helper.
     func testParseStartConfigIdleTimeoutFlowsToConfig() throws {
         let store = makeProjectStore()
@@ -243,6 +258,7 @@ final class RelayCLITests: XCTestCase {
         let cases: [RelayCLI.RelayCLIError] = [
             .missingRequired("--doc <path>"),
             .invalidMaxRounds("0"),
+            .invalidUntil("7am"),
             .invalidIdleTimeout("--idle-timeout must be a positive integer number of seconds, got '0'"),
             .projectNotFound("x"),
             .relayNotFound("relay_1"),

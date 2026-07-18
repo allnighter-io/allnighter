@@ -77,7 +77,13 @@ public enum RelayTurnClassifier {
 
     /// Ported from `SliceTerminalClassifier.isInfraBackoff` — same structured-capacity-fact
     /// preference (`CapacityObservation.kind`), same text-sniff fallback for failures the
-    /// capacity classifier didn't structure, unchanged.
+    /// capacity classifier didn't structure.
+    ///
+    /// SR-7 (Sol F23): the text-sniff no longer matches the **bare** word `"busy"`. In the
+    /// slice regime this classified a *read-only* failure; here it decides whether to retry a
+    /// **mutating** dev turn up to `maxInfraBackoffAttempts` times, and a worker reporting an
+    /// application error like `"database is busy"` / `"resource busy"` after partial work
+    /// would be re-run — repeating side effects. Match only provider/capacity phrasings.
     private static func isInfraBackoff(_ outcome: WorkerRunOutcome) -> Bool {
         if let kind = outcome.capacityObservation?.kind {
             switch kind {
@@ -86,6 +92,11 @@ public enum RelayTurnClassifier {
             }
         }
         let text = [outcome.errorReason, outcome.output].compactMap { $0 }.joined(separator: " ").lowercased()
-        return text.contains("429") || text.contains("busy") || text.contains("rate limit")
+        let providerBackoffCues = [
+            "429", "rate limit", "rate-limit", "overloaded", "at capacity",
+            "server is busy", "servers are busy", "service is busy", "model is busy",
+            "temporarily unavailable", "service unavailable"
+        ]
+        return providerBackoffCues.contains { text.contains($0) }
     }
 }

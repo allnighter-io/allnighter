@@ -56,4 +56,17 @@ final class ThreadAttachmentConcurrencyTests: XCTestCase {
         XCTAssertTrue(errors.isEmpty, "\(errors)")
         XCTAssertEqual(store.loadDraftIndex().drafts.count, 4)
     }
+
+    /// SR-11 (Sol F16): the ThreadFlockLock fd must be close-on-exec, or a worker subprocess
+    /// spawned while the lock is held inherits it and the flock is not released on the
+    /// parent's `close()` until every such child exits. Assert the flag is set on the fd.
+    func testThreadFlockLockFdIsCloseOnExec() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-flock-cloexec-\(UUID().uuidString).lock")
+        let handle = try ThreadFlockLock.acquire(lockURL: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let flags = fcntl(handle.fd, F_GETFD)
+        XCTAssertNotEqual(flags, -1, "F_GETFD failed")
+        XCTAssertEqual(flags & FD_CLOEXEC, FD_CLOEXEC, "ThreadFlockLock fd must have FD_CLOEXEC set")
+    }
 }

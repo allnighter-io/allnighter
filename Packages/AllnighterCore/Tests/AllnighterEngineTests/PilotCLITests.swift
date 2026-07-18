@@ -396,4 +396,16 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(json["roundInFlight"] as? Bool, false)
         XCTAssertEqual(json["pid"] as? Int, 4242)
     }
+
+    /// SR-13 (Sol F20): the printed `next:` command must shell-quote the scaffold path — the
+    /// default lives under "…/Application Support/Allnighter/…", whose space split the
+    /// unquoted command on copy-paste so the first handoff failed on every default install.
+    func testHandoffNextCommandShellQuotesSpacedScaffoldPath() {
+        let path = "/Users/x/Library/Application Support/Allnighter/relays/relay_9/round1.md"
+        let cmd = PilotCLI.handoffNextCommand(relayId: "relay_9", scaffoldPath: path)
+        XCTAssertTrue(cmd.contains("--handover-file '\(path)'"), "cmd: \(cmd)")
+        // The quoted path is a single shell token (the substring after the quote has no
+        // unescaped space before the closing quote).
+        XCTAssertTrue(cmd.hasSuffix("'\(path)'"), "cmd: \(cmd)")
+    }
 }

@@ -99,6 +99,8 @@ enum RelayCLI {
         guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else {
             fail(.invalidMaxRounds(opts.value("max-rounds") ?? ""))
         }
+        let untilParsed = RelayDispatch.parseUntilValidated(opts.value("until"))
+        if let bad = untilParsed.invalid { fail(.invalidUntil(bad)) }
 
         let stateStore = RelayStateStore()
         guard let priorState = stateStore.load(id: relayId) else { fail(.relayNotFound(relayId)) }
@@ -106,7 +108,7 @@ enum RelayCLI {
         let config = RelayCoordinator.Config(
             projectRoot: priorState.projectRoot, projectId: projectId, docPath: priorState.docPath,
             pmWorkerId: pmWorkerId, devWorkerId: priorState.devWorkerId,
-            maxRounds: maxRounds, until: RelayDispatch.parseUntil(opts.value("until"))
+            maxRounds: maxRounds, until: untilParsed.value
         )
 
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
@@ -127,6 +129,7 @@ enum RelayCLI {
     enum RelayCLIError: Error, Equatable {
         case missingRequired(String)
         case invalidMaxRounds(String)
+        case invalidUntil(String)
         case invalidIdleTimeout(String)
         case projectNotFound(String)
         case relayNotFound(String)
@@ -145,6 +148,8 @@ enum RelayCLI {
         guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else {
             throw RelayCLIError.invalidMaxRounds(opts.value("max-rounds") ?? "")
         }
+        let untilParsed = RelayDispatch.parseUntilValidated(opts.value("until"))
+        if let bad = untilParsed.invalid { throw RelayCLIError.invalidUntil(bad) }
         // PO-F7: reuses PO-F5's `alln run --idle-timeout` parse helper — no second idle system.
         let idleParsed = RunCLI.parseIdleTimeoutSeconds(opts.value("idle-timeout"))
         if let error = idleParsed.error { throw RelayCLIError.invalidIdleTimeout(error) }
@@ -155,7 +160,7 @@ enum RelayCLI {
             pmWorkerId: pmWorkerId,
             devWorkerId: devWorkerId,
             maxRounds: maxRounds,
-            until: RelayDispatch.parseUntil(opts.value("until")),
+            until: untilParsed.value,
             devTurnIdleTimeoutSeconds: idleParsed.value
         )
     }
@@ -188,6 +193,8 @@ enum RelayCLI {
         // from the persisted state on resume (RelayCoordinator.resume) — resolving the
         // project here too only recovers a real `projectId` for the RunRequest;
         // `nil` degrades gracefully if the project entry can't be found.
+        let untilParsed = RelayDispatch.parseUntilValidated(opts.value("until"))
+        if let bad = untilParsed.invalid { throw RelayCLIError.invalidUntil(bad) }
         let projectId = AllnighterCLI.resolveProject(priorState.projectRoot, store: projectStore)?.id
         let config = RelayCoordinator.Config(
             projectRoot: priorState.projectRoot,
@@ -196,7 +203,7 @@ enum RelayCLI {
             pmWorkerId: priorState.pmWorkerId,
             devWorkerId: priorState.devWorkerId,
             maxRounds: maxRounds,
-            until: RelayDispatch.parseUntil(opts.value("until"))
+            until: untilParsed.value
         )
         return (relayId, answer, priorState, config)
     }
@@ -245,6 +252,8 @@ enum RelayCLI {
             return ("CLI_USAGE_ERROR", "\(flag) required")
         case .invalidMaxRounds(let raw):
             return ("CLI_USAGE_ERROR", "--max-rounds must be a positive integer, got '\(raw)'")
+        case .invalidUntil(let raw):
+            return ("CLI_USAGE_ERROR", "--until must be HH:MM (24-hour), got '\(raw)'")
         case .invalidIdleTimeout(let message):
             return ("CLI_USAGE_ERROR", message)
         case .projectNotFound(let token):

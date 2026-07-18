@@ -12,7 +12,11 @@ public final class ThreadFlockLock: @unchecked Sendable {
 
     /// Blocking exclusive lock on `lockURL` (creates the file if needed).
     public static func acquire(lockURL: URL) throws -> Handle {
-        let fd = open(lockURL.path, O_CREAT | O_RDWR, 0o600)
+        // O_CLOEXEC (SR-11 / Sol F16): without it a worker subprocess spawned during the
+        // brief attachment-store RMW inherits this fd, so the flock is not released on the
+        // parent's close() until every such child exits — a latent cross-process wedge.
+        // ExecutionLaneFlock got O_CLOEXEC in PO-F9; this flock family had been missed.
+        let fd = open(lockURL.path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         guard fd >= 0 else { throw AttachmentError.stageFailed }
         if flock(fd, LOCK_EX) != 0 {
             close(fd)
@@ -23,7 +27,11 @@ public final class ThreadFlockLock: @unchecked Sendable {
 
     /// Non-blocking try; returns nil when another holder has the lock.
     public static func tryAcquire(lockURL: URL) -> Handle? {
-        let fd = open(lockURL.path, O_CREAT | O_RDWR, 0o600)
+        // O_CLOEXEC (SR-11 / Sol F16): without it a worker subprocess spawned during the
+        // brief attachment-store RMW inherits this fd, so the flock is not released on the
+        // parent's close() until every such child exits — a latent cross-process wedge.
+        // ExecutionLaneFlock got O_CLOEXEC in PO-F9; this flock family had been missed.
+        let fd = open(lockURL.path, O_CREAT | O_RDWR | O_CLOEXEC, 0o600)
         guard fd >= 0 else { return nil }
         if flock(fd, LOCK_EX | LOCK_NB) == 0 {
             return Handle(fd: fd)
