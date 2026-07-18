@@ -44,6 +44,7 @@ public struct RunStore: Sendable {
             try? FileManager.default.removeItem(at: ProcessOwnership.legacyOwnerURL(in: directory))
             try? FileManager.default.removeItem(at: ProcessOwnership.heartbeatURL(in: directory))
             try? FileManager.default.removeItem(at: ProcessOwnership.legacyHeartbeatURL(in: directory))
+            try? FileManager.default.removeItem(at: ProcessOwnership.stageLeaseURL(in: directory))
         } else {
             // Non-terminal owner stamp (PO-S01 v2):
             // - Preserve an identity-alive detached runner (self-owning async path).
@@ -229,22 +230,23 @@ public struct RunStore: Sendable {
 
     // MARK: - Orphan projection + explicit reconcile (PO-S01 v2)
 
-    /// Read-only: if the owner identity is dead, project `interrupted` +
-    /// `reconciledOrphan` without writing or signalling.
+    /// Read-only: if the run is reclaimable under the F2 liveness lease
+    /// (written-then-dead owner, or unowned past the stage lease), project
+    /// `interrupted` + `reconciledOrphan` without writing or signalling.
     public func projectIfOrphaned(_ run: TeamRun, directory: URL) -> TeamRun {
         guard !run.status.isTerminal else { return run }
-        guard ProcessOwnership.isOwnerIdentityDead(in: directory) else { return run }
+        guard ProcessOwnership.isReclaimable(in: directory, runCreatedAt: run.createdAt) else { return run }
         var projected = run
         projected.status = .interrupted
         projected.endReason = .reconciledOrphan
         return projected
     }
 
-    /// True when a non-terminal run's owner is identity-verified dead.
+    /// True when a non-terminal run is reclaimable under the F2 liveness lease.
     public func wouldReconcile(runId: String) -> Bool {
         let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
         guard let raw = loadRaw(runId: runId), !raw.status.isTerminal else { return false }
-        return ProcessOwnership.isOwnerIdentityDead(in: directory)
+        return ProcessOwnership.isReclaimable(in: directory, runCreatedAt: raw.createdAt)
     }
 
     /// Explicit reconcile: under per-run flock, identity-dead → PG-kill recorded
@@ -270,7 +272,9 @@ public struct RunStore: Sendable {
             if run.status.isTerminal {
                 return ReconcileResult(run: run, reaped: false)
             }
-            guard ProcessOwnership.isOwnerIdentityDead(in: directory) else {
+            // F2: reap only on positive dead-proof under the liveness lease —
+            // never a staged run, never a live owner.
+            guard ProcessOwnership.isReclaimable(in: directory, runCreatedAt: run.createdAt) else {
                 return ReconcileResult(run: run, reaped: false)
             }
 

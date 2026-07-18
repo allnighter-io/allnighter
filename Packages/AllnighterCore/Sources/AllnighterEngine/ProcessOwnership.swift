@@ -23,6 +23,7 @@ public enum ProcessOwnership {
     public static let runnerRequestFileName = "runner_request.json"
     public static let runnerReadyFileName = "runner_ready.json"
     public static let runLockFileName = "run.lock"
+    public static let stageLeaseFileName = "stage_lease.json"
 
     /// Timer floor for progress heartbeat touches (owner still alive + moving floor).
     public static let heartbeatIntervalSeconds: TimeInterval = 10
@@ -32,6 +33,11 @@ public enum ProcessOwnership {
     /// How long the parent waits for the runner's accept handshake.
     public static let runnerReadyTimeoutSeconds: TimeInterval = 8
     public static let runnerReadyPollIntervalSeconds: TimeInterval = 0.05
+    /// Staging lease window (Concurrent Invocation Isolation F2): spawn + exec +
+    /// readiness handshake + owner claim must complete inside this. Bounds how
+    /// long a run with no live owner is protected as "still staging"; comfortably
+    /// covers the 8s handshake wait plus spawn/exec margin.
+    public static let stageLeaseSeconds: TimeInterval = 30
 
     // MARK: - Owner identity
 
@@ -278,9 +284,110 @@ public enum ProcessOwnership {
 
     /// Owner of a non-terminal run is dead when missing, unreadable, or
     /// identity-verified dead. Legacy raw-pid markers count as dead.
+    ///
+    /// This is the RAW identity check. Reap paths must NOT use it directly —
+    /// "missing ⇒ dead" is wrong during the staging window (F2). Use
+    /// `isReclaimable(in:runCreatedAt:now:)`, which layers the stage lease on
+    /// top of this check.
     public static func isOwnerIdentityDead(in directory: URL) -> Bool {
         guard let identity = readOwnerIdentity(in: directory) else { return true }
         return !isIdentityAlive(identity)
+    }
+
+    // MARK: - Stage lease (Concurrent Invocation Isolation F2)
+
+    /// Durable staging marker written by `team start` before the runner is
+    /// spawned and cleared by the runner when it claims ownership. While an
+    /// unexpired lease covers a run, reconcile must NEVER reap it — the
+    /// ownership handoff (staged journal → runner claim) is still in flight.
+    public struct StageLease: Codable, Sendable, Equatable {
+        public var runId: String
+        public var stagedAt: Date
+        public var expiresAt: Date
+
+        public init(runId: String, stagedAt: Date, expiresAt: Date) {
+            self.runId = runId
+            self.stagedAt = stagedAt
+            self.expiresAt = expiresAt
+        }
+
+        public func isExpired(at now: Date) -> Bool { now >= expiresAt }
+    }
+
+    public static func stageLeaseURL(in directory: URL) -> URL {
+        directory.appendingPathComponent(stageLeaseFileName)
+    }
+
+    public static func writeStageLease(_ lease: StageLease, in directory: URL) throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try CoreJSON.encode(lease).write(to: stageLeaseURL(in: directory), options: .atomic)
+    }
+
+    public static func readStageLease(in directory: URL) -> StageLease? {
+        guard let data = try? Data(contentsOf: stageLeaseURL(in: directory)),
+              let lease = try? CoreJSON.decode(StageLease.self, from: data) else {
+            return nil
+        }
+        return lease
+    }
+
+    public static func clearStageLease(in directory: URL) {
+        try? FileManager.default.removeItem(at: stageLeaseURL(in: directory))
+    }
+
+    /// The F2 liveness lease contract: `staged lease → owned identity → terminal`.
+    /// (Terminal is guarded by callers — reconcile never touches terminal runs.)
+    public enum RunLivenessVerdict: String, Sendable, Equatable {
+        /// Within the stage lease — NEVER reclaimable, whatever the owner file
+        /// says (the runner may still be mid-handshake; the staged owner record
+        /// is the launcher's, whose death in the window is not proof the runner
+        /// is not coming).
+        case staged
+        /// Owner identity written and identity-alive.
+        case ownedLive
+        /// Owner identity written, then identity-verified dead (incl. recycled
+        /// pid) — reclaimable.
+        case ownerDead
+        /// Missing/unreadable identity with no live lease cover — reclaimable.
+        case unownedReclaimable
+    }
+
+    /// Pure liveness decision over durable state.
+    ///
+    /// Exactly when missing/unreadable identity is reclaimable:
+    /// - An **unexpired stage lease** (or, when no lease file exists, a run
+    ///   younger than `stageLeaseSeconds` by its durable `runCreatedAt`) means
+    ///   the run may still be staging → `.staged`, never reclaimable.
+    /// - An **expired** lease with no owner claim → reclaimable.
+    /// - No lease file and a run older than the staging window with no
+    ///   readable owner → reclaimable (legacy orphans stay collectable).
+    public static func livenessVerdict(
+        in directory: URL,
+        runCreatedAt: Date,
+        now: Date = Date()
+    ) -> RunLivenessVerdict {
+        let lease = readStageLease(in: directory)
+        if let lease, !lease.isExpired(at: now) { return .staged }
+        if let identity = readOwnerIdentity(in: directory) {
+            return isIdentityAlive(identity) ? .ownedLive : .ownerDead
+        }
+        if lease != nil { return .unownedReclaimable }
+        return now < runCreatedAt.addingTimeInterval(stageLeaseSeconds)
+            ? .staged
+            : .unownedReclaimable
+    }
+
+    /// The one reap gate: true only when the run is reclaimable under the F2
+    /// contract (written-then-dead owner, or unowned past the stage lease).
+    public static func isReclaimable(
+        in directory: URL,
+        runCreatedAt: Date,
+        now: Date = Date()
+    ) -> Bool {
+        switch livenessVerdict(in: directory, runCreatedAt: runCreatedAt, now: now) {
+        case .ownerDead, .unownedReclaimable: return true
+        case .staged, .ownedLive: return false
+        }
     }
 
     // MARK: - Progress heartbeat I/O

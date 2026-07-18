@@ -153,7 +153,7 @@ public struct ProcessOwnershipSurface: Sendable {
             let identity = ProcessOwnership.readOwnerIdentity(in: dir)
             let alive = identity.map { ProcessOwnership.isIdentityAlive($0) } ?? false
             let terminal = run.status.isTerminal
-            let would = !terminal && ProcessOwnership.isOwnerIdentityDead(in: dir)
+            let would = !terminal && ProcessOwnership.isReclaimable(in: dir, runCreatedAt: run.createdAt)
             let last = ProcessOwnership.lastProgressAt(in: dir)
             let age = last.map { now.timeIntervalSince($0) }
             rows.append(OwnershipProcessJSON(

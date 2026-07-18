@@ -102,6 +102,31 @@ heartbeat age; identity-dead → reaped immediately with `reconciledOrphan`;
 recycled-pid simulation (same pid, different start time) → treated as dead,
 **no signal sent**.
 
+**Liveness lease amendment (Concurrent Invocation Isolation F2, landed
+2026-07-18):** liveness is `staged lease → owned identity → terminal`, and
+reaping requires **positive dead-proof** — never "missing ⇒ dead":
+
+- `team start` writes a durable `stage_lease.json` (runId, stagedAt,
+  expiresAt = stagedAt + `stageLeaseSeconds`, 30s — the 8s readiness
+  handshake plus spawn/exec margin) into the run dir **before** spawning the
+  runner. While an unexpired lease covers a non-terminal run, reconcile must
+  NEVER reap it — the ownership handoff is in flight and the staged owner
+  record is only the launcher's (whose death mid-handshake is not proof the
+  runner is not coming).
+- The runner drops the lease when it claims its `detachedRunner` identity —
+  from then on the written owner identity is the liveness truth (§3).
+  Terminal saves also drop the marker.
+- Reclaimable means exactly: **written-then-dead owner** (identity-verified
+  dead, incl. recycled pid) with no unexpired lease, or **missing/unreadable
+  owner past the staging window** — an expired lease with no claim, or (no
+  lease file: legacy runs, lease-write failure) a run older than
+  `stageLeaseSeconds` by its durable `createdAt`. A no-lease run younger
+  than the window reads as still-staging; older unowned runs (legacy
+  orphans) stay collectable.
+- Mechanism: `ProcessOwnership.livenessVerdict` / `isReclaimable`; all reap
+  projections (`RunStore.projectIfOrphaned` / `wouldReconcile` /
+  `reconcileRunDetailed`, `ProcessOwnershipSurface.listRuns`) go through it.
+
 ## PO-S02 — total turn kill
 
 The corpse fix, shipped alone and first (it is pure ownership; it needs no

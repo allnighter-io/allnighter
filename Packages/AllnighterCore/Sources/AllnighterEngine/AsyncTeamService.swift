@@ -265,6 +265,18 @@ public actor AsyncTeamService {
         // Not yet "accepted" to the caller — only after runner_ready.
         persist(run, endReasonIfTerminal: nil)
 
+        // F2 staging lease: until the runner claims ownership (or this lease
+        // expires), reconcile must never reap this run — the ownership handoff
+        // is in flight and the staged owner record is only the launcher's.
+        let stagedDirectory = runStore.rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
+        try? ProcessOwnership.writeStageLease(
+            ProcessOwnership.StageLease(
+                runId: runId, stagedAt: stagedAt,
+                expiresAt: stagedAt.addingTimeInterval(ProcessOwnership.stageLeaseSeconds)
+            ),
+            in: stagedDirectory
+        )
+
         // Reserve the idempotency key before spawn so a retry mid-handshake
         // returns the same run id and never launches a second runner.
         if let key = request.idempotencyKey, !key.isEmpty {
@@ -406,9 +418,12 @@ public actor AsyncTeamService {
         }
 
         // Claim identity as detached runner (pgid recorded; may be PG-killed).
+        // Ownership handoff complete → drop the F2 staging lease: from here on
+        // the written owner identity is the liveness truth.
         if let identity = ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner) {
             try? ProcessOwnership.writeOwnerIdentity(identity, in: directory)
         }
+        ProcessOwnership.clearStageLease(in: directory)
         try? ProcessOwnership.recordProgress(in: directory, phase: "runner_starting", now: now())
 
         // Read raw journal (skip projection).
