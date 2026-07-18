@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-19",
+  "title": "Review CheckResult exitCode consumers",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/CheckRunner.swift",
+      "lineRange": "1-25"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/SliceTerminalClassifier.swift",
+      "lineRange": "40-47"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "388-400"
+    }
+  ],
+  "intent": "READ-ONLY. CR-04 P1: skipped exitCode==0; direct exitCode reads. Lenses: .passed vs raw exitCode, planner takeover check, CLI display. Write findings to docs/phases/code_review/findings/CR-19.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-19.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-19.md && grep -q '## Findings' docs/phases/code_review/findings/CR-19.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/CheckRunner.swift",
+      "lineRange": "1-25",
+      "content": "import Foundation\nimport AllnighterCore\n\n/// Result of running the repo-declared check command (advance signal only \u2014 not a verifier).\npublic struct CheckResult: Sendable, Equatable {\n    public var exitCode: Int32?\n    public var stdoutTail: String\n    public var timedOut: Bool\n    public var skipped: Bool\n\n    public init(exitCode: Int32? = nil, stdoutTail: String = \"\", timedOut: Bool = false, skipped: Bool = false) {\n        self.exitCode = exitCode\n        self.stdoutTail = stdoutTail\n        self.timedOut = timedOut\n        self.skipped = skipped\n    }\n\n    public var passed: Bool { exitCode == 0 && !timedOut && !skipped }\n}\n\n/// Runs the order's repo-declared check as a bounded `/bin/sh -c` subprocess.\npublic struct CheckRunner: Sendable {\n    public static let defaultTimeout: Duration = .seconds(300)\n    public static let stdoutTailLimit = 4_096\n"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/SliceTerminalClassifier.swift",
+      "lineRange": "40-47",
+      "content": "        if input.check.timedOut { return .failed }\n        if input.check.exitCode != 0 { return .failed }\n        let visible = (outcome.output ?? \"\").trimmingCharacters(in: .whitespacesAndNewlines)\n        if visible.isEmpty {\n            return packet.isAdvisoryReview ? .passed : .stalled\n        }\n        return .passed\n    }"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "388-400",
+      "content": "                            nudge = NudgePrompt.failureRetry(\n                                packet: entry.packet,\n                                attempt: executorAttempt,\n                                maxAttempts: attemptBudget,\n                                reason: Self.failureReason(terminal: terminal, check: outcome.check),\n                                checkStdoutTail: outcome.check?.stdoutTail,\n                                stdoutTail: outcome.check?.stdoutTail\n                            )\n                        } else if isPastDeadline(options) {\n                            stoppedReason = \"until deadline\"\n                            stoppedForDeadline = true\n                            settled = true\n                        } else {"
+    }
+  ],
+  "resolvedSymbols": []
+}

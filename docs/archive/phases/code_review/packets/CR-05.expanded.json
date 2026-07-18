@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-05",
+  "title": "Review OpenCodeServeCoordinator lifecycle",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/OpenCodeServeCoordinator.swift"
+    }
+  ],
+  "intent": "READ-ONLY review of GLM serve bootstrap. Write findings to docs/phases/code_review/findings/CR-05.md. Lenses: ensureRunning idempotency, health false positives, stale process/port, error propagation, restart mid-slice.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-05.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-05.md && grep -q '## Findings' docs/phases/code_review/findings/CR-05.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 900,
+  "compactionGraceSeconds": 300,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/OpenCodeServeCoordinator.swift",
+      "lineRange": null,
+      "content": "import Foundation\n\npublic enum OpenCodeServeCoordinatorError: Error, Sendable {\n    case opencodeExecutableNotFound\n    case spawnFailed(underlying: Error)\n    case healthCheckTimedOut\n}\n\npublic struct OpenCodeServeCoordinator: Sendable {\n    public static let defaultURL = URL(string: \"http://127.0.0.1:4096\")!\n    public static let defaultPort = 4096\n\n    private let healthCheck: @Sendable () async -> Bool\n    private let state: SpawnState\n\n    public init(healthCheck: @escaping @Sendable () async -> Bool = {\n        var req = URLRequest(url: OpenCodeServeCoordinator.defaultURL)\n        req.httpMethod = \"GET\"\n        req.timeoutInterval = 2\n        do {\n            let (_, response) = try await URLSession.shared.data(for: req)\n            if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {\n                return true\n            }\n            return false\n        } catch {\n            return false\n        }\n    }) {\n        self.healthCheck = healthCheck\n        self.state = SpawnState()\n    }\n\n    public func isHealthy() async -> Bool {\n        await healthCheck()\n    }\n\n    public func ensureRunning() async throws {\n        if await isHealthy() { return }\n\n        let shouldSpawn = await state.claimSpawn()\n        if shouldSpawn {\n            guard let executable = SubprocessCommandRunner.resolveExecutable(\n                \"opencode\",\n                env: ProcessInfo.processInfo.environment\n            ) else {\n                await state.releaseSpawn()\n                throw OpenCodeServeCoordinatorError.opencodeExecutableNotFound\n            }\n\n            let process = Process()\n            process.executableURL = executable\n            process.arguments = [\"serve\", \"--port\", String(Self.defaultPort)]\n            process.standardOutput = Pipe()\n            process.standardError = Pipe()\n            process.standardInput = FileHandle.nullDevice\n\n            do {\n                try process.run()\n            } catch {\n                await state.releaseSpawn()\n                throw OpenCodeServeCoordinatorError.spawnFailed(underlying: error)\n            }\n            await state.setSpawnedPID(process.processIdentifier)\n        }\n\n        let deadline = ContinuousClock.now.advanced(by: .seconds(10))\n        while ContinuousClock.now < deadline {\n            if await isHealthy() { return }\n            try await Task.sleep(nanoseconds: 250_000_000)\n        }\n        throw OpenCodeServeCoordinatorError.healthCheckTimedOut\n    }\n}\n\nprivate actor SpawnState {\n    private var spawnedPID: Int32?\n\n    func claimSpawn() -> Bool {\n        guard spawnedPID == nil else { return false }\n        spawnedPID = 0\n        return true\n    }\n\n    func setSpawnedPID(_ pid: Int32) {\n        spawnedPID = pid\n    }\n\n    func releaseSpawn() {\n        spawnedPID = nil\n    }\n}"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "isHealthy",
+      "signature": "func isHealthy()",
+      "definedAt": "OpenCodeServeCoordinator.swift:33"
+    },
+    {
+      "name": "ensureRunning",
+      "signature": "func ensureRunning()",
+      "definedAt": "OpenCodeServeCoordinator.swift:37"
+    },
+    {
+      "name": "claimSpawn",
+      "signature": "func claimSpawn() -> Bool",
+      "definedAt": "OpenCodeServeCoordinator.swift:78"
+    },
+    {
+      "name": "setSpawnedPID",
+      "signature": "func setSpawnedPID(_ pid: Int32)",
+      "definedAt": "OpenCodeServeCoordinator.swift:84"
+    },
+    {
+      "name": "releaseSpawn",
+      "signature": "func releaseSpawn()",
+      "definedAt": "OpenCodeServeCoordinator.swift:88"
+    }
+  ]
+}

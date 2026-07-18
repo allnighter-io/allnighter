@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-02",
+  "title": "Review SliceTerminalClassifier \u2014 compaction \u2260 stall",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/SliceTerminalClassifier.swift"
+    },
+    {
+      "path": "Packages/AllnighterCore/Tests/AllnighterEngineTests/SliceTerminalClassifierTests.swift"
+    }
+  ],
+  "intent": "READ-ONLY review. F2 INVARIANT: never kill compacting GLM as stalled. Write findings to docs/phases/code_review/findings/CR-02.md. Lenses: compaction marker brittleness, misclassification order, empty output stall, infraBackoff heuristics. Suggest missing test cases.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-02.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-02.md && grep -qi compaction docs/phases/code_review/findings/CR-02.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 900,
+  "compactionGraceSeconds": 300,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/SliceTerminalClassifier.swift",
+      "lineRange": null,
+      "content": "import Foundation\nimport AllnighterCore\n\n/// Terminal classification for one slice attempt (Pair_Programming_Team \u00a75).\npublic enum SliceTerminalOutcome: String, Codable, Sendable, Equatable {\n    case passed\n    case failed\n    case stalled\n    case compacting\n    case infraBackoff\n}\n\npublic enum SliceTerminalClassifier {\n    public struct Input: Sendable, Equatable {\n        public var workerOutcome: WorkerRunOutcome\n        public var check: CheckResult\n        public var packet: WorkSlicePacket\n        public var now: Date\n\n        public init(workerOutcome: WorkerRunOutcome, check: CheckResult, packet: WorkSlicePacket, now: Date) {\n            self.workerOutcome = workerOutcome\n            self.check = check\n            self.packet = packet\n            self.now = now\n        }\n    }\n\n    public static func classify(_ input: Input) -> SliceTerminalOutcome {\n        let outcome = input.workerOutcome\n        if isInfraBackoff(outcome) { return .infraBackoff }\n        if outcome.status != .done,\n           isCompactionMarker(in: outcome.output, reasoning: outcome.reasoning) {\n            return .compacting\n        }\n        if outcome.status != .done {\n            return isStalled(outcome: outcome, packet: input.packet, now: input.now) ? .stalled : .failed\n        }\n        let visible = (outcome.output ?? \"\").trimmingCharacters(in: .whitespacesAndNewlines)\n        if visible.isEmpty { return .stalled }\n        if input.check.skipped { return .passed }\n        if input.check.timedOut { return .failed }\n        if input.check.exitCode != 0 { return .failed }\n        return .passed\n    }\n\n    public static func isCompactionMarker(in output: String?, reasoning: String?) -> Bool {\n        let haystack = [output, reasoning].compactMap { $0 }.joined(separator: \"\\n\").lowercased()\n        return haystack.contains(\"compaction\")\n    }\n\n    private static func isInfraBackoff(_ outcome: WorkerRunOutcome) -> Bool {\n        let text = [outcome.errorReason, outcome.output].compactMap { $0 }.joined(separator: \" \").lowercased()\n        return text.contains(\"429\") || text.contains(\"busy\") || text.contains(\"rate limit\")\n    }\n\n    private static func isStalled(outcome: WorkerRunOutcome, packet: WorkSlicePacket, now: Date) -> Bool {\n        guard let started = outcome.startedAt else { return true }\n        let age = now.timeIntervalSince(started)\n        return age >= TimeInterval(packet.stallTimeoutSeconds)\n    }\n}\n"
+    },
+    {
+      "path": "Packages/AllnighterCore/Tests/AllnighterEngineTests/SliceTerminalClassifierTests.swift",
+      "lineRange": null,
+      "content": "import XCTest\nimport AllnighterCore\n@testable import AllnighterEngine\n\nfinal class SliceTerminalClassifierTests: XCTestCase {\n    private func packet() -> WorkSlicePacket {\n        .init(\n            sliceId: \"S1\",\n            intent: \"x\",\n            touchAllowlist: [\"a.swift\"],\n            check: .init(method: .command, command: \"true\")\n        )\n    }\n\n    func testPassedWhenCheckSucceeds() {\n        let outcome = WorkerRunOutcome(status: .done, output: \"done\")\n        let check = CheckResult(exitCode: 0)\n        let terminal = SliceTerminalClassifier.classify(\n            .init(workerOutcome: outcome, check: check, packet: packet(), now: Date())\n        )\n        XCTAssertEqual(terminal, .passed)\n    }\n\n    func testFailedWhenCheckNonZero() {\n        let outcome = WorkerRunOutcome(status: .done, output: \"done\")\n        let check = CheckResult(exitCode: 1)\n        let terminal = SliceTerminalClassifier.classify(\n            .init(workerOutcome: outcome, check: check, packet: packet(), now: Date())\n        )\n        XCTAssertEqual(terminal, .failed)\n    }\n\n    func testStalledOnEmptyOutput() {\n        let outcome = WorkerRunOutcome(status: .done, output: \"\")\n        let check = CheckResult(exitCode: 0)\n        let terminal = SliceTerminalClassifier.classify(\n            .init(workerOutcome: outcome, check: check, packet: packet(), now: Date())\n        )\n        XCTAssertEqual(terminal, .stalled)\n    }\n\n    func testCompactionMarkerWhileRunning() {\n        let started = Date().addingTimeInterval(-30)\n        var outcome = WorkerRunOutcome(status: .running, output: \"Compaction in progress\")\n        outcome.startedAt = started\n        let check = CheckResult()\n        let terminal = SliceTerminalClassifier.classify(\n            .init(workerOutcome: outcome, check: check, packet: packet(), now: Date())\n        )\n        XCTAssertEqual(terminal, .compacting)\n    }\n}\n"
+    }
+  ]
+}

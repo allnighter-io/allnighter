@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-25",
+  "title": "Review Nudge and planner takeover prompts",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/NudgePrompt.swift"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/PlannerTakeoverPrompt.swift"
+    }
+  ],
+  "intent": "READ-ONLY. Pair retry prose and planner takeover: check semantics, stdout tail injection, attempt budget context. Write findings to docs/phases/code_review/findings/CR-25.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-25.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-25.md && grep -q '## Findings' docs/phases/code_review/findings/CR-25.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/NudgePrompt.swift",
+      "lineRange": null,
+      "content": "import Foundation\n\n/// Template nudge for a stalled slice unit (Pair_Programming_Team PPT-S09). Not LLM-authored.\npublic enum NudgePrompt {\n    public static func assemble(\n        packet: WorkSlicePacket,\n        attempt: Int,\n        maxRetries: Int,\n        reason: String,\n        stdoutTail: String?\n    ) -> String {\n        var parts = [\n            \"NUDGE \u2014 same slice \\(packet.sliceId) (attempt \\(attempt)/\\(maxRetries)).\",\n            \"Reason: \\(reason)\",\n            \"Do not expand scope. Touch ONLY the allowlisted paths.\",\n            \"Run the repo check when done.\",\n        ]\n        if let tail = stdoutTail?.trimmingCharacters(in: .whitespacesAndNewlines), !tail.isEmpty {\n            parts.append(\"Last output tail:\\n```\\n\\(tail)\\n```\")\n        }\n        return parts.joined(separator: \"\\n\")\n    }\n\n    /// Escalating nudge after a failed executor attempt (check fail, worker error, or stall).\n    public static func failureRetry(\n        packet: WorkSlicePacket,\n        attempt: Int,\n        maxAttempts: Int,\n        reason: String,\n        checkStdoutTail: String?,\n        stdoutTail: String?\n    ) -> String {\n        var parts = [\n            \"NUDGE \u2014 same slice \\(packet.sliceId) (executor attempt \\(attempt)/\\(maxAttempts)).\",\n            \"Reason: \\(reason)\",\n            \"Do not expand scope. Touch ONLY the allowlisted paths.\",\n            \"Run the repo check when done.\",\n        ]\n\n        if attempt >= 2 {\n            parts.append(\n                \"Prior attempts failed. Re-read the intent and allowlist. Make the smallest change that satisfies the check.\"\n            )\n            if let tail = checkStdoutTail?.trimmingCharacters(in: .whitespacesAndNewlines), !tail.isEmpty {\n                parts.append(\"Check output:\\n```\\n\\(tail)\\n```\")\n            }\n        }\n\n        if let tail = stdoutTail?.trimmingCharacters(in: .whitespacesAndNewlines), !tail.isEmpty, attempt < 2 {\n            parts.append(\"Last output tail:\\n```\\n\\(tail)\\n```\")\n        }\n\n        return parts.joined(separator: \"\\n\")\n    }\n}\n"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/PlannerTakeoverPrompt.swift",
+      "lineRange": null,
+      "content": "import Foundation\n\n/// Planner (Composer) order after executor attempts are exhausted (Pair_Programming_Team PPT-S14).\npublic enum PlannerTakeoverPrompt {\n    public struct Context: Sendable, Equatable {\n        public var executorAttempts: Int\n        public var lastTerminal: String\n        public var checkExitCode: Int32?\n        public var checkStdoutTail: String?\n        public var lastWorkerOutput: String?\n\n        public init(\n            executorAttempts: Int,\n            lastTerminal: String,\n            checkExitCode: Int32? = nil,\n            checkStdoutTail: String? = nil,\n            lastWorkerOutput: String? = nil\n        ) {\n            self.executorAttempts = executorAttempts\n            self.lastTerminal = lastTerminal\n            self.checkExitCode = checkExitCode\n            self.checkStdoutTail = checkStdoutTail\n            self.lastWorkerOutput = lastWorkerOutput\n        }\n    }\n\n    public static func assemble(packet: WorkSlicePacket, context: Context) -> String {\n        var parts = [\n            \"# Planner takeover \u2014 slice \\(packet.sliceId)\",\n            \"The free executor failed \\(context.executorAttempts) times on this slice. You are the planner seat \u2014 implement the slice directly.\",\n        ]\n        if !packet.title.isEmpty { parts.append(\"## Title\\n\\(packet.title)\") }\n        parts.append(\"## Intent\\n\\(packet.intent)\")\n\n        if !packet.readPaths.isEmpty {\n            let anchors = packet.readPaths.map { anchor -> String in\n                var line = \"- `\\(anchor.path)`\"\n                if let symbol = anchor.symbol { line += \" \u2014 \\(symbol)\" }\n                if let range = anchor.lineRange { line += \" (\\(range))\" }\n                return line\n            }.joined(separator: \"\\n\")\n            parts.append(\"## Read only (bounded)\\n\\(anchors)\")\n        }\n\n        if !packet.resolvedSymbols.isEmpty {\n            let symbols = packet.resolvedSymbols.map {\n                \"- `\\($0.name)` \u2014 `\\($0.signature)` at \\($0.definedAt)\"\n            }.joined(separator: \"\\n\")\n            parts.append(\"## Resolved symbols\\n\\(symbols)\")\n        }\n\n        if let skeleton = packet.skeleton, !skeleton.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {\n            parts.append(\"## Skeleton (guide only)\\n```\\n\\(skeleton)\\n```\")\n        }\n\n        let allowlist = packet.touchAllowlist.map { \"- `\\($0)`\" }.joined(separator: \"\\n\")\n        parts.append(\"## Touch allowlist (strict)\\n\\(allowlist)\\nEdit ONLY these paths.\")\n\n        parts.append(\"## Check (must pass)\\n\\(SliceAttemptPrompt.checkInstruction(packet.check))\")\n\n        parts.append(\"\"\"\n        ## Failure context\n        - Last terminal: \\(context.lastTerminal)\n        - Executor attempts: \\(context.executorAttempts)\n        \"\"\")\n\n        if let code = context.checkExitCode {\n            parts.append(\"- Check exit code: \\(code)\")\n        }\n        if let tail = context.checkStdoutTail?.trimmingCharacters(in: .whitespacesAndNewlines), !tail.isEmpty {\n            parts.append(\"## Last check output\\n```\\n\\(tail)\\n```\")\n        }\n        if let worker = context.lastWorkerOutput?.trimmingCharacters(in: .whitespacesAndNewlines), !worker.isEmpty {\n            parts.append(\"## Last executor output\\n```\\n\\(worker)\\n```\")\n        }\n\n        parts.append(\"\"\"\n        ## Rules\n        - Implement the slice intent within the allowlist. No repo-wide refactors.\n        - Run the check command after editing; it must exit 0.\n        - Do not spawn sub-slices or rewrite the queue \u2014 finish this unit.\n        \"\"\")\n\n        return parts.joined(separator: \"\\n\\n\")\n    }\n}\n"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "assemble",
+      "signature": "func assemble(\n        packet: WorkSlicePacket,\n        attempt: Int,\n        maxRetries: Int,\n        reason: String,\n        stdoutTail: String?\n    ) -> String",
+      "definedAt": "NudgePrompt.swift:5"
+    },
+    {
+      "name": "failureRetry",
+      "signature": "func failureRetry(\n        packet: WorkSlicePacket,\n        attempt: Int,\n        maxAttempts: Int,\n        reason: String,\n        checkStdoutTail: String?,\n        stdoutTail: String?\n    ) -> String",
+      "definedAt": "NudgePrompt.swift:25"
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-14",
+  "title": "Review OpenCodeServeClient streaming",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/OpenCodeServeClient.swift"
+    }
+  ],
+  "intent": "READ-ONLY review of OpenCode HTTP/SSE streaming. Lenses: tool-only completion, sawCleanIdle, empty stream terminal, session.error vs done, timeout, SSE parser accumulator. Dogfood: zero parsed.stream.events. Write findings to docs/phases/code_review/findings/CR-14.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-14.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-14.md && grep -q '## Findings' docs/phases/code_review/findings/CR-14.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/OpenCodeServeClient.swift",
+      "lineRange": null,
+      "content": "import Foundation\nimport AllnighterCore\n\n/// Talks to the warm `opencode serve` HTTP API \u2014 the *real* OpenCode answer channel.\n///\n/// `opencode run` is a TTY-interactive TUI client: piped into a non-TTY subprocess it\n/// emits nothing on stdout/stderr (even with `--format json` / `--print-logs`) and never\n/// exits, so it can never be scraped for an answer. The serve exposes a documented HTTP\n/// API instead; the assistant answer is the `text` part(s) of `POST /session/{id}/message`.\n/// See docs/phases/OpenCode_Smoke_Probe_Blocker.md (RESOLUTION + OC-B1).\npublic struct OpenCodeServeClient: Sendable {\n    public enum ClientError: Error, Sendable, Equatable {\n        case sessionCreateFailed(String)\n        case messageFailed(String)\n        case promptAsyncFailed(String)\n        case streamFailed(String)\n        case emptyAnswer\n    }\n\n    /// The assistant's reply, split into the visible answer and (for thinking models) the\n    /// separate reasoning parts.\n    public struct Answer: Sendable, Equatable {\n        public let text: String\n        public let reasoning: String?\n    }\n\n    /// Injectable HTTP transport so the capture path is fixture-testable without live\n    /// network (the OpenCode regression law requires a fixture-backed test).\n    public typealias Transport = @Sendable (URLRequest) async throws -> (Data, URLResponse)\n    /// Injectable SSE byte stream for `GET /event` (fixture tests yield canned SSE bodies).\n    public typealias SSETransport = @Sendable (URLRequest) async throws -> AsyncThrowingStream<Data, Error>\n\n    public let baseURL: URL\n    private let transport: Transport\n    private let sseTransport: SSETransport\n\n    public init(\n        baseURL: URL = OpenCodeServeCoordinator.defaultURL,\n        transport: @escaping Transport = { try await URLSession.shared.data(for: $0) },\n        sseTransport: @escaping SSETransport = OpenCodeServeClient.defaultSSETransport\n    ) {\n        self.baseURL = baseURL\n        self.transport = transport\n        self.sseTransport = sseTransport\n    }\n\n    /// Split an OpenCode model label (\"featherless/zai-org/GLM-5.2\") into the API's\n    /// `providerID` (\"featherless\") + `modelID` (\"zai-org/GLM-5.2\"). Splits on the FIRST\n    /// slash only \u2014 the modelID itself contains slashes.\n    public static func splitModelLabel(_ label: String) -> (providerID: String, modelID: String) {\n        guard let slash = label.firstIndex(of: \"/\") else { return (\"\", label) }\n        return (String(label[..<slash]), String(label[label.index(after: slash)...]))\n    }\n\n    /// Create a session, send one prompt, and return the assistant answer (+ reasoning).\n    /// `directory` roots the session (so tools edit the right repo); `autoApprove` allows\n    /// all tool permissions so a headless run never blocks on a permission prompt.\n    public func run(\n        _ text: String,\n        modelLabel: String,\n        directory: String? = nil,\n        autoApprove: Bool = false,\n        timeout: Duration = .seconds(180)\n    ) async throws -> Answer {\n        let model = Self.splitModelLabel(modelLabel)\n        let sessionID = try await createSession(directory: directory, autoApprove: autoApprove, timeout: timeout)\n        return try await sendMessage(\n            sessionID: sessionID, text: text,\n            providerID: model.providerID, modelID: model.modelID, timeout: timeout\n        )\n    }\n\n    /// Convenience: the visible answer text only. Used by the readiness smoke and any\n    /// answer-only turn. (Delegates to `run`.)\n    public func prompt(\n        _ text: String,\n        modelLabel: String,\n        directory: String? = nil,\n        autoApprove: Bool = false,\n        timeout: Duration = .seconds(180)\n    ) async throws -> String {\n        try await run(text, modelLabel: modelLabel, directory: directory, autoApprove: autoApprove, timeout: timeout).text\n    }\n\n    func createSession(directory: String?, autoApprove: Bool, timeout: Duration) async throws -> String {\n        var components = URLComponents(\n            url: baseURL.appendingPathComponent(\"session\"), resolvingAgainstBaseURL: false\n        )!\n        if let directory, !directory.isEmpty {\n            components.queryItems = [URLQueryItem(name: \"directory\", value: directory)]\n        }\n        var req = URLRequest(url: components.url!)\n        req.httpMethod = \"POST\"\n        req.setValue(\"application/json\", forHTTPHeaderField: \"content-type\")\n        // allow-all permission ruleset = headless auto-approve (the API equivalent of the\n        // TUI's --dangerously-skip-permissions).\n        let body: [String: Any] = autoApprove\n            ? [\"permission\": [[\"permission\": \"*\", \"pattern\": \"**\", \"action\": \"allow\"]]]\n            : [:]\n        req.httpBody = try JSONSerialization.data(withJSONObject: body)\n        req.timeoutInterval = Self.seconds(timeout)\n        let (data, response) = try await transport(req)\n        if let problem = Self.httpProblem(response, data) {\n            throw ClientError.sessionCreateFailed(problem)\n        }\n        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],\n              let id = obj[\"id\"] as? String, !id.isEmpty else {\n            throw ClientError.sessionCreateFailed(Self.snippet(data))\n        }\n        return id\n    }\n\n    /// Fire-and-forget prompt over `POST /session/{id}/prompt_async` (204).\n    public func promptAsync(\n        sessionID: String,\n        text: String,\n        providerID: String,\n        modelID: String,\n        timeout: Duration = .seconds(180)\n    ) async throws {\n        let url = baseURL.appendingPathComponent(\"session\")\n            .appendingPathComponent(sessionID).appendingPathComponent(\"prompt_async\")\n        var req = URLRequest(url: url)\n        req.httpMethod = \"POST\"\n        req.setValue(\"application/json\", forHTTPHeaderField: \"content-type\")\n        req.timeoutInterval = Self.seconds(timeout)\n        let body: [String: Any] = [\n            \"model\": [\"providerID\": providerID, \"modelID\": modelID],\n            \"parts\": [[\"type\": \"text\", \"text\": text]],\n        ]\n        req.httpBody = try JSONSerialization.data(withJSONObject: body)\n        let (data, response) = try await transport(req)\n        if let problem = Self.httpProblem(response, data) {\n            throw ClientError.promptAsyncFailed(problem)\n        }\n    }\n\n    /// Create session \u2192 subscribe SSE \u2192 prompt_async \u2192 stream deltas until idle.\n    public func streamRun(\n        _ text: String,\n        modelLabel: String,\n        directory: String? = nil,\n        autoApprove: Bool = false,\n        timeout: Duration = .seconds(180)\n    ) -> AsyncThrowingStream<WorkerStreamEvent, Error> {\n        let model = Self.splitModelLabel(modelLabel)\n        return AsyncThrowingStream { continuation in\n            let task = Task {\n                let startedAt = Date()\n                do {\n                    let sessionID = try await createSession(\n                        directory: directory, autoApprove: autoApprove, timeout: timeout)\n                    continuation.yield(.started(workerId: \"opencode\", modelId: modelLabel, sourceId: \"opencode\"))\n\n                    let sseURL = baseURL.appendingPathComponent(\"event\")\n                    var sseReq = URLRequest(url: sseURL)\n                    sseReq.httpMethod = \"GET\"\n                    sseReq.timeoutInterval = Self.seconds(timeout)\n\n                    let parser = OpenCodeSSEParser()\n                    let idleGate = IdleGate()\n\n                    let consume = Task {\n                        do {\n                            let byteStream = try await sseTransport(sseReq)\n                            for try await chunk in byteStream {\n                                for event in parser.receive(chunk) {\n                                    if Self.isIdleSignal(event) {\n                                        await idleGate.signal(clean: true)\n                                        continue\n                                    }\n                                    continuation.yield(event)\n                                }\n                                // A reported session error ends the turn just like idle, but is\n                                // not a clean completion \u2014 stop waiting and let the terminal\n                                // block surface the failure.\n                                if parser.sessionError != nil { await idleGate.signal(); break }\n                                if await idleGate.isSignaled { break }\n                            }\n                            for event in parser.flush() {\n                                if Self.isIdleSignal(event) { await idleGate.signal(clean: true); continue }\n                                continuation.yield(event)\n                            }\n                            await idleGate.signal()\n                        } catch {\n                            await idleGate.signal()\n                        }\n                    }\n\n                    try await promptAsync(\n                        sessionID: sessionID, text: text,\n                        providerID: model.providerID, modelID: model.modelID, timeout: timeout)\n\n                    let deadline = Date().addingTimeInterval(Self.seconds(timeout))\n                    while await !idleGate.isSignaled, Date() < deadline {\n                        try await Task.sleep(nanoseconds: 50_000_000)\n                    }\n                    consume.cancel()\n\n                    let finishedAt = Date()\n                    let durationMs = Int(finishedAt.timeIntervalSince(startedAt) * 1000)\n                    let answerText = parser.accumulatedAnswer\n                    let reasoning = parser.accumulatedReasoning\n                    let toolActions = parser.toolActionCount\n                    let sawCleanIdle = await idleGate.sawCleanIdle\n\n                    func done(_ output: String) {\n                        var outcome = WorkerRunOutcome(\n                            status: .done, output: output,\n                            startedAt: startedAt, finishedAt: finishedAt)\n                        outcome.durationMs = durationMs\n                        outcome.reasoning = reasoning.isEmpty ? nil : reasoning\n                        continuation.yield(.completed(outcome))\n                    }\n                    func failed(_ kind: WorkerAnswerErrorKind, _ reason: String) {\n                        var outcome = WorkerRunOutcome(\n                            status: .failed, errorKind: kind, errorReason: reason,\n                            startedAt: startedAt, finishedAt: finishedAt)\n                        outcome.durationMs = durationMs\n                        continuation.yield(.failed(outcome))\n                    }\n\n                    if let sessionError = parser.sessionError {\n                        // The run actually errored \u2014 a failure regardless of any tool work.\n                        failed(.nonzeroExit, \"opencode session error: \\(sessionError)\")\n                    } else if !answerText.isEmpty {\n                        done(answerText)\n                    } else if toolActions > 0, sawCleanIdle {\n                        // Tool-only completion: the model did its work through tools (wrote\n                        // files / ran commands) and the session ended cleanly without a closing\n                        // assistant message. The deliverable is the side effects, not chat\n                        // text \u2014 this is success, not `empty_output`. (Decoupling this from\n                        // visible text is what unblocks unattended review/execute batches.)\n                        done(\"Completed via \\(toolActions) tool action\\(toolActions == 1 ? \"\" : \"s\") with no closing message.\")\n                    } else {\n                        // No text, no tool work (or the stream never reached a clean idle):\n                        // a genuinely empty turn stays a failure.\n                        failed(.emptyOutput, \"opencode stream: empty answer\")\n                    }\n                    continuation.finish()\n                } catch {\n                    continuation.finish(throwing: error)\n                }\n            }\n            continuation.onTermination = { @Sendable _ in task.cancel() }\n        }\n    }\n\n    private static func isIdleSignal(_ event: WorkerStreamEvent) -> Bool {\n        guard case .rawEvent(_, let json) = event else { return false }\n        return json.contains(\"session.idle\") || json.contains(#\"\"status\":\"idle\"#)\n    }\n\n    private actor IdleGate {\n        private(set) var isSignaled = false\n        /// True only when an actual `session.idle` was observed \u2014 i.e. the run finished\n        /// cleanly, as opposed to the stream merely ending or erroring. Tool-only success is\n        /// gated on this so a timed-out / dropped stream is never mistaken for completion.\n        private(set) var sawCleanIdle = false\n        func signal(clean: Bool = false) {\n            isSignaled = true\n            if clean { sawCleanIdle = true }\n        }\n    }\n\n    func sendMessage(\n        sessionID: String, text: String,\n        providerID: String, modelID: String, timeout: Duration\n    ) async throws -> Answer {\n        let url = baseURL.appendingPathComponent(\"session\")\n            .appendingPathComponent(sessionID).appendingPathComponent(\"message\")\n        var req = URLRequest(url: url)\n        req.httpMethod = \"POST\"\n        req.setValue(\"application/json\", forHTTPHeaderField: \"content-type\")\n        req.timeoutInterval = Self.seconds(timeout)\n        let body: [String: Any] = [\n            \"model\": [\"providerID\": providerID, \"modelID\": modelID],\n            \"parts\": [[\"type\": \"text\", \"text\": text]],\n        ]\n        req.httpBody = try JSONSerialization.data(withJSONObject: body)\n        let (data, response) = try await transport(req)\n        if let problem = Self.httpProblem(response, data) {\n            throw ClientError.messageFailed(problem)\n        }\n        return try Self.extractAnswer(data)\n    }\n\n    /// Collect the assistant `text` part(s) (the answer) and `reasoning` part(s) (thinking)\n    /// from a `POST .../message` response. The response is `[step-start, (reasoning), text,\n    /// step-finish, \u2026]`; tool / step parts are ignored.\n    static func extractAnswer(_ data: Data) throws -> Answer {\n        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],\n              let parts = obj[\"parts\"] as? [[String: Any]] else {\n            throw ClientError.messageFailed(snippet(data))\n        }\n        var texts: [String] = []\n        var reasons: [String] = []\n        for part in parts {\n            guard let type = part[\"type\"] as? String, let value = part[\"text\"] as? String else { continue }\n            if type == \"text\" { texts.append(value) }\n            else if type == \"reasoning\" { reasons.append(value) }\n        }\n        let text = texts.joined()\n        if text.isEmpty { throw ClientError.emptyAnswer }\n        return Answer(text: text, reasoning: reasons.isEmpty ? nil : reasons.joined(separator: \"\\n\"))\n    }\n\n    /// One-call readiness smoke over the HTTP API: ensure the serve is up, ask the model\n    /// for the expected token, confirm it came back. Returns nil on success, else a human\n    /// failure reason. Shared by the Mac setup probe (CLIDetector) and Doctor\n    /// (ModelHealthChecker) so both read the same channel.\n    public static func smokeReason(\n        manifest: DriverManifest,\n        modelLabel: String,\n        coordinator: OpenCodeServeCoordinator = OpenCodeServeCoordinator(),\n        client: OpenCodeServeClient = OpenCodeServeClient()\n    ) async -> String? {\n        do { try await coordinator.ensureRunning() }\n        catch { return \"opencode serve: \\(error)\" }\n        let expect = manifest.smokeTestExpect ?? \"ALLNIGHTER_READY\"\n        do {\n            let answer = try await client.prompt(\"Reply with the single token \\(expect)\", modelLabel: modelLabel)\n            return answer.contains(expect)\n                ? nil\n                : \"smoke did not return \\(expect) \u00b7 got: \\(String(answer.prefix(200)))\"\n        } catch {\n            return \"opencode smoke: \\(error)\"\n        }\n    }\n\n    private static func seconds(_ d: Duration) -> TimeInterval {\n        let c = d.components\n        return Double(c.seconds) + Double(c.attoseconds) / 1e18\n    }\n\n    private static func httpProblem(_ response: URLResponse, _ data: Data) -> String? {\n        guard let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) else {\n            return nil\n        }\n        return \"HTTP \\(http.statusCode): \\(snippet(data))\"\n    }\n\n    private static func snippet(_ data: Data) -> String {\n        String(decoding: data.prefix(300), as: UTF8.self)\n    }\n\n    /// Live SSE transport over URLSession byte streaming.\n    public static func defaultSSETransport(_ request: URLRequest) async throws -> AsyncThrowingStream<Data, Error> {\n        AsyncThrowingStream { continuation in\n            let task = Task {\n                do {\n                    let (bytes, response) = try await URLSession.shared.bytes(for: request)\n                    guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {\n                        continuation.finish(throwing: ClientError.streamFailed(\"SSE HTTP error\"))\n                        return\n                    }\n                    var lineBuffer = Data()\n                    let newline = UInt8(ascii: \"\\n\")\n                    for try await byte in bytes {\n                        lineBuffer.append(byte)\n                        if byte == newline {\n                            continuation.yield(lineBuffer)\n                            lineBuffer = Data()\n                        }\n                    }\n                    if !lineBuffer.isEmpty { continuation.yield(lineBuffer) }\n                    continuation.finish()\n                } catch {\n                    continuation.finish(throwing: error)\n                }\n            }\n            continuation.onTermination = { @Sendable _ in task.cancel() }\n        }\n    }\n}\n"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "splitModelLabel",
+      "signature": "func splitModelLabel(_ label: String) -> (providerID: String, modelID: String)",
+      "definedAt": "OpenCodeServeClient.swift:50"
+    },
+    {
+      "name": "run",
+      "signature": "func run(\n        _ text: String,\n        modelLabel: String,\n        directory: String? = nil,\n        autoApprove: Bool = false,\n        timeout: Duration = .seconds(180)",
+      "definedAt": "OpenCodeServeClient.swift:58"
+    },
+    {
+      "name": "prompt",
+      "signature": "func prompt(\n        _ text: String,\n        modelLabel: String,\n        directory: String? = nil,\n        autoApprove: Bool = false,\n        timeout: Duration = .seconds(180)",
+      "definedAt": "OpenCodeServeClient.swift:75"
+    },
+    {
+      "name": "createSession",
+      "signature": "func createSession(directory: String?, autoApprove: Bool, timeout: Duration)",
+      "definedAt": "OpenCodeServeClient.swift:84"
+    },
+    {
+      "name": "promptAsync",
+      "signature": "func promptAsync(\n        sessionID: String,\n        text: String,\n        providerID: String,\n        modelID: String,\n        timeout: Duration = .seconds(180)",
+      "definedAt": "OpenCodeServeClient.swift:114"
+    },
+    {
+      "name": "streamRun",
+      "signature": "func streamRun(\n        _ text: String,\n        modelLabel: String,\n        directory: String? = nil,\n        autoApprove: Bool = false,\n        timeout: Duration = .seconds(180)",
+      "definedAt": "OpenCodeServeClient.swift:139"
+    },
+    {
+      "name": "done",
+      "signature": "func done(_ output: String)",
+      "definedAt": "OpenCodeServeClient.swift:206"
+    },
+    {
+      "name": "failed",
+      "signature": "func failed(_ kind: WorkerAnswerErrorKind, _ reason: String)",
+      "definedAt": "OpenCodeServeClient.swift:215"
+    },
+    {
+      "name": "isIdleSignal",
+      "signature": "func isIdleSignal(_ event: WorkerStreamEvent) -> Bool",
+      "definedAt": "OpenCodeServeClient.swift:248"
+    },
+    {
+      "name": "signal",
+      "signature": "func signal(clean: Bool = false)",
+      "definedAt": "OpenCodeServeClient.swift:260"
+    },
+    {
+      "name": "sendMessage",
+      "signature": "func sendMessage(\n        sessionID: String, text: String,\n        providerID: String, modelID: String, timeout: Duration\n    )",
+      "definedAt": "OpenCodeServeClient.swift:265"
+    },
+    {
+      "name": "extractAnswer",
+      "signature": "func extractAnswer(_ data: Data)",
+      "definedAt": "OpenCodeServeClient.swift:291"
+    },
+    {
+      "name": "smokeReason",
+      "signature": "func smokeReason(\n        manifest: DriverManifest,\n        modelLabel: String,\n        coordinator: OpenCodeServeCoordinator = OpenCodeServeCoordinator()",
+      "definedAt": "OpenCodeServeClient.swift:312"
+    },
+    {
+      "name": "seconds",
+      "signature": "func seconds(_ d: Duration) -> TimeInterval",
+      "definedAt": "OpenCodeServeClient.swift:330"
+    },
+    {
+      "name": "httpProblem",
+      "signature": "func httpProblem(_ response: URLResponse, _ data: Data) -> String?",
+      "definedAt": "OpenCodeServeClient.swift:335"
+    },
+    {
+      "name": "snippet",
+      "signature": "func snippet(_ data: Data) -> String",
+      "definedAt": "OpenCodeServeClient.swift:342"
+    },
+    {
+      "name": "defaultSSETransport",
+      "signature": "func defaultSSETransport(_ request: URLRequest)",
+      "definedAt": "OpenCodeServeClient.swift:348"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-11",
+  "title": "Review WorkerRunner.runOpenCode",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/WorkerRunner.swift",
+      "lineRange": "251-331"
+    }
+  ],
+  "intent": "READ-ONLY review of runOpenCode (lines 251-331). Lenses: redundant ensureRunning, stream-without-terminal, cwd fallback, stream vs sync parity, error kind mapping.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-11.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-11.md && grep -q '## Findings' docs/phases/code_review/findings/CR-11.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/WorkerRunner.swift",
+      "lineRange": "251-331",
+      "content": "        return outcome\n    }\n\n    /// OpenCode run over the warm serve HTTP API: ensure serve \u2192 one session rooted at the\n    /// run's working dir, tool permissions auto-approved \u2192 one prompt \u2192 answer (+ reasoning).\n    /// Uses HTTP SSE streaming when `manifest.canStream`; otherwise sync POST /message.\n    private func runOpenCode(\n        worker: Model,\n        manifest: DriverManifest,\n        invoke: DriverManifest.Invoke,\n        prompt: String,\n        effort: EffortLevel,\n        workingDirectoryOverride: String?,\n        timeoutOverride: Duration?,\n        spawnConcurrencyLimit: Int? = nil\n    ) async -> WorkerRunOutcome {\n        let gateLimit = spawnConcurrencyLimit ?? manifest.maxConcurrentSpawns\n        if let gateLimit, let gateFailure = await acquireDriverSpawnGate(driverId: manifest.id, limit: gateLimit) {\n            return gateFailure\n        }\n        defer { if gateLimit != nil { Task { await DriverConcurrencyGate.shared.release(driverId: manifest.id) } } }\n\n        let startedAt = now()\n        do {\n            try await OpenCodeServeCoordinator().ensureRunning()\n        } catch {\n            return WorkerRunOutcome(\n                status: .failed, errorKind: .missingCLI,\n                errorReason: \"opencode serve: \\(error)\",\n                startedAt: startedAt, finishedAt: now()\n            )\n        }\n        let directory = workingDirectoryOverride ?? defaultWorkingDirectory\n            ?? AllnighterPaths.ensuredProbeScratchPath()\n            ?? FileManager.default.temporaryDirectory.path\n            ?? NSTemporaryDirectory()\n        let timeout = timeoutOverride ?? .seconds(invoke.timeoutSeconds)\n        let modelLabel = worker.resolvedLabel(at: effort)\n\n        if manifest.canStream {\n            var terminal: WorkerRunOutcome?\n            do {\n                for try await event in invokeOpenCodeStreaming(\n                    prompt: prompt, modelLabel: modelLabel,\n                    directory: directory, timeout: timeout\n                ) {\n                    switch event {\n                    case .completed(let o), .failed(let o): terminal = o\n                    case .started, .answerDelta, .reasoningDelta, .rawEvent, .toolActivity: break\n                    }\n                }\n            } catch {\n                return WorkerRunOutcome(\n                    status: .failed, errorKind: .nonzeroExit,\n                    errorReason: \"opencode stream: \\(error)\",\n                    startedAt: startedAt, finishedAt: now()\n                )\n            }\n            if let terminal { return terminal }\n            return WorkerRunOutcome(\n                status: .failed, errorKind: .emptyOutput,\n                errorReason: \"opencode stream ended without terminal\",\n                startedAt: startedAt, finishedAt: now()\n            )\n        }\n\n        do {\n            let answer = try await OpenCodeServeClient().run(\n                prompt, modelLabel: modelLabel, directory: directory,\n                autoApprove: true, timeout: timeout\n            )\n            let finishedAt = now()\n            return WorkerRunOutcome(\n                status: .done,\n                output: answer.text,\n                startedAt: startedAt,\n                finishedAt: finishedAt,\n                durationMs: Int(finishedAt.timeIntervalSince(startedAt) * 1000),\n                reasoning: answer.reasoning\n            )\n        } catch {"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "runOpenCode",
+      "signature": "func runOpenCode(\n        worker: Model,\n        manifest: DriverManifest,\n        invoke: DriverManifest.Invoke,\n        prompt: String,\n        effort: EffortLevel,\n        workingDirectoryOverride: String?,\n        timeoutOverride: Duration?,\n        spawnConcurrencyLimit: Int? = nil\n    )",
+      "definedAt": "WorkerRunner.swift:257"
+    }
+  ]
+}

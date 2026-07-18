@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-08",
+  "title": "Review DriverConcurrencyGate spawn limits",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/DriverConcurrencyGate.swift"
+    }
+  ],
+  "intent": "READ-ONLY review. OpenCode maxConcurrentSpawns:1. Write findings to docs/phases/code_review/findings/CR-08.md. Lenses: per-driver keying, slot leak, warm pool interaction, multi-project fairness, wait timeout.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-08.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-08.md && grep -q '## Findings' docs/phases/code_review/findings/CR-08.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/DriverConcurrencyGate.swift",
+      "lineRange": null,
+      "content": "import Foundation\n\n/// Process-wide, per-driver spawn limiter. Some headless CLIs cannot survive\n/// concurrent invocation \u2014 they deadlock or corrupt a shared on-disk resource\n/// (a singleton session dir, a per-invocation config rewritten via temp-rename).\n/// Team fan-out (`CatalogRunCoordinator`) spawns every seat in parallel via a\n/// `withTaskGroup`, so two seats on the same fragile driver collide.\n///\n/// This gate is the FIFO \"one-running-per-lane\" pattern applied at the right\n/// altitude: the WORKER-SPAWN chokepoint, keyed by driver id. A driver declares\n/// its ceiling as data (`DriverManifest.maxConcurrentSpawns`); absent \u21d2 unlimited\n/// (no gating, no actor hop). Seats that exceed a driver's ceiling queue and run\n/// serially; every other driver stays fully parallel. The limit is global to the\n/// process, so it also covers two concurrent team runs or a team seat overlapping\n/// a single-lane chat on the same driver.\n///\n/// Proven values (see `scripts/cli-concurrency-spike.py`): antigravity=1 (agy\n/// deadlocks on its singleton brain dir), cursor_agent=1 (races on\n/// ~/.cursor/cli-config.json). claude/codex/grok are parallel-safe \u21d2 no limit.\npublic actor DriverConcurrencyGate {\n    public static let shared = DriverConcurrencyGate()\n\n    private struct Lane {\n        let limit: Int\n        var active = 0\n        var waiters: [CheckedContinuation<Void, Never>] = []\n    }\n    private var lanes: [String: Lane] = [:]\n\n    public init() {}\n\n    /// Acquire one permit for `driverId`. Returns immediately when a slot is free,\n    /// otherwise suspends FIFO until a holder releases. `limit` is clamped to \u22651; the\n    /// first acquire for a driver fixes its lane limit.\n    public func acquire(driverId: String, limit: Int) async {\n        let cap = max(1, limit)\n        var lane = lanes[driverId] ?? Lane(limit: cap)\n        if lane.active < lane.limit {\n            lane.active += 1\n            lanes[driverId] = lane\n            return\n        }\n        // At capacity: queue. The releasing task hands its slot directly to us\n        // (active stays at limit across the handoff), so no double-count.\n        lanes[driverId] = lane\n        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in\n            lanes[driverId]?.waiters.append(cont)\n        }\n    }\n\n    /// Release one permit for `driverId`, handing the slot to the next waiter if any.\n    public func release(driverId: String) {\n        guard var lane = lanes[driverId] else { return }\n        if !lane.waiters.isEmpty {\n            let next = lane.waiters.removeFirst()\n            lanes[driverId] = lane\n            next.resume() // slot transfers; active unchanged\n        } else {\n            lane.active = max(0, lane.active - 1)\n            lanes[driverId] = lane\n        }\n    }\n\n    /// Run `body` while holding a permit for `driverId`. When `limit` is nil the body\n    /// runs ungated with no actor hop (the common, parallel-safe path).\n    public func withPermit<T>(driverId: String, limit: Int?, _ body: () async -> T) async -> T {\n        guard let limit else { return await body() }\n        await acquire(driverId: driverId, limit: limit)\n        let result = await body()\n        release(driverId: driverId)\n        return result\n    }\n\n    /// Test/diagnostic: current in-flight count for a driver.\n    public func activeCount(driverId: String) -> Int { lanes[driverId]?.active ?? 0 }\n}\n"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "acquire",
+      "signature": "func acquire(driverId: String, limit: Int)",
+      "definedAt": "DriverConcurrencyGate.swift:35"
+    },
+    {
+      "name": "release",
+      "signature": "func release(driverId: String)",
+      "definedAt": "DriverConcurrencyGate.swift:52"
+    },
+    {
+      "name": "activeCount",
+      "signature": "func activeCount(driverId: String) -> Int",
+      "definedAt": "DriverConcurrencyGate.swift:75"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-28",
+  "title": "Review ThreadView scroll and live-follow",
+  "readPaths": [
+    {
+      "path": "Apps/AllnighterMac/Sources/ThreadView.swift",
+      "lineRange": "265-360"
+    }
+  ],
+  "intent": "READ-ONLY. CR-09 P2: live-follow, scrollToBottom second pass, isAtBottom gating. Pair with TimelineScrollPolicy. Write findings to docs/phases/code_review/findings/CR-28.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-28.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-28.md && grep -q '## Findings' docs/phases/code_review/findings/CR-28.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Apps/AllnighterMac/Sources/ThreadView.swift",
+      "lineRange": "265-360",
+      "content": "        .padding(.horizontal, 8).padding(.vertical, 3)\n        .background(lane == .design ? ALColor.active : ALColor.surface, in: Capsule())\n        .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }\n    }\n}\n\nprivate struct ThreadTurnTimeline: View {\n    @Environment(ThreadsViewModel.self) private var threads\n    let thread: WorkThread\n    /// RLS-S04: true while the user is parked at the bottom \u2014 gates live follow-scroll so a\n    /// streaming answer keeps itself in view, but a manual scroll-up is never fought.\n    @State private var atBottom = true\n    private static let bottomAnchorId = \"__timeline_bottom__\"\n\n    var body: some View {\n        ScrollViewReader { proxy in\n            GeometryReader { outer in\n                ScrollView {\n                    VStack(alignment: .leading, spacing: 16) {\n                        ForEach(thread.turns) { turn in\n                            ThreadTurnRow(turn: turn, isLastTurn: turn.id == thread.turns.last?.id)\n                                .id(turn.id)\n                                .timelineTurnFrame(turnId: turn.id)\n                        }\n                        // Bottom sentinel \u2014 reports the content's bottom edge so live\n                        // follow-scroll only fires when the user is already at the bottom.\n                        Color.clear.frame(height: 1)\n                            .id(Self.bottomAnchorId)\n                            .background(GeometryReader { g in\n                                Color.clear.preference(\n                                    key: TimelineBottomSentinelKey.self,\n                                    value: g.frame(in: .global).maxY)\n                            })\n                    }\n                    .padding(20)\n                    .frame(maxWidth: .infinity, alignment: .leading)\n                }\n                .timelineVisibilityTracking(thread: thread)\n                .onPreferenceChange(TimelineBottomSentinelKey.self) { sentinelMaxY in\n                    atBottom = TimelineScrollPolicy.isAtBottom(\n                        contentBottomY: sentinelMaxY, viewportBottomY: outer.frame(in: .global).maxY)\n                }\n                .onAppear { scrollTimelineToOpenPosition(proxy: proxy) }\n                .onChange(of: thread.id) { _, _ in scrollTimelineToOpenPosition(proxy: proxy) }\n                .onChange(of: thread.turns.count) { _, _ in\n                    TimelineScrollPolicy.scrollOnTurnCountChange(\n                        proxy: proxy,\n                        thread: thread,\n                        suppressAutoScroll: GUIFixture.suppressUnreadAutoScroll,\n                        forceScrollToBottomAfterSend: threads.forceScrollToBottomAfterSendActive(),\n                        bottomAnchorId: Self.bottomAnchorId\n                    )\n                }\n                .onChange(of: TimelineScrollPolicy.liveContentSignal(for: thread)) { _, _ in\n                    // RLS-S04: follow the streaming answer as it grows \u2014 but only when the\n                    // user is at the bottom, and without animation so the follow stays tight.\n                    guard !GUIFixture.suppressUnreadAutoScroll else { return }\n                    if threads.forceScrollToBottomAfterSendActive() || atBottom {\n                        TimelineScrollPolicy.scrollToBottom(\n                            proxy: proxy,\n                            bottomAnchorId: Self.bottomAnchorId,\n                            animated: false\n                        )\n                    }\n                }\n            }\n        }\n        .frame(maxWidth: .infinity, maxHeight: .infinity)\n    }\n\n    private func scrollTimelineToOpenPosition(proxy: ScrollViewProxy) {\n        TimelineScrollPolicy.scrollOnThreadOpen(\n            proxy: proxy,\n            pendingTarget: threads.consumePendingScrollTarget(),\n            suppressAutoScroll: GUIFixture.suppressUnreadAutoScroll,\n            bottomAnchorId: Self.bottomAnchorId\n        )\n    }\n}\n\n/// Reasoning render policy. The latest, still-running turn auto-expands so live thinking\n/// is visible \u2014 a collapsed \"Thinking\" header alone reads as a frozen screen. A settled\n/// turn collapses back to the compact \"Thought for Ns\" summary (reasoning is audit/debug\n/// once the answer exists). An explicit user toggle always wins. RLS-P0: the auto-expanded\n/// running view is height-bounded and tail-scrolled (see `ThreadThinkingBlock`) so streaming\n/// reasoning can't lay out an ever-taller `Text` on every delta.\nenum ReasoningRenderPolicy {\n    static func expanded(userToggle: Bool?, isLatestTurn: Bool, isRunning: Bool) -> Bool {\n        if let userToggle { return userToggle }\n        return isLatestTurn && isRunning\n    }\n}\n\n/// Compact wall-clock duration: \"8s\", \"1m 20s\", \"1h 3m\". No leading zero units.\nenum DurationFormat {\n    static func compact(_ interval: TimeInterval) -> String {"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "scrollTimelineToOpenPosition",
+      "signature": "func scrollTimelineToOpenPosition(proxy: ScrollViewProxy)",
+      "definedAt": "ThreadView.swift:334"
+    },
+    {
+      "name": "expanded",
+      "signature": "func expanded(userToggle: Bool?, isLatestTurn: Bool, isRunning: Bool) -> Bool",
+      "definedAt": "ThreadView.swift:352"
+    },
+    {
+      "name": "compact",
+      "signature": "func compact(_ interval: TimeInterval) -> String",
+      "definedAt": "ThreadView.swift:360"
+    }
+  ]
+}

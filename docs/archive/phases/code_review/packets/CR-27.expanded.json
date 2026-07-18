@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-27",
+  "title": "Review ThreadStore write serialization",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/ThreadStoreWriteSerializer.swift"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/ThreadStore.swift",
+      "lineRange": "1-120"
+    }
+  ],
+  "intent": "READ-ONLY. CR-10 P1: reentrant sync deadlock; lane registry never evicts; symlink roots. Write findings to docs/phases/code_review/findings/CR-27.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-27.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-27.md && grep -q '## Findings' docs/phases/code_review/findings/CR-27.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/ThreadStoreWriteSerializer.swift",
+      "lineRange": null,
+      "content": "import Foundation\n\n/// Per-root synchronous mutation lane shared by all `ThreadStore` values that\n/// point at the same canonical `rootDirectory`.\n///\n/// **Reentrancy:** callers must not invoke `synchronized` for the same root from\n/// within an in-flight `synchronized` body on that root \u2014 nested `DispatchQueue.sync`\n/// deadlocks. Reentrant entry is detected via a per-lane queue-specific key and\n/// trapped with `preconditionFailure` (tests use `synchronizedForTesting` to catch\n/// `WriteSerializerError.reentrantSynchronized` instead).\nenum ThreadStoreWriteSerializer {\n    enum WriteSerializerError: Error, Equatable {\n        case reentrantSynchronized\n    }\n\n    private final class Lane: @unchecked Sendable {\n        private let onQueueKey = DispatchSpecificKey<UInt8>()\n        let queue: DispatchQueue\n\n        init() {\n            queue = DispatchQueue(label: \"com.allnighter.threadstore.write\")\n            queue.setSpecific(key: onQueueKey, value: 1)\n        }\n\n        func synchronized<T>(_ body: () throws -> T) rethrows -> T {\n            if DispatchQueue.getSpecific(key: onQueueKey) != nil {\n                preconditionFailure(\n                    \"ThreadStoreWriteSerializer.synchronized reentered for the same root \u2014 nested DispatchQueue.sync deadlocks\"\n                )\n            }\n            return try queue.sync(execute: body)\n        }\n\n        #if DEBUG\n        func synchronizedThrowingOnReentrancy<T>(_ body: () throws -> T) throws -> T {\n            if DispatchQueue.getSpecific(key: onQueueKey) != nil {\n                throw WriteSerializerError.reentrantSynchronized\n            }\n            return try queue.sync(execute: body)\n        }\n        #endif\n    }\n\n    private final class Registry: @unchecked Sendable {\n        private let lock = NSLock()\n        private var lanes: [String: Lane] = [:]\n\n        private func lane(for rootDirectory: URL) -> Lane {\n            let key = rootDirectory.standardizedFileURL.path\n            lock.lock()\n            defer { lock.unlock() }\n            if let existing = lanes[key] {\n                return existing\n            }\n            let created = Lane()\n            lanes[key] = created\n            return created\n        }\n\n        func synchronized<T>(rootDirectory: URL, _ body: () throws -> T) rethrows -> T {\n            try lane(for: rootDirectory).synchronized(body)\n        }\n\n        #if DEBUG\n        func synchronizedForTesting<T>(rootDirectory: URL, _ body: () throws -> T) throws -> T {\n            try lane(for: rootDirectory).synchronizedThrowingOnReentrancy(body)\n        }\n        #endif\n    }\n\n    private static let registry = Registry()\n\n    static func synchronized<T>(rootDirectory: URL, _ body: () throws -> T) rethrows -> T {\n        try registry.synchronized(rootDirectory: rootDirectory, body)\n    }\n\n    #if DEBUG\n    static func synchronizedForTesting<T>(rootDirectory: URL, _ body: () throws -> T) throws -> T {\n        try registry.synchronizedForTesting(rootDirectory: rootDirectory, body)\n    }\n    #endif\n}\n"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/ThreadStore.swift",
+      "lineRange": "1-120",
+      "content": "import Foundation\nimport AllnighterCore\n\npublic enum ThreadStoreError: Error, Equatable, CustomStringConvertible {\n    case threadNotFound(String)\n    case threadAlreadyExists(String)\n    case turnNotFound(String)\n    case duplicateTurnId(String)\n    case illegalTurnTransition(turnId: String, from: ThreadTurnStatus, to: ThreadTurnStatus)\n    case emptyTitle\n    case cannotPinArchivedThread(String)\n    case missingContextPacket(String)\n\n    public var description: String {\n        switch self {\n        case .threadNotFound(let id): return \"Thread not found: \\(id)\"\n        case .threadAlreadyExists(let id): return \"Thread already exists: \\(id)\"\n        case .turnNotFound(let id): return \"Turn not found: \\(id)\"\n        case .duplicateTurnId(let id): return \"Duplicate turn id: \\(id)\"\n        case .illegalTurnTransition(let id, let from, let to):\n            return \"Illegal turn transition for \\(id): \\(from.rawValue) -> \\(to.rawValue)\"\n        case .emptyTitle: return \"Thread title cannot be empty\"\n        case .cannotPinArchivedThread(let id): return \"Cannot pin archived thread: \\(id)\"\n        case .missingContextPacket(let id): return \"Missing context packet: \\(id)\"\n        }\n    }\n}\n\n/// Persists work threads to disk as a folder per thread under Application\n/// Support, mirroring `RunStore`: `thread.json` is truth, `transcript.md` is\n/// derived. Flat files now; GRDB is the documented growth path.\n///\n/// The run\u2192thread inverse index (PWT-S02) is **derived** by scanning thread\n/// turns, never an authoritative stored mapping, so it cannot drift from turn\n/// truth. `TeamRun` is never modified for chat.\npublic struct ThreadStore: Sendable {\n    public let rootDirectory: URL\n\n    public init(rootDirectory: URL? = nil) {\n        self.rootDirectory = rootDirectory ?? AllnighterPaths.threads\n    }\n\n    /// The thread's folder (created if needed).\n    @discardableResult\n    public func threadDirectory(forThreadId threadId: String) throws -> URL {\n        let directory = rootDirectory.appendingPathComponent(\"thread_\\(threadId)\", isDirectory: true)\n        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)\n        return directory\n    }\n\n    // MARK: - Read\n\n    public func get(_ id: String) -> WorkThread? {\n        let url = rootDirectory\n            .appendingPathComponent(\"thread_\\(id)\", isDirectory: true)\n            .appendingPathComponent(\"thread.json\")\n        return try? CoreJSON.decode(WorkThread.self, from: Data(contentsOf: url))\n    }\n\n    /// Lists saved threads, most recently updated first. Triage ordering\n    /// (pinned/attention/running) is a higher-level concern layered on top.\n    public func list() -> [WorkThread] {\n        guard let entries = try? FileManager.default.contentsOfDirectory(\n            at: rootDirectory,\n            includingPropertiesForKeys: nil\n        ) else {\n            return []\n        }\n        return entries\n            .filter { $0.lastPathComponent.hasPrefix(\"thread_\") }\n            .compactMap { try? CoreJSON.decode(WorkThread.self, from: Data(contentsOf: $0.appendingPathComponent(\"thread.json\"))) }\n            .sorted { $0.updatedAt > $1.updatedAt }\n    }\n\n    // MARK: - Write\n\n    /// Creates and persists a new thread. `id`/`now` are explicit so callers\n    /// stay deterministic (the coordinator injects its own factories).\n    @discardableResult\n    public func create(\n        id: String,\n        title: String,\n        now: Date,\n        workingDir: String? = nil,\n        projectLabel: String? = nil,\n        defaultWorkerId: String? = nil\n    ) throws -> WorkThread {\n        try synchronized {\n            let threadDirectory = rootDirectory.appendingPathComponent(\"thread_\\(id)\", isDirectory: true)\n            if get(id) != nil || FileManager.default.fileExists(atPath: threadDirectory.path) {\n                throw ThreadStoreError.threadAlreadyExists(id)\n            }\n            let thread = WorkThread(\n                id: id, title: title, status: .active, createdAt: now, updatedAt: now,\n                workingDir: workingDir, projectLabel: projectLabel, defaultWorkerId: defaultWorkerId,\n                readCursor: .empty(at: now)\n            )\n            _ = try persistContent(thread)\n            return thread\n        }\n    }\n\n    /// Fixture/import-only full-record write. App runtime must use explicit\n    /// mutation methods instead of mutating a `WorkThread` and saving it back.\n    @discardableResult\n    public func saveForImport(_ thread: WorkThread) throws -> URL {\n        try synchronized { try persistContent(thread) }\n    }\n\n    /// Appends a turn and bumps `updatedAt`. The turn's `threadId` is normalized\n    /// to the target thread.\n    @discardableResult\n    public func appendTurn(_ turn: ThreadTurn, toThreadId threadId: String, now: Date) throws -> WorkThread {\n        try synchronized {\n            guard var thread = get(threadId) else { throw ThreadStoreError.threadNotFound(threadId) }\n            if thread.turns.contains(where: { $0.id == turn.id }) {\n                throw ThreadStoreError.duplicateTurnId(turn.id)\n            }\n            try validateContextPacket(for: turn, threadId: threadId)\n            ensureLegacyReadBaseline(&thread, beforeAppendingOrUpdating: .append, now: now)"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "lane",
+      "signature": "func lane(for rootDirectory: URL) -> Lane",
+      "definedAt": "ThreadStoreWriteSerializer.swift:47"
+    },
+    {
+      "name": "threadDirectory",
+      "signature": "func threadDirectory(forThreadId threadId: String)",
+      "definedAt": "ThreadStore.swift:45"
+    },
+    {
+      "name": "get",
+      "signature": "func get(_ id: String) -> WorkThread?",
+      "definedAt": "ThreadStore.swift:52"
+    },
+    {
+      "name": "list",
+      "signature": "func list() -> [WorkThread]",
+      "definedAt": "ThreadStore.swift:62"
+    },
+    {
+      "name": "create",
+      "signature": "func create(\n        id: String,\n        title: String,\n        now: Date,\n        workingDir: String? = nil,\n        projectLabel: String? = nil,\n        defaultWorkerId: String? = nil\n    )",
+      "definedAt": "ThreadStore.swift:80"
+    },
+    {
+      "name": "saveForImport",
+      "signature": "func saveForImport(_ thread: WorkThread)",
+      "definedAt": "ThreadStore.swift:106"
+    },
+    {
+      "name": "appendTurn",
+      "signature": "func appendTurn(_ turn: ThreadTurn, toThreadId threadId: String, now: Date)",
+      "definedAt": "ThreadStore.swift:113"
+    }
+  ]
+}

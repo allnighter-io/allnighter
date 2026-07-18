@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-01",
+  "title": "Review RunWriteLock concurrency invariant",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/RunWriteLock.swift"
+    }
+  ],
+  "intent": "READ-ONLY code review. Do not edit Swift. Write structured findings to docs/phases/code_review/findings/CR-01.md per docs/phases/code_review/README.md. Lenses: (1) two holders same root? (2) FIFO fairness (3) crash without release (4) read runs parallel (5) actor/cancellation holes.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-01.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-01.md && grep -q '## Findings' docs/phases/code_review/findings/CR-01.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 900,
+  "compactionGraceSeconds": 300,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/RunWriteLock.swift",
+      "lineRange": null,
+      "content": "import Foundation\n\n/// At most one mutating run *executing* per canonical repo root at a time \u2014 the\n/// inviolable one-writer-per-repo invariant. Read/answer runs never take the lock and\n/// stay fully parallel. A second mutating run on the same root WAITS its turn (FIFO) and\n/// then runs automatically \u2014 it is not refused. \"One writer at a time\" is the safety rule;\n/// a queue enforces it structurally, which is also how the execution-lane dispatch path\n/// already behaves. (Earlier this path hard-refused the second run, which leaked a\n/// filesystem-safety guard up into ordinary back-to-back chat \u2014 see the Grok-Build\n/// \"already editing\" false alarm.)\npublic enum RunWriteLock {\n\n    /// Canonical key for a repo root. Blank paths collapse to a shared conservative lane.\n    public static func key(repoRoot: String?) -> String {\n        \"v1:\" + fnv1a(normalize(repoRoot) ?? \"unknown-root\")\n    }\n\n    static func normalize(_ path: String?) -> String? {\n        guard let path else { return nil }\n        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)\n        guard !trimmed.isEmpty else { return nil }\n        var std = (trimmed as NSString).standardizingPath\n        while std.count > 1, std.hasSuffix(\"/\") { std.removeLast() }\n        return std\n    }\n\n    static func fnv1a(_ s: String) -> String {\n        var hash: UInt64 = 0xcbf2_9ce4_8422_2325\n        for byte in s.utf8 {\n            hash ^= UInt64(byte)\n            hash = hash &* 0x0000_0100_0000_01b3\n        }\n        return String(hash, radix: 16)\n    }\n}\n\n/// Process-wide mutating-run gate keyed by normalized repo root. FIFO: while a key is held,\n/// further `waitToAcquire` callers suspend in arrival order and are granted one at a time as\n/// the holder releases. Exactly one owner per key at any instant \u2014 the one-writer invariant.\npublic actor RunWriteLockRegistry {\n    public static let shared = RunWriteLockRegistry()\n\n    private var held: Set<String> = []\n    /// One suspended caller: its FIFO id + the continuation to resume with `true` (granted,\n    /// ownership transferred) or `false` (timed out / cancelled before its turn).\n    private struct Waiter {\n        let id: UInt64\n        let continuation: CheckedContinuation<Bool, Never>\n    }\n    /// Suspended callers per key, in arrival order. The holder hands ownership to the head on\n    /// `release` (ownership transfer \u2014 `held` is never cleared mid-handoff).\n    private var waiters: [String: [Waiter]] = [:]\n    private var nextWaiterId: UInt64 = 0\n\n    public init() {}\n\n    /// Non-blocking try-acquire: takes the key if free, else returns `false` immediately.\n    /// Kept for callers that must not wait; the run path uses `waitToAcquire` instead.\n    @discardableResult\n    public func acquire(_ key: String) -> Bool {\n        held.insert(key).inserted\n    }\n\n    /// FIFO acquire, bounded by `timeout`. Returns `true` with ownership (caller MUST call\n    /// `release(key)` exactly once), or `false` if the wait timed out OR the caller's task was\n    /// cancelled before its turn \u2014 in which case NO ownership was taken and the caller must NOT\n    /// release. The mutating-run path uses this so a second run on the same repo waits its turn\n    /// rather than being refused; the timeout is the safety valve so a wedged holder (one that\n    /// outlives even its own worker timeout/watchdog) can't hang every later run forever.\n    ///\n    /// Resumed exactly once: by `release` (head waiter \u2192 `true`) or by `expire` (timeout or\n    /// cancellation \u2192 `false`). Each path removes the waiter from `waiters` under actor\n    /// isolation before resuming, so there is no double-resume and no leak.\n    public func waitToAcquire(_ key: String, timeout: Duration) async -> Bool {\n        if held.insert(key).inserted { return true }\n        let id = nextWaiterId\n        nextWaiterId &+= 1\n        // Bound the wait: if still queued at the deadline, resume `false`.\n        let timeoutTask = Task { [weak self] in\n            try? await Task.sleep(for: timeout)\n            await self?.expire(key: key, id: id)\n        }\n        let granted = await withTaskCancellationHandler {\n            await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in\n                waiters[key, default: []].append(Waiter(id: id, continuation: continuation))\n            }\n        } onCancel: {\n            // Caller's task was cancelled while queued \u2014 drop the waiter and resume `false`.\n            Task { await self.expire(key: key, id: id) }\n        }\n        timeoutTask.cancel()\n        return granted\n    }\n\n    /// Resume a still-queued waiter with `false` (timed out / cancelled), exactly once. A no-op\n    /// if it was already granted by `release` or already expired.\n    private func expire(key: String, id: UInt64) {\n        guard var queue = waiters[key], let idx = queue.firstIndex(where: { $0.id == id }) else { return }\n        let waiter = queue.remove(at: idx)\n        waiters[key] = queue.isEmpty ? nil : queue\n        waiter.continuation.resume(returning: false)\n    }\n\n    public func release(_ key: String) {\n        if var queue = waiters[key], !queue.isEmpty {\n            let next = queue.removeFirst()\n            waiters[key] = queue.isEmpty ? nil : queue\n            // Ownership transfers to `next`; `held` stays set so no one else can slip in.\n            next.continuation.resume(returning: true)\n        } else {\n            held.remove(key)\n        }\n    }\n\n    public func isHeld(_ key: String) -> Bool {\n        held.contains(key)\n    }\n}\n"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "key",
+      "signature": "func key(repoRoot: String?) -> String",
+      "definedAt": "RunWriteLock.swift:14"
+    },
+    {
+      "name": "normalize",
+      "signature": "func normalize(_ path: String?) -> String?",
+      "definedAt": "RunWriteLock.swift:17"
+    },
+    {
+      "name": "fnv1a",
+      "signature": "func fnv1a(_ s: String) -> String",
+      "definedAt": "RunWriteLock.swift:26"
+    },
+    {
+      "name": "acquire",
+      "signature": "func acquire(_ key: String) -> Bool",
+      "definedAt": "RunWriteLock.swift:60"
+    },
+    {
+      "name": "waitToAcquire",
+      "signature": "func waitToAcquire(_ key: String, timeout: Duration)",
+      "definedAt": "RunWriteLock.swift:74"
+    },
+    {
+      "name": "expire",
+      "signature": "func expire(key: String, id: UInt64)",
+      "definedAt": "RunWriteLock.swift:97"
+    },
+    {
+      "name": "release",
+      "signature": "func release(_ key: String)",
+      "definedAt": "RunWriteLock.swift:103"
+    },
+    {
+      "name": "isHeld",
+      "signature": "func isHeld(_ key: String) -> Bool",
+      "definedAt": "RunWriteLock.swift:114"
+    }
+  ]
+}

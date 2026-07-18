@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-07",
+  "title": "Review StalledWorkDetector worker-turn scan",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/StalledWorkDetector.swift",
+      "lineRange": "1-77"
+    }
+  ],
+  "intent": "READ-ONLY review of scanWorkerTurns. Write findings to docs/phases/code_review/findings/CR-07.md. CONTEXT: slow GLM pair slices vs 30min watchdog. Lenses: threshold false positive, observableEvent resets, wake ticket gaps, pair child run policy.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-07.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-07.md && grep -q '## Findings' docs/phases/code_review/findings/CR-07.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/StalledWorkDetector.swift",
+      "lineRange": "1-77",
+      "content": "import Foundation\nimport AllnighterCore\n\npublic struct StalledWorkThresholds: Sendable, Equatable {\n    public var workerChatSeconds: Int\n    public var teamRunSeconds: Int\n\n    public init(workerChatSeconds: Int = 30 * 60, teamRunSeconds: Int = 60 * 60) {\n        self.workerChatSeconds = workerChatSeconds\n        self.teamRunSeconds = teamRunSeconds\n    }\n}\n\npublic struct StalledWorkScanInput: Sendable {\n    public var threads: [WorkThread]\n    public var runs: [TeamRun]\n    public var pendingItems: [PendingItem]\n    public var now: Date\n\n    public init(threads: [WorkThread], runs: [TeamRun], pendingItems: [PendingItem], now: Date) {\n        self.threads = threads\n        self.runs = runs\n        self.pendingItems = pendingItems\n        self.now = now\n    }\n}\n\n/// Local-truth stalled-work detector with Wake Ticket suppression (SWW-S01/S02, WTK-S04).\npublic enum StalledWorkDetector {\n    public static func scan(\n        input: StalledWorkScanInput,\n        thresholds: StalledWorkThresholds = StalledWorkThresholds(),\n        idFactory: @Sendable () -> String = { \"stall_\\(UUID().uuidString.lowercased())\" }\n    ) -> [StallEpisode] {\n        var episodes: [StallEpisode] = []\n        episodes.append(contentsOf: scanWorkerTurns(input: input, thresholds: thresholds, idFactory: idFactory))\n        episodes.append(contentsOf: scanTeamRuns(input: input, thresholds: thresholds, idFactory: idFactory))\n        return episodes\n    }\n\n    // MARK: - Worker chat turns\n\n    private static func scanWorkerTurns(\n        input: StalledWorkScanInput,\n        thresholds: StalledWorkThresholds,\n        idFactory: @Sendable () -> String\n    ) -> [StallEpisode] {\n        var out: [StallEpisode] = []\n        for thread in input.threads {\n            guard let projectId = thread.projectId else { continue }\n            for turn in thread.turns where turn.kind == .workerChat {\n                guard turn.status == .queued || turn.status == .running else { continue }\n                if turn.requiresUserAttention { continue }\n                if suppressedByWakeTicket(pending: input.pendingItems, threadId: thread.id, runId: turn.runId, now: input.now) {\n                    continue\n                }\n                let lastEvent = observableEvent(for: turn, thread: thread)\n                let age = input.now.timeIntervalSince(lastEvent.at)\n                guard age >= TimeInterval(thresholds.workerChatSeconds) else { continue }\n                let reason: StallReason = turn.status == .queued ? .queuedNoStart : .runningNoProgress\n                out.append(makeEpisode(\n                    idFactory: idFactory,\n                    projectId: projectId,\n                    targetKind: .workerTurn,\n                    targetId: turn.id,\n                    threadId: thread.id,\n                    runId: turn.runId,\n                    reason: reason,\n                    firstDetectedAt: input.now,\n                    deadlineAnchorAt: lastEvent.at,\n                    thresholdSeconds: thresholds.workerChatSeconds,\n                    lastEvent: lastEvent\n                ))\n            }\n        }\n        return out\n    }"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "scan",
+      "signature": "func scan(\n        input: StalledWorkScanInput,\n        thresholds: StalledWorkThresholds = StalledWorkThresholds()",
+      "definedAt": "StalledWorkDetector.swift:30"
+    },
+    {
+      "name": "scanWorkerTurns",
+      "signature": "func scanWorkerTurns(\n        input: StalledWorkScanInput,\n        thresholds: StalledWorkThresholds,\n        idFactory: @Sendable () -> String\n    ) -> [StallEpisode]",
+      "definedAt": "StalledWorkDetector.swift:42"
+    }
+  ]
+}

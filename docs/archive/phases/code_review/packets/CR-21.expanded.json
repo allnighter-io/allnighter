@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-21",
+  "title": "Review DriverConcurrencyGate cancellation and timeout",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/DriverConcurrencyGate.swift"
+    }
+  ],
+  "intent": "READ-ONLY. CR-08 P1: cancelled waiters run body; no acquire timeout; withPermit throw leak. Lenses: limit=1 deadlock, OpenCode gate waits. Write findings to docs/phases/code_review/findings/CR-21.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-21.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-21.md && grep -q '## Findings' docs/phases/code_review/findings/CR-21.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/DriverConcurrencyGate.swift",
+      "lineRange": null,
+      "content": "import Foundation\n\npublic enum DriverConcurrencyGateError: Error, Sendable, Equatable {\n    case acquireTimedOut(driverId: String)\n}\n\n/// Process-wide, per-driver spawn limiter. Some headless CLIs cannot survive\n/// concurrent invocation \u2014 they deadlock or corrupt a shared on-disk resource\n/// (a singleton session dir, a per-invocation config rewritten via temp-rename).\n/// Team fan-out (`CatalogRunCoordinator`) spawns every seat in parallel via a\n/// `withTaskGroup`, so two seats on the same fragile driver collide.\n///\n/// This gate is the FIFO \"one-running-per-lane\" pattern applied at the right\n/// altitude: the WORKER-SPAWN chokepoint, keyed by driver id. A driver declares\n/// its ceiling as data (`DriverManifest.maxConcurrentSpawns`); absent \u21d2 unlimited\n/// (no gating, no actor hop). Seats that exceed a driver's ceiling queue and run\n/// serially; every other driver stays fully parallel. The limit is global to the\n/// process, so it also covers two concurrent team runs or a team seat overlapping\n/// a single-lane chat on the same driver.\n///\n/// Proven values (see `scripts/cli-concurrency-spike.py`): antigravity=1 (agy\n/// deadlocks on its singleton brain dir), cursor_agent=1 (races on\n/// ~/.cursor/cli-config.json). claude/codex/grok are parallel-safe \u21d2 no limit.\npublic actor DriverConcurrencyGate {\n    public static let shared = DriverConcurrencyGate()\n\n    private struct Waiter {\n        let id: UUID\n        let continuation: CheckedContinuation<Void, Error>\n    }\n\n    private struct Lane {\n        let limit: Int\n        var active = 0\n        var waiters: [Waiter] = []\n    }\n    private var lanes: [String: Lane] = [:]\n\n    public init() {}\n\n    /// Acquire one permit for `driverId`. Returns immediately when a slot is free,\n    /// otherwise suspends FIFO until a holder releases. `limit` is clamped to \u22651; the\n    /// first acquire for a driver fixes its lane limit.\n    public func acquire(\n        driverId: String,\n        limit: Int,\n        timeout: Duration = .seconds(300)\n    ) async throws {\n        let cap = max(1, limit)\n        try await withThrowingTaskGroup(of: Void.self) { group in\n            group.addTask {\n                try await self.acquireSlot(driverId: driverId, cap: cap)\n            }\n            group.addTask {\n                try await Task.sleep(for: timeout)\n                throw DriverConcurrencyGateError.acquireTimedOut(driverId: driverId)\n            }\n            try await group.next()\n            group.cancelAll()\n        }\n    }\n\n    private func acquireSlot(driverId: String, cap: Int) async throws {\n        var lane = lanes[driverId] ?? Lane(limit: cap)\n        if lane.active < lane.limit {\n            lane.active += 1\n            lanes[driverId] = lane\n            return\n        }\n        lanes[driverId] = lane\n        let waiterID = UUID()\n        try await withTaskCancellationHandler {\n            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in\n                guard var lane = lanes[driverId] else {\n                    cont.resume(throwing: DriverConcurrencyGateError.acquireTimedOut(driverId: driverId))\n                    return\n                }\n                lane.waiters.append(Waiter(id: waiterID, continuation: cont))\n                lanes[driverId] = lane\n            }\n        } onCancel: {\n            Task { await self.cancelWaiter(driverId: driverId, id: waiterID) }\n        }\n    }\n\n    private func cancelWaiter(driverId: String, id: UUID) {\n        guard var lane = lanes[driverId],\n              let index = lane.waiters.firstIndex(where: { $0.id == id }) else { return }\n        let waiter = lane.waiters.remove(at: index)\n        lanes[driverId] = lane\n        waiter.continuation.resume(throwing: CancellationError())\n    }\n\n    /// Release one permit for `driverId`, handing the slot to the next waiter if any.\n    public func release(driverId: String) {\n        guard var lane = lanes[driverId] else { return }\n        if !lane.waiters.isEmpty {\n            let next = lane.waiters.removeFirst()\n            lanes[driverId] = lane\n            next.continuation.resume()\n        } else {\n            lane.active = max(0, lane.active - 1)\n            lanes[driverId] = lane\n        }\n    }\n\n    /// Run `body` while holding a permit for `driverId`. When `limit` is nil the body\n    /// runs ungated with no actor hop (the common, parallel-safe path).\n    public func withPermit<T>(\n        driverId: String,\n        limit: Int?,\n        timeout: Duration = .seconds(300),\n        _ body: () async -> T\n    ) async throws -> T {\n        guard let limit else { return await body() }\n        try await acquire(driverId: driverId, limit: limit, timeout: timeout)\n        let result = await body()\n        release(driverId: driverId)\n        return result\n    }\n\n    /// Test/diagnostic: current in-flight count for a driver.\n    public func activeCount(driverId: String) -> Int { lanes[driverId]?.active ?? 0 }\n\n    /// Test/diagnostic: queued waiter count for a driver.\n    public func waiterCount(driverId: String) -> Int { lanes[driverId]?.waiters.count ?? 0 }\n}\n\n/// Acquire a spawn-gate permit or return a terminal worker failure.\nfunc acquireDriverSpawnGate(driverId: String, limit: Int) async -> WorkerRunOutcome? {\n    do {\n        try await DriverConcurrencyGate.shared.acquire(driverId: driverId, limit: limit)\n        return nil\n    } catch is CancellationError {\n        return WorkerRunOutcome(status: .failed, errorKind: .cancelled, errorReason: \"spawn gate cancelled\")\n    } catch DriverConcurrencyGateError.acquireTimedOut(let driverId) {\n        return WorkerRunOutcome(\n            status: .failed, errorKind: .timedOut,\n            errorReason: \"spawn gate timed out for \\(driverId)\"\n        )\n    } catch {\n        return WorkerRunOutcome(\n            status: .failed, errorKind: .timedOut,\n            errorReason: \"spawn gate: \\(error)\"\n        )\n    }\n}\n\n/// Release a spawn-gate permit acquired via `acquireDriverSpawnGate`.\nfunc releaseDriverSpawnGate(driverId: String) async {\n    await DriverConcurrencyGate.shared.release(driverId: driverId)\n}\n"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "acquire",
+      "signature": "func acquire(\n        driverId: String,\n        limit: Int,\n        timeout: Duration = .seconds(300)",
+      "definedAt": "DriverConcurrencyGate.swift:44"
+    },
+    {
+      "name": "acquireSlot",
+      "signature": "func acquireSlot(driverId: String, cap: Int)",
+      "definedAt": "DriverConcurrencyGate.swift:62"
+    },
+    {
+      "name": "cancelWaiter",
+      "signature": "func cancelWaiter(driverId: String, id: UUID)",
+      "definedAt": "DriverConcurrencyGate.swift:85"
+    },
+    {
+      "name": "release",
+      "signature": "func release(driverId: String)",
+      "definedAt": "DriverConcurrencyGate.swift:95"
+    },
+    {
+      "name": "activeCount",
+      "signature": "func activeCount(driverId: String) -> Int",
+      "definedAt": "DriverConcurrencyGate.swift:123"
+    },
+    {
+      "name": "waiterCount",
+      "signature": "func waiterCount(driverId: String) -> Int",
+      "definedAt": "DriverConcurrencyGate.swift:126"
+    },
+    {
+      "name": "acquireDriverSpawnGate",
+      "signature": "func acquireDriverSpawnGate(driverId: String, limit: Int)",
+      "definedAt": "DriverConcurrencyGate.swift:130"
+    },
+    {
+      "name": "releaseDriverSpawnGate",
+      "signature": "func releaseDriverSpawnGate(driverId: String)",
+      "definedAt": "DriverConcurrencyGate.swift:150"
+    }
+  ]
+}

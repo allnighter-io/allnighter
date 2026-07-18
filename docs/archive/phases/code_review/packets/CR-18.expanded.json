@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-18",
+  "title": "Review SliceGate allowlist and check.method",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/SliceGate.swift"
+    }
+  ],
+  "intent": "READ-ONLY. CR-03 P1: touchAllowlist [\"\"] passes; default check.method. Lenses: trim entries, exhaustive switch, danger flags, executor cardinality. Write findings to docs/phases/code_review/findings/CR-18.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-18.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-18.md && grep -q '## Findings' docs/phases/code_review/findings/CR-18.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/SliceGate.swift",
+      "lineRange": null,
+      "content": "import Foundation\n\n/// Danger + scope gate for pair-programming slice dispatch (Pair_Programming_Team \u00a75).\n/// Danger blocks; doubt does not. `touchAllowlist` is required for mutating units.\npublic enum SliceGate {\n    public typealias ExecutorFacts = TryFixGate.ExecutorFacts\n\n    public enum Decision: Equatable, Sendable {\n        case allowed\n        case blocked(code: String, reason: String)\n\n        public var isAllowed: Bool {\n            if case .allowed = self { return true }\n            return false\n        }\n    }\n\n    public static func evaluate(packet: WorkSlicePacket?, executor: ExecutorFacts) -> Decision {\n        guard let packet else {\n            return .blocked(code: \"PAIR_SLICE_PACKET_MISSING\", reason: \"no typed work slice packet\")\n        }\n        if !packet.dangerFlags.isEmpty {\n            return .blocked(\n                code: \"PAIR_SLICE_UNSAFE\",\n                reason: \"danger flag(s): \\(packet.dangerFlags.joined(separator: \", \"))\")\n        }\n        guard !packet.sliceId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {\n            return .blocked(code: \"PAIR_SLICE_UNSAFE\", reason: \"sliceId is required\")\n        }\n        guard !packet.intent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {\n            return .blocked(code: \"PAIR_SLICE_UNSAFE\", reason: \"intent is required\")\n        }\n        guard packet.touchAllowlist.contains(where: {\n            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty\n        }) else {\n            return .blocked(code: \"PAIR_SLICE_UNSAFE\", reason: \"touchAllowlist is required for mutating units\")\n        }\n        if let checkBlocked = Self.decisionForCheckMethod(\n            rawValue: packet.check.method.rawValue,\n            command: packet.check.command,\n            fixture: packet.check.fixture\n        ) {\n            return checkBlocked\n        }\n        guard executor.exists else {\n            return .blocked(code: \"PAIR_SLICE_EXECUTOR_INVALID\", reason: \"unknown executor team \\(executor.teamId)\")\n        }\n        guard executor.isMutating else {\n            return .blocked(code: \"PAIR_SLICE_EXECUTOR_INVALID\", reason: \"executor \\(executor.teamId) is not mutating\")\n        }\n        guard executor.isRunnable else {\n            return .blocked(code: \"PAIR_SLICE_EXECUTOR_INVALID\", reason: \"executor \\(executor.teamId) cannot run on this bench\")\n        }\n        guard executor.workerCount == 1 else {\n            return .blocked(code: \"PAIR_SLICE_EXECUTOR_INVALID\", reason: \"executor must resolve to exactly one worker\")\n        }\n        return .allowed\n    }\n\n    internal static func decisionForCheckMethod(\n        rawValue: String,\n        command: String?,\n        fixture: String?\n    ) -> Decision? {\n        guard let method = FixPacket.ProofMethod(rawValue: rawValue) else {\n            return .blocked(code: \"PAIR_SLICE_UNSAFE\", reason: \"unsupported check.method: \\(rawValue)\")\n        }\n        switch method {\n        case .command where (command ?? \"\").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:\n            return .blocked(code: \"PAIR_SLICE_UNSAFE\", reason: \"check.method is command but no check.command\")\n        case .guiFixture where (fixture ?? \"\").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty:\n            return .blocked(code: \"PAIR_SLICE_UNSAFE\", reason: \"check.method is guiFixture but no check.fixture\")\n        case .command, .guiFixture, .userObservation:\n            return nil\n        }\n    }\n}\n"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "evaluate",
+      "signature": "func evaluate(packet: WorkSlicePacket?, executor: ExecutorFacts) -> Decision",
+      "definedAt": "SliceGate.swift:17"
+    },
+    {
+      "name": "decisionForCheckMethod",
+      "signature": "func decisionForCheckMethod(\n        rawValue: String,\n        command: String?,\n        fixture: String?\n    ) -> Decision?",
+      "definedAt": "SliceGate.swift:59"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-20",
+  "title": "Review SubprocessCommandRunner lifecycle",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/SubprocessCommandRunner.swift",
+      "lineRange": "1-160"
+    }
+  ],
+  "intent": "READ-ONLY. CR-04 follow-up: subprocess timeout, SIGKILL, waitpid, zombie leak. Lenses: timedOut propagation, orphan children, stdin/stdout drain. Write findings to docs/phases/code_review/findings/CR-20.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-20.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-20.md && grep -q '## Findings' docs/phases/code_review/findings/CR-20.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/SubprocessCommandRunner.swift",
+      "lineRange": "1-160",
+      "content": "import Foundation\n\n/// Thread-safe byte accumulator for pipe readability handlers.\nprivate final class LockedBuffer: @unchecked Sendable {\n    private let lock = NSLock()\n    private var data = Data()\n\n    func append(_ chunk: Data) {\n        lock.lock()\n        data.append(chunk)\n        lock.unlock()\n    }\n\n    func snapshot() -> Data {\n        lock.lock()\n        defer { lock.unlock() }\n        return data\n    }\n}\n\n/// Thread-safe timestamp \u2014 the streaming idle watchdog reads it while readability\n/// handlers (on a dispatch queue) write it on each output chunk.\nprivate final class LockedDate: @unchecked Sendable {\n    private let lock = NSLock()\n    private var value: Date\n    init(_ value: Date) { self.value = value }\n    func set(_ value: Date) { lock.lock(); self.value = value; lock.unlock() }\n    func get() -> Date { lock.lock(); defer { lock.unlock() }; return value }\n}\n\nprivate final class ResumeOnce: @unchecked Sendable {\n    private let lock = NSLock()\n    private var resumed = false\n\n    /// Returns true exactly once.\n    func claim() -> Bool {\n        lock.lock()\n        defer { lock.unlock() }\n        if resumed { return false }\n        resumed = true\n        return true\n    }\n}\n\n/// Why a process ended. The first writer wins (normal exit unless a watchdog\n/// or cancellation forced termination first).\nprivate final class EndReason: @unchecked Sendable {\n    enum Reason { case normal, timeout, cancel }\n    private let lock = NSLock()\n    private var reason: Reason = .normal\n\n    func set(_ value: Reason) {\n        lock.lock()\n        if reason == .normal { reason = value }\n        lock.unlock()\n    }\n\n    func get() -> Reason {\n        lock.lock()\n        defer { lock.unlock() }\n        return reason\n    }\n}\n\n/// Holds a `Process` so it can cross a `@Sendable` boundary (kill closures). The\n/// process is only ever touched for `isRunning`/kill, guarded by the OS.\nprivate final class ProcessBox: @unchecked Sendable {\n    let process: Process\n    init(_ process: Process) { self.process = process }\n}\n\n/// Runs commands as real child processes. Each command runs in **its own process\n/// group** so the whole tree can be killed on timeout/cancel. The prompt is\n/// passed as argv elements or via stdin \u2014 never concatenated into a shell\n/// string \u2014 so prompt content cannot inject commands.\n///\n/// Implements both the request/response `CommandRunner` and the streaming\n/// `StreamingCommandRunner`; both paths share the SAME executable resolution, env\n/// scrubbing, stdin policy, working-directory, process-group kill, and timeout\n/// rules via `configureProcess` / `launch`.\npublic struct SubprocessCommandRunner: CommandRunner, StreamingCommandRunner {\n    public init() {}\n\n    // MARK: - Non-streaming (unchanged contract)\n\n    public func run(\n        command: String,\n        args: [String],\n        stdin: String?,\n        env: [String: String],\n        workingDirectory: String?,\n        timeout: Duration\n    ) async -> CommandResult {\n        let outBuffer = LockedBuffer()\n        let errBuffer = LockedBuffer()\n        let configured = Self.configureProcess(command: command, args: args, env: env,\n                                               workingDirectory: workingDirectory, hasStdin: stdin != nil,\n                                               outBuffer: outBuffer, errBuffer: errBuffer)\n        guard let process = configured.process else {\n            return CommandResult(launchError: configured.launchError ?? \"command not found: \\(command)\")\n        }\n\n        if let launchError = Self.launch(process, command: command, stdin: stdin) {\n            return CommandResult(launchError: launchError)\n        }\n\n        let endReason = EndReason()\n        let box = ProcessBox(process)\n\n        return await withTaskCancellationHandler {\n            await withCheckedContinuation { (continuation: CheckedContinuation<CommandResult, Never>) in\n                let resumer = ResumeOnce()\n\n                process.terminationHandler = { proc in\n                    (proc.standardOutput as? Pipe)?.fileHandleForReading.readabilityHandler = nil\n                    (proc.standardError as? Pipe)?.fileHandleForReading.readabilityHandler = nil\n\n                    guard resumer.claim() else { return }\n                    let reason = endReason.get()\n                    let result = CommandResult(\n                        stdout: String(decoding: outBuffer.snapshot(), as: UTF8.self),\n                        stderr: String(decoding: errBuffer.snapshot(), as: UTF8.self),\n                        exitCode: reason == .normal ? proc.terminationStatus : nil,\n                        timedOut: reason == .timeout,\n                        cancelled: reason == .cancel,\n                        launchError: nil\n                    )\n                    continuation.resume(returning: result)\n                }\n\n                // Timeout watchdog.\n                Task {\n                    try? await Task.sleep(for: timeout)\n                    if box.process.isRunning {\n                        endReason.set(.timeout)\n                        Self.killGroup(box.process)\n                    }\n                }\n            }\n        } onCancel: {\n            endReason.set(.cancel)\n            Self.killGroup(box.process)\n        }\n    }\n\n    // MARK: - Streaming (STR-S03)\n\n    public func runStreaming(\n        command: String,\n        args: [String],\n        stdin: String?,\n        env: [String: String],\n        workingDirectory: String?,\n        timeout: Duration\n    ) -> AsyncThrowingStream<CommandEvent, Error> {\n        AsyncThrowingStream { continuation in\n            let outBuffer = LockedBuffer()\n            let errBuffer = LockedBuffer()\n            // Readability handlers append to the full buffers (so the terminal\n            // CommandResult carries everything) AND forward each raw chunk live."
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "append",
+      "signature": "func append(_ chunk: Data)",
+      "definedAt": "SubprocessCommandRunner.swift:7"
+    },
+    {
+      "name": "snapshot",
+      "signature": "func snapshot() -> Data",
+      "definedAt": "SubprocessCommandRunner.swift:13"
+    },
+    {
+      "name": "set",
+      "signature": "func set(_ value: Date)",
+      "definedAt": "SubprocessCommandRunner.swift:27"
+    },
+    {
+      "name": "get",
+      "signature": "func get() -> Date",
+      "definedAt": "SubprocessCommandRunner.swift:28"
+    },
+    {
+      "name": "claim",
+      "signature": "func claim() -> Bool",
+      "definedAt": "SubprocessCommandRunner.swift:36"
+    },
+    {
+      "name": "run",
+      "signature": "func run(\n        command: String,\n        args: [String],\n        stdin: String?,\n        env: [String: String],\n        workingDirectory: String?,\n        timeout: Duration\n    )",
+      "definedAt": "SubprocessCommandRunner.swift:85"
+    },
+    {
+      "name": "runStreaming",
+      "signature": "func runStreaming(\n        command: String,\n        args: [String],\n        stdin: String?,\n        env: [String: String],\n        workingDirectory: String?,\n        timeout: Duration\n    ) -> AsyncThrowingStream<CommandEvent, Error>",
+      "definedAt": "SubprocessCommandRunner.swift:147"
+    }
+  ]
+}

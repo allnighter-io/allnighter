@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-26",
+  "title": "Review Timeline read-clear and ThreadTurn kinds",
+  "readPaths": [
+    {
+      "path": "Apps/AllnighterMac/Sources/TimelineVisibility.swift"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/ThreadTurn.swift",
+      "lineRange": "1-120"
+    }
+  ],
+  "intent": "READ-ONLY. CR-09 follow-up: team-run kind gap, O(n\u00b2) fixes cross-check against ThreadTurn.Kind enum. Write findings to docs/phases/code_review/findings/CR-26.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-26.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-26.md && grep -q '## Findings' docs/phases/code_review/findings/CR-26.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Apps/AllnighterMac/Sources/TimelineVisibility.swift",
+      "lineRange": null,
+      "content": "import SwiftUI\nimport AllnighterCore\n\n/// Which turn families may report viewport visibility for read-clear (UNR-S05).\n/// Rich team/build cards defer to UNR-S08.\nenum TimelineReadClearance {\n    static func countsTowardReadClear(_ turn: ThreadTurn) -> Bool {\n        switch turn.kind {\n        case .workerChat:\n            return true\n        case .systemEvent:\n            switch turn.systemEvent {\n            case .signInRequired, .manualPaste:\n                return true\n            default:\n                return false\n            }\n        default:\n            return false\n        }\n    }\n\n    /// Turn ids geometrically visible and eligible to advance the read cursor.\n    static func visibleTurnIdsForReadClear(\n        thread: WorkThread,\n        frames: [String: CGRect],\n        viewport: CGRect,\n        intersectionThreshold: CGFloat = 0.25\n    ) -> [String] {\n        let geometricallyVisible = Set(\n            Self.geometricallyVisibleTurnIds(frames: frames, viewport: viewport, threshold: intersectionThreshold)\n        )\n        return thread.turns.compactMap { turn in\n            guard geometricallyVisible.contains(turn.id) else { return nil }\n            if UnreadDerivation.isUnreadEligible(turn) {\n                return countsTowardReadClear(turn) ? turn.id : nil\n            }\n            return turn.id\n        }\n    }\n\n    private static func geometricallyVisibleTurnIds(\n        frames: [String: CGRect],\n        viewport: CGRect,\n        threshold: CGFloat\n    ) -> [String] {\n        frames.compactMap { id, frame in\n            guard viewport.intersects(frame), frame.height > 0 else { return nil }\n            let ratio = viewport.intersection(frame).height / frame.height\n            return ratio >= threshold ? id : nil\n        }\n    }\n}\n\n// MARK: - Preference keys\n\n/// O(1) per emitter \u2014 each row reports a single turn frame; avoids O(n\u00b2) `Dictionary.merge`.\nenum TurnFrameAccumulator {\n    static func absorb(_ value: inout [String: CGRect], frames: [String: CGRect]) {\n        for (id, frame) in frames {\n            value[id] = frame\n        }\n    }\n}\n\nprivate struct TurnFramePreference: PreferenceKey {\n    static let defaultValue: [String: CGRect] = [:]\n\n    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {\n        TurnFrameAccumulator.absorb(&value, frames: nextValue())\n    }\n}\n\nprivate struct ScrollViewportPreference: PreferenceKey {\n    static let defaultValue: CGRect = .null\n\n    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {\n        value = nextValue()\n    }\n}\n\n// MARK: - View helpers\n\nextension View {\n    /// Reports this row's global frame for timeline viewport intersection.\n    func timelineTurnFrame(turnId: String) -> some View {\n        background(\n            GeometryReader { geo in\n                Color.clear.preference(\n                    key: TurnFramePreference.self,\n                    value: [turnId: geo.frame(in: .global)]\n                )\n            }\n        )\n    }\n\n    /// Tracks scroll-viewport intersection and forwards read-clear visibility to the view model.\n    func timelineVisibilityTracking(thread: WorkThread) -> some View {\n        modifier(TimelineVisibilityTrackingModifier(thread: thread))\n    }\n}\n\n/// Coalesces read-clear work to one report per main-queue tick when scroll co-updates\n/// `turnFrames` and `viewport` on the same frame.\n@MainActor\nfinal class TimelineReadClearReportGate {\n    private var pending = false\n    private(set) var fireCount = 0\n\n    func schedule(_ action: @escaping @MainActor () -> Void) {\n        guard !pending else { return }\n        pending = true\n        Task { @MainActor [weak self] in\n            guard let self else { return }\n            self.pending = false\n            self.fireCount += 1\n            action()\n        }\n    }\n}\n\nprivate struct TimelineVisibilityTrackingModifier: ViewModifier {\n    let thread: WorkThread\n    @Environment(ThreadsViewModel.self) private var threads\n    @State private var turnFrames: [String: CGRect] = [:]\n    @State private var viewport: CGRect = .null\n    @State private var reportGate = TimelineReadClearReportGate()\n\n    func body(content: Content) -> some View {\n        content\n            .background(\n                GeometryReader { geo in\n                    Color.clear.preference(\n                        key: ScrollViewportPreference.self,\n                        value: geo.frame(in: .global)\n                    )\n                }\n            )\n            .onPreferenceChange(TurnFramePreference.self) { turnFrames = $0; scheduleReport() }\n            .onPreferenceChange(ScrollViewportPreference.self) { viewport = $0; scheduleReport() }\n            .onChange(of: thread.turns.count) { _, _ in scheduleReport() }\n    }\n\n    private func scheduleReport() {\n        reportGate.schedule { report() }\n    }\n\n    private func report() {\n        guard viewport != .null else { return }\n        let visible = TimelineReadClearance.visibleTurnIdsForReadClear(\n            thread: thread, frames: turnFrames, viewport: viewport\n        )\n        threads.reportTimelineVisibility(threadId: thread.id, visibleTurnIds: visible)\n    }\n}\n\n/// Shared scroll behavior for Home + legacy thread timelines.\nenum TimelineScrollPolicy {\n    enum ThreadOpenScrollAction: Equatable {\n        case scrollToBottom\n        case scrollToTurn(String)\n    }\n\n    enum TurnCountScrollAction: Equatable {\n        case scrollToBottom\n        case scrollToFirstUnread(String)\n        case scrollToLastTurnBottom(String)\n    }\n\n    /// Opening a thread resumes at the latest turns; only an explicit deep-link target\n    /// (notification tap) scrolls elsewhere.\n    static func threadOpenScrollAction(\n        pendingTarget: String?,\n        suppressAutoScroll: Bool\n    ) -> ThreadOpenScrollAction? {\n        guard !suppressAutoScroll else { return nil }\n        if let target = pendingTarget { return .scrollToTurn(target) }\n        return .scrollToBottom\n    }\n\n    /// Pure decision for turn-count scroll \u2014 testable without a `ScrollViewProxy`.\n    static func turnCountScrollAction(\n        thread: WorkThread,\n        suppressAutoScroll: Bool,\n        forceScrollToBottomAfterSend: Bool\n    ) -> TurnCountScrollAction? {\n        guard !suppressAutoScroll else { return nil }\n        if forceScrollToBottomAfterSend { return .scrollToBottom }\n        if let target = ThreadsPresenter.firstUnreadTurnId(thread) {\n            return .scrollToFirstUnread(target)\n        }\n        if let last = thread.turns.last {\n            return .scrollToLastTurnBottom(last.id)\n        }\n        return nil\n    }\n\n    @MainActor\n    static func scrollOnThreadOpen(\n        proxy: ScrollViewProxy,\n        pendingTarget: String?,\n        suppressAutoScroll: Bool,\n        bottomAnchorId: String\n    ) {\n        guard let action = threadOpenScrollAction(\n            pendingTarget: pendingTarget,\n            suppressAutoScroll: suppressAutoScroll\n        ) else { return }\n        switch action {\n        case .scrollToBottom:\n            scrollToBottom(proxy: proxy, bottomAnchorId: bottomAnchorId, animated: false)\n        case .scrollToTurn(let turnId):\n            withAnimation { proxy.scrollTo(turnId, anchor: .top) }\n        }\n    }\n\n    @MainActor\n    static func scrollOnTurnCountChange(\n        proxy: ScrollViewProxy,\n        thread: WorkThread,\n        suppressAutoScroll: Bool,\n        forceScrollToBottomAfterSend: Bool,\n        bottomAnchorId: String\n    ) {\n        guard let action = turnCountScrollAction(\n            thread: thread,\n            suppressAutoScroll: suppressAutoScroll,\n            forceScrollToBottomAfterSend: forceScrollToBottomAfterSend\n        ) else { return }\n        switch action {\n        case .scrollToBottom:\n            scrollToBottom(proxy: proxy, bottomAnchorId: bottomAnchorId, animated: true)\n        case .scrollToFirstUnread(let target):\n            withAnimation { proxy.scrollTo(target, anchor: .top) }\n        case .scrollToLastTurnBottom(let turnId):\n            withAnimation { proxy.scrollTo(turnId, anchor: .bottom) }\n        }\n    }\n\n    /// After submit the user must see their message \u2014 pin to the timeline bottom sentinel\n    /// (not merely the last turn id) so the full outgoing bubble is in view.\n    @MainActor\n    static func scrollToBottom(\n        proxy: ScrollViewProxy,\n        bottomAnchorId: String,\n        animated: Bool\n    ) {\n        if animated {\n            withAnimation {\n                proxy.scrollTo(bottomAnchorId, anchor: .bottom)\n            }\n        } else {\n            proxy.scrollTo(bottomAnchorId, anchor: .bottom)\n        }\n        // A second pass after layout catches the newly appended user row.\n        Task { @MainActor in\n            proxy.scrollTo(bottomAnchorId, anchor: .bottom)\n        }\n    }\n\n    /// RLS-S04 auto-follow: a streaming answer grows the LAST turn's text without changing\n    /// the turn count, so nothing scrolls and the screen looks frozen. While the user is at\n    /// the bottom we follow the growing content; once they scroll up we stop fighting them.\n    /// `slack` lets \"near the bottom\" still count as following.\n    static func isAtBottom(contentBottomY: CGFloat, viewportBottomY: CGFloat, slack: CGFloat = 120) -> Bool {\n        contentBottomY <= viewportBottomY + slack\n    }\n\n    /// A monotonic signal that grows as the last turn streams (answer + reasoning length),\n    /// or 0 when nothing is running \u2014 `onChange` on it drives the live follow-scroll.\n    static func liveContentSignal(for thread: WorkThread) -> Int {\n        guard let last = thread.turns.last, last.status == .running else { return 0 }\n        return (last.text?.count ?? 0) &+ (last.reasoningText?.count ?? 0)\n    }\n}\n\n/// Reports the global maxY of the timeline content's bottom sentinel, so the timeline can\n/// tell whether the user is parked at the bottom (RLS-S04 auto-follow gate).\nstruct TimelineBottomSentinelKey: PreferenceKey {\n    static let defaultValue: CGFloat = 0\n    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }\n}\n"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterCore/ThreadTurn.swift",
+      "lineRange": "1-120",
+      "content": "import Foundation\n\n/// One entry in a `WorkThread` timeline: a user message, a one-worker reply, a\n/// rich team/mutating-run turn that references a `TeamRun`, or a system note.\n///\n/// Heavy turns never copy run data \u2014 they point at `TeamRun` via `runId`\n/// (and `stageId` for a specific stage). Chat turns own their `text` directly.\npublic struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {\n    public var id: String\n    public var threadId: String\n    /// Granular storage kind (see `kind.family` for the simple UI grouping).\n    public var kind: ThreadTurnKind\n    public var status: ThreadTurnStatus\n    public var createdAt: Date\n    public var completedAt: Date?\n    public var author: TurnAuthor\n    /// Chat text, user message, or system note. Nil for pure reference turns.\n    public var text: String?\n    /// The worker that authored (or is running) this turn, when applicable.\n    public var workerId: String?\n    /// References a `TeamRun` for team/design/review/mutating-run turns.\n    public var runId: String?\n    /// A specific `StageOutput` within the referenced run, when applicable.\n    public var stageId: String?\n    public var artifactRefs: [ArtifactRef]\n    /// Ordered chat image refs (join \u2192 `attachments.json` \u2192 canonical bytes).\n    public var attachmentRefs: [TurnAttachmentRef]\n    /// Ordered file refs selected by the user for this turn.\n    public var fileReferenceRefs: [TurnFileReferenceRef]\n    /// The context packet the worker was given for this turn.\n    public var contextPacketId: String?\n    /// An edited/re-run turn that replaces an earlier one in the timeline.\n    public var supersedesTurnId: String?\n    /// \"Continue from this\": the turn whose result seeded this one.\n    public var seedFromTurnId: String?\n    /// Only meaningful for `.system_event` turns: what kind of note this is, so\n    /// liveness can tell a blocking note (sign-in/manual-paste) from a benign\n    /// one (migration/waiting) without storing a drift-prone attention flag.\n    public var systemEvent: SystemEventKind?\n    /// Set on a streaming worker turn whose live partial text exceeded the visible\n    /// cap (03_Mac_Streaming \u00a7Thread Storage): `text` then holds only the newest\n    /// visible suffix until the complete final answer replaces it at settlement.\n    /// Additive; absent/false on every existing turn.\n    public var partialOutputTruncated: Bool\n    /// Live streamed REASONING / thinking shown in a separate surface while the\n    /// worker runs (kept out of `text`/the answer). Additive; absent on every\n    /// existing turn. Local-only, same sensitivity as the answer.\n    public var reasoningText: String?\n\n    public init(\n        id: String,\n        threadId: String,\n        kind: ThreadTurnKind,\n        status: ThreadTurnStatus,\n        createdAt: Date,\n        completedAt: Date? = nil,\n        author: TurnAuthor,\n        text: String? = nil,\n        workerId: String? = nil,\n        runId: String? = nil,\n        stageId: String? = nil,\n        artifactRefs: [ArtifactRef] = [],\n        attachmentRefs: [TurnAttachmentRef] = [],\n        fileReferenceRefs: [TurnFileReferenceRef] = [],\n        contextPacketId: String? = nil,\n        supersedesTurnId: String? = nil,\n        seedFromTurnId: String? = nil,\n        systemEvent: SystemEventKind? = nil,\n        partialOutputTruncated: Bool = false,\n        reasoningText: String? = nil\n    ) {\n        self.partialOutputTruncated = partialOutputTruncated\n        self.reasoningText = reasoningText\n        self.id = id\n        self.threadId = threadId\n        self.kind = kind\n        self.status = status\n        self.createdAt = createdAt\n        self.completedAt = completedAt\n        self.author = author\n        self.text = text\n        self.workerId = workerId\n        self.runId = runId\n        self.stageId = stageId\n        self.artifactRefs = artifactRefs\n        self.attachmentRefs = attachmentRefs\n        self.fileReferenceRefs = fileReferenceRefs\n        self.contextPacketId = contextPacketId\n        self.supersedesTurnId = supersedesTurnId\n        self.seedFromTurnId = seedFromTurnId\n        self.systemEvent = systemEvent\n    }\n\n    private enum CodingKeys: String, CodingKey {\n        case id, threadId, kind, status, createdAt, completedAt, author, text,\n             workerId, runId, stageId, artifactRefs, attachmentRefs, fileReferenceRefs,\n             contextPacketId, supersedesTurnId, seedFromTurnId, systemEvent,\n             partialOutputTruncated, reasoningText\n    }\n\n    public init(from decoder: Decoder) throws {\n        let c = try decoder.container(keyedBy: CodingKeys.self)\n        id = try c.decode(String.self, forKey: .id)\n        threadId = try c.decode(String.self, forKey: .threadId)\n        kind = try c.decode(ThreadTurnKind.self, forKey: .kind)\n        status = try c.decode(ThreadTurnStatus.self, forKey: .status)\n        createdAt = try c.decode(Date.self, forKey: .createdAt)\n        completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)\n        author = try c.decode(TurnAuthor.self, forKey: .author)\n        text = try c.decodeIfPresent(String.self, forKey: .text)\n        workerId = try c.decodeIfPresent(String.self, forKey: .workerId)\n        runId = try c.decodeIfPresent(String.self, forKey: .runId)\n        stageId = try c.decodeIfPresent(String.self, forKey: .stageId)\n        artifactRefs = try c.decodeIfPresent([ArtifactRef].self, forKey: .artifactRefs) ?? []\n        attachmentRefs = try c.decodeIfPresent([TurnAttachmentRef].self, forKey: .attachmentRefs) ?? []\n        fileReferenceRefs = try c.decodeIfPresent([TurnFileReferenceRef].self, forKey: .fileReferenceRefs) ?? []\n        contextPacketId = try c.decodeIfPresent(String.self, forKey: .contextPacketId)\n        supersedesTurnId = try c.decodeIfPresent(String.self, forKey: .supersedesTurnId)\n        seedFromTurnId = try c.decodeIfPresent(String.self, forKey: .seedFromTurnId)\n        systemEvent = try c.decodeIfPresent(SystemEventKind.self, forKey: .systemEvent)"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "countsTowardReadClear",
+      "signature": "func countsTowardReadClear(_ turn: ThreadTurn) -> Bool",
+      "definedAt": "TimelineVisibility.swift:7"
+    },
+    {
+      "name": "visibleTurnIdsForReadClear",
+      "signature": "func visibleTurnIdsForReadClear(\n        thread: WorkThread,\n        frames: [String: CGRect],\n        viewport: CGRect,\n        intersectionThreshold: CGFloat = 0.25\n    ) -> [String]",
+      "definedAt": "TimelineVisibility.swift:24"
+    },
+    {
+      "name": "geometricallyVisibleTurnIds",
+      "signature": "func geometricallyVisibleTurnIds(\n        frames: [String: CGRect],\n        viewport: CGRect,\n        threshold: CGFloat\n    ) -> [String]",
+      "definedAt": "TimelineVisibility.swift:41"
+    },
+    {
+      "name": "absorb",
+      "signature": "func absorb(_ value: inout [String: CGRect], frames: [String: CGRect])",
+      "definedAt": "TimelineVisibility.swift:59"
+    },
+    {
+      "name": "reduce",
+      "signature": "func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect])",
+      "definedAt": "TimelineVisibility.swift:68"
+    },
+    {
+      "name": "timelineTurnFrame",
+      "signature": "func timelineTurnFrame(turnId: String) -> some View",
+      "definedAt": "TimelineVisibility.swift:86"
+    },
+    {
+      "name": "timelineVisibilityTracking",
+      "signature": "func timelineVisibilityTracking(thread: WorkThread) -> some View",
+      "definedAt": "TimelineVisibility.swift:98"
+    },
+    {
+      "name": "schedule",
+      "signature": "func schedule(_ action: @escaping @MainActor () -> Void)",
+      "definedAt": "TimelineVisibility.swift:109"
+    },
+    {
+      "name": "body",
+      "signature": "func body(content: Content) -> some View",
+      "definedAt": "TimelineVisibility.swift:128"
+    },
+    {
+      "name": "scheduleReport",
+      "signature": "func scheduleReport()",
+      "definedAt": "TimelineVisibility.swift:143"
+    },
+    {
+      "name": "report",
+      "signature": "func report()",
+      "definedAt": "TimelineVisibility.swift:147"
+    },
+    {
+      "name": "threadOpenScrollAction",
+      "signature": "func threadOpenScrollAction(\n        pendingTarget: String?,\n        suppressAutoScroll: Bool\n    ) -> ThreadOpenScrollAction?",
+      "definedAt": "TimelineVisibility.swift:172"
+    },
+    {
+      "name": "turnCountScrollAction",
+      "signature": "func turnCountScrollAction(\n        thread: WorkThread,\n        suppressAutoScroll: Bool,\n        forceScrollToBottomAfterSend: Bool\n    ) -> TurnCountScrollAction?",
+      "definedAt": "TimelineVisibility.swift:182"
+    },
+    {
+      "name": "scrollOnThreadOpen",
+      "signature": "func scrollOnThreadOpen(\n        proxy: ScrollViewProxy,\n        pendingTarget: String?,\n        suppressAutoScroll: Bool,\n        bottomAnchorId: String\n    )",
+      "definedAt": "TimelineVisibility.swift:199"
+    },
+    {
+      "name": "scrollOnTurnCountChange",
+      "signature": "func scrollOnTurnCountChange(\n        proxy: ScrollViewProxy,\n        thread: WorkThread,\n        suppressAutoScroll: Bool,\n        forceScrollToBottomAfterSend: Bool,\n        bottomAnchorId: String\n    )",
+      "definedAt": "TimelineVisibility.swift:218"
+    },
+    {
+      "name": "scrollToBottom",
+      "signature": "func scrollToBottom(\n        proxy: ScrollViewProxy,\n        bottomAnchorId: String,\n        animated: Bool\n    )",
+      "definedAt": "TimelineVisibility.swift:243"
+    },
+    {
+      "name": "isAtBottom",
+      "signature": "func isAtBottom(contentBottomY: CGFloat, viewportBottomY: CGFloat, slack: CGFloat = 120) -> Bool",
+      "definedAt": "TimelineVisibility.swift:265"
+    },
+    {
+      "name": "liveContentSignal",
+      "signature": "func liveContentSignal(for thread: WorkThread) -> Int",
+      "definedAt": "TimelineVisibility.swift:271"
+    }
+  ]
+}

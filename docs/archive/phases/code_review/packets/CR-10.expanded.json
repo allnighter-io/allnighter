@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-10",
+  "title": "Review streaming write path coalescing",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/StreamingPartialBuffer.swift"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/ThreadStoreWriteSerializer.swift"
+    }
+  ],
+  "intent": "READ-ONLY perf review of streaming hot path. Write findings to docs/phases/code_review/findings/CR-10.md. Lenses: buffer memory/flush, write serializer bottleneck, throttle interaction, cancel final partial, deadlock ordering.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-10.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-10.md && grep -q '## Findings' docs/phases/code_review/findings/CR-10.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/StreamingPartialBuffer.swift",
+      "lineRange": null,
+      "content": "import Foundation\n\n/// Accumulates streamed answer deltas into the visible partial text of a running\n/// worker turn, enforcing the 64 KB visible cap and a byte-based flush cadence\n/// (03_Mac_Streaming \u00a7Thread Storage). Pure and synchronous: the wiring layer owns\n/// the wall-clock flush timer and the `ThreadStore.updateTurn` write. When the cap\n/// is exceeded we keep the NEWEST visible suffix and mark `isTruncated`; the\n/// complete final answer replaces the partial at settlement.\npublic struct StreamingPartialBuffer: Sendable {\n    /// Cap on visible partial text (newest suffix kept beyond this).\n    public static let visibleCapBytes = 64 * 1024\n    /// Flush when this many bytes have accumulated since the last flush \u2014 the byte\n    /// half of \"every 120\u2013250 ms or every 2\u20134 KB, whichever comes first\".\n    public static let flushByteThreshold = 2 * 1024\n\n    private var text: String = \"\"\n    private var truncated = false\n    private var unflushedBytes = 0\n    private let capBytes: Int\n    private let flushBytes: Int\n\n    public init(capBytes: Int = StreamingPartialBuffer.visibleCapBytes,\n                flushBytes: Int = StreamingPartialBuffer.flushByteThreshold) {\n        self.capBytes = capBytes\n        self.flushBytes = flushBytes\n    }\n\n    public var visibleText: String { text }\n    public var isTruncated: Bool { truncated }\n\n    /// Append a delta to the visible text. Returns true when a byte-threshold flush\n    /// is due (the caller may also flush on a timer regardless).\n    @discardableResult\n    public mutating func append(_ delta: String) -> Bool {\n        guard !delta.isEmpty else { return false }\n        text += delta\n        if text.utf8.count > capBytes {\n            text = Self.newestSuffix(of: text, maxBytes: capBytes)\n            truncated = true\n        }\n        unflushedBytes += delta.utf8.count\n        return unflushedBytes >= flushBytes\n    }\n\n    /// Call after writing the current `visibleText` so the byte counter resets.\n    public mutating func markFlushed() { unflushedBytes = 0 }\n\n    /// The newest UTF-8 suffix of `s` within `maxBytes`, cut on a Character boundary.\n    static func newestSuffix(of s: String, maxBytes: Int) -> String {\n        guard s.utf8.count > maxBytes else { return s }\n        var out = Substring(s)\n        while out.utf8.count > maxBytes, !out.isEmpty {\n            out = out.dropFirst()\n        }\n        return String(out)\n    }\n}\n"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/ThreadStoreWriteSerializer.swift",
+      "lineRange": null,
+      "content": "import Foundation\n\n/// Per-root synchronous mutation lane shared by all `ThreadStore` values that\n/// point at the same canonical `rootDirectory`.\nenum ThreadStoreWriteSerializer {\n    private final class Lane: @unchecked Sendable {\n        let queue = DispatchQueue(label: \"com.allnighter.threadstore.write\")\n    }\n\n    private final class Registry: @unchecked Sendable {\n        private let lock = NSLock()\n        private var lanes: [String: Lane] = [:]\n\n        func synchronized<T>(rootDirectory: URL, _ body: () throws -> T) rethrows -> T {\n            let key = rootDirectory.standardizedFileURL.path\n            let lane: Lane\n            lock.lock()\n            if let existing = lanes[key] {\n                lane = existing\n            } else {\n                let created = Lane()\n                lanes[key] = created\n                lane = created\n            }\n            lock.unlock()\n            return try lane.queue.sync(execute: body)\n        }\n    }\n\n    private static let registry = Registry()\n\n    static func synchronized<T>(rootDirectory: URL, _ body: () throws -> T) rethrows -> T {\n        try registry.synchronized(rootDirectory: rootDirectory, body)\n    }\n}\n"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "newestSuffix",
+      "signature": "func newestSuffix(of s: String, maxBytes: Int) -> String",
+      "definedAt": "StreamingPartialBuffer.swift:49"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-32",
+  "title": "Review LoopbackHealthServer trust",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/LoopbackHealthServer.swift"
+    }
+  ],
+  "intent": "READ-ONLY. Health endpoint exposure: binding, response body, shutdown, port collision. Write findings to docs/phases/code_review/findings/CR-32.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-32.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-32.md && grep -q '## Findings' docs/phases/code_review/findings/CR-32.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/LoopbackHealthServer.swift",
+      "lineRange": null,
+      "content": "import Foundation\nimport Darwin\n\n/// Minimal loopback-only HTTP listener for coordinator health. Binds `127.0.0.1`\n/// only; responds to `GET /health` with the caller-provided JSON body.\npublic final class LoopbackHealthServer: @unchecked Sendable {\n    private let lock = NSLock()\n    private var listenFD: Int32 = -1\n    private var acceptSource: DispatchSourceRead?\n    private var healthBody: (@Sendable () -> String)?\n    private var boundPort: UInt16 = 0\n\n    public init() {}\n\n    public var port: UInt16 {\n        lock.lock()\n        defer { lock.unlock() }\n        return boundPort\n    }\n\n    public func start(healthBody: @escaping @Sendable () -> String) throws -> UInt16 {\n        lock.lock()\n        defer { lock.unlock() }\n        guard listenFD < 0 else { throw LoopbackError.alreadyRunning }\n\n        let fd = socket(AF_INET, SOCK_STREAM, 0)\n        guard fd >= 0 else { throw LoopbackError.socketFailed(errno) }\n        defer { if listenFD < 0 { close(fd) } }\n\n        var yes: Int32 = 1\n        _ = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout.size(ofValue: yes)))\n\n        var addr = sockaddr_in()\n        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)\n        addr.sin_family = sa_family_t(AF_INET)\n        addr.sin_port = 0\n        addr.sin_addr.s_addr = inet_addr(\"127.0.0.1\")\n\n        let bindResult = withUnsafePointer(to: &addr) {\n            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {\n                bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))\n            }\n        }\n        guard bindResult == 0 else { throw LoopbackError.bindFailed(errno) }\n        guard listen(fd, SOMAXCONN) == 0 else { throw LoopbackError.listenFailed(errno) }\n\n        var bound = sockaddr_in()\n        var len = socklen_t(MemoryLayout<sockaddr_in>.size)\n        let nameResult = withUnsafeMutablePointer(to: &bound) {\n            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {\n                getsockname(fd, $0, &len)\n            }\n        }\n        guard nameResult == 0 else { throw LoopbackError.bindFailed(errno) }\n\n        self.healthBody = healthBody\n        self.listenFD = fd\n        self.boundPort = UInt16(bigEndian: bound.sin_port)\n\n        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .global(qos: .userInitiated))\n        source.setEventHandler { [weak self] in self?.acceptConnections() }\n        source.setCancelHandler { [fd] in close(fd) }\n        source.resume()\n        self.acceptSource = source\n\n        return boundPort\n    }\n\n    public func stop() {\n        lock.lock()\n        defer { lock.unlock() }\n        acceptSource?.cancel()\n        acceptSource = nil\n        if listenFD >= 0 { close(listenFD) }\n        listenFD = -1\n        boundPort = 0\n        healthBody = nil\n    }\n\n    private func acceptConnections() {\n        while true {\n            let client = accept(listenFD, nil, nil)\n            guard client >= 0 else { break }\n            defer { close(client) }\n            respond(on: client)\n        }\n    }\n\n    private func respond(on client: Int32) {\n        var buffer = [UInt8](repeating: 0, count: 4096)\n        let readCount = buffer.withUnsafeMutableBytes { ptr in\n            read(client, ptr.baseAddress, ptr.count)\n        }\n        guard readCount > 0 else { return }\n        let request = String(decoding: buffer.prefix(readCount), as: UTF8.self)\n        let firstLine = request.split(separator: \"\\r\\n\", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? \"\"\n        let body: String\n        let status: String\n        if firstLine.hasPrefix(\"GET /health\") {\n            body = lock.withLock { healthBody?() ?? \"{}\" }\n            status = \"200 OK\"\n        } else {\n            body = \"{\\\"error\\\":\\\"not found\\\"}\"\n            status = \"404 Not Found\"\n        }\n        let response = \"\"\"\n        HTTP/1.1 \\(status)\\r\n        Content-Type: application/json\\r\n        Connection: close\\r\n        Content-Length: \\(body.utf8.count)\\r\n        \\r\n        \\(body)\n        \"\"\"\n        _ = response.withCString { write(client, $0, strlen($0)) }\n    }\n\n    public enum LoopbackError: Error, Equatable {\n        case alreadyRunning\n        case socketFailed(Int32)\n        case bindFailed(Int32)\n        case listenFailed(Int32)\n    }\n}\n\nprivate extension NSLock {\n    func withLock<T>(_ body: () -> T) -> T {\n        lock()\n        defer { unlock() }\n        return body()\n    }\n}\n"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "start",
+      "signature": "func start(healthBody: @escaping @Sendable () -> String) throws -> UInt16",
+      "definedAt": "LoopbackHealthServer.swift:20"
+    },
+    {
+      "name": "stop",
+      "signature": "func stop()",
+      "definedAt": "LoopbackHealthServer.swift:68"
+    },
+    {
+      "name": "acceptConnections",
+      "signature": "func acceptConnections()",
+      "definedAt": "LoopbackHealthServer.swift:79"
+    },
+    {
+      "name": "respond",
+      "signature": "func respond(on client: Int32)",
+      "definedAt": "LoopbackHealthServer.swift:88"
+    }
+  ]
+}

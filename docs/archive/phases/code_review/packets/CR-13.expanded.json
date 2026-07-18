@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-13",
+  "title": "Review ThreadsViewModel reload coalescing",
+  "readPaths": [
+    {
+      "path": "Apps/AllnighterMac/Sources/ThreadsViewModel.swift",
+      "lineRange": "199-257"
+    }
+  ],
+  "intent": "READ-ONLY perf review (lines 199-257). Lenses: coalesced reload races, railRows staleness, checkpoint crash window, store.get on hot path, markRead bypass.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-13.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-13.md && grep -q '## Findings' docs/phases/code_review/findings/CR-13.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Apps/AllnighterMac/Sources/ThreadsViewModel.swift",
+      "lineRange": "199-257",
+      "content": "    func reload() {\n        PerfCounters.bump(.threadsReload)\n        let beforeSnapshots = notificationSnapshots\n        threads = store.list()\n        // Derive the rail summaries once here (PERF-S02/S03), not per render/per delta.\n        railRows = threads.map(ThreadsPresenter.railRow(from:))\n        if let id = selectedThreadId, !threads.contains(where: { $0.id == id }) {\n            selectedThreadId = threads.first?.id\n        }\n        let afterSnapshots = NotificationCandidateDetection.snapshots(from: threads)\n        notificationSnapshots = afterSnapshots\n        floorStatus?.update(from: threads)\n        Task { await processNotificationTransitions(before: beforeSnapshots, after: afterSnapshots) }\n    }\n\n    /// Coalesced reload: a burst of events (streaming deltas, rapid mutations) folds into\n    /// ONE `reload()` at the next runloop tick instead of one full list-decode per event.\n    func requestReload() {\n        PerfCounters.bump(.reloadRequested)\n        if reloadScheduled { PerfCounters.bump(.reloadCoalesced); return }\n        reloadScheduled = true\n        Task { @MainActor in\n            reloadScheduled = false\n            reload()\n        }\n    }\n\n    /// A live streaming partial for the selected running turn. Updates the published\n    /// `threads` IN MEMORY (no `store.list()`, no `thread.json` write) so text streams\n    /// cheaply, and writes a DURABLE checkpoint to thread.json at most every\n    /// `liveCheckpointInterval` for crash-resume \u2014 never per token. Returns true if a\n    /// running turn was found and updated.\n    @discardableResult\n    func applyLiveDelta(threadId: String, turnId: String, isAnswer: Bool, text: String, truncated: Bool?) -> Bool {\n        guard let ti = threads.firstIndex(where: { $0.id == threadId }),\n              let tj = threads[ti].turns.firstIndex(where: { $0.id == turnId }),\n              threads[ti].turns[tj].status == .running else { return false }\n        if isAnswer {\n            threads[ti].turns[tj].text = text\n            if let truncated { threads[ti].turns[tj].partialOutputTruncated = truncated }\n        } else {\n            threads[ti].turns[tj].reasoningText = text\n        }\n        PerfCounters.bump(.liveDeltaApplied)\n\n        // Throttled durable checkpoint \u2014 keep the store's authoritative fields, write only\n        // the live ones, and only when the interval has elapsed.\n        let now = Date()\n        if now.timeIntervalSince(liveCheckpointAt[turnId] ?? .distantPast) >= Self.liveCheckpointInterval {\n            liveCheckpointAt[turnId] = now\n            if var stored = store.get(threadId)?.turn(id: turnId), stored.status == .running {\n                stored.text = threads[ti].turns[tj].text\n                stored.reasoningText = threads[ti].turns[tj].reasoningText\n                stored.partialOutputTruncated = threads[ti].turns[tj].partialOutputTruncated\n                _ = try? store.updateTurn(stored, inThreadId: threadId, now: now)\n                PerfCounters.bump(.threadJSONWrite)\n            }\n        }\n        return true"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "reload",
+      "signature": "func reload()",
+      "definedAt": "ThreadsViewModel.swift:199"
+    },
+    {
+      "name": "requestReload",
+      "signature": "func requestReload()",
+      "definedAt": "ThreadsViewModel.swift:216"
+    },
+    {
+      "name": "applyLiveDelta",
+      "signature": "func applyLiveDelta(threadId: String, turnId: String, isAnswer: Bool, text: String, truncated: Bool?) -> Bool",
+      "definedAt": "ThreadsViewModel.swift:232"
+    }
+  ]
+}

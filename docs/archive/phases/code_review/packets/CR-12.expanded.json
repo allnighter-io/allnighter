@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-12",
+  "title": "Review RunService write-lock path",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift",
+      "lineRange": "226-292"
+    }
+  ],
+  "intent": "READ-ONLY review of write-lock acquire/release (lines 226-292). Lenses: defer release ordering, 1800s wait vs worker timeout, mutating misclassification, lock duration, root normalization race.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-12.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-12.md && grep -q '## Findings' docs/phases/code_review/findings/CR-12.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift",
+      "lineRange": "226-292",
+      "content": "        _ request: RunRequest,\n        origin: RunOrigin,\n        originAgent: String? = nil,\n        runId: String? = nil,\n        events: AsyncStream<RunEvent>.Continuation? = nil\n    ) async -> Result<TeamRun, RunServiceError> {\n        defer { events?.finish() }\n\n        // Queue-wait clock: stamp BEFORE the write-lock acquire (the real blocking wait) and\n        // resolution/staging, so `queueMs = worker.startedAt \u2212 requestedAt` captures all of it.\n        let requestedAt = now()\n        var timing = request.timing ?? RunTimingReport()\n        timing.stamp(RunTimingKey.runRequested, at: requestedAt)\n        timing.set(RunTimingKey.contextBytes, int: request.context?.utf8.count ?? 0)\n        let root = RunWriteLock.normalize(request.repoRoot) ?? request.repoRoot\n        guard RootNormalization.observeRootState(key: root) == .available else {\n            return .failure(.repoRootUnavailable(root))\n        }\n\n        let preset: TeamPreset\n        if let presetId = request.presetId, !presetId.isEmpty {\n            guard let team = teams.first(where: { $0.id == presetId }) ?? TeamCatalog.get(presetId) else {\n                return .failure(.teamResolution(\"unknown team: \\(presetId)\", code: \"TEAM_NOT_FOUND\"))\n            }\n            preset = team\n        } else {\n            guard let team = TeamCatalog.defaultRunTeam() else {\n                return .failure(.teamResolution(\"no default team configured\", code: \"DEFAULT_TEAM_INVALID\"))\n            }\n            preset = team\n        }\n\n        // Auto (the no-pick / default route): resolve the worker model from the\n        // Default-model tiers instead of the team's static preference \u2014 using the tier\n        // default, or the first source-ready substitute on the same tier when it's down\n        // (route around a down CLI, no prompt). A blocked tier fails clean (\"Auto\n        // waits\"), never guesses. An explicit per-chat model pick (workerId) wins.\n        var effectiveWorkerId = request.workerId\n        if preset.id == TeamCatalog.defaultRunTeam()?.id, (request.workerId ?? \"\").isEmpty {\n            let settings = loadDefaultSettings()\n            let auto = SubstitutionResolver.resolveAuto(\n                settings: settings, readyModelIds: sourceReadyModelIds())\n            guard let modelId = auto.resolvedModelId else {\n                return .failure(.teamResolution(\n                    \"Auto waits \u2014 no ready model on the \\(settings.defaultTier.displayName) tier\",\n                    code: \"DEFAULT_TEAM_INVALID\"))\n            }\n            effectiveWorkerId = modelId\n        }\n\n        var prompt = request.message.trimmingCharacters(in: .whitespacesAndNewlines)\n        if let starter = preset.starterPrompts.first, !starter.isEmpty, preset.mutating {\n            prompt = starter + \"\\n\\n\" + prompt\n        }\n        // NOTE: thread context is appended below per-path. The execution path appends it\n        // CONDITIONALLY (Worker_Session_Continuity: when resuming a live vendor session the\n        // CLI already holds the history, so we don't re-dump it); the answer path always does.\n\n        let effort = request.effort ?? preset.defaultEffort\n        let lockKey = RunWriteLock.key(repoRoot: root)\n        var lockToken: RunWriteLock.Token?\n        let takesWriteLock = preset.writePolicy == .mutating && !request.advisoryReview\n        if takesWriteLock {\n            // One writer per repo root. If another mutating run holds the lock, WAIT our turn\n            // (FIFO) and then run \u2014 a second back-to-back agent turn queues behind the first\n            // instead of erroring. The bounded timeout is the safety valve: if a wedged holder\n            // outlives even its own worker timeout/watchdog, we stop queueing forever and refuse"
+    }
+  ],
+  "resolvedSymbols": []
+}

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-23",
+  "title": "Review PendingRunExecutor queue drain",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PendingRunExecutor.swift"
+    }
+  ],
+  "intent": "READ-ONLY. Lenses: stale pending resurrection, double dispatch, error propagation, coordinator interaction. Write findings to docs/phases/code_review/findings/CR-23.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-23.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-23.md && grep -q '## Findings' docs/phases/code_review/findings/CR-23.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PendingRunExecutor.swift",
+      "lineRange": null,
+      "content": "import Foundation\nimport AllnighterCore\n\n/// Executes and settles one Pending item (workerChat or non-mutating teamRun) through\n/// `WorkerRunner` / `CatalogRunCoordinator` (WTK-S02a/S02b).\npublic struct PendingRunExecutor: Sendable {\n    public struct RunOptions: Sendable {\n        public var beginRun: PendingService.BeginRunOptions\n\n        public init(beginRun: PendingService.BeginRunOptions = .cliDefault) {\n            self.beginRun = beginRun\n        }\n    }\n\n    public let service: PendingService\n    public let registry: DriverRegistry\n    public let commandRunner: CommandRunner\n    public let invocations: [String: ToolInvocation]\n    public let teams: [TeamPreset]\n    public let runStore: RunStore\n    private let now: @Sendable () -> Date\n\n    public init(\n        service: PendingService,\n        registry: DriverRegistry,\n        commandRunner: CommandRunner,\n        invocations: [String: ToolInvocation] = [:],\n        teams: [TeamPreset] = TeamCatalog.all,\n        runStore: RunStore = RunStore(),\n        now: @escaping @Sendable () -> Date = Date.init\n    ) {\n        self.service = service\n        self.registry = registry\n        self.commandRunner = commandRunner\n        self.invocations = invocations\n        self.teams = teams\n        self.runStore = runStore\n        self.now = now\n    }\n\n    /// Run one Pending item to completion and return the settled item.\n    public func run(id: String, options: RunOptions = RunOptions()) async throws -> PendingItem {\n        var item = try service.beginRun(id: id, options: options.beginRun)\n        let attemptIndex = item.attempts.count - 1\n        let attemptId = item.attempts[attemptIndex].attemptId\n\n        switch item.kind {\n        case .workerChat:\n            item = try await runWorkerChat(item: item, attemptIndex: attemptIndex, attemptId: attemptId)\n        case .teamRun:\n            item = try await runTeamRun(item: item, attemptIndex: attemptIndex, attemptId: attemptId, options: options)\n        default:\n            throw PendingServiceError.unsupportedKind(item.kind.rawValue)\n        }\n        return item\n    }\n\n    // MARK: - workerChat\n\n    private func runWorkerChat(item: PendingItem, attemptIndex: Int, attemptId: String) async throws -> PendingItem {\n        let workerId = item.target.preferredWorkerIds.first ?? item.target.workerIds.first ?? \"\"\n        guard let model = service.models.first(where: { $0.id == workerId }) else {\n            throw PendingServiceError.invalidWorker(workerId.isEmpty ? \"no worker specified\" : workerId)\n        }\n        guard let manifest = registry.manifest(id: model.driverId) else {\n            throw PendingServiceError.invalidWorker(\"no driver manifest for \\(model.driverId)\")\n        }\n\n        let runner = WorkerRunner(commandRunner: commandRunner, invocations: invocations, now: now)\n        let outcome = await runner.invoke(\n            worker: model,\n            manifest: manifest,\n            prompt: item.prompt,\n            workingDirectoryOverride: item.safety.workingDir\n        )\n\n        let transcriptRef = try writeTranscript(attemptId: attemptId, outcome: outcome)\n        return try service.settleRun(\n            id: item.id,\n            attemptIndex: attemptIndex,\n            outcome: outcome,\n            transcriptRef: transcriptRef\n        )\n    }\n\n    // MARK: - teamRun\n\n    private func runTeamRun(\n        item: PendingItem,\n        attemptIndex: Int,\n        attemptId: String,\n        options: RunOptions\n    ) async throws -> PendingItem {\n        guard let teamId = item.target.teamPresetId else {\n            throw PendingServiceError.invalidState(\"teamRun pending item requires teamPresetId\")\n        }\n        guard let team = teams.first(where: { $0.id == teamId }) else {\n            throw PendingServiceError.invalidState(\"unknown team preset: \\(teamId)\")\n        }\n        if team.mutating {\n            throw PendingServiceError.mutationDeferred\n        }\n\n        let readyModels = service.models.filter(\\.enabled)\n        let resolved = TeamResolver.resolve(\n            team: team,\n            requestLane: team.lane,\n            requestEffort: team.defaultEffort,\n            readyModels: readyModels\n        )\n        guard resolved.isRunnable else {\n            throw PendingServiceError.invalidState(resolved.blockReason ?? \"team cannot run\")\n        }\n        if let blocker = ExecutionTeamSourceGate.evaluate(resolved: resolved, models: readyModels).sourceGateBlocker {\n            throw PendingServiceError.sourceGateBlocked(blocker)\n        }\n\n        let coordinator = CatalogRunCoordinator(\n            workerRunner: WorkerRunner(commandRunner: commandRunner, invocations: invocations, now: now),\n            registry: registry,\n            now: now\n        )\n        let origin: RunOrigin = options.beginRun.origin.map { PendingOriginMapper.runOrigin($0) } ?? .cli\n        @Sendable func stamped(_ run: TeamRun) -> TeamRun {\n            var copy = run\n            copy.lane = team.lane\n            copy.type = team.typeTags.first\n            copy.effort = team.defaultEffort\n            copy.teamDisplayName = resolved.teamDisplayName\n            copy.outputKind = resolved.outputKind\n            copy.warnings = resolved.warnings\n            copy.mutating = resolved.mutating\n            copy.executionSourceId = resolved.executionSourceId\n            copy.threadId = item.threadId\n            return copy\n        }\n        let persist: @Sendable (TeamRun) -> Void = { try? runStore.save(stamped($0), models: readyModels) }\n        let run = await coordinator.run(\n            resolved: resolved,\n            prompt: item.prompt,\n            models: readyModels,\n            origin: origin,\n            originAgent: nil,\n            runId: item.runId ?? \"run_\\(UUID().uuidString.lowercased())\",\n            repoRoot: item.safety.workingDir,\n            persist: persist\n        )\n        return try service.settleTeamRun(\n            id: item.id,\n            attemptIndex: attemptIndex,\n            run: stamped(run),\n            transcriptRef: teamTranscriptRef(attemptId: attemptId, run: run)\n        )\n    }\n\n    // MARK: - Transcript receipt\n\n    private func writeTranscript(attemptId: String, outcome: WorkerRunOutcome) throws -> String? {\n        let text: String?\n        switch outcome.status {\n        case .done:\n            text = outcome.output\n        case .failed, .timedOut:\n            text = [outcome.errorReason, outcome.output]\n                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }\n                .filter { !$0.isEmpty }\n                .joined(separator: \"\\n\")\n                .nilIfEmpty\n        case .cancelled:\n            text = outcome.errorReason?.nilIfEmpty\n        default:\n            text = nil\n        }\n        guard let text else { return nil }\n\n        let relative = \"attempts/\\(attemptId).txt\"\n        let url = service.store.rootDirectory.appendingPathComponent(relative)\n        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)\n        try text.write(to: url, atomically: true, encoding: .utf8)\n        return relative\n    }\n\n    private func teamTranscriptRef(attemptId: String, run: TeamRun) -> String? {\n        let summary = [\n            run.status.rawValue,\n            run.plan.map { \"plan:\\($0.prefix(200))\" },\n            run.failedWorkerAnswers.map(\\.errorReason).compactMap { $0 }.joined(separator: \"; \")\n        ].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.joined(separator: \"\\n\")\n        guard !summary.isEmpty else { return nil }\n        let relative = \"attempts/\\(attemptId).txt\"\n        let url = service.store.rootDirectory.appendingPathComponent(relative)\n        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)\n        try? summary.write(to: url, atomically: true, encoding: .utf8)\n        return relative\n    }\n}\n\nprivate enum PendingOriginMapper {\n    static func runOrigin(_ origin: PendingOrigin) -> RunOrigin {\n        switch origin {\n        case .cli: return .cli\n        case .gui: return .gui\n        case .mcp: return .mcp\n        case .ios, .localApi, .system, .preset: return .cli\n        }\n    }\n}\n\nprivate extension String {\n    var nilIfEmpty: String? {\n        isEmpty ? nil : self\n    }\n}\n"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "run",
+      "signature": "func run(id: String, options: RunOptions = RunOptions()",
+      "definedAt": "PendingRunExecutor.swift:42"
+    },
+    {
+      "name": "runWorkerChat",
+      "signature": "func runWorkerChat(item: PendingItem, attemptIndex: Int, attemptId: String)",
+      "definedAt": "PendingRunExecutor.swift:59"
+    },
+    {
+      "name": "runTeamRun",
+      "signature": "func runTeamRun(\n        item: PendingItem,\n        attemptIndex: Int,\n        attemptId: String,\n        options: RunOptions\n    )",
+      "definedAt": "PendingRunExecutor.swift:87"
+    },
+    {
+      "name": "writeTranscript",
+      "signature": "func writeTranscript(attemptId: String, outcome: WorkerRunOutcome)",
+      "definedAt": "PendingRunExecutor.swift:157"
+    },
+    {
+      "name": "teamTranscriptRef",
+      "signature": "func teamTranscriptRef(attemptId: String, run: TeamRun) -> String?",
+      "definedAt": "PendingRunExecutor.swift:182"
+    },
+    {
+      "name": "runOrigin",
+      "signature": "func runOrigin(_ origin: PendingOrigin) -> RunOrigin",
+      "definedAt": "PendingRunExecutor.swift:199"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-29",
+  "title": "Review RemoteSnapshotPublisher consistency",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/RemoteSnapshotPublisher.swift"
+    }
+  ],
+  "intent": "READ-ONLY. iOS mirror snapshot: staleness, partial publish, error handling, thread ordering. Write findings to docs/phases/code_review/findings/CR-29.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-29.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-29.md && grep -q '## Findings' docs/phases/code_review/findings/CR-29.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/RemoteSnapshotPublisher.swift",
+      "lineRange": null,
+      "content": "import Foundation\nimport AllnighterCore\n\npublic struct RemoteSnapshotPublishResult: Equatable, Sendable {\n    public var runCount: Int\n    public var lastSeq: Int64\n\n    public init(runCount: Int, lastSeq: Int64) {\n        self.runCount = runCount\n        self.lastSeq = lastSeq\n    }\n}\n\npublic struct RemoteSnapshotPublisher: Sendable {\n    public let accountId: String\n    public let macAgentId: String\n    public let service: RemoteSnapshotService\n    public let relay: RemoteMacRelay\n\n    public init(\n        accountId: String,\n        macAgentId: String,\n        service: RemoteSnapshotService,\n        relay: RemoteMacRelay\n    ) {\n        self.accountId = accountId\n        self.macAgentId = macAgentId\n        self.service = service\n        self.relay = relay\n    }\n\n    public func publish(since: Int64? = nil) async throws -> RemoteSnapshotPublishResult {\n        let snapshot = try service.snapshot(since: since)\n        try await relay.publishSnapshot(\n            accountId: accountId,\n            macAgentId: macAgentId,\n            snapshot: snapshot\n        )\n        return RemoteSnapshotPublishResult(\n            runCount: snapshot.runs.count,\n            lastSeq: snapshot.lastSeq\n        )\n    }\n}\n"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "publish",
+      "signature": "func publish(since: Int64? = nil)",
+      "definedAt": "RemoteSnapshotPublisher.swift:31"
+    }
+  ]
+}

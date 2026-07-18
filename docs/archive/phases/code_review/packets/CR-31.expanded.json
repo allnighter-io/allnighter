@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-31",
+  "title": "Review DirectModeCommandServer boundary",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/DirectModeCommandServer.swift",
+      "lineRange": "520-650"
+    }
+  ],
+  "intent": "READ-ONLY. Loopback command server: auth boundary, request size, path traversal, error leakage. Write findings to docs/phases/code_review/findings/CR-31.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-31.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-31.md && grep -q '## Findings' docs/phases/code_review/findings/CR-31.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/DirectModeCommandServer.swift",
+      "lineRange": "520-650",
+      "content": "    }\n}\n\npublic final class DirectModeCommandServer: @unchecked Sendable {\n    public static let commandPath = \"/remote/command\"\n    public static let pairingPath = \"/remote/pair\"\n    public static let pairingStatusPath = \"/remote/pair/status\"\n    public static let snapshotPath = \"/remote/snapshot\"\n    public static let threadSnapshotPath = \"/remote/thread-snapshot\"\n    public static let threadDetailPath = \"/remote/thread-detail\"\n    public static let mediaPath = \"/remote/media\"\n    public static let mediaKeyPath = \"/remote/media-key\"\n    public static let eventsPath = \"/remote/events\"\n\n    private let lock = NSLock()\n    private let handler: any DirectModeCommandHandling\n    private let pairingHandler: (any DirectModePairingHandling)?\n    private let pairingStatusHandler: (any DirectModePairingStatusHandling)?\n    private let snapshotHandler: (any DirectModeSnapshotHandling)?\n    private let threadSnapshotHandler: (any DirectModeThreadSnapshotHandling)?\n    private let threadDetailHandler: (any DirectModeThreadDetailHandling)?\n    private let mediaHandler: (any DirectModeMediaHandling)?\n    private let mediaKeyHandler: (any DirectModeMediaKeyHandling)?\n    private let eventsHandler: (any DirectModeEventsHandling)?\n    private let maxRequestBytes: Int\n    private var listenFD: Int32 = -1\n    private var acceptSource: DispatchSourceRead?\n    private var boundPort: UInt16 = 0\n\n    public init(\n        handler: any DirectModeCommandHandling,\n        pairingHandler: (any DirectModePairingHandling)? = nil,\n        pairingStatusHandler: (any DirectModePairingStatusHandling)? = nil,\n        snapshotHandler: (any DirectModeSnapshotHandling)? = nil,\n        threadSnapshotHandler: (any DirectModeThreadSnapshotHandling)? = nil,\n        threadDetailHandler: (any DirectModeThreadDetailHandling)? = nil,\n        mediaHandler: (any DirectModeMediaHandling)? = nil,\n        mediaKeyHandler: (any DirectModeMediaKeyHandling)? = nil,\n        eventsHandler: (any DirectModeEventsHandling)? = nil,\n        maxRequestBytes: Int = 512 * 1024\n    ) {\n        self.handler = handler\n        self.pairingHandler = pairingHandler\n        self.pairingStatusHandler = pairingStatusHandler\n        self.snapshotHandler = snapshotHandler\n        self.threadSnapshotHandler = threadSnapshotHandler\n        self.threadDetailHandler = threadDetailHandler\n        self.mediaHandler = mediaHandler\n        self.mediaKeyHandler = mediaKeyHandler\n        self.eventsHandler = eventsHandler\n        self.maxRequestBytes = max(1024, maxRequestBytes)\n    }\n\n    public var port: UInt16 {\n        lock.lock()\n        defer { lock.unlock() }\n        return boundPort\n    }\n\n    public func start() throws -> UInt16 {\n        lock.lock()\n        defer { lock.unlock() }\n        guard listenFD < 0 else { throw ServerError.alreadyRunning }\n\n        let fd = socket(AF_INET, SOCK_STREAM, 0)\n        guard fd >= 0 else { throw ServerError.socketFailed(errno) }\n        defer { if listenFD < 0 { close(fd) } }\n\n        var yes: Int32 = 1\n        _ = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout.size(ofValue: yes)))\n\n        var addr = sockaddr_in()\n        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)\n        addr.sin_family = sa_family_t(AF_INET)\n        addr.sin_port = 0\n        addr.sin_addr.s_addr = inet_addr(\"127.0.0.1\")\n\n        let bindResult = withUnsafePointer(to: &addr) {\n            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {\n                bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))\n            }\n        }\n        guard bindResult == 0 else { throw ServerError.bindFailed(errno) }\n        guard listen(fd, SOMAXCONN) == 0 else { throw ServerError.listenFailed(errno) }\n\n        var bound = sockaddr_in()\n        var len = socklen_t(MemoryLayout<sockaddr_in>.size)\n        let nameResult = withUnsafeMutablePointer(to: &bound) {\n            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {\n                getsockname(fd, $0, &len)\n            }\n        }\n        guard nameResult == 0 else { throw ServerError.bindFailed(errno) }\n\n        listenFD = fd\n        boundPort = UInt16(bigEndian: bound.sin_port)\n\n        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .global(qos: .userInitiated))\n        source.setEventHandler { [weak self] in self?.acceptConnections() }\n        source.setCancelHandler { [fd] in close(fd) }\n        source.resume()\n        acceptSource = source\n\n        return boundPort\n    }\n\n    public func stop() {\n        lock.lock()\n        defer { lock.unlock() }\n        acceptSource?.cancel()\n        acceptSource = nil\n        if listenFD >= 0 { close(listenFD) }\n        listenFD = -1\n        boundPort = 0\n    }\n\n    private func acceptConnections() {\n        while true {\n            let client = accept(listenFD, nil, nil)\n            guard client >= 0 else { break }\n            Task.detached(priority: .userInitiated) { [weak self] in\n                defer { close(client) }\n                await self?.respond(on: client)\n            }\n        }\n    }\n\n    private func respond(on client: Int32) async {\n        guard let request = readRequest(on: client) else {\n            writeJSON([\"error\": \"bad_request\"], status: \"400 Bad Request\", to: client)\n            return"
+    }
+  ],
+  "resolvedSymbols": [
+    {
+      "name": "start",
+      "signature": "func start()",
+      "definedAt": "DirectModeCommandServer.swift:578"
+    },
+    {
+      "name": "stop",
+      "signature": "func stop()",
+      "definedAt": "DirectModeCommandServer.swift:625"
+    },
+    {
+      "name": "acceptConnections",
+      "signature": "func acceptConnections()",
+      "definedAt": "DirectModeCommandServer.swift:635"
+    },
+    {
+      "name": "respond",
+      "signature": "func respond(on client: Int32)",
+      "definedAt": "DirectModeCommandServer.swift:646"
+    }
+  ]
+}

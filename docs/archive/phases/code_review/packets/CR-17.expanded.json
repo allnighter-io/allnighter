@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "CR-17",
+  "title": "Review runQueue until deadline mid-slice",
+  "readPaths": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "185-210"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "325-350"
+    }
+  ],
+  "intent": "READ-ONLY. CR-06 P1: options.until only at outer loop. Lenses: mid-slice overrun, sleep clamp, planner takeover unbounded. Write findings to docs/phases/code_review/findings/CR-17.md.",
+  "touchAllowlist": [
+    "docs/phases/code_review/findings/CR-17.md"
+  ],
+  "check": {
+    "method": "command",
+    "command": "test -f docs/phases/code_review/findings/CR-17.md && grep -q '## Findings' docs/phases/code_review/findings/CR-17.md"
+  },
+  "maxRetries": 1,
+  "stallTimeoutSeconds": 3600,
+  "compactionGraceSeconds": 180,
+  "dangerFlags": [],
+  "mode": "review",
+  "inlinedSources": [
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "185-210",
+      "content": "        let terminal = SliceTerminalClassifier.classify(\n            .init(workerOutcome: workerOutcome, check: check, packet: packet, now: now())\n        )\n\n        parent.status = .complete\n        child.parentRunId = parent.id\n        child.links = child.runLinks + [RunLink(kind: .sliceOf, runId: parent.id)]\n        parent.links = parent.runLinks + [RunLink(kind: .sliceAttemptFor, runId: child.id)]\n        _ = await runService.save(parent)\n        _ = await runService.save(child)\n\n        return .success(\n            Outcome(\n                packet: packet,\n                gate: gate,\n                terminal: terminal,\n                check: check,\n                seats: seats,\n                parentRun: parent,\n                childRun: child\n            )\n        )\n    }\n\n    public func runQueue(\n        queue: inout SliceQueue,"
+    },
+    {
+      "path": "Packages/AllnighterCore/Sources/AllnighterEngine/PairCoordinator.swift",
+      "lineRange": "325-350",
+      "content": "                    entry.childRunId = outcome.childRun?.id\n                    entry.checkExitCode = outcome.check?.exitCode\n                    entry.lastStdoutTail = outcome.check?.stdoutTail\n\n                    switch terminal {\n                    case .passed:\n                        entry.status = .passed\n                        entry.resolvedBy = \"executor\"\n                        passed += 1\n                        settled = true\n                    case .compacting:\n                        compactionRetries += 1\n                        if compactionRetries > options.maxCompactionRetries {\n                            entry.status = .escalated\n                            entry.escalatedReason = \"compaction budget exhausted\"\n                            escalated += 1\n                            settled = true\n                            break\n                        }\n                        executorAttempt -= 1\n                        if isPastDeadline(options) {\n                            stoppedReason = \"until deadline\"\n                            stoppedForDeadline = true\n                            settled = true\n                            break\n                        }"
+    }
+  ],
+  "resolvedSymbols": []
+}
