@@ -375,6 +375,53 @@ isolation).
   `endReason: incomplete`, not parked as done; a real turn (commit or declared
   proofs) → unaffected.
 
+- **PO-F9 — ExecutionLaneFlock hardening (Kimi K3 review, all findings verified 2026-07-18).**
+  A fresh-model (Kimi K3) adversarial review of `ExecutionLaneFlock.swift` surfaced
+  14 issues; the session PM verified **all 14 against the code**. Fix in one slice,
+  highest-severity first. Do NOT weaken the cross-process lane guarantees.
+  **High:**
+  1. `open(path, O_CREAT|O_RDWR, 0o600)` (line ~559) lacks `O_CLOEXEC` — spawned
+     worker subprocesses inherit the flock fd, so the kernel keeps the lock until
+     every child exits; parent death never releases the lane. Add `O_CLOEXEC`.
+  2. `meta.lock` reuses the build-lane refcount table (`tryAcquireFile`), which is
+     NOT mutually exclusive between threads of one process (2nd caller just bumps
+     refCount and runs) → lost updates to `holder.json`. Give `withMetaLock` a real
+     per-lane in-process mutex (recursive/held-set for same-thread re-entry) around
+     the whole RMW; keep the flock for cross-process.
+  3. `clearHolder` (274-279) deletes the whole `holder.json` (wiping other live
+     processes' docs-only holders), takes no meta lock, and has a TOCTOU. Take
+     meta lock, re-read, remove only this process's identities, delete only if empty.
+  4. `upsertHolder`/`removeHolder` use `try? writeHolders` then report success —
+     a failed disk write leaves the holder unregistered while the caller believes
+     it is registered (undetected scope overlap). Propagate write failure.
+  5. `tryAcquireFile` conflates `open`/`flock` errno (EMFILE, ENOLCK, unsupported
+     FS on network-mounted `~/Library`) with contention → permanent false "busy."
+     Check errno; only `EWOULDBLOCK` is contention, surface the rest distinctly.
+  **Medium:**
+  6. Docs-only admission TOCTOU: `conflictingHolders` reads only `holder.json`; a
+     foreign build holder between `tryAcquireExclusive` and `upsertHolder` is
+     invisible → overlapping docs-only claim wrongly admitted. Conservatively treat
+     a foreign-held flock with no visible conflicting holder as a conflict.
+  7. Waiter files (`WaiterFile`) carry no owner identity → crash between
+     register/unregister leaks a file that inflates every future ticket position.
+     Embed `OwnerIdentity`, filter dead waiters (mirror `isHolderEffectivelyLive`).
+  8. `ticketIfBusy` mints `unknownTicket` only when `holders.isEmpty`; one live
+     docs-only holder makes a foreign-held build flock read as "not busy." Drop the
+     `&& holders.isEmpty` for build claims.
+  9. `isLocked` probe has side effects (creates dir/lock file; transient
+     `isHeldLocally`; can steal the flock for a microsecond from a racing acquirer)
+     and returns stale truth. Real acquirers should retry a few times before
+     concluding busy.
+  **Low:** 10. `removeHolder` matches on `id` alone (add identity check). 11.
+  lane-key sanitization collision (`v1:abc` == raw `abc`) — make the fallback
+  escape-proof. 12. `writeHolder`/`writeHolders` public with comment-only lock
+  contract — make private / route through locked helpers. 13. `waiterPosition`
+  missing-file fallback off-by-one vs `wouldBePosition` (return `count+1`). 14.
+  table `NSLock` held across `open`/`flock`/mkdir (pre-create dir outside the lock).
+  Works test each fix; RelayCoordinatorTests + ExecutionLaneTests stay green;
+  add regression tests for O_CLOEXEC (no fd leak into a spawned child) and the
+  meta-lock lost-update case. Implementer: Cursor Grok 4.5.
+
 ## v2 review ledger (2026-07-17)
 
 Accepted from mentors: owner identity record incl. start time (pid reuse =
