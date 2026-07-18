@@ -57,6 +57,40 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
         XCTAssertFalse(exists("old", in: tree.runs))
     }
 
+    func testOldUnreadableRunIsPruned() throws {
+        let tree = try tree()
+        defer { try? FileManager.default.removeItem(at: tree.root) }
+        let dir = tree.runs.rootDirectory.appendingPathComponent("run_bad", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data("{ not a valid TeamRun }".utf8).write(to: dir.appendingPathComponent("run.json"))
+        // Threshold -1 → any mtime counts as old → prunable.
+        let gc = ProcessOwnershipGarbageCollector(
+            runStore: tree.runs, relayStore: tree.relays, threadStore: tree.threads,
+            retentionCount: 0, unreadableMinAgeSeconds: -1)
+
+        let result = gc.collect()
+
+        XCTAssertEqual(result.pruned.map(\.id), ["bad"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.path))
+    }
+
+    func testRecentUnreadableRunIsKeptNotPruned() throws {
+        let tree = try tree()
+        defer { try? FileManager.default.removeItem(at: tree.root) }
+        let dir = tree.runs.rootDirectory.appendingPathComponent("run_recent", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data("{ corrupt }".utf8).write(to: dir.appendingPathComponent("run.json"))
+        // Huge threshold → a just-written dir is NOT old → kept (could be a mid-write run).
+        let gc = ProcessOwnershipGarbageCollector(
+            runStore: tree.runs, relayStore: tree.relays, threadStore: tree.threads,
+            retentionCount: 0, unreadableMinAgeSeconds: 1_000_000)
+
+        let result = gc.collect()
+
+        XCTAssertEqual(result.keptUnreadable.map(\.id), ["recent"])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.path))
+    }
+
     func testIdentityAliveTerminalRunIsNeverPruned() throws {
         let tree = try tree()
         defer { try? FileManager.default.removeItem(at: tree.root) }

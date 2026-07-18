@@ -7,6 +7,10 @@ import AllnighterCore
 public struct ProcessOwnershipGarbageCollector: Sendable {
     /// Applied independently to Runs and Relays/Pilots.
     public static let defaultRetentionCount = 100
+    /// An unreadable (missing/undecodable `run.json`) dir is pruned only once its mtime is
+    /// older than this — a recent unreadable dir could be a mid-write / in-flight run. Old +
+    /// undecodable = provably dead cruft (schema-drifted or aborted runs).
+    public static let defaultUnreadableMinAgeSeconds: TimeInterval = 24 * 60 * 60
 
     public var runStore: RunStore
     public var relayStore: RelayStateStore
@@ -15,13 +19,16 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
     /// When true, classify exactly as a real run would (including the under-lock re-check)
     /// but never delete — `pruned` reports what WOULD be removed. For `alln gc --dry-run`.
     public var dryRun: Bool
+    /// Minimum mtime age before an unreadable dir is prunable (see the static default).
+    public var unreadableMinAgeSeconds: TimeInterval
 
     public init(
         runStore: RunStore = RunStore(),
         relayStore: RelayStateStore? = nil,
         threadStore: ThreadStore? = nil,
         retentionCount: Int = ProcessOwnershipGarbageCollector.defaultRetentionCount,
-        dryRun: Bool = false
+        dryRun: Bool = false,
+        unreadableMinAgeSeconds: TimeInterval = ProcessOwnershipGarbageCollector.defaultUnreadableMinAgeSeconds
     ) {
         let supportRoot = runStore.rootDirectory.deletingLastPathComponent()
         self.runStore = runStore
@@ -33,6 +40,29 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
         )
         self.retentionCount = max(0, retentionCount)
         self.dryRun = dryRun
+        self.unreadableMinAgeSeconds = unreadableMinAgeSeconds
+    }
+
+    /// An unreadable dir (missing/undecodable `run.json`) whose mtime is older than
+    /// `unreadableMinAgeSeconds` is provably-dead cruft → prune (respecting `dryRun`);
+    /// otherwise keep (could be a mid-write / in-flight run). Shared by run + relay sweeps.
+    private func classifyUnreadable(
+        _ directory: URL, id: String, kind: String, into result: inout MutableResult
+    ) {
+        let row = OwnershipGarbageCollectionRecordJSON(
+            id: id, kind: kind, detail: "\(kind).json missing or unreadable")
+        let mtime = try? directory.resourceValues(
+            forKeys: [.contentModificationDateKey]).contentModificationDate
+        let old = mtime.map { Date().timeIntervalSince($0) > unreadableMinAgeSeconds } ?? false
+        guard old else { result.keptUnreadable.append(row); return }
+        if dryRun { result.pruned.append(row); return }
+        do {
+            try FileManager.default.removeItem(at: directory)
+            result.pruned.append(row)
+        } catch {
+            result.keptRemovalFailed.append(.init(
+                id: id, kind: kind, detail: error.localizedDescription))
+        }
     }
 
     @discardableResult
@@ -92,11 +122,10 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
             guard directory.lastPathComponent.hasPrefix("run_") else { return nil }
             guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")),
                   let run = try? CoreJSON.decode(TeamRun.self, from: data) else {
-                result.keptUnreadable.append(.init(
+                classifyUnreadable(
+                    directory,
                     id: String(directory.lastPathComponent.dropFirst("run_".count)),
-                    kind: "run",
-                    detail: "run.json missing or unreadable"
-                ))
+                    kind: "run", into: &result)
                 return nil
             }
             let alive = ProcessOwnership.readOwnerIdentity(in: directory)
@@ -123,11 +152,8 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
         return entries.compactMap { directory in
             guard let data = try? Data(contentsOf: directory.appendingPathComponent("relay.json")),
                   let relay = try? CoreJSON.decode(RelayState.self, from: data) else {
-                result.keptUnreadable.append(.init(
-                    id: directory.lastPathComponent,
-                    kind: "relay",
-                    detail: "relay.json missing or unreadable"
-                ))
+                classifyUnreadable(
+                    directory, id: directory.lastPathComponent, kind: "relay", into: &result)
                 return nil
             }
             let identity = ProcessOwnership.readTurnOwner(in: directory)
