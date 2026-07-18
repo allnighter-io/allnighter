@@ -2,9 +2,15 @@
 
 Status: Specced v2 — hardened by five-seat panel panel_753613c7 (2026-07-16:
 21 findings across consent/simplify/adoption/failure-modes/strategy lenses;
-accepted set folded below). Awaiting founder go. V1 = three slices; the rest parked.
+accepted set folded below). v3 sharpening (2026-07-18): trigger line points at
+the intent router; recipes retitled by intent; works test made adversarial.
+Awaiting founder go. V1 = three slices; the rest parked.
 Owner: Mac app (first-run/Settings) + AllnighterCore content SSOT + bootstrap
-Updated: 2026-07-16
+Updated: 2026-07-18
+
+Related: `Agent_Front_Door.md` (gate 1 — findable, SHIPPED) · this doc (gate 2 —
+suggested) · `Agent_Intent_Router.md` (gate 3 — routes intent to the right team;
+the trigger line below depends on it).
 
 ## The gap (named precisely)
 
@@ -30,9 +36,15 @@ exists before any agent session does. It must be the missionary.
    ContractRegistry's `example-recipes` (machine command snippets); they are
    different artifacts for different readers — revisit merge only if they
    drift toward each other. A "Use from your CLI" surface in the app that
-   is actually a shipped folder of `.md` recipe cards (Pilot a spec · Panel this
-   doc · Hand a relay the unattended shift · Route a build to another model),
-   each one copy-paste-ready: bootstrap snippet inlined + the specific recipe.
+   is actually a shipped folder of `.md` recipe cards, **titled by user intent,
+   not product noun** (panel v3): "Get another model to implement this" ·
+   "Challenge this decision before I commit" · "Keep working while I'm away" ·
+   "Ask several models and compare" · "Recover a run that lost its terminal" ·
+   "Use a specific model without silent substitution". ("Get Grok to build this
+   while Claude supervises" sells the outcome; "Pilot a spec" only lands after
+   someone already knows Pilot.) Each card carries **3 example user utterances**
+   (agents pattern-match utterances better than prose) + the bootstrap snippet
+   inlined + the specific recipe, all copy-paste-ready.
    Copy button in the app; open-format files on disk so agents (and screenshots)
    can read them. Every recipe must be one we have actually run — zero unearned
    prompts. Vocabulary check: current product words only ("Delegate work to
@@ -48,14 +60,28 @@ exists before any agent session does. It must be the missionary.
    is a deliberate, documented carve-out from the CLI's print-never-edit
    posture (the CLI still never edits; the app on a human click is the user's
    hands — state this in the Bootstrap.swift comment when built).
-4. **The trigger line (part of bootstrap content, not its own machinery).** ONE
-   sentence mapping intent to tool: "Use `alln` whenever the user wants work
-   routed to another model/CLI, delegated and reviewed, run unattended, or
-   judged by multiple models." This is the load-bearing mechanism and a BLOCKING
-   prerequisite for the installer slice — installing a mechanics-only snippet
-   teaches a dictionary entry, not a reflex. Size budget holds. Success
-   criterion (later gate, golden-transcript style): a fresh session given the
-   snippet suggests alln for "route this to another model" — named, not v1.
+4. **The trigger line teaches ONE reflex: ask the router.** (v3 sharpening —
+   teach the reflex, not the catalog.) The snippet stays tiny and intent-shaped:
+
+   > Allnighter coordinates the AI CLIs installed on this Mac. When another model
+   > could improve the answer, build the work, or continue without the user, run
+   > `alln team hello --for "<the user's intent>" --json` and follow its returned
+   > nextAction. Never manually substitute a requested worker.
+
+   This is deliberately smaller than v2's four-mechanic list ("routed/delegated/
+   unattended/judged"): the agent no longer has to translate a taxonomy or
+   memorize team ids — it asks the router (`Agent_Intent_Router.md`) and gets an
+   exact command back. Three intuitive branches fall out for humans: improve the
+   answer · build the work · continue unattended.
+
+   **BLOCKING dependency:** this trigger line points at `team hello --for`, so
+   the intent router's command contract (IR-S01) must be frozen before this
+   snippet ships — otherwise it teaches a command that doesn't route. It remains
+   a BLOCKING prerequisite for the installer slice for the same reason as v2
+   (a mechanics-only snippet teaches a dictionary entry, not a reflex). Size
+   budget holds — smaller than before. Success criterion (golden-transcript
+   gate): a fresh session given the snippet reaches for `alln team hello --for`
+   on "route this to another model" — named, not v1.
 5. **Per-project offer (PARKED until v1 proves).** A repo's AGENTS.md is a
    SHARED file — one person's click changes teammates' agents. When built: the
    offer writes the marked section UNCOMMITTED and stops — the user's own git
@@ -91,11 +117,20 @@ works test is green.
 | ONB-S03 | App one-click GLOBAL snippet install: per-host target enumeration (global paths only), preview, marker append/repair-with-diff/remove, write-failure surfacing |
 | PARKED | Per-project AGENTS.md offer (uncommitted-write discipline specced above) · done-card graduation nudge + CLI nextActions echo · Core recipe registry/`--recipe` |
 
-## Works test
+## Works test (adversarial — v3)
 
-A fresh machine-state simulation: install app → click "Teach your CLIs" →
-open a new agent session → say "route this build to another model" → the
-session suggests alln unprompted (the trigger line fired). Recipe copy-paste
-runs end-to-end for pilot + panel. Removal click leaves vendor files byte-clean
-outside the markers. Snippet size budget green; recipes render from SSOT
+A fresh machine-state simulation: install app → click "Teach your CLIs" → open a
+new agent session → the session reaches for `alln team hello --for` **unprompted,
+on a battery of utterances that never name Allnighter**:
+
+- "Ask Grok to implement this."
+- "Can you get a second opinion?"
+- "Keep going tonight without me."
+- "Use whichever of my other subscriptions is free."
+- "Have Claude review what Codex changed."
+
+A cold agent should suggest `alln` for each — that's the reflex firing, not
+recall of a specific noun. Recipe copy-paste runs end-to-end for at least
+delegate + panel. Removal click leaves vendor files byte-clean outside the
+markers. Snippet size budget green (smaller than v2); recipes render from SSOT
 (drift test).

@@ -12,7 +12,13 @@ unified via AllnighterSupportRoot; counsel+nextActions on empty models/teams/doc
 verified: real temp-dir install runs, isolated-context models now populated,
 contracts clean. Closes Opus field reports #1, #3, #4.
 Owner: AllnighterCore + CLI
-Updated: 2026-07-16
+Updated: 2026-07-18
+
+Related (the three agent gates): this doc = gate 1 (findable, SHIPPED) ·
+`Agent_Onboarding.md` = gate 2 (suggested) · `Agent_Intent_Router.md` = gate 3
+(routes intent → the right killer team). The no-empty-silence law (F3) extends to
+the router's `team hello --for` mode: it too must return a concrete command or an
+honest fallback, never a bare "pick a team."
 
 ## Why (founder call: first-class, nothing more important)
 
@@ -24,6 +30,25 @@ and running its own loop. Agents don't file complaints; they route around. The b
 is not "agents can find Allnighter" — it is "walking in is cheaper than routing
 around." Human first-run GUI is a separate spec (`docs/phases/setup/00_…`); THIS
 slice is the agent-facing front door.
+
+## The trust guarantees (SSOT — cite from Onboarding + Intent Router)
+
+The isolation/liveness/GC/honesty work is not just reliability plumbing; it is
+the reason an experienced agent trusts walking in. Named once here so the other
+gate docs cite one source instead of re-listing:
+
+- **Requested worker or loud failure** — never a silent model swap.
+- **No fake success** — completion is real or it escalates.
+- **No concurrent writers** — one mutating worker per repo/lane; two `alln`s
+  isolate like two `claude`s.
+- **Durable recovery** — a run that loses its terminal is recoverable, not lost.
+- **Exact commit range** — the work's footprint is named precisely.
+- **Preserved transcript** — nothing is invented after the fact.
+- **Explicit escalation** — a blocked run stops and says so.
+
+Marketing-compressed: *it never swaps your model, fakes completion, or lets two
+agents edit the same repo behind your back.* That is a differentiator, not a
+footnote — surface it as product value wherever agents and users first meet alln.
 
 ## F1 — `alln install-cli` performs the install (CLI)
 
