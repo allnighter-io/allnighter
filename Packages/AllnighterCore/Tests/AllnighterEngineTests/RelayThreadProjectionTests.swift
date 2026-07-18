@@ -79,7 +79,12 @@ final class RelayThreadProjectionTests: XCTestCase {
             commandRunner: runner,
             writeLock: RunWriteLockRegistry(),
             defaultSettings: { DefaultModelSettings() },
-            probeRecords: { [] }
+            probeRecords: {
+                [
+                    ToolProbeRecord(driverId: "pm_cli", status: .ready(version: "1"), lastProbeAt: .distantPast),
+                    ToolProbeRecord(driverId: "dev_cli", status: .ready(version: "1"), lastProbeAt: .distantPast),
+                ]
+            }
         )
         let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
         let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
@@ -263,7 +268,13 @@ final class RelayThreadProjectionTests: XCTestCase {
         let service = RunService(
             models: [pmModel, devModel], registry: registry, runStore: runStore,
             commandRunner: runner, writeLock: RunWriteLockRegistry(),
-            defaultSettings: { DefaultModelSettings() }, probeRecords: { [] }
+            defaultSettings: { DefaultModelSettings() },
+            probeRecords: {
+                [
+                    ToolProbeRecord(driverId: "pm_cli", status: .ready(version: "1"), lastProbeAt: .distantPast),
+                    ToolProbeRecord(driverId: "dev_cli", status: .ready(version: "1"), lastProbeAt: .distantPast),
+                ]
+            }
         )
         // No `threadProjector:` argument at all — defaults to nil.
         let coordinator = RelayCoordinator(

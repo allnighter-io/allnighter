@@ -1362,6 +1362,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `SOURCE_AUTH_EXPIRED` | yes | no | `operational` | Re-authenticate the named source. |
 | `SOURCE_KEYCHAIN_UNAVAILABLE` | yes | yes | `operational` | Open the provider app once, run its login command in Terminal, then `alln doctor --full --agent <source>`. |
 | `MODEL_UNAVAILABLE` | no | yes | `operational` | Run `alln models --json`; pick an on-Bench ready model or enable one. |
+| `WORKER_NOT_AVAILABLE` | yes | yes | `operational` | Run `alln models enable <id>`, or pick a ready worker; see `alln models` / `alln doctor`. |
 | `DEFAULT_TEAM_INVALID` | yes | no | `operational` | Run `alln team show --json`; fix unavailable workers. |
 | `WORKER_FAILED` | no | yes | `operational` | Inspect `workerId` and source error; failed worker remains visible. |
 | `PLAN_WRITER_FAILED` | no | yes | `operational` | Retry with a ready plan writer or export worker answers. |

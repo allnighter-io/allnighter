@@ -396,7 +396,7 @@ public struct RelayCoordinator: Sendable {
                 round.outcome = .escalated
                 round.finishedAt = now()
                 state.rounds[state.rounds.count - 1] = round
-                escalate(&state, note: "dev turn failed to dispatch: \(error.description)")
+                escalate(&state, note: Self.serviceErrorEscalateNote(error, turn: "dev"))
                 events?(.escalated(note: state.note ?? ""))
                 return .success(PilotRoundResult(state: state, devReport: nil))
             case .budgetExhausted(let reason):
@@ -815,7 +815,7 @@ public struct RelayCoordinator: Sendable {
             }
         case .serviceError(let error):
             return finishRound(&state, &round, outcome: .escalated, events: events) {
-                escalate(&$0, note: "PM turn failed to dispatch: \(error.description)")
+                escalate(&$0, note: Self.serviceErrorEscalateNote(error, turn: "PM"))
                 events?(.escalated(note: $0.note ?? ""))
             }
         case .budgetExhausted(let reason):
@@ -850,7 +850,7 @@ public struct RelayCoordinator: Sendable {
                 }
             case .serviceError(let error):
                 return finishRound(&state, &round, outcome: .escalated, events: events) {
-                    escalate(&$0, note: "PM re-ask failed to dispatch: \(error.description)")
+                    escalate(&$0, note: Self.serviceErrorEscalateNote(error, turn: "PM re-ask"))
                     events?(.escalated(note: $0.note ?? ""))
                 }
             case .budgetExhausted(let reason):
@@ -951,7 +951,7 @@ public struct RelayCoordinator: Sendable {
                 }
             case .serviceError(let error):
                 return finishRound(&state, &round, outcome: .escalated, events: events) {
-                    escalate(&$0, note: "dev turn failed to dispatch: \(error.description)")
+                    escalate(&$0, note: Self.serviceErrorEscalateNote(error, turn: "dev"))
                     events?(.escalated(note: $0.note ?? ""))
                 }
             case .budgetExhausted(let reason):
@@ -1136,6 +1136,19 @@ public struct RelayCoordinator: Sendable {
                 || site == .pilotDevTurn,
             "dispatchDevTurn is relay/pilot only; panel seats must not acquire the lane"
         )
+
+        // PO-F10: explicit --dev-worker must resolve BEFORE lane wait / stall-retry.
+        // An unresolvable worker escalates with WORKER_NOT_AVAILABLE — never 4 silent stalls.
+        if let workerId = request.workerId, !workerId.isEmpty {
+            if case .failure(let error) = await runService.resolveExplicitWorker(workerId) {
+                return DevTurnDispatch(
+                    dispatch: .serviceError(error),
+                    endReason: .unknown,
+                    owner: nil,
+                    writeScope: turnStateWriteScope
+                )
+            }
+        }
 
         // PO-S06: scope must be known before acquire (concurrency). Prefer turn-state,
         // else parse the handover/message (PM can declare writeScope up front), else
@@ -1567,6 +1580,12 @@ public struct RelayCoordinator: Sendable {
         state.note = note
         state.finishedAt = now()
         persist(state)
+    }
+
+    /// PO-F10: surface the typed error code (e.g. WORKER_NOT_AVAILABLE) in the
+    /// escalation note so a failed explicit worker is never a silent stall.
+    private static func serviceErrorEscalateNote(_ error: RunServiceError, turn: String) -> String {
+        "\(error.code): \(turn) turn failed to dispatch: \(error.description)"
     }
 
     private func finish(_ state: inout RelayState, note: String?) {

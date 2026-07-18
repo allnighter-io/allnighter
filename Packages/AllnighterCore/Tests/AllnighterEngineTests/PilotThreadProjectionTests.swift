@@ -64,7 +64,10 @@ final class PilotThreadProjectionTests: XCTestCase {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let service = RunService(
             models: [devModel], registry: registry, runStore: runStore, commandRunner: runner,
-            writeLock: RunWriteLockRegistry(), defaultSettings: { DefaultModelSettings() }, probeRecords: { [] }
+            writeLock: RunWriteLockRegistry(), defaultSettings: { DefaultModelSettings() },
+            probeRecords: {
+                [ToolProbeRecord(driverId: "dev_cli", status: .ready(version: "1"), lastProbeAt: .distantPast)]
+            }
         )
         let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
         let projector = RelayThreadProjector(store: threadStore, runStore: runStore)

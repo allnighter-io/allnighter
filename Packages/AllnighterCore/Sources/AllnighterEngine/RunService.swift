@@ -99,6 +99,8 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
     case executionLaneBusy(String)
     case teamResolution(String, code: String)
     case noWorker(String)
+    /// Explicit `--worker` / `--dev-worker` could not be honored (PO-F10).
+    case workerNotAvailable(String)
 
     public var description: String {
         switch self {
@@ -108,6 +110,7 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
             return "execution lane busy on \(r) — do not busy-loop; poll status for laneBlocked (FIFO ticket) until the harness grants the lane"
         case .teamResolution(let m, _): return m
         case .noWorker(let m): return m
+        case .workerNotAvailable(let m): return m
         }
     }
 
@@ -118,6 +121,7 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         case .executionLaneBusy: return "EXECUTION_LANE_BUSY"
         case .teamResolution(_, let code): return code
         case .noWorker: return "WORKER_NOT_READY"
+        case .workerNotAvailable: return "WORKER_NOT_AVAILABLE"
         }
     }
 }
@@ -188,6 +192,27 @@ public actor RunService {
     }
 
     private func readyModels() -> [Model] { models.filter(\.enabled) }
+
+    /// PO-F10: honor an explicit worker id or fail with `WORKER_NOT_AVAILABLE`.
+    /// Never returns a substitute model.
+    func resolveExplicitWorker(_ id: String) -> Result<Model, RunServiceError> {
+        guard let m = models.first(where: { $0.id == id }) else {
+            return .failure(.workerNotAvailable(
+                "unknown worker id \(id) — run `alln models enable <id>`, or pick a ready worker; see `alln models` / `alln doctor`."
+            ))
+        }
+        guard m.enabled else {
+            return .failure(.workerNotAvailable(
+                "\(id) is disabled — run `alln models enable \(id)`, or pick a ready worker; see `alln models` / `alln doctor`."
+            ))
+        }
+        guard sourceReadyModelIds().contains(m.id) else {
+            return .failure(.workerNotAvailable(
+                "\(id) is notReady — check `alln doctor` (or run `alln doctor --full`); see `alln models`."
+            ))
+        }
+        return .success(m)
+    }
 
     // MARK: - Try Fix support (FollowUpCoordinator)
 
@@ -266,6 +291,10 @@ public actor RunService {
         events: AsyncStream<RunEvent>.Continuation? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         defer { events?.finish() }
+
+        // PO-F10: opportunistic stale-lane GC so a fresh run is never confused by
+        // prior-run cruft (dead-holder dirs with an unheld flock).
+        _ = ExecutionLaneFlock.garbageCollectStaleLanes()
 
         // Queue-wait clock: stamp BEFORE the write-lock acquire (the real blocking wait) and
         // resolution/staging, so `queueMs = worker.startedAt − requestedAt` captures all of it.
@@ -421,18 +450,28 @@ public actor RunService {
 
         let worker: Worker
         let model: Model
-        if let override = workerOverride, let m = bench.first(where: { $0.id == override }) {
-            guard let manifest = registry.manifest(for: m), manifest.kind == .headlessCLI else {
-                return .failure(.noWorker("worker \(override) is not a runnable CLI"))
+        if let override = workerOverride {
+            // PO-F10: explicit --worker / --dev-worker is honored or fails LOUD — never
+            // silently substitute a different model when the named id is disabled,
+            // notReady, or unknown.
+            switch resolveExplicitWorker(override) {
+            case .failure(let error):
+                return .failure(error)
+            case .success(let m):
+                guard let manifest = registry.manifest(for: m), manifest.kind == .headlessCLI else {
+                    return .failure(.workerNotAvailable(
+                        "\(override) is not a runnable CLI — pick a ready worker; see `alln models` / `alln doctor`."
+                    ))
+                }
+                worker = Worker(
+                    id: Worker.makeID(modelId: m.id, instanceIndex: 0),
+                    modelId: m.id,
+                    instanceIndex: 0,
+                    skillId: resolved.answerWorkers.first?.skillId ?? "first_principles_builder",
+                    purpose: .answer
+                )
+                model = m
             }
-            worker = Worker(
-                id: Worker.makeID(modelId: m.id, instanceIndex: 0),
-                modelId: m.id,
-                instanceIndex: 0,
-                skillId: resolved.answerWorkers.first?.skillId ?? "first_principles_builder",
-                purpose: .answer
-            )
-            model = m
         } else if let first = resolved.answerWorkers.first,
                   let m = bench.first(where: { $0.id == first.modelId }) {
             worker = first

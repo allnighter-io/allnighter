@@ -50,7 +50,10 @@ final class PilotCoordinatorTests: XCTestCase {
         let runner = SequencedCommandRunner(queues: ["dev_cli": devScripts])
         let service = RunService(
             models: [devModel], registry: registry, runStore: runStore, commandRunner: runner,
-            writeLock: RunWriteLockRegistry(), defaultSettings: { DefaultModelSettings() }, probeRecords: { [] }
+            writeLock: RunWriteLockRegistry(), defaultSettings: { DefaultModelSettings() },
+            probeRecords: {
+                [ToolProbeRecord(driverId: devDriverId, status: .ready(version: "1"), lastProbeAt: .distantPast)]
+            }
         )
         return (service, runner)
     }
@@ -160,7 +163,10 @@ final class PilotCoordinatorTests: XCTestCase {
         )
         let service = RunService(
             models: [devModel], registry: registry, runStore: runStore, commandRunner: devSpy,
-            writeLock: RunWriteLockRegistry(), defaultSettings: { DefaultModelSettings() }, probeRecords: { [] }
+            writeLock: RunWriteLockRegistry(), defaultSettings: { DefaultModelSettings() },
+            probeRecords: {
+                [ToolProbeRecord(driverId: "dev_cli", status: .ready(version: "1"), lastProbeAt: .distantPast)]
+            }
         )
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_idle_timeout" })
 

@@ -3718,6 +3718,15 @@
       "ruleId" : "model.unavailable"
     },
     {
+      "agentAction" : "Run `alln models enable <id>`, or pick a ready worker; see `alln models` \/ `alln doctor`.",
+      "code" : "WORKER_NOT_AVAILABLE",
+      "exitClass" : "operational",
+      "explain" : "An explicit `--worker` \/ `--dev-worker` request named a model that is disabled, notReady, or unknown. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10).",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "run.worker_not_available"
+    },
+    {
       "agentAction" : "Run `alln team show --json`; fix unavailable workers.",
       "code" : "DEFAULT_TEAM_INVALID",
       "exitClass" : "operational",

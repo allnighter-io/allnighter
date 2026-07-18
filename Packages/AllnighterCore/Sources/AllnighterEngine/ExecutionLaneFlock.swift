@@ -205,6 +205,56 @@ public enum ExecutionLaneFlock {
             .replacingOccurrences(of: "/", with: "_")
     }
 
+    /// Reconstruct the lane key that would produce `directoryName` via
+    /// `sanitizedDirectoryName`, or nil when the name is not round-trippable.
+    public static func laneKey(fromDirectoryName directoryName: String) -> String? {
+        if directoryName.hasPrefix("k_") {
+            // Non-v1 keys are escape-sanitized irreversibly; only accept when the
+            // sanitized form of the reconstructed candidate matches (rare in practice).
+            return nil
+        }
+        let key = "v1:" + directoryName
+        guard sanitizedDirectoryName(for: key) == directoryName else { return nil }
+        return key
+    }
+
+    /// PO-F10: remove `Lanes/<key>` dirs whose holders are ALL identity-dead and
+    /// whose `lane.lock` flock is unheld. Never removes a live or held lane.
+    /// Called opportunistically from a fresh run start and `alln doctor`.
+    /// Returns the directory names that were removed.
+    @discardableResult
+    public static func garbageCollectStaleLanes(
+        lanesRoot: URL = AllnighterPaths.lanes
+    ) -> [String] {
+        let fm = FileManager.default
+        guard let names = try? fm.contentsOfDirectory(atPath: lanesRoot.path) else {
+            return []
+        }
+        var removed: [String] = []
+        for name in names {
+            let dir = lanesRoot.appendingPathComponent(name, isDirectory: true)
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else {
+                continue
+            }
+            guard let key = laneKey(fromDirectoryName: name) else { continue }
+            let holders = readHolders(laneKey: key)
+            let anyIdentityLive = holders.contains {
+                ProcessOwnership.isIdentityAlive($0.identity)
+            }
+            if anyIdentityLive { continue }
+            // Live local hold or foreign flock → keep.
+            if isHeldLocally(laneKey: key) || isLocked(laneKey: key) { continue }
+            do {
+                try fm.removeItem(at: dir)
+                removed.append(name)
+            } catch {
+                // Best-effort; leave the dir for a later pass.
+            }
+        }
+        return removed
+    }
+
     // MARK: - Acquire / release
 
     /// Non-blocking exclusive flock for this process (build-lane duration hold).

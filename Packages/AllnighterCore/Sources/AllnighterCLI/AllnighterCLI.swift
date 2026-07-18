@@ -367,6 +367,9 @@ struct AllnighterCLI {
         pilot: Bool = false,
         projectToken: String? = nil
     ) async -> DoctorResult {
+        // PO-F10: opportunistic stale-lane GC (dead-holder + unheld flock).
+        _ = ExecutionLaneFlock.garbageCollectStaleLanes()
+
         let manifests = sourceId.map { id in runtime.registry.all.filter { $0.id == id } } ?? runtime.registry.all
         let modelLabels = ModelCatalog.probeModelLabels(registry: runtime.registry)
         let labels = sourceId.map { id in modelLabels.filter { $0.key == id } } ?? modelLabels

@@ -174,4 +174,178 @@ final class RunServiceTests: XCTestCase {
         guard case .failure(let err) = result else { return XCTFail("expected Auto to wait, got \(result)") }
         XCTAssertEqual(err.code, "DEFAULT_TEAM_INVALID")
     }
+
+    // MARK: - PO-F10 honest explicit --worker
+
+    func testExplicitWorkerDisabledFailsWithWorkerNotAvailableNeverSubstitutes() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let grok = Model(
+            id: "model_cursor_grok_45", displayName: "Cursor Grok", modelLabel: "grok",
+            driverId: "cursor_agent", role: .both, enabled: false
+        )
+        let gpt = Model(
+            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            driverId: "codex", role: .both, enabled: true
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .flagship, allowHealthySubstitutions: true,
+            tiers: TierMembership(flagship: ["model_chatgpt"]))
+        let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
+        let service = RunService(
+            models: [grok, gpt],
+            registry: DriverRegistry([
+                TestSupport.headlessManifest(id: "cursor_agent", command: "cursor"),
+                TestSupport.headlessManifest(id: "codex", command: "codex"),
+            ]),
+            commandRunner: MockCommandRunner(scripts: [
+                "cursor": .init(stdout: "Should never run.", exitCode: 0),
+                "codex": .init(stdout: "Silent substitute.", exitCode: 0),
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] }
+        )
+
+        let result = await service.run(
+            RunRequest(message: "hi", repoRoot: repo.path, workerId: "model_cursor_grok_45"),
+            origin: .cli
+        )
+        guard case .failure(let err) = result else {
+            return XCTFail("expected WORKER_NOT_AVAILABLE, got success: \(result)")
+        }
+        XCTAssertEqual(err.code, "WORKER_NOT_AVAILABLE")
+        XCTAssertTrue(err.description.contains("model_cursor_grok_45"))
+        XCTAssertTrue(err.description.contains("disabled"))
+    }
+
+    func testExplicitWorkerUnknownFailsWithWorkerNotAvailable() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let gpt = Model(
+            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            driverId: "codex", role: .both, enabled: true
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .flagship, allowHealthySubstitutions: true,
+            tiers: TierMembership(flagship: ["model_chatgpt"]))
+        let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
+        let service = RunService(
+            models: [gpt],
+            registry: DriverRegistry([TestSupport.headlessManifest(id: "codex", command: "codex")]),
+            commandRunner: MockCommandRunner(scripts: ["codex": .init(stdout: "Nope.", exitCode: 0)]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] }
+        )
+
+        let result = await service.run(
+            RunRequest(message: "hi", repoRoot: repo.path, workerId: "model_does_not_exist"),
+            origin: .cli
+        )
+        guard case .failure(let err) = result else {
+            return XCTFail("expected WORKER_NOT_AVAILABLE, got \(result)")
+        }
+        XCTAssertEqual(err.code, "WORKER_NOT_AVAILABLE")
+        XCTAssertTrue(err.description.contains("unknown"))
+    }
+
+    func testExplicitWorkerNotReadyFailsWithWorkerNotAvailable() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let grok = Model(
+            id: "model_cursor_grok_45", displayName: "Cursor Grok", modelLabel: "grok",
+            driverId: "cursor_agent", role: .both, enabled: true
+        )
+        let gpt = Model(
+            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            driverId: "codex", role: .both, enabled: true
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .flagship, allowHealthySubstitutions: true,
+            tiers: TierMembership(flagship: ["model_chatgpt"]))
+        // Only codex is probe-ready; explicit grok is enabled-but-notReady.
+        let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
+        let service = RunService(
+            models: [grok, gpt],
+            registry: DriverRegistry([
+                TestSupport.headlessManifest(id: "cursor_agent", command: "cursor"),
+                TestSupport.headlessManifest(id: "codex", command: "codex"),
+            ]),
+            commandRunner: MockCommandRunner(scripts: [
+                "cursor": .init(stdout: "Should never run.", exitCode: 0),
+                "codex": .init(stdout: "Silent substitute.", exitCode: 0),
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] }
+        )
+
+        let result = await service.run(
+            RunRequest(message: "hi", repoRoot: repo.path, workerId: "model_cursor_grok_45"),
+            origin: .cli
+        )
+        guard case .failure(let err) = result else {
+            return XCTFail("expected WORKER_NOT_AVAILABLE, got \(result)")
+        }
+        XCTAssertEqual(err.code, "WORKER_NOT_AVAILABLE")
+        XCTAssertTrue(err.description.contains("notReady"))
+    }
+
+    func testExplicitWorkerEnabledAndReadyIsHonored() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let grok = Model(
+            id: "model_cursor_grok_45", displayName: "Cursor Grok", modelLabel: "grok",
+            driverId: "cursor_agent", role: .both, enabled: true
+        )
+        let gpt = Model(
+            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            driverId: "codex", role: .both, enabled: true
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .flagship, allowHealthySubstitutions: true,
+            tiers: TierMembership(flagship: ["model_chatgpt"]))
+        let probes = [
+            ToolProbeRecord(driverId: "cursor_agent", status: .ready(version: "1"), lastProbeAt: .distantPast),
+            ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast),
+        ]
+        let service = RunService(
+            models: [grok, gpt],
+            registry: DriverRegistry([
+                TestSupport.headlessManifest(id: "cursor_agent", command: "cursor"),
+                TestSupport.headlessManifest(id: "codex", command: "codex"),
+            ]),
+            commandRunner: MockCommandRunner(scripts: [
+                "cursor": .init(stdout: "Grok ran.", exitCode: 0),
+                "codex": .init(stdout: "Should not run.", exitCode: 0),
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { probes }
+        )
+
+        let result = await service.run(
+            RunRequest(message: "hi", repoRoot: repo.path, workerId: "model_cursor_grok_45"),
+            origin: .cli
+        )
+        guard case .success(let run) = result else {
+            return XCTFail("run failed: \(result)")
+        }
+        XCTAssertEqual(run.workerAnswers.first?.modelId, "model_cursor_grok_45")
+        XCTAssertEqual(run.executionSourceId, "cursor_agent")
+        XCTAssertEqual(run.status, .complete)
+    }
 }

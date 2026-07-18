@@ -899,6 +899,14 @@ public extension ContractRegistry {
         ErrorSpec("SOURCE_AUTH_EXPIRED", ruleId: "source.auth.expired", agentAction: "Re-authenticate the named source.", requiresManual: true, retryable: false, explain: "The source resolved but its authentication is invalid or expired. Sign in via the source's own login flow."),
         ErrorSpec("SOURCE_KEYCHAIN_UNAVAILABLE", ruleId: "source.auth.keychain", agentAction: "Open the provider app once, run its login command in Terminal, then `alln doctor --full --agent <source>`.", requiresManual: true, retryable: true, explain: "The source CLI could not read credentials from the macOS Keychain (SecItemCopyMatching failed). Common when Allnighter or the CLI is launched outside Terminal. Open the provider app, complete sign-in, then re-probe."),
         ErrorSpec("MODEL_UNAVAILABLE", ruleId: "model.unavailable", agentAction: "Run `alln models --json`; pick an on-Bench ready model or enable one.", requiresManual: false, retryable: true, explain: "The requested model is not runnable: it may be off-Bench, its source may not be ready, or it may not exist. Use `alln models --json` to see available vs on-Bench vs ready state."),
+        ErrorSpec(
+            "WORKER_NOT_AVAILABLE",
+            ruleId: "run.worker_not_available",
+            agentAction: "Run `alln models enable <id>`, or pick a ready worker; see `alln models` / `alln doctor`.",
+            requiresManual: true,
+            retryable: true,
+            explain: "An explicit `--worker` / `--dev-worker` request named a model that is disabled, notReady, or unknown. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10)."
+        ),
         ErrorSpec("DEFAULT_TEAM_INVALID", ruleId: "team.default.invalid", agentAction: "Run `alln team show --json`; fix unavailable workers.", requiresManual: true, retryable: false, explain: "The default team has no runnable workers. Inspect and repair the team lineup before running."),
         ErrorSpec("WORKER_FAILED", ruleId: "worker.failed", agentAction: "Inspect `workerId` and source error; failed worker remains visible.", requiresManual: false, retryable: true, explain: "One worker failed. The failure is shown, never hidden; other workers may still have answered. Retry the worker or proceed with partial results."),
         ErrorSpec("PLAN_WRITER_FAILED", ruleId: "plan_writer.failed", agentAction: "Retry with a ready plan writer or export worker answers.", requiresManual: false, retryable: true, explain: "The plan-writer stage failed. Retry with a ready plan writer, or export the worker answers and synthesize later."),

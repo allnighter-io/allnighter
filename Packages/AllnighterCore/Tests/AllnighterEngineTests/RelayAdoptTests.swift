@@ -63,7 +63,12 @@ final class RelayAdoptTests: XCTestCase {
             commandRunner: runner,
             writeLock: RunWriteLockRegistry(),
             defaultSettings: { DefaultModelSettings() },
-            probeRecords: { [] }
+            probeRecords: {
+                [
+                    ToolProbeRecord(driverId: pmDriverId, status: .ready(version: "1"), lastProbeAt: .distantPast),
+                    ToolProbeRecord(driverId: devDriverId, status: .ready(version: "1"), lastProbeAt: .distantPast),
+                ]
+            }
         )
         return (service, runner)
     }

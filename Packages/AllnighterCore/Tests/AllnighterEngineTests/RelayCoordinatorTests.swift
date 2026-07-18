@@ -73,7 +73,12 @@ final class RelayCoordinatorTests: XCTestCase {
             commandRunner: commandRunner ?? runner,
             writeLock: RunWriteLockRegistry(),
             defaultSettings: { DefaultModelSettings() },
-            probeRecords: { [] }
+            probeRecords: {
+                [
+                    ToolProbeRecord(driverId: pmDriverId, status: .ready(version: "1"), lastProbeAt: .distantPast),
+                    ToolProbeRecord(driverId: devDriverId, status: .ready(version: "1"), lastProbeAt: .distantPast),
+                ]
+            }
         )
         return (service, runner)
     }
@@ -120,6 +125,41 @@ final class RelayCoordinatorTests: XCTestCase {
         // Round 2's PM prompt should have threaded round 1's dev report + head range —
         // verified indirectly: round 2 dispatched at all (there'd be no second PM call
         // otherwise) and the relay reached `done` only via round 2's verdict.
+    }
+
+    /// PO-F10: unresolvable `--dev-worker` escalates with WORKER_NOT_AVAILABLE before
+    /// silent stall retries (no 4 stalls + devRunId:NONE).
+    func testUnresolvableDevWorkerEscalatesWithWorkerNotAvailable() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement something.")),
+        ]
+        let (service, runner) = makeService(
+            pmScripts: pmScripts, devScripts: [], runStore: runStore
+        )
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm",
+            // Known catalog id but disabled on this service's bench (makeService only
+            // registers model_dev enabled). Pass an unknown id to trip PO-F10.
+            devWorkerId: "model_does_not_exist",
+            maxRounds: 5
+        )
+        let state = await coordinator.run(config: config)
+
+        XCTAssertEqual(state.status, .escalated)
+        XCTAssertTrue(
+            (state.note ?? "").contains("WORKER_NOT_AVAILABLE"),
+            "escalation note must surface typed code, got: \(state.note ?? "")"
+        )
+        XCTAssertEqual(state.rounds.count, 1)
+        XCTAssertEqual(state.rounds[0].outcome, .escalated)
+        XCTAssertNil(state.rounds[0].devRunId, "must not enter stall-retry with a fake/none run")
+        XCTAssertEqual(runner.callCount(for: "dev_cli"), 0, "dev CLI must never spawn")
     }
 
     /// D1 (Pilot_Defect_Fixes): the Execution Playbook preamble must appear at most once

@@ -365,7 +365,12 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             commandRunner: runner,
             writeLock: writeLock,
             defaultSettings: { DefaultModelSettings() },
-            probeRecords: { [] }
+            probeRecords: {
+                [
+                    ToolProbeRecord(driverId: "pm_cli", status: .ready(version: "1"), lastProbeAt: .distantPast),
+                    ToolProbeRecord(driverId: "dev_cli", status: .ready(version: "1"), lastProbeAt: .distantPast),
+                ]
+            }
         )
         return (service, runner)
     }

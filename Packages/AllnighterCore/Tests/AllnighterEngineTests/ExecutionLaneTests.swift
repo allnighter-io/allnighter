@@ -624,6 +624,68 @@ final class ExecutionLaneTests: XCTestCase {
         XCTAssertEqual(v1, "abc")
         XCTAssertTrue(raw.hasPrefix("k_"), "raw keys get escape-proof k_ prefix")
     }
+
+    // MARK: - PO-F10 stale-lane GC
+
+    func testStaleLaneGCRemovesDeadHolderUnheldDir() throws {
+        let support = FileManager.default.temporaryDirectory
+            .appendingPathComponent("lane-gc-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: support) }
+        setenv("ALLNIGHTER_SUPPORT_DIR", support.path, 1)
+        defer { unsetenv("ALLNIGHTER_SUPPORT_DIR") }
+
+        let key = ExecutionLane.key(repoRoot: "/tmp/lane-gc-dead-\(UUID().uuidString)")
+        let dead = ProcessOwnership.OwnerIdentity(
+            pid: 2_000_002, pgid: 2_000_002, startTimeTicks: 1, kind: .detachedRunner
+        )
+        XCTAssertFalse(ProcessOwnership.isIdentityAlive(dead))
+        try ExecutionLaneFlock.writeHolders(
+            laneKey: key,
+            holders: [
+                .init(
+                    identity: dead, kind: "relayDevTurn", id: "orphan",
+                    acquiredAt: Date(timeIntervalSince1970: 1)
+                )
+            ]
+        )
+        let dir = ExecutionLaneFlock.directory(forLaneKey: key)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.path))
+        XCTAssertFalse(ExecutionLaneFlock.isLocked(laneKey: key))
+
+        let removed = ExecutionLaneFlock.garbageCollectStaleLanes()
+        XCTAssertTrue(removed.contains(ExecutionLaneFlock.sanitizedDirectoryName(for: key)))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.path))
+    }
+
+    func testStaleLaneGCKeepsLiveHeldDir() async throws {
+        let support = FileManager.default.temporaryDirectory
+            .appendingPathComponent("lane-gc-live-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: support) }
+        setenv("ALLNIGHTER_SUPPORT_DIR", support.path, 1)
+        defer { unsetenv("ALLNIGHTER_SUPPORT_DIR") }
+
+        let reg = ExecutionLaneRegistry()
+        let key = ExecutionLane.key(repoRoot: "/tmp/lane-gc-live-\(UUID().uuidString)")
+        let identity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+        let acquired = await reg.tryAcquire(
+            key,
+            claim: .make(id: "live", kind: "relayDevTurn", identity: identity),
+            now: Date()
+        )
+        guard case .success(let token) = acquired else {
+            return XCTFail("live claim must acquire")
+        }
+
+        let dir = ExecutionLaneFlock.directory(forLaneKey: key)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.path))
+        let removed = ExecutionLaneFlock.garbageCollectStaleLanes()
+        XCTAssertFalse(removed.contains(ExecutionLaneFlock.sanitizedDirectoryName(for: key)))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.path))
+
+        await reg.release(key, token: token, endReason: "completed")
+    }
 }
 
 // MARK: - Helpers
