@@ -262,29 +262,21 @@ load-bearing beyond display — curate them as index quality, not decoration:
 - **`starters`** — ≥1 per team; example utterances double as router match fuel
   and the recipe cards in `Agent_Onboarding.md`.
 
-**The current built-in catalog is STALE and pre-rename.** Only **Spec Review**
-and **Growth** follow the universal Min/Default/Max law with obvious names. The
-rest is inconsistent: Bug Hunt has Default + Max but **no Min**; Security Review,
-Release Proof, GUI Bug Hunt, and Code Core are single teams with no tiers; Design
-is five *flavor-named* teams (Premium Polish, Conversion Studio, Radical
-Directions, Usability Triage) — not Min/Default/Max; Copy and Signal are
-flavor/obscure-named too. This defeats the router and the human picker alike.
+**The current built-in catalog is STALE and pre-rename** (only Spec Review and
+Growth follow the law with obvious names). The normalized family list — obvious
+names, which families are tiered Min/Default/Max vs single, target `typeTags`,
+and the rename/merge/drop decisions — is the **SSOT in
+`Team_Catalog_Normalization.md`**. That doc lands first; `BuiltInTeams.swift` is
+then built to it, and its `BuiltInTeamsTests` enforce tier completeness,
+non-empty `typeTags`, ≥1 `starter`, and no flavor/depth names.
 
-The team list is finalized against the intent taxonomy in the router's **IR-S00
-catalog normalization** (`Agent_Intent_Router.md`), which is founder-gated real
-work, not a rubber stamp:
+Two laws from that doc bind this catalog:
 
-- Every approved family (Spec Review + Growth are the template + the only two
-  approved today) gets **Min / Default / Max**, no flavor names for depth.
-- Every family name is an **obvious job phrase** ("Bug Hunt", "Security Review",
-  "Copy") — obscure/flavor names get renamed.
-- Design's flavor teams are sorted into Design tiers vs distinct approved families.
-- `description` reads as an intent phrase; `typeTags` are tight match keys; ≥1
-  `starter` per team.
-
-Enforce Min/Default/Max completeness + non-empty `typeTags` + ≥1 `starter` in
-`BuiltInTeamsTests`. **No new family ships without founder approval** — the same
-gate Spec Review and Growth passed.
+- **Obvious job names, no flavor** ("Bug Hunt", "Security Review", "Copy").
+- **Tiers are optional** — like model effort levels. A family declares
+  Min/Default/Max only when depth materially changes the answer AND users dial it
+  (Spec Review, Bug Hunt, Growth, Design); focused families are single teams
+  (Copy, Security Review, Signal…) and that is correct, not a gap.
 
 ### Lane ownership
 

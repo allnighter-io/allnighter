@@ -3,9 +3,9 @@
 Status: Specced v1 — the keystone gate between "agent found alln" and "agent
 ran the right team." Awaiting founder go. The matcher is built on catalog
 metadata (`description`/`typeTags`/`starters`/`lane`) — but that catalog is
-STALE and pre-rename: only Spec Review and Growth follow the Min/Default/Max law
-with obvious names. **IR-S00 (founder-gated catalog normalization) is a hard
-prerequisite; the router cannot route over a stale catalog.**
+STALE and pre-rename. **`Team_Catalog_Normalization.md` is the hard prerequisite
+and MUST land first** (it decides the obvious family names + which families are
+tiered Min/Default/Max vs single); the router cannot route over a stale catalog.
 Owner: AllnighterCore (`AgentHello` + catalog) + AllnighterCLI (`team hello`)
 Updated: 2026-07-18
 
@@ -53,15 +53,13 @@ the readiness the verdict already computes.
    but the router resolves to a real team id (`code_bug_hunt`, `code_growth`,
    `code_spec_review`, …) or a real primitive (`pair pilot`, `pair relay`). The
    mnemonic is for humans; the command is for machines.
-4. **Every family is Min / Default / Max; route to Default, offer up/down.** The
-   depth law is universal (`Team_Depth_Naming.md`): every team family exposes the
-   same three tiers — **Min / Default / Max** ("Default" is the bare, everyday
-   team id; it is what the router picks). Route to Default and surface Min/Max as
-   alternates — never auto-escalate to Max. A family that does NOT yet have all
-   three tiers is NOT router-ready (see IR-S00). **No flavor names for depth**
-   (no "Premium Polish", "Conversion Studio" as tiers) — those are either
-   distinct job families in their own right or they collapse into Design's tiers;
-   IR-S00 decides, the founder approves.
+4. **Route to Default; offer Min/Max only when the family is tiered.** Tiers are
+   OPTIONAL per family (`Team_Catalog_Normalization.md` Law 2 — like model effort
+   levels): tiered families (Spec Review, Bug Hunt, Growth, Design) expose
+   **Min / Default / Max**; focused families (Copy, Security Review, Signal…) are
+   single teams and that is correct, not a gap. The router always picks the
+   Default and surfaces Min/Max as alternates *only when they exist* — never
+   auto-escalates to Max. "Default" is the everyday team id (UI-only label).
 5. **Team names must be obvious job phrases — for humans AND the router.** A team's
    name is the JOB stated plainly (Bug Hunt, Spec Review, Growth, Security Review,
    Design, Copy…), depth as the Min/Default/Max suffix. Obscure or flavor names
@@ -99,72 +97,56 @@ the readiness the verdict already computes.
 }
 ```
 
-## The intent → target-family matrix (the 80%) — and the catalog is NOT ready
+## The intent taxonomy (the 80%) — routes to normalized families
 
-This is the routing table the matcher must implement: the ~80% of dev/vibe-coder
-intent, mapped to the JOB family it should reach. **This table is the target.
-The current catalog does NOT yet satisfy it** — and that is the real work, not a
-footnote.
+The matcher maps the ~80% of dev/vibe-coder intent to a JOB family. The families,
+their obvious names, tier shape, and `typeTags` are **defined in
+`Team_Catalog_Normalization.md`** (the single source — this table stays a thin
+taxonomy so the two don't drift). Depth is picked per Law 2 there: tiered
+families route to Default with Min/Max alternates; single families route to the
+one team.
 
-**Only `Spec Review` and `Growth` are approved and correctly tiered
-(Min/Default/Max).** Every other family is either missing tiers, single-team, or
-flavor-named — all of which defeat both a human scanning the picker and the
-router matching intent. Status is honest below; ✅ is reserved for
-approved-and-tiered.
+| Intent (how the user talks) | Family (see normalization doc) |
+| --- | --- |
+| "turn my rough idea into a plan" | Plan |
+| "harden this spec / challenge my plan before I build" | Spec Review *(tiered)* |
+| "fix this bug / find the real cause" | Bug Hunt *(tiered)* |
+| "the UI is visibly broken" | GUI Bug Hunt |
+| "is this secure? credentials / permissions / exposure" | Security Review |
+| "how do we get users to love + spread this" | Growth *(tiered)* |
+| "prove this slice is actually done" | Release Proof |
+| "just build this slice in the repo" | Build a Slice |
+| "design / redesign this screen or flow" | Design *(tiered)* |
+| "make this surface feel expensive / native" | Polish |
+| "why does this surface feel confusing / slow" | Usability Review |
+| "write clearer / more persuasive copy" | Copy Core |
+| "rewrite my landing page / improve conversion" | Copy Landing |
+| "what does this external post/article mean for us" | Outside Signal |
+| "what should we build next" | What to Build Next |
+| "have another model BUILD this while I supervise" | `pair pilot` *(primitive)* |
+| "keep building + reviewing overnight" | `pair relay` *(primitive)* |
+| "just ask a model a question" | Auto *(chat default)* |
 
-| Intent (how the user talks) | Target family | Depth today | Status |
-| --- | --- | --- | --- |
-| "harden this spec / challenge my plan before I build" | **Spec Review** | Min/Default/Max | ✅ LOCKED |
-| "how do we get users to love + spread this" | **Growth** | Min/Default/Max | ✅ LOCKED |
-| "fix this bug / find the real cause" | **Bug Hunt** | Default + Max, **no Min** | ⚠ REVIEW — add Min |
-| "the UI is visibly broken" | **Bug Hunt** (GUI) | separate single team | ⚠ REVIEW — GUI = a Bug Hunt tier/variant or its own family? |
-| "design a screen / directions / polish / usability" | **Design** | 5 flavor-named teams (`premium_polish`, `conversion_studio`, `radical_directions`, `usability_triage`) | ⚠ REVIEW — which are Design tiers vs distinct families? Rename to law |
-| "is this secure? check credentials/permissions" | **Security Review** | single team | ✗ RENORMALIZE — add Min/Default/Max |
-| "prove this slice is actually done" | **Release Proof** | single team | ✗ RENORMALIZE |
-| "turn this rough idea into a plan" | **Code Core / Plan** | single (`code_core`) | ✗ RENORMALIZE + obvious name |
-| "write clearer/persuasive copy" | **Copy** | `copy_core` + `copy_landing_page` (flavor) | ✗ RENORMALIZE — tiers + obvious names |
-| "rewrite this landing page to convert" | **Copy** (or Landing family) | flavor-named | ✗ RENORMALIZE |
-| "what changed outside / what to build next" | **Signal** | 2 obscure-named teams (`post_to_project`, `what_to_build_next`) | ✗ RENORMALIZE — obvious names + tiers |
-| "have another model BUILD this while I supervise" | `pair pilot` | primitive | ✅ (not a team) |
-| "keep building + reviewing overnight" | `pair relay` | primitive | ✅ (not a team) |
-| "just ask a model a question" | Auto / Chat | `default_chat` | — routing default |
+**Known gaps (named, not silent):** test-writing, docs/README authoring,
+refactor-at-scale, and dependency/upgrade triage have no dedicated family and
+route to Plan / Build a Slice / Pilot today. `Team_Catalog_Normalization.md`
+decides per-gap whether a family earns its place.
 
-**Finding (corrected): the catalog is STALE and pre-rename.** Only Spec Review
-and Growth follow the universal Min/Default/Max law with obvious names. The
-router cannot route reliably over flavor names, missing tiers, and obscure ids.
-So the near-term work is a **catalog normalization pass**, not "just discovery" —
-and it is founder-gated (which families are approved is a founder call, exactly
-as Spec Review and Growth were).
+## Where the team list is finalized
 
-**Known gaps to decide during IR-S00, not silently:** test-writing, docs/README
-authoring, refactor-at-scale, and dependency/upgrade triage have no family today
-and route to Code Core / Pilot. Decide per-gap whether a dedicated family earns
-its place.
-
-## Where the team list is finalized and built
-
-This doc **owns the intent taxonomy and the target matrix** (which JOB families
-must exist and be reachable). It does **not** own the team definitions — those
-live in `BuiltInTeams.swift`, governed by `Team_And_Skill_Catalogs.md` and the
-Team Lab docs (`Team_Lab_Run_Factory.md`). The contract:
-
-- **Router doc (here):** decides *which intents must have a killer family* and
-  the target names/tiers. Names gaps.
-- **Catalog / Team Lab:** normalizes and builds the definitions to the law — every
-  approved family gets Min/Default/Max, an obvious job name, an intent-phrase
-  `description`, tight `typeTags`, and ≥1 `starter`. **Team metadata IS the router
-  index** (amendment recorded in `Team_And_Skill_Catalogs.md`).
-
-So "finalize the team list" happens in **IR-S00**, which is a real normalization
-project (below), not a rubber-stamp audit.
+The taxonomy above (which intents must be reachable) lives here. The **family
+definitions — names, tiers, rosters, metadata — are finalized in
+`Team_Catalog_Normalization.md`**, then built into `BuiltInTeams.swift` under
+`Team_And_Skill_Catalogs.md`. **Team metadata IS the router index.** That doc is
+the hard prerequisite: the router is built only after the catalog is normalized.
 
 ## Slices
 
 | Slice | Deliverable |
 | --- | --- |
-| IR-S00 | **Catalog normalization (founder-gated) — the real prerequisite.** For each JOB family in the matrix: (a) founder approves it as a family (as Spec Review + Growth already are); (b) give it an obvious job name; (c) build Min/Default/Max rosters (Spec Review + Growth are the template; Bug Hunt needs Min; Security/Release Proof/Code Core/Copy/Signal need full tiers; Design's flavor teams get sorted into tiers vs distinct families); (d) intent-phrase `description` + tight `typeTags` + ≥1 `starter`. Enforce Min/Default/Max completeness + non-empty `typeTags` + ≥1 `starter` in `BuiltInTeamsTests`. **Blocks S01** — the router cannot route over a stale catalog. |
-| IR-S01 | `alln team hello --for "<intent>" --json` — deterministic matcher over catalog `typeTags`/`description`/`lane`; `recommended` + `readiness` + `fallback` + `nextActions`; no-empty-silence + honesty laws enforced; golden-transcript tests for the matrix rows. |
-| IR-S02 | Depth + primitive routing — Min/Default/Max alternates; Pilot/Relay/Chat as first-class targets; requested-worker echo (no silent substitution). |
+| IR-S00 | **Prerequisite: `Team_Catalog_Normalization.md` lands** (obvious names + tier shape + metadata + `BuiltInTeamsTests` green). The router does not start until the catalog is normalized. |
+| IR-S01 | `alln team hello --for "<intent>" --json` — deterministic matcher over catalog `typeTags`/`description`/`lane`; `recommended` + `readiness` + `fallback` + `nextActions`; no-empty-silence + honesty laws enforced; golden-transcript tests for the taxonomy rows. |
+| IR-S02 | Depth + primitive routing — Default with Min/Max alternates *where the family is tiered*; Pilot/Relay/Chat as first-class targets; requested-worker echo (no silent substitution). |
 | PARKED | Fuzzy/model-assisted intent match behind the deterministic floor · completion-receipt unified result shape across team/pilot/relay (true metrics only — rounds, commits, tests, unattended duration; NEVER invented "handoffs avoided"). |
 
 ## Anti-goals
