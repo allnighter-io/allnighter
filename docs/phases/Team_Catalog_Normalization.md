@@ -1,10 +1,12 @@
 # Team Catalog Normalization — obvious families the router (and humans) can trust
 
 Status: Specced v1 — **the prerequisite for `Agent_Intent_Router.md`.** Decides
-the built-in family list, names, and tier shape. This doc is decisive (founder
-veto, not founder homework — agents do 90% of a vibe coder's work, so the AI
-nails the names). Awaiting founder go.
-Owner: AllnighterCore (`BuiltInTeams.swift`) + `Team_And_Skill_Catalogs.md`
+the built-in family list (Law 1: obvious names), tier shape (Law 2: optional
+Min/Default/Max), and **staffing (Law 3: caliber + capability, never per-team
+model lists)**. Decisive (founder veto, not homework — agents do 90% of a vibe
+coder's work, so the AI nails the names AND the staffing). CN-S05 (staffing +
+K3/Sol design) is in build; the rest awaits founder go.
+Owner: AllnighterCore (`BuiltInTeams.swift` + `ModelCatalog.swift`) + `Team_And_Skill_Catalogs.md`
 Updated: 2026-07-18
 
 ## Why this comes first
@@ -119,14 +121,73 @@ and **≥1 `starter`**. Enforced in `BuiltInTeamsTests`:
 - no family has an orphan Min/Max without a Default;
 - no empty `typeTags`; ≥1 `starter`; no flavor names for depth.
 
+## Law 3 — staffing is by CALIBER + CAPABILITY, never per-team model lists
+
+This is the load-bearing rule. Assigning models to roles by hand, for every team,
+every time, is the annoyance — and it silently breaks when a user lacks a CLI or
+a great new model ships. The staffing logic is already **shared** (`TeamResolver`
++ per-model capability metadata + capability-filtered triangulation). The teams
+must USE it instead of bypassing it with hardcoded lists.
+
+**Two layers, one source of truth:**
+
+1. **Model suitability lives in ONE place — `ModelCatalog.builtInCapabilities`.**
+   Each model declares its `laneTags`, `capabilityTags` (`code`, `planner`,
+   `review`, `security`, `design`, `image`, `copy`, `localContext`, `fast`), and a
+   `strengthRank`. **To make a model eligible for a kind of work, tag it here,
+   once — and every team that needs that work picks it up automatically.** That is
+   the whole "say it once, everything is done" property.
+
+2. **A team row expresses NEED, not identity.** A row declares its lane, the
+   **capability** it requires, whether it triangulates (distinct minds for
+   diversity), and its **caliber** — nothing more. The shared resolver fills it
+   from the *ready* bench, strongest-first within caliber, and **degrades
+   gracefully** when CLIs are absent (drops a seat rather than double-booking or
+   hard-failing; ≥1 ready model always runs). **No per-team hardcoded model
+   arrays** (`designImageModels`, `designWorkerRotation`, `growthPreference`,
+   `copyWorkerRotation`, `codeWorkerRotation`) — those are the anti-pattern; they
+   fight the resolver and rot when the bench changes.
+
+**Caliber vocabulary** (bands over the existing `strengthRank`, so authors and
+humans can talk about a role's level — realized through the resolver, NOT a new
+hand-maintained list):
+
+| Caliber | Band | Typical seats | Used for |
+| --- | --- | --- | --- |
+| **Flagship** | rank ≥ 95 | Fable, ChatGPT 5.6 Sol, ChatGPT (Codex) | Team Lead / synthesis; strategic seats. **Fable is Lead-only** — never a worker. |
+| **High** | 85–94 | Opus, Cursor-Grok, Kimi K3, Grok | The everyday strong worker band. |
+| **Mid** | 70–84 | Sonnet, Composer, Cursor-Auto, agy-Opus, Gemini, GLM, Qwen | Cheap capable fill; staff freely. |
+
+The Lead is a named Flagship seat; worker rows triangulate across distinct
+capable models (strongest reserved for the Lead), diversity front-loaded by rank.
+Both are already what `TeamResolver` does — the fix is to let it, by tagging
+capability in the catalog and dropping the hardcoded arrays.
+
+### Design capability — reasoning vs image (and K3 + Sol)
+
+Design has two seat kinds, and conflating them is a bug:
+
+- **`design` capability** = design *reasoning*: information architecture,
+  interaction, critique, direction, usability. A text model can hold this seat.
+- **`image` capability** = actually *generates* a mockup image. Only image
+  engines (Gemini, ChatGPT/Codex, Grok — per the generated-image harvest) qualify.
+
+Decision (founder note): **Kimi K3 and ChatGPT 5.6 Sol are great designers** —
+they get the **`design`** capability (reasoning/critique/direction seats), NOT
+`image`. Concretely in `ModelCatalog.builtInCapabilities`: K3 gains the `.design`
+laneTag **and** `.design` capabilityTag; Sol (and its Codex twin) gain the
+`.design` capabilityTag. Because staffing is capability-driven, that one metadata
+edit puts them on every design team's reasoning seats — no per-team edits.
+
 ## Slices
 
 | Slice | Deliverable |
 | --- | --- |
+| CN-S05 | **Staffing by caliber (do first — lowest risk, immediate value).** (a) Metadata: add `design` to Kimi K3 (`.design` laneTag + capabilityTag), Sol, and Codex; add `image` to Codex + Grok so image seats resolve by capability; Gemini already carries both. (b) Re-author every team's rows to require capability + triangulate + caliber, and delete the hardcoded model arrays. (c) Graceful degradation verified with a reduced bench. Build + `BuiltInTeamsTests`/`PanelTeamResolverTests`/`TeamCatalogTests` green. **Independent of the rename/tier slices** — lands on the current team ids. |
 | CN-S01 | Rename pass — Code Core→Plan, Execution Playbook→Build a Slice, Premium Polish→Polish, Usability Triage→Usability Review, Design Core→Design, Post-to-Project Signal→Outside Signal, "What should we build next?"→What to Build Next. Names + `id`s + `typeTags` + intent-phrase `description`s. |
 | CN-S02 | Tier completion — add **Bug Hunt Min**; fold **Radical Directions** into **Design Max**; confirm Spec Review + Growth unchanged. Every tiered family Min/Default/Max complete. |
 | CN-S03 | Merges/drops — retire **Conversion Studio**, route its intent to Copy Landing. |
-| CN-S04 | `BuiltInTeamsTests` guards — tier completeness, non-empty `typeTags`, ≥1 `starter`, no flavor-depth names, no orphan tiers. Green gate. |
+| CN-S04 | `BuiltInTeamsTests` guards — tier completeness, non-empty `typeTags`, ≥1 `starter`, no flavor-depth names, no orphan tiers, **and no hardcoded per-team model arrays** (Law 3). Green gate. |
 
 **Then** `Agent_Intent_Router.md` IR-S01 builds `team hello --for` over the clean
 catalog. (IR-S00 in that doc = "this doc lands first.")
@@ -139,6 +200,8 @@ catalog. (IR-S00 in that doc = "this doc lands first.")
 - **No net-new family without founder approval** — the gate Spec Review + Growth
   passed. (But the AI proposes the answer; the founder vetoes, not authors.)
 - **No number/flavor depth labels** — only Min / Default / Max.
+- **No per-team hardcoded model arrays** — staff by caliber + capability; a
+  model's suitability lives once in `ModelCatalog` (Law 3).
 
 ## Works test
 
@@ -146,6 +209,10 @@ Every family in the catalog reads as an obvious job to a cold agent and a human.
 Tiered families (Spec Review, Bug Hunt, Growth, Design) have a complete
 Min/Default/Max; single families have exactly one team and no orphan tiers.
 `typeTags` are non-empty and intent-shaped; every family has ≥1 starter; zero
-flavor/internal/depth names remain. `BuiltInTeamsTests` green. The router's
-golden-transcript rows (in `Agent_Intent_Router.md`) then resolve each sample
-intent to exactly one family.
+flavor/internal/depth names remain. **Staffing:** no team defines a hardcoded
+model array; every role resolves to a correct-caliber, capability-matched model
+from the ready bench and degrades gracefully on a reduced bench; Kimi K3 and Sol
+appear on design reasoning seats with zero per-team edits. `BuiltInTeamsTests`,
+`PanelTeamResolverTests`, `TeamCatalogTests` green. The router's golden-transcript
+rows (in `Agent_Intent_Router.md`) then resolve each sample intent to exactly one
+family.
