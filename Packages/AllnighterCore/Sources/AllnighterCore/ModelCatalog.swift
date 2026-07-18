@@ -7,19 +7,23 @@ public enum ModelCatalog {
 
     public static let builtInCapabilities: [String: ModelCapabilities] = [
         // Flagship-only seats (synthesis / Auto default pool).
+        // Fable is often unavailable/reserved (Lead-only worker reservation elsewhere),
+        // but when it IS available it should be design-eligible too.
         "model_fable": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
+            capabilityTags: [.code, .planner, .review, .security, .design, .copy, .localContext],
             strengthRank: 100),
         "model_chatgpt_sol": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
+            capabilityTags: [.code, .planner, .review, .security, .design, .copy, .localContext],
             strengthRank: 99),
         // ChatGPT 5.6 Sol via Codex — same underlying model as model_chatgpt_sol (Cursor),
         // so it carries Sol's capability profile. Opus remains a strong judgment seat.
+        // Codex also generates mockup images (generated-image harvest), so it carries
+        // `.image` alongside its Sol design-reasoning profile.
         "model_chatgpt": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
+            capabilityTags: [.code, .planner, .review, .security, .design, .image, .copy, .localContext],
             strengthRank: 99),
         "model_opus": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
@@ -31,14 +35,18 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner],
             strengthRank: 89),
+        // Kimi K3 is a great designer (founder note) — design reasoning/critique/
+        // direction, NOT image generation.
         "model_kimi_k3": ModelCapabilities(
-            laneTags: [.code, .copy, .signal],
-            capabilityTags: [.code, .planner, .review],
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .design],
             strengthRank: 88),
-        // Grok is web-aware — a natural Signal scout (interprets public posts/links).
+        // Grok is web-aware — a natural Signal scout (interprets public posts/links) —
+        // and also generates mockup images (generated-image harvest), so it carries
+        // both `.design` (lane) and `.image` (capability) for design work.
         "model_grok": ModelCapabilities(
-            laneTags: [.code, .copy, .signal],
-            capabilityTags: [.code, .planner],
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner, .image],
             strengthRank: 87),
         "model_sonnet": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
