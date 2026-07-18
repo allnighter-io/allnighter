@@ -127,16 +127,30 @@ public enum HandoverGate {
     ]
 
     private static func rmRfDecision(in text: String) -> Decision? {
-        guard let regex = try? NSRegularExpression(pattern: "rm\\s+-rf\\s+(\\S+)", options: [.caseInsensitive])
+        // Capture the WHOLE argument list after `rm -rf` (up to the next shell operator or
+        // end of line), not just the first token — `rm -rf build /important-data` used to
+        // read only `build`, see the allowlist, and wave the whole command (incl.
+        // `/important-data`) through. EVERY target must be an allowlisted build dir for the
+        // command to pass. (SR-2 / Sol F9.)
+        guard let regex = try? NSRegularExpression(
+            pattern: "rm\\s+-rf\\s+(.+?)(?=\\s*(?:&&|\\|\\||;|\\||>>|>|<|\\n|$))",
+            options: [.caseInsensitive])
         else { return nil }
         let nsText = text as NSString
         let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
         for match in matches {
             guard let fullRange = Range(match.range, in: text), match.numberOfRanges > 1 else { continue }
-            let rawTarget = nsText.substring(with: match.range(at: 1))
-            let cleanedTarget = rawTarget.trimmingCharacters(in: CharacterSet(charactersIn: "./\\"))
-            let lastComponent = cleanedTarget.split(separator: "/").last.map(String.init) ?? cleanedTarget
-            if buildDirAllowlist.contains(lastComponent.lowercased()) { continue }
+            let rawTail = nsText.substring(with: match.range(at: 1))
+            let targets = rawTail
+                .split(whereSeparator: { $0 == " " || $0 == "\t" })
+                .map(String.init)
+                .filter { !$0.hasPrefix("-") }   // drop flags like `--no-preserve-root`
+            let hasDangerousTarget = targets.contains { target in
+                let cleaned = target.trimmingCharacters(in: CharacterSet(charactersIn: "./\\"))
+                let lastComponent = cleaned.split(separator: "/").last.map(String.init) ?? cleaned
+                return !buildDirAllowlist.contains(lastComponent.lowercased())
+            }
+            if !hasDangerousTarget { continue }   // every target is an allowlisted build dir
             if containsSafeContextCue(String(sentence(around: fullRange, in: text))) { continue }
             return .blocked(
                 dangerClass: .massDeletion,
@@ -165,8 +179,15 @@ public enum HandoverGate {
     private static let safeContextCues: [String] = [
         "don't", "do not", "doesn't", "does not", "never", "won't", "will not",
         "shouldn't", "should not", "must not", "mustn't", "cannot", "can't",
-        "avoid", "refrain from", "without", "prohibited", "banned", "disallowed",
+        "avoid", "refrain from", "prohibited", "banned", "disallowed",
         "not to", "no need to",
+        // NOTE: "without" is deliberately NOT a safe cue. "Proceed without asking",
+        // "without confirming", "without review" are autonomy-granting phrases —
+        // the opposite of a prohibition — and used to whitelist a whole (non-`.`/`!`/`?`
+        // -delimited, e.g. semicolon-joined) sentence that also carried a real danger
+        // instruction. A "without" that genuinely prohibits (e.g. "proceed without
+        // running reset --hard") now blocks; escalating to a human on that ambiguity is
+        // the safe direction for this human-confirm net. (SR-1 / Sol F8.)
         "revert", "reverting", "reverted",
         "undo", "undoing", "undone",
         "restore", "restoring", "restored",
