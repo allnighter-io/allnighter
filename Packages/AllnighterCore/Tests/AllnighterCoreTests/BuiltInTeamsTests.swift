@@ -3,6 +3,10 @@ import XCTest
 
 final class BuiltInTeamsTests: XCTestCase {
 
+    private func fable() -> Model {
+        Model(id: "model_fable", displayName: "Fable 5", modelLabel: "fable", driverId: "claude_code", role: .both)
+    }
+
     private func opus() -> Model {
         Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both)
     }
@@ -35,7 +39,7 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(team.scout?.skillId, "spec_outside_scout")
         XCTAssertEqual(team.scout?.preferredModelId, "model_grok")
         XCTAssertEqual(team.lead.skillId, "spec_review_writer")
-        XCTAssertEqual(team.lead.preferredModelId, "model_opus")
+        XCTAssertEqual(team.lead.preferredModelId, "model_fable")
         XCTAssertEqual(Set(team.workerSpecs.map(\.skillId)), [
             "spec_first_principles_reviewer",
             "spec_doc_hygiene_reviewer",
@@ -48,29 +52,36 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertTrue(team.workerSpecs.allSatisfy { $0.preferredModelId != nil })
     }
 
-    func testSynthesisTeamsPreferOpusLeadAndDiverseWorkersOnFullBench() {
+    func testSynthesisTeamsPreferFableLeadAndDiverseWorkersOnFullBench() {
         let ready: [Model] = [
-            opus(),
+            fable(),
+            Model(id: "model_chatgpt_sol", displayName: "ChatGPT 5.6 Sol", modelLabel: "gpt-5.6-sol-high",
+                  driverId: "cursor_agent", role: .both),
             Model(id: "model_cursor_composer_25", displayName: "Composer 2.5", modelLabel: "composer-2.5",
                   driverId: "cursor_agent", role: .answerer),
-            Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex", role: .answerer),
+            Model(id: "model_chatgpt", displayName: "ChatGPT 5.6", modelLabel: "gpt-5.6", driverId: "codex", role: .answerer),
             Model(id: "model_gemini", displayName: "Gemini 3.5 Flash", modelLabel: "g", driverId: "antigravity", role: .answerer),
-            Model(id: "model_sonnet", displayName: "Sonnet 4.6", modelLabel: "sonnet", driverId: "claude_code", role: .answerer),
-            Model(id: "model_grok", displayName: "Grok Build", modelLabel: "grok-build", driverId: "grok", role: .answerer),
+            Model(id: "model_sonnet", displayName: "Sonnet 5", modelLabel: "claude-sonnet-5", driverId: "claude_code", role: .answerer),
+            Model(id: "model_grok", displayName: "Grok 4.5", modelLabel: "grok-4.5", driverId: "grok", role: .answerer),
+            Model(id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-code/k3", driverId: "kimi", role: .answerer),
+            Model(id: "model_cursor_grok_45", displayName: "Cursor Grok 4.5", modelLabel: "cursor-grok-4.5-high",
+                  driverId: "cursor_agent", role: .answerer),
         ]
         let team = BuiltInTeams.team("code_spec_review")!
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: ready)
         XCTAssertTrue(r.isRunnable)
-        XCTAssertEqual(r.planWriter?.modelId, "model_opus")
+        XCTAssertEqual(r.planWriter?.modelId, "model_fable")
         XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
         let crew = r.answerWorkers + r.reviewWorkers
-        let opusWorkers = crew.filter { $0.modelId == "model_opus" }
-        XCTAssertEqual(opusWorkers.count, 1, "one strategic Opus worker, not a pile-up")
-        XCTAssertEqual(opusWorkers.first?.skillId, "spec_first_principles_reviewer")
+        let solWorkers = crew.filter { $0.modelId == "model_chatgpt_sol" }
+        XCTAssertEqual(solWorkers.count, 1, "one strategic Sol worker, not a pile-up")
+        XCTAssertEqual(solWorkers.first?.skillId, "spec_first_principles_reviewer")
         XCTAssertGreaterThan(Set(crew.map(\.modelId)).count, 2, "fan-out should spread across multiple models")
+        let composerHits = crew.filter { $0.modelId == "model_cursor_composer_25" }.count
+        XCTAssertLessThanOrEqual(composerHits, 1, "Composer at most once in the rotation")
     }
 
-    func testTierOneTeamsCarryOneStrategicOpusWorker() {
+    func testTierOneTeamsCarryOneStrategicSolWorker() {
         let tierOne: [String: String] = [
             "code_core": "first_principles_builder",
             "code_bug_hunt_max": "contrarian_root_cause",
@@ -81,19 +92,19 @@ final class BuiltInTeamsTests: XCTestCase {
         ]
         for (teamId, skillId) in tierOne {
             let row = BuiltInTeams.team(teamId)?.workerSpecs.first { $0.skillId == skillId }
-            XCTAssertEqual(row?.preferredModelId, "model_opus", "\(teamId) strategic worker \(skillId)")
+            XCTAssertEqual(row?.preferredModelId, "model_chatgpt_sol", "\(teamId) strategic worker \(skillId)")
         }
     }
 
-    func testEverySynthesisTeamReservesOpusForLead() {
+    func testEverySynthesisTeamReservesFableForLead() {
         let passthrough: Set<String> = ["default_chat", "execution_playbook"]
         for team in BuiltInTeams.all where !passthrough.contains(team.id) {
-            XCTAssertEqual(team.lead.preferredModelId, "model_opus", "\(team.id) lead should prefer Opus")
+            XCTAssertEqual(team.lead.preferredModelId, "model_fable", "\(team.id) lead should prefer Fable")
         }
     }
 
     func testNoBuiltInSeedPrefersAgyOpus() {
-        // Antigravity Opus 4.6 is fallback-only; seeds always prefer Claude Opus 4.8.
+        // Antigravity Opus 4.6 is fallback-only; seeds never prefer it.
         for team in BuiltInTeams.all {
             XCTAssertNotEqual(team.lead.preferredModelId, "model_agy_opus", "\(team.id) lead")
             for row in team.workerSpecs {
@@ -106,15 +117,14 @@ final class BuiltInTeamsTests: XCTestCase {
         }
     }
 
-    func testLeadFallsBackStrongestWhenOpusUnavailableIncludingAgy() {
-        // Preferred Claude Opus down; AGY Opus + ChatGPT ready → strongestReady
-        // picks ChatGPT (rank 90) over AGY Opus (rank 75). AGY is an ordered
-        // Flagship Auto fallback, not a stronger general lead than ChatGPT.
+    func testLeadFallsBackStrongestWhenFableUnavailableIncludingAgy() {
+        // Preferred Fable down; AGY Opus + ChatGPT ready → strongestReady
+        // picks ChatGPT (rank 92) over AGY Opus (rank 75).
         let team = BuiltInTeams.team("code_core")!
         let ready: [Model] = [
             Model(id: "model_agy_opus", displayName: "Claude Opus 4.6",
                   modelLabel: "Claude Opus 4.6 (Thinking)", driverId: "antigravity", role: .both),
-            Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5",
+            Model(id: "model_chatgpt", displayName: "ChatGPT 5.6", modelLabel: "gpt-5.6",
                   driverId: "codex", role: .answerer),
             Model(id: "model_cursor_composer_25", displayName: "Composer 2.5",
                   modelLabel: "composer-2.5", driverId: "cursor_agent", role: .answerer),
@@ -225,7 +235,8 @@ final class BuiltInTeamsTests: XCTestCase {
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .low, readyModels: [opus()])
         let regression = r.answerWorkers.first { $0.skillId == "regression_guard" }
         XCTAssertEqual(regression?.modelId, "model_opus")
-        XCTAssertTrue(r.warnings.contains { $0.contains("preferred model_cursor_composer_25 unavailable") })
+        // Preferred in rotation for that seat may be Composer or another high/mid id.
+        XCTAssertTrue(r.warnings.contains { $0.contains("preferred model_") && $0.contains("unavailable") })
     }
 
     // MARK: - Built-in immutability via duplicate-to-customize

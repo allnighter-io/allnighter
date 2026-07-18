@@ -22,24 +22,26 @@ public enum BuiltInTeams {
 
     // MARK: - Model routing (fan-out diversity policy)
 
-    /// Synthesis Lead — Claude Code Opus 4.8. Antigravity Opus 4.6 (`model_agy_opus`)
-    /// is never a preferred seed; it is fallback-only via Flagship tier order /
-    /// strongestReady ranking when Claude Code is unavailable.
-    private static let leadOpus = "model_opus"
-    /// Default worker anchor for code/build teams (how users actually run teams).
+    /// Synthesis Lead — Fable 5 (flagship-only). ChatGPT 5.6 Sol is the strategic
+    /// flagship worker seat. Antigravity Opus is never a preferred seed.
+    private static let leadFlagship = "model_fable"
+    private static let strategicFlagship = "model_chatgpt_sol"
+    /// Default worker anchor for mutating Auto / Execution Playbook (Cursor).
     private static let composer = "model_cursor_composer_25"
     private static let chatgpt = "model_chatgpt"
     private static let gemini = "model_gemini"
     private static let sonnet = "model_sonnet"
-    /// External / X / web research scout.
+    private static let kimi = "model_kimi_k3"
+    private static let cursorGrok = "model_cursor_grok_45"
+    /// External / X / web research scout (also high/mid value in rotations).
     private static let grok = "model_grok"
 
-    /// Composer-heavy rotation, but never one model for the whole crew when depth exists.
+    /// Distinct high + high/mid seats once each — Composer at most once.
     private static let codeWorkerRotation: [String] = [
-        composer, chatgpt, gemini, composer, sonnet, chatgpt, gemini, composer, sonnet
+        cursorGrok, kimi, chatgpt, sonnet, composer, gemini, grok
     ]
     private static let designWorkerRotation: [String] = [
-        gemini, chatgpt, grok
+        gemini, chatgpt, cursorGrok
     ]
     /// Image mockup seats — one finished image per worker; only these three engines generate images.
     private static let designImageModels: [String] = [gemini, chatgpt, grok]
@@ -52,7 +54,7 @@ public enum BuiltInTeams {
         }
     }
     private static let copyWorkerRotation: [String] = [
-        chatgpt, composer, sonnet, chatgpt, composer, gemini, chatgpt
+        chatgpt, sonnet, kimi, cursorGrok, composer, gemini, grok
     ]
 
     // MARK: - Builders
@@ -69,26 +71,25 @@ public enum BuiltInTeams {
     }
 
     /// Spread workers across distinct models — the point of fan-out.
-    /// `strategicOpus` pins one high-judgment role to Opus so the crew gets
-    /// flagship reasoning, not only flagship synthesis. Lab runs prove whether
-    /// that slot earns its quota vs lead-only Opus.
+    /// `strategicSeats` pins high-judgment roles to ChatGPT 5.6 Sol so the crew
+    /// gets flagship reasoning, not only Fable synthesis.
     private static func diverseRows(
         _ specs: [(String, TeamWorkerPurpose)],
         rotation: [String],
         startIndex: Int = 0,
-        strategicOpus: Set<String> = []
+        strategicSeats: Set<String> = []
     ) -> [TeamWorkerSpec] {
         specs.enumerated().map { offset, spec in
-            let preferred = strategicOpus.contains(spec.0)
-                ? leadOpus
+            let preferred = strategicSeats.contains(spec.0)
+                ? strategicFlagship
                 : rotation[(startIndex + offset) % rotation.count]
             return row(spec.0, spec.1, preferred: preferred)
         }
     }
 
-    /// Opus synthesizes; workers fan out across cheaper/different models.
+    /// Fable synthesizes; workers fan out across high / high-mid value seats.
     private static func synthesisLead(_ writer: String, dissent: DissentPolicy = .preserveDissent) -> TeamLeadSpec {
-        TeamLeadSpec(skillId: writer, preferredModelId: leadOpus, fallbackPolicy: .strongestReady, dissentPolicy: dissent)
+        TeamLeadSpec(skillId: writer, preferredModelId: leadFlagship, fallbackPolicy: .strongestReady, dissentPolicy: dissent)
     }
 
     /// Every built-in carries one mandatory Team Lead (synthesizer). Effort scales
@@ -116,7 +117,7 @@ public enum BuiltInTeams {
         id: "signal_source_reader", skillId: "signal_source_reader", purpose: .answer,
         preferredModelId: grok, fallbackPolicy: .laneCapable)
 
-    /// Canonical interpreter preference: Grok (web-aware), GPT-5.5, then Gemini.
+    /// Canonical interpreter preference: Grok (web-aware), ChatGPT 5.6, then Gemini.
     static let signalInterpreterPreference = [grok, chatgpt, gemini]
 
     // MARK: - Code teams
@@ -132,7 +133,7 @@ public enum BuiltInTeams {
             ("scope_steward", .review),
             ("security_privacy_reviewer", .review),
             ("contrarian_reviewer", .review)
-        ], rotation: codeWorkerRotation, strategicOpus: ["first_principles_builder"]),
+        ], rotation: codeWorkerRotation, strategicSeats: ["first_principles_builder"]),
         writer: "plan_writer_build",
         starters: ["Turn this rough idea into an implementable plan with scope and proof.",
                    "Plan the smallest correct slice for <feature>."])
@@ -170,7 +171,7 @@ public enum BuiltInTeams {
             ("regression_guard", .answer),
             ("contrarian_root_cause", .review),
             ("fix_altitude_reviewer", .review)
-        ], rotation: codeWorkerRotation, strategicOpus: ["contrarian_root_cause"]),
+        ], rotation: codeWorkerRotation, strategicSeats: ["contrarian_root_cause"]),
         writer: "bug_packet_writer",
         starters: ["This bug has resisted earlier fixes — find the real cause and the right-level fix for <broken behavior>."])
 
@@ -187,7 +188,7 @@ public enum BuiltInTeams {
             ("change_impact_reviewer", .answer),
             ("gui_layout_reviewer", .review),
             ("contrarian_root_cause", .review)
-        ], rotation: codeWorkerRotation, startIndex: 2, strategicOpus: ["contrarian_root_cause"]),
+        ], rotation: codeWorkerRotation, startIndex: 2, strategicSeats: ["contrarian_root_cause"]),
         writer: "gui_bug_packet_writer")
 
     static let buildSecurityReview = make(
@@ -201,7 +202,7 @@ public enum BuiltInTeams {
             ("abuse_case_reviewer", .answer),
             ("dependency_injection_reviewer", .review),
             ("security_fix_prioritizer", .review)
-        ], rotation: codeWorkerRotation, strategicOpus: ["security_fix_prioritizer"]),
+        ], rotation: codeWorkerRotation, strategicSeats: ["security_fix_prioritizer"]),
         writer: "security_register_writer", dissent: .riskRegister)
 
     /// Spec Review — launch-tier spec hardening. Fan-out covers product/moat,
@@ -220,7 +221,7 @@ public enum BuiltInTeams {
             ("spec_scope_steward", .answer),
             ("spec_hype_skeptic", .review),
             ("spec_contrarian_reviewer", .review)
-        ], rotation: codeWorkerRotation, startIndex: 1, strategicOpus: ["spec_first_principles_reviewer"]),
+        ], rotation: codeWorkerRotation, startIndex: 1, strategicSeats: ["spec_first_principles_reviewer"]),
         writer: "spec_review_writer", dissent: .compareOptions,
         typeTags: ["launch", "spec-review"],
         starters: [
@@ -238,7 +239,7 @@ public enum BuiltInTeams {
             ("edge_case_hunter", .answer),
             ("contract_drift_checker", .answer),
             ("demo_narrator", .review)
-        ], rotation: codeWorkerRotation, startIndex: 3, strategicOpus: ["acceptance_auditor"]),
+        ], rotation: codeWorkerRotation, startIndex: 3, strategicSeats: ["acceptance_auditor"]),
         writer: "proof_packet_writer", dissent: .riskRegister,
         starters: ["Prove this slice is actually done before I believe it."])
 

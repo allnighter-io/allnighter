@@ -6,54 +6,63 @@ public enum ModelCatalog {
     // MARK: - Built-in capability metadata
 
     public static let builtInCapabilities: [String: ModelCapabilities] = [
-        "model_opus": ModelCapabilities(
+        // Flagship-only seats (synthesis / Auto default pool).
+        "model_fable": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
             strengthRank: 100),
-        // Antigravity Opus 4.6 — fallback-only when Claude Code Opus 4.8 is unavailable.
-        // Never outrank model_opus (100); stays below ChatGPT/Sonnet so strongestReady
-        // still prefers real flagships, while tier Auto can land here as Opus substitute.
-        "model_agy_opus": ModelCapabilities(
+        "model_chatgpt_sol": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
-            strengthRank: 75),
+            strengthRank: 99),
+        // High seats — ChatGPT 5.6; Opus remains a strong judgment seat (not flagship-only).
         "model_chatgpt": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security],
+            strengthRank: 92),
+        "model_opus": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
             strengthRank: 90),
         "model_sonnet": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .fast],
-            strengthRank: 80),
-        "model_gemini": ModelCapabilities(
-            laneTags: [.design, .code, .signal],
-            capabilityTags: [.code, .design, .image, .fast],
-            strengthRank: 75),
+            strengthRank: 86),
+        // High + mid value seats — high quality, low price (staff mid work freely).
+        "model_cursor_grok_45": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner],
+            strengthRank: 84),
+        "model_kimi_k3": ModelCapabilities(
+            laneTags: [.code, .copy, .signal],
+            capabilityTags: [.code, .planner, .review],
+            strengthRank: 83),
         // Grok is web-aware — a natural Signal scout (interprets public posts/links).
         "model_grok": ModelCapabilities(
             laneTags: [.code, .copy, .signal],
             capabilityTags: [.code, .planner],
-            strengthRank: 70),
-        "model_kimi_k3": ModelCapabilities(
-            laneTags: [.code, .copy, .signal],
-            capabilityTags: [.code, .planner, .review],
+            strengthRank: 82),
+        "model_cursor_composer_25": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .fast],
+            strengthRank: 80),
+        "model_cursor_auto": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .fast],
             strengthRank: 78),
+        // Antigravity Opus 4.6 — fallback-only; never outrank Claude/Cursor/Codex flagships.
+        "model_agy_opus": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
+            strengthRank: 75),
+        "model_gemini": ModelCapabilities(
+            laneTags: [.design, .code, .signal],
+            capabilityTags: [.code, .design, .image, .fast],
+            strengthRank: 75),
         "model_composer": ModelCapabilities(
             laneTags: [.code],
             capabilityTags: [.code, .fast],
             strengthRank: 60),
-        "model_cursor_composer_25": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .fast],
-            strengthRank: 85),
-        "model_cursor_grok_45": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner],
-            strengthRank: 83),
-        "model_cursor_auto": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .fast],
-            strengthRank: 88),
         "model_cursor_composer_25_fast": ModelCapabilities(
             laneTags: [.code],
             capabilityTags: [.code, .fast],
@@ -78,27 +87,34 @@ public enum ModelCatalog {
             .low: "Gemini 3.1 Pro (Low)", .med: "Gemini 3.1 Pro (High)", .high: "Gemini 3.1 Pro (High)"]
         let cursorGrokVariants: [EffortLevel: String] = [
             .low: "cursor-grok-4.5-low", .med: "cursor-grok-4.5-medium", .high: "cursor-grok-4.5-high"]
+        // ChatGPT 5.6 Sol — Cursor Agent labels (`agent --list-models`). Codex CLI
+        // was down when this seat was staffed; Sol rides Cursor, not Codex.
+        let chatgptSolVariants: [EffortLevel: String] = [
+            .low: "gpt-5.6-sol-low", .med: "gpt-5.6-sol-medium", .high: "gpt-5.6-sol-high"]
         func fixed(_ s: String) -> [EffortLevel: String] { [.low: s, .med: s, .high: s] }
         return [
             // Claude Code — effort via the `--effort` flag (see DefaultConfig manifest).
+            // Fable 5 is the Claude-side flagship; Sonnet 5 is the default Claude seat;
+            // Opus 4.8 remains a high judgment seat (not flagship-only).
+            def("model_fable", "Fable 5", "fable", "claude_code", .both, defaultEnabled: true),
             def("model_opus", "Opus 4.8", "opus", "claude_code", .both, defaultEnabled: true),
-            def("model_sonnet", "Sonnet 4.6", "sonnet", "claude_code", .answerer, defaultEnabled: true),
-            def("model_fable", "Fable 5", "fable", "claude_code", .answerer, defaultEnabled: false),
-            // Codex — recognized from `codex debug models` (visibility == list).
-            def("model_chatgpt", "ChatGPT 5.5", "gpt-5.5", "codex", .answerer, defaultEnabled: true),
+            def("model_sonnet", "Sonnet 5", "claude-sonnet-5", "claude_code", .answerer, defaultEnabled: true),
+            // Codex — ChatGPT 5.6 is High (not flagship-only). Label not live-probed
+            // (Codex CLI down); keep intended `gpt-5.6` and verify when Codex returns.
+            def("model_chatgpt", "ChatGPT 5.6", "gpt-5.6", "codex", .answerer, defaultEnabled: true),
             def("model_chatgpt_54", "ChatGPT 5.4", "gpt-5.4", "codex", .answerer, defaultEnabled: false),
             def("model_chatgpt_54_mini", "ChatGPT 5.4 mini", "gpt-5.4-mini", "codex", .answerer, defaultEnabled: false),
             def("model_codex_spark", "Codex Spark", "gpt-5.3-codex-spark", "codex", .answerer, defaultEnabled: false),
-            // Grok — recognized from `grok models`; effort via `--reasoning-effort`.
+            // Grok — high quality / low price → high + mid work. Effort via `--reasoning-effort`.
             def("model_grok", "Grok 4.5", "grok-4.5", "grok", .answerer, defaultEnabled: true),
             def("model_kimi_k3", "Kimi K3", "kimi-code/k3", "kimi", .both, defaultEnabled: true),
             def("model_composer", "Grok Composer 2.5 Fast", "grok-composer-2.5-fast", "grok", .answerer, defaultEnabled: false),
-            // Cursor Agent — Auto is the default; regular Composer 2.5 stays on-bench;
-            // Fast is explicit opt-in (6× cost). Cursor Grok 4.5 encodes effort in the
-            // model id (`agent --list-models`).
+            // Cursor Agent — Auto is the default; Composer 2.5 at most once in rotations;
+            // Cursor Grok 4.5 is high/mid; ChatGPT 5.6 Sol is the Cursor-side flagship.
             def("model_cursor_auto", "Auto", "auto", "cursor_agent", .answerer, defaultEnabled: true),
             def("model_cursor_composer_25", "Composer 2.5", "composer-2.5", "cursor_agent", .answerer, defaultEnabled: true),
             def("model_cursor_grok_45", "Cursor Grok 4.5", "cursor-grok-4.5-high", "cursor_agent", .answerer, defaultEnabled: true, effortVariants: cursorGrokVariants),
+            def("model_chatgpt_sol", "ChatGPT 5.6 Sol", "gpt-5.6-sol-high", "cursor_agent", .both, defaultEnabled: true, effortVariants: chatgptSolVariants),
             def("model_cursor_composer_25_fast", "Composer 2.5 Fast", "composer-2.5-fast", "cursor_agent", .answerer, defaultEnabled: false),
             // Antigravity — a multi-model router; effort is encoded in the model name.
             def("model_gemini", "Gemini 3.5 Flash", "Gemini 3.5 Flash (Medium)", "antigravity", .answerer, defaultEnabled: true, effortVariants: flashVariants),

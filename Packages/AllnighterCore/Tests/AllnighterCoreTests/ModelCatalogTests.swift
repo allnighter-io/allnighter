@@ -32,10 +32,15 @@ final class ModelCatalogTests: XCTestCase {
     func testBuiltInsDefaultEnabledOnFreshInstall() {
         let registry = testRegistry()
         let models = ModelCatalog.resolvedModels(registry: registry)
-        // opus, sonnet, gpt-5.5, grok, Gemini Flash, Cursor Auto, Cursor Composer 2.5, Cursor Grok 4.5.
+        // Fable, Opus, Sonnet 5, ChatGPT 5.6, Grok 4.5, Kimi K3, Cursor Auto,
+        // Composer 2.5, Cursor Grok 4.5, ChatGPT 5.6 Sol, Gemini Flash.
         // (model_agy_opus stays default-off — fallback-only.)
-        XCTAssertEqual(models.filter(\.enabled).count, 8)
+        XCTAssertEqual(models.filter(\.enabled).count, 11)
         XCTAssertFalse(models.first { $0.id == "model_agy_opus" }?.enabled ?? true)
+        XCTAssertTrue(models.first { $0.id == "model_fable" }?.enabled ?? false)
+        XCTAssertTrue(models.first { $0.id == "model_chatgpt_sol" }?.enabled ?? false)
+        XCTAssertEqual(models.first { $0.id == "model_sonnet" }?.modelLabel, "claude-sonnet-5")
+        XCTAssertEqual(models.first { $0.id == "model_chatgpt" }?.displayName, "ChatGPT 5.6")
     }
 
     func testDisableSonnetPersistsAcrossReload() throws {
@@ -63,9 +68,11 @@ final class ModelCatalogTests: XCTestCase {
     }
 
     func testProbeLabelWhenAllClaudeModelsDisabled() throws {
+        try ModelCatalog.setEnabled("model_fable", false)
         try ModelCatalog.setEnabled("model_opus", false)
         try ModelCatalog.setEnabled("model_sonnet", false)
-        XCTAssertEqual(ModelCatalog.probeModelLabel(driverId: "claude_code"), "opus")
+        // Falls back to the Claude-side flagship built-in label for smoke probes.
+        XCTAssertEqual(ModelCatalog.probeModelLabel(driverId: "claude_code"), "fable")
     }
 
     func testCustomModelCRUD() throws {

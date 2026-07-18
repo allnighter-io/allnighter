@@ -142,17 +142,19 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// Fresh-install seed: ordered membership per tier across multiple CLIs so
     /// substitution always has somewhere to go even when a user has only one or two
     /// CLIs. Each tier's default (index 0) is on-by-default, so Auto works day-one.
-    /// Flagship leads with Claude Opus 4.8 (`model_opus`); Antigravity Opus 4.6
-    /// (`model_agy_opus`) is the immediate Opus fallback — never selected while 4.8
-    /// is ready. Composer spans Flagship (backup) AND Balanced (value); Gemini Flash
-    /// spans Balanced + Fast. Seed only — fully user-overridable.
+    /// Flagship-only: Fable 5 + ChatGPT 5.6 Sol. Balanced holds High + High/Mid value
+    /// seats (ChatGPT 5.6, Opus, Sonnet 5, Kimi K3, Cursor/CLI Grok 4.5, Composer once).
+    /// Fast stays cheap/auto. Seed only — fully user-overridable.
     public static let fresh = DefaultModelSettings(
         defaultTier: .flagship,
         allowHealthySubstitutions: true,
         tiers: TierMembership(
-            flagship: ["model_opus", "model_agy_opus", "model_chatgpt", "model_composer"],
-            balanced: ["model_sonnet", "model_composer", "model_gemini"],
-            fast: ["model_cursor_auto", "model_grok", "model_gemini"]))
+            flagship: ["model_fable", "model_chatgpt_sol"],
+            balanced: [
+                "model_chatgpt", "model_opus", "model_sonnet", "model_kimi_k3",
+                "model_cursor_grok_45", "model_grok", "model_cursor_composer_25", "model_gemini"
+            ],
+            fast: ["model_cursor_auto", "model_composer", "model_gemini"]))
 
     /// The tier's default model id (index 0), or nil when the tier is empty.
     public func tierDefault(_ tier: SubstitutionTier) -> ModelID? { tiers[tier].first }
