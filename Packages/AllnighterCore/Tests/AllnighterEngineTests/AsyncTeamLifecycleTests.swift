@@ -174,6 +174,52 @@ final class TeamStartTests: XCTestCase {
             _ = await service.cancel(runId: "run-start-1")
         }
     }
+
+    /// Concurrent Invocation Isolation standing regression invariant:
+    /// **`team start` never sweeps.** The only caller of `RunStore.reconcileAll`
+    /// is the explicit bare `alln team reconcile`. Plant an identity-dead run
+    /// (exactly what a sweep WOULD reap); a full start→terminal lifecycle must
+    /// leave it untouched on disk.
+    func testTeamStartNeverSweepsReconcileAll() async throws {
+        try await asyncTeamLifecycleGate.run {
+            let root = AsyncTeamTestHarness.tempRoot()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let store = RunStore(rootDirectory: root.appendingPathComponent("Runs"))
+
+            let orphan = TeamRun(
+                id: "run-planted-orphan", prompt: "p", status: .fanningOut,
+                createdAt: Date(),
+                repoRoot: "/tmp/repo-a"
+            )
+            try store.save(orphan, models: [])
+            let orphanDir = try store.runDirectory(forRunId: orphan.id)
+            try ProcessOwnership.writeOwnerIdentity(
+                .init(pid: 2_100_900, pgid: 9_900, startTimeTicks: 1, kind: .detachedRunner),
+                in: orphanDir
+            )
+            XCTAssertTrue(store.wouldReconcile(runId: orphan.id), "fixture must be reapable")
+
+            let mock = MockCommandRunner(scripts: ["claude": .init(stdout: AsyncTeamTestHarness.planMarkdown)])
+            let service = AsyncTeamTestHarness.makeService(root: root, mock: mock, runId: "run-start-nosweep")
+            guard case .success = await service.start(
+                AsyncTeamTestHarness.startRequest(), origin: .cli,
+                readyModels: [AsyncTeamTestHarness.opus()]
+            ) else {
+                return XCTFail("expected start success")
+            }
+            _ = await service.waitForStatus(runId: "run-start-nosweep", target: .anyTerminal, timeout: .seconds(10))
+
+            // Nothing swept the planted orphan: still raw non-terminal, no endReason.
+            let raw = try XCTUnwrap(store.loadRaw(runId: orphan.id))
+            XCTAssertFalse(raw.status.isTerminal, "team start must never reconcileAll")
+            XCTAssertNil(raw.endReason)
+
+            // Only the explicit bare reconcile (scoped to the orphan's project)
+            // sweeps it.
+            let reaped = await service.reconcile(runId: nil, scopeRoot: "/tmp/repo-a")
+            XCTAssertEqual(reaped.map(\.id), [orphan.id])
+        }
+    }
 }
 
 // MARK: - AsyncTeamTests
