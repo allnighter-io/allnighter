@@ -34,6 +34,10 @@ public enum ModelCatalog {
             laneTags: [.code, .copy, .signal],
             capabilityTags: [.code, .planner],
             strengthRank: 70),
+        "model_kimi_k3": ModelCapabilities(
+            laneTags: [.code, .copy, .signal],
+            capabilityTags: [.code, .planner, .review],
+            strengthRank: 78),
         "model_composer": ModelCapabilities(
             laneTags: [.code],
             capabilityTags: [.code, .fast],
@@ -87,6 +91,7 @@ public enum ModelCatalog {
             def("model_codex_spark", "Codex Spark", "gpt-5.3-codex-spark", "codex", .answerer, defaultEnabled: false),
             // Grok — recognized from `grok models`; effort via `--reasoning-effort`.
             def("model_grok", "Grok 4.5", "grok-4.5", "grok", .answerer, defaultEnabled: true),
+            def("model_kimi_k3", "Kimi K3", "kimi-code/k3", "kimi", .both, defaultEnabled: true),
             def("model_composer", "Grok Composer 2.5 Fast", "grok-composer-2.5-fast", "grok", .answerer, defaultEnabled: false),
             // Cursor Agent — Auto is the default; regular Composer 2.5 stays on-bench;
             // Fast is explicit opt-in (6× cost). Cursor Grok 4.5 encodes effort in the
