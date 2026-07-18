@@ -142,4 +142,11 @@ final class ModelCatalogTests: XCTestCase {
         // A full sibling (not mini/spark) inherits the flagship rank unchanged.
         XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt_54").strengthRank, flagship)
     }
+
+    func testHighValueWorkerModelsOutrankSonnet() {
+        let sonnet = ModelCatalog.capabilities("model_sonnet").strengthRank
+        XCTAssertGreaterThan(ModelCatalog.capabilities("model_cursor_grok_45").strengthRank, sonnet)
+        XCTAssertGreaterThan(ModelCatalog.capabilities("model_kimi_k3").strengthRank, sonnet)
+        XCTAssertGreaterThan(ModelCatalog.capabilities("model_grok").strengthRank, sonnet)
+    }
 }

@@ -16,9 +16,14 @@ final class TeamCatalogTests: XCTestCase {
                 TeamWorkerSpec(id: "row_a", skillId: "skill_a", purpose: .answer),
                 TeamWorkerSpec(id: "row_b", skillId: "skill_b", purpose: .answer),
                 TeamWorkerSpec(id: "row_c", skillId: "skill_c", purpose: .review,
-                               preferredModelId: "model_opus", fallbackPolicy: .anyReady, required: false)
+                               preferredModelId: "model_opus",
+                               fallbackModelIds: ["model_kimi_k3", "model_grok"],
+                               fallbackPolicy: .anyReady, required: false)
             ],
-            lead: TeamLeadSpec(skillId: "plan_writer_build", dissentPolicy: .riskRegister),
+            lead: TeamLeadSpec(
+                skillId: "plan_writer_build",
+                fallbackModelIds: ["model_chatgpt_sol", "model_opus"],
+                dissentPolicy: .riskRegister),
             typeTags: ["feature"],
             builtIn: true
         )
@@ -33,6 +38,23 @@ final class TeamCatalogTests: XCTestCase {
         XCTAssertEqual(decoded, team)
         XCTAssertEqual(decoded.lead.dissentPolicy, .riskRegister)
         XCTAssertEqual(decoded.lead.skillId, "plan_writer_build")
+    }
+
+    func testCatalogWrittenBeforeOrderedFallbacksStillDecodes() throws {
+        let data = try CoreJSON.encode(sampleTeam())
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var rows = try XCTUnwrap(object["workerSpecs"] as? [[String: Any]])
+        for index in rows.indices { rows[index].removeValue(forKey: "fallbackModelIds") }
+        object["workerSpecs"] = rows
+        var lead = try XCTUnwrap(object["lead"] as? [String: Any])
+        lead.removeValue(forKey: "fallbackModelIds")
+        object["lead"] = lead
+
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+        let decoded = try CoreJSON.decode(TeamPreset.self, from: legacyData)
+        XCTAssertTrue(decoded.workerSpecs.allSatisfy { $0.fallbackModelIds == nil })
+        XCTAssertNil(decoded.lead.fallbackModelIds)
     }
 
     func testCanonicalEffortRawValues() throws {

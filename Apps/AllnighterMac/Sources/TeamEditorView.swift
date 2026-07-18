@@ -143,13 +143,17 @@ struct TeamDraft: Equatable {
             // 1) Fork edited prompts into custom skills; build the worker specs.
             let effectiveRows = mutating ? Array(rows.prefix(1)) : rows
             let specs: [TeamWorkerSpec] = try effectiveRows.map { row in
-                // Carry forward per-row facts the editor doesn't expose (triangulation,
-                // worker count) so customizing a team never silently flattens it.
+                // Carry forward per-row facts the editor doesn't expose so
+                // customizing a team never silently flattens its routing contract.
                 let original = base.workerSpecs.first { $0.id == row.id }
                 return TeamWorkerSpec(
                     id: row.id, skillId: try resolveSkill(row, defaultPurpose: .answer),
                     purpose: row.purpose, preferredModelId: row.modelId,
-                    count: original?.count ?? 1, fallbackPolicy: fallback, required: true,
+                    fallbackModelIds: original?.fallbackModelIds,
+                    allowedModelIds: original?.allowedModelIds ?? [],
+                    requiredCapabilityTags: original?.requiredCapabilityTags ?? [],
+                    count: original?.count ?? 1, fallbackPolicy: fallback,
+                    required: original?.required ?? true,
                     triangulate: original?.triangulate ?? false,
                     triangulatePreferenceIds: original?.triangulatePreferenceIds ?? []
                 )
@@ -163,6 +167,8 @@ struct TeamDraft: Equatable {
                 leadSpec = TeamLeadSpec(
                     skillId: only.skillId,
                     preferredModelId: only.preferredModelId,
+                    fallbackModelIds: only.fallbackModelIds,
+                    requiredCapabilityTags: only.requiredCapabilityTags,
                     fallbackPolicy: fallback,
                     dissentPolicy: base.lead.dissentPolicy
                 )
@@ -170,6 +176,8 @@ struct TeamDraft: Equatable {
                 leadSpec = TeamLeadSpec(
                     skillId: try resolveSkill(lead, defaultPurpose: .planWriter),
                     preferredModelId: lead.modelId,
+                    fallbackModelIds: base.lead.fallbackModelIds,
+                    requiredCapabilityTags: base.lead.requiredCapabilityTags,
                     fallbackPolicy: fallback,
                     dissentPolicy: base.lead.dissentPolicy
                 )
@@ -196,9 +204,18 @@ struct TeamDraft: Equatable {
             // Preserve / write the Stage-0 scout (Signal teams). Editing it here keeps
             // the scout role rather than silently dropping it on customize.
             if let s = scout {
+                let original = base.scout
                 team.scout = TeamWorkerSpec(
                     id: s.id, skillId: s.skillId, purpose: .answer,
-                    preferredModelId: s.modelId, fallbackPolicy: .laneCapable)
+                    preferredModelId: s.modelId,
+                    fallbackModelIds: original?.fallbackModelIds,
+                    allowedModelIds: original?.allowedModelIds ?? [],
+                    requiredCapabilityTags: original?.requiredCapabilityTags ?? [],
+                    count: original?.count ?? 1,
+                    fallbackPolicy: original?.fallbackPolicy ?? .laneCapable,
+                    required: original?.required ?? true,
+                    triangulate: original?.triangulate ?? false,
+                    triangulatePreferenceIds: original?.triangulatePreferenceIds ?? [])
             } else {
                 team.scout = nil
             }

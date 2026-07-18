@@ -24,24 +24,25 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
             strengthRank: 90),
-        "model_sonnet": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .fast],
-            strengthRank: 86),
         // High + mid value seats — high quality, low price (staff mid work freely).
+        // Kimi and both Grok routes outrank Sonnet for worker substitution.
         "model_cursor_grok_45": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner],
-            strengthRank: 84),
+            strengthRank: 89),
         "model_kimi_k3": ModelCapabilities(
             laneTags: [.code, .copy, .signal],
             capabilityTags: [.code, .planner, .review],
-            strengthRank: 83),
+            strengthRank: 88),
         // Grok is web-aware — a natural Signal scout (interprets public posts/links).
         "model_grok": ModelCapabilities(
             laneTags: [.code, .copy, .signal],
             capabilityTags: [.code, .planner],
-            strengthRank: 82),
+            strengthRank: 87),
+        "model_sonnet": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .fast],
+            strengthRank: 84),
         "model_cursor_composer_25": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .fast],

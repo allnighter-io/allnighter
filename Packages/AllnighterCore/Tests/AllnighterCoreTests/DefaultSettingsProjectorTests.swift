@@ -57,6 +57,10 @@ final class DefaultSettingsProjectorTests: XCTestCase {
 
         // Gemini spans Balanced + Fast.
         let balanced = p.tiers[1]
+        XCTAssertEqual(balanced.members.map(\.id), [
+            "model_chatgpt", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
+            "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
+        ])
         let gemini = balanced.members.first { $0.id == "model_gemini" }
         XCTAssertEqual(gemini?.tiers, ["balanced", "fast"])
     }

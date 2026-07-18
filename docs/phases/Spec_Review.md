@@ -42,14 +42,26 @@ intent/draft ──▶ [draft pass] ──▶ lens fan-out (blind) ──▶ syn
   spec **plus a proof plan** (the proof commands / visible behaviors that will verify the
   build) — the spec's last section, written during hardening, consumed by verification later.
 
-Non-mutating end to end. The loop touches no code; it exits into the existing
-propose → approve → dispatch → verify path.
+Non-mutating end to end. The loop touches no code; its hardened spec can become
+the work order for a later execution run.
 
 **Cross-vendor is a tier, not a prerequisite.** A single model running the full lens panel
 over multiple passes captures a large share of the value (hardening is mostly the passes,
 not the vendor spread). Single-model Spec Review = the on-ramp (works with one CLI
 subscription, free-tier candidate). Cross-vendor panel = the premium claim — and it is a
 claim the ledger can *measure* (§7), not assert.
+
+### Built-in depth tiers
+
+- **Spec Review Min:** three workers + Lead; prefers Kimi, Cursor Grok, and Grok.
+- **Spec Review (default):** five workers + Lead for the everyday send.
+- **Spec Review Max:** seven workers + outside scout + Lead for launch/hard cases.
+
+Each row has an ordered cross-CLI fallback chain. All three tiers must remain
+runnable when Claude and ChatGPT/Codex are unavailable; Kimi K3, Grok 4.5, and
+Cursor Grok 4.5 are first-class preferred workers, not weak last resorts. The
+canonical roster and fallback order live in `BuiltInTeams.swift`; naming and
+routing law live in `Team_Depth_Naming.md`.
 
 ## 2. The impact ledger (the product IS this)
 

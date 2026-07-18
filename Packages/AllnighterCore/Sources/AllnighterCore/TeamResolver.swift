@@ -100,16 +100,17 @@ public enum TeamResolver {
         let answerRows = active.filter { $0.purpose == .answer }
         let reviewRows = active.filter { $0.purpose == .review }
 
-        // The Lead (synthesizer) resolves to the strongest ready model. Worker rows
-        // avoid the Lead's explicit preferred model (usually Opus) when alternatives
-        // exist. Triangulation also drops the resolved Lead model from its pool.
+        // Resolve the Lead first. Worker rows avoid the model that actually won
+        // Lead resolution when alternatives exist; this also works when the Lead
+        // came from an ordered cross-source fallback chain.
         let lead = team.lead
         let resolvedLeadModelId = selectModel(
-            preferredModelId: lead.preferredModelId, allowedModelIds: [],
+            preferredModelId: lead.preferredModelId,
+            fallbackModelIds: lead.fallbackModelIds ?? [], allowedModelIds: [],
             requiredTags: lead.requiredCapabilityTags, fallback: lead.fallbackPolicy,
             lane: team.lane, ready: readyModels, capabilities: capabilities
         )?.id
-        let reservedWorkerModelId = lead.preferredModelId
+        let reservedWorkerModelId = resolvedLeadModelId
 
         // instanceIndex is global per model across all stages so ids stay distinct
         // and self-fusion reads as `model#0, model#1, …`.
@@ -166,7 +167,8 @@ public enum TeamResolver {
                 }
 
                 guard let model = selectModel(
-                    preferredModelId: row.preferredModelId, allowedModelIds: row.allowedModelIds,
+                    preferredModelId: row.preferredModelId,
+                    fallbackModelIds: row.fallbackModelIds ?? [], allowedModelIds: row.allowedModelIds,
                     requiredTags: row.requiredCapabilityTags, fallback: row.fallbackPolicy,
                     lane: team.lane, ready: readyModels, capabilities: capabilities,
                     reserveModelId: reservedWorkerModelId
@@ -193,7 +195,8 @@ public enum TeamResolver {
         if let scoutSpec = team.scout {
             let scoutSkillName = skill(scoutSpec.skillId)?.displayName ?? scoutSpec.skillId
             if let model = selectModel(
-                preferredModelId: scoutSpec.preferredModelId, allowedModelIds: scoutSpec.allowedModelIds,
+                preferredModelId: scoutSpec.preferredModelId,
+                fallbackModelIds: scoutSpec.fallbackModelIds ?? [], allowedModelIds: scoutSpec.allowedModelIds,
                 requiredTags: scoutSpec.requiredCapabilityTags, fallback: scoutSpec.fallbackPolicy,
                 lane: team.lane, ready: readyModels, capabilities: capabilities
             ) {
@@ -212,6 +215,7 @@ public enum TeamResolver {
         var planWriter: Worker?
         if let model = selectModel(
             preferredModelId: lead.preferredModelId,
+            fallbackModelIds: lead.fallbackModelIds ?? [],
             allowedModelIds: [],
             requiredTags: lead.requiredCapabilityTags,
             fallback: lead.fallbackPolicy,
@@ -260,11 +264,12 @@ public enum TeamResolver {
 
     // MARK: - Model selection
 
-    /// Choose a model for one row: try the preferred (if ready+allowed), else apply
-    /// the fallback policy with capability/lane filtering, then strongest-by-rank
-    /// with stable id tie-break.
+    /// Choose a model for one row: try the preferred, then the declared ordered
+    /// cross-source substitutes, then the broad fallback policy. Rank is the final
+    /// catch-all for custom models and benches outside the built-in chain.
     static func selectModel(
         preferredModelId: String?,
+        fallbackModelIds: [String] = [],
         allowedModelIds: [String],
         requiredTags: [ModelCapabilityTag],
         fallback: ModelFallbackPolicy,
@@ -288,19 +293,35 @@ public enum TeamResolver {
             }.first
         }
 
-        // Preferred wins outright when it is ready and allowed (explicit author pick).
-        if let pref = preferredModelId, let m = byId[pref], allowed(m) { return m }
-
         var pool = ready.filter(allowed)
+        if fallback == .exactOnly {
+            if let preferredModelId,
+               let model = pool.first(where: { $0.id == preferredModelId }) {
+                return model
+            }
+            guard !allowedModelIds.isEmpty else { return nil }
+            return strongest(pool.filter(hasTags))
+        }
         // Reserve the Lead's model for synthesis — workers take cheaper alternatives
         // when the bench has depth (one-model benches still run).
-        if let reserved = reserveModelId, pool.contains(where: { $0.id != reserved }) {
+        if let reserved = reserveModelId,
+           pool.contains(where: { $0.id != reserved && hasTags($0) }) {
             pool.removeAll { $0.id == reserved }
+        }
+        // Preferred wins when ready and allowed unless it is the resolved Lead
+        // model and an eligible alternative exists.
+        if let pref = preferredModelId,
+           let model = pool.first(where: { $0.id == pref }) {
+            return model
+        }
+        for id in fallbackModelIds {
+            if let model = pool.first(where: { $0.id == id && hasTags($0) }) {
+                return model
+            }
         }
         switch fallback {
         case .exactOnly:
-            // Only the explicitly allowed/preferred set; no capability broadening.
-            return strongest(pool)
+            return nil // handled before ordered or broad substitutions
         case .sameSource:
             let source = preferredModelId.flatMap { byId[$0]?.driverId }
             let sameSource = pool.filter { $0.driverId == source }.filter(hasTags)

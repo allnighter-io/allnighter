@@ -58,14 +58,68 @@ final class TeamResolverTests: XCTestCase {
     }
 
     func testPreferredUsedWhenReady() {
-        let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
-                           preferredModelId: "model_chatgpt", fallbackPolicy: .anyReady)
-        ])
+        let t = team(
+            rows: [
+                TeamWorkerSpec(id: "r1", skillId: "regression_guard",
+                               preferredModelId: "model_chatgpt", fallbackPolicy: .anyReady)
+            ],
+            lead: TeamLeadSpec(
+                skillId: "plan_writer_build",
+                preferredModelId: "model_opus",
+                fallbackPolicy: .strongestReady))
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus(), codex()])
         XCTAssertEqual(r.answerWorkers.first?.modelId, "model_chatgpt")
         XCTAssertFalse(r.warnings.contains { $0.contains("preferred") })
         XCTAssertNil(r.answerWorkers.first?.substitutedFromModelId, "no substitution → no flag")
+    }
+
+    func testOrderedCrossSourceFallbackWinsBeforeGlobalRank() {
+        let kimi = Model(id: "model_kimi_k3", displayName: "Kimi K3",
+                         modelLabel: "kimi-code/k3", driverId: "kimi", role: .both)
+        let t = team(rows: [
+            TeamWorkerSpec(
+                id: "r1",
+                skillId: "regression_guard",
+                preferredModelId: "model_chatgpt_sol",
+                fallbackModelIds: ["model_kimi_k3", "model_opus"],
+                fallbackPolicy: .strongestReady)
+        ])
+        let r = TeamResolver.resolve(
+            team: t,
+            requestLane: .code,
+            requestEffort: .low,
+            readyModels: [opus(), kimi])
+
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.first?.modelId, "model_kimi_k3",
+                       "declared cross-CLI order must beat global strength rank")
+        XCTAssertEqual(r.answerWorkers.first?.substitutedFromModelId, "model_chatgpt_sol")
+    }
+
+    func testWorkersReserveResolvedFallbackLeadModel() {
+        let kimi = Model(id: "model_kimi_k3", displayName: "Kimi K3",
+                         modelLabel: "kimi-code/k3", driverId: "kimi", role: .both)
+        let t = team(
+            rows: [
+                TeamWorkerSpec(
+                    id: "r1",
+                    skillId: "regression_guard",
+                    preferredModelId: "missing",
+                    fallbackModelIds: ["model_kimi_k3", "model_opus"])
+            ],
+            lead: TeamLeadSpec(
+                skillId: "plan_writer_build",
+                preferredModelId: "missing",
+                fallbackModelIds: ["model_kimi_k3", "model_opus"]))
+        let r = TeamResolver.resolve(
+            team: t,
+            requestLane: .code,
+            requestEffort: .low,
+            readyModels: [opus(), kimi])
+
+        XCTAssertEqual(r.planWriter?.modelId, "model_kimi_k3")
+        XCTAssertEqual(r.answerWorkers.first?.modelId, "model_opus",
+                       "the model that actually resolved for Lead should be reserved")
     }
 
     // MARK: - Optional disable vs required block
@@ -142,6 +196,24 @@ final class TeamResolverTests: XCTestCase {
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
         XCTAssertFalse(r.isRunnable)
+    }
+
+    func testExactOnlyDoesNotUseOrderedFallbackChain() {
+        let t = team(rows: [
+            TeamWorkerSpec(
+                id: "r1",
+                skillId: "regression_guard",
+                preferredModelId: "model_sonnet",
+                fallbackModelIds: ["model_opus"],
+                fallbackPolicy: .exactOnly)
+        ])
+        let r = TeamResolver.resolve(
+            team: t,
+            requestLane: .code,
+            requestEffort: .low,
+            readyModels: [opus()])
+        XCTAssertFalse(r.isRunnable)
+        XCTAssertTrue(r.answerWorkers.isEmpty)
     }
 
     func testImageRowResolvesWhenCapableModelReady() {

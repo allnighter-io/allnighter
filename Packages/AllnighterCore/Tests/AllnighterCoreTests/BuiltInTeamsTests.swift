@@ -16,7 +16,7 @@ final class BuiltInTeamsTests: XCTestCase {
     func testRequiredBuiltInIdsArePresent() {
         let required = [
             "code_core", "code_bug_hunt", "code_bug_hunt_max", "code_gui_bug_hunt", "code_security_review",
-            "code_spec_review", "code_release_proof",
+            "code_spec_review_min", "code_spec_review", "code_spec_review_max", "code_release_proof",
             "default_chat", "execution_playbook",
             "design_core", "design_premium_polish", "design_conversion_studio",
             "design_radical_directions", "design_usability_triage",
@@ -30,26 +30,50 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(BuiltInTeams.all.count, required.count)
     }
 
-    func testSpecReviewCarriesGeneralSpecReviewLineup() {
-        let team = BuiltInTeams.team("code_spec_review")!
-        XCTAssertEqual(team.displayName, "Spec Review")
-        XCTAssertEqual(team.outputKind, .specReview)
-        XCTAssertEqual(team.defaultEffort, .high)
-        XCTAssertEqual(team.typeTags, ["launch", "spec-review"])
-        XCTAssertEqual(team.scout?.skillId, "spec_outside_scout")
-        XCTAssertEqual(team.scout?.preferredModelId, "model_grok")
-        XCTAssertEqual(team.lead.skillId, "spec_review_writer")
-        XCTAssertEqual(team.lead.preferredModelId, "model_fable")
-        XCTAssertEqual(Set(team.workerSpecs.map(\.skillId)), [
-            "spec_first_principles_reviewer",
-            "spec_doc_hygiene_reviewer",
-            "spec_contract_auditor",
-            "spec_proof_planner",
-            "spec_scope_steward",
-            "spec_hype_skeptic",
-            "spec_contrarian_reviewer"
+    func testSpecReviewDepthFamilyCarriesCuratedLineups() {
+        let min = BuiltInTeams.team("code_spec_review_min")!
+        let standard = BuiltInTeams.team("code_spec_review")!
+        let max = BuiltInTeams.team("code_spec_review_max")!
+
+        XCTAssertEqual([min.displayName, standard.displayName, max.displayName],
+                       ["Spec Review Min", "Spec Review", "Spec Review Max"])
+        for team in [min, standard, max] {
+            XCTAssertEqual(team.outputKind, .specReview)
+            XCTAssertEqual(team.defaultEffort, .high)
+            XCTAssertEqual(team.lead.skillId, "spec_review_writer")
+            XCTAssertEqual(team.lead.preferredModelId, "model_fable")
+        }
+        XCTAssertEqual(min.workerSpecs.map(\.skillId), [
+            "spec_first_principles_reviewer", "spec_proof_planner", "spec_scope_steward"
         ])
-        XCTAssertTrue(team.workerSpecs.allSatisfy { $0.preferredModelId != nil })
+        XCTAssertEqual(standard.workerSpecs.map(\.skillId), [
+            "spec_first_principles_reviewer", "spec_doc_hygiene_reviewer",
+            "spec_contract_auditor", "spec_proof_planner", "spec_contrarian_reviewer"
+        ])
+        XCTAssertEqual(max.workerSpecs.map(\.skillId), [
+            "spec_first_principles_reviewer", "spec_doc_hygiene_reviewer",
+            "spec_contract_auditor", "spec_proof_planner", "spec_scope_steward",
+            "spec_hype_skeptic", "spec_contrarian_reviewer"
+        ])
+        XCTAssertNil(min.scout)
+        XCTAssertNil(standard.scout)
+        XCTAssertEqual(max.scout?.skillId, "spec_outside_scout")
+        XCTAssertEqual(max.scout?.preferredModelId, "model_grok")
+
+        XCTAssertEqual(min.workerSpecs.map(\.preferredModelId), [
+            "model_kimi_k3", "model_cursor_grok_45", "model_grok"
+        ])
+        XCTAssertEqual(standard.workerSpecs.map(\.preferredModelId), [
+            "model_chatgpt_sol", "model_kimi_k3", "model_grok",
+            "model_cursor_grok_45", "model_gemini"
+        ])
+        XCTAssertEqual(max.workerSpecs.map(\.preferredModelId), [
+            "model_chatgpt_sol", "model_kimi_k3", "model_cursor_grok_45",
+            "model_chatgpt", "model_grok", "model_cursor_composer_25", "model_gemini"
+        ])
+        XCTAssertTrue([min, standard, max].flatMap(\.workerSpecs).allSatisfy {
+            !($0.fallbackModelIds ?? []).isEmpty
+        })
     }
 
     func testSynthesisTeamsPreferFableLeadAndDiverseWorkersOnFullBench() {
@@ -67,7 +91,7 @@ final class BuiltInTeamsTests: XCTestCase {
             Model(id: "model_cursor_grok_45", displayName: "Cursor Grok 4.5", modelLabel: "cursor-grok-4.5-high",
                   driverId: "cursor_agent", role: .answerer),
         ]
-        let team = BuiltInTeams.team("code_spec_review")!
+        let team = BuiltInTeams.team("code_spec_review_max")!
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: ready)
         XCTAssertTrue(r.isRunnable)
         XCTAssertEqual(r.planWriter?.modelId, "model_fable")
@@ -88,6 +112,7 @@ final class BuiltInTeamsTests: XCTestCase {
             "code_gui_bug_hunt": "contrarian_root_cause",
             "code_security_review": "security_fix_prioritizer",
             "code_spec_review": "spec_first_principles_reviewer",
+            "code_spec_review_max": "spec_first_principles_reviewer",
             "code_release_proof": "acceptance_auditor",
         ]
         for (teamId, skillId) in tierOne {
@@ -100,6 +125,58 @@ final class BuiltInTeamsTests: XCTestCase {
         let passthrough: Set<String> = ["default_chat", "execution_playbook"]
         for team in BuiltInTeams.all where !passthrough.contains(team.id) {
             XCTAssertEqual(team.lead.preferredModelId, "model_fable", "\(team.id) lead should prefer Fable")
+        }
+    }
+
+    func testEverySynthesisLeadHasOrderedCrossCLIFallbacks() {
+        let expected = [
+            "model_chatgpt_sol", "model_opus", "model_kimi_k3",
+            "model_cursor_grok_45", "model_grok", "model_chatgpt",
+            "model_cursor_composer_25", "model_sonnet", "model_gemini",
+            "model_cursor_auto", "model_agy_opus"
+        ]
+        let passthrough: Set<String> = ["default_chat", "execution_playbook"]
+        for team in BuiltInTeams.all where !passthrough.contains(team.id) {
+            XCTAssertEqual(team.lead.fallbackModelIds, expected, team.id)
+        }
+    }
+
+    func testSpecReviewDepthFamilyRunsOnAlternativeCLIs() {
+        let kimiAndGrok = [
+            Model(id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-code/k3",
+                  driverId: "kimi", role: .both),
+            Model(id: "model_grok", displayName: "Grok 4.5", modelLabel: "grok-4.5",
+                  driverId: "grok", role: .answerer)
+        ]
+        let cursorOnly = [
+            Model(id: "model_cursor_grok_45", displayName: "Cursor Grok 4.5",
+                  modelLabel: "cursor-grok-4.5-high", driverId: "cursor_agent", role: .answerer),
+            Model(id: "model_cursor_composer_25", displayName: "Composer 2.5",
+                  modelLabel: "composer-2.5", driverId: "cursor_agent", role: .answerer)
+        ]
+
+        let scenarios: [(name: String, models: [Model], expectedLead: String)] = [
+            ("Kimi + Grok", kimiAndGrok, "model_kimi_k3"),
+            ("Cursor only", cursorOnly, "model_cursor_grok_45")
+        ]
+        for scenario in scenarios {
+            for id in ["code_spec_review_min", "code_spec_review", "code_spec_review_max"] {
+                let result = TeamResolver.resolve(
+                    team: BuiltInTeams.team(id)!,
+                    requestLane: .code,
+                    requestEffort: .high,
+                    readyModels: scenario.models)
+                XCTAssertTrue(
+                    result.isRunnable,
+                    "\(scenario.name) / \(id): \(result.blockReason ?? "unknown block")")
+                XCTAssertEqual(result.planWriter?.modelId, scenario.expectedLead)
+                XCTAssertTrue(result.allWorkers.allSatisfy { worker in
+                    scenario.models.contains { $0.id == worker.modelId }
+                })
+                XCTAssertFalse(
+                    result.answerWorkers.contains { $0.modelId == result.planWriter?.modelId },
+                    "\(scenario.name) / \(id) should reserve the resolved Lead model")
+            }
         }
     }
 

@@ -7,7 +7,8 @@ import Foundation
 public enum BuiltInTeams {
 
     public static let all: [TeamPreset] = [
-        buildCore, buildBugHunt, buildBugHuntMax, buildGUIBugHunt, buildSecurityReview, buildSpecReview, buildReleaseProof,
+        buildCore, buildBugHunt, buildBugHuntMax, buildGUIBugHunt, buildSecurityReview,
+        buildSpecReviewMin, buildSpecReview, buildSpecReviewMax, buildReleaseProof,
         defaultChat, executionPlaybook,
         designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
         copyCore, copyLandingPage,
@@ -26,6 +27,7 @@ public enum BuiltInTeams {
     /// flagship worker seat. Antigravity Opus is never a preferred seed.
     private static let leadFlagship = "model_fable"
     private static let strategicFlagship = "model_chatgpt_sol"
+    private static let opus = "model_opus"
     /// Default worker anchor for mutating Auto / Execution Playbook (Cursor).
     private static let composer = "model_cursor_composer_25"
     private static let chatgpt = "model_chatgpt"
@@ -33,12 +35,14 @@ public enum BuiltInTeams {
     private static let sonnet = "model_sonnet"
     private static let kimi = "model_kimi_k3"
     private static let cursorGrok = "model_cursor_grok_45"
+    private static let cursorAuto = "model_cursor_auto"
+    private static let agyOpus = "model_agy_opus"
     /// External / X / web research scout (also high/mid value in rotations).
     private static let grok = "model_grok"
 
     /// Distinct high + high/mid seats once each — Composer at most once.
     private static let codeWorkerRotation: [String] = [
-        cursorGrok, kimi, chatgpt, sonnet, composer, gemini, grok
+        cursorGrok, kimi, grok, chatgpt, composer, gemini, sonnet
     ]
     private static let designWorkerRotation: [String] = [
         gemini, chatgpt, cursorGrok
@@ -63,11 +67,40 @@ public enum BuiltInTeams {
     private static func row(
         _ skillId: String, _ purpose: TeamWorkerPurpose,
         preferred: String? = nil, required: Bool = true,
+        fallbacks: [String] = [],
         tags: [ModelCapabilityTag] = [], fallback: ModelFallbackPolicy = .anyReady
     ) -> TeamWorkerSpec {
         TeamWorkerSpec(id: skillId, skillId: skillId, purpose: purpose,
-                       preferredModelId: preferred, requiredCapabilityTags: tags,
+                       preferredModelId: preferred,
+                       fallbackModelIds: fallbacks.isEmpty ? nil : fallbacks,
+                       requiredCapabilityTags: tags,
                        fallbackPolicy: fallback, required: required)
+    }
+
+    /// Complete built-in fallback coverage for answer teams. Role-specific
+    /// priorities come first; remaining built-ins keep a team runnable on a
+    /// different installed CLI. Unknown/custom models remain available through
+    /// the row's broad fallback policy after this list is exhausted.
+    private static func workerFallbacks(
+        preferred: String,
+        priorities: [String]
+    ) -> [String] {
+        let broad = [
+            kimi, cursorGrok, grok, strategicFlagship, opus, chatgpt,
+            leadFlagship, composer, gemini, sonnet, cursorAuto, agyOpus
+        ]
+        var seen = Set([preferred])
+        return (priorities + broad).filter { seen.insert($0).inserted }
+    }
+
+    private static func specRow(
+        _ skillId: String,
+        _ purpose: TeamWorkerPurpose,
+        preferred: String,
+        priorities: [String]
+    ) -> TeamWorkerSpec {
+        row(skillId, purpose, preferred: preferred,
+            fallbacks: workerFallbacks(preferred: preferred, priorities: priorities))
     }
 
     /// Spread workers across distinct models — the point of fan-out.
@@ -87,9 +120,18 @@ public enum BuiltInTeams {
         }
     }
 
-    /// Fable synthesizes; workers fan out across high / high-mid value seats.
+    /// Fable synthesizes; an ordered cross-CLI chain keeps synthesis alive when
+    /// Claude and/or ChatGPT are unavailable.
     private static func synthesisLead(_ writer: String, dissent: DissentPolicy = .preserveDissent) -> TeamLeadSpec {
-        TeamLeadSpec(skillId: writer, preferredModelId: leadFlagship, fallbackPolicy: .strongestReady, dissentPolicy: dissent)
+        TeamLeadSpec(
+            skillId: writer,
+            preferredModelId: leadFlagship,
+            fallbackModelIds: [
+                strategicFlagship, opus, kimi, cursorGrok, grok, chatgpt,
+                composer, sonnet, gemini, cursorAuto, agyOpus
+            ],
+            fallbackPolicy: .strongestReady,
+            dissentPolicy: dissent)
     }
 
     /// Every built-in carries one mandatory Team Lead (synthesizer). Effort scales
@@ -205,28 +247,96 @@ public enum BuiltInTeams {
         ], rotation: codeWorkerRotation, strategicSeats: ["security_fix_prioritizer"]),
         writer: "security_register_writer", dissent: .riskRegister)
 
-    /// Spec Review — launch-tier spec hardening. Fan-out covers product/moat,
-    /// contracts, proof, scope, doc hygiene (agent routing), and simplicity.
-    /// Synthesizer returns a gem table + explicit rejects; review only.
+    /// Spec Review Min — the smallest useful cross-CLI panel. Its three workers
+    /// prefer Kimi, Cursor, and Grok, so no Claude/Codex subscription is required.
+    static let buildSpecReviewMin = make(
+        id: "code_spec_review_min", name: "Spec Review Min", lane: .code,
+        output: .specReview, defaultEffort: .high,
+        description: "A lean spec check with first-principles, proof, and scope coverage. Built to stay useful without Claude or ChatGPT.",
+        rows: [
+            specRow(
+                "spec_first_principles_reviewer", .answer, preferred: kimi,
+                priorities: [cursorGrok, grok, strategicFlagship, opus, chatgpt, leadFlagship, composer, gemini, sonnet]),
+            specRow(
+                "spec_proof_planner", .answer, preferred: cursorGrok,
+                priorities: [grok, kimi, composer, chatgpt, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
+            specRow(
+                "spec_scope_steward", .answer, preferred: grok,
+                priorities: [kimi, cursorGrok, gemini, composer, chatgpt, strategicFlagship, opus, leadFlagship, sonnet])
+        ],
+        writer: "spec_review_writer", dissent: .compareOptions,
+        typeTags: ["spec-review", "min"],
+        starters: [
+            "Run a lean Spec Review: challenge the premise, cut scope, and make the proof concrete. Review only — do not edit the doc."]
+    )
+
+    /// Spec Review — the everyday default. Five independent lenses span Cursor,
+    /// Kimi, Grok, and Antigravity before any fallback is needed.
     static let buildSpecReview = make(
         id: "code_spec_review", name: "Spec Review", lane: .code,
         output: .specReview, defaultEffort: .high,
-        description: "Harden a feature or phase spec before you build: find the gems, name the risks, reject noise, and verify agent routing — review only, no doc edits.",
-        scout: row("spec_outside_scout", .answer, preferred: grok),
-        rows: diverseRows([
-            ("spec_first_principles_reviewer", .answer),
-            ("spec_doc_hygiene_reviewer", .answer),
-            ("spec_contract_auditor", .answer),
-            ("spec_proof_planner", .answer),
-            ("spec_scope_steward", .answer),
-            ("spec_hype_skeptic", .review),
-            ("spec_contrarian_reviewer", .review)
-        ], rotation: codeWorkerRotation, startIndex: 1, strategicSeats: ["spec_first_principles_reviewer"]),
+        description: "Harden a feature or phase spec before you build: challenge the premise, audit the contract, make proof concrete, and reject noise — review only.",
+        rows: [
+            specRow(
+                "spec_first_principles_reviewer", .answer, preferred: strategicFlagship,
+                priorities: [opus, leadFlagship, kimi, cursorGrok, grok, chatgpt, composer, gemini, sonnet]),
+            specRow(
+                "spec_doc_hygiene_reviewer", .answer, preferred: kimi,
+                priorities: [cursorGrok, grok, composer, chatgpt, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
+            specRow(
+                "spec_contract_auditor", .answer, preferred: grok,
+                priorities: [cursorGrok, kimi, chatgpt, composer, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
+            specRow(
+                "spec_proof_planner", .answer, preferred: cursorGrok,
+                priorities: [grok, kimi, composer, chatgpt, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
+            specRow(
+                "spec_contrarian_reviewer", .review, preferred: gemini,
+                priorities: [grok, kimi, cursorGrok, composer, chatgpt, strategicFlagship, opus, leadFlagship, sonnet])
+        ],
         writer: "spec_review_writer", dissent: .compareOptions,
-        typeTags: ["launch", "spec-review"],
+        typeTags: ["spec-review"],
         starters: [
-            "Review this spec. Be brief. Find the highest-leverage gems to make it best-in-market. Review only — do not edit the doc.",
-            "Harden docs/phases/<Spec>.md: moat, closed loop, proof, and what to cut. List explicit rejects (flashy UI, scope creep)."]
+            "Review this spec. Be brief. Find the highest-leverage changes, concrete contract gaps, and explicit rejects. Review only — do not edit the doc.",
+            "Harden docs/phases/<Spec>.md: premise, agent routing, contract, proof, and what to cut."]
+    )
+
+    /// Spec Review Max — the full launch/hard-case panel. The current full roster
+    /// moved here; each lens gets its own preferred model and broad cross-CLI chain.
+    static let buildSpecReviewMax = make(
+        id: "code_spec_review_max", name: "Spec Review Max", lane: .code,
+        output: .specReview, defaultEffort: .high,
+        description: "Full-depth review for launch and hard specs: outside research plus seven blind lenses spanning premise, operations, contract, proof, scope, simplicity, and a rival approach.",
+        scout: specRow(
+            "spec_outside_scout", .answer, preferred: grok,
+            priorities: [cursorGrok, kimi, strategicFlagship, chatgpt, opus, leadFlagship, gemini, composer, sonnet]),
+        rows: [
+            specRow(
+                "spec_first_principles_reviewer", .answer, preferred: strategicFlagship,
+                priorities: [opus, leadFlagship, kimi, cursorGrok, grok, chatgpt, composer, gemini, sonnet]),
+            specRow(
+                "spec_doc_hygiene_reviewer", .answer, preferred: kimi,
+                priorities: [cursorGrok, grok, composer, chatgpt, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
+            specRow(
+                "spec_contract_auditor", .answer, preferred: cursorGrok,
+                priorities: [grok, kimi, chatgpt, composer, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
+            specRow(
+                "spec_proof_planner", .answer, preferred: chatgpt,
+                priorities: [cursorGrok, kimi, grok, composer, strategicFlagship, opus, leadFlagship, gemini, sonnet]),
+            specRow(
+                "spec_scope_steward", .answer, preferred: grok,
+                priorities: [kimi, cursorGrok, gemini, composer, chatgpt, strategicFlagship, opus, leadFlagship, sonnet]),
+            specRow(
+                "spec_hype_skeptic", .review, preferred: composer,
+                priorities: [grok, kimi, cursorGrok, gemini, chatgpt, strategicFlagship, opus, leadFlagship, sonnet]),
+            specRow(
+                "spec_contrarian_reviewer", .review, preferred: gemini,
+                priorities: [grok, kimi, cursorGrok, composer, chatgpt, strategicFlagship, opus, leadFlagship, sonnet])
+        ],
+        writer: "spec_review_writer", dissent: .compareOptions,
+        typeTags: ["launch", "spec-review", "max"],
+        starters: [
+            "Run Spec Review Max on this launch or hard-case spec. Find ranked gems and explicit rejects; review only — do not edit the doc.",
+            "Harden docs/phases/<Spec>.md at full depth: outside signal, premise, contract, proof, scope, simplicity, and a rival approach."]
     )
 
     static let buildReleaseProof = make(

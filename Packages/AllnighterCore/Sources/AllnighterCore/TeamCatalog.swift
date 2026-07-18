@@ -119,6 +119,10 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
     public var skillId: String
     public var purpose: TeamWorkerPurpose
     public var preferredModelId: String?
+    /// Ordered cross-source substitutes tried after `preferredModelId` and before
+    /// the broad fallback policy. `nil` preserves catalogs written before ordered
+    /// fallback chains shipped.
+    public var fallbackModelIds: [String]?
     /// Empty means any ready model matching required capability and lane tags.
     public var allowedModelIds: [String]
     public var requiredCapabilityTags: [ModelCapabilityTag]
@@ -144,6 +148,7 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
         skillId: String,
         purpose: TeamWorkerPurpose = .answer,
         preferredModelId: String? = nil,
+        fallbackModelIds: [String]? = nil,
         allowedModelIds: [String] = [],
         requiredCapabilityTags: [ModelCapabilityTag] = [],
         count: Int = 1,
@@ -156,6 +161,7 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
         self.skillId = skillId
         self.purpose = purpose
         self.preferredModelId = preferredModelId
+        self.fallbackModelIds = fallbackModelIds
         self.allowedModelIds = allowedModelIds
         self.requiredCapabilityTags = requiredCapabilityTags
         self.count = count
@@ -177,6 +183,9 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
 public struct TeamLeadSpec: Codable, Sendable, Equatable {
     public var skillId: String
     public var preferredModelId: String?
+    /// Ordered cross-source substitutes tried before rank-based fallback.
+    /// Optional so existing saved team catalogs continue to decode.
+    public var fallbackModelIds: [String]?
     public var requiredCapabilityTags: [ModelCapabilityTag]
     public var fallbackPolicy: ModelFallbackPolicy
     /// How the Lead treats disagreement among the crew when it synthesizes.
@@ -185,12 +194,14 @@ public struct TeamLeadSpec: Codable, Sendable, Equatable {
     public init(
         skillId: String,
         preferredModelId: String? = nil,
+        fallbackModelIds: [String]? = nil,
         requiredCapabilityTags: [ModelCapabilityTag] = [],
         fallbackPolicy: ModelFallbackPolicy = .strongestReady,
         dissentPolicy: DissentPolicy = .preserveDissent
     ) {
         self.skillId = skillId
         self.preferredModelId = preferredModelId
+        self.fallbackModelIds = fallbackModelIds
         self.requiredCapabilityTags = requiredCapabilityTags
         self.fallbackPolicy = fallbackPolicy
         self.dissentPolicy = dissentPolicy

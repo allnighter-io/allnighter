@@ -143,6 +143,68 @@ final class TeamDraftTests: XCTestCase {
         XCTAssertEqual(customBuildSkills().count, skillsBefore, "changing only the model forks no skill")
     }
 
+    func testSavePreservesOrderedFallbackChainsTheEditorDoesNotExpose() throws {
+        let base = try XCTUnwrap(BuiltInTeams.team("code_spec_review_max"))
+        let workerChains = Dictionary(
+            uniqueKeysWithValues: base.workerSpecs.map { ($0.id, $0.fallbackModelIds ?? []) })
+        let leadChain = base.lead.fallbackModelIds
+        let scoutChain = base.scout?.fallbackModelIds
+
+        let id = try TeamDraft(base: base).commit()
+        let saved = try XCTUnwrap(TeamCatalog.get(id))
+
+        for row in saved.workerSpecs {
+            XCTAssertEqual(row.fallbackModelIds ?? [], workerChains[row.id] ?? [], row.id)
+        }
+        XCTAssertEqual(saved.lead.fallbackModelIds, leadChain)
+        XCTAssertEqual(saved.scout?.fallbackModelIds, scoutChain)
+    }
+
+    func testSavePreservesAllHiddenRoutingMetadata() throws {
+        let worker = TeamWorkerSpec(
+            id: "meta_worker", skillId: buildSkill, purpose: .answer,
+            preferredModelId: "model_opus",
+            fallbackModelIds: ["model_kimi_k3", "model_grok"],
+            allowedModelIds: ["model_opus", "model_kimi_k3", "model_grok"],
+            requiredCapabilityTags: [.review],
+            count: 2, fallbackPolicy: .laneCapable, required: false,
+            triangulate: true,
+            triangulatePreferenceIds: ["model_grok", "model_kimi_k3"])
+        let scout = TeamWorkerSpec(
+            id: "meta_scout", skillId: buildSkill, purpose: .answer,
+            preferredModelId: "model_grok",
+            fallbackModelIds: ["model_kimi_k3"],
+            allowedModelIds: ["model_grok", "model_kimi_k3"],
+            requiredCapabilityTags: [.code],
+            count: 1, fallbackPolicy: .laneCapable, required: false)
+        let lead = TeamLeadSpec(
+            skillId: "plan_writer_build",
+            preferredModelId: "model_opus",
+            fallbackModelIds: ["model_chatgpt_sol", "model_kimi_k3"],
+            requiredCapabilityTags: [.planner],
+            fallbackPolicy: .laneCapable,
+            dissentPolicy: .compareOptions)
+        let base = TeamPreset(
+            id: "code_metadata_test", displayName: "Metadata Test", lane: .code,
+            outputKind: .plan, scout: scout, workerSpecs: [worker], lead: lead)
+
+        let id = try TeamDraft(base: base).commit()
+        let saved = try XCTUnwrap(TeamCatalog.get(id))
+        XCTAssertEqual(saved.workerSpecs.first?.fallbackModelIds, worker.fallbackModelIds)
+        XCTAssertEqual(saved.workerSpecs.first?.allowedModelIds, worker.allowedModelIds)
+        XCTAssertEqual(saved.workerSpecs.first?.requiredCapabilityTags, worker.requiredCapabilityTags)
+        XCTAssertEqual(saved.workerSpecs.first?.count, worker.count)
+        XCTAssertEqual(saved.workerSpecs.first?.required, worker.required)
+        XCTAssertEqual(saved.workerSpecs.first?.triangulate, worker.triangulate)
+        XCTAssertEqual(saved.workerSpecs.first?.triangulatePreferenceIds, worker.triangulatePreferenceIds)
+        XCTAssertEqual(saved.lead.fallbackModelIds, lead.fallbackModelIds)
+        XCTAssertEqual(saved.lead.requiredCapabilityTags, lead.requiredCapabilityTags)
+        XCTAssertEqual(saved.scout?.fallbackModelIds, scout.fallbackModelIds)
+        XCTAssertEqual(saved.scout?.allowedModelIds, scout.allowedModelIds)
+        XCTAssertEqual(saved.scout?.requiredCapabilityTags, scout.requiredCapabilityTags)
+        XCTAssertEqual(saved.scout?.required, scout.required)
+    }
+
     func testFailedTeamSaveRollsBackForkedSkill() throws {
         var d = TeamDraft(base: buildBase)
         XCTAssertGreaterThan(d.rows.count, 1, "need a second row to force a team-save failure")

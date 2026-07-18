@@ -35,8 +35,9 @@ users are lost, and Allnighter never becomes a habit.
    Review 6" becomes a lie the day forward selection proves 5 seats beat 6.
    Seat count is picker metadata (a badge like "8 seats"), never the name.
 6. **Not every family ships all three tiers.** The bare name always exists and
-   is always the default send. Min and Max exist only where Team Lab proves
-   them (necessity suite for Min, forward selection for Max). This also
+   is always the default send. Min and Max are curated product assets; Team Lab
+   necessity and forward-selection runs refine their rosters rather than
+   generating tiers mechanically. This also
    resolves the old "default send → Lite" routing: the first-pass roster IS
    the unsuffixed team.
 7. **Unique names remain for genuinely different jobs.** Conversion Studio vs
@@ -45,9 +46,10 @@ users are lost, and Allnighter never becomes a habit.
 
 ## What Min and Max mean (definitions, not vibes)
 
-- **Min** = the smallest roster with positive seat economics — every seat
-  proven necessary on the family's necessity suite. Min is not "weak"; it is
-  *nothing wasted*.
+- **Min** = the smallest curated roster expected to retain the family's core
+  outcome. Team Lab should prove every seat necessary on the family's necessity
+  suite and may tune the initial roster. Min is not "weak"; it is *nothing
+  wasted*.
 - **Max** = every seat that earns its place on the hardest case class
   (forward selection). Old flavor names (e.g. "Forensics") survive as the Max
   tier's *description*, not its name.
@@ -64,7 +66,9 @@ users are lost, and Allnighter never becomes a habit.
 | Today (id → display) | Becomes (id → display) |
 | --- | --- |
 | `code_spec_review` → "Spec Review" | unchanged (bare/default tier) |
-| — (does not exist) | `code_spec_review_min` → "Spec Review Min" (~3 seats; first new Min to cut, LAB-C04-style overlay) |
+| — (did not exist) | `code_spec_review_min` → "Spec Review Min" (3 workers + Lead; shipped 2026-07-18) |
+| `code_spec_review` full panel | `code_spec_review_max` → "Spec Review Max" (full 7-worker + scout + Lead panel) |
+| `code_spec_review` full panel | `code_spec_review` → "Spec Review" (curated 5-worker + Lead default) |
 | `code_bug_hunt_lite` → "Bug Hunter" | `code_bug_hunt` → "Bug Hunt" (bare/default tier) |
 | `code_bug_hunt` → "Bug Hunter Forensics" | `code_bug_hunt_max` → "Bug Hunt Max" (description keeps the forensics framing) |
 
@@ -104,8 +108,29 @@ never silently orphaned.
    `Team_Lab_Composition_And_Seat_Economics.md` + `Team_Lab_Run_Factory.md`),
    re-based on the final names. `Team_Lab_Run_Factory.md` is the CLI-native
    factory thesis (re-based 2026-07-16 after `MCP_Retirement.md`).
-3. **Later:** cutting `code_spec_review_min` (Team Lab necessity work, not a
-   hand guess) and sweeping remaining built-ins for depth-words-in-disguise.
+3. **Spec Review tiers shipped (2026-07-18, founder decision):** the former
+   full panel became Max; the bare team is the curated five-worker default; Min
+   is a three-worker cross-CLI panel. Team Lab now validates and tunes these
+   shipped assets instead of blocking their existence.
+
+## Spec Review v1 staffing and fallback law (2026-07-18)
+
+The tier must remain runnable when Claude and ChatGPT/Codex are both absent.
+Preferred worker staffing therefore leads with Kimi K3, Grok 4.5, and Cursor
+Grok 4.5 rather than treating them as last-resort substitutes:
+
+| Tier | Preferred workers (Lead excluded) |
+| --- | --- |
+| Min | First Principles — Kimi K3; Proof — Cursor Grok 4.5; Scope — Grok 4.5 |
+| Default | First Principles — ChatGPT 5.6 Sol; Doc Hygiene — Kimi K3; Contract — Grok 4.5; Proof — Cursor Grok 4.5; Contrarian — Gemini |
+| Max | Default/full lenses restaffed across Sol, Kimi, Cursor Grok, ChatGPT 5.6, Grok, Composer, and Gemini; Grok outside scout |
+
+Every Spec Review row declares an ordered cross-CLI fallback chain, followed by
+the generic ready-bench fallback so custom and future models remain eligible.
+All built-in synthesis Leads share the resilient order Fable 5 → ChatGPT 5.6
+Sol → Opus 4.8 → Kimi K3 → Cursor Grok 4.5 → Grok 4.5, then continue across
+the remaining ready bench. Worker substitution ranks place Kimi K3 and both
+Grok routes above Sonnet 5.
 
 ## Rename slice scope (zero users → zero dead names)
 
