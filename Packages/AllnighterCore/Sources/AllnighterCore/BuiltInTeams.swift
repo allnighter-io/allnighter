@@ -9,6 +9,7 @@ public enum BuiltInTeams {
     public static let all: [TeamPreset] = [
         buildCore, buildBugHunt, buildBugHuntMax, buildGUIBugHunt, buildSecurityReview,
         buildSpecReviewMin, buildSpecReview, buildSpecReviewMax, buildReleaseProof,
+        buildGrowthPanelMin, buildGrowthPanel, buildGrowthPanelMax,
         defaultChat, executionPlaybook,
         designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
         copyCore, copyLandingPage,
@@ -101,6 +102,17 @@ public enum BuiltInTeams {
     ) -> TeamWorkerSpec {
         row(skillId, purpose, preferred: preferred,
             fallbacks: workerFallbacks(preferred: preferred, priorities: priorities))
+    }
+
+    /// A Growth Panel seat: a distinct row id but the SHARED `growth_hacker` skill
+    /// (the same prompt on every seat). The diversity is the pinned model, not the
+    /// lens — the whole point of the panel is four different models on one question.
+    private static func growthRow(_ id: String, preferred: String, priorities: [String]) -> TeamWorkerSpec {
+        TeamWorkerSpec(id: id, skillId: "growth_hacker", purpose: .answer,
+                       preferredModelId: preferred,
+                       fallbackModelIds: workerFallbacks(preferred: preferred, priorities: priorities),
+                       requiredCapabilityTags: [],
+                       fallbackPolicy: .anyReady, required: true)
     }
 
     /// Spread workers across distinct models — the point of fan-out.
@@ -246,6 +258,66 @@ public enum BuiltInTeams {
             ("security_fix_prioritizer", .review)
         ], rotation: codeWorkerRotation, strategicSeats: ["security_fix_prioritizer"]),
         writer: "security_register_writer", dissent: .riskRegister)
+
+    // MARK: - Growth Panel (same prompt, diverse models)
+
+    /// Growth Panel Min — three diverse models, no Claude/ChatGPT subscription required.
+    static let buildGrowthPanelMin = make(
+        id: "code_growth_panel_min", name: "Growth Panel Min", lane: .code,
+        output: .plan, defaultEffort: .high,
+        description: "Fast growth read: three diverse models hunt the wedge that makes X builders love it — kept simple and on-core.",
+        rows: [
+            growthRow("growth_seat_grok", preferred: grok, priorities: [cursorGrok, kimi, gemini]),
+            growthRow("growth_seat_kimi", preferred: kimi, priorities: [gemini, grok, cursorGrok]),
+            growthRow("growth_seat_gemini", preferred: gemini, priorities: [grok, kimi, cursorGrok])
+        ],
+        writer: "growth_panel_writer",
+        typeTags: ["growth", "growth-panel", "min"],
+        starters: [
+            "Growth Panel: how do we make X builders LOVE this and spread it, kept simple and on-core? Find the wedge, the shareable artifact, and the simplest lovable version."]
+    )
+
+    /// Growth Panel — the everyday default. Four genuinely different frontier models
+    /// on ONE shared growth-hacker prompt (the diversity is the model, not the lens);
+    /// a first-principles synthesizer that hunts the BEST idea — outlier or consensus —
+    /// and never rewards agreement for its own sake.
+    static let buildGrowthPanel = make(
+        id: "code_growth_panel", name: "Growth Panel", lane: .code,
+        output: .plan, defaultEffort: .high,
+        description: "Make X builders and influencers LOVE a feature: four diverse models swing big on the same growth question; the synthesizer picks the highest-leverage wedge that stays on-core and simple, valuing the breakout outlier over safe consensus.",
+        rows: [
+            growthRow("growth_seat_grok", preferred: grok, priorities: [cursorGrok, kimi, gemini, opus]),
+            growthRow("growth_seat_opus", preferred: opus, priorities: [strategicFlagship, kimi, grok, gemini]),
+            growthRow("growth_seat_kimi", preferred: kimi, priorities: [gemini, cursorGrok, grok, opus]),
+            growthRow("growth_seat_gemini", preferred: gemini, priorities: [grok, kimi, cursorGrok, opus])
+        ],
+        writer: "growth_panel_writer",
+        typeTags: ["growth", "growth-panel"],
+        starters: [
+            "Growth Panel: how do we make the X builders and influencers who matter LOVE this — enough to use it daily and tell others — while keeping it simple and true to the core? Find the wedge, the aha, the shareable artifact, and what to cut.",
+            "Review docs/phases/<Feature>.md as a growth panel: the loved wedge, the viral loop, the simplest lovable version, and the breakout bet."]
+    )
+
+    /// Growth Panel Max — the four-model panel plus an X/web research scout that reads
+    /// what is actually spreading in the category right now, so the ideas are grounded
+    /// in live signal, not vibes.
+    static let buildGrowthPanelMax = make(
+        id: "code_growth_panel_max", name: "Growth Panel Max", lane: .code,
+        output: .plan, defaultEffort: .high,
+        description: "Deep growth read: an X/web signal scout on what is spreading now, four diverse models on the wedge, and a synthesizer that prizes the breakout outlier over safe consensus.",
+        scout: specRow("signal_source_reader", .answer, preferred: grok,
+                       priorities: [cursorGrok, kimi, gemini, chatgpt]),
+        rows: [
+            growthRow("growth_seat_grok", preferred: cursorGrok, priorities: [kimi, gemini, opus, grok]),
+            growthRow("growth_seat_opus", preferred: opus, priorities: [strategicFlagship, kimi, gemini]),
+            growthRow("growth_seat_kimi", preferred: kimi, priorities: [gemini, cursorGrok, opus]),
+            growthRow("growth_seat_gemini", preferred: gemini, priorities: [cursorGrok, kimi, opus])
+        ],
+        writer: "growth_panel_writer",
+        typeTags: ["growth", "growth-panel", "max"],
+        starters: [
+            "Growth Panel (max): scout what is spreading in the category on X now, then find the wedge that makes builders LOVE this and the shareable viral loop — kept simple and on-core."]
+    )
 
     /// Spec Review Min — the smallest useful cross-CLI panel. Its three workers
     /// prefer Kimi, Cursor, and Grok, so no Claude/Codex subscription is required.
