@@ -26,7 +26,10 @@ let package = Package(
                 .product(name: "AgentOSCLI", package: "AgentOS"),
                 .product(name: "AgentOSTeam", package: "AgentOS")
             ],
-            resources: [.copy("Resources/Fixtures")],
+            resources: [
+                .copy("Resources/Fixtures"),
+                .copy("Resources/Recipes"),
+            ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]

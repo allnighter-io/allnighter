@@ -49,8 +49,18 @@ public enum Bootstrap {
         return lines.joined(separator: "\n")
     }
 
+    /// Bounded recipe listing for agents (full markdown via `recipesHelp`).
+    public struct RecipeRef: Codable, Sendable, Equatable {
+        public var id: String
+        public var title: String
+        public init(id: String, title: String) {
+            self.id = id
+            self.title = title
+        }
+    }
+
     /// `--json` envelope: agent-first, so an agent can install itself without
-    /// parsing prose.
+    /// parsing prose. ONB-S02a adds `recipes` (id+title) + `recipesHelp`.
     public struct JSON: Codable, Sendable, Equatable {
         public var schemaVersion: Int
         public var host: String
@@ -58,13 +68,19 @@ public enum Bootstrap {
         public var snippet: String
         public var binaryPath: String
         public var onPath: Bool
+        /// Intent-titled recipe cards (v1 SSOT under Bundle.module Recipes/).
+        public var recipes: [RecipeRef]
+        /// How to read full recipe markdown without inventing a new CLI verb.
+        public var recipesHelp: String
         public init(
             schemaVersion: Int = 1,
             host: String,
             pasteTarget: String,
             snippet: String,
             binaryPath: String,
-            onPath: Bool
+            onPath: Bool,
+            recipes: [RecipeRef] = RecipeCatalog.summaries().map { RecipeRef(id: $0.id, title: $0.title) },
+            recipesHelp: String = "alln help get recipes --format md"
         ) {
             self.schemaVersion = schemaVersion
             self.host = host
@@ -72,6 +88,8 @@ public enum Bootstrap {
             self.snippet = snippet
             self.binaryPath = binaryPath
             self.onPath = onPath
+            self.recipes = recipes
+            self.recipesHelp = recipesHelp
         }
     }
 
@@ -81,7 +99,9 @@ public enum Bootstrap {
             pasteTarget: host.pasteTarget,
             snippet: snippet(binaryPath: binaryPath, onPath: onPath),
             binaryPath: binaryPath,
-            onPath: onPath
+            onPath: onPath,
+            recipes: RecipeCatalog.summaries().map { RecipeRef(id: $0.id, title: $0.title) },
+            recipesHelp: "alln help get recipes --format md"
         )
     }
 

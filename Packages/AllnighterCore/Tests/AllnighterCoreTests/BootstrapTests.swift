@@ -100,6 +100,9 @@ final class BootstrapTests: XCTestCase {
         XCTAssertEqual(j.binaryPath, sampleBinary)
         XCTAssertFalse(j.onPath)
         XCTAssertTrue(j.snippet.contains(sampleBinary))
+        XCTAssertGreaterThanOrEqual(j.recipes.count, 6)
+        XCTAssertEqual(j.recipesHelp, "alln help get recipes --format md")
+        XCTAssertTrue(j.recipes.contains { $0.id == "get-sols-take-without-changing-files" })
     }
 
     func testJSONStringRoundTrips() throws {

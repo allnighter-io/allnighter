@@ -92,12 +92,14 @@ public enum HelpTopicRegistry {
             `alln help search`/`alln help get` and `alln doctor --json`. Panel cockpit \
             recipes stay in `help get panel`, not bootstrap. Marker-delimited with schema \
             version + content hash so `alln doctor` can report teaching.installed. \
-            `--json` returns `{ host, pasteTarget, snippet, binaryPath, onPath }` so an agent can install itself.
+            `--json` returns `{ host, pasteTarget, snippet, binaryPath, onPath, recipes, recipesHelp }` \
+            so an agent can install itself and discover intent-titled recipe cards \
+            (`recipes[]` is id+title only; full markdown via `recipesHelp`).
             """,
             aliases: ["install", "setup", "connect agent", "activation", "add to agent",
                      "wire up allnighter", "onboard agent", "mcp install", "mcp", "install mcp"],
             relatedToolIds: ["help", "team_hello", "doctor"],
-            relatedCommandNames: ["install-cli", "bootstrap"],
+            relatedCommandNames: ["install-cli", "bootstrap", "help get"],
             schemaRefs: [],
             needsLiveCheck: false),
 
@@ -422,7 +424,49 @@ public enum HelpTopicRegistry {
             relatedCommandNames: ["docs", "spec", "export"],
             schemaRefs: ["contractDoc"],
             needsLiveCheck: false),
+
+        recipesHelpTopic,
     ]
+
+    /// ONB-S02a: intent-titled recipe cards from `RecipeCatalog` (Bundle.module Recipes/).
+    /// Sections are one card each so `alln help get recipes --format md` (or JSON) yields
+    /// full paste-ready markdown without a new top-level CLI verb.
+    private static let recipesHelpTopic: HelpTopic = {
+        let recipes = RecipeCatalog.list()
+        let listing = recipes.map { "- `\($0.id)` — \($0.title)" }.joined(separator: "\n")
+        return HelpTopic(
+            id: "recipes",
+            title: "Recipes (Use from your CLI)",
+            audience: .both,
+            summary: "Intent-titled recipe cards: list via `alln bootstrap --json` → `recipes[]`, full text via `alln help get recipes --format md`.",
+            bodyMarkdown: """
+            These cards are the v1 SSOT for human/agent "how do I…?" prompts — titled by \
+            user intent, not product nouns. Each card carries example utterances, the \
+            teaching snippet, and copy-paste-ready commands.
+
+            Discovery without the Mac app:
+            1. `alln bootstrap --json` → `recipes` (id + title) and `recipesHelp`
+            2. `alln help get recipes --format md` (or `--json`) for full card bodies
+            3. `alln help search \"recipe\"` also routes here
+
+            Shipped cards:
+
+            \(listing.isEmpty ? "- _(no recipes bundled — rebuild AllnighterCore)_" : listing)
+            """,
+            aliases: [
+                "recipe", "recipes", "use from your cli", "prompt cards", "example prompts",
+                "onboarding recipes", "intent recipes",
+            ],
+            sections: recipes.map { HelpTopic.Section($0.id, $0.title, $0.markdown) },
+            relatedToolIds: ["help", "team_hello"],
+            relatedCommandNames: [
+                "bootstrap", "help get", "help search", "team hello",
+                "pair pilot start", "panel start", "pair relay", "run",
+                "team status", "team result", "team cancel",
+            ],
+            needsLiveCheck: false
+        )
+    }()
 
     /// Search/alias redirects: a term (often retired vocabulary) → canonical topic id.
     public static let aliasRedirects: [String: String] = {
