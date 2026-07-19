@@ -25,6 +25,12 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .design, .image, .copy, .localContext],
             strengthRank: 99),
+        // ChatGPT 5.4 (Codex, off-Bench by default) — a capable non-Sol ChatGPT.
+        // Copy-capable per founder so Copy teams have depth beyond the Sol/flagship seats.
+        "model_chatgpt_54": ModelCapabilities(
+            laneTags: [.code, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .copy],
+            strengthRank: 85),
         "model_opus": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
@@ -33,7 +39,7 @@ public enum ModelCatalog {
         // Kimi and both Grok routes outrank Sonnet for worker substitution.
         "model_cursor_grok_45": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner],
+            capabilityTags: [.code, .planner, .copy],
             strengthRank: 89),
         // Kimi K3 is a great designer (founder note) — design reasoning/critique/
         // direction, NOT image generation.
@@ -46,7 +52,7 @@ public enum ModelCatalog {
         // both `.design` (lane) and `.image` (capability) for design work.
         "model_grok": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .image],
+            capabilityTags: [.code, .planner, .copy, .image],
             strengthRank: 87),
         "model_sonnet": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
@@ -66,8 +72,8 @@ public enum ModelCatalog {
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
             strengthRank: 75),
         "model_gemini": ModelCapabilities(
-            laneTags: [.design, .code, .signal],
-            capabilityTags: [.code, .design, .image, .fast],
+            laneTags: [.design, .code, .copy, .signal],
+            capabilityTags: [.code, .design, .image, .copy, .fast],
             strengthRank: 75),
         "model_composer": ModelCapabilities(
             laneTags: [.code],
