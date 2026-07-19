@@ -10,7 +10,10 @@ utterance class surfaced by a live cold-agent probe (see
 one-source-per-artifact-class SSOT fix, discovery-vs-execution split in the
 trigger line, snippet blocks on IR-S01+S02, marker version+hash doctor
 states, host support matrix + filesystem contract in S03, reproducible
-battery harness.
+battery harness. v3.2 (2026-07-19): first-contact **single-worker review**
+recipe — run-vs-team, `--project` required, Codex Sol vs Cursor Sol, silent
+`--json`, paste-ready snippet (field footguns from the Isolation/Perf Sol
+audit via `alln run --worker model_chatgpt`).
 Awaiting founder go. V1 = three slices; the rest parked.
 Owner: Mac app (first-run/Settings) + AllnighterCore content SSOT + bootstrap
 Updated: 2026-07-19
@@ -174,3 +177,35 @@ proposing) `alln team hello --for`. One lucky session proves nothing. Recipe cop
 delegate + panel. Removal click leaves vendor files byte-clean outside the
 markers. Snippet size budget green (smaller than v2); recipes render from SSOT
 (drift test).
+
+## First-contact: single-worker review (paste-ready)
+
+When the ask is **"get Sol's take on these docs — change nothing"** (one named
+worker, one ask, read-only), use `alln run` — **not** a multi-seat team. Field
+footguns from the 2026-07-19 Isolation/Perf Sol audit:
+
+1. **Run vs team.** One worker / one ask → `alln run --worker …`. Multi-seat
+   judgment → `alln team --team …`. Never collapse "send to Sol" into Spec
+   Review (or any panel) — that burns seats the user did not ask for.
+2. **`--project` is required today.** Omit it and you get
+   `CLI_USAGE_ERROR: --project required`. Pass `--project <id|path>` every
+   time. **Product gap (desirable):** defaulting to cwd when unambiguous would
+   remove this cold-agent stall; not shipped yet.
+3. **Codex Sol ≠ Cursor Sol.** Same model family, different driver:
+   `model_chatgpt` = Codex (`gpt-5.6-sol`); `model_chatgpt_sol` = Cursor.
+   Prefer `model_chatgpt` when the user says "Sol" without naming a host.
+4. **`--json` is silent until finish.** Long reviews look hung with no stdout.
+   Prefer `--stream` for live progress, or treat silence as normal and check
+   `alln ps` / the run heartbeat — no output ≠ stuck.
+
+**Paste-ready (Codex Sol, named docs, read-only):**
+
+```bash
+alln run --project <id|path> --worker model_chatgpt --lane code --no-commit --stream \
+  "Read-only review of <path/to/Doc_A.md> and <path/to/Doc_B.md>. Do not edit files. Return findings only."
+```
+
+Swap `--stream` for `--json` when the caller wants a single machine-readable
+blob at the end (and expects silence until then). Router still owns the long
+term ("ask `team hello --for` first"); this recipe is the honest command when
+the agent already knows it wants one named worker.
