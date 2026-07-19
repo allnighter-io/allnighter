@@ -60,9 +60,9 @@ public enum AsyncTeamStatusMapper {
     /// Next action after a status snapshot or wait (PO-F3).
     public static func nextAction(for status: RunLifecycle, runId: String) -> AsyncTeamNextAction {
         if status.isTerminal {
-            return AsyncTeamNextAction(kind: "fetchResult", tool: "team_result", runId: runId)
+            return .fetchResult(runId: runId)
         }
-        return AsyncTeamNextAction(kind: "waitForStatus", tool: "team_status", runId: runId)
+        return .waitForStatus(runId: runId)
     }
 
     /// Attach wait guidance fields without inventing new status truth.

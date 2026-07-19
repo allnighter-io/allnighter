@@ -17,7 +17,7 @@ final class AgentIntentRouterTests: XCTestCase {
             canStartTeamRun: true,
             readyTeams: allReady,
             blockedReason: nil,
-            nextAction: AgentNextAction(kind: "startTeamRun", tool: "team_start")
+            nextAction: AgentNextAction.startTeamRun()
         )
     }
 

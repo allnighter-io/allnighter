@@ -162,7 +162,10 @@ final class TeamStartTests: XCTestCase {
             XCTAssertEqual(response.runId, "run-start-1")
             XCTAssertTrue([RunLifecycle.queued, .running].contains(response.status))
             XCTAssertGreaterThan(response.nextPollAfterMs, 0)
-            XCTAssertEqual(response.nextActions.first?.tool, "team_status")
+            XCTAssertEqual(response.nextActions.first?.command, "alln team status run-start-1 --json")
+            XCTAssertEqual(
+                ContractRegistry.resolveCommandName(from: response.nextActions.first?.command ?? ""),
+                "team status")
 
             let runURL = root.appendingPathComponent("Runs/run_run-start-1/run.json")
             XCTAssertTrue(FileManager.default.fileExists(atPath: runURL.path), "journal must exist before workers finish")
@@ -243,7 +246,7 @@ final class AsyncTeamTests: XCTestCase {
             XCTAssertGreaterThan(status?.nextPollAfterMs ?? 0, 0)
             XCTAssertFalse(status?.workers.isEmpty ?? true)
             // PO-F3: plain status also carries nextAction + waitHintSeconds.
-            XCTAssertEqual(status?.nextAction?.tool, "team_status")
+            XCTAssertEqual(status?.nextAction?.command, "alln team status run-status-1 --json")
             XCTAssertNotNil(status?.waitHintSeconds)
             XCTAssertGreaterThan(status?.waitHintSeconds ?? 0, 0)
             _ = await service.cancel(runId: "run-status-1")
@@ -267,7 +270,7 @@ final class AsyncTeamTests: XCTestCase {
             XCTAssertFalse(result.timedOut)
             XCTAssertTrue(result.response.status.isTerminal)
             XCTAssertEqual(result.response.waitHintSeconds, 0)
-            XCTAssertEqual(result.response.nextAction?.tool, "team_result")
+            XCTAssertEqual(result.response.nextAction?.command, "alln team result run-wait-done --json")
             XCTAssertEqual(result.response.nextAction?.kind, "fetchResult")
         }
     }
@@ -296,7 +299,7 @@ final class AsyncTeamTests: XCTestCase {
             XCTAssertTrue(result.timedOut)
             XCTAssertFalse(result.response.status.isTerminal)
             XCTAssertGreaterThan(result.response.waitHintSeconds ?? 0, 0)
-            XCTAssertEqual(result.response.nextAction?.tool, "team_status")
+            XCTAssertEqual(result.response.nextAction?.command, "alln team status run-wait-to --json")
             XCTAssertLessThanOrEqual(elapsed, .milliseconds(800), "wait-for timeout must resume promptly")
             _ = await service.cancel(runId: "run-wait-to")
         }

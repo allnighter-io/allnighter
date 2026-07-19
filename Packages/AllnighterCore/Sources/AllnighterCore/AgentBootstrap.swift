@@ -17,12 +17,41 @@ public struct ReadyTeam: Codable, Sendable, Equatable {
     }
 }
 
-/// What the agent should do next. `tool` names the action id / CLI verb when one applies.
+/// What the agent should do next. Same shape as `AgentSurfaceNextAction`
+/// (kind + label + runnable `alln …` command) — foundation-first, no tool-id grammar.
 public struct AgentNextAction: Codable, Sendable, Equatable {
-    /// startTeamRun | runDoctor | installOrAuthSource | waitForAdmission | performHumanAction
+    /// startTeamRun | runDoctor | installOrAuthSource | retryLater | performHumanAction
     public var kind: String
-    public var tool: String?
-    public init(kind: String, tool: String? = nil) { self.kind = kind; self.tool = tool }
+    public var label: String
+    public var command: String
+    public init(kind: String, label: String, command: String) {
+        self.kind = kind; self.label = label; self.command = command
+    }
+
+    public static func startTeamRun(teamId: String? = nil) -> AgentNextAction {
+        let team = teamId ?? "<team-id>"
+        return AgentNextAction(
+            kind: "startTeamRun",
+            label: "Start team run",
+            command: "alln team start --team \(team) --json \"<message>\"")
+    }
+
+    public static func retryLater(teamId: String? = nil) -> AgentNextAction {
+        let team = teamId ?? "<team-id>"
+        return AgentNextAction(
+            kind: "retryLater",
+            label: "Retry team start when capacity frees",
+            command: "alln team start --team \(team) --json \"<message>\"")
+    }
+
+    public static let runDoctor = AgentNextAction(
+        kind: "runDoctor", label: "Check setup and sources", command: "alln doctor --json")
+
+    public static let installOrAuthSource = AgentNextAction(
+        kind: "installOrAuthSource", label: "Install or authenticate a source", command: "alln doctor --json")
+
+    public static let performHumanAction = AgentNextAction(
+        kind: "performHumanAction", label: "Fix the named blocker, then re-preflight", command: "alln doctor --json")
 }
 
 /// The readiness verdict agents branch on — never inferred from prose or individual
@@ -60,16 +89,16 @@ public enum AgentReadiness {
         }
         if !ready.isEmpty {
             return Verdict(canStartTeamRun: true, readyTeams: ready, blockedReason: nil,
-                           nextAction: AgentNextAction(kind: "startTeamRun", tool: "team_start"))
+                           nextAction: .startTeamRun())
         }
         if readyModels.isEmpty {
             return Verdict(canStartTeamRun: false, readyTeams: [],
                            blockedReason: "No ready model on the bench. Connect or authenticate at least one CLI.",
-                           nextAction: AgentNextAction(kind: "installOrAuthSource", tool: "doctor"))
+                           nextAction: .installOrAuthSource)
         }
         return Verdict(canStartTeamRun: false, readyTeams: [],
                        blockedReason: "No team resolves with the current bench. Run doctor for the blocking check.",
-                       nextAction: AgentNextAction(kind: "runDoctor", tool: "doctor"))
+                       nextAction: .runDoctor)
     }
 }
 
@@ -163,7 +192,7 @@ public enum TeamPreflight {
                 effort: effort?.rawValue, outputKind: nil, readyWorkers: [], blockedWorkers: [],
                 selfFusion: SelfFusion(enabled: false, reason: nil), warnings: [],
                 blockedReason: failure.description,
-                nextAction: AgentNextAction(kind: failure.code == "CLI_USAGE_ERROR" ? "performHumanAction" : "runDoctor", tool: "doctor"),
+                nextAction: failure.code == "CLI_USAGE_ERROR" ? .performHumanAction : .runDoctor,
                 sourceGateStatus: nil)
         case .success(let req):
             let resolved = TeamResolver.resolve(
@@ -196,8 +225,8 @@ public enum TeamPreflight {
                 outputKind: req.team.outputKind.rawValue, readyWorkers: workers, blockedWorkers: blocked,
                 selfFusion: fusion, warnings: resolved.warnings, blockedReason: blockedReason,
                 nextAction: runnable
-                    ? AgentNextAction(kind: "startTeamRun", tool: "team_start")
-                    : AgentNextAction(kind: sourceGate.sourceGateStatus == .blocked ? "performHumanAction" : "runDoctor", tool: "doctor"),
+                    ? .startTeamRun(teamId: req.team.id)
+                    : (sourceGate.sourceGateStatus == .blocked ? .performHumanAction : .runDoctor),
                 executionSourcePolicy: sourceGate.executionSourcePolicy.rawValue,
                 resolvedSourceIds: sourceGate.resolvedSourceIds,
                 executionSourceId: sourceGate.executionSourceId,

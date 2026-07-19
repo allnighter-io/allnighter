@@ -1117,12 +1117,12 @@ struct AllnighterCLI {
                 result.canStart = false
                 result.blockedReason = reason
                 result.warnings.append("Team governor is at capacity.")
-                result.nextAction = AgentNextAction(kind: "retryLater", tool: "team_start")
+                result.nextAction = .retryLater(teamId: result.teamPresetId)
             case .unavailable(let reason):
                 result.canStart = false
                 result.blockedReason = reason
                 result.warnings.append("Team governor slot store is unavailable.")
-                result.nextAction = AgentNextAction(kind: "runDoctor", tool: "doctor")
+                result.nextAction = .runDoctor
             }
         }
         return result

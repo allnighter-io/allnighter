@@ -15,7 +15,7 @@ final class AgentHelloTests: XCTestCase {
                 ReadyTeam(lane: $0.lane.rawValue, team: $0.id, displayName: $0.displayName)
             },
             blockedReason: nil,
-            nextAction: AgentNextAction(kind: "startTeamRun", tool: "team_start")
+            nextAction: AgentNextAction.startTeamRun()
         )
     }
 

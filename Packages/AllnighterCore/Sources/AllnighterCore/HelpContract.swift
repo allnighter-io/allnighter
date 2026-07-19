@@ -22,15 +22,14 @@ public extension HelpService {
     }
 }
 
-/// One ordered next-tool call so host agents don't synthesize orchestration from prose.
-/// ASF-S02 migrates `tool` → full runnable `command` strings; S01 leaves the field.
+/// One ordered next step so host agents don't synthesize orchestration from prose.
+/// Carries a full runnable `alln …` command (ASF-S02 — no tool-id grammar).
 public struct HelpNextToolStep: Codable, Sendable, Equatable {
     public var order: Int
-    public var tool: String
-    public var args: [String: String]
+    public var command: String
     public var why: String
-    public init(order: Int, tool: String, args: [String: String] = [:], why: String) {
-        self.order = order; self.tool = tool; self.args = args; self.why = why
+    public init(order: Int, command: String, why: String) {
+        self.order = order; self.command = command; self.why = why
     }
 }
 
@@ -109,9 +108,17 @@ public enum ErrorHelpBridge {
         let topic = HelpTopicRegistry.topics.first { $0.errorRefs.contains(spec.code) }
         let ref = topic.map { HelpRef.help($0.id) }
         var plan: [HelpNextToolStep] = []
-        if let ref { plan.append(HelpNextToolStep(order: 1, tool: "help_get", args: ["ref": ref], why: "Read the recovery topic.")) }
+        if let ref {
+            plan.append(HelpNextToolStep(
+                order: 1,
+                command: "alln help get --ref \(ref) --json",
+                why: "Read the recovery topic."))
+        }
         if spec.ruleId.hasPrefix("source.") {
-            plan.append(HelpNextToolStep(order: plan.count + 1, tool: "doctor", why: "Re-probe the affected source for live state."))
+            plan.append(HelpNextToolStep(
+                order: plan.count + 1,
+                command: "alln doctor --json",
+                why: "Re-probe the affected source for live state."))
         }
         return ErrorExplainJSON(contractVersion: contractVersion, error: spec,
                                 helpTopicId: topic?.id, helpRef: ref, nextToolPlan: plan)
@@ -147,33 +154,40 @@ public enum HelpProjector {
 
     private static func planForSearch(_ r: HelpSearchResult) -> [HelpNextToolStep] {
         guard let top = r.results.first else { return [] }
-        var steps = [HelpNextToolStep(order: 1, tool: "help_get",
-                                      args: ["topic": top.topicId, "detail": "machine"],
-                                      why: "Retrieve the full topic, decision table, and refs.")]
+        var steps = [HelpNextToolStep(
+            order: 1,
+            command: "alln help get \(top.topicId) --json",
+            why: "Retrieve the full topic, decision table, and refs.")]
         if top.needsLiveCheck {
-            steps.append(HelpNextToolStep(order: 2, tool: "team_hello",
-                                          why: "This answer depends on local readiness — check live state."))
+            steps.append(HelpNextToolStep(
+                order: 2,
+                command: "alln team hello --json",
+                why: "This answer depends on local readiness — check live state."))
         }
         return steps
     }
 
     private static func planForTopic(_ topic: HelpTopic?, found: Bool) -> [HelpNextToolStep] {
         guard found, let topic else {
-            return [HelpNextToolStep(order: 1, tool: "help_search",
-                                     why: "Topic not found — search for the right one.")]
+            return [HelpNextToolStep(
+                order: 1,
+                command: "alln help search <query> --json",
+                why: "Topic not found — search for the right one.")]
         }
         guard topic.needsLiveCheck else { return [] }
         // Live-state topics route to a live command rather than pretend to know.
-        // Prefer `team hello` when listed; otherwise `doctor`. (ASF-S02 replaces `tool`.)
-        let liveTool: String
+        // Prefer `team hello` when listed; otherwise `doctor`.
+        let command: String
         if topic.relatedCommandNames.contains("team hello") {
-            liveTool = "team_hello"
+            command = "alln team hello --json"
         } else if topic.relatedCommandNames.contains("doctor") {
-            liveTool = "doctor"
+            command = "alln doctor --json"
         } else {
-            liveTool = "team_hello"
+            command = "alln team hello --json"
         }
-        return [HelpNextToolStep(order: 1, tool: liveTool,
-                                 why: "This topic depends on this machine's live state.")]
+        return [HelpNextToolStep(
+            order: 1,
+            command: command,
+            why: "This topic depends on this machine's live state.")]
     }
 }

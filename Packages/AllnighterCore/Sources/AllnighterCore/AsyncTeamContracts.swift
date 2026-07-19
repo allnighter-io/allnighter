@@ -58,13 +58,40 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
     }
 }
 
+/// Agent-visible next step for async team envelopes. Same grammar as
+/// `AgentSurfaceNextAction` (kind + label + runnable command), plus `runId`.
 public struct AsyncTeamNextAction: Codable, Equatable, Sendable {
     public var kind: String
-    public var tool: String
+    public var label: String
+    public var command: String
     public var runId: String
 
-    public init(kind: String, tool: String, runId: String) {
-        self.kind = kind; self.tool = tool; self.runId = runId
+    public init(kind: String, label: String, command: String, runId: String) {
+        self.kind = kind; self.label = label; self.command = command; self.runId = runId
+    }
+
+    public static func pollStatus(runId: String) -> AsyncTeamNextAction {
+        AsyncTeamNextAction(
+            kind: "poll",
+            label: "Poll run status",
+            command: "alln team status \(runId) --json",
+            runId: runId)
+    }
+
+    public static func fetchResult(runId: String) -> AsyncTeamNextAction {
+        AsyncTeamNextAction(
+            kind: "fetchResult",
+            label: "Fetch terminal result",
+            command: "alln team result \(runId) --json",
+            runId: runId)
+    }
+
+    public static func waitForStatus(runId: String) -> AsyncTeamNextAction {
+        AsyncTeamNextAction(
+            kind: "waitForStatus",
+            label: "Wait, then re-check status",
+            command: "alln team status \(runId) --json",
+            runId: runId)
     }
 }
 

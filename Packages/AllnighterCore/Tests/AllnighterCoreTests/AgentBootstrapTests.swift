@@ -14,6 +14,8 @@ final class AgentBootstrapTests: XCTestCase {
         XCTAssertTrue(v.readyTeams.contains { $0.team == "code_bug_hunt" })
         XCTAssertNil(v.blockedReason)
         XCTAssertEqual(v.nextAction.kind, "startTeamRun")
+        XCTAssertEqual(v.nextAction.command, "alln team start --team <team-id> --json \"<message>\"")
+        XCTAssertEqual(ContractRegistry.resolveCommandName(from: v.nextAction.command), "team start")
     }
 
     func testEmptyBenchBlocksWithSourceAction() {
@@ -21,14 +23,15 @@ final class AgentBootstrapTests: XCTestCase {
         XCTAssertFalse(v.canStartTeamRun)
         XCTAssertTrue(v.readyTeams.isEmpty)
         XCTAssertEqual(v.nextAction.kind, "installOrAuthSource")
+        XCTAssertEqual(v.nextAction.command, "alln doctor --json")
         XCTAssertTrue(v.blockedReason?.contains("No ready model") ?? false)
     }
 
     // MARK: - team_preflight
 
-    /// Pre-existing red baseline (MEMORY): expects 10 workers; Max roster is 8 + writer = 9.
+    /// Max roster is 8 answer/review + writer = 9.
     /// Retargeted to `code_bug_hunt_max` so the Team_Depth_Naming rename does not change
-    /// the failure mode (bare `code_bug_hunt` is now the 4-seat default).
+    /// the bare-`code_bug_hunt` 4-seat default path.
     func testPreflightBugHuntHighOnOneModel() {
         let r = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_bug_hunt_max",
                                         type: nil, effort: .high, readyModels: [opus()])
@@ -36,9 +39,10 @@ final class AgentBootstrapTests: XCTestCase {
         XCTAssertEqual(r.teamPresetId, "code_bug_hunt_max")
         XCTAssertEqual(r.effort, "high")
         XCTAssertEqual(r.outputKind, "bugPacket")
-        XCTAssertEqual(r.readyWorkers.count, 10) // 9 answer/review + writer
+        XCTAssertEqual(r.readyWorkers.count, 9) // 8 answer/review + writer
         XCTAssertTrue(r.selfFusion.enabled)
         XCTAssertEqual(r.nextAction.kind, "startTeamRun")
+        XCTAssertEqual(r.nextAction.command, "alln team start --team code_bug_hunt_max --json \"<message>\"")
         XCTAssertTrue(r.readyWorkers.contains { $0.purpose == "plan" }) // synthetic writer
     }
 
@@ -75,5 +79,35 @@ final class AgentBootstrapTests: XCTestCase {
         let a = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_plan", type: nil, effort: .med, readyModels: [opus()])
         let b = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_plan", type: nil, effort: .med, readyModels: [opus()])
         XCTAssertEqual(a, b)
+    }
+
+    /// ASF-S02: preflight nextAction encodes `command`, never a `"tool"` key.
+    func testPreflightNextActionJSONHasCommandNotTool() throws {
+        let r = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_bug_hunt",
+                                        type: nil, effort: nil, readyModels: [opus()])
+        XCTAssertTrue(r.canStart)
+        XCTAssertTrue(r.nextAction.command.hasPrefix("alln team start"))
+        XCTAssertEqual(ContractRegistry.resolveCommandName(from: r.nextAction.command), "team start")
+
+        let obj = try JSONSerialization.jsonObject(with: CoreJSON.encode(r)) as? [String: Any]
+        let next = try XCTUnwrap(obj?["nextAction"] as? [String: Any])
+        XCTAssertEqual(next["kind"] as? String, "startTeamRun")
+        XCTAssertNotNil(next["command"] as? String)
+        XCTAssertNil(next["tool"], "ASF-S02: tool key must not appear in nextAction")
+        // Whole envelope must not reintroduce a tool-id next-action grammar.
+        let raw = String(data: try CoreJSON.encode(r.nextAction), encoding: .utf8) ?? ""
+        XCTAssertFalse(raw.contains("\"tool\""))
+    }
+
+    func testAsyncTeamNextActionJSONHasCommandNotTool() throws {
+        let poll = AsyncTeamNextAction.pollStatus(runId: "run-abc")
+        let result = AsyncTeamNextAction.fetchResult(runId: "run-abc")
+        for action in [poll, result] {
+            let obj = try JSONSerialization.jsonObject(with: CoreJSON.encode(action)) as? [String: Any]
+            XCTAssertNotNil(obj?["command"] as? String)
+            XCTAssertNil(obj?["tool"])
+            XCTAssertTrue((obj?["command"] as? String)?.hasPrefix("alln team ") ?? false)
+            XCTAssertNotNil(ContractRegistry.resolveCommandName(from: action.command))
+        }
     }
 }

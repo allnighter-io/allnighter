@@ -1062,8 +1062,12 @@ public actor AsyncTeamService {
             acceptedAt: acceptedAt,
             nextPollAfterMs: AsyncTeamStatusMapper.nextPollAfterMs(for: live),
             nextActions: [
-                .init(kind: "poll", tool: "team_status", runId: run.id),
-                .init(kind: "result", tool: "team_result", runId: run.id),
+                .pollStatus(runId: run.id),
+                .init(
+                    kind: "result",
+                    label: "Fetch result when terminal",
+                    command: "alln team result \(run.id) --json",
+                    runId: run.id),
             ]
         )
     }
