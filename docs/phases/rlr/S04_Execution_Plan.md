@@ -1,6 +1,7 @@
 # RLR-S04 Execution Plan — runtimeOwnership · foreground-kill settlement · cancel vs kill · KillOutcome · contradiction surface
 
-Status: **Architect recon + design (RLR-S04). No source changed to produce this.**
+Status: **S04a–S04c DELIVERED 2026-07-19.** Terminal-lie GREEN; contradiction
+surface + receipts retention + warm honesty landed. Next: S05.
 Read-only audit of branch `feat/design-chain` (HEAD `7ff14bba`, 2026-07-19).
 SSOT: `docs/phases/Run_Lifecycle_Reliability.md` (FINAL) — law **RLR-L5** IN
 FULL (runtimeOwnership, identity-alive, cancel/kill, `KillOutcome`, the 8-step

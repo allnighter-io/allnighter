@@ -65,8 +65,18 @@ re-sourced; `progressStale`/heartbeat age are read-time derivations;
 proven), exactly-one-terminal per attachment, replay attach marked +
 gap-detectable, `--json` final-only pinned; dropped activity events now
 flow as bounded `workerActivity`/`stageActivity` metadata (never payload
-text). Works Test 4 shape GREEN. **S04 (runtimeOwnership +
-foreground-kill protocol — turns the terminal-lie test green) is next.**
+text). Works Test 4 shape GREEN.
+
+**S04 DELIVERED 2026-07-19** (commits `3087179e` S04a, `701dc6f6` S04b,
+`<S04c>` S04c; plan `docs/phases/rlr/S04_Execution_Plan.md`): worker
+`runtimeOwnership` keyed by worker id; async setpgid detachment dead;
+spawn signal dispositions reset (inherited SIG_IGN for SIGTERM fixed);
+one identity-checked `KillSettlement` (terminal only on verified stop);
+`status`/`ps` surface `killOutcome` + read-time
+`contradiction: terminalWithLiveOwnership`; ownership receipts retained
+after terminal; warm kill returns `verificationUnavailable` (never a
+`killed` lie). Terminal-lie signature GREEN. **S05 (clocks + idempotency
+replay + `--retry-of`) is next.**
 
 ## Founder intent
 

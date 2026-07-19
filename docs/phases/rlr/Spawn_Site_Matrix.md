@@ -209,7 +209,10 @@ workflow slice), and the fake CLI is not warm-capable
 drivers from the S06 Works Test**, and until a dedicated warm-ownership slice
 lands, have warm cancel/kill return `KillOutcome.verificationUnavailable`
 (never a terminal `killed` lie), so the honest-refusal contract still holds for
-warm workers. The follow-up warm slice must (1) move the warm spawn onto
+warm workers. **S04c formalized this exclusion** with
+`testWarmKillReturnsVerificationUnavailable` (simulated warm = executing run
+with no recorded worker `runtimeOwnership` → `verificationUnavailable`, never
+`killed`). The follow-up warm slice must (1) move the warm spawn onto
 `spawnProcessGroupLeader` for atomic `pgid == pid`, and (2) persist
 `{pid,pgid,startTimeTicks,kind}` keyed by the warm session key at
 `ProcessACPTransport` init.

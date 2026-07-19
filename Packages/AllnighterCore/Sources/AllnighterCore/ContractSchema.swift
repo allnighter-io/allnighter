@@ -675,6 +675,9 @@ public enum ContractSchema {
                 "vendorDisplayName": nullable("string"),
                 "wakeAfter": nullable("string"),
                 "capacityObservation": nullableRef("CapacityObservation"),
+                // RLR-S04c: additive killOutcome + read-time contradiction.
+                "killOutcome": nullableEnum(["stopped", "partial", "refused", "verificationUnavailable"]),
+                "contradiction": nullableEnum(["terminalWithLiveOwnership"]),
             ], required: [
                 "id", "kind", "identityAlive", "wouldReconcile",
             ]),

@@ -146,6 +146,11 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     public var lastProgressAt: Date?
     /// Identity-alive but no progress for the stale threshold — never auto-reaped.
     public var progressStale: Bool?
+    /// Last kill/cancel settlement verdict (RLR-L5 / S04b). Nil when never settled.
+    public var killOutcome: String?
+    /// Read-time contradiction (RLR-S04c). `terminalWithLiveOwnership` when a
+    /// terminal journal coexists with a still identity-alive retained member.
+    public var contradiction: String?
     /// Agent next step after status / wait (PO-F3). Always set on wait-for
     /// returns; optional on plain status for forward compatibility.
     public var nextAction: AsyncTeamNextAction?
@@ -171,6 +176,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         endReason: String? = nil,
         lastProgressAt: Date? = nil,
         progressStale: Bool? = nil,
+        killOutcome: String? = nil,
+        contradiction: String? = nil,
         nextAction: AsyncTeamNextAction? = nil,
         waitHintSeconds: Double? = nil
     ) {
@@ -191,6 +198,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         self.endReason = endReason
         self.lastProgressAt = lastProgressAt
         self.progressStale = progressStale
+        self.killOutcome = killOutcome
+        self.contradiction = contradiction
         self.nextAction = nextAction
         self.waitHintSeconds = waitHintSeconds
     }

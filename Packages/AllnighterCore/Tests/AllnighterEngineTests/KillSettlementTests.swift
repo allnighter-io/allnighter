@@ -221,4 +221,79 @@ final class KillSettlementTests: XCTestCase {
         XCTAssertTrue(done.status.isTerminal, "with the worker dead, the legitimate terminal write proceeds")
         XCTAssertEqual(done.endReason, .completed)
     }
+
+    // MARK: - RLR-S04c contradiction surface + warm honesty
+
+    func testWarmKillReturnsVerificationUnavailable() throws {
+        let (support, runs) = try tempStore(); defer { try? FileManager.default.removeItem(at: support) }
+        let surface = ProcessOwnershipSurface(runStore: runs)
+
+        // Simulated warm: executing, no recorded worker runtimeOwnership.
+        let r = run(id: "warm1", status: .running)
+        try runs.save(r, models: [])
+        let dir = try runs.runDirectory(forRunId: "warm1")
+        try? FileManager.default.removeItem(at: ProcessOwnership.ownerURL(in: dir))
+
+        let row = try surface.kill(id: "warm1").get()
+        XCTAssertEqual(row.killOutcome, KillOutcome.verificationUnavailable.rawValue)
+        XCTAssertNil(row.endReason, "warm kill never stamps a terminal endReason")
+
+        let after = try XCTUnwrap(runs.loadRaw(runId: "warm1"))
+        XCTAssertFalse(after.status.isTerminal, "verificationUnavailable leaves lifecycle non-terminal")
+        XCTAssertEqual(after.killOutcome, .verificationUnavailable)
+        XCTAssertNotEqual(after.endReason, .killed, "never a terminal killed lie over unverifiable warm work")
+    }
+
+    func testContradictionSurfacesAfterClockKilledWithSurvivor() throws {
+        // Shape of Works Test 6 contradiction leg (clock itself is S05): a
+        // terminal timedOut stamp coexists with a live recorded worker →
+        // `ps` reports `contradiction: terminalWithLiveOwnership`.
+        let (support, runs) = try tempStore(); defer { try? FileManager.default.removeItem(at: support) }
+        let surface = ProcessOwnershipSurface(runStore: runs)
+
+        var r = run(id: "clk1", status: .running)
+        try runs.save(r, models: [])
+        try writeWorker(try liveSelfWorker(), workerId: "r1", runs: runs, runId: "clk1")
+        // Clock fires (S05 owns the producer): stamp timedOut terminal while the
+        // recorded worker is still identity-alive. endReason catalog may still
+        // lack a dedicated `timedOut` case — contradiction keys off terminality
+        // + live retained receipts.
+        r.status = .timedOut
+        r.endReason = .unknown
+        r.killOutcome = .partial
+        try runs.save(r, models: [])
+
+        // Receipts retained after terminal (S04c).
+        let dir = try runs.runDirectory(forRunId: "clk1")
+        XCTAssertFalse(
+            ProcessOwnership.readWorkerOwners(inRunDirectory: dir).isEmpty,
+            "worker receipts must survive the terminal save")
+        XCTAssertNotNil(
+            ProcessOwnership.readOwnerIdentity(in: dir),
+            "coordinator owner.json is retained after terminal (S04c)")
+
+        let ps = surface.list()
+        let row = try XCTUnwrap(ps.processes.first { $0.id == "clk1" && $0.kind == "run" })
+        XCTAssertEqual(row.killOutcome, KillOutcome.partial.rawValue)
+        XCTAssertEqual(
+            row.contradiction, RunContradiction.terminalWithLiveOwnership.rawValue,
+            "terminal + live recorded worker must name the contradiction")
+        // Status wire uses the same `RunContradictionSurface` derivation (proven
+        // pure in RunContradictionTests; populated in AsyncTeamService.status).
+    }
+
+    func testContradictionAbsentWhenTerminalAndAllDead() throws {
+        let (support, runs) = try tempStore(); defer { try? FileManager.default.removeItem(at: support) }
+        let surface = ProcessOwnershipSurface(runStore: runs)
+
+        var r = run(id: "ok1", status: .cancelled)
+        r.endReason = .killed
+        r.killOutcome = .stopped
+        try runs.save(r, models: [])
+        try writeWorker(deadWorker(pgid: 9_501), workerId: "r1", runs: runs, runId: "ok1")
+
+        let row = try XCTUnwrap(surface.list().processes.first { $0.id == "ok1" && $0.kind == "run" })
+        XCTAssertNil(row.contradiction, "clean verified stop must not invent a contradiction")
+        XCTAssertEqual(row.killOutcome, KillOutcome.stopped.rawValue)
+    }
 }

@@ -803,6 +803,20 @@ public actor AsyncTeamService {
         // absent (nil) before the first post-spawn activity, and only meaningful
         // for a non-terminal run whose owner is still alive.
         response.lastProgressAt = run.lastActivityAt
+        response.killOutcome = run.killOutcome?.rawValue
+        if let directory = try? runStore.runDirectory(forRunId: runId) {
+            let workerOwners = ProcessOwnership.readWorkerOwners(inRunDirectory: directory)
+            let anyWorkerAlive = workerOwners.contains { ProcessOwnership.isIdentityAlive($0.identity) }
+            let coord = ProcessOwnership.readOwnerIdentity(in: directory)
+            let coordAlive = coord.map { ProcessOwnership.isIdentityAlive($0) } ?? false
+            let coordPG = coord.map { $0.kind.isProcessGroupKillable } ?? false
+            response.contradiction = RunContradictionSurface.contradiction(
+                isTerminal: run.status.isTerminal,
+                anyWorkerIdentityAlive: anyWorkerAlive,
+                coordinatorIdentityAlive: coordAlive,
+                coordinatorIsProcessGroupKillable: coordPG
+            )?.rawValue
+        }
         if !run.status.isTerminal && run.phase != .waitingForVendor {
             let ownerAlive: Bool
             if let directory = try? runStore.runDirectory(forRunId: runId) {

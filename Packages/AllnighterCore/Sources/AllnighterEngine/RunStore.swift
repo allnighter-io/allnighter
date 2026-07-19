@@ -62,12 +62,15 @@ public struct RunStore: Sendable {
                 // Preserve the operator's non-terminal partial; drop this terminal write.
                 return directory
             }
-            // Terminal: publish the terminal state, then drop ownership markers.
+            // Terminal: publish the terminal state. RLR-S04c / RLR-L5 step 8 —
+            // RETAIN coordinator `owner.json` + worker `runtimeOwnership` receipts
+            // so a second process can derive `contradiction: terminalWithLiveOwnership`
+            // while a recorded member is still identity-alive. Heartbeat (retired
+            // debug artifact) + stage lease still drop; the bounded receipt reaper
+            // is S06 (window: `RunContradictionSurface.ownershipReceiptRetentionSeconds`).
             // Never clobber an existing terminal status from a concurrent reconcile —
             // callers that need atomic terminal write use `reconcileRun` / cancel.
             try CoreJSON.encode(run).write(to: runURL, options: .atomic)
-            try? FileManager.default.removeItem(at: ProcessOwnership.ownerURL(in: directory))
-            try? FileManager.default.removeItem(at: ProcessOwnership.legacyOwnerURL(in: directory))
             try? FileManager.default.removeItem(at: ProcessOwnership.heartbeatURL(in: directory))
             try? FileManager.default.removeItem(at: ProcessOwnership.legacyHeartbeatURL(in: directory))
             try? FileManager.default.removeItem(at: ProcessOwnership.stageLeaseURL(in: directory))

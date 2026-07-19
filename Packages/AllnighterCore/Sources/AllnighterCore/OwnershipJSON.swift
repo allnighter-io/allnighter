@@ -67,6 +67,13 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
     public var wakeAfter: Date?
     /// Existing sourced capacity fact; never a parallel rate-limit payload.
     public var capacityObservation: CapacityObservation?
+    /// Last kill/cancel settlement verdict (RLR-L5 / S04b). Present when the
+    /// journal recorded one; absent otherwise.
+    public var killOutcome: String?
+    /// Read-time contradiction (RLR-S04c): `terminalWithLiveOwnership` when a
+    /// terminal journal coexists with a still identity-alive retained member.
+    /// Derived — never a stored boolean.
+    public var contradiction: String?
 
     public init(
         id: String,
@@ -86,7 +93,9 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
         blockerResource: String? = nil,
         vendorDisplayName: String? = nil,
         wakeAfter: Date? = nil,
-        capacityObservation: CapacityObservation? = nil
+        capacityObservation: CapacityObservation? = nil,
+        killOutcome: String? = nil,
+        contradiction: String? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -106,6 +115,8 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
         self.vendorDisplayName = vendorDisplayName
         self.wakeAfter = wakeAfter
         self.capacityObservation = capacityObservation
+        self.killOutcome = killOutcome
+        self.contradiction = contradiction
     }
 }
 

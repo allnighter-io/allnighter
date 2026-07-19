@@ -33,7 +33,7 @@ final class RunStoreJournalTests: XCTestCase {
 
     // MARK: - incremental durability + liveness marker
 
-    func testNonTerminalSaveWritesLivenessMarkerThenTerminalClearsIt() throws {
+    func testNonTerminalSaveWritesLivenessMarkerThenTerminalRetainsIt() throws {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
 
@@ -49,9 +49,17 @@ final class RunStoreJournalTests: XCTestCase {
         XCTAssertEqual(identity.kind, .inProcess)
         XCTAssertNil(identity.pgid, "in-process owners never record a pgid")
 
-        // Terminal save clears the marker (clean run leaves no stale liveness).
+        // RLR-S04c / RLR-L5 step 8: terminal save RETAINS ownership receipts so
+        // the contradiction surface can read a still-alive recorded member.
+        // Heartbeat + stage lease still drop.
         try store.save(run("r1", status: .complete), models: [])
-        XCTAssertFalse(FileManager.default.fileExists(atPath: owner.path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: owner.path),
+            "S04c retains coordinator owner.json after terminal")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: ProcessOwnership.heartbeatURL(in: runDir).path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: ProcessOwnership.stageLeaseURL(in: runDir).path))
     }
 
     // MARK: - orphan recovery on read

@@ -106,6 +106,19 @@
             }
           ]
         },
+        "contradiction" : {
+          "oneOf" : [
+            {
+              "enum" : [
+                "terminalWithLiveOwnership"
+              ],
+              "type" : "string"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
         "endReason" : {
           "type" : [
             "string",
@@ -133,6 +146,22 @@
         },
         "identityAlive" : {
           "type" : "boolean"
+        },
+        "killOutcome" : {
+          "oneOf" : [
+            {
+              "enum" : [
+                "stopped",
+                "partial",
+                "refused",
+                "verificationUnavailable"
+              ],
+              "type" : "string"
+            },
+            {
+              "type" : "null"
+            }
+          ]
         },
         "kind" : {
           "enum" : [

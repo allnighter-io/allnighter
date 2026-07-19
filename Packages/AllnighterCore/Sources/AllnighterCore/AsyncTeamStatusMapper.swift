@@ -107,7 +107,8 @@ public enum AsyncTeamStatusMapper {
             resultAvailable: resultAvailable(for: run),
             nextPollAfterMs: nextPollAfterMs(for: live),
             traceId: "trace_\(run.id)",
-            endReason: run.endReason?.rawValue
+            endReason: run.endReason?.rawValue,
+            killOutcome: run.killOutcome?.rawValue
         )
     }
 

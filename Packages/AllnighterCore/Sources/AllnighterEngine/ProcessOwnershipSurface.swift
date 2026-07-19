@@ -186,6 +186,15 @@ public struct ProcessOwnershipSurface: Sendable {
             let vendorBlocker = quietVendorPark ? run.blocker : nil
             let vendorSource = vendorBlocker?.capacityObservation?.source
                 ?? vendorBlocker?.quotaScope
+            let workerOwners = ProcessOwnership.readWorkerOwners(inRunDirectory: dir)
+            let anyWorkerAlive = workerOwners.contains { ProcessOwnership.isIdentityAlive($0.identity) }
+            let coordPGKillable = identity.map { $0.kind.isProcessGroupKillable } ?? false
+            let contradiction = RunContradictionSurface.contradiction(
+                isTerminal: terminal,
+                anyWorkerIdentityAlive: anyWorkerAlive,
+                coordinatorIdentityAlive: alive,
+                coordinatorIsProcessGroupKillable: coordPGKillable
+            )?.rawValue
             rows.append(OwnershipProcessJSON(
                 id: run.id,
                 kind: "run",
@@ -206,13 +215,15 @@ public struct ProcessOwnershipSurface: Sendable {
                     VendorContinuityPresentation.vendorDisplayName(sourceId: $0)
                 },
                 wakeAfter: vendorBlocker?.wakeAfter,
-                capacityObservation: vendorBlocker?.capacityObservation
+                capacityObservation: vendorBlocker?.capacityObservation,
+                killOutcome: run.killOutcome?.rawValue,
+                contradiction: contradiction
             ))
             // RLR-S04a: surface each recorded worker `runtimeOwnership` receipt
             // (zombie-aware identity-alive) so the recorded worker tree is visible
             // in `ps`. Read-only substrate — `killAll` skips these (worker groups
             // are settled through their run, not killed independently in S04a).
-            for (workerId, wIdentity) in ProcessOwnership.readWorkerOwners(inRunDirectory: dir) {
+            for (workerId, wIdentity) in workerOwners {
                 rows.append(OwnershipProcessJSON(
                     id: workerId,
                     kind: "worker",
