@@ -295,6 +295,107 @@ final class BuiltInTeamsTests: XCTestCase {
                        "code_bug_hunt")
     }
 
+    // MARK: - CN-S04 catalog guards (Team_Catalog_Normalization.md)
+
+    func testNoOrphanMinMaxTiers() {
+        // Every `_min`/`_max` id must have its base family present, and the
+        // base itself must not be a tier (no chained `_min_min`-style ids).
+        for team in BuiltInTeams.all {
+            for suffix in ["_min", "_max"] {
+                guard team.id.hasSuffix(suffix) else { continue }
+                let baseId = String(team.id.dropLast(suffix.count))
+                XCTAssertNotNil(BuiltInTeams.team(baseId),
+                                "\(team.id) is a tier with no base team '\(baseId)' in the catalog")
+                XCTAssertFalse(baseId.hasSuffix("_min") || baseId.hasSuffix("_max"),
+                               "\(team.id) base id '\(baseId)' must not itself be a tier")
+            }
+        }
+    }
+
+    func testTieredFamiliesCompleteMinDefaultMax() {
+        // The four families that earn depth (Team_Catalog_Normalization.md
+        // §The normalized catalog) must ship the full Min/Default/Max.
+        let tieredFamilies = ["code_spec_review", "code_growth", "code_bug_hunt", "design_design"]
+        for base in tieredFamilies {
+            for id in [base, "\(base)_min", "\(base)_max"] {
+                XCTAssertNotNil(BuiltInTeams.team(id), "tiered family \(base) is missing \(id)")
+            }
+        }
+    }
+
+    func testDepthTierDisplayNamesFollowMinMaxLawAndCarryNoRetiredNames() {
+        // Law 2 / Team_Depth_Naming.md: the only depth vocabulary is Min/Max,
+        // appended verbatim to the base family's display name — never a
+        // flavor depth name.
+        for team in BuiltInTeams.all {
+            for (suffix, label) in [("_min", " Min"), ("_max", " Max")] {
+                guard team.id.hasSuffix(suffix) else { continue }
+                let baseId = String(team.id.dropLast(suffix.count))
+                guard let base = BuiltInTeams.team(baseId) else {
+                    XCTFail("\(team.id) has no base team '\(baseId)' to compare display name against")
+                    continue
+                }
+                XCTAssertEqual(team.displayName, base.displayName + label,
+                               "\(team.id) displayName should be '\(base.displayName + label)', not a flavor depth name")
+            }
+        }
+
+        // Retired internal/flavor names (Team_Catalog_Normalization.md Law 1)
+        // must never resurface on any built-in team.
+        let retiredNames = [
+            "Code Core", "Execution Playbook", "Premium Polish", "Usability Triage",
+            "Design Core", "Radical Directions", "Conversion Studio",
+            "Post-to-Project Signal", "Landing Page Team"
+        ]
+        for team in BuiltInTeams.all {
+            for retired in retiredNames {
+                XCTAssertFalse(team.displayName.contains(retired),
+                               "\(team.id) displayName '\(team.displayName)' still carries retired name '\(retired)'")
+            }
+        }
+    }
+
+    func testEveryBuiltInTeamMeetsMetadataFloor() {
+        // Team_Catalog_Normalization.md §Metadata every family ships: non-empty
+        // typeTags, ≥1 starter, and a non-empty description. `default_chat` and
+        // `build_slice` are primitives, not families (§Not families — primitives
+        // & defaults); `build_slice` deliberately ships empty starterPrompts
+        // because RunService prepends `starterPrompts.first` for mutating teams
+        // (see the doc comment on `executionPlaybook` — a starter here would
+        // double-inject the playbook preamble), and `default_chat` is the plain
+        // pass-everything-through chat default with no canned prompt to offer.
+        let starterExempt: Set<String> = ["default_chat", "build_slice"]
+        for team in BuiltInTeams.all {
+            XCTAssertFalse(team.typeTags.isEmpty, "\(team.id) has no typeTags")
+            XCTAssertFalse(team.description.isEmpty, "\(team.id) has no description")
+            if !starterExempt.contains(team.id) {
+                XCTAssertFalse(team.starterPrompts.isEmpty, "\(team.id) has no starterPrompts")
+            }
+        }
+    }
+
+    func testNoHardcodedWorkerIdentityOutsideSignalLane() {
+        // Law 3: outside the signal lane (whose Grok-scout/interpreter
+        // preferences are deliberate), a workerSpecs row expresses NEED
+        // (capability), never a pinned model identity — the `scout` property
+        // is a separate field and is exempt regardless of lane.
+        // `default_chat` and `build_slice` are the two global execution
+        // passthrough teams: mutating, `executionSourceId`-pinned to a single
+        // CLI source (Cursor), not caliber/capability synthesis teams — so
+        // their one worker row legitimately carries `preferredModelId:
+        // composer`. Verified by inspection (BuiltInTeams.swift `defaultChat`/
+        // `executionPlaybook`); reported here rather than forced or silently
+        // "fixed" in the catalog, per CN-S04.
+        let sourcePinnedExempt: Set<String> = ["default_chat", "build_slice"]
+        for team in BuiltInTeams.all where team.lane != .signal {
+            if sourcePinnedExempt.contains(team.id) { continue }
+            for row in team.workerSpecs {
+                XCTAssertNil(row.preferredModelId,
+                             "\(team.id) worker \(row.id) hardcodes model identity '\(row.preferredModelId ?? "")' outside the signal lane (Law 3)")
+            }
+        }
+    }
+
     // MARK: - Headline proof: one ready CLI runs Bug Hunt Max High
 
     func testBugHuntMaxHighWithOnlyOpusResolvesEightWorkersPlusWriter() {
