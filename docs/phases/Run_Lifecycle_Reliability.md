@@ -1,12 +1,13 @@
 # Run Lifecycle Reliability — every accepted run stays observable, stoppable, and recoverable
 
-Status: **HARDENED (K3 pass) — P0 execution gate. Do not start product patches
-until RLR-S00 reproduces the field signatures.** Promise kept; **scope + L1–L9
-invariants freeze at S00; wire shape freezes at S01.** Build RLR-S00–S06 before
-IR-S02 or Agent Onboarding V1. One bounded slice at a time.
+Status: **FINAL (Spec Review + K3 + PM close pass) — P0 execution gate. Do not
+start product patches until RLR-S00 reproduces the field signatures.** Promise
+kept; **scope + L1–L9 invariants freeze at S00; wire shape freezes at S01.**
+Build RLR-S00–S06 before IR-S02 or Agent Onboarding V1. One bounded slice at a
+time.
 Owner: AllnighterCore + AllnighterEngine + AllnighterCLI (`TeamRun`/`RunStore`,
 `RunService`, `ProcessOwnership`, `ExecutionLaneRegistry`, CLI JSON/NDJSON)
-Updated: 2026-07-19 (Kimi K3 review pass)
+Updated: 2026-07-19 (PM finalization pass — spec closed for implementation)
 
 Related: `Unified_Run_Model.md` · `CLI_Implementation_Contract.md` · archived
 `Process_Ownership.md` + `Concurrent_Invocation_Isolation.md` ·
@@ -232,7 +233,18 @@ Verify **per recorded member** before any group signal (pgid-reuse guard).
    `status.contradiction: terminalWithLiveOwnership`.
 
 Zombie-only residuals may be terminal with cleanup warning. `partial` /
-`refused` / unverifiable must **not** stamp `endReason: killed`.
+`refused` / `verificationUnavailable` must **not** stamp `endReason: killed` —
+an **operator** kill/cancel that does not reach verified stop leaves the
+lifecycle **non-terminal** (run stays `running`/`queued`, `killOutcome`
+recorded, survivors visible in `ps`); the operator retries, escalates, or the
+clocks fire.
+
+**Operator vs clock terminality (deliberate asymmetry):** an operator
+kill/cancel stamps terminal only on verified stop, because its claim *is* the
+stop. A clock firing (L8) stamps `timedOut` terminal **regardless** of reap
+outcome, because the deadline itself is the terminal truth — any survivors are
+recorded via `killOutcome` and surface as
+`contradiction: terminalWithLiveOwnership` until reaped.
 
 ### RLR-L6 — activity vs heartbeat
 
@@ -276,8 +288,8 @@ visible wait.
 
 1. **Transport replay** — same `--idempotency-key` + same canonical payload
    within the retention window → original run. Never second worker. After
-   retention expiry → typed error (recommend `IDEMPOTENCY_EXPIRED`); **never**
-   silently re-execute a mutating run.
+   retention expiry → `IDEMPOTENCY_EXPIRED`; **never** silently re-execute a
+   mutating run.
 2. **Intentional retry** —
 
 ```text
@@ -339,6 +351,10 @@ Wire shape **finalized in S01 after S00 evidence**:
 “journal corrupt”), `JOURNAL_CORRUPT`, `IDEMPOTENCY_CONFLICT`,
 `IDEMPOTENCY_EXPIRED`, `GOVERNOR_REFUSED`, `CAPACITY_REFUSED`, `KILL_REFUSED`,
 `KILL_PARTIAL`.
+
+`KILL_REFUSED`/`KILL_PARTIAL` are the error-envelope projections of
+`KillOutcome.refused`/`.partial` (non-zero exit for scripted callers) — same
+fact from the same journal revision, never a second truth.
 
 ## Inference bans
 
@@ -432,16 +448,23 @@ Prefer extending `ConcurrentInvocationTwoProcessTests` fixtures.
 
 ## Pre-implementation checklist
 
-- [ ] Every lifecycle status, phase, and `endReason` has a named producer; no
+Verified complete 2026-07-19 (PM finalization pass) — spec is closed;
+implementation may start at RLR-S00.
+
+- [x] Every lifecycle status, phase, and `endReason` has a named producer; no
       orphan enums.
-- [ ] Foreground-kill settlement written (terminal stamper, coordinator grace,
+- [x] Foreground-kill settlement written (terminal stamper, coordinator grace,
       stream-terminal guarantee).
-- [ ] `--json` mid-run id path stated (`ps`); no unnamed start envelope.
-- [ ] Identity-alive algorithm defined and shared by kill/`ps`/S06.
-- [ ] `--retry-of` + `--accept-survivors` + retention window specified.
-- [ ] Four clocks have flags, defaults, and `timedOut` mapping.
-- [ ] Error catalog enumerated; `RUN_NOT_FOUND` restricted; docs regen noted.
-- [ ] `lastActivityKind` covers messages; `progressStale` defined.
-- [ ] S01 persists idempotency key + hash; legacy-journal policy stated.
-- [ ] Works Test covers refusal, blocked-run ticket withdrawal, contradiction
+- [x] `--json` mid-run id path stated (`ps`); no unnamed start envelope.
+- [x] Identity-alive algorithm defined and shared by kill/`ps`/S06.
+- [x] `--retry-of` + `--accept-survivors` + retention window specified.
+- [x] Four clocks have flags, a default policy (S01 names finite values), and
+      `timedOut` mapping.
+- [x] Error catalog enumerated; `RUN_NOT_FOUND` restricted; kill codes mapped
+      to `KillOutcome`; docs regen noted.
+- [x] `lastActivityKind` covers messages; `progressStale` defined.
+- [x] S01 persists idempotency key + hash; legacy-journal policy stated.
+- [x] Works Test covers refusal, blocked-run ticket withdrawal, contradiction
       surface, and `--wait-for`.
+- [x] Operator-vs-clock terminality asymmetry stated; partial/refused kill
+      leaves lifecycle non-terminal.
