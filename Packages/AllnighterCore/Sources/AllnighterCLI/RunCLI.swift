@@ -4,14 +4,20 @@ import AllnighterEngine
 
 /// `alln run` — the unified run entrypoint (Unified Run Model).
 enum RunCLI {
-    /// PO-F5: parse `--idle-timeout <seconds>` for `RunRequest.workerTimeoutSeconds`.
-    /// `nil` raw → ok(nil) (default idle budget). Non-numeric / non-positive → error message.
-    static func parseIdleTimeoutSeconds(_ raw: String?) -> (value: Int?, error: String?) {
+    /// PO-F5 / RLR-L8: parse a positive integer seconds flag (`--idle-timeout`,
+    /// `--handshake-timeout`, `--first-activity-timeout`, `--wall-timeout`).
+    /// `nil` raw → ok(nil) (use product/manifest default). Non-numeric / non-positive → error.
+    static func parsePositiveTimeoutSeconds(_ raw: String?, flag: String) -> (value: Int?, error: String?) {
         guard let raw else { return (nil, nil) }
         guard let value = Int(raw), value > 0 else {
-            return (nil, "--idle-timeout must be a positive integer number of seconds, got '\(raw)'")
+            return (nil, "\(flag) must be a positive integer number of seconds, got '\(raw)'")
         }
         return (value, nil)
+    }
+
+    /// PO-F5: parse `--idle-timeout <seconds>` for `RunRequest.workerTimeoutSeconds`.
+    static func parseIdleTimeoutSeconds(_ raw: String?) -> (value: Int?, error: String?) {
+        parsePositiveTimeoutSeconds(raw, flag: "--idle-timeout")
     }
 
     static func run(_ args: [String], runtime: ToolRuntime) async {
@@ -51,11 +57,25 @@ enum RunCLI {
         if let raw = opts.value("lane"), lane == nil {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw)")
         }
-        let idleParsed = parseIdleTimeoutSeconds(opts.value("idle-timeout"))
+
+        let idleParsed = parsePositiveTimeoutSeconds(opts.value("idle-timeout"), flag: "--idle-timeout")
         if let message = idleParsed.error {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: message)
         }
-        let idleTimeoutSeconds = idleParsed.value
+        let handshakeParsed = parsePositiveTimeoutSeconds(
+            opts.value("handshake-timeout"), flag: "--handshake-timeout")
+        if let message = handshakeParsed.error {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: message)
+        }
+        let firstActivityParsed = parsePositiveTimeoutSeconds(
+            opts.value("first-activity-timeout"), flag: "--first-activity-timeout")
+        if let message = firstActivityParsed.error {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: message)
+        }
+        let wallParsed = parsePositiveTimeoutSeconds(opts.value("wall-timeout"), flag: "--wall-timeout")
+        if let message = wallParsed.error {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: message)
+        }
 
         let tryFix = opts.flag("try-fix")
         let request = RunRequest(
@@ -69,12 +89,16 @@ enum RunCLI {
             type: opts.value("type"),
             context: opts.value("context"),
             executorTeamId: opts.value("executor"),
-            workerTimeoutSeconds: idleTimeoutSeconds,
+            workerTimeoutSeconds: idleParsed.value,
+            handshakeTimeoutSeconds: handshakeParsed.value,
+            firstActivityTimeoutSeconds: firstActivityParsed.value,
+            wallTimeoutSeconds: wallParsed.value,
             commitMessage: commitMessage,
             noCommit: noCommit,
             proofCommand: opts.value("proof"),
             idempotencyKey: opts.value("idempotency-key"),
-            retryOf: opts.value("retry-of")
+            retryOf: opts.value("retry-of"),
+            acceptSurvivors: opts.flag("accept-survivors")
         )
 
         let service = RunService(

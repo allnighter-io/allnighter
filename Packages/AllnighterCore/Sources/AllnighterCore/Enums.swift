@@ -84,6 +84,9 @@ public enum RunEndReason: String, Codable, Sendable, CaseIterable {
     /// Explicit reconcile: identity-verified dead owner.
     case reconciledOrphan
     case killed
+    /// A named run clock fired (RLR-L8 / S05). Distinct from operator `killed`:
+    /// the deadline itself is the terminal truth (operator-vs-clock asymmetry).
+    case timedOut
     /// Honest "we do not know" — itself a bug report when seen in production.
     case unknown
 }

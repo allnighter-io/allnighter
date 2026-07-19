@@ -35,7 +35,14 @@ public struct RunRequest: Sendable, Equatable {
     /// Code-review advisory slice: findings-only writes; skips repo `RunWriteLock`.
     public var advisoryReview: Bool
     /// Override manifest `invoke.timeoutSeconds` (e.g. packet `stallTimeoutSeconds` for GLM review).
+    /// Also the RLR-L8 `--idle-timeout` override (nil = per-manifest default).
     public var workerTimeoutSeconds: Int?
+    /// RLR-L8 — runner-ready handshake bound (`--handshake-timeout`). Nil = `RunClockDefaults`.
+    public var handshakeTimeoutSeconds: Int?
+    /// RLR-L8 — first post-spawn activity bound (`--first-activity-timeout`). Nil = defaults.
+    public var firstActivityTimeoutSeconds: Int?
+    /// RLR-L8 — total wall ceiling (`--wall-timeout`). Nil = `RunClockDefaults`.
+    public var wallTimeoutSeconds: Int?
     /// Override `DriverManifest.maxConcurrentSpawns` for this run (parallel CR fan-out).
     public var spawnConcurrencyLimit: Int?
     /// FR12 — exact commit message the worker should use (verification only; Allnighter does no git).
@@ -51,8 +58,11 @@ public struct RunRequest: Sendable, Equatable {
     /// the original run; a different payload is refused). nil = no idempotency.
     public var idempotencyKey: String?
     /// RLR-L9 — intentional retry: durably links this run to the prior run id via
-    /// `RunLink.retryOf`. S01b records the link only; replay execution is S05.
+    /// `RunLink.retryOf`. Requires prior tree verified stopped, or `acceptSurvivors`.
     public var retryOf: String?
+    /// RLR-L9 — allow `--retry-of` even when the prior run still has identity-alive
+    /// recorded workers (typed partial after a clock/kill).
+    public var acceptSurvivors: Bool
 
     public init(
         message: String,
@@ -70,13 +80,17 @@ public struct RunRequest: Sendable, Equatable {
         timing: RunTimingReport? = nil,
         advisoryReview: Bool = false,
         workerTimeoutSeconds: Int? = nil,
+        handshakeTimeoutSeconds: Int? = nil,
+        firstActivityTimeoutSeconds: Int? = nil,
+        wallTimeoutSeconds: Int? = nil,
         spawnConcurrencyLimit: Int? = nil,
         commitMessage: String? = nil,
         noCommit: Bool = false,
         proofCommand: String? = nil,
         proofTimeoutSeconds: Int? = nil,
         idempotencyKey: String? = nil,
-        retryOf: String? = nil
+        retryOf: String? = nil,
+        acceptSurvivors: Bool = false
     ) {
         self.message = message
         self.repoRoot = repoRoot
@@ -93,6 +107,9 @@ public struct RunRequest: Sendable, Equatable {
         self.timing = timing
         self.advisoryReview = advisoryReview
         self.workerTimeoutSeconds = workerTimeoutSeconds
+        self.handshakeTimeoutSeconds = handshakeTimeoutSeconds
+        self.firstActivityTimeoutSeconds = firstActivityTimeoutSeconds
+        self.wallTimeoutSeconds = wallTimeoutSeconds
         self.spawnConcurrencyLimit = spawnConcurrencyLimit
         self.commitMessage = commitMessage
         self.noCommit = noCommit
@@ -100,6 +117,7 @@ public struct RunRequest: Sendable, Equatable {
         self.proofTimeoutSeconds = proofTimeoutSeconds
         self.idempotencyKey = idempotencyKey
         self.retryOf = retryOf
+        self.acceptSurvivors = acceptSurvivors
     }
 }
 
@@ -348,7 +366,8 @@ public actor RunService {
     /// - `.success(nil)` — key claimed, mint/spawn `runId`.
     /// - `.success(run)` — same key + same payload already owns a run → replay it
     ///   (return the ORIGINAL run, never a second worker).
-    /// - `.failure` — same key + different payload (conflict) or store error.
+    /// - `.failure` — conflict (`IDEMPOTENCY_CONFLICT`), expired (`IDEMPOTENCY_EXPIRED`),
+    ///   or store error.
     ///
     /// Mirrors `AsyncTeamService.claimIdempotency` minus the detached-handshake
     /// wait: the sync run has already persisted its journal by the time a peer
@@ -361,7 +380,12 @@ public actor RunService {
         func conflict() -> RunServiceError {
             .teamResolution(
                 "idempotency key was already used with a different payload",
-                code: "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD")
+                code: "IDEMPOTENCY_CONFLICT")
+        }
+        func expired() -> RunServiceError {
+            .teamResolution(
+                "idempotency key has expired (replay window \(Int(IdempotencyStore.retention))s); use a new key",
+                code: "IDEMPOTENCY_EXPIRED")
         }
         do {
             switch try store.claim(key: key, payload: payload, runId: runId) {
@@ -369,6 +393,8 @@ public actor RunService {
                 return .success(nil)
             case .conflict:
                 return .failure(conflict())
+            case .expired:
+                return .failure(expired())
             case .replay(let entry):
                 if let run = runStore.load(runId: entry.runId) ?? runStore.loadRaw(runId: entry.runId) {
                     return .success(run)
@@ -382,6 +408,8 @@ public actor RunService {
                     return .success(nil)
                 case .conflict:
                     return .failure(conflict())
+                case .expired:
+                    return .failure(expired())
                 case .replay(let again):
                     if let run = runStore.load(runId: again.runId) ?? runStore.loadRaw(runId: again.runId) {
                         return .success(run)
@@ -393,6 +421,26 @@ public actor RunService {
         } catch {
             return .failure(.teamResolution("idempotency claim failed: \(error)", code: "INTERNAL_ERROR"))
         }
+    }
+
+    /// RLR-L9: `--retry-of` requires the prior tree verified stopped (no
+    /// identity-alive recorded workers), or `--accept-survivors`.
+    private func assertRetryOfAllowed(_ request: RunRequest) -> RunServiceError? {
+        guard let priorId = request.retryOf, !priorId.isEmpty else { return nil }
+        guard runStore.loadRaw(runId: priorId) != nil || runStore.load(runId: priorId) != nil else {
+            return .teamResolution("retry-of run not found: \(priorId)", code: "RUN_NOT_FOUND")
+        }
+        if request.acceptSurvivors { return nil }
+        guard let dir = try? runStore.runDirectory(forRunId: priorId) else { return nil }
+        let workers = ProcessOwnership.readWorkerOwners(inRunDirectory: dir)
+        let live = workers.compactMap { workerId, identity in
+            ProcessOwnership.isIdentityAlive(identity) ? workerId : nil
+        }
+        if live.isEmpty { return nil }
+        return .teamResolution(
+            "prior run \(priorId) still has identity-alive workers (\(live.joined(separator: ", "))); pass --accept-survivors to retry anyway",
+            code: "RETRY_OF_SURVIVORS"
+        )
     }
 
     /// Resume one journal already leased by the resident coordinator. This is an
@@ -535,6 +583,7 @@ public actor RunService {
             commitMessage: parked.requestedCommitMessage,
             noCommit: parked.noCommitOrdered == true,
             retryLinks: parked.links,
+            clockBudgets: parked.clockBudgets,
             existingRun: parked,
             resumeSelectionOrigin: resumeOrigin,
             substitutionOfAttempt: substitutionOfAttempt
@@ -645,11 +694,23 @@ public actor RunService {
         // id and the durable journal always exist together.
         let id = runId ?? UUID().uuidString
 
+        // RLR-L9: `--retry-of` gate before mint/claim — refuse when prior workers
+        // are still identity-alive unless `--accept-survivors`.
+        if let error = assertRetryOfAllowed(request) {
+            return .failure(error)
+        }
+
+        let clockBudgets = RunClockBudgets.resolved(
+            handshake: request.handshakeTimeoutSeconds,
+            firstActivity: request.firstActivityTimeoutSeconds,
+            idle: request.workerTimeoutSeconds,
+            wall: request.wallTimeoutSeconds
+        )
+
         // RLR-L9: persist the idempotency key + full canonical payload hash at
         // acceptance (same store as async `team start`). A same-key + same-payload
         // replay returns the ORIGINAL run — never a second worker; a different
-        // payload is refused. Replay/`--retry-of` execution is S05; here we only
-        // persist the key and (below) the durable retry link.
+        // payload is `IDEMPOTENCY_CONFLICT`; past retention is `IDEMPOTENCY_EXPIRED`.
         if let key = request.idempotencyKey, !key.isEmpty {
             let canonical = AsyncTeamCanonicalPayload(
                 prompt: prompt,
@@ -664,7 +725,10 @@ public actor RunService {
                 threadId: request.threadId,
                 resolvedTeamId: preset.id,
                 resolvedWorkerIds: effectiveWorkerId.map { [$0] } ?? [],
+                handshakeTimeout: Int(clockBudgets.handshakeTimeoutSeconds),
+                firstActivityTimeout: Int(clockBudgets.firstActivityTimeoutSeconds),
                 idleTimeout: request.workerTimeoutSeconds,
+                wallTimeout: Int(clockBudgets.wallTimeoutSeconds),
                 proofCommand: request.proofCommand,
                 commitMessage: request.commitMessage,
                 noCommit: request.noCommit,
@@ -697,6 +761,7 @@ public actor RunService {
                 outputKind: preset.outputKind, mutating: true, repoRoot: root,
                 laneContextOnly: laneContextOnly ? true : nil,
                 blocker: RunBlocker(resource: .repoWriteLock, scopeRoot: root),
+                clockBudgets: clockBudgets,
                 links: retryLinks)
             do {
                 // Hard gate, not best-effort: acceptance IS this save (RLR-L2).
@@ -752,8 +817,8 @@ public actor RunService {
                     return .success(terminal)
                 }
                 // Still durable + non-terminal — stamp it terminal HONESTLY rather than
-                // letting it vanish (RLR-L2). `RunEndReason` has no `timedOut` case, so
-                // the honest terminal is `failed` (the run never acquired the lock).
+                // letting it vanish (RLR-L2). Write-lock wait exhaustion never acquired
+                // the lane; the honest terminal is `failed`.
                 pending.status = .failed
                 pending.phase = nil
                 pending.blocker = nil
@@ -828,6 +893,7 @@ public actor RunService {
                 commitMessage: request.commitMessage, noCommit: request.noCommit,
                 proofCommand: request.proofCommand, proofTimeoutSeconds: request.proofTimeoutSeconds,
                 retryLinks: retryLinks,
+                clockBudgets: clockBudgets,
                 initialSelectionOrigin: initialSelectionOrigin
             )
             // Parking must release the write lock before the parked journal is
@@ -849,7 +915,8 @@ public actor RunService {
             explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
             origin: origin, originAgent: originAgent, runId: id, runner: runner,
             deliveries: request.deliveries, timing: timing, events: events,
-            retryLinks: retryLinks
+            retryLinks: retryLinks,
+            clockBudgets: clockBudgets
         )
         if let lockToken {
             await writeLock.release(lockKey, token: lockToken)
@@ -886,6 +953,7 @@ public actor RunService {
         proofCommand: String? = nil,
         proofTimeoutSeconds: Int? = nil,
         retryLinks: [RunLink]? = nil,
+        clockBudgets: RunClockBudgets? = nil,
         existingRun: TeamRun? = nil,
         resumeSelectionOrigin: String? = nil,
         initialSelectionOrigin: String? = nil,
@@ -1048,6 +1116,7 @@ public actor RunService {
             existingRun.executionSourceId = model.driverId
             existingRun.repoRoot = repoRoot
             existingRun.threadId = threadId
+            if existingRun.clockBudgets == nil { existingRun.clockBudgets = clockBudgets }
             existingRun.attempts.append(RunAttempt(
                 attemptNumber: existingRun.attempts.count + 1,
                 requestedSourceId: model.driverId,
@@ -1089,6 +1158,7 @@ public actor RunService {
                     startedAt: startedAt,
                     selectionOrigin: initialSelectionOrigin
                 )],
+                clockBudgets: clockBudgets,
                 links: retryLinks
             )
         }
@@ -1397,6 +1467,7 @@ public actor RunService {
                     proofCommand: proofCommand,
                     proofTimeoutSeconds: proofTimeoutSeconds,
                     retryLinks: retryLinks,
+                    clockBudgets: clockBudgets,
                     existingRun: run,
                     resumeSelectionOrigin: candidate.selectionOrigin,
                     substitutionOfAttempt: priorAttempt
@@ -1524,8 +1595,44 @@ public actor RunService {
             status: outcome.status,
             reason: outcome.errorReason
         )
-        run.status = answer.result.status == .done ? .complete : .failed
-        run.phase = nil // terminal clears phase (RLR-L3 atomic rule)
+        // RLR-L8: a worker timeout is a clock fire — settle the kill tree and stamp
+        // `timedOut` terminal even when survivors remain (operator-vs-clock asymmetry).
+        if answer.result.status == .timedOut {
+            if let dir = try? runStore.runDirectory(forRunId: runId) {
+                // Persist the in-memory answer first so KillSettlement sees a live journal.
+                try? runStore.save(run, models: models)
+                let clock = RunClockEnforcer.evaluate(
+                    budgets: run.clockBudgets ?? clockBudgets ?? RunClockBudgets(),
+                    createdAt: run.createdAt,
+                    lastActivityAt: run.lastActivityAt,
+                    now: now(),
+                    lifecycle: .running,
+                    phase: .working,
+                    idleBudgetSeconds: workerTimeoutSeconds.map(Double.init)
+                ) ?? .idle
+                if let fired = RunClockEnforcer.fire(clock: clock, runDirectory: dir, runStore: runStore),
+                   let stamped = runStore.loadRaw(runId: runId) {
+                    run = stamped
+                    _ = fired
+                } else {
+                    run.status = .timedOut
+                    run.endReason = .timedOut
+                    run.phase = nil
+                }
+            } else {
+                run.status = .timedOut
+                run.endReason = .timedOut
+                run.phase = nil
+            }
+        } else {
+            run.status = answer.result.status == .done ? .complete : .failed
+            run.phase = nil // terminal clears phase (RLR-L3 atomic rule)
+            if run.status == .complete || run.status == .partial || run.status == .done {
+                run.endReason = .completed
+            } else if run.status == .failed {
+                run.endReason = .failed
+            }
+        }
         run.repoDelta = gitObserver.repoDelta(
             rootPath: repoRoot, baseline: baselineHead, head: gitObserver.observe(rootPath: repoRoot).head)
         run.requestedCommitMessage = commitMessage
@@ -1621,7 +1728,8 @@ public actor RunService {
         deliveries: [IncludedAttachmentDelivery] = [],
         timing seedTiming: RunTimingReport,
         events: AsyncStream<RunEvent>.Continuation?,
-        retryLinks: [RunLink]? = nil
+        retryLinks: [RunLink]? = nil,
+        clockBudgets: RunClockBudgets? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
         let bench = readyModels()
@@ -1650,6 +1758,7 @@ public actor RunService {
             r.outputKind = resolved.outputKind
             r.warnings = resolved.warnings; r.mutating = false
             if let retryLinks { r.links = retryLinks }   // RLR-L9 durable retry link
+            if r.clockBudgets == nil { r.clockBudgets = clockBudgets }
             return r
         }
         let persist: @Sendable (TeamRun) -> Void = { try? store.save(stamped($0), models: allModels) }

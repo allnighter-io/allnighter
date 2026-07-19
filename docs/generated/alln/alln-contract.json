@@ -1435,6 +1435,41 @@
           "valueType" : "integer"
         },
         {
+          "name" : "handshake-timeout",
+          "summary" : "Runner-ready handshake bound in seconds (default 60; RLR-L8). Finite positive required.",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "first-activity-timeout",
+          "summary" : "First post-spawn activity bound in seconds (default 120; RLR-L8). Finite positive required.",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "wall-timeout",
+          "summary" : "Total wall-clock ceiling in seconds (default 3600; RLR-L8). Finite positive required.",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "idempotency-key",
+          "summary" : "Transport idempotency key (24h replay window). Same key+payload replays the original run; conflict\/expired refuse.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "retry-of",
+          "summary" : "Intentional retry of a prior run id (new key). Requires prior tree verified stopped, or --accept-survivors.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "accept-survivors",
+          "summary" : "Allow --retry-of when the prior run still has identity-alive recorded workers.",
+          "takesValue" : false
+        },
+        {
           "name" : "commit-message",
           "summary" : "Exact commit message for the worker (FR12 instruct + verify; Allnighter does no git).",
           "takesValue" : true,
@@ -3922,12 +3957,39 @@
     },
     {
       "agentAction" : "Generate a new key or reuse the original payload.",
+      "code" : "IDEMPOTENCY_CONFLICT",
+      "exitClass" : "operational",
+      "explain" : "The same idempotency key was reused with a different canonical payload. Use a new key or repeat the original request. (Public RLR-L9 name; alias of legacy IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD.)",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "idempotency.conflict"
+    },
+    {
+      "agentAction" : "Generate a new key or reuse the original payload.",
       "code" : "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
       "exitClass" : "operational",
-      "explain" : "The same idempotency key was reused with a different canonical payload. Use a new key or repeat the original request.",
+      "explain" : "Legacy alias of IDEMPOTENCY_CONFLICT — same key reused with a different canonical payload.",
       "requiresManual" : false,
       "retryable" : false,
       "ruleId" : "idempotency.key.reused"
+    },
+    {
+      "agentAction" : "Generate a new idempotency key.",
+      "code" : "IDEMPOTENCY_EXPIRED",
+      "exitClass" : "operational",
+      "explain" : "The idempotency key's 24h replay window has elapsed. The key is a tombstone — never silently re-execute; mint a new key.",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "idempotency.expired"
+    },
+    {
+      "agentAction" : "Wait for verified stop, or pass --accept-survivors.",
+      "code" : "RETRY_OF_SURVIVORS",
+      "exitClass" : "operational",
+      "explain" : "`--retry-of` refused because the prior run still has identity-alive recorded workers. Pass --accept-survivors to proceed anyway.",
+      "requiresManual" : false,
+      "retryable" : true,
+      "ruleId" : "retryOf.survivors"
     },
     {
       "agentAction" : "Poll team status using nextPollAfterMs, then call team result again.",

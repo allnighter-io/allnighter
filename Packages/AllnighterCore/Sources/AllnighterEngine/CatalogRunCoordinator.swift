@@ -160,6 +160,8 @@ public actor CatalogRunCoordinator {
             switch run.status {
             case .complete, .partial, .done: run.endReason = .completed
             case .failed: run.endReason = .failed
+            case .timedOut: run.endReason = .timedOut
+            case .cancelled: run.endReason = .cancelled
             default: run.endReason = .unknown
             }
         }

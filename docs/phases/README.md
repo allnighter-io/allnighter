@@ -25,7 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Run_Lifecycle_Reliability.md`](Run_Lifecycle_Reliability.md) | **FINAL; S00–S04 DELIVERED 2026-07-19 — S05 next; blocks IR-S02 + Onboarding V1** | S00–S04 landed: lifecycle/phase wire, blockers, activity truth, runtimeOwnership + KillSettlement (terminal-lie GREEN), contradiction surface + receipts retention + warm honesty. Remaining: S05 clocks/idempotency/`--retry-of`; S06 Works Test matrix + `check.sh`. |
+| [`Run_Lifecycle_Reliability.md`](Run_Lifecycle_Reliability.md) | **FINAL; S00–S05 DELIVERED 2026-07-19 — S06 next; blocks IR-S02 + Onboarding V1** | S00–S05 landed: lifecycle/phase wire, blockers, activity truth, runtimeOwnership + KillSettlement, contradiction surface, four clocks + idempotency replay/`--retry-of`. Remaining: S06 Works Test matrix + `check.sh`. |
 | [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
 | [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md) | **SHIPPED 2026-07-19, archived** — S01–S04b, S05a, S06 gates; S05b deferred | Team-run open + streaming/reload hot path. Code SSOT: `ThreadsViewModel.applyLiveDelta` / `reloadAsync`, `PerfCounters`, `RunDecodeCache`. |
 | [`Field_Reports_3.md`](Field_Reports_3.md) | **In progress** — piloted delivery #10 | Lane-label truth, JSON stream discipline, retry idempotency from live dogfood. |

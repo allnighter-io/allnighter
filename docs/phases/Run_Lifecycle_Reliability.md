@@ -68,15 +68,23 @@ flow as bounded `workerActivity`/`stageActivity` metadata (never payload
 text). Works Test 4 shape GREEN.
 
 **S04 DELIVERED 2026-07-19** (commits `3087179e` S04a, `701dc6f6` S04b,
-`<S04c>` S04c; plan `docs/phases/rlr/S04_Execution_Plan.md`): worker
+`bf4e8cdf` S04c; plan `docs/phases/rlr/S04_Execution_Plan.md`): worker
 `runtimeOwnership` keyed by worker id; async setpgid detachment dead;
 spawn signal dispositions reset (inherited SIG_IGN for SIGTERM fixed);
 one identity-checked `KillSettlement` (terminal only on verified stop);
 `status`/`ps` surface `killOutcome` + read-time
 `contradiction: terminalWithLiveOwnership`; ownership receipts retained
 after terminal; warm kill returns `verificationUnavailable` (never a
-`killed` lie). Terminal-lie signature GREEN. **S05 (clocks + idempotency
-replay + `--retry-of`) is next.**
+`killed` lie). Terminal-lie signature GREEN.
+
+**S05 DELIVERED 2026-07-19** (plan `docs/phases/rlr/S05_Execution_Plan.md`):
+four clocks (`--handshake-timeout` / `--first-activity-timeout` /
+`--idle-timeout` / `--wall-timeout`) with budgets on the journal;
+`RunClockEnforcer` stamps `timedOut` + `killOutcome` even on partial
+(operator-vs-clock asymmetry); idempotency replay /
+`IDEMPOTENCY_CONFLICT` / `IDEMPOTENCY_EXPIRED` (24h retention);
+`--retry-of` + `--accept-survivors`. **S06 (full Works Test matrix) is
+next.**
 
 ## Founder intent
 

@@ -682,14 +682,21 @@ final class RunAcceptanceBoundaryTests: XCTestCase {
             RunRequest(message: "different message", repoRoot: h.repo.path, idempotencyKey: key),
             origin: .cli)
         guard case .failure(let error) = conflict else { return XCTFail("expected conflict, got \(conflict)") }
-        XCTAssertEqual(error.code, "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD")
+        XCTAssertEqual(error.code, "IDEMPOTENCY_CONFLICT")
     }
 
     func testRetryOfRecordsDurableRunLinkWithoutReplayExecution() async throws {
         let h = try makeHarness()
         defer { try? FileManager.default.removeItem(at: h.repo) }
 
+        // Prior run must exist and be verified stopped (S05 gate).
         let oldId = "old-run-\(UUID().uuidString)"
+        let prior = TeamRun(
+            id: oldId, prompt: "old", status: .cancelled, createdAt: Date(),
+            repoRoot: h.repo.path, endReason: .killed, killOutcome: .stopped
+        )
+        try h.runStore.save(prior, models: [])
+
         let result = await h.service.run(
             RunRequest(message: "Say done", repoRoot: h.repo.path, retryOf: oldId), origin: .cli)
         guard case .success(let run) = result else { return XCTFail("retry run failed: \(result)") }

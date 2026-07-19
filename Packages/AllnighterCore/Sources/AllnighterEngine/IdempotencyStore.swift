@@ -2,8 +2,14 @@ import Foundation
 import AllnighterCore
 import CryptoKit
 
-/// Durable idempotency records for async `team start` (24h retention).
+/// Durable idempotency records for async `team start` / sync `alln run` (RLR-L9).
+///
+/// **Retention** (`retention`, default 24h) is the replay window: same key + same
+/// payload returns the original run. After retention the key is a **tombstone** —
+/// claim returns `.expired` (`IDEMPOTENCY_EXPIRED`) and never silently re-executes.
+/// Entries are not pruned on claim (tombstones must remain readable).
 public struct IdempotencyStore: Sendable {
+    /// Replay window (RLR-L9). Named constant — S01/S05 product default.
     public static let retention: TimeInterval = 24 * 60 * 60
 
     public let fileURL: URL
@@ -27,6 +33,8 @@ public struct IdempotencyStore: Sendable {
         case replay(Entry)
         /// Same key was already used with a different payload.
         case conflict(Entry)
+        /// Key exists but the replay window has elapsed (tombstone).
+        case expired(Entry)
     }
 
     private struct File: Codable {
@@ -34,15 +42,19 @@ public struct IdempotencyStore: Sendable {
     }
 
     public func lookup(key: String, now: Date = Date()) -> Entry? {
-        prune(now: now)
-        return load().entries.first { $0.key == key }
+        load().entries.first { $0.key == key }
+    }
+
+    /// Whether `acceptedAt` is still inside the replay window.
+    public static func isWithinRetention(_ entry: Entry, now: Date = Date()) -> Bool {
+        now.timeIntervalSince(entry.acceptedAt) < retention
     }
 
     /// F5b single-flight: under the flock, either insert this runId as the
     /// sole owner of `key`, return the existing same-digest owner for replay,
-    /// or refuse a digest mismatch. Does **not** steal an in-flight claim
-    /// (peer may not have persisted the journal yet) — callers wait/replay,
-    /// then optionally `forceClaim` if the peer vanished.
+    /// refuse a digest mismatch, or refuse an expired tombstone. Does **not**
+    /// steal an in-flight claim (peer may not have persisted the journal yet)
+    /// — callers wait/replay, then optionally `forceClaim` if the peer vanished.
     public func claim(
         key: String,
         payload: AsyncTeamCanonicalPayload,
@@ -51,9 +63,11 @@ public struct IdempotencyStore: Sendable {
     ) throws -> ClaimResult {
         try withLock {
             var file = load()
-            pruneEntries(&file.entries, now: now)
             let digest = Self.digest(payload)
             if let existing = file.entries.first(where: { $0.key == key }) {
+                if !Self.isWithinRetention(existing, now: now) {
+                    return .expired(existing)
+                }
                 if existing.payloadDigest != digest {
                     return .conflict(existing)
                 }
@@ -67,7 +81,8 @@ public struct IdempotencyStore: Sendable {
     }
 
     /// Replace an orphaned same-digest claim whose journal is gone. No-ops into
-    /// replay/conflict when the existing owner is still live or digests differ.
+    /// replay/conflict/expired when the existing owner is still live, digests
+    /// differ, or the tombstone is past retention.
     public func forceClaim(
         key: String,
         payload: AsyncTeamCanonicalPayload,
@@ -77,9 +92,11 @@ public struct IdempotencyStore: Sendable {
     ) throws -> ClaimResult {
         try withLock {
             var file = load()
-            pruneEntries(&file.entries, now: now)
             let digest = Self.digest(payload)
             if let existing = file.entries.first(where: { $0.key == key }) {
+                if !Self.isWithinRetention(existing, now: now) {
+                    return .expired(existing)
+                }
                 if existing.payloadDigest != digest {
                     return .conflict(existing)
                 }
@@ -107,13 +124,22 @@ public struct IdempotencyStore: Sendable {
         // `record` refreshes acceptedAt after a detached handshake.
         try withLock {
             var file = load()
-            pruneEntries(&file.entries, now: now)
             let digest = Self.digest(payload)
             let entry = Entry(key: key, payloadDigest: digest, runId: runId, acceptedAt: now)
             file.entries.removeAll { $0.key == key }
             file.entries.append(entry)
             try save(file)
             return entry
+        }
+    }
+
+    /// Test / admin helper: seed a tombstone with an explicit `acceptedAt`.
+    public func seed(entry: Entry) throws {
+        try withLock {
+            var file = load()
+            file.entries.removeAll { $0.key == entry.key }
+            file.entries.append(entry)
+            try save(file)
         }
     }
 
@@ -136,16 +162,6 @@ public struct IdempotencyStore: Sendable {
         try CoreJSON.encode(file).write(to: fileURL, options: .atomic)
     }
 
-    private func prune(now: Date) {
-        withLock {
-            var file = load()
-            let before = file.entries.count
-            pruneEntries(&file.entries, now: now)
-            guard file.entries.count != before else { return }
-            try? save(file)
-        }
-    }
-
     /// Per-file flock serializing the load → mutate → save RMW across
     /// concurrent callers (F5). Mirrors `ProcessOwnership.withRunLock`: a
     /// lock-open failure degrades to the prior unlocked behavior rather than
@@ -158,10 +174,5 @@ public struct IdempotencyStore: Sendable {
         _ = flock(fd, LOCK_EX)
         defer { _ = flock(fd, LOCK_UN) }
         return try body()
-    }
-
-    private func pruneEntries(_ entries: inout [Entry], now: Date) {
-        let cutoff = now.addingTimeInterval(-Self.retention)
-        entries.removeAll { $0.acceptedAt < cutoff }
     }
 }

@@ -36,12 +36,10 @@ public enum RunPhase: String, Codable, Sendable, CaseIterable {
     }
 }
 
-/// Named finite clock defaults (RLR-L8, S01c). **S01 only names these
-/// defaults; S05 wires the `--handshake-timeout` / `--first-activity-timeout`
-/// / `--wall-timeout` CLI flags and fires the clocks against them — no
-/// enforcement here.** Per-repo overrides are read from `Config/Tool/config.json`
-/// (the same override home as `ToolConfig`) once S05 lands the config fields;
-/// today these are the product-wide defaults with no override path yet.
+/// Named finite clock defaults (RLR-L8, S01c). S05 wires the CLI flags and
+/// fires the clocks against them via `RunClockEnforcer`. Per-repo overrides
+/// may later read `Config/Tool/config.json` (same home as `ToolConfig`); today
+/// these are the product-wide defaults.
 ///
 /// `--idle-timeout` is deliberately absent here: RLR-L8 keeps its current
 /// product default unchanged (per-driver-manifest `timeoutSeconds`, e.g.
@@ -66,4 +64,50 @@ public enum RunClockDefaults {
         [handshakeTimeoutSeconds, firstActivityTimeoutSeconds, wallTimeoutSeconds]
             .allSatisfy { $0.isFinite && $0 > 0 }
     }
+}
+
+/// Per-run clock budgets persisted on the journal (RLR-L8 / S05) so a second
+/// process / `status` can reason about them without re-parsing CLI flags.
+public struct RunClockBudgets: Codable, Equatable, Sendable {
+    public var handshakeTimeoutSeconds: Double
+    public var firstActivityTimeoutSeconds: Double
+    /// `nil` = driver-manifest idle (RLR-L8 keeps the per-manifest default).
+    public var idleTimeoutSeconds: Double?
+    public var wallTimeoutSeconds: Double
+
+    public init(
+        handshakeTimeoutSeconds: Double = RunClockDefaults.handshakeTimeoutSeconds,
+        firstActivityTimeoutSeconds: Double = RunClockDefaults.firstActivityTimeoutSeconds,
+        idleTimeoutSeconds: Double? = nil,
+        wallTimeoutSeconds: Double = RunClockDefaults.wallTimeoutSeconds
+    ) {
+        self.handshakeTimeoutSeconds = handshakeTimeoutSeconds
+        self.firstActivityTimeoutSeconds = firstActivityTimeoutSeconds
+        self.idleTimeoutSeconds = idleTimeoutSeconds
+        self.wallTimeoutSeconds = wallTimeoutSeconds
+    }
+
+    /// Resolve CLI overrides (seconds) onto named defaults. Idle stays optional.
+    public static func resolved(
+        handshake: Int? = nil,
+        firstActivity: Int? = nil,
+        idle: Int? = nil,
+        wall: Int? = nil
+    ) -> RunClockBudgets {
+        RunClockBudgets(
+            handshakeTimeoutSeconds: Double(handshake ?? Int(RunClockDefaults.handshakeTimeoutSeconds)),
+            firstActivityTimeoutSeconds: Double(
+                firstActivity ?? Int(RunClockDefaults.firstActivityTimeoutSeconds)),
+            idleTimeoutSeconds: idle.map(Double.init),
+            wallTimeoutSeconds: Double(wall ?? Int(RunClockDefaults.wallTimeoutSeconds))
+        )
+    }
+}
+
+/// Which of the four RLR-L8 clocks fired.
+public enum RunClockKind: String, Codable, Sendable, CaseIterable {
+    case handshake
+    case firstActivity
+    case idle
+    case wall
 }

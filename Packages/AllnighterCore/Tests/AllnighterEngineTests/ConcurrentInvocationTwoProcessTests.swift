@@ -313,7 +313,9 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
         )
         XCTAssertNotEqual(conflict.status, 0, "different payload must refuse")
         XCTAssertTrue(
-            conflict.stdout.contains("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD")
+            conflict.stdout.contains("IDEMPOTENCY_CONFLICT")
+                || conflict.stderr.contains("IDEMPOTENCY_CONFLICT")
+                || conflict.stdout.contains("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD")
                 || conflict.stderr.contains("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD"),
             "expected typed conflict, got stdout=\(conflict.stdout) stderr=\(conflict.stderr)"
         )

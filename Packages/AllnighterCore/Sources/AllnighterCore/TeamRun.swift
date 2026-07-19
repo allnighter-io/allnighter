@@ -167,6 +167,10 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var lastActivityAt: Date? = nil
     /// Kind of the last recorded activity (RLR-L6). Nil before first activity.
     public var lastActivityKind: RunActivityKind? = nil
+    /// Per-run clock budgets (RLR-L8 / S05). Persisted at acceptance so a second
+    /// process can reason about handshake / first-activity / idle / wall bounds.
+    /// Optional so legacy `run.json` decodes to `nil`.
+    public var clockBudgets: RunClockBudgets? = nil
     /// Non-optional view of `links` for callers.
     public var runLinks: [RunLink] { links ?? [] }
 
@@ -207,6 +211,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         attempts: [RunAttempt] = [],
         lastActivityAt: Date? = nil,
         lastActivityKind: RunActivityKind? = nil,
+        clockBudgets: RunClockBudgets? = nil,
         links: [RunLink]? = nil
     ) {
         self.id = id
@@ -245,6 +250,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.attempts = attempts
         self.lastActivityAt = lastActivityAt
         self.lastActivityKind = lastActivityKind
+        self.clockBudgets = clockBudgets
         self.links = links
     }
 }

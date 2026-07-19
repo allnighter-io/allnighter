@@ -352,7 +352,11 @@ public actor AsyncTeamService {
         }
 
         // Block until the runner holds the slot and writes the handshake.
-        guard let handshake = ProcessOwnership.waitForRunnerReady(in: directory) else {
+        // RLR-L8: use the named product default (CLI override on async start is S06).
+        guard let handshake = ProcessOwnership.waitForRunnerReady(
+            in: directory,
+            timeout: RunClockDefaults.handshakeTimeoutSeconds
+        ) else {
             _ = ProcessOwnership.terminateRecordedOwnerIfSafe(in: directory)
             removeRunDirectory(runId: runId)
             return .failure(.init(code: "INTERNAL_ERROR", message: "runner did not report ready in time",
@@ -439,7 +443,7 @@ public actor AsyncTeamService {
         let digest = IdempotencyStore.digest(canonical)
         if existing.payloadDigest != digest {
             return .failure(.init(
-                code: "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+                code: "IDEMPOTENCY_CONFLICT",
                 message: "idempotency key was already used with a different payload"
             ))
         }
@@ -473,8 +477,13 @@ public actor AsyncTeamService {
             return .success(.proceed)
         case .conflict:
             return .failure(.init(
-                code: "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+                code: "IDEMPOTENCY_CONFLICT",
                 message: "idempotency key was already used with a different payload"
+            ))
+        case .expired:
+            return .failure(.init(
+                code: "IDEMPOTENCY_EXPIRED",
+                message: "idempotency key has expired (replay window \(Int(IdempotencyStore.retention))s); use a new key"
             ))
         case .replay(let entry):
             if let response = waitForIdempotentReplay(entry: entry) {
@@ -496,8 +505,13 @@ public actor AsyncTeamService {
                     return .success(.proceed)
                 case .conflict:
                     return .failure(.init(
-                        code: "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+                        code: "IDEMPOTENCY_CONFLICT",
                         message: "idempotency key was already used with a different payload"
+                    ))
+                case .expired:
+                    return .failure(.init(
+                        code: "IDEMPOTENCY_EXPIRED",
+                        message: "idempotency key has expired (replay window \(Int(IdempotencyStore.retention))s); use a new key"
                     ))
                 case .replay(let again):
                     if let response = waitForIdempotentReplay(entry: again) {

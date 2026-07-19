@@ -562,6 +562,12 @@ Flags:
 - `--type <type>` — Copy routing sugar.
 - `--context <string>` — Bounded context snippet.
 - `--idle-timeout <integer>` — Override the worker idle-stall budget in seconds (default = driver manifest timeout, typically 300). Resets on any streaming progress (tool-call/reasoning/stderr/child activity), not only answer tokens (PO-F5).
+- `--handshake-timeout <integer>` — Runner-ready handshake bound in seconds (default 60; RLR-L8). Finite positive required.
+- `--first-activity-timeout <integer>` — First post-spawn activity bound in seconds (default 120; RLR-L8). Finite positive required.
+- `--wall-timeout <integer>` — Total wall-clock ceiling in seconds (default 3600; RLR-L8). Finite positive required.
+- `--idempotency-key <string>` — Transport idempotency key (24h replay window). Same key+payload replays the original run; conflict/expired refuse.
+- `--retry-of <id>` — Intentional retry of a prior run id (new key). Requires prior tree verified stopped, or --accept-survivors.
+- `--accept-survivors` — Allow --retry-of when the prior run still has identity-alive recorded workers.
 - `--commit-message <string>` — Exact commit message for the worker (FR12 instruct + verify; Allnighter does no git).
 - `--no-commit` — Instruct the worker to leave work uncommitted for PM review (mutually exclusive with --commit-message).
 - `--proof <string>` — Run a bounded proof command after the worker settles; surface pass/fail (never blocks git).
@@ -1409,7 +1415,10 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `TEAM_GOVERNOR_UNAVAILABLE` | yes | yes | `operational` | Run `alln doctor --json`; ensure Allnighter's support directory is writable, or set a writable support root for eval runs. |
 | `PENDING_MUTATION_DEFERRED` | yes | no | `operational` | Keep item Draft/Pending; mutating pending runs are outside Pending M1. |
 | `PENDING_REORDER_INVALID` | yes | no | `operational` | Keep order unchanged; reorder only Pending items in the same serialized group. |
+| `IDEMPOTENCY_CONFLICT` | no | no | `operational` | Generate a new key or reuse the original payload. |
 | `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD` | no | no | `operational` | Generate a new key or reuse the original payload. |
+| `IDEMPOTENCY_EXPIRED` | no | no | `operational` | Generate a new idempotency key. |
+| `RETRY_OF_SURVIVORS` | no | yes | `operational` | Wait for verified stop, or pass --accept-survivors. |
 | `RESULT_NOT_READY` | no | yes | `operational` | Poll team status using nextPollAfterMs, then call team result again. |
 | `RUN_NOT_FOUND` | yes | no | `operational` | Run `alln history --json`. |
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |

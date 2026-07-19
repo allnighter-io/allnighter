@@ -418,7 +418,7 @@ final class IdempotencyTests: XCTestCase {
             guard case .failure(let refusal) = second else {
                 return XCTFail("expected idempotency refusal")
             }
-            XCTAssertEqual(refusal.code, "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD")
+            XCTAssertEqual(refusal.code, "IDEMPOTENCY_CONFLICT")
             XCTAssertFalse(refusal.message.contains("changed"))
             _ = await service.cancel(runId: "run-idem-2")
         }

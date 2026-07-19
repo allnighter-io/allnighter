@@ -254,12 +254,10 @@ final class KillSettlementTests: XCTestCase {
         var r = run(id: "clk1", status: .running)
         try runs.save(r, models: [])
         try writeWorker(try liveSelfWorker(), workerId: "r1", runs: runs, runId: "clk1")
-        // Clock fires (S05 owns the producer): stamp timedOut terminal while the
-        // recorded worker is still identity-alive. endReason catalog may still
-        // lack a dedicated `timedOut` case — contradiction keys off terminality
-        // + live retained receipts.
+        // Clock fires via RunClockEnforcer: stamp timedOut terminal while the
+        // recorded worker is still identity-alive (operator-vs-clock asymmetry).
         r.status = .timedOut
-        r.endReason = .unknown
+        r.endReason = .timedOut
         r.killOutcome = .partial
         try runs.save(r, models: [])
 
