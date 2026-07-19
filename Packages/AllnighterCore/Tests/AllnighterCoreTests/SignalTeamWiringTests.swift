@@ -2,7 +2,8 @@ import XCTest
 @testable import AllnighterCore
 
 /// The built-in Post-to-Project Signal team: Grok scouts, three distinct minds
-/// triangulate, Opus leads — and the customize-team scout warning.
+/// triangulate, the strongest ready flagship leads — and the customize-team
+/// scout warning.
 final class SignalTeamWiringTests: XCTestCase {
 
     private func m(_ id: String, _ driver: String, _ role: ModelRole = .answerer) -> Model {
@@ -14,7 +15,7 @@ final class SignalTeamWiringTests: XCTestCase {
          m("model_sonnet", "claude_code"), m("model_cursor_auto", "cursor_agent")]
     }
 
-    func testPostToProjectResolvesScoutGrokThreeDistinctMindsOpusLead() {
+    func testPostToProjectResolvesScoutGrokThreeDistinctMindsFlagshipLead() {
         let team = BuiltInTeams.team("signal_post_to_project")!
         let r = TeamResolver.resolve(team: team, requestLane: .signal, requestEffort: .med, readyModels: fullBench())
 
@@ -22,13 +23,16 @@ final class SignalTeamWiringTests: XCTestCase {
         // Stage 0: Grok scout.
         XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
         XCTAssertEqual(r.scoutWorker?.purpose, .scout)
-        // Stage 1: three interpreters on three distinct drivers.
+        // Stage 1: three interpreters on three distinct drivers. The Lead reserves
+        // the strongest ready flagship (ChatGPT 5.6 Sol, rank 99 — first in the
+        // synthesis fallback chain after the absent Fable), so the interpreters are
+        // Grok, Gemini, then the strongest remaining distinct-driver seat, Opus.
         XCTAssertEqual(r.answerWorkers.count, 3)
         let drivers = Set(r.answerWorkers.map { w in fullBench().first { $0.id == w.modelId }!.driverId })
         XCTAssertEqual(drivers.count, 3)
-        XCTAssertEqual(r.answerWorkers.map(\.modelId), ["model_grok", "model_chatgpt", "model_gemini"])
-        // Lead: strongest (Opus), reserved from the worker pool.
-        XCTAssertEqual(r.planWriter?.modelId, "model_opus")
+        XCTAssertEqual(r.answerWorkers.map(\.modelId), ["model_grok", "model_gemini", "model_opus"])
+        // Lead: strongest ready flagship (ChatGPT 5.6 Sol), reserved from the worker pool.
+        XCTAssertEqual(r.planWriter?.modelId, "model_chatgpt")
     }
 
     func testScoutWarningSilentForBuiltInButFiresWhenGrokRemoved() {

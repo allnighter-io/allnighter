@@ -33,17 +33,20 @@ final class SignalTriangulationTests: XCTestCase {
     }
 
     func testTriangulationPicksDistinctDriversAndReservesStrongestForLead() {
+        let bench = [opus(), grok(), chatgpt(), gemini(), sonnet(), cursorAuto()]
         let r = TeamResolver.resolve(
             team: signalTeam(), requestLane: .signal, requestEffort: .med,
-            readyModels: [opus(), grok(), chatgpt(), gemini(), sonnet(), cursorAuto()])
+            readyModels: bench)
         XCTAssertTrue(r.isRunnable)
-        // Three interpreters, three DISTINCT drivers, in preference order.
-        XCTAssertEqual(r.answerWorkers.map(\.modelId), ["model_grok", "model_chatgpt", "model_gemini"])
-        XCTAssertEqual(Set(r.answerWorkers.map { id -> String in
-            [grok(), chatgpt(), gemini()].first { $0.id == id.modelId }!.driverId }).count, 3)
-        // Strongest (Opus) is the Lead — never spent on a worker.
-        XCTAssertEqual(r.planWriter?.modelId, "model_opus")
-        XCTAssertFalse(r.answerWorkers.contains { $0.modelId == "model_opus" })
+        // Strongest ready .planner is ChatGPT 5.6 Sol (rank 99 > Opus 90), so it is
+        // reserved for the Lead; the three interpreters spread across the distinct
+        // drivers below it: Grok (pref #1), Gemini (pref #3; ChatGPT is reserved),
+        // then the strongest remaining distinct-driver seat, Opus.
+        XCTAssertEqual(r.answerWorkers.map(\.modelId), ["model_grok", "model_gemini", "model_opus"])
+        XCTAssertEqual(Set(r.answerWorkers.map { w -> String in
+            bench.first { $0.id == w.modelId }!.driverId }).count, 3)
+        XCTAssertEqual(r.planWriter?.modelId, "model_chatgpt")
+        XCTAssertFalse(r.answerWorkers.contains { $0.modelId == "model_chatgpt" }) // reserved for Lead
         XCTAssertFalse(r.warnings.contains { $0.contains("degraded") })
     }
 
