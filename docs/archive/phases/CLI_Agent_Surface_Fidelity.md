@@ -1,15 +1,23 @@
 # CLI Agent Surface Fidelity — stop teaching a CLI we no longer ship
 
-Status: **S01–S08 DONE (2026-07-20) — prepare archive after Works Test on
-committed HEAD.** Commit SHAs: S01 `TBD` · S02 `TBD` · S03 `TBD` · S04 `TBD` ·
-S05 `TBD` · S06 `TBD` · S07 `TBD` · S08 `TBD` (orchestrator fills on land).
-**Do not `git mv` to archive until Works Test is green on committed HEAD.**
+Status: **Complete (archived 2026-07-20).** ASF-S00–S08 delivered. Works Test
+green on release binary from committed HEAD. Code SSOT:
+`HelpTopicRegistry` / `HelpDiscoveryIndex` / `RetiredVocabulary` /
+`AgentSurfaceNextAction` pattern / `BuildInfo` / `scripts/check.sh` gates.
+Commit SHAs: S01 `ddd6cc39` · S02 `5b1f27ba` · S03/S04 `791d591e` ·
+S05/S06 `02819c6b` · S07/S08 `ce65caf3`. PARKED remain parked (unified `send`,
+hosted CI runner, full comment archaeology).
 Owner: AllnighterCore (`HelpTopicRegistry`, `HelpService`, `HelpContract`,
 `ContractRegistry`, `AgentBootstrap`, `RetiredVocabulary`) + AllnighterEngine
 (`AsyncTeamService`, `AsyncTeamStatusMapper`) + AllnighterCLI (`HelpCLI`,
 `version`) + living ops docs agents still open
-Updated: 2026-07-20 (S07 living-docs purge + S08 durable gates; archive pending
-Works Test — placeholders above)
+Updated: 2026-07-20 (archived after Works Test)
+
+**Closeout:** Help prose + transactional `nextAction`/`nextToolPlan` speak CLI
+only; catalog search finds opencode/glm; misses recover; version carries
+0.9.0 + gitSha; living docs tombstoned; `RetiredVocabulary` + `check.sh` deny
+reintroduction. GUI proof waiver recorded for TeachYourCLIsView comment-only
+hash drift during ASF closeout.
 
 Related: archived `Agent_Front_Door.md` / `Agent_Onboarding.md` /
 `Agent_Intent_Router.md` (gates 1–3 shipped — **not** the gap) · living
@@ -314,33 +322,20 @@ Laws for this phase:
 | Slice | Deliverable |
 | --- | --- |
 | **ASF-S00 ✅ DONE (2026-07-20)** | Inventory + kill list — see §ASF-S00 above (file:line, contract-resolution table, root cause). No separate debuglog file; this doc is the SSOT. |
-| **ASF-S01 ✅ DONE (commit TBD)** | Help corpus CLI cutover + honest gate. |
-| **ASF-S02 ✅ DONE (commit TBD)** | Next-action grammar cutover (`command`, no `"tool"` key). |
-| **ASF-S03 ✅ DONE (commit TBD)** | Discovery: catalog→search bridge. |
-| **ASF-S04 ✅ DONE (commit TBD)** | Empty-search recovery + miss-consistency. |
-| **ASF-S05 ✅ DONE (commit TBD)** | First-contact decision tree (`tool_selection`). |
-| **ASF-S06 ✅ DONE (commit TBD)** | Freshness identity (`BuildInfo` gitSha/buildTime + self-build help). |
-| **ASF-S07 ✅ DONE (commit TBD)** | **Living docs purge.** GLM playbook leads with `alln run --worker model_opencode_glm_5_2`; PM_Relay links → `docs/archive/phases/`; historical batch script fenced non-runnable; `CLI_Product_Spine` / `CLI_Implementation_Contract` MCP examples tombstoned; `RB6_Team_As_Tool` in-file tombstone (status no longer claims live MCP); vestigial `pair slice` match dropped from `StalledWorkDetector`. |
-| **ASF-S08 ✅ DONE (commit TBD)** | **Durable mechanical gates.** `RetiredVocabulary` (ONE Swift deny-list) consumed by XCTest + `check.sh` living-doc grep; prose-command resolution via `ContractRegistry.resolveCommandName`; underscore-tool-id ban with explicit `AgentHello.defaultWorkflows` carve-out (`run_async`/`diagnose`/`resolve_stalls`); `alln dev export-contracts --check` wired into `scripts/check.sh`. |
+| **ASF-S01 ✅ DONE (`ddd6cc39`)** | Help corpus CLI cutover + honest gate. |
+| **ASF-S02 ✅ DONE (`5b1f27ba`)** | Next-action grammar cutover (`command`, no `"tool"` key). |
+| **ASF-S03 ✅ DONE (`791d591e`)** | Discovery: catalog→search bridge. |
+| **ASF-S04 ✅ DONE (`791d591e`)** | Empty-search recovery + miss-consistency. |
+| **ASF-S05 ✅ DONE (`02819c6b`)** | First-contact decision tree (`tool_selection`). |
+| **ASF-S06 ✅ DONE (`02819c6b`)** | Freshness identity (`BuildInfo` gitSha/buildTime + self-build help). |
+| **ASF-S07 ✅ DONE (`ce65caf3`)** | **Living docs purge.** GLM playbook leads with `alln run --worker model_opencode_glm_5_2`; PM_Relay links → `docs/archive/phases/`; historical batch script fenced non-runnable; `CLI_Product_Spine` / `CLI_Implementation_Contract` MCP examples tombstoned; `RB6_Team_As_Tool` in-file tombstone (status no longer claims live MCP); vestigial `pair slice` match dropped from `StalledWorkDetector`. |
+| **ASF-S08 ✅ DONE (`ce65caf3`)** | **Durable mechanical gates.** `RetiredVocabulary` (ONE Swift deny-list) consumed by XCTest + `check.sh` living-doc grep; prose-command resolution via `ContractRegistry.resolveCommandName`; underscore-tool-id ban with explicit `AgentHello.defaultWorkflows` carve-out (`run_async`/`diagnose`/`resolve_stalls`); `alln dev export-contracts --check` wired into `scripts/check.sh`. |
 | **PARKED** | Unified `alln send --mode …` sugar · auto-rewrite of installed snippets beyond current marker stale/repair (mechanism exists: version+hash markers + Mac `GlobalTeachingInstaller` repair) · full comment archaeology · CI runner (no `.github/workflows` exists; `check.sh` is the gate of record — founder call whether hosted CI is wanted) |
 
-### Archive prep (orchestrator — after Works Test)
+### Archive
 
-When Works Test is green on **committed HEAD**:
-
-1. Fill S01–S08 commit SHAs in the status header (replace `TBD`).
-2. `git mv docs/phases/CLI_Agent_Surface_Fidelity.md docs/archive/phases/`
-3. Update `docs/phases/README.md` + `AGENTS.md` routing to the archive path.
-4. Suggested archive commit message:
-
-```text
-docs(asf): archive CLI_Agent_Surface_Fidelity after S01–S08 Works Test
-
-S07 purged living MCP/pair-slice teaching; S08 landed RetiredVocabulary
-deny-list + check.sh gates. Phase complete — move SSOT to archive.
-```
-
-**Do not archive in this slice** — Works Test on committed HEAD is still owed.
+Moved to `docs/archive/phases/CLI_Agent_Surface_Fidelity.md` on 2026-07-20 after
+Works Test green on release binary from committed HEAD (SHAs in status header).
 
 ## Works test
 

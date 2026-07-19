@@ -33,7 +33,8 @@ For every CLI capability change, the packet / closeout must also answer:
 If those answers are missing, the feature is not ready to close — same bar as
 "no CLI surface."
 
-Active polish phase: `docs/phases/CLI_Agent_Surface_Fidelity.md` (ASF).
+Active polish phase (Complete): archived
+`docs/archive/phases/CLI_Agent_Surface_Fidelity.md` (ASF).
 
 ## Why help/doc drift was still possible (2026-07-20 lesson)
 
