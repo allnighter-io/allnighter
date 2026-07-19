@@ -35,11 +35,12 @@ source; remaining leftovers were pure GUI-polish unless noted. Live successors
 | [MCP_Help_System.md](MCP_Help_System.md) | Help SSOT built CLI-only; MCP half deleted | `HelpService.swift`, `HelpTopicRegistry.swift`, `alln help` |
 | [Agent_First_MCP_And_Messaging_Workflows.md](Agent_First_MCP_And_Messaging_Workflows.md) | Core built; every `MCP*Handlers` tool it specced deleted | `AgentReadiness`/`TeamPreflight`/`SpecRetrieval.swift`; CLI parity |
 
-### Agent front door — gate 1 shipped
+### Agent front door — gate 1 shipped; gate 3 Complete
 
 | Doc | Final status | Code SSOT / successor |
 | --- | --- | --- |
-| [Agent_Front_Door.md](Agent_Front_Door.md) | SHIPPED (gate 1 — findable) | `InstallCLI.swift`, `Bootstrap.swift`; gates 2/3 live: `Agent_Onboarding.md`, `Agent_Intent_Router.md` |
+| [Agent_Front_Door.md](Agent_Front_Door.md) | SHIPPED (gate 1 — findable) | `InstallCLI.swift`, `Bootstrap.swift`; gate 2 live: `Agent_Onboarding.md`; gate 3 archived: `Agent_Intent_Router.md` |
+| [Agent_Intent_Router.md](Agent_Intent_Router.md) | Complete 2026-07-19 — IR-S00–S02 (`3d515ff0` / `aafb6ce6` / `df334af8`); PARKED remain parked | `AgentIntentRouter.swift`, `AgentHello.swift`; live works probe + 29/29 golden tests; successor: `Agent_Onboarding.md` |
 
 ### Team / catalog / model / run substrate — built
 

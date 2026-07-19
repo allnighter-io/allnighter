@@ -1,7 +1,7 @@
 import Foundation
 
 /// Deterministic intent → team/primitive matcher for `alln team hello --for`
-/// (`docs/phases/Agent_Intent_Router.md` IR-S01 / IR-S02).
+/// (`docs/archive/phases/Agent_Intent_Router.md` IR-S01 / IR-S02; code is SSOT).
 ///
 /// Indexes:
 /// - **Family index** — `TeamPreset` `typeTags` / `description` / `starterPrompts` / `lane`

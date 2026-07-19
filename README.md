@@ -28,8 +28,8 @@ or primitive (`pair pilot` to hand a build to another model, `pair relay` to run
 the night) with an exact runnable command — never a bare "pick a team," never a
 silent worker swap. If `alln` isn't on PATH yet: `alln install-cli`.
 
-The three agent gates: **find it** (`Agent_Front_Door.md`) · **suggest it**
-(`Agent_Onboarding.md`) · **route it** (`Agent_Intent_Router.md`).
+The three agent gates: **find it** (archived `Agent_Front_Door.md`) · **suggest it**
+(`Agent_Onboarding.md`) · **route it** (archived `Agent_Intent_Router.md`).
 
 Core operating docs:
 

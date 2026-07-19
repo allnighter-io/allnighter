@@ -73,7 +73,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Execution/answer teams, mutating runs, source/write safety | `docs/phases/Unified_Run_Model.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | CLI product surface, `alln`, TeamRunJSON | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | Agent surface, `alln team hello`, `alln bootstrap` activation, help routing (MCP retired 2026-07-16) | `docs/phases/MCP_Retirement.md` — the CLI is the only agent surface now; `alln bootstrap` prints the paste-ready host context snippet (replaces `alln mcp install`); `docs/phases/MCP_Help_System.md` + `docs/phases/Agent_First_MCP_And_Messaging_Workflows.md` are historical |
-| Agent front door: `install-cli`, `bootstrap`, first-contact counsel (`models`, `team hello`, `doctor`) | `docs/phases/Agent_Front_Door.md` |
+| Agent front door: `install-cli`, `bootstrap`, first-contact counsel (`models`, `team hello`, `doctor`) | archived `docs/archive/phases/Agent_Front_Door.md` (gate 1) + archived `docs/archive/phases/Agent_Intent_Router.md` (gate 3, code SSOT `AgentIntentRouter.swift`) → `docs/phases/Agent_Onboarding.md` (gate 2, next) |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` + `docs/operations/ios-testing-loop.md` |
 | Shared Mac/iOS SwiftUI or `Packages/AllnighterUI` | `docs/gui/GUI_Workflow.md` §5 — default **no**; founder escalation required |

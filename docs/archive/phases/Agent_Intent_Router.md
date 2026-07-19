@@ -1,16 +1,21 @@
 # Agent Intent Router — one front door that routes intent to the right killer team
 
-Status: **IR-S01 SHIPPED 2026-07-19 (`3d515ff0`); PAUSED after the first slice
-as requested. RLR-S06 cleared 2026-07-19 — IR-S02 is unblocked.** Do not
-archive this phase. The normalized catalog prerequisite is complete.
-archived `Run_Lifecycle_Reliability.md` was the P0 hard prerequisite for IR-S02; that
-gate is now Complete (Works Test matrix green).
-Owner: AllnighterCore (`AgentHello` + catalog) + AllnighterCLI (`team hello`)
-Updated: 2026-07-19 (RLR-S06 unblocked IR-S02)
+Status: **Complete (archived 2026-07-19).** IR-S00–IR-S02 delivered.
+IR-S01 `3d515ff0` · IR-S02a `aafb6ce6` · IR-S02b `df334af8`. Code is SSOT;
+this doc is the historical law + proof packet. PARKED items remain parked
+(fuzzy/model-assisted match; completion-receipt unified result shape).
+Owner: AllnighterCore (`AgentHello` + `AgentIntentRouter`) + AllnighterCLI
+(`team hello`)
+Updated: 2026-07-19 (archived).
 
-Execution order: ~~archived `Run_Lifecycle_Reliability.md`~~ (Complete / RLR-S06) →
-**IR-S02** → `Agent_Onboarding.md`. IR-S01 remains committed and usable; this
-doc stays active so the second slice resumes from the frozen matcher.
+Execution order: ~~archived `Run_Lifecycle_Reliability.md`~~ (Complete /
+RLR-S06) → ~~**IR-S02**~~ (Complete) → `Agent_Onboarding.md` (next; unblocked).
+
+**Closeout (deslop/audit):** Docs-only archive. No product-code deslop in this
+turn — IR-S02a/b already landed with focused golden tests (29/29
+`AgentIntentRouterTests|AgentHelloTests`). No structural audit findings to
+carry; successor work is `Agent_Onboarding.md`. Code SSOT:
+`AgentIntentRouter.swift` / `AgentHello.swift`.
 
 ## The gap (the third gate)
 
@@ -252,8 +257,8 @@ the hard prerequisite: the router is built only after the catalog is normalized.
 | --- | --- |
 | IR-S00 | ✅ **DONE 2026-07-19** — `Team_Catalog_Normalization.md` landed (CN-S01–S04: obvious names + ids, complete tiers, drops, Law 4 typeTags, guard tests; commits `1247bd12`/`6266b8d4`/`daccc183`). The catalog is normalized; the router is unblocked. |
 | IR-S01 | ✅ **DONE 2026-07-19 (`3d515ff0`)** — `alln team hello --for "<intent>" --json`; deterministic catalog matcher; `recommended` + `readiness` + `fallback` + `nextActions`; structured argv/display commands; overlap/no-match golden tests; generated contracts refreshed. Bare hello remains unchanged. Stop point requested by founder. |
-| IR-S02 | ✅ **Unblocked by RLR-S06 (2026-07-19).** Next slice: depth + primitive routing — Default with Min/Max alternates *where the family is tiered*; Pilot/Relay/Chat as first-class targets; **named-worker resolution** (name→id across drivers, deterministic driver pick + loud alternates, `WORKER_NAME_AMBIGUOUS`/`WORKER_NAME_UNKNOWN`) + requested-worker echo (no silent substitution); read-only-ask route honest about mutation (Decision 9); long-running targets carry the registry-derived lifecycle bundle from Decision 10. |
-| PARKED | Fuzzy/model-assisted intent match behind the deterministic floor · completion-receipt unified result shape across team/pilot/relay (true metrics only — rounds, commits, tests, unattended duration; NEVER invented "handoffs avoided"). |
+| IR-S02 | ✅ **DONE 2026-07-19** — IR-S02a (`aafb6ce6`): named-worker resolution, primitives (Pilot/Relay/Chat), depth Min/Default/Max alternates, field-probe golden tests. IR-S02b (`df334af8`): registry-derived lifecycle monitor/result/cancel bundle + stream honesty; hello workflow status step. |
+| PARKED | Fuzzy/model-assisted intent match behind the deterministic floor · completion-receipt unified result shape across team/pilot/relay (true metrics only — rounds, commits, tests, unattended duration; NEVER invented "handoffs avoided"). **Remain parked** — not in scope for this archive. |
 
 ## Anti-goals
 
@@ -270,26 +275,29 @@ the hard prerequisite: the router is built only after the catalog is normalized.
 
 ## Works test
 
+**Proved 2026-07-19** (live CLI + golden tests).
+
 IR-S01 proof (landed): `alln team hello --for "harden this spec before I
 build" --json` → the **Spec Review** Default team with a runnable `team start`
 command and Min/Max alternates. `--for "how do we get X builders to love this"` →
 **Growth**. `--for "find the real cause of this crash"` → **Bug Hunt** Default.
 `--for "rewrite my landing page"` → the **Copy** family. `--for "keep building
 overnight without me"` → `pair relay`. A down-seat case returns a loud fallback,
-never a silent swap. **The field-probe case passes:** `--for "ask ChatGPT 5.6
-Sol for read-only feedback on these two docs"` → chat route pinned to the
-resolved id (`model_chatgpt`, native driver) with the Cursor-driver entry as a
-labeled alternate and the emitted command honest about mutation — no stall, no
-wrong-driver guess. A bare "Sol"/"Grok" resolves the same way; a nonsense name
-returns `WORKER_NAME_UNKNOWN` + nearest matches. No `--for` =
-today's readiness report unchanged. Every matrix row has a golden-transcript test;
-IR-S00 shows every approved family with an obvious name and zero unnamed gaps —
-every *tiered* family complete (Min/Default/Max all present), every *single*
-family with no depth alternates (tiers are optional per Decision 4, so
-"untiered" is a passing state, not a gap).
+never a silent swap. No `--for` = today's readiness report unchanged. Every
+matrix row has a golden-transcript test; IR-S00 shows every approved family
+with an obvious name and zero unnamed gaps — every *tiered* family complete
+(Min/Default/Max all present), every *single* family with no depth alternates
+(tiers are optional per Decision 4, so "untiered" is a passing state, not a
+gap).
 
-IR-S02 may proceed: the lifecycle Works Test is green (RLR-S06 Complete). A
-long-running routed command must still return a canonical run id plus
-monitor/result/cancel argv; status reads that id from another process; cancel
-reaps the worker tree; and no recommended transport describes final-only JSON as
-live progress.
+IR-S02 live works probe (proved):
+
+- `--for "ask ChatGPT 5.6 Sol for read-only feedback on these two docs"` →
+  chat, `model_chatgpt`, Cursor alternate, readOnly, `lifecycle.cancel` via
+  kill — no stall, no wrong-driver guess.
+- `--for "harden this spec before I build"` → `code_spec_review` + full team
+  lifecycle monitor/result/cancel argv sharing the canonical run id.
+
+Unit wall: 29/29 green for `AgentIntentRouterTests|AgentHelloTests`. A
+long-running routed command returns monitor/result/cancel argv; no recommended
+transport describes final-only JSON as live progress.

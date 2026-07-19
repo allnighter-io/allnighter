@@ -1,15 +1,16 @@
 # Agent Onboarding — from findable to suggested
 
-Status: **APPROVED, BLOCKED on IR-S02.** RLR-S06 cleared 2026-07-19
-(archived `Run_Lifecycle_Reliability.md` Complete) — lifecycle trust is green.
-Build only after `Agent_Intent_Router.md` IR-S02. IR-S01 landed as `3d515ff0`;
-the router intentionally stopped there.
+Status: **APPROVED, UNBLOCKED.** IR-S02 Complete 2026-07-19 (archived
+`Agent_Intent_Router.md`; commits `aafb6ce6` / `df334af8`). RLR-S06 cleared
+2026-07-19 (archived `Run_Lifecycle_Reliability.md` Complete) — lifecycle trust
+is green. Router contract frozen through named-worker + lifecycle bundles;
+ONB-S01 may proceed.
 Specced v2 — hardened by five-seat panel panel_753613c7 (2026-07-16:
 21 findings across consent/simplify/adoption/failure-modes/strategy lenses;
 accepted set folded below). v3 sharpening (2026-07-18): trigger line points at
 the intent router; recipes retitled by intent; works test made adversarial.
 v3.1 (2026-07-19): works-test battery gains the named-worker/read-only
-utterance class surfaced by a live cold-agent probe (see
+utterance class surfaced by a live cold-agent probe (see archived
 `Agent_Intent_Router.md` field evidence); Sol read-only review hardening —
 one-source-per-artifact-class SSOT fix, discovery-vs-execution split in the
 trigger line, snippet blocks on IR-S01+S02, marker version+hash doctor
@@ -20,15 +21,17 @@ recipe — run-vs-team, `--project` required, Codex Sol vs Cursor Sol, silent
 audit via `alln run --worker model_chatgpt`). v3.3 (2026-07-19): Kimi lifecycle
 failure makes observable/stoppable/recoverable runs a blocking prerequisite;
 the single-worker recipe no longer teaches indefinite silence as healthy.
-v3.4 (2026-07-19): RLR gate cleared; Onboarding V1 still waits on IR-S02.
-V1 = three slices after IR-S02; the rest parked.
+v3.4 (2026-07-19): RLR gate cleared. v3.5 (2026-07-19): IR-S02 shipped —
+Onboarding V1 unblocked.
+V1 = three slices; the rest parked.
 Owner: Mac app (first-run/Settings) + AllnighterCore content SSOT + bootstrap
 Updated: 2026-07-19
 
-Related: `Agent_Front_Door.md` (gate 1 — findable, SHIPPED) · this doc (gate 2 —
-suggested) · `Agent_Intent_Router.md` (gate 3 — routes intent to the right team;
-the trigger line below depends on it) · archived `Run_Lifecycle_Reliability.md` (P0 trust
-gate — the recommended work remains observable, stoppable, and recoverable).
+Related: archived `Agent_Front_Door.md` (gate 1 — findable, SHIPPED) · this doc
+(gate 2 — suggested) · archived `Agent_Intent_Router.md` (gate 3 — Complete;
+routes intent to the right team; the trigger line below depends on it) ·
+archived `Run_Lifecycle_Reliability.md` (P0 trust gate — the recommended work
+remains observable, stoppable, and recoverable).
 
 ## The gap (named precisely)
 
@@ -103,28 +106,20 @@ exists before any agent session does. It must be the missionary.
 
    This is deliberately smaller than v2's four-mechanic list ("routed/delegated/
    unattended/judged"): the agent no longer has to translate a taxonomy or
-   memorize team ids — it asks the router (`Agent_Intent_Router.md`) and gets an
+   memorize team ids — it asks the router (archived `Agent_Intent_Router.md`) and gets an
    exact command back. Three intuitive branches fall out for humans: improve the
    answer · build the work · continue unattended.
 
-   **BLOCKING dependencies:** this trigger line points at `team hello --for`, so
-   the intent router's command contract must be frozen before this snippet
-   ships — otherwise it teaches a command that doesn't route. That means
-   **IR-S01 AND IR-S02**: the works-test battery below exercises named-worker
-   resolution, Chat/Pilot/Relay targets, and requested-worker honesty, which
-   are IR-S02 behavior — blocking on IR-S01 alone would ship a snippet whose
-   own battery can't pass. It remains
-   a BLOCKING prerequisite for the installer slice for the same reason as v2
-   (a mechanics-only snippet teaches a dictionary entry, not a reflex). The
-   frozen contract must include the router's named-worker resolution and
-   read-only-ask routes (`Agent_Intent_Router.md` Decisions 8–9) — a live probe
-   showed "ask <named model> for feedback, change nothing" is exactly where a
-   cold agent stalls today, so a snippet that sends agents to a router that
-   can't answer it teaches the reflex and then punishes it. Size
-   budget holds — smaller than before. **IR-S02 is unblocked** (RLR-S06 Complete
-   2026-07-19). Onboarding remains blocked on IR-S02 only — it must not teach
-   more agents to launch work until named-worker / long-run control bundles
-   exist. Success criterion (golden-transcript
+   **Router prerequisite: SHIPPED.** The trigger line points at `team hello --for`;
+   the intent router's command contract is frozen through **IR-S01 AND IR-S02**
+   (named-worker resolution, Chat/Pilot/Relay targets, requested-worker honesty,
+   lifecycle bundles). Works-test battery rows that exercise those behaviors can
+   now pass. The frozen contract includes named-worker resolution and
+   read-only-ask routes (archived `Agent_Intent_Router.md` Decisions 8–9) — a live
+   probe showed "ask <named model> for feedback, change nothing" is exactly where a
+   cold agent stalls without the router. Size budget holds — smaller than before.
+   **IR-S02 Complete 2026-07-19** (`aafb6ce6` / `df334af8`); Onboarding V1 is
+   unblocked. Success criterion (golden-transcript
    gate): a fresh session given the snippet reaches for `alln team hello --for`
    on "route this to another model" — named, not v1.
 5. **Per-project offer (PARKED until v1 proves).** A repo's AGENTS.md is a
@@ -153,7 +148,7 @@ exists before any agent session does. It must be the missionary.
 ## Slices (proposed)
 
 V1 = three slices (panel simplify consensus); everything else parked until the
-works test is green. No ONB slice starts before IR-S02 (RLR-S06 already Complete).
+works test is green. IR-S02 Complete — ONB-S01 may start (RLR-S06 already Complete).
 
 | Slice | Deliverable |
 | --- | --- |
@@ -211,8 +206,8 @@ footguns from the 2026-07-19 Isolation/Perf Sol audit:
    monitor/cancel commands returned by the router. Silence alone proves neither
    health nor failure: lifecycle phase, causal blocker, `lastActivityAt`, and
    `progressStale` own that judgment (archived `Run_Lifecycle_Reliability.md` Complete).
-   Recipe shipping still waits on IR-S02 for the router-returned monitor/cancel
-   argv.
+   Recipe shipping no longer waits on IR-S02 — the router already returns
+   monitor/cancel argv (`aafb6ce6` / `df334af8`).
 
 **Paste-ready (Codex Sol, named docs, read-only):**
 
@@ -223,6 +218,6 @@ alln run --project <id|path> --worker model_chatgpt --lane code --no-commit --st
 
 Swap `--stream` for `--json` only when the caller wants one terminal
 machine-readable blob and does not need live control through that stdout stream.
-Router still owns the long term ("ask `team hello --for` first") and, after
-IR-S02, returns the matching monitor/result/cancel argv. This recipe is
+Router still owns the long term ("ask `team hello --for` first") and returns the
+matching monitor/result/cancel argv. This recipe is
 the honest direct command when the agent already knows it wants one named worker.
