@@ -199,6 +199,19 @@ public struct ProcessOwnershipSurface: Sendable {
             for i in current.workerAnswers.indices where !current.workerAnswers[i].result.status.isTerminal {
                 current.workerAnswers[i].result.status = .cancelled
             }
+            // RLR-S02c / RLR-L3: cancel/kill of a BLOCKED run clears its blocker AND
+            // withdraws its FIFO ticket in this same terminal revision. The parked run
+            // lives in its OWN process (we can't reach its continuation), so remove its
+            // on-disk waiter file here — the remaining waiters' positions collapse
+            // immediately even though the killer is a different process — and its own
+            // process self-abandons the parked wait via this terminal journal. No
+            // interleaved state where the run is terminal but still queued in the lane.
+            let wasBlocked = current.blocker != nil
+            current.blocker = nil
+            if wasBlocked {
+                ExecutionLaneFlock.withdrawWaiter(
+                    laneKey: ExecutionLane.key(repoRoot: current.repoRoot), claimId: current.id)
+            }
             _ = try? runStore.save(current, models: [])
             return .success(OwnershipKillRowJSON(id: current.id, kind: "run", signalled: signalled))
         }

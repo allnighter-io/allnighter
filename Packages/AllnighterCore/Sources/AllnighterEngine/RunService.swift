@@ -535,15 +535,30 @@ public actor RunService {
             let ticketStore = runStore
             let ticketModels = models
             let ticketClock = now
+            let abandonStore = runStore
             guard let token = await writeLock.waitToAcquire(
                 lockKey, claim: claim, timeout: Self.writeLockWaitTimeout,
                 onTicket: { ticket in
                     Self.recordBlockerTicket(
                         runId: id, ticket: ticket,
                         store: ticketStore, models: ticketModels, now: ticketClock)
+                },
+                // RLR-S02c: a SECOND process can cancel/kill this blocked run (stamping the
+                // journal terminal + withdrawing our on-disk waiter) but cannot reach our
+                // parked continuation. Self-abandon the wait once our own journal has gone
+                // terminal so we stop queueing instead of parking to the full timeout.
+                shouldAbandon: { _ in
+                    abandonStore.loadRaw(runId: id)?.status.isTerminal ?? false
                 }
             ) else {
-                // The run is already durable — stamp it terminal HONESTLY rather than
+                // `waitToAcquire` returned nil: either a genuine timeout (laneBusy) or we
+                // self-abandoned because a second process made the run terminal (RLR-S02c).
+                // If the run is ALREADY terminal on disk, that cancel/kill is the truth —
+                // never overwrite it with `failed`; return the durable terminal run.
+                if let terminal = runStore.loadRaw(runId: id), terminal.status.isTerminal {
+                    return .success(terminal)
+                }
+                // Still durable + non-terminal — stamp it terminal HONESTLY rather than
                 // letting it vanish (RLR-L2). `RunEndReason` has no `timedOut` case, so
                 // the honest terminal is `failed` (the run never acquired the lock).
                 pending.status = .failed
@@ -554,6 +569,17 @@ public actor RunService {
                 return .failure(.writeLockBusy(root))
             }
             lockToken = token
+            // RLR-S02c pre-spawn terminal guard: the grant may have handed us the lane for
+            // an already-terminal run — a cross-process kill stamped the journal terminal and
+            // withdrew our waiter file, but the in-process grant still fired before our
+            // self-abandon poll. Do NOT resurrect a corpse or spawn a worker. Release the lane
+            // explicitly here (this early return is INSIDE the takesWriteLock block, before the
+            // release `defer` below is registered) and return the durable terminal run.
+            if let terminal = runStore.loadRaw(runId: id), terminal.status.isTerminal {
+                await writeLock.release(lockKey, token: token)
+                lockToken = nil
+                return .success(terminal)
+            }
             // Lock acquired → advance to spawningWorker and clear the blocker in the
             // same revision (RLR-L3 atomic rule).
             pending.phase = .spawningWorker

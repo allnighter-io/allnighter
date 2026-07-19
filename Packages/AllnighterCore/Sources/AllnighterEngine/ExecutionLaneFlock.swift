@@ -712,6 +712,30 @@ public enum ExecutionLaneFlock {
         try? FileManager.default.removeItem(at: url)
     }
 
+    /// RLR-S02c: withdraw a specific run's FIFO waiter from **any** process by its
+    /// canonical claim id. The killer of a blocked run lives in a *different*
+    /// process than the parked waiter and cannot reach its in-memory continuation;
+    /// it removes the on-disk waiter file(s) whose `id` matches the cancelled/killed
+    /// run so the remaining waiters' positions collapse immediately, even though the
+    /// owning process only self-abandons its parked wait on its next reconcile tick.
+    /// Additive over the existing `WaiterFile` schema (no format change). Returns the
+    /// number of waiter files removed.
+    @discardableResult
+    public static func withdrawWaiter(laneKey: String, claimId: String) -> Int {
+        let dir = waitersDirectory(forLaneKey: laneKey)
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        ) else { return 0 }
+        var removed = 0
+        for url in contents where url.pathExtension == "json" {
+            guard let data = try? Data(contentsOf: url),
+                  let waiter = try? CoreJSON.decode(WaiterFile.self, from: data),
+                  waiter.id == claimId else { continue }
+            if (try? FileManager.default.removeItem(at: url)) != nil { removed += 1 }
+        }
+        return removed
+    }
+
     /// 1-based rank of `waiterURL` among live waiter files sorted by filename.
     public static func waiterPosition(laneKey: String, waiterURL: URL) -> Int {
         let names = waiterFileNames(laneKey: laneKey)

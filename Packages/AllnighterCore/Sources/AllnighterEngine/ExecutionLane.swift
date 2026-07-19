@@ -223,7 +223,8 @@ public actor ExecutionLaneRegistry {
         claim: ExecutionLane.Claim,
         timeout: Duration,
         now: @escaping @Sendable () -> Date = { Date() },
-        onTicket: (@Sendable (ExecutionLaneTicket) -> Void)? = nil
+        onTicket: (@Sendable (ExecutionLaneTicket) -> Void)? = nil,
+        shouldAbandon: (@Sendable (ExecutionLane.Claim) -> Bool)? = nil
     ) async -> ExecutionLane.Token? {
         let t0 = now()
         _ = reconcileIfHolderDead(key, now: t0)
@@ -264,6 +265,17 @@ public actor ExecutionLaneRegistry {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(200))
                 if Task.isCancelled { return }
+                // RLR-S02c: the parked run may have been stamped terminal by ANOTHER
+                // process (cross-process cancel/kill of a blocked run), which cannot
+                // reach this in-memory continuation. Self-abandon — withdraw our own
+                // waiter and resume `nil` — so the caller stops queueing instead of
+                // parking to the full timeout. The killer has already withdrawn our
+                // on-disk waiter file, so the remaining waiters' positions have already
+                // collapsed; this only resolves the parked continuation.
+                if let shouldAbandon, shouldAbandon(claim) {
+                    await self.expire(key: key, id: waiterId, endReason: "withdrawn")
+                    return
+                }
                 await self.reconcile(key)
                 await self.tryGrantWaiters(key)
             }

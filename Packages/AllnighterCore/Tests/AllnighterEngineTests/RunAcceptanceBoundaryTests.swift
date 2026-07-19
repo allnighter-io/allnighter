@@ -424,6 +424,173 @@ final class RunAcceptanceBoundaryTests: XCTestCase {
         _ = await taskB.value
     }
 
+    // MARK: - S02c. Cancel/kill of a BLOCKED run withdraws its FIFO ticket in the
+    //         terminal revision (RLR-L3 / Works Test 14), incl. the pre-spawn guard.
+
+    /// Same-process cancel/kill of a blocked run: the terminal revision stamps
+    /// `cancelled` + `killed`, clears the blocker, and withdraws the FIFO waiter file
+    /// (the next waiter's position advances) — the holder is untouched, and the parked
+    /// run self-abandons its wait rather than parking to the full timeout.
+    func testCancelOfBlockedRunWithdrawsTicketSameProcess() async throws {
+        let spy = SpyCommandRunner(
+            inner: MockCommandRunner(scripts: ["cursor": .init(stdout: "Done.", exitCode: 0)]))
+        let h = try makeHarness(commandRunner: spy)
+        defer { try? FileManager.default.removeItem(at: h.repo) }
+
+        // Hold the lane the whole test (current-process identity → never reconciled away).
+        let holderRunId = "holder-run-\(UUID().uuidString)"
+        let holderClaim = try XCTUnwrap(
+            ExecutionLane.Claim.current(id: holderRunId, kind: ExecutionLaneSite.mutatingRun.rawValue))
+        guard case .success(let holderToken) = await h.registry.tryAcquire(h.lockKey, claim: holderClaim) else {
+            return XCTFail("test could not pre-hold the write lock")
+        }
+        defer { Task { await h.registry.release(h.lockKey, token: holderToken) } }
+
+        // Start run B (blocks in waitToAcquire and registers a disk waiter file).
+        let runId = UUID().uuidString
+        let runTask = Task {
+            await h.service.run(RunRequest(message: "edit the repo", repoRoot: h.repo.path),
+                                origin: .cli, runId: runId)
+        }
+
+        let poll = h.pollStore()
+        var blocked: TeamRun?
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            if let r = poll.loadRaw(runId: runId), r.status == .queued, r.blocker?.holderId != nil {
+                blocked = r; break
+            }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        _ = try XCTUnwrap(blocked, "run B must be durably blocked before the kill")
+        XCTAssertEqual(ExecutionLaneFlock.waiterCount(laneKey: h.lockKey), 1, "B registered exactly one waiter file")
+        XCTAssertFalse(spy.launched, "no worker may spawn while blocked")
+
+        // A THIRD waiter C sits behind B (position 2). Its position must advance to 1
+        // the instant B's ticket is withdrawn.
+        let cClaim = try XCTUnwrap(
+            ExecutionLane.Claim.current(id: "waiter-C-\(UUID().uuidString)", kind: ExecutionLaneSite.mutatingRun.rawValue))
+        let cURL = try XCTUnwrap(
+            ExecutionLaneFlock.registerWaiter(laneKey: h.lockKey, claim: cClaim, enqueuedAt: Date()))
+        defer { ExecutionLaneFlock.unregisterWaiter(cURL) }
+        XCTAssertEqual(ExecutionLaneFlock.waiterPosition(laneKey: h.lockKey, waiterURL: cURL), 2,
+                       "C queues behind the blocked run B")
+
+        // Kill B via the CLI `kill`/`cancel` surface path (same process here).
+        let surface = ProcessOwnershipSurface(runStore: h.runStore)
+        guard case .success = surface.kill(id: runId) else {
+            return XCTFail("kill of blocked run B failed")
+        }
+
+        // Terminal revision (single snapshot): cancelled + killed + blocker nil.
+        let terminal = try XCTUnwrap(poll.loadRaw(runId: runId))
+        XCTAssertEqual(terminal.status, .cancelled)
+        XCTAssertEqual(terminal.endReason, .killed)
+        XCTAssertNil(terminal.blocker, "terminal revision clears the blocker (RLR-L3)")
+
+        // B's waiter file is withdrawn; C advances to head; the holder is unaffected.
+        XCTAssertEqual(ExecutionLaneFlock.waiterCount(laneKey: h.lockKey), 1, "only C remains; B's waiter file is withdrawn")
+        XCTAssertEqual(ExecutionLaneFlock.waiterPosition(laneKey: h.lockKey, waiterURL: cURL), 1,
+                       "the next waiter advances once B's ticket is withdrawn")
+        let holderStillHeld = await h.registry.isHeld(h.lockKey)
+        XCTAssertTrue(holderStillHeld, "killing a blocked waiter must not touch the holder")
+
+        // B self-abandons and returns the durable terminal run — never overwriting the
+        // kill with `failed`, never parking to the full timeout.
+        let bReturn = await boundedValue(of: runTask, timeout: 5)
+        let outcome = try XCTUnwrap(bReturn, "B must self-abandon and return, not park to timeout")
+        guard case .success(let run) = outcome else {
+            return XCTFail("blocked-run cancel must return the durable terminal run, got \(outcome)")
+        }
+        XCTAssertEqual(run.status, .cancelled, "the returned run reflects the durable kill, not a `failed` overwrite")
+        XCTAssertFalse(spy.launched, "a killed blocked run never spawns a worker")
+    }
+
+    /// The pre-spawn terminal guard: a cross-process kill stamps the journal terminal +
+    /// withdraws the waiter file while B is parked, then the holder releases and the
+    /// registry GRANTS the freed lane to B's still-parked continuation (the corpse grant
+    /// that can beat the ~200ms self-abandon poll). B must NOT spawn a worker and must NOT
+    /// overwrite the kill — it re-checks terminality before spawning and releases the lane.
+    func testKilledBlockedRunGrantedLaneNeverSpawnsAndStaysTerminal() async throws {
+        let spy = SpyCommandRunner(
+            inner: MockCommandRunner(scripts: ["cursor": .init(stdout: "Done.", exitCode: 0)]))
+        let h = try makeHarness(commandRunner: spy)
+        defer { try? FileManager.default.removeItem(at: h.repo) }
+
+        let holderRunId = "holder-run-\(UUID().uuidString)"
+        let holderClaim = try XCTUnwrap(
+            ExecutionLane.Claim.current(id: holderRunId, kind: ExecutionLaneSite.mutatingRun.rawValue))
+        guard case .success(let holderToken) = await h.registry.tryAcquire(h.lockKey, claim: holderClaim) else {
+            return XCTFail("test could not pre-hold the write lock")
+        }
+
+        let runId = UUID().uuidString
+        let runTask = Task {
+            await h.service.run(RunRequest(message: "edit the repo", repoRoot: h.repo.path),
+                                origin: .cli, runId: runId)
+        }
+
+        let poll = h.pollStore()
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            if let r = poll.loadRaw(runId: runId), r.status == .queued, r.blocker?.holderId != nil { break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertNotNil(poll.loadRaw(runId: runId)?.blocker?.holderId, "run B must be blocked before we stamp it terminal")
+
+        // A second process kills B WHILE it is parked: stamp the journal terminal + withdraw
+        // B's waiter file directly. B's in-memory continuation is untouched (a real second
+        // process could never reach it).
+        var killed = try XCTUnwrap(poll.loadRaw(runId: runId))
+        killed.status = .cancelled
+        killed.endReason = .killed
+        killed.blocker = nil
+        try h.runStore.save(killed, models: [])
+        ExecutionLaneFlock.withdrawWaiter(laneKey: h.lockKey, claimId: runId)
+
+        // Release immediately so the synchronous grant hands B the lane before its
+        // self-abandon poll fires — exercising the pre-spawn guard (the outcome below is
+        // identical whichever path wins: no spawn, kill preserved, lane released).
+        await h.registry.release(h.lockKey, token: holderToken)
+
+        let bReturn = await boundedValue(of: runTask, timeout: 5)
+        let outcome = try XCTUnwrap(bReturn, "B must return promptly (guard or self-abandon), not park to timeout")
+        guard case .success(let run) = outcome else {
+            return XCTFail("a killed blocked run must return the durable terminal run, got \(outcome)")
+        }
+        XCTAssertEqual(run.status, .cancelled, "the pre-spawn guard preserves the kill, never overwrites it")
+        XCTAssertFalse(spy.launched, "a killed blocked run granted the lane must NEVER spawn a worker")
+
+        let settled = try XCTUnwrap(poll.loadRaw(runId: runId))
+        XCTAssertEqual(settled.status, .cancelled)
+        XCTAssertEqual(settled.endReason, .killed)
+        XCTAssertNil(settled.blocker)
+        // The lane a corpse-grant briefly held is released again (RunService's `defer`
+        // release is a detached Task, so poll rather than sampling a single instant).
+        var released = false
+        let releaseDeadline = Date().addingTimeInterval(5)
+        while Date() < releaseDeadline {
+            if !(await h.registry.isHeld(h.lockKey)) { released = true; break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertTrue(released, "the lane the corpse was granted must be released again")
+    }
+
+    /// Await a task's value bounded by `timeout` seconds — returns nil if the task
+    /// did not finish in time (proves a parked run RESUMED rather than hanging).
+    private func boundedValue<T: Sendable>(of task: Task<T, Never>, timeout: TimeInterval) async -> T? {
+        await withTaskGroup(of: T?.self) { group in
+            group.addTask { await task.value }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
     // MARK: - 2. Save precedes the status-changed emit (no emit-then-persist race)
 
     func testRunningStatusIsDurableBeforeItsEventIsEmitted() async throws {

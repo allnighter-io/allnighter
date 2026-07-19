@@ -355,6 +355,106 @@ final class ExecutionLaneTests: XCTestCase {
         XCTAssertFalse(held, "outermost release frees the lane")
     }
 
+    // MARK: - RLR-S02c: terminal ticket withdrawal
+
+    /// The late-grant race (RLR-S02c / Works Test 14): a waiter that self-abandons
+    /// (its run went terminal in another process) must be gone from the FIFO BEFORE
+    /// the holder releases, so the freed lane is admitted to the NEXT live waiter,
+    /// never handed to the withdrawn corpse. Withdraw B via `shouldAbandon`, then
+    /// release the holder → only C (position 2 → 1) is admitted; B got `nil`.
+    func testWithdrawnWaiterDoesNotReceiveLateGrant() async throws {
+        let reg = ExecutionLaneRegistry()
+        let key = ExecutionLane.key(repoRoot: "/tmp/lane-lategrant-\(UUID().uuidString)")
+        let identity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+
+        // Holder keeps the lane until we deliberately release it. Peer `relayDevTurn`
+        // waiters with distinct ids do NOT reenter (only mutating/harness chain in),
+        // so B and C genuinely queue.
+        guard case .success(let holderToken) = await reg.tryAcquire(
+            key, claim: .make(id: "H", kind: "relayDevTurn", identity: identity), now: Date()
+        ) else { return XCTFail("holder must acquire") }
+
+        let abandonB = FlagBox()
+        let bResult = TokenResultBox()
+        let bTask = Task {
+            let token = await reg.waitToAcquire(
+                key, claim: .make(id: "B", kind: "relayDevTurn", identity: identity),
+                timeout: .seconds(10),
+                shouldAbandon: { _ in abandonB.value }
+            )
+            bResult.set(token)
+            if let token { await reg.release(key, token: token) } // must never happen
+        }
+        try await Task.sleep(nanoseconds: 150_000_000) // B enqueued at position 1
+
+        let cRan = OrderRecorder()
+        let cTask = Task {
+            let token = await reg.waitToAcquire(
+                key, claim: .make(id: "C", kind: "relayDevTurn", identity: identity),
+                timeout: .seconds(10)
+            )
+            if let token { await cRan.record(1); await reg.release(key, token: token) }
+        }
+        try await Task.sleep(nanoseconds: 150_000_000) // C enqueued at position 2
+
+        // Withdraw B (self-abandon) BEFORE releasing the holder.
+        abandonB.set(true)
+        let deadline = Date().addingTimeInterval(3)
+        while Date() < deadline, !bResult.isSet { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertTrue(bResult.isSet, "B must self-abandon within the poll bound")
+        XCTAssertNil(bResult.token, "the withdrawn waiter must resume with nil, never a token")
+        let reason = await reg.lastWaitEndReason(for: key)
+        XCTAssertEqual(reason, "withdrawn", "self-abandon stamps `withdrawn`, not laneBusy/cancelled")
+
+        // Release → the ONLY admittable waiter is C; the withdrawn B must not be granted.
+        await reg.release(key, token: holderToken)
+        await cTask.value
+        await bTask.value
+        let order = await cRan.values
+        XCTAssertEqual(order, [1], "freed lane admits the next live waiter (C), never the withdrawn corpse (B)")
+    }
+
+    /// RLR-S02c regression: same-process task-cancel of a parked `waitToAcquire`
+    /// still withdraws the on-disk waiter file (onCancel → expire → unregisterWaiter),
+    /// so a cancelled blocked run does not leave a phantom waiter inflating positions.
+    func testTaskCancelWithdrawsWaiterFileSameProcess() async throws {
+        let reg = ExecutionLaneRegistry()
+        let key = ExecutionLane.key(repoRoot: "/tmp/lane-cancel-withdraw-\(UUID().uuidString)")
+        let laneDir = ExecutionLaneFlock.directory(forLaneKey: key)
+        defer { try? FileManager.default.removeItem(at: laneDir) }
+        let identity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+
+        guard case .success(let holderToken) = await reg.tryAcquire(
+            key, claim: .make(id: "H", kind: "relayDevTurn", identity: identity), now: Date()
+        ) else { return XCTFail("holder must acquire") }
+        defer { Task { await reg.release(key, token: holderToken) } }
+
+        let waiter = Task {
+            _ = await reg.waitToAcquire(
+                key, claim: .make(id: "B", kind: "relayDevTurn", identity: identity),
+                timeout: .seconds(30)
+            )
+        }
+        // Wait until the waiter file is on disk.
+        let enqueued = Date().addingTimeInterval(3)
+        while Date() < enqueued, ExecutionLaneFlock.waiterCount(laneKey: key) == 0 {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertEqual(ExecutionLaneFlock.waiterCount(laneKey: key), 1, "the blocked waiter must register a file")
+
+        waiter.cancel()
+        _ = await waiter.value
+
+        let cleared = Date().addingTimeInterval(3)
+        while Date() < cleared, ExecutionLaneFlock.waiterCount(laneKey: key) != 0 {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertEqual(ExecutionLaneFlock.waiterCount(laneKey: key), 0,
+                       "task-cancel must withdraw the on-disk waiter file (no phantom waiter)")
+        let reason = await reg.lastWaitEndReason(for: key)
+        XCTAssertEqual(reason, "cancelled", "same-process cancel stamps `cancelled`")
+    }
+
     // MARK: - PO-F2: waitToAcquire timeout reliability
 
     /// Under held-lane contention, `waitToAcquire` must resume within a bounded
@@ -781,6 +881,24 @@ private actor OrderRecorder {
     private(set) var values: [Int] = []
     var isEmpty: Bool { values.isEmpty }
     func record(_ n: Int) { values.append(n) }
+}
+
+/// Thread-safe bool for driving `@Sendable` `shouldAbandon` closures from a test.
+private final class FlagBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value = false
+    var value: Bool { lock.withLock { _value } }
+    func set(_ v: Bool) { lock.withLock { _value = v } }
+}
+
+/// Captures a `waitToAcquire` result (token or nil) with a set/unset distinction.
+private final class TokenResultBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _set = false
+    private var _token: ExecutionLane.Token?
+    var isSet: Bool { lock.withLock { _set } }
+    var token: ExecutionLane.Token? { lock.withLock { _token } }
+    func set(_ t: ExecutionLane.Token?) { lock.withLock { _set = true; _token = t } }
 }
 
 /// Sync ticket capture for `@Sendable` `onTicket` callbacks (not actor-isolated).

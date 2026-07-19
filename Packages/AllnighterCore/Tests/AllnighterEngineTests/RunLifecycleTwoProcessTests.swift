@@ -164,6 +164,126 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
         )
     }
 
+    // MARK: - RLR-S02c / Works Test 14: kill of a BLOCKED run withdraws its FIFO
+    //         ticket from a SECOND process; the blocked run self-abandons.
+
+    private static let mutatingTeamId = "custom_rlr_mutating_gate"
+
+    /// Works Test 14 acceptance shape. A durable per-root holder pins the write lock;
+    /// run B (a real, mutating foreground `alln run`) blocks behind it at the write-lock
+    /// wait — BEFORE any worker spawn — with a durable FIFO blocker. A THIRD waiter C
+    /// sits behind B. A SECOND process then `alln kill`s B and we assert:
+    ///  - B's terminal revision is `cancelled` + `killed` with `blocker == nil` (atomic);
+    ///  - B's FIFO waiter file is withdrawn FROM THE KILLER'S PROCESS (C advances 2 → 1) —
+    ///    the killer cannot reach B's parked continuation, only its on-disk waiter;
+    ///  - B never spawned a worker (no `brief B` invocation) — no spawn while blocked;
+    ///  - B's OWN `alln run` process self-abandons the parked wait and EXITS well within
+    ///    the poll bound. A blocked foreground `alln run` records NO owner, so the killer
+    ///    could not signal it — the ONLY way it unblocks is the `shouldAbandon` self-poll;
+    ///  - the holder is completely unaffected.
+    ///
+    /// The holder is a durable `holder.json` written with THIS (alive) process's identity —
+    /// a live foreign holder to B's separate process, deterministic and independent of the
+    /// mutating execution path (B never reaches execution; it blocks at the lock).
+    func testKillOfBlockedRunWithdrawsFifoTicketFromSecondProcess() throws {
+        try Self.requireRedGate()
+        let alln = try Self.locateAllnBinary()
+
+        var fixture = try Fixture.make(name: "rlr-blockedkill")
+        // Point THIS process's lane paths at the fixture support root so in-test
+        // holder/waiter-file I/O reads the same `Lanes/` the `alln` children write.
+        setenv("ALLNIGHTER_SUPPORT_DIR", fixture.support.path, 1)
+        defer {
+            unsetenv("ALLNIGHTER_SUPPORT_DIR")
+            fixture.tearDown(alln: alln, markerSleeps: [])
+        }
+
+        try fixture.installFakeWorker(extraEnv: ["RLR_FAKE_HANG": "1"])
+        try fixture.seedReadyClaude()
+        try fixture.seedMutatingSingleWorkerTeam(id: Self.mutatingTeamId)
+
+        let env = fixture.env
+        let store = RunStore(rootDirectory: fixture.support.appendingPathComponent("Runs", isDirectory: true))
+
+        // Register the repo as a project and read its canonical normalized root.
+        let add = try Self.runAlln(alln, ["project", "add", fixture.repo.path, "--json"],
+                                   cwd: fixture.repo, env: env, timeout: 30)
+        XCTAssertEqual(add.status, 0, "project add failed: \(add.stderr)")
+        let addJSON = try Self.jsonObject(add.stdout)
+        let normalizedRoot = try XCTUnwrap(
+            (addJSON["project"] as? [String: Any])?["normalizedRootPath"] as? String,
+            "project add must return the canonical normalizedRootPath")
+        // The exact lane key a mutating run on this project keys onto.
+        let laneKey = ExecutionLane.key(repoRoot: normalizedRoot)
+
+        // Pin the lane with a durable holder owned by THIS live process (foreign to B).
+        let holderIdentity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+        try ExecutionLaneFlock.writeHolders(laneKey: laneKey, holders: [
+            .init(identity: holderIdentity, kind: "run", id: "held-holder", acquiredAt: Date())
+        ])
+        XCTAssertTrue(ExecutionLaneFlock.readHolders(laneKey: laneKey).contains { $0.id == "held-holder" })
+
+        // --- Process 1: run B (mutating) blocks behind the held lane. ---
+        let runB = Self.spawnAllnDetached(
+            alln, ["run", "brief B", "--project", fixture.repo.path,
+                   "--team", Self.mutatingTeamId, "--effort", "low", "--json"],
+            cwd: fixture.repo, env: env)
+        defer { if runB.isRunning { runB.terminate() } }
+
+        let blockedB = try XCTUnwrap(
+            Self.waitForRun(store: store, where: {
+                $0.prompt == "brief B" && $0.status == .queued && $0.blocker?.holderId != nil
+            }, timeout: 30),
+            "run B must be durably blocked with FIFO ticket facts naming the holder")
+        let runBId = blockedB.id
+        XCTAssertEqual(blockedB.phase, .waitingForWriteLock)
+        XCTAssertEqual(blockedB.blocker?.resource, .repoWriteLock)
+        XCTAssertEqual(blockedB.blocker?.holderId, "held-holder", "B's ticket names the pinned holder")
+        XCTAssertEqual(blockedB.blocker?.holderKind, "run", "public holderKind is `run` in P0")
+        XCTAssertEqual(ExecutionLaneFlock.waiterCount(laneKey: laneKey), 1, "only B's waiter is queued behind the holder")
+
+        // No worker spawned for B while it is blocked.
+        let logBeforeKill = (try? String(contentsOf: fixture.workerLog, encoding: .utf8)) ?? ""
+        XCTAssertFalse(logBeforeKill.contains("brief B"), "no worker may spawn for a blocked run")
+
+        // A THIRD waiter C sits behind B (position 2).
+        let cURL = try XCTUnwrap(ExecutionLaneFlock.registerWaiter(
+            laneKey: laneKey,
+            claim: .make(id: "waiter-C-\(UUID().uuidString)", kind: ExecutionLaneSite.mutatingRun.rawValue,
+                         identity: holderIdentity),
+            enqueuedAt: Date()))
+        defer { ExecutionLaneFlock.unregisterWaiter(cURL) }
+        XCTAssertEqual(ExecutionLaneFlock.waiterPosition(laneKey: laneKey, waiterURL: cURL), 2,
+                       "C queues behind the blocked run B")
+
+        // --- Process 2: kill B from a SECOND process. ---
+        let kill = try Self.runAlln(alln, ["kill", runBId, "--json"], cwd: fixture.repo, env: env, timeout: 30)
+        XCTAssertEqual(kill.status, 0, "kill of blocked run B failed: \(kill.stderr)")
+
+        // (a) Terminal revision: cancelled + killed + blocker nil in one snapshot.
+        let terminalB = try XCTUnwrap(store.loadRaw(runId: runBId), "B's journal must round-trip")
+        XCTAssertEqual(terminalB.status, .cancelled)
+        XCTAssertEqual(terminalB.endReason, .killed)
+        XCTAssertNil(terminalB.blocker, "the terminal revision clears the blocker (RLR-L3)")
+
+        // (b)+(c) B's waiter file is withdrawn cross-process; C advances to the head.
+        XCTAssertEqual(ExecutionLaneFlock.waiterCount(laneKey: laneKey), 1, "B's waiter file is withdrawn; only C remains")
+        XCTAssertEqual(ExecutionLaneFlock.waiterPosition(laneKey: laneKey, waiterURL: cURL), 1,
+                       "the next waiter's position advances the instant B's ticket is withdrawn")
+
+        // (d) B's own `alln run` process self-abandons and EXITS (not parked to timeout).
+        let exited = Self.waitForProcessExit(runB, timeout: 15)
+        XCTAssertTrue(exited, "run B must self-abandon its parked wait and exit, not park to the 1800s timeout")
+
+        // Never spawned a worker for B, even after the kill.
+        let logAfterKill = (try? String(contentsOf: fixture.workerLog, encoding: .utf8)) ?? ""
+        XCTAssertFalse(logAfterKill.contains("brief B"), "a killed blocked run must never spawn a worker")
+
+        // The holder is completely unaffected by killing a blocked waiter.
+        XCTAssertTrue(ExecutionLaneFlock.readHolders(laneKey: laneKey).contains { $0.id == "held-holder" },
+                      "killing a blocked waiter must not touch the holder")
+    }
+
     // MARK: - Red gate
 
     /// Default CI stays green: skip unless the operator opts into the red
@@ -252,6 +372,24 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
                 .write(to: teamsDir.appendingPathComponent("\(team.id).json"))
         }
 
+        /// A **mutating** single-worker team: `alln run` takes the per-root write
+        /// lock (RLR-L4), so a second run behind a held lane blocks with a durable
+        /// FIFO blocker — the substrate Works Test 14 needs.
+        func seedMutatingSingleWorkerTeam(id: String) throws {
+            let fm = FileManager.default
+            let team = TeamPreset(
+                id: id, displayName: "RLR Mutating Gate", lane: .code, outputKind: .plan,
+                mutating: true, defaultEffort: .low, isDefaultForLane: false,
+                workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
+                lead: TeamLeadSpec(skillId: "plan_writer_build"),
+                builtIn: false
+            )
+            let teamsDir = support.appendingPathComponent("Catalogs/teams", isDirectory: true)
+            try fm.createDirectory(at: teamsDir, withIntermediateDirectories: true)
+            try CoreJSON.encode(CatalogEnvelope(kind: .team, definition: team))
+                .write(to: teamsDir.appendingPathComponent("\(team.id).json"))
+        }
+
         func waitForWorkerLog(
             needles: [String], timeout: TimeInterval = 20, test: XCTestCase,
             file: StaticString = #filePath, line: UInt = #line
@@ -321,6 +459,46 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
             if Date() >= deadline { return [] }
             Thread.sleep(forTimeInterval: 0.1)
         }
+    }
+
+    /// Poll the durable journal for the first run matching `predicate` (or nil at
+    /// the deadline). Scans run.json files via a fresh RunStore read each tick.
+    private static func waitForRun(
+        store: RunStore, where predicate: (TeamRun) -> Bool, timeout: TimeInterval
+    ) -> TeamRun? {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let match = store.list().first(where: predicate) { return match }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        return nil
+    }
+
+    /// True once `process` is no longer running (bounded by `timeout`).
+    private static func waitForProcessExit(_ process: Process, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if !process.isRunning { return true }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        return !process.isRunning
+    }
+
+    /// Launch `alln` and return the still-running handle (no wait) — used to keep a
+    /// blocked/holding foreground `alln run` alive while the test drives around it.
+    @discardableResult
+    private static func spawnAllnDetached(
+        _ alln: URL, _ arguments: [String], cwd: URL, env: [String: String]
+    ) -> Process {
+        let process = Process()
+        process.executableURL = alln
+        process.arguments = arguments
+        process.currentDirectoryURL = cwd
+        process.environment = env
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        try? process.run()
+        return process
     }
 
     private static func pgrep(matching pattern: String) -> [Int32] {
