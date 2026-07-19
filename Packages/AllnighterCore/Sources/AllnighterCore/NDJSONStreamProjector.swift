@@ -123,11 +123,12 @@ public enum NDJSONStreamProjector {
             switch e.kind {
             case RunEventKind.runStatusChanged:
                 switch str("to") ?? "" {
-                case RunStatus.fanningOut.rawValue:
+                case RunStatus.fanningOut.rawValue, RunStatus.running.rawValue:
+                    // One-worker runs start at `running` (RLR-L3); multi-worker at `fanning_out`.
                     return ("teamRunStarted", runId, EventData(status: TeamRunJSON.Status.running.rawValue, origin: str("origin"), teamPresetId: str("presetId")))
-                case RunStatus.complete.rawValue, RunStatus.partial.rawValue:
+                case RunStatus.complete.rawValue, RunStatus.partial.rawValue, RunStatus.done.rawValue:
                     return ("teamRunCompleted", runId, EventData(status: TeamRunJSON.Status.done.rawValue, planStageId: str("planStageId")))
-                case RunStatus.failed.rawValue, RunStatus.cancelled.rawValue:
+                case RunStatus.failed.rawValue, RunStatus.cancelled.rawValue, RunStatus.timedOut.rawValue:
                     let to = str("to") ?? RunStatus.failed.rawValue
                     return ("teamRunFailed", runId, EventData(
                         status: TeamRunJSONMapper.mapRun(RunStatus(rawValue: to) ?? .failed).rawValue,

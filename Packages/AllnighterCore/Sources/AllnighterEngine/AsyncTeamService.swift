@@ -386,10 +386,14 @@ public actor AsyncTeamService {
         acceptedAt: Date
     ) -> TeamRun {
         let answerAndReview = resolved.answerWorkers + resolved.reviewWorkers
+        // RLR-L3: accept as `queued`/`spawningWorker`. The coordinator picks the
+        // running state (single-worker `running` vs multi-worker `fanning_out`)
+        // by fan-out crew size once the runner takes over.
         return TeamRun(
             id: runId,
             prompt: prompt,
-            status: .fanningOut,
+            status: .queued,
+            phase: .spawningWorker,
             origin: origin,
             originAgent: request.originAgent,
             presetId: resolved.teamPresetId,

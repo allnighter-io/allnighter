@@ -310,7 +310,7 @@ public extension ContractRegistry {
             args: [ArgSpec("run-id", required: true, summary: "The run id from team start.")],
             flags: [
                 FlagSpec("json", summary: "Structured TeamStatusResponse."),
-                FlagSpec("wait-for", takesValue: true, valueType: "state", summary: "Block until this AsyncTeamLiveStatus (accepted|running|synthesizing|completed|failed|timedOut|cancelled|interrupted) or the alias `terminal`."),
+                FlagSpec("wait-for", takesValue: true, valueType: "state", summary: "Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`."),
                 FlagSpec("timeout", takesValue: true, valueType: "seconds", summary: "Max seconds to wait when --wait-for is set (required with --wait-for). Exit 3 (timeout) if the target is not reached."),
             ],
             outputSchema: .teamStatusResponse

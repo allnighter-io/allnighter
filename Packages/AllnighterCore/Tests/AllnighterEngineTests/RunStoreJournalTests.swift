@@ -155,9 +155,10 @@ final class RunStoreJournalTests: XCTestCase {
         }
 
         let entries = log.all
-        XCTAssertGreaterThanOrEqual(entries.count, 3, "expected fanningOut + post-answer + terminal persists")
-        // First write is durable BEFORE any worker produced an answer.
-        XCTAssertEqual(entries.first?.0, .fanningOut)
+        XCTAssertGreaterThanOrEqual(entries.count, 3, "expected running + post-answer + terminal persists")
+        // First write is durable BEFORE any worker produced an answer. RLR-L3:
+        // `code_test` is a one-worker fan-out, so it opens at `running`, not `fanning_out`.
+        XCTAssertEqual(entries.first?.0, .running)
         XCTAssertEqual(entries.first?.1, 0)
         // A later write reflects settled workers.
         XCTAssertTrue(entries.contains { $0.1 > 0 })

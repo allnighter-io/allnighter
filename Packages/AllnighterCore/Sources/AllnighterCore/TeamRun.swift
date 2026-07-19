@@ -21,6 +21,10 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var prompt: String
     public var status: RunStatus
+    /// Durable phase (RLR-L3/L6). Only meaningful for non-terminal runs; terminal
+    /// transitions clear it. Optional so legacy `run.json` (no `phase` key) decodes
+    /// to `nil`. Phase truth lives here on the journal, not on heartbeat.json.
+    public var phase: RunPhase?
     /// How the run was started (gui by default; cli/mcp/http for tool runs, RB6).
     public var origin: RunOrigin
     /// Best-effort caller label for tool runs, e.g. `claude-code`.
@@ -91,6 +95,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         id: String,
         prompt: String,
         status: RunStatus = .draft,
+        phase: RunPhase? = nil,
         origin: RunOrigin = .gui,
         originAgent: String? = nil,
         presetId: String? = nil,
@@ -122,6 +127,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.id = id
         self.prompt = prompt
         self.status = status
+        self.phase = phase
         self.origin = origin
         self.originAgent = originAgent
         self.presetId = presetId
@@ -195,33 +201,39 @@ public extension TeamRun {
 public extension RunStatus {
     var isTerminal: Bool {
         switch self {
-        case .complete, .partial, .cancelled, .failed, .interrupted:
+        case .done, .complete, .partial, .timedOut, .cancelled, .failed, .interrupted:
             return true
-        case .draft, .fanningOut, .answersIn, .planning, .reviewing, .finalizing:
+        case .queued, .running, .draft, .fanningOut, .answersIn, .planning, .reviewing, .finalizing:
             return false
         }
     }
 
-    /// Legal next states. `planning` spans the analysis + plan reduces.
-    /// `reviewing`/`finalizing` are entered only by review-board presets.
-    /// `failed` is reachable from any non-terminal state; `cancelled` from any
-    /// active state. Mutating follow-up work is represented as a separate run,
-    /// not a `RunStatus` value.
+    /// Legal next states. `queued → running` is the one-worker path; `running`
+    /// still advances into the multi-stage machine (`answers_in → planning → …`)
+    /// so a single-worker team run synthesizes normally. `planning` spans the
+    /// analysis + plan reduces. `reviewing`/`finalizing` are entered only by
+    /// review-board presets. `failed`/`timedOut` are reachable from any
+    /// non-terminal state; `cancelled` from any active state. Mutating follow-up
+    /// work is a separate run, not a `RunStatus` value.
     func allowedTransitions() -> Set<RunStatus> {
         switch self {
         case .draft:
-            return [.fanningOut, .cancelled, .failed, .interrupted]
+            return [.queued, .running, .fanningOut, .cancelled, .failed, .timedOut, .interrupted]
+        case .queued:
+            return [.running, .fanningOut, .cancelled, .failed, .timedOut, .interrupted]
+        case .running:
+            return [.answersIn, .done, .complete, .partial, .cancelled, .failed, .timedOut, .interrupted]
         case .fanningOut:
-            return [.answersIn, .cancelled, .failed, .interrupted]
+            return [.answersIn, .cancelled, .failed, .timedOut, .interrupted]
         case .answersIn:
-            return [.planning, .reviewing, .cancelled, .failed, .interrupted]
+            return [.planning, .reviewing, .cancelled, .failed, .timedOut, .interrupted]
         case .planning:
-            return [.complete, .partial, .reviewing, .cancelled, .failed, .interrupted]
+            return [.complete, .done, .partial, .reviewing, .cancelled, .failed, .timedOut, .interrupted]
         case .reviewing:
-            return [.finalizing, .complete, .partial, .cancelled, .failed, .interrupted]
+            return [.finalizing, .complete, .done, .partial, .cancelled, .failed, .timedOut, .interrupted]
         case .finalizing:
-            return [.complete, .partial, .cancelled, .failed, .interrupted]
-        case .complete, .partial, .cancelled, .failed, .interrupted:
+            return [.complete, .done, .partial, .cancelled, .failed, .timedOut, .interrupted]
+        case .done, .complete, .partial, .timedOut, .cancelled, .failed, .interrupted:
             return []
         }
     }

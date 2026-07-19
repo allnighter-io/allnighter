@@ -79,7 +79,15 @@ public actor CatalogRunCoordinator {
             createdAt: now(),
             repoRoot: repoRoot
         )
-        run = transition(run, to: .fanningOut)
+        // RLR-L3: a one-worker fan-out never carries `fanning_out`. `seeded` is the
+        // crew that fans out in parallel (scout + answer + review); the synthetic
+        // plan writer runs after and is not a fan-out member. One crew member ⇒
+        // `running`/`working`; a genuine multi-worker fan-out keeps `fanning_out`.
+        if seeded.count <= 1 {
+            run = transition(run, to: .running, phase: .working)
+        } else {
+            run = transition(run, to: .fanningOut, phase: .working)
+        }
         persist?(run) // durable state before any worker executes
 
         // Stage 0 — the scout (e.g. an X-capable model) distills the raw source FIRST.
@@ -150,7 +158,7 @@ public actor CatalogRunCoordinator {
         // Actor that ends the run stamps endReason (never inferred later).
         if run.status.isTerminal, run.endReason == nil {
             switch run.status {
-            case .complete, .partial: run.endReason = .completed
+            case .complete, .partial, .done: run.endReason = .completed
             case .failed: run.endReason = .failed
             default: run.endReason = .unknown
             }
@@ -398,11 +406,15 @@ public actor CatalogRunCoordinator {
 
     private func nextSeq() -> Int64 { seq += 1; return seq }
 
-    private func transition(_ run: TeamRun, to next: RunStatus) -> TeamRun {
+    /// Atomic rule (RLR-L3): status + phase change in the SAME journal revision.
+    /// Terminal transitions clear `phase`; a nil `phase` on a non-terminal
+    /// transition keeps the prior phase.
+    private func transition(_ run: TeamRun, to next: RunStatus, phase: RunPhase? = nil) -> TeamRun {
         guard run.canTransition(to: next) else { return run }
         var updated = run
         let from = updated.status
         updated.status = next
+        updated.phase = next.isTerminal ? nil : (phase ?? updated.phase)
         var payload: [String: JSONValue] = [
             "runId": .string(updated.id), "from": .string(from.rawValue),
             "to": .string(next.rawValue), "origin": .string(updated.origin.rawValue)

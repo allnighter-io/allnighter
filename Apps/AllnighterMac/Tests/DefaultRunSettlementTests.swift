@@ -21,6 +21,8 @@ final class DefaultRunSettlementTests: XCTestCase {
     func testSuccessTerminalMappingsArePreserved() {
         XCTAssertEqual(ThreadsViewModel.settledStatus(forSuccessfulRun: .complete), .done)
         XCTAssertEqual(ThreadsViewModel.settledStatus(forSuccessfulRun: .partial), .done)
+        XCTAssertEqual(ThreadsViewModel.settledStatus(forSuccessfulRun: .done), .done)
+        XCTAssertEqual(ThreadsViewModel.settledStatus(forSuccessfulRun: .timedOut), .timedOut)
         XCTAssertEqual(ThreadsViewModel.settledStatus(forSuccessfulRun: .cancelled), .cancelled)
         XCTAssertEqual(ThreadsViewModel.settledStatus(forSuccessfulRun: .failed), .failed)
         XCTAssertEqual(ThreadsViewModel.settledStatus(forSuccessfulRun: .interrupted), .failed)
@@ -29,7 +31,7 @@ final class DefaultRunSettlementTests: XCTestCase {
     func testNonTerminalRunStatusOnSuccessIsCoercedToDone() {
         // These map to .running in the raw `turnStatus`, but a SUCCESS means the run is
         // over, so they must coerce to .done.
-        for status in [RunStatus.draft, .fanningOut, .answersIn, .planning, .reviewing, .finalizing] {
+        for status in [RunStatus.draft, .queued, .running, .fanningOut, .answersIn, .planning, .reviewing, .finalizing] {
             XCTAssertEqual(
                 ThreadsViewModel.settledStatus(forSuccessfulRun: status), .done,
                 "a non-terminal run.status on a success must coerce to .done (\(status))")

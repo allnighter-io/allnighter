@@ -101,7 +101,7 @@ public enum StalledWorkDetector {
         for run in input.runs {
             let live = AsyncTeamStatusMapper.liveStatus(for: run)
             guard !live.isTerminal else { continue }
-            guard live == .accepted || live == .running || live == .synthesizing else { continue }
+            guard live == .queued || live == .running else { continue }
 
             let threadId = run.threadId
             let projectId: String?
@@ -121,9 +121,9 @@ public enum StalledWorkDetector {
             guard age >= TimeInterval(thresholds.teamRunSeconds) else { continue }
 
             let reason: StallReason
-            if live == .accepted {
+            if live == .queued {
                 reason = .queuedNoStart
-            } else if live == .running || live == .synthesizing {
+            } else if live == .running {
                 reason = .runningNoProgress
             } else {
                 reason = .statusUnknownNoProgress
@@ -247,7 +247,7 @@ public enum StalledWorkDetector {
     private static func queuedTurnWaitingOnActiveRun(turn: ThreadTurn, linkedRun: TeamRun?) -> Bool {
         guard turn.status == .queued, let linkedRun else { return false }
         let live = AsyncTeamStatusMapper.liveStatus(for: linkedRun)
-        return live == .accepted || live == .running || live == .synthesizing
+        return live == .queued || live == .running
     }
 
     /// Anchor stall age on the latest thread-turn or linked-run observable signal.

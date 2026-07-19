@@ -399,7 +399,7 @@ public struct PendingService: Sendable {
             item.resume = resume(from: observation, attemptId: attempt.attemptId, transcriptRef: transcriptRef)
         } else {
             switch run.status {
-            case .complete:
+            case .complete, .done:
                 attempt.status = .done
                 attempt.reason = nil
                 item.status = .done

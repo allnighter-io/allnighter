@@ -1187,7 +1187,7 @@ struct AllnighterCLI {
         guard let target = TeamStatusWaitTarget.parse(waitRaw) else {
             fail(
                 code: "CLI_USAGE_ERROR",
-                message: "unknown --wait-for state: \(waitRaw) (use accepted|running|synthesizing|completed|failed|timedOut|cancelled|interrupted|terminal)"
+                message: "unknown --wait-for state: \(waitRaw) (use queued|running|done|failed|timedOut|cancelled|terminal)"
             )
         }
         guard let timeoutSeconds = Double(timeoutRaw), timeoutSeconds >= 0 else {
@@ -1209,25 +1209,25 @@ struct AllnighterCLI {
             exit(ContractRegistry.milestone1.processExitCode(forErrorCode: "STATUS_WAIT_TIMEOUT"))
         }
         if outcome.terminalMismatch {
-            // Target not reached; run is terminal — class by live status.
+            // Target not reached; run is terminal — class by lifecycle status.
             switch outcome.response.status {
-            case .failed, .interrupted:
+            case .failed:
                 exit(ExitCode.runFailed)
             case .timedOut:
                 exit(ExitCode.timeout)
-            case .completed, .cancelled:
+            case .done, .cancelled:
                 exit(ExitCode.success)
-            case .accepted, .running, .synthesizing:
+            case .queued, .running:
                 exit(ExitCode.runFailed)
             }
         }
         // Target matched — exit by status class when the target itself is a failure.
         switch outcome.response.status {
-        case .failed, .interrupted:
+        case .failed:
             exit(ExitCode.runFailed)
         case .timedOut:
             exit(ExitCode.timeout)
-        case .completed, .cancelled, .accepted, .running, .synthesizing:
+        case .done, .cancelled, .queued, .running:
             exit(ExitCode.success)
         }
     }

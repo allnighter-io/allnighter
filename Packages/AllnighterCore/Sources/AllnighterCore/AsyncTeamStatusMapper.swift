@@ -7,20 +7,19 @@ public enum AsyncTeamStatusMapper {
     public static let defaultRunningPollMs = 5_000
     public static let defaultSynthesizingPollMs = 3_000
 
-    public static func liveStatus(for run: TeamRun) -> AsyncTeamLiveStatus {
+    /// Journal `RunStatus` → frozen public `RunLifecycle` (RLR-L3). Mostly the
+    /// bare `RunStatus.lifecycle` projection, with two run-aware refinements the
+    /// bare projection deliberately omits: a no-plan `partial` reads as `failed`,
+    /// and a `fanning_out` run with no active worker yet reads as `queued`.
+    public static func liveStatus(for run: TeamRun) -> RunLifecycle {
         switch run.status {
-        case .interrupted: return .interrupted
-        case .cancelled: return .cancelled
-        case .failed: return .failed
-        case .complete: return .completed
         case .partial:
-            return run.plan != nil ? .completed : .failed
-        case .planning: return .synthesizing
+            return run.plan != nil ? .done : .failed
         case .fanningOut:
             let active = run.workerAnswers.contains { $0.result.status == .running || $0.result.status == .done || $0.result.status == .failed }
-            return active ? .running : .accepted
-        case .answersIn, .reviewing, .finalizing: return .running
-        case .draft: return .accepted
+            return active ? .running : .queued
+        default:
+            return run.status.lifecycle
         }
     }
 
@@ -40,33 +39,26 @@ public enum AsyncTeamStatusMapper {
     }
 
     public static func resultAvailable(for run: TeamRun) -> Bool {
-        let status = liveStatus(for: run)
-        guard status.isTerminal else { return false }
-        switch status {
-        case .completed: return true
-        case .failed, .timedOut, .cancelled, .interrupted: return true
-        default: return false
-        }
+        liveStatus(for: run).isTerminal
     }
 
-    public static func nextPollAfterMs(for status: AsyncTeamLiveStatus) -> Int {
+    public static func nextPollAfterMs(for status: RunLifecycle) -> Int {
         switch status {
-        case .accepted: return defaultAcceptedPollMs
+        case .queued: return defaultAcceptedPollMs
         case .running: return defaultRunningPollMs
-        case .synthesizing: return defaultSynthesizingPollMs
-        case .completed, .failed, .timedOut, .cancelled, .interrupted: return 0
+        case .done, .failed, .timedOut, .cancelled: return 0
         }
     }
 
     /// Seconds the agent/harness should sleep before re-checking (PO-F3).
     /// Derived from `nextPollAfterMs` so external poll loops and in-process
     /// `--wait-for` share one cadence.
-    public static func waitHintSeconds(for status: AsyncTeamLiveStatus) -> Double {
+    public static func waitHintSeconds(for status: RunLifecycle) -> Double {
         Double(nextPollAfterMs(for: status)) / 1_000.0
     }
 
     /// Next action after a status snapshot or wait (PO-F3).
-    public static func nextAction(for status: AsyncTeamLiveStatus, runId: String) -> AsyncTeamNextAction {
+    public static func nextAction(for status: RunLifecycle, runId: String) -> AsyncTeamNextAction {
         if status.isTerminal {
             return AsyncTeamNextAction(kind: "fetchResult", tool: "team_result", runId: runId)
         }

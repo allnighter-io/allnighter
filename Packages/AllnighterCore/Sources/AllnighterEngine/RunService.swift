@@ -535,9 +535,10 @@ public actor RunService {
         let baselineHead = gitObserver.observe(rootPath: repoRoot).head
         let startedAt = now()
         let effectiveLane = requestLane ?? preset.lane
+        // RLR-L3: the default route is a single worker — it never fans out.
         emit(RunEventKind.runStatusChanged, [
             "runId": .string(runId), "from": .string(RunStatus.draft.rawValue),
-            "to": .string(RunStatus.fanningOut.rawValue), "origin": .string(origin.rawValue),
+            "to": .string(RunStatus.running.rawValue), "origin": .string(origin.rawValue),
             "presetId": .string(preset.id)
         ])
         var startedPayload: [String: JSONValue] = [
@@ -547,7 +548,7 @@ public actor RunService {
         if let skillId { startedPayload["skillId"] = .string(skillId) }
         emit(RunEventKind.workerStatusChanged, startedPayload)
         var run = TeamRun(
-            id: runId, prompt: prompt, status: .fanningOut, origin: origin, originAgent: originAgent,
+            id: runId, prompt: prompt, status: .running, phase: .working, origin: origin, originAgent: originAgent,
             presetId: preset.id, workers: [worker],
             workerAnswers: [TeamAnswer(memberId: worker.id, modelId: model.id, role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
                                        result: WorkerRunResult(status: .running))],
@@ -771,6 +772,7 @@ public actor RunService {
         timing.count(RunTimingKey.reasoningDeltaCount, by: outcome.timing.reasoningDeltaCount)
         run.workerAnswers = [answer]
         run.status = answer.result.status == .done ? .complete : .failed
+        run.phase = nil // terminal clears phase (RLR-L3 atomic rule)
         run.repoDelta = gitObserver.repoDelta(
             rootPath: repoRoot, baseline: baselineHead, head: gitObserver.observe(rootPath: repoRoot).head)
         run.requestedCommitMessage = commitMessage
@@ -837,7 +839,7 @@ public actor RunService {
             ])
         }
         emit(RunEventKind.runStatusChanged, [
-            "runId": .string(runId), "from": .string(RunStatus.fanningOut.rawValue),
+            "runId": .string(runId), "from": .string(RunStatus.running.rawValue),
             "to": .string(run.status.rawValue), "origin": .string(origin.rawValue),
             "presetId": .string(preset.id)
         ])

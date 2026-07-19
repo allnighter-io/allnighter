@@ -1050,10 +1050,13 @@ final class ThreadsViewModel {
     /// failed/interrupted run with no board is a failed turn.
     nonisolated static func turnStatus(for status: RunStatus) -> ThreadTurnStatus {
         switch status {
-        case .complete, .partial: return .done
+        case .complete, .partial, .done: return .done
+        case .timedOut: return .timedOut
         case .cancelled: return .cancelled
         case .failed, .interrupted: return .failed
-        case .draft, .fanningOut, .answersIn, .planning, .reviewing, .finalizing: return .running
+        // All non-terminal states show the in-flight spinner (RLR-L3 `queued`/
+        // `running` included); a SUCCESS coerces these to `.done` via settledStatus.
+        case .draft, .queued, .running, .fanningOut, .answersIn, .planning, .reviewing, .finalizing: return .running
         }
     }
 

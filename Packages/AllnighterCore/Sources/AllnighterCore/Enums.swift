@@ -5,8 +5,18 @@ import Foundation
 // AgentOSReexports.swift.
 
 /// Lifecycle of one team run. See `TeamRun.canTransition(to:)`.
+///
+/// The durable journal truth. Carries the canonical public lifecycle cases
+/// (`queued`/`running`/`done`/`timedOut`, RLR-L3) alongside the multi-worker
+/// stage names (`fanning_out`/`answers_in`/…). Every surface converges via the
+/// total `lifecycle` projection below.
 public enum RunStatus: String, Codable, Sendable, CaseIterable {
     case draft
+    /// Accepted, journal durable, not yet executing (RLR-L3).
+    case queued
+    /// A worker's OS identity is recorded and it is executing (RLR-L3). The
+    /// one-worker replacement for `fanning_out` — a single worker never fans out.
+    case running
     case fanningOut = "fanning_out"
     case answersIn = "answers_in"
     /// Spans the analysis + plan reduces (Phase 06).
@@ -18,11 +28,38 @@ public enum RunStatus: String, Codable, Sendable, CaseIterable {
     case complete
     /// Members are readable but a later stage did not complete.
     case partial
+    /// Canonical public terminal-success (RLR-L3). `complete`/`partial` also
+    /// project here; nothing sets `done` directly in P0.
+    case done
+    /// A clock fired (RLR-L3/L8). Nothing sets it before RLR-S05.
+    case timedOut
     case cancelled
     case failed
     /// The owning process stopped before the run reached a terminal state — an
     /// orphaned/crashed run, resolved on read (never left falsely `running`).
     case interrupted
+}
+
+public extension RunStatus {
+    /// Total projection onto the frozen public lifecycle (RLR-L3). Plan-aware
+    /// nuance (`partial` with no plan → failed) stays in `AsyncTeamStatusMapper`,
+    /// not this bare projection.
+    var lifecycle: RunLifecycle {
+        switch self {
+        case .queued, .draft:
+            return .queued
+        case .running, .fanningOut, .answersIn, .planning, .reviewing, .finalizing:
+            return .running
+        case .done, .complete, .partial:
+            return .done
+        case .timedOut:
+            return .timedOut
+        case .cancelled:
+            return .cancelled
+        case .failed, .interrupted:
+            return .failed
+        }
+    }
 }
 
 // WorkerAnswerStatus and WorkerAnswerErrorKind moved to AgentOSCLI (roadmap P1.5c);

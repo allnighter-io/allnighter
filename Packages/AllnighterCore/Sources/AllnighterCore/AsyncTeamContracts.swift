@@ -1,19 +1,9 @@
 import Foundation
 
 /// Async team lifecycle contracts (`Agent_First_MCP_And_Messaging_Workflows.md` §A0).
-/// Live polling vocabulary is distinct from archived `TeamRunJSON.teamRun.status`.
-public enum AsyncTeamLiveStatus: String, Codable, Sendable, CaseIterable {
-    case accepted, running, synthesizing
-    case completed, failed, timedOut, cancelled, interrupted
-
-    public var isTerminal: Bool {
-        switch self {
-        case .accepted, .running, .synthesizing: return false
-        case .completed, .failed, .timedOut, .cancelled, .interrupted: return true
-        }
-    }
-}
-
+/// The live polling wire speaks the frozen public `RunLifecycle` (RLR-L3) — the
+/// legacy `AsyncTeamLiveStatus` (accepted/synthesizing/interrupted) is retired.
+///
 /// Extended start request — same resolution surface as `TeamRequest` plus async metadata.
 public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
     public var question: String
@@ -81,7 +71,7 @@ public struct AsyncTeamNextAction: Codable, Equatable, Sendable {
 public struct TeamStartResponse: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var runId: String
-    public var status: AsyncTeamLiveStatus
+    public var status: RunLifecycle
     public var lane: String?
     public var teamPresetId: String?
     public var teamDisplayName: String?
@@ -93,7 +83,7 @@ public struct TeamStartResponse: Codable, Equatable, Sendable {
     public init(
         schemaVersion: Int = 1,
         runId: String,
-        status: AsyncTeamLiveStatus,
+        status: RunLifecycle,
         lane: String?,
         teamPresetId: String?,
         teamDisplayName: String?,
@@ -137,7 +127,7 @@ public struct TeamStatusWorker: Codable, Equatable, Sendable {
 public struct TeamStatusResponse: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var runId: String
-    public var status: AsyncTeamLiveStatus
+    public var status: RunLifecycle
     public var lane: String?
     public var teamPresetId: String?
     public var effort: String?
@@ -166,7 +156,7 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     public init(
         schemaVersion: Int = 1,
         runId: String,
-        status: AsyncTeamLiveStatus,
+        status: RunLifecycle,
         lane: String?,
         teamPresetId: String?,
         effort: String?,
@@ -206,20 +196,21 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     }
 }
 
-/// Target for `team status --wait-for` (PO-F3). Live status raw values plus
-/// the aggregate `terminal` alias (any `AsyncTeamLiveStatus.isTerminal`).
+/// Target for `team status --wait-for` (PO-F3 / RLR-L3). Lifecycle states only
+/// (`queued|running|done|failed|timedOut|cancelled`) plus the aggregate
+/// `terminal` alias (any `RunLifecycle.isTerminal`).
 public enum TeamStatusWaitTarget: Sendable, Equatable {
-    case live(AsyncTeamLiveStatus)
+    case live(RunLifecycle)
     case anyTerminal
 
     public static func parse(_ raw: String) -> TeamStatusWaitTarget? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed == "terminal" { return .anyTerminal }
-        guard let live = AsyncTeamLiveStatus(rawValue: trimmed) else { return nil }
+        guard let live = RunLifecycle(rawValue: trimmed) else { return nil }
         return .live(live)
     }
 
-    public func matches(_ status: AsyncTeamLiveStatus) -> Bool {
+    public func matches(_ status: RunLifecycle) -> Bool {
         switch self {
         case .live(let target): return status == target
         case .anyTerminal: return status.isTerminal
@@ -255,7 +246,7 @@ public struct TeamResultNotReady: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var success: Bool
     public var runId: String
-    public var status: AsyncTeamLiveStatus
+    public var status: RunLifecycle
     public var resultAvailable: Bool
     public var nextPollAfterMs: Int
     public var error: ErrorEnvelope
@@ -263,7 +254,7 @@ public struct TeamResultNotReady: Codable, Equatable, Sendable {
     public init(
         schemaVersion: Int = 1,
         runId: String,
-        status: AsyncTeamLiveStatus,
+        status: RunLifecycle,
         resultAvailable: Bool,
         nextPollAfterMs: Int,
         error: ErrorEnvelope
@@ -281,10 +272,10 @@ public struct TeamResultNotReady: Codable, Equatable, Sendable {
 public struct TeamCancelResponse: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var runId: String
-    public var status: AsyncTeamLiveStatus
+    public var status: RunLifecycle
     public var cancelledAt: Date
 
-    public init(schemaVersion: Int = 1, runId: String, status: AsyncTeamLiveStatus, cancelledAt: Date) {
+    public init(schemaVersion: Int = 1, runId: String, status: RunLifecycle, cancelledAt: Date) {
         self.schemaVersion = schemaVersion
         self.runId = runId
         self.status = status

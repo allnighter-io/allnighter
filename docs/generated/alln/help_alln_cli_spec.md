@@ -473,7 +473,7 @@ Arguments:
 
 Flags:
 - `--json` — Structured TeamStatusResponse.
-- `--wait-for <state>` — Block until this AsyncTeamLiveStatus (accepted|running|synthesizing|completed|failed|timedOut|cancelled|interrupted) or the alias `terminal`.
+- `--wait-for <state>` — Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`.
 - `--timeout <seconds>` — Max seconds to wait when --wait-for is set (required with --wait-for). Exit 3 (timeout) if the target is not reached.
 
 Output schema: `teamStatusResponse`.

@@ -169,9 +169,10 @@ public enum TeamRunJSONMapper {
     /// with some failed workers (shown in workerAnswers), so it maps to `done`.
     static func mapRun(_ s: RunStatus) -> TeamRunJSON.Status {
         switch s {
-        case .draft: return .queued
-        case .fanningOut, .answersIn, .planning, .reviewing, .finalizing: return .running
-        case .complete, .partial: return .done
+        case .draft, .queued: return .queued
+        case .running, .fanningOut, .answersIn, .planning, .reviewing, .finalizing: return .running
+        case .complete, .partial, .done: return .done
+        case .timedOut: return .timedOut
         case .cancelled: return .cancelled
         case .failed: return .failed
         case .interrupted: return .interrupted

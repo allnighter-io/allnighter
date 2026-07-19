@@ -506,7 +506,7 @@ private actor CapturingRemoteExecutor: RemoteTeamCommandExecuting {
         starts.append(request)
         return .success(TeamStartResponse(
             runId: "run_\(request.idempotencyKey?.replacingOccurrences(of: "remote:", with: "") ?? "unknown")",
-            status: .accepted,
+            status: .queued,
             lane: request.lane?.rawValue,
             teamPresetId: request.teamPresetId,
             teamDisplayName: "Remote Team",

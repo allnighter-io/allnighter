@@ -386,7 +386,7 @@ private actor CarrierParityExecutor: RemoteTeamCommandExecuting {
     func startRun(_ request: AsyncTeamStartRequest) async -> Result<TeamStartResponse, AsyncTeamStartRefusal> {
         .success(TeamStartResponse(
             runId: "run_remote",
-            status: .accepted,
+            status: .queued,
             lane: nil,
             teamPresetId: nil,
             teamDisplayName: nil,

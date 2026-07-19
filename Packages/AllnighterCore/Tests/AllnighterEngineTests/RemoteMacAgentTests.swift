@@ -857,7 +857,7 @@ private actor CapturingRemoteExecutor: RemoteTeamCommandExecuting {
     func startRun(_ request: AsyncTeamStartRequest) async -> Result<TeamStartResponse, AsyncTeamStartRefusal> {
         .success(TeamStartResponse(
             runId: "run_\(request.idempotencyKey?.replacingOccurrences(of: "remote:", with: "") ?? "unknown")",
-            status: .accepted,
+            status: .queued,
             lane: request.lane?.rawValue,
             teamPresetId: request.teamPresetId,
             teamDisplayName: "Remote Team",

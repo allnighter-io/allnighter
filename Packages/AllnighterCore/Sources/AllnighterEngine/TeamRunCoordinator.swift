@@ -55,7 +55,12 @@ public actor TeamRunCoordinator {
             createdAt: now()
         )
 
-        run = transition(run, to: .fanningOut)
+        // RLR-L3: one worker never fans out — mint `running`/`working` instead.
+        if teamWorkers.count <= 1 {
+            run = transition(run, to: .running, phase: .working)
+        } else {
+            run = transition(run, to: .fanningOut, phase: .working)
+        }
 
         let skillByWorker = Dictionary(teamWorkers.map { ($0.id, $0.skillId) }, uniquingKeysWith: { a, _ in a })
 
@@ -130,11 +135,13 @@ public actor TeamRunCoordinator {
         return seq
     }
 
-    private func transition(_ run: TeamRun, to next: RunStatus) -> TeamRun {
+    /// Atomic rule (RLR-L3): status + phase in the SAME revision; terminal clears phase.
+    private func transition(_ run: TeamRun, to next: RunStatus, phase: RunPhase? = nil) -> TeamRun {
         guard run.canTransition(to: next) else { return run }
         var updated = run
         let from = updated.status
         updated.status = next
+        updated.phase = next.isTerminal ? nil : (phase ?? updated.phase)
         var payload: [String: JSONValue] = [
             "runId": .string(updated.id),
             "from": .string(from.rawValue),

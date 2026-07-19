@@ -160,14 +160,18 @@ final class TeamStartTests: XCTestCase {
                 return XCTFail("expected success")
             }
             XCTAssertEqual(response.runId, "run-start-1")
-            XCTAssertTrue([AsyncTeamLiveStatus.accepted, .running].contains(response.status))
+            XCTAssertTrue([RunLifecycle.queued, .running].contains(response.status))
             XCTAssertGreaterThan(response.nextPollAfterMs, 0)
             XCTAssertEqual(response.nextActions.first?.tool, "team_status")
 
             let runURL = root.appendingPathComponent("Runs/run_run-start-1/run.json")
             XCTAssertTrue(FileManager.default.fileExists(atPath: runURL.path), "journal must exist before workers finish")
             let run = try XCTUnwrap(RunStore(rootDirectory: root.appendingPathComponent("Runs")).load(runId: "run-start-1"))
-            XCTAssertEqual(run.status, .fanningOut)
+            // RLR-L3: the single-worker `code_test` team is accepted as `queued`
+            // and advances to `running` — it never carries fanning_out. (Which of
+            // the two the load catches depends on the coordinator handoff timing.)
+            XCTAssertTrue([RunStatus.queued, .running].contains(run.status),
+                          "expected queued/running, got \(run.status.rawValue)")
             XCTAssertEqual(run.originAgent, "test-agent")
             XCTAssertEqual(run.originConversationId, "conv-1")
 
@@ -284,7 +288,7 @@ final class AsyncTeamTests: XCTestCase {
             let start = clock.now
             let outcome = await service.waitForStatus(
                 runId: "run-wait-to",
-                target: .live(.completed),
+                target: .live(.done),
                 timeout: .milliseconds(250)
             )
             let elapsed = start.duration(to: clock.now)
@@ -300,11 +304,13 @@ final class AsyncTeamTests: XCTestCase {
 
     func testWaitTargetParseAcceptsTerminalAlias() {
         XCTAssertEqual(TeamStatusWaitTarget.parse("terminal"), .anyTerminal)
-        XCTAssertEqual(TeamStatusWaitTarget.parse("completed"), .live(.completed))
+        XCTAssertEqual(TeamStatusWaitTarget.parse("done"), .live(.done))
         XCTAssertEqual(TeamStatusWaitTarget.parse("running"), .live(.running))
+        // Legacy live-status vocabulary is retired — `completed` is no longer a target.
+        XCTAssertNil(TeamStatusWaitTarget.parse("completed"))
         XCTAssertNil(TeamStatusWaitTarget.parse("not-a-state"))
         XCTAssertTrue(TeamStatusWaitTarget.anyTerminal.matches(.failed))
-        XCTAssertFalse(TeamStatusWaitTarget.live(.completed).matches(.failed))
+        XCTAssertFalse(TeamStatusWaitTarget.live(.done).matches(.failed))
     }
 
     func testResultNotReadyBeforeTerminal() async {

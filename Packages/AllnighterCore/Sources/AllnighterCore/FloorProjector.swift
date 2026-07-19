@@ -59,9 +59,10 @@ public enum FloorProjector {
 
     static func status(for s: RunStatus) -> FloorRun.Status {
         switch s {
-        case .draft: return .queued
-        case .fanningOut, .answersIn, .planning, .reviewing, .finalizing: return .running
-        case .complete, .partial: return .done
+        case .draft, .queued: return .queued
+        case .running, .fanningOut, .answersIn, .planning, .reviewing, .finalizing: return .running
+        case .complete, .partial, .done: return .done
+        case .timedOut: return .timedOut
         case .failed: return .failed
         case .cancelled: return .cancelled
         case .interrupted: return .interrupted

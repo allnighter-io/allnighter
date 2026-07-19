@@ -403,7 +403,10 @@ final class AppModel {
         // Design runs are worth keeping even when every engine failed (the board of
         // gray tiles + reasons, and the screenshot, should survive + show in History).
         let hasBoard = run.latestStage(.board) != nil
+        // RLR-L3: one-worker runs settle terminal as `.done` (and clocks as
+        // `.timedOut`); both must persist or the app silently drops real runs.
         guard run.status == .complete || run.status == .partial || run.status == .answersIn
+                || run.status == .done || run.status == .timedOut
                 || (hasBoard && run.status == .failed) else { return }
         lastSavedDirectory = try? store.save(run, models: models)
         reloadHistory()

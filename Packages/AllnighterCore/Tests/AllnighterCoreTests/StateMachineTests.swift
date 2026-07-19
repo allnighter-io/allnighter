@@ -20,11 +20,24 @@ final class StateMachineTests: XCTestCase {
     }
 
     func testRunCancelAndFailReachableWhileActive() {
-        for status in [RunStatus.draft, .fanningOut, .answersIn, .planning, .reviewing, .finalizing] {
+        for status in [RunStatus.draft, .queued, .running, .fanningOut, .answersIn, .planning, .reviewing, .finalizing] {
             let run = TeamRun(id: "r", prompt: "p", status: status, createdAt: Date())
             XCTAssertTrue(run.canTransition(to: .cancelled), "\(status) -> cancelled should be legal")
             XCTAssertTrue(run.canTransition(to: .failed), "\(status) -> failed should be legal")
         }
+    }
+
+    func testOneWorkerQueuedRunningPath() {
+        // RLR-L3: queued → running, and a one-worker `running` still advances into
+        // the multi-stage synthesis machine (answers_in → planning → done/complete).
+        XCTAssertTrue(TeamRun(id: "r", prompt: "p", status: .queued, createdAt: Date()).canTransition(to: .running))
+        XCTAssertTrue(TeamRun(id: "r", prompt: "p", status: .running, createdAt: Date()).canTransition(to: .answersIn))
+        XCTAssertTrue(TeamRun(id: "r", prompt: "p", status: .running, createdAt: Date()).canTransition(to: .done))
+        XCTAssertTrue(TeamRun(id: "r", prompt: "p", status: .running, createdAt: Date()).canTransition(to: .complete))
+        XCTAssertTrue(RunStatus.done.isTerminal)
+        XCTAssertTrue(RunStatus.timedOut.isTerminal)
+        XCTAssertFalse(RunStatus.queued.isTerminal)
+        XCTAssertFalse(RunStatus.running.isTerminal)
     }
 
     func testReviewAndFinalizePath() {
@@ -46,7 +59,7 @@ final class StateMachineTests: XCTestCase {
     }
 
     func testRunTerminalStatesAreSinks() {
-        for status in [RunStatus.complete, .partial, .cancelled, .failed] {
+        for status in [RunStatus.complete, .partial, .done, .timedOut, .cancelled, .failed, .interrupted] {
             XCTAssertTrue(status.isTerminal)
             let run = TeamRun(id: "r", prompt: "p", status: status, createdAt: Date())
             for next in RunStatus.allCases {
