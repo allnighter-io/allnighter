@@ -91,6 +91,44 @@ public struct ThreadSendCoordinator: Sendable {
         case finished(Result)
     }
 
+    /// A throttled live streaming partial flushed from `runStreamingText`. GUI surfaces
+    /// overlay this onto published turns without a full `ThreadStore.list()` reload.
+    public struct LivePartialUpdate: Sendable, Equatable {
+        public var threadId: String
+        public var turnId: String
+        public var answerText: String
+        public var reasoningText: String
+        public var truncated: Bool
+
+        public init(
+            threadId: String,
+            turnId: String,
+            answerText: String,
+            reasoningText: String,
+            truncated: Bool
+        ) {
+            self.threadId = threadId
+            self.turnId = turnId
+            self.answerText = answerText
+            self.reasoningText = reasoningText
+            self.truncated = truncated
+        }
+    }
+
+    /// Mutable Sendable sink so a MainActor view model can attach a handler after
+    /// construction (the coordinator is created during `init` before `self` is usable).
+    public final class LivePartialObserver: @unchecked Sendable {
+        public var handler: (@Sendable (LivePartialUpdate) -> Void)?
+
+        public init(handler: (@Sendable (LivePartialUpdate) -> Void)? = nil) {
+            self.handler = handler
+        }
+
+        public func notify(_ update: LivePartialUpdate) {
+            handler?(update)
+        }
+    }
+
     private let store: ThreadStore
     private let runner: any WorkerInvoking
     private let imageInvoker: WorkerImageInvoker
@@ -101,6 +139,7 @@ public struct ThreadSendCoordinator: Sendable {
     private let defaultDriverWorkerId: String?
     private let idFactory: @Sendable () -> String
     private let now: @Sendable () -> Date
+    private let livePartialObserver: LivePartialObserver?
 
     public init(
         store: ThreadStore,
@@ -112,7 +151,8 @@ public struct ThreadSendCoordinator: Sendable {
         contextBuilder: ThreadContextBuilder = ThreadContextBuilder(),
         seedResolver: ThreadImageSeedResolver = ThreadImageSeedResolver(),
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        livePartialObserver: LivePartialObserver? = nil
     ) {
         self.store = store
         self.runner = runner
@@ -124,6 +164,7 @@ public struct ThreadSendCoordinator: Sendable {
         self.defaultDriverWorkerId = defaultDriverWorkerId
         self.idFactory = idFactory
         self.now = now
+        self.livePartialObserver = livePartialObserver
     }
 
     /// Test/production wiring: share one `CommandRunner` between text and image invoke paths.
@@ -137,7 +178,8 @@ public struct ThreadSendCoordinator: Sendable {
         contextBuilder: ThreadContextBuilder = ThreadContextBuilder(),
         seedResolver: ThreadImageSeedResolver = ThreadImageSeedResolver(),
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        livePartialObserver: LivePartialObserver? = nil
     ) {
         self.init(
             store: store,
@@ -150,7 +192,8 @@ public struct ThreadSendCoordinator: Sendable {
             contextBuilder: contextBuilder,
             seedResolver: seedResolver,
             idFactory: idFactory,
-            now: now
+            now: now,
+            livePartialObserver: livePartialObserver
         )
     }
 
@@ -634,13 +677,23 @@ public struct ThreadSendCoordinator: Sendable {
         func flush() {
             guard let latest = store.get(pending.threadId)?.turn(id: pending.workerTurn.id),
                   latest.status == .running else { return }
+            let answerText = buffer.visibleText
+            let truncated = buffer.isTruncated
             var updated = latest
-            updated.text = buffer.visibleText
-            updated.partialOutputTruncated = buffer.isTruncated
+            updated.text = answerText
+            updated.partialOutputTruncated = truncated
             if !reasoning.isEmpty { updated.reasoningText = reasoning }
             _ = try? store.updateTurn(updated, inThreadId: pending.threadId, now: now())
             buffer.markFlushed()
             lastFlush = now()
+            // Notify GUI overlay AFTER durable flush so in-memory UI can skip a second write.
+            livePartialObserver?.notify(LivePartialUpdate(
+                threadId: pending.threadId,
+                turnId: pending.workerTurn.id,
+                answerText: answerText,
+                reasoningText: reasoning,
+                truncated: truncated
+            ))
         }
 
         do {

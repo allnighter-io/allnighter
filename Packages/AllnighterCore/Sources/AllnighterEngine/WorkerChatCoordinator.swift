@@ -59,7 +59,8 @@ public actor WorkerChatCoordinator {
         contextBuilder: ThreadContextBuilder = ThreadContextBuilder(),
         seedResolver: ThreadImageSeedResolver = ThreadImageSeedResolver(),
         idFactory: @escaping @Sendable () -> String = { UUID().uuidString },
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        livePartialObserver: ThreadSendCoordinator.LivePartialObserver? = nil
     ) {
         self.store = store
         self.registry = registry
@@ -78,7 +79,8 @@ public actor WorkerChatCoordinator {
             contextBuilder: contextBuilder,
             seedResolver: seedResolver,
             idFactory: idFactory,
-            now: now
+            now: now,
+            livePartialObserver: livePartialObserver
         )
     }
 

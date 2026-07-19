@@ -127,4 +127,33 @@ final class ThreadStreamingPerformanceTests: XCTestCase {
         XCTAssertFalse(applied, "a settled turn never accepts a late streaming delta")
         XCTAssertEqual(vm.threads.first { $0.id == thread.id }?.turn(id: done.id)?.text, "final")
     }
+
+    /// PERF-S04a: default-chat streaming uses `applyLiveDelta(persistCheckpoint: false)` —
+    /// the coordinator already flushes durable partials, so the overlay must not reload
+    /// via `ThreadStore.list` or write a second thread.json checkpoint per delta.
+    /// (`runChat` wires LivePartialObserver → this path and no longer schedules a 150 ms poll.)
+    func testDefaultChatStreamingDoesNotPollReload() throws {
+        let (vm, store, _) = makeVM()
+        let seat = try seedRunningTurn(vm, store)
+
+        PerfCounters.reset()
+        let n = 60
+        for i in 0..<n {
+            // Simulate the chat LivePartialObserver path (persistCheckpoint: false).
+            let applied = vm.applyLiveDelta(
+                threadId: seat.threadId, turnId: seat.turnId,
+                isAnswer: true, text: "chat token \(i)", truncated: false,
+                persistCheckpoint: false
+            )
+            XCTAssertTrue(applied)
+        }
+
+        XCTAssertEqual(PerfCounters.value(.liveDeltaApplied), n)
+        XCTAssertEqual(PerfCounters.value(.threadsReload), 0,
+                       "default-chat overlay must not call ThreadStore.list during stream")
+        XCTAssertEqual(PerfCounters.value(.threadJSONWrite), 0,
+                       "chat path skips VM checkpoint writes; coordinator owns durable flushes")
+        let live = vm.threads.first { $0.id == seat.threadId }?.turn(id: seat.turnId)
+        XCTAssertEqual(live?.text, "chat token \(n - 1)")
+    }
 }

@@ -1,11 +1,10 @@
 # Team Run Load Performance
 
-Status: **TOP PERF PRIORITY** — S01–S03 and RunStore progress fast path landed;
-S00 proof incomplete. Next: remove default-chat 150 ms full reload (S04a), then
-off-main generation-safe reads (S04b) and hard timing gates (S06). Sidecars
-(S05b) deferred pending measurement.
+Status: **TOP PERF PRIORITY** — S01–S03, S04a, and RunStore progress fast path landed;
+S00 proof incomplete. Next: off-main generation-safe reads (S04b) and hard timing
+gates (S06). Sidecars (S05b) deferred pending measurement.
 Owner: AllnighterCore + AllnighterEngine + AllnighterMac
-Updated: 2026-07-19 (Codex Sol audit, run `C5192F32`)
+Updated: 2026-07-19 (PERF-S04a default-chat live overlay)
 
 Currency snapshot (code wins over older prose below):
 
@@ -15,9 +14,10 @@ Currency snapshot (code wins over older prose below):
 - S02/S03 shipped (rail summaries + linearized unread / precomputed row facts).
 - RunStore half of S05 shipped (`d13540da`: non-terminal progress skips derived
   artifact regen).
-- Still hot: default-chat 150 ms `@MainActor` poll calling full `reload()`;
-  full-store scans still on MainActor; named hard timing gates largely absent;
-  Floor projection still recomputed; summary sidecars absent.
+- S04a shipped: default-chat streaming uses `LivePartialObserver` →
+  `applyLiveDelta(persistCheckpoint: false)`; 150 ms full-`reload()` poll removed.
+- Still hot: full-store scans still on MainActor; named hard timing gates largely
+  absent; Floor projection still recomputed; summary sidecars absent.
 
 ## Founder Intent
 
@@ -227,9 +227,10 @@ live answer/reasoning delta
 -> every rail/sidebar/thread observer recomputes
 ```
 
-The chat path also runs a 150ms poll loop that calls `reload()` while a worker is
-streaming. So the remaining risk is not one big file. It is high-frequency work
-where each small event pays an app-wide tax.
+The chat path historically ran a 150ms poll loop that called `reload()` while a
+worker was streaming (removed in S04a — live partials now overlay in memory).
+The remaining risk is high-frequency work where each small event still pays an
+app-wide tax on other paths (full-store MainActor scans, Floor projection).
 
 ## First-Principles Review
 
@@ -517,7 +518,7 @@ PERF-S01 - Coalesced reload + live overlay  ✅ DONE (2026-06-20)
   thread.json rewrite); durable thread.json is a throttled 1.5s checkpoint; settlement
   persists the final in-memory text. requestReload() coalesces a burst into one flush.
   Gate: ThreadStreamingPerformanceTests (60 deltas → 0 reloads, ≤1 write).
-  Default-chat still polls — see S04a.
+  Default-chat overlay: see S04a (landed).
 
 PERF-S02 - Thread read model  ✅ DONE (2026-06-20)
   ThreadsViewModel publishes `railRows: [ThreadRailRowState]` (lightweight summaries)
@@ -533,13 +534,13 @@ PERF-S03 - Derived-state cache  ✅ DONE (2026-06-20)
   hasUnread/hasNeverRun/lane once per reload. Gate: testRailRowSearchUsesPrecomputedText
   + Unread tests. Archive rail still reads full threads only when shown (not hot).
 
-PERF-S04a - Default-chat live overlay  ⬜ NEXT
-  Eliminate the default-chat 150 ms @MainActor full-reload poll. Feed chat deltas into
-  the same targeted in-memory / throttled-checkpoint architecture as Team/execution
-  streaming. Works Test: testDefaultChatStreamingDoesNotPollReload (60 deltas → 0
-  ThreadStore.list reloads during stream, ≤1 checkpoint, final settled text persists).
-  Allowlist hint: ThreadsViewModel.swift, WorkerChatCoordinator.swift,
-  ThreadStreamingPerformanceTests.swift.
+PERF-S04a - Default-chat live overlay  ✅ DONE (2026-07-19)
+  Eliminated the default-chat 150 ms @MainActor full-reload poll. Chat streaming
+  flushes notify `ThreadSendCoordinator.LivePartialObserver` → ThreadsViewModel
+  `applyLiveDelta(persistCheckpoint: false)` (coordinator already persists). Final
+  `reload()` only on settlement/error. Works Test:
+  testDefaultChatStreamingDoesNotPollReload (60 deltas → 0 threadsReload, 0
+  VM threadJSONWrite, final text visible).
 
 PERF-S04b - Background store reader + generation-safe publish  ⬜ FORWARD
   Move full thread scans/decodes and initial run.json loading off @MainActor; publish
@@ -594,25 +595,25 @@ smoothness.
 
 ```text
 Tier: T2 SSOT/performance
-Symptom / repro: Original: click large Bug Hunt MAX Team run row and app blocks 5-10s. Remaining: default-chat 150ms poll still full-reloads; MainActor store scans; hard first-paint/Floor timing gates unproved.
-Bug fingerprint: ThreadsViewModel reload model + default-chat poll loop + whole-array observation + synchronous file stores on MainActor.
+Symptom / repro: Original: click large Bug Hunt MAX Team run row and app blocks 5-10s. Remaining: MainActor store scans; hard first-paint/Floor timing gates unproved.
+Bug fingerprint: ThreadsViewModel reload model + whole-array observation + synchronous file stores on MainActor.
 Truth owner: WorkThread owns settled conversation truth; TeamRun/FloorRun own Team-run result truth; live deltas are transient selected-turn UI state until checkpoint/settlement.
-Lie-prone layer: SwiftUI and view models treat every small write as "reload all thread truth" (still true for default chat; Team/execution streaming now uses applyLiveDelta).
-Regression considered: Initial RunDecodeCache/lazy Floor fix addressed terminal run open; S01–S03 fixed Team/execution streaming + rail/unread; default-chat poll and off-main reads remain.
-Missing kill test / proof: No counter test proves default-chat streaming avoids ThreadStore.list; named TeamRunOpen / Floor timing gates largely absent.
+Lie-prone layer: SwiftUI and view models historically treated every small write as "reload all thread truth" (Team/execution and default-chat streaming now use applyLiveDelta).
+Regression considered: Initial RunDecodeCache/lazy Floor fix addressed terminal run open; S01–S03 + S04a fixed streaming + rail/unread + default-chat poll; off-main reads remain.
+Missing kill test / proof: Named TeamRunOpen / Floor timing gates largely absent (S06).
 Fix boundary: Performance architecture only. Do not change user-visible run truth, hide failed workers, drop settled output, or replace canonical JSON with unsourced GUI state.
-Proof command / founder test: existing ThreadStreamingPerformanceTests plus new S04a default-chat gate and S06 timing gates.
+Proof command / founder test: ThreadStreamingPerformanceTests (incl. S04a default-chat gate) plus S06 timing gates.
 ```
 
 ## Done When
 
-- `docs/phases/README.md` keeps this phase pinned until S04a/S04b/S06 are done
-  (S01–S03 already landed — do not keep claiming them as "forward").
+- `docs/phases/README.md` keeps this phase pinned until S04b/S06 are done
+  (S01–S03 and S04a already landed — do not keep claiming them as "forward").
 - Terminal Team-run click remains fast and opens a receipt/Floor path.
 - Team/execution streaming deltas update visible UI without `ThreadStore.list()`
   per delta and without rewriting full `thread.json` per delta.
 - Default chat performs zero full-list reloads per delta/poll while streaming
-  (S04a Works Test).
+  (S04a Works Test — landed).
 - Rail rendering is driven by row summaries / derived state, not repeated full
   turn-text scans.
 - Unread derivation is linear in turn count.
@@ -623,10 +624,9 @@ Proof command / founder test: existing ThreadStreamingPerformanceTests plus new 
 
 ## Should-build (2026-07-19 Sol)
 
-- **Must before launch:** S04a, S04b, S06. Sync full-store work on MainActor and
+- **Must before launch:** S04b, S06 (S04a landed). Sync full-store work on MainActor and
   unproved `<50ms`/`<150ms` targets remain launch risk.
-- **Next execution:** S04a (default-chat live overlay) — concrete, high-frequency,
-  visible in `ThreadsViewModel` poll loop.
+- **Next execution:** S04b (off-main generation-safe reads), then S06 hard timing gates.
 - **Defer:** S05b sidecars, Floor memoization, search debounce, deeper
   selected-detail restructuring until measured.
 - **Cut for this phase:** SQLite/GRDB migration and speculative filesystem-event /

@@ -47,6 +47,8 @@ final class ThreadsViewModel {
     private let store: ThreadStore
     private let runStore: RunStore
     private let coordinator: WorkerChatCoordinator
+    /// Shared sink for default-chat streaming flushes (PERF-S04a). Wired after init.
+    private let chatLivePartialObserver = ThreadSendCoordinator.LivePartialObserver()
     private let registry: DriverRegistry
     private let commandRunner: CommandRunner
     /// Cached health truth (loaded once at launch, never probed here) — drives the
@@ -169,8 +171,16 @@ final class ThreadsViewModel {
         self.notificationDelivery = notificationDelivery ?? NoOpThreadNotificationDelivery()
         self.coordinator = WorkerChatCoordinator(
             store: store, runner: runner, imageInvoker: imageInvoker,
-            registry: registry, models: models
+            registry: registry, models: models,
+            livePartialObserver: chatLivePartialObserver
         )
+        // PERF-S04a: default-chat flushes feed the same in-memory overlay as Team streaming.
+        // Coordinator already persists throttled partials to the store — skip duplicate writes.
+        chatLivePartialObserver.handler = { [weak self] update in
+            Task { @MainActor [weak self] in
+                self?.applyChatLivePartial(update)
+            }
+        }
         reload()
     }
 
@@ -228,8 +238,18 @@ final class ThreadsViewModel {
     /// cheaply, and writes a DURABLE checkpoint to thread.json at most every
     /// `liveCheckpointInterval` for crash-resume — never per token. Returns true if a
     /// running turn was found and updated.
+    /// - Parameter persistCheckpoint: When false, skip the throttled store write (chat path:
+    ///   `ThreadSendCoordinator` already flushes durable partials). Team/execution keep the
+    ///   default `true`.
     @discardableResult
-    func applyLiveDelta(threadId: String, turnId: String, isAnswer: Bool, text: String, truncated: Bool?) -> Bool {
+    func applyLiveDelta(
+        threadId: String,
+        turnId: String,
+        isAnswer: Bool,
+        text: String,
+        truncated: Bool?,
+        persistCheckpoint: Bool = true
+    ) -> Bool {
         guard let ti = threads.firstIndex(where: { $0.id == threadId }),
               let tj = threads[ti].turns.firstIndex(where: { $0.id == turnId }),
               threads[ti].turns[tj].status == .running else { return false }
@@ -243,6 +263,7 @@ final class ThreadsViewModel {
 
         // Throttled durable checkpoint — keep the store's authoritative fields, write only
         // the live ones, and only when the interval has elapsed.
+        guard persistCheckpoint else { return true }
         let now = Date()
         if now.timeIntervalSince(liveCheckpointAt[turnId] ?? .distantPast) >= Self.liveCheckpointInterval {
             liveCheckpointAt[turnId] = now
@@ -255,6 +276,28 @@ final class ThreadsViewModel {
             }
         }
         return true
+    }
+
+    /// PERF-S04a: map a coordinator live-partial flush onto in-memory turns (no reload poll).
+    private func applyChatLivePartial(_ update: ThreadSendCoordinator.LivePartialUpdate) {
+        applyLiveDelta(
+            threadId: update.threadId,
+            turnId: update.turnId,
+            isAnswer: true,
+            text: update.answerText,
+            truncated: update.truncated,
+            persistCheckpoint: false
+        )
+        if !update.reasoningText.isEmpty {
+            applyLiveDelta(
+                threadId: update.threadId,
+                turnId: update.turnId,
+                isAnswer: false,
+                text: update.reasoningText,
+                truncated: nil,
+                persistCheckpoint: false
+            )
+        }
     }
 
     func select(_ thread: WorkThread) {
@@ -899,7 +942,8 @@ final class ThreadsViewModel {
     /// Chat: hand the message to the chosen model via the coordinator, which
     /// persists the user turn + an optimistic running `workerChat` turn, invokes
     /// the worker through the cached invocation (health == runs), and settles the
-    /// reply in place.
+    /// reply in place. Live partials arrive via `chatLivePartialObserver` →
+    /// `applyLiveDelta(persistCheckpoint: false)` — no 150 ms full-reload poll (PERF-S04a).
     private func runChat(
         message: String,
         toThreadId threadId: String,
@@ -919,18 +963,8 @@ final class ThreadsViewModel {
                 case .finished:
                     break
                 case .awaitingInvoke(let pending):
-                    // While the worker streams, poll-reload so the running turn's
-                    // partial text updates live; cancel + final reload at settlement.
-                    let livePoll = Task { @MainActor in
-                        while !Task.isCancelled {
-                            try? await Task.sleep(for: .milliseconds(150))
-                            if Task.isCancelled { break }
-                            reload()
-                        }
-                    }
-                    defer { livePoll.cancel() }
+                    // Streaming overlays in-memory via LivePartialObserver; settle with one reload.
                     _ = try await coordinator.completeSend(pending)
-                    livePoll.cancel()
                     reload()
                 }
             } catch {
