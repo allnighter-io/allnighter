@@ -266,6 +266,35 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(BuiltInTeams.team("copy_landing_page")?.typeTags.contains("landing-page"), true)
     }
 
+    func testTypeTagsUniqueWithinLane() {
+        // --type resolution is first-match over declaration order, so a tag
+        // duplicated within a lane routes by array position — e.g. a Min tier
+        // carrying the family's generic tag steals the bare intent from Default.
+        // Law 4 (Team_Catalog_Normalization.md): within a lane, every typeTag
+        // maps to exactly one team; the family's generic tag lives on Default.
+        for lane in WorkLane.allCases {
+            var seen: [String: String] = [:]
+            for team in BuiltInTeams.teams(in: lane) {
+                for tag in team.typeTags {
+                    if let holder = seen[tag] {
+                        XCTFail("typeTag '\(tag)' in lane \(lane.rawValue) on both \(holder) and \(team.id)")
+                    }
+                    seen[tag] = team.id
+                }
+            }
+        }
+    }
+
+    func testBareFamilyTypeTagsResolveToDefaultTier() {
+        // The depth law: a bare family intent never auto-routes to Min/Max.
+        XCTAssertEqual(BuiltInTeams.teams(in: .code).first { $0.typeTags.contains("spec-review") }?.id,
+                       "code_spec_review")
+        XCTAssertEqual(BuiltInTeams.teams(in: .code).first { $0.typeTags.contains("growth") }?.id,
+                       "code_growth")
+        XCTAssertEqual(BuiltInTeams.teams(in: .code).first { $0.typeTags.contains("bug") }?.id,
+                       "code_bug_hunt")
+    }
+
     // MARK: - Headline proof: one ready CLI runs Bug Hunt Max High
 
     func testBugHuntMaxHighWithOnlyOpusResolvesEightWorkersPlusWriter() {

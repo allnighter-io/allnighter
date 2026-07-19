@@ -182,7 +182,7 @@ public enum BuiltInTeams {
             ("fix_altitude_reviewer", .review)
         ], tags: [.code]),
         writer: "bug_packet_writer",
-        typeTags: ["bug", "nasty", "deep", "seam", "hidden-state", "max"],
+        typeTags: ["bug-hunt-max", "nasty", "deep", "seam", "hidden-state"],
         starters: ["This bug has resisted earlier fixes — find the real cause and the right-level fix for <broken behavior>."])
 
     static let buildGUIBugHunt = make(
@@ -234,7 +234,7 @@ public enum BuiltInTeams {
                            count: 4, triangulate: true)
         ],
         writer: "growth_writer",
-        typeTags: ["growth", "min"],
+        typeTags: ["growth-min"],
         starters: [
             "Growth: how do we make X builders LOVE this and spread it, kept simple and on-core? Find the wedge, the shareable artifact, and the simplest lovable version."]
     )
@@ -277,7 +277,7 @@ public enum BuiltInTeams {
                            count: 8, triangulate: true)
         ],
         writer: "growth_writer",
-        typeTags: ["growth", "max"],
+        typeTags: ["growth-max"],
         starters: [
             "Growth Max: scout what is spreading in the category on X now, then find the wedge that makes builders LOVE this and the shareable viral loop — kept simple and on-core."]
     )
@@ -296,7 +296,7 @@ public enum BuiltInTeams {
             ("spec_scope_steward", .answer)
         ], tags: [.code]),
         writer: "spec_review_writer", dissent: .compareOptions,
-        typeTags: ["spec-review", "min"],
+        typeTags: ["spec-review-min"],
         starters: [
             "Run a lean Spec Review: challenge the premise, cut scope, and make the proof concrete. Review only — do not edit the doc."]
     )
@@ -339,7 +339,7 @@ public enum BuiltInTeams {
             ("spec_contrarian_reviewer", .review)
         ], tags: [.code]),
         writer: "spec_review_writer", dissent: .compareOptions,
-        typeTags: ["launch", "spec-review", "max"],
+        typeTags: ["spec-review-max", "launch"],
         starters: [
             "Run Spec Review Max on this launch or hard-case spec. Find ranked gems and explicit rejects; review only — do not edit the doc.",
             "Harden docs/phases/<Spec>.md at full depth: outside signal, premise, contract, proof, scope, simplicity, and a rival approach."]
@@ -492,7 +492,7 @@ public enum BuiltInTeams {
             ("brand_voice", .review)
         ], tags: [.copy]),
         writer: "landing_copy_writer",
-        typeTags: ["landing-page", "landing", "copy", "marketing", "conversion", "offer"],
+        typeTags: ["landing-page", "landing", "marketing", "conversion", "offer"],
         starters: ["Rewrite my landing page so the offer is clear, trusted, and converts."])
 
     // MARK: - Signal teams (the outside-world scout craft)
@@ -521,6 +521,6 @@ public enum BuiltInTeams {
             row("signal_product_ideas", .answer, preferred: gemini),
             row("signal_skeptic", .review, preferred: sonnet)
         ], writer: "insight_writer", dissent: .compareOptions,
-        typeTags: ["signal", "roadmap", "next", "direction", "opportunity"],
+        typeTags: ["roadmap", "next", "direction", "opportunity"],
         starters: ["What should we build next given what changed outside the repo this week?"])
 }
