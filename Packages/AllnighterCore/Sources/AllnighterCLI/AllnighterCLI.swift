@@ -134,7 +134,7 @@ struct AllnighterCLI {
                 exit(1)
             }
             guard let run = loadRun(result.runId) else {
-                emitFailure(code: "RUN_NOT_FOUND", message: "team run did not persist")
+                emitRunNotFound("team run did not persist")
                 exit(1)
             }
             let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?
@@ -178,7 +178,7 @@ struct AllnighterCLI {
     /// recovery fields (`ruleId`/`agentAction`/`requiresManual`/`retryable`) are
     /// taken from the error catalog so the emitted envelope and `error_explain`
     /// always agree (M-C).
-    static func emitFailure(code: String, message: String) {
+    static func emitFailure(code: String, message: String, supportDir: String? = nil) {
         struct Failure: Encodable { let schemaVersion = 1; let success = false; let error: ErrorEnvelope }
         let spec = ContractRegistry.milestone1.errorSpec(for: code)
         let env = ErrorEnvelope(
@@ -187,7 +187,8 @@ struct AllnighterCLI {
             message: message,
             agentAction: spec?.agentAction,
             requiresManual: spec?.requiresManual ?? false,
-            retryable: spec?.retryable ?? false
+            retryable: spec?.retryable ?? false,
+            supportDir: supportDir
         )
         print(jsonString(Failure(error: env)))
     }
@@ -195,9 +196,27 @@ struct AllnighterCLI {
     /// Emits the failure envelope and exits with the catalog-derived process exit
     /// code (usage → 2, operational → 1). The single funnel for terminal CLI
     /// failures so the error code and its exit class can never drift apart (M-C).
-    static func fail(code: String, message: String) -> Never {
-        emitFailure(code: code, message: message)
+    static func fail(code: String, message: String, supportDir: String? = nil) -> Never {
+        emitFailure(code: code, message: message, supportDir: supportDir)
         exit(ContractRegistry.milestone1.processExitCode(forErrorCode: code))
+    }
+
+    /// Effective `ALLNIGHTER_SUPPORT_DIR` (RLR-L1) — surfaced in not-found / kill
+    /// errors so a caller on the wrong or isolated config home can see the exact
+    /// support root that was searched (RCA class 5).
+    static func effectiveSupportDir() -> String { AllnighterPaths.support.path }
+
+    /// A `RUN_NOT_FOUND` failure that names the effective support root in both the
+    /// human message and the machine `supportDir` field (RLR-L1), then exits.
+    static func failRunNotFound(_ message: String) -> Never {
+        let dir = effectiveSupportDir()
+        fail(code: "RUN_NOT_FOUND", message: "\(message) (support dir: \(dir))", supportDir: dir)
+    }
+
+    /// Non-exiting variant for JSON emit paths that own their own `exit`.
+    static func emitRunNotFound(_ message: String) {
+        let dir = effectiveSupportDir()
+        emitFailure(code: "RUN_NOT_FOUND", message: "\(message) (support dir: \(dir))", supportDir: dir)
     }
 
     static func emitCatalogError(_ error: CatalogError, skillContext: Bool = false) -> Never {
@@ -1173,7 +1192,7 @@ struct AllnighterCLI {
         let timeoutRaw = opts.value("timeout")
         if waitRaw == nil && timeoutRaw == nil {
             guard let status = await runtime.asyncTeamService().status(runId: runId) else {
-                fail(code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
+                failRunNotFound("no run matches \(runId)")
             }
             print(jsonString(status))
             return
@@ -1200,7 +1219,7 @@ struct AllnighterCLI {
         guard let outcome = await runtime.asyncTeamService().waitForStatus(
             runId: runId, target: target, timeout: timeout
         ) else {
-            fail(code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
+            failRunNotFound("no run matches \(runId)")
         }
 
         print(jsonString(outcome.response))
@@ -1241,7 +1260,7 @@ struct AllnighterCLI {
         }
         switch await runtime.asyncTeamService().result(runId: runId) {
         case .notFound:
-            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
+            emitRunNotFound("no run matches \(runId)")
             exit(1)
         case .notReady(let nr):
             print(jsonString(nr))
@@ -1260,7 +1279,7 @@ struct AllnighterCLI {
             exit(2)
         }
         guard let response = await runtime.asyncTeamService().cancel(runId: runId) else {
-            emitFailure(code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
+            emitRunNotFound("no run matches \(runId)")
             exit(1)
         }
         print(jsonString(response))
@@ -1504,7 +1523,7 @@ struct AllnighterCLI {
         let opts = Options(args)
         let ref = opts.positional.first ?? "latest"
         guard let run = resolveRun(ref) else {
-            fail(code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
+            failRunNotFound("no run matches \(ref)")
         }
         if opts.flag("json") {
             print(floorRunJSONString(run))
@@ -1525,7 +1544,7 @@ struct AllnighterCLI {
             FileHandle.standardError.write(Data("usage: alln show <run-id|latest> [--json] [--full]\n".utf8)); exit(2)
         }
         guard let run = resolveRun(ref) else {
-            fail(code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
+            failRunNotFound("no run matches \(ref)")
         }
         if opts.flag("json") {
             print(jsonString(TeamRunJSONMapper.map(
@@ -1545,7 +1564,7 @@ struct AllnighterCLI {
         let opts = Options(args)
         let ref = opts.positional.first ?? "latest"
         guard let run = resolveRun(ref) else {
-            fail(code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
+            failRunNotFound("no run matches \(ref)")
         }
         let result = specResult(run, runtime: runtime, detail: opts.value("detail"))
         if opts.flag("json") { print(jsonString(result)) }
@@ -1576,7 +1595,7 @@ struct AllnighterCLI {
             fail(code: "CLI_USAGE_ERROR", message: "unsupported export format: \(format) (only md)")
         }
         guard let run = resolveRun(ref) else {
-            fail(code: "RUN_NOT_FOUND", message: "no run matches \(ref)")
+            failRunNotFound("no run matches \(ref)")
         }
         if let dir = try? RunStore().runDirectory(forRunId: run.id),
            let bundle = try? String(contentsOf: dir.appendingPathComponent("bundle.md"), encoding: .utf8) {

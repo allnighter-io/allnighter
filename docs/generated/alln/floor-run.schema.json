@@ -51,6 +51,12 @@
             "null"
           ]
         },
+        "supportDir" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "traceId" : {
           "type" : [
             "string",

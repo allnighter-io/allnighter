@@ -17,6 +17,24 @@ public struct RunLink: Codable, Sendable, Equatable {
     public init(kind: Kind, runId: String) { self.kind = kind; self.runId = runId }
 }
 
+/// What a non-terminal run is durably waiting on (RLR-L4). S01b writes the
+/// minimal stub — `resource` + canonical `scopeRoot` — during the pre-spawn
+/// write-lock wait so a second process can name the cause; the full FIFO/ticket
+/// facts (holder ref, ticketPosition, timestamps) land in S02. Terminal
+/// transitions clear it in the same journal revision (RLR-L3 atomic rule).
+public struct RunBlocker: Codable, Sendable, Equatable {
+    public enum Resource: String, Codable, Sendable, CaseIterable {
+        case repoWriteLock, teamGovernor, driverCapacity
+    }
+    public var resource: Resource
+    /// Canonical (symlink + case normalized) repo root the wait is scoped to.
+    public var scopeRoot: String
+    public init(resource: Resource, scopeRoot: String) {
+        self.resource = resource
+        self.scopeRoot = scopeRoot
+    }
+}
+
 public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var prompt: String
@@ -88,6 +106,10 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// Why this run ended — required for terminal runs (PO-S01). Optional so
     /// legacy `run.json` still decodes; reconcile/cancel/complete stamp it.
     public var endReason: RunEndReason? = nil
+    /// What a non-terminal run is waiting on (RLR-L4). Set while `queued`
+    /// (`waitingForWriteLock`), cleared when the lock is acquired and on any
+    /// terminal transition. Optional so legacy `run.json` decodes to `nil`.
+    public var blocker: RunBlocker? = nil
     /// Non-optional view of `links` for callers.
     public var runLinks: [RunLink] { links ?? [] }
 
@@ -122,7 +144,9 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         noCommitOrdered: Bool? = nil,
         uncommittedFileCount: Int? = nil,
         proofResult: RunProofResult? = nil,
-        endReason: RunEndReason? = nil
+        endReason: RunEndReason? = nil,
+        blocker: RunBlocker? = nil,
+        links: [RunLink]? = nil
     ) {
         self.id = id
         self.prompt = prompt
@@ -155,6 +179,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.uncommittedFileCount = uncommittedFileCount
         self.proofResult = proofResult
         self.endReason = endReason
+        self.blocker = blocker
+        self.links = links
     }
 }
 

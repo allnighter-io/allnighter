@@ -21,6 +21,10 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
     public var sourceId: String?
     public var modelId: String?
     public var workerId: String?
+    /// Effective `ALLNIGHTER_SUPPORT_DIR` at the time of a not-found / kill
+    /// failure (RLR-L1). Set on `RUN_NOT_FOUND` so a machine caller can see which
+    /// support root was searched (RCA class 5 — wrong/isolated config home).
+    public var supportDir: String?
 
     public init(
         code: String,
@@ -34,7 +38,8 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         runId: String? = nil,
         sourceId: String? = nil,
         modelId: String? = nil,
-        workerId: String? = nil
+        workerId: String? = nil,
+        supportDir: String? = nil
     ) {
         self.code = code
         self.ruleId = ruleId
@@ -48,5 +53,6 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         self.sourceId = sourceId
         self.modelId = modelId
         self.workerId = workerId
+        self.supportDir = supportDir
     }
 }

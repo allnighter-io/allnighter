@@ -190,6 +190,7 @@ public enum ContractSchema {
             "requiresManual": bool, "retryable": bool, "traceId": nullable("string"),
             "runId": nullable("string"), "sourceId": nullable("string"),
             "modelId": nullable("string"), "workerId": nullable("string"),
+            "supportDir": nullable("string"),
         ], required: ["code", "message", "requiresManual", "retryable"])
     }
 

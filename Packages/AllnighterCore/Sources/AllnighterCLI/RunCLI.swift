@@ -18,7 +18,7 @@ enum RunCLI {
         let opts = Options(args)
         guard let message = opts.positional.first ?? opts.value("message") else {
             FileHandle.standardError.write(Data(
-                "usage: alln run \"<message>\" --project <id|path> [--team <id>] [--worker <modelId>] [--effort low|med|high] [--lane code|design|copy|signal] [--idle-timeout <seconds>] [--commit-message <exact>] [--no-commit] [--proof <cmd>] [--try-fix [--executor <id>]] [--json | --stream]\n"
+                "usage: alln run \"<message>\" --project <id|path> [--team <id>] [--worker <modelId>] [--effort low|med|high] [--lane code|design|copy|signal] [--idle-timeout <seconds>] [--commit-message <exact>] [--no-commit] [--proof <cmd>] [--idempotency-key <key>] [--retry-of <id>] [--try-fix [--executor <id>]] [--json | --stream]\n"
                     .utf8))
             exit(2)
         }
@@ -68,7 +68,9 @@ enum RunCLI {
             workerTimeoutSeconds: idleTimeoutSeconds,
             commitMessage: commitMessage,
             noCommit: noCommit,
-            proofCommand: opts.value("proof")
+            proofCommand: opts.value("proof"),
+            idempotencyKey: opts.value("idempotency-key"),
+            retryOf: opts.value("retry-of")
         )
 
         let service = RunService(

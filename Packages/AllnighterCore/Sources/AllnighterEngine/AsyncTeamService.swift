@@ -573,11 +573,14 @@ public actor AsyncTeamService {
 
         // Read raw journal (skip projection).
         guard let run = runStore.loadRaw(runId: runId) else {
+            // RLR-L1: name the effective support root so a runner reading the
+            // wrong/isolated config home can be diagnosed (RCA class 5).
+            let notFound = "no journal for \(runId) (support dir: \(AllnighterPaths.support.path))"
             try? ProcessOwnership.writeRunnerReady(
-                .refused(runId: runId, code: "RUN_NOT_FOUND", message: "no journal for \(runId)"),
+                .refused(runId: runId, code: "RUN_NOT_FOUND", message: notFound),
                 in: directory
             )
-            return .failure(.init(code: "RUN_NOT_FOUND", message: "no journal for \(runId)"))
+            return .failure(.init(code: "RUN_NOT_FOUND", message: notFound))
         }
         if run.status.isTerminal {
             try? ProcessOwnership.writeRunnerReady(

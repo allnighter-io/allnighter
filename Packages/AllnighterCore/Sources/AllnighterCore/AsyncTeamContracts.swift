@@ -283,7 +283,12 @@ public struct TeamCancelResponse: Codable, Equatable, Sendable {
     }
 }
 
-/// Canonical payload hashed for `team start` idempotency (24h retention).
+/// Canonical payload hashed for `team start` / `alln run` idempotency (24h
+/// retention, RLR-L9). The generalized field list (attachments, thread,
+/// resolved team/worker, the four timeouts, proof command, commit policy,
+/// contract version) is what a transport-replay match compares — one store, one
+/// digest. New fields are additive; a legacy payload with fewer keys simply
+/// hashes to a different digest (24h retention makes that self-healing).
 public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
     public var prompt: String
     public var lane: String?
@@ -293,6 +298,19 @@ public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
     public var type: String?
     public var context: String?
     public var repoRoot: String?
+    // RLR-L9 canonical generalization (S01b):
+    public var attachmentDigests: [String]
+    public var threadId: String?
+    public var resolvedTeamId: String?
+    public var resolvedWorkerIds: [String]
+    public var handshakeTimeout: Int?
+    public var firstActivityTimeout: Int?
+    public var idleTimeout: Int?
+    public var wallTimeout: Int?
+    public var proofCommand: String?
+    public var commitMessage: String?
+    public var noCommit: Bool
+    public var contractVersion: String?
 
     public init(from request: AsyncTeamStartRequest) {
         prompt = request.question
@@ -303,5 +321,64 @@ public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
         type = request.type
         context = request.context
         repoRoot = request.repoRoot
+        attachmentDigests = []
+        threadId = request.threadId
+        resolvedTeamId = request.teamPresetId
+        resolvedWorkerIds = request.modelId.map { [$0] } ?? []
+        handshakeTimeout = nil
+        firstActivityTimeout = nil
+        idleTimeout = nil
+        wallTimeout = nil
+        proofCommand = nil
+        commitMessage = nil
+        noCommit = false
+        contractVersion = nil
+    }
+
+    /// Sync `alln run` acceptance payload (RunService). Carries the mutating-run
+    /// facts (proof command, commit policy, idle timeout, attachments) the async
+    /// start request does not model.
+    public init(
+        prompt: String,
+        lane: String?,
+        teamPresetId: String?,
+        effort: String?,
+        modelId: String?,
+        type: String?,
+        context: String?,
+        repoRoot: String?,
+        attachmentDigests: [String] = [],
+        threadId: String? = nil,
+        resolvedTeamId: String? = nil,
+        resolvedWorkerIds: [String] = [],
+        handshakeTimeout: Int? = nil,
+        firstActivityTimeout: Int? = nil,
+        idleTimeout: Int? = nil,
+        wallTimeout: Int? = nil,
+        proofCommand: String? = nil,
+        commitMessage: String? = nil,
+        noCommit: Bool = false,
+        contractVersion: String? = nil
+    ) {
+        self.prompt = prompt
+        self.lane = lane
+        self.teamPresetId = teamPresetId
+        self.effort = effort
+        self.modelId = modelId
+        self.type = type
+        self.context = context
+        self.repoRoot = repoRoot
+        self.attachmentDigests = attachmentDigests
+        self.threadId = threadId
+        self.resolvedTeamId = resolvedTeamId
+        self.resolvedWorkerIds = resolvedWorkerIds
+        self.handshakeTimeout = handshakeTimeout
+        self.firstActivityTimeout = firstActivityTimeout
+        self.idleTimeout = idleTimeout
+        self.wallTimeout = wallTimeout
+        self.proofCommand = proofCommand
+        self.commitMessage = commitMessage
+        self.noCommit = noCommit
+        self.contractVersion = contractVersion
     }
 }
