@@ -431,7 +431,7 @@ Agent-first error envelope upgrade:
     "message": "Invalid team value.",
     "tool": "team_start",
     "field": "team",
-    "allowedValues": ["code_core", "code_bug_hunt", "code_release_proof"],
+    "allowedValues": ["code_plan", "code_bug_hunt", "code_release_proof"],
     "agentAction": "Retry once with one of the allowed values.",
     "remedyTier": "agent_executable",
     "whoCanFix": "agent",
@@ -550,7 +550,7 @@ M1 may return schema version 1. Agent-first upgrades doctor to schema version 2.
   "docsVersionMatchesBinary": true,
   "canStartTeamRun": true,
   "readyTeams": [
-    {"lane": "code", "team": "code_core", "displayName": "Code Lab"}
+    {"lane": "code", "team": "code_plan", "displayName": "Plan"}
   ],
   "blockedReason": null,
   "nextAction": {

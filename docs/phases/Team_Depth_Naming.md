@@ -40,8 +40,8 @@ users are lost, and Allnighter never becomes a habit.
    generating tiers mechanically. This also
    resolves the old "default send → Lite" routing: the first-pass roster IS
    the unsuffixed team.
-7. **Unique names remain for genuinely different jobs.** Conversion Studio vs
-   Premium Polish are different jobs, not depths of one job. The rule is only:
+7. **Unique names remain for genuinely different jobs.** Polish vs Usability
+   Review are different jobs, not depths of one job. The rule is only:
    never spend a unique name where a depth word suffices.
 
 ## What Min and Max mean (definitions, not vibes)

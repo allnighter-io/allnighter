@@ -90,9 +90,9 @@ the readiness the verdict already computes.
 5. **Team names must be obvious job phrases — for humans AND the router.** A team's
    name is the JOB stated plainly (Bug Hunt, Spec Review, Growth, Security Review,
    Design, Copy…), depth as the Min/Default/Max suffix. Obscure or flavor names
-   ("Post-to-Project Signal", "Radical Directions") defeat both a human scanning
-   the picker and the router matching intent. Renaming to obvious names is part of
-   IR-S00 and is founder-gated.
+   (the retired "Post-to-Project Signal", "Radical Directions") defeated both a
+   human scanning the picker and the router matching intent. The rename to
+   obvious names SHIPPED 2026-07-19 (CN-S01, `1247bd12`).
 6. **Honesty preserved.** If the user named a specific worker/model, the router
    echoes that requirement and never silently substitutes — a down requested seat
    is a loud fallback, not a swap (the routing law + explicit-worker honesty
