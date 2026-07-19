@@ -224,9 +224,14 @@ public actor CatalogRunCoordinator {
                                           result: WorkerRunResult(status: .failed, errorKind: .missingCLI,
                                                                   errorReason: "no driver manifest for \(model.driverId)")), nil)
                     }
-                    var result = await runner.collect(WorkerInvocation(
-                        model: model, manifest: manifest, prompt: workerPrompt, effort: effort,
-                        workingDirectory: workingDirectory))
+                    // RLR-S04a: stamp the worker id task-local around the spawn so
+                    // the process-group leader records its runtimeOwnership keyed by
+                    // this worker id (captured synchronously into the spawn).
+                    var result = await ProcessOwnership.$currentWorkerId.withValue(worker.id) {
+                        await runner.collect(WorkerInvocation(
+                            model: model, manifest: manifest, prompt: workerPrompt, effort: effort,
+                            workingDirectory: workingDirectory))
+                    }
                     var settledModel = model
                     var substitutedFrom: String? = worker.substitutedFromModelId
                     if SeatReseat.isEligible(result), let team {
@@ -249,9 +254,11 @@ public actor CatalogRunCoordinator {
                                     basePrompt: baseWorkerPrompt,
                                     deliveries: deliveries,
                                     readsImages: altManifest.canReadImages)
-                            result = await runner.collect(WorkerInvocation(
-                                model: alt, manifest: altManifest, prompt: altPrompt, effort: effort,
-                                workingDirectory: workingDirectory))
+                            result = await ProcessOwnership.$currentWorkerId.withValue(worker.id) {
+                                await runner.collect(WorkerInvocation(
+                                    model: alt, manifest: altManifest, prompt: altPrompt, effort: effort,
+                                    workingDirectory: workingDirectory))
+                            }
                         }
                     }
                     return (TeamAnswer(memberId: worker.id, modelId: settledModel.id, role: role, result: result),
@@ -309,9 +316,11 @@ public actor CatalogRunCoordinator {
         let writerPrompt = SkillCatalog.assemblePrompt(
             skillId: writer.skillId,
             founderPrompt: writerInput(resolved: resolved, run: run, basePrompt: basePrompt))
-        var outcome = await workerRunner.collect(WorkerInvocation(
-            model: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort,
-            workingDirectory: repoRoot))
+        var outcome = await ProcessOwnership.$currentWorkerId.withValue(writer.id) {
+            await workerRunner.collect(WorkerInvocation(
+                model: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort,
+                workingDirectory: repoRoot))
+        }
         if SeatReseat.isEligible(outcome), let team {
             let chain = SeatReseat.chain(for: writer, team: team, isLead: true)
             let pool = reseatPool.isEmpty ? Array(modelByID.values) : reseatPool
@@ -330,9 +339,11 @@ public actor CatalogRunCoordinator {
                 writer.modelId = alt.id
                 model = alt
                 manifest = altManifest
-                outcome = await workerRunner.collect(WorkerInvocation(
-                    model: alt, manifest: altManifest, prompt: writerPrompt, effort: resolved.effort,
-                    workingDirectory: repoRoot))
+                outcome = await ProcessOwnership.$currentWorkerId.withValue(writer.id) {
+                    await workerRunner.collect(WorkerInvocation(
+                        model: alt, manifest: altManifest, prompt: writerPrompt, effort: resolved.effort,
+                        workingDirectory: repoRoot))
+                }
             }
         }
         guard outcome.status == .done, let markdown = outcome.output, !markdown.isEmpty else {

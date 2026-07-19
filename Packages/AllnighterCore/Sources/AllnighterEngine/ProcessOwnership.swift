@@ -169,6 +169,89 @@ public enum ProcessOwnership {
         try? writeTurnOwner(identity, in: directory)
     }
 
+    // MARK: - Worker runtimeOwnership (RLR-L5, S04a)
+
+    /// Process-global context naming the run dir a process-group worker spawn
+    /// should record its `runtimeOwnership` receipt under. Mirrors
+    /// `TurnOwnerDirectory`, but the per-worker key is the `currentWorkerId`
+    /// task-local (below) — set by the run layer (`RunService` / the async
+    /// runner) which knows the run dir; the worker id is set by the coordinator.
+    public final class RuntimeOwnershipContext: @unchecked Sendable {
+        public static let shared = RuntimeOwnershipContext()
+        private let lock = NSLock()
+        private var url: URL?
+        private init() {}
+
+        public func set(runDirectory: URL?) {
+            lock.lock(); url = runDirectory; lock.unlock()
+        }
+
+        public func runDirectory() -> URL? {
+            lock.lock(); defer { lock.unlock() }
+            return url
+        }
+    }
+
+    /// The worker id a synchronous process-group spawn records its
+    /// `runtimeOwnership` under. Set by `CatalogRunCoordinator` per
+    /// `runner.collect(WorkerInvocation)` — captured synchronously into the
+    /// spawn, so parallel fan-out workers each carry their own id with no
+    /// process-global race.
+    @TaskLocal public static var currentWorkerId: String?
+
+    public static let workerOwnerFileSuffix = ".owner.json"
+
+    public static func workersDirectory(in runDirectory: URL) -> URL {
+        runDirectory.appendingPathComponent("workers", isDirectory: true)
+    }
+
+    public static func workerOwnerURL(workerId: String, in runDirectory: URL) -> URL {
+        workersDirectory(in: runDirectory)
+            .appendingPathComponent("\(RunArtifactRef.safeStem(workerId))\(workerOwnerFileSuffix)")
+    }
+
+    public static func writeWorkerOwner(_ ownership: RuntimeOwnership, in runDirectory: URL) throws {
+        let dir = workersDirectory(in: runDirectory)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try CoreJSON.encode(ownership)
+            .write(to: workerOwnerURL(workerId: ownership.workerId, in: runDirectory), options: .atomic)
+    }
+
+    /// Record a just-spawned worker leader's identity keyed by the current worker
+    /// id, into the active run dir. No-op unless BOTH the context run dir and the
+    /// `currentWorkerId` task-local are set (non-run / non-worker spawns record
+    /// nothing — the warm exclusion seam falls out of this for free).
+    public static func recordSpawnedWorkerOwner(_ identity: OwnerIdentity) {
+        guard let workerId = currentWorkerId,
+              let runDirectory = RuntimeOwnershipContext.shared.runDirectory() else { return }
+        let ownership = RuntimeOwnership(workerId: workerId, record: identity.asRecord())
+        try? writeWorkerOwner(ownership, in: runDirectory)
+    }
+
+    /// All recorded worker `runtimeOwnership` receipts under a run dir. Retained
+    /// after terminal (never cleared on terminal) so the S04c contradiction
+    /// surface can read a still-alive recorded member.
+    public static func readWorkerOwners(inRunDirectory runDirectory: URL) -> [(workerId: String, identity: OwnerIdentity)] {
+        let dir = workersDirectory(in: runDirectory)
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: nil
+        ) else { return [] }
+        var owners: [(workerId: String, identity: OwnerIdentity)] = []
+        for url in entries where url.lastPathComponent.hasSuffix(workerOwnerFileSuffix) {
+            guard let data = try? Data(contentsOf: url),
+                  let ownership = try? CoreJSON.decode(RuntimeOwnership.self, from: data),
+                  let identity = OwnerIdentity.fromRecord(ownership.record) else { continue }
+            owners.append((ownership.workerId, identity))
+        }
+        return owners.sorted { $0.workerId < $1.workerId }
+    }
+
+    /// Explicit removal of one worker receipt. NOT called on terminal (receipts
+    /// are retained per RLR-L5 step 8) — a bounded reaper (S06) owns cleanup.
+    public static func clearWorkerOwner(workerId: String, inRunDirectory runDirectory: URL) {
+        try? FileManager.default.removeItem(at: workerOwnerURL(workerId: workerId, in: runDirectory))
+    }
+
     // MARK: - Progress heartbeat
 
     public struct ProgressHeartbeat: Codable, Sendable, Equatable {
@@ -276,10 +359,31 @@ public enum ProcessOwnership {
     }
 
     /// True when the recorded identity still names the same live process.
+    ///
+    /// RLR-L5 identity-alive: `pid exists ∧ startTimeTicks match ∧ state ≠ zombie`.
+    /// A reaped-but-unwaited `<defunct>` child answers `kill(pid,0)` and matches
+    /// its start time, so it must be excluded explicitly — it is not doing work.
+    /// This is the SINGLE definition shared by kill-verify, `ps`, reconcile, GC,
+    /// and the S06 orphan scan.
     public static func isIdentityAlive(_ identity: OwnerIdentity) -> Bool {
         guard processAlive(identity.pid) else { return false }
         guard let liveTicks = processStartTimeTicks(identity.pid) else { return false }
-        return liveTicks == identity.startTimeTicks
+        guard liveTicks == identity.startTimeTicks else { return false }
+        return !processIsZombie(identity.pid)
+    }
+
+    /// True when `pid` is a zombie (`<defunct>`: exited, not yet waited). Reads
+    /// `kinfo_proc.kp_proc.p_stat == SZOMB` via the same sysctl as
+    /// `processStartTimeTicks`. A missing/unreadable proc reads not-zombie
+    /// (liveness is decided by `processAlive` / start-time match, not here).
+    public static func processIsZombie(_ pid: Int32) -> Bool {
+        guard pid > 0 else { return false }
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        let rc = sysctl(&mib, u_int(mib.count), &info, &size, nil, 0)
+        guard rc == 0, size >= MemoryLayout<kinfo_proc>.stride else { return false }
+        return Int32(info.kp_proc.p_stat) == SZOMB
     }
 
     /// Owner of a non-terminal run is dead when missing, unreadable, or
@@ -598,9 +702,13 @@ public enum ProcessOwnership {
             return false
         }
         // Identity match required when the pid is still alive (wrong start time =
-        // recycled: do NOT signal that process's group).
+        // recycled: do NOT signal that process's group). This is the RECYCLED-pid
+        // guard — a start-time match, NOT the zombie-aware `isIdentityAlive`: a
+        // defunct leader still owns its (possibly still-live) group by pgid, and
+        // reaping those orphans is exactly what this signal is for. Zombie-aware
+        // liveness is for ps/reconcile/GC/kill-verify, not for gating the signal.
         if processAlive(identity.pid) {
-            guard isIdentityAlive(identity) else { return false }
+            guard processStartTimeTicks(identity.pid) == identity.startTimeTicks else { return false }
         }
         // Dead-or-matched: best-effort group kill for the *recorded* pgid (strays).
         terminateProcessGroup(pgid: pgid)
@@ -850,12 +958,14 @@ public enum ProcessOwnership {
             // Spawn succeeded but identity unreadable — still return a best-effort record.
             let fallback = OwnerIdentity(pid: pid, pgid: pid, startTimeTicks: 0, kind: kind)
             if kind == .devTurn { recordSpawnedTurnOwner(fallback) }
+            recordSpawnedWorkerOwner(fallback)
             return SpawnedProcessGroup(
                 pid: pid, identity: fallback,
                 stdinWriteFD: stdinParent, stdoutReadFD: stdoutParent, stderrReadFD: stderrParent
             )
         }
         if kind == .devTurn { recordSpawnedTurnOwner(identity) }
+        recordSpawnedWorkerOwner(identity)
         return SpawnedProcessGroup(
             pid: pid, identity: identity,
             stdinWriteFD: stdinParent, stdoutReadFD: stdoutParent, stderrReadFD: stderrParent

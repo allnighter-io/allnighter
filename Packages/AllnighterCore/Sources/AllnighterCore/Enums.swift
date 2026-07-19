@@ -121,3 +121,18 @@ public struct ProcessOwnerRecord: Codable, Sendable, Equatable {
         self.kind = kind
     }
 }
+
+/// RLR-L5 `runtimeOwnership`: a durable worker OS-identity receipt keyed by
+/// worker id. Persisted at `workers/<safeStem(workerId)>.owner.json` in the run
+/// dir (the coordinator stays at the run-dir-root `owner.json` — a separate
+/// owner). The `record` is the worker's own process group (`pgid == pid`,
+/// recorded atomically at spawn) so a killer signals exactly the recorded tree.
+public struct RuntimeOwnership: Codable, Sendable, Equatable {
+    public var workerId: String
+    public var record: ProcessOwnerRecord
+
+    public init(workerId: String, record: ProcessOwnerRecord) {
+        self.workerId = workerId
+        self.record = record
+    }
+}

@@ -18,7 +18,8 @@ public struct SpawnResolvingCommandRunner: StreamingCommandRunner {
     private let shellPath: String
 
     public init(
-        inner: any StreamingCommandRunner = SubprocessCommandRunner(),
+        inner: any StreamingCommandRunner = SubprocessCommandRunner(
+            environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
         invocations: [String: ToolInvocation],
         shellPath: String? = nil
     ) {

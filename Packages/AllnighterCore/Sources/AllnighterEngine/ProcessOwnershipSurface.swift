@@ -112,6 +112,11 @@ public struct ProcessOwnershipSurface: Sendable {
         var killed: [OwnershipKillRowJSON] = []
         var skipped: [OwnershipKillSkipJSON] = []
         for row in snapshot.processes {
+            // RLR-S04a: recorded worker receipts are read-only `ps` substrate, not
+            // independently kill-targetable rows (their group is settled through
+            // the owning run — the settlement routine lands in S04b). Skip silently
+            // so `kill --all` semantics are unchanged by the new receipts.
+            guard row.kind != "worker" else { continue }
             guard row.identityAlive else {
                 skipped.append(.init(id: row.id, reason: row.endReason != nil ? "alreadyTerminal" : "identityNotAlive"))
                 continue
@@ -176,6 +181,20 @@ public struct ProcessOwnershipSurface: Sendable {
                 status: run.status.rawValue,
                 phase: run.phase?.rawValue
             ))
+            // RLR-S04a: surface each recorded worker `runtimeOwnership` receipt
+            // (zombie-aware identity-alive) so the recorded worker tree is visible
+            // in `ps`. Read-only substrate — `killAll` skips these (worker groups
+            // are settled through their run, not killed independently in S04a).
+            for (workerId, wIdentity) in ProcessOwnership.readWorkerOwners(inRunDirectory: dir) {
+                rows.append(OwnershipProcessJSON(
+                    id: workerId,
+                    kind: "worker",
+                    projectRoot: run.repoRoot,
+                    identity: wIdentity.asRecord(),
+                    identityAlive: ProcessOwnership.isIdentityAlive(wIdentity),
+                    wouldReconcile: false
+                ))
+            }
         }
         return rows
     }

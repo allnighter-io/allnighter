@@ -284,6 +284,68 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
                       "killing a blocked waiter must not touch the holder")
     }
 
+    // MARK: - RLR-S04a: async worker runtimeOwnership recorded as a group leader
+
+    /// The async `alln team start` worker is now spawned via
+    /// `ProcessGroupCommandRunner` (RLR-S04a), so its OS identity is recorded as
+    /// `runtimeOwnership` keyed by worker id — `pgid == its own pid`, atomic at
+    /// spawn — and the recorded group is genuinely reachable. This proves the old
+    /// `SubprocessCommandRunner` setpgid detachment (site C, unrecorded own group)
+    /// is gone. No kill is exercised (that flips green in S04b).
+    func testAsyncWorkerRuntimeOwnershipRecordedAsGroupLeader() throws {
+        try Self.requireRedGate()
+        let alln = try Self.locateAllnBinary()
+
+        var fixture = try Fixture.make(name: "rlr-s04a-async")
+        defer { fixture.tearDown(alln: alln, markerSleeps: ["4935"]) }
+
+        try fixture.installFakeWorker(extraEnv: [
+            "RLR_FAKE_SLEEP_SECONDS": "4935",
+            "RLR_FAKE_HANG": "1",
+        ])
+        try fixture.seedReadyClaude()
+        try fixture.seedSingleWorkerTeam(id: Self.teamId)
+
+        let env = fixture.env
+        let store = RunStore(rootDirectory: fixture.support.appendingPathComponent("Runs", isDirectory: true))
+
+        let start = try Self.startTeam(alln, prompt: "owner brief c", cwd: fixture.repo, env: env, teamId: Self.teamId)
+        let runId = try XCTUnwrap(start["runId"] as? String, "team start must return a runId")
+
+        _ = fixture.waitForWorkerLog(needles: ["owner brief c"], test: self)
+        XCTAssertFalse(Self.waitForAlive(matching: "sleep 4935", timeout: 15).isEmpty,
+                       "precondition: the fake worker child must be alive")
+
+        let runDir = try store.runDirectory(forRunId: runId)
+
+        // A recorded worker runtimeOwnership receipt appears (keyed by the team's
+        // worker id "r1"), pgid == its own pid.
+        var owners: [(workerId: String, identity: ProcessOwnership.OwnerIdentity)] = []
+        let deadline = Date().addingTimeInterval(15)
+        while Date() < deadline {
+            owners = ProcessOwnership.readWorkerOwners(inRunDirectory: runDir)
+            if let first = owners.first, first.identity.pgid != nil { break }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        let worker = try XCTUnwrap(owners.first, "worker runtimeOwnership must be recorded on the async path")
+        let pgid = try XCTUnwrap(worker.identity.pgid, "recorded worker must carry a pgid")
+        XCTAssertEqual(pgid, worker.identity.pid, "recorded worker pgid == its own pid (group leader, not detached)")
+        XCTAssertEqual(worker.identity.kind, .devTurn)
+        XCTAssertTrue(ProcessOwnership.isIdentityAlive(worker.identity),
+                      "the live recorded worker is identity-alive")
+
+        // The recorded group is reachable (non-empty) — the site-C detachment is gone.
+        XCTAssertFalse(ProcessOwnership.isProcessGroupEmpty(pgid),
+                       "recorded worker group must be reachable (not detached into an unrecorded group)")
+
+        // The coordinator is a SEPARATE owner at the run-dir root (detached runner).
+        let coordinator = try XCTUnwrap(ProcessOwnership.readOwnerIdentity(in: runDir),
+                                        "coordinator owner.json must exist separately")
+        XCTAssertEqual(coordinator.kind, .detachedRunner)
+        XCTAssertNotEqual(coordinator.pid, worker.identity.pid,
+                          "coordinator and worker are distinct owners")
+    }
+
     // MARK: - Red gate
 
     /// Default CI stays green: skip unless the operator opts into the red

@@ -595,6 +595,18 @@ public actor RunService {
             invocations: invocations, defaultWorkingDirectory: root
         )
 
+        // RLR-S04a: this foreground process IS the (in-process) coordinator.
+        // Record it as a separate root owner (never PG-killed — it is a receipt
+        // the contradiction surface reads) and point worker process-group spawns
+        // at this run dir so each worker records `runtimeOwnership` keyed by id.
+        if let runDir = try? runStore.runDirectory(forRunId: id) {
+            ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: runDir)
+            if let coordinator = ProcessOwnership.OwnerIdentity.current(kind: .inProcess) {
+                try? ProcessOwnership.writeOwnerIdentity(coordinator, in: runDir)
+            }
+        }
+        defer { ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: nil) }
+
         if preset.runShape == .execution {
             return await runExecution(
                 preset: preset, prompt: prompt, context: request.context, threadId: request.threadId,

@@ -82,7 +82,13 @@ public actor AsyncTeamService {
         teams: [TeamPreset] = TeamCatalog.all,
         config: ToolConfig = ToolConfig(),
         runStore: RunStore = RunStore(),
-        commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
+        // RLR-S04a: record the worker's OWN process group (pgid == pid, atomic at
+        // posix_spawn SETPGROUP) instead of AgentOS SubprocessCommandRunner's racy
+        // post-hoc `setpgid` that detached the worker into an UNRECORDED group. Same
+        // env policy (`AllnighterSpawnEnvironmentPolicy`) so driver env composition
+        // is preserved; the worker tree is now genuinely addressable + recorded.
+        commandRunner: CommandRunner = ProcessGroupCommandRunner(
+            environmentPolicy: AllnighterSpawnEnvironmentPolicy(), spawnKind: .devTurn),
         governor: TeamGovernor? = nil,
         idempotency: IdempotencyStore = IdempotencyStore(),
         remoteEventJournal: RemoteRunEventJournal? = nil,
@@ -610,6 +616,11 @@ public actor AsyncTeamService {
         if let identity = ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner) {
             try? ProcessOwnership.writeOwnerIdentity(identity, in: directory)
         }
+        // RLR-S04a: worker process-group spawns under this run record their
+        // `runtimeOwnership` (workers/<id>.owner.json) into THIS run dir. The
+        // coordinator (owner.json, written above) stays a separate owner. This
+        // runner process serves exactly one run, then exits — no clear needed.
+        ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: directory)
         ProcessOwnership.clearStageLease(in: directory)
         try? ProcessOwnership.recordProgress(in: directory, phase: "runner_starting", now: now())
 
