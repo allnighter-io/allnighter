@@ -77,6 +77,35 @@ final class HelpTopicRegistryTests: XCTestCase {
         }
     }
 
+    /// ASF-S05: first-contact decision tree covers run / team / thread / pending / hello --for.
+    func testToolSelectionDecisionTreeMentionsCoreVerbs() throws {
+        let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "tool_selection"))
+        let prose = ([topic.summary, topic.bodyMarkdown]
+                     + topic.sections.map(\.bodyMarkdown)).joined(separator: "\n")
+        for needle in [
+            "alln run",
+            "alln team start",
+            "alln thread send",
+            "alln pending",
+            "hello --for",
+        ] {
+            XCTAssertTrue(prose.contains(needle), "tool_selection must mention '\(needle)'")
+        }
+        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "which command"), "tool_selection")
+        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "run vs team"), "tool_selection")
+        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "thread send"), "tool_selection")
+    }
+
+    /// ASF-S06: bootstrap teaches rebuild + install-cli + version freshness.
+    func testBootstrapTeachesSelfBuildOneLiner() throws {
+        let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "bootstrap"))
+        let prose = topic.summary + " " + topic.bodyMarkdown
+        XCTAssertTrue(prose.contains("swift build -c release --product alln"))
+        XCTAssertTrue(prose.contains("alln install-cli"))
+        XCTAssertTrue(prose.contains("version --json") || prose.contains("alln version"))
+        XCTAssertTrue(prose.contains("tool_selection") || prose.contains("hello --for"))
+    }
+
     /// Golden: team_run_loop teaches CLI verbs in both markdown projections.
     func testTeamRunLoopGoldenCLIVerbsInTopicAndDocsMarkdown() throws {
         let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "team_run_loop"))

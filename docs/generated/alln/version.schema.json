@@ -6,11 +6,23 @@
     "binaryVersion" : {
       "type" : "string"
     },
+    "buildTime" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
     "contractHash" : {
       "type" : "string"
     },
     "contractVersion" : {
       "type" : "string"
+    },
+    "gitSha" : {
+      "type" : [
+        "string",
+        "null"
+      ]
     },
     "schemaVersion" : {
       "type" : "integer"

@@ -46,6 +46,11 @@ ran_any=true
 bash "$ROOT/scripts/check_spawn_policy.sh"
 ran_any=true
 
+# ASF-S06: embed git SHA + build timestamp before compiling the CLI / running tests.
+echo "==> generate BuildInfo (gitSha / buildTime)"
+bash "$ROOT/scripts/generate_build_info.sh"
+ran_any=true
+
 if [[ -f "$ROOT/Packages/AllnighterCore/Package.swift" ]]; then
   echo "==> swift test AllnighterCore"
   swift test --package-path "$ROOT/Packages/AllnighterCore"

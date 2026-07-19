@@ -1685,14 +1685,23 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln version [--json]` / `alln --version` — binary + contract identity.
+    /// `alln version [--json]` / `alln --version` — binary + contract + build identity.
     static func runVersion(_ args: [String]) {
         let opts = Options(args)
-        let payload = VersionJSON(binaryVersion: binaryVersion)
+        let payload = VersionJSON(
+            binaryVersion: binaryVersion,
+            gitSha: BuildInfo.gitSha,
+            buildTime: BuildInfo.buildTime
+        )
         if opts.flag("json") {
             print(jsonString(payload))
         } else {
-            print("alln \(payload.binaryVersion) (contract \(payload.contractVersion), hash \(payload.contractHash.prefix(12))…)")
+            var line = "alln \(payload.binaryVersion) (contract \(payload.contractVersion), hash \(payload.contractHash.prefix(12))…"
+            if let sha = payload.gitSha, sha != "unknown", !sha.isEmpty {
+                line += ", git \(sha.prefix(12))"
+            }
+            line += ")"
+            print(line)
         }
     }
 

@@ -93,26 +93,56 @@ public enum HelpTopicRegistry {
             `--json` returns `{ host, pasteTarget, snippet, binaryPath, onPath, recipes, recipesHelp }` \
             so an agent can install itself and discover intent-titled recipe cards \
             (`recipes[]` is id+title only; full markdown via `recipesHelp`).
+
+            When unsure which verb to use (`run` vs `team` vs `thread send` vs `pending`), \
+            call `alln team hello --for` or read `alln help get tool_selection`.
+
+            To rebuild this CLI from an Allnighter checkout: `swift build -c release --product alln`, \
+            then `alln install-cli` (symlinks the workspace release build onto PATH). Confirm \
+            freshness with `alln version --json` (binaryVersion plus gitSha / buildTime).
             """,
             aliases: ["install", "setup", "connect agent", "activation", "add to agent",
-                     "wire up allnighter", "onboard agent", "mcp install", "mcp", "install mcp"],
-            relatedCommandNames: ["install-cli", "bootstrap", "help get", "help search", "team hello", "doctor"],
+                     "wire up allnighter", "onboard agent", "mcp install", "mcp", "install mcp",
+                     "rebuild", "self build", "fresh binary", "build alln"],
+            relatedCommandNames: ["install-cli", "bootstrap", "help get", "help search", "team hello", "doctor", "version"],
             schemaRefs: [],
             needsLiveCheck: false),
 
         HelpTopic(
             id: "tool_selection", title: "Command Selection", audience: .agent,
-            summary: "Pick the right `alln` command by intent: `team preflight` before `team start`, `pending run` for later work, `spec`/`show` for results.",
+            summary: "When unsure, start with `alln team hello --for`. Then pick `run`, `team`/`team start`, `thread send`, or `pending` by intent.",
             bodyMarkdown: """
-            For a long team run, call `alln team preflight` first, then `alln team start` \
-            with an idempotency key, poll `alln team result` with `nextPollAfterMs`, then read \
-            `alln show`. For a quick capability check call `alln team hello`. For full run \
-            packets use `alln spec`. Do not answer Allnighter product questions from \
-            training data when these commands are available.
+            When unsure which command to use, call `alln team hello --for "<intent>" --json` \
+            first — it recommends a team or primitive and a runnable `command`. Do not invent flags.
+
+            Verb tree:
+            - `alln run` — single worker / chat / named-model ask in the project root \
+            (Default Team). One message; optional `--worker` or `--team`.
+            - `alln team` — foreground multi-seat lane team on a prompt.
+            - `alln team start` — async multi-seat team run. Always `alln team preflight` \
+            before a real start; poll `alln team status` / `alln team result` with \
+            `nextPollAfterMs`, then `alln show`.
+            - `alln thread send` — continue an existing work thread (not a fresh one-shot).
+            - `alln pending` — defer work (`alln pending add`); run later with `alln pending run`.
+
+            For a quick capability check call `alln team hello`. For full run packets use \
+            `alln spec`. Do not answer Allnighter product questions from training data when \
+            these commands are available.
             """,
-            aliases: ["which tool", "what tool should i use", "routing", "help"],
-            relatedCommandNames: ["help search", "help get", "team preflight", "team start", "team result",
-                                  "team hello", "pending run", "spec", "show"],
+            aliases: ["which tool", "what tool should i use", "routing", "help",
+                      "which command", "which command should i use", "what command",
+                      "run vs team", "thread send", "command selection", "first contact",
+                      "when to use run", "when to use team"],
+            sections: [
+                .init("when-unsure", "When unsure", "Call `alln team hello --for \"<intent>\" --json` before picking a verb."),
+                .init("run", "alln run", "Single worker / chat / named-model ask in the project root."),
+                .init("team", "alln team / team start", "Multi-seat: foreground `alln team`, or async `alln team start` after preflight."),
+                .init("thread", "alln thread send", "Continue a work thread with `alln thread send`."),
+                .init("pending", "alln pending", "Defer with `alln pending add`; execute later with `alln pending run`."),
+            ],
+            relatedCommandNames: ["help search", "help get", "team hello", "run", "team",
+                                  "team preflight", "team start", "team result", "thread send",
+                                  "pending add", "pending run", "spec", "show"],
             schemaRefs: ["teamStartResponse"],
             needsLiveCheck: true),
 
