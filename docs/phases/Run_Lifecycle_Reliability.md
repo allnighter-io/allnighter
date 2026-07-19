@@ -38,10 +38,21 @@ boundary durable-before-waits with hard-gated acceptance save
 (`RUN_JOURNAL_UNAVAILABLE`), save-before-emit, support-dir on errors,
 idempotency key+hash at acceptance; `JOURNAL_CORRUPT` guard, clock-default
 constants, wire freeze + catalog/docs regen. Signature (b) terminal-lie
-stays red for S04. **S02 (FIFO blockers) is next.** Known debt: `check.sh`
-blocks on pre-existing `check_spawn_policy` gate (bare
-`SubprocessCommandRunner`, AgentOS relocation) — same component the matrix
-flagged; resolve with or before S04.
+stays red for S04. Known debt: `check.sh` blocks on pre-existing
+`check_spawn_policy` gate (bare `SubprocessCommandRunner`, AgentOS
+relocation) — same component the matrix flagged; resolve with or before
+S04.
+
+**S02 DELIVERED 2026-07-19** (commits `7ff18d7b` S02a, `84b42268` S02b,
+`9655b6a1` S02c; plan `docs/phases/rlr/S02_Execution_Plan.md`): blocked
+runs carry durable FIFO ticket facts naming the true holder by canonical
+runId (live position re-fire included), `blocker{}` on the wire,
+no-spawn-while-blocked proven; root isolation proven (case collapse
+verified at the normalize layer — no second normalizer; frozen key
+untouched); terminal revision clears blocker + withdraws the FIFO waiter
+atomically incl. second-process kill (self-abandon poll + pre-spawn
+terminal guard; late-grant race pinned). Works Test items 3 + 14 GREEN
+cross-process. **S03 (activity truth + seq NDJSON) is next.**
 
 ## Founder intent
 
