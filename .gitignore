@@ -78,6 +78,9 @@ fastlane/test_output
 # Workflow local state
 .wmd/
 
+# Local scratch (agent review prompts, stderr dumps, one-off notes)
+.tmp/
+
 # Cursor (keep hooks.json; ignore local watcher logs)
 .wmd/commit-queue-watcher.log
 .wmd/commit-queue-watcher.pid
