@@ -91,6 +91,12 @@
             }
           ]
         },
+        "lastActivityKind" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "lastProgressAt" : {
           "type" : [
             "string",
@@ -100,6 +106,12 @@
         "phase" : {
           "type" : [
             "string",
+            "null"
+          ]
+        },
+        "progressStale" : {
+          "type" : [
+            "boolean",
             "null"
           ]
         },

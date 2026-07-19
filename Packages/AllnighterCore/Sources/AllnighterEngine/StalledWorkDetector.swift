@@ -278,7 +278,12 @@ public enum StalledWorkDetector {
     private static func observableEvent(for run: TeamRun) -> StallObservableEvent {
         let workerTimes = run.workerAnswers.compactMap { $0.result.timing.finishedAt ?? $0.result.timing.startedAt }
         let stageTimes = run.stages.compactMap(\.finishedAt)
-        let at = (workerTimes + stageTimes + [run.createdAt]).max() ?? run.createdAt
+        // RLR-S03a / RLR-L6: prefer the durable `lastActivityAt` so mid-token
+        // liveness is visible (settled worker-answer / stage timestamps only move
+        // when a worker or stage completes — blind during a live stream). Falls
+        // back to those timestamps for legacy runs with no activity clock yet.
+        let activityTimes = [run.lastActivityAt].compactMap { $0 }
+        let at = (workerTimes + stageTimes + activityTimes + [run.createdAt]).max() ?? run.createdAt
         return StallObservableEvent(
             at: at,
             kind: "teamRun.\(AsyncTeamStatusMapper.liveStatus(for: run).rawValue)",

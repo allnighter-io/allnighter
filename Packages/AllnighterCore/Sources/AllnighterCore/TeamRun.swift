@@ -135,6 +135,15 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// (`waitingForWriteLock`), cleared when the lock is acquired and on any
     /// terminal transition. Optional so legacy `run.json` decodes to `nil`.
     public var blocker: RunBlocker? = nil
+    /// Durable last-activity clock (RLR-L6 / S03a). Advances ONLY on post-spawn
+    /// L6 activity (structured message, bounded stdout/stderr metadata, child
+    /// transition, exit) — NEVER on spawn, heartbeats, or per-tick timers. Nil
+    /// until the first post-spawn activity; legacy `run.json` decodes to `nil`.
+    /// A second process polls this off `run.json` (the durable truth), replacing
+    /// the retired `heartbeat.json`.
+    public var lastActivityAt: Date? = nil
+    /// Kind of the last recorded activity (RLR-L6). Nil before first activity.
+    public var lastActivityKind: RunActivityKind? = nil
     /// Non-optional view of `links` for callers.
     public var runLinks: [RunLink] { links ?? [] }
 
@@ -171,6 +180,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         proofResult: RunProofResult? = nil,
         endReason: RunEndReason? = nil,
         blocker: RunBlocker? = nil,
+        lastActivityAt: Date? = nil,
+        lastActivityKind: RunActivityKind? = nil,
         links: [RunLink]? = nil
     ) {
         self.id = id
@@ -205,6 +216,8 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.proofResult = proofResult
         self.endReason = endReason
         self.blocker = blocker
+        self.lastActivityAt = lastActivityAt
+        self.lastActivityKind = lastActivityKind
         self.links = links
     }
 }

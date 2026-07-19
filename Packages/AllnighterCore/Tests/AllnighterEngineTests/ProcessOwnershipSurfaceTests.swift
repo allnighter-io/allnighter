@@ -61,13 +61,15 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
         let (support, runs, relays, lanes, surface) = try tempTree()
         defer { try? FileManager.default.removeItem(at: support) }
 
-        // Live in-process run owner.
-        let liveRun = nonTerminalRun(id: "run-alive")
+        // Live in-process run owner. RLR-S03a: `ps` sources last-activity from
+        // `run.json.lastActivityAt` (not `heartbeat.json`, retired) — stamp it.
+        var liveRun = nonTerminalRun(id: "run-alive")
+        liveRun.lastActivityAt = Date()
+        liveRun.lastActivityKind = .message
         try runs.save(liveRun, models: [])
         let runDir = try runs.runDirectory(forRunId: "run-alive")
         let liveIdentity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner))
         try ProcessOwnership.writeOwnerIdentity(liveIdentity, in: runDir)
-        try ProcessOwnership.recordProgress(in: runDir, phase: "fanning_out")
 
         // Dead-owner run (would reconcile).
         let deadRun = nonTerminalRun(id: "run-dead")

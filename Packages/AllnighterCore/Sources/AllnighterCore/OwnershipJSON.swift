@@ -24,10 +24,10 @@ public struct OwnershipPsJSON: Codable, Sendable, Equatable {
 /// One owned process tree in the `alln ps` inventory.
 ///
 /// Wire-shape freeze (S01c): field **names** on this type are frozen from
-/// here forward. `phase` lands now (RLR-L3, S01a); still-owed additions per
-/// the RLR execution plan (not yet on the wire, do not add early): a typed
-/// `blocker` richer than `lane`/`OwnershipLaneJSON` (S02), `lastActivityKind`
-/// / `progressStale` (S03), `killOutcome` / `contradiction` (S04).
+/// here forward. `phase` lands now (RLR-L3, S01a); `lastActivityKind` /
+/// `progressStale` land now (RLR-L6, S03a) — sourced from `run.json`, never
+/// `heartbeat.json`. Still-owed additions per the RLR execution plan (not yet
+/// on the wire, do not add early): `killOutcome` / `contradiction` (S04).
 public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
     /// Stable work id (run id, relay id, or harness-proof claim id).
     public var id: String
@@ -43,9 +43,18 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
     public var wouldReconcile: Bool
     /// Lane snapshot for this root: held / ticket / none.
     public var lane: OwnershipLaneJSON?
+    /// Last durable activity time (RLR-L6). For run rows this is
+    /// `run.json.lastActivityAt` (NOT `heartbeat.json`, retired as truth); nil
+    /// before first post-spawn activity.
     public var lastProgressAt: Date?
-    /// Seconds since `lastProgressAt` (nil when no progress heartbeat).
+    /// Seconds since `lastProgressAt` (nil when no activity yet).
     public var heartbeatAgeSeconds: Double?
+    /// Kind of the last activity (RLR-L6): `tool|message|stdout|stderr|child|exit`.
+    /// Nil before first activity or for rows with no activity axis.
+    public var lastActivityKind: String?
+    /// Read-time staleness derivation (RLR-L6): `now - lastActivityAt` past the
+    /// idle budget. Absent (nil) before first post-spawn activity — never invented.
+    public var progressStale: Bool?
     /// Stamped end reason when terminal (`completed|failed|cancelled|reconciledOrphan|killed|…`).
     public var endReason: String?
     /// Durable status string when available (run status, relay status).
@@ -64,6 +73,8 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
         lane: OwnershipLaneJSON? = nil,
         lastProgressAt: Date? = nil,
         heartbeatAgeSeconds: Double? = nil,
+        lastActivityKind: String? = nil,
+        progressStale: Bool? = nil,
         endReason: String? = nil,
         status: String? = nil,
         phase: String? = nil
@@ -77,6 +88,8 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
         self.lane = lane
         self.lastProgressAt = lastProgressAt
         self.heartbeatAgeSeconds = heartbeatAgeSeconds
+        self.lastActivityKind = lastActivityKind
+        self.progressStale = progressStale
         self.endReason = endReason
         self.status = status
         self.phase = phase

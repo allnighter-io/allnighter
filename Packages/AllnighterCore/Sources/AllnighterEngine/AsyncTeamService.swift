@@ -58,7 +58,6 @@ public actor AsyncTeamService {
     private struct ActiveRun {
         var slot: TeamGovernor.Slot
         var task: Task<Void, Never>
-        var heartbeatTask: Task<Void, Never>?
     }
 
     private let models: [Model]
@@ -720,14 +719,17 @@ public actor AsyncTeamService {
             return copy
         }
         let cancelledRuns = cancelledRuns
+        // RLR-S03a: one in-memory activity clock per run, shared by the persist
+        // stamp (transition saves) and the event observer (streaming flush).
+        let activityRecorder = RunActivityRecorder()
         let persistDuringRun: @Sendable (TeamRun) -> Void = { incoming in
             cancelledRuns.saveIfActive(runId) {
-                _ = try? store.save(stamped(incoming), models: allModels)
-                // Progress-truth: touch on real progress (persist = worker/state change).
-                if let directory = try? store.runDirectory(forRunId: runId) {
-                    let phase = incoming.status.rawValue
-                    try? ProcessOwnership.recordProgress(in: directory, phase: phase)
-                }
+                // Stamp the latest durable activity onto this transition save so
+                // child/exit activity rides the write for free (RLR-L6). Nil
+                // before first post-spawn activity — spawn never advances it.
+                var toSave = stamped(incoming)
+                activityRecorder.stamp(&toSave)
+                _ = try? store.save(toSave, models: allModels)
             }
         }
 
@@ -739,34 +741,33 @@ public actor AsyncTeamService {
             now: now
         )
         let remoteEventJournal = remoteEventJournal
-        let heartbeatDirectory = try? store.runDirectory(forRunId: runId)
 
-        // Timer floor only — does not bump progress sequence.
-        let heartbeatTask = Task {
-            guard let heartbeatDirectory else { return }
-            while !Task.isCancelled {
-                try? ProcessOwnership.touchHeartbeatFloor(in: heartbeatDirectory)
-                try? await Task.sleep(nanoseconds: UInt64(ProcessOwnership.heartbeatIntervalSeconds * 1_000_000_000))
-            }
-        }
-
+        // RLR-S03a: no per-tick heartbeat floor timer. Durable activity truth
+        // lives on `run.json` (`lastActivityAt`), advanced ONLY by L6 events
+        // observed below — never by a timer (the RLR-L6 inference ban).
         let task = Task {
-            async let eventRecorder: Void = Self.recordRemoteEvents(coordinator.events, to: remoteEventJournal)
+            async let eventRecorder: Void = Self.recordRemoteEvents(
+                coordinator.events, to: remoteEventJournal,
+                store: store, recorder: activityRecorder, runId: runId
+            )
             _ = await coordinator.run(
                 resolved: resolved, prompt: prompt, models: models,
                 origin: origin, originAgent: request.originAgent,
                 runId: runId, repoRoot: request.repoRoot, persist: persistDuringRun
             )
             await eventRecorder
-            heartbeatTask.cancel()
+            activityRecorder.forget(runId: runId)
             self.finishActiveRun(runId: runId, slot: slot)
         }
-        activeRuns[runId] = ActiveRun(slot: slot, task: task, heartbeatTask: heartbeatTask)
+        activeRuns[runId] = ActiveRun(slot: slot, task: task)
     }
 
     private nonisolated static func recordRemoteEvents(
         _ events: AsyncStream<RunEvent>,
-        to journal: RemoteRunEventJournal
+        to journal: RemoteRunEventJournal,
+        store: RunStore,
+        recorder: RunActivityRecorder,
+        runId: String
     ) async {
         for await event in events {
             do {
@@ -774,6 +775,8 @@ public actor AsyncTeamService {
             } catch {
                 StreamDebugLog.log("REMOTE_EVENT_JOURNAL_APPEND_FAILED event=\(event.id) error=\(error)")
             }
+            // RLR-S03a: project L6 activity onto the durable journal.
+            RunActivityJournalProjection.observe(event, runId: runId, store: store, recorder: recorder)
         }
     }
 
@@ -784,12 +787,22 @@ public actor AsyncTeamService {
         _ = runStore.reconcileRun(runId: runId, models: models)
         guard let run = runStore.load(runId: runId) else { return nil }
         var response = AsyncTeamStatusMapper.statusResponse(for: run)
-        if let directory = try? runStore.runDirectory(forRunId: runId) {
-            response.lastProgressAt = ProcessOwnership.lastProgressAt(in: directory)
-            if !run.status.isTerminal,
-               !ProcessOwnership.isOwnerIdentityDead(in: directory),
-               ProcessOwnership.isProgressStale(in: directory) {
-                response.progressStale = true
+        // RLR-S03a / RLR-L6: activity truth is `run.json.lastActivityAt`, not
+        // `heartbeat.json` (retired). `progressStale` is a read-time derivation —
+        // absent (nil) before the first post-spawn activity, and only meaningful
+        // for a non-terminal run whose owner is still alive.
+        response.lastProgressAt = run.lastActivityAt
+        if !run.status.isTerminal {
+            let ownerAlive: Bool
+            if let directory = try? runStore.runDirectory(forRunId: runId) {
+                ownerAlive = !ProcessOwnership.isOwnerIdentityDead(in: directory)
+            } else {
+                ownerAlive = true
+            }
+            if ownerAlive {
+                response.progressStale = RunActivity.progressStale(
+                    lastActivityAt: run.lastActivityAt, now: now()
+                )
             }
         }
         return AsyncTeamStatusMapper.withWaitGuidance(response)
@@ -888,7 +901,6 @@ public actor AsyncTeamService {
         }
 
         if let active = activeRuns.removeValue(forKey: runId) {
-            active.heartbeatTask?.cancel()
             active.task.cancel()
         } else if let directory = try? runStore.runDirectory(forRunId: runId) {
             _ = ProcessOwnership.terminateRecordedOwnerIfSafe(in: directory)
@@ -924,9 +936,7 @@ public actor AsyncTeamService {
     // MARK: - helpers
 
     private func finishActiveRun(runId: String, slot: TeamGovernor.Slot) {
-        if let active = activeRuns.removeValue(forKey: runId) {
-            active.heartbeatTask?.cancel()
-        }
+        activeRuns.removeValue(forKey: runId)
         _ = slot
     }
 

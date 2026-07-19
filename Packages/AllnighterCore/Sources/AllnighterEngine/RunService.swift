@@ -659,9 +659,18 @@ public actor RunService {
         var timing = seedTiming
         let timeoutOverride = workerTimeoutSeconds.map { Duration.seconds($0) }
         var seq: Int64 = 0
+        // RLR-S03a: durable activity truth on the sync `alln run` seam. Every
+        // emitted event is projected onto `run.json.lastActivityAt` (streaming
+        // kinds flush coalesced; spawn/queued map to nil — RLR-L6).
+        let activityRecorder = RunActivityRecorder()
+        let activityStore = runStore
         func emit(_ kind: String, _ payload: [String: JSONValue]) {
             seq += 1
-            events?.yield(RunEvent(id: UUID().uuidString, seq: seq, ts: now(), kind: kind, payload: payload))
+            let event = RunEvent(id: UUID().uuidString, seq: seq, ts: now(), kind: kind, payload: payload)
+            events?.yield(event)
+            RunActivityJournalProjection.observe(
+                event, runId: runId, store: activityStore, recorder: activityRecorder
+            )
         }
 
         let bench = readyModels()

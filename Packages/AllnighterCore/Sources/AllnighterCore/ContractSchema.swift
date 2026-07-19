@@ -634,6 +634,8 @@ public enum ContractSchema {
                 "lane": nullableRef("OwnershipLane"),
                 "lastProgressAt": nullable("string"),
                 "heartbeatAgeSeconds": nullable("number"),
+                "lastActivityKind": nullable("string"),
+                "progressStale": nullable("boolean"),
                 "endReason": nullable("string"),
                 "status": nullable("string"),
                 "phase": nullable("string"),

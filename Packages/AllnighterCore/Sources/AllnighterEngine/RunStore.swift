@@ -71,7 +71,11 @@ public struct RunStore: Sendable {
                     try ProcessOwnership.writeOwnerIdentity(identity, in: directory)
                 }
             }
-            try? ProcessOwnership.touchHeartbeatFloor(in: directory)
+            // RLR-S03a: no per-save heartbeat floor touch. `heartbeat.json` is
+            // retired as truth — durable activity lives on `run.json`
+            // (`lastActivityAt`), advanced only by L6 events (RLR-L6). A per-save
+            // floor touch is exactly the banned per-tick write that let
+            // `touchedAt` advance while `sequence` stayed frozen at 0.
             try CoreJSON.encode(run).write(to: runURL, options: .atomic)
         }
 
@@ -356,5 +360,46 @@ public struct RunStore: Sendable {
     /// True when `pid` names a live process. Shared with `ProcessOwnership`.
     public static func processAlive(_ pid: Int32) -> Bool {
         ProcessOwnership.processAlive(pid)
+    }
+
+    /// RLR-S03a: minimal activity-only journal write. Re-reads the freshest
+    /// `run.json`, stamps `lastActivityAt`/`lastActivityKind`, and atomic-writes
+    /// `run.json` ONLY — no derived artifacts, no owner/heartbeat markers. Used
+    /// for the coalesced mid-stream flush of streaming activity (message /
+    /// stdout / stderr); transition activity rides the coordinator's persist
+    /// stamp instead. Guards on terminal state so a late flush can never
+    /// resurrect or clobber a settled run.
+    public func stampActivity(runId: String, at: Date, kind: RunActivityKind) {
+        let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
+        let runURL = directory.appendingPathComponent("run.json")
+        guard let data = try? Data(contentsOf: runURL),
+              var run = try? CoreJSON.decode(TeamRun.self, from: data),
+              !run.status.isTerminal else { return }
+        run.lastActivityAt = at
+        run.lastActivityKind = kind
+        try? CoreJSON.encode(run).write(to: runURL, options: .atomic)
+    }
+}
+
+/// RLR-S03a: the one durable-activity projection wiring. Classifies a `RunEvent`
+/// (`RunActivity.activityKind`), advances the in-memory recorder, and — only for
+/// streaming kinds (message/stdout/stderr/tool) — performs the coalesced
+/// `run.json` flush. Transition kinds (child/exit) ride the coordinator's
+/// persist stamp (`RunActivityRecorder.stamp`), so the two write paths never
+/// target `run.json` concurrently and an `.exit` can never resurrect a terminal
+/// run. Shared by the async runner and the sync `alln run` emit seam.
+public enum RunActivityJournalProjection {
+    public static func observe(
+        _ event: RunEvent, runId: String, store: RunStore, recorder: RunActivityRecorder
+    ) {
+        guard let kind = RunActivity.activityKind(for: event) else { return }
+        let shouldFlush = recorder.note(runId: runId, kind: kind, at: event.ts)
+        guard shouldFlush else { return }
+        switch kind {
+        case .message, .stdout, .stderr, .tool:
+            store.stampActivity(runId: runId, at: event.ts, kind: kind)
+        case .child, .exit:
+            break // rides the persist stamp — see doc above
+        }
     }
 }
