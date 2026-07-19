@@ -774,6 +774,33 @@
     "ruleId" : "ownership.identity.mismatch"
   },
   {
+    "agentAction" : "The run stays non-terminal with survivors named. Inspect them with `alln ps --json`, then retry `alln kill <id>` or escalate manually; the tool refuses to stamp `killed` over live work.",
+    "code" : "KILL_PARTIAL",
+    "exitClass" : "operational",
+    "explain" : "`alln kill`\/`team cancel` signalled the recorded tree but ≥1 recorded member is still identity-alive (or its group non-empty) after the grace. The verdict is `killOutcome: partial` — the lifecycle is left non-terminal (RLR-L5), never a false `killed` stamp.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "kill.partial"
+  },
+  {
+    "agentAction" : "No recorded member could be signalled (all identity-mismatched or non-PG-killable). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans; do not re-signal a recycled pid.",
+    "code" : "KILL_REFUSED",
+    "exitClass" : "operational",
+    "explain" : "`alln kill`\/`team cancel` found recorded members but could signal none of them — every candidate was a recycled pid or a non-group-killable owner. Nothing was stopped; the verdict is `killOutcome: refused` and the lifecycle stays non-terminal.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "kill.refused"
+  },
+  {
+    "agentAction" : "The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — poll `alln team status` or stop the worker at its source; the tool will not stamp `killed` unverified.",
+    "code" : "KILL_VERIFICATION_UNAVAILABLE",
+    "exitClass" : "operational",
+    "explain" : "The executing run carries no recorded worker identity to verify against (the warm-driver exclusion seam — warm pools record nothing). `killOutcome: verificationUnavailable`: a stop cannot be proven, so no terminal `killed` is stamped (RLR-L5).",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "kill.verification_unavailable"
+  },
+  {
     "agentAction" : "Inspect the error detail; retry the send or fix the worker.",
     "code" : "THREAD_SEND_FAILED",
     "exitClass" : "operational",

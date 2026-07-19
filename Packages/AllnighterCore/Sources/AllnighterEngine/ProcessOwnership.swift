@@ -715,6 +715,34 @@ public enum ProcessOwnership {
         return true
     }
 
+    /// Send ONLY `SIGTERM` to a recorded group, identity-guarded (RLR-S04b).
+    ///
+    /// The settlement routine (`KillSettlement`) needs to signal, wait a
+    /// mode-specific grace, then VERIFY per recorded member BEFORE deciding
+    /// whether anything survives — so it must not use `terminateProcessGroup`,
+    /// which bundles TERM→grace→SIGKILL and would reap a member before the
+    /// verify could observe it (RLR §2.4). Same recycled-pid guard as
+    /// `terminateOwnerIdentityIfSafe`: refuse non-PG-killable kinds, refuse a
+    /// missing pgid, and refuse a live pid whose start time no longer matches.
+    /// Routes through `terminateSignalHook` when set so tests observe the pgid
+    /// without real signals. Returns true when a signal path was taken.
+    @discardableResult
+    public static func signalOwnerGroupTermIfSafe(_ identity: OwnerIdentity) -> Bool {
+        guard identity.kind.isProcessGroupKillable,
+              let pgid = identity.pgid, pgid > 1 else {
+            return false
+        }
+        if processAlive(identity.pid) {
+            guard processStartTimeTicks(identity.pid) == identity.startTimeTicks else { return false }
+        }
+        if let hook = terminateSignalHook {
+            hook(pgid)
+            return true
+        }
+        _ = kill(-pgid, SIGTERM)
+        return true
+    }
+
     /// Directory-based reconcile/cancel: read owner.json then
     /// `terminateOwnerIdentityIfSafe` — never a second kill implementation.
     @discardableResult
@@ -842,8 +870,25 @@ public enum ProcessOwnership {
         posix_spawn_file_actions_init(&fileActions)
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
-        // Child becomes its own process group leader (pgid == pid).
-        posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETPGROUP))
+        // Child becomes its own process group leader (pgid == pid) AND starts with
+        // DEFAULT signal dispositions + an empty signal mask (RLR-S04b).
+        //
+        // Why the signal reset is load-bearing for the honest kill: `exec` preserves
+        // signals set to SIG_IGN (only CAUGHT handlers reset to default). The alln
+        // parent (or its runtime) ignores SIGTERM, so without this a spawned worker
+        // inherits SIG_IGN and silently IGNORES the settlement's SIGTERM — every kill
+        // would then read `partial` even for a compliant worker, making the whole
+        // verify useless. Resetting to SIG_DFL makes a worker that does not itself
+        // handle SIGTERM stop on it; a worker that explicitly traps SIGTERM in its
+        // own code (its disposition set AFTER exec) still wins, exactly as intended.
+        var defaultSignals = sigset_t()
+        sigfillset(&defaultSignals)
+        posix_spawnattr_setsigdefault(&attr, &defaultSignals)
+        var emptyMask = sigset_t()
+        sigemptyset(&emptyMask)
+        posix_spawnattr_setsigmask(&attr, &emptyMask)
+        posix_spawnattr_setflags(
+            &attr, Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK))
         posix_spawnattr_setpgroup(&attr, 0)
 
         var parentClose: [Int32] = []

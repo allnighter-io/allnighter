@@ -107,10 +107,13 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
         var fixture = try Fixture.make(name: "rlr-kill2proc")
         defer { fixture.tearDown(alln: alln, markerSleeps: ["4933", "4934"]) }
 
-        // Worker ignores SIGTERM and spawns a setsid grandchild that escapes any
-        // process-group kill — belt-and-suspenders around the core fact that the
-        // worker is its own group leader whose pgid is never recorded, so the
-        // recorded-owner kill can never reach it.
+        // RLR-S04b §2.4: the worker traps+ignores SIGTERM and re-loops its marked
+        // sleep, so THE RECORDED worker (its own process-group leader, whose pgid is
+        // now recorded by S04a) stays identity-alive through `alln kill`'s
+        // TERM→grace window. The settlement verify observes a live recorded member →
+        // KillOutcome.partial → non-terminal. The setsid grandchild is kept as
+        // belt-and-suspenders but is a no-op on macOS (setsid absent); the recorded
+        // worker is the load-bearing, deterministic survivor.
         try fixture.installFakeWorker(extraEnv: [
             "RLR_FAKE_SLEEP_SECONDS": "4933",
             "RLR_FAKE_GRANDCHILD_SLEEP": "4934",
@@ -135,9 +138,9 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
         let kill = try Self.runAlln(alln, ["kill", runId, "--json"], cwd: fixture.repo, env: env, timeout: 30)
         XCTAssertEqual(kill.status, 0, "kill failed: \(kill.stderr)")
 
-        // The worker (and its grandchild) survive the kill — the recorded-owner
-        // signal never reached them. This is the "kill did not reap a live
-        // worker" leg; if it is empty the signature is NOT present (report it).
+        // The recorded worker survives the kill — a TERM to its group is trapped
+        // and it re-loops its marked sleep. This is the "kill did not reach a
+        // verified stop" leg; if it is empty the signature is NOT present.
         let survivors = Self.waitForAlive(matching: "sleep 4933", timeout: 5)
             + Self.waitForAlive(matching: "sleep 4934", timeout: 5)
         XCTAssertFalse(
@@ -145,22 +148,35 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
             "could NOT reproduce (b): kill reaped the worker tree (no survivors) — the terminal stamp would be honest"
         )
 
-        // --- Spec-correct assertion (RED today) -------------------------------
-        // RLR-L5: an operator kill that does not reach verified stop must leave
-        // the lifecycle non-terminal (KillOutcome partial/refused) — it must NOT
-        // stamp endReason=killed while a live worker survives.
+        // §2.4: the survivor is a RECORDED, identity-alive member — the settlement
+        // verified a live worker and therefore returned `partial`.
+        let runDir = try store.runDirectory(forRunId: runId)
+        let recorded = ProcessOwnership.readWorkerOwners(inRunDirectory: runDir)
+        XCTAssertTrue(
+            recorded.contains { ProcessOwnership.isIdentityAlive($0.identity) },
+            "the survivor must be a RECORDED, identity-alive worker (owners: \(recorded.map(\.workerId)))"
+        )
+
+        // --- Spec-correct assertions (GREEN after S04b) -----------------------
+        // RLR-L5: an operator kill that does not reach a verified stop leaves the
+        // lifecycle non-terminal with a typed KillOutcome — it must NOT stamp
+        // endReason=killed while a live recorded worker survives.
         let journal = try XCTUnwrap(store.loadRaw(runId: runId), "journal must round-trip")
         XCTAssertNotEqual(
             journal.endReason, .killed,
             """
             RLR-L5 terminal lie: journal stamped endReason=killed \
-            (status=\(journal.status.rawValue)) while worker/grandchild survivors \(survivors) are alive. \
+            (status=\(journal.status.rawValue)) while worker survivors \(survivors) are alive. \
             A non-verified stop must stay non-terminal (KillOutcome partial/refused), not `killed`.
             """
         )
         XCTAssertFalse(
             journal.status.isTerminal,
             "RLR-L5: lifecycle must not be terminal (status=\(journal.status.rawValue)) while live survivors \(survivors) remain"
+        )
+        XCTAssertEqual(
+            journal.killOutcome, .partial,
+            "RLR-L5: a non-verified stop over a live recorded worker records KillOutcome.partial (got \(String(describing: journal.killOutcome)))"
         )
     }
 
@@ -473,16 +489,21 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
             _ = try? RunLifecycleTwoProcessTests.runAlln(
                 alln, ["kill", "--all", "--all-projects", "--json"], cwd: repo, env: env, timeout: 30
             )
-            // SIGKILL (not TERM): the fake worker may `trap '' TERM`, and its
-            // setsid grandchild escapes the run's process group — only an
-            // un-ignorable signal by unique argv guarantees no harness orphans.
-            for marker in markerSleeps {
-                let pkill = Process()
-                pkill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-                pkill.arguments = ["-9", "-f", "sleep \(marker)"]
-                try? pkill.run()
-                pkill.waitUntilExit()
+            func pkill(_ pattern: String) {
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+                p.arguments = ["-9", "-f", pattern]
+                try? p.run()
+                p.waitUntilExit()
             }
+            // RLR-S04b §2.4: the fake worker now traps TERM and re-loops its marked
+            // sleep, so it survives `alln kill` (that is the point — KillOutcome
+            // partial). SIGKILL it by the unique fixture temp path (its argv[0] is
+            // `<temp>/fakebin/claude`) FIRST so it stops respawning, then reap any
+            // orphaned marker sleeps. SIGKILL is un-ignorable; the temp path is
+            // unique to this fixture so no unrelated process is touched.
+            pkill(temp.path)
+            for marker in markerSleeps { pkill("sleep \(marker)") }
             try? FileManager.default.removeItem(at: temp)
         }
     }

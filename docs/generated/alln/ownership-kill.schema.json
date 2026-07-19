@@ -4,10 +4,29 @@
       "additionalProperties" : false,
       "properties" : {
         "endReason" : {
-          "type" : "string"
+          "type" : [
+            "string",
+            "null"
+          ]
         },
         "id" : {
           "type" : "string"
+        },
+        "killOutcome" : {
+          "oneOf" : [
+            {
+              "enum" : [
+                "stopped",
+                "partial",
+                "refused",
+                "verificationUnavailable"
+              ],
+              "type" : "string"
+            },
+            {
+              "type" : "null"
+            }
+          ]
         },
         "kind" : {
           "type" : "string"
@@ -19,7 +38,6 @@
       "required" : [
         "id",
         "kind",
-        "endReason",
         "signalled"
       ],
       "type" : "object"

@@ -128,7 +128,14 @@ public struct ProcessOwnershipSurface: Sendable {
             }
             switch kill(id: row.id) {
             case .success(let r):
-                killed.append(r)
+                // RLR-S04b: only a verified stop counts as killed. A non-terminal
+                // verdict (partial/refused/verificationUnavailable) is surfaced as a
+                // skip with its outcome, never counted as a kill.
+                if let outcome = r.killOutcome, outcome != KillOutcome.stopped.rawValue {
+                    skipped.append(.init(id: row.id, reason: "killOutcome:\(outcome)"))
+                } else {
+                    killed.append(r)
+                }
             case .failure(.alreadyTerminal(_, let end)):
                 skipped.append(.init(id: row.id, reason: "alreadyTerminal:\(end ?? "unknown")"))
             case .failure(.identityMismatch):
@@ -214,11 +221,31 @@ public struct ProcessOwnershipSurface: Sendable {
             if current.status.isTerminal {
                 return .failure(.alreadyTerminal(id: current.id, endReason: current.endReason?.rawValue))
             }
+            // The coordinator-owner recycled-pid guard is an early refusal (never
+            // signal the wrong process); worker survivors are settled below.
             if let identity = ProcessOwnership.readOwnerIdentity(in: directory),
                isIdentityMismatch(identity) {
                 return .failure(.identityMismatch(id: current.id))
             }
-            let signalled = ProcessOwnership.terminateRecordedOwnerIfSafe(in: directory)
+
+            // RLR-S04b: the ONE identity-checked settlement replaces the
+            // unconditional `.cancelled`/`.killed` stamp. `kill` stamps terminal
+            // ONLY on a verified `.stopped`; the other verdicts record `killOutcome`
+            // and leave the lifecycle non-terminal (RLR-L5).
+            let settlement = KillSettlement.settle(runDirectory: directory, mode: .kill, run: current)
+            current.killOutcome = settlement.outcome
+
+            guard settlement.outcome == .stopped else {
+                // Non-terminal verdict: persist the honest `killOutcome`, leave
+                // status/endReason/blocker untouched (survivors keep their ticket).
+                _ = try? runStore.save(current, models: [])
+                return .success(OwnershipKillRowJSON(
+                    id: current.id, kind: "run",
+                    endReason: nil, killOutcome: settlement.outcome.rawValue,
+                    signalled: settlement.signalled))
+            }
+
+            // Verified stop → the atomic terminal revision.
             current.status = .cancelled
             current.endReason = .killed
             for i in current.workerAnswers.indices where !current.workerAnswers[i].result.status.isTerminal {
@@ -231,6 +258,8 @@ public struct ProcessOwnershipSurface: Sendable {
             // immediately even though the killer is a different process — and its own
             // process self-abandons the parked wait via this terminal journal. No
             // interleaved state where the run is terminal but still queued in the lane.
+            // Gated on the `.stopped` verdict (RLR-L5 step 7): a `partial` kill of a
+            // still-live run must NOT withdraw the ticket.
             let wasBlocked = current.blocker != nil
             current.blocker = nil
             if wasBlocked {
@@ -238,7 +267,10 @@ public struct ProcessOwnershipSurface: Sendable {
                     laneKey: ExecutionLane.key(repoRoot: current.repoRoot), claimId: current.id)
             }
             _ = try? runStore.save(current, models: [])
-            return .success(OwnershipKillRowJSON(id: current.id, kind: "run", signalled: signalled))
+            return .success(OwnershipKillRowJSON(
+                id: current.id, kind: "run",
+                endReason: "killed", killOutcome: KillOutcome.stopped.rawValue,
+                signalled: settlement.signalled))
         }
     }
 

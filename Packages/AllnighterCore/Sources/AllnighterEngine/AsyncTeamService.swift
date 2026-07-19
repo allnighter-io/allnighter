@@ -911,26 +911,61 @@ public actor AsyncTeamService {
             return TeamCancelResponse(runId: runId, status: AsyncTeamStatusMapper.liveStatus(for: loaded), cancelledAt: now())
         }
 
-        if let active = activeRuns.removeValue(forKey: runId) {
-            active.task.cancel()
-        } else if let directory = try? runStore.runDirectory(forRunId: runId) {
-            _ = ProcessOwnership.terminateRecordedOwnerIfSafe(in: directory)
-        }
+        // Same-process ownership: we hold the run's task. Cancelling it stops the
+        // in-process work (and reaps any spawned worker group via the runner's own
+        // cancel handler) — an authoritative stop, no cross-process verify needed.
+        let inProcess = activeRuns.removeValue(forKey: runId)
+        inProcess?.task.cancel()
+        let directory = try? runStore.runDirectory(forRunId: runId)
+        let models = self.models
+        let runStore = self.runStore
 
         cancelledRuns.cancelAndSave(runId) {
-            ProcessOwnership.withRunLock(in: (try? self.runStore.runDirectory(forRunId: runId)) ?? self.runStore.rootDirectory) {
-                var run = self.runStore.loadRaw(runId: runId) ?? loaded
+            ProcessOwnership.withRunLock(in: directory ?? runStore.rootDirectory) {
+                var run = runStore.loadRaw(runId: runId) ?? loaded
                 // Never clobber an existing terminal status.
                 guard !run.status.isTerminal else { return }
+
+                // RLR-S04b: `team cancel` routes through the ONE settlement. The
+                // same-process path is authoritative (we own the task → verified
+                // stop); a detached run is verified per recorded member (mode
+                // `.cancel` = bounded TERM grace then verdict). Terminal only on a
+                // verified `.stopped`; partial/refused/verificationUnavailable
+                // record `killOutcome` and leave the lifecycle non-terminal.
+                let outcome: KillOutcome
+                if inProcess != nil {
+                    outcome = .stopped
+                } else if let directory {
+                    outcome = KillSettlement.settle(runDirectory: directory, mode: .cancel, run: run).outcome
+                } else {
+                    outcome = .verificationUnavailable
+                }
+                run.killOutcome = outcome
+                guard outcome == .stopped else {
+                    _ = try? runStore.save(run, models: models)
+                    return
+                }
                 run.status = .cancelled
                 run.endReason = .cancelled
                 for i in run.workerAnswers.indices where !run.workerAnswers[i].result.status.isTerminal {
                     run.workerAnswers[i].result.status = .cancelled
                 }
-                _ = try? self.runStore.save(run, models: self.models)
+                // RLR-L3: the terminal revision clears the blocker and withdraws any
+                // FIFO ticket atomically (mirrors `killRun`), gated on `.stopped`.
+                let wasBlocked = run.blocker != nil
+                run.blocker = nil
+                if wasBlocked {
+                    ExecutionLaneFlock.withdrawWaiter(
+                        laneKey: ExecutionLane.key(repoRoot: run.repoRoot), claimId: run.id)
+                }
+                _ = try? runStore.save(run, models: models)
             }
         }
-        return TeamCancelResponse(runId: runId, status: .cancelled, cancelledAt: now())
+        let after = runStore.loadRaw(runId: runId) ?? loaded
+        return TeamCancelResponse(
+            runId: runId,
+            status: AsyncTeamStatusMapper.liveStatus(for: after),
+            cancelledAt: now())
     }
 
     public func cancelAll() -> StopAllResult {

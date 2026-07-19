@@ -131,6 +131,12 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// Why this run ended — required for terminal runs (PO-S01). Optional so
     /// legacy `run.json` still decodes; reconcile/cancel/complete stamp it.
     public var endReason: RunEndReason? = nil
+    /// The typed verdict of the last kill/cancel settlement (RLR-L5, S04b). Set
+    /// on every operator kill/cancel; a `.stopped` verdict also stamps a terminal
+    /// `endReason`, while `partial`/`refused`/`verificationUnavailable` record the
+    /// verdict here and leave the lifecycle non-terminal (S01c pre-reserved this
+    /// name as owed-by-S04). Optional so legacy `run.json` decodes to `nil`.
+    public var killOutcome: KillOutcome? = nil
     /// What a non-terminal run is waiting on (RLR-L4). Set while `queued`
     /// (`waitingForWriteLock`), cleared when the lock is acquired and on any
     /// terminal transition. Optional so legacy `run.json` decodes to `nil`.
@@ -179,6 +185,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         uncommittedFileCount: Int? = nil,
         proofResult: RunProofResult? = nil,
         endReason: RunEndReason? = nil,
+        killOutcome: KillOutcome? = nil,
         blocker: RunBlocker? = nil,
         lastActivityAt: Date? = nil,
         lastActivityKind: RunActivityKind? = nil,
@@ -215,6 +222,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.uncommittedFileCount = uncommittedFileCount
         self.proofResult = proofResult
         self.endReason = endReason
+        self.killOutcome = killOutcome
         self.blocker = blocker
         self.lastActivityAt = lastActivityAt
         self.lastActivityKind = lastActivityKind

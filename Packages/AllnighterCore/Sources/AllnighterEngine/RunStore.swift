@@ -46,6 +46,22 @@ public struct RunStore: Sendable {
         let run = run
         let runURL = directory.appendingPathComponent("run.json")
         if run.status.isTerminal {
+            // RLR-S04b coordinator-clobber guard (RISK #1): a coordinator finishing
+            // normally must NOT stamp terminal over an operator kill's `partial`
+            // verdict while a recorded worker is still identity-alive. The operator's
+            // non-terminal partial is the current truth; the coordinator only reaches
+            // a legitimate terminal once its workers have actually exited. Scoped
+            // tightly: it bites ONLY when an on-disk `killOutcome: partial` + a live
+            // recorded worker coexist and this save is not itself the operator's
+            // kill/cancel terminal (those carry endReason killed/cancelled).
+            if run.endReason != .killed, run.endReason != .cancelled,
+               let existing = loadRaw(runId: run.id),
+               existing.killOutcome == .partial, !existing.status.isTerminal,
+               ProcessOwnership.readWorkerOwners(inRunDirectory: directory)
+                   .contains(where: { ProcessOwnership.isIdentityAlive($0.identity) }) {
+                // Preserve the operator's non-terminal partial; drop this terminal write.
+                return directory
+            }
             // Terminal: publish the terminal state, then drop ownership markers.
             // Never clobber an existing terminal status from a concurrent reconcile —
             // callers that need atomic terminal write use `reconcileRun` / cancel.

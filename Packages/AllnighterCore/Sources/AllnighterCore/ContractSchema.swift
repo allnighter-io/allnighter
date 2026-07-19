@@ -24,6 +24,11 @@ public enum ContractSchema {
     /// A nullable leaf (`["string","null"]`); object/array nullables use `oneOf`.
     private static func nullable(_ type: String) -> [String: Any] { ["type": [type, "null"]] }
     private static func nullableRef(_ name: String) -> [String: Any] { ["oneOf": [ref(name), ["type": "null"]]] }
+    /// A nullable enum: one of the string cases, or null (a `oneOf`, since a bare
+    /// `["string","null"]` + `enum` would exclude null from the enum list).
+    private static func nullableEnum(_ cases: [String]) -> [String: Any] {
+        ["oneOf": [enumStr(cases), ["type": "null"]]]
+    }
 
     private static var runStatus: [String: Any] { enumStr(["queued", "running", "done", "failed", "timedOut", "cancelled", "skipped", "interrupted"]) }
     /// Run-level status never includes `skipped` — only a worker/stage can be
@@ -674,8 +679,14 @@ public enum ContractSchema {
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
             "KillRow": obj([
-                "id": str, "kind": str, "endReason": str, "signalled": bool,
-            ], required: ["id", "kind", "endReason", "signalled"]),
+                "id": str, "kind": str,
+                // RLR-S04b: `endReason` present only on a verified stop; `killOutcome`
+                // is the typed settlement verdict. Both additive; `endReason` is no
+                // longer required (absent for partial/refused/verificationUnavailable).
+                "endReason": nullable("string"),
+                "killOutcome": nullableEnum(["stopped", "partial", "refused", "verificationUnavailable"]),
+                "signalled": bool,
+            ], required: ["id", "kind", "signalled"]),
             "KillSkip": obj([
                 "id": str, "reason": str,
             ], required: ["id", "reason"]),

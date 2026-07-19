@@ -66,24 +66,39 @@ if [ -n "${RLR_FAKE_EXIT_CODE:-}" ] && [ "${RLR_FAKE_HANG:-}" != "1" ]; then
     exit "$RLR_FAKE_EXIT_CODE"
 fi
 
-# Ignore SIGTERM if asked: a plain TERM to this process (or its group) is
-# swallowed; only SIGKILL reaps it.
-if [ "${RLR_FAKE_IGNORE_SIGTERM:-}" = "1" ]; then
-    trap '' TERM
-fi
-
 # Spawn a grandchild in its OWN session (setsid) so a process-group kill of this
-# worker never reaches it — the "live descendant survives kill" leg.
+# worker never reaches it — the "live descendant survives kill" leg. NOTE:
+# `setsid` is ABSENT on macOS (RLR §1.10), so this silently no-ops there; the
+# load-bearing survivor is the recorded worker itself via the re-loop below
+# (RLR §2.4), NOT this escapee.
 if [ "${RLR_FAKE_SPAWN_GRANDCHILD:-}" = "1" ]; then
     gc_sleep="${RLR_FAKE_GRANDCHILD_SLEEP:-3601}"
-    # `setsid` detaches into a new session; the marker rides in the argv of a
-    # short-lived labeller so the test can pgrep the grandchild by marker.
     setsid /bin/sh -c "exec sleep ${gc_sleep}" >/dev/null 2>&1 &
 fi
 
-# Block indefinitely on our own marked sleep. `& wait` (rather than `exec`)
-# keeps the SIGTERM trap installed above in force.
 worker_sleep="${RLR_FAKE_SLEEP_SECONDS:-3600}"
+
+if [ "${RLR_FAKE_IGNORE_SIGTERM:-}" = "1" ]; then
+    # RLR-S04b §2.4 — the deterministic macOS survivor. Trap+ignore SIGTERM AND
+    # re-loop the marked sleep so THIS shell (the recorded worker, its own process
+    # group leader) stays identity-alive through `alln kill`'s TERM→grace window.
+    # A group SIGTERM kills the foreground `sleep <marker>` child, but the trapped
+    # shell survives and respawns it — so the settlement verify always observes a
+    # live recorded member → KillOutcome.partial (non-terminal), never a false
+    # `killed` stamp. Deterministic, no setsid. Bounded so a leaked shell after a
+    # missed teardown self-terminates (teardown also reaps it by fixture path).
+    trap '' TERM
+    reloop_deadline=$(( $(date +%s) + ${RLR_FAKE_RELOOP_SECONDS:-600} ))
+    while [ "$(date +%s)" -lt "${reloop_deadline}" ]; do
+        sleep "${worker_sleep}" &
+        child_pid=$!
+        wait "${child_pid}"
+    done
+    exit 0
+fi
+
+# Default: block once on our own marked sleep (the hang pattern). `& wait`
+# (rather than `exec`) keeps any installed trap in force.
 sleep "${worker_sleep}" &
 child_pid=$!
 wait "${child_pid}"

@@ -1414,7 +1414,7 @@ struct AllnighterCLI {
             } else {
                 print("killed \(result.killedCount) process tree(s)")
                 for row in result.killed {
-                    print("  \(row.id) (\(row.kind)) endReason=\(row.endReason) signalled=\(row.signalled)")
+                    print("  \(row.id) (\(row.kind)) endReason=\(row.endReason ?? "-") killOutcome=\(row.killOutcome ?? "-") signalled=\(row.signalled)")
                 }
                 for skip in result.skipped {
                     print("  skip \(skip.id): \(skip.reason)")
@@ -1432,10 +1432,15 @@ struct AllnighterCLI {
         }
         switch surface.kill(id: id) {
         case .success(let row):
+            // RLR-S04b: `alln kill` exits 0 having honestly reported the settlement
+            // verdict — a non-verified stop is `killOutcome: partial/refused/…` in the
+            // envelope (the KILL_* error codes are its catalog projection), not a
+            // command failure. The single JSON object carries the outcome to the caller.
             if asJSON {
                 print(jsonString(OwnershipKillJSON(killed: [row])))
             } else {
-                print("killed \(row.id) (\(row.kind)) endReason=\(row.endReason) signalled=\(row.signalled)")
+                let outcome = row.killOutcome.map { " killOutcome=\($0)" } ?? ""
+                print("kill \(row.id) (\(row.kind)) endReason=\(row.endReason ?? "-")\(outcome) signalled=\(row.signalled)")
             }
         case .failure(.notFound(let missing)):
             fail(code: "OWNERSHIP_NOT_FOUND", message: "no owned process tree matches \(missing)")

@@ -143,13 +143,27 @@ public struct OwnershipKillJSON: Codable, Sendable, Equatable {
 public struct OwnershipKillRowJSON: Codable, Sendable, Equatable {
     public var id: String
     public var kind: String
-    public var endReason: String
+    /// The stamped terminal end reason — present ONLY on a verified stop
+    /// (`killOutcome == stopped`). Absent (nil) for `partial`/`refused`/
+    /// `verificationUnavailable`: a non-verified stop leaves the lifecycle
+    /// non-terminal, so there is no honest `endReason` to report (RLR-L5, S04b).
+    public var endReason: String?
+    /// The typed settlement verdict (RLR-L5, S04b). `nil` on rows that do not run
+    /// the settlement routine (relay/proof), which are stamped `killed` directly.
+    public var killOutcome: String?
     public var signalled: Bool
 
-    public init(id: String, kind: String, endReason: String = "killed", signalled: Bool) {
+    public init(
+        id: String,
+        kind: String,
+        endReason: String? = "killed",
+        killOutcome: String? = nil,
+        signalled: Bool
+    ) {
         self.id = id
         self.kind = kind
         self.endReason = endReason
+        self.killOutcome = killOutcome
         self.signalled = signalled
     }
 }
