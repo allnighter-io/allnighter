@@ -235,6 +235,195 @@ final class RunAcceptanceBoundaryTests: XCTestCase {
         XCTAssertNil(settled.phase)
     }
 
+    // MARK: - S02b. Root isolation (RLR-L4 / Works Test 3): one root = one lock,
+    //         alternate spellings converge, true different roots never serialize
+    //         and never name each other's holder.
+
+    /// Pre-hold the lane via the canonical root spelling; start run B addressed by a
+    /// **case-variant** spelling of the SAME root → B keys onto the one lane and blocks,
+    /// its blocker naming the holder run. Proves two spellings share one lock.
+    func testSameRootCaseVariantSpellingSharesOneLockAndNamesHolder() async throws {
+        let h = try makeHarness()
+        defer { try? FileManager.default.removeItem(at: h.repo) }
+
+        let holderRunId = "holder-run-\(UUID().uuidString)"
+        let holderClaim = try XCTUnwrap(
+            ExecutionLane.Claim.current(id: holderRunId, kind: ExecutionLaneSite.mutatingRun.rawValue))
+        guard case .success(let holderToken) = await h.registry.tryAcquire(h.lockKey, claim: holderClaim) else {
+            return XCTFail("test could not pre-hold the write lock")
+        }
+        defer { Task { await h.registry.release(h.lockKey, token: holderToken) } }
+
+        // A case-variant spelling of the SAME on-disk root (last component upper-cased).
+        // On the case-insensitive FS `normalize` collapses it to the real casing → same key.
+        let caseVariant = h.repo.deletingLastPathComponent()
+            .appendingPathComponent(h.repo.lastPathComponent.uppercased(), isDirectory: true).path
+        XCTAssertNotEqual(caseVariant, h.repo.path, "the test's variant must differ in spelling")
+        XCTAssertEqual(RunWriteLock.key(repoRoot: caseVariant), h.lockKey,
+                       "a case-variant of an existing root must map to the one lane key")
+
+        let runId = UUID().uuidString
+        let runTask = Task {
+            await h.service.run(RunRequest(message: "edit the repo", repoRoot: caseVariant),
+                                origin: .cli, runId: runId)
+        }
+
+        let poll = h.pollStore()
+        var blocked: TeamRun?
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            if let r = poll.loadRaw(runId: runId), r.status == .queued, r.blocker?.holderId != nil {
+                blocked = r; break
+            }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        let run = try XCTUnwrap(blocked, "a same-root alternate spelling must block behind the one lock")
+        XCTAssertEqual(run.blocker?.scopeRoot, h.root, "the blocker's scopeRoot is the canonical root, not the input spelling")
+        XCTAssertEqual(run.blocker?.holderId, holderRunId, "the shared lane's ticket names the holding run")
+        XCTAssertEqual(run.blocker?.holderKind, "run", "public holderKind is `run`, never the internal site kind")
+        XCTAssertEqual(run.blocker?.ticketPosition, 1)
+
+        await h.registry.release(h.lockKey, token: holderToken)
+        _ = await runTask.value
+    }
+
+    /// Same as above but the alternate spelling is a **symlink** to the real root.
+    func testSameRootSymlinkSpellingSharesOneLockAndNamesHolder() async throws {
+        let h = try makeHarness()
+        defer { try? FileManager.default.removeItem(at: h.repo) }
+
+        let alias = h.repo.deletingLastPathComponent()
+            .appendingPathComponent("accept-alias-\(UUID().uuidString)", isDirectory: false)
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: h.repo)
+        defer { try? FileManager.default.removeItem(at: alias) }
+        XCTAssertEqual(RunWriteLock.key(repoRoot: alias.path), h.lockKey,
+                       "a symlink alias of an existing root must map to the one lane key")
+
+        let holderRunId = "holder-run-\(UUID().uuidString)"
+        let holderClaim = try XCTUnwrap(
+            ExecutionLane.Claim.current(id: holderRunId, kind: ExecutionLaneSite.mutatingRun.rawValue))
+        guard case .success(let holderToken) = await h.registry.tryAcquire(h.lockKey, claim: holderClaim) else {
+            return XCTFail("test could not pre-hold the write lock")
+        }
+        defer { Task { await h.registry.release(h.lockKey, token: holderToken) } }
+
+        let runId = UUID().uuidString
+        let runTask = Task {
+            await h.service.run(RunRequest(message: "edit the repo", repoRoot: alias.path),
+                                origin: .cli, runId: runId)
+        }
+
+        let poll = h.pollStore()
+        var blocked: TeamRun?
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            if let r = poll.loadRaw(runId: runId), r.blocker?.holderId != nil { blocked = r; break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        let run = try XCTUnwrap(blocked, "a symlinked spelling of the same root must block behind the one lock")
+        XCTAssertEqual(run.blocker?.holderId, holderRunId)
+        XCTAssertEqual(run.blocker?.scopeRoot, h.root)
+
+        await h.registry.release(h.lockKey, token: holderToken)
+        _ = await runTask.value
+    }
+
+    /// Hold root A; a mutating run on a TRUE different root B acquires **immediately** —
+    /// no serialization — spawns its worker and never carries a blocker naming A.
+    func testTrueDifferentRootDoesNotSerializeAndNeverNamesHolder() async throws {
+        let spy = SpyCommandRunner(
+            inner: MockCommandRunner(scripts: ["cursor": .init(stdout: "Done.", exitCode: 0)]))
+        let h = try makeHarness(commandRunner: spy)
+        defer { try? FileManager.default.removeItem(at: h.repo) }
+
+        // A genuinely different repo root (its own inode, its own lane key).
+        let repoB = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-accept-B-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repoB, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repoB) }
+        let keyB = RunWriteLock.key(repoRoot: repoB.path)
+        XCTAssertNotEqual(keyB, h.lockKey, "true different roots must produce different lane keys")
+
+        // Hold root A the whole time.
+        let holderRunId = "holder-A-\(UUID().uuidString)"
+        let holderClaim = try XCTUnwrap(
+            ExecutionLane.Claim.current(id: holderRunId, kind: ExecutionLaneSite.mutatingRun.rawValue))
+        guard case .success(let holderToken) = await h.registry.tryAcquire(h.lockKey, claim: holderClaim) else {
+            return XCTFail("test could not pre-hold root A's write lock")
+        }
+        defer { Task { await h.registry.release(h.lockKey, token: holderToken) } }
+
+        // Run on root B — must NOT block behind A.
+        let runId = UUID().uuidString
+        let result = await h.service.run(
+            RunRequest(message: "edit repo B", repoRoot: repoB.path), origin: .cli, runId: runId)
+        guard case .success(let run) = result else { return XCTFail("root-B run failed: \(result)") }
+
+        XCTAssertTrue(run.status.isTerminal, "root B acquires its own free lane and runs to completion")
+        XCTAssertNil(run.blocker, "a run on a different root is never blocked and never names A's holder")
+        XCTAssertTrue(spy.launched, "root B's worker spawns; it was not serialized behind A")
+
+        // The whole durable history for B never named A's holder id.
+        let settled = try XCTUnwrap(h.pollStore().loadRaw(runId: runId))
+        XCTAssertNil(settled.blocker?.holderId)
+        XCTAssertNotEqual(settled.blocker?.holderId, holderRunId)
+    }
+
+    /// Two roots each independently held; a run on each blocks behind ITS OWN holder and
+    /// never reads the other root's holder id. Project A never names project B (RLR-L4).
+    func testConcurrentBlockedRunsOnDifferentRootsNeverNameEachOthersHolder() async throws {
+        let h = try makeHarness()
+        defer { try? FileManager.default.removeItem(at: h.repo) }
+
+        let repoB = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-accept-B-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repoB, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repoB) }
+        let keyB = RunWriteLock.key(repoRoot: repoB.path)
+
+        let holderA = "holder-A-\(UUID().uuidString)"
+        let holderB = "holder-B-\(UUID().uuidString)"
+        let claimA = try XCTUnwrap(ExecutionLane.Claim.current(id: holderA, kind: ExecutionLaneSite.mutatingRun.rawValue))
+        let claimB = try XCTUnwrap(ExecutionLane.Claim.current(id: holderB, kind: ExecutionLaneSite.mutatingRun.rawValue))
+        guard case .success(let tokenA) = await h.registry.tryAcquire(h.lockKey, claim: claimA) else {
+            return XCTFail("could not hold root A")
+        }
+        defer { Task { await h.registry.release(h.lockKey, token: tokenA) } }
+        guard case .success(let tokenB) = await h.registry.tryAcquire(keyB, claim: claimB) else {
+            return XCTFail("could not hold root B")
+        }
+        defer { Task { await h.registry.release(keyB, token: tokenB) } }
+
+        let runAId = UUID().uuidString
+        let runBId = UUID().uuidString
+        let taskA = Task { await h.service.run(RunRequest(message: "edit A", repoRoot: h.repo.path), origin: .cli, runId: runAId) }
+        let taskB = Task { await h.service.run(RunRequest(message: "edit B", repoRoot: repoB.path), origin: .cli, runId: runBId) }
+
+        let poll = h.pollStore()
+        func waitBlocked(_ id: String) async throws -> TeamRun {
+            let deadline = Date().addingTimeInterval(10)
+            while Date() < deadline {
+                if let r = poll.loadRaw(runId: id), r.blocker?.holderId != nil { return r }
+                try await Task.sleep(nanoseconds: 20_000_000)
+            }
+            throw XCTSkip("run \(id) never blocked")
+        }
+        let blockedA = try await waitBlocked(runAId)
+        let blockedB = try await waitBlocked(runBId)
+
+        XCTAssertEqual(blockedA.blocker?.holderId, holderA, "run on root A names only root A's holder")
+        XCTAssertEqual(blockedB.blocker?.holderId, holderB, "run on root B names only root B's holder")
+        XCTAssertNotEqual(blockedA.blocker?.holderId, holderB, "A must never name B's holder")
+        XCTAssertNotEqual(blockedB.blocker?.holderId, holderA, "B must never name A's holder")
+        XCTAssertEqual(blockedA.blocker?.scopeRoot, h.root)
+        XCTAssertEqual(blockedB.blocker?.scopeRoot, RunWriteLock.normalize(repoB.path))
+
+        await h.registry.release(h.lockKey, token: tokenA)
+        await h.registry.release(keyB, token: tokenB)
+        _ = await taskA.value
+        _ = await taskB.value
+    }
+
     // MARK: - 2. Save precedes the status-changed emit (no emit-then-persist race)
 
     func testRunningStatusIsDurableBeforeItsEventIsEmitted() async throws {

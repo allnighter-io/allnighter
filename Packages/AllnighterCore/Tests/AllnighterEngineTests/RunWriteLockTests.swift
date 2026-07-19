@@ -34,6 +34,52 @@ final class RunWriteLockTests: XCTestCase {
         XCTAssertEqual(viaVar, viaPrivateVar)
     }
 
+    // MARK: - RLR-S02b root isolation (RLR-L4 / Works Test 3)
+
+    /// Probe verdict, frozen as a regression: on the case-insensitive macOS FS,
+    /// `normalize`'s `resolvingSymlinksInPath` already canonicalizes the case of an
+    /// EXISTING path to its real on-disk casing, so two case-spellings of one root
+    /// collapse to one lane key. (No case-folding was added to `normalize` — doing so
+    /// would re-key in-flight paths against the frozen cross-process key formula.)
+    func testCaseVariantOfExistingRootSharesOneLockKey() throws {
+        let name = "RunLockCase-\(UUID().uuidString.prefix(8))"
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent(String(name), isDirectory: true)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        // Alternate spelling: last component upper-cased. Same inode (case-insensitive FS).
+        let variant = base.deletingLastPathComponent()
+            .appendingPathComponent(base.lastPathComponent.uppercased(), isDirectory: true).path
+        XCTAssertNotEqual(variant, base.path, "the two spellings must differ byte-for-byte")
+        XCTAssertEqual(RunWriteLock.normalize(variant), RunWriteLock.normalize(base.path),
+                       "normalize resolves both spellings to the real on-disk casing")
+        XCTAssertEqual(RunWriteLock.key(repoRoot: variant), RunWriteLock.key(repoRoot: base.path),
+                       "two case-spellings of one existing root share one lane key")
+    }
+
+    /// True different roots never collide — their keys differ, so they never serialize.
+    func testTrueDifferentRootsProduceDifferentKeys() {
+        let a = RunWriteLock.key(repoRoot: "/tmp/project-a")
+        let b = RunWriteLock.key(repoRoot: "/tmp/project-b")
+        XCTAssertNotEqual(a, b, "distinct roots must map to distinct lane keys")
+    }
+
+    /// Risk #2 (frozen cross-process key formula): a byte-identical spelling must map to
+    /// exactly the key it produced before S02b. Case-canonicalization is a property of the
+    /// FS for existing paths only; a NON-existent path keeps today's byte-preserving
+    /// behavior (no re-keying of in-flight foreign holders).
+    func testNonExistentPathKeyIsByteIdenticalFallback() {
+        let canonical = "/tmp/does-not-exist-\(UUID().uuidString)"
+        // Same spelling → same key (the frozen fallback: fnv1a over the standardized string).
+        XCTAssertEqual(RunWriteLock.key(repoRoot: canonical), RunWriteLock.key(repoRoot: canonical))
+        // A case-variant of a NON-existent path is NOT force-folded (no key formula change),
+        // so it stays a distinct key — we did not re-key existing canonical spellings.
+        let variant = canonical.uppercased()
+        XCTAssertNotEqual(RunWriteLock.normalize(variant), RunWriteLock.normalize(canonical),
+                          "a non-existent path is not case-folded — the frozen fallback is preserved")
+    }
+
     func testRegistryRefusesSecondAcquire() async {
         let registry = RunWriteLockRegistry()
         let key = "v1:test"
