@@ -142,6 +142,7 @@ public enum BuiltInTeams {
             ("contrarian_reviewer", .review)
         ], tags: [.code]),
         writer: "plan_writer_build",
+        typeTags: ["plan", "scope", "architecture", "breakdown"],
         starters: ["Turn this rough idea into an implementable plan with scope and proof.",
                    "Plan the smallest correct slice for <feature>."])
 
@@ -158,6 +159,7 @@ public enum BuiltInTeams {
             ("regression_guard", .answer)
         ], tags: [.code]),
         writer: "bug_packet_writer",
+        typeTags: ["bug", "crash", "defect", "cause", "fix", "regression"],
         starters: ["Find the real cause of <broken behavior> and plan the smallest correct fix."])
 
     /// Bug Hunt Max — escalation depth for nasty bugs: seam-crossing, hidden/
@@ -180,6 +182,7 @@ public enum BuiltInTeams {
             ("fix_altitude_reviewer", .review)
         ], tags: [.code]),
         writer: "bug_packet_writer",
+        typeTags: ["bug", "nasty", "deep", "seam", "hidden-state", "max"],
         starters: ["This bug has resisted earlier fixes — find the real cause and the right-level fix for <broken behavior>."])
 
     static let buildGUIBugHunt = make(
@@ -196,7 +199,9 @@ public enum BuiltInTeams {
             ("gui_layout_reviewer", .review),
             ("contrarian_root_cause", .review)
         ], tags: [.code]),
-        writer: "gui_bug_packet_writer")
+        writer: "gui_bug_packet_writer",
+        typeTags: ["gui", "ui", "visual", "layout", "rendered", "clipping"],
+        starters: ["The UI is visibly broken — <what looks wrong>. Find the cause and fix it with rendered proof."])
 
     static let buildSecurityReview = make(
         id: "code_security_review", name: "Security Review", lane: .code, output: .securityRegister, defaultEffort: .high,
@@ -210,7 +215,9 @@ public enum BuiltInTeams {
             ("dependency_injection_reviewer", .review),
             ("security_fix_prioritizer", .review)
         ], tags: [.code]),
-        writer: "security_register_writer", dissent: .riskRegister)
+        writer: "security_register_writer", dissent: .riskRegister,
+        typeTags: ["security", "credentials", "permissions", "exposure", "secrets", "vuln"],
+        starters: ["Review this change for credential, permission, exposure, and destructive-op risks before I ship."])
 
     // MARK: - Growth (same prompt, diverse models)
 
@@ -351,6 +358,7 @@ public enum BuiltInTeams {
             ("demo_narrator", .review)
         ], tags: [.code]),
         writer: "proof_packet_writer", dissent: .riskRegister,
+        typeTags: ["proof", "release", "done", "verify", "acceptance"],
         starters: ["Prove this slice is actually done before I believe it."])
 
     // MARK: - Unified run model teams
@@ -366,6 +374,7 @@ public enum BuiltInTeams {
         writer: SkillCatalog.directChatSkillId,
         lead: TeamLeadSpec(skillId: SkillCatalog.directChatSkillId, preferredModelId: composer, fallbackPolicy: .sameSource),
         mutating: true, executionSourceId: "cursor_agent",
+        typeTags: ["chat", "ask", "question"],
         starters: [])
 
     /// Execution Playbook as a built-in execution preset (docs/operations/Execution-Playbook.md).
@@ -382,6 +391,7 @@ public enum BuiltInTeams {
         writer: "plan_writer_build",
         lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: composer, fallbackPolicy: .sameSource),
         mutating: true, executionSourceId: "cursor_agent",
+        typeTags: ["build", "implement", "ship", "slice", "execute"],
         starters: [])
 
     // MARK: - Design teams
