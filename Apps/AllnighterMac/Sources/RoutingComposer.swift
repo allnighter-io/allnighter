@@ -1201,8 +1201,12 @@ struct RoutingComposer: View {
         HStack(spacing: 5) {
             Text(name).font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(primary ? ALColor.textPrimary : ALColor.textMuted)
+            // The parenthetical is the only discriminator between same-named
+            // models (e.g. one per CLI) — it must survive tight widths intact;
+            // the name truncates instead.
             Text("(\(detail))").font(.system(size: 12))
                 .foregroundStyle(ALColor.textFaint)
+                .layoutPriority(1)
         }
         .lineLimit(1)
     }

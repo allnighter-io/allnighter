@@ -1,0 +1,49 @@
+# surface: home
+# fixtures: home-with-threads team-open-mixed compose-target-send-to-team compose-target-inline
+# watcher: PASS
+# sealed: 2026-07-19
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+9ae25ef8cad7ac9f8ce6f9040773cac7c5778943  Apps/AllnighterMac/Sources/AllnighterButtons.swift
+bf8fa89e54d0d1f8ffb0f3bbb306ed03909cdc1c  Apps/AllnighterMac/Sources/AllnighterCard.swift
+041d485e9c7704d654fcbca9439f550c41e00687  Apps/AllnighterMac/Sources/AllnighterDropdowns.swift
+266cdfee250e8c7657292fa2a258e4daaa135a6b  Apps/AllnighterMac/Sources/AllnighterMacApp.swift
+c43d5869b2a178c341f5ed79689fb0f90027aa4d  Apps/AllnighterMac/Sources/AllnighterTokens.swift
+be65cc1ea29abba3871dbc861cb5fc32d4c24815  Apps/AllnighterMac/Sources/Badge.swift
+e1f87321fed68500efb24ea4083384de027faf89  Apps/AllnighterMac/Sources/BoostWindowHeroOverlay.swift
+c66ec953d0a3ec5ef956942f11127e1904e95bfe  Apps/AllnighterMac/Sources/BoostWindowStatColumn.swift
+552eb180e5efcb55836c8599ddbd13e0dc9da1cf  Apps/AllnighterMac/Sources/BoostWindowView.swift
+4be2d7b6b0c6bc22fec716dc6ce4a92887cb3920  Apps/AllnighterMac/Sources/BoostWindowZoomChart.swift
+9f56741d20fe219c7f62c35456d89d62070a28c0  Apps/AllnighterMac/Sources/CommandCenter.swift
+725a332bbc67d2456994031987f944f9b7421a21  Apps/AllnighterMac/Sources/DefaultModelView.swift
+57ea16655b027216439373aa65a3531eec969e46  Apps/AllnighterMac/Sources/DesignMockupTile.swift
+cd7ca70785ddddd4085f29f4e243f82cb2634b4f  Apps/AllnighterMac/Sources/DevSettingsView.swift
+88405d3a7e7f65b74eb5084b3b4a789e1d16fcad  Apps/AllnighterMac/Sources/DriverBrandGlyph.swift
+c79b8145f2912507ebae4caafb7dfba75c014733  Apps/AllnighterMac/Sources/FactoryFloorView.swift
+02c31c4d91f27d7ad77e3b117ea7cf6b1a5e6ae6  Apps/AllnighterMac/Sources/GUIProofGrantView.swift
+27f4d3061e4da7dd27b959cf8ab8a4ac65dbaf64  Apps/AllnighterMac/Sources/HomeView.swift
+bb47ee9283d18fe3b545652ed388eaab0d1ace24  Apps/AllnighterMac/Sources/IconButton.swift
+c169d2f259ad6a4da13b14271939af7c6b2285ad  Apps/AllnighterMac/Sources/IPhoneRemoteControlView.swift
+702dea0fb7cc4d27f128d7cbf478103ba62e261b  Apps/AllnighterMac/Sources/LiveMark.swift
+e789615a22151252d7b681f58745a285ce5a53df  Apps/AllnighterMac/Sources/MarkdownText.swift
+795e987f82de4078c8125ee679a4c279452d0037  Apps/AllnighterMac/Sources/PendingView.swift
+b5ea3a319e2d6cfa0e00d13ec4308a786767afcf  Apps/AllnighterMac/Sources/ReadinessView.swift
+0f844634693df88e050d79c1c3ac55b00f9f247c  Apps/AllnighterMac/Sources/RelayLaunchView.swift
+0d53ef58543545675d355ee02b89bbc376c0a3d7  Apps/AllnighterMac/Sources/RemoteSignInSheet.swift
+d59a9f917500642e312cf2dd71218d5d958cbebd  Apps/AllnighterMac/Sources/RootTitleBar.swift
+ea9ee45d0dacf0b736555c19cdddf81c0c3f912b  Apps/AllnighterMac/Sources/RootView.swift
+45b276ea673f5d1759bbd8d718469ce2d6ed7f28  Apps/AllnighterMac/Sources/RoutingComposer.swift
+263539f8ab7a0b2ce4a86f426390dc4c4af04b7c  Apps/AllnighterMac/Sources/SegmentedTabs.swift
+8e07d06dddeefbf9fd34b32b9ff8790bf14d0dfa  Apps/AllnighterMac/Sources/SetupViews.swift
+b74464f9390349c53907cd6d7af83e39f868b44e  Apps/AllnighterMac/Sources/StatusPill.swift
+714690b21c3243916505918ba6f9a367a2f4908b  Apps/AllnighterMac/Sources/TeamControlView.swift
+fc14d54b742c70b000c6d209f1d82d788dcdd8c2  Apps/AllnighterMac/Sources/TeamEditorView.swift
+a1f676613d742aff21610c8df99a88c3358507fa  Apps/AllnighterMac/Sources/TeamsLauncherView.swift
+421aadbedfe2c114553d230fd4fd470d6cba24b1  Apps/AllnighterMac/Sources/TeamStudioView.swift
+7850d48ce2f0359e799be0e159e62f8788cecd51  Apps/AllnighterMac/Sources/ThreadRailComponents.swift
+8ccd8f02960b2464f94614d52f869671eb24dc91  Apps/AllnighterMac/Sources/ThreadView.swift
+be1fff758f9f5f15a710f2a30129a53df638bfc1  Apps/AllnighterMac/Sources/TimelineAttachmentChip.swift
+dcf31b30bd73cdd93f8103b6d9f9cb3db31949e0  Apps/AllnighterMac/Sources/TimelineVisibility.swift
+cf5f4e529158f9d31243a2843231e134f6dc9f7c  Apps/AllnighterMac/Sources/WorkerChip.swift
+18dfaf7c5b3573401a47a9861260b22dd1ba5990  Apps/AllnighterMac/Sources/WorkerGlyph.swift
+9fbd49de3edf75c986a805ea026eadcd8e1afecd  Apps/AllnighterMac/Sources/WorkspaceMode.swift
