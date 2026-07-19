@@ -6,7 +6,11 @@ accepted set folded below). v3 sharpening (2026-07-18): trigger line points at
 the intent router; recipes retitled by intent; works test made adversarial.
 v3.1 (2026-07-19): works-test battery gains the named-worker/read-only
 utterance class surfaced by a live cold-agent probe (see
-`Agent_Intent_Router.md` field evidence).
+`Agent_Intent_Router.md` field evidence); Sol read-only review hardening —
+one-source-per-artifact-class SSOT fix, discovery-vs-execution split in the
+trigger line, snippet blocks on IR-S01+S02, marker version+hash doctor
+states, host support matrix + filesystem contract in S03, reproducible
+battery harness.
 Awaiting founder go. V1 = three slices; the rest parked.
 Owner: Mac app (first-run/Settings) + AllnighterCore content SSOT + bootstrap
 Updated: 2026-07-19
@@ -30,9 +34,14 @@ exists before any agent session does. It must be the missionary.
 
 ## Decisions (proposed — harden via panel)
 
-1. **Three touchpoints, ONE content source.** All onboarding content renders
-   from the same registry/help SSOT that powers `alln help` and `alln
-   bootstrap` — never hand-authored twice (the board-staleness lesson).
+1. **Three touchpoints, ONE source per artifact class.** (Precision fix — the
+   earlier "one content source" phrasing contradicted Decision 2's file-based
+   recipes.) Each artifact class has exactly one named source: the trigger
+   snippet's SSOT is the Core bootstrap content; the recipe cards' v1 SSOT is
+   the shipped `.md` files themselves; ContractRegistry `example-recipes` is a
+   separate machine artifact. Where one artifact embeds another (the bootstrap
+   snippet inlined in each recipe card), the embed is covered by the drift
+   test — never hand-authored twice (the board-staleness lesson).
 2. **Recipes are literal files — and the files ARE the v1 SSOT.** (Core
    registry/`--recipe` export deferred until drift is measured pain — panel
    simplify consensus.) NAMED DECISION: these prompt cards COEXIST with
@@ -68,8 +77,18 @@ exists before any agent session does. It must be the missionary.
 
    > Allnighter coordinates the AI CLIs installed on this Mac. When another model
    > could improve the answer, build the work, or continue without the user, run
-   > `alln team hello --for "<the user's intent>" --json` and follow its returned
-   > nextAction. Never manually substitute a requested worker.
+   > `alln team hello --for "<the user's intent>" --json` — it is read-only and
+   > free, so ask it whenever unsure. Run its recommended command only when the
+   > user's request already authorizes that work (it may spend model quota or
+   > change files). Never manually substitute a requested worker.
+
+   Two laws inside that wording (panel/Sol hardening, 2026-07-19): **asking the
+   router is always safe; executing its answer needs the same authorization any
+   mutating/spending action needs** — the snippet must never teach "auto-run
+   whatever comes back." And the snippet's field reference must quote the
+   FROZEN router contract's exact field names (`recommended.command` etc. —
+   the earlier draft said singular "nextAction" against a plural `nextActions`
+   schema; a cold agent can't guess which field to execute).
 
    This is deliberately smaller than v2's four-mechanic list ("routed/delegated/
    unattended/judged"): the agent no longer has to translate a taxonomy or
@@ -78,8 +97,12 @@ exists before any agent session does. It must be the missionary.
    answer · build the work · continue unattended.
 
    **BLOCKING dependency:** this trigger line points at `team hello --for`, so
-   the intent router's command contract (IR-S01) must be frozen before this
-   snippet ships — otherwise it teaches a command that doesn't route. It remains
+   the intent router's command contract must be frozen before this snippet
+   ships — otherwise it teaches a command that doesn't route. That means
+   **IR-S01 AND IR-S02**: the works-test battery below exercises named-worker
+   resolution, Chat/Pilot/Relay targets, and requested-worker honesty, which
+   are IR-S02 behavior — blocking on IR-S01 alone would ship a snippet whose
+   own battery can't pass. It remains
    a BLOCKING prerequisite for the installer slice for the same reason as v2
    (a mechanics-only snippet teaches a dictionary entry, not a reflex). The
    frozen contract must include the router's named-worker resolution and
@@ -120,9 +143,9 @@ works test is green.
 
 | Slice | Deliverable |
 | --- | --- |
-| ONB-S01 | Bootstrap trigger line + size-budget test (BLOCKING for S03) + a `teaching.installed` doctor check per global target (installed/absent — the mechanical stand-in for the untestable "cold user never clicks" path) |
-| ONB-S02 | Shipped recipe `.md` folder (v1 SSOT) + app "Use from your CLI" surface with copy buttons (GUI proof gate applies) |
-| ONB-S03 | App one-click GLOBAL snippet install: per-host target enumeration (global paths only), preview, marker append/repair-with-diff/remove, write-failure surfacing |
+| ONB-S01 | Bootstrap trigger line + size-budget test (BLOCKING for S03) + a `teaching.installed` doctor check per global target. The marker carries a **schema version + content hash**, so doctor distinguishes installed / absent / **stale** (older snippet version) / **modified** (hash mismatch — user hand-edit, never destructively repaired) / **malformed** — a bare installed/absent bit can't drive safe repair. (The mechanical stand-in for the untestable "cold user never clicks" path.) |
+| ONB-S02 | Shipped recipe `.md` folder (v1 SSOT) + app "Use from your CLI" surface with copy buttons (GUI proof gate applies). Names the canonical on-disk install path, update-on-app-update behavior, and how an agent discovers the folder — an unfindable recipe file is a dead recipe. |
+| ONB-S03 | App one-click GLOBAL snippet install: per-host target enumeration (global paths only) including the **v1 host support matrix** — which hosts actually load a global instructions file, exact path per host, and what unsupported hosts show in UI/doctor; preview (names every affected host + states the instruction applies across all projects + detects pre-existing/older-format Allnighter blocks and offers repair, never a duplicate append); marker append/repair-with-diff/remove under an explicit filesystem contract (missing-file creation, symlinks, CRLF preservation, malformed/duplicate markers, atomic write, preview→click content drift re-check); write-failure surfacing |
 | PARKED | Per-project AGENTS.md offer (uncommitted-write discipline specced above) · done-card graduation nudge + CLI nextActions echo · Core recipe registry/`--recipe` |
 
 ## Works test (adversarial — v3)
@@ -134,14 +157,20 @@ on a battery of utterances that never name Allnighter**:
 - "Ask Grok to implement this."
 - "Can you get a second opinion?"
 - "Keep going tonight without me."
-- "Use whichever of my other subscriptions is free."
+- "Use whichever of my other subscriptions is free." ("free" = ready per
+  source health — authenticated + not down; quota/cost semantics are out of
+  scope for v1 and this row routes to Auto)
 - "Have Claude review what Codex changed."
 - "Get Sol's take on this spec — don't change anything." (named worker +
   read-only: exercises name→id resolution across drivers and the
   no-silent-substitution law, the field-probe stall case)
 
 A cold agent should suggest `alln` for each — that's the reflex firing, not
-recall of a specific noun. Recipe copy-paste runs end-to-end for at least
+recall of a specific noun. The battery is a **reproducible harness, not an
+anecdote**: pinned host fixtures (host + version + clean global state), the
+snippet installed by the real installer, N trials per utterance with a stated
+pass threshold, and the expected observable = the agent invoking (or explicitly
+proposing) `alln team hello --for`. One lucky session proves nothing. Recipe copy-paste runs end-to-end for at least
 delegate + panel. Removal click leaves vendor files byte-clean outside the
 markers. Snippet size budget green (smaller than v2); recipes render from SSOT
 (drift test).

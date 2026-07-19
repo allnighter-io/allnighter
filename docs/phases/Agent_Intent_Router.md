@@ -8,7 +8,13 @@ and MUST land first** (it decides the obvious family names + which families are
 tiered Min/Default/Max vs single); the router cannot route over a stale catalog.
 Owner: AllnighterCore (`AgentHello` + catalog) + AllnighterCLI (`team hello`)
 Updated: 2026-07-19 (v2 — live cold-agent probe folded in: named-worker
-resolution + read-only quick ask are now specced, not assumed)
+resolution + read-only quick ask are now specced, not assumed. Hardened same
+day by a ChatGPT 5.6 Sol read-only review [via `alln run --worker`, 14
+findings]: accepted = mechanical read-only enforcement, posture-filtered
+driver precedence, named-worker-constrains-whole-result, discriminated-union
+return + argv commands, overlap/tie-break matcher spec, works-test tier
+contradiction fix; rejected = "team start is obsolete" [CLI contract still
+lists it live].)
 
 ## The gap (the third gate)
 
@@ -100,23 +106,40 @@ the readiness the verdict already computes.
    intent names a model ("Sol", "Grok", "ChatGPT 5.6 Sol"), `--for` resolves
    the name against catalog `displayName`/`modelLabel`/`id` — across drivers —
    and returns the resolved id in `requestedWorker`. When one model exists
-   under multiple drivers, the router picks deterministically (ready native
-   driver first, then strongest-ready) and lists the other driver(s) as loud
-   alternates with *why* — never a silent guess. An unresolvable name is a
-   named failure (`WORKER_NAME_AMBIGUOUS` / `WORKER_NAME_UNKNOWN`) with the
-   nearest matches in `nextActions`, not a fallback to Auto (that would be a
-   silent substitution).
+   under multiple drivers, the pick is a **defined precedence, not vibes**:
+   (1) filter to drivers that can honor the requested safety posture (a
+   read-only ask never resolves to a driver that cannot mechanically enforce
+   read-only — "same model, unsafe-for-this-posture driver" is a named refusal,
+   not a fallback); (2) prefer the model vendor's own CLI (Codex for ChatGPT
+   models) over a reseller driver; (3) then readiness; ties break on stable id
+   order. Other-driver entries are listed as loud alternates with *why* — never
+   a silent guess. A named worker constrains the WHOLE result: if the named
+   seat is down, `recommended` carries no runnable command — `nextActions`
+   offers the explicit choices (fix the seat, or the user re-chooses); an
+   alternate is never runnable-as-recommended without explicit selection. An
+   unresolvable name is a named failure (`WORKER_NAME_AMBIGUOUS` /
+   `WORKER_NAME_UNKNOWN`) with the nearest matches in `nextActions`, not a
+   fallback to Auto. Within a routed shape, a named worker pins a seat (the
+   full `intent × named worker × family` precedence table is an IR-S02
+   deliverable).
 9. **The read-only quick ask is a first-class route, not a footnote of chat.**
    "Ask <model> what it thinks of X — don't change anything" must resolve to a
-   runnable command that is honest about mutation. Until a dedicated read-only
-   ask verb exists, the router returns the chat/`run` route with the
-   no-mutation instruction included in the command it emits, and says so in
-   `why`. The router never routes a read-only intent to a command it must
-   describe as mutating without addressing the mismatch — that is the exact
-   stall the field probe hit. (Corollary, observed live: a read-only ask routed
-   through `run` also *occupies the one-per-lane mutating execution lane*,
-   serializing behind and blocking real mutating work — a dedicated read-only
-   ask path is a lane-capacity fix, not just a naming fix.)
+   runnable command that is honest about mutation — and "read-only" must be
+   **mechanically enforced, not prompt-begged**: a "do not modify files" line
+   in the prompt is an instruction the worker may ignore, so the route requires
+   a read-only primitive/flag whose guarantee comes from the driver (Codex can
+   sandbox read-only; Cursor headless runs `--trust` and cannot — see Decision
+   8's posture filter). Until that verb exists, the router may return the
+   chat/`run` route with the no-mutation instruction included, but must label
+   it advisory-only in `why`. The router never routes a read-only intent to a
+   command it must describe as mutating without addressing the mismatch — that
+   is the exact stall the field probe hit. (Corollary, observed live: a
+   read-only ask routed through `run` also *occupies the one-per-lane mutating
+   execution lane*, serializing behind and blocking real mutating work — a
+   dedicated read-only ask path is a lane-capacity fix, not just a naming
+   fix. The same live run also mis-attributed the caller's concurrent commits
+   to the worker in `outcome`/`repoDelta` — mechanical posture enforcement is
+   what makes those surfaces trustworthy.)
 
 ## Return shape (`--for`)
 
@@ -144,6 +167,16 @@ the readiness the verdict already computes.
   "nextActions": [ /* never empty when not runnable */ ]
 }
 ```
+
+Two contract notes (the sketch above shows the *team* arm only): the final
+schema is a **discriminated union on `kind`** — pilot/relay/chat targets carry
+their own payloads (a `teamId`/`depthAlternates` pair is meaningless for
+`pair relay`) plus `driverId`/`modelId` and the safety posture. And `command`
+is emitted as **structured `argv` plus a display string** — the router never
+manufactures shell quoting around untrusted intent text (quotes, newlines,
+`$()` in a user utterance must not become a shell injection or a broken
+copy-paste). The exact emitted grammar is frozen against the CLI contract in
+IR-S01, not improvised per row.
 
 ## The intent taxonomy (the 80%) — routes to normalized families
 
@@ -186,7 +219,10 @@ decides per-gap whether a family earns its place.
 The taxonomy above (which intents must be reachable) lives here. The **family
 definitions — names, tiers, rosters, metadata — are finalized in
 `Team_Catalog_Normalization.md`**, then built into `BuiltInTeams.swift` under
-`Team_And_Skill_Catalogs.md`. **Team metadata IS the router index.** That doc is
+`Team_And_Skill_Catalogs.md`. **Team metadata IS the router's *family* index** —
+but not the whole index: named-worker resolution reads `ModelCatalog`
+(displayName/driver/posture capability), and Pilot/Relay/Chat are primitives
+outside the team catalog. IR-S01 names each index and its owner. That doc is
 the hard prerequisite: the router is built only after the catalog is normalized.
 
 ## Slices
@@ -194,7 +230,7 @@ the hard prerequisite: the router is built only after the catalog is normalized.
 | Slice | Deliverable |
 | --- | --- |
 | IR-S00 | **Prerequisite: `Team_Catalog_Normalization.md` lands** (obvious names + tier shape + metadata + `BuiltInTeamsTests` green). The router does not start until the catalog is normalized. |
-| IR-S01 | `alln team hello --for "<intent>" --json` — deterministic matcher over catalog `typeTags`/`description`/`lane`; `recommended` + `readiness` + `fallback` + `nextActions`; no-empty-silence + honesty laws enforced; golden-transcript tests for the taxonomy rows. |
+| IR-S01 | `alln team hello --for "<intent>" --json` — deterministic matcher over catalog `typeTags`/`description`/`lane`; `recommended` + `readiness` + `fallback` + `nextActions`; no-empty-silence + honesty laws enforced. The matcher spec must define **overlap precedence and tie-breaking** ("the UI is broken" touches GUI Bug Hunt, Design, Usability Review, Bug Hunt — one deterministic winner) and no-match behavior; golden-transcript tests cover the taxonomy rows PLUS ambiguous/overlap phrases, not just one happy phrase per row. Readiness failures use distinct stable codes from the error catalog (worker down ≠ auth failure ≠ lane busy ≠ ambiguous intent). Emitted command grammar frozen against the CLI contract. |
 | IR-S02 | Depth + primitive routing — Default with Min/Max alternates *where the family is tiered*; Pilot/Relay/Chat as first-class targets; **named-worker resolution** (name→id across drivers, deterministic driver pick + loud alternates, `WORKER_NAME_AMBIGUOUS`/`WORKER_NAME_UNKNOWN`) + requested-worker echo (no silent substitution); read-only-ask route honest about mutation (Decision 9). |
 | PARKED | Fuzzy/model-assisted intent match behind the deterministic floor · completion-receipt unified result shape across team/pilot/relay (true metrics only — rounds, commits, tests, unattended duration; NEVER invented "handoffs avoided"). |
 
@@ -226,5 +262,7 @@ labeled alternate and the emitted command honest about mutation — no stall, no
 wrong-driver guess. A bare "Sol"/"Grok" resolves the same way; a nonsense name
 returns `WORKER_NAME_UNKNOWN` + nearest matches. No `--for` =
 today's readiness report unchanged. Every matrix row has a golden-transcript test;
-IR-S00 shows every approved family tiered Min/Default/Max with an obvious name and
-zero unnamed gaps.
+IR-S00 shows every approved family with an obvious name and zero unnamed gaps —
+every *tiered* family complete (Min/Default/Max all present), every *single*
+family with no depth alternates (tiers are optional per Decision 4, so
+"untiered" is a passing state, not a gap).
