@@ -20,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // just beep in text fields). Install a real menu bar so editing shortcuts work.
         installMainMenu()
         MacNotificationDelivery.shared.configure()
+        // ONB-S02b: keep Application Support/Recipes in sync with the bundled cards
+        // so Finder / agents find them without opening Settings.
+        RecipeInstallMirror.sync()
         #if DEBUG
         // Grant fixture: request Screen Recording at launch, before SwiftUI paints.
         // No env flags, no gating — macOS must see the request from a frontmost app.

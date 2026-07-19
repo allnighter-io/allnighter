@@ -12,8 +12,9 @@ import Foundation
 ///
 /// **Discovery (no Mac GUI):** `alln bootstrap --json` lists `{ id, title }` in
 /// `recipes`; full markdown via `alln help get recipes --format md` (or JSON
-/// sections). S02b may mirror this folder into Application Support; call
-/// `RecipeCatalog.list()` / `markdown(id:)` / `bundledDirectoryURL` from the app.
+/// sections). S02b mirrors this folder into Application Support via the Mac
+/// app's `RecipeInstallMirror`; call `RecipeCatalog.list()` / `markdown(id:)` /
+/// `bundledDirectoryURL` from the app for the read SSOT.
 public enum RecipeCatalog {
     public struct Recipe: Identifiable, Sendable, Equatable {
         public var id: String

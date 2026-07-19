@@ -102,10 +102,14 @@ enum GUIFixture {
     /// Deep-link: show the routing-composer specimen for `compose-*` fixtures.
     static var opensComposeSpecimen: Bool { (active ?? "").hasPrefix("compose-") }
 
-    /// Deep-link: open the Team Studio settings surface for `studio*` fixtures.
-    static var opensTeamStudio: Bool { (active ?? "").hasPrefix("studio") }
+    /// Deep-link: open the Team Studio settings surface for `studio*` fixtures
+    /// (and ONB-S02b `settings-use-from-cli`).
+    static var opensTeamStudio: Bool {
+        let name = active ?? ""
+        return name.hasPrefix("studio") || name == "settings-use-from-cli"
+    }
 
-    /// Which Studio page a `studio-*` fixture deep-links to.
+    /// Which Studio page a `studio-*` / settings fixture deep-links to.
     static var studioRoute: StudioRoute {
         switch active {
         case "studio-teams-code", "studio-team-editor", "studio-worker-editor": return .teams(.code)
@@ -114,6 +118,7 @@ enum GUIFixture {
         case "studio-skills-code": return .skills(.code)
         case "studio-default-model": return .defaultModel
         case "studio-boost-window": return .boostWindow
+        case "settings-use-from-cli", "studio-use-from-cli": return .useFromCLI
         default: return .clis
         }
     }
@@ -305,6 +310,7 @@ enum GUIFixture {
         ("thread-design-board-fanout", "Thread — design board mockup tile strip"),
         ("thread-mutating-run", "Thread — mutating run"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),
+        ("settings-use-from-cli", "Settings — Use from your CLI (recipe cards)"),
         ("studio-default-model", "Team Studio — Default model (Auto tiers)"),
         ("studio-boost-window", "Team Studio — Boost window"),
         ("studio-teams-code", "Team Studio — Code teams (detail)"),

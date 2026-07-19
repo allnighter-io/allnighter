@@ -108,6 +108,13 @@ public enum AllnighterPaths {
         catalogs.appendingPathComponent("models", isDirectory: true)
     }
 
+    /// `…/Allnighter/Recipes/` — ONB-S02b mirror of bundled recipe `.md` cards
+    /// (shipped content; overwritten from the Core bundle on app update). Finder /
+    /// agents read this path; `RecipeCatalog` remains the read SSOT.
+    public static var recipes: URL {
+        support.appendingPathComponent("Recipes", isDirectory: true)
+    }
+
     /// `…/Allnighter/ProbeScratch/` — neutral CWD for setup/health probe child
     /// processes. Setup/health probes must NOT inherit the repo or app-bundle
     /// CWD: in dev that is the checkout under `~/Documents`, so a child CLI that

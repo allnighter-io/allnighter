@@ -14,6 +14,7 @@ import AllnighterCore
 /// and skill belongs to exactly one lane — Work_Order_Team_Model.md).
 enum StudioRoute: Hashable {
     case clis
+    case useFromCLI
     case defaultModel
     case boostWindow
     case iphoneRemote
@@ -62,6 +63,8 @@ struct TeamStudioView: View {
         case .clis:
             // The shipped CLI-setup / readiness surface, embedded as the CLIs page.
             TeamReadinessView(focusDriverId: cliFocusDriverId, onClose: onDone, onAddSource: {})
+        case .useFromCLI:
+            UseFromCLIView()
         case .defaultModel:
             DefaultModelView()
         case .boostWindow:
@@ -98,6 +101,8 @@ private struct StudioNav: View {
 
             // CLIs — lane-agnostic foundation; sources feed every lane.
             item("CLIs", icon: "terminal", target: .clis)
+            // Recipe cards for agents running outside the app (ONB-S02b).
+            item("Use from your CLI", icon: "doc.on.clipboard", target: .useFromCLI)
             // Default model (Auto) — lane-agnostic; the model that answers when no team
             // or model is picked, drawn from the substitution tiers.
             item("Default model", icon: "infinity", target: .defaultModel)

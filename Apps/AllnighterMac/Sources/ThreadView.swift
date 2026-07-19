@@ -1120,9 +1120,7 @@ private struct ThreadMutatingRunRow: View {
                     text: turn.reasoningText, isLatestTurn: isLastTurn,
                     isRunning: !turn.status.isTerminal, duration: thinkingDuration,
                     startedAt: turn.createdAt)
-                if let parkBanner {
-                    parkBanner
-                }
+                parkBanner
                 attachmentRow
                 content
             }
