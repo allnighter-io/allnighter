@@ -576,6 +576,25 @@ Mutually exclusive: `--no-commit`, `--commit-message`.
 
 Output schema: `teamRunJSON`.
 
+### `alln run resume`
+
+Resume a run parked on vendor capacity (same run id, in-process).
+
+Arguments:
+- `runId` (required) — Parked run id.
+
+Flags:
+- `--json` — Emit TeamRunJSON.
+
+Output schema: `teamRunJSON`.
+
+### `alln continuity receipt`
+
+Local observed-facts summary of vendor waits covered and automatic resumes (last 24h).
+
+Flags:
+- `--json` — Emit MorningReceipt JSON.
+
 ### `alln pair relay`
 
 Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.

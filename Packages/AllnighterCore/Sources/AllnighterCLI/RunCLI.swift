@@ -15,10 +15,14 @@ enum RunCLI {
     }
 
     static func run(_ args: [String], runtime: ToolRuntime) async {
+        if args.first == "resume" {
+            await resume(Array(args.dropFirst()), runtime: runtime)
+            return
+        }
         let opts = Options(args)
         guard let message = opts.positional.first ?? opts.value("message") else {
             FileHandle.standardError.write(Data(
-                "usage: alln run \"<message>\" --project <id|path> [--team <id>] [--worker <modelId>] [--effort low|med|high] [--lane code|design|copy|signal] [--idle-timeout <seconds>] [--commit-message <exact>] [--no-commit] [--proof <cmd>] [--idempotency-key <key>] [--retry-of <id>] [--try-fix [--executor <id>]] [--json | --stream]\n"
+                "usage: alln run \"<message>\" --project <id|path> [...]\n       alln run resume <runId> [--json]\n"
                     .utf8))
             exit(2)
         }
@@ -125,6 +129,81 @@ enum RunCLI {
                 )
                 let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
                 print(AllnighterCLI.jsonString(trj))
+            } else {
+                print(run.plan ?? run.workerAnswers.first?.output ?? "(run \(run.status.rawValue))")
+                FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
+            }
+        }
+    }
+
+    /// `alln run resume <runId>` — claim a parked vendor wait and resume the
+    /// same run in-process (never a second `alln run` spawn).
+    private static func resume(_ args: [String], runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard let runId = opts.positional.first else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln run resume <runId> [--json]")
+        }
+        let store = RunStore()
+        guard let parked = store.loadRaw(runId: runId) ?? store.load(runId: runId) else {
+            AllnighterCLI.fail(code: "RUN_NOT_FOUND", message: "run not found: \(runId)")
+        }
+        guard parked.status == .queued,
+              parked.phase == .waitingForVendor,
+              parked.blocker?.resource == .vendorBackoff else {
+            AllnighterCLI.fail(
+                code: "VENDOR_WAKE_NOT_CLAIMED",
+                message: "run \(runId) is not parked waiting for a vendor"
+            )
+        }
+        let coordinatorId = "cli:\(ProcessInfo.processInfo.processIdentifier)"
+        guard store.claimVendorWake(
+            runId: runId,
+            coordinatorId: coordinatorId,
+            now: Date(),
+            force: true
+        ) != nil else {
+            AllnighterCLI.fail(
+                code: "VENDOR_WAKE_NOT_CLAIMED",
+                message: "could not claim vendor wake lease for \(runId)"
+            )
+        }
+        let service = RunService(
+            models: runtime.models,
+            registry: runtime.registry,
+            teams: runtime.teams,
+            runStore: store,
+            invocations: runtime.invocations
+        )
+        let result = await service.resumeParkedRun(
+            runId: runId,
+            coordinatorId: coordinatorId,
+            selectionOrigin: MorningReceipt.manualResumeOrigin
+        )
+        switch result {
+        case .failure(let error):
+            AllnighterCLI.emitFailure(code: error.code, message: error.description)
+            exit(1)
+        case .success(let run):
+            if opts.flag("json") {
+                let journalPath = (try? store.runDirectory(forRunId: run.id))?
+                    .appendingPathComponent("run.json").path ?? ""
+                let context = TeamRunJSONMapper.Context(
+                    promptSource: .init(kind: .positional, path: nil),
+                    runJournalPath: journalPath,
+                    reproduceCommand: "alln run resume \(run.id) --json"
+                )
+                let trj = TeamRunJSONMapper.map(
+                    run, models: runtime.models, manifests: runtime.registry.all, context: context
+                )
+                print(AllnighterCLI.jsonString(trj))
+            } else if run.phase == .waitingForVendor,
+                      let blocker = run.blocker,
+                      let source = blocker.capacityObservation?.source ?? blocker.quotaScope {
+                print(VendorContinuityPresentation.waitStatus(
+                    vendorDisplayName: VendorContinuityPresentation.vendorDisplayName(sourceId: source),
+                    wakeAfter: blocker.wakeAfter
+                ))
+                FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
             } else {
                 print(run.plan ?? run.workerAnswers.first?.output ?? "(run \(run.status.rawValue))")
                 FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))

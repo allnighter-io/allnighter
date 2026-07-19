@@ -12,6 +12,10 @@ public enum NotificationDeliveryFilter {
         guard !policy.isThreadMuted(candidate.threadId) else { return false }
         guard eventEnabled(candidate.event, policy: policy) else { return false }
         guard !isQuietHours(policy: policy, now: now, calendar: calendar) else { return false }
+        if candidate.runId != nil,
+           candidate.event == .vendorParked || candidate.event == .vendorResumed {
+            return !policy.deliveredLifecycleEventIds.contains(candidate.id)
+        }
         if let last = policy.lastDeliveredAtByThread[candidate.threadId] {
             let interval = TimeInterval(policy.debounceIntervalSeconds)
             if now.timeIntervalSince(last) < interval { return false }
@@ -25,6 +29,10 @@ public enum NotificationDeliveryFilter {
         now: Date
     ) {
         policy.lastDeliveredAtByThread[candidate.threadId] = now
+        if candidate.runId != nil,
+           candidate.event == .vendorParked || candidate.event == .vendorResumed {
+            policy.deliveredLifecycleEventIds.insert(candidate.id)
+        }
     }
 
     public static func eventEnabled(_ event: NotificationEventKind, policy: NotificationPolicy) -> Bool {
@@ -34,7 +42,7 @@ public enum NotificationDeliveryFilter {
         case .teamRunCompleted:
             return policy.notifyTeamRunComplete
         case .turnFailed, .turnTimedOut, .turnAwaitingManualPaste, .turnAuthRequired,
-             .threadNeedsAttention:
+             .threadNeedsAttention, .vendorParked, .vendorResumed:
             return policy.notifyFailuresAndBlocked
         }
     }
@@ -64,6 +72,16 @@ public enum NotificationCopy {
     ) -> String {
         let quoted = quoteTitle(candidate.threadTitle)
         switch candidate.event {
+        case .vendorParked:
+            return VendorContinuityPresentation.parkNotification(
+                vendorDisplayName: candidate.vendorDisplayName ?? workerDisplayName ?? "Vendor",
+                wakeAfter: candidate.wakeAfter
+            )
+        case .vendorResumed:
+            return VendorContinuityPresentation.recoveryNotification(
+                vendorDisplayName: candidate.vendorDisplayName ?? workerDisplayName ?? "Vendor",
+                resumedAt: candidate.occurredAt
+            )
         case .turnCompleted:
             let who = workerDisplayName ?? "Worker"
             return "\(who) replied in \(quoted)"
@@ -82,6 +100,10 @@ public enum NotificationCopy {
 
     public static func body(candidate: NotificationCandidate) -> String {
         switch candidate.event {
+        case .vendorParked:
+            return "Allnighter will continue this run locally."
+        case .vendorResumed:
+            return "The same run is working again."
         case .turnCompleted, .teamRunCompleted:
             return "Open Allnighter to continue."
         case .turnFailed, .turnTimedOut, .threadNeedsAttention:

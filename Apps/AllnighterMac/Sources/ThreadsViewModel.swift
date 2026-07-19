@@ -67,6 +67,8 @@ final class ThreadsViewModel {
     private var readClearDebounceTask: Task<Void, Never>?
     private let isAppActiveForReadClear: () -> Bool
     private var notificationSnapshots: [String: ThreadNotificationSnapshot]?
+    /// Prior run park/resume snapshots for once-each vendor continuity notices.
+    private var previousRunNotificationSnapshots: [String: RunNotificationSnapshot]?
     private var notificationPolicy: NotificationPolicy
     private let notificationPolicyStore: NotificationPolicyStore
     private let notificationDelivery: any ThreadNotificationDelivering
@@ -902,6 +904,38 @@ final class ThreadsViewModel {
         return run
     }
 
+    /// Manual "Resume now" for a vendor park — same run id, in-process.
+    func resumeParkedVendorRun(runId: String) async {
+        let coordinatorId = "mac:\(ProcessInfo.processInfo.processIdentifier)"
+        guard runStore.claimVendorWake(
+            runId: runId,
+            coordinatorId: coordinatorId,
+            now: Date(),
+            force: true
+        ) != nil else { return }
+        let service = RunService(
+            models: models,
+            registry: registry,
+            runStore: runStore,
+            commandRunner: commandRunner,
+            writeLock: writeLock
+        )
+        _ = await service.resumeParkedRun(
+            runId: runId,
+            coordinatorId: coordinatorId,
+            selectionOrigin: MorningReceipt.manualResumeOrigin
+        )
+        runCache.clear(runId)
+        requestReload()
+    }
+
+    /// Cancel a parked vendor wait via ownership kill settlement.
+    func cancelParkedVendorRun(runId: String) async {
+        _ = ProcessOwnershipSurface(runStore: runStore).kill(id: runId)
+        runCache.clear(runId)
+        requestReload()
+    }
+
     /// Warm the terminal-run decode cache off the MainActor after selection (PERF-S04b).
     /// Body evaluation still falls back to a sync load on cache miss.
     private func prefetchTerminalRuns(for thread: WorkThread) {
@@ -1300,7 +1334,34 @@ final class ThreadsViewModel {
         after: [String: ThreadNotificationSnapshot]
     ) async {
         let now = Date()
-        let candidates = NotificationCandidateDetection.candidates(before: before, after: after, now: now)
+        var candidates = NotificationCandidateDetection.candidates(before: before, after: after, now: now)
+
+        var runsById: [String: TeamRun] = [:]
+        for thread in threads {
+            for turn in thread.turns {
+                guard let runId = turn.runId, runsById[runId] == nil else { continue }
+                if let run = teamRun(forRunId: runId) {
+                    runsById[runId] = run
+                }
+            }
+        }
+        let afterRuns = NotificationCandidateDetection.runSnapshots(
+            from: threads,
+            runsById: runsById
+        )
+        let beforeRuns: [String: RunNotificationSnapshot]? = {
+            guard before != nil else { return nil }
+            // Cold-start quiet: first reload after launch should not flood park notices.
+            // Subsequent reloads pass the previous run snapshot via stored property.
+            return previousRunNotificationSnapshots
+        }()
+        candidates += NotificationCandidateDetection.runCandidates(
+            before: beforeRuns,
+            after: afterRuns,
+            now: now
+        )
+        previousRunNotificationSnapshots = afterRuns
+
         guard !candidates.isEmpty, notificationPolicy.enabled else { return }
         _ = await MacNotificationDelivery.shared.requestAuthorizationIfNeeded()
         for candidate in candidates {

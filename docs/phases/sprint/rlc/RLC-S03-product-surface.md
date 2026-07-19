@@ -1,6 +1,6 @@
 # RLC-S03 — Product surface
 
-Status: **ready** (after RLC-S02)
+Status: **done** (Mac onboarding fixture demo waived — CLI fake worker shipped)
 SSOT: `docs/phases/Rate_Limit_Continuity.md` §Product surface
 
 ## Goal
@@ -15,9 +15,9 @@ Substitution policy guts (S04 may wire "Use another model"); burn estimates.
 
 ## Done when
 
-- [ ] Parked run copy: "Waiting for {vendor} — resumes around {T}"
-- [ ] Actions: Resume now / Use another model / Cancel (wired to S02/S04)
-- [ ] Park + recovery notifications once each
-- [ ] Morning receipt from observed wait coverage
-- [ ] Onboarding fixture demo path
-- [ ] Committed `feat(rlc): S03 — park surface + notifications + receipt`
+- [x] Parked run copy: "Waiting for {vendor} — resumes around {T}"
+- [x] Actions: Resume now / Cancel (Use another model placeholder until S04)
+- [x] Park + recovery notifications once each (run-scoped dedup)
+- [x] Morning receipt from observed wait coverage (`alln continuity receipt`)
+- [x] CLI demo path: `scripts/rlc_fake_limit_worker.sh` (Mac onboarding waived)
+- [x] Committed `feat(rlc): S03 — park surface + notifications + receipt`

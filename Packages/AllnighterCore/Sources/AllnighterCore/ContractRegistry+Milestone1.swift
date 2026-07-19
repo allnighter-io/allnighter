@@ -383,6 +383,17 @@ public extension ContractRegistry {
             outputSchema: .teamRunJSON
         ),
         CommandSpec(
+            "run resume", summary: "Resume a run parked on vendor capacity (same run id, in-process).", milestone: .m1,
+            args: [ArgSpec("runId", required: true, summary: "Parked run id.")],
+            flags: [FlagSpec("json", summary: "Emit TeamRunJSON.")],
+            outputSchema: .teamRunJSON
+        ),
+        CommandSpec(
+            "continuity receipt", summary: "Local observed-facts summary of vendor waits covered and automatic resumes (last 24h).", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Emit MorningReceipt JSON.")],
+            outputSchema: .none
+        ),
+        CommandSpec(
             "pair relay", summary: "Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.", milestone: .m1,
             flags: [
                 FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the PM re-reads it fresh each round."),

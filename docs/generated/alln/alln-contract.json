@@ -1490,6 +1490,54 @@
     },
     {
       "args" : [
+        {
+          "name" : "runId",
+          "required" : true,
+          "summary" : "Parked run id."
+        }
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit TeamRunJSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "run resume",
+      "outputSchema" : "teamRunJSON",
+      "summary" : "Resume a run parked on vendor capacity (same run id, in-process)."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit MorningReceipt JSON.",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "continuity receipt",
+      "outputSchema" : "none",
+      "summary" : "Local observed-facts summary of vendor waits covered and automatic resumes (last 24h)."
+    },
+    {
+      "args" : [
 
       ],
       "exampleIds" : [

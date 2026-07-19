@@ -81,6 +81,13 @@ public struct ProcessOwnershipSurface: Sendable {
                 pad(p.id, 28) + pad(p.kind, 8) + pad(alive, 7)
                     + pad(reap, 11) + pad(end, 18) + pad(age, 10) + root
             )
+            if p.phase == RunPhase.waitingForVendor.rawValue,
+               let vendor = p.vendorDisplayName {
+                lines.append("  " + VendorContinuityPresentation.waitStatus(
+                    vendorDisplayName: vendor,
+                    wakeAfter: p.wakeAfter
+                ))
+            }
         }
         lines.append("(\(envelope.processCount) process trees)")
         return lines.joined(separator: "\n")
@@ -176,6 +183,9 @@ public struct ProcessOwnershipSurface: Sendable {
             let stale = (terminal || quietVendorPark)
                 ? nil
                 : RunActivity.progressStale(lastActivityAt: last, now: now)
+            let vendorBlocker = quietVendorPark ? run.blocker : nil
+            let vendorSource = vendorBlocker?.capacityObservation?.source
+                ?? vendorBlocker?.quotaScope
             rows.append(OwnershipProcessJSON(
                 id: run.id,
                 kind: "run",
@@ -190,7 +200,13 @@ public struct ProcessOwnershipSurface: Sendable {
                 progressStale: stale,
                 endReason: run.endReason?.rawValue,
                 status: run.status.rawValue,
-                phase: run.phase?.rawValue
+                phase: run.phase?.rawValue,
+                blockerResource: run.blocker?.resource.rawValue,
+                vendorDisplayName: vendorSource.map {
+                    VendorContinuityPresentation.vendorDisplayName(sourceId: $0)
+                },
+                wakeAfter: vendorBlocker?.wakeAfter,
+                capacityObservation: vendorBlocker?.capacityObservation
             ))
             // RLR-S04a: surface each recorded worker `runtimeOwnership` receipt
             // (zombie-aware identity-alive) so the recorded worker tree is visible

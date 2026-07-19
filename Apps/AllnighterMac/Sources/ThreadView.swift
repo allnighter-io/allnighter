@@ -1120,6 +1120,9 @@ private struct ThreadMutatingRunRow: View {
                     text: turn.reasoningText, isLatestTurn: isLastTurn,
                     isRunning: !turn.status.isTerminal, duration: thinkingDuration,
                     startedAt: turn.createdAt)
+                if let parkBanner {
+                    parkBanner
+                }
                 attachmentRow
                 content
             }
@@ -1164,6 +1167,41 @@ private struct ThreadMutatingRunRow: View {
             Text(turn.createdAt, format: .dateTime.hour().minute())
                 .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             Spacer(minLength: 8)
+        }
+    }
+
+    @ViewBuilder private var parkBanner: some View {
+        if let run,
+           run.status == .queued,
+           run.phase == .waitingForVendor,
+           let blocker = run.blocker,
+           blocker.resource == .vendorBackoff {
+            let source = blocker.capacityObservation?.source ?? blocker.quotaScope ?? "vendor"
+            let vendor = VendorContinuityPresentation.vendorDisplayName(sourceId: source)
+            let status = VendorContinuityPresentation.waitStatus(
+                vendorDisplayName: vendor,
+                wakeAfter: blocker.wakeAfter
+            )
+            VStack(alignment: .leading, spacing: 8) {
+                Text(status)
+                    .font(.system(size: 13))
+                    .foregroundStyle(ALColor.accent)
+                HStack(spacing: 8) {
+                    Button("Resume now") {
+                        Task { await threads.resumeParkedVendorRun(runId: run.id) }
+                    }
+                    .buttonStyle(.bordered)
+                    Button("Cancel") {
+                        Task { await threads.cancelParkedVendorRun(runId: run.id) }
+                    }
+                    .buttonStyle(.borderless)
+                    Text("Use another model")
+                        .font(.system(size: 12))
+                        .foregroundStyle(ALColor.textFaint)
+                }
+            }
+            .padding(10)
+            .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 8))
         }
     }
 

@@ -399,7 +399,8 @@ public actor RunService {
     /// in-process continuation of the same run id — never a child `alln run`.
     public func resumeParkedRun(
         runId: String,
-        coordinatorId: String
+        coordinatorId: String,
+        selectionOrigin: String = MorningReceipt.automaticResumeOrigin
     ) async -> Result<TeamRun, RunServiceError> {
         guard var parked = runStore.loadRaw(runId: runId),
               parked.status == .queued,
@@ -518,7 +519,8 @@ public actor RunService {
             commitMessage: parked.requestedCommitMessage,
             noCommit: parked.noCommitOrdered == true,
             retryLinks: parked.links,
-            existingRun: parked
+            existingRun: parked,
+            resumeSelectionOrigin: selectionOrigin
         )
         ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: nil)
         await writeLock.release(lockKey, token: token)
@@ -833,7 +835,8 @@ public actor RunService {
         proofCommand: String? = nil,
         proofTimeoutSeconds: Int? = nil,
         retryLinks: [RunLink]? = nil,
-        existingRun: TeamRun? = nil
+        existingRun: TeamRun? = nil,
+        resumeSelectionOrigin: String? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
         let timeoutOverride = workerTimeoutSeconds.map { Duration.seconds($0) }
@@ -999,7 +1002,8 @@ public actor RunService {
                 resolvedSourceId: model.driverId,
                 resolvedModelId: model.id,
                 startedAt: startedAt,
-                vendorSessionId: parkedSessionId
+                vendorSessionId: parkedSessionId,
+                selectionOrigin: resumeSelectionOrigin
             ))
             run = existingRun
         } else {

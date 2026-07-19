@@ -37,6 +37,38 @@ public struct TurnNotificationSnapshot: Sendable, Equatable {
     }
 }
 
+/// Lightweight run snapshot folded into the existing notification pipeline.
+public struct RunNotificationSnapshot: Sendable, Equatable {
+    public let runId: String
+    public let threadId: String
+    public let turnId: String
+    public let threadTitle: String
+    public let workerId: String?
+    public let vendorDisplayName: String
+    public let wakeAfter: Date?
+    public let waitingForVendor: Bool
+
+    public init(
+        runId: String,
+        threadId: String,
+        turnId: String,
+        threadTitle: String,
+        workerId: String?,
+        vendorDisplayName: String,
+        wakeAfter: Date?,
+        waitingForVendor: Bool
+    ) {
+        self.runId = runId
+        self.threadId = threadId
+        self.turnId = turnId
+        self.threadTitle = threadTitle
+        self.workerId = workerId
+        self.vendorDisplayName = vendorDisplayName
+        self.wakeAfter = wakeAfter
+        self.waitingForVendor = waitingForVendor
+    }
+}
+
 /// Pure detection of notification candidates from thread state diffs (NOTIF-S02).
 public enum NotificationCandidateDetection {
     public static func snapshots(from threads: [WorkThread]) -> [String: ThreadNotificationSnapshot] {
@@ -89,6 +121,79 @@ public enum NotificationCandidateDetection {
             }
         }
         return out
+    }
+
+    public static func runSnapshots(
+        from threads: [WorkThread],
+        runsById: [String: TeamRun],
+        sourceDisplayNames: [String: String] = [:]
+    ) -> [String: RunNotificationSnapshot] {
+        var snapshots: [String: RunNotificationSnapshot] = [:]
+        for thread in threads {
+            for turn in thread.turns {
+                guard let runId = turn.runId, let run = runsById[runId] else { continue }
+                let sourceId = run.blocker?.capacityObservation?.source
+                    ?? run.attempts.reversed().compactMap(\.capacityObservation?.source).first
+                    ?? run.executionSourceId
+                    ?? "vendor"
+                let vendor = VendorContinuityPresentation.vendorDisplayName(
+                    sourceId: sourceId,
+                    sourceDisplayName: sourceDisplayNames[sourceId]
+                )
+                snapshots[runId] = RunNotificationSnapshot(
+                    runId: runId,
+                    threadId: thread.id,
+                    turnId: turn.id,
+                    threadTitle: thread.title,
+                    workerId: turn.workerId ?? run.workers.first?.modelId,
+                    vendorDisplayName: vendor,
+                    wakeAfter: run.blocker?.wakeAfter,
+                    waitingForVendor: run.status == .queued
+                        && run.phase == .waitingForVendor
+                        && run.blocker?.resource == .vendorBackoff
+                )
+            }
+        }
+        return snapshots
+    }
+
+    /// Emits park/recovery transitions into the same candidate stream as turn
+    /// notifications. A nil `before` is a cold start and stays quiet.
+    public static func runCandidates(
+        before: [String: RunNotificationSnapshot]?,
+        after: [String: RunNotificationSnapshot],
+        now: Date
+    ) -> [NotificationCandidate] {
+        guard let before else { return [] }
+        var candidates: [NotificationCandidate] = []
+        for (runId, current) in after {
+            let previous = before[runId]
+            if current.waitingForVendor, previous?.waitingForVendor != true {
+                candidates.append(NotificationCandidate(
+                    threadId: current.threadId,
+                    turnId: current.turnId,
+                    event: .vendorParked,
+                    threadTitle: current.threadTitle,
+                    workerId: current.workerId,
+                    runId: current.runId,
+                    vendorDisplayName: current.vendorDisplayName,
+                    wakeAfter: current.wakeAfter,
+                    occurredAt: now
+                ))
+            } else if previous?.waitingForVendor == true, !current.waitingForVendor {
+                candidates.append(NotificationCandidate(
+                    threadId: current.threadId,
+                    turnId: current.turnId,
+                    event: .vendorResumed,
+                    threadTitle: current.threadTitle,
+                    workerId: current.workerId,
+                    runId: current.runId,
+                    vendorDisplayName: previous?.vendorDisplayName ?? current.vendorDisplayName,
+                    occurredAt: now
+                ))
+            }
+        }
+        return candidates
     }
 
     private static func turnCandidates(

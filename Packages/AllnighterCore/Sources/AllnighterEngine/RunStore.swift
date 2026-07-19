@@ -300,7 +300,8 @@ public struct RunStore: Sendable {
         runId: String,
         coordinatorId: String,
         now: Date,
-        leaseSeconds: TimeInterval = VendorBackoffPolicy.wakeLeaseSeconds
+        leaseSeconds: TimeInterval = VendorBackoffPolicy.wakeLeaseSeconds,
+        force: Bool = false
     ) -> TeamRun? {
         let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
         return ProcessOwnership.withRunLock(in: directory) {
@@ -312,13 +313,15 @@ public struct RunStore: Sendable {
                   var blocker = run.blocker,
                   blocker.resource == .vendorBackoff else { return nil }
 
-            let effectiveWake = blocker.wakeAfter ?? run.attempts.last.map {
-                VendorBackoffPolicy.unknownResetWakeAfter(
-                    attemptNumber: $0.attemptNumber,
-                    observedAt: $0.endedAt ?? $0.capacityObservation?.observedAt ?? run.createdAt
-                )
+            if !force {
+                let effectiveWake = blocker.wakeAfter ?? run.attempts.last.map {
+                    VendorBackoffPolicy.unknownResetWakeAfter(
+                        attemptNumber: $0.attemptNumber,
+                        observedAt: $0.endedAt ?? $0.capacityObservation?.observedAt ?? run.createdAt
+                    )
+                }
+                guard let effectiveWake, effectiveWake <= now else { return nil }
             }
-            guard let effectiveWake, effectiveWake <= now else { return nil }
 
             if let holder = blocker.holderId,
                holder != coordinatorId,

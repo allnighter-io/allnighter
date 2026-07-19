@@ -9,16 +9,25 @@ public enum NotificationEventKind: String, Codable, Sendable, CaseIterable {
     case turnAuthRequired = "turn.auth_required"
     case threadNeedsAttention = "thread.needs_attention"
     case teamRunCompleted = "team_run.completed"
+    case vendorParked = "team_run.vendor_parked"
+    case vendorResumed = "team_run.vendor_resumed"
 }
 
 /// A notification-worthy state transition on a thread turn.
 public struct NotificationCandidate: Sendable, Equatable, Identifiable {
-    public var id: String { "\(threadId):\(turnId):\(event.rawValue)" }
+    public var id: String {
+        "\(threadId):\(runId ?? turnId):\(event.rawValue)"
+    }
     public let threadId: String
     public let turnId: String
     public let event: NotificationEventKind
     public let threadTitle: String
     public let workerId: String?
+    /// Present for run-lifecycle events. It gives delivery a stable run-scoped
+    /// once-each key without creating a parallel notification identity.
+    public let runId: String?
+    public let vendorDisplayName: String?
+    public let wakeAfter: Date?
     public let occurredAt: Date
 
     public init(
@@ -27,6 +36,9 @@ public struct NotificationCandidate: Sendable, Equatable, Identifiable {
         event: NotificationEventKind,
         threadTitle: String,
         workerId: String? = nil,
+        runId: String? = nil,
+        vendorDisplayName: String? = nil,
+        wakeAfter: Date? = nil,
         occurredAt: Date
     ) {
         self.threadId = threadId
@@ -34,6 +46,9 @@ public struct NotificationCandidate: Sendable, Equatable, Identifiable {
         self.event = event
         self.threadTitle = threadTitle
         self.workerId = workerId
+        self.runId = runId
+        self.vendorDisplayName = vendorDisplayName
+        self.wakeAfter = wakeAfter
         self.occurredAt = occurredAt
     }
 }

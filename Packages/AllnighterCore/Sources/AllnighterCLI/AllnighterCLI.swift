@@ -44,6 +44,7 @@ struct AllnighterCLI {
         case "thread" where args.first == "attachment": ThreadCLI.runAttachmentGet(Array(args.dropFirst()))
         case "thread" where args.first == "rename": await ThreadRenameCLI.runRename(Array(args.dropFirst()), runtime: runtime)
         case "run": await RunCLI.run(args, runtime: runtime)
+        case "continuity": runContinuity(args)
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
         case "team" where args.first == "hello": print(teamHelloJSONString(Array(args.dropFirst()), runtime))
         case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
@@ -1354,6 +1355,23 @@ struct AllnighterCLI {
             }
         )
         print(jsonString(envelope))
+    }
+
+    /// `alln continuity receipt [--json]` — local observed-facts summary of
+    /// vendor waits covered and automatic resumes (last 24 hours).
+    static func runContinuity(_ args: [String]) {
+        let opts = Options(args)
+        guard args.first == "receipt" else {
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln continuity receipt [--json]")
+        }
+        let until = Date()
+        let since = until.addingTimeInterval(-24 * 60 * 60)
+        let receipt = MorningReceipt.project(runs: RunStore().list(), since: since, until: until)
+        if opts.flag("json") {
+            print(jsonString(receipt))
+        } else {
+            print(receipt.humanSummary)
+        }
     }
 
     /// `alln ps [--all-projects] [--json]` — read-only ownership inventory

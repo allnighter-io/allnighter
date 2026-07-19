@@ -13,8 +13,8 @@ Owner: AllnighterCore + AllnighterEngine (`CapacityClassifier`/
 `PendingWakePlanner`/`Scheduler`, `ResidentCoordinator`, `RunBlocker`,
 `ExecutionLaneRegistry`) + CLI/Mac (park surface).
 Updated: 2026-07-19.
-Slice status: **RLC-S01 + RLC-S02 delivered** — contracts, park policy,
-same-source park/wake/resume via ResidentCoordinator, source-scoped single-flight.
+Slice status: **RLC-S01 + S02 + S03 delivered** — contracts, park/wake,
+ps/GUI park copy, resume CLI, notifications, morning receipt.
 
 Related: `Run_Lifecycle_Reliability.md` (blocker wire, activity truth,
 runtimeOwnership) · `parked/Utilization_Admission_Control.md` — RLC is the

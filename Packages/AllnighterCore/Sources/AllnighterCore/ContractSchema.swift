@@ -658,7 +658,7 @@ public enum ContractSchema {
         schema["$defs"] = [
             "OwnershipProcess": obj([
                 "id": str,
-                "kind": enumStr(["run", "relay", "pilot", "proof"]),
+                "kind": enumStr(["run", "relay", "pilot", "proof", "worker"]),
                 "projectRoot": nullable("string"),
                 "identity": nullableRef("ProcessOwner"),
                 "identityAlive": bool,
@@ -671,6 +671,10 @@ public enum ContractSchema {
                 "endReason": nullable("string"),
                 "status": nullable("string"),
                 "phase": nullable("string"),
+                "blockerResource": nullable("string"),
+                "vendorDisplayName": nullable("string"),
+                "wakeAfter": nullable("string"),
+                "capacityObservation": nullableRef("CapacityObservation"),
             ], required: [
                 "id", "kind", "identityAlive", "wouldReconcile",
             ]),
@@ -687,6 +691,13 @@ public enum ContractSchema {
                 "startTimeTicks": int,
                 "kind": str,
             ], required: ["pid", "startTimeTicks", "kind"]),
+            "CapacityObservation": obj([
+                "kind": str, "source": str, "sourceConfidence": str,
+                "rawSnippet": str, "observedAt": str,
+                "observedResetAt": nullable("string"),
+                "retryAfterSeconds": nullable("integer"),
+                "wakeAfter": nullable("string"),
+            ], required: ["kind", "source", "sourceConfidence", "rawSnippet", "observedAt"]),
         ]
         return schema
     }

@@ -1,5 +1,51 @@
 {
   "$defs" : {
+    "CapacityObservation" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "kind" : {
+          "type" : "string"
+        },
+        "observedAt" : {
+          "type" : "string"
+        },
+        "observedResetAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "rawSnippet" : {
+          "type" : "string"
+        },
+        "retryAfterSeconds" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "source" : {
+          "type" : "string"
+        },
+        "sourceConfidence" : {
+          "type" : "string"
+        },
+        "wakeAfter" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "kind",
+        "source",
+        "sourceConfidence",
+        "rawSnippet",
+        "observedAt"
+      ],
+      "type" : "object"
+    },
     "OwnershipLane" : {
       "additionalProperties" : false,
       "properties" : {
@@ -44,6 +90,22 @@
     "OwnershipProcess" : {
       "additionalProperties" : false,
       "properties" : {
+        "blockerResource" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "capacityObservation" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/CapacityObservation"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
         "endReason" : {
           "type" : [
             "string",
@@ -77,7 +139,8 @@
             "run",
             "relay",
             "pilot",
-            "proof"
+            "proof",
+            "worker"
           ],
           "type" : "string"
         },
@@ -122,6 +185,18 @@
           ]
         },
         "status" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "vendorDisplayName" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "wakeAfter" : {
           "type" : [
             "string",
             "null"

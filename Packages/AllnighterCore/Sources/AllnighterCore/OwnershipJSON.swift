@@ -23,11 +23,8 @@ public struct OwnershipPsJSON: Codable, Sendable, Equatable {
 
 /// One owned process tree in the `alln ps` inventory.
 ///
-/// Wire-shape freeze (S01c): field **names** on this type are frozen from
-/// here forward. `phase` lands now (RLR-L3, S01a); `lastActivityKind` /
-/// `progressStale` land now (RLR-L6, S03a) — sourced from `run.json`, never
-/// `heartbeat.json`. Still-owed additions per the RLR execution plan (not yet
-/// on the wire, do not add early): `killOutcome` / `contradiction` (S04).
+/// `phase`, blocker, and activity fields are projected from `run.json`; clients
+/// do not re-parse the journal ad hoc.
 public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
     /// Stable work id (run id, relay id, or harness-proof claim id).
     public var id: String
@@ -62,6 +59,14 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
     /// `RunPhase` raw value (RLR-L3) for non-terminal runs; nil when terminal
     /// or when this row has no phase axis (relay/pilot/proof rows).
     public var phase: String?
+    /// Public blocker resource (`vendorBackoff`, `repoWriteLock`, …).
+    public var blockerResource: String?
+    /// Owner-facing vendor label when blocked on vendor capacity.
+    public var vendorDisplayName: String?
+    /// Conservative local retry boundary. Nil means no clock is known.
+    public var wakeAfter: Date?
+    /// Existing sourced capacity fact; never a parallel rate-limit payload.
+    public var capacityObservation: CapacityObservation?
 
     public init(
         id: String,
@@ -77,7 +82,11 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
         progressStale: Bool? = nil,
         endReason: String? = nil,
         status: String? = nil,
-        phase: String? = nil
+        phase: String? = nil,
+        blockerResource: String? = nil,
+        vendorDisplayName: String? = nil,
+        wakeAfter: Date? = nil,
+        capacityObservation: CapacityObservation? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -93,6 +102,10 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
         self.endReason = endReason
         self.status = status
         self.phase = phase
+        self.blockerResource = blockerResource
+        self.vendorDisplayName = vendorDisplayName
+        self.wakeAfter = wakeAfter
+        self.capacityObservation = capacityObservation
     }
 }
 
