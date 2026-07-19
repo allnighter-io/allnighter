@@ -25,7 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Run_Lifecycle_Reliability.md`](Run_Lifecycle_Reliability.md) | **APPROVED P0 — execute RLR-S00–S06 first; blocks IR-S02 + Agent Onboarding V1** | Accepted runs stay identifiable, causally observable, total-killable, and retry-safe. Owns status/journal unity, visible contention, activity NDJSON, worker process-group ownership, watchdogs, and two-process trust proof. |
+| [`Run_Lifecycle_Reliability.md`](Run_Lifecycle_Reliability.md) | **HARDENED P0 — RLR-S00 evidence/RCA first; blocks IR-S02 + Onboarding V1** | Spec Review + 2026-07-19 Kimi re-hang hardened laws (typed KillOutcome, replay vs retryOf, repoWriteLock-only P0 waits). Do not product-patch until S00 reproduces field signatures. |
 | [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
 | [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md) | **SHIPPED 2026-07-19, archived** — S01–S04b, S05a, S06 gates; S05b deferred | Team-run open + streaming/reload hot path. Code SSOT: `ThreadsViewModel.applyLiveDelta` / `reloadAsync`, `PerfCounters`, `RunDecodeCache`. |
 | [`Field_Reports_3.md`](Field_Reports_3.md) | **In progress** — piloted delivery #10 | Lane-label truth, JSON stream discipline, retry idempotency from live dogfood. |
