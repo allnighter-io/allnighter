@@ -34,7 +34,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Team_Catalog_Normalization.md`](Team_Catalog_Normalization.md) | **SHIPPED 2026-07-19** (founder-approved; CN-S01–S05 + Law 4 guards landed) | Decisive normalized family list: obvious job names, optional Min/Default/Max tiers (Spec Review, Bug Hunt, Growth, Design), Law 3 caliber+capability staffing, Law 4 unique typeTags. The catalog in `BuiltInTeams.swift` now matches this doc. |
+| [`Team_Catalog_Normalization.md`](../archive/Team_Catalog_Normalization.md) | **SHIPPED 2026-07-19, archived** (founder-approved; CN-S01–S06 + Law 4 guards landed) | Decisive normalized family list: obvious job names, optional Min/Default/Max tiers (Spec Review, Bug Hunt, Growth, Design), Law 3 caliber+capability staffing, Law 4 unique typeTags. The catalog in `BuiltInTeams.swift` now matches this doc. |
 | [`Agent_Intent_Router.md`](Agent_Intent_Router.md) | **Specced v2** (gate 3) — **UNBLOCKED**, IR-S00 done | `alln team hello --for "<intent>"` as a local solutions engineer over the normalized catalog. Today `AgentHello.swift` is a static readiness report; the `--for` matcher (IR-S01) is next. |
 | [`Agent_Onboarding.md`](Agent_Onboarding.md) | **Specced v3** (gate 2) — V1 three slices unbuilt | From findable to suggested: the app teaches every CLI session about `alln` (recipe cards, CLAUDE.md/AGENTS.md seeding, app missionary surface). |
 

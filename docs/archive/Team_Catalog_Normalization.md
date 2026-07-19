@@ -1,6 +1,16 @@
 # Team Catalog Normalization — obvious families the router (and humans) can trust
 
-Status: Specced v2 — **the prerequisite for `Agent_Intent_Router.md`.** Decides
+Status: ✅ **SHIPPED &amp; ARCHIVED 2026-07-19** — every slice landed, all guards
+green; the catalog in `BuiltInTeams.swift` IS this doc now. CN-S01 renames
+`1247bd12` · CN-S02+S03 tiers/fold/drop `6266b8d4` · CN-S04 guards `daccc183`
+· CN-S06 preferred capability `355ce3d5` (band semantics: preference reorders
+across ranks INSIDE a caliber band — a rank-87 specialist beats a rank-92
+generalist in High band — never across bands). IR-S00 in
+`Agent_Intent_Router.md` is DONE; the router (IR-S01) is unblocked.
+Kept for reference; the laws below remain binding on future catalog edits
+(enforced by `BuiltInTeamsTests` guards).
+
+Original charter: **the prerequisite for `Agent_Intent_Router.md`.** Decides
 the built-in family list (Law 1: obvious names), tier shape (Law 2: optional
 Min/Default/Max), **staffing (Law 3: caliber + capability, never per-team
 model lists)**, and **routing keys (Law 4: typeTags unique within a lane)**.
@@ -288,11 +298,11 @@ can always create/edit their own teams and settings.**
 | --- | --- |
 | CN-S05 | ✅ **SHIPPED 2026-07-18/19** (`fb15c38a`+`d23c9af5` + follow-ups `1df88685`/`d87906b6`/`18065ae7`/`eb75eeb4`/`eb056ee5`): staffing by caliber + capability metadata (K3/Sol/Codex/Fable design, Codex/Grok image, `.copy` broadened), hardcoded model arrays deleted, intent `typeTags` + `starters` closed on every team (current pre-rename ids), stale Signal Lead-rank tests fixed. |
 | CN-S04a | ✅ **SHIPPED 2026-07-19** (`e8718e24`): Law 4 guards — typeTags unique within lane + bare family tag resolves to Default (fixed the live `--type spec-review`/`growth`→Min mis-route). |
-| CN-S01 | Rename pass — Code Core→Plan, Execution Playbook→Build a Slice, Premium Polish→Polish, Usability Triage→Usability Review, Design Core→Design, Post-to-Project Signal→Outside Signal, "What should we build next?"→What to Build Next. Names + `id`s + `typeTags` (re-authored under Law 4) + intent-phrase `description`s. |
-| CN-S02 | Tier completion — add **Bug Hunt Min**; fold **Radical Directions** into **Design Max**; confirm Spec Review + Growth unchanged. Every tiered family Min/Default/Max complete. |
-| CN-S03 | Merges/drops — retire **Conversion Studio**, route its intent to Copy Landing. |
-| CN-S04 | Remaining `BuiltInTeamsTests` guards — tier completeness, non-empty `typeTags`, ≥1 `starter`, no flavor-depth names, no orphan tiers, **and no hardcoded per-team model arrays** (Law 3). Green gate. |
-| CN-S06 | **Preferred capability (Law 3 extension).** `preferredCapabilityTags` on seat rows: reorders candidates within caliber, never filters; tag `.security`/`.review` specialists in `ModelCatalog`; Security Review + review seats declare preferences. Reduced-bench test proves staffing is unchanged when no specialist is ready. |
+| CN-S01 | ✅ **SHIPPED** (`1247bd12`) Rename pass — all 7 renames + `build_slice`, ids/names/descriptions/typeTags under Law 4, engine executor refs, dead `"<lane>_core"` fallback deleted, contracts regenerated. |
+| CN-S02 | ✅ **SHIPPED** (`6266b8d4`) Tier completion — Bug Hunt Min; Design Min/Max with **Radical Directions folded into Design Max**; Design reasoning seats fixed to `.design` (vs `.image` mockup seats) so K3/Sol/Fable are reasoning-eligible. |
+| CN-S03 | ✅ **SHIPPED** (`6266b8d4`) **Conversion Studio deleted**; its intent routes to Copy Landing. |
+| CN-S04 | ✅ **SHIPPED** (`daccc183`) Guards — no orphan tiers, tiered families complete, depth display names = base + " Min"/" Max", retired-name scan, metadata floor, no hardcoded worker identity outside signal lane (execution-passthrough teams exempt by design). |
+| CN-S06 | ✅ **SHIPPED** (`355ce3d5`) **Preferred capability.** `preferredCapabilityTags` reorders candidates **within a caliber band** (across exact ranks — the band, not the rank, is the caliber line), never filters, never crosses bands; Security Review rows prefer `.security`; `model_sonnet` tagged (Fable/Opus/Sol already were); stripped-copy test proves identical staffing on a zero-specialist bench. `.review` preference tagging deferred until a team needs it. |
 
 **Then** `Agent_Intent_Router.md` IR-S01 builds `team hello --for` over the clean
 catalog. (IR-S00 in that doc = "this doc lands first.")
