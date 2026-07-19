@@ -138,6 +138,27 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "later"), "pending")
     }
 
+    func testSearchFindsCatalogTermsViaDiscoveryIndex() {
+        let opencode = HelpService.search("opencode")
+        XCTAssertFalse(opencode.isMiss)
+        XCTAssertEqual(opencode.results.first?.topicId, "teams_and_workers")
+        XCTAssertFalse(opencode.discoveryModelIds.isEmpty)
+
+        let glm = HelpService.search("glm")
+        XCTAssertFalse(glm.isMiss)
+        XCTAssertEqual(glm.results.first?.topicId, "teams_and_workers")
+        XCTAssertTrue(glm.discoveryModelIds.contains("model_opencode_glm_5_2"))
+
+        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "opencode"), "teams_and_workers")
+        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "glm"), "teams_and_workers")
+    }
+
+    func testSearchTreatsWeakFuzzyNoiseAsMiss() {
+        let r = HelpService.search("asdfqwerty-no-such-topic-999")
+        XCTAssertTrue(r.isMiss)
+        XCTAssertTrue(r.results.isEmpty)
+    }
+
     // MARK: - Get + selectors
 
     func testGetByTopicSectionSchemaError() {

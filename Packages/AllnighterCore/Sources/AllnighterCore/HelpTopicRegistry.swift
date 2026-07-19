@@ -453,8 +453,10 @@ public enum HelpTopicRegistry {
     }()
 
     /// Search/alias redirects: a term (often retired vocabulary) → canonical topic id.
+    /// Catalog-derived terms (ASF-S03) are seeded first; authored topic aliases win
+    /// on collision so hand-taught redirects stay authoritative.
     public static let aliasRedirects: [String: String] = {
-        var map: [String: String] = [:]
+        var map = HelpDiscoveryIndex.catalogAliasRedirects()
         for topic in topics {
             for alias in topic.aliases { map[alias.lowercased()] = topic.id }
         }

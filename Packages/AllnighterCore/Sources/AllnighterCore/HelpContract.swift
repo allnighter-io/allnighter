@@ -42,13 +42,19 @@ public struct HelpSearchJSON: Codable, Sendable, Equatable {
     public var suggestedAnswerMarkdown: String?
     public var suggestedAnswerRefs: [String]
     public var nextToolPlan: [HelpNextToolStep]
+    /// Catalog model ids matched by discovery (ASF-S03); empty on a miss.
+    public var discoveryModelIds: [String]
+    /// True when search treated the query as a miss (ASF-S04).
+    public var isMiss: Bool
     public init(schemaVersion: Int = 1, contractVersion: String, routingLaw: String, query: String,
                 results: [HelpSearchHit], suggestedAnswerMarkdown: String?, suggestedAnswerRefs: [String],
-                nextToolPlan: [HelpNextToolStep]) {
+                nextToolPlan: [HelpNextToolStep], discoveryModelIds: [String] = [], isMiss: Bool = false) {
         self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
         self.routingLaw = routingLaw; self.query = query; self.results = results
         self.suggestedAnswerMarkdown = suggestedAnswerMarkdown; self.suggestedAnswerRefs = suggestedAnswerRefs
         self.nextToolPlan = nextToolPlan
+        self.discoveryModelIds = discoveryModelIds
+        self.isMiss = isMiss
     }
 }
 
@@ -133,7 +139,8 @@ public enum HelpProjector {
         return HelpSearchJSON(
             contractVersion: contractVersion, routingLaw: HelpService.routingLaw, query: r.query,
             results: r.results, suggestedAnswerMarkdown: r.suggestedAnswerMarkdown,
-            suggestedAnswerRefs: r.suggestedAnswerRefs, nextToolPlan: planForSearch(r))
+            suggestedAnswerRefs: r.suggestedAnswerRefs, nextToolPlan: planForSearch(r),
+            discoveryModelIds: r.discoveryModelIds, isMiss: r.isMiss)
     }
 
     public static func get(topic: String? = nil, ref: String? = nil,
@@ -153,7 +160,33 @@ public enum HelpProjector {
     // MARK: - Plans
 
     private static func planForSearch(_ r: HelpSearchResult) -> [HelpNextToolStep] {
-        guard let top = r.results.first else { return [] }
+        // ASF-S04: empty / below-threshold miss → concrete recovery, never silence.
+        if r.isMiss || r.results.isEmpty {
+            return missRecoveryPlan()
+        }
+        guard let top = r.results.first else { return missRecoveryPlan() }
+
+        // ASF-S03: catalog discovery hits point at models / run --worker, not only help get.
+        if !r.discoveryModelIds.isEmpty {
+            var steps = [
+                HelpNextToolStep(
+                    order: 1,
+                    command: "alln models --json",
+                    why: "List the model catalog (includes OpenCode / GLM and other workers)."),
+            ]
+            if let modelId = preferredDiscoveryModelId(r.discoveryModelIds, query: r.query) {
+                steps.append(HelpNextToolStep(
+                    order: 2,
+                    command: "alln run --worker \(modelId) \"<prompt>\" --json",
+                    why: "Run a single worker from the matched catalog entry."))
+            }
+            steps.append(HelpNextToolStep(
+                order: steps.count + 1,
+                command: "alln help get \(top.topicId) --json",
+                why: "Read the teams / workers topic for catalog management."))
+            return steps
+        }
+
         var steps = [HelpNextToolStep(
             order: 1,
             command: "alln help get \(top.topicId) --json",
@@ -165,6 +198,40 @@ public enum HelpProjector {
                 why: "This answer depends on local readiness — check live state."))
         }
         return steps
+    }
+
+    /// Prefer a model whose id/label tokens intersect the query (e.g. glm → model_opencode_glm_5_2).
+    private static func preferredDiscoveryModelId(_ modelIds: [String], query: String) -> String? {
+        let q = query.lowercased()
+        let tokens = q.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { $0.count >= 2 }
+        if let exact = modelIds.first(where: { id in
+            tokens.contains(where: { id.lowercased().contains($0) && $0.count >= 3 })
+        }) {
+            return exact
+        }
+        return modelIds.first
+    }
+
+    /// Recovery when help search finds nothing useful (ASF-S04).
+    private static func missRecoveryPlan() -> [HelpNextToolStep] {
+        [
+            HelpNextToolStep(
+                order: 1,
+                command: "alln models --json",
+                why: "Browse the model / worker catalog."),
+            HelpNextToolStep(
+                order: 2,
+                command: "alln team show --json",
+                why: "Inspect default teams per lane."),
+            HelpNextToolStep(
+                order: 3,
+                command: "alln doctor --json",
+                why: "Check sources, auth, and bench readiness."),
+            HelpNextToolStep(
+                order: 4,
+                command: "alln team hello --for \"<intent>\" --json",
+                why: "Route an intent phrase to a ready team or worker."),
+        ]
     }
 
     private static func planForTopic(_ topic: HelpTopic?, found: Bool) -> [HelpNextToolStep] {

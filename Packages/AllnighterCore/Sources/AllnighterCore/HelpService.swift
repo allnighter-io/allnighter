@@ -66,6 +66,26 @@ public struct HelpSearchResult: Codable, Sendable, Equatable {
     /// The top hit's one-line answer, so a host agent can answer without inventing wording.
     public var suggestedAnswerMarkdown: String?
     public var suggestedAnswerRefs: [String]
+    /// Catalog model ids matched by the discovery index (ASF-S03); empty on a miss.
+    public var discoveryModelIds: [String]
+    /// True when scoring produced no hit above the confidence threshold (ASF-S04).
+    public var isMiss: Bool
+
+    public init(
+        query: String,
+        results: [HelpSearchHit],
+        suggestedAnswerMarkdown: String?,
+        suggestedAnswerRefs: [String],
+        discoveryModelIds: [String] = [],
+        isMiss: Bool = false
+    ) {
+        self.query = query
+        self.results = results
+        self.suggestedAnswerMarkdown = suggestedAnswerMarkdown
+        self.suggestedAnswerRefs = suggestedAnswerRefs
+        self.discoveryModelIds = discoveryModelIds
+        self.isMiss = isMiss
+    }
 }
 
 public struct HelpGetResult: Codable, Sendable, Equatable {
@@ -84,31 +104,44 @@ public enum HelpService {
 
     // MARK: - Search
 
+    /// Absolute raw-score floor (ASF-S04). Weak body-only fuzzy hits (score 1–2)
+    /// are treated as misses so nonsense queries cannot hijack a topic while
+    /// real catalog terms stay silent. Alias/id/title matches and catalog
+    /// discovery boosts score ≥ 3.
+    public static let minimumHitScore: Double = 3
+
     public static func search(_ query: String, limit: Int = 5) -> HelpSearchResult {
         let limit = max(1, limit)   // a degenerate limit must not yield an answer with zero hits
         let tokens = tokenize(query)
         let phrase = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let aliasHit = HelpTopicRegistry.canonicalTopicId(for: phrase)
+        let discovery = HelpDiscoveryIndex.match(phrase: phrase, tokens: tokens)
 
         var scored: [(HelpTopic, Double)] = []
         for t in HelpTopicRegistry.topics {
-            let idTitle = (t.id + " " + t.title).lowercased()
-            let aliases = t.aliases.joined(separator: " ").lowercased()
-            let summary = t.summary.lowercased()
-            let body = t.bodyMarkdown.lowercased()
-            var s = 0.0
+            // Whole-token sets — substring contains("no") must not match "now" (ASF-S04).
+            let idTitleTokens = tokenSet(t.id + " " + t.title)
+            let aliasTokens = tokenSet(t.aliases.joined(separator: " "))
+            let summaryTokens = tokenSet(t.summary)
+            let bodyTokens = tokenSet(t.bodyMarkdown)
+            let commandTokens = tokenSet(t.relatedCommandNames.joined(separator: " "))
+            var strong = 0.0
+            var bodyScore = 0.0
             for tok in tokens {
-                if idTitle.contains(tok) { s += 4 }
-                if aliases.contains(tok) { s += 3 }
-                if summary.contains(tok) { s += 2 }
-                if body.contains(tok) { s += 1 }
-                if t.relatedCommandNames.contains(where: { $0.lowercased().contains(tok) }) { s += 2 }
+                if idTitleTokens.contains(tok) { strong += 4 }
+                if aliasTokens.contains(tok) { strong += 3 }
+                if summaryTokens.contains(tok) { strong += 2 }
+                if bodyTokens.contains(tok) { bodyScore += 1 }
+                if commandTokens.contains(tok) { strong += 2 }
             }
-            if t.id == aliasHit { s += 10 }   // exact topic/alias phrase wins decisively
-            if s > 0 { scored.append((t, s)) }
+            if t.id == aliasHit { strong += 10 }   // exact topic/alias phrase wins decisively
+            if let discovery, t.id == discovery.topicId { strong += discovery.scoreBoost }
+            guard strong >= minimumHitScore else { continue }
+            scored.append((t, strong + bodyScore))
         }
         scored.sort { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.id < $1.0.id }
 
+        let isMiss = scored.isEmpty
         let maxScore = scored.first?.1 ?? 1
         let hits = scored.prefix(limit).map { (t, raw) in
             HelpSearchHit(
@@ -122,7 +155,9 @@ public enum HelpService {
         return HelpSearchResult(
             query: query, results: Array(hits),
             suggestedAnswerMarkdown: top?.summary,
-            suggestedAnswerRefs: top.map { [HelpRef.help($0.id)] } ?? [])
+            suggestedAnswerRefs: top.map { [HelpRef.help($0.id)] } ?? [],
+            discoveryModelIds: discovery?.modelIds ?? [],
+            isMiss: isMiss)
     }
 
     // MARK: - Get
@@ -188,10 +223,16 @@ public enum HelpService {
     }
 
     private static func tokenize(_ s: String) -> [String] {
-        let stop: Set<String> = ["the", "a", "an", "to", "of", "is", "do", "i", "how", "my", "on", "in", "for", "this", "can", "what", "and", "with", "it"]
+        let stop: Set<String> = ["the", "a", "an", "to", "of", "is", "do", "i", "how", "my", "on", "in", "for", "this", "can", "what", "and", "with", "it", "no"]
         return s.lowercased()
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { $0.count >= 2 && !stop.contains($0) }
+    }
+
+    private static func tokenSet(_ s: String) -> Set<String> {
+        Set(s.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { $0.count >= 2 })
     }
 
     private static func snippet(for t: HelpTopic, tokens: [String]) -> String {

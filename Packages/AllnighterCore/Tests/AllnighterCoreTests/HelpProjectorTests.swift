@@ -89,4 +89,64 @@ final class HelpProjectorTests: XCTestCase {
             XCTAssertNotNil(step["command"])
         }
     }
+
+    // MARK: - ASF-S03 / ASF-S04
+
+    func testSearchOpencodeReturnsCatalogHitAndRunnablePlan() {
+        let j = HelpProjector.search("opencode", limit: 5, contractVersion: "1.0.0")
+        XCTAssertFalse(j.isMiss)
+        XCTAssertFalse(j.results.isEmpty, "opencode must hit the discovery index")
+        XCTAssertEqual(j.results.first?.topicId, HelpDiscoveryIndex.discoveryTopicId)
+        XCTAssertFalse(j.discoveryModelIds.isEmpty)
+        XCTAssertTrue(j.discoveryModelIds.contains { $0.contains("opencode") })
+        XCTAssertFalse(j.nextToolPlan.isEmpty)
+        XCTAssertTrue(j.nextToolPlan.contains { $0.command == "alln models --json" })
+        XCTAssertTrue(j.nextToolPlan.contains { $0.command.hasPrefix("alln run --worker ") })
+        for step in j.nextToolPlan {
+            XCTAssertTrue(step.command.hasPrefix("alln "))
+            XCTAssertNotNil(ContractRegistry.resolveCommandName(from: step.command))
+        }
+    }
+
+    func testSearchGlmReturnsCatalogHitAndWorkerPlan() {
+        let j = HelpProjector.search("glm", limit: 5, contractVersion: "1.0.0")
+        XCTAssertFalse(j.isMiss)
+        XCTAssertFalse(j.results.isEmpty)
+        XCTAssertEqual(j.results.first?.topicId, HelpDiscoveryIndex.discoveryTopicId)
+        XCTAssertTrue(j.discoveryModelIds.contains("model_opencode_glm_5_2"))
+        XCTAssertTrue(j.nextToolPlan.contains { $0.command == "alln models --json" })
+        XCTAssertTrue(
+            j.nextToolPlan.contains { $0.command.contains("model_opencode_glm_5_2") },
+            "glm plan must point at the GLM worker"
+        )
+        for step in j.nextToolPlan {
+            XCTAssertTrue(step.command.hasPrefix("alln "))
+        }
+    }
+
+    func testNonsenseSearchIsMissWithRecoveryPlan() {
+        let j = HelpProjector.search("asdfqwerty-no-such-topic-999", limit: 5, contractVersion: "1.0.0")
+        XCTAssertTrue(j.isMiss)
+        XCTAssertTrue(j.results.isEmpty, "nonsense must not fuzzy-hijack a topic")
+        XCTAssertTrue(j.discoveryModelIds.isEmpty)
+        XCTAssertFalse(j.nextToolPlan.isEmpty, "miss recovery must be non-empty")
+        let commands = j.nextToolPlan.map(\.command)
+        XCTAssertTrue(commands.contains("alln models --json"))
+        XCTAssertTrue(commands.contains("alln team show --json"))
+        XCTAssertTrue(commands.contains("alln doctor --json"))
+        XCTAssertTrue(commands.contains { $0.hasPrefix("alln team hello --for ") })
+        for step in j.nextToolPlan {
+            XCTAssertTrue(step.command.hasPrefix("alln "))
+            XCTAssertNotNil(ContractRegistry.resolveCommandName(from: step.command))
+        }
+    }
+
+    func testCatalogTermsAreNotSilentWhileNonsenseHasAPlan() {
+        let opencode = HelpProjector.search("opencode", limit: 5, contractVersion: "1.0.0")
+        let nonsense = HelpProjector.search("asdfqwerty-no-such-topic-999", limit: 5, contractVersion: "1.0.0")
+        XCTAssertFalse(opencode.results.isEmpty, "real product term must not be silent")
+        XCTAssertFalse(opencode.nextToolPlan.isEmpty)
+        XCTAssertTrue(nonsense.isMiss)
+        XCTAssertFalse(nonsense.nextToolPlan.isEmpty)
+    }
 }
