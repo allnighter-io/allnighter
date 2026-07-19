@@ -165,13 +165,17 @@ public struct ProcessOwnershipSurface: Sendable {
             let identity = ProcessOwnership.readOwnerIdentity(in: dir)
             let alive = identity.map { ProcessOwnership.isIdentityAlive($0) } ?? false
             let terminal = run.status.isTerminal
-            let would = !terminal && ProcessOwnership.isReclaimable(in: dir, runCreatedAt: run.createdAt)
+            let quietVendorPark = run.phase == .waitingForVendor
+            let would = !terminal && !quietVendorPark
+                && ProcessOwnership.isReclaimable(in: dir, runCreatedAt: run.createdAt)
             // RLR-S03a / RLR-L6: activity truth is `run.json.lastActivityAt`, not
             // `heartbeat.json` (retired). `progressStale` is derived at read time —
             // absent before first activity, only meaningful while non-terminal.
             let last = run.lastActivityAt
             let age = RunActivity.heartbeatAgeSeconds(lastActivityAt: last, now: now)
-            let stale = terminal ? nil : RunActivity.progressStale(lastActivityAt: last, now: now)
+            let stale = (terminal || quietVendorPark)
+                ? nil
+                : RunActivity.progressStale(lastActivityAt: last, now: now)
             rows.append(OwnershipProcessJSON(
                 id: run.id,
                 kind: "run",

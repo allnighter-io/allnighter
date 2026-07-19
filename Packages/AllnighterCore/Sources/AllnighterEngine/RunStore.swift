@@ -71,6 +71,15 @@ public struct RunStore: Sendable {
             try? FileManager.default.removeItem(at: ProcessOwnership.heartbeatURL(in: directory))
             try? FileManager.default.removeItem(at: ProcessOwnership.legacyHeartbeatURL(in: directory))
             try? FileManager.default.removeItem(at: ProcessOwnership.stageLeaseURL(in: directory))
+        } else if run.phase == .waitingForVendor {
+            // RLC-S02: a vendor park is intentionally ownerless. The exited
+            // transport/session id is the checkpoint; stamping this coordinator
+            // as owner would make a later process project the quiet park as an
+            // orphan. Worker ownership receipts remain for audit/contradiction.
+            try CoreJSON.encode(run).write(to: runURL, options: .atomic)
+            try? FileManager.default.removeItem(at: ProcessOwnership.ownerURL(in: directory))
+            try? FileManager.default.removeItem(at: ProcessOwnership.legacyOwnerURL(in: directory))
+            try? FileManager.default.removeItem(at: ProcessOwnership.stageLeaseURL(in: directory))
         } else {
             // Non-terminal owner stamp (PO-S01 v2):
             // - Preserve an identity-alive detached runner (self-owning async path).
@@ -283,6 +292,53 @@ public struct RunStore: Sendable {
             .sorted { $0.createdAt > $1.createdAt }
     }
 
+    /// Atomically lease a due vendor park to one resident coordinator. The lease
+    /// lives on the existing blocker receipt (`holderId`/`holderAcquiredAt`) so
+    /// there is no second wake-state store. Expired claims are reclaimable after
+    /// the bounded probe window.
+    public func claimVendorWake(
+        runId: String,
+        coordinatorId: String,
+        now: Date,
+        leaseSeconds: TimeInterval = VendorBackoffPolicy.wakeLeaseSeconds
+    ) -> TeamRun? {
+        let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
+        return ProcessOwnership.withRunLock(in: directory) {
+            let runURL = directory.appendingPathComponent("run.json")
+            guard let data = try? Data(contentsOf: runURL),
+                  var run = try? CoreJSON.decode(TeamRun.self, from: data),
+                  run.status == .queued,
+                  run.phase == .waitingForVendor,
+                  var blocker = run.blocker,
+                  blocker.resource == .vendorBackoff else { return nil }
+
+            let effectiveWake = blocker.wakeAfter ?? run.attempts.last.map {
+                VendorBackoffPolicy.unknownResetWakeAfter(
+                    attemptNumber: $0.attemptNumber,
+                    observedAt: $0.endedAt ?? $0.capacityObservation?.observedAt ?? run.createdAt
+                )
+            }
+            guard let effectiveWake, effectiveWake <= now else { return nil }
+
+            if let holder = blocker.holderId,
+               holder != coordinatorId,
+               let claimedAt = blocker.holderAcquiredAt,
+               claimedAt.addingTimeInterval(leaseSeconds) > now {
+                return nil
+            }
+            blocker.holderId = coordinatorId
+            blocker.holderKind = "coordinator"
+            blocker.holderAcquiredAt = now
+            run.blocker = blocker
+            do {
+                try CoreJSON.encode(run).write(to: runURL, options: .atomic)
+            } catch {
+                return nil
+            }
+            return run
+        }
+    }
+
     // MARK: - Orphan projection + explicit reconcile (PO-S01 v2)
 
     /// Read-only: if the run is reclaimable under the F2 liveness lease
@@ -290,6 +346,7 @@ public struct RunStore: Sendable {
     /// `interrupted` + `reconciledOrphan` without writing or signalling.
     public func projectIfOrphaned(_ run: TeamRun, directory: URL) -> TeamRun {
         guard !run.status.isTerminal else { return run }
+        guard run.phase != .waitingForVendor else { return run }
         guard ProcessOwnership.isReclaimable(in: directory, runCreatedAt: run.createdAt) else { return run }
         var projected = run
         projected.status = .interrupted
@@ -301,6 +358,7 @@ public struct RunStore: Sendable {
     public func wouldReconcile(runId: String) -> Bool {
         let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
         guard let raw = loadRaw(runId: runId), !raw.status.isTerminal else { return false }
+        guard raw.phase != .waitingForVendor else { return false }
         return ProcessOwnership.isReclaimable(in: directory, runCreatedAt: raw.createdAt)
     }
 
@@ -325,6 +383,11 @@ public struct RunStore: Sendable {
                   var run = try? CoreJSON.decode(TeamRun.self, from: data) else { return nil }
             // Never clobber an existing terminal status.
             if run.status.isTerminal {
+                return ReconcileResult(run: run, reaped: false)
+            }
+            // Vendor parks are ownerless and quiet by design. Only the resident
+            // vendor wake reconciler may advance them.
+            if run.phase == .waitingForVendor {
                 return ReconcileResult(run: run, reaped: false)
             }
             // F2: reap only on positive dead-proof under the liveness lease —

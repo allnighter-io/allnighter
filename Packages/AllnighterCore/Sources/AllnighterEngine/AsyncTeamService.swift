@@ -803,7 +803,7 @@ public actor AsyncTeamService {
         // absent (nil) before the first post-spawn activity, and only meaningful
         // for a non-terminal run whose owner is still alive.
         response.lastProgressAt = run.lastActivityAt
-        if !run.status.isTerminal {
+        if !run.status.isTerminal && run.phase != .waitingForVendor {
             let ownerAlive: Bool
             if let directory = try? runStore.runDirectory(forRunId: runId) {
                 ownerAlive = !ProcessOwnership.isOwnerIdentityDead(in: directory)

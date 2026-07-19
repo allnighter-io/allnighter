@@ -46,6 +46,13 @@ public actor WarmWorkerPool {
         workers.removeAll()
     }
 
+    /// A parked run keeps only its durable vendor session id. Never retain a
+    /// warm transport across a multi-minute/hour vendor capacity wait.
+    public func shutdown(key: ExternalWorkerSession.Key) async {
+        guard let worker = workers.removeValue(forKey: key) else { return }
+        await worker.shutdown()
+    }
+
     public func count() -> Int { workers.count }
 
     // MARK: - internals

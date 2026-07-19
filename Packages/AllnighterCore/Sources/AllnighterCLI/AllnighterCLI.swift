@@ -358,6 +358,7 @@ struct AllnighterCLI {
             let wake = ResidentCoordinator.WakeDependencies(
                 models: runtime.models,
                 registry: runtime.registry,
+                teams: runtime.teams,
                 invocations: runtime.invocations
             )
             var remoteDependencies: ResidentCoordinator.RemoteDependencies?

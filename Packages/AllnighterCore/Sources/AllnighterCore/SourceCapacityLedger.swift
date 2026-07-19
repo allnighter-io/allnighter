@@ -59,6 +59,30 @@ public enum SourceCapacityLedger {
             .sorted { $0.source < $1.source }
     }
 
+    /// Source-scoped single-flight nomination for accepted unified runs. Exactly
+    /// one parked run per quota scope may probe readiness: the oldest one. A
+    /// repeated limit on that run advances the shared source boundary, keeping
+    /// every newer park quiet until the next nomination.
+    public static func oldestVendorParkRunIDs(runs: [TeamRun]) -> Set<String> {
+        var oldest: [String: TeamRun] = [:]
+        for run in runs where run.status == .queued && run.phase == .waitingForVendor {
+            guard let blocker = run.blocker, blocker.resource == .vendorBackoff else { continue }
+            let scope = blocker.quotaScope
+                ?? blocker.capacityObservation?.source
+                ?? run.executionSourceId
+            guard let scope, !scope.isEmpty else { continue }
+            if let current = oldest[scope] {
+                if run.createdAt < current.createdAt
+                    || (run.createdAt == current.createdAt && run.id < current.id) {
+                    oldest[scope] = run
+                }
+            } else {
+                oldest[scope] = run
+            }
+        }
+        return Set(oldest.values.map(\.id))
+    }
+
     /// Only bench a source on a real, trusted capacity signal. Auth/manual/unknown need user
     /// action (a different model won't help), and an unknown-confidence parse is too noisy.
     static func isActionable(_ obs: CapacityObservation) -> Bool {

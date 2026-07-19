@@ -8,19 +8,31 @@ public final class ResidentCoordinator: @unchecked Sendable {
     public struct WakeDependencies: Sendable {
         public var models: [Model]
         public var registry: DriverRegistry
+        public var teams: [TeamPreset]
         public var commandRunner: CommandRunner
         public var invocations: [String: ToolInvocation]
+        public var runStore: RunStore
+        public var sessionStore: ExternalWorkerSessionStore
+        public var writeLock: RunWriteLockRegistry
 
         public init(
             models: [Model],
             registry: DriverRegistry,
+            teams: [TeamPreset] = TeamCatalog.all,
             commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
-            invocations: [String: ToolInvocation] = [:]
+            invocations: [String: ToolInvocation] = [:],
+            runStore: RunStore = RunStore(),
+            sessionStore: ExternalWorkerSessionStore = ExternalWorkerSessionStore(),
+            writeLock: RunWriteLockRegistry = .shared
         ) {
             self.models = models
             self.registry = registry
+            self.teams = teams
             self.commandRunner = commandRunner
             self.invocations = invocations
+            self.runStore = runStore
+            self.sessionStore = sessionStore
+            self.writeLock = writeLock
         }
     }
 
@@ -109,6 +121,24 @@ public final class ResidentCoordinator: @unchecked Sendable {
                         invocations: wake.invocations
                     )
                     await boost.run { shutdown.isCancelled }
+                }
+                group.addTask { [coordinatorId] in
+                    let service = RunService(
+                        models: wake.models,
+                        registry: wake.registry,
+                        teams: wake.teams,
+                        runStore: wake.runStore,
+                        commandRunner: wake.commandRunner,
+                        writeLock: wake.writeLock,
+                        invocations: wake.invocations,
+                        sessionStore: wake.sessionStore
+                    )
+                    let reconciler = VendorBackoffReconciler(
+                        runStore: wake.runStore,
+                        runService: service,
+                        coordinatorId: coordinatorId
+                    )
+                    await reconciler.run { shutdown.isCancelled }
                 }
             }
             if let remote = remoteDependencies {

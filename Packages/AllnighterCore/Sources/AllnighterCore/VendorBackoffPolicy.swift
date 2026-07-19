@@ -5,6 +5,13 @@ public enum VendorBackoffPolicy {
     public static let minimumPadSeconds: TimeInterval = 2 * 60
     public static let minimumJitterSeconds: TimeInterval = 1 * 60
     public static let maximumJitterSeconds: TimeInterval = 5 * 60
+    /// A wake is a real resume probe, not a free ping. Unknown reset windows back
+    /// off from five minutes to at most one hour and always stop at this bound.
+    public static let unknownResetBaseDelaySeconds: TimeInterval = 5 * 60
+    public static let unknownResetMaximumDelaySeconds: TimeInterval = 60 * 60
+    public static let maximumAttempts = 5
+    public static let probeTimeoutSeconds = 30
+    public static let wakeLeaseSeconds: TimeInterval = 2 * 60
     /// Long enough for monthly quota windows while rejecting corrupt/distant-future clocks.
     public static let maximumResetDistanceSeconds: TimeInterval = 366 * 24 * 60 * 60
 
@@ -49,5 +56,19 @@ public enum VendorBackoffPolicy {
         let jitterSeconds = min(max(jitter(), minimumJitterSeconds), maximumJitterSeconds)
         guard jitterSeconds.isFinite else { return nil }
         return resetAt.addingTimeInterval(minimumPadSeconds + jitterSeconds)
+    }
+
+    /// Local-only cadence for a structured account limit that omitted usable reset
+    /// truth. This boundary is never presented as a vendor-stated reset.
+    public static func unknownResetWakeAfter(
+        attemptNumber: Int,
+        observedAt: Date
+    ) -> Date {
+        let exponent = max(0, min(attemptNumber - 1, 20))
+        let delay = min(
+            unknownResetBaseDelaySeconds * pow(2, Double(exponent)),
+            unknownResetMaximumDelaySeconds
+        )
+        return observedAt.addingTimeInterval(delay)
     }
 }

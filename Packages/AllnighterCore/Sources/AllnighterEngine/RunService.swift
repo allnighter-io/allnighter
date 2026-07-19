@@ -306,22 +306,42 @@ public actor RunService {
         ).map(\.id))
     }
 
-    /// How far back to look for capacity observations — bounds the run-history scan; the
-    /// `coolingUntil > now` filter is what actually expires a cooldown.
-    private static let capacityLookbackSeconds: TimeInterval = 12 * 60 * 60
-
-    /// Sources cooling down right now (a recent rate-limit / cooldown that hasn't reset),
+    /// Sources cooling down right now (a rate-limit / cooldown that hasn't reset),
     /// derived from prior runs' failed worker answers. Routed around pre-dispatch.
     func coolingSources(now: Date = Date()) -> Set<String> {
         SourceCapacityLedger.coolingSources(observations: recentCapacityObservations(now: now), now: now)
     }
 
     private func recentCapacityObservations(now: Date) -> [CapacityObservation] {
-        let lookback = now.addingTimeInterval(-Self.capacityLookbackSeconds)
         return runStore.list()
-            .filter { $0.createdAt >= lookback }
-            .flatMap { $0.failedWorkerAnswers }
-            .compactMap { $0.result.capacityObservation }
+            .flatMap { run in
+                var observations =
+                    run.failedWorkerAnswers.compactMap(\.result.capacityObservation)
+                    + run.attempts.compactMap(\.capacityObservation)
+                if let blocker = run.blocker,
+                   blocker.resource == .vendorBackoff,
+                   var parked = blocker.capacityObservation {
+                    // Project the resident's conservative park boundary into
+                    // the existing ledger fact. Unknown-reset parks use their
+                    // bounded local cadence without claiming vendor reset truth.
+                    parked.wakeAfter = blocker.wakeAfter ?? run.attempts.last.map {
+                        VendorBackoffPolicy.unknownResetWakeAfter(
+                            attemptNumber: $0.attemptNumber,
+                            observedAt: $0.endedAt
+                                ?? $0.capacityObservation?.observedAt
+                                ?? run.createdAt
+                        )
+                    }
+                    observations.append(parked)
+                }
+                return observations
+            }
+            // Do not prefilter by run age: weekly/monthly windows must survive
+            // the retired 12-hour scan boundary. The ledger expires by wake time.
+            .filter {
+                guard let until = $0.wakeAfter ?? $0.observedResetAt else { return false }
+                return until > now
+            }
     }
 
     /// RLR-L9 sync-path idempotency claim at acceptance. Returns:
@@ -373,6 +393,146 @@ public actor RunService {
         } catch {
             return .failure(.teamResolution("idempotency claim failed: \(error)", code: "INTERNAL_ERROR"))
         }
+    }
+
+    /// Resume one journal already leased by the resident coordinator. This is an
+    /// in-process continuation of the same run id — never a child `alln run`.
+    public func resumeParkedRun(
+        runId: String,
+        coordinatorId: String
+    ) async -> Result<TeamRun, RunServiceError> {
+        guard var parked = runStore.loadRaw(runId: runId),
+              parked.status == .queued,
+              parked.phase == .waitingForVendor,
+              parked.blocker?.resource == .vendorBackoff,
+              parked.blocker?.holderId == coordinatorId,
+              parked.blocker?.holderKind == "coordinator",
+              parked.mutating,
+              parked.workers.count == 1,
+              let rootValue = parked.repoRoot,
+              let modelId = parked.workers.first?.modelId else {
+            return .failure(.teamResolution(
+                "vendor wake lease is missing or run is not a single-worker park",
+                code: "VENDOR_WAKE_NOT_CLAIMED"
+            ))
+        }
+        let root = RunWriteLock.normalize(rootValue) ?? rootValue
+        guard let presetId = parked.presetId,
+              let preset = teams.first(where: { $0.id == presetId }) ?? TeamCatalog.get(presetId),
+              preset.runShape == .execution else {
+            return .failure(.teamResolution(
+                "parked run's execution team is unavailable",
+                code: "DEFAULT_TEAM_INVALID"
+            ))
+        }
+
+        let lockKey = RunWriteLock.key(repoRoot: root)
+        parked.status = .queued
+        parked.phase = .waitingForWriteLock
+        parked.blocker = RunBlocker(resource: .repoWriteLock, scopeRoot: root)
+        do {
+            try runStore.save(parked, models: models)
+        } catch {
+            return .failure(.journalUnavailable("\(error)"))
+        }
+
+        let claim = ExecutionLane.Claim.current(
+            id: runId, kind: ExecutionLaneSite.mutatingRun.rawValue
+        ) ?? ExecutionLane.Claim(
+            id: runId,
+            kind: ExecutionLaneSite.mutatingRun.rawValue,
+            identity: ProcessOwnership.OwnerIdentity(
+                pid: ProcessInfo.processInfo.processIdentifier,
+                pgid: nil, startTimeTicks: 0, kind: .inProcess
+            )
+        )
+        let store = runStore
+        let allModels = models
+        let clock = now
+        guard let token = await writeLock.waitToAcquire(
+            lockKey,
+            claim: claim,
+            timeout: Self.writeLockWaitTimeout,
+            onTicket: { ticket in
+                Self.recordBlockerTicket(
+                    runId: runId, ticket: ticket, store: store,
+                    models: allModels, now: clock
+                )
+            },
+            shouldAbandon: { _ in
+                store.loadRaw(runId: runId)?.status.isTerminal ?? false
+            }
+        ) else {
+            if let terminal = runStore.loadRaw(runId: runId), terminal.status.isTerminal {
+                return .success(terminal)
+            }
+            parked.status = .failed
+            parked.phase = nil
+            parked.blocker = nil
+            parked.endReason = .failed
+            parked.warnings.append("vendor wake could not reacquire the repository write lock")
+            try? runStore.save(parked, models: models)
+            return .failure(.writeLockBusy(root))
+        }
+
+        if let terminal = runStore.loadRaw(runId: runId), terminal.status.isTerminal {
+            await writeLock.release(lockKey, token: token)
+            return .success(terminal)
+        }
+        parked.phase = .spawningWorker
+        parked.blocker = nil
+        try? runStore.save(parked, models: models)
+
+        let runner = WorkerInvokerFactory.makeWorkerInvoker(
+            commandRunner: (commandRunner as? StreamingCommandRunner)
+                ?? CommandRunnerAsStreaming(commandRunner),
+            invocations: invocations,
+            defaultWorkingDirectory: root
+        )
+        if let runDir = try? runStore.runDirectory(forRunId: runId) {
+            ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: runDir)
+            if let coordinator = ProcessOwnership.OwnerIdentity.current(kind: .inProcess) {
+                try? ProcessOwnership.writeOwnerIdentity(coordinator, in: runDir)
+            }
+        }
+        let result = await runExecution(
+            preset: preset,
+            prompt: parked.prompt,
+            context: nil,
+            threadId: parked.threadId,
+            effort: parked.effort ?? preset.defaultEffort,
+            repoRoot: root,
+            requestLane: parked.lane,
+            explicitTeamChosen: true,
+            laneContextOnly: parked.laneContextOnly == true,
+            projectId: nil,
+            workerOverride: modelId,
+            origin: parked.origin,
+            originAgent: parked.originAgent,
+            runId: runId,
+            runner: runner,
+            requestedAt: now(),
+            timing: parked.timing ?? RunTimingReport(),
+            events: nil,
+            workerTimeoutSeconds: VendorBackoffPolicy.probeTimeoutSeconds,
+            commitMessage: parked.requestedCommitMessage,
+            noCommit: parked.noCommitOrdered == true,
+            retryLinks: parked.links,
+            existingRun: parked
+        )
+        ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: nil)
+        await writeLock.release(lockKey, token: token)
+        if case .failure(let error) = result,
+           var failed = runStore.loadRaw(runId: runId),
+           !failed.status.isTerminal {
+            failed.status = .failed
+            failed.phase = nil
+            failed.blocker = nil
+            failed.endReason = .failed
+            failed.warnings.append("vendor resume failed: \(error.code)")
+            _ = try? runStore.save(failed, models: models)
+        }
+        return result
     }
 
     /// Run and persist. Returns the settled `TeamRun` (RunRecord substrate).
@@ -586,10 +746,6 @@ public actor RunService {
             pending.blocker = nil
             try? runStore.save(pending, models: models)
         }
-        defer {
-            if let lockToken { Task { await writeLock.release(lockKey, token: lockToken) } }
-        }
-
         let runner = WorkerInvokerFactory.makeWorkerInvoker(
             commandRunner: (commandRunner as? StreamingCommandRunner) ?? CommandRunnerAsStreaming(commandRunner),
             invocations: invocations, defaultWorkingDirectory: root
@@ -608,7 +764,7 @@ public actor RunService {
         defer { ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: nil) }
 
         if preset.runShape == .execution {
-            return await runExecution(
+            let result = await runExecution(
                 preset: preset, prompt: prompt, context: request.context, threadId: request.threadId,
                 effort: effort, repoRoot: root, requestLane: request.lane,
                 explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
@@ -621,6 +777,12 @@ public actor RunService {
                 proofCommand: request.proofCommand, proofTimeoutSeconds: request.proofTimeoutSeconds,
                 retryLinks: retryLinks
             )
+            // Parking must release the write lock before the parked journal is
+            // returned to the caller; an un-awaited defer could freeze this repo.
+            if let lockToken {
+                await writeLock.release(lockKey, token: lockToken)
+            }
+            return result
         }
 
         // Answer (team) path: no vendor-session continuity — always include the context inline.
@@ -628,7 +790,7 @@ public actor RunService {
         if let context = request.context, !context.isEmpty {
             answerPrompt += "\n\n# Context\n\(context)"
         }
-        return await runAnswer(
+        let result = await runAnswer(
             preset: preset, prompt: answerPrompt, effort: effort, repoRoot: root,
             projectId: request.projectId, lane: request.lane ?? preset.lane,
             explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
@@ -636,6 +798,10 @@ public actor RunService {
             deliveries: request.deliveries, timing: timing, events: events,
             retryLinks: retryLinks
         )
+        if let lockToken {
+            await writeLock.release(lockKey, token: lockToken)
+        }
+        return result
     }
 
     // MARK: - Execution (one worker, mutating)
@@ -666,7 +832,8 @@ public actor RunService {
         noCommit: Bool = false,
         proofCommand: String? = nil,
         proofTimeoutSeconds: Int? = nil,
-        retryLinks: [RunLink]? = nil
+        retryLinks: [RunLink]? = nil,
+        existingRun: TeamRun? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
         let timeoutOverride = workerTimeoutSeconds.map { Duration.seconds($0) }
@@ -697,16 +864,14 @@ public actor RunService {
         let worker: Worker
         let model: Model
         if let override = workerOverride {
-            // PO-F10: explicit --worker / --dev-worker is honored or fails LOUD — never
-            // silently substitute a different model when the named id is disabled,
-            // notReady, or unknown.
-            switch resolveExplicitWorker(override) {
-            case .failure(let error):
-                return .failure(error)
-            case .success(let m):
-                guard let manifest = registry.manifest(for: m), manifest.kind == .headlessCLI else {
+            if existingRun != nil {
+                // A due same-source wake is the readiness probe. It must bypass
+                // the pre-dispatch cooling filter for this one leased attempt,
+                // while still requiring the exact enabled model/driver.
+                guard let m = models.first(where: { $0.id == override }), m.enabled,
+                      registry.manifest(for: m)?.kind == .headlessCLI else {
                     return .failure(.workerNotAvailable(
-                        "\(override) is not a runnable CLI — pick a ready worker; see `alln models` / `alln doctor`."
+                        "\(override) is no longer an enabled runnable CLI"
                     ))
                 }
                 worker = Worker(
@@ -717,6 +882,28 @@ public actor RunService {
                     purpose: .answer
                 )
                 model = m
+            } else {
+                // PO-F10: explicit --worker / --dev-worker is honored or fails LOUD — never
+                // silently substitute a different model when the named id is disabled,
+                // notReady, or unknown.
+                switch resolveExplicitWorker(override) {
+                case .failure(let error):
+                    return .failure(error)
+                case .success(let m):
+                    guard let manifest = registry.manifest(for: m), manifest.kind == .headlessCLI else {
+                        return .failure(.workerNotAvailable(
+                            "\(override) is not a runnable CLI — pick a ready worker; see `alln models` / `alln doctor`."
+                        ))
+                    }
+                    worker = Worker(
+                        id: Worker.makeID(modelId: m.id, instanceIndex: 0),
+                        modelId: m.id,
+                        instanceIndex: 0,
+                        skillId: resolved.answerWorkers.first?.skillId ?? "first_principles_builder",
+                        purpose: .answer
+                    )
+                    model = m
+                }
             }
         } else if let first = resolved.answerWorkers.first,
                   let m = bench.first(where: { $0.id == first.modelId }) {
@@ -743,11 +930,13 @@ public actor RunService {
             .init(threadId: $0, sourceId: manifest.id, modelId: model.id, repoRoot: repoRoot)
         }
         let resumable = sessionKey.flatMap { sessionStore.resumable($0) }
+        let parkedSessionId = existingRun?.attempts.reversed()
+            .compactMap(\.vendorSessionId).first
         let sessionPlan: WorkerSessionPlan? = {
-            guard sessionKey != nil, let session = manifest.session,
+            guard (sessionKey != nil || parkedSessionId != nil), let session = manifest.session,
                   session.continuity == .vendorSession else { return nil }
-            if let resumable {
-                return WorkerSessionPlan(session: session, resumeSessionId: resumable.vendorSessionId, mintSessionId: nil)
+            if let vendorSessionId = parkedSessionId ?? resumable?.vendorSessionId {
+                return WorkerSessionPlan(session: session, resumeSessionId: vendorSessionId, mintSessionId: nil)
             }
             let mint = session.acquire == .set ? UUID().uuidString.lowercased() : nil
             return WorkerSessionPlan(session: session, resumeSessionId: nil, mintSessionId: mint)
@@ -756,7 +945,7 @@ public actor RunService {
         // Founder rule: only seed the thread context when we are NOT resuming a live vendor
         // session (the CLI already remembers it). First turn / model switch → include it.
         let founderPrompt: String
-        if resumable != nil {
+        if parkedSessionId != nil || resumable != nil {
             founderPrompt = prompt
         } else if let context, !context.isEmpty {
             founderPrompt = prompt + "\n\n# Context\n\(context)"
@@ -785,24 +974,65 @@ public actor RunService {
         let startedAt = now()
         let effectiveLane = requestLane ?? preset.lane
         // RLR-L3: the default route is a single worker — it never fans out.
-        var run = TeamRun(
-            id: runId, prompt: prompt, status: .running, phase: .working, origin: origin, originAgent: originAgent,
-            presetId: preset.id, workers: [worker],
-            workerAnswers: [TeamAnswer(memberId: worker.id, modelId: model.id, role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
-                                       result: WorkerRunResult(status: .running))],
-            createdAt: startedAt, lane: effectiveLane, effort: effort,
-            teamDisplayName: RunIdentity.teamDisplayName(
-                presetId: preset.id, catalogDisplayName: preset.displayName,
-                explicitTeamChosen: explicitTeamChosen),
-            outputKind: preset.outputKind,
-            // The run's source is where the worker ACTUALLY ran — the chosen model's
-            // driver. For the default route, Auto/override can pick a model on a CLI
-            // other than the preset's declared executionSourceId, so the model's driver
-            // is the truth (lane safety keys on repo root, not this field).
-            mutating: true, executionSourceId: model.driverId,
-            laneContextOnly: laneContextOnly ? true : nil,
-            links: retryLinks
-        )
+        var run: TeamRun
+        if var existingRun {
+            existingRun.status = .running
+            existingRun.phase = .working
+            existingRun.blocker = nil
+            existingRun.endReason = nil
+            existingRun.workers = [worker]
+            existingRun.workerAnswers = [
+                TeamAnswer(
+                    memberId: worker.id,
+                    modelId: model.id,
+                    role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                    result: WorkerRunResult(status: .running)
+                )
+            ]
+            existingRun.executionSourceId = model.driverId
+            existingRun.repoRoot = repoRoot
+            existingRun.threadId = threadId
+            existingRun.attempts.append(RunAttempt(
+                attemptNumber: existingRun.attempts.count + 1,
+                requestedSourceId: model.driverId,
+                requestedModelId: model.id,
+                resolvedSourceId: model.driverId,
+                resolvedModelId: model.id,
+                startedAt: startedAt,
+                vendorSessionId: parkedSessionId
+            ))
+            run = existingRun
+        } else {
+            run = TeamRun(
+                id: runId, prompt: prompt, status: .running, phase: .working,
+                origin: origin, originAgent: originAgent,
+                presetId: preset.id, workers: [worker],
+                workerAnswers: [TeamAnswer(
+                    memberId: worker.id, modelId: model.id,
+                    role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                    result: WorkerRunResult(status: .running)
+                )],
+                createdAt: startedAt, lane: effectiveLane, effort: effort,
+                teamDisplayName: RunIdentity.teamDisplayName(
+                    presetId: preset.id, catalogDisplayName: preset.displayName,
+                    explicitTeamChosen: explicitTeamChosen),
+                outputKind: preset.outputKind,
+                // The run's source is where the worker ACTUALLY ran — the chosen
+                // model's driver, including Auto overrides.
+                mutating: true, executionSourceId: model.driverId,
+                threadId: threadId, repoRoot: repoRoot,
+                laneContextOnly: laneContextOnly ? true : nil,
+                attempts: [RunAttempt(
+                    attemptNumber: 1,
+                    requestedSourceId: model.driverId,
+                    requestedModelId: model.id,
+                    resolvedSourceId: model.driverId,
+                    resolvedModelId: model.id,
+                    startedAt: startedAt
+                )],
+                links: retryLinks
+            )
+        }
         timing.count(RunTimingKey.runStoreSaveCount, by: 1)
         run.timing = timing
         // RLR-L2 (item 8): persist BEFORE emitting the status change, so a peer that
@@ -828,7 +1058,8 @@ public actor RunService {
         var outcome: WorkerRunOutcome
         // Warm_Single_Lane_Chat §5 S4: warm-capable sources (grok, cursor_agent) run as ONE persistent
         // ACP worker per thread — the repo index loads once, then every turn is model-time only.
-        if WarmWorkerCapability.supportsACPStdio(manifest.id),
+        if existingRun == nil,
+           WarmWorkerCapability.supportsACPStdio(manifest.id),
            let threadId,
            let invoke = manifest.invoke,
            let profile = ACPTransportProfile.make(sourceId: manifest.id, model: model.resolvedLabel(at: effort)) {
@@ -906,10 +1137,14 @@ public actor RunService {
                 outcome = warmOutcome
             } catch {
                 StreamDebugLog.log("WARM FALLBACK source=\(manifest.id): \(error) — cold invoke")
-                outcome = await runner.collect(WorkerInvocation(
-                    model: model, manifest: manifest, prompt: assembled, effort: effort,
-                    workingDirectory: repoRoot, timeout: timeoutOverride,
-                    spawnConcurrencyLimit: spawnConcurrencyLimit))
+                outcome = await ProcessOwnership.$currentWorkerId.withValue(worker.id) {
+                    await runner.collect(WorkerInvocation(
+                        model: model, manifest: manifest, prompt: assembled, effort: effort,
+                        workingDirectory: repoRoot, timeout: timeoutOverride,
+                        sessionPlan: sessionPlan,
+                        spawnConcurrencyLimit: spawnConcurrencyLimit
+                    ))
+                }
             }
         } else {
             // Every other driver — including `opencode`, routed to its warm serve HTTP
@@ -942,11 +1177,14 @@ public actor RunService {
                 lastReasoningEmit = now()
             }
             do {
-                for try await streamEvent in runner.invoke(WorkerInvocation(
-                    model: model, manifest: manifest, prompt: assembled, effort: effort,
-                    workingDirectory: repoRoot, timeout: timeoutOverride, sessionPlan: sessionPlan,
-                    spawnConcurrencyLimit: spawnConcurrencyLimit
-                )) {
+                let invocationStream = ProcessOwnership.$currentWorkerId.withValue(worker.id) {
+                    runner.invoke(WorkerInvocation(
+                        model: model, manifest: manifest, prompt: assembled, effort: effort,
+                        workingDirectory: repoRoot, timeout: timeoutOverride, sessionPlan: sessionPlan,
+                        spawnConcurrencyLimit: spawnConcurrencyLimit
+                    ))
+                }
+                for try await streamEvent in invocationStream {
                     switch streamEvent {
                     case .answerDelta(let text, _, _):
                         let byteDue = answer.append(text)
@@ -967,12 +1205,143 @@ public actor RunService {
                 status: .failed, errorKind: .emptyOutput,
                 errorReason: "stream ended without a terminal event")
         }
+        // A long park can outlive the vendor's stored session. One rejected
+        // resume gets exactly one fresh-session handoff; capacity rejections
+        // never take this path (they re-park below).
+        if existingRun != nil,
+           sessionPlan?.resumeSessionId != nil,
+           outcome.capacityObservation.map(VendorBackoffPolicy.shouldPark) != true,
+           Self.isRejectedVendorSession(outcome),
+           let session = manifest.session {
+            if let sessionKey { sessionStore.invalidate(sessionKey) }
+            let freshPlan = WorkerSessionPlan(
+                session: session,
+                resumeSessionId: nil,
+                mintSessionId: session.acquire == .set
+                    ? UUID().uuidString.lowercased()
+                    : nil
+            )
+            let handoff = Self.freshSessionHandoff(
+                originalGoal: prompt,
+                priorReason: existingRun?.attempts.reversed().first(where: { $0.reason != nil })?.reason
+            )
+            outcome = await ProcessOwnership.$currentWorkerId.withValue(worker.id) {
+                await runner.collect(WorkerInvocation(
+                    model: model,
+                    manifest: manifest,
+                    prompt: handoff,
+                    effort: effort,
+                    workingDirectory: repoRoot,
+                    timeout: timeoutOverride,
+                    sessionPlan: freshPlan,
+                    spawnConcurrencyLimit: spawnConcurrencyLimit
+                ))
+            }
+        }
         // A non-streaming worker (agy) can carry its step narration separated from the answer
         // (AGY transcript normalizer). It has no live deltas, so surface it once as a reasoning
         // delta — the turn then shows a clean answer + a "Thought for Ns" bar with the steps.
         if let reasoning = outcome.reasoning, !reasoning.isEmpty {
             emit(RunEventKind.workerReasoningDelta, [
                 "runId": .string(runId), "workerId": .string(worker.id), "text": .string(reasoning)])
+        }
+        let checkpointSessionId = outcome.capturedSessionId
+            ?? sessionPlan?.resumeSessionId
+            ?? sessionPlan?.mintSessionId
+
+        // RLC-S02 precedence: a sourced parkable account limit on this
+        // single-worker accepted run parks BEFORE any SeatReseat consideration.
+        // Answer-team parallel rounds never enter this execution-only branch.
+        if let observation = outcome.capacityObservation,
+           VendorBackoffPolicy.shouldPark(observation) {
+            let queueMs: Int? = {
+                guard let requestedAt, let invokedAt = outcome.timing.startedAt else { return nil }
+                return max(0, Int(invokedAt.timeIntervalSince(requestedAt) * 1000))
+            }()
+            let answer = TeamAnswer(
+                memberId: worker.id,
+                modelId: model.id,
+                role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                result: outcome,
+                queueMs: queueMs
+            )
+            run.workerAnswers = [answer]
+            Self.settleLatestAttempt(
+                in: &run,
+                endedAt: outcome.timing.finishedAt ?? now(),
+                observation: observation,
+                vendorSessionId: checkpointSessionId,
+                status: outcome.status,
+                reason: outcome.errorReason
+            )
+
+            if let key = sessionKey,
+               let vendorId = checkpointSessionId, !vendorId.isEmpty {
+                sessionStore.upsert(ExternalWorkerSession(
+                    threadId: key.threadId,
+                    sourceId: key.sourceId,
+                    modelId: key.modelId,
+                    repoRoot: key.repoRoot,
+                    vendorSessionId: vendorId,
+                    continuityTier: .vendorSession,
+                    createdAt: resumable?.createdAt ?? now(),
+                    lastUsedAt: now(),
+                    lastRunId: runId
+                ))
+                await warmPool.shutdown(key: key)
+            }
+
+            if run.attempts.count >= VendorBackoffPolicy.maximumAttempts {
+                run.status = .failed
+                run.phase = nil
+                run.blocker = nil
+                run.endReason = .failed
+                run.warnings.append(
+                    "vendor capacity resume attempt limit reached; human attention required"
+                )
+                try? runStore.save(run, models: models)
+                emit(RunEventKind.runStatusChanged, [
+                    "runId": .string(runId),
+                    "from": .string(RunStatus.running.rawValue),
+                    "to": .string(RunStatus.failed.rawValue),
+                    "origin": .string(origin.rawValue),
+                    "presetId": .string(preset.id)
+                ])
+                return .success(run)
+            }
+
+            let wakeAfter = VendorBackoffPolicy.computeWakeAfter(
+                from: observation,
+                now: now()
+            )
+            run.status = .queued
+            run.phase = .waitingForVendor
+            run.endReason = nil
+            run.blocker = RunBlocker(
+                resource: .vendorBackoff,
+                quotaScope: observation.source,
+                wakeAfter: wakeAfter,
+                capacityObservation: observation
+            )
+            run.repoDelta = gitObserver.repoDelta(
+                rootPath: repoRoot,
+                baseline: baselineHead,
+                head: gitObserver.observe(rootPath: repoRoot).head
+            )
+            // One atomic run.json revision carries both phase and blocker.
+            do {
+                try runStore.save(run, models: models)
+            } catch {
+                return .failure(.journalUnavailable("vendor park: \(error)"))
+            }
+            emit(RunEventKind.runStatusChanged, [
+                "runId": .string(runId),
+                "from": .string(RunStatus.running.rawValue),
+                "to": .string(RunStatus.queued.rawValue),
+                "origin": .string(origin.rawValue),
+                "presetId": .string(preset.id)
+            ])
+            return .success(run)
         }
         // Persist the vendor session this turn established/resumed, so the next turn in this
         // thread resumes it (success only). Only the streaming path carries a captured id;
@@ -1023,6 +1392,14 @@ public actor RunService {
         timing.count(RunTimingKey.answerDeltaCount, by: outcome.timing.answerDeltaCount)
         timing.count(RunTimingKey.reasoningDeltaCount, by: outcome.timing.reasoningDeltaCount)
         run.workerAnswers = [answer]
+        Self.settleLatestAttempt(
+            in: &run,
+            endedAt: outcome.timing.finishedAt ?? now(),
+            observation: outcome.capacityObservation,
+            vendorSessionId: checkpointSessionId,
+            status: outcome.status,
+            reason: outcome.errorReason
+        )
         run.status = answer.result.status == .done ? .complete : .failed
         run.phase = nil // terminal clears phase (RLR-L3 atomic rule)
         run.repoDelta = gitObserver.repoDelta(
@@ -1165,6 +1542,69 @@ public actor RunService {
         run.timing = timing
         try? runStore.save(run, models: models)
         return .success(run)
+    }
+
+    private static func settleLatestAttempt(
+        in run: inout TeamRun,
+        endedAt: Date,
+        observation: CapacityObservation?,
+        vendorSessionId: String?,
+        status: WorkerAnswerStatus,
+        reason: String?
+    ) {
+        guard let prior = run.attempts.popLast() else { return }
+        run.attempts.append(RunAttempt(
+            attemptNumber: prior.attemptNumber,
+            requestedSourceId: prior.requestedSourceId,
+            requestedModelId: prior.requestedModelId,
+            resolvedSourceId: prior.resolvedSourceId,
+            resolvedModelId: prior.resolvedModelId,
+            startedAt: prior.startedAt,
+            endedAt: endedAt,
+            capacityObservation: observation,
+            vendorSessionId: vendorSessionId ?? prior.vendorSessionId,
+            selectionOrigin: prior.selectionOrigin,
+            substitutionOfAttempt: prior.substitutionOfAttempt,
+            terminalStatus: status,
+            reason: reason,
+            diagnosticSnippet: reason ?? observation?.rawSnippet
+        ))
+    }
+
+    private static func isRejectedVendorSession(_ outcome: WorkerRunOutcome) -> Bool {
+        guard outcome.status == .failed else { return false }
+        let text = [outcome.errorReason, outcome.output]
+            .compactMap { $0 }
+            .joined(separator: " ")
+            .lowercased()
+        let cues = [
+            "session not found",
+            "unknown session",
+            "invalid session",
+            "session expired",
+            "conversation not found",
+            "thread not found",
+        ]
+        return cues.contains { text.contains($0) }
+    }
+
+    private static func freshSessionHandoff(
+        originalGoal: String,
+        priorReason: String?
+    ) -> String {
+        let boundedGoal = String(originalGoal.prefix(4_000))
+        let boundedReason = priorReason.map { String($0.prefix(400)) }
+            ?? "The prior vendor session could not be resumed."
+        return """
+        Continue the same accepted Allnighter run in a fresh vendor session.
+        Re-read the current repository state before changing anything; prior work may be uncommitted.
+
+        Original goal:
+        \(boundedGoal)
+
+        Prior-attempt summary:
+        \(boundedReason)
+        """
     }
 
     /// FR12/FR13 prompt blocks — each injected at most once via marker checks.

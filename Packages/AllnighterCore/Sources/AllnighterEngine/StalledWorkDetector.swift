@@ -99,6 +99,9 @@ public enum StalledWorkDetector {
         let threadById = Dictionary(input.threads.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         var out: [StallEpisode] = []
         for run in input.runs {
+            // A sourced vendor park is quiet by design. Its wake boundary and
+            // resident reconciliation replace ordinary stall clocks.
+            if run.phase == .waitingForVendor { continue }
             let live = AsyncTeamStatusMapper.liveStatus(for: run)
             guard !live.isTerminal else { continue }
             guard live == .queued || live == .running else { continue }
@@ -206,6 +209,7 @@ public enum StalledWorkDetector {
             return input.now.timeIntervalSince(lastEvent.at) >= TimeInterval(thresholdSeconds)
         }
         if let run {
+            if run.phase == .waitingForVendor { return false }
             let live = AsyncTeamStatusMapper.liveStatus(for: run)
             guard !live.isTerminal else { return false }
             if suppressedByWakeTicket(pending: input.pendingItems, threadId: run.threadId, runId: run.id, now: input.now) {

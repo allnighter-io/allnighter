@@ -131,6 +131,52 @@ final class StalledWorkDetectorTests: XCTestCase {
         XCTAssertTrue(episodes.isEmpty)
     }
 
+    func testWaitingForVendorIsQuietByDesignWithoutPendingTicket() {
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "claude_code",
+            sourceConfidence: .structured,
+            rawSnippet: "limited",
+            observedAt: old
+        )
+        let run = TeamRun(
+            id: "parked-run",
+            prompt: "Continue",
+            status: .queued,
+            phase: .waitingForVendor,
+            createdAt: old,
+            mutating: true,
+            executionSourceId: "claude_code",
+            threadId: "t1",
+            blocker: RunBlocker(
+                resource: .vendorBackoff,
+                quotaScope: "claude_code",
+                wakeAfter: now.addingTimeInterval(3_600),
+                capacityObservation: observation
+            )
+        )
+        let thread = WorkThread(
+            id: "t1",
+            title: "Parked",
+            createdAt: old,
+            updatedAt: old,
+            projectId: "projA"
+        )
+        let input = StalledWorkScanInput(
+            threads: [thread],
+            runs: [run],
+            pendingItems: [],
+            now: now
+        )
+        XCTAssertTrue(StalledWorkDetector.scan(input: input).isEmpty)
+        XCTAssertFalse(StalledWorkDetector.isStillStalledAfterRefresh(
+            thread: nil,
+            turn: nil,
+            run: run,
+            input: input
+        ))
+    }
+
     func testFailedTurnIsNotStalled() {
         let thread = WorkThread(
             id: "t1",
