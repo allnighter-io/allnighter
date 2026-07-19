@@ -409,7 +409,9 @@ public enum BuiltInTeams {
             ("interaction_designer", .answer),
             ("visual_system_designer", .answer),
         ], tags: [.image]),
-        writer: "design_board_writer", dissent: .compareOptions)
+        writer: "design_board_writer", dissent: .compareOptions,
+        typeTags: ["design", "screen", "mockup", "ui", "interface"],
+        starters: ["Design <screen/flow>: give me three credible interface directions with the tradeoffs made visible."])
 
     static let designPremiumPolish = make(
         id: "design_premium_polish", name: "Premium Polish", lane: .design, output: .polishBoard, defaultEffort: .high,
@@ -420,6 +422,7 @@ public enum BuiltInTeams {
             ("polish_critic", .review)
         ], tags: [.design]),
         writer: "polish_board_writer",
+        typeTags: ["polish", "premium", "native", "refine", "expensive"],
         starters: ["Give me two more polished versions of <screen> — calmer, more intentional, native."])
 
     static let designConversionStudio = make(
@@ -430,7 +433,9 @@ public enum BuiltInTeams {
             ("cta_path", .answer),
             ("trust_builder", .answer),
         ], tags: [.image]),
-        writer: "conversion_board_writer")
+        writer: "conversion_board_writer",
+        typeTags: ["conversion", "cta", "offer-clarity", "trust"],
+        starters: ["Improve <page/surface> so the offer is clear, trusted, and the next action is obvious."])
 
     static let designRadicalDirections = make(
         id: "design_radical_directions", name: "Radical Directions", lane: .design, output: .designBoard, defaultEffort: .med,
@@ -440,7 +445,9 @@ public enum BuiltInTeams {
             ("bold_direction", .answer),
             ("editorial_direction", .answer),
         ], tags: [.image]),
-        writer: "direction_board_writer", dissent: .compareOptions)
+        writer: "direction_board_writer", dissent: .compareOptions,
+        typeTags: ["directions", "divergent", "explore", "alternatives"],
+        starters: ["Give me three genuinely different design directions for <surface> before we converge."])
 
     static let designUsabilityTriage = make(
         id: "design_usability_triage", name: "Usability Triage", lane: .design, output: .polishBoard, defaultEffort: .med,
@@ -450,7 +457,9 @@ public enum BuiltInTeams {
             ("control_ergonomics", .answer),
             ("cognitive_load_cutter", .review)
         ], tags: [.design]),
-        writer: "usability_triage_writer")
+        writer: "usability_triage_writer",
+        typeTags: ["usability", "ux", "confusing", "friction", "diagnose"],
+        starters: ["Why does <surface> feel confusing or slow? Find the friction and the smallest fixes."])
 
     // MARK: - Copy teams (parity; full type packs owned by docs/phases/copy)
 
