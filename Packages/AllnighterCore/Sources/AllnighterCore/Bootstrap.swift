@@ -6,10 +6,12 @@ import Foundation
 /// posture as the old MCP install: Allnighter never edits another tool's
 /// config, the user pastes.
 ///
-/// Teaching body SSOT is `TeachingSnippet` (ONB-S01). Marker append/repair on
-/// a human click is a deliberate Mac-app carve-out from this CLI print-never-
-/// edit posture (`docs/phases/Agent_Onboarding.md` Decision 3) — the CLI still
-/// never edits.
+/// **Carve-out (ONB-S03 / Decision 3):** the CLI print-never-edit posture is
+/// absolute — `alln bootstrap` (and every other CLI command) never writes
+/// vendor/agent files. The Mac app, on an explicit human click in
+/// "Teach your CLIs", may append/repair/remove the marked GLOBAL teaching
+/// block via `GlobalTeachingInstaller`. That click is the user's hands; the
+/// CLI remains print-only. Teaching body SSOT is `TeachingSnippet` (ONB-S01).
 public enum Bootstrap {
     /// The host agent surfaces `--host` targets. `generic` is host-neutral —
     /// used when the caller doesn't know (or care) which host it's talking to.

@@ -184,4 +184,49 @@ public enum TeachingSnippet {
             detail: "teaching v\(version) installed"
         )
     }
+
+    /// UTF-16 NSRange covering one teaching block (open marker through close marker).
+    /// Nil when markers are absent or not a single well-ordered pair.
+    public struct BlockSpan: Sendable, Equatable {
+        public var fullRange: NSRange
+        public var openRange: NSRange
+        public var closeRange: NSRange
+        public var version: Int?
+        public var hash: String?
+    }
+
+    /// Locate the marked teaching block. For a single open+close pair returns that
+    /// span; for duplicates returns the span from the first open through the last
+    /// close (installer repair/remove); absent → nil.
+    public static func blockSpan(in contents: String) -> BlockSpan? {
+        let ns = contents as NSString
+        let full = NSRange(location: 0, length: ns.length)
+        let opens = openPattern.matches(in: contents, range: full)
+        let closes = closePattern.matches(in: contents, range: full)
+        guard let firstOpen = opens.first, let lastClose = closes.last else { return nil }
+        let openEnd = firstOpen.range.location + firstOpen.range.length
+        let closeStart = lastClose.range.location
+        guard closeStart >= openEnd else { return nil }
+
+        var version: Int?
+        var hash: String?
+        if firstOpen.numberOfRanges >= 3 {
+            let vr = firstOpen.range(at: 1)
+            let hr = firstOpen.range(at: 2)
+            if vr.location != NSNotFound { version = Int(ns.substring(with: vr)) }
+            if hr.location != NSNotFound { hash = ns.substring(with: hr).lowercased() }
+        }
+
+        let fullRange = NSRange(
+            location: firstOpen.range.location,
+            length: (lastClose.range.location + lastClose.range.length) - firstOpen.range.location
+        )
+        return BlockSpan(
+            fullRange: fullRange,
+            openRange: firstOpen.range,
+            closeRange: lastClose.range,
+            version: version,
+            hash: hash
+        )
+    }
 }
