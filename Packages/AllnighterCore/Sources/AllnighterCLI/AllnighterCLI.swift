@@ -1780,14 +1780,21 @@ struct ToolRuntime {
 
     func asyncTeamService() -> AsyncTeamService { asyncTeam }
 
-    /// The ready bench from cached detection (no quota): enabled models whose
-    /// source was detected ready by this Allnighter support root. Missing setup is
-    /// unknown, not ready; agents should run doctor/detect instead of spending
-    /// quota on a run that preflight could not honestly admit.
+    /// The ready bench: enabled models whose source probe is ready **and** whose
+    /// driver is not capacity-cooling from recent failed runs. Missing setup is
+    /// unknown, not ready; cooling Claude/Codex/etc. must not look "ready" in
+    /// preflight just because a stale smoke said the binary was found.
     var readyModels: [Model] {
         if let readyModelsOverride { return readyModelsOverride }
-        let readyDrivers = TeamAssembler.readyDriverIds(from: SetupStore().load().records)
-        return models.filter { $0.enabled && readyDrivers.contains($0.driverId) }
+        let records = SetupStore().load().records
+        let observations = BenchReadiness.recentObservations(from: RunStore().list())
+        let cooling = BenchReadiness.coolingDriverIds(observations: observations)
+        return BenchReadiness.readyModels(
+            models: models,
+            probeRecords: records,
+            coolingDriverIds: cooling,
+            knownDriverIds: Set(registry.all.map(\.id))
+        )
     }
 
     private static func loadConfig() -> ToolConfig {

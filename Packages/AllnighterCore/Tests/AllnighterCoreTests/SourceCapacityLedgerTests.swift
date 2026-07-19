@@ -2,7 +2,8 @@ import XCTest
 @testable import AllnighterCore
 
 /// The pre-dispatch capacity gate. A source that recently hit a real capacity wall is
-/// "cooling" until its reset, so readiness can route around it — without a run-path retry.
+/// "cooling" until its reset, so readiness can route around it. Mid-run one-shot
+/// reseat (SeatReseat) is a separate path for seats that already failed invoke.
 final class SourceCapacityLedgerTests: XCTestCase {
 
     private let now = Date(timeIntervalSince1970: 1_000_000)

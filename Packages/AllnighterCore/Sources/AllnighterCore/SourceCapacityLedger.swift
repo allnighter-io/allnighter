@@ -2,8 +2,9 @@ import Foundation
 
 /// One source that is cooling down — tapped out until `coolingUntil`, derived from a
 /// recent `CapacityObservation`. The readiness gates treat a cooling source as not-ready
-/// so Auto/team resolution substitutes around it PRE-DISPATCH (no run-path retry, no extra
-/// worker). Auto-expires the instant `coolingUntil` passes.
+/// so Auto/team resolution substitutes around it PRE-DISPATCH, and
+/// `CatalogRunCoordinator` may one-shot reseat a failed seat mid-run onto a
+/// declared fallback (see `SeatReseat`). Auto-expires the instant `coolingUntil` passes.
 public struct SourceCooldown: Codable, Sendable, Equatable {
     /// Driver/source id — `claude_code`, `codex`, `cursor_agent`, `grok`, `agy`…
     public let source: String

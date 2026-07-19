@@ -250,18 +250,14 @@ public actor RunService {
     /// `models` projections show, so Auto's "→ Opus 4.8" preview equals what actually
     /// runs and a down CLI is genuinely routed around (source-health, not just enabled).
     private func sourceReadyModelIds() -> Set<ModelID> {
-        let records = Dictionary(
-            loadProbeRecords().map { ($0.driverId, $0) }, uniquingKeysWith: { a, _ in a })
-        let manifestIDs = Set(registry.all.map(\.id))
-        // A source that just hit a capacity wall is treated as NOT ready until it resets, so
-        // Auto/team resolution substitutes around it pre-dispatch — no run-path retry. The
-        // CLI can probe "green" yet be tapped out; capacity truth comes from prior runs.
+        let records = loadProbeRecords()
         let cooling = coolingSources()
-        return Set(models.filter { m in
-            m.enabled && manifestIDs.contains(m.driverId)
-                && (records[m.driverId]?.status.isReady ?? false)
-                && !cooling.contains(m.driverId)
-        }.map(\.id))
+        return Set(BenchReadiness.readyModels(
+            models: models,
+            probeRecords: records,
+            coolingDriverIds: cooling,
+            knownDriverIds: Set(registry.all.map(\.id))
+        ).map(\.id))
     }
 
     /// How far back to look for capacity observations — bounds the run-history scan; the

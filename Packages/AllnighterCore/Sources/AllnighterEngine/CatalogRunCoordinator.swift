@@ -61,6 +61,8 @@ public actor CatalogRunCoordinator {
         let modelByID = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let scoutList = resolved.scoutWorker.map { [$0] } ?? []
         let seeded = scoutList + resolved.answerWorkers + resolved.reviewWorkers
+        let team = TeamCatalog.get(resolved.teamPresetId)
+        let lane = team?.lane ?? .code
 
         var run = TeamRun(
             id: runId ?? idFactory(),
@@ -89,7 +91,8 @@ public actor CatalogRunCoordinator {
             let (scoutAnswers, scoutSnapshots) = await runWorkers(
                 [scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID,
                 run: &run, repoRoot: repoRoot, deliveries: deliveries, workerPrompts: nil,
-                workerWorkingDirectories: workerWorkingDirectories, persist: persist)
+                workerWorkingDirectories: workerWorkingDirectories, persist: persist,
+                team: team, lane: lane, reseatPool: models)
             applySnapshots(scoutSnapshots, to: &run)
             merge(scoutAnswers, into: &run)
             if let out = scoutAnswers.first, out.hasAnswer, let text = out.output, !text.isEmpty {
@@ -106,7 +109,7 @@ public actor CatalogRunCoordinator {
             resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort,
             modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries,
             workerPrompts: workerPrompts, workerWorkingDirectories: workerWorkingDirectories,
-            persist: persist)
+            persist: persist, team: team, lane: lane, reseatPool: models)
         applySnapshots(answerSnapshots, to: &run)
         merge(answers, into: &run)
         persist?(run)
@@ -118,7 +121,7 @@ public actor CatalogRunCoordinator {
                 resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort,
                 modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries,
                 workerPrompts: nil, workerWorkingDirectories: workerWorkingDirectories,
-                persist: persist)
+                persist: persist, team: team, lane: lane, reseatPool: models)
             applySnapshots(reviewSnapshots, to: &run)
             merge(reviews, into: &run)
             persist?(run)
@@ -131,10 +134,15 @@ public actor CatalogRunCoordinator {
         if let writer = resolved.planWriter, !run.answeredWorkers.isEmpty {
             run = transition(run, to: .planning)
             persist?(run)
-            let (stage, writerSnapshot) = await runWriter(writer, resolved: resolved, run: run, basePrompt: downstreamPrompt, modelByID: modelByID, repoRoot: repoRoot)
-            if let writerSnapshot { applySnapshots([writer.id: writerSnapshot], to: &run) }
+            let (stage, writerSnapshot, settledWriter) = await runWriter(
+                writer, resolved: resolved, run: run, basePrompt: downstreamPrompt,
+                modelByID: modelByID, repoRoot: repoRoot, team: team, reseatPool: models)
+            if let writerSnapshot { applySnapshots([settledWriter.id: writerSnapshot], to: &run) }
+            if let wi = run.workers.firstIndex(where: { $0.id == settledWriter.id }) {
+                run.workers[wi] = settledWriter
+            }
             run.stages.append(stage)
-            run = transition(run, to: stage.status == .done ? .complete : .partial)
+            run = transition(run, to: stage.status == StageStatus.done ? .complete : .partial)
         } else {
             run = transition(run, to: .planning)
             run = transition(run, to: .partial)
@@ -165,7 +173,10 @@ public actor CatalogRunCoordinator {
         deliveries: [IncludedAttachmentDelivery] = [],
         workerPrompts: [String: String]? = nil,
         workerWorkingDirectories: [String: String]? = nil,
-        persist: (@Sendable (TeamRun) -> Void)? = nil
+        persist: (@Sendable (TeamRun) -> Void)? = nil,
+        team: TeamPreset? = nil,
+        lane: WorkLane = .code,
+        reseatPool: [Model] = []
     ) async -> (answers: [TeamAnswer], snapshots: [String: String]) {
         var snapshots: [String: String] = [:]
         let runId = run.id
@@ -179,49 +190,79 @@ public actor CatalogRunCoordinator {
         persist?(run)
         let runner = workerRunner
         let registry = self.registry
-        let answers = await withTaskGroup(of: TeamAnswer.self) { group in
+        let pool = reseatPool.isEmpty ? Array(modelByID.values) : reseatPool
+        let answers = await withTaskGroup(of: (TeamAnswer, String?).self) { group in
             for worker in workers {
                 let model = modelByID[worker.modelId]
                 let manifest = model.flatMap { registry.manifest(for: $0) }
                 let role = worker.purpose?.rawValue ?? WorkerStage.answer.rawValue
-                // Per-seat founder prompt when provided (Panel); else shared stage prompt.
                 let founderPrompt = workerPrompts?[worker.id] ?? prompt
                 let baseWorkerPrompt = SkillCatalog.assemblePrompt(skillId: worker.skillId, founderPrompt: founderPrompt)
-                // Attach the user's images PER WORKER: vision models get the path block;
-                // non-vision models get an explicit "you can't see it" notice so they
-                // never claim to. (Delivery law §5 via AttachmentDeliveryRenderer.)
                 let workerPrompt = deliveries.isEmpty ? baseWorkerPrompt
                     : TeamRunAttachmentMapper.teamRunSeatPrompt(
                         basePrompt: baseWorkerPrompt,
                         deliveries: deliveries,
                         readsImages: manifest?.canReadImages ?? false)
                 snapshots[worker.id] = workerPrompt
-                // Per-seat cwd when provided (Panel clone isolation); else shared repo root.
                 let workingDirectory = workerWorkingDirectories?[worker.id] ?? repoRoot
                 group.addTask {
                     guard let model else {
-                        return TeamAnswer(memberId: worker.id, modelId: worker.modelId, role: role,
+                        return (TeamAnswer(memberId: worker.id, modelId: worker.modelId, role: role,
                                           result: WorkerRunResult(status: .failed, errorKind: .missingCLI,
-                                                                  errorReason: "no model for worker \(worker.id)"))
+                                                                  errorReason: "no model for worker \(worker.id)")), nil)
                     }
                     guard let manifest else {
-                        return TeamAnswer(memberId: worker.id, modelId: worker.modelId, role: role,
+                        return (TeamAnswer(memberId: worker.id, modelId: worker.modelId, role: role,
                                           result: WorkerRunResult(status: .failed, errorKind: .missingCLI,
-                                                                  errorReason: "no driver manifest for \(model.driverId)"))
+                                                                  errorReason: "no driver manifest for \(model.driverId)")), nil)
                     }
-                    let result = await runner.collect(WorkerInvocation(
+                    var result = await runner.collect(WorkerInvocation(
                         model: model, manifest: manifest, prompt: workerPrompt, effort: effort,
                         workingDirectory: workingDirectory))
-                    return TeamAnswer(memberId: worker.id, modelId: model.id, role: role, result: result)
+                    var settledModel = model
+                    var substitutedFrom: String? = worker.substitutedFromModelId
+                    if SeatReseat.isEligible(result), let team {
+                        let chain = SeatReseat.chain(for: worker, team: team, isLead: false)
+                        if let alt = SeatReseat.nextModel(
+                            failedModelId: settledModel.id,
+                            failedDriverId: settledModel.driverId,
+                            preferredModelId: chain.preferred,
+                            fallbackModelIds: chain.fallbacks,
+                            requiredTags: chain.tags,
+                            fallback: chain.policy,
+                            lane: lane,
+                            ready: pool,
+                            preferredTags: chain.preferredTags
+                        ), let altManifest = registry.manifest(for: alt) {
+                            substitutedFrom = substitutedFrom ?? settledModel.id
+                            settledModel = alt
+                            let altPrompt = deliveries.isEmpty ? baseWorkerPrompt
+                                : TeamRunAttachmentMapper.teamRunSeatPrompt(
+                                    basePrompt: baseWorkerPrompt,
+                                    deliveries: deliveries,
+                                    readsImages: altManifest.canReadImages)
+                            result = await runner.collect(WorkerInvocation(
+                                model: alt, manifest: altManifest, prompt: altPrompt, effort: effort,
+                                workingDirectory: workingDirectory))
+                        }
+                    }
+                    return (TeamAnswer(memberId: worker.id, modelId: settledModel.id, role: role, result: result),
+                            substitutedFrom)
                 }
             }
             var collected: [TeamAnswer] = []
-            for await answer in group {
+            for await (answer, substitutedFrom) in group {
                 emitWorker(workerId: answer.memberId, modelId: answer.modelId, from: .running, to: answer.result.status,
                            skillId: nil, durationMs: answer.result.timing.durationMs, reason: answer.result.errorReason, runId: runId)
                 if let index = run.workerAnswers.firstIndex(where: { $0.memberId == answer.memberId }) {
                     run.workerAnswers[index] = answer
                     persist?(run)
+                }
+                if let wi = run.workers.firstIndex(where: { $0.id == answer.memberId }) {
+                    run.workers[wi].modelId = answer.modelId
+                    if let substitutedFrom {
+                        run.workers[wi].substitutedFromModelId = substitutedFrom
+                    }
                 }
                 collected.append(answer)
             }
@@ -230,32 +271,70 @@ public actor CatalogRunCoordinator {
         return (answers, snapshots)
     }
 
-    private func runWriter(_ writer: Worker, resolved: ResolvedTeamRun, run: TeamRun, basePrompt: String, modelByID: [String: Model], repoRoot: String?) async -> (stage: StageOutput, promptSnapshot: String?) {
+    private func runWriter(
+        _ writer: Worker,
+        resolved: ResolvedTeamRun,
+        run: TeamRun,
+        basePrompt: String,
+        modelByID: [String: Model],
+        repoRoot: String?,
+        team: TeamPreset? = nil,
+        reseatPool: [Model] = []
+    ) async -> (stage: StageOutput, promptSnapshot: String?, writer: Worker) {
         let stageId = idFactory()
         let startedAt = now()
         emitStage(RunEventKind.stageStarted, runId: run.id, stageId: stageId, workerId: writer.id)
+        var writer = writer
 
-        func fail(_ reason: String) -> (StageOutput, String?) {
+        func fail(_ reason: String) -> (StageOutput, String?, Worker) {
             emitStage(RunEventKind.stageFailed, runId: run.id, stageId: stageId, workerId: writer.id)
             return (StageOutput(id: stageId, purpose: .plan, producedByWorkerId: writer.id,
                                promptProfileId: writer.skillId, status: .failed,
-                               errorReason: reason, startedAt: startedAt, finishedAt: now()), nil)
+                               errorReason: reason, startedAt: startedAt, finishedAt: now()), nil, writer)
         }
 
-        guard let model = modelByID[writer.modelId], let manifest = registry.manifest(for: model), manifest.kind == .headlessCLI else {
+        guard var model = modelByID[writer.modelId],
+              var manifest = registry.manifest(for: model),
+              manifest.kind == .headlessCLI else {
             return fail("plan/output writer model unavailable")
         }
-        let writerPrompt = SkillCatalog.assemblePrompt(skillId: writer.skillId, founderPrompt: writerInput(resolved: resolved, run: run, basePrompt: basePrompt))
-        let outcome = await workerRunner.collect(WorkerInvocation(
+        let writerPrompt = SkillCatalog.assemblePrompt(
+            skillId: writer.skillId,
+            founderPrompt: writerInput(resolved: resolved, run: run, basePrompt: basePrompt))
+        var outcome = await workerRunner.collect(WorkerInvocation(
             model: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort,
             workingDirectory: repoRoot))
+        if SeatReseat.isEligible(outcome), let team {
+            let chain = SeatReseat.chain(for: writer, team: team, isLead: true)
+            let pool = reseatPool.isEmpty ? Array(modelByID.values) : reseatPool
+            if let alt = SeatReseat.nextModel(
+                failedModelId: model.id,
+                failedDriverId: model.driverId,
+                preferredModelId: chain.preferred,
+                fallbackModelIds: chain.fallbacks,
+                requiredTags: chain.tags,
+                fallback: chain.policy,
+                lane: team.lane,
+                ready: pool,
+                preferredTags: chain.preferredTags
+            ), let altManifest = registry.manifest(for: alt), altManifest.kind == .headlessCLI {
+                writer.substitutedFromModelId = writer.substitutedFromModelId ?? model.id
+                writer.modelId = alt.id
+                model = alt
+                manifest = altManifest
+                outcome = await workerRunner.collect(WorkerInvocation(
+                    model: alt, manifest: altManifest, prompt: writerPrompt, effort: resolved.effort,
+                    workingDirectory: repoRoot))
+            }
+        }
         guard outcome.status == .done, let markdown = outcome.output, !markdown.isEmpty else {
             return fail(outcome.errorReason ?? "plan writer produced no output")
         }
         emitStage(RunEventKind.stageCompleted, runId: run.id, stageId: stageId, workerId: writer.id)
         return (StageOutput(id: stageId, purpose: .plan, producedByWorkerId: writer.id,
                            promptProfileId: writer.skillId, status: .done,
-                           payload: .plan(markdown: markdown), startedAt: startedAt, finishedAt: now()), writerPrompt)
+                           payload: .plan(markdown: markdown), startedAt: startedAt, finishedAt: now()),
+                writerPrompt, writer)
     }
 
     // MARK: - Prompt assembly

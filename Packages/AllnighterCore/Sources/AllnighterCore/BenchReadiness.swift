@@ -1,0 +1,43 @@
+import Foundation
+
+/// Shared honest-bench projector for team preflight, hello, and foreground runs.
+/// Ready ≠ "binary on PATH + stale SetupStore smoke." A model is bench-ready only
+/// when its driver probe says ready **and** the driver is not capacity-cooling.
+public enum BenchReadiness {
+    public static let capacityLookbackSeconds: TimeInterval = 12 * 60 * 60
+
+    /// Enabled models whose driver is probe-ready and not currently cooling.
+    public static func readyModels(
+        models: [Model],
+        probeRecords: [ToolProbeRecord],
+        coolingDriverIds: Set<String> = [],
+        knownDriverIds: Set<String>? = nil
+    ) -> [Model] {
+        let readyDrivers = TeamAssembler.readyDriverIds(from: probeRecords)
+        return models.filter { m in
+            guard m.enabled, readyDrivers.contains(m.driverId) else { return false }
+            if let known = knownDriverIds, !known.contains(m.driverId) { return false }
+            return !coolingDriverIds.contains(m.driverId)
+        }
+    }
+
+    /// Cooling drivers from recent failed-worker capacity observations.
+    public static func coolingDriverIds(
+        observations: [CapacityObservation],
+        now: Date = Date()
+    ) -> Set<String> {
+        SourceCapacityLedger.coolingSources(observations: observations, now: now)
+    }
+
+    /// Collect capacity observations from recent runs (12h lookback).
+    public static func recentObservations(
+        from runs: [TeamRun],
+        now: Date = Date()
+    ) -> [CapacityObservation] {
+        let lookback = now.addingTimeInterval(-capacityLookbackSeconds)
+        return runs
+            .filter { $0.createdAt >= lookback }
+            .flatMap(\.failedWorkerAnswers)
+            .compactMap { $0.result.capacityObservation }
+    }
+}
