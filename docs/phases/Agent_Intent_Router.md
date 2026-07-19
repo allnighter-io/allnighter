@@ -113,7 +113,10 @@ the readiness the verdict already computes.
    no-mutation instruction included in the command it emits, and says so in
    `why`. The router never routes a read-only intent to a command it must
    describe as mutating without addressing the mismatch — that is the exact
-   stall the field probe hit.
+   stall the field probe hit. (Corollary, observed live: a read-only ask routed
+   through `run` also *occupies the one-per-lane mutating execution lane*,
+   serializing behind and blocking real mutating work — a dedicated read-only
+   ask path is a lane-capacity fix, not just a naming fix.)
 
 ## Return shape (`--for`)
 
