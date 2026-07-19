@@ -55,6 +55,15 @@ They can't stop it any more than they can stop a user setting an alarm clock.
 | Codex | weekly only (recently **dropped** its 5h window) |
 | Grok | weekly |
 | Cursor | monthly (plan-based) |
+| Qwen (CLI support pending) | **stacked**: ~6k req / rolling 5h (rolling-restore, not block reset) + ~45k req / week + 90k req / month — reported, verify at integration |
+
+Qwen note: caps are request-counted, stacked, and rolling-restore — a shape
+no human governs by alarm clock, and exactly what this design absorbs
+unchanged (everything keys off `resumesAt` distance + the limit-event log).
+As a cheap high-headroom vendor it is the ideal Tier 2 hop target.
+Integration law: qwen ships via its own CLI login only — never the plan's
+API key (no-API-keys rule); if parts of the deal exist only at the key
+layer, those parts are out of scope.
 
 Two regimes, two strategies. **Short windows (hours):** waiting is viable —
 park + wake is the whole answer. **Long windows (week/month):** the reset is
@@ -170,6 +179,19 @@ window forgives a burn mistake by dinnertime; blowing a monthly Cursor cap on
 day 9 hurts for three weeks — budget pacing becomes real money management. Not in scope for the first slices; just **log every limit event
 durably now** (vendor, timestamp, resumesAt, what was parked) so Tier 3 has
 history on day one.
+
+**Cost advisor (Tier 3 projection, separate idea — see memory/founder
+brainstorm 2026-07-19):** the same telemetry, joined with alln's *outcome*
+data (verify pass/fail, works-test results, retries — per model, per work
+kind, on the user's own repos), powers spend advice: "70% of your Claude
+spend was implementation work K3 verified 9/10 times — flip these tier
+entries, save ~$N/mo." The recommended fix is literally an SBDS tier-map
+edit, one click. Deliver it at the park moment ("Claude capped — substitute
+now + here's the edit that stops this recurring"). Trust law: rankings driven
+ONLY by the user's own measured usage/outcomes — never by affiliate
+relationships (affiliate links may ride along, disclosed, but must never
+touch the recommendation). Measured-on-your-repo success rates are the moat;
+vendor benchmark claims are not evidence.
 
 ## Respectful by construction (ToS stance)
 
