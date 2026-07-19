@@ -2,7 +2,7 @@
 
 Status: **Architect recon + design (RLR-S03). No source changed to produce this.**
 Read-only audit of branch `feat/design-chain` (HEAD `9414dcaf`, 2026-07-19).
-SSOT: `docs/phases/Run_Lifecycle_Reliability.md` (FINAL) — laws **RLR-L6**
+SSOT: `docs/archive/phases/Run_Lifecycle_Reliability.md` (FINAL) — laws **RLR-L6**
 (activity vs heartbeat), **RLR-L7** (JSON + stream contracts), Current-state
 items **3** + **8**, Works Test items **4** + **11**. Prior landed:
 `rlr/S01_Execution_Plan.md` (`53510dc2`/`373baf63`/`704cb315`) +

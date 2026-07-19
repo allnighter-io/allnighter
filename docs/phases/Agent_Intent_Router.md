@@ -3,12 +3,12 @@
 Status: **IR-S01 SHIPPED 2026-07-19 (`3d515ff0`); PAUSED after the first slice
 as requested. RLR-S06 cleared 2026-07-19 — IR-S02 is unblocked.** Do not
 archive this phase. The normalized catalog prerequisite is complete.
-`Run_Lifecycle_Reliability.md` was the P0 hard prerequisite for IR-S02; that
+archived `Run_Lifecycle_Reliability.md` was the P0 hard prerequisite for IR-S02; that
 gate is now Complete (Works Test matrix green).
 Owner: AllnighterCore (`AgentHello` + catalog) + AllnighterCLI (`team hello`)
 Updated: 2026-07-19 (RLR-S06 unblocked IR-S02)
 
-Execution order: ~~`Run_Lifecycle_Reliability.md`~~ (Complete / RLR-S06) →
+Execution order: ~~archived `Run_Lifecycle_Reliability.md`~~ (Complete / RLR-S06) →
 **IR-S02** → `Agent_Onboarding.md`. IR-S01 remains committed and usable; this
 doc stays active so the second slice resumes from the frozen matcher.
 
@@ -138,7 +138,7 @@ the readiness the verdict already computes.
    what makes those surfaces trustworthy.)
 10. **A long-running recommendation is a control bundle, not only a launch
     command.** IR-S01's `recommended.command` stays the primary runnable command.
-    After `Run_Lifecycle_Reliability.md` freezes the shared control contract,
+    After archived `Run_Lifecycle_Reliability.md` freezes the shared control contract,
     IR-S02 adds the exact monitor/result/cancel argv appropriate to that target
     (team, pilot, relay, or direct chat/run). A mutating or unattended route must
     never teach final-only `--json` as if it were a progress transport. It uses

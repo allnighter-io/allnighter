@@ -4,7 +4,7 @@ Status: **S00 evidence artifact (hard exit criterion for RLR-S00).** Read-only
 audit of the code as of branch `feat/design-chain` (2026-07-19). No source was
 modified to produce this.
 
-SSOT: `docs/phases/Run_Lifecycle_Reliability.md` — RLR-L5 requires
+SSOT: `docs/archive/phases/Run_Lifecycle_Reliability.md` — RLR-L5 requires
 `runtimeOwnership = {pid, pgid, startTimeTicks, kind}` recorded **keyed by
 worker id**, with the coordinator as a **separate** owner, and a cross-process
 kill path that verifies identity-alive before signalling.

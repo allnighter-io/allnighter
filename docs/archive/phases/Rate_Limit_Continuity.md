@@ -10,7 +10,7 @@ Owner: AllnighterCore + AllnighterEngine (`CapacityClassifier`/
 Updated: 2026-07-19.
 Slice status: **RLC-S01–S04 delivered end-to-end.**
 
-Related: `Run_Lifecycle_Reliability.md` (blocker wire, activity truth,
+Related: archived `Run_Lifecycle_Reliability.md` (blocker wire, activity truth,
 runtimeOwnership) · `parked/Utilization_Admission_Control.md` — RLC is the
 **in-flight-run half** of that story: it consumes `CapacityObservation` +
 RLR blockers and does **not** revive the admission ledger / Pending drain /

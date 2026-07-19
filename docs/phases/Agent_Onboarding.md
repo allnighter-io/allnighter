@@ -1,7 +1,7 @@
 # Agent Onboarding — from findable to suggested
 
 Status: **APPROVED, BLOCKED on IR-S02.** RLR-S06 cleared 2026-07-19
-(`Run_Lifecycle_Reliability.md` Complete) — lifecycle trust is green.
+(archived `Run_Lifecycle_Reliability.md` Complete) — lifecycle trust is green.
 Build only after `Agent_Intent_Router.md` IR-S02. IR-S01 landed as `3d515ff0`;
 the router intentionally stopped there.
 Specced v2 — hardened by five-seat panel panel_753613c7 (2026-07-16:
@@ -27,7 +27,7 @@ Updated: 2026-07-19
 
 Related: `Agent_Front_Door.md` (gate 1 — findable, SHIPPED) · this doc (gate 2 —
 suggested) · `Agent_Intent_Router.md` (gate 3 — routes intent to the right team;
-the trigger line below depends on it) · `Run_Lifecycle_Reliability.md` (P0 trust
+the trigger line below depends on it) · archived `Run_Lifecycle_Reliability.md` (P0 trust
 gate — the recommended work remains observable, stoppable, and recoverable).
 
 ## The gap (named precisely)
@@ -210,7 +210,7 @@ footguns from the 2026-07-19 Isolation/Perf Sol audit:
    capture the canonical run id from its first NDJSON event, and use the exact
    monitor/cancel commands returned by the router. Silence alone proves neither
    health nor failure: lifecycle phase, causal blocker, `lastActivityAt`, and
-   `progressStale` own that judgment (`Run_Lifecycle_Reliability.md` Complete).
+   `progressStale` own that judgment (archived `Run_Lifecycle_Reliability.md` Complete).
    Recipe shipping still waits on IR-S02 for the router-returned monitor/cancel
    argv.
 

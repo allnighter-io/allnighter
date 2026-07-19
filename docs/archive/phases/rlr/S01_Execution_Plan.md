@@ -2,8 +2,8 @@
 
 Status: **Architect recon + design (RLR-S01). No source changed to produce this.**
 Read-only audit of branch `feat/design-chain` (2026-07-19). SSOT:
-`docs/phases/Run_Lifecycle_Reliability.md` (FINAL). S00 evidence:
-`docs/phases/rlr/Spawn_Site_Matrix.md`, `docs/debuglog/RLR_incident_packet.md`.
+`docs/archive/phases/Run_Lifecycle_Reliability.md` (FINAL). S00 evidence:
+`docs/archive/phases/rlr/Spawn_Site_Matrix.md`, `docs/debuglog/RLR_incident_packet.md`.
 
 This plan turns the **fanning_out leg** of
 `RunLifecycleTwoProcessTests` green (signature (a)); the terminal-lie leg

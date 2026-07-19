@@ -1,7 +1,7 @@
 # RLR-S06 Works Test Matrix
 
 Status: **DELIVERED 2026-07-19.** Phase close gate for
-`docs/phases/Run_Lifecycle_Reliability.md` §Works Test items 1–15.
+`docs/archive/phases/Run_Lifecycle_Reliability.md` §Works Test items 1–15.
 
 Filter:
 

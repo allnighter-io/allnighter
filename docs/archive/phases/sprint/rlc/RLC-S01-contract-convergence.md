@@ -28,7 +28,7 @@ Done when: checkboxes below
 ## Read only
 
 - `docs/archive/phases/Rate_Limit_Continuity.md` (Law + Lifecycle + Park rules + S01 row)
-- `docs/phases/Run_Lifecycle_Reliability.md` §RLR-L4 (typed blockers; vendorBackoff deferred → promote)
+- `docs/archive/phases/Run_Lifecycle_Reliability.md` §RLR-L4 (typed blockers; vendorBackoff deferred → promote)
 - Existing: `CapacityObservation` / `CapacityClassifier` in AgentOS sibling
 
 ## Touch only

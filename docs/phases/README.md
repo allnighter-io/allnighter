@@ -25,8 +25,8 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Run_Lifecycle_Reliability.md`](Run_Lifecycle_Reliability.md) | **Complete 2026-07-19 — ready to archive** (S00–S06; Works Test matrix GREEN, item 7 waived) | Lifecycle reliability gate shipped. Unblocks IR-S02. Matrix: `docs/phases/rlr/S06_Works_Test_Matrix.md`. |
 | [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
+| [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md) | **Complete 2026-07-19, archived** — S00–S06; Works Test 14 GREEN / item 7 waived | Accepted runs stay observable, stoppable, recoverable. Code SSOT: `KillSettlement`, `RunClockEnforcer`, `RunContradiction`, `IdempotencyStore`; matrix `archive/phases/rlr/`. Unblocks IR-S02. |
 | [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md) | **SHIPPED 2026-07-19, archived** — S01–S04b, S05a, S06 gates; S05b deferred | Team-run open + streaming/reload hot path. Code SSOT: `ThreadsViewModel.applyLiveDelta` / `reloadAsync`, `PerfCounters`, `RunDecodeCache`. |
 | [`Field_Reports_3.md`](Field_Reports_3.md) | **In progress** — piloted delivery #10 | Lane-label truth, JSON stream discipline, retry idempotency from live dogfood. |
 | [`Field_Reports_4.md`](Field_Reports_4.md) | **In progress** — piloted delivery #11 | Commit fidelity, proof surfacing, token truth from live dogfood. |
@@ -177,12 +177,12 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 
 | Work | Read first |
 | --- | --- |
-| Foreground/async run stuck, journal/status mismatch, opaque blocker, orphan worker, kill/retry failure, missing lifecycle stream | `Run_Lifecycle_Reliability.md` (P0; extends the archived Process Ownership + Concurrent Invocation Isolation laws) |
+| Foreground/async run stuck, journal/status mismatch, opaque blocker, orphan worker, kill/retry failure, missing lifecycle stream | archived `Run_Lifecycle_Reliability.md` (Complete; extends archived Process Ownership + Concurrent Invocation Isolation) |
 | Vendor usage limit / session cap, parked run, wake/resume, authorized substitute | archived `Rate_Limit_Continuity.md` (code SSOT: `VendorBackoffReconciler`, `VendorSubstitutionPolicy`) |
 | Two `alln`s on different projects colliding, scoped reconcile/kill, per-invocation isolation | archived `Concurrent_Invocation_Isolation.md` (code SSOT; extends archived `Process_Ownership.md`) |
 | Default-chat / team-run latency, streaming throughput, rail click stalls, scroll jank | archived `Team_Run_Load_Performance.md` (code SSOT; warm path: archived `Warm_Single_Lane_Chat.md`) |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
-| Agent front door — findable/suggested/routed, `team hello --for`, catalog normalization | `Run_Lifecycle_Reliability.md` → `Team_Catalog_Normalization.md` → `Agent_Intent_Router.md` → `Agent_Onboarding.md` (gate 1 shipped: archived `Agent_Front_Door.md`) |
+| Agent front door — findable/suggested/routed, `team hello --for`, catalog normalization | archived `Run_Lifecycle_Reliability.md` → archived `Team_Catalog_Normalization.md` → `Agent_Intent_Router.md` → `Agent_Onboarding.md` (gate 1 shipped: archived `Agent_Front_Door.md`) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
 | Run model, answer vs execution teams, dispatch/source safety | `Unified_Run_Model.md` + `Work_Order_Team_Model.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` + `Language_Cutover.md` |

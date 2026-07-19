@@ -1,7 +1,7 @@
 # RLR-S00 DEBUGLOG incident packet — original field hang + 2026-07-19 re-hang
 
 Status: evidence only (RLR-S00 deliverable). No product/source changes were
-made while gathering this packet. SSOT: `docs/phases/Run_Lifecycle_Reliability.md`
+made while gathering this packet. SSOT: `docs/archive/phases/Run_Lifecycle_Reliability.md`
 (status FINAL) — "Founder intent", "Risk and debugger classification", "Current
 state (verified 2026-07-19)".
 
@@ -334,7 +334,7 @@ One-line summary of the five classes:
 
 ## Files referenced in this packet
 
-- `docs/phases/Run_Lifecycle_Reliability.md` (SSOT, read only)
+- `docs/archive/phases/Run_Lifecycle_Reliability.md` (SSOT, read only)
 - `/Users/mike/Library/Application Support/Allnighter/Runs/run_8AAA520D-1BB0-431C-803B-0D479B7653B6/{run.json,heartbeat.json,owner.json}`
 - `/Users/mike/Library/Application Support/Allnighter/Runs/run_BD26C1D1-7CBE-4F96-B1C5-B353DF143C92/{run.json,heartbeat.json,owner.json}`
 - `/Users/mike/Library/Application Support/Allnighter/Runs/run_2ADCE96A-A095-4B5D-8DFB-20FDF1AE130F/{run.json,heartbeat.json,events.jsonl,workers/*}`

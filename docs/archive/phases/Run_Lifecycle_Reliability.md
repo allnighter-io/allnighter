@@ -1,12 +1,14 @@
 # Run Lifecycle Reliability — every accepted run stays observable, stoppable, and recoverable
 
-Status: **Complete (2026-07-19)** — S00–S06 delivered. Works Test matrix
-GREEN (item 7 waived: orphaned-coordinator mid-stream SIGKILL harness). Ready
-to archive (orchestrator). Unblocks IR-S02 + Agent Onboarding V1 (still needs
-IR-S02). Promise kept; L1–L9 invariants + wire shape frozen.
+Status: **Complete (archived 2026-07-19).** RLR-S00–S06 delivered on
+`feat/design-chain` (through `e75b7c96`). Code is SSOT; this doc is the
+historical law + proof packet. Works Test matrix GREEN (item 7 waived).
+Unblocks IR-S02 + Agent Onboarding V1 (Onboarding still waits on IR-S02).
 Owner: AllnighterCore + AllnighterEngine + AllnighterCLI (`TeamRun`/`RunStore`,
 `RunService`, `ProcessOwnership`, `ExecutionLaneRegistry`, CLI JSON/NDJSON)
-Updated: 2026-07-19 (S06 Works Test matrix + phase close gate)
+Updated: 2026-07-19 (archived).
+Slice status: **RLR-S00–S06 delivered end-to-end.** Plans + matrix:
+`docs/archive/phases/rlr/`.
 
 Related: `Unified_Run_Model.md` · `CLI_Implementation_Contract.md` · archived
 `Process_Ownership.md` + `Concurrent_Invocation_Isolation.md` ·
@@ -19,8 +21,8 @@ Provenance: Codex Sol Spec Review Min lenses (`2ADCE96A-…`) · live Kimi
 **S00 evidence delivered 2026-07-19** (Claude-internal orchestration; commits
 `c9e8ec1b`, `1c14b823`, `55bbeb73`): incident packet
 `docs/debuglog/RLR_incident_packet.md` · spawn-site matrix
-`docs/phases/rlr/Spawn_Site_Matrix.md` · fake CLI + gated-red
-`RunLifecycleTwoProcess` tests (`RLR_RED=1`) reproducing the terminal-lie and
+`docs/archive/phases/rlr/Spawn_Site_Matrix.md` · fake CLI +
+`RunLifecycleTwoProcess` tests reproducing the terminal-lie and
 single-worker `fanning_out` signatures. Evidence correction: the two cited
 incident runs are **4 seconds apart on 2026-07-19** — one continuous session
 (occurrence + immediate reproduction), no earlier journal exists on disk.
@@ -30,20 +32,17 @@ recorded nowhere (S00 matrix verdict: exclude all four warm drivers from the
 P0 Works Test).
 
 **S01 DELIVERED 2026-07-19** (commits `53510dc2` S01a, `373baf63` S01b,
-`704cb315` S01c; plan `docs/phases/rlr/S01_Execution_Plan.md`): lifecycle +
+`704cb315` S01c; plan `docs/archive/phases/rlr/S01_Execution_Plan.md`): lifecycle +
 phase converged (`RunLifecycle`/`RunPhase`, `AsyncTeamLiveStatus` retired,
 one-worker `fanning_out` dead — RLR_RED signature (a) GREEN); acceptance
 boundary durable-before-waits with hard-gated acceptance save
 (`RUN_JOURNAL_UNAVAILABLE`), save-before-emit, support-dir on errors,
 idempotency key+hash at acceptance; `JOURNAL_CORRUPT` guard, clock-default
 constants, wire freeze + catalog/docs regen. Signature (b) terminal-lie
-stays red for S04. Known debt: `check.sh` blocks on pre-existing
-`check_spawn_policy` gate (bare `SubprocessCommandRunner`, AgentOS
-relocation) — same component the matrix flagged; resolve with or before
-S04.
+stayed red for S04 (flipped green in S04b). Spawn-policy debt folded into S04a.
 
 **S02 DELIVERED 2026-07-19** (commits `7ff18d7b` S02a, `84b42268` S02b,
-`9655b6a1` S02c; plan `docs/phases/rlr/S02_Execution_Plan.md`): blocked
+`9655b6a1` S02c; plan `docs/archive/phases/rlr/S02_Execution_Plan.md`): blocked
 runs carry durable FIFO ticket facts naming the true holder by canonical
 runId (live position re-fire included), `blocker{}` on the wire,
 no-spawn-while-blocked proven; root isolation proven (case collapse
@@ -54,7 +53,7 @@ terminal guard; late-grant race pinned). Works Test items 3 + 14 GREEN
 cross-process.
 
 **S03 DELIVERED 2026-07-19** (commits `45e2674c` S03a, `defe7354` S03b,
-`a3ff27d4` S03c; plan `docs/phases/rlr/S03_Execution_Plan.md`): durable
+`a3ff27d4` S03c; plan `docs/archive/phases/rlr/S03_Execution_Plan.md`): durable
 `lastActivityAt`/`lastActivityKind` on the journal from L6 events only
 (spawn provably never advances; ≤1 coalesced write/s); the L6-banned
 per-tick heartbeat floor timer DELETED (the incident's frozen-heartbeat
@@ -67,7 +66,7 @@ flow as bounded `workerActivity`/`stageActivity` metadata (never payload
 text). Works Test 4 shape GREEN.
 
 **S04 DELIVERED 2026-07-19** (commits `3087179e` S04a, `701dc6f6` S04b,
-`bf4e8cdf` S04c; plan `docs/phases/rlr/S04_Execution_Plan.md`): worker
+`bf4e8cdf` S04c; plan `docs/archive/phases/rlr/S04_Execution_Plan.md`): worker
 `runtimeOwnership` keyed by worker id; async setpgid detachment dead;
 spawn signal dispositions reset (inherited SIG_IGN for SIGTERM fixed);
 one identity-checked `KillSettlement` (terminal only on verified stop);
@@ -76,7 +75,7 @@ one identity-checked `KillSettlement` (terminal only on verified stop);
 after terminal; warm kill returns `verificationUnavailable` (never a
 `killed` lie). Terminal-lie signature GREEN.
 
-**S05 DELIVERED 2026-07-19** (plan `docs/phases/rlr/S05_Execution_Plan.md`):
+**S05 DELIVERED 2026-07-19** (plan `docs/archive/phases/rlr/S05_Execution_Plan.md`):
 four clocks (`--handshake-timeout` / `--first-activity-timeout` /
 `--idle-timeout` / `--wall-timeout`) with budgets on the journal;
 `RunClockEnforcer` stamps `timedOut` + `killOutcome` even on partial
@@ -84,7 +83,7 @@ four clocks (`--handshake-timeout` / `--first-activity-timeout` /
 `IDEMPOTENCY_CONFLICT` / `IDEMPOTENCY_EXPIRED` (24h retention);
 `--retry-of` + `--accept-survivors`.
 
-**S06 DELIVERED 2026-07-19** (matrix `docs/phases/rlr/S06_Works_Test_Matrix.md`):
+**S06 DELIVERED 2026-07-19** (matrix `docs/archive/phases/rlr/S06_Works_Test_Matrix.md`):
 full Works Test 1–15 mapped (14 GREEN, item 7 waived); two-process suite
 ungated; `JOURNAL_CORRUPT` + orphan-scan + idle→lane-release + wait-for
 lifecycle-only + governor no-id proofs; bounded ownership-receipt reaper;

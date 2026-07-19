@@ -1,7 +1,7 @@
 # RLR-S05 Execution Plan — four clocks · idempotency replay · `--retry-of`
 
 Status: **DELIVERED 2026-07-19.** Next: S06 (full Works Test matrix).
-Branch `feat/design-chain`. SSOT: `docs/phases/Run_Lifecycle_Reliability.md`
+Branch `feat/design-chain`. SSOT: `docs/archive/phases/Run_Lifecycle_Reliability.md`
 laws **RLR-L8** (clocks) + **RLR-L9** (replay vs intentional retry). Builds on
 S04b `KillSettlement` (operator-vs-clock asymmetry) and S01b/c clock defaults +
 idempotency key/hash at acceptance.

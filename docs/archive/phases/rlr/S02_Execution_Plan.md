@@ -2,9 +2,9 @@
 
 Status: **Architect recon + design (RLR-S02). No source changed to produce this.**
 Read-only audit of branch `feat/design-chain` (2026-07-19). SSOT:
-`docs/phases/Run_Lifecycle_Reliability.md` (FINAL) — laws RLR-L4 (typed
+`docs/archive/phases/Run_Lifecycle_Reliability.md` (FINAL) — laws RLR-L4 (typed
 `repoWriteLock` blocker), RLR-L3 atomic rule, Works Test items 3 and 14. Prior:
-`docs/phases/rlr/S01_Execution_Plan.md` (landed S01a/b/c —
+`docs/archive/phases/rlr/S01_Execution_Plan.md` (landed S01a/b/c —
 `53510dc2`/`373baf63`/`704cb315`).
 
 **Headline:** the FIFO + flock + durable-holder + ticket machinery **already
