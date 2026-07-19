@@ -70,7 +70,7 @@ final class TeamServiceStreamTests: XCTestCase {
         let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
         let collected = Collected()
         let consumer = Task {
-            var mapper = NDJSONStreamProjector.LiveMapper()
+            let mapper = NDJSONStreamProjector.LiveMapper()
             for await event in stream {
                 guard let line = mapper.line(for: event),
                       let obj = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],

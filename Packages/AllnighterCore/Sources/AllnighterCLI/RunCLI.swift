@@ -86,15 +86,26 @@ enum RunCLI {
         }
 
         if opts.flag("stream") {
+            // RLR-S03b: route the live stream through the durable RemoteRunEventJournal
+            // so each line carries its monotonic per-Mac `seq` (survives coordinator
+            // restart + reattach), and enforce exactly-one-terminal per attachment.
+            let journal = RemoteRunEventJournal()
+            let attachment = NDJSONStreamProjector.NDJSONAttachment()
             let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
             let runTask = Task {
                 _ = await service.run(request, origin: .cli, originAgent: opts.value("agent"), events: continuation)
             }
-            var mapper = NDJSONStreamProjector.LiveMapper()
             for await event in stream {
-                if let line = mapper.line(for: event) { print(line) }
+                // Allocate the durable seq at append; fall back to the un-stamped event
+                // if the journal cannot record it (e.g. missing runId) so the stream
+                // never stalls.
+                let stamped = (try? journal.append(event)) ?? event
+                if let line = attachment.liveLine(for: stamped) { print(line) }
             }
             _ = await runTask.value
+            // RLR-L7: an attachment always ends in exactly one terminal — synthesize
+            // one if the stream closed without a terminal status event.
+            if let closing = attachment.closingLine() { print(closing) }
             return
         }
 

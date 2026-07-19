@@ -116,7 +116,7 @@ struct AllnighterCLI {
             // Live NDJSON: emit events as the run progresses, not after it settles.
             let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
             let runTask = Task { await runtime.service().run(request, origin: .cli, originAgent: opts.value("agent"), events: continuation) }
-            var mapper = NDJSONStreamProjector.LiveMapper()
+            let mapper = NDJSONStreamProjector.LiveMapper()
             for await event in stream {
                 if let line = mapper.line(for: event) { print(line) }
             }

@@ -18,10 +18,32 @@ public enum NDJSONStreamProjector {
         public let event: String
         public let teamRunId: String
         public let data: EventData
-        init(seq: Int, ts: String, event: String, teamRunId: String, data: EventData) {
+        /// RLR-L7: additive marker set true on replayed history lines. Omitted on
+        /// encode when nil (live tail lines carry no `replayed` key) so existing
+        /// consumers keep decoding — additive field only.
+        public let replayed: Bool?
+        init(seq: Int, ts: String, event: String, teamRunId: String, data: EventData, replayed: Bool? = nil) {
             self.schemaVersion = 1; self.seq = seq; self.ts = ts
             self.event = event; self.teamRunId = teamRunId; self.data = data
+            self.replayed = replayed
         }
+    }
+
+    /// The terminal NDJSON event names (RLR-L7 exactly-one-terminal). An
+    /// attachment forwards the first of these and drops every later line.
+    public static let terminalEventNames: Set<String> = ["teamRunCompleted", "teamRunFailed", "error"]
+
+    /// RLR-L7 gap detection: within one attachment's shared seq space the visible
+    /// seqs need not be contiguous (dropped/other-run events consume durable seq),
+    /// but they must strictly increase. Returns the first `(previous, next)` pair
+    /// that is non-increasing or skips — i.e. a consumer-visible gap/duplicate — or
+    /// nil when the run of seqs is strictly ascending with no jumps.
+    public static func firstSeqGap(_ seqs: [Int]) -> (expected: Int, actual: Int)? {
+        guard seqs.count > 1 else { return nil }
+        for i in 1..<seqs.count where seqs[i] != seqs[i - 1] + 1 {
+            return (expected: seqs[i - 1] + 1, actual: seqs[i])
+        }
+        return nil
     }
 
     /// Flexible per-event data. Nil fields are omitted on encode, so each event
@@ -101,17 +123,24 @@ public enum NDJSONStreamProjector {
 
     /// Maps the live internal `RunEvent` stream (from `TeamService.run(events:)`)
     /// into public NDJSON events as they arrive — the live counterpart to
-    /// `lines(for:)`. Assigns its own monotonic output `seq`; intermediate
-    /// internal transitions (e.g. `answers_in`) map to nil and are dropped.
+    /// `lines(for:)`. Carries through the event's **durable per-Mac `seq`**
+    /// (`RemoteRunEventJournal`, stamped at append) rather than minting its own,
+    /// so the stream seq survives coordinator restart + reattach (RLR-L7).
+    /// Intermediate internal transitions (e.g. `answers_in`) map to nil and are dropped.
     public struct LiveMapper {
-        private var seq = 0
         public init() {}
 
-        public mutating func line(for runEvent: RunEvent) -> String? {
+        /// Project one internal event to its public NDJSON `Event`, carrying the
+        /// durable `seq`. `replayed` marks history lines on a replay attach.
+        public func event(for runEvent: RunEvent, replayed: Bool = false) -> Event? {
             guard let mapped = Self.map(runEvent) else { return nil }
-            seq += 1
-            let event = Event(seq: seq, ts: NDJSONStreamProjector.iso(runEvent.ts),
-                              event: mapped.name, teamRunId: mapped.runId, data: mapped.data)
+            return Event(seq: Int(runEvent.seq), ts: NDJSONStreamProjector.iso(runEvent.ts),
+                         event: mapped.name, teamRunId: mapped.runId, data: mapped.data,
+                         replayed: replayed ? true : nil)
+        }
+
+        public func line(for runEvent: RunEvent) -> String? {
+            guard let event = event(for: runEvent) else { return nil }
             return NDJSONStreamProjector.encodeLine(event)
         }
 
@@ -159,6 +188,74 @@ public enum NDJSONStreamProjector {
             default:
                 return nil
             }
+        }
+    }
+
+    /// One live/replay attachment to a run's `--stream` NDJSON (RLR-L7). Owns two
+    /// invariants the raw `LiveMapper` cannot:
+    ///
+    /// - **Exactly one terminal per attachment.** The first terminal event is
+    ///   forwarded; every line after it — a late worker event, a duplicate
+    ///   terminal — is dropped. If the attachment closes before a terminal
+    ///   arrived (early close / ack-and-close), `closingLine` synthesizes exactly
+    ///   one so every attachment ends terminal.
+    /// - **Durable shared seq space.** Live and replayed lines both carry the
+    ///   event's durable per-Mac `seq`; history is marked `replayed:true`. Because
+    ///   the seq is allocated by `RemoteRunEventJournal` before projection, a
+    ///   reattach or coordinator restart continues from `lastSeq` with no reset,
+    ///   and gaps stay detectable by seq (`firstSeqGap`).
+    public final class NDJSONAttachment {
+        private let mapper = LiveMapper()
+        private var didEmitTerminal = false
+        private var lastSeq = 0
+        private var runId: String?
+
+        public init() {}
+
+        /// True once this attachment has forwarded (or synthesized) its terminal.
+        public var terminalEmitted: Bool { didEmitTerminal }
+
+        /// Forward one live event as an NDJSON line. Returns nil when the event
+        /// maps to no public line OR a terminal already went out (post-terminal
+        /// drop). The first terminal flips `terminalEmitted`.
+        public func liveLine(for runEvent: RunEvent) -> String? {
+            emit(runEvent, replayed: false)
+        }
+
+        /// Replay durable history (from `RemoteRunEventJournal.replay(after:)`)
+        /// as NDJSON lines marked `replayed:true`, sharing the run's one seq
+        /// space with the subsequent live tail. Stops emitting once a terminal is
+        /// seen in history (exactly-one-terminal holds across replay + tail too).
+        public func replayLines(_ events: [RunEvent]) -> [String] {
+            events.compactMap { emit($0, replayed: true) }
+        }
+
+        private func emit(_ runEvent: RunEvent, replayed: Bool) -> String? {
+            guard !didEmitTerminal else { return nil }
+            guard let event = mapper.event(for: runEvent, replayed: replayed) else { return nil }
+            if runId == nil { runId = event.teamRunId }
+            lastSeq = max(lastSeq, event.seq)
+            if NDJSONStreamProjector.terminalEventNames.contains(event.event) { didEmitTerminal = true }
+            return NDJSONStreamProjector.encodeLine(event)
+        }
+
+        /// Close the attachment. When no terminal was forwarded — an early close,
+        /// or an ack-and-close snapshot whose ack IS its terminal (RLR-L7) —
+        /// synthesize exactly one terminal so the attachment always ends terminal.
+        /// Returns nil when a real terminal already went out (no double-terminal).
+        public func closingLine(status: TeamRunJSON.Status = .failed, at ts: Date = Date()) -> String? {
+            guard !didEmitTerminal else { return nil }
+            didEmitTerminal = true
+            lastSeq += 1
+            let name = status == .done ? "teamRunCompleted" : "teamRunFailed"
+            let data: EventData = status == .done
+                ? EventData(status: status.rawValue)
+                : EventData(status: status.rawValue, error: ErrorEnvelope(
+                    code: "STREAM_CLOSED", message: "stream closed before a terminal event",
+                    requiresManual: false, retryable: true, runId: runId))
+            let event = Event(seq: lastSeq, ts: NDJSONStreamProjector.iso(ts),
+                              event: name, teamRunId: runId ?? "", data: data)
+            return NDJSONStreamProjector.encodeLine(event)
         }
     }
 
