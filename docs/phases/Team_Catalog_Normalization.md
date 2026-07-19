@@ -12,8 +12,20 @@ so the AI nails the names AND the staffing).
 `typeTags` + missing `starters` added to every code/design/copy/signal team
 (`18065ae7`/`eb75eeb4`/`eb056ee5` — on current pre-rename ids), and the Law 4
 uniqueness fix + guard tests (`e8718e24`, after a live `--type spec-review`/
-`--type growth` → **Min** mis-route was found; see Law 4). Renames/tiers/drops
-(CN-S01–S03) await founder go.
+`--type growth` → **Min** mis-route was found; see Law 4).
+**FOUNDER APPROVED 2026-07-19 — all gates cleared:** the full rename list, the
+four-family tier shape (incl. Bug Hunt Min + Radical Directions folded into
+Design Max), and the Conversion Studio drop. CN-S01–S04 execute now.
+Frozen id mapping (Law 1 applied to machine ids): `code_core`→`code_plan` ·
+`execution_playbook`→`build_slice` (stays lane-prefix-exempt global run team) ·
+`design_core`→`design_design` · `design_premium_polish`→`design_polish` ·
+`design_usability_triage`→`design_usability_review` ·
+`signal_post_to_project`→`signal_outside` · `copy_landing_page`→`copy_landing`
+(display "Landing Page Team"→"Copy Landing") · What to Build Next keeps id,
+display normalized. New teams: `code_bug_hunt_min`, `design_design_min`,
+`design_design_max`. The magic `"<lane>_core"` default fallback in
+`TeamCatalog` is deleted (dead after renames; `isDefault` + the single-default
+invariant own lane defaults).
 Owner: AllnighterCore (`BuiltInTeams.swift` + `ModelCatalog.swift`) + `Team_And_Skill_Catalogs.md`
 Updated: 2026-07-19
 
