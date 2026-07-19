@@ -69,7 +69,7 @@ public enum HelpTopicRegistry {
             team when you want a multi-worker pass.
 
             Other agents: run `alln bootstrap` for a paste-ready context snippet that teaches \
-            the whole loop in one paste (no MCP server, no config file edits).
+            the router reflex (`alln team hello --for`) in one paste (no MCP server, no config file edits).
             """,
             aliases: ["getting started", "first run", "what is allnighter"],
             relatedToolIds: ["team_hello", "doctor"],
@@ -84,11 +84,14 @@ public enum HelpTopicRegistry {
             Allnighter has no MCP server and no daemon to install — the CLI is the whole \
             agent surface, no humans in the loop. `alln bootstrap` PRINTS (never edits \
             files) a short, paste-ready instruction block for a host agent's own context: \
-            CLAUDE.md for Claude, `.cursor/rules`/AGENTS.md for Cursor, AGENTS.md for Codex, \
-            or a host-neutral block naming all three when `--host` is omitted. The block \
-            teaches the whole loop in one paste — `alln team hello --json` for quota-free \
-            readiness, `alln help search`/`alln help get` for anything else, prefer `--json` \
-            envelopes, follow the error envelope's help pointer, never guess flags. \
+            `~/.claude/CLAUDE.md` for Claude, `~/.cursor/rules/allnighter.mdc` for Cursor, \
+            project AGENTS.md for Codex (no global Codex path in v1), or a host-neutral \
+            block when `--host` is omitted. The block teaches one reflex — \
+            `alln team hello --for "<intent>" --json` (read-only, free; run \
+            `recommended.command` only when the user already authorized that work), plus \
+            `alln help search`/`alln help get` and `alln doctor --json`. Panel cockpit \
+            recipes stay in `help get panel`, not bootstrap. Marker-delimited with schema \
+            version + content hash so `alln doctor` can report teaching.installed. \
             `--json` returns `{ host, pasteTarget, snippet, binaryPath, onPath }` so an agent can install itself.
             """,
             aliases: ["install", "setup", "connect agent", "activation", "add to agent",

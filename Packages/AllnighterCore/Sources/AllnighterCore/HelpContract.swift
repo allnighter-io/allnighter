@@ -11,17 +11,13 @@ public extension HelpService {
     static let routingLaw =
         "For Allnighter product questions, run `alln help search <query>` or `alln help get <topic>` before answering from memory."
 
-    /// Workflow bullets shared by `Bootstrap.snippet` and static help topics.
-    /// Line 1 (CLI surface + binary fallback) and the optional install step are
+    /// Companion workflow lines shared with the teaching snippet (ONB-S01).
+    /// Trigger + markers live in `TeachingSnippet`; binary fallback/install are
     /// assembled by `Bootstrap.snippet(binaryPath:onPath:)`.
-    static let bootstrapWorkflowLines = [
-        "- Start every session with `alln team hello --json`: quota-free readiness, contract hash, and next-action plan.",
-        "- Find anything with `alln help search \"<query>\"`, then `alln help get <topic>`. Prefer `--json` envelopes.",
-        "- On errors follow the envelope; environment issues → `alln doctor --json`. Never guess flags.",
-    ]
+    static var bootstrapWorkflowLines: [String] { TeachingSnippet.companionLines }
 
-    /// Compact Panel recipe for the bootstrap snippet (PN-S04). Ends with the pilot
-    /// chain line so harden→build stays one cockpit. Keep the whole snippet ≤15 lines.
+    /// Compact Panel recipe for `help get panel` callers (PN-S04). **Not** part of
+    /// the default bootstrap snippet — ONB-S01 keeps bootstrap as a tiny router reflex.
     static let panelWorkflowLines = [
         "- Panel (blind jury): `alln panel start --doc <path> --project .` → roster + next command echoed.",
         "- `alln panel round --panel <id>` (round 1 built-in brief); refute findings, edit target yourself.",
@@ -31,7 +27,7 @@ public extension HelpService {
         "- Stuck? `alln panel watch` / `alln pair pilot watch`; `alln help get panel` or `pm_relay`.",
     ]
 
-    /// Compact Pilot recipe kept for callers that still name it; bootstrap uses panel lines.
+    /// Alias for callers that still name Pilot; same compact recipe as Panel.
     static let pilotWorkflowLines = panelWorkflowLines
 
     /// Static help-topic preview when live binary path is unknown (help corpus only).

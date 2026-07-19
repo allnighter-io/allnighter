@@ -5,6 +5,11 @@ import Foundation
 /// instruction block for a host agent's own context file — same consent
 /// posture as the old MCP install: Allnighter never edits another tool's
 /// config, the user pastes.
+///
+/// Teaching body SSOT is `TeachingSnippet` (ONB-S01). Marker append/repair on
+/// a human click is a deliberate Mac-app carve-out from this CLI print-never-
+/// edit posture (`docs/phases/Agent_Onboarding.md` Decision 3) — the CLI still
+/// never edits.
 public enum Bootstrap {
     /// The host agent surfaces `--host` targets. `generic` is host-neutral —
     /// used when the caller doesn't know (or care) which host it's talking to.
@@ -16,17 +21,23 @@ public enum Bootstrap {
         }
 
         /// Where the user pastes the snippet for this host.
+        /// Global paths align with `TeachingInstalledCheck.hostMatrix` (v1).
         public var pasteTarget: String {
             switch self {
-            case .claude: return "CLAUDE.md (project root), or ~/.claude/CLAUDE.md for a user-level default"
-            case .cursor: return ".cursor/rules (project), or AGENTS.md"
-            case .codex: return "AGENTS.md"
-            case .generic: return "your agent host's context file — CLAUDE.md, .cursor/rules, or AGENTS.md"
+            case .claude:
+                return "~/.claude/CLAUDE.md (user-global), or CLAUDE.md (project root)"
+            case .cursor:
+                return "~/.cursor/rules/allnighter.mdc (user-global Cursor rules), or project .cursor/rules"
+            case .codex:
+                return "AGENTS.md (project — Codex has no global instruction file in v1)"
+            case .generic:
+                return "your agent host's context file — ~/.claude/CLAUDE.md, ~/.cursor/rules/allnighter.mdc, or project AGENTS.md"
             }
         }
     }
 
-    /// Paste-ready snippet with the running-binary fallback and optional install step.
+    /// Paste-ready snippet: binary fallback + optional install + marked teaching.
+    /// Does **not** include Panel/Pilot recipes (see `help get panel`).
     public static func snippet(binaryPath: String, onPath: Bool) -> String {
         var lines = [
             "Allnighter is available via the `alln` CLI (fallback: `\(binaryPath)`).",
@@ -34,8 +45,7 @@ public enum Bootstrap {
         if !onPath {
             lines.append("- Run `\(binaryPath) install-cli` once so plain `alln` works everywhere.")
         }
-        lines.append(contentsOf: HelpService.bootstrapWorkflowLines)
-        lines.append(contentsOf: HelpService.panelWorkflowLines)
+        lines.append(TeachingSnippet.wrap())
         return lines.joined(separator: "\n")
     }
 

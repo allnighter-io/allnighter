@@ -453,7 +453,10 @@ struct AllnighterCLI {
                 pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
             ),
             pathEnvironment: ProcessInfo.processInfo.environment["PATH"],
-            pilot: pilotContext
+            pilot: pilotContext,
+            teachingInputs: TeachingInstalledCheck.defaultInputs(
+                homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+            )
         )
         var result = DoctorReport.build(
             models: runtime.models,

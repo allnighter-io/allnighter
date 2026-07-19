@@ -1114,6 +1114,10 @@ public extension ContractRegistry {
         DoctorCheckSpec("journal.orphanRecovery", meaning: "Orphaned async runs resolve to interrupted."),
         DoctorCheckSpec("pending.storeReadable", meaning: "Pending store can be read."),
         DoctorCheckSpec("pending.storeWritable", meaning: "Pending store can be mutated."),
+        DoctorCheckSpec(
+            "teaching.installed",
+            meaning: "Global host teaching snippet (marker + schema version + content hash) is installed / absent / stale / modified / malformed per supported target; Codex unsupported in v1."
+        ),
     ]
 
     // MARK: - NDJSON events

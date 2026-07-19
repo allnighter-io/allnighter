@@ -3736,6 +3736,10 @@
     {
       "meaning" : "Pending store can be mutated.",
       "name" : "pending.storeWritable"
+    },
+    {
+      "meaning" : "Global host teaching snippet (marker + schema version + content hash) is installed \/ absent \/ stale \/ modified \/ malformed per supported target; Codex unsupported in v1.",
+      "name" : "teaching.installed"
     }
   ],
   "errors" : [

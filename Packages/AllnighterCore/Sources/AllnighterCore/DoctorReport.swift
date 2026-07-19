@@ -32,6 +32,9 @@ public enum DoctorReport {
         public var pathEnvironment: String?
         /// When set (via `alln doctor --pilot`), emits a `pilot` summary check.
         public var pilot: PilotContext?
+        /// Optional teaching-snippet probe inputs (ONB-S01). `nil` → `teaching.installed`
+        /// is `notChecked` (unit-test default). Live CLI passes home-derived targets.
+        public var teachingInputs: [TeachingInstalledCheck.TargetInput]?
 
         public init(
             binaryVersion: String,
@@ -46,7 +49,8 @@ public enum DoctorReport {
             cursorProjectOverrideURL: URL? = nil,
             runningBinaryPath: String? = nil,
             pathEnvironment: String? = nil,
-            pilot: PilotContext? = nil
+            pilot: PilotContext? = nil,
+            teachingInputs: [TeachingInstalledCheck.TargetInput]? = nil
         ) {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
@@ -61,6 +65,7 @@ public enum DoctorReport {
             self.runningBinaryPath = runningBinaryPath
             self.pathEnvironment = pathEnvironment
             self.pilot = pilot
+            self.teachingInputs = teachingInputs
         }
     }
 
@@ -137,6 +142,8 @@ public enum DoctorReport {
             pathEnvironment: inputs.pathEnvironment
         )
         checks.append(binaryOnPath)
+
+        checks.append(TeachingInstalledCheck.check(inputs: inputs.teachingInputs))
 
         // Bench-readiness aggregate.
         if inputs.full {

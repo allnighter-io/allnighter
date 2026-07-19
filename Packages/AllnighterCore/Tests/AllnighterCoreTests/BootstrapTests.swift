@@ -2,10 +2,7 @@ import XCTest
 @testable import AllnighterCore
 
 /// `alln bootstrap` — the activation surface that replaced `alln mcp install`
-/// (docs/phases/MCP_Retirement.md §Activation). Assertions target the
-/// load-bearing lines (paste target per host, the five taught behaviors, the
-/// JSON envelope shape) rather than pinning the full snippet byte-for-byte, so
-/// prose tightening doesn't make this brittle.
+/// (docs/phases/MCP_Retirement.md §Activation; ONB-S01 router reflex).
 final class BootstrapTests: XCTestCase {
     private let sampleBinary = "/tmp/allnighter-build/alln"
 
@@ -20,30 +17,48 @@ final class BootstrapTests: XCTestCase {
         XCTAssertNil(Bootstrap.Host(argument: "bogus"))
     }
 
-    // MARK: - Paste target per host
+    // MARK: - Paste target per host (v1 global matrix)
 
     func testPasteTargetNamesTheRightFilePerHost() {
-        XCTAssertTrue(Bootstrap.Host.claude.pasteTarget.contains("CLAUDE.md"))
-        XCTAssertTrue(Bootstrap.Host.cursor.pasteTarget.contains(".cursor/rules"))
+        XCTAssertTrue(Bootstrap.Host.claude.pasteTarget.contains("~/.claude/CLAUDE.md"))
+        XCTAssertTrue(Bootstrap.Host.cursor.pasteTarget.contains("~/.cursor/rules/allnighter.mdc"))
         XCTAssertTrue(Bootstrap.Host.codex.pasteTarget.contains("AGENTS.md"))
+        XCTAssertTrue(Bootstrap.Host.codex.pasteTarget.lowercased().contains("no global"))
         let generic = Bootstrap.Host.generic.pasteTarget
-        for needle in ["CLAUDE.md", ".cursor/rules", "AGENTS.md"] {
+        for needle in ["CLAUDE.md", "allnighter.mdc", "AGENTS.md"] {
             XCTAssertTrue(generic.contains(needle), "generic paste target missing \(needle)")
         }
     }
 
-    // MARK: - The snippet teaches the trusted workflow (founder mandate, one per line)
+    // MARK: - v3 router reflex (ONB-S01)
 
-    func testSnippetTeachesTheTrustedWorkflowOnPath() {
+    func testSnippetTeachesRouterReflexAndAuthorizationLaw() {
         let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
         XCTAssertTrue(s.contains("`alln` CLI"), "must name the CLI surface")
         XCTAssertTrue(s.contains("fallback: `\(sampleBinary)`"), "must carry binary fallback")
-        XCTAssertTrue(s.contains("alln team hello --json"), "must teach quota-free discovery")
+        XCTAssertTrue(s.contains("alln team hello --for"), "must teach intent router")
+        XCTAssertTrue(s.contains("--json"), "must prefer structured envelopes")
+        XCTAssertTrue(s.contains("recommended.command"), "must name frozen router field")
+        XCTAssertTrue(
+            s.contains("only when the user's request already authorizes"),
+            "must teach authorization law (never auto-run)"
+        )
+        XCTAssertTrue(s.contains("Never manually substitute"), "must forbid silent worker substitution")
         XCTAssertTrue(s.contains("alln help search"), "must teach help search")
         XCTAssertTrue(s.contains("alln help get"), "must teach help get")
-        XCTAssertTrue(s.contains("--json"), "must steer toward structured envelopes")
         XCTAssertTrue(s.contains("alln doctor --json"), "must route environment failures to doctor")
-        XCTAssertTrue(s.lowercased().contains("never guess flags"), "must forbid guessing flags")
+        XCTAssertTrue(s.contains(TeachingSnippet.openMarkerPrefix), "must wrap teaching in markers")
+        XCTAssertTrue(s.contains(TeachingSnippet.closeMarker), "must close teaching markers")
+        XCTAssertTrue(s.contains("hash=\(TeachingSnippet.contentHash)"), "marker must carry content hash")
+    }
+
+    func testSnippetDoesNotIncludePanelRecipe() {
+        let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
+        XCTAssertFalse(s.contains("panel start"), "bootstrap must not re-teach panel cockpit")
+        XCTAssertFalse(s.contains("panel round"))
+        XCTAssertFalse(s.contains("panel done"))
+        XCTAssertFalse(s.contains("pair pilot start"))
+        XCTAssertFalse(s.contains("pair pilot handoff"))
     }
 
     func testSnippetIncludesInstallStepWhenNotOnPath() {
@@ -52,27 +67,15 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains("plain `alln` works everywhere"))
     }
 
-    /// Budget-consciousness is the whole point vs. MCP's always-loaded tool
-    /// schemas — keep the snippet within the founder ≤15-line budget.
+    /// ONB-S01 size budget: clearly smaller than v2 (≤8 on-path; ≤10 with install line).
     func testSnippetStaysWithinLineBudget() {
         let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertGreaterThanOrEqual(onPathLines.count, 10)
-        XCTAssertLessThanOrEqual(onPathLines.count, 15, "on-path snippet grew past budget")
+        XCTAssertLessThanOrEqual(onPathLines.count, 8, "on-path snippet grew past ≤8 budget")
 
         let offPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(offPathLines.count, 15, "off-path snippet grew past budget")
-    }
-
-    func testSnippetIncludesPanelRecipeEndingWithPilotChain() {
-        let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
-        XCTAssertTrue(s.contains("panel start"))
-        XCTAssertTrue(s.contains("panel round"))
-        XCTAssertTrue(s.contains("panel done"))
-        XCTAssertTrue(s.contains("pair pilot start --doc <same>"), "panel recipe must end with pilot chain")
-        XCTAssertTrue(s.contains("pair pilot handoff"))
-        XCTAssertTrue(s.contains("help get panel") || s.contains("pm_relay"))
+        XCTAssertLessThanOrEqual(offPathLines.count, 10, "off-path snippet grew past ≤10 budget")
     }
 
     func testSnippetIsSharedSSOTWithHelpService() {
