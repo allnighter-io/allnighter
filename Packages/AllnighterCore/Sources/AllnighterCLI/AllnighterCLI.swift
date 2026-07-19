@@ -45,7 +45,7 @@ struct AllnighterCLI {
         case "thread" where args.first == "rename": await ThreadRenameCLI.runRename(Array(args.dropFirst()), runtime: runtime)
         case "run": await RunCLI.run(args, runtime: runtime)
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
-        case "team" where args.first == "hello": print(teamHelloJSONString(runtime))
+        case "team" where args.first == "hello": print(teamHelloJSONString(Array(args.dropFirst()), runtime))
         case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
         case "team" where args.first == "start": await runTeamStart(Array(args.dropFirst()), runtime)
         case "team" where args.first == "__runner": await runTeamRunner(Array(args.dropFirst()), runtime)
@@ -1015,9 +1015,19 @@ struct AllnighterCLI {
     }
 
     /// The agent bootstrap snapshot JSON for `alln team hello`. Cheap, non-mutating,
-    /// quota-free (cached readiness).
-    static func teamHelloJSONString(_ runtime: ToolRuntime) -> String {
+    /// quota-free (cached readiness). With `--for "<intent>"`, returns the intent
+    /// router payload (`Agent_Intent_Router.md`) instead of the static readiness report.
+    static func teamHelloJSONString(_ args: [String], _ runtime: ToolRuntime) -> String {
+        let opts = Options(args)
         let verdict = AgentReadiness.evaluate(teams: runtime.teams, readyModels: runtime.readyModels)
+        if let intent = opts.value("for") {
+            return AgentHello.intentRouteJSONString(
+                intent: intent,
+                verdict: verdict,
+                readyModels: runtime.readyModels,
+                teams: runtime.teams
+            )
+        }
         return AgentHello.jsonString(
             verdict: verdict,
             binaryVersion: binaryVersion

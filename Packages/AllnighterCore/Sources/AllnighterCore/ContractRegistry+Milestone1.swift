@@ -272,7 +272,11 @@ public extension ContractRegistry {
             exampleIds: ["skills_delete_json"]
         ),
         CommandSpec(
-            "team hello", summary: "Agent bootstrap: readiness + ready teams + next action (quota-free).", milestone: .m1,
+            "team hello", summary: "Agent bootstrap: readiness + ready teams + next action (quota-free). With --for, resolve intent to a recommended team/primitive + runnable command.", milestone: .m1,
+            flags: [
+                FlagSpec("for", takesValue: true, valueType: "string", summary: "Intent phrase to route (e.g. \"harden this spec\"). Omitting keeps the static readiness report."),
+                FlagSpec("json", summary: "Structured hello / intent-route JSON (default)."),
+            ],
             outputSchema: .none
         ),
         CommandSpec(
@@ -1034,6 +1038,10 @@ public extension ContractRegistry {
         ),
         ErrorSpec("NO_PROJECT_ROOT", ruleId: "run.no_project_root", agentAction: "Restore the project folder or pick an available project root, then retry.", requiresManual: true, retryable: true, explain: "The project repo root is missing or unreadable; runs require a real cwd in the repo."),
         ErrorSpec("WORKER_NOT_READY", ruleId: "run.worker_not_ready", agentAction: "Pick a ready worker or run setup health, then retry.", requiresManual: true, retryable: true, explain: "No runnable worker resolved for this run (missing CLI, wrong driver, or bench not ready)."),
+        ErrorSpec("INTENT_NO_MATCH", ruleId: "hello.intent.no_match", agentAction: "Rephrase the intent, or pick a team id from `alln team show --json` and start it explicitly.", requiresManual: false, retryable: true, explain: "team hello --for could not match the intent phrase to a catalog family or primitive strongly enough. nextActions always carry a concrete next step — never bare 'pick a team'."),
+        ErrorSpec("WORKER_NAME_UNKNOWN", ruleId: "hello.worker_name.unknown", agentAction: "Run `alln models --json` and retry --for with a known display name or model id.", requiresManual: true, retryable: false, explain: "The intent named a worker/model that is not in the catalog. nearest matches are listed in nextActions."),
+        ErrorSpec("WORKER_NAME_AMBIGUOUS", ruleId: "hello.worker_name.ambiguous", agentAction: "Disambiguate with a full display name or exact model id from the candidates in nextActions.", requiresManual: true, retryable: false, explain: "The intent named a worker/model that matches multiple unrelated catalog entries. The router refuses to guess."),
+        ErrorSpec("WORKER_NAME_POSTURE_UNSAFE", ruleId: "hello.worker_name.posture_unsafe", agentAction: "Pick a driver that can mechanically enforce the requested safety posture (e.g. Codex for read-only ChatGPT asks), or drop the read-only constraint.", requiresManual: true, retryable: false, explain: "The named worker resolved only to drivers that cannot honor the requested safety posture (e.g. read-only ask on a Cursor --trust seat with no Codex twin)."),
         ErrorSpec("EXECUTION_TEAM_MIXED_SOURCES", ruleId: "execution.team.mixed_sources", agentAction: "Pick one execution source, run as non-mutating review/propose, or split into judgment then execution.", requiresManual: true, retryable: false, explain: "Mutating execution teams must resolve to one CLI driver. Mixed-source execution is blocked before spawn."),
         // Boost window (Utilization_Window_Priming).
         ErrorSpec("UTILIZATION_SOURCE_NOT_FOUND", ruleId: "utilization.source.not_found", agentAction: "Run `alln models --json`; use a known driver id in appliesTo.", requiresManual: true, retryable: false, explain: "The utilization source id is not registered on this bench.", exitClass: .usage),

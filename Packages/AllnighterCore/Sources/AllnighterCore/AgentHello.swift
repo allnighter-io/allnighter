@@ -120,4 +120,20 @@ public enum AgentHello {
         let data = (try? CoreJSON.encode(payload)) ?? Data()
         return String(decoding: data, as: UTF8.self)
     }
+
+    /// `alln team hello --for "<intent>"` — intent router over the catalog index
+    /// (`Agent_Intent_Router.md`). Without `--for`, use `jsonString(verdict:)` above.
+    public static func intentRouteJSONString(
+        intent: String,
+        verdict: AgentReadiness.Verdict,
+        readyModels: [Model],
+        teams: [TeamPreset] = BuiltInTeams.all
+    ) -> String {
+        AgentIntentRouter.jsonString(
+            intent: intent,
+            verdict: verdict,
+            readyModels: readyModels,
+            teams: teams
+        )
+    }
 }

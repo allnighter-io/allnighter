@@ -30,7 +30,7 @@ final class ContractExportTests: XCTestCase {
             "team-catalog.schema.json", "skill-catalog.schema.json",
             "history.schema.json", "thread-status.schema.json",
             "thread-get.schema.json", "thread-attachment.schema.json",
-            "ownership-ps.schema.json", "ownership-kill.schema.json",
+            "ownership-ps.schema.json", "ownership-kill.schema.json", "ownership-gc.schema.json",
             "help_alln_cli_spec.md",
         ])
         // The full contract artifact decodes back to the registry.

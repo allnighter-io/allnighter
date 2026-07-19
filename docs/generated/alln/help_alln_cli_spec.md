@@ -426,7 +426,11 @@ Examples: `skills_delete_json`.
 
 ### `alln team hello`
 
-Agent bootstrap: readiness + ready teams + next action (quota-free).
+Agent bootstrap: readiness + ready teams + next action (quota-free). With --for, resolve intent to a recommended team/primitive + runnable command.
+
+Flags:
+- `--for <string>` — Intent phrase to route (e.g. "harden this spec"). Omitting keeps the static readiness report.
+- `--json` — Structured hello / intent-route JSON (default).
 
 ### `alln team preflight`
 
@@ -1466,6 +1470,10 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `STANDING_INVARIANT_FAILED` | yes | no | `operational` | Inspect roundLog.standingFailed and proofResults entries with standing:true. For contractDrift: rebuild the turn tree, run `alln dev export-contracts` (regenerate docs/generated/alln/*), commit the artifacts, and re-run. The harness never auto-regenerates or auto-commits (Process_Ownership.md PO-F4). |
 | `NO_PROJECT_ROOT` | yes | yes | `operational` | Restore the project folder or pick an available project root, then retry. |
 | `WORKER_NOT_READY` | yes | yes | `operational` | Pick a ready worker or run setup health, then retry. |
+| `INTENT_NO_MATCH` | no | yes | `operational` | Rephrase the intent, or pick a team id from `alln team show --json` and start it explicitly. |
+| `WORKER_NAME_UNKNOWN` | yes | no | `operational` | Run `alln models --json` and retry --for with a known display name or model id. |
+| `WORKER_NAME_AMBIGUOUS` | yes | no | `operational` | Disambiguate with a full display name or exact model id from the candidates in nextActions. |
+| `WORKER_NAME_POSTURE_UNSAFE` | yes | no | `operational` | Pick a driver that can mechanically enforce the requested safety posture (e.g. Codex for read-only ChatGPT asks), or drop the read-only constraint. |
 | `EXECUTION_TEAM_MIXED_SOURCES` | yes | no | `operational` | Pick one execution source, run as non-mutating review/propose, or split into judgment then execution. |
 | `UTILIZATION_SOURCE_NOT_FOUND` | yes | no | `usage` | Run `alln models --json`; use a known driver id in appliesTo. |
 | `UTILIZATION_SOURCE_UNCONFIGURED` | yes | no | `usage` | Add the source to Boost window appliesTo, then retry. |

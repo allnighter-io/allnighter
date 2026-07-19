@@ -936,6 +936,42 @@
     "ruleId" : "run.worker_not_ready"
   },
   {
+    "agentAction" : "Rephrase the intent, or pick a team id from `alln team show --json` and start it explicitly.",
+    "code" : "INTENT_NO_MATCH",
+    "exitClass" : "operational",
+    "explain" : "team hello --for could not match the intent phrase to a catalog family or primitive strongly enough. nextActions always carry a concrete next step — never bare 'pick a team'.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "hello.intent.no_match"
+  },
+  {
+    "agentAction" : "Run `alln models --json` and retry --for with a known display name or model id.",
+    "code" : "WORKER_NAME_UNKNOWN",
+    "exitClass" : "operational",
+    "explain" : "The intent named a worker\/model that is not in the catalog. nearest matches are listed in nextActions.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "hello.worker_name.unknown"
+  },
+  {
+    "agentAction" : "Disambiguate with a full display name or exact model id from the candidates in nextActions.",
+    "code" : "WORKER_NAME_AMBIGUOUS",
+    "exitClass" : "operational",
+    "explain" : "The intent named a worker\/model that matches multiple unrelated catalog entries. The router refuses to guess.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "hello.worker_name.ambiguous"
+  },
+  {
+    "agentAction" : "Pick a driver that can mechanically enforce the requested safety posture (e.g. Codex for read-only ChatGPT asks), or drop the read-only constraint.",
+    "code" : "WORKER_NAME_POSTURE_UNSAFE",
+    "exitClass" : "operational",
+    "explain" : "The named worker resolved only to drivers that cannot honor the requested safety posture (e.g. read-only ask on a Cursor --trust seat with no Codex twin).",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "hello.worker_name.posture_unsafe"
+  },
+  {
     "agentAction" : "Pick one execution source, run as non-mutating review\/propose, or split into judgment then execution.",
     "code" : "EXECUTION_TEAM_MIXED_SOURCES",
     "exitClass" : "operational",
