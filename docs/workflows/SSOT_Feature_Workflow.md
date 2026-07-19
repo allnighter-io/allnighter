@@ -51,6 +51,28 @@ JSON. This is the exact gap that let the old MCP surface fall behind the app bef
 MCP was retired (`docs/phases/MCP_Retirement.md`); the discipline stays even with
 one wire format.
 
+## Teaching Surface Rule
+
+The agent-facing teaching surface — `HelpTopicRegistry` topics, help search
+aliases, bootstrap/teach snippets, `nextToolPlan` steps, doctor recovery text,
+and any active ops doc agents are routed to — is part of every capability, not
+polish. It is a **lie-prone layer in every packet by default**.
+
+- A capability change ships in the same slice as the help topics that teach it,
+  the search terms that find it, and the decision-tree row that routes to it.
+  See `SSOT_Founder_Input_Workflow.md` §Agent-facing help for the closeout
+  questions.
+- **Retirement Rule:** retiring a command, flag, surface, or vocabulary is not
+  done at code deletion. The same slice must (a) sweep every teaching surface
+  for the dead grammar, and (b) add the dead grammar to the retired-vocabulary
+  deny-list that the help-corpus test gate enforces — so the grammar can never
+  be re-taught, only re-introduced deliberately by editing the deny-list.
+- Prose that names an `alln` command or flag which `ContractRegistry` cannot
+  resolve is a P0 bug, same class as GUI-only truth.
+- A phase doc may claim "shipped"/"verified" only for state that is committed
+  AND observable on a binary built from committed HEAD. "Bumped in my working
+  tree" is not shipped.
+
 ## Deterministic Guardrail Rule
 
 Recurring correctness questions should become deterministic checks: Swift types,
@@ -70,11 +92,13 @@ review once the rule is known.
 6. Define the CLI surface first: the `alln` command(s), their arguments, JSON
    output, exit codes, and errors. The GUI/iOS present this contract; they never
    own a parallel one.
-7. Define the user-visible claim.
-8. Define the Works Test: setup, gesture, owner path, output, assertion.
-9. Name supporting checks.
-10. Name deletion targets for duplicate truth.
-11. Name proof waiver only when proof cannot be built yet.
+7. Define the teaching surface: which help topics teach it, what search terms
+   find it, what the retirement sweep must remove and deny-list.
+8. Define the user-visible claim.
+9. Define the Works Test: setup, gesture, owner path, output, assertion.
+10. Name supporting checks.
+11. Name deletion targets for duplicate truth.
+12. Name proof waiver only when proof cannot be built yet.
 
 If the rule cannot be assigned to an owner, stop and fix the design.
 
@@ -106,6 +130,8 @@ SSOT
 
 Implementation
 - CLI surface (`alln` command(s) + args + JSON + exit codes):
+- Teaching surface (help topics + search terms + bootstrap/decision-tree impact):
+- Retired grammar swept + deny-listed (for retirements):
 - Model/package impact:
 - Mac app impact:
 - iOS app impact:
@@ -123,6 +149,7 @@ Proof
 Done When
 - User-visible claim:
 - CLI contract shipped + tested (not GUI-only):
+- Teaching surface updated (help finds it; nothing dead taught):
 - Proof:
 - Docs/logs:
 ```
