@@ -4,9 +4,12 @@ Status: Specced v2 — hardened by five-seat panel panel_753613c7 (2026-07-16:
 21 findings across consent/simplify/adoption/failure-modes/strategy lenses;
 accepted set folded below). v3 sharpening (2026-07-18): trigger line points at
 the intent router; recipes retitled by intent; works test made adversarial.
+v3.1 (2026-07-19): works-test battery gains the named-worker/read-only
+utterance class surfaced by a live cold-agent probe (see
+`Agent_Intent_Router.md` field evidence).
 Awaiting founder go. V1 = three slices; the rest parked.
 Owner: Mac app (first-run/Settings) + AllnighterCore content SSOT + bootstrap
-Updated: 2026-07-18
+Updated: 2026-07-19
 
 Related: `Agent_Front_Door.md` (gate 1 — findable, SHIPPED) · this doc (gate 2 —
 suggested) · `Agent_Intent_Router.md` (gate 3 — routes intent to the right team;
@@ -78,7 +81,12 @@ exists before any agent session does. It must be the missionary.
    the intent router's command contract (IR-S01) must be frozen before this
    snippet ships — otherwise it teaches a command that doesn't route. It remains
    a BLOCKING prerequisite for the installer slice for the same reason as v2
-   (a mechanics-only snippet teaches a dictionary entry, not a reflex). Size
+   (a mechanics-only snippet teaches a dictionary entry, not a reflex). The
+   frozen contract must include the router's named-worker resolution and
+   read-only-ask routes (`Agent_Intent_Router.md` Decisions 8–9) — a live probe
+   showed "ask <named model> for feedback, change nothing" is exactly where a
+   cold agent stalls today, so a snippet that sends agents to a router that
+   can't answer it teaches the reflex and then punishes it. Size
    budget holds — smaller than before. Success criterion (golden-transcript
    gate): a fresh session given the snippet reaches for `alln team hello --for`
    on "route this to another model" — named, not v1.
@@ -128,6 +136,9 @@ on a battery of utterances that never name Allnighter**:
 - "Keep going tonight without me."
 - "Use whichever of my other subscriptions is free."
 - "Have Claude review what Codex changed."
+- "Get Sol's take on this spec — don't change anything." (named worker +
+  read-only: exercises name→id resolution across drivers and the
+  no-silent-substitution law, the field-probe stall case)
 
 A cold agent should suggest `alln` for each — that's the reflex firing, not
 recall of a specific noun. Recipe copy-paste runs end-to-end for at least

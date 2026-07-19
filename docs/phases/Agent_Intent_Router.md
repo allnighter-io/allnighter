@@ -7,7 +7,8 @@ STALE and pre-rename. **`Team_Catalog_Normalization.md` is the hard prerequisite
 and MUST land first** (it decides the obvious family names + which families are
 tiered Min/Default/Max vs single); the router cannot route over a stale catalog.
 Owner: AllnighterCore (`AgentHello` + catalog) + AllnighterCLI (`team hello`)
-Updated: 2026-07-18
+Updated: 2026-07-19 (v2 — live cold-agent probe folded in: named-worker
+resolution + read-only quick ask are now specced, not assumed)
 
 ## The gap (the third gate)
 
@@ -25,6 +26,26 @@ know which team `<team-id>` should be. As the catalog grows — Bug Hunt,
 Security, Growth, Design, Copy, Signal — a bigger catalog gets *worse* for a
 cold agent, not better, unless something routes by intent. **More killer teams
 only pay off behind an intent router.**
+
+### Field evidence (2026-07-19, live probe)
+
+A capable agent with the full `alln` help in front of it tried the ordinary
+intent *"ask ChatGPT 5.6 Sol for read-only feedback on two docs"* and hit gate 3
+exactly as predicted:
+
+- **No verb maps the intent.** `alln run` self-describes as a *mutating project
+  run*; `team` runs rosters; `help search "ask one model"` lands on the Auto
+  topic, which explains what happens when you *don't* pick a model. A cautious
+  agent stalls precisely because the honest docs say "mutating" and the intent
+  is read-only.
+- **The named worker resolves ambiguously.** "ChatGPT 5.6 Sol" matches TWO
+  catalog entries across drivers — `model_chatgpt` (Codex, the native driver)
+  and `model_chatgpt_sol` (Cursor) — and the natural id guess
+  (`model_chatgpt_sol`, it contains "sol") picks the *wrong* driver. Nothing
+  resolves display names to ids.
+
+Both failures are router jobs. They are specced as Decisions 8–9 below; the
+probe is the honest baseline the works test must beat.
 
 ## The insight
 
@@ -75,6 +96,24 @@ the readiness the verdict already computes.
    team is a keyword/tag/lane match over the catalog index with a scored, testable
    mapping. No LLM in the hot path of the front door (latency + honesty). A future
    fuzzy pass is a parked enhancement, gated behind the deterministic floor.
+8. **Named-worker resolution is a router job, not the caller's.** When the
+   intent names a model ("Sol", "Grok", "ChatGPT 5.6 Sol"), `--for` resolves
+   the name against catalog `displayName`/`modelLabel`/`id` — across drivers —
+   and returns the resolved id in `requestedWorker`. When one model exists
+   under multiple drivers, the router picks deterministically (ready native
+   driver first, then strongest-ready) and lists the other driver(s) as loud
+   alternates with *why* — never a silent guess. An unresolvable name is a
+   named failure (`WORKER_NAME_AMBIGUOUS` / `WORKER_NAME_UNKNOWN`) with the
+   nearest matches in `nextActions`, not a fallback to Auto (that would be a
+   silent substitution).
+9. **The read-only quick ask is a first-class route, not a footnote of chat.**
+   "Ask <model> what it thinks of X — don't change anything" must resolve to a
+   runnable command that is honest about mutation. Until a dedicated read-only
+   ask verb exists, the router returns the chat/`run` route with the
+   no-mutation instruction included in the command it emits, and says so in
+   `why`. The router never routes a read-only intent to a command it must
+   describe as mutating without addressing the mismatch — that is the exact
+   stall the field probe hit.
 
 ## Return shape (`--for`)
 
@@ -84,14 +123,20 @@ the readiness the verdict already computes.
     "teamId": "code_spec_review",
     "kind": "team",                 // team | pilot | relay | chat
     "why": "Intent 'harden this spec before I build' matched typeTags [spec, review].",
-    "command": "alln team start --team code_spec_review --json \"<intent>\"",
+    "command": "alln team start \"<intent>\" --team code_spec_review --json",
     "depthAlternates": ["code_spec_review_min", "code_spec_review_max"]
   },
   "readiness": { "ready": true, "blockedReason": null },
+  "requestedWorker": {              // present only when the intent named a seat
+    "requestedName": "ChatGPT 5.6 Sol",
+    "resolvedModelId": "model_chatgpt",
+    "why": "Native Codex driver preferred; also available via Cursor (model_chatgpt_sol).",
+    "alternates": ["model_chatgpt_sol"]
+  },
   "fallback": {                     // present only when ideal seats are down
     "teamId": "code_spec_review_min",
     "why": "Preferred seats unavailable; Min needs no Claude/ChatGPT.",
-    "command": "alln team start --team code_spec_review_min --json \"<intent>\""
+    "command": "alln team start \"<intent>\" --team code_spec_review_min --json"
   },
   "nextActions": [ /* never empty when not runnable */ ]
 }
@@ -126,6 +171,7 @@ one team.
 | "have another model BUILD this while I supervise" | `pair pilot` *(primitive)* |
 | "keep building + reviewing overnight" | `pair relay` *(primitive)* |
 | "just ask a model a question" | Auto *(chat default)* |
+| "ask <named model> for its read-only take on X" | Chat, worker-pinned *(Decisions 8–9)* |
 
 **Known gaps (named, not silent):** test-writing, docs/README authoring,
 refactor-at-scale, and dependency/upgrade triage have no dedicated family and
@@ -146,7 +192,7 @@ the hard prerequisite: the router is built only after the catalog is normalized.
 | --- | --- |
 | IR-S00 | **Prerequisite: `Team_Catalog_Normalization.md` lands** (obvious names + tier shape + metadata + `BuiltInTeamsTests` green). The router does not start until the catalog is normalized. |
 | IR-S01 | `alln team hello --for "<intent>" --json` — deterministic matcher over catalog `typeTags`/`description`/`lane`; `recommended` + `readiness` + `fallback` + `nextActions`; no-empty-silence + honesty laws enforced; golden-transcript tests for the taxonomy rows. |
-| IR-S02 | Depth + primitive routing — Default with Min/Max alternates *where the family is tiered*; Pilot/Relay/Chat as first-class targets; requested-worker echo (no silent substitution). |
+| IR-S02 | Depth + primitive routing — Default with Min/Max alternates *where the family is tiered*; Pilot/Relay/Chat as first-class targets; **named-worker resolution** (name→id across drivers, deterministic driver pick + loud alternates, `WORKER_NAME_AMBIGUOUS`/`WORKER_NAME_UNKNOWN`) + requested-worker echo (no silent substitution); read-only-ask route honest about mutation (Decision 9). |
 | PARKED | Fuzzy/model-assisted intent match behind the deterministic floor · completion-receipt unified result shape across team/pilot/relay (true metrics only — rounds, commits, tests, unattended duration; NEVER invented "handoffs avoided"). |
 
 ## Anti-goals
@@ -170,7 +216,12 @@ command and Min/Max alternates. `--for "how do we get X builders to love this"` 
 **Growth**. `--for "find the real cause of this crash"` → **Bug Hunt** Default.
 `--for "rewrite my landing page"` → the **Copy** family. `--for "keep building
 overnight without me"` → `pair relay`. A down-seat case returns a loud fallback,
-never a silent swap. A named-worker case echoes the requirement. No `--for` =
+never a silent swap. **The field-probe case passes:** `--for "ask ChatGPT 5.6
+Sol for read-only feedback on these two docs"` → chat route pinned to the
+resolved id (`model_chatgpt`, native driver) with the Cursor-driver entry as a
+labeled alternate and the emitted command honest about mutation — no stall, no
+wrong-driver guess. A bare "Sol"/"Grok" resolves the same way; a nonsense name
+returns `WORKER_NAME_UNKNOWN` + nearest matches. No `--for` =
 today's readiness report unchanged. Every matrix row has a golden-transcript test;
 IR-S00 shows every approved family tiered Min/Default/Max with an obvious name and
 zero unnamed gaps.
