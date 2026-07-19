@@ -28,7 +28,20 @@ incident runs are **4 seconds apart on 2026-07-19** — one continuous session
 Root causes located: unstamped-gate kill lie (`ProcessOwnershipSurface`),
 worker identity built but never persisted on plain cold runs, warm drivers
 recorded nowhere (S00 matrix verdict: exclude all four warm drivers from the
-P0 Works Test). **S01 is unblocked.**
+P0 Works Test).
+
+**S01 DELIVERED 2026-07-19** (commits `53510dc2` S01a, `373baf63` S01b,
+`704cb315` S01c; plan `docs/phases/rlr/S01_Execution_Plan.md`): lifecycle +
+phase converged (`RunLifecycle`/`RunPhase`, `AsyncTeamLiveStatus` retired,
+one-worker `fanning_out` dead — RLR_RED signature (a) GREEN); acceptance
+boundary durable-before-waits with hard-gated acceptance save
+(`RUN_JOURNAL_UNAVAILABLE`), save-before-emit, support-dir on errors,
+idempotency key+hash at acceptance; `JOURNAL_CORRUPT` guard, clock-default
+constants, wire freeze + catalog/docs regen. Signature (b) terminal-lie
+stays red for S04. **S02 (FIFO blockers) is next.** Known debt: `check.sh`
+blocks on pre-existing `check_spawn_policy` gate (bare
+`SubprocessCommandRunner`, AgentOS relocation) — same component the matrix
+flagged; resolve with or before S04.
 
 ## Founder intent
 
