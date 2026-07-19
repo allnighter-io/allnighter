@@ -17,6 +17,19 @@ Provenance: Codex Sol Spec Review Min lenses (`2ADCE96A-…`) · live Kimi
 `alln run` re-hang (`8AAA520D-…`, `BD26C1D1-…`) · Kimi K3 direct review
 (2026-07-19, GO-WITH-EDITS — applied below).
 
+**S00 evidence delivered 2026-07-19** (Claude-internal orchestration; commits
+`c9e8ec1b`, `1c14b823`, `55bbeb73`): incident packet
+`docs/debuglog/RLR_incident_packet.md` · spawn-site matrix
+`docs/phases/rlr/Spawn_Site_Matrix.md` · fake CLI + gated-red
+`RunLifecycleTwoProcess` tests (`RLR_RED=1`) reproducing the terminal-lie and
+single-worker `fanning_out` signatures. Evidence correction: the two cited
+incident runs are **4 seconds apart on 2026-07-19** — one continuous session
+(occurrence + immediate reproduction), no earlier journal exists on disk.
+Root causes located: unstamped-gate kill lie (`ProcessOwnershipSurface`),
+worker identity built but never persisted on plain cold runs, warm drivers
+recorded nowhere (S00 matrix verdict: exclude all four warm drivers from the
+P0 Works Test). **S01 is unblocked.**
+
 ## Founder intent
 
 An agent launched:
