@@ -80,6 +80,12 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
 
         for snapshot in snapshots {
             let row = snapshot.row
+            // RLR-S06: before run-dir prune decisions, drop identity-dead
+            // ownership receipts past the contradiction retention window.
+            if snapshot.terminal {
+                _ = ProcessOwnership.reapExpiredOwnershipReceipts(
+                    in: snapshot.directory, isTerminal: true)
+            }
             if snapshot.identityAlive {
                 result.keptAlive.append(row)
             } else if !snapshot.terminal {

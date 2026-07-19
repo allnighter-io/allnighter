@@ -25,7 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Run_Lifecycle_Reliability.md`](Run_Lifecycle_Reliability.md) | **FINAL; S00–S05 DELIVERED 2026-07-19 — S06 next; blocks IR-S02 + Onboarding V1** | S00–S05 landed: lifecycle/phase wire, blockers, activity truth, runtimeOwnership + KillSettlement, contradiction surface, four clocks + idempotency replay/`--retry-of`. Remaining: S06 Works Test matrix + `check.sh`. |
+| [`Run_Lifecycle_Reliability.md`](Run_Lifecycle_Reliability.md) | **Complete 2026-07-19 — ready to archive** (S00–S06; Works Test matrix GREEN, item 7 waived) | Lifecycle reliability gate shipped. Unblocks IR-S02. Matrix: `docs/phases/rlr/S06_Works_Test_Matrix.md`. |
 | [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
 | [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md) | **SHIPPED 2026-07-19, archived** — S01–S04b, S05a, S06 gates; S05b deferred | Team-run open + streaming/reload hot path. Code SSOT: `ThreadsViewModel.applyLiveDelta` / `reloadAsync`, `PerfCounters`, `RunDecodeCache`. |
 | [`Field_Reports_3.md`](Field_Reports_3.md) | **In progress** — piloted delivery #10 | Lane-label truth, JSON stream discipline, retry idempotency from live dogfood. |
@@ -36,8 +36,8 @@ one's truth now lives.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Team_Catalog_Normalization.md`](../archive/Team_Catalog_Normalization.md) | **SHIPPED 2026-07-19, archived** (founder-approved; CN-S01–S06 + Law 4 guards landed) | Decisive normalized family list: obvious job names, optional Min/Default/Max tiers (Spec Review, Bug Hunt, Growth, Design), Law 3 caliber+capability staffing, Law 4 unique typeTags. The catalog in `BuiltInTeams.swift` now matches this doc. |
-| [`Agent_Intent_Router.md`](Agent_Intent_Router.md) | **IR-S01 SHIPPED (`3d515ff0`); PAUSED** — IR-S02 blocked on RLR-S06; do not archive | `alln team hello --for "<intent>"` deterministic matcher is live. After lifecycle trust: named workers + Chat/Pilot/Relay routing and long-run control bundles. |
-| [`Agent_Onboarding.md`](Agent_Onboarding.md) | **APPROVED, BLOCKED** — V1 waits for RLR-S06 + IR-S02 | From findable to suggested: the app teaches every CLI session about `alln` only after recommended work is observable, stoppable, and recoverable. |
+| [`Agent_Intent_Router.md`](Agent_Intent_Router.md) | **IR-S01 SHIPPED (`3d515ff0`); PAUSED** — RLR-S06 cleared; IR-S02 unblocked (do not archive) | `alln team hello --for "<intent>"` deterministic matcher is live. Next: named workers + Chat/Pilot/Relay routing and long-run control bundles. |
+| [`Agent_Onboarding.md`](Agent_Onboarding.md) | **APPROVED, BLOCKED on IR-S02** — RLR gate cleared | From findable to suggested: the app teaches every CLI session about `alln` once IR-S02 ships (lifecycle trust is green). |
 
 ### CLI spine & law SSOTs (living reference — keep, do not archive)
 

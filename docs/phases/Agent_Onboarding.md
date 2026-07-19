@@ -1,8 +1,9 @@
 # Agent Onboarding — from findable to suggested
 
-Status: **APPROVED, BLOCKED.** Build only after
-`Run_Lifecycle_Reliability.md` RLR-S06 and `Agent_Intent_Router.md` IR-S02 are
-green. IR-S01 landed as `3d515ff0`; the router intentionally stopped there.
+Status: **APPROVED, BLOCKED on IR-S02.** RLR-S06 cleared 2026-07-19
+(`Run_Lifecycle_Reliability.md` Complete) — lifecycle trust is green.
+Build only after `Agent_Intent_Router.md` IR-S02. IR-S01 landed as `3d515ff0`;
+the router intentionally stopped there.
 Specced v2 — hardened by five-seat panel panel_753613c7 (2026-07-16:
 21 findings across consent/simplify/adoption/failure-modes/strategy lenses;
 accepted set folded below). v3 sharpening (2026-07-18): trigger line points at
@@ -19,7 +20,8 @@ recipe — run-vs-team, `--project` required, Codex Sol vs Cursor Sol, silent
 audit via `alln run --worker model_chatgpt`). v3.3 (2026-07-19): Kimi lifecycle
 failure makes observable/stoppable/recoverable runs a blocking prerequisite;
 the single-worker recipe no longer teaches indefinite silence as healthy.
-V1 = three slices after both blockers; the rest parked.
+v3.4 (2026-07-19): RLR gate cleared; Onboarding V1 still waits on IR-S02.
+V1 = three slices after IR-S02; the rest parked.
 Owner: Mac app (first-run/Settings) + AllnighterCore content SSOT + bootstrap
 Updated: 2026-07-19
 
@@ -119,10 +121,10 @@ exists before any agent session does. It must be the missionary.
    showed "ask <named model> for feedback, change nothing" is exactly where a
    cold agent stalls today, so a snippet that sends agents to a router that
    can't answer it teaches the reflex and then punishes it. Size
-   budget holds — smaller than before. **IR-S02 itself is blocked on
-   `Run_Lifecycle_Reliability.md` RLR-S06.** Onboarding is an adoption multiplier;
-   it must not teach more agents to launch work before the accepted run can be
-   monitored and stopped from another process. Success criterion (golden-transcript
+   budget holds — smaller than before. **IR-S02 is unblocked** (RLR-S06 Complete
+   2026-07-19). Onboarding remains blocked on IR-S02 only — it must not teach
+   more agents to launch work until named-worker / long-run control bundles
+   exist. Success criterion (golden-transcript
    gate): a fresh session given the snippet reaches for `alln team hello --for`
    on "route this to another model" — named, not v1.
 5. **Per-project offer (PARKED until v1 proves).** A repo's AGENTS.md is a
@@ -151,7 +153,7 @@ exists before any agent session does. It must be the missionary.
 ## Slices (proposed)
 
 V1 = three slices (panel simplify consensus); everything else parked until the
-works test is green. No ONB slice starts before RLR-S06 + IR-S02.
+works test is green. No ONB slice starts before IR-S02 (RLR-S06 already Complete).
 
 | Slice | Deliverable |
 | --- | --- |
@@ -208,9 +210,9 @@ footguns from the 2026-07-19 Isolation/Perf Sol audit:
    capture the canonical run id from its first NDJSON event, and use the exact
    monitor/cancel commands returned by the router. Silence alone proves neither
    health nor failure: lifecycle phase, causal blocker, `lastActivityAt`, and
-   `progressStale` own that judgment after `Run_Lifecycle_Reliability.md` lands.
-   Before RLR-S06, this recipe is documentation-only and must not ship as a claim
-   that current progress/kill behavior is reliable.
+   `progressStale` own that judgment (`Run_Lifecycle_Reliability.md` Complete).
+   Recipe shipping still waits on IR-S02 for the router-returned monitor/cancel
+   argv.
 
 **Paste-ready (Codex Sol, named docs, read-only):**
 
@@ -222,5 +224,5 @@ alln run --project <id|path> --worker model_chatgpt --lane code --no-commit --st
 Swap `--stream` for `--json` only when the caller wants one terminal
 machine-readable blob and does not need live control through that stdout stream.
 Router still owns the long term ("ask `team hello --for` first") and, after
-RLR-S06/IR-S02, returns the matching monitor/result/cancel argv. This recipe is
+IR-S02, returns the matching monitor/result/cancel argv. This recipe is
 the honest direct command when the agent already knows it wants one named worker.

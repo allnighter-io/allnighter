@@ -1,26 +1,16 @@
 # Agent Intent Router — one front door that routes intent to the right killer team
 
 Status: **IR-S01 SHIPPED 2026-07-19 (`3d515ff0`); PAUSED after the first slice
-as requested. Do not start IR-S02 and do not archive this phase.** The normalized
-catalog prerequisite is complete. `Run_Lifecycle_Reliability.md` is now the P0
-hard prerequisite for IR-S02: the router must not route long-running work into a
-path that cannot reliably report, stop, or recover.
+as requested. RLR-S06 cleared 2026-07-19 — IR-S02 is unblocked.** Do not
+archive this phase. The normalized catalog prerequisite is complete.
+`Run_Lifecycle_Reliability.md` was the P0 hard prerequisite for IR-S02; that
+gate is now Complete (Works Test matrix green).
 Owner: AllnighterCore (`AgentHello` + catalog) + AllnighterCLI (`team hello`)
-Updated: 2026-07-19 (v3 — IR-S01 landed; Kimi lifecycle failure made
-`Run_Lifecycle_Reliability.md` the execution gate before IR-S02. v2 folded in
-the live cold-agent probe: named-worker
-resolution + read-only quick ask are now specced, not assumed. Hardened same
-day by a ChatGPT 5.6 Sol read-only review [via `alln run --worker`, 14
-findings]: accepted = mechanical read-only enforcement, posture-filtered
-driver precedence, named-worker-constrains-whole-result, discriminated-union
-return + argv commands, overlap/tie-break matcher spec, works-test tier
-contradiction fix; rejected = "team start is obsolete" [CLI contract still
-lists it live].)
+Updated: 2026-07-19 (RLR-S06 unblocked IR-S02)
 
-Execution order: `Run_Lifecycle_Reliability.md` → IR-S02 →
-`Agent_Onboarding.md`. IR-S01 remains committed and usable while the reliability
-phase runs; this doc stays active so the second slice resumes from the frozen
-matcher rather than being re-planned.
+Execution order: ~~`Run_Lifecycle_Reliability.md`~~ (Complete / RLR-S06) →
+**IR-S02** → `Agent_Onboarding.md`. IR-S01 remains committed and usable; this
+doc stays active so the second slice resumes from the frozen matcher.
 
 ## The gap (the third gate)
 
@@ -262,7 +252,7 @@ the hard prerequisite: the router is built only after the catalog is normalized.
 | --- | --- |
 | IR-S00 | ✅ **DONE 2026-07-19** — `Team_Catalog_Normalization.md` landed (CN-S01–S04: obvious names + ids, complete tiers, drops, Law 4 typeTags, guard tests; commits `1247bd12`/`6266b8d4`/`daccc183`). The catalog is normalized; the router is unblocked. |
 | IR-S01 | ✅ **DONE 2026-07-19 (`3d515ff0`)** — `alln team hello --for "<intent>" --json`; deterministic catalog matcher; `recommended` + `readiness` + `fallback` + `nextActions`; structured argv/display commands; overlap/no-match golden tests; generated contracts refreshed. Bare hello remains unchanged. Stop point requested by founder. |
-| IR-S02 | ⛔ **BLOCKED on `Run_Lifecycle_Reliability.md` RLR-S06.** After the lifecycle gate is green: depth + primitive routing — Default with Min/Max alternates *where the family is tiered*; Pilot/Relay/Chat as first-class targets; **named-worker resolution** (name→id across drivers, deterministic driver pick + loud alternates, `WORKER_NAME_AMBIGUOUS`/`WORKER_NAME_UNKNOWN`) + requested-worker echo (no silent substitution); read-only-ask route honest about mutation (Decision 9); long-running targets carry the registry-derived lifecycle bundle from Decision 10. |
+| IR-S02 | ✅ **Unblocked by RLR-S06 (2026-07-19).** Next slice: depth + primitive routing — Default with Min/Max alternates *where the family is tiered*; Pilot/Relay/Chat as first-class targets; **named-worker resolution** (name→id across drivers, deterministic driver pick + loud alternates, `WORKER_NAME_AMBIGUOUS`/`WORKER_NAME_UNKNOWN`) + requested-worker echo (no silent substitution); read-only-ask route honest about mutation (Decision 9); long-running targets carry the registry-derived lifecycle bundle from Decision 10. |
 | PARKED | Fuzzy/model-assisted intent match behind the deterministic floor · completion-receipt unified result shape across team/pilot/relay (true metrics only — rounds, commits, tests, unattended duration; NEVER invented "handoffs avoided"). |
 
 ## Anti-goals
@@ -298,7 +288,8 @@ every *tiered* family complete (Min/Default/Max all present), every *single*
 family with no depth alternates (tiers are optional per Decision 4, so
 "untiered" is a passing state, not a gap).
 
-IR-S02 additionally waits for the lifecycle Works Test: a long-running routed
-command returns a canonical run id plus monitor/result/cancel argv; status reads
-that id from another process; cancel reaps the worker tree; and no recommended
-transport describes final-only JSON as live progress.
+IR-S02 may proceed: the lifecycle Works Test is green (RLR-S06 Complete). A
+long-running routed command must still return a canonical run id plus
+monitor/result/cancel argv; status reads that id from another process; cancel
+reaps the worker tree; and no recommended transport describes final-only JSON as
+live progress.

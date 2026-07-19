@@ -105,25 +105,42 @@ final class NDJSONStreamProjectorTests: XCTestCase {
         XCTAssertNil(e.replayed, "a live line carries no replayed marker")
     }
 
-    /// Exactly one terminal per attachment on success / cancel / timeout, and any
-    /// line after the terminal is dropped (RLR-L7). Kill is out of scope (S04).
+    /// Exactly one terminal per attachment on success / cancel / timeout / kill
+    /// (RLR-L7 / Works Test 11). A late line after the terminal is dropped.
     func testExactlyOneTerminalPerAttachmentOnSuccessCancelTimeout() throws {
-        for status in [RunStatus.complete, .cancelled, .timedOut] {
+        for status in [RunStatus.complete, .cancelled, .timedOut, .cancelled] {
             let att = NDJSONStreamProjector.NDJSONAttachment()
             XCTAssertNotNil(att.liveLine(for: started(seq: 1)))
             XCTAssertNotNil(att.liveLine(for: workerStarted(seq: 2, "w1")))
+            // Kill settlement stamps cancelled + endReason killed; the stream
+            // terminal is still the lifecycle transition to cancelled.
             let terminalLine = try XCTUnwrap(att.liveLine(for: runTerminal(seq: 3, status)),
                                              "the run-terminal transition must map to exactly one terminal")
             let obj = try parseLines([terminalLine])[0]
             XCTAssertTrue(terminal.contains(obj["event"] as? String ?? ""),
                           "\(status.rawValue) settles to a terminal NDJSON event")
             XCTAssertTrue(att.terminalEmitted)
-            // A late worker event after the terminal is dropped — no post-terminal line.
             XCTAssertNil(att.liveLine(for: workerDone(seq: 4, "w1")),
                          "no line may follow the terminal (\(status.rawValue))")
-            // closingLine must NOT emit a second terminal.
             XCTAssertNil(att.closingLine(), "a real terminal already went out — no double terminal")
         }
+    }
+
+    /// Works Test 11 kill leg: endReason killed maps to a single terminal event.
+    func testExactlyOneTerminalPerAttachmentOnKillSettlement() throws {
+        let att = NDJSONStreamProjector.NDJSONAttachment()
+        XCTAssertNotNil(att.liveLine(for: started(seq: 1)))
+        let killTerminal = event(seq: 2, kind: RunEventKind.runStatusChanged, [
+            "to": .string(RunStatus.cancelled.rawValue),
+            "endReason": .string(RunEndReason.killed.rawValue),
+        ])
+        let terminalLine = try XCTUnwrap(att.liveLine(for: killTerminal))
+        let obj = try parseLines([terminalLine])[0]
+        XCTAssertTrue(terminal.contains(obj["event"] as? String ?? ""),
+                      "kill settlement must emit exactly one terminal NDJSON event")
+        XCTAssertTrue(att.terminalEmitted)
+        XCTAssertNil(att.liveLine(for: workerDone(seq: 3, "w1")))
+        XCTAssertNil(att.closingLine())
     }
 
     /// An attachment that closes before a terminal arrived synthesizes exactly one

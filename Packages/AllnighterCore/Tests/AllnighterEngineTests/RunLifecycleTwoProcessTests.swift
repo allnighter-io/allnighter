@@ -2,33 +2,26 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-/// RLR-S00 **red** two-process reproduction (`docs/phases/Run_Lifecycle_Reliability.md`
-/// § Trusted workflow slice / Works Test / slice RLR-S00). Extends the
+/// RLR-S00 **two-process** reproductions (`docs/phases/Run_Lifecycle_Reliability.md`
+/// § Trusted workflow slice / Works Test). Extends the
 /// `ConcurrentInvocationTwoProcessTests` fixture shape: two real `alln`
 /// subprocesses over one support root with the deterministic fake worker CLI
 /// (`scripts/rlr_fake_worker.sh` installed as a `claude` stub on a curated PATH
 /// — no real model, no quota).
 ///
-/// These tests assert the **behaviour the spec demands** (RLR-L1/L3/L5/L6) and
-/// are therefore EXPECTED RED against today's code. They are gated behind
-/// `RLR_RED=1` so the default suite stays green (they XCTSkip otherwise).
+/// S00 landed these as red (gated `RLR_RED=1`). S01–S04 flipped the signatures
+/// green; **S06 ungates them** so the default Core wall runs the Works Test
+/// proofs. Optional focus:
 ///
-/// Run them red:
-///
-///     RLR_RED=1 swift test --package-path Packages/AllnighterCore --filter RunLifecycleTwoProcess
+///     swift test --package-path Packages/AllnighterCore --filter RunLifecycleTwoProcess
 ///
 /// Signature (a) — `testStatusPolledFromSecondProcessDisagreesWithDurableJournalDuringHang`:
-///   a second process polling `team status` reports the run as not-yet-started
-///   (`accepted`) — and the durable journal carries `fanning_out` for a single
-///   worker — while a live worker child exists. RLR-L1 (one durable truth) and
-///   RLR-L3 (no `fanning_out` for one-worker execution) both demand otherwise.
+///   a second process polling `team status` must agree the worker has started
+///   (never project `accepted` / one-worker `fanning_out` while a live child exists).
 ///
 /// Signature (b) — `testKillStampsTerminalKilledWhileLiveWorkerSurvives`:
-///   `alln kill <id>` signals only the recorded coordinator owner, the worker
-///   (its own process-group leader, pgid never recorded) survives, yet the
-///   journal is stamped terminal `endReason: killed` — the "terminal lie".
-///   RLR-L5 requires a non-verified stop to leave the lifecycle non-terminal
-///   (KillOutcome `partial`/`refused`), never a `killed` stamp over live work.
+///   `alln kill <id>` over a TERM-ignoring recorded worker must leave the
+///   lifecycle non-terminal with `KillOutcome.partial` — never a `killed` lie.
 final class RunLifecycleTwoProcessTests: XCTestCase {
 
     private static let teamId = "custom_rlr_lifecycle_gate"
@@ -36,7 +29,6 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
     // MARK: - Signature (a): status ≠ journal during the hang
 
     func testStatusPolledFromSecondProcessDisagreesWithDurableJournalDuringHang() throws {
-        try Self.requireRedGate()
         let alln = try Self.locateAllnBinary()
 
         var fixture = try Fixture.make(name: "rlr-status2proc")
@@ -101,7 +93,6 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
     // MARK: - Signature (b): terminal `killed` lie over a live worker
 
     func testKillStampsTerminalKilledWhileLiveWorkerSurvives() throws {
-        try Self.requireRedGate()
         let alln = try Self.locateAllnBinary()
 
         var fixture = try Fixture.make(name: "rlr-kill2proc")
@@ -202,7 +193,6 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
     /// a live foreign holder to B's separate process, deterministic and independent of the
     /// mutating execution path (B never reaches execution; it blocks at the lock).
     func testKillOfBlockedRunWithdrawsFifoTicketFromSecondProcess() throws {
-        try Self.requireRedGate()
         let alln = try Self.locateAllnBinary()
 
         var fixture = try Fixture.make(name: "rlr-blockedkill")
@@ -309,7 +299,6 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
     /// `SubprocessCommandRunner` setpgid detachment (site C, unrecorded own group)
     /// is gone. No kill is exercised (that flips green in S04b).
     func testAsyncWorkerRuntimeOwnershipRecordedAsGroupLeader() throws {
-        try Self.requireRedGate()
         let alln = try Self.locateAllnBinary()
 
         var fixture = try Fixture.make(name: "rlr-s04a-async")
@@ -360,16 +349,6 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
         XCTAssertEqual(coordinator.kind, .detachedRunner)
         XCTAssertNotEqual(coordinator.pid, worker.identity.pid,
                           "coordinator and worker are distinct owners")
-    }
-
-    // MARK: - Red gate
-
-    /// Default CI stays green: skip unless the operator opts into the red
-    /// reproduction with `RLR_RED=1`.
-    private static func requireRedGate() throws {
-        guard ProcessInfo.processInfo.environment["RLR_RED"] == "1" else {
-            throw XCTSkip("set RLR_RED=1 to run the RLR-S00 red field-signature reproductions")
-        }
     }
 
     // MARK: - Fixture

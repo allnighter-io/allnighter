@@ -67,7 +67,9 @@ public struct RunStore: Sendable {
             // so a second process can derive `contradiction: terminalWithLiveOwnership`
             // while a recorded member is still identity-alive. Heartbeat (retired
             // debug artifact) + stage lease still drop; the bounded receipt reaper
-            // is S06 (window: `RunContradictionSurface.ownershipReceiptRetentionSeconds`).
+            // (`ProcessOwnership.reapExpiredOwnershipReceipts`, window:
+            // `RunContradictionSurface.ownershipReceiptRetentionSeconds`) runs from
+            // ProcessOwnershipGarbageCollector once identity-dead + past retention.
             // Never clobber an existing terminal status from a concurrent reconcile —
             // callers that need atomic terminal write use `reconcileRun` / cancel.
             try CoreJSON.encode(run).write(to: runURL, options: .atomic)

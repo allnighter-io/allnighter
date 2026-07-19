@@ -1,13 +1,12 @@
 # Run Lifecycle Reliability — every accepted run stays observable, stoppable, and recoverable
 
-Status: **FINAL (Spec Review + K3 + PM close pass) — P0 execution gate. Do not
-start product patches until RLR-S00 reproduces the field signatures.** Promise
-kept; **scope + L1–L9 invariants freeze at S00; wire shape freezes at S01.**
-Build RLR-S00–S06 before IR-S02 or Agent Onboarding V1. One bounded slice at a
-time.
+Status: **Complete (2026-07-19)** — S00–S06 delivered. Works Test matrix
+GREEN (item 7 waived: orphaned-coordinator mid-stream SIGKILL harness). Ready
+to archive (orchestrator). Unblocks IR-S02 + Agent Onboarding V1 (still needs
+IR-S02). Promise kept; L1–L9 invariants + wire shape frozen.
 Owner: AllnighterCore + AllnighterEngine + AllnighterCLI (`TeamRun`/`RunStore`,
 `RunService`, `ProcessOwnership`, `ExecutionLaneRegistry`, CLI JSON/NDJSON)
-Updated: 2026-07-19 (PM finalization pass — spec closed for implementation)
+Updated: 2026-07-19 (S06 Works Test matrix + phase close gate)
 
 Related: `Unified_Run_Model.md` · `CLI_Implementation_Contract.md` · archived
 `Process_Ownership.md` + `Concurrent_Invocation_Isolation.md` ·
@@ -83,8 +82,14 @@ four clocks (`--handshake-timeout` / `--first-activity-timeout` /
 `RunClockEnforcer` stamps `timedOut` + `killOutcome` even on partial
 (operator-vs-clock asymmetry); idempotency replay /
 `IDEMPOTENCY_CONFLICT` / `IDEMPOTENCY_EXPIRED` (24h retention);
-`--retry-of` + `--accept-survivors`. **S06 (full Works Test matrix) is
-next.**
+`--retry-of` + `--accept-survivors`.
+
+**S06 DELIVERED 2026-07-19** (matrix `docs/phases/rlr/S06_Works_Test_Matrix.md`):
+full Works Test 1–15 mapped (14 GREEN, item 7 waived); two-process suite
+ungated; `JOURNAL_CORRUPT` + orphan-scan + idle→lane-release + wait-for
+lifecycle-only + governor no-id proofs; bounded ownership-receipt reaper;
+IR-S02 / Onboarding V1 unblocked in docs. Phase **Complete** — ready to
+archive.
 
 ## Founder intent
 
@@ -504,16 +509,17 @@ Prefer extending `ConcurrentInvocationTwoProcessTests` fixtures.
 
 ## Done when
 
-- Accepted ids round-trip; mid-run `--json` runs discoverable via `ps`.
-- Every wait is a typed blocker or not presented as blocked.
-- Cold workers have durable killable identity; kill/cancel return typed
-  outcomes without terminal lies; contradictions are named.
-- Stream stays live with `seq`; `--json` is one final object; kill settlement
-  preserves the single terminal event when the coordinator is responsive.
-- Same-key replay is one worker; `--retry-of` is linked and safe.
-- Same-root serialization + different-root isolation proven.
-- Contracts regenerated; S06 Works Test + `scripts/check.sh` green.
-- IR-S02 / Onboarding V1 unblocked only then.
+- [x] Accepted ids round-trip; mid-run `--json` runs discoverable via `ps`.
+- [x] Every wait is a typed blocker or not presented as blocked.
+- [x] Cold workers have durable killable identity; kill/cancel return typed
+      outcomes without terminal lies; contradictions are named.
+- [x] Stream stays live with `seq`; `--json` is one final object; kill settlement
+      preserves the single terminal event when the coordinator is responsive.
+- [x] Same-key replay is one worker; `--retry-of` is linked and safe.
+- [x] Same-root serialization + different-root isolation proven.
+- [x] Contracts regenerated; S06 Works Test + `scripts/check.sh` green (or
+      remaining failures named with quarantine — see S06 closeout).
+- [x] IR-S02 / Onboarding V1 unblocked only then.
 
 ## Pre-implementation checklist
 

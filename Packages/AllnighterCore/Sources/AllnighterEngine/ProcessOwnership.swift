@@ -252,6 +252,47 @@ public enum ProcessOwnership {
         try? FileManager.default.removeItem(at: workerOwnerURL(workerId: workerId, in: runDirectory))
     }
 
+    /// RLR-S06 bounded receipt reaper: drop identity-dead ownership receipts on a
+    /// **terminal** run once their file age exceeds
+    /// `RunContradictionSurface.ownershipReceiptRetentionSeconds`. Never touches
+    /// identity-alive receipts (contradiction surface must still observe them).
+    /// Returns the number of receipt files removed.
+    @discardableResult
+    public static func reapExpiredOwnershipReceipts(
+        in runDirectory: URL,
+        isTerminal: Bool,
+        now: Date = Date(),
+        retentionSeconds: TimeInterval = RunContradictionSurface.ownershipReceiptRetentionSeconds
+    ) -> Int {
+        guard isTerminal, retentionSeconds >= 0 else { return 0 }
+        var removed = 0
+        let fm = FileManager.default
+
+        func ageSeconds(of url: URL) -> TimeInterval? {
+            let mtime = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+                .contentModificationDate
+            return mtime.map { now.timeIntervalSince($0) }
+        }
+
+        for (workerId, identity) in readWorkerOwners(inRunDirectory: runDirectory) {
+            guard !isIdentityAlive(identity) else { continue }
+            let url = workerOwnerURL(workerId: workerId, in: runDirectory)
+            guard let age = ageSeconds(of: url), age > retentionSeconds else { continue }
+            clearWorkerOwner(workerId: workerId, inRunDirectory: runDirectory)
+            removed += 1
+        }
+
+        if let coordinator = readOwnerIdentity(in: runDirectory),
+           !isIdentityAlive(coordinator),
+           let age = ageSeconds(of: ownerURL(in: runDirectory)),
+           age > retentionSeconds {
+            try? fm.removeItem(at: ownerURL(in: runDirectory))
+            try? fm.removeItem(at: legacyOwnerURL(in: runDirectory))
+            removed += 1
+        }
+        return removed
+    }
+
     // MARK: - Progress heartbeat
 
     public struct ProgressHeartbeat: Codable, Sendable, Equatable {

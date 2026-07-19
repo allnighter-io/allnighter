@@ -306,8 +306,12 @@ final class AsyncTeamTests: XCTestCase {
         XCTAssertEqual(TeamStatusWaitTarget.parse("terminal"), .anyTerminal)
         XCTAssertEqual(TeamStatusWaitTarget.parse("done"), .live(.done))
         XCTAssertEqual(TeamStatusWaitTarget.parse("running"), .live(.running))
-        // Legacy live-status vocabulary is retired — `completed` is no longer a target.
+        XCTAssertEqual(TeamStatusWaitTarget.parse("timedOut"), .live(.timedOut))
+        XCTAssertEqual(TeamStatusWaitTarget.parse("cancelled"), .live(.cancelled))
+        // Works Test 15: lifecycle only — phases / legacy aliases rejected.
         XCTAssertNil(TeamStatusWaitTarget.parse("completed"))
+        XCTAssertNil(TeamStatusWaitTarget.parse("working"))
+        XCTAssertNil(TeamStatusWaitTarget.parse("fanning_out"))
         XCTAssertNil(TeamStatusWaitTarget.parse("not-a-state"))
         XCTAssertTrue(TeamStatusWaitTarget.anyTerminal.matches(.failed))
         XCTAssertFalse(TeamStatusWaitTarget.live(.done).matches(.failed))

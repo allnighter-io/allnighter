@@ -19,9 +19,9 @@ public enum RunContradiction: String, Codable, Sendable, Equatable {
 public enum RunContradictionSurface {
     /// How long after terminal retained ownership receipts must remain readable
     /// so a second process can observe `terminalWithLiveOwnership`. Same
-    /// named-constant pattern as `ProcessOwnership.stageLeaseSeconds`; the
-    /// bounded reaper that clears them once identity-dead **and** past this
-    /// window is S06 GC territory — S04c only retains.
+    /// named-constant pattern as `ProcessOwnership.stageLeaseSeconds`. The
+    /// bounded reaper (`ProcessOwnership.reapExpiredOwnershipReceipts`) clears
+    /// them once identity-dead **and** past this window (wired through GC).
     public static let ownershipReceiptRetentionSeconds: TimeInterval = 3_600
 
     /// Derive the contradiction, or `nil` when none applies.
