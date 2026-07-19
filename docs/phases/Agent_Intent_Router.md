@@ -209,10 +209,12 @@ one team.
 | "just ask a model a question" | Auto *(chat default)* |
 | "ask <named model> for its read-only take on X" | Chat, worker-pinned *(Decisions 8–9)* |
 
-**Known gaps (named, not silent):** test-writing, docs/README authoring,
-refactor-at-scale, and dependency/upgrade triage have no dedicated family and
-route to Plan / Build a Slice / Pilot today. `Team_Catalog_Normalization.md`
-decides per-gap whether a family earns its place.
+**Known gaps (named, not silent — DECIDED 2026-07-19):** test-writing,
+docs/README authoring, refactor-at-scale, and dependency/upgrade triage earn
+NO dedicated family; `Team_Catalog_Normalization.md` ("Known-gap intents —
+decided") pins each to its honest existing route (Build a Slice / Plan), with
+demand evidence + founder approval as the future earn-a-family gate. The
+router routes these four intents per that table.
 
 ## Where the team list is finalized
 
