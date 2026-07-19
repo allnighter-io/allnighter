@@ -46,6 +46,28 @@ vendor will auto-resume its own CLI, and no vendor can ever resume your work
 on a competitor's CLI. Only the layer above the vendors can — structural moat.
 They can't stop it any more than they can stop a user setting an alarm clock.
 
+### Vendor window landscape (observed 2026-07-19 — drifts, keep current)
+
+| Vendor | Window shape |
+| --- | --- |
+| Claude | 5h rolling window + weekly cap |
+| Kimi | 5h window |
+| Codex | weekly only (recently **dropped** its 5h window) |
+| Grok | weekly |
+| Cursor | monthly (plan-based) |
+
+Two regimes, two strategies. **Short windows (hours):** waiting is viable —
+park + wake is the whole answer. **Long windows (week/month):** the reset is
+days away; parking is not a completion strategy, so **substitution (Tier 2)
+is the only way the job finishes** — for Grok/Cursor/Codex it is a must, not
+a nice-to-have. Window *shapes* are drifting (Codex just moved), but caps
+themselves are permanent — they are the economics of flat-rate subscriptions.
+Everything in this design except the wake timer is window-shape-agnostic: the
+limit classifier, the park blocker, the substitution trigger, and the
+limit-event log are the same durable facts whenever the window resets. Resume
+strategy keys off the observed `resumesAt` **distance**, never off a
+hardcoded "5h" assumption.
+
 Honest claim:
 
 > A run that hits a vendor usage limit **parks with a truthful blocker naming
@@ -100,6 +122,12 @@ Schedule:
    probes, maximally polite.
 2. `resumesAt` unknown → resume attempts on a slow fixed cadence
    (~every 60 min, floor 30). Honor any `Retry-After` the vendor supplies.
+3. **Park horizon:** if `resumesAt` is beyond a user-configurable horizon
+   (default ~8h), silent parking is the wrong answer — a weekly/monthly cap
+   means the run would sit for days. Beyond the horizon, apply the Tier 2
+   substitution policy immediately (hop if allowed) or surface a loud
+   decision to the human ("Grok capped until Tuesday — substitute or hold?").
+   Within the horizon, park quietly and wake.
 
 Resume prompt by worker state:
 
@@ -115,8 +143,10 @@ Resume prompt by worker state:
 ### Tier 2 — substitution through the existing SBDS resolver
 
 Rate-limited is just **"down until T."** SBDS Auto already routes around a
-down CLI; fire the same resolver on the `rateLimited` blocker. No new
-settings surface:
+down CLI; fire the same resolver on the `rateLimited` blocker. For
+long-window vendors (Grok weekly, Cursor monthly, Codex weekly) this tier is
+**required for completion** — there is no "wait it out" when T is days away.
+No new settings surface:
 
 - The many-to-many **tier map = the equivalence map** (user-edits it on the
   Default-model screen today).
@@ -135,7 +165,9 @@ doesn't need them to: it sends every turn and streams report token usage back.
 Self-metering gives a per-vendor lower-bound burn meter, and every observed
 limit + reset teaches the window shape. Pacing/scheduling ("Claude is running
 hot — drain light work, front-load heavy slices") falls out of Tier 1–2
-telemetry. Not in scope for the first slices; just **log every limit event
+telemetry. Weekly/monthly budgets make this *more* valuable, not less: a 5h
+window forgives a burn mistake by dinnertime; blowing a monthly Cursor cap on
+day 9 hurts for three weeks — budget pacing becomes real money management. Not in scope for the first slices; just **log every limit event
 durably now** (vendor, timestamp, resumesAt, what was parked) so Tier 3 has
 history on day one.
 
@@ -170,7 +202,7 @@ dispatch — resume cannot ship on a spawn path that only works by symlink.**
 | RLC-S00 | Absolute `alln` binary resolution for detached/background dispatch (field fix; independent, land first) |
 | RLC-S01 | Per-driver limit-signal classifier at settlement → `rateLimited(vendor, resumesAt?)`; fixture tests from real transcripts; durable limit-event log |
 | RLC-S02 | Park truth: `rateLimited` blocker fact in journal + on the wire; watchdog/reaper treats parked as quiet-by-design; lane ticket held; Mac "Parked — resumes ~T" |
-| RLC-S03 | Wake scheduler + resume-attempt-as-probe: resumesAt+jitter wake, slow-cadence fallback, warm "continue" path; re-park on repeat rejection |
+| RLC-S03 | Wake scheduler + resume-attempt-as-probe: resumesAt+jitter wake, slow-cadence fallback, park-horizon policy (far reset → substitute/escalate, never silent multi-day park), warm "continue" path; re-park on repeat rejection |
 | RLC-S04 | Dead-worker resume via vendor session continuity (incl. closing the Codex `vendorSessionId` capture gap) |
 | RLC-S05 | Tier 2: `rateLimited` fires the SBDS resolver; per-order-kind hop policy (chat/plan hop free; mutating Execute opt-in); Auto toggle gates all substitution |
 
