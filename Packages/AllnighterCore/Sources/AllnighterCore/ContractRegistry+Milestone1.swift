@@ -1102,6 +1102,11 @@ public extension ContractRegistry {
         EventSpec("workerFailed", requiredData: ["workerId", "error"]),
         EventSpec("planStarted", requiredData: ["workerId", "stageId"]),
         EventSpec("planWritten", requiredData: ["workerId", "stageId", "durationMs"]),
+        // RLR-S03c: bounded projection of the live worker delta/output stream
+        // (RunActivity.activityKind) — never the raw text (non-goal). Additive;
+        // unknown-event-tolerant consumers skip it safely.
+        EventSpec("workerActivity", requiredData: ["workerId", "activityKind"]),
+        EventSpec("stageActivity", requiredData: ["stageId", "activityKind"]),
         EventSpec("teamRunCompleted", requiredData: ["status", "planStageId", "durationMs"]),
         EventSpec("teamRunFailed", requiredData: ["status", "error"]),
         EventSpec("error", requiredData: ["error"]),

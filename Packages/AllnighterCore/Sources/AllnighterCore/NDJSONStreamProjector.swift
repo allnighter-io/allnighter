@@ -59,6 +59,13 @@ public enum NDJSONStreamProjector {
         public var stageId: String?
         public var planStageId: String?
         public var error: ErrorEnvelope?
+        /// RLR-S03c: bounded activity metadata on `workerActivity`/`stageActivity`
+        /// lines — the `RunActivityKind` raw value (`message`/`stdout`/…) and an
+        /// optional size of the underlying delta/output, **never the text itself**
+        /// (non-goal: no raw stdout/stderr/token payload in the NDJSON stream).
+        public var activityKind: String?
+        public var byteCount: Int?
+        public var charCount: Int?
     }
 
     public static func events(for run: TeamRun) -> [Event] {
@@ -127,6 +134,9 @@ public enum NDJSONStreamProjector {
     /// (`RemoteRunEventJournal`, stamped at append) rather than minting its own,
     /// so the stream seq survives coordinator restart + reattach (RLR-L7).
     /// Intermediate internal transitions (e.g. `answers_in`) map to nil and are dropped.
+    /// RLR-S03c: worker deltas/output and stage output — previously dropped in full
+    /// — now project as bounded `workerActivity`/`stageActivity` metadata (never
+    /// the raw text), so the stream stays live between `started` and the terminal.
     public struct LiveMapper {
         public init() {}
 
@@ -185,6 +195,31 @@ public enum NDJSONStreamProjector {
                 return ("planStarted", runId, EventData(workerId: str("workerId"), stageId: str("stageId")))
             case RunEventKind.stageCompleted where str("purpose") == "plan":
                 return ("planWritten", runId, EventData(workerId: str("workerId"), stageId: str("stageId")))
+            // RLR-S03c: the live tokens/output that used to fall through to `default`
+            // (dropped) now project as bounded `workerActivity`/`stageActivity`
+            // metadata. Shares the ONE classifier (`RunActivity.activityKind(for:)`)
+            // with the S03a journal projection so the stream and `run.json` never
+            // disagree about what counts as activity. `nil` from the classifier
+            // (should not occur for these kinds) still drops the line — belt and
+            // suspenders, never crash on an unexpected payload shape.
+            case RunEventKind.workerAnswerDelta, RunEventKind.workerReasoningDelta, RunEventKind.workerOutput:
+                guard let activity = RunActivity.activityKind(for: e) else { return nil }
+                let text = str("text")
+                return ("workerActivity", runId, EventData(
+                    workerId: str("workerId"),
+                    activityKind: activity.rawValue,
+                    byteCount: text.map { $0.utf8.count },
+                    charCount: text.map(\.count)
+                ))
+            case RunEventKind.stageOutput:
+                guard let activity = RunActivity.activityKind(for: e) else { return nil }
+                let text = str("text")
+                return ("stageActivity", runId, EventData(
+                    workerId: str("workerId"), stageId: str("stageId"),
+                    activityKind: activity.rawValue,
+                    byteCount: text.map { $0.utf8.count },
+                    charCount: text.map(\.count)
+                ))
             default:
                 return nil
             }

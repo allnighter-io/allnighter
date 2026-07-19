@@ -1492,6 +1492,8 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `workerFailed` | `workerId`, `error` |
 | `planStarted` | `workerId`, `stageId` |
 | `planWritten` | `workerId`, `stageId`, `durationMs` |
+| `workerActivity` | `workerId`, `activityKind` |
+| `stageActivity` | `stageId`, `activityKind` |
 | `teamRunCompleted` | `status`, `planStageId`, `durationMs` |
 | `teamRunFailed` | `status`, `error` |
 | `error` | `error` |

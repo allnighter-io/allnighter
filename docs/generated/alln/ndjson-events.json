@@ -45,6 +45,20 @@
     ]
   },
   {
+    "name" : "workerActivity",
+    "requiredData" : [
+      "workerId",
+      "activityKind"
+    ]
+  },
+  {
+    "name" : "stageActivity",
+    "requiredData" : [
+      "stageId",
+      "activityKind"
+    ]
+  },
+  {
     "name" : "teamRunCompleted",
     "requiredData" : [
       "status",

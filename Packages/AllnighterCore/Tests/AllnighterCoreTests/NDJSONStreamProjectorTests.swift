@@ -177,4 +177,113 @@ final class NDJSONStreamProjectorTests: XCTestCase {
         // A contiguous run has no gap.
         XCTAssertNil(NDJSONStreamProjector.firstSeqGap([1, 2, 3, 4, 5]))
     }
+
+    // MARK: - RLR-S03c: previously-dropped activity kinds now project bounded metadata
+
+    private func answerDelta(seq: Int64, _ w: String, text: String) -> RunEvent {
+        event(seq: seq, kind: RunEventKind.workerAnswerDelta, [
+            "workerId": .string(w), "text": .string(text), "truncated": .bool(false)])
+    }
+    private func reasoningDelta(seq: Int64, _ w: String, text: String) -> RunEvent {
+        event(seq: seq, kind: RunEventKind.workerReasoningDelta, ["workerId": .string(w), "text": .string(text)])
+    }
+    private func workerOutput(seq: Int64, _ w: String, text: String) -> RunEvent {
+        event(seq: seq, kind: RunEventKind.workerOutput, ["workerId": .string(w), "text": .string(text)])
+    }
+    private func stageOutput(seq: Int64, stageId: String, text: String) -> RunEvent {
+        event(seq: seq, kind: RunEventKind.stageOutput, ["stageId": .string(stageId), "text": .string(text)])
+    }
+
+    /// `workerAnswerDelta`/`workerReasoningDelta` — previously dropped by `LiveMapper`
+    /// (no case) — now project as `workerActivity` carrying ONLY bounded metadata:
+    /// `workerId`, `activityKind: "message"`, and a byte/char count of the delta —
+    /// never the delta text itself (S03c non-goal).
+    func testWorkerAnswerAndReasoningDeltaMapToWorkerActivityMessageBounded() throws {
+        let mapper = NDJSONStreamProjector.LiveMapper()
+        for e in [answerDelta(seq: 10, "w1", text: "hello"), reasoningDelta(seq: 11, "w1", text: "hello")] {
+            let event = try XCTUnwrap(mapper.event(for: e), "delta kinds must no longer be dropped")
+            XCTAssertEqual(event.event, "workerActivity")
+            XCTAssertEqual(event.seq, Int(e.seq), "carries the durable seq, not a fresh counter")
+            XCTAssertEqual(event.data.workerId, "w1")
+            XCTAssertEqual(event.data.activityKind, RunActivityKind.message.rawValue)
+            XCTAssertEqual(event.data.charCount, 5)
+            XCTAssertEqual(event.data.byteCount, 5)
+            let line = NDJSONStreamProjector.encodeLine(event)
+            XCTAssertFalse(line.contains("hello"), "the raw delta text must never reach the stream")
+            XCTAssertFalse(line.contains("\"text\""), "no `text` key at all — bounded metadata only")
+        }
+    }
+
+    /// `workerOutput` (bounded stdout/stderr metadata) → `workerActivity` with
+    /// `activityKind: "stdout"`; `stageOutput` → a distinct `stageActivity` event
+    /// carrying `stageId` instead of a bare worker id. Both share the ONE
+    /// `RunActivity.activityKind(for:)` classifier used by the S03a journal
+    /// projection, so stream and `run.json` never disagree.
+    func testWorkerOutputAndStageOutputMapToBoundedActivityWithSharedClassifier() throws {
+        let mapper = NDJSONStreamProjector.LiveMapper()
+
+        let out = try XCTUnwrap(mapper.event(for: workerOutput(seq: 20, "w1", text: "stdout chunk")))
+        XCTAssertEqual(out.event, "workerActivity")
+        XCTAssertEqual(out.data.activityKind, RunActivityKind.stdout.rawValue)
+        XCTAssertEqual(out.data.workerId, "w1")
+        XCTAssertEqual(out.data.charCount, "stdout chunk".count)
+        XCTAssertFalse(NDJSONStreamProjector.encodeLine(out).contains("stdout chunk"))
+
+        let stage = try XCTUnwrap(mapper.event(for: stageOutput(seq: 21, stageId: "stage_1", text: "stage chunk")))
+        XCTAssertEqual(stage.event, "stageActivity")
+        XCTAssertEqual(stage.data.activityKind, RunActivityKind.stdout.rawValue)
+        XCTAssertEqual(stage.data.stageId, "stage_1")
+        XCTAssertFalse(NDJSONStreamProjector.encodeLine(stage).contains("stage chunk"))
+    }
+
+    /// Through a real attachment, activity lines flow strictly BETWEEN `started`
+    /// and the terminal — never before, never after — with the shared seq space
+    /// staying strictly ascending (Works Test 4: "NDJSON stays live with monotonic
+    /// seq" — a streaming consumer now sees activity, not just started+terminal).
+    func testWorkerActivityFlowsBetweenStartedAndTerminalWithMonotonicSeq() throws {
+        let att = NDJSONStreamProjector.NDJSONAttachment()
+        let lines = [
+            started(seq: 1),
+            workerStarted(seq: 2, "w1"),
+            answerDelta(seq: 3, "w1", text: "Hello"),
+            answerDelta(seq: 4, "w1", text: " world"),
+            workerDone(seq: 5, "w1"),
+            runTerminal(seq: 6, .complete),
+        ].compactMap { att.liveLine(for: $0) }
+        let objs = try parseLines(lines)
+        let events = objs.compactMap { $0["event"] as? String }
+
+        XCTAssertEqual(events.first, "teamRunStarted")
+        XCTAssertEqual(events.last, "teamRunCompleted")
+        let activityIndices = events.indices.filter { events[$0] == "workerActivity" }
+        XCTAssertEqual(activityIndices.count, 2, "both deltas surface as workerActivity lines")
+        XCTAssertTrue(activityIndices.allSatisfy { $0 > 0 && $0 < events.count - 1 },
+                     "activity lines land strictly between started and the terminal")
+
+        let seqs = objs.compactMap { $0["seq"] as? Int }
+        XCTAssertEqual(seqs, seqs.sorted(), "seq stays monotonic across activity + transition lines")
+        XCTAssertNil(NDJSONStreamProjector.firstSeqGap(seqs))
+
+        // No raw token text anywhere on the wire.
+        for line in lines {
+            XCTAssertFalse(line.contains("Hello"))
+            XCTAssertFalse(line.contains("world"))
+        }
+    }
+
+    /// Unknown-event tolerance (RISKS): any consumer parsing this NDJSON stream
+    /// MUST tolerate an event name it doesn't recognize, because `workerActivity`/
+    /// `stageActivity` are additive. This test documents the wire shape a
+    /// lenient consumer needs to skip safely: it decodes as a plain JSON object
+    /// with the same envelope (`schemaVersion`/`seq`/`ts`/`event`/`teamRunId`/`data`)
+    /// as every other event, so a switch-on-`event`-name consumer with a `default:
+    /// skip` arm keeps working unmodified.
+    func testWorkerActivitySharesTheCommonEnvelopeShapeForUnknownEventTolerance() throws {
+        let mapper = NDJSONStreamProjector.LiveMapper()
+        let event = try XCTUnwrap(mapper.event(for: answerDelta(seq: 7, "w1", text: "x")))
+        let obj = try parseLines([NDJSONStreamProjector.encodeLine(event)])[0]
+        for key in ["schemaVersion", "seq", "ts", "event", "teamRunId", "data"] {
+            XCTAssertNotNil(obj[key], "workerActivity must carry the same envelope keys as every other event (\(key))")
+        }
+    }
 }

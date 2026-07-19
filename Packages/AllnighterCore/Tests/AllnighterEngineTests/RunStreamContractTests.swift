@@ -9,6 +9,37 @@ import AllnighterCore
 ///  - exactly one terminal per attachment; the first line carries the runId;
 ///  - a replay attach continues in the one durable seq space;
 ///  - `alln run --json` is final-only — one object, nothing before it.
+/// A scripted runner conforming to BOTH `CommandRunner` and `StreamingCommandRunner`
+/// so `RunService` picks it up directly (`commandRunner as? StreamingCommandRunner`)
+/// instead of wrapping a plain `CommandRunner` in `CommandRunnerAsStreaming` (which
+/// would collapse to a single terminal chunk, never dribbling deltas). Replays a
+/// fixed `CommandEvent` sequence — the same "fake CLI" shape `WorkerInvokeStreamingTests`
+/// uses directly against `DefaultWorkerRunner`, here routed through the full
+/// `RunService` so the live NDJSON stream sees real `workerAnswerDelta` events.
+private final class DribblingCommandRunner: CommandRunner, StreamingCommandRunner, @unchecked Sendable {
+    private let events: [CommandEvent]
+    init(_ events: [CommandEvent]) { self.events = events }
+
+    func run(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) async -> CommandResult {
+        for event in events { if case .completed(let result) = event { return result } }
+        return CommandResult(stdout: "", exitCode: 0)
+    }
+
+    func runStreaming(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) -> AsyncThrowingStream<CommandEvent, Error> {
+        let events = self.events
+        return AsyncThrowingStream { continuation in
+            for event in events { continuation.yield(event) }
+            continuation.finish()
+        }
+    }
+}
+
 final class RunStreamContractTests: XCTestCase {
 
     // MARK: - In-process harness (mirrors RunAcceptanceBoundaryTests)
@@ -144,6 +175,116 @@ final class RunStreamContractTests: XCTestCase {
         let replay = try j2.replay(after: 0)
         XCTAssertEqual(replay.events.map(\.seq), [1, 2, 3])
         XCTAssertEqual(replay.lastSeq, 3)
+    }
+
+    // MARK: - RLR-S03c: activity flows live between started and terminal
+
+    /// A real `RunService` cold streaming run (a driver marked `streaming.supported`,
+    /// a scripted `StreamingCommandRunner` dribbling two answer-delta chunks) routed
+    /// through the durable journal + `NDJSONAttachment` exactly as `RunCLI --stream`
+    /// does. Proves Works Test 4's "NDJSON stays live with monotonic seq": a
+    /// streaming consumer sees `workerActivity` lines land strictly between
+    /// `teamRunStarted`/`workerStarted` and the terminal — not just start+terminal —
+    /// and none of them carry the raw delta text (S03c non-goal).
+    ///
+    /// Uses an explicit custom mutating single-worker team (preferring `model_grok`
+    /// directly for both rows) rather than the built-in default team — the built-in
+    /// `default_chat`/"Direct" team's Lead hard-prefers `model_cursor_composer_25`
+    /// with a `sameSource` fallback that only matches a `cursor_agent`-driver model,
+    /// which is a PRE-EXISTING failure unrelated to S03c (reproduces today on clean
+    /// HEAD via `RunIdleTimeoutTests.testRunServiceDefaultLeavesTimeoutNilForManifestBudget`
+    /// with only a grok model on the bench); an explicit preset sidesteps it.
+    func testWorkerActivityFlowsLiveBetweenStartedAndTerminalWithNoRawText() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-stream-activity-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        var manifest = TestSupport.headlessManifest(id: "grok", command: "grok")
+        manifest.streaming = .init(supported: true, mode: .jsonlStdout,
+                                    args: ["-p", "{{prompt}}", "--output-format", "streaming-json"],
+                                    partialOutput: true, finalAnswerSource: .parserAccumulator)
+        let model = Model(id: "model_grok", displayName: "Grok", modelLabel: "grok", driverId: "grok", role: .both)
+        let settings = DefaultModelSettings(
+            defaultTier: .flagship, allowHealthySubstitutions: true, tiers: TierMembership(flagship: ["model_grok"]))
+        let probe = ToolProbeRecord(driverId: "grok", status: .ready(version: "1.0"), lastProbeAt: .distantPast)
+
+        let team = TeamPreset(
+            id: "custom_stream_activity_team", displayName: "Stream Activity Team", lane: .code,
+            outputKind: .plan, mutating: true, defaultEffort: .low, isDefaultForLane: false,
+            workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, preferredModelId: "model_grok")],
+            lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_grok"),
+            builtIn: false)
+
+        // Two chunks so the worker "dribbles" its answer, like a real token stream.
+        let ndjson = """
+        {"type":"text","data":"Hello"}
+        {"type":"text","data":" world"}
+        {"type":"end","stopReason":"EndTurn"}
+
+        """
+        let streamingRunner = DribblingCommandRunner([
+            .started(startedAt: Date()),
+            .stdout(Data(ndjson.utf8)),
+            .completed(CommandResult(stdout: ndjson, exitCode: 0)),
+        ])
+
+        let runsDir = repo.appendingPathComponent("runs", isDirectory: true)
+        let service = RunService(
+            models: [model],
+            registry: DriverRegistry([manifest]),
+            teams: [team],
+            runStore: RunStore(rootDirectory: runsDir),
+            commandRunner: streamingRunner,
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] })
+        let journal = RemoteRunEventJournal(rootDirectory: runsDir)
+
+        let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
+        let attachment = NDJSONStreamProjector.NDJSONAttachment()
+        let consumer = Task { () -> [String] in
+            var lines: [String] = []
+            for await event in stream {
+                let stamped = (try? journal.append(event)) ?? event
+                if let line = attachment.liveLine(for: stamped) { lines.append(line) }
+            }
+            if let closing = attachment.closingLine() { lines.append(closing) }
+            return lines
+        }
+
+        let result = await service.run(
+            RunRequest(message: "hi", repoRoot: repo.path, presetId: team.id),
+            origin: .cli, events: continuation)
+        guard case .success = result else { return XCTFail("run failed: \(result)") }
+        let lines = await consumer.value
+
+        let objs = try lines.map(parse)
+        let events = objs.compactMap { $0["event"] as? String }
+        XCTAssertEqual(events.first, "teamRunStarted")
+        XCTAssertTrue(terminal.contains(events.last ?? ""), "attachment ends terminal")
+
+        let activityIndices = events.indices.filter { events[$0] == "workerActivity" }
+        XCTAssertFalse(activityIndices.isEmpty, "the dribbled deltas must surface as ≥1 workerActivity line")
+        XCTAssertTrue(activityIndices.allSatisfy { $0 > 0 && $0 < events.count - 1 },
+                     "activity lines land strictly between started and the terminal, never at either end")
+
+        // Bounded metadata only — every workerActivity line carries an activityKind
+        // and no raw payload text anywhere on the wire.
+        for obj in objs where obj["event"] as? String == "workerActivity" {
+            let data = obj["data"] as? [String: Any]
+            XCTAssertNotNil(data?["activityKind"], "workerActivity must carry its activityKind")
+            XCTAssertNil(data?["text"], "no raw text key on the wire")
+        }
+        for line in lines {
+            XCTAssertFalse(line.contains("Hello"), "no raw delta text in any NDJSON line")
+            XCTAssertFalse(line.contains("world"), "no raw delta text in any NDJSON line")
+        }
+
+        // Seq stays monotonic across activity + transition lines (RLR-L7 + Works Test 4).
+        let seqs = objs.compactMap { $0["seq"] as? Int }
+        XCTAssertEqual(seqs, seqs.sorted(), "seq is monotonic across activity lines")
+        XCTAssertNil(NDJSONStreamProjector.firstSeqGap(seqs))
     }
 
     // MARK: - `alln run --json` is final-only (RLR-L7, §1.4)
