@@ -25,6 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Run_Lifecycle_Reliability.md`](Run_Lifecycle_Reliability.md) | **APPROVED P0 — execute RLR-S00–S06 first; blocks IR-S02 + Agent Onboarding V1** | Accepted runs stay identifiable, causally observable, total-killable, and retry-safe. Owns status/journal unity, visible contention, activity NDJSON, worker process-group ownership, watchdogs, and two-process trust proof. |
 | [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
 | [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md) | **SHIPPED 2026-07-19, archived** — S01–S04b, S05a, S06 gates; S05b deferred | Team-run open + streaming/reload hot path. Code SSOT: `ThreadsViewModel.applyLiveDelta` / `reloadAsync`, `PerfCounters`, `RunDecodeCache`. |
 | [`Field_Reports_3.md`](Field_Reports_3.md) | **In progress** — piloted delivery #10 | Lane-label truth, JSON stream discipline, retry idempotency from live dogfood. |
@@ -35,8 +36,8 @@ one's truth now lives.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Team_Catalog_Normalization.md`](../archive/Team_Catalog_Normalization.md) | **SHIPPED 2026-07-19, archived** (founder-approved; CN-S01–S06 + Law 4 guards landed) | Decisive normalized family list: obvious job names, optional Min/Default/Max tiers (Spec Review, Bug Hunt, Growth, Design), Law 3 caliber+capability staffing, Law 4 unique typeTags. The catalog in `BuiltInTeams.swift` now matches this doc. |
-| [`Agent_Intent_Router.md`](Agent_Intent_Router.md) | **Specced v2** (gate 3) — **UNBLOCKED**, IR-S00 done | `alln team hello --for "<intent>"` as a local solutions engineer over the normalized catalog. Today `AgentHello.swift` is a static readiness report; the `--for` matcher (IR-S01) is next. |
-| [`Agent_Onboarding.md`](Agent_Onboarding.md) | **Specced v3** (gate 2) — V1 three slices unbuilt | From findable to suggested: the app teaches every CLI session about `alln` (recipe cards, CLAUDE.md/AGENTS.md seeding, app missionary surface). |
+| [`Agent_Intent_Router.md`](Agent_Intent_Router.md) | **IR-S01 SHIPPED (`3d515ff0`); PAUSED** — IR-S02 blocked on RLR-S06; do not archive | `alln team hello --for "<intent>"` deterministic matcher is live. After lifecycle trust: named workers + Chat/Pilot/Relay routing and long-run control bundles. |
+| [`Agent_Onboarding.md`](Agent_Onboarding.md) | **APPROVED, BLOCKED** — V1 waits for RLR-S06 + IR-S02 | From findable to suggested: the app teaches every CLI session about `alln` only after recommended work is observable, stoppable, and recoverable. |
 
 ### CLI spine & law SSOTs (living reference — keep, do not archive)
 
@@ -176,10 +177,11 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 
 | Work | Read first |
 | --- | --- |
+| Foreground/async run stuck, journal/status mismatch, opaque blocker, orphan worker, kill/retry failure, missing lifecycle stream | `Run_Lifecycle_Reliability.md` (P0; extends the archived Process Ownership + Concurrent Invocation Isolation laws) |
 | Two `alln`s on different projects colliding, scoped reconcile/kill, per-invocation isolation | archived `Concurrent_Invocation_Isolation.md` (code SSOT; extends archived `Process_Ownership.md`) |
 | Default-chat / team-run latency, streaming throughput, rail click stalls, scroll jank | archived `Team_Run_Load_Performance.md` (code SSOT; warm path: archived `Warm_Single_Lane_Chat.md`) |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
-| Agent front door — findable/suggested/routed, `team hello --for`, catalog normalization | `Team_Catalog_Normalization.md` → `Agent_Intent_Router.md` → `Agent_Onboarding.md` (gate 1 shipped: archived `Agent_Front_Door.md`) |
+| Agent front door — findable/suggested/routed, `team hello --for`, catalog normalization | `Run_Lifecycle_Reliability.md` → `Team_Catalog_Normalization.md` → `Agent_Intent_Router.md` → `Agent_Onboarding.md` (gate 1 shipped: archived `Agent_Front_Door.md`) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
 | Run model, answer vs execution teams, dispatch/source safety | `Unified_Run_Model.md` + `Work_Order_Team_Model.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` + `Language_Cutover.md` |

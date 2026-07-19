@@ -1,6 +1,9 @@
 # Agent Onboarding — from findable to suggested
 
-Status: Specced v2 — hardened by five-seat panel panel_753613c7 (2026-07-16:
+Status: **APPROVED, BLOCKED.** Build only after
+`Run_Lifecycle_Reliability.md` RLR-S06 and `Agent_Intent_Router.md` IR-S02 are
+green. IR-S01 landed as `3d515ff0`; the router intentionally stopped there.
+Specced v2 — hardened by five-seat panel panel_753613c7 (2026-07-16:
 21 findings across consent/simplify/adoption/failure-modes/strategy lenses;
 accepted set folded below). v3 sharpening (2026-07-18): trigger line points at
 the intent router; recipes retitled by intent; works test made adversarial.
@@ -13,14 +16,17 @@ states, host support matrix + filesystem contract in S03, reproducible
 battery harness. v3.2 (2026-07-19): first-contact **single-worker review**
 recipe — run-vs-team, `--project` required, Codex Sol vs Cursor Sol, silent
 `--json`, paste-ready snippet (field footguns from the Isolation/Perf Sol
-audit via `alln run --worker model_chatgpt`).
-Awaiting founder go. V1 = three slices; the rest parked.
+audit via `alln run --worker model_chatgpt`). v3.3 (2026-07-19): Kimi lifecycle
+failure makes observable/stoppable/recoverable runs a blocking prerequisite;
+the single-worker recipe no longer teaches indefinite silence as healthy.
+V1 = three slices after both blockers; the rest parked.
 Owner: Mac app (first-run/Settings) + AllnighterCore content SSOT + bootstrap
 Updated: 2026-07-19
 
 Related: `Agent_Front_Door.md` (gate 1 — findable, SHIPPED) · this doc (gate 2 —
 suggested) · `Agent_Intent_Router.md` (gate 3 — routes intent to the right team;
-the trigger line below depends on it).
+the trigger line below depends on it) · `Run_Lifecycle_Reliability.md` (P0 trust
+gate — the recommended work remains observable, stoppable, and recoverable).
 
 ## The gap (named precisely)
 
@@ -99,7 +105,7 @@ exists before any agent session does. It must be the missionary.
    exact command back. Three intuitive branches fall out for humans: improve the
    answer · build the work · continue unattended.
 
-   **BLOCKING dependency:** this trigger line points at `team hello --for`, so
+   **BLOCKING dependencies:** this trigger line points at `team hello --for`, so
    the intent router's command contract must be frozen before this snippet
    ships — otherwise it teaches a command that doesn't route. That means
    **IR-S01 AND IR-S02**: the works-test battery below exercises named-worker
@@ -113,7 +119,10 @@ exists before any agent session does. It must be the missionary.
    showed "ask <named model> for feedback, change nothing" is exactly where a
    cold agent stalls today, so a snippet that sends agents to a router that
    can't answer it teaches the reflex and then punishes it. Size
-   budget holds — smaller than before. Success criterion (golden-transcript
+   budget holds — smaller than before. **IR-S02 itself is blocked on
+   `Run_Lifecycle_Reliability.md` RLR-S06.** Onboarding is an adoption multiplier;
+   it must not teach more agents to launch work before the accepted run can be
+   monitored and stopped from another process. Success criterion (golden-transcript
    gate): a fresh session given the snippet reaches for `alln team hello --for`
    on "route this to another model" — named, not v1.
 5. **Per-project offer (PARKED until v1 proves).** A repo's AGENTS.md is a
@@ -142,7 +151,7 @@ exists before any agent session does. It must be the missionary.
 ## Slices (proposed)
 
 V1 = three slices (panel simplify consensus); everything else parked until the
-works test is green.
+works test is green. No ONB slice starts before RLR-S06 + IR-S02.
 
 | Slice | Deliverable |
 | --- | --- |
@@ -194,9 +203,14 @@ footguns from the 2026-07-19 Isolation/Perf Sol audit:
 3. **Codex Sol ≠ Cursor Sol.** Same model family, different driver:
    `model_chatgpt` = Codex (`gpt-5.6-sol`); `model_chatgpt_sol` = Cursor.
    Prefer `model_chatgpt` when the user says "Sol" without naming a host.
-4. **`--json` is silent until finish.** Long reviews look hung with no stdout.
-   Prefer `--stream` for live progress, or treat silence as normal and check
-   `alln ps` / the run heartbeat — no output ≠ stuck.
+4. **Transport truth is bounded.** `--json` is final-only and may be silent until
+   finish; it is not a monitoring transport. For a long run, use `--stream`,
+   capture the canonical run id from its first NDJSON event, and use the exact
+   monitor/cancel commands returned by the router. Silence alone proves neither
+   health nor failure: lifecycle phase, causal blocker, `lastActivityAt`, and
+   `progressStale` own that judgment after `Run_Lifecycle_Reliability.md` lands.
+   Before RLR-S06, this recipe is documentation-only and must not ship as a claim
+   that current progress/kill behavior is reliable.
 
 **Paste-ready (Codex Sol, named docs, read-only):**
 
@@ -205,7 +219,8 @@ alln run --project <id|path> --worker model_chatgpt --lane code --no-commit --st
   "Read-only review of <path/to/Doc_A.md> and <path/to/Doc_B.md>. Do not edit files. Return findings only."
 ```
 
-Swap `--stream` for `--json` when the caller wants a single machine-readable
-blob at the end (and expects silence until then). Router still owns the long
-term ("ask `team hello --for` first"); this recipe is the honest command when
-the agent already knows it wants one named worker.
+Swap `--stream` for `--json` only when the caller wants one terminal
+machine-readable blob and does not need live control through that stdout stream.
+Router still owns the long term ("ask `team hello --for` first") and, after
+RLR-S06/IR-S02, returns the matching monitor/result/cancel argv. This recipe is
+the honest direct command when the agent already knows it wants one named worker.

@@ -26,6 +26,12 @@ It owns the implementation detail those docs should not carry: schemas, command
 surface, generated artifacts, doctor checks, error codes, streaming events, and
 proof gates for making `alln` the first-class product contract.
 
+> **P0 lifecycle gate (2026-07-19):** `Run_Lifecycle_Reliability.md` owns the
+> forward accepted-run/status/blocker/activity/kill/retry contract. Existing
+> paths emit some live events, but tool activity, durable blocker state, and
+> externally killable foreground-worker ownership are not yet complete. Until
+> RLR-S06, do not describe `--stream`, status, or kill as the full trust loop.
+
 ## First Principles
 
 ```text
@@ -387,12 +393,14 @@ Rules:
 - NDJSON `error.error` uses the same error envelope as JSON mode.
 - Human progress is never mixed into stdout in stream mode.
 
-> **M1 boundary (follow-up):** `--stream` currently emits a *faithful event log
-> projected from the settled run* (real `seq`/timestamps, terminal event last),
-> not a live incremental feed. True live/incremental streaming requires exposing
-> the coordinator's `RunEvent` stream (and the post-fan-out plan-stage events)
-> through `TeamService`; that is a later engine follow-up. Generated docs/help
-> must not describe `--stream` as live until that exists.
+> **Historical M1 boundary, now superseded by the RLR gate:** M1 projected a
+> faithful settled event log. Some current paths now expose `RunEvent`s live,
+> including answer/reasoning deltas, but the lifecycle is still incomplete:
+> foreground admission can be silent and `.started`/tool/raw activity is not
+> fully projected or durably pollable. `Run_Lifecycle_Reliability.md` RLR-S03
+> owns the complete live contract. Generated docs/help may call a specific
+> event live only when its source path is proven; they must not imply the whole
+> run remains observable until RLR-S06.
 
 ## Error Envelope
 

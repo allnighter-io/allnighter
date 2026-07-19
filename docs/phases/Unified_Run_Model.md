@@ -131,10 +131,14 @@ mechanically, and neither is user-facing ceremony.
    concurrent answer-team fan-out.)
 2. **At most one mutating run per repo root.** Default chat can mutate, so two chats in
    one repo = two writers = corruption. A minimal internal **`RunWriteLock` keyed by the
-   canonical repo root**: read/answer runs never take it; a mutating run takes it; a
-   second mutating run on the same root is refused with one honest line ("an agent is
-   already editing this repo — wait or stop it"), not an approval gate, not a "lane
-   busy" ceremony, no queue UI. The lock is invisible until a genuine collision.
+   canonical repo root**: read/answer runs never take it; a mutating run takes it.
+   **Approved forward collision contract:** a second mutating run becomes a durable,
+   observable FIFO waiter that names the actual holder, position, canonical root, and
+   held duration; it spawns nothing before acquisition and exposes no fake ETA. This is
+   internal serialization, not an approval gate. **Current gap:** foreground `alln run`
+   can wait without durably exposing that ticket. `Run_Lifecycle_Reliability.md`
+   RLR-S00–S06 is the P0 implementation/proof owner and supersedes the older
+   fail-fast/no-queue wording.
 
 No approval gates. No second permission layer — Allnighter inherits each CLI's own
 permission/diff/undo model and adds none of its own. If the message implies a write, the

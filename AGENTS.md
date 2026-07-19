@@ -66,6 +66,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
 | Run model: chat/run = agent in repo root, Default Team, presets, write lock | `docs/phases/Unified_Run_Model.md` |
+| Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | `docs/phases/Run_Lifecycle_Reliability.md` |
 | Composer `@` file references, Project file search, file chips | `docs/phases/Composer_File_References.md` |
 | Model/skill/worker/team vocabulary | `docs/phases/Work_Order_Team_Model.md` |
 | Execution/answer teams, mutating runs, source/write safety | `docs/phases/Unified_Run_Model.md` + `docs/phases/CLI_Implementation_Contract.md` |

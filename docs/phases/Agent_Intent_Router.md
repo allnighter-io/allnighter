@@ -1,13 +1,14 @@
 # Agent Intent Router — one front door that routes intent to the right killer team
 
-Status: Specced v1 — the keystone gate between "agent found alln" and "agent
-ran the right team." Awaiting founder go. The matcher is built on catalog
-metadata (`description`/`typeTags`/`starters`/`lane`) — but that catalog is
-STALE and pre-rename. **`Team_Catalog_Normalization.md` is the hard prerequisite
-and MUST land first** (it decides the obvious family names + which families are
-tiered Min/Default/Max vs single); the router cannot route over a stale catalog.
+Status: **IR-S01 SHIPPED 2026-07-19 (`3d515ff0`); PAUSED after the first slice
+as requested. Do not start IR-S02 and do not archive this phase.** The normalized
+catalog prerequisite is complete. `Run_Lifecycle_Reliability.md` is now the P0
+hard prerequisite for IR-S02: the router must not route long-running work into a
+path that cannot reliably report, stop, or recover.
 Owner: AllnighterCore (`AgentHello` + catalog) + AllnighterCLI (`team hello`)
-Updated: 2026-07-19 (v2 — live cold-agent probe folded in: named-worker
+Updated: 2026-07-19 (v3 — IR-S01 landed; Kimi lifecycle failure made
+`Run_Lifecycle_Reliability.md` the execution gate before IR-S02. v2 folded in
+the live cold-agent probe: named-worker
 resolution + read-only quick ask are now specced, not assumed. Hardened same
 day by a ChatGPT 5.6 Sol read-only review [via `alln run --worker`, 14
 findings]: accepted = mechanical read-only enforcement, posture-filtered
@@ -15,6 +16,11 @@ driver precedence, named-worker-constrains-whole-result, discriminated-union
 return + argv commands, overlap/tie-break matcher spec, works-test tier
 contradiction fix; rejected = "team start is obsolete" [CLI contract still
 lists it live].)
+
+Execution order: `Run_Lifecycle_Reliability.md` → IR-S02 →
+`Agent_Onboarding.md`. IR-S01 remains committed and usable while the reliability
+phase runs; this doc stays active so the second slice resumes from the frozen
+matcher rather than being re-planned.
 
 ## The gap (the third gate)
 
@@ -140,6 +146,15 @@ the readiness the verdict already computes.
    fix. The same live run also mis-attributed the caller's concurrent commits
    to the worker in `outcome`/`repoDelta` — mechanical posture enforcement is
    what makes those surfaces trustworthy.)
+10. **A long-running recommendation is a control bundle, not only a launch
+    command.** IR-S01's `recommended.command` stays the primary runnable command.
+    After `Run_Lifecycle_Reliability.md` freezes the shared control contract,
+    IR-S02 adds the exact monitor/result/cancel argv appropriate to that target
+    (team, pilot, relay, or direct chat/run). A mutating or unattended route must
+    never teach final-only `--json` as if it were a progress transport. It uses
+    the shipped async lifecycle or `--stream`, and every lifecycle argv consumes
+    the same canonical run id. The router derives these commands from the CLI
+    registry; it does not invent a parallel status schema.
 
 ## Return shape (`--for`)
 
@@ -163,6 +178,20 @@ the readiness the verdict already computes.
     "teamId": "code_spec_review_min",
     "why": "Preferred seats unavailable; Min needs no Claude/ChatGPT.",
     "command": "alln team start \"<intent>\" --team code_spec_review_min --json"
+  },
+  "lifecycle": {                    // IR-S02; long-running runnable targets only
+    "monitor": {
+      "argv": ["alln", "team", "status", "<run-id>", "--json"],
+      "display": "alln team status <run-id> --json"
+    },
+    "result": {
+      "argv": ["alln", "team", "result", "<run-id>", "--json"],
+      "display": "alln team result <run-id> --json"
+    },
+    "cancel": {
+      "argv": ["alln", "team", "cancel", "<run-id>", "--json"],
+      "display": "alln team cancel <run-id> --json"
+    }
   },
   "nextActions": [ /* never empty when not runnable */ ]
 }
@@ -232,8 +261,8 @@ the hard prerequisite: the router is built only after the catalog is normalized.
 | Slice | Deliverable |
 | --- | --- |
 | IR-S00 | ✅ **DONE 2026-07-19** — `Team_Catalog_Normalization.md` landed (CN-S01–S04: obvious names + ids, complete tiers, drops, Law 4 typeTags, guard tests; commits `1247bd12`/`6266b8d4`/`daccc183`). The catalog is normalized; the router is unblocked. |
-| IR-S01 | `alln team hello --for "<intent>" --json` — deterministic matcher over catalog `typeTags`/`description`/`lane`; `recommended` + `readiness` + `fallback` + `nextActions`; no-empty-silence + honesty laws enforced. The matcher spec must define **overlap precedence and tie-breaking** ("the UI is broken" touches GUI Bug Hunt, Design, Usability Review, Bug Hunt — one deterministic winner) and no-match behavior; golden-transcript tests cover the taxonomy rows PLUS ambiguous/overlap phrases, not just one happy phrase per row. Readiness failures use distinct stable codes from the error catalog (worker down ≠ auth failure ≠ lane busy ≠ ambiguous intent). Emitted command grammar frozen against the CLI contract. |
-| IR-S02 | Depth + primitive routing — Default with Min/Max alternates *where the family is tiered*; Pilot/Relay/Chat as first-class targets; **named-worker resolution** (name→id across drivers, deterministic driver pick + loud alternates, `WORKER_NAME_AMBIGUOUS`/`WORKER_NAME_UNKNOWN`) + requested-worker echo (no silent substitution); read-only-ask route honest about mutation (Decision 9). |
+| IR-S01 | ✅ **DONE 2026-07-19 (`3d515ff0`)** — `alln team hello --for "<intent>" --json`; deterministic catalog matcher; `recommended` + `readiness` + `fallback` + `nextActions`; structured argv/display commands; overlap/no-match golden tests; generated contracts refreshed. Bare hello remains unchanged. Stop point requested by founder. |
+| IR-S02 | ⛔ **BLOCKED on `Run_Lifecycle_Reliability.md` RLR-S06.** After the lifecycle gate is green: depth + primitive routing — Default with Min/Max alternates *where the family is tiered*; Pilot/Relay/Chat as first-class targets; **named-worker resolution** (name→id across drivers, deterministic driver pick + loud alternates, `WORKER_NAME_AMBIGUOUS`/`WORKER_NAME_UNKNOWN`) + requested-worker echo (no silent substitution); read-only-ask route honest about mutation (Decision 9); long-running targets carry the registry-derived lifecycle bundle from Decision 10. |
 | PARKED | Fuzzy/model-assisted intent match behind the deterministic floor · completion-receipt unified result shape across team/pilot/relay (true metrics only — rounds, commits, tests, unattended duration; NEVER invented "handoffs avoided"). |
 
 ## Anti-goals
@@ -251,7 +280,7 @@ the hard prerequisite: the router is built only after the catalog is normalized.
 
 ## Works test
 
-After IR-S00 normalization: `alln team hello --for "harden this spec before I
+IR-S01 proof (landed): `alln team hello --for "harden this spec before I
 build" --json` → the **Spec Review** Default team with a runnable `team start`
 command and Min/Max alternates. `--for "how do we get X builders to love this"` →
 **Growth**. `--for "find the real cause of this crash"` → **Bug Hunt** Default.
@@ -268,3 +297,8 @@ IR-S00 shows every approved family with an obvious name and zero unnamed gaps �
 every *tiered* family complete (Min/Default/Max all present), every *single*
 family with no depth alternates (tiers are optional per Decision 4, so
 "untiered" is a passing state, not a gap).
+
+IR-S02 additionally waits for the lifecycle Works Test: a long-running routed
+command returns a canonical run id plus monitor/result/cancel argv; status reads
+that id from another process; cancel reaps the worker tree; and no recommended
+transport describes final-only JSON as live progress.
