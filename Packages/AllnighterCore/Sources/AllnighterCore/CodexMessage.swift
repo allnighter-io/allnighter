@@ -13,7 +13,7 @@ public enum Codex {
 
     public static func initialize(id: Int) -> String {
         line(["method": "initialize", "id": id,
-              "params": ["clientInfo": ["name": "allnighter", "title": "Allnighter", "version": "0.1.0"]]])
+              "params": ["clientInfo": ["name": "allnighter", "title": "Allnighter", "version": "0.9.0"]]])
     }
 
     /// Notification (no id) the client sends right after `initialize` resolves.

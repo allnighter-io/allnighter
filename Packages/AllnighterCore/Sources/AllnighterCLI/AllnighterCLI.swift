@@ -304,7 +304,7 @@ struct AllnighterCLI {
         }
     }
 
-    static let binaryVersion = "0.1.0"
+    static let binaryVersion = "0.9.0"
 
     /// `alln doctor [--json] [--full]` — the product recovery surface. Default is
     /// quota-free (resolve + version + local checks; auth/smoke/readiness reported
