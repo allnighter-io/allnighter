@@ -1,13 +1,24 @@
 import XCTest
 @testable import AllnighterCore
 
-/// IR-S01 golden transcripts for `alln team hello --for` (`Agent_Intent_Router.md`).
+/// IR-S01 / IR-S02 golden transcripts for `alln team hello --for`
+/// (`Agent_Intent_Router.md`). Lifecycle bundle is IR-S02b — not covered here.
 final class AgentIntentRouterTests: XCTestCase {
 
     private var allReady: [ReadyTeam] {
         BuiltInTeams.all.map {
             ReadyTeam(lane: $0.lane.rawValue, team: $0.id, displayName: $0.displayName)
         }
+    }
+
+    /// Explicit ready verdict — fake `Model(id: "m1"…)` does not staff teams.
+    private var readyVerdict: AgentReadiness.Verdict {
+        AgentReadiness.Verdict(
+            canStartTeamRun: true,
+            readyTeams: allReady,
+            blockedReason: nil,
+            nextAction: AgentNextAction(kind: "startTeamRun", tool: "team_start")
+        )
     }
 
     private func route(_ intent: String, ready: [ReadyTeam]? = nil) -> AgentIntentRouter.Payload {
@@ -33,6 +44,15 @@ final class AgentIntentRouterTests: XCTestCase {
         XCTAssertFalse(p.nextActions.isEmpty)
     }
 
+    func testSpecReviewDefaultHasDepthAlternatesMinAndMax() {
+        let p = route("harden this spec before I build")
+        XCTAssertEqual(p.recommended?.teamId, "code_spec_review")
+        XCTAssertEqual(
+            Set(p.recommended?.depthAlternates ?? []),
+            Set(["code_spec_review_min", "code_spec_review_max"]),
+            "tiered Spec Review must surface Min+Max as depthAlternates")
+    }
+
     func testGrowthBuildersLoveRoutesToGrowth() {
         let p = route("how do we get X builders to love this")
         XCTAssertEqual(p.recommended?.teamId, "code_growth")
@@ -47,6 +67,87 @@ final class AgentIntentRouterTests: XCTestCase {
     func testRewriteLandingRoutesToCopyLanding() {
         let p = route("rewrite my landing page")
         XCTAssertEqual(p.recommended?.teamId, "copy_landing")
+    }
+
+    func testUntieredFamilyHasEmptyDepthAlternates() {
+        let security = route("is this secure? credentials permissions exposure")
+        XCTAssertEqual(security.recommended?.teamId, "code_security_review")
+        XCTAssertEqual(security.recommended?.depthAlternates ?? ["sentinel"], [],
+                       "untiered Security Review must not invent Min/Max")
+
+        let copy = route("write clearer more persuasive copy for our product")
+        XCTAssertEqual(copy.recommended?.teamId, "copy_core")
+        XCTAssertEqual(copy.recommended?.depthAlternates ?? ["sentinel"], [],
+                       "untiered Copy Core must not invent Min/Max")
+    }
+
+    // MARK: - Primitives (IR-S02)
+
+    func testRelayOvernightRoutesToPairRelay() {
+        let p = route("keep building overnight without me")
+        XCTAssertEqual(p.recommended?.kind, "relay")
+        let argv = p.recommended?.command?.argv ?? []
+        XCTAssertEqual(Array(argv.prefix(3)), ["alln", "pair", "relay"])
+        XCTAssertTrue(argv.contains("--json"))
+    }
+
+    func testPilotSuperviseRoutesToPairPilot() {
+        let p = route("have another model BUILD this while I supervise")
+        XCTAssertEqual(p.recommended?.kind, "pilot")
+        let argv = p.recommended?.command?.argv ?? []
+        XCTAssertEqual(Array(argv.prefix(4)), ["alln", "pair", "pilot", "start"])
+    }
+
+    // MARK: - Named worker + read-only (field probe)
+
+    func testFieldProbeChatGPTSolReadOnlyPinsCodexNative() {
+        let p = route("ask ChatGPT 5.6 Sol for read-only feedback on these two docs")
+        XCTAssertEqual(p.recommended?.kind, "chat")
+        XCTAssertEqual(p.requestedWorker?.resolvedModelId, "model_chatgpt",
+                       "native Codex Sol, not Cursor model_chatgpt_sol")
+        XCTAssertTrue(
+            p.requestedWorker?.alternates.contains("model_chatgpt_sol") == true,
+            "Cursor Sol must appear as a loud alternate")
+        let posture = p.recommended?.safetyPosture ?? ""
+        if posture == "readOnly" {
+            // Codex mechanically enforces — preferred.
+        } else {
+            XCTAssertEqual(posture, "advisoryReadOnly")
+            XCTAssertTrue(
+                (p.recommended?.why ?? "").uppercased().contains("ADVISORY"),
+                "advisory posture must say ADVISORY in why")
+        }
+        let argv = p.recommended?.command?.argv ?? []
+        XCTAssertFalse(argv.isEmpty, "command must be present")
+        XCTAssertTrue(argv.contains("--worker"))
+        if let idx = argv.firstIndex(of: "--worker") {
+            XCTAssertEqual(argv[idx + 1], "model_chatgpt")
+        }
+    }
+
+    func testBareSolReadOnlyResolvesToCodexWhenUnambiguous() {
+        let p = route("ask Sol for a read-only take")
+        XCTAssertEqual(p.recommended?.kind, "chat")
+        XCTAssertEqual(p.requestedWorker?.resolvedModelId, "model_chatgpt")
+        XCTAssertTrue(p.requestedWorker?.alternates.contains("model_chatgpt_sol") == true)
+        let posture = p.recommended?.safetyPosture ?? ""
+        XCTAssertTrue(posture == "readOnly" || posture == "advisoryReadOnly")
+        if posture == "advisoryReadOnly" {
+            XCTAssertTrue((p.recommended?.why ?? "").uppercased().contains("ADVISORY"))
+        }
+        let argv = p.recommended?.command?.argv ?? []
+        XCTAssertTrue(argv.contains("--worker"))
+        if let idx = argv.firstIndex(of: "--worker") {
+            XCTAssertEqual(argv[idx + 1], "model_chatgpt")
+        }
+    }
+
+    func testNonsenseWorkerNameUnknownWithNextActions() {
+        let p = route("ask ModelZorch999 for feedback")
+        XCTAssertEqual(p.readiness.code, "WORKER_NAME_UNKNOWN")
+        XCTAssertFalse(p.nextActions.isEmpty, "no-empty-silence on unknown worker")
+        XCTAssertNil(p.requestedWorker?.resolvedModelId)
+        XCTAssertEqual(p.requestedWorker?.requestedName, "ModelZorch999")
     }
 
     // MARK: - Overlap / no-match
@@ -99,11 +200,8 @@ final class AgentIntentRouterTests: XCTestCase {
     // MARK: - Without --for unchanged (AgentHello)
 
     func testHelloWithoutForUnchangedReadinessReport() {
-        let verdict = AgentReadiness.evaluate(teams: BuiltInTeams.all, readyModels: [
-            Model(id: "m1", displayName: "M", modelLabel: "m", driverId: "claude_code", role: .both),
-        ])
         let payload = AgentHello.build(
-            verdict: verdict,
+            verdict: readyVerdict,
             contractHash: ContractRegistry.contractHash(),
             binaryVersion: "test"
         )
@@ -112,18 +210,13 @@ final class AgentIntentRouterTests: XCTestCase {
             payload.nextCommandPlan.command,
             "alln team preflight --team <team-id> --json")
         XCTAssertFalse(payload.workflows.isEmpty)
+        XCTAssertTrue(payload.canStartTeamRun)
     }
 
     func testIntentRouteJSONRoundTrips() throws {
-        let verdict = AgentReadiness.Verdict(
-            canStartTeamRun: true,
-            readyTeams: allReady,
-            blockedReason: nil,
-            nextAction: AgentNextAction(kind: "startTeamRun", tool: "team_start")
-        )
         let json = AgentHello.intentRouteJSONString(
             intent: "find the real cause of this crash",
-            verdict: verdict,
+            verdict: readyVerdict,
             readyModels: []
         )
         let decoded = try CoreJSON.decode(AgentIntentRouter.Payload.self, from: Data(json.utf8))

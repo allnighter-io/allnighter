@@ -5,12 +5,23 @@ import XCTest
 /// retired MCPWireConformanceTests (MCP_Retirement.md): `AgentHello.build`'s
 /// routing logic is unrelated to the wire protocol it used to live next to.
 final class AgentHelloTests: XCTestCase {
+
+    /// Explicit ready verdict — `evaluate` with a fake `Model(id: "m1"…)` does not
+    /// staff BuiltInTeams, so canStartTeamRun stays false (doctor path).
+    private var readyVerdict: AgentReadiness.Verdict {
+        AgentReadiness.Verdict(
+            canStartTeamRun: true,
+            readyTeams: BuiltInTeams.all.map {
+                ReadyTeam(lane: $0.lane.rawValue, team: $0.id, displayName: $0.displayName)
+            },
+            blockedReason: nil,
+            nextAction: AgentNextAction(kind: "startTeamRun", tool: "team_start")
+        )
+    }
+
     func testHelloRouterShape() {
-        let verdict = AgentReadiness.evaluate(teams: BuiltInTeams.all, readyModels: [
-            Model(id: "m1", displayName: "M", modelLabel: "m", driverId: "claude_code", role: .both),
-        ])
         let payload = AgentHello.build(
-            verdict: verdict,
+            verdict: readyVerdict,
             contractHash: ContractRegistry.contractHash(),
             binaryVersion: "test"
         )
@@ -34,11 +45,8 @@ final class AgentHelloTests: XCTestCase {
     }
 
     func testHelloPayloadCommandsResolveAgainstRegistry() {
-        let ready = AgentReadiness.evaluate(teams: BuiltInTeams.all, readyModels: [
-            Model(id: "m1", displayName: "M", modelLabel: "m", driverId: "claude_code", role: .both),
-        ])
         let blocked = AgentReadiness.evaluate(teams: BuiltInTeams.all, readyModels: [])
-        for verdict in [ready, blocked] {
+        for verdict in [readyVerdict, blocked] {
             let payload = AgentHello.build(
                 verdict: verdict,
                 contractHash: ContractRegistry.contractHash(),
@@ -60,11 +68,12 @@ final class AgentHelloTests: XCTestCase {
     }
 
     func testJSONStringRoundTrips() throws {
-        let verdict = AgentReadiness.evaluate(teams: BuiltInTeams.all, readyModels: [
-            Model(id: "m1", displayName: "M", modelLabel: "m", driverId: "claude_code", role: .both),
-        ])
-        let json = AgentHello.jsonString(verdict: verdict, binaryVersion: "test")
+        let json = AgentHello.jsonString(verdict: readyVerdict, binaryVersion: "test")
         let decoded = try CoreJSON.decode(AgentHello.Payload.self, from: Data(json.utf8))
         XCTAssertEqual(decoded.contractHash, ContractRegistry.contractHash())
+        XCTAssertTrue(decoded.canStartTeamRun)
+        XCTAssertEqual(
+            decoded.nextCommandPlan.command,
+            "alln team preflight --team <team-id> --json")
     }
 }
