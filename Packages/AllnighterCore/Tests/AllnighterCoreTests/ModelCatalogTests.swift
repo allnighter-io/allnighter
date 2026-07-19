@@ -32,15 +32,17 @@ final class ModelCatalogTests: XCTestCase {
     func testBuiltInsDefaultEnabledOnFreshInstall() {
         let registry = testRegistry()
         let models = ModelCatalog.resolvedModels(registry: registry)
-        // Fable, Opus, Sonnet 5, ChatGPT 5.6, Grok 4.5, Kimi K3, Cursor Auto,
-        // Composer 2.5, Cursor Grok 4.5, ChatGPT 5.6 Sol, Gemini Flash.
-        // (model_agy_opus stays default-off — fallback-only.)
-        XCTAssertEqual(models.filter(\.enabled).count, 11)
+        // Fable, Opus, Sonnet 5, ChatGPT 5.6 (Codex), Grok 4.5, Kimi K3, Cursor Auto,
+        // Composer 2.5, Cursor Grok 4.5, Gemini Flash.
+        // Cursor Sol + Antigravity Opus stay default-off.
+        XCTAssertEqual(models.filter(\.enabled).count, 10)
         XCTAssertFalse(models.first { $0.id == "model_agy_opus" }?.enabled ?? true)
         XCTAssertTrue(models.first { $0.id == "model_fable" }?.enabled ?? false)
-        XCTAssertTrue(models.first { $0.id == "model_chatgpt_sol" }?.enabled ?? false)
+        XCTAssertFalse(models.first { $0.id == "model_chatgpt_sol" }?.enabled ?? true,
+                       "Cursor Sol is never on-Bench by default")
+        XCTAssertTrue(models.first { $0.id == "model_chatgpt" }?.enabled ?? false)
         XCTAssertEqual(models.first { $0.id == "model_sonnet" }?.modelLabel, "claude-sonnet-5")
-        XCTAssertEqual(models.first { $0.id == "model_chatgpt" }?.displayName, "ChatGPT 5.6")
+        XCTAssertEqual(models.first { $0.id == "model_chatgpt" }?.displayName, "ChatGPT 5.6 Sol (Codex)")
     }
 
     func testDisableSonnetPersistsAcrossReload() throws {
@@ -139,8 +141,8 @@ final class ModelCatalogTests: XCTestCase {
         let flagship = ModelCatalog.capabilities("model_chatgpt").strengthRank
         XCTAssertLessThan(ModelCatalog.capabilities("model_chatgpt_54_mini").strengthRank, flagship)
         XCTAssertLessThan(ModelCatalog.capabilities("model_codex_spark").strengthRank, flagship)
-        // A full sibling (not mini/spark) inherits the flagship rank unchanged.
-        XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt_54").strengthRank, flagship)
+        // ChatGPT 5.4 is a capable non-Sol Codex seat — below Sol flagship rank.
+        XCTAssertLessThan(ModelCatalog.capabilities("model_chatgpt_54").strengthRank, flagship)
     }
 
     func testHighValueWorkerModelsOutrankSonnet() {

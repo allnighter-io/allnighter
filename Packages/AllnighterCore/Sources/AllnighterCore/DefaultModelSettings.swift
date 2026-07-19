@@ -150,7 +150,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         defaultTier: .flagship,
         allowHealthySubstitutions: true,
         tiers: TierMembership(
-            flagship: ["model_fable", "model_chatgpt_sol"],
+            flagship: ["model_fable", "model_chatgpt"],
             balanced: [
                 "model_chatgpt", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
                 "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"

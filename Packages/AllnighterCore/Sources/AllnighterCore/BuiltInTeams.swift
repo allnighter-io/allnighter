@@ -24,10 +24,10 @@ public enum BuiltInTeams {
 
     // MARK: - Model routing (fan-out diversity policy)
 
-    /// Synthesis Lead — Fable 5 (flagship-only). ChatGPT 5.6 Sol is the strategic
-    /// flagship worker seat. Antigravity Opus is never a preferred seed.
+    /// Synthesis Lead — Fable 5 (flagship-only). Codex Sol is the strategic
+    /// deputy (never Cursor Sol — paid quota, manual opt-in only).
+    /// Antigravity Opus is never a preferred seed.
     private static let leadFlagship = "model_fable"
-    private static let strategicFlagship = "model_chatgpt_sol"
     private static let opus = "model_opus"
     /// Default worker anchor for mutating Auto / Build a Slice (Cursor).
     private static let composer = "model_cursor_composer_25"
@@ -87,18 +87,17 @@ public enum BuiltInTeams {
         specs.map { needRow($0.0, $0.1, tags: tags, preferred: preferred) }
     }
 
-    /// Fable synthesizes; when Fable is unavailable, **ChatGPT 5.6 Sol is the
-    /// designated deputy lead for EVERY team** (the standard). Codex route first
-    /// (`model_chatgpt` — how Sol is accessed here), then the Cursor route
-    /// (`model_chatgpt_sol`), then the rest. `.strongestReady` already prefers Sol
-    /// (rank 99, above every non-Fable model) — pinning both Sol routes as the top
-    /// two fallbacks makes the standard explicit and independent of policy/rank drift.
+    /// Fable synthesizes; when Fable is unavailable, **Codex Sol** (`model_chatgpt`)
+    /// is the designated deputy lead for EVERY team. Cursor Sol is never in this
+    /// chain (paid Cursor quota — manual opt-in only). Fallbacks stay on
+    /// subscription CLI homes; broad `.strongestReady` still filters
+    /// `neverAutomaticSubstituteIds` in the resolver.
     private static func synthesisLead(_ writer: String, dissent: DissentPolicy = .preserveDissent) -> TeamLeadSpec {
         TeamLeadSpec(
             skillId: writer,
             preferredModelId: leadFlagship,
             fallbackModelIds: [
-                chatgpt, strategicFlagship, opus, kimi, cursorGrok, grok,
+                chatgpt, opus, kimi, cursorGrok, grok,
                 composer, sonnet, gemini, cursorAuto, agyOpus
             ],
             fallbackPolicy: .strongestReady,
@@ -126,9 +125,11 @@ public enum BuiltInTeams {
     }
 
     /// The Signal scout row: Grok reads / researches X and public web sources first.
+    /// Cursor Grok is an explicit ordered fallback (same mind, Cursor route) when
+    /// the Grok CLI seat is down — never a silent broad cross-CLI fill.
     static let signalScoutGrok = TeamWorkerSpec(
         id: "signal_source_reader", skillId: "signal_source_reader", purpose: .answer,
-        preferredModelId: grok, fallbackPolicy: .laneCapable)
+        preferredModelId: grok, fallbackModelIds: [cursorGrok], fallbackPolicy: .laneCapable)
 
     /// Canonical interpreter preference: Grok (web-aware), ChatGPT 5.6, then Gemini.
     static let signalInterpreterPreference = [grok, chatgpt, gemini]
@@ -296,7 +297,8 @@ public enum BuiltInTeams {
         id: "code_growth_max", name: "Growth Max", lane: .code,
         output: .plan, defaultEffort: .high,
         description: "Deep growth read: an X/web signal scout on what is spreading now, then up to 8 diverse models on the wedge — every flagship and idle model recruited when ready (Sol, ChatGPT 5.6, Opus, Sonnet, Composer…) — and a synthesizer that prizes the breakout outlier over safe consensus. Drops a seat rather than doubling up.",
-        scout: row("signal_source_reader", .answer, preferred: grok, fallback: .laneCapable),
+        scout: row("signal_source_reader", .answer, preferred: grok,
+                   fallbacks: [cursorGrok], fallback: .laneCapable),
         rows: [
             TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
                            requiredCapabilityTags: [.code],
@@ -354,7 +356,8 @@ public enum BuiltInTeams {
         id: "code_spec_review_max", name: "Spec Review Max", lane: .code,
         output: .specReview, defaultEffort: .high,
         description: "Full-depth review for launch and hard specs: outside research plus seven blind lenses spanning premise, operations, contract, proof, scope, simplicity, and a rival approach.",
-        scout: row("spec_outside_scout", .answer, preferred: grok, fallback: .laneCapable),
+        scout: row("spec_outside_scout", .answer, preferred: grok,
+                   fallbacks: [cursorGrok], fallback: .laneCapable),
         rows: needRows([
             ("spec_first_principles_reviewer", .answer),
             ("spec_doc_hygiene_reviewer", .answer),

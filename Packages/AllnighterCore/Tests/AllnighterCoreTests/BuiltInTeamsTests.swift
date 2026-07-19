@@ -92,12 +92,12 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(r.planWriter?.modelId, "model_fable")
         XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
         let crew = r.answerWorkers + r.reviewWorkers
-        // Law 3: no row pins Sol by identity any more — cross-row diversity
-        // (declaration order + capability + rank) still recruits it exactly
-        // once on a rich bench, never a pile-up, but on whichever row claims
-        // it first rather than a hardcoded skill.
-        let solWorkers = crew.filter { $0.modelId == "model_chatgpt_sol" }
-        XCTAssertEqual(solWorkers.count, 1, "one strategic Sol worker, not a pile-up")
+        // Law 3: no row pins Sol by identity. Codex Sol may be recruited once;
+        // Cursor Sol is never an automatic substitute even if present on the bench.
+        let cursorSolWorkers = crew.filter { $0.modelId == "model_chatgpt_sol" }
+        XCTAssertEqual(cursorSolWorkers.count, 0, "Cursor Sol must never auto-seat")
+        let codexSolWorkers = crew.filter { $0.modelId == "model_chatgpt" }
+        XCTAssertLessThanOrEqual(codexSolWorkers.count, 1, "Codex Sol at most once")
         XCTAssertGreaterThan(Set(crew.map(\.modelId)).count, 2, "fan-out should spread across multiple models")
         let composerHits = crew.filter { $0.modelId == "model_cursor_composer_25" }.count
         XCTAssertLessThanOrEqual(composerHits, 1, "Composer at most once in the rotation")
@@ -135,10 +135,10 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     func testEverySynthesisLeadHasOrderedCrossCLIFallbacks() {
-        // Sol is the designated deputy lead: Codex route (model_chatgpt) then Cursor
-        // route (model_chatgpt_sol) lead the fallback chain, ahead of Opus.
+        // Codex Sol is the designated deputy lead; Cursor Sol is never in the
+        // automatic chain (paid Cursor quota — manual opt-in only).
         let expected = [
-            "model_chatgpt", "model_chatgpt_sol", "model_opus", "model_kimi_k3",
+            "model_chatgpt", "model_opus", "model_kimi_k3",
             "model_cursor_grok_45", "model_grok",
             "model_cursor_composer_25", "model_sonnet", "model_gemini",
             "model_cursor_auto", "model_agy_opus"

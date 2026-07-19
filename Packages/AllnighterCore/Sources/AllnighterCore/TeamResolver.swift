@@ -198,7 +198,9 @@ public enum TeamResolver {
                 if let preferred = row.preferredModelId, preferred != model.id {
                     warnings.append("\(skillName): preferred \(preferred) unavailable; resolved to \(model.displayName).")
                 }
-                if row.preferredModelId == nil { diversityUsed.insert(model.id) }
+                if row.preferredModelId == nil {
+                    diversityUsed.formUnion(ModelCatalog.diversityExclusionIds(for: model.id))
+                }
                 for _ in 0..<want { workers.append(makeWorker(model, row: row, skillName: skillName, stage: stage)) }
             }
             return workers
@@ -289,6 +291,12 @@ public enum TeamResolver {
     /// claimed by earlier capability-only rows in this team's resolution pass are
     /// skipped when a distinct capable alternative remains, and reused (never
     /// blocked) once the capable pool is exhausted.
+    ///
+    /// **Automatic substitution law:** Ready ≠ automatic substitute.
+    /// `ModelCatalog.neverAutomaticSubstituteIds` (e.g. Cursor Sol) are never
+    /// chosen by broad policies — only by explicit preferred / ordered fallback.
+    /// Broad fills also stay on the preferred model's home driver when one was
+    /// declared (Claude→Claude, Codex→Codex, Cursor→Cursor, …).
     static func selectModel(
         preferredModelId: String?,
         fallbackModelIds: [String] = [],
@@ -316,6 +324,9 @@ public enum TeamResolver {
             return preferredTags.allSatisfy { tags.contains($0) }
         }
         func laneOK(_ m: Model) -> Bool { capabilities(m.id).laneTags.contains(lane) }
+        /// Broad auto pool — excludes paid/manual-only routes unless this call
+        /// explicitly preferred or ordered-fallback'd them (those paths return early).
+        func autoOK(_ m: Model) -> Bool { ModelCatalog.allowsAutomaticSubstitution(m.id) }
         // Caliber band (Team_Catalog_Normalization Law 3): Flagship ≥95,
         // High 85–94, Mid 70–84, floor below. Preference reorders WITHIN a
         // band — a rank-90 specialist rightly takes the seat from a rank-92
@@ -346,21 +357,22 @@ public enum TeamResolver {
                 return model
             }
             guard !allowedModelIds.isEmpty else { return nil }
-            return strongest(pool.filter(hasTags))
+            return strongest(pool.filter(hasTags).filter(autoOK))
         }
         // Reserve the Lead's model for synthesis — workers take cheaper alternatives
         // when the bench has depth (one-model benches still run).
         if let reserved = reserveModelId,
-           pool.contains(where: { $0.id != reserved && hasTags($0) }) {
+           pool.contains(where: { $0.id != reserved && hasTags($0) && autoOK($0) }) {
             pool.removeAll { $0.id == reserved }
         }
-        // Cross-row diversity: skip models already claimed by an earlier
-        // capability-only row in this pass, but only when a distinct capable
-        // alternative remains — otherwise keep the pool as-is and degrade to
-        // reuse rather than blocking the row.
-        if !excludeModelIds.isEmpty {
-            let alt = pool.filter { !excludeModelIds.contains($0.id) }
-            if alt.contains(where: hasTags) { pool = alt }
+        // Cross-row diversity: skip models already claimed (and their paid
+        // aliases — Codex Sol + Cursor Sol must not both seat as "diversity").
+        let expandedExclude = excludeModelIds.reduce(into: Set<String>()) { acc, id in
+            acc.formUnion(ModelCatalog.diversityExclusionIds(for: id))
+        }
+        if !expandedExclude.isEmpty {
+            let alt = pool.filter { !expandedExclude.contains($0.id) }
+            if alt.contains(where: { hasTags($0) && autoOK($0) }) { pool = alt }
         }
         // Preferred wins when ready and allowed unless it is the resolved Lead
         // model and an eligible alternative exists.
@@ -368,22 +380,43 @@ public enum TeamResolver {
            let model = pool.first(where: { $0.id == pref }) {
             return model
         }
+        // Explicit ordered fallbacks may name a manual-opt-in model (user intent).
         for id in fallbackModelIds {
             if let model = pool.first(where: { $0.id == id && hasTags($0) }) {
                 return model
             }
         }
+        // Home-driver affinity: when the row named a preferred model, automatic
+        // fills stay on that CLI (Claude→Claude, Codex→Codex, Cursor→Cursor,
+        // Gemini→Antigravity…). Ready ≠ automatic cross-driver substitute.
+        // Resolve driver from the ready bench first, then the catalog (preferred
+        // may be down but still declares the home CLI).
+        let homeDriver = preferredModelId.flatMap { id in
+            byId[id]?.driverId ?? ModelCatalog.get(id)?.driverId
+        }
+        func homeOK(_ m: Model) -> Bool {
+            guard let homeDriver else { return true }
+            return m.driverId == homeDriver
+        }
+        let autoPool = pool.filter(hasTags).filter(autoOK)
         switch fallback {
         case .exactOnly:
             return nil // handled before ordered or broad substitutions
         case .sameSource:
-            let source = preferredModelId.flatMap { byId[$0]?.driverId }
-            let sameSource = pool.filter { $0.driverId == source }.filter(hasTags)
-            return strongest(sameSource) ?? strongest(pool.filter(hasTags))
+            return strongest(autoPool.filter(homeOK))
         case .laneCapable:
-            return strongest(pool.filter(laneOK).filter(hasTags))
+            // Named preferred → stay on that CLI; else any lane-capable free seat.
+            if homeDriver != nil {
+                return strongest(autoPool.filter(laneOK).filter(homeOK))
+            }
+            return strongest(autoPool.filter(laneOK))
         case .anyReady, .strongestReady:
-            return strongest(pool.filter(hasTags))
+            // Named preferred → stay on that CLI; else any free auto seat.
+            // Cross-CLI rescue is only via explicit `fallbackModelIds` (above).
+            if homeDriver != nil {
+                return strongest(autoPool.filter(homeOK))
+            }
+            return strongest(autoPool)
         }
     }
 
@@ -412,6 +445,7 @@ public enum TeamResolver {
         func laneOK(_ m: Model) -> Bool { capabilities(m.id).laneTags.contains(lane) }
 
         var pool = ready.filter(laneOK).filter(hasTags)
+            .filter { ModelCatalog.allowsAutomaticSubstitution($0.id) }
         // Reserve the Lead's model for the Lead — but only if alternatives remain
         // (a one-model bench must still produce a worker).
         if let r = reserveModelId, pool.contains(where: { $0.id != r }) {

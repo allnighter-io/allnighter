@@ -47,14 +47,67 @@ final class TeamResolverTests: XCTestCase {
             TeamWorkerSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: "model_chatgpt", fallbackPolicy: .anyReady)
         ])
-        // Codex not ready; Opus is.
-        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
-        XCTAssertEqual(r.answerWorkers.first?.modelId, "model_opus")
+        // Codex preferred but down; another Codex seat ready → home-driver fill.
+        let chatgpt54 = Model(id: "model_chatgpt_54", displayName: "ChatGPT 5.4",
+                              modelLabel: "gpt-5.4", driverId: "codex", role: .answerer)
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low,
+                                     readyModels: [opus(), chatgpt54])
+        XCTAssertEqual(r.answerWorkers.first?.modelId, "model_chatgpt_54")
         XCTAssertTrue(r.warnings.contains { $0.contains("preferred model_chatgpt unavailable") })
-        // #7: the worker records WHAT it was substituted from, so the UI can say so instead
-        // of silently showing a different model than the team was configured with.
         XCTAssertEqual(r.answerWorkers.first?.substitutedFromModelId, "model_chatgpt")
         XCTAssertTrue(r.isRunnable)
+    }
+
+    func testPreferredUnavailableDoesNotCrossDriverWithoutOrderedFallback() {
+        let t = team(rows: [
+            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
+                           preferredModelId: "model_chatgpt", fallbackPolicy: .anyReady)
+        ])
+        // Codex preferred/down; only Claude ready → seat blocks (no silent paid/cross-CLI swap).
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
+        XCTAssertFalse(r.isRunnable)
+        XCTAssertTrue(r.answerWorkers.isEmpty)
+    }
+
+    func testCursorSolNeverAutoSeatsOnSpecReviewMinWhenCodexSolReady() {
+        let ready: [Model] = [
+            Model(id: "model_chatgpt", displayName: "ChatGPT 5.6 Sol", modelLabel: "gpt-5.6-sol",
+                  driverId: "codex", role: .both),
+            Model(id: "model_chatgpt_sol", displayName: "ChatGPT 5.6 Sol (Cursor)", modelLabel: "gpt-5.6-sol-high",
+                  driverId: "cursor_agent", role: .both),
+            Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus",
+                  driverId: "claude_code", role: .both),
+            Model(id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-code/k3",
+                  driverId: "kimi", role: .both),
+            Model(id: "model_grok", displayName: "Grok 4.5", modelLabel: "grok-4.5",
+                  driverId: "grok", role: .answerer),
+            Model(id: "model_gemini", displayName: "Gemini", modelLabel: "g",
+                  driverId: "antigravity", role: .answerer),
+        ]
+        let team = BuiltInTeams.team("code_spec_review_min")!
+        let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .med, readyModels: ready)
+        XCTAssertTrue(r.isRunnable)
+        let crewIds = Set((r.answerWorkers + r.reviewWorkers).map(\.modelId))
+        XCTAssertFalse(crewIds.contains("model_chatgpt_sol"),
+                       "Cursor Sol must never auto-seat on Spec Review Min")
+        XCTAssertTrue(crewIds.contains("model_chatgpt") || r.planWriter?.modelId == "model_chatgpt",
+                      "Codex Sol may seat as the default Sol route")
+    }
+
+    func testCursorSolStillResolvesWhenExplicitlyPreferred() {
+        let cursorSol = Model(id: "model_chatgpt_sol", displayName: "ChatGPT 5.6 Sol (Cursor)",
+                              modelLabel: "gpt-5.6-sol-high", driverId: "cursor_agent", role: .both)
+        let t = team(rows: [
+            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
+                           preferredModelId: "model_chatgpt_sol",
+                           allowedModelIds: ["model_chatgpt_sol"],
+                           fallbackPolicy: .exactOnly)
+        ], lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_chatgpt_sol",
+                              fallbackPolicy: .exactOnly))
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low,
+                                     readyModels: [cursorSol])
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.first?.modelId, "model_chatgpt_sol")
     }
 
     func testPreferredUsedWhenReady() {

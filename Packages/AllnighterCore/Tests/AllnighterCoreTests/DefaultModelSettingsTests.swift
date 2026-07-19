@@ -9,37 +9,40 @@ final class DefaultModelSettingsTests: XCTestCase {
         let s = DefaultModelSettings.fresh
         XCTAssertEqual(s.defaultTier, .flagship)
         XCTAssertTrue(s.allowHealthySubstitutions)
-        XCTAssertEqual(s.tierDefault(.flagship), "model_opus")
-        // Opus 4.8 first; Antigravity Opus 4.6 is the ordered Opus fallback only.
-        XCTAssertEqual(s.tiers.flagship, ["model_opus", "model_agy_opus", "model_chatgpt", "model_composer"])
-        XCTAssertEqual(s.tiers.balanced, ["model_sonnet", "model_composer", "model_gemini"])
-        XCTAssertEqual(s.tiers.fast, ["model_cursor_auto", "model_grok", "model_gemini"])
+        XCTAssertEqual(s.tierDefault(.flagship), "model_fable")
+        // Flagship: Fable + Codex Sol only. Cursor Sol is never seeded.
+        XCTAssertEqual(s.tiers.flagship, ["model_fable", "model_chatgpt"])
+        XCTAssertFalse(s.tiers.flagship.contains("model_chatgpt_sol"))
+        XCTAssertEqual(s.tiers.balanced, [
+            "model_chatgpt", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
+            "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
+        ])
+        XCTAssertEqual(s.tiers.fast, ["model_cursor_auto", "model_composer", "model_gemini"])
     }
 
-    func testAutoPrefersOpus48OverAgyOpusWhenBothReady() {
+    func testAutoPrefersFableOverCodexSolWhenBothReady() {
         let r = SubstitutionResolver.resolveAuto(
             settings: .fresh,
-            readyModelIds: ["model_opus", "model_agy_opus", "model_chatgpt"])
-        XCTAssertEqual(r.resolvedModelId, "model_opus")
+            readyModelIds: ["model_fable", "model_chatgpt"])
+        XCTAssertEqual(r.resolvedModelId, "model_fable")
         XCTAssertFalse(r.substituted)
     }
 
-    func testAutoFallsBackToAgyOpusWhenClaudeOpusUnavailable() {
-        // Claude Code Opus down; Antigravity Opus ready → ordered Flagship fallback.
+    func testAutoFallsBackToCodexSolWhenFableUnavailable() {
         let r = SubstitutionResolver.resolveAuto(
             settings: .fresh,
-            readyModelIds: ["model_agy_opus", "model_chatgpt"])
-        XCTAssertEqual(r.resolvedModelId, "model_agy_opus")
+            readyModelIds: ["model_chatgpt"])
+        XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
         XCTAssertTrue(r.substituted)
         XCTAssertEqual(r.tier, .flagship)
     }
 
-    func testRequestedOpusFallsBackToAgyBeforeChatGPT() {
+    func testRequestedFableFallsBackToCodexSol() {
         let r = SubstitutionResolver.resolveRequested(
-            modelId: "model_opus",
+            modelId: "model_fable",
             settings: .fresh,
-            readyModelIds: ["model_agy_opus", "model_chatgpt"])
-        XCTAssertEqual(r.resolvedModelId, "model_agy_opus")
+            readyModelIds: ["model_chatgpt"])
+        XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
         XCTAssertTrue(r.substituted)
     }
 
@@ -57,14 +60,14 @@ final class DefaultModelSettingsTests: XCTestCase {
 
     func testModelCanBelongToMultipleTiers() {
         let s = DefaultModelSettings.fresh
-        // Composer (cheap, flagship-grade) is seeded into Flagship AND Balanced.
-        XCTAssertEqual(s.tiers.tiers(of: "model_composer"), [.flagship, .balanced])
-        XCTAssertEqual(s.tiers.highestTier(of: "model_composer"), .flagship)
-        // Gemini Flash spans Balanced + Fast.
+        // ChatGPT spans Flagship + Balanced; Gemini spans Balanced + Fast.
+        XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt"), [.flagship, .balanced])
+        XCTAssertEqual(s.tiers.highestTier(of: "model_chatgpt"), .flagship)
         XCTAssertEqual(s.tiers.tiers(of: "model_gemini"), [.balanced, .fast])
-        // A model in zero tiers is Unassigned.
-        XCTAssertTrue(s.tiers.isUnassigned("model_cursor_composer_25"))
-        XCTAssertEqual(s.tiers.tiers(of: "model_cursor_composer_25"), [])
+        // Composer Fast is Fast-only in the seed; Composer 2.5 is Balanced-only.
+        XCTAssertEqual(s.tiers.tiers(of: "model_composer"), [.fast])
+        XCTAssertEqual(s.tiers.tiers(of: "model_cursor_composer_25"), [.balanced])
+        XCTAssertTrue(s.tiers.isUnassigned("model_chatgpt_sol"))
     }
 
     func testNormalizePreservesCrossTierAndDedupesWithinTier() {
@@ -81,8 +84,7 @@ final class DefaultModelSettingsTests: XCTestCase {
     // MARK: - Auto resolution + the toggle-gates-Auto rule
 
     func testAutoSubstitutionsOnPicksFirstReadyInTier() {
-        let s = DefaultModelSettings.fresh   // Flagship: opus, chatgpt, composer
-        // Opus down, ChatGPT ready → substitute to ChatGPT.
+        let s = DefaultModelSettings.fresh   // Flagship: fable, chatgpt
         let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_chatgpt"])
         XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
         XCTAssertTrue(r.substituted)
@@ -90,16 +92,15 @@ final class DefaultModelSettingsTests: XCTestCase {
     }
 
     func testAutoSubstitutionsOnDefaultReadyIsNotASubstitution() {
-        let r = SubstitutionResolver.resolveAuto(settings: .fresh, readyModelIds: ["model_opus", "model_chatgpt"])
-        XCTAssertEqual(r.resolvedModelId, "model_opus")
+        let r = SubstitutionResolver.resolveAuto(settings: .fresh, readyModelIds: ["model_fable", "model_chatgpt"])
+        XCTAssertEqual(r.resolvedModelId, "model_fable")
         XCTAssertFalse(r.substituted)
     }
 
     func testAutoSubstitutionsOffUsesTierDefaultOnly_waitsWhenDown() {
         var s = DefaultModelSettings.fresh
         s.allowHealthySubstitutions = false
-        // Opus (the default) down, ChatGPT ready — with substitutions OFF Auto must WAIT,
-        // never slide to ChatGPT.
+        // Fable (the default) down, Codex Sol ready — with substitutions OFF Auto must WAIT.
         let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_chatgpt"])
         XCTAssertNil(r.resolvedModelId)
         XCTAssertEqual(r.blockedReason, .shelfEmpty)
@@ -108,8 +109,8 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testAutoSubstitutionsOffRunsDefaultWhenReady() {
         var s = DefaultModelSettings.fresh
         s.allowHealthySubstitutions = false
-        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_opus"])
-        XCTAssertEqual(r.resolvedModelId, "model_opus")
+        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_fable"])
+        XCTAssertEqual(r.resolvedModelId, "model_fable")
     }
 
     func testAutoBlocksWhenWholeTierDown() {
@@ -122,17 +123,17 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testAutoBlocksWhenTierEmpty() {
         var s = DefaultModelSettings.fresh
         s.tiers.flagship = []
-        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_opus"])
+        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_chatgpt"])
         XCTAssertNil(r.resolvedModelId)
         XCTAssertEqual(r.blockedReason, .tierEmpty)
     }
 
     func testAutoOnBalancedUsesAMultiTierMember() {
         var s = DefaultModelSettings.fresh
-        s.defaultTier = .balanced            // Balanced: sonnet, composer, gemini
-        // Sonnet down, Composer (also a Flagship member) ready → Balanced Auto uses it.
-        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_composer"])
-        XCTAssertEqual(r.resolvedModelId, "model_composer")
+        s.defaultTier = .balanced
+        // First Balanced member (chatgpt) down; next ready member wins.
+        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_opus"])
+        XCTAssertEqual(r.resolvedModelId, "model_opus")
         XCTAssertTrue(r.substituted)
         XCTAssertEqual(r.tier, .balanced)
     }
@@ -140,37 +141,37 @@ final class DefaultModelSettingsTests: XCTestCase {
     // MARK: - Requested-model substitution (per-chat pick / team worker)
 
     func testRequestedReadyRunsAsIs() {
-        let r = SubstitutionResolver.resolveRequested(modelId: "model_opus", settings: .fresh, readyModelIds: ["model_opus"])
-        XCTAssertEqual(r.resolvedModelId, "model_opus")
+        let r = SubstitutionResolver.resolveRequested(modelId: "model_fable", settings: .fresh, readyModelIds: ["model_fable"])
+        XCTAssertEqual(r.resolvedModelId, "model_fable")
         XCTAssertFalse(r.substituted)
     }
 
     func testRequestedDownSubstitutesWithinHighestTier() {
-        // Opus down, ChatGPT ready, both Flagship → substitute to ChatGPT.
-        let r = SubstitutionResolver.resolveRequested(modelId: "model_opus", settings: .fresh, readyModelIds: ["model_chatgpt"])
+        // Fable down, Codex Sol ready, both Flagship → substitute to Codex Sol.
+        let r = SubstitutionResolver.resolveRequested(modelId: "model_fable", settings: .fresh, readyModelIds: ["model_chatgpt"])
         XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
         XCTAssertTrue(r.substituted)
         XCTAssertEqual(r.tier, .flagship)
     }
 
     func testRequestedNeverDowngrades() {
-        // Opus (Flagship) down; only Sonnet (Balanced) ready → no downgrade.
-        let r = SubstitutionResolver.resolveRequested(modelId: "model_opus", settings: .fresh, readyModelIds: ["model_sonnet"])
+        // Fable (Flagship) down; only Sonnet (Balanced) ready → no downgrade.
+        let r = SubstitutionResolver.resolveRequested(modelId: "model_fable", settings: .fresh, readyModelIds: ["model_sonnet"])
         XCTAssertNil(r.resolvedModelId)
         XCTAssertEqual(r.blockedReason, .shelfEmpty)
     }
 
     func testRequestedMultiTierModelSubstitutesWithinHighestTier() {
-        // Composer is in Flagship + Balanced. Down → substitute within Flagship
-        // (highest), never the lower tier — so it lands on Opus, not a Balanced model.
-        let r = SubstitutionResolver.resolveRequested(modelId: "model_composer", settings: .fresh, readyModelIds: ["model_opus", "model_sonnet"])
-        XCTAssertEqual(r.resolvedModelId, "model_opus")
+        // ChatGPT spans Flagship + Balanced. Down → substitute within Flagship
+        // (highest), never the lower tier.
+        let r = SubstitutionResolver.resolveRequested(modelId: "model_chatgpt", settings: .fresh, readyModelIds: ["model_fable", "model_sonnet"])
+        XCTAssertEqual(r.resolvedModelId, "model_fable")
         XCTAssertEqual(r.tier, .flagship)
     }
 
     func testRequestedUnassignedDownNeverSubstitutes() {
-        // model_cursor_composer_25 is Unassigned in the seed; down → wait, never substitute.
-        let r = SubstitutionResolver.resolveRequested(modelId: "model_cursor_composer_25", settings: .fresh, readyModelIds: ["model_opus"])
+        // Cursor Sol is Unassigned in the seed; down → wait, never substitute.
+        let r = SubstitutionResolver.resolveRequested(modelId: "model_chatgpt_sol", settings: .fresh, readyModelIds: ["model_fable"])
         XCTAssertNil(r.resolvedModelId)
         XCTAssertEqual(r.blockedReason, .unassigned)
     }
@@ -178,7 +179,7 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testRequestedDownSubstitutionsOffWaits() {
         var s = DefaultModelSettings.fresh
         s.allowHealthySubstitutions = false
-        let r = SubstitutionResolver.resolveRequested(modelId: "model_opus", settings: s, readyModelIds: ["model_chatgpt"])
+        let r = SubstitutionResolver.resolveRequested(modelId: "model_fable", settings: s, readyModelIds: ["model_chatgpt"])
         XCTAssertNil(r.resolvedModelId)
     }
 
@@ -230,6 +231,6 @@ final class DefaultModelSettingsTests: XCTestCase {
         try p.save(s)
         let reset = try p.reset()
         XCTAssertEqual(reset.defaultTier, .flagship)
-        XCTAssertEqual(reset.tiers.flagship, ["model_opus", "model_agy_opus", "model_chatgpt", "model_composer"])
+        XCTAssertEqual(reset.tiers.flagship, ["model_fable", "model_chatgpt"])
     }
 }

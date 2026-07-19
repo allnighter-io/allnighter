@@ -3,6 +3,44 @@ import Foundation
 /// Core-owned, deterministic model catalog: built-in/custom definitions, Bench
 /// roster overlay, and capability metadata for resolver fallback.
 public enum ModelCatalog {
+    // MARK: - Automatic substitution law
+
+    /// Paid / reseller routes that must never be chosen by automatic
+    /// substitution, diversity fill, or Lead fallback — even when "ready."
+    /// They remain usable only when the row/Lead **explicitly** prefers them
+    /// (or lists them in `fallbackModelIds`) after the user opted in.
+    /// Ready ≠ automatic substitute.
+    public static let neverAutomaticSubstituteIds: Set<String> = [
+        "model_chatgpt_sol", // ChatGPT 5.6 Sol via Cursor — paid Cursor quota
+    ]
+
+    /// Same underlying model on another driver. Diversity must not seat both
+    /// as "distinct" workers (Codex Sol + Cursor Sol is one Sol, not two).
+    public static let automaticSubstituteAliases: [String: String] = [
+        "model_chatgpt_sol": "model_chatgpt",
+    ]
+
+    /// True when this model may be picked by broad automatic policies
+    /// (`.strongestReady` / `.anyReady` / `.laneCapable` fills, need-row
+    /// diversity). Explicit preferred / ordered fallback ids still win.
+    public static func allowsAutomaticSubstitution(_ modelId: String) -> Bool {
+        !neverAutomaticSubstituteIds.contains(modelId)
+    }
+
+    /// Expand a claimed model id to every id that counts as the same seat for
+    /// cross-row diversity (aliases both directions).
+    public static func diversityExclusionIds(for modelId: String) -> Set<String> {
+        var ids: Set<String> = [modelId]
+        if let canonical = automaticSubstituteAliases[modelId] {
+            ids.insert(canonical)
+        }
+        for (alias, canonical) in automaticSubstituteAliases where canonical == modelId || ids.contains(canonical) {
+            ids.insert(alias)
+            ids.insert(canonical)
+        }
+        return ids
+    }
+
     // MARK: - Built-in capability metadata
 
     public static let builtInCapabilities: [String: ModelCapabilities] = [
@@ -137,7 +175,10 @@ public enum ModelCatalog {
             def("model_cursor_auto", "Auto", "auto", "cursor_agent", .answerer, defaultEnabled: true),
             def("model_cursor_composer_25", "Composer 2.5", "composer-2.5", "cursor_agent", .answerer, defaultEnabled: true),
             def("model_cursor_grok_45", "Cursor Grok 4.5", "cursor-grok-4.5-high", "cursor_agent", .answerer, defaultEnabled: true, effortVariants: cursorGrokVariants),
-            def("model_chatgpt_sol", "ChatGPT 5.6 Sol (Cursor)", "gpt-5.6-sol-high", "cursor_agent", .both, defaultEnabled: true, effortVariants: chatgptSolVariants),
+            // Cursor Sol is NEVER on-Bench by default and NEVER an automatic
+            // substitute — it burns paid Cursor quota. Codex Sol (`model_chatgpt`)
+            // is the only default Sol route; Cursor Sol is manual opt-in only.
+            def("model_chatgpt_sol", "ChatGPT 5.6 Sol (Cursor)", "gpt-5.6-sol-high", "cursor_agent", .both, defaultEnabled: false, effortVariants: chatgptSolVariants),
             def("model_cursor_composer_25_fast", "Composer 2.5 Fast", "composer-2.5-fast", "cursor_agent", .answerer, defaultEnabled: false),
             // Antigravity — a multi-model router; effort is encoded in the model name.
             def("model_gemini", "Gemini 3.5 Flash", "Gemini 3.5 Flash (Medium)", "antigravity", .answerer, defaultEnabled: true, effortVariants: flashVariants),
