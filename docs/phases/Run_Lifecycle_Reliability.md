@@ -1,12 +1,13 @@
 # Run Lifecycle Reliability — every accepted run stays observable, stoppable, and recoverable
 
-Status: **APPROVED — P0 execution gate. Build RLR-S00–S06 before IR-S02 or
-Agent Onboarding V1.** Founder approved 2026-07-19 after the Kimi mutating-run
-failure below. Execute one bounded slice at a time; do not mix router/onboarding
-work into this phase.
+Status: **HARDENED — P0 execution gate. Do not start product patches until
+RLR-S00 reproduces the field signatures.** Spec Review (Codex Sol lenses,
+2026-07-19 run `2ADCE96A-…`) + live re-hang (Kimi `alln run`, same day) forced
+the edits below. Founder intent still stands: build RLR-S00–S06 before IR-S02 or
+Agent Onboarding V1. Execute one bounded slice at a time.
 Owner: AllnighterCore + AllnighterEngine + AllnighterCLI (`TeamRun`/`RunStore`,
 `RunService`, `ProcessOwnership`, `ExecutionLaneRegistry`, CLI JSON/NDJSON)
-Updated: 2026-07-19
+Updated: 2026-07-19 (spec harden pass)
 
 Related: `Unified_Run_Model.md` (run/write-policy law) ·
 `CLI_Implementation_Contract.md` (wire contract) · archived
@@ -28,30 +29,58 @@ repo edits or usable progress; status disagreed with the journal; `alln kill
 and other live work made the actual blocker impossible to identify. The user
 abandoned Allnighter and completed the work in-session.
 
-The product claim is not merely “Allnighter can spawn a CLI.” It is:
+**Reproduced 2026-07-19 (same machine):** `alln run --project . --worker
+model_kimi_k3` hung again in `fanning_out` with a live `kimi-code` child,
+heartbeat stuck at `phase: accepted` / `sequence: 0`, no `workers/` artifacts,
+and `alln kill --all` reporting `killedCount: 0` while the mutating lane holder
+still named the dead coordinator pid. Runs: `8AAA520D-…`, `BD26C1D1-…`.
 
-> Once Allnighter accepts a run, the caller can always identify it, understand
-> what it is waiting on, observe sourced activity, stop its whole process tree,
-> and retry without competing with leftovers.
+The product claim is not merely “Allnighter can spawn a CLI.” The honest claim:
+
+> Once Allnighter accepts a run, another process can identify it, understand what
+> it is waiting on, observe sourced activity, attempt to stop its recorded process
+> tree, and either prove settlement or return a typed refusal/partial outcome —
+> then retry intentionally without competing with leftovers.
+
+“Always stoppable” is too strong (uninterruptible processes, escaped children,
+verification failure). Promise **prove stopped, or name what remains.**
 
 Until that claim is proven, routing and onboarding must not send more agents
 into the execution path.
 
-## Trusted workflow slice
+## Trusted workflow slice (P0 gate)
 
 ```text
-route a named mutating worker
-→ receive one canonical run id
+route a named cold mutating worker
+→ receive one canonical run id (journal already durable)
 → observe admission / spawn / real activity
 → poll the same durable truth from another process
-→ kill the complete worker tree
-→ see the lane released
-→ retry once, cleanly
+→ kill the complete recorded ownership tree
+→ see the lane released (or typed survivors)
+→ intentional linked retry once, cleanly
 ```
 
-This phase owns that slice for foreground `alln run`, async team runs, and
-relay/pilot work wherever they share the same run, ownership, lane, or status
-substrate.
+**P0 vertical:** cold, single-worker, foreground mutating `alln run` (fake
+CLI / Kimi-like subprocess). Answer teams, warm ACP workers, relay/pilot, and
+durable governor/capacity queues extend the same contract afterward — they must
+not obscure the first proof. Warm/shared workers are either given explicit
+cancel semantics in S04 or **excluded** from the P0 Works Test (S00 spawn-site
+matrix decides).
+
+## Spec Review synthesis (2026-07-19)
+
+Sources: Codex Sol First Principles (`model_chatgpt_0.answer.md`) + Cursor Sol
+Proof Planner (`model_chatgpt_sol_0.answer.md`) on Spec Review Min run
+`2ADCE96A-…` (Lead synthesis never ran — Claude session limit; answers preserved
+on disk). Live re-hang above.
+
+| Verdict | Do **not** execute RLR-S00–S06 unchanged. Promise stays; freeze shape changes. |
+| --- | --- |
+| Contract freeze | S00 freezes **evidence + invariants**, not the draft flat `phase`/`blocker` bag. S01 chooses public lifecycle convergence. |
+| Kill | Typed `KillOutcome`; zombies ≠ survivors; never stamp terminal kill on “signal attempted.” |
+| Retry | Separate transport replay (same key) from intentional `retryOf` (new key). |
+| Capacity | P0 durable blocker = `repoWriteLock` only; governor/capacity stay typed pre-accept refusals unless this phase owns new fairness. |
+| RCA | S00 must reproduce exact `RUN_NOT_FOUND` signature classes before status patches. |
 
 ## Risk and debugger classification
 
@@ -64,52 +93,49 @@ Bug fingerprint:
 alln run lifecycle + live worker/journal disagreement + RunStore/process-owner/control-plane proof gap
 ```
 
-- **Truth owner:** `TeamRun`/`RunStore` for durable run truth;
-  `ProcessOwnership.OwnerIdentity` for the live process group;
-  `ExecutionLaneRegistry`/`ExecutionLaneFlock` for admission; `RunEvent` for
-  sourced progress.
+- **Truth owners (joined by one journal snapshot):**
+  - `TeamRun`/`RunStore` owns durable lifecycle, phase, blocker reference,
+    activity summary, ownership receipts, terminal reason.
+  - OS process table (validated against recorded start time) owns liveness.
+  - `ExecutionLaneRegistry`/`ExecutionLaneFlock` owns admission holder/ticket.
+  - `RunEvent` is a **projection** of journal transitions, not a peer truth.
 - **Lie-prone layers:** `fanning_out`, CLI status projection, `alln ps`,
-  `alln kill`, final-only `--json`, and streams that omit real activity.
-- **Repeated prior art:** archived Process Ownership intended total group kill,
-  visible FIFO tickets, progress truth, and cross-process status. The new
-  foreground failure means those laws are not proven across the actual
-  `alln run` seam.
-- **Missing proof:** a two-process foreground-run harness with a buffered,
-  hanging worker and grandchild. Mock-only runner tests are insufficient.
+  `alln kill`, final-only `--json`, streams that omit real activity, orphan
+  lane holders after coordinator death.
 - **Isolation harness:** required by `docs/operations/Debugger.md` before fixes.
   Use a deterministic fake CLI, not a paid/live model.
 
-Before product edits, add this incident to `docs/operations/debugger/DEBUGLOG.md`
-with the final RCA and red proof command. Do not claim the precise cause of the
-reported `RUN_NOT_FOUND` or cross-project observation until the harness
-reproduces it.
+Before product edits: add an **initial incident packet** to
+`docs/operations/debugger/DEBUGLOG.md` (this hang + original field report).
+Append **final RCA only after** S00 reproduction. Do not claim the precise
+`RUN_NOT_FOUND` cause until the harness reproduces it.
 
 ## Current state (verified 2026-07-19)
 
-1. `RunService` takes the per-root write lock before minting/persisting the
-   foreground run id. Its legacy wait overload passes no ticket callback and may
-   wait for 1,800 seconds, so a caller can be blocked without a durable run or
-   blocker record.
-2. A single-worker execution run uses the aggregate status `fanning_out`, which
-   cannot distinguish admission wait, spawn, tool activity, proof, or a wedge.
-3. `alln run --stream` emits answer/reasoning deltas, but `RunService` currently
-   drops `.toolActivity`, `.rawEvent`, and `.started` at its public projection.
-   Process-runner activity used by an idle timer is not the same as durable,
-   pollable activity truth.
+1. `RunService` can take the per-root write lock before minting/persisting the
+   foreground run id. Legacy wait overload may wait ~1,800s with no durable run
+   or blocker record.
+2. A single-worker execution run uses aggregate status `fanning_out`, which
+   cannot distinguish admission, spawn, tool activity, proof, or a wedge. Live
+   hang: worker child alive, journal still `fanning_out`, heartbeat never
+   advanced past `accepted`.
+3. `alln run --stream` drops `.toolActivity`, `.rawEvent`, and `.started` at the
+   public projection in places. Idle-timer runner activity ≠ durable pollable
+   activity truth.
 4. `RunStore` stamps a foreground non-terminal run with the coordinating
    process's `.inProcess` owner. The spawned worker is a process-group leader,
-   but its identity is not durably attached to the run for an external kill.
+   but its identity is not durably attached for an external kill.
 5. `ProcessOwnershipSurface.killRun` can stamp `.cancelled`/`.killed` even when
-   `terminateRecordedOwnerIfSafe` returns `false`. A later kill can therefore
-   report already-terminal while a child survives.
+   `terminateRecordedOwnerIfSafe` returns `false`.
 6. `team status` is intended to read the shared `RunStore`, yet the field run
-   returned `RUN_NOT_FOUND` while a journal existed. The exact cause is open;
-   emitted-id → status round-trip is the required proof, not a guessed patch.
-7. Per-root execution lanes and cross-project scoping are intended to be
-   isolated. A floor-wide `ps` view can show unrelated work, but today it does
-   not make causality legible: repo write lock, global team governor, driver
-   capacity, and vendor-internal waiting must never be presented as one generic
-   “lane busy.”
+   returned `RUN_NOT_FOUND` while a journal existed. Cause open — see S00 RCA
+   classes below.
+7. Floor-wide `ps` does not make causality legible: repo write lock, governor,
+   driver capacity, and vendor-internal waiting must never collapse to one
+   generic “lane busy.”
+8. Known race candidate (not proven as the field signature): stream may emit
+   `teamRunStarted` before `runStore.save` completes — can cause **transient**
+   `RUN_NOT_FOUND`, but does not alone prove “journal existed.”
 
 ## Binding semantic laws
 
@@ -117,8 +143,10 @@ reproduces it.
 
 The id emitted by the start/stream surface is the id accepted by status, result,
 cancel/kill, history, journal lookup, and GUI/iOS projections. Filesystem folder
-names such as `run_<id>` are storage detail and are never presented as a second
-id. An emitted id that cannot immediately round-trip is a failed acceptance.
+names such as `run_<id>` are storage detail and are never a second id. An
+emitted id that cannot immediately round-trip is a failed acceptance.
+**Acceptance boundary:** validation failures have no run id; once an id is
+emitted, its journal and status projection must already exist.
 
 ### RLR-L2 — accepted means durably controllable
 
@@ -129,104 +157,143 @@ still recover status and control from the journal.
 
 ### RLR-L3 — lifecycle status and phase are different truths
 
-Keep the shared closed run lifecycle (`queued | running | done | failed |
-timedOut | cancelled | interrupted`) and add one sourced current phase rather
-than minting transport-specific statuses. The minimum phase vocabulary is:
+One **public** closed lifecycle (`queued | running | done | failed | timedOut |
+cancelled | interrupted`) plus one sourced current **phase**. Do not mint
+transport-specific statuses as peer truth.
+
+Today three vocabularies coexist (internal `RunStatus`, public `TeamRunJSON`,
+async `accepted|…|synthesizing|…`). S01 must either:
+
+- **Recommended:** schema-v2 hard converge public surfaces on the closed
+  lifecycle (including `--wait-for` values), with explicit legacy mappings; or
+- Preserve async compatibility and retract “one shared lifecycle” as a P0 claim.
+
+Minimum phase vocabulary:
 
 ```text
-admitting | waitingForWriteLock | waitingForCapacity | spawningWorker |
+admitting | waitingForWriteLock | spawningWorker |
 working | proving | settling
 ```
 
-`fanning_out` must not remain the visible phase for a one-worker execution run.
-Phase transitions are persisted and streamed from the same owner.
+(`waitingForCapacity` is **not** a P0 durable phase unless capacity becomes an
+accepted wait — see L4.)
+
+Validity table (minimum):
+
+| Lifecycle | Allowed phases |
+| --- | --- |
+| `queued` | `admitting`, `waitingForWriteLock`, `spawningWorker` |
+| `running` | `working`, `proving`, `settling` |
+| terminal | no active phase (omit `phase`, or retain only `settling` during settle — S01 picks one rule) |
+
+Atomic rule: changing phase clears/replaces `blocker` in the **same** journal
+revision. `startedAt` is when a worker OS identity is durably recorded — not
+when spawn is merely attempted. `fanning_out` must not remain the visible phase
+for a one-worker execution run.
 
 ### RLR-L4 — every wait names the actual resource
 
-A blocked run records and emits a typed blocker:
+Blockers are a **discriminated union**, not a flat bag of optional fields:
 
-```text
-resource: repoWriteLock | teamGovernor | driverCapacity | vendor
-scopeRoot?
-holderId?
-holderKind?
-ticketPosition?
-heldSinceSeconds?
-holderDeadlineAt?
-```
+| Resource | P0 policy | Required facts |
+| --- | --- | --- |
+| `repoWriteLock` | Durable accepted FIFO wait | `scopeRoot`, holder work ref, FIFO position, `holderAcquiredAt`, optional deadline |
+| `teamGovernor` | Typed **pre-accept refusal** (fail-fast today) | configured limit + observed occupancy; no fake holder |
+| `driverCapacity` | Typed **pre-accept refusal** / cooling | driver/`sourceId`; position only if a real gate owns one |
+| `vendorBackoff` | Only when vendor emits a sourced wait | driver id + sourced reason/reset; never infer from silence |
 
-The per-root write lock must expose the existing FIFO ticket. No fake ETA or
-percentage: show position, elapsed hold, and a real configured deadline when
-known; otherwise say the completion time is unknown. A run in project A must
-never name project B as a repo-write-lock holder.
+Persist stable timestamps (`blockedAt`, `holderAcquiredAt`). Derive
+`heldSinceSeconds` at **read/projection** time — do not treat a ticking duration
+as journal truth. Map internal holder kinds (`mutatingRun`, `relayDevTurn`, …)
+to the public `holderKind` enum in S01. A run in project A must never name
+project B as a repo-write-lock holder.
 
 ### RLR-L5 — the complete ownership tree is the kill target
 
-Every spawned worker records `{pid, pgid, startTimeTicks, kind}` in its runtime
-worker record at spawn; a detached/foreground coordinator identity remains a
-separate owner. The durable run ownership tree is the coordinator plus every
-active worker process group (one for execution, potentially many for an answer
-team). RLR-S00 audits every current spawn site rather than assuming all children
-share the coordinator's pgid. Exact kill, scoped `kill --all`, cancel, idle
-timeout, and abnormal settlement all use the one identity-checked group-kill
-implementation over that complete set.
+Every spawned worker records `{pid, pgid, startTimeTicks, kind}` in a
+**runtimeOwnership** section (keyed by worker id) — not overloaded onto catalog
+`Worker` rows. Coordinator identity remains a separate owner. S00 audits every
+spawn site (cold `ProcessGroupCommandRunner`, warm ACP/`Foundation.Process`,
+etc.) with ownership type, exclusivity, recording point, cancel mechanism, and
+proof.
 
-Kill is successful only when the recorded group is empty. Do not stamp a new
-terminal `killed` state when no signal path was taken or survivors remain;
-return a typed nonzero partial/refused result with survivor identities. A
-terminal journal with a live recorded worker is an ownership contradiction to
-surface and reconcile, not “already terminal.”
+Kill uses one identity-checked group-kill over the complete recorded set.
+
+**KillOutcome** (required):
+
+```text
+stopped | partial | refused | verificationUnavailable
+```
+
+- Terminal success (`status: cancelled`, `endReason: killed`) requires no
+  **execution-capable** survivors.
+- Zombie-only residuals may be terminal with a cleanup warning (cannot mutate
+  the repo; must not hold the lane hostage forever).
+- `partial` / `refused` / unverifiable must **not** stamp terminal killed.
+- Report signal attempts + errno, surviving identity-checked members, and
+  zombie-only residuals separately.
+- Kill order: snapshot identities → terminate worker groups → terminate
+  coordinator if safe → verify → release admission.
+- Retain ownership receipts after terminal settlement long enough to detect
+  contradictions (today terminal saves delete owner markers too eagerly).
 
 ### RLR-L6 — liveness, activity, and repo change are not synonyms
 
 - Owner heartbeat proves the coordinating owner is alive.
-- `lastActivityAt` advances only on real worker activity: spawn, parsed tool
-  event, reasoning/answer bytes, raw stdout/stderr bytes, observed child
-  transition, or exit.
-- A timer heartbeat event may repeat `lastActivityAt`; it must not advance it or
-  fabricate progress.
-- Files touched are emitted only when sourced by a driver tool event or a
-  deterministic repo observation. Otherwise the field is absent, never guessed.
+- `lastActivityAt` advances only on real worker activity: **post-spawn** tool
+  events, reasoning/answer bytes, bounded raw stdout/stderr **metadata**
+  (timestamp, byte count, worker id — not raw secret-bearing content), observed
+  child transition, or exit.
+- Spawn itself advances ownership/`startedAt`, **not** `lastActivityAt` (see L8).
+- Timer heartbeats may repeat `lastActivityAt`; they must not advance it.
+- Files touched only from driver tool events or deterministic repo observation.
 - Status exposes activity age and `progressStale` without fake percentages.
 
 ### RLR-L7 — one clean JSON contract, one live stream contract
 
-- `--json` prints exactly one terminal JSON object and may be silent until
-  completion. Never mix progress lines into it.
-- `--stream` prints only live NDJSON. Its first event carries the canonical run
-  id; it then carries phase/blocker/activity heartbeats and exactly one terminal
-  event.
-- Long-running router/onboarding recipes use `--stream` or the existing async
-  start/status/result path. They do not teach final-only JSON as a monitoring
-  transport.
+- `--json` prints exactly one terminal JSON object (silent until completion).
+- `--stream` prints only live NDJSON: first event = canonical run id; then
+  phase/blocker/activity; exactly one terminal event.
+- Router/onboarding recipes use `--stream` or async start/status/result — not
+  final-only JSON as a monitor.
 
-RLR hardens the current CLI grammar; it does **not** rename
-`team status/result/cancel` or create a parallel run schema. Grammar consolidation can be a later
-hard cutover. All current commands continue to project the same `TeamRunJSON`,
-`TeamStatusResponse`, `RunEvent`, error catalog, and exit-code table.
+No parallel run schema. Grammar consolidation is a later hard cutover. Surfaces
+project the same `TeamRunJSON` / `TeamStatusResponse` / `RunEvent` / error
+catalog once S01 converges lifecycle enums.
 
 ### RLR-L8 — stale is not permission to kill
 
-Use four bounded clocks where supported: runner-ready handshake, time to first
-real activity, rolling activity-idle timeout, and total wall timeout. The
-existing `--idle-timeout` owns the rolling activity budget and resets on the
-RLR-L6 activity set.
+Four bounded clocks: runner-ready handshake, **time to first post-spawn
+activity**, rolling activity-idle timeout, total wall timeout. Existing
+`--idle-timeout` owns the rolling budget over the L6 activity set.
 
-An unrelated new run never auto-kills an identity-alive stale run. It surfaces
-the blocker and requires explicit kill/cancel authority, or waits visibly under
-the configured policy. A timeout belonging to the run may kill its own group.
+An unrelated new run never auto-kills an identity-alive stale run. Explicit
+kill/cancel or visible wait under policy. A timeout belonging to the run may
+kill its own group.
 
-### RLR-L9 — retry reuses intent before it duplicates work
+### RLR-L9 — transport replay ≠ intentional retry
 
-Add idempotency to the foreground run path using the same canonical-payload
-discipline as async team start. A retry with the same key and payload returns the
-existing run id and current status; a changed payload returns the existing typed
-conflict. A retry never starts a second worker merely because the first caller
-lost stdout.
+Two distinct mechanics:
+
+1. **Transport replay** — same idempotency key + same canonical payload returns /
+   reattaches to the **original** run for the retention window. Never starts a
+   second worker because stdout was lost. Same-key after a killed terminal must
+   not unexpectedly re-execute.
+2. **Intentional retry** — new key + `retryOf:<old-run-id>` (`RunLink.retryOf`),
+   only after the old ownership tree is verified safe (or typed survivors are
+   accepted by the operator).
+
+Generalize the existing atomic `IdempotencyStore` (do not invent a second store).
+Foreground canonical payload includes: normalized root, message/context,
+resolved team/worker, effort, attachment digests, thread, timeouts, proof
+command, commit/no-commit, contract version.
+
+`--json` replay waits for the original terminal result (or a separately named
+start envelope). `--stream` replay attaches to / replays the durable event
+sequence, or returns an acknowledgement directing the caller to status — never
+a second silent worker.
 
 ## CLI-first contract
-
-This phase hardens existing commands:
 
 ```text
 alln run "<message>" --project <id|path> ... [--idempotency-key <key>] --json
@@ -239,7 +306,8 @@ alln kill <run-id> --json
 alln kill --all [--all-projects] --json
 ```
 
-Additive shared fields, finalized in RLR-S01 before implementation spreads:
+Additive shared fields — **shape finalized in RLR-S01 after S00 evidence**, not
+frozen blindly in S00:
 
 ```jsonc
 {
@@ -252,65 +320,66 @@ Additive shared fields, finalized in RLR-S01 before implementation spreads:
     "holderId": "…",
     "holderKind": "run|relay|pilot|proof",
     "ticketPosition": 1,
-    "heldSinceSeconds": 42,
+    "holderAcquiredAt": "…",
     "holderDeadlineAt": null
   },
   "lastActivityAt": "…",
-  "lastActivityKind": "tool|stdout|stderr|child|spawn|exit",
-  "progressStale": false
+  "lastActivityKind": "tool|stdout|stderr|child|exit",
+  "progressStale": false,
+  "killOutcome": "stopped|partial|refused|verificationUnavailable"
 }
 ```
 
-`blocker` is absent when unblocked. Optional facts remain absent rather than
-`unknown` strings. New errors must be stable catalog entries with existing exit
-classes; regenerate `docs/generated/alln/*` from the registry.
+`blocker` absent when unblocked. `heldSinceSeconds` is derived at projection.
+New errors are stable catalog entries; regenerate `docs/generated/alln/*`.
 
 ## Inference bans
 
 | Junction | Owner | Forbidden inference | Negative proof |
 | --- | --- | --- | --- |
-| Journal → status | `RunStore` | Directory exists, therefore status may invent/recover a different id | Emitted id round-trips exactly; malformed/other id fails |
-| Owner → kill | recorded worker identity | Run is terminal, therefore no process survives | Terminal+journal/live-group contradiction is surfaced |
-| Heartbeat → progress | `RunEvent` activity owner | Timer fired, therefore worker advanced | Heartbeats leave `lastActivityAt` unchanged |
-| `ps` row → blocker | lane/governor/driver owner | Visible concurrent work caused this wait | Blocker names only the causal resource/holder |
-| Repo diff → worker activity | `GitObserver` baseline | Any concurrent repo change belongs to this worker | Deterministic isolated harness attributes only owned work |
-| Retry → new spawn | idempotency store | Lost stdout means prior work is dead | Same-key two-process retry yields one worker/run id |
+| Journal → status | `RunStore` | Directory exists ⇒ invent/recover a different id | Emitted id round-trips; malformed/other id fails |
+| Owner → kill | recorded worker identity | Terminal ⇒ no process survives | Terminal+live-group contradiction surfaced |
+| Heartbeat → progress | activity owner | Timer fired ⇒ worker advanced | Heartbeats leave `lastActivityAt` unchanged |
+| `ps` row → blocker | lane/governor/driver | Visible concurrent work caused this wait | Blocker names only the causal resource/holder |
+| Repo diff → activity | `GitObserver` | Any concurrent change belongs to this worker | Isolated harness attributes only owned work |
+| Retry → new spawn | idempotency store | Lost stdout ⇒ prior work is dead | Same-key two-process retry yields one worker/run id |
+| Silence → vendor wait | vendor adapter | No output ⇒ capacity blocker | Vendor wait only from sourced signals |
 
 ## Slices (execute strictly in order)
 
 | Slice | Deliverable |
 | --- | --- |
-| **RLR-S00 — RED harness + contract freeze** | Add the Debugger packet/DEBUGLOG entry and a deterministic fake CLI that can buffer stdout, emit tool activity, spawn a grandchild, hang, and ignore graceful termination. Add red two-process tests for id round-trip, visible blocker, total kill, and clean retry. Freeze `phase`/`blocker`/activity event shapes against the registry before product edits. |
-| **RLR-S01 — identity + status truth** | Mint/persist foreground runs before long waits; make the emitted id pollable from a second CLI process; persist the shared lifecycle phase; remove one-worker visible `fanning_out`; make journal/status/result use the same canonical id and atomic truth. |
-| **RLR-S02 — visible admission** | Route `RunService` through the claim-bearing FIFO API with ticket callback; persist/stream typed blockers for repo lock, governor, and driver capacity; prove no worker spawns while blocked and different canonical roots do not share a repo lock. Promote `Unified_Run_Model.md`'s approved forward collision policy from blocked/current-gap prose to shipped truth. |
-| **RLR-S03 — live activity stream** | Project `.started`, sanitized `.toolActivity`, raw stdout/stderr activity, child transitions, and sourced repo observations into durable activity truth + NDJSON; emit bounded heartbeats that repeat rather than fabricate `lastActivityAt`; keep `--json` final-only. |
-| **RLR-S04 — total kill and contradiction recovery** | Attach every active worker identity/pgid to its run worker record while retaining the coordinator owner; exact/scoped kill, cancel, watchdog, and settlement reap and verify the complete ownership tree; refuse/partial-fail without terminal stamping when no safe signal occurred or survivors remain; detect terminal+journal/live-worker contradictions. |
-| **RLR-S05 — watchdog + idempotent retry** | Implement handshake/first-activity/rolling-idle/wall clocks over the shared activity set; add foreground `--idempotency-key`; same-key retries return the active run/status and never duplicate the worker. No new-run auto-kill of an unrelated live owner. |
-| **RLR-S06 — full trust gate + dependent-doc handoff** | Run the two-process matrix, contract drift check, Core wall, and morning-zero-orphans assertion. Only after green: unblock IR-S02 and Agent Onboarding V1; update their recipes to the exact shipped lifecycle fields/commands. |
+| **RLR-S00 — RED harness + evidence/invariant freeze** | DEBUGLOG initial packet. Deterministic fake CLI (buffer, tool activity, grandchild, hang, ignore graceful kill). Spawn-site matrix (cold/warm). Red two-process tests. **RCA gate** for `RUN_NOT_FOUND` classes: (1) run dir absent (2) dir without `run.json` (3) unreadable/undecodable (4) decoded id differs (5) different support-root namespaces — assert exact emitted id bytes, expected journal present under same `ALLNIGHTER_SUPPORT_DIR`, second-process status still fails. Freeze **invariants** (L1–L9), not an unproven flat contract shape. |
+| **RLR-S01 — identity + status truth** | Mint/persist before long waits; pollable id from second process; choose public lifecycle convergence; remove one-worker visible `fanning_out`; journal/status/result same id; phase/blocker validity + atomic revision rule. |
+| **RLR-S02 — visible admission** | Claim-bearing FIFO + ticket callback; persist/stream **`repoWriteLock`** blockers; prove no spawn while blocked; different roots do not share a lock. Governor/capacity remain typed refusals unless explicitly promoted. |
+| **RLR-S03 — live activity stream** | Project `.started`, sanitized tool activity, bounded stdout/stderr metadata, child transitions, sourced repo observations; heartbeats repeat rather than fabricate `lastActivityAt`; `--json` final-only. |
+| **RLR-S04 — total kill + contradiction recovery** | Attach runtimeOwnership; typed `KillOutcome`; exact/scoped kill/cancel/watchdog verify the tree; refuse terminal lies; warm-worker policy from S00 matrix. |
+| **RLR-S05 — watchdog + replay/retry** | Handshake / first-post-spawn / rolling-idle / wall clocks; foreground `--idempotency-key`; transport replay vs `retryOf` intentional retry. |
+| **RLR-S06 — full trust gate** | Two-process matrix, contract drift, Core wall, morning-zero-orphans. Only then unblock IR-S02 / Onboarding V1 with shipped fields/commands. |
 
 ## Works Test
 
 Using a built `alln` and the fake Kimi-like CLI:
 
-1. Start a named mutating run with `--stream`; capture its first event's run id.
-2. From a second `alln` process, poll that exact id while the worker is live;
-   journal and status agree on lifecycle + phase.
-3. Hold the same root with run A. Start run B: it persists
-   `waitingForWriteLock`, names A, exposes FIFO position/held time, and spawns no
-   worker. Start run C on another root: it is not blocked by A's repo lock.
-4. Let A buffer answer output while emitting tool/raw activity. NDJSON heartbeat
-   remains live, `lastActivityAt` advances only on sourced events, and status
-   exposes the same facts.
-5. Freeze all activity past the configured idle budget. The harness kills A's
-   worker and grandchild, verifies the pgid is empty, stamps one truthful
-   terminal reason, and releases B.
-6. Separately invoke `alln kill <id>` while the fake worker/grandchild are live;
-   prove both die. Force a terminal-journal/live-child fixture and prove it is
-   surfaced/reaped rather than skipped as already terminal.
-7. Retry the same payload/key from two processes; exactly one run id and one
-   worker exist. A changed payload returns the idempotency conflict.
-8. `alln ps --all-projects --json` at close shows zero identity-alive orphan
-   trees from the harness.
+1. Start a named mutating run with `--stream`; capture first event's run id.
+2. Second process polls that exact id while the worker is live; journal and
+   status agree on lifecycle + phase.
+3. Hold root with run A; start B → durable `waitingForWriteLock` naming A + FIFO
+   facts, no spawn. Run C on another root is not blocked by A's repo lock.
+4. Buffer answer output while emitting tool/raw activity; NDJSON stays live;
+   `lastActivityAt` advances only on L6 events.
+5. Idle budget expires → harness kills worker + grandchild; pgid empty or typed
+   `KillOutcome`; lane releases; B proceeds.
+6. `alln kill <id>` while fake worker/grandchild live; both die or typed
+   survivors. Terminal-journal/live-child fixture is surfaced, not skipped.
+7. Kill coordinator after first event; recover + kill worker from process B.
+8. `kill --all` same-root scope; other-root work protected.
+9. Same-key two-process replay → one run/worker. Changed payload → conflict.
+   Intentional new-key `retryOf` after verified stop.
+10. Corrupt/unreadable journal → typed error (not silent invent).
+11. Exactly one terminal NDJSON event on success, cancel, timeout, kill.
+12. Close: `alln ps --all-projects --json` shows zero identity-alive harness
+    orphans.
 
 Proof commands when the slices exist:
 
@@ -321,28 +390,33 @@ bash scripts/check.sh
 ```
 
 Missing proof today: the named harness/tests do not exist; that is RLR-S00, not
-a waiver.
+a waiver. Prefer extending `ConcurrentInvocationTwoProcessTests` fixtures over
+parallel plumbing.
 
 ## Non-goals
 
 - No intent matching, named-worker semantics, recipe installer, or onboarding UI.
 - No new scheduler, daemon, per-project registry, or second ownership/lane system.
+- No durable governor/capacity **queue** in this phase (refusals only unless
+  explicitly re-scoped).
 - No fake progress percentages, runtime forecasts, cost forecasts, or queue ETA.
 - No automatic killing of unrelated identity-alive work on fresh-run startup.
 - No vendor CLI redesign; adapters expose only activity the vendor actually emits.
 - No GUI polish. Mac/iOS later render the same CLI/Core contract.
 - No broad CLI noun/verb cutover in the reliability phase.
+- No unbounded raw stdout/stderr retention in the journal (bounded metadata only).
 
 ## Done when
 
 - Every accepted foreground or async run id round-trips from another process.
 - Every wait has a causal typed blocker or is not presented as blocked.
-- Every live worker has a durable killable group identity and its run exposes
-  the complete coordinator + worker ownership tree.
-- Kill/cancel/timeout leave every recorded group empty before terminal success.
+- Every live cold worker has durable killable group identity; run exposes the
+  complete coordinator + worker ownership tree.
+- Kill/cancel/timeout either leave recorded groups empty or return typed
+  `KillOutcome` without terminal lies.
 - `--stream` stays live through sourced tool/silence periods; `--json` stays one
   clean final object.
-- Same-key retry produces one run and one worker.
+- Same-key replay produces one run and one worker; intentional retry is linked.
 - Same-root serialization and different-root isolation pass in real subprocess
   tests.
 - Generated contracts are fresh; focused tests + `scripts/check.sh` are green.
