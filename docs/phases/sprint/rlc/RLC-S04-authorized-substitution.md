@@ -1,6 +1,6 @@
 # RLC-S04 — Authorized substitution
 
-Status: **ready** (after RLC-S02; can parallelize lightly with S03 if needed)
+Status: **delivered** (RLC-S04)
 SSOT: `docs/phases/Rate_Limit_Continuity.md` §Substitution
 
 ## Goal
@@ -18,8 +18,8 @@ the table in code comments + tests.
 
 ## Done when
 
-- [ ] Provenance table enforced
-- [ ] Incompatible / visited / named-worker hops refused
-- [ ] Original worker quiescent before substitute starts
-- [ ] Bounded hop count; one source at a time
-- [ ] Committed `feat(rlc): S04 — authorized substitution on park`
+- [x] Provenance table enforced
+- [x] Incompatible / visited / named-worker hops refused
+- [x] Original worker quiescent before substitute starts
+- [x] Bounded hop count; one source at a time
+- [x] Committed `feat(rlc): S04 — authorized substitution on park`

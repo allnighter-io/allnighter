@@ -245,7 +245,7 @@ The notification loop **completes the founder story** — it is not polish:
 | RLC-S01 | **Delivered — contract convergence**: `vendorBackoff` case on `RunBlocker.resource` + quota-scope fields; `attempts[]` on the RunRecord; lifecycle transitions frozen; `CapacityObservation` promoted as the only capacity truth (name what retires from the Pending path); redacted-snippet rule; classifier fixtures incl. negatives |
 | RLC-S02 | **Durable same-source continuation**: settle capacity event → close transport, release write lock, persist `wakeAfter`, coordinator-tick reconcile, reacquire lock, vendor-session resume (fresh-session fallback w/ bounded handoff), re-park on repeat; probe timeout + runtimeOwnership; source-scoped single-flight cooldown |
 | RLC-S03 | **Product surface**: park/resume statuses + actions, two notifications, morning receipt, onboarding fixture demo |
-| RLC-S04 | **Authorized substitution**: provenance table, capability filter, quiescence proof, visited-set + hop bound, one run id + sequential attempts |
+| RLC-S04 | **Delivered — authorized substitution**: provenance table, capability filter, quiescence proof, visited-set + hop bound, one run id + sequential attempts |
 
 ## Works test / proof matrix
 

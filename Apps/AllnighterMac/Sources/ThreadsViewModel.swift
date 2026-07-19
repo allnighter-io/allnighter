@@ -929,6 +929,57 @@ final class ThreadsViewModel {
         requestReload()
     }
 
+    /// Compatible substitutes for a parked vendor wait (manual "Use another model").
+    func vendorSubstitutionCandidates(for run: TeamRun) -> [Model] {
+        guard run.status == .queued,
+              run.phase == .waitingForVendor,
+              run.blocker?.resource == .vendorBackoff,
+              let failedModelId = run.workers.first?.modelId,
+              let presetId = run.presetId,
+              let preset = TeamCatalog.get(presetId) else { return [] }
+        let settings = DefaultModelSettingsPersistence().load()
+        let observations = runStore.list().flatMap { stored in
+            stored.failedWorkerAnswers.compactMap(\.result.capacityObservation)
+                + stored.attempts.compactMap(\.capacityObservation)
+        }
+        let cooling = SourceCapacityLedger.coolingSources(observations: observations, now: Date())
+        return VendorSubstitutionPolicy.manualCandidates(
+            run: run,
+            failedModelId: failedModelId,
+            preset: preset,
+            settings: settings,
+            models: models,
+            readyModels: readyModels,
+            coolingSourceIds: cooling,
+            lane: run.lane ?? preset.lane
+        )
+    }
+
+    /// Manual substitute while parked — same run id, user-selected model.
+    func substituteParkedVendorRun(runId: String, modelId: String) async {
+        let coordinatorId = "mac:\(ProcessInfo.processInfo.processIdentifier)"
+        guard runStore.claimVendorWake(
+            runId: runId,
+            coordinatorId: coordinatorId,
+            now: Date(),
+            force: true
+        ) != nil else { return }
+        let service = RunService(
+            models: models,
+            registry: registry,
+            runStore: runStore,
+            commandRunner: commandRunner,
+            writeLock: writeLock
+        )
+        _ = await service.substituteParkedRun(
+            runId: runId,
+            modelId: modelId,
+            coordinatorId: coordinatorId
+        )
+        runCache.clear(runId)
+        requestReload()
+    }
+
     /// Cancel a parked vendor wait via ownership kill settlement.
     func cancelParkedVendorRun(runId: String) async {
         _ = ProcessOwnershipSurface(runStore: runStore).kill(id: runId)

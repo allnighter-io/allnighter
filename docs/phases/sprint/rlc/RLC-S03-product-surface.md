@@ -16,7 +16,7 @@ Substitution policy guts (S04 may wire "Use another model"); burn estimates.
 ## Done when
 
 - [x] Parked run copy: "Waiting for {vendor} — resumes around {T}"
-- [x] Actions: Resume now / Cancel (Use another model placeholder until S04)
+- [x] Actions: Resume now / Cancel / Use another model (RLC-S04)
 - [x] Park + recovery notifications once each (run-scoped dedup)
 - [x] Morning receipt from observed wait coverage (`alln continuity receipt`)
 - [x] CLI demo path: `scripts/rlc_fake_limit_worker.sh` (Mac onboarding waived)

@@ -1195,9 +1195,36 @@ private struct ThreadMutatingRunRow: View {
                         Task { await threads.cancelParkedVendorRun(runId: run.id) }
                     }
                     .buttonStyle(.borderless)
-                    Text("Use another model")
-                        .font(.system(size: 12))
-                        .foregroundStyle(ALColor.textFaint)
+                    let substitutes = threads.vendorSubstitutionCandidates(for: run)
+                    if substitutes.isEmpty {
+                        Text("Use another model")
+                            .font(.system(size: 12))
+                            .foregroundStyle(ALColor.textFaint)
+                    } else if substitutes.count == 1, let only = substitutes.first {
+                        Button("Use another model") {
+                            Task {
+                                await threads.substituteParkedVendorRun(
+                                    runId: run.id,
+                                    modelId: only.id
+                                )
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                    } else {
+                        Menu("Use another model") {
+                            ForEach(substitutes, id: \.id) { candidate in
+                                Button(candidate.displayName) {
+                                    Task {
+                                        await threads.substituteParkedVendorRun(
+                                            runId: run.id,
+                                            modelId: candidate.id
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        .menuStyle(.borderlessButton)
+                    }
                 }
             }
             .padding(10)

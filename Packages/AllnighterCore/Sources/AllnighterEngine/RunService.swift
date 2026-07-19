@@ -400,7 +400,8 @@ public actor RunService {
     public func resumeParkedRun(
         runId: String,
         coordinatorId: String,
-        selectionOrigin: String = MorningReceipt.automaticResumeOrigin
+        selectionOrigin: String = MorningReceipt.automaticResumeOrigin,
+        substituteModelId: String? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         guard var parked = runStore.loadRaw(runId: runId),
               parked.status == .queued,
@@ -411,7 +412,7 @@ public actor RunService {
               parked.mutating,
               parked.workers.count == 1,
               let rootValue = parked.repoRoot,
-              let modelId = parked.workers.first?.modelId else {
+              let parkedModelId = parked.workers.first?.modelId else {
             return .failure(.teamResolution(
                 "vendor wake lease is missing or run is not a single-worker park",
                 code: "VENDOR_WAKE_NOT_CLAIMED"
@@ -426,6 +427,21 @@ public actor RunService {
                 code: "DEFAULT_TEAM_INVALID"
             ))
         }
+
+        let wakeModelResolution = resolveParkedWakeModel(
+            parked: parked,
+            preset: preset,
+            parkedModelId: parkedModelId,
+            substituteModelId: substituteModelId,
+            selectionOrigin: selectionOrigin
+        )
+        guard case .success(let wakeModel) = wakeModelResolution else {
+            if case .failure(let error) = wakeModelResolution { return .failure(error) }
+            return .failure(.teamResolution("vendor wake model resolution failed", code: "INTERNAL_ERROR"))
+        }
+        let modelId = wakeModel.modelId
+        let resumeOrigin = wakeModel.selectionOrigin
+        let substitutionOfAttempt = wakeModel.substitutionOfAttempt
 
         let lockKey = RunWriteLock.key(repoRoot: root)
         parked.status = .queued
@@ -520,7 +536,8 @@ public actor RunService {
             noCommit: parked.noCommitOrdered == true,
             retryLinks: parked.links,
             existingRun: parked,
-            resumeSelectionOrigin: selectionOrigin
+            resumeSelectionOrigin: resumeOrigin,
+            substitutionOfAttempt: substitutionOfAttempt
         )
         ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: nil)
         await writeLock.release(lockKey, token: token)
@@ -535,6 +552,20 @@ public actor RunService {
             _ = try? runStore.save(failed, models: models)
         }
         return result
+    }
+
+    /// Manual "Use another model" — same run id, user-authorized substitute.
+    public func substituteParkedRun(
+        runId: String,
+        modelId: String,
+        coordinatorId: String
+    ) async -> Result<TeamRun, RunServiceError> {
+        return await resumeParkedRun(
+            runId: runId,
+            coordinatorId: coordinatorId,
+            selectionOrigin: RunSelectionOrigin.manualSubstitute,
+            substituteModelId: modelId
+        )
     }
 
     /// Run and persist. Returns the settled `TeamRun` (RunRecord substrate).
@@ -766,6 +797,25 @@ public actor RunService {
         defer { ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: nil) }
 
         if preset.runShape == .execution {
+            let autoResolved = preset.id == TeamCatalog.defaultRunTeam()?.id
+                && (request.workerId ?? "").isEmpty
+            let explicitPin = !(request.workerId ?? "").isEmpty || laneContextOnly
+            let provisionalWorker = Worker(
+                id: Worker.makeID(modelId: effectiveWorkerId ?? "unknown", instanceIndex: 0),
+                modelId: effectiveWorkerId ?? "unknown",
+                instanceIndex: 0,
+                skillId: "first_principles_builder",
+                purpose: .answer
+            )
+            let initialSelectionOrigin = VendorSubstitutionPolicy.inferInitialSelectionOrigin(
+                autoResolved: autoResolved,
+                explicitWorkerPin: explicitPin,
+                explicitTeamChosen: explicitTeamChosen,
+                teamHasDeclaredFallbacks: VendorSubstitutionPolicy.teamHasDeclaredFallbacks(
+                    worker: provisionalWorker,
+                    team: preset
+                )
+            )
             let result = await runExecution(
                 preset: preset, prompt: prompt, context: request.context, threadId: request.threadId,
                 effort: effort, repoRoot: root, requestLane: request.lane,
@@ -777,7 +827,8 @@ public actor RunService {
                 spawnConcurrencyLimit: request.spawnConcurrencyLimit,
                 commitMessage: request.commitMessage, noCommit: request.noCommit,
                 proofCommand: request.proofCommand, proofTimeoutSeconds: request.proofTimeoutSeconds,
-                retryLinks: retryLinks
+                retryLinks: retryLinks,
+                initialSelectionOrigin: initialSelectionOrigin
             )
             // Parking must release the write lock before the parked journal is
             // returned to the caller; an un-awaited defer could freeze this repo.
@@ -836,7 +887,9 @@ public actor RunService {
         proofTimeoutSeconds: Int? = nil,
         retryLinks: [RunLink]? = nil,
         existingRun: TeamRun? = nil,
-        resumeSelectionOrigin: String? = nil
+        resumeSelectionOrigin: String? = nil,
+        initialSelectionOrigin: String? = nil,
+        substitutionOfAttempt: Int? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
         let timeoutOverride = workerTimeoutSeconds.map { Duration.seconds($0) }
@@ -865,7 +918,7 @@ public actor RunService {
         }
 
         let worker: Worker
-        let model: Model
+        var model: Model
         if let override = workerOverride {
             if existingRun != nil {
                 // A due same-source wake is the readiness probe. It must bypass
@@ -916,7 +969,7 @@ public actor RunService {
             return .failure(.noWorker("no ready worker for execution team"))
         }
 
-        guard let manifest = registry.manifest(for: model) else {
+        guard var manifest = registry.manifest(for: model) else {
             return .failure(.noWorker("no driver manifest for \(model.driverId)"))
         }
         timing.stamp(RunTimingKey.workerResolveEnd)
@@ -1003,7 +1056,8 @@ public actor RunService {
                 resolvedModelId: model.id,
                 startedAt: startedAt,
                 vendorSessionId: parkedSessionId,
-                selectionOrigin: resumeSelectionOrigin
+                selectionOrigin: resumeSelectionOrigin,
+                substitutionOfAttempt: substitutionOfAttempt
             ))
             run = existingRun
         } else {
@@ -1032,7 +1086,8 @@ public actor RunService {
                     requestedModelId: model.id,
                     resolvedSourceId: model.driverId,
                     resolvedModelId: model.id,
-                    startedAt: startedAt
+                    startedAt: startedAt,
+                    selectionOrigin: initialSelectionOrigin
                 )],
                 links: retryLinks
             )
@@ -1279,6 +1334,75 @@ public actor RunService {
                 reason: outcome.errorReason
             )
 
+            let wakeAfter = VendorBackoffPolicy.computeWakeAfter(
+                from: observation,
+                now: now()
+            )
+            if VendorSubstitutionPolicy.prefersSubstitutionOverPark(
+                wakeAfter: wakeAfter,
+                observation: observation
+            ),
+               let candidate = automaticSubstituteCandidate(
+                run: run,
+                failedModelId: model.id,
+                preset: preset,
+                lane: effectiveLane
+               ),
+               let runDir = try? runStore.runDirectory(forRunId: runId),
+               VendorSubstitutionRuntime.isOriginalWorkerQuiescent(
+                runDirectory: runDir,
+                run: run
+               ) {
+                let priorAttempt = run.attempts.last?.attemptNumber
+                if let key = sessionKey,
+                   let vendorId = checkpointSessionId, !vendorId.isEmpty {
+                    sessionStore.upsert(ExternalWorkerSession(
+                        threadId: key.threadId,
+                        sourceId: key.sourceId,
+                        modelId: key.modelId,
+                        repoRoot: key.repoRoot,
+                        vendorSessionId: vendorId,
+                        continuityTier: .vendorSession,
+                        createdAt: resumable?.createdAt ?? now(),
+                        lastUsedAt: now(),
+                        lastRunId: runId
+                    ))
+                    await warmPool.shutdown(key: key)
+                }
+                try? runStore.save(run, models: models)
+                return await runExecution(
+                    preset: preset,
+                    prompt: prompt,
+                    context: context,
+                    threadId: threadId,
+                    effort: effort,
+                    repoRoot: repoRoot,
+                    requestLane: requestLane,
+                    explicitTeamChosen: explicitTeamChosen,
+                    laneContextOnly: laneContextOnly,
+                    projectId: projectId,
+                    workerOverride: candidate.modelId,
+                    origin: origin,
+                    originAgent: originAgent,
+                    runId: runId,
+                    runner: runner,
+                    deliveries: deliveries,
+                    requestedAt: requestedAt,
+                    timing: timing,
+                    events: events,
+                    workerTimeoutSeconds: workerTimeoutSeconds,
+                    spawnConcurrencyLimit: spawnConcurrencyLimit,
+                    commitMessage: commitMessage,
+                    noCommit: noCommit,
+                    proofCommand: proofCommand,
+                    proofTimeoutSeconds: proofTimeoutSeconds,
+                    retryLinks: retryLinks,
+                    existingRun: run,
+                    resumeSelectionOrigin: candidate.selectionOrigin,
+                    substitutionOfAttempt: priorAttempt
+                )
+            }
+
             if let key = sessionKey,
                let vendorId = checkpointSessionId, !vendorId.isEmpty {
                 sessionStore.upsert(ExternalWorkerSession(
@@ -1314,10 +1438,6 @@ public actor RunService {
                 return .success(run)
             }
 
-            let wakeAfter = VendorBackoffPolicy.computeWakeAfter(
-                from: observation,
-                now: now()
-            )
             run.status = .queued
             run.phase = .waitingForVendor
             run.endReason = nil
@@ -1546,6 +1666,106 @@ public actor RunService {
         run.timing = timing
         try? runStore.save(run, models: models)
         return .success(run)
+    }
+
+    private struct ParkedWakeModel: Sendable {
+        var modelId: String
+        var selectionOrigin: String
+        var substitutionOfAttempt: Int?
+    }
+
+    private func automaticSubstituteCandidate(
+        run: TeamRun,
+        failedModelId: String,
+        preset: TeamPreset,
+        lane: WorkLane
+    ) -> VendorSubstitutionPolicy.Candidate? {
+        VendorSubstitutionPolicy.nextAutomaticCandidate(
+            run: run,
+            failedModelId: failedModelId,
+            preset: preset,
+            settings: loadDefaultSettings(),
+            models: models,
+            readyModels: readyModels(),
+            coolingSourceIds: coolingSources(),
+            lane: lane
+        )
+    }
+
+    private func resolveParkedWakeModel(
+        parked: TeamRun,
+        preset: TeamPreset,
+        parkedModelId: String,
+        substituteModelId: String?,
+        selectionOrigin: String
+    ) -> Result<ParkedWakeModel, RunServiceError> {
+        guard let runDir = try? runStore.runDirectory(forRunId: parked.id) else {
+            return .failure(.journalUnavailable("run directory missing for \(parked.id)"))
+        }
+        guard VendorSubstitutionRuntime.isOriginalWorkerQuiescent(
+            runDirectory: runDir,
+            run: parked
+        ) else {
+            return .failure(.teamResolution(
+                "original worker is not quiescent — substitution refused",
+                code: "WORKER_NOT_QUIESCENT"
+            ))
+        }
+
+        let settings = loadDefaultSettings()
+        let ready = readyModels()
+        let cooling = coolingSources()
+        let lane = parked.lane ?? preset.lane
+        let priorAttempt = parked.attempts.last?.attemptNumber
+
+        if let substituteModelId {
+            guard VendorSubstitutionPolicy.acceptsManualCandidate(
+                substituteModelId,
+                run: parked,
+                failedModelId: parkedModelId,
+                preset: preset,
+                settings: settings,
+                models: models,
+                readyModels: ready,
+                coolingSourceIds: cooling,
+                lane: lane
+            ) else {
+                return .failure(.teamResolution(
+                    "model \(substituteModelId) is not an authorized substitute",
+                    code: "SUBSTITUTE_NOT_ALLOWED"
+                ))
+            }
+            return .success(ParkedWakeModel(
+                modelId: substituteModelId,
+                selectionOrigin: RunSelectionOrigin.manualSubstitute,
+                substitutionOfAttempt: priorAttempt
+            ))
+        }
+
+        let wakeAfter = parked.blocker?.wakeAfter
+        let observation = parked.blocker?.capacityObservation
+        if VendorSubstitutionPolicy.prefersSubstitutionOverPark(
+            wakeAfter: wakeAfter,
+            observation: observation
+        ),
+           let candidate = automaticSubstituteCandidate(
+            run: parked,
+            failedModelId: parkedModelId,
+            preset: preset,
+            lane: lane
+           ) {
+            return .success(ParkedWakeModel(
+                modelId: candidate.modelId,
+                selectionOrigin: candidate.selectionOrigin,
+                substitutionOfAttempt: priorAttempt
+            ))
+        }
+
+        return .success(ParkedWakeModel(
+            modelId: parkedModelId,
+            selectionOrigin: selectionOrigin,
+            substitutionOfAttempt: nil
+        ))
     }
 
     private static func settleLatestAttempt(
