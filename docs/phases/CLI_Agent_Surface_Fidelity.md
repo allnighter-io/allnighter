@@ -4,9 +4,11 @@ Status: **Active — APPROVED (founder dogfood 2026-07-20). Hardened same day af
 full-surface audit: ASF-S00 inventory DONE (kill list below), scope expanded —
 the drift is in the transactional JSON, not just help prose.**
 Owner: AllnighterCore (`HelpTopicRegistry`, `HelpService`, `HelpContract`,
-`ContractRegistry`, `AgentBootstrap`, `AsyncTeamService`) + AllnighterCLI
-(`HelpCLI`, `version`) + living ops docs agents still open
-Updated: 2026-07-20 (hard review pass)
+`ContractRegistry`, `AgentBootstrap`) + AllnighterEngine (`AsyncTeamService`,
+`AsyncTeamStatusMapper`) + AllnighterCLI (`HelpCLI`, `version`) + living ops
+docs agents still open
+Updated: 2026-07-20 (hard review pass; kill list re-verified line-by-line
+against commit `6fb37c26` — every file:line below was read, not remembered)
 
 Related: archived `Agent_Front_Door.md` / `Agent_Onboarding.md` /
 `Agent_Intent_Router.md` (gates 1–3 shipped — **not** the gap) · living
@@ -135,12 +137,15 @@ are swept AND the dead grammar joins the test-enforced deny-list.
 | `alln bootstrap --host claude` | **Honest** — router reflex + auth law (ONB-S01), marker + content hash present. |
 | `alln help search "opencode" --json` / `"glm"` | **Empty** results + empty `nextToolPlan`. `alln models --json` knows both. |
 | `alln help search "asdfqwerty…" --json` | **Fuzzy-hits `current_setup`** with populated plan — miss behavior inverted vs real terms. |
-| `alln help get team_run_loop --format md` | **Lies** — `team_start(dryRun:true)`, `team_run`/`team_ask`/`run_get`; prints `tools: team_start, …, run_get`. |
+| `alln help get team_run_loop --format md` | **Lies** — body prose carries `team_start(dryRun:true)`, `team_run`/`team_ask`/`run_get`. (Precision: `--format md` renders `relatedCommandNames` only — `HelpService.topicMarkdown:167-179` never prints `relatedToolIds`. The `tools: …` line is the *default text* path, `HelpCLI.swift:61`. Two different lies, two different fixes.) |
+| `alln help get team_run_loop --json` | **Also dirty** — `HelpTopic` is `Codable` and encoded whole, so all 10 dead `relatedToolIds` ship in the machine envelope, not just the text projection. |
+| `alln docs team_run_loop` | **Same dirty prose, second projection** — `HelpService.docsMarkdown:182-186` reuses `topicMarkdown`. Any S01 golden must cover `docs`, not only `help get`. |
 | `alln help search <anything>` (text) | Prints `next: help_get topic=… detail=machine` — not a runnable command. |
 | `alln team preflight --team code_bug_hunt` | `nextAction: {kind: "startTeamRun", tool: "team_start"}` — literal `alln team_start` errors. |
 | `alln team start … --json` | `nextActions[].tool: "team_status"/"team_result"` — underscore, not runnable. |
 | `alln version --json` | `binaryVersion: "0.9.0"` **(fixed + committed + rebuilt 2026-07-20)**; no git SHA / build id yet. |
-| `alln team result` / `spec` / `show` / `history` / `run get` / `team preflight` | All resolve — `tool_selection` topic verbs are clean. |
+| `alln team result` / `spec` / `show` / `history` / `team preflight` | All resolve — `tool_selection` topic verbs are clean. |
+| `alln run get` | **Does not exist** (an earlier draft of this table listed it as resolving — wrong). `RunCLI` has no `get`; registry has `run` + `run resume` only. This is precisely why `run_get` is on the dead-id list. |
 
 **Pattern-of-record (already correct, generalize it):** `AgentSurfaceNextAction`
 (`AgentFrontDoor.swift:5-17`) carries a full literal
@@ -165,7 +170,26 @@ next-action shape migrates to this.
   `teams_get`, `skills_get`, `defaults_get`, `error_explain`. (`pending_update`
   and `stalled_update` never existed even under MCP — authoring bugs.) All
   remaining ids are underscore spellings of two-word CLI verbs (invented-flag
-  traps).
+  traps). Verified by resolving all 29 distinct ids across 20 `relatedToolIds`
+  arrays against the 108 `CommandSpec` names.
+- **11th non-resolving id (missed by the first pass): `help`** (L101, L117,
+  L461). `ContractRegistry.resolveCommandName("alln help")` → nil; only
+  `help get` / `help search` / `help topics` exist. Softer than the other 10
+  (bare `alln help` *is* a live dispatch case in `HelpCLI.run`) — so S01 either
+  contracts it or stops advertising it. Do not let "it works when typed" hide
+  that it is uncontracted.
+- **`relatedToolIds` is a JSON leak, not only a text one.** `HelpTopic` is
+  `Codable` and encoded whole by `help get --json` / `help topics --json` —
+  every dead id ships in the machine envelope agents parse. Killing
+  `HelpCLI.swift:61` alone does NOT fix this.
+- **`--tool` is a contract-blessed *input* keyed to the dead vocabulary**:
+  `ContractRegistry+Milestone1.swift:894` (`help get` summary) and `:898-899`
+  (`FlagSpec("tool", … "Find the topic that documents this tool/action id.")`),
+  backed by `HelpService.get(tool:)` and `HelpRef.tool` → `alln://tool/<id>`
+  (`HelpService.swift:22`). The CLI still *invites* agents to speak MCP ids.
+  S01 owns retiring or re-keying this flag — an output-only sweep misses it.
+- **`alln docs <topic>`** (`HelpService.docsMarkdown:182-186`) reuses
+  `topicMarkdown` — a second projection of the same prose. Goldens must cover it.
 
 **`HelpContract.swift`**: L21–31 orphaned `panelWorkflowLines` /
 `pilotWorkflowLines` (0 callers — delete); L125, L163, L167, L175, L180
@@ -176,25 +200,50 @@ next-action shape migrates to this.
 
 **Transactional surfaces**: `AllnighterCLI.swift:1120` (preflight retryLater →
 `tool: "team_start"`); `AgentBootstrap.swift:199` (preflight nextAction), `:63`
-(dead — hello discards it); `AsyncTeamService.swift:1065-1066` (team start
-nextActions); `AsyncTeamStatusMapper.swift:63,65` (team status nextActions).
+(dead — verified end to end: `AgentReadiness.Verdict` is built only at
+`AllnighterCLI.swift:1078`, its consumers `AgentHello.build:72-91` and
+`AgentIntentRouter:265-268` read only `canStartTeamRun`/`readyTeams`/
+`blockedReason`, and `Verdict` is never encoded → `nextAction` has **zero**
+readers); `AsyncTeamService.swift:1065-1066` (team start nextActions, in
+**AllnighterEngine**); `AsyncTeamStatusMapper.swift:63,65` (team status).
+
+**Six more `tool:` emissions that S02 MUST include** — not underscore ids, but
+the same field that S02 deletes, so omitting them means the cutover does not
+compile: `AllnighterCLI.swift:1125`, `AgentBootstrap.swift:68, 72, 166, 200`,
+`HelpContract.swift:127` (all `tool: "doctor"`). `:68`/`:72` are dead alongside
+`:63`. A sweep scoped to "underscore ids" would have shipped a half cutover.
+
+**Known-benign underscore ids (exempt explicitly, do not "discover" later):**
+`AgentHello.defaultWorkflows` (`AgentHello.swift:94-108`) emits
+`workflows[].id` = `run_async` / `diagnose` / `resolve_stalls` in every
+`team hello` payload. These are workflow *labels*, not callable ids, and their
+`steps` are clean runnable `alln …` strings. The S08(c) underscore ban must
+carve these out by name — otherwise the "never again" gate lands red on day one
+and gets weakened to make it pass, which is how the original inversion started.
 
 **Frozen dead vocabulary**: `HelpTopicRegistryTests.swift:11-19` (the inverted
 gate) + `:44-48` (`testEveryAdvertisedMCPToolIsReachableFromATopic`).
 
 **Living docs**:
-- `docs/operations/GLM_Worker_Best_Practices.md` — 3× broken link
-  `../phases/PM_Relay.md` (moved to `docs/archive/phases/`); L96 instructional
-  dead `pair status` inside the default-posture procedure; L104 copy-pasteable
-  dead `scripts/run_cr_phase1.sh` block; **no live replacement path**
-  (`alln run --worker model_opencode_glm_5_2 …`) anywhere.
-- `docs/phases/CLI_Product_Spine.md` L214, L215, L550 — `alln mcp serve --stdio` /
-  `alln mcp install` presented as live; no `mcp` subcommand exists.
-- `docs/phases/CLI_Implementation_Contract.md` L69, L72, L881–884, L907–911 —
-  MCP async-tool contract presented as planned; moot since retirement,
-  unannotated.
+- `docs/operations/GLM_Worker_Best_Practices.md` (253 lines) — 3× broken link
+  `../phases/PM_Relay.md` at **L15, L54, L242** (real file: `docs/archive/phases/PM_Relay.md`);
+  L96 instructional dead `pair status` inside the default-posture procedure;
+  L104 copy-pasteable `scripts/run_cr_phase1.sh` block — **the script no longer
+  exists on disk**, so this is a guaranteed-fail paste; **no live replacement
+  path** — zero occurrences of `model_opencode_glm` in the whole file.
+- `docs/phases/CLI_Product_Spine.md` L214, L215, **L218**, L550, **L655, L711** —
+  `alln mcp serve --stdio` / `alln mcp install` presented as live; no `mcp`
+  subcommand exists. (L218/L655/L711 were missed by the first pass — a grep for
+  `alln mcp`, not a line list, is the only safe sweep. S08's deny-list gate is
+  what makes this mechanical.)
+- `docs/phases/CLI_Implementation_Contract.md` **L65**, L69, L72, **L732–745**,
+  **L765**, L881–884, L907–911 — MCP async-tool contract presented as planned;
+  moot since retirement, unannotated. **L65 is the worst line in the file**: it
+  lists `alln mcp serve --stdio` as *in scope for milestone 1*. Also the
+  §MCP Projection block (L732–745) and `mcp_hello` (L765).
 - `docs/mvp/RB6_Team_As_Tool.md` — MCP-first spec, historical only via
-  AGENTS.md routing; no in-file tombstone.
+  AGENTS.md routing; no in-file tombstone, and its **status line still reads
+  "BUILT (engine + CLI + MCP)"** (only a June-2026 vocabulary note exists).
 - Cleanup debt (not teaching): `StalledWorkDetector.swift:234` vestigial
   `pair slice` prompt match.
 
@@ -226,6 +275,17 @@ Laws for this phase:
 6. **Freshness is observable.** Agents prove they are on the binary they just
    built without archaeology; docs may claim "shipped" only for committed +
    built state.
+7. **Sweep by grep, never by line list.** This doc's own first pass enumerated
+   line numbers and missed `CLI_Product_Spine.md` L218/L655/L711,
+   `CLI_Implementation_Contract.md` L65, the `--tool` input flag, the `--json`
+   `relatedToolIds` leak, and six `tool: "doctor"` sites. A hand-enumerated
+   inventory is a snapshot that rots on the next edit; the deny-list grep (S08b)
+   is the only sweep that stays true. **Line numbers below are navigation aids,
+   not the contract — the contract is the grep.**
+8. **A gate that lands red is fixed by fixing the code, never by narrowing the
+   gate.** The inversion started as one reasonable-sounding accommodation
+   ("frozen here in the interim"). Any future carve-out must name the exempted
+   symbol explicitly and say why it is not agent-callable.
 
 ## Anti-goals
 
@@ -253,14 +313,14 @@ Laws for this phase:
 | Slice | Deliverable |
 | --- | --- |
 | **ASF-S00 ✅ DONE (2026-07-20)** | Inventory + kill list — see §ASF-S00 above (file:line, contract-resolution table, root cause). No separate debuglog file; this doc is the SSOT. |
-| **ASF-S01** | **Help corpus CLI cutover + honest gate.** Rewrite all dirty topic bodies/sections (`team_run_loop`, `pm_relay`, `pending`, `projects_and_threads`, `results_and_history`, `schemas`, `auto_fix`) to CLI verbs. Retire `relatedToolIds` in favor of `relatedCommandNames` (or map ids → command names); `HelpCLI.swift:61` prints commands. **Delete the frozen vocabulary + `testEveryAdvertisedMCPToolIsReachableFromATopic`; re-point reference tests at `ContractRegistry`.** Delete `panelWorkflowLines`/`pilotWorkflowLines`. Golden: `help get team_run_loop` never contains `dryRun`/`MCP`/`team_start(`/underscore tool ids; does contain `alln team preflight` + `alln team start`. |
-| **ASF-S02** | **Next-action grammar cutover (P0 — transactional surfaces).** Migrate `AgentNextAction` / `AsyncTeamNextAction` / `HelpNextToolStep` to the `AgentSurfaceNextAction` full-`command` pattern. Call sites: `AllnighterCLI.swift:1120`, `AgentBootstrap.swift:199` (delete dead `:63`), `AsyncTeamService.swift:1065-1066`, `AsyncTeamStatusMapper.swift:63,65`, `HelpContract.swift:125,163,167,175,180`, `HelpCLI.swift:34-35`. `kind` stays; `tool` field dies (foundation-first, no dual grammar). Golden: preflight/start/status JSON contains runnable `alln team start`/`status`/`result` strings; no `"tool"` key. |
+| **ASF-S01** | **Help corpus CLI cutover + honest gate.** Rewrite all dirty topic bodies/sections (`team_run_loop`, `pm_relay`, `pending`, `projects_and_threads`, `results_and_history`, `schemas`, `auto_fix`) to CLI verbs. Retire `relatedToolIds` in favor of `relatedCommandNames` (or map ids → command names) — this is a **JSON fix too**: `HelpTopic` is `Codable`, so dead ids ship in `help get --json`; fixing `HelpCLI.swift:61` alone is not enough. Also resolve the 11th id (`help`, L101/L117/L461) and retire/re-key the **`--tool` input flag** (`ContractRegistry+Milestone1.swift:894, 898-899`, `HelpService.get(tool:)`, `HelpRef.tool`) — the CLI currently invites agents to speak MCP ids. **Delete the frozen vocabulary + `testEveryAdvertisedMCPToolIsReachableFromATopic`; re-point reference tests at `ContractRegistry`.** Delete `panelWorkflowLines`/`pilotWorkflowLines` (0 callers, verified). Golden: `help get team_run_loop` **in all three projections — text, `--json`, and `alln docs`** — never contains `dryRun`/`MCP`/`team_start(`/underscore tool ids; does contain `alln team preflight` + `alln team start`. |
+| **ASF-S02** | **Next-action grammar cutover (P0 — transactional surfaces).** Migrate `AgentNextAction` / `AsyncTeamNextAction` / `HelpNextToolStep` to the `AgentSurfaceNextAction` full-`command` pattern. Call sites — **underscore ids**: `AllnighterCLI.swift:1120`, `AgentBootstrap.swift:199` (delete dead `:63`), `AsyncTeamService.swift:1065-1066`, `AsyncTeamStatusMapper.swift:63,65`, `HelpContract.swift:125,163,167,175,180`, `HelpCLI.swift:34-35`. **Plus the six `tool: "doctor"` sites the field-deletion forces**: `AllnighterCLI.swift:1125`, `AgentBootstrap.swift:68, 72, 166, 200` (`:68`/`:72` dead), `HelpContract.swift:127`. `kind` stays; `tool` field dies (foundation-first, no dual grammar). Golden: preflight/start/status JSON contains runnable `alln team start`/`status`/`result` strings; no `"tool"` key **anywhere in any envelope** (grep the key, not the values). |
 | **ASF-S03** | **Discovery: catalog→search bridge.** Derive a search index from `ModelCatalog.builtIns` (id, displayName, modelLabel, driverId) + `TeamCatalog` families + driver ids — programmatic, not hand aliases (`aliasRedirects` is the hook point, fed from the catalogs). `help search "opencode"`/`"glm"` return useful hits + runnable next steps (`models --json`, `run --worker model_opencode_glm_5_2 …`). |
 | **ASF-S04** | **Empty-search recovery + miss-consistency.** `planForSearch` (`HelpContract.swift:161-171`) returns non-empty recovery on zero hits (models/teams/doctor/hello --for as runnable commands). Fix the inversion: nonsense and real-term misses behave identically. Golden: miss ⇒ `nextToolPlan`/recovery non-empty, always. |
 | **ASF-S05** | **First-contact decision tree.** Expand `tool_selection` (already CLI-honest) to the full verb tree: `run` vs `team` vs `team start` vs `thread send` vs `pending` — one page, routed from bootstrap + hello. No new CLI verb. |
 | **ASF-S06** | **Freshness identity.** `0.9.0` ✅ landed (commit `25ab39c2`, rebuilt, installed symlink verified). Remaining: git SHA + build timestamp in `version --json` via a generated `BuildInfo.swift` (net-new: prebuild step in `dev.sh`/`check.sh` or SwiftPM plugin — nothing exists to extend); teach self-build in help (`swift build -c release --product alln` + `alln install-cli`; note install-cli symlinks the workspace release build). Thin `alln self-build` stays PARKED. |
 | **ASF-S07** | **Living docs purge.** GLM playbook: current `alln run --worker model_opencode_glm_5_2` path first, fix 3× `PM_Relay.md` links → `docs/archive/phases/`, rewrite L96 dead-verb procedure step, fence L104 as historical-non-runnable. `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md`: annotate/remove `alln mcp *` examples and moot MCP contract sections. In-file tombstone on `RB6_Team_As_Tool.md`. Optional: drop `StalledWorkDetector.swift:234` vestigial match. |
-| **ASF-S08** | **Durable mechanical gates (the "never again" slice).** (a) **Prose-command resolution test**: every `` `alln …` `` string in topic bodies/sections/summaries resolves via `ContractRegistry.resolveCommandName` + flag check against `CommandSpec.flags`. (b) **`RetiredVocabulary` deny-list as ONE Swift source** consumed by the XCTest gate AND a `check.sh` grep gate over active agent-facing docs (`docs/operations/**` + docs this phase names); seeded from the kill list (`dryRun`, `team_start(`, `pair_relay(action`, all 10 dead ids, `pair slice`, `alln mcp`); Retirement Rule (SSOT Feature Workflow) appends here forever. (c) **Underscore-tool-id ban** on all agent-visible output (JSON keys + text projections) as golden transcripts of the dogfood probes. (d) Wire `alln dev export-contracts --check` into `scripts/check.sh` (today it is only opportunistic via `StandingInvariants`). Gates (a)–(c) land WITH S01/S02, not after — this slice is the checklist that proves they exist and that `check.sh` fails on reintroduction. |
+| **ASF-S08** | **Durable mechanical gates (the "never again" slice).** (a) **Prose-command resolution test**: every `` `alln …` `` string in topic bodies/sections/summaries resolves via `ContractRegistry.resolveCommandName` + flag check against `CommandSpec.flags`. (b) **`RetiredVocabulary` deny-list as ONE Swift source** consumed by the XCTest gate AND a `check.sh` grep gate over active agent-facing docs (`docs/operations/**` + docs this phase names); seeded from the kill list (`dryRun`, `team_start(`, `pair_relay(action`, all 10 dead ids, `pair slice`, `alln mcp`); Retirement Rule (SSOT Feature Workflow) appends here forever. (c) **Underscore-tool-id ban** on all agent-visible output (JSON keys + text projections) as golden transcripts of the dogfood probes — with `AgentHello.defaultWorkflows` ids (`run_async`/`diagnose`/`resolve_stalls`) carved out **by explicit name in the test**, so the gate lands green-by-correctness rather than getting weakened to pass. (d) Wire `alln dev export-contracts --check` into `scripts/check.sh` (today it is only opportunistic via `StandingInvariants`). Gates (a)–(c) land WITH S01/S02, not after — this slice is the checklist that proves they exist and that `check.sh` fails on reintroduction. |
 | **PARKED** | Unified `alln send --mode …` sugar · auto-rewrite of installed snippets beyond current marker stale/repair (mechanism exists: version+hash markers + Mac `GlobalTeachingInstaller` repair) · full comment archaeology · CI runner (no `.github/workflows` exists; `check.sh` is the gate of record — founder call whether hosted CI is wanted) |
 
 ## Works test
