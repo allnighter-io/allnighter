@@ -53,10 +53,10 @@ final class ThreadsViewModelUnreadTests: XCTestCase {
         )
     }
 
-    func testSelectingThreadDoesNotMarkRead() throws {
+    func testSelectingThreadDoesNotMarkRead() async throws {
         let (vm, store) = makeVM()
         try seedTwoUnreadWorkers(store: store)
-        vm.reload()
+        await vm.reloadAsync()
         guard let thread = vm.threads.first(where: { $0.id == "a" }) else {
             return XCTFail("missing thread")
         }
@@ -70,7 +70,7 @@ final class ThreadsViewModelUnreadTests: XCTestCase {
     func testVisibleUnreadPrefixClearsRead() async throws {
         let (vm, store) = makeVM()
         try seedTwoUnreadWorkers(store: store)
-        vm.reload()
+        await vm.reloadAsync()
         guard let thread = vm.threads.first(where: { $0.id == "a" }) else {
             return XCTFail("missing thread")
         }
@@ -86,7 +86,7 @@ final class ThreadsViewModelUnreadTests: XCTestCase {
     func testNonContiguousVisibleDoesNotClearEarlierUnread() async throws {
         let (vm, store) = makeVM()
         try seedTwoUnreadWorkers(store: store)
-        vm.reload()
+        await vm.reloadAsync()
         vm.select(vm.threads.first { $0.id == "a" }!)
 
         vm.reportTimelineVisibility(threadId: "a", visibleTurnIds: ["w2"])
@@ -99,7 +99,7 @@ final class ThreadsViewModelUnreadTests: XCTestCase {
     func testInactiveAppDoesNotClearRead() async throws {
         let (vm, store) = makeVM(active: false)
         try seedTwoUnreadWorkers(store: store)
-        vm.reload()
+        await vm.reloadAsync()
         vm.select(vm.threads.first { $0.id == "a" }!)
 
         vm.reportTimelineVisibility(threadId: "a", visibleTurnIds: ["w1", "u2", "w2"])

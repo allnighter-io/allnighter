@@ -26,7 +26,7 @@ one's truth now lives.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
-| [`Team_Run_Load_Performance.md`](Team_Run_Load_Performance.md) | **TOP PERF PRIORITY** — S01–S03, S04a, and RunStore progress fast path landed; S00 proof incomplete. Next: S04b off-main generation-safe reads and S06 hard timing gates. | Team-run open stall fixed; Team/execution and default-chat streaming use live overlay (no per-token reload). Remaining: MainActor store scans + unproved paint/Floor gates. |
+| [`Team_Run_Load_Performance.md`](Team_Run_Load_Performance.md) | **S04b LANDED** — S01–S04b + RunStore progress fast path shipped. Next: S06 hard timing gates. S05b deferred. | Off-main generation-safe reload landed. Remaining: unproved paint/Floor timing gates. |
 | [`Field_Reports_3.md`](Field_Reports_3.md) | **In progress** — piloted delivery #10 | Lane-label truth, JSON stream discipline, retry idempotency from live dogfood. |
 | [`Field_Reports_4.md`](Field_Reports_4.md) | **In progress** — piloted delivery #11 | Commit fidelity, proof surfacing, token truth from live dogfood. |
 

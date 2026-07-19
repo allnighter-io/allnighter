@@ -29,19 +29,19 @@ final class ThreadsViewModelNotificationTests: XCTestCase {
         )
         _ = try threadStore.create(id: "a", title: "t", now: t0)
         _ = try threadStore.appendTurn(userTurn("u1"), toThreadId: "a", now: t0)
-        vm.reload()
+        await vm.reloadAsync()
         _ = try threadStore.appendTurn(
             workerTurn("w1", status: .running), toThreadId: "a", now: t0
         )
-        vm.reload()
+        await vm.reloadAsync()
         vm.setThreadNotificationsMuted("a", muted: true)
         _ = try threadStore.updateTurn(workerTurn("w1", status: .done), inThreadId: "a", now: t1)
-        vm.reload()
+        await vm.reloadAsync()
         try await Task.sleep(nanoseconds: 100_000_000)
         XCTAssertTrue(delivery.delivered.isEmpty)
     }
 
-    func testVisibleUnreadSuppressesNotification() {
+    func testVisibleUnreadSuppressesNotification() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("alln-notif-vis-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -67,7 +67,7 @@ final class ThreadsViewModelNotificationTests: XCTestCase {
         try? threadStore.create(id: thread.id, title: thread.title, now: t0)
         try? threadStore.appendTurn(thread.turns[0], toThreadId: "a", now: t0)
         try? threadStore.appendTurn(thread.turns[1], toThreadId: "a", now: t1)
-        vm.reload()
+        await vm.reloadAsync()
         vm.select(thread)
         vm.reportTimelineVisibility(threadId: "a", visibleTurnIds: ["w1"])
         let candidate = NotificationCandidate(

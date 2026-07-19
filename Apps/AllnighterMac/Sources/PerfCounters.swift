@@ -8,7 +8,7 @@ import os
 @MainActor
 enum PerfCounters {
     enum Key: String, CaseIterable {
-        /// `reload()` actually ran — a full `ThreadStore.list()` decode + publish.
+        /// A full-list publish landed — `ThreadStore.list()` decode + MainActor snapshot.
         case threadsReload
         /// A durable `thread.json` write (a streaming checkpoint or settlement).
         case threadJSONWrite
@@ -18,6 +18,13 @@ enum PerfCounters {
         case reloadRequested
         /// `requestReload()` folded into an already-scheduled flush (coalesced away).
         case reloadCoalesced
+        /// Background list finished but a newer generation (live delta / newer reload)
+        /// already owns published state — stale snapshot discarded (PERF-S04b).
+        case reloadPublishDiscarded
+        /// `ThreadStore.list()` ran off the MainActor (PERF-S04b).
+        case threadStoreListOffMain
+        /// A terminal `run.json` decode via `teamRun(forRunId:)` (cache miss).
+        case runJSONDecode
         /// A terminal settlement write FAILED (RLS-S01) — a product failure, surfaced
         /// instead of swallowed, so a completed run never silently stays `running`.
         case settlementError

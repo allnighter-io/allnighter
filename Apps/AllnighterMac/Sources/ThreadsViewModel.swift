@@ -77,6 +77,16 @@ final class ThreadsViewModel {
     /// full `ThreadStore.list()` decodes (PERF-S01). `requestReload()` schedules at most
     /// one publish per runloop tick.
     private var reloadScheduled = false
+    /// Monotonic publish generation (PERF-S04b). Bumped on each full-list reload request
+    /// and on live mutations that must win over an in-flight background list. A finishing
+    /// list publishes only when its captured generation is still current.
+    private var publishGeneration: UInt64 = 0
+    /// Serializes off-main `ThreadStore.list()` so overlapping reloads cannot interleave
+    /// directory scans (PERF-S04b).
+    private static let listQueue = DispatchQueue(
+        label: "com.allnighter.mac.threads-reload",
+        qos: .userInitiated
+    )
     /// Per-running-turn timestamp of the last DURABLE thread.json checkpoint — live text
     /// streams in memory; disk is written only every `liveCheckpointInterval`, never per
     /// token (crash-resume continuity without write amplification).
@@ -135,6 +145,7 @@ final class ThreadsViewModel {
             applyFixture(fixture)
         }
         #endif
+        reload()
     }
 
     /// Designated init — tests inject temp stores, cached health, and a mock runner.
@@ -181,7 +192,8 @@ final class ThreadsViewModel {
                 self?.applyChatLivePartial(update)
             }
         }
-        reload()
+        // Intentionally no reload() here — callers that need a first snapshot await
+        // `reloadAsync()` (tests) or the convenience init schedules `reload()` (app).
     }
 
     // MARK: - Derived
@@ -206,10 +218,73 @@ final class ThreadsViewModel {
 
     // MARK: - List / selection
 
+    /// Fire-and-forget full-store refresh. List/decode runs off the MainActor; publish is
+    /// generation-gated so a stale background read cannot overwrite newer live state.
     func reload() {
+        Task { @MainActor in
+            await reloadAsync()
+        }
+    }
+
+    /// Awaitable full-store refresh (tests and callers that need a settled publish).
+    func reloadAsync() async {
+        let generation = bumpPublishGeneration()
+        let store = self.store
+        let (listed, listedOffMain): ([WorkThread], Bool) = await withCheckedContinuation { continuation in
+            Self.listQueue.async {
+                continuation.resume(returning: Self.listThreadsOffMain(store))
+            }
+        }
+        publishListedThreads(listed, generation: generation, listedOffMain: listedOffMain)
+    }
+
+    /// Sync helper so `Thread.isMainThread` is not read from an `async` context (Swift 6).
+    nonisolated private static func listThreadsOffMain(_ store: ThreadStore) -> ([WorkThread], Bool) {
+        (store.list(), !Thread.isMainThread)
+    }
+
+    /// Coalesced reload: a burst of events (streaming deltas, rapid mutations) folds into
+    /// ONE `reloadAsync()` at the next runloop tick instead of one full list-decode per event.
+    func requestReload() {
+        PerfCounters.bump(.reloadRequested)
+        if reloadScheduled { PerfCounters.bump(.reloadCoalesced); return }
+        reloadScheduled = true
+        Task { @MainActor in
+            reloadScheduled = false
+            await reloadAsync()
+        }
+    }
+
+    /// Current publish generation — tests use this to prove a stale snapshot is discarded.
+    var publishGenerationForTesting: UInt64 { publishGeneration }
+
+    /// Test/seam: attempt to publish a list snapshot under an explicit generation.
+    func publishListedThreadsForTesting(
+        _ listed: [WorkThread],
+        generation: UInt64,
+        listedOffMain: Bool = true
+    ) {
+        publishListedThreads(listed, generation: generation, listedOffMain: listedOffMain)
+    }
+
+    private func bumpPublishGeneration() -> UInt64 {
+        publishGeneration &+= 1
+        return publishGeneration
+    }
+
+    private func publishListedThreads(
+        _ listed: [WorkThread],
+        generation: UInt64,
+        listedOffMain: Bool
+    ) {
+        guard generation == publishGeneration else {
+            PerfCounters.bump(.reloadPublishDiscarded)
+            return
+        }
+        if listedOffMain { PerfCounters.bump(.threadStoreListOffMain) }
         PerfCounters.bump(.threadsReload)
         let beforeSnapshots = notificationSnapshots
-        threads = store.list()
+        threads = listed
         // Derive the rail summaries once here (PERF-S02/S03), not per render/per delta.
         railRows = threads.map(ThreadsPresenter.railRow(from:))
         if let id = selectedThreadId, !threads.contains(where: { $0.id == id }) {
@@ -221,15 +296,24 @@ final class ThreadsViewModel {
         Task { await processNotificationTransitions(before: beforeSnapshots, after: afterSnapshots) }
     }
 
-    /// Coalesced reload: a burst of events (streaming deltas, rapid mutations) folds into
-    /// ONE `reload()` at the next runloop tick instead of one full list-decode per event.
-    func requestReload() {
-        PerfCounters.bump(.reloadRequested)
-        if reloadScheduled { PerfCounters.bump(.reloadCoalesced); return }
-        reloadScheduled = true
-        Task { @MainActor in
-            reloadScheduled = false
-            reload()
+    /// Cheap single-thread refresh after a local store mutation so `applyLiveDelta` / UI
+    /// selection do not wait on a full off-main `list()`. Follow with `reload()` to
+    /// reconcile the rest of the rail from disk.
+    private func refreshPublishedThread(_ threadId: String) {
+        guard let thread = store.get(threadId) else { return }
+        upsertPublishedThread(thread)
+    }
+
+    private func upsertPublishedThread(_ thread: WorkThread) {
+        if let index = threads.firstIndex(where: { $0.id == thread.id }) {
+            threads[index] = thread
+        } else {
+            threads.insert(thread, at: 0)
+        }
+        if let rowIndex = railRows.firstIndex(where: { $0.id == thread.id }) {
+            railRows[rowIndex] = ThreadsPresenter.railRow(from: thread)
+        } else {
+            railRows.insert(ThreadsPresenter.railRow(from: thread), at: 0)
         }
     }
 
@@ -253,6 +337,8 @@ final class ThreadsViewModel {
         guard let ti = threads.firstIndex(where: { $0.id == threadId }),
               let tj = threads[ti].turns.firstIndex(where: { $0.id == turnId }),
               threads[ti].turns[tj].status == .running else { return false }
+        // Live text must win over any in-flight background list publish (PERF-S04b).
+        _ = bumpPublishGeneration()
         if isAnswer {
             threads[ti].turns[tj].text = text
             if let truncated { threads[ti].turns[tj].partialOutputTruncated = truncated }
@@ -305,13 +391,17 @@ final class ThreadsViewModel {
         // Cursor-style: opening a thread clears its unread dot immediately. A reply
         // that lands while it's already open is cleared by the timeline-visibility path.
         markReadOnOpen(thread)
+        prefetchTerminalRuns(for: thread)
     }
 
     private func markReadOnOpen(_ thread: WorkThread) {
         guard let lastTurnId = thread.turns.last?.id else { return }
         let before = store.get(thread.id)
         guard let updated = try? store.markRead(threadId: thread.id, throughTurnId: lastTurnId, now: Date()) else { return }
-        if before?.readCursor != updated.readCursor || before?.hasUnread != updated.hasUnread { reload() }
+        if before?.readCursor != updated.readCursor || before?.hasUnread != updated.hasUnread {
+            refreshPublishedThread(thread.id)
+            reload()
+        }
     }
 
     /// Consumes a notification/deep-link scroll target after the timeline applies it.
@@ -359,6 +449,7 @@ final class ThreadsViewModel {
             threadId: threadId, visibleTurnIds: visibleTurnIds, now: Date()
         ) else { return }
         if before?.readCursor != updated.readCursor || before?.hasUnread != updated.hasUnread {
+            refreshPublishedThread(threadId)
             reload()
         }
     }
@@ -367,24 +458,28 @@ final class ThreadsViewModel {
 
     func renameThread(_ threadId: String, title: String) {
         guard (try? store.renameThread(threadId: threadId, title: title)) != nil else { return }
+        refreshPublishedThread(threadId)
         reload()
     }
 
     func setPinned(_ threadId: String, pinned: Bool) {
         guard (try? store.setPinned(threadId: threadId, pinned: pinned, now: Date())) != nil else { return }
+        refreshPublishedThread(threadId)
         reload()
     }
 
     func archiveThread(_ threadId: String) {
         guard (try? store.archiveThread(threadId: threadId)) != nil else { return }
-        reload()
+        refreshPublishedThread(threadId)
         if selectedThreadId == threadId, showingArchive == false {
-            selectedThreadId = triagedThreads.first?.id
+            selectedThreadId = ThreadsPresenter.triagedActive(threads).first?.id
         }
+        reload()
     }
 
     func unarchiveThread(_ threadId: String) {
         guard (try? store.unarchiveThread(threadId: threadId)) != nil else { return }
+        refreshPublishedThread(threadId)
         reload()
     }
 
@@ -420,9 +515,10 @@ final class ThreadsViewModel {
         )
         if let thread {
             bindThread(thread.id, to: scope, snapshot: workingDir)
+            refreshPublishedThread(thread.id)
+            selectedThreadId = thread.id
         }
         reload()
-        if let thread { selectedThreadId = thread.id }
         return thread
     }
 
@@ -482,8 +578,11 @@ final class ThreadsViewModel {
         let thread = try? store.create(
             id: UUID().uuidString, title: title, now: Date(), workingDir: workingDir
         )
+        if let thread {
+            refreshPublishedThread(thread.id)
+            selectedThreadId = thread.id
+        }
         reload()
-        if let thread { selectedThreadId = thread.id }
         return thread
     }
     #endif
@@ -643,6 +742,8 @@ final class ThreadsViewModel {
         )
         guard (try? store.appendTurn(turn, toThreadId: threadId, now: startedAt)) != nil else { return }
         timing.stamp(RunTimingKey.threadWorkerTurnPersisted, at: startedAt)
+        // Single-thread refresh so live deltas can land before the off-main full list returns.
+        refreshPublishedThread(threadId)
         reload()
 
         let request = RunRequest(
@@ -795,9 +896,35 @@ final class ThreadsViewModel {
     func teamRun(forRunId runId: String) -> TeamRun? {
         if let cached = runCache.get(runId) { return cached }
         guard let run = runStore.load(runId: runId) else { return nil }
+        PerfCounters.bump(.runJSONDecode)
         // Only cache terminal (immutable) runs; a running run still changes.
         if run.status.isTerminal { runCache.set(runId, run) }
         return run
+    }
+
+    /// Warm the terminal-run decode cache off the MainActor after selection (PERF-S04b).
+    /// Body evaluation still falls back to a sync load on cache miss.
+    private func prefetchTerminalRuns(for thread: WorkThread) {
+        let missing = thread.turns.compactMap(\.runId).filter { runCache.get($0) == nil }
+        guard !missing.isEmpty else { return }
+        let runStore = self.runStore
+        Task.detached(priority: .userInitiated) {
+            var loaded: [(String, TeamRun)] = []
+            for runId in missing {
+                guard let run = runStore.load(runId: runId), run.status.isTerminal else { continue }
+                loaded.append((runId, run))
+            }
+            guard !loaded.isEmpty else { return }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                for (runId, run) in loaded {
+                    if self.runCache.get(runId) == nil {
+                        self.runCache.set(runId, run)
+                        PerfCounters.bump(.runJSONDecode)
+                    }
+                }
+            }
+        }
     }
 
     func runDirectory(forRunId runId: String) -> URL? {
@@ -914,6 +1041,7 @@ final class ThreadsViewModel {
             createdAt: Date(), completedAt: Date(), author: .system, text: reason
         )
         try? store.appendTurn(turn, toThreadId: threadId, now: Date())
+        refreshPublishedThread(threadId)
         reload()
     }
 
@@ -958,6 +1086,7 @@ final class ThreadsViewModel {
                     requestedWorkerId: workerId,
                     fileReferences: fileReferences
                 )
+                refreshPublishedThread(threadId)
                 reload()
                 switch checkpoint {
                 case .finished:
@@ -965,9 +1094,11 @@ final class ThreadsViewModel {
                 case .awaitingInvoke(let pending):
                     // Streaming overlays in-memory via LivePartialObserver; settle with one reload.
                     _ = try await coordinator.completeSend(pending)
+                    refreshPublishedThread(threadId)
                     reload()
                 }
             } catch {
+                refreshPublishedThread(threadId)
                 reload()
             }
         }
@@ -1038,6 +1169,7 @@ final class ThreadsViewModel {
             contextPacketId: contextPacketId
         )
         guard (try? store.appendTurn(turn, toThreadId: threadId, now: Date())) != nil else { return false }
+        refreshPublishedThread(threadId)
         reload()
         return true
     }

@@ -1,10 +1,10 @@
 # Team Run Load Performance
 
-Status: **TOP PERF PRIORITY** — S01–S03, S04a, and RunStore progress fast path landed;
-S00 proof incomplete. Next: off-main generation-safe reads (S04b) and hard timing
-gates (S06). Sidecars (S05b) deferred pending measurement.
+Status: **S04b LANDED** — S01–S04b and RunStore progress fast path shipped;
+S00 proof incomplete. Next: hard timing gates (S06). Sidecars (S05b) deferred
+pending measurement.
 Owner: AllnighterCore + AllnighterEngine + AllnighterMac
-Updated: 2026-07-19 (PERF-S04a default-chat live overlay)
+Updated: 2026-07-19 (PERF-S04b off-main generation-safe reload)
 
 Currency snapshot (code wins over older prose below):
 
@@ -16,8 +16,10 @@ Currency snapshot (code wins over older prose below):
   artifact regen).
 - S04a shipped: default-chat streaming uses `LivePartialObserver` →
   `applyLiveDelta(persistCheckpoint: false)`; 150 ms full-`reload()` poll removed.
-- Still hot: full-store scans still on MainActor; named hard timing gates largely
-  absent; Floor projection still recomputed; summary sidecars absent.
+- S04b shipped: `reloadAsync()` lists/decodes off MainActor on a serial queue;
+  publish is generation-gated so live deltas win over stale snapshots.
+- Still hot: named hard timing gates largely absent; Floor projection still
+  recomputed; summary sidecars absent.
 
 ## Founder Intent
 
@@ -542,9 +544,12 @@ PERF-S04a - Default-chat live overlay  ✅ DONE (2026-07-19)
   testDefaultChatStreamingDoesNotPollReload (60 deltas → 0 threadsReload, 0
   VM threadJSONWrite, final text visible).
 
-PERF-S04b - Background store reader + generation-safe publish  ⬜ FORWARD
-  Move full thread scans/decodes and initial run.json loading off @MainActor; publish
-  generation-safe snapshots so stale reads cannot overwrite newer live state.
+PERF-S04b - Background store reader + generation-safe publish  ✅ DONE (2026-07-19)
+  `ThreadsViewModel.reloadAsync()` runs `ThreadStore.list()` off MainActor (serial
+  queue); publish is generation-gated. `applyLiveDelta` bumps generation so stale
+  background snapshots cannot clobber live text. Selection prefetches terminal
+  `run.json` into `RunDecodeCache` off-main. Works Tests:
+  `testStaleReloadPublishDoesNotClobberLiveDelta`, `testReloadListsOffMainActor`.
 
 PERF-S05a - RunStore progress fast path  ✅ DONE (d13540da)
   Non-terminal progress saves skip derived artifact regeneration.
@@ -624,9 +629,9 @@ Proof command / founder test: ThreadStreamingPerformanceTests (incl. S04a defaul
 
 ## Should-build (2026-07-19 Sol)
 
-- **Must before launch:** S04b, S06 (S04a landed). Sync full-store work on MainActor and
-  unproved `<50ms`/`<150ms` targets remain launch risk.
-- **Next execution:** S04b (off-main generation-safe reads), then S06 hard timing gates.
+- **Must before launch:** S06 (S04a/S04b landed). Unproved `<50ms`/`<150ms` paint
+  targets remain launch risk.
+- **Next execution:** S06 hard timing gates.
 - **Defer:** S05b sidecars, Floor memoization, search debounce, deeper
   selected-detail restructuring until measured.
 - **Cut for this phase:** SQLite/GRDB migration and speculative filesystem-event /
