@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-07-18
+Updated: 2026-07-19
 
 ## Purpose
 
@@ -25,8 +25,8 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Concurrent_Invocation_Isolation.md`](Concurrent_Invocation_Isolation.md) | **ACTIVE P0** — F1–F4 landed; F5 + forensics + commit the two-process gate remain | Two `alln`s on different projects/terminals must isolate like two `claude`s. Scoped `reconcileAll(scopeRoot:)`/`killAll(scopeRoot:)` + per-invocation context-provenance gate landed. Remaining: `IdempotencyStore` RMW lock (F5), mutation-receipt forensics, commit `ConcurrentInvocationTwoProcessTests`. |
-| [`Team_Run_Load_Performance.md`](Team_Run_Load_Performance.md) | **TOP PERF PRIORITY** — S00/S01 done; S02/S03 forward | Team-run open stall fixed (run-decode cache, in-memory live deltas). Next: read-model (S02), derived-state cache + off-main-actor reads (S03). |
+| [`Concurrent_Invocation_Isolation.md`](Concurrent_Invocation_Isolation.md) | **ACTIVE P0 CLOSEOUT** — F1–F5a and the committed two-process mutation/context gate landed. Remaining launch fix: atomic same-key idempotency claim/replay (F5b). Mutation receipts deferred. | Two `alln`s on different projects must isolate like two `claude`s. Scoped `reconcileAll`/`killAll`, stage-lease liveness, context-provenance gate, and `IdempotencyStore.record()` RMW lock are in. Closeout: same-key single-flight across processes, then archive. |
+| [`Team_Run_Load_Performance.md`](Team_Run_Load_Performance.md) | **TOP PERF PRIORITY** — S01–S03 and RunStore progress fast path landed; S00 proof incomplete. Next: S04a default-chat live overlay, then S04b off-main generation-safe reads and S06 hard timing gates. | Team-run open stall fixed; Team/execution streaming no longer reloads per token. Remaining hot path: default-chat 150 ms full `reload()` poll + MainActor store scans + unproved paint/Floor gates. |
 | [`Field_Reports_3.md`](Field_Reports_3.md) | **In progress** — piloted delivery #10 | Lane-label truth, JSON stream discipline, retry idempotency from live dogfood. |
 | [`Field_Reports_4.md`](Field_Reports_4.md) | **In progress** — piloted delivery #11 | Commit fidelity, proof surfacing, token truth from live dogfood. |
 
