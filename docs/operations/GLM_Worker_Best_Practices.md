@@ -1,8 +1,8 @@
 # GLM Worker — Best Practices
 
 Status: **living doc** — update as we learn
-Owner: Operations + pair-programming control plane
-Updated: 2026-07-16
+Owner: Operations + agent control plane
+Updated: 2026-07-20
 
 This is the **eternal playbook** for seating GLM (OpenCode / Featherless, ~32K context)
 productively in Allnighter. It captures lessons that survive any single batch or tool
@@ -10,11 +10,34 @@ version. The active hardening queue lives in
 [`docs/phases/code_review/`](../phases/code_review/README.md); this doc is the *why* and
 *how*, not the task list.
 
-> The `alln pair slice`/`pair run`/`pair status` dispatch commands this doc describes
-> were deleted outright at PM Relay R-S09 (the slice queue is gone — see
-> [`docs/phases/PM_Relay.md`](../phases/PM_Relay.md) §1/§6). The F1–F5 lessons below
-> are still real GLM-seating knowledge; the dispatch mechanics (`pair slice`, `pair
-> status`, `scripts/run_cr_phase1.sh`) are historical and no longer run.
+---
+
+## Live path (use this)
+
+Seat GLM as a named OpenCode worker through the CLI — not through any deleted
+dispatch queue:
+
+```bash
+# Single-worker ask (chat / advisory review in the project root)
+alln run --worker model_opencode_glm_5_2 --json "Review <file>: what invariant breaks if X?"
+
+# Or: confirm the worker is on the bench, then run
+alln models --json          # look for model_opencode_glm_5_2
+alln team hello --for "glm advisory review" --json
+```
+
+Self-build + install if `which alln` fails:
+
+```bash
+swift build -c release --package-path Packages/AllnighterCore --product alln
+alln install-cli
+```
+
+> Historical note (do **not** paste): the old slice-queue dispatch family and
+> `scripts/run_cr_phase1.sh` were deleted at PM Relay R-S09. See
+> [`docs/archive/phases/PM_Relay.md`](../archive/phases/PM_Relay.md) §1/§6.
+> The F1–F5 lessons below are still real GLM-seating knowledge; the retired
+> dispatch mechanics are not.
 
 ---
 
@@ -51,7 +74,7 @@ Same worker chair; different contract. Review never edits Swift.
 ## Eternal lessons (F1–F5)
 
 From the deleted slice queue (`Pair_Programming_Team.md`, R-S09 — see
-[`PM_Relay.md`](../phases/PM_Relay.md)), adapted for GLM:
+[`PM_Relay.md`](../archive/phases/PM_Relay.md)), adapted for GLM:
 
 ### F1 — Reads choke the window
 
@@ -89,23 +112,27 @@ optimize for slice JSON turning green; optimize for **upheld findings → shippe
 
 **Not** "overnight batch." A **serial investigation** over hard invariant chunks.
 
-1. **One GLM review at a time** — `PAIR_CR_PARALLEL=0` (script default).
-2. **Patient timeouts** — `stallTimeoutSeconds: 3600` on review packets; GLM may reason
-   a long time before writing via tools.
+1. **One GLM review at a time** — seat a single `model_opencode_glm_5_2` run; do not
+   fan out parallel GLM workers against the same OpenCode serve.
+2. **Patient timeouts** — give the worker a long stall budget on hard reviews; GLM may
+   reason a long time before writing via tools.
 3. **Success = findings file + check** — if `findings/CR-NN.md` exists and the packet
-   check passes, triage even when pair status says `stalled` or `failed`.
+   check passes, triage even when the run ends `stalled` or `failed`.
 4. **Verify when triaging** — adversarial second pass; default P0 → reject unless upheld.
-   Skip during the review pass: `PAIR_CR_VERIFY=0`.
 5. **Archive durably** — copy `findings/CR-NN.md` → `triage/CR-NN-findings.md`; promote
    P0/P1 to `docs/phases/sprint/`.
 
-```bash
-# Phase 2 serial pass (post-sprint resume — skip already-triaged CR-07)
-PAIR_CR_PARALLEL=0 PAIR_CR_VERIFY=0 scripts/run_cr_phase1.sh Allnighter \
-  11 14 15 18 19 21 16 17 22 12 23 20 24 25 13 26 27 28 29 30 31 32
+```text
+# HISTORICAL — non-runnable. scripts/run_cr_phase1.sh no longer exists on disk.
+# Kept only so agents do not invent a replacement paste from memory.
+# Live replacement: alln run --worker model_opencode_glm_5_2 … (see §Live path).
+#
+# PAIR_CR_PARALLEL=0 PAIR_CR_VERIFY=0 scripts/run_cr_phase1.sh Allnighter \
+#   11 14 15 18 19 21 16 17 22 12 23 20 24 25 13 26 27 28 29 30 31 32
 ```
 
-Monitor: `tail -f output/cr-phase2-serial.log` and `ls docs/phases/code_review/findings/`.
+Monitor live runs with `alln team status <run-id> --json` / `alln show <run-id> --json`,
+and inspect findings under `docs/phases/code_review/findings/`.
 
 ---
 
@@ -115,7 +142,7 @@ Monitor: `tail -f output/cr-phase2-serial.log` and `ls docs/phases/code_review/f
 | --- | --- |
 | Parallel fan-out by default | Single OpenCode serve (`:4096`), `maxConcurrentSpawns: 1`, SwiftPM lock — fights, not speed |
 | 10-minute worker timeout on hard reviews | GLM still reasoning; parent gives up; zombie child writes findings later |
-| Treating slice `failed` as "no output" | Findings may land after timeout; run store showed `empty_output` + good markdown |
+| Treating run `failed` as "no output" | Findings may land after timeout; run store showed `empty_output` + good markdown |
 | Skipping triage | Phantom P0s happen (CR-01 TOCTOU rejected after verify) |
 | Hand-authored symbol stubs | Phantom cross-refs in findings |
 | Expecting GLM to explore | Window dies; quality drops |
@@ -193,7 +220,7 @@ still matters; duplicates get archived fast.
 ## Infra dependencies (review reliability)
 
 GLM review quality can be high while the **control plane lies**. Harden these before
-re-enabling parallel or trusting slice status alone:
+re-enabling parallel or trusting status alone:
 
 | Issue | Source | Sprint | Status |
 | --- | --- | --- | --- |
@@ -204,13 +231,13 @@ re-enabling parallel or trusting slice status alone:
 | Foreign port on :4096 | CR-05 | OC-S02 | **shipped** — external `opencode serve` may block spawn |
 | Tool-only completion vs empty stream | OpenCode path | CR-14 | Phase 2 |
 
-Use prebuilt `alln` (not `swift run` per slice) in batch scripts to avoid SwiftPM lock.
+Use a prebuilt `alln` (not `swift run` per review) to avoid SwiftPM lock contention.
 
 ---
 
 ## ROI framing
 
-**Wrong:** "10/10 slices passed in under an hour."
+**Wrong:** "10/10 reviews passed in under an hour."
 
 **Right:** "How many upheld findings became sprint docs and shipped fixes?"
 
@@ -239,7 +266,7 @@ Fifteen sprint work orders from Phase 1 planner triage (2026-06-28).
 | --- | --- |
 | [`docs/phases/code_review/README.md`](../phases/code_review/README.md) | Active queue, packets, runlog |
 | [`docs/phases/code_review/phase2-hardening-queue.md`](../phases/code_review/phase2-hardening-queue.md) | Next slices (CR-07–32) |
-| [`docs/phases/PM_Relay.md`](../phases/PM_Relay.md) | F1–F4 origin (`Pair_Programming_Team.md`, implement mode) — deleted R-S09 |
+| [`docs/archive/phases/PM_Relay.md`](../archive/phases/PM_Relay.md) | F1–F4 origin (`Pair_Programming_Team.md`, implement mode) — deleted R-S09 |
 | [`docs/phases/sprint/README.md`](../phases/sprint/README.md) | Work orders from triaged findings |
 | [`docs/operations/Execution-Playbook.md`](Execution-Playbook.md) | Slice closeout, commits, proof |
 
@@ -251,3 +278,4 @@ Fifteen sprint work orders from Phase 1 planner triage (2026-06-28).
 | --- | --- |
 | 2026-06-27 | Initial doc: serial hardening pass, findings-as-gold, F1–F5, anti-patterns from Phase 1 dogfood (CR-01–05), infra deps OC-S02/CHECK-S01 |
 | 2026-06-28 | Phase 2 resumed after 15 sprint landings; post-sprint delta-review pattern; infra table marked shipped |
+| 2026-07-20 | ASF-S07: lead with live `alln run --worker model_opencode_glm_5_2`; fix PM_Relay archive links; fence deleted batch script; drop instructional dead verbs |

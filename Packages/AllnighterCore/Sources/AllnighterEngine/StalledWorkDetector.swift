@@ -231,7 +231,6 @@ public enum StalledWorkDetector {
         if run.runLinks.contains(where: { $0.kind == .sliceOf || $0.kind == .sliceAttemptFor }) {
             return true
         }
-        if run.prompt.contains("pair slice") { return true }
         if run.prompt.contains("READ-ONLY advisory") { return true }
         return false
     }

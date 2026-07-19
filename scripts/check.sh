@@ -51,9 +51,72 @@ echo "==> generate BuildInfo (gitSha / buildTime)"
 bash "$ROOT/scripts/generate_build_info.sh"
 ran_any=true
 
+# ASF-S08: living-doc deny-list — instructional retired grammar must not reappear
+# in agent-facing living docs. Patterns are the SSOT in RetiredVocabulary.swift
+# (livingDocDenyPatterns). Excludes docs/archive/ and docs/operations/debugger/
+# (historical bug packets, not teaching surface).
+echo "==> check retired vocabulary in living docs (ASF-S08)"
+VOCAB_SWIFT="$ROOT/Packages/AllnighterCore/Sources/AllnighterCore/RetiredVocabulary.swift"
+if [[ ! -f "$VOCAB_SWIFT" ]]; then
+  echo "check: missing RetiredVocabulary.swift" >&2
+  exit 1
+fi
+# Extract quoted string literals between the BEGIN/END markers (portable; no gawk/mapfile).
+LIVING_DOC_DENY=$(
+  sed -n '/BEGIN livingDocDenyPatterns/,/END livingDocDenyPatterns/p' "$VOCAB_SWIFT" \
+    | grep -o '"[^"]*"' \
+    | tr -d '"'
+)
+if [[ -z "$LIVING_DOC_DENY" ]]; then
+  echo "check: failed to extract livingDocDenyPatterns from RetiredVocabulary.swift" >&2
+  exit 1
+fi
+living_doc_fail=0
+while IFS= read -r pattern; do
+  [[ -z "$pattern" ]] && continue
+  hits=$(
+    {
+      # Top-level operations playbooks only (debugger/ packets are historical).
+      rg -n -F -- "$pattern" "$ROOT"/docs/operations/*.md 2>/dev/null || true
+      rg -n -F -- "$pattern" \
+        "$ROOT/docs/phases/CLI_Product_Spine.md" \
+        "$ROOT/docs/phases/CLI_Implementation_Contract.md" 2>/dev/null || true
+    } || true
+  )
+  if [[ -n "$hits" ]]; then
+    echo "check: retired instructional pattern found in living docs: '$pattern'" >&2
+    echo "$hits" >&2
+    living_doc_fail=1
+  fi
+done <<< "$LIVING_DOC_DENY"
+if [[ "$living_doc_fail" -ne 0 ]]; then
+  echo "check: ASF-S08 living-doc deny-list failed (see RetiredVocabulary.livingDocDenyPatterns)" >&2
+  exit 1
+fi
+ran_any=true
+
 if [[ -f "$ROOT/Packages/AllnighterCore/Package.swift" ]]; then
   echo "==> swift test AllnighterCore"
   swift test --package-path "$ROOT/Packages/AllnighterCore"
+  ran_any=true
+
+  # ASF-S08: contract drift gate (same check StandingInvariants runs opportunistically).
+  echo "==> alln dev export-contracts --check"
+  ALLN_BIN=""
+  if [[ -x "$ROOT/Packages/AllnighterCore/.build/debug/alln" ]]; then
+    ALLN_BIN="$ROOT/Packages/AllnighterCore/.build/debug/alln"
+  elif [[ -x "$ROOT/Packages/AllnighterCore/.build/release/alln" ]]; then
+    ALLN_BIN="$ROOT/Packages/AllnighterCore/.build/release/alln"
+  elif command -v alln >/dev/null 2>&1; then
+    ALLN_BIN="$(command -v alln)"
+  fi
+  if [[ -n "$ALLN_BIN" ]]; then
+    ( cd "$ROOT" && "$ALLN_BIN" dev export-contracts --check )
+  else
+    echo "check: no alln binary found after swift test; building product alln for export-contracts --check"
+    swift build --package-path "$ROOT/Packages/AllnighterCore" --product alln
+    ( cd "$ROOT" && "$ROOT/Packages/AllnighterCore/.build/debug/alln" dev export-contracts --check )
+  fi
   ran_any=true
 fi
 

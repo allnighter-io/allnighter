@@ -421,12 +421,12 @@ final class StalledWorkDetectorTests: XCTestCase {
         XCTAssertTrue(episodes.isEmpty)
     }
 
-    func testPairSliceEnvelopeUsesLongThreshold() {
+    func testSliceIdPrefixUsesLongThreshold() {
         XCTAssertTrue(
             StalledWorkDetector.isLongRunningWorkerContext(
                 run: TeamRun(
                     id: "slice_CR-07_abc",
-                    prompt: "pair slice CR-07: stalled detector",
+                    prompt: "advisory review CR-07: stalled detector",
                     status: .draft,
                     createdAt: old
                 )

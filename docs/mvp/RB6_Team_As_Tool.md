@@ -1,13 +1,19 @@
 > **Vocabulary (2026-06-15).** Current product language lives in
 > `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
 > terms only.
+>
+> **TOMBSTONE (2026-07-20, ASF-S07):** MCP transport is **retired**. This RB6
+> packet planned CLI + MCP + local HTTP as three transports over one engine.
+> The live agent surface today is **CLI only** (`alln team …`, `alln bootstrap`).
+> Do not treat the MCP sections below as shippable work — see
+> `docs/archive/phases/MCP_Retirement.md`. Status line updated accordingly.
 
-# RB6 - Team-as-Tool (local MCP / CLI / HTTP)
+# RB6 - Team-as-Tool (local CLI / historical MCP / HTTP)
 
-Status: **BUILT (engine + CLI + MCP) — Core+Engine green; HTTP/WS loopback stubbed. (orchestration run)**
+Status: **BUILT (engine + CLI) — MCP transport RETIRED 2026-07-16; HTTP/WS loopback stubbed. Historical packet — not a live MCP spec.**
 Owner: Shared Core + Engine + Mac
 Created: 2026-06-14
-Updated: 2026-06-14
+Updated: 2026-07-20
 Depends on: 06 (the team foundation: `Worker`, `PlanAnalysis`, `StageOutput`,
 the headless engine). Exposes richer presets as RB1–RB3 land, but needs only 06.
 

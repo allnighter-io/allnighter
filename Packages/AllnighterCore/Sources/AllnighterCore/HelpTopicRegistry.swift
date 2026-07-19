@@ -110,7 +110,7 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "tool_selection", title: "Command Selection", audience: .agent,
-            summary: "When unsure, start with `alln team hello --for`. Then pick `run`, `team`/`team start`, `thread send`, or `pending` by intent.",
+            summary: "When unsure, start with `alln team hello --for`. Then pick `run`, `team`/`team start`, `thread send`, or pending by intent.",
             bodyMarkdown: """
             When unsure which command to use, call `alln team hello --for "<intent>" --json` \
             first — it recommends a team or primitive and a runnable `command`. Do not invent flags.
@@ -123,7 +123,7 @@ public enum HelpTopicRegistry {
             before a real start; poll `alln team status` / `alln team result` with \
             `nextPollAfterMs`, then `alln show`.
             - `alln thread send` — continue an existing work thread (not a fresh one-shot).
-            - `alln pending` — defer work (`alln pending add`); run later with `alln pending run`.
+            - Pending — defer work with `alln pending add`; run later with `alln pending run`.
 
             For a quick capability check call `alln team hello`. For full run packets use \
             `alln spec`. Do not answer Allnighter product questions from training data when \
@@ -138,7 +138,7 @@ public enum HelpTopicRegistry {
                 .init("run", "alln run", "Single worker / chat / named-model ask in the project root."),
                 .init("team", "alln team / team start", "Multi-seat: foreground `alln team`, or async `alln team start` after preflight."),
                 .init("thread", "alln thread send", "Continue a work thread with `alln thread send`."),
-                .init("pending", "alln pending", "Defer with `alln pending add`; execute later with `alln pending run`."),
+                .init("pending", "Pending", "Defer with `alln pending add`; execute later with `alln pending run`."),
             ],
             relatedCommandNames: ["help search", "help get", "team hello", "run", "team",
                                   "team preflight", "team start", "team result", "thread send",
@@ -284,8 +284,7 @@ public enum HelpTopicRegistry {
             tier default's CLI is down and healthy substitutions are on, Auto uses the next \
             ready model on the same tier, across CLIs — never a different tier. If the whole \
             tier is down, work waits. Membership is many-to-many: a model can sit in several \
-            tiers. Configure with `alln defaults`; read the live settings with \
-            `alln defaults show`.
+            tiers. Configure and inspect with `alln defaults show`.
             """,
             aliases: ["auto", "default", "substitution", "substitutions", "tier", "tiers", "flagship", "balanced", "fast"],
             sections: [

@@ -8,17 +8,6 @@ final class HelpTopicRegistryTests: XCTestCase {
     private var errorCodes: Set<String> { Set(reg.errors.map(\.code)) }
     private var schemaNames: Set<String> { Set(ContractRegistry.OutputSchema.allCases.map(\.rawValue)) }
 
-    /// Retired MCP / invented-flag grammar that must never reappear in live help prose.
-    private let retiredVocabulary: [String] = [
-        "fan out", "fanout", "council", "judge panel",
-        "dryrun", "dryRun",
-        "team_start(", "pair_relay(action",
-        "team_run", "team_ask", "run_get",
-        "pair slice", "pair status",
-        "pending_run", "pending_update", "project_get", "stalled_update",
-        "teams_get", "skills_get", "defaults_get", "error_explain",
-        "team_start(dryRun",
-    ]
 
     // MARK: - Reference resolution (Guide truth must point at real Contract truth)
 
@@ -61,18 +50,12 @@ final class HelpTopicRegistryTests: XCTestCase {
 
     func testNoRetiredVocabularyInPublicProse() {
         // Retired words may live in `aliases` (so search still finds them) but never in
-        // titles/summaries/bodies/sections.
+        // titles/summaries/bodies/sections. Deny-list SSOT: RetiredVocabulary.
         for t in HelpTopicRegistry.topics {
             let prose = (t.title + " " + t.summary + " " + t.bodyMarkdown + " "
                          + t.sections.map { $0.title + " " + $0.bodyMarkdown }.joined(separator: " "))
-            let proseLower = prose.lowercased()
-            for term in retiredVocabulary {
-                if term == "dryRun" {
-                    XCTAssertFalse(prose.contains(term), "topic \(t.id) uses retired vocabulary '\(term)' in public prose")
-                } else {
-                    XCTAssertFalse(proseLower.contains(term.lowercased()),
-                                   "topic \(t.id) uses retired vocabulary '\(term)' in public prose")
-                }
+            if let hit = RetiredVocabulary.proseContainsDenyTerm(prose) {
+                XCTFail("topic \(t.id) uses retired vocabulary '\(hit)' in public prose")
             }
         }
     }
@@ -86,7 +69,7 @@ final class HelpTopicRegistryTests: XCTestCase {
             "alln run",
             "alln team start",
             "alln thread send",
-            "alln pending",
+            "alln pending add",
             "hello --for",
         ] {
             XCTAssertTrue(prose.contains(needle), "tool_selection must mention '\(needle)'")

@@ -208,22 +208,24 @@ alln pair approve <device-id>      # approve iOS/Mac pairing
 alln serve                         # resident coordinator for async/remote/long work; not a scheduler
 ```
 
-Agent integration commands:
+Agent activation (live):
 
 ```bash
-alln mcp serve --stdio             # run the MCP stdio server
-alln mcp install                   # write MCP config with user consent
+alln bootstrap                     # paste-ready host context snippet (replaces MCP install)
+alln team hello --for "<intent>"   # first-contact readiness + next command
 ```
 
-`alln mcp` may remain a transport command family, but tool names must use the
-new surface (`team_ask`, not `council_ask`).
+> **TOMBSTONE (2026-07-16):** the MCP transport verb family is **retired**. There is
+> no `mcp` subcommand on `alln`. Historical `mcp serve` / `mcp install` examples
+> are void — see `docs/archive/phases/MCP_Retirement.md`. Live activation is
+> `alln bootstrap` + CLI verbs only.
 
 `alln pending` is the public command family for Draft work, submitted Pending
 work, and Running attempts. The GUI words are **Draft**, **Pending**, and
 **Running**; "queue" is internal machinery language. Editing Pending returns it
 to Draft. Stopping Running returns it to Pending. Pending is durable Project
-intent, not a native scheduler promise: a human, GUI, CLI command, MCP client, or
-external loop owner such as OpenClaw/Hermes may trigger `pending run`.
+intent, not a native scheduler promise: a human, GUI, CLI command, or external
+loop owner such as OpenClaw/Hermes may trigger `pending run`.
 
 Pending is Project-scoped. `alln pending list --all` is an aggregate floor view
 grouped by Project, not a global durable queue.
@@ -543,26 +545,26 @@ error
 RB6's core idea is right: Allnighter's team should be callable by other agents.
 The vocabulary in that upload is old; the architecture is valuable.
 
-One engine, multiple transports:
+One engine, multiple transports (CLI is the only live agent surface):
 
 ```text
 CLI:        alln team ...
-MCP:        alln mcp serve --stdio
 Local API:  alln serve --localhost
 GUI/iOS:    shared command handlers or local coordinator
 ```
 
+> **TOMBSTONE:** MCP as a second agent wire format is retired
+> (`docs/archive/phases/MCP_Retirement.md`). Do not reintroduce a parallel tool-id
+> grammar beside runnable `alln …` commands.
+
 Transport names may differ, but operation semantics must map to the same command
-handlers:
+handlers. Underscore tool ids below are **historical labels only** — live agents
+speak CLI verbs (`alln team start`, not `team_start`).
 
-Tool names below are the agent-first surface (see `CLI_Implementation_Contract.md`).
-`team_presets`, `team_recall`, `team_ask`, `history`, and `show` are retired/deleted
-when the agent-first tool set lands — do not reintroduce them.
-
-| Operation | CLI shape | Tool/API shape |
+| Operation | CLI shape (live) | Historical tool label (retired) |
 | --- | --- | --- |
 | Show available teams | `alln team show --json` | `teams_list` / `team_show` |
-| Synchronous ask | `alln team --json "..."` | M1 only; agent-first uses async `team_start` → `team_status` → `team_result` |
+| Synchronous ask | `alln team --json "..."` | (foreground CLI) |
 | Async start | `alln team start --json "..."` | `team_start` |
 | Status | `alln team status <run-id> --json` | `team_status` |
 | Result | `alln team result <run-id> --json` | `team_result` |
@@ -652,13 +654,13 @@ Resident:
 
 ```bash
 alln serve
-alln mcp serve --stdio
 ```
 
-These expose the coordinator's transports (iOS, overnight runs, notifications,
-resumable event streams, local MCP/HTTP tool calls). Whether and when the
+This exposes the coordinator's transports (iOS, overnight runs, notifications,
+resumable event streams, local HTTP tool calls). Whether and when the
 coordinator is actually running is a lifecycle decision owned by the Mac
-standalone doc, not CLI grammar.
+standalone doc, not CLI grammar. (MCP stdio transport: **retired** — see
+`docs/archive/phases/MCP_Retirement.md`.)
 
 ## Naming Decision Proposal
 
@@ -671,13 +673,15 @@ Primary command: alln team
 Bench command: alln models
 Work-order command: alln work
 Background service: defer public name; internal helper is fine
-MCP/local API: `team_*` operation names, not `council_*`
+Local API (if revived): map to the same CLI command handlers — never a parallel grammar
 URL scheme: allnighter:// for app links, with universal links where needed
 ```
 
 Do not ship public `alln council` or `alln panel` aliases.
 Do not ship a long-lived second grammar under `allnighter`. Internal scripts
 should move to `alln` during the rename.
+Do not revive MCP transport; CLI is the only agent surface
+(`docs/archive/phases/MCP_Retirement.md`).
 
 ## Current Decisions
 
@@ -693,23 +697,23 @@ should move to `alln` during the rename.
 | Pending command | `alln pending`; public word is Pending, not queue. |
 | Detection command | `alln doctor`; no separate public `detect` command unless implementation needs a hidden/debug alias. |
 | AI-facing docs | `alln docs` generated from the command/contract registry. |
-| Agent tool operations | Use `team_*`, not `council_*`; CLI command handlers remain semantic owner. |
+| Agent surface | CLI verbs only (`alln …`); MCP transport **retired** 2026-07-16. |
 | Plan writer | A designated worker with the Plan Writer skill; JSON uses `planWriterWorkerId`; linked thread replies default to that worker. |
 | Skill library | Defer standalone `alln skills`; milestone 1 uses preset-embedded skills surfaced by `team show`. |
-| MCP cutover | Defer public MCP launch until CLI JSON/NDJSON, doctor, docs, and registry drift checks are boring. |
+| MCP cutover | **Closed:** MCP retired; do not plan a re-launch. Activation is `alln bootstrap`. |
 | Implementation detail | `CLI_Implementation_Contract.md` owns exact schemas, events, doctor checks, errors, generated artifact paths, and proof gates. |
 
 ## Mentor Feedback Needed
 
 1. Does the `TeamRunJSON` contract in `CLI_Implementation_Contract.md` contain
-   enough stable structure for the Mac GUI, MCP clients, and iOS snapshots to
-   share one renderer/reducer?
-2. Should MCP projection ship immediately after milestone 1, or wait until a real
-   external-agent workflow forces it?
+   enough stable structure for the Mac GUI and iOS snapshots to share one
+   renderer/reducer?
+2. ~~Should MCP projection ship after milestone 1?~~ **Closed** — MCP retired;
+   CLI is the only agent surface (`MCP_Retirement.md`).
 3. Should `alln team start/status/result` require resident mode, or can the first
    async run journal work without a long-lived coordinator?
-4. Is `alln mcp install` the right subcommand shape, or should MCP setup remain a
-   lower-level installer action until the CLI surface settles?
+4. ~~Is MCP install the right subcommand shape?~~ **Closed** — replaced by
+   `alln bootstrap` (paste-ready host context; no client file edits).
 
 ## First Milestone
 

@@ -62,14 +62,15 @@ In scope:
 - `alln history "<query>" --json`
 - `alln export latest --format md`
 - `alln dev export-contracts --check`
-- `alln mcp serve --stdio` (descriptors projected from the registry)
+
+> **TOMBSTONE:** MCP transport is **out of product scope** (retired 2026-07-16).
+> Do not treat historical `mcp serve` / `mcp install` lines as milestone work —
+> see `docs/archive/phases/MCP_Retirement.md`. Live agent activation is
+> `alln bootstrap`.
 
 Out of scope for milestone 1:
 
-- public MCP advertising / auto-install (`alln mcp serve --stdio` is built and
-  projects descriptors from the registry; `alln mcp install` stays consent-gated —
-  it prints config, never edits client files)
-- async MCP tools (`team_start`/`team_status`/`team_result`) — need async runs first
+- MCP advertising / install / async MCP tools — **retired entirely** (not deferred)
 - `alln serve`
 - `alln pending stop`
 - iOS pairing
@@ -87,8 +88,8 @@ pieces:
 - Team service/coordinator/run-store shapes exist or are emerging.
 - Run events and persisted run records exist.
 - Doctor/detector/model health probes exist.
-- MCP has a prototype path.
 - Recursion and governor ideas exist.
+  (MCP prototype path: **deleted** at retirement — do not restore.)
 
 Treat those as throw-forward parts, not as public contract authority. The public
 M1 contract is the new `TeamRunJSON` shape and generated command registry.
@@ -106,7 +107,7 @@ The registry owns:
 - doctor check descriptors
 - error codes and recovery metadata
 - generated docs/help sections
-- MCP tool descriptors when MCP enters scope
+- ~~MCP tool descriptors~~ **retired** — do not re-add
 - example recipe IDs
 
 Derived from the registry:
@@ -141,7 +142,7 @@ docs/generated/alln/doctor-result.schema.json
 docs/generated/alln/error-codes.json
 docs/generated/alln/ndjson-events.json
 docs/generated/alln/example-recipes.json
-docs/generated/alln/mcp-tools.json        # generated once MCP is in scope
+# (mcp-tools.json removed — MCP transport retired; do not regenerate)
 ```
 
 `alln dev export-contracts --check` fails when generated output differs from the
@@ -191,10 +192,12 @@ alln pending run <pending-id>
 alln pending stop <pending-id>
 alln dispatch
 alln pair
-alln mcp serve --stdio
-alln mcp install
 alln serve
 ```
+
+> **TOMBSTONE:** historical `mcp serve` / `mcp install` verbs are **void** —
+> MCP retired 2026-07-16 (`docs/archive/phases/MCP_Retirement.md`). Do not
+> reintroduce them into this command list. Agent activation is `alln bootstrap`.
 
 `alln pending` is deferred from team-run milestone 1, but it is not optional for
 Project-scoped Pending. It must land before GUI Pending promises editable Draft
@@ -729,89 +732,33 @@ Auto-fix must not:
 Auth handoff data must use official provider flows only, must not include
 secrets/tokens/cookies, and must not be persisted beyond non-secret metadata.
 
-## MCP Projection
+## MCP Projection — RETIRED (tombstone)
 
-MCP is a first-class product surface for agent-to-agent control. Historical M1
-work shipped CLI first, but every new capability must define its MCP tool shape
-alongside the `alln` command: arguments, JSON return shape, exit/error envelope,
-idempotency, and cursor/polling behavior. Implementation may sequence CLI before
-MCP only when the owning phase marks the feature not shippable end to end until
-MCP parity lands.
+> **TOMBSTONE (2026-07-16):** MCP is **not** a live product surface. The `mcp`
+> CLI verb family, tool-descriptor projection, and install path were deleted.
+> See `docs/archive/phases/MCP_Retirement.md`. Agents speak **CLI verbs only**
+> (`alln team start`, `alln bootstrap`, `alln help …`). Do not reintroduce a
+> parallel underscore-tool-id grammar beside runnable `alln …` commands.
+>
+> Historical labels (`team_start`, `help_get`, `mcp_hello`, …) exist only in
+> archives and this tombstone. Live next-action envelopes carry full
+> `command: "alln …"` strings (`AgentSurfaceNextAction` / ASF-S02).
 
-MCP commands:
+Async CLI lifecycle (the replacement for the retired MCP async tools):
 
 ```bash
-alln mcp serve --stdio
-alln mcp install
+alln team preflight --team <id> --json
+alln team start --team <id> --json "…"
+alln team status <run-id> --json
+alln team result <run-id> --json
+alln team cancel <run-id> --json
 ```
 
-Current M1 tool names (live, derived from registry):
+Activation (replaces install):
 
-```text
-team_ask      # alln team            — DELETED when agent-first lands
-team_show     # alln team show
-history       # alln history         — DELETED when agent-first lands
-show          # alln show            — DELETED when agent-first lands
-doctor        # alln doctor --json
+```bash
+alln bootstrap [--host claude|cursor|codex|generic]
 ```
-
-`team_ask`, `history`, and `show` are **deleted** when the agent-first tool set
-lands. No aliases. No backwards-compatibility shims. Hard delete from the
-registry. All callers must use the agent-first names below.
-
-Agent-first tool names (replace the registry when this phase lands):
-
-```text
-mcp_hello
-help_get
-doctor
-doctor_explain
-error_explain
-models_list
-teams_list
-team_show
-team_deployable_list
-team_deployable_get
-team_deployable_preflight
-team_deploy
-team_deploy_pending
-team_deploy_result
-team_preflight
-team_start
-team_status
-team_result
-team_cancel
-run_show
-run_export
-spec_get
-history_search
-```
-
-Deferred tool names (named, not yet derived — they need async/Pending first):
-
-```text
-pending_add / pending_submit / pending_edit / pending_reorder /
-pending_list / pending_show / pending_cancel / pending_run / pending_stop
-```
-
-`team_recall` is **retired** — Step 8 retired the `recall` grammar; MCP retrieval
-is `history_search`, `run_show`, `run_export`, or `spec_get`. Do not reintroduce
-`team_recall` or `team_presets`.
-
-Rules:
-
-- Tool descriptors derive from the registry.
-- Tool results use `TeamRunJSON` and the shared error envelope.
-- No MCP-only flags or schemas.
-- Every MCP call records `origin: "mcp"` and `originAgent` when available.
-- `originAgent` is provenance only; it is not authorization or approval.
-- `team_start` and `pending_add` accept idempotency keys and reject reused keys
-  with changed canonical payloads.
-- `team_status` returns `nextPollAfterMs` and never reports fake percentages.
-- List/history tools support `limit` and `cursor`.
-- Long-running work should prefer foreground CLI or async start/status/result
-  when coordinator support exists.
-- First-use MCP install/config remains consent-gated.
 
 ## Recursion And Governor
 
@@ -878,12 +825,11 @@ alln dev export-contracts --check
 7. Add stdout/stderr and exit-code tests.
 8. Rename/remove legacy public grammar and fields.
 9. Wire GUI presenter tests to the same fixture.
-10. Project MCP from the same registry once the CLI contract is boring; for new
-    features, the MCP spec is written with the CLI spec and blocks ship-readiness
-    until parity exists.
-11. Before agent-first MCP expansion, land `mcp_hello`, `help_get`,
-    doctor schema v2, `doctor_explain`, and `error_explain`.
-12. Add `team_preflight` before async `team_start` so setup/auth/entitlement
+10. ~~Project MCP from the same registry~~ **Closed** — MCP retired; CLI is the
+    only agent surface (`docs/archive/phases/MCP_Retirement.md`).
+11. ~~Land `mcp_hello` / MCP help tools~~ **Closed** — help is CLI-only
+    (`alln help get` / `alln help search` / `alln docs`).
+12. Add `alln team preflight` before async `alln team start` so setup/auth/entitlement
     blockers are caught before any "started" acknowledgement.
 13. Add idempotency, `nextPollAfterMs`, payload caps, and cursor contracts before
     exposing OpenClaw/Hermes generated examples.
