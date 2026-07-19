@@ -476,6 +476,7 @@ public enum BuiltInTeams {
             ("brand_voice", .review)
         ], tags: [.copy]),
         writer: "copy_board_writer",
+        typeTags: ["copy", "writing", "persuasive", "messaging", "tone"],
         starters: ["Write clearer, more persuasive options for <copy>."])
 
     static let copyLandingPage = make(
@@ -490,7 +491,9 @@ public enum BuiltInTeams {
             ("proof_skeptic", .review),
             ("brand_voice", .review)
         ], tags: [.copy]),
-        writer: "landing_copy_writer", typeTags: ["landing-page"])
+        writer: "landing_copy_writer",
+        typeTags: ["landing-page", "landing", "copy", "marketing", "conversion", "offer"],
+        starters: ["Rewrite my landing page so the offer is clear, trusted, and converts."])
 
     // MARK: - Signal teams (the outside-world scout craft)
 
@@ -504,6 +507,7 @@ public enum BuiltInTeams {
                            count: 3, triangulate: true, triangulatePreferenceIds: signalInterpreterPreference),
             row("signal_skeptic", .review, preferred: sonnet)
         ], writer: "insight_writer", dissent: .preserveDissent,
+        typeTags: ["signal", "external", "news", "article", "apply", "insight"],
         starters: ["Paste a public X post or article link and ask how it applies to this project.",
                    "What does this release note mean for us?"])
 
@@ -517,5 +521,6 @@ public enum BuiltInTeams {
             row("signal_product_ideas", .answer, preferred: gemini),
             row("signal_skeptic", .review, preferred: sonnet)
         ], writer: "insight_writer", dissent: .compareOptions,
+        typeTags: ["signal", "roadmap", "next", "direction", "opportunity"],
         starters: ["What should we build next given what changed outside the repo this week?"])
 }

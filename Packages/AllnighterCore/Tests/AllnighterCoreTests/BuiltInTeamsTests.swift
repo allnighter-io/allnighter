@@ -261,7 +261,9 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     func testCopyLandingPageCarriesTypeTag() {
-        XCTAssertEqual(BuiltInTeams.team("copy_landing_page")?.typeTags, ["landing-page"])
+        // The "landing-page" routing key must remain (TeamRequestResolver --type);
+        // additional intent typeTags may accompany it.
+        XCTAssertEqual(BuiltInTeams.team("copy_landing_page")?.typeTags.contains("landing-page"), true)
     }
 
     // MARK: - Headline proof: one ready CLI runs Bug Hunt Max High
