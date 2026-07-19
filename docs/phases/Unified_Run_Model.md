@@ -264,6 +264,9 @@ dogfood state; write no migration readers.
   covers ~95%.
 - **iOS** stays parked and must not re-introduce the deleted surfaces, modes, or gates
   when it wakes.
+- **Vendor rate-limit continuity** (park / wake / authorized substitute) shipped as
+  archived `Rate_Limit_Continuity.md` — code SSOT on `vendorBackoff` +
+  `VendorBackoffReconciler` / `VendorSubstitutionPolicy`.
 
 ## Done when
 

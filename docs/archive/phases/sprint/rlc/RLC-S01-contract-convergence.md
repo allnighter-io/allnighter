@@ -1,7 +1,7 @@
 # RLC-S01 — Contract convergence
 
 Status: **done**
-SSOT: `docs/phases/Rate_Limit_Continuity.md` §Slices RLC-S01
+SSOT: `docs/archive/phases/Rate_Limit_Continuity.md` §Slices RLC-S01
 Updated: 2026-07-19
 
 ## Goal
@@ -27,7 +27,7 @@ Done when: checkboxes below
 
 ## Read only
 
-- `docs/phases/Rate_Limit_Continuity.md` (Law + Lifecycle + Park rules + S01 row)
+- `docs/archive/phases/Rate_Limit_Continuity.md` (Law + Lifecycle + Park rules + S01 row)
 - `docs/phases/Run_Lifecycle_Reliability.md` §RLR-L4 (typed blockers; vendorBackoff deferred → promote)
 - Existing: `CapacityObservation` / `CapacityClassifier` in AgentOS sibling
 
@@ -47,8 +47,8 @@ Allnighter:
 - `Packages/AllnighterCore/Sources/AllnighterEngine/UtilizationCapacityReader.swift` (same)
 - Tests under `AllnighterCoreTests` / `AllnighterEngineTests` for the above
 - `docs/generated/alln/*` via `alln dev export-contracts` only
-- `docs/phases/Rate_Limit_Continuity.md` status note for S01 delivered (brief)
-- `docs/phases/rlc/S01_Notes.md` (new — what retires from Pending path)
+- `docs/archive/phases/Rate_Limit_Continuity.md` status note for S01 delivered (brief)
+- `docs/archive/phases/rlc/S01_Notes.md` (new — what retires from Pending path)
 
 AgentOS sibling (`/Users/mike/Documents/GitHub/AgentOS`) — only if needed for fixtures:
 
@@ -79,7 +79,7 @@ AgentOS sibling (`/Users/mike/Documents/GitHub/AgentOS`) — only if needed for 
 5. Project new blocker fields + attempts onto `TeamRunJSON` / `ContractSchema`; regen contracts.
 6. Classifier fixtures: Claude `"You've hit your session limit · resets 4:20pm (Europe/Madrid)"` → parkable observation; negative: model prose discussing rate limits → no park / nil or non-parkable.
 7. Fix 12h lookback so cooldowns with `coolingUntil > now` survive even when the originating run is older than 12h (weekly/monthly). Prefer retaining observations whose wake/reset is still in the future.
-8. Write `docs/phases/rlc/S01_Notes.md`: Pending path keeps `PendingResume.capacityObservation` for Pending items; unified-run parks do **not** mint Pending items; no second classifier; `SeatReseat` text cues stay for reseat eligibility until S04 precedence — do not invent parallel truth.
+8. Write `docs/archive/phases/rlc/S01_Notes.md`: Pending path keeps `PendingResume.capacityObservation` for Pending items; unified-run parks do **not** mint Pending items; no second classifier; `SeatReseat` text cues stay for reseat eligibility until S04 precedence — do not invent parallel truth.
 
 ## Works Test
 

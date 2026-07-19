@@ -1,20 +1,14 @@
 # Rate Limit Continuity — parked, not dead: runs survive vendor usage windows
 
-Status: **DRAFT v2 (2026-07-19; rebased after three-mentor spec review + code
-verification). Convergence phase — promotes EXISTING capacity machinery into
-unified-run truth; builds no parallel stack.**
-Sequencing: contract work (S01 shapes) can be specced now; **implementation
-starts after the RLR-S06 works-test gate** (RLR owns the lifecycle spine RLC
-parks on; S03 activity truth + S04 runtimeOwnership already landed).
-Substitution (RLC-S04) additionally leans on RLR-S04 quiescence/settlement
-proof semantics.
+Status: **Complete (archived 2026-07-19).** RLC-S01–S04 delivered on
+`feat/design-chain` (`0868a310`, `3dda9e80`, `c712ab8e`, `f89b3601`). Code is
+SSOT; this doc is the historical law + proof packet.
 Owner: AllnighterCore + AllnighterEngine (`CapacityClassifier`/
 `CapacityObservation`, `SourceCapacityLedger`, `SeatReseat`,
-`PendingWakePlanner`/`Scheduler`, `ResidentCoordinator`, `RunBlocker`,
-`ExecutionLaneRegistry`) + CLI/Mac (park surface).
+`VendorBackoffPolicy`/`VendorBackoffReconciler`, `VendorSubstitutionPolicy`,
+`ResidentCoordinator`, `RunBlocker`) + CLI/Mac (park surface).
 Updated: 2026-07-19.
-Slice status: **RLC-S01 + S02 + S03 delivered** — contracts, park/wake,
-ps/GUI park copy, resume CLI, notifications, morning receipt.
+Slice status: **RLC-S01–S04 delivered end-to-end.**
 
 Related: `Run_Lifecycle_Reliability.md` (blocker wire, activity truth,
 runtimeOwnership) · `parked/Utilization_Admission_Control.md` — RLC is the

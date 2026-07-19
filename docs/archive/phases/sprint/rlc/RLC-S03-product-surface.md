@@ -1,7 +1,7 @@
 # RLC-S03 — Product surface
 
 Status: **done** (Mac onboarding fixture demo waived — CLI fake worker shipped)
-SSOT: `docs/phases/Rate_Limit_Continuity.md` §Product surface
+SSOT: `docs/archive/phases/Rate_Limit_Continuity.md` §Product surface
 
 ## Goal
 

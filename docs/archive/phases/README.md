@@ -92,6 +92,7 @@ source; remaining leftovers were pure GUI-polish unless noted. Live successors
 | [Run_Latency_And_Streaming_Recovery.md](Run_Latency_And_Streaming_Recovery.md) | Investigation absorbed; superseded by Warm | archived `Team_Run_Load_Performance.md` + `Warm_Single_Lane_Chat.md` |
 | [Run_Latency_Findings.md](Run_Latency_Findings.md) | Findings log; warm path shipped | `Warm_Single_Lane_Chat.md` (archived) |
 | [Team_Run_Load_Performance.md](Team_Run_Load_Performance.md) | SHIPPED 2026-07-19 — S01–S04b, S05a, S06; S05b deferred | `ThreadsViewModel.applyLiveDelta` / `reloadAsync`, `PerfCounters`, `RunDecodeCache`; Mac `ThreadStreamingPerformanceTests` / `TeamRunOpenPerformanceTests` |
+| [Rate_Limit_Continuity.md](Rate_Limit_Continuity.md) | Complete 2026-07-19 — RLC-S01–S04 | `VendorBackoffPolicy`, `VendorBackoffReconciler`, `VendorSubstitutionPolicy`, `RunBlocker.vendorBackoff`, `alln run resume`, `alln continuity receipt`; sprint: `sprint/rlc/` |
 | [Mac_Standalone_App_And_Background_Coordinator.md](Mac_Standalone_App_And_Background_Coordinator.md) | Delivered | `AllnighterMac`, `alln serve` |
 | [OpenCode_Smoke_Probe_Blocker.md](OpenCode_Smoke_Probe_Blocker.md) | RESOLVED (OC-B0/B1) despite "Blocker" title | `OpenCodeRoutingWorkerRunner` |
 

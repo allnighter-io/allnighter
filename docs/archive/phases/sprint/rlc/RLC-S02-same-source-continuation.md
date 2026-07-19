@@ -1,7 +1,7 @@
 # RLC-S02 — Durable same-source continuation
 
 Status: **done**
-SSOT: `docs/phases/Rate_Limit_Continuity.md` §Park / Wake / Resume + S02 row
+SSOT: `docs/archive/phases/Rate_Limit_Continuity.md` §Park / Wake / Resume + S02 row
 Depends on: RLC-S01 (`vendorBackoff`, `waitingForVendor`, `attempts[]`, `VendorBackoffPolicy`)
 
 ## Goal

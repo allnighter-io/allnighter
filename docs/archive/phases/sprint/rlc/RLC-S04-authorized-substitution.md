@@ -1,7 +1,7 @@
 # RLC-S04 — Authorized substitution
 
 Status: **delivered** (RLC-S04)
-SSOT: `docs/phases/Rate_Limit_Continuity.md` §Substitution
+SSOT: `docs/archive/phases/Rate_Limit_Continuity.md` §Substitution
 
 ## Goal
 
