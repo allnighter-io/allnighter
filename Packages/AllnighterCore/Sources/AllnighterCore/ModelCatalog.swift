@@ -54,9 +54,12 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .copy, .image],
             strengthRank: 87),
+        // Sonnet is a strong review-posture Claude model — carries `.security`
+        // (CN-S06) so it is a preferred fill for Security Review seats alongside
+        // Fable/Opus/Sol. Fable and Opus already carry `.security`.
         "model_sonnet": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .fast],
+            capabilityTags: [.code, .planner, .review, .security, .fast],
             strengthRank: 84),
         "model_cursor_composer_25": ModelCapabilities(
             laneTags: [.code, .design, .copy, .signal],

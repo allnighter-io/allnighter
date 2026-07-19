@@ -187,7 +187,8 @@ public enum TeamResolver {
                     fallbackModelIds: row.fallbackModelIds ?? [], allowedModelIds: row.allowedModelIds,
                     requiredTags: row.requiredCapabilityTags, fallback: row.fallbackPolicy,
                     lane: team.lane, ready: readyModels, capabilities: capabilities,
-                    reserveModelId: reservedWorkerModelId, excludeModelIds: excludeForDiversity
+                    reserveModelId: reservedWorkerModelId, excludeModelIds: excludeForDiversity,
+                    preferredTags: row.preferredCapabilityTags
                 ) else {
                     let reason = "no ready model matches \(row.fallbackPolicy.rawValue)"
                         + (row.preferredModelId.map { " (preferred \($0) unavailable)" } ?? "")
@@ -298,7 +299,8 @@ public enum TeamResolver {
         ready: [Model],
         capabilities: (String) -> ModelCapabilities,
         reserveModelId: String? = nil,
-        excludeModelIds: Set<String> = []
+        excludeModelIds: Set<String> = [],
+        preferredTags: [ModelCapabilityTag] = []
     ) -> Model? {
         let byId = Dictionary(ready.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         func allowed(_ m: Model) -> Bool { allowedModelIds.isEmpty || allowedModelIds.contains(m.id) }
@@ -306,12 +308,34 @@ public enum TeamResolver {
             let tags = capabilities(m.id).capabilityTags
             return requiredTags.allSatisfy { tags.contains($0) }
         }
+        // CN-S06 preference (Law 3): does this candidate carry ALL preferred tags?
+        // Empty preferredTags → vacuously true for every model, so the key is
+        // uniform and ordering is unchanged.
+        func hasPreferred(_ m: Model) -> Bool {
+            let tags = capabilities(m.id).capabilityTags
+            return preferredTags.allSatisfy { tags.contains($0) }
+        }
         func laneOK(_ m: Model) -> Bool { capabilities(m.id).laneTags.contains(lane) }
-        // Strongest by rank; ties break by stable (lexicographic) model id.
+        // Caliber band (Team_Catalog_Normalization Law 3): Flagship ≥95,
+        // High 85–94, Mid 70–84, floor below. Preference reorders WITHIN a
+        // band — a rank-90 specialist rightly takes the seat from a rank-92
+        // generalist (same High band) — but never across bands: a Mid
+        // specialist cannot displace a Flagship/High generalist. Never
+        // filters. With no preferred tag declared (or none carried) the
+        // preference key is uniform and ordering is byte-identical to the
+        // prior rank+id ordering (band is monotonic in rank).
+        func caliberBand(_ rank: Int) -> Int {
+            rank >= 95 ? 3 : rank >= 85 ? 2 : rank >= 70 ? 1 : 0
+        }
         func strongest(_ models: [Model]) -> Model? {
             models.sorted { a, b in
                 let ra = capabilities(a.id).strengthRank, rb = capabilities(b.id).strengthRank
-                return ra != rb ? ra > rb : a.id < b.id
+                let ba = caliberBand(ra), bb = caliberBand(rb)
+                if ba != bb { return ba > bb }
+                let pa = hasPreferred(a), pb = hasPreferred(b)
+                if pa != pb { return pa && !pb }
+                if ra != rb { return ra > rb }
+                return a.id < b.id
             }.first
         }
 

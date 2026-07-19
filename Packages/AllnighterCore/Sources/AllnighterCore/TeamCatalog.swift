@@ -126,6 +126,15 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
     /// Empty means any ready model matching required capability and lane tags.
     public var allowedModelIds: [String]
     public var requiredCapabilityTags: [ModelCapabilityTag]
+    /// Optional capability tags that REORDER candidates within a caliber band
+    /// (CN-S06 / Law 3): among ready candidates of the same caliber, one carrying
+    /// ALL of these sorts ahead of one that doesn't. This NEVER filters (a row
+    /// still resolves whenever it resolves today) and NEVER lets a lower-caliber
+    /// specialist displace a higher-caliber generalist — it is a pure tie-break
+    /// within equal rank. Empty means no preference; resolution is byte-identical
+    /// to a run without it. Decode-tolerant: catalogs persisted before this field
+    /// shipped decode as empty.
+    public var preferredCapabilityTags: [ModelCapabilityTag]
     public var count: Int
     public var fallbackPolicy: ModelFallbackPolicy
     /// Required rows must resolve or the team is disabled for that effort;
@@ -151,6 +160,7 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
         fallbackModelIds: [String]? = nil,
         allowedModelIds: [String] = [],
         requiredCapabilityTags: [ModelCapabilityTag] = [],
+        preferredCapabilityTags: [ModelCapabilityTag] = [],
         count: Int = 1,
         fallbackPolicy: ModelFallbackPolicy = .strongestReady,
         required: Bool = true,
@@ -164,11 +174,40 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
         self.fallbackModelIds = fallbackModelIds
         self.allowedModelIds = allowedModelIds
         self.requiredCapabilityTags = requiredCapabilityTags
+        self.preferredCapabilityTags = preferredCapabilityTags
         self.count = count
         self.fallbackPolicy = fallbackPolicy
         self.required = required
         self.triangulate = triangulate
         self.triangulatePreferenceIds = triangulatePreferenceIds
+    }
+
+    // Custom Codable so catalogs persisted before `preferredCapabilityTags`
+    // shipped still decode (the field defaults to empty). Every other field keeps
+    // its prior strictness — only the already-optional identity substitutes and
+    // the new preference key are decode-tolerant, matching the struct's existing
+    // pattern (`fallbackModelIds` was optional for the same reason).
+    private enum CodingKeys: String, CodingKey {
+        case id, skillId, purpose, preferredModelId, fallbackModelIds, allowedModelIds
+        case requiredCapabilityTags, preferredCapabilityTags, count, fallbackPolicy
+        case required, triangulate, triangulatePreferenceIds
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        skillId = try c.decode(String.self, forKey: .skillId)
+        purpose = try c.decode(TeamWorkerPurpose.self, forKey: .purpose)
+        preferredModelId = try c.decodeIfPresent(String.self, forKey: .preferredModelId)
+        fallbackModelIds = try c.decodeIfPresent([String].self, forKey: .fallbackModelIds)
+        allowedModelIds = try c.decode([String].self, forKey: .allowedModelIds)
+        requiredCapabilityTags = try c.decode([ModelCapabilityTag].self, forKey: .requiredCapabilityTags)
+        preferredCapabilityTags = try c.decodeIfPresent([ModelCapabilityTag].self, forKey: .preferredCapabilityTags) ?? []
+        count = try c.decode(Int.self, forKey: .count)
+        fallbackPolicy = try c.decode(ModelFallbackPolicy.self, forKey: .fallbackPolicy)
+        required = try c.decode(Bool.self, forKey: .required)
+        triangulate = try c.decode(Bool.self, forKey: .triangulate)
+        triangulatePreferenceIds = try c.decode([String].self, forKey: .triangulatePreferenceIds)
     }
 }
 

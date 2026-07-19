@@ -266,4 +266,124 @@ final class TeamResolverTests: XCTestCase {
         XCTAssertTrue(r.isRunnable)
         XCTAssertEqual(r.answerWorkers.first?.modelId, custom.id)
     }
+
+    // MARK: - CN-S06: preferred capability reorders within caliber, never filters
+
+    private func mk(_ id: String) -> Model {
+        Model(id: id, displayName: id, modelLabel: id, driverId: id, role: .both)
+    }
+    private func capsFn(_ map: [String: ModelCapabilities]) -> (String) -> ModelCapabilities {
+        { map[$0] ?? ModelCapabilities() }
+    }
+
+    /// #1 Rich bench: a `.security`-tagged model and an untagged model of the SAME
+    /// caliber (equal rank) → the tagged one takes the security seat first. The
+    /// untagged model sorts FIRST by id ("m_gen" < "m_sec"), so a pass here proves
+    /// the preference — not an id tie-break — decided the seat.
+    func testPreferredCapabilityWinsWithinSameCaliber() {
+        let caps = capsFn([
+            "m_lead": ModelCapabilities(laneTags: [.code], capabilityTags: [.planner], strengthRank: 95),
+            "m_gen":  ModelCapabilities(laneTags: [.code], capabilityTags: [.code], strengthRank: 88),
+            "m_sec":  ModelCapabilities(laneTags: [.code], capabilityTags: [.code, .security], strengthRank: 88),
+        ])
+        let t = team(
+            rows: [TeamWorkerSpec(id: "sec_seat", skillId: "secrets_reviewer",
+                                  preferredCapabilityTags: [.security], fallbackPolicy: .anyReady)],
+            lead: TeamLeadSpec(skillId: "security_register_writer",
+                               preferredModelId: "m_lead", fallbackPolicy: .strongestReady))
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .high,
+                                     readyModels: [mk("m_lead"), mk("m_gen"), mk("m_sec")],
+                                     capabilities: caps)
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.first?.modelId, "m_sec")
+    }
+
+    /// Preference reorders across DIFFERENT ranks inside one caliber band
+    /// (Law 3: "reorders candidates within caliber" — caliber is the
+    /// Flagship/High/Mid band, not the exact rank): a rank-87 specialist takes
+    /// the seat from a rank-92 generalist, both High band.
+    func testPreferredCapabilityWinsAcrossRanksWithinBand() {
+        let caps = capsFn([
+            "m_lead": ModelCapabilities(laneTags: [.code], capabilityTags: [.planner], strengthRank: 99),
+            "m_gen":  ModelCapabilities(laneTags: [.code], capabilityTags: [.code], strengthRank: 92),
+            "m_sec":  ModelCapabilities(laneTags: [.code], capabilityTags: [.code, .security], strengthRank: 87),
+        ])
+        let t = team(
+            rows: [TeamWorkerSpec(id: "sec_seat", skillId: "secrets_reviewer",
+                                  preferredCapabilityTags: [.security], fallbackPolicy: .anyReady)],
+            lead: TeamLeadSpec(skillId: "security_register_writer",
+                               preferredModelId: "m_lead", fallbackPolicy: .strongestReady))
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .high,
+                                     readyModels: [mk("m_lead"), mk("m_gen"), mk("m_sec")],
+                                     capabilities: caps)
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.first?.modelId, "m_sec",
+                       "same-band specialist should win the seat regardless of exact rank")
+    }
+
+    /// #3 A lower-caliber `.security` specialist does NOT displace a higher-caliber
+    /// generalist — the caliber BAND dominates; preference reorders only inside a band.
+    func testPreferredCapabilityNeverBeatsCaliber() {
+        let caps = capsFn([
+            "m_lead": ModelCapabilities(laneTags: [.code], capabilityTags: [.planner], strengthRank: 99),
+            "m_gen":  ModelCapabilities(laneTags: [.code], capabilityTags: [.code], strengthRank: 90),
+            "m_sec":  ModelCapabilities(laneTags: [.code], capabilityTags: [.code, .security], strengthRank: 80),
+        ])
+        let t = team(
+            rows: [TeamWorkerSpec(id: "sec_seat", skillId: "secrets_reviewer",
+                                  preferredCapabilityTags: [.security], fallbackPolicy: .anyReady)],
+            lead: TeamLeadSpec(skillId: "security_register_writer",
+                               preferredModelId: "m_lead", fallbackPolicy: .strongestReady))
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .high,
+                                     readyModels: [mk("m_lead"), mk("m_gen"), mk("m_sec")],
+                                     capabilities: caps)
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.first?.modelId, "m_gen",
+                       "higher-caliber generalist must not be displaced by a lower-caliber specialist")
+    }
+
+    /// #2 Reduced bench with ZERO `.security`-ready models → Security Review
+    /// staffing is IDENTICAL to a resolver run with the preferences stripped
+    /// (proves the preference NEVER filters and NEVER reorders when no candidate
+    /// carries the tag: same seats, same models, same order).
+    func testPreferredCapabilityIsNoOpWhenNoSpecialistReady() {
+        let caps = capsFn([
+            "m_a": ModelCapabilities(laneTags: [.code], capabilityTags: [.code], strengthRank: 92),
+            "m_b": ModelCapabilities(laneTags: [.code], capabilityTags: [.code], strengthRank: 88),
+            "m_c": ModelCapabilities(laneTags: [.code], capabilityTags: [.code], strengthRank: 85),
+            "m_d": ModelCapabilities(laneTags: [.code], capabilityTags: [.code], strengthRank: 82),
+            "m_e": ModelCapabilities(laneTags: [.code], capabilityTags: [.code], strengthRank: 80),
+        ])
+        let bench = ["m_a", "m_b", "m_c", "m_d", "m_e"].map(mk)
+        let secTeam = BuiltInTeams.buildSecurityReview
+        XCTAssertTrue(secTeam.workerSpecs.allSatisfy { $0.preferredCapabilityTags == [.security] },
+                      "precondition: the built-in Security Review rows declare a .security preference")
+        var stripped = secTeam
+        stripped.workerSpecs = secTeam.workerSpecs.map {
+            var s = $0; s.preferredCapabilityTags = []; return s
+        }
+        let withPref = TeamResolver.resolve(team: secTeam, requestLane: .code, requestEffort: .high,
+                                            readyModels: bench, capabilities: caps)
+        let withoutPref = TeamResolver.resolve(team: stripped, requestLane: .code, requestEffort: .high,
+                                               readyModels: bench, capabilities: caps)
+        XCTAssertEqual(withPref.allWorkers.map(\.modelId), withoutPref.allWorkers.map(\.modelId),
+                       "with no .security model ready, preference must not change staffing")
+        XCTAssertEqual(withPref.allWorkers.map(\.id), withoutPref.allWorkers.map(\.id))
+    }
+
+    /// #4 Round-trip decode: a TeamWorkerSpec JSON persisted before the new field
+    /// existed decodes with an empty `preferredCapabilityTags` (decode-tolerant).
+    func testDecodeToleratesMissingPreferredCapabilityTags() throws {
+        let spec = TeamWorkerSpec(id: "r1", skillId: "secrets_reviewer",
+                                  requiredCapabilityTags: [.code])
+        let data = try JSONEncoder().encode(spec)
+        var obj = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        obj.removeValue(forKey: "preferredCapabilityTags") // simulate old persisted JSON
+        XCTAssertNil(obj["preferredCapabilityTags"])
+        let legacy = try JSONSerialization.data(withJSONObject: obj)
+        let decoded = try JSONDecoder().decode(TeamWorkerSpec.self, from: legacy)
+        XCTAssertEqual(decoded.preferredCapabilityTags, [])
+        XCTAssertEqual(decoded.skillId, "secrets_reviewer")
+        XCTAssertEqual(decoded.requiredCapabilityTags, [.code])
+    }
 }

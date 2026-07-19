@@ -66,17 +66,25 @@ public enum BuiltInTeams {
     /// model id), later rows spread to the next distinct capable model
     /// (cross-row diversity), and the pool degrades to reuse rather than
     /// blocking once every capable model is claimed.
+    /// `preferred` (CN-S06 / Law 3): capability tags that REORDER candidates
+    /// within a caliber band — a ready specialist carrying them takes the seat
+    /// ahead of an equal-caliber generalist — but NEVER filter and NEVER beat
+    /// caliber. Empty = no preference (identical staffing to today).
     private static func needRow(
         _ skillId: String, _ purpose: TeamWorkerPurpose,
-        tags: [ModelCapabilityTag], required: Bool = true
+        tags: [ModelCapabilityTag], required: Bool = true,
+        preferred: [ModelCapabilityTag] = []
     ) -> TeamWorkerSpec {
-        row(skillId, purpose, required: required, tags: tags, fallback: .anyReady)
+        var spec = row(skillId, purpose, required: required, tags: tags, fallback: .anyReady)
+        spec.preferredCapabilityTags = preferred
+        return spec
     }
 
     private static func needRows(
-        _ specs: [(String, TeamWorkerPurpose)], tags: [ModelCapabilityTag]
+        _ specs: [(String, TeamWorkerPurpose)], tags: [ModelCapabilityTag],
+        preferred: [ModelCapabilityTag] = []
     ) -> [TeamWorkerSpec] {
-        specs.map { needRow($0.0, $0.1, tags: tags) }
+        specs.map { needRow($0.0, $0.1, tags: tags, preferred: preferred) }
     }
 
     /// Fable synthesizes; when Fable is unavailable, **ChatGPT 5.6 Sol is the
@@ -232,7 +240,7 @@ public enum BuiltInTeams {
             ("abuse_case_reviewer", .answer),
             ("dependency_injection_reviewer", .review),
             ("security_fix_prioritizer", .review)
-        ], tags: [.code]),
+        ], tags: [.code], preferred: [.security]),
         writer: "security_register_writer", dissent: .riskRegister,
         typeTags: ["security", "credentials", "permissions", "exposure", "secrets", "vuln"],
         starters: ["Review this change for credential, permission, exposure, and destructive-op risks before I ship."])
