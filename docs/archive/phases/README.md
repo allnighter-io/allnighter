@@ -89,8 +89,9 @@ source; remaining leftovers were pure GUI-polish unless noted. Live successors
 | [Try_Fix_Auto_Implement.md](Try_Fix_Auto_Implement.md) | Built (Mac checkbox GUI leftover) | `TryFixGate.swift`, `TryFixChainJSON.swift`, `alln run --try-fix` |
 | [Warm_Single_Lane_Chat.md](Warm_Single_Lane_Chat.md) | Built (4 warm dialects; agy cold by decision) | `WarmWorker.swift` |
 | [Utilization_Window_Priming.md](Utilization_Window_Priming.md) | Built | `BoostWindowCLI.swift`, `BoostWindowOperations` |
-| [Run_Latency_And_Streaming_Recovery.md](Run_Latency_And_Streaming_Recovery.md) | Investigation absorbed; superseded by Warm | live perf work: `Team_Run_Load_Performance.md` |
+| [Run_Latency_And_Streaming_Recovery.md](Run_Latency_And_Streaming_Recovery.md) | Investigation absorbed; superseded by Warm | archived `Team_Run_Load_Performance.md` + `Warm_Single_Lane_Chat.md` |
 | [Run_Latency_Findings.md](Run_Latency_Findings.md) | Findings log; warm path shipped | `Warm_Single_Lane_Chat.md` (archived) |
+| [Team_Run_Load_Performance.md](Team_Run_Load_Performance.md) | SHIPPED 2026-07-19 — S01–S04b, S05a, S06; S05b deferred | `ThreadsViewModel.applyLiveDelta` / `reloadAsync`, `PerfCounters`, `RunDecodeCache`; Mac `ThreadStreamingPerformanceTests` / `TeamRunOpenPerformanceTests` |
 | [Mac_Standalone_App_And_Background_Coordinator.md](Mac_Standalone_App_And_Background_Coordinator.md) | Delivered | `AllnighterMac`, `alln serve` |
 | [OpenCode_Smoke_Probe_Blocker.md](OpenCode_Smoke_Probe_Blocker.md) | RESOLVED (OC-B0/B1) despite "Blocker" title | `OpenCodeRoutingWorkerRunner` |
 

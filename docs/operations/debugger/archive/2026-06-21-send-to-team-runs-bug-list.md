@@ -259,7 +259,7 @@ custom team execution, model health/substitutions.
 
 ## Related Prior Art
 
-- `docs/phases/Team_Run_Load_Performance.md` - Factory Floor vs thread receipt
+- `docs/archive/phases/Team_Run_Load_Performance.md` - Factory Floor vs thread receipt
   ownership and lazy run rendering.
 - `docs/phases/CLI_Implementation_Contract.md` - `TeamRunJSON.workers`,
   `workerAnswers`, status vocabulary, and timeout status.
