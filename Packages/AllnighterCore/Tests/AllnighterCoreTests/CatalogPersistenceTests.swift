@@ -50,7 +50,7 @@ final class CatalogPersistenceTests: XCTestCase {
 
     func testWrongLaneSkillRejectedAtTeamSave() throws {
         let skill = try SkillCatalog.duplicateBuiltIn("offer_strategist", name: "Wrong Lane")
-        var team = try TeamCatalog.duplicateBuiltIn("code_core", name: "Bad Team")
+        var team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Bad Team")
         team.workerSpecs[0].skillId = skill.id
         XCTAssertThrowsError(try TeamCatalog.saveCustom(team)) { error in
             if case .skillLaneMismatch(let sid, _) = error as? CatalogError {
@@ -63,7 +63,7 @@ final class CatalogPersistenceTests: XCTestCase {
 
     func testSkillDeleteBlockedWhenReferencedByTeam() throws {
         let skill = try SkillCatalog.duplicateBuiltIn("contrarian_reviewer", name: "In Use")
-        var team = try TeamCatalog.duplicateBuiltIn("code_core", name: "Uses Custom")
+        var team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Uses Custom")
         team.workerSpecs = [TeamWorkerSpec(id: "row1", skillId: skill.id)]
         try TeamCatalog.saveCustom(team)
         XCTAssertThrowsError(try SkillCatalog.deleteCustom(skill.id)) { error in
@@ -76,7 +76,7 @@ final class CatalogPersistenceTests: XCTestCase {
     }
 
     func testRestartReloadsCustomTeam() throws {
-        let team = try TeamCatalog.duplicateBuiltIn("code_core", name: "Persisted")
+        let team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Persisted")
         CatalogRoots.resetTestingOverrides()
         CatalogRoots.overrideForTesting(teams: teamsRoot, skills: skillsRoot)
         XCTAssertNotNil(TeamCatalog.get(team.id))
@@ -130,7 +130,7 @@ final class CatalogPersistenceTests: XCTestCase {
         try TeamCatalog.deleteCustom("code_bug_hunt") // = restore
         XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunt")
 
-        let custom = try TeamCatalog.duplicateBuiltIn("code_core", name: "Mine")
+        let custom = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Mine")
         XCTAssertThrowsError(try TeamCatalog.restore(custom.id)) { error in
             XCTAssertEqual(error as? CatalogError, .restoreUnsupported)
         }

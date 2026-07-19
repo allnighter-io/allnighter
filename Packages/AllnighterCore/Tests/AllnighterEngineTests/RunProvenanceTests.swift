@@ -60,7 +60,7 @@ final class RunProvenanceTests: XCTestCase {
             RunRequest(
                 message: "Make a small change",
                 repoRoot: repo.path,
-                presetId: "execution_playbook",
+                presetId: "build_slice",
                 workerId: "model_grok",
                 lane: .code),
             origin: .cli, runId: "bare-run-trailer")

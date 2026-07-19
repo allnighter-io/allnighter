@@ -9,7 +9,7 @@ import AllnighterCore
 /// invariant holds by construction (turns never overlap).
 ///
 /// Every turn — PM or dev — dispatches through the SAME `RunService.run` path used by
-/// ordinary chat/execution, under `execution_playbook` (a single mutating worker), with
+/// ordinary chat/execution, under `build_slice` (a single mutating worker), with
 /// `workerId` pinned to the relay's PM or dev seat. Allnighter never invents a second
 /// dispatch route (PM_Relay.md §5 item 2).
 public struct RelayCoordinator: Sendable {
@@ -28,7 +28,7 @@ public struct RelayCoordinator: Sendable {
         /// `--max-consecutive-flags` (§5 item 3) — see `RelayCoordinator.loop`.
         public var stagnationRoundCap: Int
         /// The single-mutating-worker team both seats run under. Defaults to
-        /// `execution_playbook` (`PairCoordinator.Seats` uses the same team for its
+        /// `build_slice` (`PairCoordinator.Seats` uses the same team for its
         /// executor seat).
         public var presetId: String
         /// PO-S04: hard timeout (seconds) for each harness-owned proof command.
@@ -54,7 +54,7 @@ public struct RelayCoordinator: Sendable {
             maxRounds: Int = 20,
             until: Date? = nil,
             stagnationRoundCap: Int = 3,
-            presetId: String = "execution_playbook",
+            presetId: String = "build_slice",
             proofTimeoutSeconds: Int = ProjectVerificationService.defaultTimeoutSeconds,
             executionLaneWaitTimeout: Duration = .seconds(1800),
             proofLaneWaitTimeout: Duration = .seconds(1800),
@@ -347,7 +347,7 @@ public struct RelayCoordinator: Sendable {
                     handover: handover, docPath: state.docPath, roundNumber: roundNumber,
                     workerDisplayName: devDisplayName)),
                 repoRoot: state.projectRoot, projectId: projectId,
-                presetId: "execution_playbook", workerId: state.devWorkerId
+                presetId: "build_slice", workerId: state.devWorkerId
             )
             // No `--until` in Pilot — `dispatchTurn` only needs `config` for its
             // deadline plumbing, which is always inert here (`until: nil`).

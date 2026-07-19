@@ -235,12 +235,12 @@ final class RunCommitProofTests: XCTestCase {
         let result = await service.run(
             RunRequest(
                 message: "Say done", repoRoot: repo.path,
-                presetId: "execution_playbook", workerId: "model_grok", lane: .code),
+                presetId: "build_slice", workerId: "model_grok", lane: .code),
             origin: .cli, runId: "closed-team-name")
         guard case .success(let run) = result else { return XCTFail("run failed") }
-        XCTAssertEqual(run.teamDisplayName, "Execution Playbook")
+        XCTAssertEqual(run.teamDisplayName, "Build a Slice")
         XCTAssertFalse(RunIdentity.cliFooter(run).contains("Default Team ·"))
-        XCTAssertTrue(RunIdentity.cliFooter(run).contains("Execution Playbook"))
+        XCTAssertTrue(RunIdentity.cliFooter(run).contains("Build a Slice"))
     }
 }
 

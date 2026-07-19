@@ -29,7 +29,7 @@ public enum BuiltInTeams {
     private static let leadFlagship = "model_fable"
     private static let strategicFlagship = "model_chatgpt_sol"
     private static let opus = "model_opus"
-    /// Default worker anchor for mutating Auto / Execution Playbook (Cursor).
+    /// Default worker anchor for mutating Auto / Build a Slice (Cursor).
     private static let composer = "model_cursor_composer_25"
     private static let chatgpt = "model_chatgpt"
     private static let gemini = "model_gemini"
@@ -128,8 +128,8 @@ public enum BuiltInTeams {
     // MARK: - Code teams
 
     static let buildCore = make(
-        id: "code_core", name: "Code Core", lane: .code, output: .plan, defaultEffort: .med, isDefault: true,
-        description: "Turn a rough product/build prompt into an implementable plan with scope, architecture, risks, and proof.",
+        id: "code_plan", name: "Plan", lane: .code, output: .plan, defaultEffort: .med, isDefault: true,
+        description: "Turn a rough idea or build into an implementable plan — scope, architecture, risks, and concrete proof.",
         // first_principles_builder declared first so it claims the strongest ready
         // model (declaration order + caliber, not a pinned identity — Law 3).
         rows: needRows([
@@ -142,7 +142,7 @@ public enum BuiltInTeams {
             ("contrarian_reviewer", .review)
         ], tags: [.code]),
         writer: "plan_writer_build",
-        typeTags: ["plan", "scope", "architecture", "breakdown"],
+        typeTags: ["plan", "scope", "architecture", "design-doc", "breakdown"],
         starters: ["Turn this rough idea into an implementable plan with scope and proof.",
                    "Plan the smallest correct slice for <feature>."])
 
@@ -316,7 +316,7 @@ public enum BuiltInTeams {
             ("spec_contrarian_reviewer", .review)
         ], tags: [.code]),
         writer: "spec_review_writer", dissent: .compareOptions,
-        typeTags: ["spec-review"],
+        typeTags: ["spec-review", "spec", "review", "harden", "critique", "premise"],
         starters: [
             "Review this spec. Be brief. Find the highest-leverage changes, concrete contract gaps, and explicit rejects. Review only — do not edit the doc.",
             "Harden docs/phases/<Spec>.md: premise, agent routing, contract, proof, and what to cut."]
@@ -377,14 +377,14 @@ public enum BuiltInTeams {
         typeTags: ["chat", "ask", "question"],
         starters: [])
 
-    /// Execution Playbook as a built-in execution preset (docs/operations/Execution-Playbook.md).
+    /// Build a Slice — the built-in execution preset (docs/operations/Execution-Playbook.md).
     /// Playbook text lives only on the `execution_playbook` skill template
     /// (`SkillCatalog.assemblePrompt`). Do not also put it in `starters` —
     /// `RunService` prepends `starterPrompts.first` for mutating teams, which
     /// would double-inject the same preamble (D1 / Pilot_Defect_Fixes).
     static let executionPlaybook = make(
-        id: "execution_playbook", name: "Execution Playbook", lane: .code, output: .plan, defaultEffort: .high,
-        description: "Disciplined senior-engineer loop: slice → narrow edits → proof → deslop → audit → commit.",
+        id: "build_slice", name: "Build a Slice", lane: .code, output: .plan, defaultEffort: .high,
+        description: "Disciplined build loop: slice → narrow edits → proof → deslop → audit → commit.",
         rows: [
             row("execution_playbook", .answer, preferred: composer, fallback: .sameSource)
         ],
@@ -402,8 +402,8 @@ public enum BuiltInTeams {
     // model can hold them (Kimi K3, Sol, Fable, Grok, Gemini, Codex).
 
     static let designCore = make(
-        id: "design_core", name: "Design Core", lane: .design, output: .designBoard, defaultEffort: .med, isDefault: true,
-        description: "Turn a product/design prompt into three credible interface mockups, then make the tradeoffs visible.",
+        id: "design_design", name: "Design", lane: .design, output: .designBoard, defaultEffort: .med, isDefault: true,
+        description: "Design or redesign a screen or flow — credible interface options with the tradeoffs made visible.",
         rows: needRows([
             ("information_architect", .answer),
             ("interaction_designer", .answer),
@@ -414,15 +414,15 @@ public enum BuiltInTeams {
         starters: ["Design <screen/flow>: give me three credible interface directions with the tradeoffs made visible."])
 
     static let designPremiumPolish = make(
-        id: "design_premium_polish", name: "Premium Polish", lane: .design, output: .polishBoard, defaultEffort: .high,
-        description: "Make an existing surface feel expensive, intentional, and native without changing its product semantics.",
+        id: "design_polish", name: "Polish", lane: .design, output: .polishBoard, defaultEffort: .high,
+        description: "Make an existing surface feel expensive, intentional, and native — no semantic change.",
         rows: needRows([
             ("hierarchy_sculptor", .answer),
             ("type_spacing_auditor", .answer),
             ("polish_critic", .review)
         ], tags: [.design]),
         writer: "polish_board_writer",
-        typeTags: ["polish", "premium", "native", "refine", "expensive"],
+        typeTags: ["polish", "premium", "native", "refine", "expensive", "calm"],
         starters: ["Give me two more polished versions of <screen> — calmer, more intentional, native."])
 
     static let designConversionStudio = make(
@@ -450,8 +450,8 @@ public enum BuiltInTeams {
         starters: ["Give me three genuinely different design directions for <surface> before we converge."])
 
     static let designUsabilityTriage = make(
-        id: "design_usability_triage", name: "Usability Triage", lane: .design, output: .polishBoard, defaultEffort: .med,
-        description: "Find why a surface feels confusing, slow, risky, or hard to repeat.",
+        id: "design_usability_review", name: "Usability Review", lane: .design, output: .polishBoard, defaultEffort: .med,
+        description: "Diagnose why a surface feels confusing, slow, risky, or hard to repeat.",
         rows: needRows([
             ("journey_mapper", .answer),
             ("control_ergonomics", .answer),
@@ -480,7 +480,7 @@ public enum BuiltInTeams {
         starters: ["Write clearer, more persuasive options for <copy>."])
 
     static let copyLandingPage = make(
-        id: "copy_landing_page", name: "Landing Page Team", lane: .copy, output: .copyBoard, defaultEffort: .high,
+        id: "copy_landing", name: "Copy Landing", lane: .copy, output: .copyBoard, defaultEffort: .high,
         description: "Rewrite a landing page so the offer is clear, trusted, and converts.",
         rows: needRows([
             ("offer_strategist", .answer),
@@ -492,13 +492,13 @@ public enum BuiltInTeams {
             ("brand_voice", .review)
         ], tags: [.copy]),
         writer: "landing_copy_writer",
-        typeTags: ["landing-page", "landing", "marketing", "conversion", "offer"],
+        typeTags: ["landing-page", "landing", "marketing", "conversion", "page", "offer"],
         starters: ["Rewrite my landing page so the offer is clear, trusted, and converts."])
 
     // MARK: - Signal teams (the outside-world scout craft)
 
     static let signalPostToProject = make(
-        id: "signal_post_to_project", name: "Post-to-Project Signal", lane: .signal, output: .insight,
+        id: "signal_outside", name: "Outside Signal", lane: .signal, output: .insight,
         defaultEffort: .med, isDefault: true,
         description: "Grok grabs and distills a public X post, thread, article, or release note, then several different models reason over it (triangulation) into a Project-aware Insight: what happened, why it matters here, with source receipts, freshness, and a skeptic pass.",
         scout: signalScoutGrok,
@@ -512,7 +512,7 @@ public enum BuiltInTeams {
                    "What does this release note mean for us?"])
 
     static let signalWhatToBuildNext = make(
-        id: "signal_what_to_build_next", name: "What should we build next?", lane: .signal, output: .insight,
+        id: "signal_what_to_build_next", name: "What to Build Next", lane: .signal, output: .insight,
         defaultEffort: .high,
         description: "Scan what recently changed outside the repo and recommend the next build direction for this Project, with sourced reasoning, fit, and a skeptic pass.",
         rows: [

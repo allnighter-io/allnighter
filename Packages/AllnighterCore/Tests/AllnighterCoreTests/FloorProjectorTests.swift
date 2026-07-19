@@ -33,9 +33,9 @@ final class FloorProjectorTests: XCTestCase {
                                payload: .plan(markdown: "# Insight\nNo move today."))
         return TeamRun(
             id: "run_floor1", prompt: "interpret this post", status: status, origin: .cli,
-            originAgent: "claude-code", presetId: "signal_post_to_project",
+            originAgent: "claude-code", presetId: "signal_outside",
             workers: workers, workerAnswers: answers, stages: [plan], createdAt: now,
-            lane: .signal, effort: .med, teamDisplayName: "Post-to-Project Signal",
+            lane: .signal, effort: .med, teamDisplayName: "Outside Signal",
             outputKind: .insight, mutating: false, warnings: ["one-model self-fusion"])
     }
 

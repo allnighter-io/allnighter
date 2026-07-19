@@ -28,7 +28,7 @@ final class PanelTeamResolverTests: XCTestCase {
                 builtIn: true
             ),
             TeamPreset(
-                id: "code_core", displayName: "Code Core", lane: .code,
+                id: "code_plan", displayName: "Plan", lane: .code,
                 outputKind: .plan, isDefaultForLane: true,
                 workerSpecs: [
                     TeamWorkerSpec(id: "product_architect", skillId: "product_architect", purpose: .answer, preferredModelId: "model_cursor_composer_25"),
@@ -66,7 +66,7 @@ final class PanelTeamResolverTests: XCTestCase {
         XCTAssertEqual(alias, "pressure")
         XCTAssertFalse(available.isEmpty)
         let formatted = PanelTeamResolver.formatAvailable(available)
-        XCTAssertTrue(formatted.contains("code_core"))
+        XCTAssertTrue(formatted.contains("code_plan"))
     }
 
     func testSeatsMappingUsesPreferredModelAndSkillAsLens() {

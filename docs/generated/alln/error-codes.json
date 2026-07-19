@@ -621,7 +621,7 @@
     "ruleId" : "try_fix.packet.unsafe"
   },
   {
-    "agentAction" : "Pass --executor a single mutating team that is runnable on this bench (default execution_playbook).",
+    "agentAction" : "Pass --executor a single mutating team that is runnable on this bench (default build_slice).",
     "code" : "TRY_FIX_EXECUTOR_INVALID",
     "exitClass" : "operational",
     "explain" : "The chosen fix executor is not a single, mutating, runnable team. The fix attempt must resolve to exactly one mutating worker.",

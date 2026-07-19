@@ -193,7 +193,7 @@ enum GUIFixture {
 
     /// `compose-team` pre-selects a team so the target chip renders in team mode
     /// (name · N workers, never a fake model · effort).
-    static var composeTeamId: String? { active == "compose-team" ? "design_core" : nil }
+    static var composeTeamId: String? { active == "compose-team" ? "design_design" : nil }
 
     /// `compose-file-reference` seeds an active @ query so the file picker is visible.
     static var composeFileReferenceOpen: Bool { active == "compose-file-reference" }

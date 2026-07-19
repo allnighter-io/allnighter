@@ -49,7 +49,7 @@ final class AgentBootstrapTests: XCTestCase {
             Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt", driverId: "codex", role: .answerer),
             Model(id: "model_grok", displayName: "Grok", modelLabel: "grok", driverId: "grok", role: .answerer),
         ]
-        let r = TeamPreflight.preflight(teams: teams, lane: .design, teamId: "design_core",
+        let r = TeamPreflight.preflight(teams: teams, lane: .design, teamId: "design_design",
                                         type: nil, effort: .high, readyModels: ready)
         XCTAssertTrue(r.canStart)
         XCTAssertEqual(r.readyWorkers.filter { $0.purpose != "plan" }.count, 3)
@@ -66,14 +66,14 @@ final class AgentBootstrapTests: XCTestCase {
     func testPreflightCopyTypeRoutes() {
         let r = TeamPreflight.preflight(teams: teams, lane: .copy, teamId: nil,
                                         type: "landing-page", effort: nil, readyModels: [opus()])
-        XCTAssertEqual(r.teamPresetId, "copy_landing_page")
+        XCTAssertEqual(r.teamPresetId, "copy_landing")
         XCTAssertTrue(r.canStart)
     }
 
     func testPreflightDoesNotRunOrMutate() {
         // Preflight is pure: calling it twice yields identical results, no run id.
-        let a = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_core", type: nil, effort: .med, readyModels: [opus()])
-        let b = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_core", type: nil, effort: .med, readyModels: [opus()])
+        let a = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_plan", type: nil, effort: .med, readyModels: [opus()])
+        let b = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_plan", type: nil, effort: .med, readyModels: [opus()])
         XCTAssertEqual(a, b)
     }
 }

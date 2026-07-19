@@ -101,7 +101,7 @@ final class RemoteCommandFactoryTests: XCTestCase {
             payload: RemoteStartRunPayload(
                 prompt: "secret launch prompt",
                 lane: "code",
-                teamPresetId: "code_core",
+                teamPresetId: "code_plan",
                 effort: "med",
                 context: "private context"
             ),
@@ -117,7 +117,7 @@ final class RemoteCommandFactoryTests: XCTestCase {
         let decoded = try CoreJSON.decode(RemoteStartRunPayload.self, from: opened)
         XCTAssertEqual(decoded.prompt, "secret launch prompt")
         XCTAssertEqual(decoded.lane, "code")
-        XCTAssertEqual(decoded.teamPresetId, "code_core")
+        XCTAssertEqual(decoded.teamPresetId, "code_plan")
         XCTAssertEqual(decoded.effort, "med")
         XCTAssertEqual(decoded.context, "private context")
         XCTAssertTrue(try RemoteCrypto.verifyDeviceAssertion(

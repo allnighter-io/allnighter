@@ -57,7 +57,7 @@ final class FollowUpCoordinatorTests: XCTestCase {
         let request = RunRequest(
             message: "pasting an image into the composer drops it",
             repoRoot: repo.path, presetId: "code_bug_hunt",
-            executorTeamId: "execution_playbook")
+            executorTeamId: "build_slice")
 
         let result = await coordinator.runTryFix(request, origin: .cli)
         guard case .success(let outcome) = result else { return XCTFail("chain failed: \(result)") }
@@ -71,7 +71,7 @@ final class FollowUpCoordinatorTests: XCTestCase {
 
         // The child fix-attempt ran on the executor team and tried the top hypothesis.
         let child = try XCTUnwrap(outcome.childRun, "expected a child fix-attempt run")
-        XCTAssertEqual(child.presetId, "execution_playbook")
+        XCTAssertEqual(child.presetId, "build_slice")
         XCTAssertEqual(child.status, .complete)
 
         // Linked both ways, durably.
@@ -105,7 +105,7 @@ final class FollowUpCoordinatorTests: XCTestCase {
         let coordinator = FollowUpCoordinator(runService: service)
         let request = RunRequest(
             message: "something is wrong", repoRoot: repo.path, presetId: "code_bug_hunt",
-            executorTeamId: "execution_playbook")
+            executorTeamId: "build_slice")
 
         let result = await coordinator.runTryFix(request, origin: .cli)
         guard case .success(let outcome) = result else { return XCTFail("chain failed: \(result)") }

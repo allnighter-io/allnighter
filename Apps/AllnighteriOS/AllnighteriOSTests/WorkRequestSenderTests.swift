@@ -96,7 +96,7 @@ final class WorkRequestSenderTests: XCTestCase {
 
         _ = try await sender.send(WorkRequestDraft(
             prompt: "Ship it",
-            teamPresetId: "code_core",
+            teamPresetId: "code_plan",
             lane: .code,
             effort: .high
         ))
@@ -106,7 +106,7 @@ final class WorkRequestSenderTests: XCTestCase {
         let blob = try XCTUnwrap(command.payload.sealedBlob)
         let opened = try RemoteCrypto.open(blob, with: macSealingKey)
         let payload = try CoreJSON.decode(RemoteStartRunPayload.self, from: opened)
-        XCTAssertEqual(payload.teamPresetId, "code_core")
+        XCTAssertEqual(payload.teamPresetId, "code_plan")
         XCTAssertEqual(payload.lane, WorkLane.code.rawValue)
         XCTAssertEqual(payload.effort, EffortLevel.high.rawValue)
     }

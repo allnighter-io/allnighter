@@ -25,7 +25,7 @@ final class CatalogUnifiedTests: XCTestCase {
         XCTAssertEqual(TeamCatalog.all.count, BuiltInTeams.all.count)
         XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunt")
         XCTAssertEqual(TeamCatalog.list(lane: .code).count, BuiltInTeams.teams(in: .code).count)
-        XCTAssertEqual(TeamCatalog.defaultTeam(for: .design)?.id, "design_core")
+        XCTAssertEqual(TeamCatalog.defaultTeam(for: .design)?.id, "design_design")
     }
 
     func testSkillCatalogListAndGetMatchBuiltIns() {

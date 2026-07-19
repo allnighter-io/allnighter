@@ -28,7 +28,7 @@ final class CraftModelTests: XCTestCase {
     }
 
     func testExistingBuiltInsHaveCorrectMutationShape() {
-        let executionIDs: Set<String> = ["default_chat", "execution_playbook"]
+        let executionIDs: Set<String> = ["default_chat", "build_slice"]
         for team in BuiltInTeams.all {
             if executionIDs.contains(team.id) {
                 XCTAssertTrue(team.mutating, "\(team.id) is a source-scoped execution team")
@@ -40,25 +40,28 @@ final class CraftModelTests: XCTestCase {
     }
 
     func testStaleBuildLanguageIsGoneFromPublicNames() {
-        // Cutover hygiene: no public team display name still says "Build".
-        for team in BuiltInTeams.all {
+        // Cutover hygiene: no public team display name still uses the old internal
+        // "Build" lane prefix — except the founder-approved obvious-job names
+        // "Build a Slice" and "What to Build Next" (Team_Catalog_Normalization.md, Law 1).
+        let approvedBuildNames: Set<String> = ["build_slice", "signal_what_to_build_next"]
+        for team in BuiltInTeams.all where !approvedBuildNames.contains(team.id) {
             XCTAssertFalse(team.displayName.contains("Build"), "\(team.id) display name still says Build")
         }
-        XCTAssertEqual(BuiltInTeams.team("code_core")?.displayName, "Code Core")
+        XCTAssertEqual(BuiltInTeams.team("code_plan")?.displayName, "Plan")
     }
 
     func testSignalBuiltInsAreScoutNonMutatingInsightTeams() {
         // CRAFT-2: Signal is runnable on the same substrate — non-mutating,
         // insight output, on the signal craft.
         let signalTeams = BuiltInTeams.teams(in: .signal)
-        XCTAssertEqual(Set(signalTeams.map(\.id)), ["signal_post_to_project", "signal_what_to_build_next"])
+        XCTAssertEqual(Set(signalTeams.map(\.id)), ["signal_outside", "signal_what_to_build_next"])
         for team in signalTeams {
             XCTAssertEqual(team.lane, .signal)
             XCTAssertEqual(team.outputKind, .insight)
             XCTAssertFalse(team.mutating)
         }
         // Exactly one signal-lane default.
-        XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .signal)?.id, "signal_post_to_project")
+        XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .signal)?.id, "signal_outside")
     }
 
     func testSignalTeamsResolveAgainstSignalCapableModels() {

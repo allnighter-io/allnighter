@@ -310,11 +310,11 @@ public extension Array where Element == TeamPreset {
     }
 
     /// The default team for a lane: the explicit `isDefaultForLane`, else the
-    /// built-in lane core team, else the first team in the lane.
+    /// first team in the lane. (`isDefaultForLane` + the single-default invariant
+    /// own lane defaults now — the old `"<lane>_core"` fallback is dead post-rename.)
     func defaultTeam(for lane: WorkLane) -> TeamPreset? {
         let inLane = teams(in: lane)
         return inLane.first { $0.isDefaultForLane }
-            ?? inLane.first { $0.builtIn && $0.id == "\(lane.rawValue)_core" }
             ?? inLane.first
     }
 
@@ -384,7 +384,6 @@ public enum TeamCatalog {
             return customDefault
         }
         return inLane.first { $0.isDefaultForLane }
-            ?? inLane.first { $0.builtIn && $0.id == "\(lane.rawValue)_core" }
             ?? inLane.first
     }
 

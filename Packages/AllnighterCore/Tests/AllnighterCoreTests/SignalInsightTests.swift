@@ -66,7 +66,7 @@ final class SignalInsightTests: XCTestCase {
         let plan = StageOutput(id: "stage_plan", purpose: .plan, status: .done,
                                payload: .plan(markdown: writerOutput))
         let run = TeamRun(id: "sigrun", prompt: "p", status: .complete, origin: .cli,
-                          presetId: "signal_post_to_project",
+                          presetId: "signal_outside",
                           workers: [Worker(id: "w#0", modelId: "model_grok", instanceIndex: 0, purpose: .plan)],
                           workerAnswers: [TeamAnswer(memberId: "w#0", modelId: "model_grok", role: "plan",
                                                      result: WorkerRunResult(status: .done, output: "x"))],

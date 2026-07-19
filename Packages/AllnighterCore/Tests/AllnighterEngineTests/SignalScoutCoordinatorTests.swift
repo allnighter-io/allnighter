@@ -30,7 +30,7 @@ final class SignalScoutCoordinatorTests: XCTestCase {
         let lead = Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
                           skillId: "insight_writer", skillName: "Insight Writer", purpose: .plan)
         let resolved = ResolvedTeamRun(
-            teamPresetId: "signal_post_to_project", teamDisplayName: "Signal", lane: .signal,
+            teamPresetId: "signal_outside", teamDisplayName: "Signal", lane: .signal,
             outputKind: .insight, effort: .med,
             scoutWorker: scout, answerWorkers: [interp], planWriter: lead, isRunnable: true)
         let models = [

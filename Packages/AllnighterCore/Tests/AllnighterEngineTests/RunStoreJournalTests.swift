@@ -218,7 +218,7 @@ final class RunStoreJournalTests: XCTestCase {
         let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
         let mock = MockCommandRunner(scripts: ["claude": .init(stdout: "# Plan\nDone.", exitCode: 0)])
-        var team = try TeamCatalog.duplicateBuiltIn("code_core", name: "Snapshot Team")
+        var team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Snapshot Team")
         team.workerSpecs = [TeamWorkerSpec(id: "row1", skillId: skill.id, purpose: .answer)]
         team.lead = TeamLeadSpec(skillId: "plan_writer_build")
         try TeamCatalog.saveCustom(team)

@@ -389,7 +389,7 @@ public enum HelpTopicRegistry {
             open-ended editing.
 
             Exact command (from the contract example `try_fix_bug`):
-            `alln run "<symptom>" --project <id> --team code_bug_hunt --try-fix --executor execution_playbook --json`
+            `alln run "<symptom>" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json`
 
             For open exploration or multi-step feature work, use a normal `alln run` or `alln team` \
             instead. If the gate blocks, read the reason — danger requires human resolution; low \

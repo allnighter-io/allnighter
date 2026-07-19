@@ -88,7 +88,7 @@ final class CloudRemoteClientTests: XCTestCase {
             payload: RemoteStartRunPayload(
                 prompt: "secret cloud prompt",
                 lane: "code",
-                teamPresetId: "code_core",
+                teamPresetId: "code_plan",
                 effort: "med",
                 context: "private context"
             ),
@@ -102,7 +102,7 @@ final class CloudRemoteClientTests: XCTestCase {
         XCTAssertEqual(started.count, 1)
         XCTAssertEqual(started.first?.question, "secret cloud prompt")
         XCTAssertEqual(started.first?.lane, .code)
-        XCTAssertEqual(started.first?.teamPresetId, "code_core")
+        XCTAssertEqual(started.first?.teamPresetId, "code_plan")
         XCTAssertEqual(started.first?.effort, .med)
         XCTAssertEqual(started.first?.context, "private context")
         XCTAssertEqual(started.first?.originAgent, "ios:device_1")

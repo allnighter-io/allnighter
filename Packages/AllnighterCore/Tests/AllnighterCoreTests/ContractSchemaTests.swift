@@ -51,7 +51,7 @@ final class ContractSchemaTests: XCTestCase {
         // Project a representative run so the schema is tied back to the real types.
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let run = TeamRun(
-            id: "r1", prompt: "p", status: .complete, origin: .cli, presetId: "signal_post_to_project",
+            id: "r1", prompt: "p", status: .complete, origin: .cli, presetId: "signal_outside",
             workers: [Worker(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .plan)],
             workerAnswers: [TeamAnswer(memberId: "w#0", modelId: "m", role: "plan",
                                        result: WorkerRunResult(status: .done, output: "x", timing: RunTiming(finishedAt: now)))],

@@ -50,7 +50,7 @@ final class CatalogCLITests: XCTestCase {
     }
 
     func testTeamsDuplicateProducesCustomJSON() throws {
-        let team = try TeamCatalog.duplicateBuiltIn("code_core", name: "WT Code Team")
+        let team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "WT Code Team")
         let json = AllnighterCLI.teamShowJSONString(team)
         XCTAssertTrue(json.contains(team.id))
         XCTAssertTrue(json.contains("WT Code Team"))

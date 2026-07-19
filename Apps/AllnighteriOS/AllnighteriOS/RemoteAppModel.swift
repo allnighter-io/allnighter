@@ -356,7 +356,7 @@ final class RemoteAppModel {
             id: "pending_preview_2",
             prompt: "Write release notes for the inbox MVP.",
             projectId: "proj_allnighter",
-            teamPresetId: "copy_landing_page",
+            teamPresetId: "copy_landing",
             modelId: nil
         )
         let running = Self.previewPendingItem(

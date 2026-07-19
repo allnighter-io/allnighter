@@ -17,7 +17,7 @@ public struct FollowUpCoordinator: Sendable {
     private let runService: RunService
     public init(runService: RunService) { self.runService = runService }
 
-    public static let defaultExecutorTeamId = "execution_playbook"
+    public static let defaultExecutorTeamId = "build_slice"
 
     public func runTryFix(
         _ request: RunRequest, origin: RunOrigin, runId: String? = nil

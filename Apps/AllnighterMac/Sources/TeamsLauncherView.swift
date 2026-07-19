@@ -115,12 +115,12 @@ struct TeamsLauncherView: View {
         .onAppear {
             #if DEBUG
             if GUIFixture.opensTeamsComposeModal, composingTeam == nil {
-                let card = cards.first { $0.id == "signal_post_to_project" } ?? cards.first
+                let card = cards.first { $0.id == "signal_outside" } ?? cards.first
                 selectedTeamId = card?.id
                 composingTeam = card
             }
             if GUIFixture.opensTeamsEditDrawer, editingTeam == nil {
-                editingTeam = cards.first { $0.id == "code_core" } ?? cards.first
+                editingTeam = cards.first { $0.id == "code_plan" } ?? cards.first
             }
             #endif
         }

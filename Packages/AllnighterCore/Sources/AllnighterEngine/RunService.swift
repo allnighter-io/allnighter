@@ -25,7 +25,7 @@ public struct RunRequest: Sendable, Equatable {
     /// an explicit "can't see it" notice) by `CatalogRunCoordinator`.
     public var deliveries: [IncludedAttachmentDelivery]
     /// Try Fix (Try_Fix_Auto_Implement): the mutating executor team for the child fix attempt
-    /// (default `execution_playbook`). Read by `FollowUpCoordinator`, which owns the chain — a
+    /// (default `build_slice`). Read by `FollowUpCoordinator`, which owns the chain — a
     /// plain `RunService.run` ignores it. Whether to run the chain at all is the caller's
     /// decision (the CLI `--try-fix` flag), not a field here.
     public var executorTeamId: String?

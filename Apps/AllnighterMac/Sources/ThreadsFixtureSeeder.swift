@@ -628,7 +628,7 @@ struct ThreadsFixtureSeeder {
 
             var run = TeamRun(
                 id: runId, prompt: "Make this profile feel premium and clean.",
-                status: .complete, origin: .gui, presetId: "design_core",
+                status: .complete, origin: .gui, presetId: "design_design",
                 workers: [w0, w1],
                 workerAnswers: [
                     TeamAnswer(memberId: w0.id, modelId: m0, role: "answer",

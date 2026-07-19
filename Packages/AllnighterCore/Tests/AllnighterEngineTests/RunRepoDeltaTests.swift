@@ -139,7 +139,7 @@ final class RunRepoDeltaTests: XCTestCase {
                 message: RelayDevPrompt.assemble(context: .init(
                     handover: "Commit a file.", docPath: "docs/spec.md", roundNumber: 1,
                     workerDisplayName: "Dev Seat")),
-                repoRoot: repo.path, presetId: "execution_playbook", workerId: "model_grok"),
+                repoRoot: repo.path, presetId: "build_slice", workerId: "model_grok"),
             origin: .cli, runId: "relay-dev-inherit")
         guard case .success(let run) = result else { return XCTFail("relay-path run failed") }
         XCTAssertTrue(try XCTUnwrap(run.repoDelta).changed,

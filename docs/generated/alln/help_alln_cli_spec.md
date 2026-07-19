@@ -562,7 +562,7 @@ Flags:
 - `--no-commit` — Instruct the worker to leave work uncommitted for PM review (mutually exclusive with --commit-message).
 - `--proof <string>` — Run a bounded proof command after the worker settles; surface pass/fail (never blocks git).
 - `--try-fix` — Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.
-- `--executor <id>` — Mutating executor team id (default execution_playbook).
+- `--executor <id>` — Mutating executor team id (default build_slice).
 - `--json` — Emit TeamRunJSON.
 - `--stream` — Emit NDJSON events.
 
@@ -1431,7 +1431,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `THREAD_NOT_FOUND` | yes | no | `operational` | Run `alln history --json` (or create a thread); retry with a valid thread id. |
 | `TRY_FIX_PACKET_MISSING` | no | yes | `operational` | Re-run the Bug Hunt diagnosis; the fix attempt needs a typed fix packet. |
 | `TRY_FIX_PACKET_UNSAFE` | yes | no | `operational` | Read the gate reason; resolve the danger flag / add an actionable hypothesis + proof, then retry. |
-| `TRY_FIX_EXECUTOR_INVALID` | yes | no | `operational` | Pass --executor a single mutating team that is runnable on this bench (default execution_playbook). |
+| `TRY_FIX_EXECUTOR_INVALID` | yes | no | `operational` | Pass --executor a single mutating team that is runnable on this bench (default build_slice). |
 | `RELAY_NOT_FOUND` | yes | no | `operational` | Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`. |
 | `RELAY_INVALID_STATE` | yes | no | `operational` | Only an `escalated` relay can be resumed; check status first with `pair relay-status`. |
 | `RELAY_HANDOVER_UNSAFE` | yes | no | `operational` | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
@@ -1520,7 +1520,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 - `team_json` — Machine team run: `alln team --json "Give me one small naming test."`
 - `team_stream` — Streamed team run: `alln team --stream "Give me one tiny event-stream test."`
 - `team_start_json` — Start async team run: `alln team start --json --lane code --team code_bug_hunt --effort low "tiny async sanity"`
-- `try_fix_bug` — Auto Fix: Bug Hunt then one bounded fix: `alln run "The history view loses finished runs after restart." --project <id> --team code_bug_hunt --try-fix --executor execution_playbook --json`
+- `try_fix_bug` — Auto Fix: Bug Hunt then one bounded fix: `alln run "The history view loses finished runs after restart." --project <id> --team code_bug_hunt --try-fix --executor build_slice --json`
 - `show_latest_json` — Show the latest run: `alln show latest --json`
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
 - `export_md` — Export the latest result: `alln export latest --format md`

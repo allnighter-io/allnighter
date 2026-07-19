@@ -82,7 +82,7 @@ final class CursorAgentTests: XCTestCase {
     }
 
     func testCodeCorePrefersCursorComposer25() {
-        let team = BuiltInTeams.team("code_core")!
+        let team = BuiltInTeams.team("code_plan")!
         let ready: [Model] = [
             Model(id: "model_cursor_auto", displayName: "Auto", modelLabel: "auto",
                   driverId: "cursor_agent", role: .answerer),

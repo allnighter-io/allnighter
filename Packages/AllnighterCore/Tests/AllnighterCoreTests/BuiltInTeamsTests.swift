@@ -15,14 +15,14 @@ final class BuiltInTeamsTests: XCTestCase {
 
     func testRequiredBuiltInIdsArePresent() {
         let required = [
-            "code_core", "code_bug_hunt", "code_bug_hunt_max", "code_gui_bug_hunt", "code_security_review",
+            "code_plan", "code_bug_hunt", "code_bug_hunt_max", "code_gui_bug_hunt", "code_security_review",
             "code_spec_review_min", "code_spec_review", "code_spec_review_max", "code_release_proof",
             "code_growth_min", "code_growth", "code_growth_max",
-            "default_chat", "execution_playbook",
-            "design_core", "design_premium_polish", "design_conversion_studio",
-            "design_radical_directions", "design_usability_triage",
-            "copy_core", "copy_landing_page",
-            "signal_post_to_project", "signal_what_to_build_next"
+            "default_chat", "build_slice",
+            "design_design", "design_polish", "design_conversion_studio",
+            "design_radical_directions", "design_usability_review",
+            "copy_core", "copy_landing",
+            "signal_outside", "signal_what_to_build_next"
         ]
         for id in required {
             XCTAssertNotNil(BuiltInTeams.team(id), "missing built-in team \(id)")
@@ -112,7 +112,7 @@ final class BuiltInTeamsTests: XCTestCase {
     /// `testSynthesisTeamsPreferFableLeadAndDiverseWorkersOnFullBench`.
     func testTierOneTeamsCarryNoHardcodedWorkerIdentity() {
         let tierOne: [String: String] = [
-            "code_core": "first_principles_builder",
+            "code_plan": "first_principles_builder",
             "code_bug_hunt_max": "contrarian_root_cause",
             "code_gui_bug_hunt": "contrarian_root_cause",
             "code_security_review": "security_fix_prioritizer",
@@ -128,7 +128,7 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     func testEverySynthesisTeamReservesFableForLead() {
-        let passthrough: Set<String> = ["default_chat", "execution_playbook"]
+        let passthrough: Set<String> = ["default_chat", "build_slice"]
         for team in BuiltInTeams.all where !passthrough.contains(team.id) {
             XCTAssertEqual(team.lead.preferredModelId, "model_fable", "\(team.id) lead should prefer Fable")
         }
@@ -143,7 +143,7 @@ final class BuiltInTeamsTests: XCTestCase {
             "model_cursor_composer_25", "model_sonnet", "model_gemini",
             "model_cursor_auto", "model_agy_opus"
         ]
-        let passthrough: Set<String> = ["default_chat", "execution_playbook"]
+        let passthrough: Set<String> = ["default_chat", "build_slice"]
         for team in BuiltInTeams.all where !passthrough.contains(team.id) {
             XCTAssertEqual(team.lead.fallbackModelIds, expected, team.id)
         }
@@ -205,7 +205,7 @@ final class BuiltInTeamsTests: XCTestCase {
     func testLeadFallsBackStrongestWhenFableUnavailableIncludingAgy() {
         // Preferred Fable down; AGY Opus + ChatGPT ready → strongestReady
         // picks ChatGPT (rank 92) over AGY Opus (rank 75).
-        let team = BuiltInTeams.team("code_core")!
+        let team = BuiltInTeams.team("code_plan")!
         let ready: [Model] = [
             Model(id: "model_agy_opus", displayName: "Claude Opus 4.6",
                   modelLabel: "Claude Opus 4.6 (Thinking)", driverId: "antigravity", role: .both),
@@ -240,13 +240,13 @@ final class BuiltInTeamsTests: XCTestCase {
 
     func testExactlyOneDefaultPerLane() {
         XCTAssertTrue(BuiltInTeams.all.lanesViolatingSingleDefault().isEmpty)
-        XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .code)?.id, "code_core")
-        XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .design)?.id, "design_core")
+        XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .code)?.id, "code_plan")
+        XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .design)?.id, "design_design")
         XCTAssertEqual(BuiltInTeams.all.defaultTeam(for: .copy)?.id, "copy_core")
     }
 
     func testEveryTeamLaneMatchesIdPrefixAndSkillLane() {
-        let globalRunTeams: Set<String> = ["default_chat", "execution_playbook"]
+        let globalRunTeams: Set<String> = ["default_chat", "build_slice"]
         for team in BuiltInTeams.all {
             if !globalRunTeams.contains(team.id) {
                 XCTAssertTrue(team.id.hasPrefix(team.lane.rawValue), "\(team.id) prefix != lane")
@@ -263,7 +263,7 @@ final class BuiltInTeamsTests: XCTestCase {
     func testCopyLandingPageCarriesTypeTag() {
         // The "landing-page" routing key must remain (TeamRequestResolver --type);
         // additional intent typeTags may accompany it.
-        XCTAssertEqual(BuiltInTeams.team("copy_landing_page")?.typeTags.contains("landing-page"), true)
+        XCTAssertEqual(BuiltInTeams.team("copy_landing")?.typeTags.contains("landing-page"), true)
     }
 
     func testTypeTagsUniqueWithinLane() {

@@ -85,7 +85,7 @@
     "title" : "Start async team run"
   },
   {
-    "command" : "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor execution_playbook --json",
+    "command" : "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json",
     "id" : "try_fix_bug",
     "title" : "Auto Fix: Bug Hunt then one bounded fix"
   },

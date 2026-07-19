@@ -75,26 +75,26 @@ final class TeamCatalogTests: XCTestCase {
 
     func testExactlyOneDefaultPerLaneIsValid() {
         let teams = [
-            sampleTeam(id: "code_core", lane: .code, isDefault: true),
+            sampleTeam(id: "code_plan", lane: .code, isDefault: true),
             sampleTeam(id: "code_bug_hunt", lane: .code, isDefault: false),
-            sampleTeam(id: "design_core", lane: .design, isDefault: true)
+            sampleTeam(id: "design_design", lane: .design, isDefault: true)
         ]
         XCTAssertTrue(teams.lanesViolatingSingleDefault().isEmpty)
-        XCTAssertEqual(teams.defaultTeam(for: .code)?.id, "code_core")
-        XCTAssertEqual(teams.defaultTeam(for: .design)?.id, "design_core")
+        XCTAssertEqual(teams.defaultTeam(for: .code)?.id, "code_plan")
+        XCTAssertEqual(teams.defaultTeam(for: .design)?.id, "design_design")
         XCTAssertNil(teams.defaultTeam(for: .copy))
     }
 
     func testZeroOrMultipleDefaultsViolate() {
         let twoDefaults = [
-            sampleTeam(id: "code_core", lane: .code, isDefault: true),
+            sampleTeam(id: "code_plan", lane: .code, isDefault: true),
             sampleTeam(id: "code_bug_hunt", lane: .code, isDefault: true)
         ]
         XCTAssertEqual(twoDefaults.lanesViolatingSingleDefault(), [.code])
 
-        let noDefault = [sampleTeam(id: "design_core", lane: .design, isDefault: false)]
+        let noDefault = [sampleTeam(id: "design_design", lane: .design, isDefault: false)]
         XCTAssertEqual(noDefault.lanesViolatingSingleDefault(), [.design])
         // Falls back to the <lane>_core built-in when no explicit default is set.
-        XCTAssertEqual(noDefault.defaultTeam(for: .design)?.id, "design_core")
+        XCTAssertEqual(noDefault.defaultTeam(for: .design)?.id, "design_design")
     }
 }

@@ -73,7 +73,7 @@ final class PanelCLITests: XCTestCase {
                 builtIn: true
             ),
             TeamPreset(
-                id: "code_core", displayName: "Code Core", lane: .code,
+                id: "code_plan", displayName: "Plan", lane: .code,
                 outputKind: .plan, isDefaultForLane: true,
                 workerSpecs: [
                     TeamWorkerSpec(id: "p", skillId: "product_architect", purpose: .answer, preferredModelId: "model_opus"),
@@ -217,7 +217,7 @@ final class PanelCLITests: XCTestCase {
             teamStore: teamStore
         )
         XCTAssertTrue(request.laneDefault)
-        XCTAssertEqual(request.teamId, "code_core")
+        XCTAssertEqual(request.teamId, "code_plan")
     }
 
     func testParseStartNonROSeatAcceptedPlansClone() throws {

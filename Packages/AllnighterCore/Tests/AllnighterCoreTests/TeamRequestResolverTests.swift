@@ -15,7 +15,7 @@ final class TeamRequestResolverTests: XCTestCase {
         guard case .success(let r) = resolve(lane: .copy, team: nil, type: "landing-page") else {
             return XCTFail("expected success")
         }
-        XCTAssertEqual(r.team.id, "copy_landing_page")
+        XCTAssertEqual(r.team.id, "copy_landing")
         XCTAssertEqual(r.type, "landing-page")
         XCTAssertEqual(r.lane, .copy)
     }
@@ -32,18 +32,18 @@ final class TeamRequestResolverTests: XCTestCase {
         guard case .success(let r) = resolve(lane: .design, team: nil, type: nil) else {
             return XCTFail("expected success")
         }
-        XCTAssertEqual(r.team.id, "design_core")
+        XCTAssertEqual(r.team.id, "design_design")
     }
 
     func testEffortOverrideRespected() {
-        guard case .success(let r) = resolve(lane: .code, team: "code_core", type: nil, effort: .high) else {
+        guard case .success(let r) = resolve(lane: .code, team: "code_plan", type: nil, effort: .high) else {
             return XCTFail("expected success")
         }
         XCTAssertEqual(r.effort, .high)
     }
 
     func testTeamWithoutLaneDerivesLane() {
-        guard case .success(let r) = resolve(lane: nil, team: "design_premium_polish", type: nil) else {
+        guard case .success(let r) = resolve(lane: nil, team: "design_polish", type: nil) else {
             return XCTFail("expected success")
         }
         XCTAssertEqual(r.lane, .design)
@@ -60,11 +60,11 @@ final class TeamRequestResolverTests: XCTestCase {
     }
 
     func testTypeMatchingTeamTagIsAllowed() {
-        // copy_landing_page carries the landing-page tag, so the pair is valid.
-        guard case .success(let r) = resolve(lane: .copy, team: "copy_landing_page", type: "landing-page") else {
+        // copy_landing carries the landing-page tag, so the pair is valid.
+        guard case .success(let r) = resolve(lane: .copy, team: "copy_landing", type: "landing-page") else {
             return XCTFail("expected success")
         }
-        XCTAssertEqual(r.team.id, "copy_landing_page")
+        XCTAssertEqual(r.team.id, "copy_landing")
         XCTAssertEqual(r.type, "landing-page")
     }
 

@@ -14,7 +14,7 @@ final class TeamVisibilityTests: XCTestCase {
     }
 
     func testEnabledByDefault() {
-        XCTAssertTrue(TeamVisibility.isEnabled("code_core"), "teams show unless explicitly hidden")
+        XCTAssertTrue(TeamVisibility.isEnabled("code_plan"), "teams show unless explicitly hidden")
         XCTAssertTrue(TeamVisibility.disabledIds().isEmpty)
     }
 
@@ -23,7 +23,7 @@ final class TeamVisibilityTests: XCTestCase {
         XCTAssertFalse(TeamVisibility.isEnabled("bug_hunt"))
         XCTAssertEqual(TeamVisibility.disabledIds(), ["bug_hunt"])
         // Other teams unaffected.
-        XCTAssertTrue(TeamVisibility.isEnabled("code_core"))
+        XCTAssertTrue(TeamVisibility.isEnabled("code_plan"))
         // Re-enable removes it from the disabled set.
         try TeamVisibility.setEnabled("bug_hunt", true)
         XCTAssertTrue(TeamVisibility.isEnabled("bug_hunt"))

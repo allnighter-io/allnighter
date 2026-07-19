@@ -19,9 +19,9 @@ final class RunIdentityTests: XCTestCase {
             "Auto")
         XCTAssertEqual(
             RunIdentity.teamDisplayName(
-                presetId: "execution_playbook", catalogDisplayName: "Execution Playbook",
+                presetId: "build_slice", catalogDisplayName: "Build a Slice",
                 explicitTeamChosen: false),
-            "Execution Playbook")
+            "Build a Slice")
     }
 
     func testIdentitySummaryFormat() {

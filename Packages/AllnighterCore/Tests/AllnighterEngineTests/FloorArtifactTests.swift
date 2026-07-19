@@ -37,7 +37,7 @@ final class FloorArtifactTests: XCTestCase {
                       result: WorkerRunResult(status: .failed, errorReason: "auth expired", timing: RunTiming(finishedAt: now)))
         ]
         return TeamRun(id: "floorart1", prompt: "p", status: .complete, origin: .cli,
-                       presetId: "signal_post_to_project", workers: workers, workerAnswers: answers,
+                       presetId: "signal_outside", workers: workers, workerAnswers: answers,
                        createdAt: now, lane: .signal, outputKind: .insight)
     }
 

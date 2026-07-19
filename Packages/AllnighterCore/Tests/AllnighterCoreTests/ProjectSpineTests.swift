@@ -21,7 +21,7 @@ final class ProjectSpineTests: XCTestCase {
             normalizedRootPath: "/Users/x/Allnighter", kind: kind, rootState: rootState,
             gitBranch: "feat/x", gitHead: "abc123", createdAt: t, lastOpenedAt: t,
             archived: archived, docsEntrypoints: ["AGENTS.md"], proofCommands: ["bash scripts/check.sh"],
-            defaultCodeTeamId: "code_core", managerThreadId: "thr_mgr", managerModelId: "model_opus"
+            defaultCodeTeamId: "code_plan", managerThreadId: "thr_mgr", managerModelId: "model_opus"
         )
     }
 

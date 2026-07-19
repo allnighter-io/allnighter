@@ -67,8 +67,8 @@ enum IOSComposerCatalog {
     ]
 
     private static let teamPresetIDs: [String] = [
-        "code_core",
-        "copy_landing_page",
+        "code_plan",
+        "copy_landing",
         "design_board",
     ]
 

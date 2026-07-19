@@ -96,7 +96,7 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
     }
 
     func testBuiltInExecutionTeamsAreSourceScoped() {
-        for id in ["default_chat", "execution_playbook"] {
+        for id in ["default_chat", "build_slice"] {
             guard let team = BuiltInTeams.team(id) else { return XCTFail("missing \(id)") }
             XCTAssertTrue(team.mutating)
             XCTAssertNotNil(team.executionSourceId)

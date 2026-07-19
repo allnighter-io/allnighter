@@ -35,7 +35,7 @@ final class RemoteCommandRouterTests: XCTestCase {
         let startPayload = RemoteStartRunPayload(
             prompt: "secret launch prompt",
             lane: "code",
-            teamPresetId: "code_core",
+            teamPresetId: "code_plan",
             effort: "med",
             context: "private context"
         )
@@ -56,7 +56,7 @@ final class RemoteCommandRouterTests: XCTestCase {
         XCTAssertEqual(requests.count, 1)
         XCTAssertEqual(requests.first?.question, "secret launch prompt")
         XCTAssertEqual(requests.first?.lane, .code)
-        XCTAssertEqual(requests.first?.teamPresetId, "code_core")
+        XCTAssertEqual(requests.first?.teamPresetId, "code_plan")
         XCTAssertEqual(requests.first?.effort, .med)
         XCTAssertEqual(requests.first?.originAgent, "ios:device_1")
         XCTAssertEqual(requests.first?.idempotencyKey, "remote:req_start")

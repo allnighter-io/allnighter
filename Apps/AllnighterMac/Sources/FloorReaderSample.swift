@@ -32,9 +32,9 @@ enum FloorReaderSample {
         let plan = StageOutput(id: "stage_plan", purpose: .plan, status: .done, payload: .plan(markdown: lead))
         return TeamRun(
             id: "floor_sample", prompt: "Developers keep saying agents lose the thread after a break. How does this apply to Allnighter?",
-            status: .complete, origin: .gui, presetId: "signal_post_to_project",
+            status: .complete, origin: .gui, presetId: "signal_outside",
             workers: workers, workerAnswers: answers, stages: [plan], createdAt: now,
-            lane: .signal, teamDisplayName: "Post-to-Project Signal", outputKind: .insight)
+            lane: .signal, teamDisplayName: "Outside Signal", outputKind: .insight)
     }()
 
     static let lead = """

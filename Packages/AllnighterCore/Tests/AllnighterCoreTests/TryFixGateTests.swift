@@ -7,7 +7,7 @@ import XCTest
 final class TryFixGateTests: XCTestCase {
 
     private func goodExecutor() -> TryFixGate.ExecutorFacts {
-        .init(teamId: "execution_playbook", exists: true, isMutating: true, isRunnable: true, workerCount: 1)
+        .init(teamId: "build_slice", exists: true, isMutating: true, isRunnable: true, workerCount: 1)
     }
 
     private func packet(
@@ -59,7 +59,7 @@ final class TryFixGateTests: XCTestCase {
     }
 
     func testNonMutatingExecutorBlocks() {
-        let exec = TryFixGate.ExecutorFacts(teamId: "code_core", exists: true, isMutating: false, isRunnable: true, workerCount: 1)
+        let exec = TryFixGate.ExecutorFacts(teamId: "code_plan", exists: true, isMutating: false, isRunnable: true, workerCount: 1)
         if case .blocked(let code, _) = TryFixGate.evaluate(packet: packet(), executor: exec) {
             XCTAssertEqual(code, "TRY_FIX_EXECUTOR_INVALID")
         } else { XCTFail() }

@@ -1,7 +1,7 @@
 import XCTest
 @testable import AllnighterCore
 
-/// The built-in Post-to-Project Signal team: Grok scouts, three distinct minds
+/// The built-in Outside Signal team: Grok scouts, three distinct minds
 /// triangulate, the strongest ready flagship leads — and the customize-team
 /// scout warning.
 final class SignalTeamWiringTests: XCTestCase {
@@ -16,7 +16,7 @@ final class SignalTeamWiringTests: XCTestCase {
     }
 
     func testPostToProjectResolvesScoutGrokThreeDistinctMindsFlagshipLead() {
-        let team = BuiltInTeams.team("signal_post_to_project")!
+        let team = BuiltInTeams.team("signal_outside")!
         let r = TeamResolver.resolve(team: team, requestLane: .signal, requestEffort: .med, readyModels: fullBench())
 
         XCTAssertTrue(r.isRunnable)
@@ -36,7 +36,7 @@ final class SignalTeamWiringTests: XCTestCase {
     }
 
     func testScoutWarningSilentForBuiltInButFiresWhenGrokRemoved() {
-        let team = BuiltInTeams.team("signal_post_to_project")!
+        let team = BuiltInTeams.team("signal_outside")!
         XCTAssertNil(SignalScoutPolicy.scoutWarning(for: team))
 
         var noScout = team.duplicated(newId: "signal_custom_noscout")
@@ -49,6 +49,6 @@ final class SignalTeamWiringTests: XCTestCase {
         XCTAssertTrue(SignalScoutPolicy.scoutWarning(for: swapped)?.contains("Grok removed") == true)
 
         // Non-signal teams are never warned.
-        XCTAssertNil(SignalScoutPolicy.scoutWarning(for: BuiltInTeams.team("code_core")!))
+        XCTAssertNil(SignalScoutPolicy.scoutWarning(for: BuiltInTeams.team("code_plan")!))
     }
 }
