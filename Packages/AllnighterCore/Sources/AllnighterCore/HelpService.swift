@@ -9,7 +9,6 @@ import Foundation
 /// A parsed `alln://` help selector.
 public enum HelpSelector: Equatable, Sendable {
     case topic(String, section: String?)
-    case tool(String)
     case schema(String)
     case error(String)
 }
@@ -19,7 +18,6 @@ public enum HelpRef {
     public static func help(_ topic: String, _ section: String? = nil) -> String {
         section.map { "alln://help/\(topic)#\($0)" } ?? "alln://help/\(topic)"
     }
-    public static func tool(_ id: String) -> String { "alln://tool/\(id)" }
     public static func schema(_ id: String) -> String { "alln://schema/\(id)" }
     public static func error(_ code: String) -> String { "alln://error/\(code)" }
 
@@ -34,7 +32,6 @@ public enum HelpRef {
             // hp[0] is safe. Keep this guarantee if this is ever refactored.
             let hp = parts[1].split(separator: "#", maxSplits: 1).map(String.init)
             return .topic(hp[0], section: hp.count > 1 ? hp[1] : nil)
-        case "tool": return .tool(parts[1])
         case "schema": return .schema(parts[1])
         case "error": return .error(parts[1])
         default: return nil
@@ -59,7 +56,6 @@ public struct HelpSearchHit: Codable, Sendable, Equatable {
     public var snippet: String
     public var score: Double              // 0…1, relative to the top hit
     public var refs: [String]
-    public var relatedTools: [String]
     public var relatedCommands: [String]
     public var needsLiveCheck: Bool
 }
@@ -106,8 +102,7 @@ public enum HelpService {
                 if aliases.contains(tok) { s += 3 }
                 if summary.contains(tok) { s += 2 }
                 if body.contains(tok) { s += 1 }
-                if t.relatedToolIds.contains(where: { $0.lowercased().contains(tok) }) { s += 2 }
-                if t.relatedCommandNames.contains(where: { $0.lowercased().contains(tok) }) { s += 1 }
+                if t.relatedCommandNames.contains(where: { $0.lowercased().contains(tok) }) { s += 2 }
             }
             if t.id == aliasHit { s += 10 }   // exact topic/alias phrase wins decisively
             if s > 0 { scored.append((t, s)) }
@@ -120,7 +115,7 @@ public enum HelpService {
                 topicId: t.id, sectionId: nil, title: t.title, summary: t.summary,
                 snippet: snippet(for: t, tokens: tokens),
                 score: maxScore > 0 ? (raw / maxScore) : 0,
-                refs: [HelpRef.help(t.id)], relatedTools: t.relatedToolIds,
+                refs: [HelpRef.help(t.id)],
                 relatedCommands: t.relatedCommandNames, needsLiveCheck: t.needsLiveCheck)
         }
         let top = scored.first?.0
@@ -132,7 +127,7 @@ public enum HelpService {
 
     // MARK: - Get
 
-    public static func get(topic: String? = nil, ref: String? = nil, tool: String? = nil, error: String? = nil) -> HelpGetResult {
+    public static func get(topic: String? = nil, ref: String? = nil, error: String? = nil) -> HelpGetResult {
         if let ref, let selector = HelpRef.parse(ref) { return resolve(selector) }
         if let topic {
             if let selector = HelpRef.parse(topic) { return resolve(selector) }  // topic may carry a ref
@@ -141,7 +136,6 @@ public enum HelpService {
             }
             return miss(near: topic)
         }
-        if let tool { return resolve(.tool(tool)) }
         if let error { return resolve(.error(error)) }
         return miss(near: "")
     }
@@ -151,9 +145,6 @@ public enum HelpService {
         case .topic(let id, let section):
             guard let t = HelpTopicRegistry.topic(id: id) else { return miss(near: id) }
             return hit(t, section: section.flatMap { t.section($0) != nil ? $0 : nil })
-        case .tool(let id):
-            guard let t = HelpTopicRegistry.topics.first(where: { $0.relatedToolIds.contains(id) }) else { return miss(near: id) }
-            return hit(t, section: nil)
         case .schema(let id):
             guard let t = HelpTopicRegistry.topics.first(where: { $0.schemaRefs.contains(id) }) else { return miss(near: id) }
             return hit(t, section: nil)

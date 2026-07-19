@@ -32,7 +32,7 @@ enum HelpCLI {
             print("  \(hit.summary)")
         }
         if let step = json.nextToolPlan.first {
-            print("\nnext: \(step.tool) \(step.args.map { "\($0)=\($1)" }.sorted().joined(separator: " "))")
+            print("\nnext: \(runnableNextCommand(step))")
         }
     }
 
@@ -40,7 +40,7 @@ enum HelpCLI {
         let opts = Options(args)
         let topic = opts.positional.first
         let json = HelpProjector.get(
-            topic: topic, ref: opts.value("ref"), tool: opts.value("tool"), error: opts.value("error"), contractVersion: cv)
+            topic: topic, ref: opts.value("ref"), error: opts.value("error"), contractVersion: cv)
 
         if opts.flag("json") { print(AllnighterCLI.jsonString(json)); return }
 
@@ -49,6 +49,9 @@ enum HelpCLI {
             print("No topic for that selector.")
             if !json.closeMatches.isEmpty { print("did you mean: " + json.closeMatches.joined(separator: ", ")) }
             print("topics: " + json.sitemap.map(\.topicId).joined(separator: ", "))
+            if let step = json.nextToolPlan.first {
+                print("\nnext: \(runnableNextCommand(step))")
+            }
             return
         }
 
@@ -58,9 +61,13 @@ enum HelpCLI {
         }
         print("\(t.title)\n\(t.summary)\n")
         print(t.bodyMarkdown)
-        if !t.relatedToolIds.isEmpty { print("\ntools: " + t.relatedToolIds.joined(separator: ", ")) }
-        if !t.relatedCommandNames.isEmpty { print("commands: " + t.relatedCommandNames.map { "alln \($0)" }.joined(separator: ", ")) }
+        if !t.relatedCommandNames.isEmpty {
+            print("\ncommands: " + t.relatedCommandNames.map { "alln \($0)" }.joined(separator: ", "))
+        }
         if t.needsLiveCheck { print("\n(this answer depends on live state — run `alln doctor` / `alln team hello`)") }
+        if let step = json.nextToolPlan.first {
+            print("\nnext: \(runnableNextCommand(step))")
+        }
     }
 
     private static func topics(_ args: [String]) {
@@ -69,6 +76,26 @@ enum HelpCLI {
         if opts.flag("json") { print(AllnighterCLI.jsonString(json)); return }
         print(json.routingLaw + "\n")
         for t in json.topics { print("\(t.topicId)\t\(t.title)\n  \(t.summary)") }
+    }
+
+    /// Project nextToolPlan steps as runnable `alln …` strings (ASF-S01 text path;
+    /// ASF-S02 owns the JSON `tool` field cutover).
+    private static func runnableNextCommand(_ step: HelpNextToolStep) -> String {
+        switch step.tool {
+        case "help_get":
+            if let topic = step.args["topic"] { return "alln help get \(topic)" }
+            if let ref = step.args["ref"] { return "alln help get --ref \(ref)" }
+            return "alln help get"
+        case "help_search":
+            if let q = step.args["query"] { return "alln help search \(q)" }
+            return "alln help search <query>"
+        case "team_hello":
+            return "alln team hello"
+        case "doctor":
+            return "alln doctor"
+        default:
+            return "alln " + step.tool.replacingOccurrences(of: "_", with: " ")
+        }
     }
 
     private static func usage(_ detail: String) -> Never {

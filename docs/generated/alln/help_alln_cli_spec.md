@@ -1345,19 +1345,16 @@ Output schema: `helpSearchJSON`.
 
 ### `alln help get`
 
-Retrieve one help topic by id, alln:// ref, --tool, or --error. Unknown selectors return close matches + the sitemap.
+Retrieve one help topic by id, alln:// ref, or --error. Unknown selectors return close matches + the sitemap.
 
 Arguments:
-- `topic` (optional) — Topic id or alln:// ref (omit when using --ref/--tool/--error).
+- `topic` (optional) — Topic id or alln:// ref (omit when using --ref/--error).
 
 Flags:
-- `--ref <string>` — An alln:// ref (help/tool/schema/error).
-- `--tool <string>` — Find the topic that documents this tool/action id.
+- `--ref <string>` — An alln:// ref (help/schema/error).
 - `--error <string>` — Find the topic for this error code.
 - `--format <format>` (default: json) — json | md.
 - `--json` — Emit a HelpGetJSON object.
-
-Mutually exclusive: `--tool`, `--error`.
 
 Output schema: `helpGetJSON`.
 

@@ -21,8 +21,7 @@ final class HelpProjectorTests: XCTestCase {
         XCTAssertEqual(j.nextToolPlan.first?.tool, "team_hello")
     }
 
-    func testGetByToolAndError() {
-        XCTAssertTrue(HelpProjector.get(tool: "defaults_get", contractVersion: "1.0.0").found)
+    func testGetByError() {
         XCTAssertEqual(HelpProjector.get(error: "SOURCE_AUTH_EXPIRED", contractVersion: "1.0.0").topic?.id, "setup_and_auth")
     }
 

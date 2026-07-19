@@ -24,6 +24,8 @@ final class CLIHelpDriftTests: XCTestCase {
         "panel start", "panel round", "panel status", "panel watch", "panel scaffold-brief", "panel done",
         // Run inspection beyond show/export.
         "floor show", "spec",
+        // Vendor continuity (Rate_Limit_Continuity) — long-form via help/docs, not top-level banner.
+        "run resume", "continuity receipt",
         // Pending + project + stalled families.
         "pending add", "pending list", "pending queue", "pending show", "pending submit",
         "pending edit", "pending reorder", "pending cancel", "pending run",

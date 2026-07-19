@@ -891,16 +891,14 @@ public extension ContractRegistry {
             outputSchema: .helpSearchJSON
         ),
         CommandSpec(
-            "help get", summary: "Retrieve one help topic by id, alln:// ref, --tool, or --error. Unknown selectors return close matches + the sitemap.", milestone: .m1,
-            args: [ArgSpec("topic", required: false, summary: "Topic id or alln:// ref (omit when using --ref/--tool/--error).")],
+            "help get", summary: "Retrieve one help topic by id, alln:// ref, or --error. Unknown selectors return close matches + the sitemap.", milestone: .m1,
+            args: [ArgSpec("topic", required: false, summary: "Topic id or alln:// ref (omit when using --ref/--error).")],
             flags: [
-                FlagSpec("ref", takesValue: true, valueType: "string", summary: "An alln:// ref (help/tool/schema/error)."),
-                FlagSpec("tool", takesValue: true, valueType: "string", summary: "Find the topic that documents this tool/action id."),
+                FlagSpec("ref", takesValue: true, valueType: "string", summary: "An alln:// ref (help/schema/error)."),
                 FlagSpec("error", takesValue: true, valueType: "string", summary: "Find the topic for this error code."),
                 FlagSpec("format", takesValue: true, valueType: "format", defaultValue: "json", summary: "json | md."),
                 FlagSpec("json", summary: "Emit a HelpGetJSON object."),
             ],
-            mutuallyExclusiveFlags: [["tool", "error"]],
             outputSchema: .helpGetJSON
         ),
         CommandSpec(

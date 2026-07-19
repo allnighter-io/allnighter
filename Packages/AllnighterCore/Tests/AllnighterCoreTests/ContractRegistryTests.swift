@@ -34,7 +34,8 @@ final class ContractRegistryTests: XCTestCase {
             "team start", "team status", "team result", "team cancel", "team reconcile",
             "ps", "kill", "gc",
             "thread send", "thread get", "thread attachment", "thread rename", "thread status",
-            "run",
+            "run", "run resume",
+            "continuity receipt",
             "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt",
             "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
             // Panel family (landed with Pilot_Panel; expectation lagged the registry — fixed with PO-S05)

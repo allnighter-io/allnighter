@@ -4,31 +4,26 @@ import XCTest
 final class HelpTopicRegistryTests: XCTestCase {
     private let reg = ContractRegistry.milestone1
 
-    /// The `relatedToolIds` vocabulary predates the MCP retirement and is renamed to
-    /// `alln` verb strings in the MCP_Retirement.md docs/help-content sweep; frozen
-    /// here in the interim so cross-link validation still has a known-id set to check
-    /// against now that the registry no longer carries an MCP tool catalog.
-    private var toolNames: Set<String> {
-        ["team_hello", "doctor", "error_explain", "help", "defaults_get", "history",
-         "teams_get", "teams_edit", "skills_get", "skills_edit",
-         "team_ask", "team_run", "team_start", "team_result", "team_cancel", "run_get",
-         "pair_relay",
-         "thread_send", "thread_get", "thread_rename",
-         "pending_list", "pending_edit", "pending_update", "pending_run",
-         "stalled_list", "stalled_update",
-         "project_get", "project_context", "project_workers"]
-    }
     private var m1Commands: Set<String> { Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name)) }
     private var errorCodes: Set<String> { Set(reg.errors.map(\.code)) }
     private var schemaNames: Set<String> { Set(ContractRegistry.OutputSchema.allCases.map(\.rawValue)) }
+
+    /// Retired MCP / invented-flag grammar that must never reappear in live help prose.
+    private let retiredVocabulary: [String] = [
+        "fan out", "fanout", "council", "judge panel",
+        "dryrun", "dryRun",
+        "team_start(", "pair_relay(action",
+        "team_run", "team_ask", "run_get",
+        "pair slice", "pair status",
+        "pending_run", "pending_update", "project_get", "stalled_update",
+        "teams_get", "skills_get", "defaults_get", "error_explain",
+        "team_start(dryRun",
+    ]
 
     // MARK: - Reference resolution (Guide truth must point at real Contract truth)
 
     func testEveryTopicReferenceResolvesToTheRegistry() {
         for t in HelpTopicRegistry.topics {
-            for tool in t.relatedToolIds {
-                XCTAssertTrue(toolNames.contains(tool), "topic \(t.id) names unknown MCP tool \(tool)")
-            }
             for cmd in t.relatedCommandNames {
                 XCTAssertTrue(m1Commands.contains(cmd), "topic \(t.id) names unknown command '\(cmd)'")
             }
@@ -39,12 +34,6 @@ final class HelpTopicRegistryTests: XCTestCase {
                 XCTAssertTrue(schemaNames.contains(schema), "topic \(t.id) names unknown schema \(schema)")
             }
         }
-    }
-
-    func testEveryAdvertisedMCPToolIsReachableFromATopic() {
-        let covered = Set(HelpTopicRegistry.topics.flatMap(\.relatedToolIds))
-        let uncovered = toolNames.subtracting(covered)
-        XCTAssertTrue(uncovered.isEmpty, "MCP tools with no help topic route: \(uncovered.sorted())")
     }
 
     func testTopicIdsAndAliasRedirectsAreUnique() {
@@ -72,15 +61,45 @@ final class HelpTopicRegistryTests: XCTestCase {
 
     func testNoRetiredVocabularyInPublicProse() {
         // Retired words may live in `aliases` (so search still finds them) but never in
-        // titles/summaries/bodies.
-        let retired = ["fan out", "fanout", "council", "judge panel"]
+        // titles/summaries/bodies/sections.
         for t in HelpTopicRegistry.topics {
             let prose = (t.title + " " + t.summary + " " + t.bodyMarkdown + " "
-                         + t.sections.map { $0.title + " " + $0.bodyMarkdown }.joined(separator: " ")).lowercased()
-            for term in retired {
-                XCTAssertFalse(prose.contains(term), "topic \(t.id) uses retired vocabulary '\(term)' in public prose")
+                         + t.sections.map { $0.title + " " + $0.bodyMarkdown }.joined(separator: " "))
+            let proseLower = prose.lowercased()
+            for term in retiredVocabulary {
+                if term == "dryRun" {
+                    XCTAssertFalse(prose.contains(term), "topic \(t.id) uses retired vocabulary '\(term)' in public prose")
+                } else {
+                    XCTAssertFalse(proseLower.contains(term.lowercased()),
+                                   "topic \(t.id) uses retired vocabulary '\(term)' in public prose")
+                }
             }
         }
+    }
+
+    /// Golden: team_run_loop teaches CLI verbs in both markdown projections.
+    func testTeamRunLoopGoldenCLIVerbsInTopicAndDocsMarkdown() throws {
+        let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "team_run_loop"))
+        let md = HelpService.topicMarkdown(topic)
+        let docs = try XCTUnwrap(HelpService.docsMarkdown(topic: "team_run_loop"))
+
+        for surface in [("topicMarkdown", md), ("docsMarkdown", docs)] {
+            let (label, text) = surface
+            XCTAssertTrue(text.contains("alln team preflight"), "\(label) must teach alln team preflight")
+            XCTAssertTrue(text.contains("alln team start"), "\(label) must teach alln team start")
+            for banned in ["dryRun", "team_start(", "team_run", "team_ask", "run_get"] {
+                XCTAssertFalse(text.contains(banned), "\(label) must not contain '\(banned)'")
+            }
+        }
+    }
+
+    /// JSON envelope must not leak relatedToolIds (field removed from HelpTopic).
+    func testHelpGetJSONDoesNotEmitRelatedToolIds() throws {
+        let envelope = HelpProjector.get(topic: "team_run_loop", contractVersion: "1.0.0")
+        let data = try CoreJSON.encode(envelope)
+        let raw = String(data: data, encoding: .utf8) ?? ""
+        XCTAssertFalse(raw.contains("relatedToolIds"), "help get --json must not emit relatedToolIds")
+        XCTAssertTrue(raw.contains("relatedCommandNames"), "help get --json still carries relatedCommandNames")
     }
 
     // MARK: - Search
@@ -121,14 +140,13 @@ final class HelpTopicRegistryTests: XCTestCase {
 
     // MARK: - Get + selectors
 
-    func testGetByTopicSectionToolSchemaError() {
+    func testGetByTopicSectionSchemaError() {
         XCTAssertEqual(HelpService.get(topic: "pending").topic?.id, "pending")
 
         let sectioned = HelpService.get(ref: "alln://help/pending#when-to-use-pending")
         XCTAssertEqual(sectioned.topic?.id, "pending")
         XCTAssertEqual(sectioned.selectedSectionId, "when-to-use-pending")
 
-        XCTAssertTrue(HelpService.get(tool: "team_start").found)
         XCTAssertEqual(HelpService.get(ref: "alln://schema/defaultSettingsJSON").topic?.id, "default_model")
         XCTAssertEqual(HelpService.get(error: "SOURCE_AUTH_EXPIRED").topic?.id, "setup_and_auth")
     }
@@ -154,9 +172,10 @@ final class HelpTopicRegistryTests: XCTestCase {
     func testHelpRefBuildAndParseRoundTrip() {
         XCTAssertEqual(HelpRef.parse(HelpRef.help("pending", "x")), .topic("pending", section: "x"))
         XCTAssertEqual(HelpRef.parse(HelpRef.help("pending")), .topic("pending", section: nil))
-        XCTAssertEqual(HelpRef.parse(HelpRef.tool("team_start")), .tool("team_start"))
         XCTAssertEqual(HelpRef.parse(HelpRef.schema("teamStartResponse")), .schema("teamStartResponse"))
         XCTAssertEqual(HelpRef.parse(HelpRef.error("CLI_USAGE_ERROR")), .error("CLI_USAGE_ERROR"))
+        XCTAssertNil(HelpRef.parse(HelpRef.help("pending").replacingOccurrences(of: "help", with: "tool")))
+        XCTAssertNil(HelpRef.parse("alln://tool/team_start"), "retired alln://tool/ refs no longer resolve")
         XCTAssertNil(HelpRef.parse("https://example.com"))
         XCTAssertNil(HelpRef.parse("alln://bogus/x"))
     }

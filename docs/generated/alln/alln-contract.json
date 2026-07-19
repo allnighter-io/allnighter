@@ -3551,7 +3551,7 @@
         {
           "name" : "topic",
           "required" : false,
-          "summary" : "Topic id or alln:\/\/ ref (omit when using --ref\/--tool\/--error)."
+          "summary" : "Topic id or alln:\/\/ ref (omit when using --ref\/--error)."
         }
       ],
       "exampleIds" : [
@@ -3560,13 +3560,7 @@
       "flags" : [
         {
           "name" : "ref",
-          "summary" : "An alln:\/\/ ref (help\/tool\/schema\/error).",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "tool",
-          "summary" : "Find the topic that documents this tool\/action id.",
+          "summary" : "An alln:\/\/ ref (help\/schema\/error).",
           "takesValue" : true,
           "valueType" : "string"
         },
@@ -3591,14 +3585,11 @@
       ],
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
-        [
-          "tool",
-          "error"
-        ]
+
       ],
       "name" : "help get",
       "outputSchema" : "helpGetJSON",
-      "summary" : "Retrieve one help topic by id, alln:\/\/ ref, --tool, or --error. Unknown selectors return close matches + the sitemap."
+      "summary" : "Retrieve one help topic by id, alln:\/\/ ref, or --error. Unknown selectors return close matches + the sitemap."
     },
     {
       "args" : [

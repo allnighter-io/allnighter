@@ -16,20 +16,6 @@ public extension HelpService {
     /// assembled by `Bootstrap.snippet(binaryPath:onPath:)`.
     static var bootstrapWorkflowLines: [String] { TeachingSnippet.companionLines }
 
-    /// Compact Panel recipe for `help get panel` callers (PN-S04). **Not** part of
-    /// the default bootstrap snippet — ONB-S01 keeps bootstrap as a tiny router reflex.
-    static let panelWorkflowLines = [
-        "- Panel (blind jury): `alln panel start --doc <path> --project .` → roster + next command echoed.",
-        "- `alln panel round --panel <id>` (round 1 built-in brief); refute findings, edit target yourself.",
-        "- Round 2+: `alln panel round --panel <id> --brief focus.md` (rejection-carry line required).",
-        "- `alln panel done --panel <id> --note \"…\"` then chain: `alln pair pilot start --doc <same>`.",
-        "- Pilot (you are PM): `alln pair pilot handoff --relay <id> --verdict continue --handover-file <order.md>`.",
-        "- Stuck? `alln panel watch` / `alln pair pilot watch`; `alln help get panel` or `pm_relay`.",
-    ]
-
-    /// Alias for callers that still name Pilot; same compact recipe as Panel.
-    static let pilotWorkflowLines = panelWorkflowLines
-
     /// Static help-topic preview when live binary path is unknown (help corpus only).
     static var hostInstructionBlock: String {
         Bootstrap.snippet(binaryPath: "alln", onPath: true)
@@ -37,6 +23,7 @@ public extension HelpService {
 }
 
 /// One ordered next-tool call so host agents don't synthesize orchestration from prose.
+/// ASF-S02 migrates `tool` → full runnable `command` strings; S01 leaves the field.
 public struct HelpNextToolStep: Codable, Sendable, Equatable {
     public var order: Int
     public var tool: String
@@ -142,9 +129,9 @@ public enum HelpProjector {
             suggestedAnswerRefs: r.suggestedAnswerRefs, nextToolPlan: planForSearch(r))
     }
 
-    public static func get(topic: String? = nil, ref: String? = nil, tool: String? = nil,
+    public static func get(topic: String? = nil, ref: String? = nil,
                            error: String? = nil, contractVersion: String) -> HelpGetJSON {
-        let r = HelpService.get(topic: topic, ref: ref, tool: tool, error: error)
+        let r = HelpService.get(topic: topic, ref: ref, error: error)
         return HelpGetJSON(
             contractVersion: contractVersion, routingLaw: HelpService.routingLaw, found: r.found,
             topic: r.topic, selectedSectionId: r.selectedSectionId, closeMatches: r.closeMatches,
@@ -176,8 +163,16 @@ public enum HelpProjector {
                                      why: "Topic not found — search for the right one.")]
         }
         guard topic.needsLiveCheck else { return [] }
-        // Live-state topics route to the live tool rather than pretend to know.
-        let liveTool = topic.relatedToolIds.first { $0 == "team_hello" || $0 == "doctor" } ?? "team_hello"
+        // Live-state topics route to a live command rather than pretend to know.
+        // Prefer `team hello` when listed; otherwise `doctor`. (ASF-S02 replaces `tool`.)
+        let liveTool: String
+        if topic.relatedCommandNames.contains("team hello") {
+            liveTool = "team_hello"
+        } else if topic.relatedCommandNames.contains("doctor") {
+            liveTool = "doctor"
+        } else {
+            liveTool = "team_hello"
+        }
         return [HelpNextToolStep(order: 1, tool: liveTool,
                                  why: "This topic depends on this machine's live state.")]
     }

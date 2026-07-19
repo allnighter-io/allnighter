@@ -2,13 +2,13 @@ import Foundation
 
 // Help System — H0a: the Guide-truth SSOT. `HelpTopicRegistry` owns authored
 // product topics (narrative routing, task explanations, glossary). It REFERENCES the
-// Contract-truth registry (`ContractRegistry`) for tools/commands/schemas/errors — it
+// Contract-truth registry (`ContractRegistry`) for commands/schemas/errors — it
 // never hand-authors those facts. `alln help` projects this same registry; nothing
 // invents help truth locally.
 
 public enum HelpAudience: String, Codable, Sendable, CaseIterable { case agent, human, both }
 
-/// One installed help topic. `related*`/`schemaRefs`/`errorRefs` are ids into
+/// One installed help topic. `relatedCommandNames`/`schemaRefs`/`errorRefs` are ids into
 /// `ContractRegistry` and must resolve (HelpTopicReferenceTests gate this).
 public struct HelpTopic: Codable, Sendable, Equatable, Identifiable {
     public struct Section: Codable, Sendable, Equatable, Identifiable {
@@ -27,23 +27,22 @@ public struct HelpTopic: Codable, Sendable, Equatable, Identifiable {
     public var bodyMarkdown: String
     public var aliases: [String]         // retired/alternate terms that should find this topic
     public var sections: [Section]
-    public var relatedToolIds: [String]  // internal action ids for cross-linking (`alln help get --tool <id>`)
     public var relatedCommandNames: [String] // ⊆ ContractRegistry M1 command names
     public var schemaRefs: [String]      // ⊆ OutputSchema rawValues
     public var errorRefs: [String]       // ⊆ error catalog codes
     /// True when the real answer depends on this machine's live state (the topic must
-    /// route to a live tool — `alln team hello` / `alln doctor` — rather than pretend to know).
+    /// route to a live command — `alln team hello` / `alln doctor` — rather than pretend to know).
     public var needsLiveCheck: Bool
 
     public init(
         id: String, title: String, audience: HelpAudience, summary: String, bodyMarkdown: String,
-        aliases: [String] = [], sections: [Section] = [], relatedToolIds: [String] = [],
+        aliases: [String] = [], sections: [Section] = [],
         relatedCommandNames: [String] = [], schemaRefs: [String] = [], errorRefs: [String] = [],
         needsLiveCheck: Bool = false
     ) {
         self.id = id; self.title = title; self.audience = audience; self.summary = summary
         self.bodyMarkdown = bodyMarkdown; self.aliases = aliases; self.sections = sections
-        self.relatedToolIds = relatedToolIds; self.relatedCommandNames = relatedCommandNames
+        self.relatedCommandNames = relatedCommandNames
         self.schemaRefs = schemaRefs; self.errorRefs = errorRefs; self.needsLiveCheck = needsLiveCheck
     }
 
@@ -51,8 +50,8 @@ public struct HelpTopic: Codable, Sendable, Equatable, Identifiable {
 }
 
 public enum HelpTopicRegistry {
-    /// Authored installed topics. Every advertised tool/action id is reachable from at
-    /// least one topic (HelpCoverageTests). Prose is intentionally short and version-neutral.
+    /// Authored installed topics. Cross-links use `relatedCommandNames` only
+    /// (ContractRegistry M1 names). Prose is intentionally short and version-neutral.
     public static let topics: [HelpTopic] = [
         HelpTopic(
             id: "quickstart", title: "Quickstart", audience: .both,
@@ -72,8 +71,7 @@ public enum HelpTopicRegistry {
             the router reflex (`alln team hello --for`) in one paste (no MCP server, no config file edits).
             """,
             aliases: ["getting started", "first run", "what is allnighter"],
-            relatedToolIds: ["team_hello", "doctor"],
-            relatedCommandNames: ["install-cli", "run", "doctor", "bootstrap"],
+            relatedCommandNames: ["install-cli", "run", "doctor", "bootstrap", "team hello"],
             needsLiveCheck: false),
 
         HelpTopic(
@@ -98,8 +96,7 @@ public enum HelpTopicRegistry {
             """,
             aliases: ["install", "setup", "connect agent", "activation", "add to agent",
                      "wire up allnighter", "onboard agent", "mcp install", "mcp", "install mcp"],
-            relatedToolIds: ["help", "team_hello", "doctor"],
-            relatedCommandNames: ["install-cli", "bootstrap", "help get"],
+            relatedCommandNames: ["install-cli", "bootstrap", "help get", "help search", "team hello", "doctor"],
             schemaRefs: [],
             needsLiveCheck: false),
 
@@ -114,28 +111,26 @@ public enum HelpTopicRegistry {
             training data when these commands are available.
             """,
             aliases: ["which tool", "what tool should i use", "routing", "help"],
-            relatedToolIds: ["help", "team_hello", "team_start", "team_result", "pending_run", "run_get"],
-            relatedCommandNames: ["help search", "help get", "team preflight", "team start", "spec"],
+            relatedCommandNames: ["help search", "help get", "team preflight", "team start", "team result",
+                                  "team hello", "pending run", "spec", "show"],
             schemaRefs: ["teamStartResponse"],
             needsLiveCheck: true),
 
         HelpTopic(
             id: "team_run_loop", title: "Running a Team", audience: .both,
-            summary: "Send work to a team: dry-run preflight, start, poll result, cancel if needed.",
+            summary: "Send work to a team: preflight, start, poll status/result, cancel if needed.",
             bodyMarkdown: """
-            Sending work to a team is dry-run preflight → start → result. `team_start` with \
-            `dryRun:true` validates the lineup before spending quota; `team_start` begins the run; \
-            `team_result` reports progress or the settled packet (poll with `nextPollAfterMs`); \
-            `team_cancel` stops a run. `team_run`/`team_ask` \
-            are the synchronous one-call forms; `run_get` inspects a run (summary, spec, or floor).
+            Sending work to a team is preflight → start → status/result. `alln team preflight` \
+            validates the lineup before spending quota; `alln team start` begins the run; \
+            `alln team status` and `alln team result` report progress or the settled packet \
+            (poll with `nextPollAfterMs`); `alln team cancel` stops a run. Inspect a finished \
+            run with `alln show`, `alln spec`, or `alln floor show`.
             """,
             aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt"],
             sections: [
-                .init("preflight", "Preflight first", "Always call `team_start(dryRun:true)` before a real `team_start` so a bad lineup fails before quota is spent."),
-                .init("polling", "Polling", "Poll `team_result` using the returned `nextPollAfterMs`; do not busy-loop."),
+                .init("preflight", "Preflight first", "Always call `alln team preflight` before a real `alln team start` so a bad lineup fails before quota is spent."),
+                .init("polling", "Polling", "Poll `alln team result` using the returned `nextPollAfterMs`; do not busy-loop."),
             ],
-            relatedToolIds: ["team_start", "team_result",
-                             "team_cancel", "team_run", "team_ask", "run_get"],
             relatedCommandNames: ["team preflight", "team start", "team status", "team result", "team cancel", "team reconcile", "floor show"],
             schemaRefs: ["teamStartResponse", "teamStatusResponse", "teamRunJSON"],
             needsLiveCheck: true),
@@ -154,11 +149,11 @@ public enum HelpTopicRegistry {
             dispatch and escalates instead. The dev seat builds, commits through its own \
             tooling, and writes a delivery report that becomes the next round's review input. \
             The loop stops only on done, escalate, or a ceiling (`--until`, `--max-rounds`, or \
-            repeated no-progress rounds) — never by inference. `pair_relay` is one \
-            action-dispatched tool: start begins a new relay, status reads its durable state, \
-            resume injects the founder's answer into an escalated relay and continues. A \
-            spawned PM with repo access may complete small mechanical work itself rather \
-            than dispatching another dev round — by design (PM-may-fix), not a defect.
+            repeated no-progress rounds) — never by inference. Drive it with CLI verbs: \
+            `alln pair relay` starts a new relay, `alln pair relay-status` reads durable state, \
+            `alln pair relay-resume` injects the founder's answer into an escalated relay and \
+            continues. A spawned PM with repo access may complete small mechanical work itself \
+            rather than dispatching another dev round — by design (PM-may-fix), not a defect.
 
             Pilot is the sibling mode on the SAME substrate: instead of Allnighter spawning \
             a PM model, YOUR live CLI session holds the PM seat. `alln pair pilot start` \
@@ -179,11 +174,10 @@ public enum HelpTopicRegistry {
                 .init("verdict", "The only structure", "Everything the PM writes is free prose except one JSON tail: verdict continue/done/escalate. Missing or unparseable triggers one re-ask, then escalate — never a guess."),
                 .init("gate", "Handover safety", "Every continue verdict's handover passes a danger scan before the dev seat ever sees it. Danger blocks and escalates; mere doubt does not block."),
                 .init("ceilings", "Stopping", "`--until HH:MM`, `--max-rounds`, and a stagnation cap (repeated no-change rounds) are hard stops — the relay always ends on done, escalate, or a ceiling."),
-                .init("resume", "Escalation is not failure", "An escalated relay is a real question for the founder, not an error. `pair_relay(action:resume)` injects the answer and the loop continues from there."),
+                .init("resume", "Escalation is not failure", "An escalated relay is a real question for the founder, not an error. `alln pair relay-resume` injects the answer and the loop continues from there."),
                 .init("pilot", "Pilot: you hold the PM seat", "`pair pilot start|handoff|status|watch` — no `--pm-worker` (there is no PM model) and no `--until` (no clock). `handoff` is the only mutation boundary: a parse failure or a gate block never escalates in Pilot, it just leaves the relay `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the relay exactly like a spawned round."),
                 .init("adopt", "Adopt: hand the SAME relay to a spawned PM (unattended)", "Pilot the first rounds yourself while context is hot, then `alln pair relay adopt --relay <id> --pm-worker <id>` converts a parked Pilot relay (`awaitingPM` or `escalated`) to a spawned PM relay and keeps going from the durable round log — same id, same rounds, same thread; the first spawned turn is told, once, that earlier rounds were externally piloted. `--max-rounds`/`--until` behave like a spawned run, and the round ceiling counts the piloted rounds too — an honest total, not a fresh budget. The reverse flip, `alln pair pilot adopt --relay <id>`, hands a parked spawned relay (escalated, or ceiling-stopped) back to Pilot — a plain state flip, no dispatch."),
             ],
-            relatedToolIds: ["pair_relay", "project_get", "run_get"],
             relatedCommandNames: [
                 "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt", "project add", "project show",
                 "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
@@ -225,7 +219,6 @@ public enum HelpTopicRegistry {
                 .init("safety", "Read-only by mechanism", "Panels never take the mutating write lock. RO-enforcing drivers keep plan/sandbox args on the real root; other seats get an ephemeral clone under panels/<id>/clones/. PANEL_SEAT_NOT_ISOLATED means clone materialization failed, not “driver banned”."),
                 .init("chain", "Harden then build", "After `panel done`, `alln pair pilot start --doc <same>` continues in the same cockpit."),
             ],
-            relatedToolIds: [],
             relatedCommandNames: [
                 "panel start", "panel round", "panel status", "panel watch", "panel scaffold-brief", "panel done",
                 "pair pilot start",
@@ -243,11 +236,10 @@ public enum HelpTopicRegistry {
             bodyMarkdown: """
             A team is a lane-scoped roster of workers, each a model running a skill. \
             Built-in teams are immutable — duplicate one to edit the copy. Skills are the \
-            reusable prompts workers run. List and inspect teams and skills with the \
-            catalog tools; the Default Team (Auto) is the no-pick route.
+            reusable prompts workers run. List and inspect with `alln teams`, `alln skills`, \
+            and `alln models`; the Default Team (Auto) is the no-pick route.
             """,
             aliases: ["teams", "workers", "skills", "roster", "catalog"],
-            relatedToolIds: ["teams_get", "teams_edit", "skills_get", "skills_edit"],
             relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams restore", "skills", "skills show", "models"],
             schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON"],
             errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_RESTORE_UNSUPPORTED", "SKILL_NOT_FOUND"],
@@ -262,13 +254,13 @@ public enum HelpTopicRegistry {
             tier default's CLI is down and healthy substitutions are on, Auto uses the next \
             ready model on the same tier, across CLIs — never a different tier. If the whole \
             tier is down, work waits. Membership is many-to-many: a model can sit in several \
-            tiers. Configure with `alln defaults`; read it with `defaults_get`.
+            tiers. Configure with `alln defaults`; read the live settings with \
+            `alln defaults show`.
             """,
             aliases: ["auto", "default", "substitution", "substitutions", "tier", "tiers", "flagship", "balanced", "fast"],
             sections: [
                 .init("substitution", "Healthy substitution", "OFF → Auto uses only the tier default and waits if it is down. ON → the first ready model on the tier, across CLIs. Never upgrades, never downgrades, never crosses tiers."),
             ],
-            relatedToolIds: ["defaults_get"],
             relatedCommandNames: ["defaults show", "defaults tier", "defaults assign", "defaults unassign", "defaults substitutions", "defaults reset"],
             schemaRefs: ["defaultSettingsJSON"],
             errorRefs: ["DEFAULTS_TIER_INVALID", "DEFAULTS_MODEL_UNKNOWN"],
@@ -276,19 +268,19 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "pending", title: "Pending Work", audience: .both,
-            summary: "Use Pending when work should be stored for later or cannot start now; pending_run executes a due item.",
+            summary: "Use Pending when work should be stored for later or cannot start now; `alln pending run` executes a due item.",
             bodyMarkdown: """
             Pending is for work the user wants saved for later, or that Allnighter cannot \
-            start right now. Create a Pending item, then show the user the Pending id and its \
-            blocked/wake state. `pending_run` executes and settles a due item. Pending is not \
-            a fake queue — it is durable save-for-later with real wake facts.
+            start right now. Create a Pending item with `alln pending add`, then show the \
+            user the Pending id and its blocked/wake state. `alln pending run` executes and \
+            settles a due item. Pending is not a fake queue — it is durable save-for-later \
+            with real wake facts.
             """,
             aliases: ["later", "save for later", "desk", "queue", "put this on codex's desk"],
             sections: [
                 .init("when-to-use-pending", "When to use Pending", "Use Pending when the user wants work done later, or when Allnighter cannot start it right now."),
                 .init("pending-vs-running", "Pending vs running a team", "Pending stores work for later; running a team starts work now after preflight."),
             ],
-            relatedToolIds: ["pending_list", "pending_run", "pending_edit", "pending_update"],
             relatedCommandNames: ["pending add", "pending list", "pending queue", "pending show", "pending run",
                                   "pending submit", "pending edit", "pending reorder", "pending cancel"],
             schemaRefs: ["pendingItemJSON", "pendingListJSON"],
@@ -296,16 +288,15 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "projects_and_threads", title: "Projects & Threads", audience: .both,
-            summary: "Projects bind a repo root; threads are the work conversations inside a project; project_workers shows readiness.",
+            summary: "Projects bind a repo root; threads are the work conversations inside a project; `alln project workers` shows readiness.",
             bodyMarkdown: """
             A project binds a local repo root. Work threads are the conversations bound to a \
-            project. List projects, read one, generate a context packet, and check cached \
-            per-project worker readiness. Threads carry the back-and-forth and the runs.
+            project. List projects with `alln project list`, read one with `alln project show`, \
+            generate a context packet with `alln project context`, and check cached \
+            per-project worker readiness with `alln project workers`. Threads carry the \
+            back-and-forth and the runs (`alln thread send` / `alln thread get`).
             """,
             aliases: ["project", "repo", "thread", "threads", "conversation"],
-            relatedToolIds: ["project_get", "project_context", "project_workers",
-                             "stalled_list", "stalled_update",
-                             "thread_send", "thread_get", "thread_rename"],
             relatedCommandNames: ["project list", "project show", "project context", "project workers",
                                   "thread send", "thread get", "thread rename", "stalled list"],
             schemaRefs: ["projectJSON", "projectListJSON", "projectContextJSON", "threadStatus"],
@@ -318,7 +309,7 @@ public enum HelpTopicRegistry {
             bodyMarkdown: """
             Allnighter uses your existing CLI subscriptions and logins — never API keys. If a \
             source is blocked, run `alln doctor` (optionally for one agent) to see the exact \
-            failing check, then `error_explain` for the recovery text. Auth is live state: the \
+            failing check, then `alln doctor explain` for the recovery text. Auth is live state: the \
             help bundle cannot know it — call doctor. Cursor gotcha: headless cursor-agent \
             respects `permissions.allow` in `~/.cursor/cli-config.json` even under `--trust`; \
             denied shell tools fail silently. Widen the global allowlist (e.g. `Shell(git)`, \
@@ -331,7 +322,6 @@ public enum HelpTopicRegistry {
             sections: [
                 .init("source-auth-expired", "Source auth expired", "Re-authenticate the named source via its own login flow, then re-probe with `alln doctor`."),
             ],
-            relatedToolIds: ["doctor", "error_explain"],
             relatedCommandNames: ["doctor", "doctor explain"],
             schemaRefs: ["doctorResult"],
             errorRefs: ["SOURCE_AUTH_EXPIRED", "SOURCE_NOT_FOUND", "SOURCE_KEYCHAIN_UNAVAILABLE"],
@@ -346,20 +336,18 @@ public enum HelpTopicRegistry {
             bundle describes product behavior; it does not know this machine's live state.
             """,
             aliases: ["can it run", "ready", "readiness", "what can it do now", "status"],
-            relatedToolIds: ["team_hello", "doctor"],
-            relatedCommandNames: ["doctor", "show"],
+            relatedCommandNames: ["team hello", "doctor", "show"],
             needsLiveCheck: true),
 
         HelpTopic(
             id: "results_and_history", title: "Results & History", audience: .both,
-            summary: "Inspect what ran: history lists runs; run_get returns summary, spec, or floor for one run.",
+            summary: "Inspect what ran: `alln history` lists runs; `alln show` / `alln spec` / `alln floor show` inspect one run.",
             bodyMarkdown: """
-            Runs are durable. `history` lists past runs; `run_get` returns the summary packet, \
-            full spec (`view:spec`), or inspectable floor (`view:floor`) for one run. \
-            Results are runtime artifacts, not help docs.
+            Runs are durable. `alln history` lists past runs; `alln show` returns the summary \
+            packet, `alln spec` the full spec, and `alln floor show` the inspectable floor for \
+            one run. Results are runtime artifacts, not help docs.
             """,
             aliases: ["history", "results", "what ran", "floor", "packet"],
-            relatedToolIds: ["history", "run_get"],
             relatedCommandNames: ["history", "show", "spec", "floor show"],
             schemaRefs: ["floorRun", "historyJSON", "specResult"],
             errorRefs: ["RUN_NOT_FOUND"],
@@ -367,17 +355,16 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "errors", title: "Errors & Recovery", audience: .agent,
-            summary: "Every Allnighter error has a recovery ladder; call error_explain for the exact action and whether it's retryable.",
+            summary: "Every Allnighter error has a recovery ladder; call `alln doctor explain` for the exact action and whether it's retryable.",
             bodyMarkdown: """
-            Allnighter errors are typed with a recovery ladder. After a failed tool, call \
-            `error_explain` with the code to get the agent action, whether it requires a human, \
+            Allnighter errors are typed with a recovery ladder. After a failed command, call \
+            `alln doctor explain` with the code to get the agent action, whether it requires a human, \
             and whether it is retryable. Do not guess recovery from the message text.
 
             For automated bug-fix rounds (Bug Hunt → gate → one bounded fix attempt), see \
             `alln help get auto_fix` (`alln run --try-fix`).
             """,
             aliases: ["error", "failed", "recovery", "retry"],
-            relatedToolIds: ["error_explain", "doctor"],
             relatedCommandNames: ["doctor explain", "docs"],
             schemaRefs: ["errorEnvelope"],
             errorRefs: ["CLI_USAGE_ERROR", "WORKER_FAILED", "TEAM_RUN_FAILED"],
@@ -406,21 +393,19 @@ public enum HelpTopicRegistry {
                 .init("gate", "Danger blocks, doubt does not", "The gate refuses credentials, mass deletion, deploys, and packets without an actionable hypothesis — never blocks merely because confidence is low."),
                 .init("vs-run", "When to use it", "Use Auto Fix for a concrete bug symptom you want one fix round on. Use a plain `alln run` or team dispatch for open work."),
             ],
-            relatedToolIds: ["team_run"],
             relatedCommandNames: ["run"],
             errorRefs: ["TRY_FIX_PACKET_MISSING", "TRY_FIX_PACKET_UNSAFE", "TRY_FIX_EXECUTOR_INVALID"],
             needsLiveCheck: false),
 
         HelpTopic(
             id: "schemas", title: "Schemas & Contract", audience: .agent,
-            summary: "Exact fields/enums come from the generated contract: run_get for a run packet, alln docs --schema for shapes.",
+            summary: "Exact fields/enums come from the generated contract: `alln spec` for a run packet, `alln docs --schema` for shapes.",
             bodyMarkdown: """
             Never guess Allnighter's field names or enum values. The generated contract is the \
             source: `alln spec` returns a run's full packet, and `alln docs --schema` prints the \
             JSON schemas. One schema by name: `alln help get --ref alln://schema/<name>`.
             """,
             aliases: ["schema", "fields", "json shape", "enum values", "contract"],
-            relatedToolIds: ["run_get"],
             relatedCommandNames: ["docs", "spec", "export"],
             schemaRefs: ["contractDoc"],
             needsLiveCheck: false),
@@ -458,7 +443,6 @@ public enum HelpTopicRegistry {
                 "onboarding recipes", "intent recipes",
             ],
             sections: recipes.map { HelpTopic.Section($0.id, $0.title, $0.markdown) },
-            relatedToolIds: ["help", "team_hello"],
             relatedCommandNames: [
                 "bootstrap", "help get", "help search", "team hello",
                 "pair pilot start", "panel start", "pair relay", "run",
