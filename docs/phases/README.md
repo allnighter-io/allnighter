@@ -25,6 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`CLI_Agent_Surface_Fidelity.md`](CLI_Agent_Surface_Fidelity.md) | **Active** — ASF-S00 next (founder dogfood 2026-07-20) | Help/docs still teach MCP `dryRun` / empty search / dead verbs while the spine is excellent. Make the agent-facing surface honest so adoption matches the power we shipped. |
 | [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
 | [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md) | **Complete 2026-07-19, archived** — S00–S06; Works Test 14 GREEN / item 7 waived | Accepted runs stay observable, stoppable, recoverable. Code SSOT: `KillSettlement`, `RunClockEnforcer`, `RunContradiction`, `IdempotencyStore`; matrix `archive/phases/rlr/`. Unblocks IR-S02. |
 | [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md) | **SHIPPED 2026-07-19, archived** — S01–S04b, S05a, S06 gates; S05b deferred | Team-run open + streaming/reload hot path. Code SSOT: `ThreadsViewModel.applyLiveDelta` / `reloadAsync`, `PerfCounters`, `RunDecodeCache`. |
@@ -184,6 +185,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Default-chat / team-run latency, streaming throughput, rail click stalls, scroll jank | archived `Team_Run_Load_Performance.md` (code SSOT; warm path: archived `Warm_Single_Lane_Chat.md`) |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Agent front door — findable/suggested/routed, `team hello --for`, catalog normalization | Front door V1 Complete — archived `Agent_Front_Door.md` (gate 1) → archived `Agent_Onboarding.md` (gate 2) → archived `Agent_Intent_Router.md` (gate 3); catalog: archived `Team_Catalog_Normalization.md` |
+| Stale MCP/help language, empty help search, invented flags, dead `pair slice` in living docs, version freshness | `CLI_Agent_Surface_Fidelity.md` (ASF) — help corpus must match ContractRegistry |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
 | Run model, answer vs execution teams, dispatch/source safety | `Unified_Run_Model.md` + `Work_Order_Team_Model.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` + `Language_Cutover.md` |
