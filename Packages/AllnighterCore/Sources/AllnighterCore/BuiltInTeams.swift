@@ -7,11 +7,11 @@ import Foundation
 public enum BuiltInTeams {
 
     public static let all: [TeamPreset] = [
-        buildCore, buildBugHunt, buildBugHuntMax, buildGUIBugHunt, buildSecurityReview,
+        buildCore, buildBugHuntMin, buildBugHunt, buildBugHuntMax, buildGUIBugHunt, buildSecurityReview,
         buildSpecReviewMin, buildSpecReview, buildSpecReviewMax, buildReleaseProof,
         buildGrowthMin, buildGrowth, buildGrowthMax,
         defaultChat, executionPlaybook,
-        designCore, designPremiumPolish, designConversionStudio, designRadicalDirections, designUsabilityTriage,
+        designMin, designCore, designMax, designPremiumPolish, designUsabilityTriage,
         copyCore, copyLandingPage,
         signalPostToProject, signalWhatToBuildNext
     ]
@@ -145,6 +145,24 @@ public enum BuiltInTeams {
         typeTags: ["plan", "scope", "architecture", "design-doc", "breakdown"],
         starters: ["Turn this rough idea into an implementable plan with scope and proof.",
                    "Plan the smallest correct slice for <feature>."])
+
+    /// Bug Hunt Min — the fastest credible cause hunt: reproduce, name the truth
+    /// owner (the root-cause seat), plan the smallest fix. Drops the Default's
+    /// regression_guard seat — Min races to the cause, not to prevention. Bug
+    /// Hunt Default carries no reviewer rows, so there is no A/B judge pair for
+    /// Min to preserve; it simply runs the three load-bearing answer seats. Same
+    /// writer/output as the family (Team_Catalog_Normalization.md, Min pattern).
+    static let buildBugHuntMin = make(
+        id: "code_bug_hunt_min", name: "Bug Hunt Min", lane: .code, output: .bugPacket, defaultEffort: .high,
+        description: "Fastest credible cause hunt: reproduce it, name the truth owner, plan the smallest correct fix.",
+        rows: needRows([
+            ("bug_reproducer", .answer),
+            ("truth_owner_mapper", .answer),
+            ("correct_fix_planner", .answer)
+        ], tags: [.code]),
+        writer: "bug_packet_writer",
+        typeTags: ["bug-hunt-min"],
+        starters: ["Quick bug hunt: find the cause of <broken behavior> and the smallest fix."])
 
     /// Bug Hunt — bare/default depth tier. Lean 4-seat roster; two-judge A/B
     /// proved it ties the heavier roster on deliverable quality at lower seat
@@ -401,17 +419,59 @@ public enum BuiltInTeams {
     // Codex, Grok); `.design` seats are reasoning/critique/direction and a text
     // model can hold them (Kimi K3, Sol, Fable, Grok, Gemini, Codex).
 
+    /// Design Min — the leanest credible design take: one design-reasoning seat
+    /// (information architecture) plus one image seat that actually generates the
+    /// mockup. Mirrors the Default's seat kinds at minimum viable count and keeps
+    /// the design-reasoning (`.design`) vs image (`.image`) seat distinction
+    /// (Team_Catalog_Normalization.md §Design capability). Same writer/output as
+    /// the family.
+    static let designMin = make(
+        id: "design_design_min", name: "Design Min", lane: .design, output: .designBoard, defaultEffort: .med,
+        description: "Quick credible design take — the essential structure plus one rendered mockup.",
+        rows: [
+            needRow("information_architect", .answer, tags: [.design]),
+            needRow("visual_system_designer", .answer, tags: [.image])
+        ],
+        writer: "design_board_writer", dissent: .compareOptions,
+        typeTags: ["design-min"],
+        starters: ["Give me one clean, credible design for <screen/flow> — fast."])
+
     static let designCore = make(
         id: "design_design", name: "Design", lane: .design, output: .designBoard, defaultEffort: .med, isDefault: true,
         description: "Design or redesign a screen or flow — credible interface options with the tradeoffs made visible.",
-        rows: needRows([
-            ("information_architect", .answer),
-            ("interaction_designer", .answer),
-            ("visual_system_designer", .answer),
-        ], tags: [.image]),
+        rows: [
+            // Reasoning seats (.design) vs mockup seat (.image) — the
+            // distinction Team_Catalog_Normalization §Design capability draws;
+            // K3/Sol/Fable are eligible for the reasoning seats.
+            needRow("information_architect", .answer, tags: [.design]),
+            needRow("interaction_designer", .answer, tags: [.design]),
+            needRow("visual_system_designer", .answer, tags: [.image])
+        ],
         writer: "design_board_writer", dissent: .compareOptions,
-        typeTags: ["design", "screen", "mockup", "ui", "interface"],
+        typeTags: ["design", "screen", "mockup", "ui", "interface", "directions"],
         starters: ["Design <screen/flow>: give me three credible interface directions with the tradeoffs made visible."])
+
+    /// Design Max — the Default's job with widened divergence. Absorbs the folded
+    /// Radical Directions team (founder-approved, Team_Catalog_Normalization.md):
+    /// the Default's structure/interaction/visual seats plus the three divergence
+    /// direction seats, so the board explores multiple genuinely different
+    /// credible directions before converging. Same writer/output as the family.
+    static let designMax = make(
+        id: "design_design_max", name: "Design Max", lane: .design, output: .designBoard, defaultEffort: .high,
+        description: "Design with widened divergence — credible interface options plus multiple genuinely different radical directions before the team converges.",
+        rows: [
+            needRow("information_architect", .answer, tags: [.design]),
+            needRow("interaction_designer", .answer, tags: [.design]),
+            needRow("visual_system_designer", .answer, tags: [.image]),
+            // Absorbed Radical Directions divergence seats stay image-first —
+            // each direction lands as a rendered mockup.
+            needRow("minimal_direction", .answer, tags: [.image]),
+            needRow("bold_direction", .answer, tags: [.image]),
+            needRow("editorial_direction", .answer, tags: [.image])
+        ],
+        writer: "design_board_writer", dissent: .compareOptions,
+        typeTags: ["design-max", "divergent", "explore", "alternatives"],
+        starters: ["Design <surface> with widened divergence: credible options plus genuinely different radical directions before we converge."])
 
     static let designPremiumPolish = make(
         id: "design_polish", name: "Polish", lane: .design, output: .polishBoard, defaultEffort: .high,
@@ -424,30 +484,6 @@ public enum BuiltInTeams {
         writer: "polish_board_writer",
         typeTags: ["polish", "premium", "native", "refine", "expensive", "calm"],
         starters: ["Give me two more polished versions of <screen> — calmer, more intentional, native."])
-
-    static let designConversionStudio = make(
-        id: "design_conversion_studio", name: "Conversion Studio", lane: .design, output: .designBoard, defaultEffort: .high,
-        description: "Improve a product/marketing surface so users understand the offer, trust it, and know what to do next.",
-        rows: needRows([
-            ("offer_clarity", .answer),
-            ("cta_path", .answer),
-            ("trust_builder", .answer),
-        ], tags: [.image]),
-        writer: "conversion_board_writer",
-        typeTags: ["conversion", "cta", "offer-clarity", "trust"],
-        starters: ["Improve <page/surface> so the offer is clear, trusted, and the next action is obvious."])
-
-    static let designRadicalDirections = make(
-        id: "design_radical_directions", name: "Radical Directions", lane: .design, output: .designBoard, defaultEffort: .med,
-        description: "Generate three genuinely different design directions before the team converges too early.",
-        rows: needRows([
-            ("minimal_direction", .answer),
-            ("bold_direction", .answer),
-            ("editorial_direction", .answer),
-        ], tags: [.image]),
-        writer: "direction_board_writer", dissent: .compareOptions,
-        typeTags: ["directions", "divergent", "explore", "alternatives"],
-        starters: ["Give me three genuinely different design directions for <surface> before we converge."])
 
     static let designUsabilityTriage = make(
         id: "design_usability_review", name: "Usability Review", lane: .design, output: .polishBoard, defaultEffort: .med,
