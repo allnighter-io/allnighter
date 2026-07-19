@@ -243,6 +243,24 @@
     "ruleId" : "run.not_found"
   },
   {
+    "agentAction" : "Check the support dir is writable (disk space \/ permissions), then retry the run.",
+    "code" : "RUN_JOURNAL_UNAVAILABLE",
+    "exitClass" : "operational",
+    "explain" : "The acceptance journal write failed at mint time, so no run was started — RLR-L2 refuses to hand back an id without a durable, pollable journal.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "run.journal.unavailable"
+  },
+  {
+    "agentAction" : "Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status.",
+    "code" : "JOURNAL_CORRUPT",
+    "exitClass" : "operational",
+    "explain" : "A run.json exists on disk but failed to decode (e.g. an unknown\/legacy status raw value). Distinct from RUN_NOT_FOUND, which means no journal was ever found at all (RLR-L8).",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "run.journal.corrupt"
+  },
+  {
     "agentAction" : "Use foreground CLI or start resident mode when available.",
     "code" : "COORDINATOR_UNAVAILABLE",
     "exitClass" : "operational",

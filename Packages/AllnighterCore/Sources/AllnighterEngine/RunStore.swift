@@ -1,6 +1,16 @@
 import Foundation
 import AllnighterCore
 
+/// S01c (RLR-L8): the legacy-journal policy is **MAP** — every on-disk
+/// `RunStatus` value present maps unambiguously to `RunLifecycle`, so a
+/// readable journal is never quarantined. The one invention risk this guards
+/// against is an unknown/legacy `status` raw string, which must surface as
+/// `JOURNAL_CORRUPT` rather than being silently treated as "no run" or
+/// coerced into a made-up status.
+public enum RunJournalReadError: Error, Sendable, Equatable {
+    case corrupt(runId: String, detail: String)
+}
+
 /// Persists runs to disk as a folder per run under Application Support. Flat
 /// files now (Core models are `Codable`); GRDB is the documented growth path
 /// when history/query needs exceed files.
@@ -196,19 +206,44 @@ public struct RunStore: Sendable {
     /// Loads one run by id. **Reads never kill** (PO-S01 v2): may project what
     /// reconcile WOULD decide (identity-dead → interrupted) but never signals,
     /// never writes. Explicit reconcile paths own kill + terminal write-back.
+    ///
+    /// Swallows both "no run.json" and "run.json failed to decode" to `nil` —
+    /// unchanged behavior for the many callers that only care whether a usable
+    /// run exists. Callers that must distinguish "never existed" from "existed
+    /// but is corrupt" (RLR-L8 `JOURNAL_CORRUPT`) use `loadRawResult` instead.
     public func load(runId: String) -> TeamRun? {
         let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
-        guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")),
-              let run = try? CoreJSON.decode(TeamRun.self, from: data) else { return nil }
+        guard let run = loadRaw(runId: runId) else { return nil }
         return projectIfOrphaned(run, directory: directory)
     }
 
-    /// Raw journal without orphan projection (runner claim path).
+    /// Raw journal without orphan projection (runner claim path). See `load`'s
+    /// doc: swallows missing-vs-corrupt to `nil`; use `loadRawResult` to tell
+    /// them apart.
     public func loadRaw(runId: String) -> TeamRun? {
+        switch loadRawResult(runId: runId) {
+        case .success(let run): return run
+        case .failure: return nil
+        }
+    }
+
+    /// Distinguishes "no run.json on disk for this id" (`.success(nil)`, the
+    /// `RUN_NOT_FOUND` case) from "an EXISTING run.json failed to decode"
+    /// (`.failure(.corrupt)`, the `JOURNAL_CORRUPT` case — RLR-L8, S01c). The
+    /// only decode-time invention risk is an unknown/legacy `status` raw
+    /// string; every on-disk value present today maps unambiguously via
+    /// `RunStatus.lifecycle`, so this guard only ever fires for genuinely
+    /// unmappable journals — never a silent coercion, never a bare "no run".
+    public func loadRawResult(runId: String) -> Result<TeamRun?, RunJournalReadError> {
         let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
-        guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")),
-              let run = try? CoreJSON.decode(TeamRun.self, from: data) else { return nil }
-        return run
+        guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")) else {
+            return .success(nil)
+        }
+        do {
+            return .success(try CoreJSON.decode(TeamRun.self, from: data))
+        } catch {
+            return .failure(.corrupt(runId: runId, detail: String(describing: error)))
+        }
     }
 
     /// Lists saved runs, newest first. Read-only projection (never kills).

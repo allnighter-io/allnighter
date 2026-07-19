@@ -22,6 +22,12 @@ public struct OwnershipPsJSON: Codable, Sendable, Equatable {
 }
 
 /// One owned process tree in the `alln ps` inventory.
+///
+/// Wire-shape freeze (S01c): field **names** on this type are frozen from
+/// here forward. `phase` lands now (RLR-L3, S01a); still-owed additions per
+/// the RLR execution plan (not yet on the wire, do not add early): a typed
+/// `blocker` richer than `lane`/`OwnershipLaneJSON` (S02), `lastActivityKind`
+/// / `progressStale` (S03), `killOutcome` / `contradiction` (S04).
 public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
     /// Stable work id (run id, relay id, or harness-proof claim id).
     public var id: String
@@ -44,6 +50,9 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
     public var endReason: String?
     /// Durable status string when available (run status, relay status).
     public var status: String?
+    /// `RunPhase` raw value (RLR-L3) for non-terminal runs; nil when terminal
+    /// or when this row has no phase axis (relay/pilot/proof rows).
+    public var phase: String?
 
     public init(
         id: String,
@@ -56,7 +65,8 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
         lastProgressAt: Date? = nil,
         heartbeatAgeSeconds: Double? = nil,
         endReason: String? = nil,
-        status: String? = nil
+        status: String? = nil,
+        phase: String? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -69,6 +79,7 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
         self.heartbeatAgeSeconds = heartbeatAgeSeconds
         self.endReason = endReason
         self.status = status
+        self.phase = phase
     }
 }
 

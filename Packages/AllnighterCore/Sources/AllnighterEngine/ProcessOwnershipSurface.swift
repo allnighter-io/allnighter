@@ -167,7 +167,8 @@ public struct ProcessOwnershipSurface: Sendable {
                 lastProgressAt: last,
                 heartbeatAgeSeconds: age,
                 endReason: run.endReason?.rawValue,
-                status: run.status.rawValue
+                status: run.status.rawValue,
+                phase: run.phase?.rawValue
             ))
         }
         return rows

@@ -97,6 +97,12 @@
             "null"
           ]
         },
+        "phase" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "projectRoot" : {
           "type" : [
             "string",

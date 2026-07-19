@@ -630,6 +630,7 @@ public enum ContractSchema {
                 "heartbeatAgeSeconds": nullable("number"),
                 "endReason": nullable("string"),
                 "status": nullable("string"),
+                "phase": nullable("string"),
             ], required: [
                 "id", "kind", "identityAlive", "wouldReconcile",
             ]),
