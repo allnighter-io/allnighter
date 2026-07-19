@@ -2,7 +2,7 @@ import XCTest
 @testable import AllnighterCore
 
 /// IR-S01 / IR-S02 golden transcripts for `alln team hello --for`
-/// (`Agent_Intent_Router.md`). Lifecycle bundle is IR-S02b — not covered here.
+/// (`Agent_Intent_Router.md`), including IR-S02b Decision 10 lifecycle bundles.
 final class AgentIntentRouterTests: XCTestCase {
 
     private var allReady: [ReadyTeam] {
@@ -29,6 +29,15 @@ final class AgentIntentRouterTests: XCTestCase {
             readyModels: [],
             canStartTeamRun: true
         )
+    }
+
+    private func assertResolves(_ command: AgentIntentRouter.RunnableCommand?, file: StaticString = #filePath, line: UInt = #line) {
+        let display = command?.display ?? ""
+        XCTAssertNotNil(ContractRegistry.resolveCommandName(from: display),
+                        "lifecycle display must resolve: \(display)", file: file, line: line)
+        let argvJoined = (command?.argv ?? []).joined(separator: " ")
+        XCTAssertNotNil(ContractRegistry.resolveCommandName(from: argvJoined),
+                        "lifecycle argv must resolve: \(argvJoined)", file: file, line: line)
     }
 
     // MARK: - Taxonomy golden rows
@@ -98,6 +107,63 @@ final class AgentIntentRouterTests: XCTestCase {
         XCTAssertEqual(Array(argv.prefix(4)), ["alln", "pair", "pilot", "start"])
     }
 
+    // MARK: - Lifecycle bundle (IR-S02b / Decision 10)
+
+    func testSpecReviewLifecycleResolvesViaRegistry() throws {
+        let p = route("harden this spec before I build")
+        let life = try XCTUnwrap(p.lifecycle)
+        XCTAssertEqual(life.monitor?.argv,
+                       ["alln", "team", "status", "<run-id>", "--json"])
+        XCTAssertEqual(life.result?.argv,
+                       ["alln", "team", "result", "<run-id>", "--json"])
+        XCTAssertEqual(life.cancel?.argv,
+                       ["alln", "team", "cancel", "<run-id>", "--json"])
+        assertResolves(life.monitor)
+        assertResolves(life.result)
+        assertResolves(life.cancel)
+        XCTAssertEqual(ContractRegistry.resolveCommandName(from: life.monitor!.display), "team status")
+        XCTAssertEqual(ContractRegistry.resolveCommandName(from: life.result!.display), "team result")
+        XCTAssertEqual(ContractRegistry.resolveCommandName(from: life.cancel!.display), "team cancel")
+    }
+
+    func testRelayLifecyclePresentAndCancelResolves() throws {
+        let p = route("keep building overnight without me")
+        let life = try XCTUnwrap(p.lifecycle)
+        XCTAssertEqual(life.monitor?.argv,
+                       ["alln", "pair", "relay-status", "--relay", "<run-id>", "--json"])
+        XCTAssertEqual(life.result?.argv, life.monitor?.argv,
+                       "relay-status is both monitor and terminal truth owner")
+        XCTAssertEqual(life.cancel?.argv, ["alln", "kill", "<run-id>", "--json"])
+        assertResolves(life.monitor)
+        assertResolves(life.cancel)
+        XCTAssertEqual(ContractRegistry.resolveCommandName(from: life.cancel!.display), "kill")
+    }
+
+    func testPilotLifecyclePresentAndCancelResolves() throws {
+        let p = route("have another model BUILD this while I supervise")
+        let life = try XCTUnwrap(p.lifecycle)
+        XCTAssertEqual(life.monitor?.argv,
+                       ["alln", "pair", "pilot", "status", "--relay", "<run-id>", "--json"])
+        XCTAssertEqual(life.result?.argv, life.monitor?.argv)
+        XCTAssertEqual(life.cancel?.argv, ["alln", "kill", "<run-id>", "--json"])
+        assertResolves(life.monitor)
+        assertResolves(life.cancel)
+        XCTAssertEqual(ContractRegistry.resolveCommandName(from: life.monitor!.display), "pair pilot status")
+        XCTAssertEqual(ContractRegistry.resolveCommandName(from: life.cancel!.display), "kill")
+    }
+
+    func testNoMatchHasNoLifecycle() {
+        let p = route("asdf qwerty zxcvbn totally nonsense intent 999")
+        XCTAssertNil(p.lifecycle)
+        XCTAssertEqual(p.readiness.code, "INTENT_NO_MATCH")
+    }
+
+    func testWorkerNameUnknownHasNoLifecycle() {
+        let p = route("ask ModelZorch999 for feedback")
+        XCTAssertNil(p.lifecycle)
+        XCTAssertEqual(p.readiness.code, "WORKER_NAME_UNKNOWN")
+    }
+
     // MARK: - Named worker + read-only (field probe)
 
     func testFieldProbeChatGPTSolReadOnlyPinsCodexNative() {
@@ -123,6 +189,27 @@ final class AgentIntentRouterTests: XCTestCase {
         if let idx = argv.firstIndex(of: "--worker") {
             XCTAssertEqual(argv[idx + 1], "model_chatgpt")
         }
+        // Read-only / advisory keeps final-only `--json` (honest; not a progress lie).
+        XCTAssertTrue(argv.contains("--json"), "read-only ask may keep --json final envelope")
+        XCTAssertFalse(argv.contains("--stream"))
+        XCTAssertNotNil(p.lifecycle?.cancel)
+        XCTAssertNil(p.lifecycle?.monitor, "chat progress is the launch transport, not a poll verb")
+        assertResolves(p.lifecycle?.cancel)
+    }
+
+    func testMutatingChatAskUsesStreamNotFinalOnlyJSON() {
+        let p = route("ask ChatGPT 5.6 Sol to refactor this module")
+        XCTAssertEqual(p.recommended?.kind, "chat")
+        XCTAssertEqual(p.recommended?.safetyPosture, "mutating")
+        let argv = p.recommended?.command?.argv ?? []
+        XCTAssertTrue(argv.contains("--stream"),
+                      "mutating chat must teach --stream as progress transport")
+        XCTAssertFalse(argv.contains("--json"),
+                       "mutating chat must not teach final-only --json as progress")
+        XCTAssertNotNil(p.lifecycle?.cancel)
+        XCTAssertNil(p.lifecycle?.monitor)
+        XCTAssertNil(p.lifecycle?.result)
+        assertResolves(p.lifecycle?.cancel)
     }
 
     func testBareSolReadOnlyResolvesToCodexWhenUnambiguous() {
@@ -195,6 +282,10 @@ final class AgentIntentRouterTests: XCTestCase {
             XCTAssertNotNil(fb.command)
         }
         XCTAssertFalse(p.nextActions.isEmpty)
+        // No recommended.command → no lifecycle (Decision 10 attaches only to runnable launches).
+        if p.recommended?.command == nil {
+            XCTAssertNil(p.lifecycle)
+        }
     }
 
     // MARK: - Without --for unchanged (AgentHello)
@@ -211,6 +302,17 @@ final class AgentIntentRouterTests: XCTestCase {
             "alln team preflight --team <team-id> --json")
         XCTAssertFalse(payload.workflows.isEmpty)
         XCTAssertTrue(payload.canStartTeamRun)
+        let async = payload.workflows.first { $0.id == "run_async" }
+        XCTAssertEqual(
+            async?.steps,
+            [
+                "alln team preflight --team <team-id> --json",
+                "alln team start --team <team-id> --json \"<message>\"",
+                "alln team status <run-id> --json",
+                "alln team result <run-id> --json",
+                "alln show <run-id> --json",
+            ],
+            "run_async must teach status between start and result (Decision 10)")
     }
 
     func testIntentRouteJSONRoundTrips() throws {
@@ -221,5 +323,10 @@ final class AgentIntentRouterTests: XCTestCase {
         )
         let decoded = try CoreJSON.decode(AgentIntentRouter.Payload.self, from: Data(json.utf8))
         XCTAssertEqual(decoded.recommended?.teamId, "code_bug_hunt")
+        XCTAssertNotNil(decoded.lifecycle)
+        XCTAssertEqual(decoded.lifecycle?.monitor?.argv,
+                       ["alln", "team", "status", "<run-id>", "--json"])
+        XCTAssertEqual(decoded.lifecycle?.cancel?.argv,
+                       ["alln", "team", "cancel", "<run-id>", "--json"])
     }
 }

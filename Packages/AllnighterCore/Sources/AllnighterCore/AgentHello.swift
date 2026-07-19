@@ -95,6 +95,7 @@ public enum AgentHello {
         Workflow(id: "run_async", steps: [
             "alln team preflight --team <team-id> --json",
             "alln team start --team <team-id> --json \"<message>\"",
+            "alln team status <run-id> --json",
             "alln team result <run-id> --json",
             "alln show <run-id> --json",
         ]),

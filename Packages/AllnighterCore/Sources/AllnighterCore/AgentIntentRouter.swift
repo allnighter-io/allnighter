@@ -26,9 +26,11 @@ import Foundation
 ///
 /// # Emitted command grammar (frozen)
 /// - Team: `alln team start --team <id> --json` + prompt as final argv element
-/// - Chat/run: `alln run --worker <id> --json` + prompt (+ `--project <id|path>` placeholder)
+/// - Chat/run: `alln run --worker <id> --stream` when mutating (progress transport);
+///   `--json` only for read-only/advisory final envelopes (+ `--project <id|path>`)
 /// - Relay: `alln pair relay --doc <path> --project <id> --pm-worker <id> --dev-worker <id> --json`
 /// - Pilot: `alln pair pilot start --doc <path> --project <id> --json`
+/// - Lifecycle (IR-S02b): registry-faithful monitor/result/cancel argv sharing `<run-id>`
 /// Commands are always `argv` + `display`; intent text is never shell-interpolated.
 public enum AgentIntentRouter {
 
@@ -109,6 +111,24 @@ public enum AgentIntentRouter {
         }
     }
 
+    /// Decision 10 control bundle — monitor / result / cancel for long-running
+    /// runnable targets. Each arm is registry-faithful argv; chat may omit
+    /// monitor/result when `--stream` (or final-only `--json`) is the transport.
+    public struct LifecycleBundle: Codable, Sendable, Equatable {
+        public var monitor: RunnableCommand?
+        public var result: RunnableCommand?
+        public var cancel: RunnableCommand?
+        public init(
+            monitor: RunnableCommand? = nil,
+            result: RunnableCommand? = nil,
+            cancel: RunnableCommand? = nil
+        ) {
+            self.monitor = monitor
+            self.result = result
+            self.cancel = cancel
+        }
+    }
+
     public struct Payload: Codable, Sendable, Equatable {
         public var schemaVersion: Int
         public var intent: String
@@ -116,6 +136,7 @@ public enum AgentIntentRouter {
         public var readiness: IntentReadiness
         public var requestedWorker: RequestedWorker?
         public var fallback: Fallback?
+        public var lifecycle: LifecycleBundle?
         public var nextActions: [NextAction]
         public init(
             schemaVersion: Int = 1,
@@ -124,6 +145,7 @@ public enum AgentIntentRouter {
             readiness: IntentReadiness,
             requestedWorker: RequestedWorker? = nil,
             fallback: Fallback? = nil,
+            lifecycle: LifecycleBundle? = nil,
             nextActions: [NextAction]
         ) {
             self.schemaVersion = schemaVersion
@@ -132,6 +154,7 @@ public enum AgentIntentRouter {
             self.readiness = readiness
             self.requestedWorker = requestedWorker
             self.fallback = fallback
+            self.lifecycle = lifecycle
             self.nextActions = nextActions
         }
     }
@@ -450,7 +473,7 @@ public enum AgentIntentRouter {
             )
         }
 
-        return Payload(
+        return attachLifecycle(Payload(
             intent: intent,
             recommended: Recommended(
                 kind: "team", teamId: team.id, why: why,
@@ -461,7 +484,7 @@ public enum AgentIntentRouter {
             requestedWorker: requestedWorker,
             fallback: fallback,
             nextActions: next
-        )
+        ))
     }
 
     private static let minimumScore = 8
@@ -733,7 +756,7 @@ public enum AgentIntentRouter {
                 argv: argv,
                 display: argv.joined(separator: " ")
             )
-            return Payload(
+            return attachLifecycle(Payload(
                 intent: intent,
                 recommended: Recommended(
                     kind: "relay",
@@ -749,7 +772,7 @@ public enum AgentIntentRouter {
                     NextAction(command: "alln models --json",
                                reason: "Pick ready pm-worker and dev-worker ids.")
                 ]
-            )
+            ))
         case .pilot:
             let argv = [
                 "alln", "pair", "pilot", "start",
@@ -758,7 +781,7 @@ public enum AgentIntentRouter {
                 "--json"
             ]
             let cmd = RunnableCommand(argv: argv, display: argv.joined(separator: " "))
-            return Payload(
+            return attachLifecycle(Payload(
                 intent: intent,
                 recommended: Recommended(
                     kind: "pilot",
@@ -772,7 +795,7 @@ public enum AgentIntentRouter {
                     NextAction(command: cmd.display,
                                reason: "Fill --doc / --project, then start Pilot.")
                 ]
-            )
+            ))
         case .chat:
             return chatRoute(
                 intent: intent, pinned: nil, requestedWorker: requestedWorker,
@@ -871,7 +894,7 @@ public enum AgentIntentRouter {
                                    reason: "Inspect readiness without an intent."))
         }
 
-        return Payload(
+        return attachLifecycle(Payload(
             intent: intent,
             recommended: Recommended(
                 kind: "chat",
@@ -889,7 +912,7 @@ public enum AgentIntentRouter {
             ),
             requestedWorker: requestedWorker,
             nextActions: next
-        )
+        ))
     }
 
     // MARK: - Named worker resolution (Decision 8)
@@ -1222,16 +1245,78 @@ public enum AgentIntentRouter {
         if let workerId {
             argv += ["--worker", workerId]
         }
-        argv += ["--json", intent]
+        // Decision 10: mutating routes must not teach final-only `--json` as progress.
+        // Read-only / advisory asks keep `--json` (final envelope); mutating uses `--stream`.
+        let progressFlag = wantsReadOnly ? "--json" : "--stream"
+        argv += [progressFlag, intent]
         var display = "alln run --project <id|path>"
         if let workerId {
             display += " --worker \(workerId)"
         }
-        display += " --json <prompt>"
+        display += " \(progressFlag) <prompt>"
         if wantsReadOnly {
             display += "  # posture: see recommended.safetyPosture"
         }
         return RunnableCommand(argv: argv, display: display)
+    }
+
+    /// Attach Decision 10 lifecycle when `recommended.command` is runnable.
+    /// No-match / worker-name failures / blocked seats without a command stay bare.
+    private static func attachLifecycle(_ payload: Payload) -> Payload {
+        guard payload.recommended?.command != nil,
+              let kind = payload.recommended?.kind,
+              let bundle = lifecycleBundle(for: kind) else {
+            return payload
+        }
+        var out = payload
+        out.lifecycle = bundle
+        return out
+    }
+
+    /// Registry-faithful monitor/result/cancel argv. Canonical id placeholder is
+    /// always `<run-id>` (team positional; relay/pilot via `--relay <run-id>`;
+    /// kill positional id). Chat omits monitor/result — `--stream` or final
+    /// `--json` is the launch transport; cancel via `kill`.
+    private static func lifecycleBundle(for kind: String) -> LifecycleBundle? {
+        switch kind {
+        case "team":
+            return LifecycleBundle(
+                monitor: registryArgv(["alln", "team", "status", "<run-id>", "--json"]),
+                result: registryArgv(["alln", "team", "result", "<run-id>", "--json"]),
+                cancel: registryArgv(["alln", "team", "cancel", "<run-id>", "--json"])
+            )
+        case "relay":
+            // `pair relay-status` is both progress and terminal truth owner.
+            let status = registryArgv([
+                "alln", "pair", "relay-status", "--relay", "<run-id>", "--json"
+            ])
+            return LifecycleBundle(
+                monitor: status,
+                result: status,
+                cancel: registryArgv(["alln", "kill", "<run-id>", "--json"])
+            )
+        case "pilot":
+            let status = registryArgv([
+                "alln", "pair", "pilot", "status", "--relay", "<run-id>", "--json"
+            ])
+            return LifecycleBundle(
+                monitor: status,
+                result: status,
+                cancel: registryArgv(["alln", "kill", "<run-id>", "--json"])
+            )
+        case "chat":
+            return LifecycleBundle(
+                monitor: nil,
+                result: nil,
+                cancel: registryArgv(["alln", "kill", "<run-id>", "--json"])
+            )
+        default:
+            return nil
+        }
+    }
+
+    private static func registryArgv(_ argv: [String]) -> RunnableCommand {
+        RunnableCommand(argv: argv, display: argv.joined(separator: " "))
     }
 
     private static func noMatch(
