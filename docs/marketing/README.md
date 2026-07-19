@@ -22,6 +22,8 @@ local tools the user already has.
    ads, emails, objections, and proof points.
 2. `Pricing_Recommendation.md` - recommended launch offer and why flat cheap
    pricing beats per-run pricing for this wedge.
+3. `Growth_Playbook.md` - v0.1 zero-budget GTM / outreach brainstorm
+   (receipts, viral loops, channel order, early-user engine).
 
 ## Claim Discipline
 
