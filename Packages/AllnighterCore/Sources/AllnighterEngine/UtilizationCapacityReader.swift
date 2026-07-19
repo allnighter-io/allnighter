@@ -5,11 +5,19 @@ import AllnighterCore
 public enum UtilizationCapacityReader {
   public static let lookbackSeconds: TimeInterval = 12 * 60 * 60
 
-  public static func observations(from runStore: RunStore, since: Date) -> [CapacityObservation] {
-    runStore.list()
-      .filter { $0.createdAt >= since }
-      .flatMap(\.failedWorkerAnswers)
-      .compactMap(\.result.capacityObservation)
+  public static func observations(
+    from runStore: RunStore,
+    since: Date,
+    now: Date = Date()
+  ) -> [CapacityObservation] {
+    runStore.list().flatMap { run in
+      let observations = run.failedWorkerAnswers.compactMap {
+        $0.result.capacityObservation
+      } + run.attempts.compactMap(\.capacityObservation)
+      guard run.createdAt < since else { return observations }
+      // Weekly/monthly cooldown truth outlives the 12-hour run-origin lookback.
+      return observations.filter { ($0.wakeAfter ?? $0.observedResetAt).map { $0 > now } == true }
+    }
   }
 
   public static func observations(from seedLedger: UtilizationSeedLedger) -> [CapacityObservation] {
@@ -22,10 +30,10 @@ public enum UtilizationCapacityReader {
     now: Date = Date()
   ) -> [String: Date] {
     let since = now.addingTimeInterval(-lookbackSeconds)
-    let all = observations(from: runStore, since: since) + observations(from: seedLedger)
+    let all = observations(from: runStore, since: since, now: now) + observations(from: seedLedger)
     var map: [String: Date] = [:]
     for obs in all {
-      guard let reset = obs.observedResetAt ?? obs.wakeAfter else { continue }
+      guard let reset = obs.wakeAfter ?? obs.observedResetAt else { continue }
       let key = normalizeSource(obs.source)
       if map[key] == nil || reset > map[key]! { map[key] = reset }
     }

@@ -84,4 +84,53 @@ final class UtilizationSeedExecutorTests: XCTestCase {
         )
         XCTAssertEqual(map["claude_code"], Date(timeIntervalSince1970: 500))
     }
+
+}
+
+final class UtilizationCapacityReaderTests: XCTestCase {
+    private func tempLedger() -> UtilizationSeedLedger {
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("seed-ledger-\(UUID().uuidString).json")
+        return UtilizationSeedLedger(fileURL: file)
+    }
+
+    func testFutureResetFromOldRunSurvivesLookback() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let reset = now.addingTimeInterval(5 * 24 * 60 * 60)
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "claude_code",
+            sourceConfidence: .structured,
+            rawSnippet: "weekly limit",
+            observedAt: now.addingTimeInterval(-2 * 24 * 60 * 60),
+            observedResetAt: reset
+        )
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("old-capacity-run-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = RunStore(rootDirectory: root)
+        let run = TeamRun(
+            id: "old",
+            prompt: "p",
+            status: .failed,
+            createdAt: now.addingTimeInterval(-2 * 24 * 60 * 60),
+            attempts: [
+                RunAttempt(
+                    attemptNumber: 1,
+                    startedAt: now.addingTimeInterval(-2 * 24 * 60 * 60),
+                    endedAt: now.addingTimeInterval(-2 * 24 * 60 * 60),
+                    capacityObservation: observation,
+                    terminalStatus: .failed
+                ),
+            ]
+        )
+        try store.save(run, models: [])
+
+        let map = UtilizationCapacityReader.lastObservedResetPerSource(
+            runStore: store,
+            seedLedger: tempLedger(),
+            now: now
+        )
+        XCTAssertEqual(map["claude_code"], reset)
+    }
 }

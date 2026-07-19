@@ -29,15 +29,22 @@ public enum BenchReadiness {
         SourceCapacityLedger.coolingSources(observations: observations, now: now)
     }
 
-    /// Collect capacity observations from recent runs (12h lookback).
+    /// Collect capacity observations from recent runs (12h lookback), plus any
+    /// older observation whose sourced cooldown is still live. Weekly/monthly
+    /// vendor windows must survive the short run-origin lookback.
     public static func recentObservations(
         from runs: [TeamRun],
         now: Date = Date()
     ) -> [CapacityObservation] {
         let lookback = now.addingTimeInterval(-capacityLookbackSeconds)
-        return runs
-            .filter { $0.createdAt >= lookback }
-            .flatMap(\.failedWorkerAnswers)
-            .compactMap { $0.result.capacityObservation }
+        return runs.flatMap { run in
+            let observations = run.failedWorkerAnswers.compactMap {
+                $0.result.capacityObservation
+            } + run.attempts.compactMap(\.capacityObservation)
+            guard run.createdAt < lookback else { return observations }
+            return observations.filter {
+                SourceCapacityLedger.coolingUntil(of: $0).map { $0 > now } == true
+            }
+        }
     }
 }

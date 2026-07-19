@@ -58,6 +58,77 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertEqual(trj.teamRun.status, .running)
     }
 
+    func testVendorBackoffAndAttemptsProjectOntoPublicContract() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let reset = now.addingTimeInterval(600)
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "claude_code",
+            sourceConfidence: .messageFallback,
+            rawSnippet: "session limit",
+            observedAt: now,
+            observedResetAt: reset,
+            retryAfterSeconds: 600,
+            wakeAfter: reset
+        )
+        var run = TeamRun(
+            id: "parked",
+            prompt: "p",
+            status: .queued,
+            phase: .waitingForVendor,
+            createdAt: now,
+            blocker: RunBlocker(
+                resource: .vendorBackoff,
+                quotaScope: "claude_code/default",
+                wakeAfter: reset,
+                capacityObservation: observation
+            ),
+            attempts: [
+                RunAttempt(
+                    attemptNumber: 1,
+                    requestedSourceId: "claude_code",
+                    resolvedSourceId: "claude_code",
+                    startedAt: now,
+                    endedAt: now,
+                    capacityObservation: observation,
+                    terminalStatus: .failed,
+                    reason: "capacity"
+                ),
+            ]
+        )
+        run.workers = []
+
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: ctx())
+        XCTAssertEqual(trj.teamRun.blocker?.resource, "vendorBackoff")
+        XCTAssertNil(trj.teamRun.blocker?.scopeRoot)
+        XCTAssertEqual(trj.teamRun.blocker?.quotaScope, "claude_code/default")
+        XCTAssertEqual(trj.teamRun.blocker?.capacityObservation?.kind, "accountRateLimit")
+        XCTAssertEqual(trj.teamRun.attempts.first?.attemptNumber, 1)
+        XCTAssertEqual(trj.teamRun.attempts.first?.terminalStatus, .failed)
+    }
+
+    func testLegacyPublicRunInfoWithoutAttemptsDecodesEmpty() throws {
+        let trj = TeamRunJSONMapper.map(
+            try Fixtures.run(.runInflight),
+            models: try bench(),
+            manifests: [],
+            context: ctx()
+        )
+        let encoded = try CoreJSON.encode(trj)
+        var root = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+        var run = try XCTUnwrap(root["teamRun"] as? [String: Any])
+        run.removeValue(forKey: "attempts")
+        root["teamRun"] = run
+        let legacy = try JSONSerialization.data(withJSONObject: root)
+
+        XCTAssertEqual(
+            try CoreJSON.decode(TeamRunJSON.self, from: legacy).teamRun.attempts,
+            []
+        )
+    }
+
     func testRunStatusMappingIsClosed() {
         XCTAssertEqual(TeamRunJSONMapper.mapRun(.complete), .done)
         XCTAssertEqual(TeamRunJSONMapper.mapRun(.partial), .done)

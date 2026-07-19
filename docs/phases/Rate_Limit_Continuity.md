@@ -13,6 +13,8 @@ Owner: AllnighterCore + AllnighterEngine (`CapacityClassifier`/
 `PendingWakePlanner`/`Scheduler`, `ResidentCoordinator`, `RunBlocker`,
 `ExecutionLaneRegistry`) + CLI/Mac (park surface).
 Updated: 2026-07-19.
+Slice status: **RLC-S01 delivered** — lifecycle/blocker/attempt contracts,
+park policy, classifier fixtures, long-window retention, and generated schema.
 
 Related: `Run_Lifecycle_Reliability.md` (blocker wire, activity truth,
 runtimeOwnership) · `parked/Utilization_Admission_Control.md` — RLC is the
@@ -240,7 +242,7 @@ The notification loop **completes the founder story** — it is not polish:
 
 | Slice | Deliverable |
 | --- | --- |
-| RLC-S01 | **Contract convergence**: `vendorBackoff` case on `RunBlocker.resource` + quota-scope fields; `attempts[]` on the RunRecord; lifecycle transitions frozen; `CapacityObservation` promoted as the only capacity truth (name what retires from the Pending path); redacted-snippet rule; classifier fixtures incl. negatives |
+| RLC-S01 | **Delivered — contract convergence**: `vendorBackoff` case on `RunBlocker.resource` + quota-scope fields; `attempts[]` on the RunRecord; lifecycle transitions frozen; `CapacityObservation` promoted as the only capacity truth (name what retires from the Pending path); redacted-snippet rule; classifier fixtures incl. negatives |
 | RLC-S02 | **Durable same-source continuation**: settle capacity event → close transport, release write lock, persist `wakeAfter`, coordinator-tick reconcile, reacquire lock, vendor-session resume (fresh-session fallback w/ bounded handoff), re-park on repeat; probe timeout + runtimeOwnership; source-scoped single-flight cooldown |
 | RLC-S03 | **Product surface**: park/resume statuses + actions, two notifications, morning receipt, onboarding fixture demo |
 | RLC-S04 | **Authorized substitution**: provenance table, capability filter, quiescence proof, visited-set + hop bound, one run id + sequential attempts |

@@ -124,8 +124,11 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         /// Actor-stamped only — never inferred. Nil while live (PO-S01 v2).
         public var endReason: String?
         /// What a non-terminal run is durably waiting on (RLR-L4). Present only while
-        /// blocked (`queued`/`waitingForWriteLock`); nil once running or terminal.
+        /// blocked (`queued`/`waitingForWriteLock|waitingForVendor`); nil once running
+        /// or terminal.
         public var blocker: BlockerJSON?
+        /// Append-only sequential attempts for this unified run.
+        public var attempts: [AttemptJSON]
 
         public init(
             id: String, status: Status, origin: Origin, originAgent: String? = nil,
@@ -135,7 +138,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             teamPresetId: String? = nil, teamDisplayName: String? = nil, outputKind: String? = nil,
             workerId: String? = nil, writePolicy: String? = nil, identitySummary: String? = nil,
             planWriterWorkerId: String? = nil, reproduceCommand: String? = nil,
-            endReason: String? = nil, blocker: BlockerJSON? = nil
+            endReason: String? = nil, blocker: BlockerJSON? = nil,
+            attempts: [AttemptJSON] = []
         ) {
             self.id = id; self.status = status; self.origin = origin
             self.originAgent = originAgent; self.lane = lane; self.type = type
@@ -149,6 +153,42 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             self.reproduceCommand = reproduceCommand
             self.endReason = endReason
             self.blocker = blocker
+            self.attempts = attempts
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case id, status, origin, originAgent, lane, type, effort, prompt, promptSource
+            case createdAt, startedAt, completedAt, threadId, teamPresetId, teamDisplayName
+            case outputKind, workerId, writePolicy, identitySummary, planWriterWorkerId
+            case reproduceCommand, endReason, blocker, attempts
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(String.self, forKey: .id)
+            status = try c.decode(Status.self, forKey: .status)
+            origin = try c.decode(Origin.self, forKey: .origin)
+            originAgent = try c.decodeIfPresent(String.self, forKey: .originAgent)
+            lane = try c.decodeIfPresent(String.self, forKey: .lane)
+            type = try c.decodeIfPresent(String.self, forKey: .type)
+            effort = try c.decodeIfPresent(String.self, forKey: .effort)
+            prompt = try c.decode(String.self, forKey: .prompt)
+            promptSource = try c.decode(PromptSource.self, forKey: .promptSource)
+            createdAt = try c.decode(String.self, forKey: .createdAt)
+            startedAt = try c.decodeIfPresent(String.self, forKey: .startedAt)
+            completedAt = try c.decodeIfPresent(String.self, forKey: .completedAt)
+            threadId = try c.decodeIfPresent(String.self, forKey: .threadId)
+            teamPresetId = try c.decodeIfPresent(String.self, forKey: .teamPresetId)
+            teamDisplayName = try c.decodeIfPresent(String.self, forKey: .teamDisplayName)
+            outputKind = try c.decodeIfPresent(String.self, forKey: .outputKind)
+            workerId = try c.decodeIfPresent(String.self, forKey: .workerId)
+            writePolicy = try c.decodeIfPresent(String.self, forKey: .writePolicy)
+            identitySummary = try c.decodeIfPresent(String.self, forKey: .identitySummary)
+            planWriterWorkerId = try c.decodeIfPresent(String.self, forKey: .planWriterWorkerId)
+            reproduceCommand = try c.decodeIfPresent(String.self, forKey: .reproduceCommand)
+            endReason = try c.decodeIfPresent(String.self, forKey: .endReason)
+            blocker = try c.decodeIfPresent(BlockerJSON.self, forKey: .blocker)
+            attempts = try c.decodeIfPresent([AttemptJSON].self, forKey: .attempts) ?? []
         }
     }
 
@@ -157,24 +197,79 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     /// `run` (P0), never the internal site kind. `holderDeadlineAt` is null in P0.
     public struct BlockerJSON: Codable, Equatable, Sendable {
         public var resource: String
-        public var scopeRoot: String
+        public var scopeRoot: String?
         public var holderId: String?
         public var holderKind: String?
         public var ticketPosition: Int?
         public var holderAcquiredAt: String?
         public var heldSinceSeconds: Double?
         public var holderDeadlineAt: String?
+        public var quotaScope: String?
+        public var wakeAfter: String?
+        public var capacityObservation: CapacityObservationJSON?
 
         public init(
-            resource: String, scopeRoot: String, holderId: String? = nil,
+            resource: String, scopeRoot: String? = nil, holderId: String? = nil,
             holderKind: String? = nil, ticketPosition: Int? = nil,
             holderAcquiredAt: String? = nil, heldSinceSeconds: Double? = nil,
-            holderDeadlineAt: String? = nil
+            holderDeadlineAt: String? = nil, quotaScope: String? = nil,
+            wakeAfter: String? = nil, capacityObservation: CapacityObservationJSON? = nil
         ) {
             self.resource = resource; self.scopeRoot = scopeRoot
             self.holderId = holderId; self.holderKind = holderKind
             self.ticketPosition = ticketPosition; self.holderAcquiredAt = holderAcquiredAt
             self.heldSinceSeconds = heldSinceSeconds; self.holderDeadlineAt = holderDeadlineAt
+            self.quotaScope = quotaScope; self.wakeAfter = wakeAfter
+            self.capacityObservation = capacityObservation
+        }
+    }
+
+    public struct AttemptJSON: Codable, Equatable, Sendable {
+        public var attemptNumber: Int
+        public var requestedSourceId: String?
+        public var requestedModelId: String?
+        public var resolvedSourceId: String?
+        public var resolvedModelId: String?
+        public var startedAt: String
+        public var endedAt: String?
+        public var capacityObservation: CapacityObservationJSON?
+        public var vendorSessionId: String?
+        public var selectionOrigin: String?
+        public var substitutionOfAttempt: Int?
+        public var terminalStatus: Status?
+        public var reason: String?
+        public var diagnosticSnippet: String?
+
+        public init(
+            attemptNumber: Int,
+            requestedSourceId: String? = nil,
+            requestedModelId: String? = nil,
+            resolvedSourceId: String? = nil,
+            resolvedModelId: String? = nil,
+            startedAt: String,
+            endedAt: String? = nil,
+            capacityObservation: CapacityObservationJSON? = nil,
+            vendorSessionId: String? = nil,
+            selectionOrigin: String? = nil,
+            substitutionOfAttempt: Int? = nil,
+            terminalStatus: Status? = nil,
+            reason: String? = nil,
+            diagnosticSnippet: String? = nil
+        ) {
+            self.attemptNumber = attemptNumber
+            self.requestedSourceId = requestedSourceId
+            self.requestedModelId = requestedModelId
+            self.resolvedSourceId = resolvedSourceId
+            self.resolvedModelId = resolvedModelId
+            self.startedAt = startedAt
+            self.endedAt = endedAt
+            self.capacityObservation = capacityObservation
+            self.vendorSessionId = vendorSessionId
+            self.selectionOrigin = selectionOrigin
+            self.substitutionOfAttempt = substitutionOfAttempt
+            self.terminalStatus = terminalStatus
+            self.reason = reason
+            self.diagnosticSnippet = diagnosticSnippet
         }
     }
 

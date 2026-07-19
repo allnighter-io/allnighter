@@ -27,11 +27,12 @@ public struct RunLink: Codable, Sendable, Equatable {
 /// decodes them `nil`.
 public struct RunBlocker: Codable, Sendable, Equatable {
     public enum Resource: String, Codable, Sendable, CaseIterable {
-        case repoWriteLock, teamGovernor, driverCapacity
+        case repoWriteLock, teamGovernor, driverCapacity, vendorBackoff
     }
     public var resource: Resource
-    /// Canonical (symlink + case normalized) repo root the wait is scoped to.
-    public var scopeRoot: String
+    /// Canonical (symlink + case normalized) repo root for write-lock waits.
+    /// Vendor parks leave this nil and use `quotaScope`.
+    public var scopeRoot: String?
     /// Canonical id of the holding work (S02a: the holder run's own id). Nil until
     /// the ticket is minted / when there is no identified holder.
     public var holderId: String?
@@ -43,13 +44,22 @@ public struct RunBlocker: Codable, Sendable, Equatable {
     /// When the current holder acquired the lane; `heldSinceSeconds` is derived at
     /// projection, never stored (RLR-L4).
     public var holderAcquiredAt: Date?
+    /// Driver/account/profile/model-family quota key. Nil for write-lock blockers.
+    public var quotaScope: String?
+    /// Conservative local wake boundary. Nil routes to S02's unknown-reset path.
+    public var wakeAfter: Date?
+    /// The single sourced capacity truth. Never mint a parallel rate-limit payload.
+    public var capacityObservation: CapacityObservation?
     public init(
         resource: Resource,
-        scopeRoot: String,
+        scopeRoot: String? = nil,
         holderId: String? = nil,
         holderKind: String? = nil,
         ticketPosition: Int? = nil,
-        holderAcquiredAt: Date? = nil
+        holderAcquiredAt: Date? = nil,
+        quotaScope: String? = nil,
+        wakeAfter: Date? = nil,
+        capacityObservation: CapacityObservation? = nil
     ) {
         self.resource = resource
         self.scopeRoot = scopeRoot
@@ -57,6 +67,9 @@ public struct RunBlocker: Codable, Sendable, Equatable {
         self.holderKind = holderKind
         self.ticketPosition = ticketPosition
         self.holderAcquiredAt = holderAcquiredAt
+        self.quotaScope = quotaScope
+        self.wakeAfter = wakeAfter
+        self.capacityObservation = capacityObservation
     }
 }
 
@@ -138,9 +151,13 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// name as owed-by-S04). Optional so legacy `run.json` decodes to `nil`.
     public var killOutcome: KillOutcome? = nil
     /// What a non-terminal run is waiting on (RLR-L4). Set while `queued`
-    /// (`waitingForWriteLock`), cleared when the lock is acquired and on any
-    /// terminal transition. Optional so legacy `run.json` decodes to `nil`.
+    /// (`waitingForWriteLock` or `waitingForVendor`), cleared when the lock/vendor
+    /// wait is acquired and on any terminal transition. Optional so legacy
+    /// `run.json` decodes to `nil`.
     public var blocker: RunBlocker? = nil
+    /// Sequential unified-run attempts. Append-only once runtime wiring lands in
+    /// S02/S04; legacy journals with no key decode as an empty array.
+    @LegacySafeArray public var attempts: [RunAttempt] = []
     /// Durable last-activity clock (RLR-L6 / S03a). Advances ONLY on post-spawn
     /// L6 activity (structured message, bounded stdout/stderr metadata, child
     /// transition, exit) — NEVER on spawn, heartbeats, or per-tick timers. Nil
@@ -187,6 +204,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         endReason: RunEndReason? = nil,
         killOutcome: KillOutcome? = nil,
         blocker: RunBlocker? = nil,
+        attempts: [RunAttempt] = [],
         lastActivityAt: Date? = nil,
         lastActivityKind: RunActivityKind? = nil,
         links: [RunLink]? = nil
@@ -224,6 +242,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.endReason = endReason
         self.killOutcome = killOutcome
         self.blocker = blocker
+        self.attempts = attempts
         self.lastActivityAt = lastActivityAt
         self.lastActivityKind = lastActivityKind
         self.links = links

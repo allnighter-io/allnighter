@@ -18,16 +18,17 @@ public enum RunLifecycle: String, Codable, Sendable, CaseIterable {
 }
 
 /// Frozen public phase axis (RLR-L3). Only meaningful for non-terminal runs;
-/// terminal runs omit `phase`. `queued` runs are `waitingForWriteLock` or
-/// `spawningWorker`; `running` runs are `working`, `proving`, or `settling`.
+/// terminal runs omit `phase`. `queued` runs are `waitingForVendor`,
+/// `waitingForWriteLock`, or `spawningWorker`; `running` runs are `working`,
+/// `proving`, or `settling`.
 public enum RunPhase: String, Codable, Sendable, CaseIterable {
-    case waitingForWriteLock, spawningWorker   // lifecycle == .queued
-    case working, proving, settling            // lifecycle == .running
+    case waitingForVendor, waitingForWriteLock, spawningWorker // lifecycle == .queued
+    case working, proving, settling                         // lifecycle == .running
 
     /// The lifecycle this phase is legal under (RLR-L3 phase table).
     public var lifecycle: RunLifecycle {
         switch self {
-        case .waitingForWriteLock, .spawningWorker:
+        case .waitingForVendor, .waitingForWriteLock, .spawningWorker:
             return .queued
         case .working, .proving, .settling:
             return .running

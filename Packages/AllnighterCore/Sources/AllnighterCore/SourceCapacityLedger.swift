@@ -25,11 +25,16 @@ public struct SourceCooldown: Codable, Sendable, Equatable {
 
 /// Pure projection: recent `CapacityObservation`s → a per-source "cooling until" map. The
 /// truth (the observations) is already recorded by `CapacityClassifier` on failed worker
-/// answers; this just rolls them up so dispatch readiness can route around a tapped source.
+/// answers/attempts; this just rolls them up so dispatch readiness can route around a
+/// tapped source. RLC-S01 also uses the same observation in a `vendorBackoff`
+/// blocker; that park gate is stricter (`VendorBackoffPolicy.shouldPark`) and must
+/// not be replaced by this broader pre-dispatch readiness policy.
 public enum SourceCapacityLedger {
 
-    /// Per-source cooldowns active at `now`. Confidence/kind-gated; a source already past its
-    /// reset is dropped; when a source has several observations the longest live one wins.
+    /// Per-source cooldowns active at `now`. Confidence/kind-gated; a source already
+    /// past its reset is dropped; when a source has several observations the longest
+    /// live one wins. Callers must retain observations through a future wake/reset
+    /// even when their originating run is older than a short lookback.
     public static func cooldowns(observations: [CapacityObservation], now: Date) -> [String: SourceCooldown] {
         var out: [String: SourceCooldown] = [:]
         for obs in observations {

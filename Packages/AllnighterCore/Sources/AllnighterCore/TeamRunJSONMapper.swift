@@ -101,8 +101,30 @@ public enum TeamRunJSONMapper {
                 holderAcquiredAt: iso(b.holderAcquiredAt),
                 // Derived at projection, never stored (RLR-L4).
                 heldSinceSeconds: b.holderAcquiredAt.map { max(0, Date().timeIntervalSince($0)) },
-                holderDeadlineAt: nil)
+                holderDeadlineAt: nil,
+                quotaScope: b.quotaScope,
+                wakeAfter: iso(b.wakeAfter),
+                capacityObservation: b.capacityObservation.map(capacityJSON))
         }()
+
+        let attempts = run.attempts.map { attempt in
+            TeamRunJSON.AttemptJSON(
+                attemptNumber: attempt.attemptNumber,
+                requestedSourceId: attempt.requestedSourceId,
+                requestedModelId: attempt.requestedModelId,
+                resolvedSourceId: attempt.resolvedSourceId,
+                resolvedModelId: attempt.resolvedModelId,
+                startedAt: isoString(attempt.startedAt),
+                endedAt: iso(attempt.endedAt),
+                capacityObservation: attempt.capacityObservation.map(capacityJSON),
+                vendorSessionId: attempt.vendorSessionId,
+                selectionOrigin: attempt.selectionOrigin,
+                substitutionOfAttempt: attempt.substitutionOfAttempt,
+                terminalStatus: attempt.terminalStatus.map(mapWorker),
+                reason: attempt.reason,
+                diagnosticSnippet: attempt.diagnosticSnippet
+            )
+        }
 
         // Prefer the run's own catalog facts (self-describing); fall back to
         // caller-supplied context for legacy runs that did not record them.
@@ -123,7 +145,7 @@ public enum TeamRunJSONMapper {
                 workerId: workerModelId, lane: run.lane, mutating: run.mutating,
                 laneContextOnly: run.laneContextOnly == true),
             planWriterWorkerId: plan?.writerWorkerId, reproduceCommand: context.reproduceCommand,
-            endReason: run.endReason?.rawValue, blocker: blockerInfo
+            endReason: run.endReason?.rawValue, blocker: blockerInfo, attempts: attempts
         )
 
         let modelInfos = models.map {
@@ -271,6 +293,12 @@ public enum TeamRunJSONMapper {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]
         return f.string(from: date)
+    }
+
+    private static func capacityJSON(_ observation: CapacityObservation) -> CapacityObservationJSON {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return CapacityObservationJSONMapper.map(observation, iso: formatter)
     }
 
     static func mapDesignBoard(_ run: TeamRun, runDirectory: URL?) -> TeamRunJSON.DesignBoard? {

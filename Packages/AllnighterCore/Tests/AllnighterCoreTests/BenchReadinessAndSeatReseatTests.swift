@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 @testable import AllnighterCore
 
 final class BenchReadinessTests: XCTestCase {
@@ -37,6 +38,41 @@ final class BenchReadinessTests: XCTestCase {
             probeRecords: [readyProbe("claude_code")]
         )
         XCTAssertTrue(ready.isEmpty)
+    }
+
+    func testFutureWeeklyCooldownSurvivesRunOriginLookback() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "claude_code",
+            sourceConfidence: .structured,
+            rawSnippet: "weekly limit",
+            observedAt: now.addingTimeInterval(-2 * 24 * 60 * 60),
+            observedResetAt: now.addingTimeInterval(5 * 24 * 60 * 60)
+        )
+        let run = TeamRun(
+            id: "old-run",
+            prompt: "p",
+            status: .failed,
+            workers: [Worker(id: "w", modelId: "m", instanceIndex: 0)],
+            workerAnswers: [
+                TeamAnswer(
+                    memberId: "w",
+                    modelId: "m",
+                    role: "answer",
+                    result: WorkerRunResult(
+                        status: .failed,
+                        capacityObservation: observation
+                    )
+                ),
+            ],
+            createdAt: now.addingTimeInterval(-2 * 24 * 60 * 60)
+        )
+
+        XCTAssertEqual(
+            BenchReadiness.recentObservations(from: [run], now: now),
+            [observation]
+        )
     }
 }
 

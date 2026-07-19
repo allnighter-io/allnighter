@@ -97,6 +97,24 @@ final class CapacityClassifierTests: XCTestCase {
         XCTAssertNil(CapacityClassifier.classify(input(stderr: stderr)))
     }
 
+    func testClaudeSessionLimitWithTimezoneIsParkable() throws {
+        let stderr = "You've hit your session limit · resets 4:20pm (Europe/Madrid)"
+        let obs = try XCTUnwrap(CapacityClassifier.classify(input(stderr: stderr)))
+        XCTAssertEqual(obs.kind, .accountRateLimit)
+        XCTAssertEqual(obs.sourceConfidence, .messageFallback)
+        XCTAssertGreaterThan(try XCTUnwrap(obs.observedResetAt), fixedNow)
+        XCTAssertTrue(VendorBackoffPolicy.shouldPark(obs))
+    }
+
+    func testModelDiscussionOfRateLimitsDoesNotPark() {
+        let stdout = """
+        Rate limits are quota controls. A model may discuss a session limit,
+        but that prose is not evidence that this run hit one.
+        """
+        let obs = CapacityClassifier.classify(input(stdout: stdout, exitCode: 0))
+        XCTAssertFalse(obs.map(VendorBackoffPolicy.shouldPark) ?? false)
+    }
+
     func testRedactsBearerTokenInSnippet() {
         let stderr = #"{"type":"error","error":{"type":"rate_limit_error","message":"Bearer sk-abcdefghijklmnopqrstuvwxyz123456"}}"#
         let obs = CapacityClassifier.classify(input(stderr: stderr))

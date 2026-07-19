@@ -73,6 +73,16 @@
     "BlockerJSON" : {
       "additionalProperties" : false,
       "properties" : {
+        "capacityObservation" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/CapacityObservation"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
         "heldSinceSeconds" : {
           "type" : [
             "number",
@@ -103,27 +113,102 @@
             "null"
           ]
         },
+        "quotaScope" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "resource" : {
           "enum" : [
             "repoWriteLock",
             "teamGovernor",
-            "driverCapacity"
+            "driverCapacity",
+            "vendorBackoff"
           ],
           "type" : "string"
         },
         "scopeRoot" : {
-          "type" : "string"
+          "type" : [
+            "string",
+            "null"
+          ]
         },
         "ticketPosition" : {
           "type" : [
             "integer",
             "null"
           ]
+        },
+        "wakeAfter" : {
+          "type" : [
+            "string",
+            "null"
+          ]
         }
       },
       "required" : [
-        "resource",
-        "scopeRoot"
+        "resource"
+      ],
+      "type" : "object"
+    },
+    "CapacityObservation" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "kind" : {
+          "enum" : [
+            "accountRateLimit",
+            "providerBusy",
+            "cooldown",
+            "authRequired",
+            "manualRequired",
+            "unknownCapacity"
+          ],
+          "type" : "string"
+        },
+        "observedAt" : {
+          "type" : "string"
+        },
+        "observedResetAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "rawSnippet" : {
+          "type" : "string"
+        },
+        "retryAfterSeconds" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "source" : {
+          "type" : "string"
+        },
+        "sourceConfidence" : {
+          "enum" : [
+            "structured",
+            "messageFallback",
+            "localPolicy",
+            "unknown"
+          ],
+          "type" : "string"
+        },
+        "wakeAfter" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "kind",
+        "source",
+        "sourceConfidence",
+        "rawSnippet",
+        "observedAt"
       ],
       "type" : "object"
     },
@@ -610,9 +695,121 @@
       ],
       "type" : "object"
     },
+    "RunAttempt" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "attemptNumber" : {
+          "type" : "integer"
+        },
+        "capacityObservation" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/CapacityObservation"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
+        "diagnosticSnippet" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "endedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "reason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "requestedModelId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "requestedSourceId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "resolvedModelId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "resolvedSourceId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "selectionOrigin" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "startedAt" : {
+          "type" : "string"
+        },
+        "substitutionOfAttempt" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "terminalStatus" : {
+          "oneOf" : [
+            {
+              "enum" : [
+                "queued",
+                "running",
+                "done",
+                "failed",
+                "timedOut",
+                "cancelled",
+                "skipped",
+                "interrupted"
+              ],
+              "type" : "string"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
+        "vendorSessionId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "attemptNumber",
+        "startedAt"
+      ],
+      "type" : "object"
+    },
     "RunInfo" : {
       "additionalProperties" : false,
       "properties" : {
+        "attempts" : {
+          "items" : {
+            "$ref" : "#\/$defs\/RunAttempt"
+          },
+          "type" : "array"
+        },
         "blocker" : {
           "oneOf" : [
             {
@@ -761,7 +958,8 @@
         "origin",
         "prompt",
         "promptSource",
-        "createdAt"
+        "createdAt",
+        "attempts"
       ],
       "type" : "object"
     },
