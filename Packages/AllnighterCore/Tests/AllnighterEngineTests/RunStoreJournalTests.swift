@@ -60,13 +60,32 @@ final class RunStoreJournalTests: XCTestCase {
         let (store, dir) = tempStore()
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        // Simulate a crash: a run folder with non-terminal state and NO live owner.
+        // Simulate a crash LONG AFTER staging (F2 liveness lease): non-terminal
+        // state, no owner, no stage lease, createdAt past the staging window —
+        // the legacy orphan, which stays reclaimable ("missing ⇒ dead" holds
+        // only once the run can no longer be mid-handoff).
         let runDir = try store.runDirectory(forRunId: "orphan")
-        try CoreJSON.encode(run("orphan", status: .planning)).write(to: runDir.appendingPathComponent("run.json"))
+        var crashed = run("orphan", status: .planning)
+        crashed.createdAt = Date().addingTimeInterval(-(ProcessOwnership.stageLeaseSeconds + 60))
+        try CoreJSON.encode(crashed).write(to: runDir.appendingPathComponent("run.json"))
 
         // Reload: never absent, never falsely running — resolves to interrupted.
         XCTAssertEqual(store.load(runId: "orphan")?.status, .interrupted)
         XCTAssertEqual(store.list().first(where: { $0.id == "orphan" })?.status, .interrupted)
+    }
+
+    /// F2 liveness lease: a no-marker run INSIDE the staging window is not an
+    /// orphan — its ownership handoff may still be in flight, so reads keep its
+    /// own status and reconcile stays away (never "missing ⇒ dead").
+    func testYoungNoMarkerRunReadsAsStagingNotInterrupted() throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let runDir = try store.runDirectory(forRunId: "staging")
+        try CoreJSON.encode(run("staging", status: .planning)).write(to: runDir.appendingPathComponent("run.json"))
+
+        XCTAssertEqual(store.load(runId: "staging")?.status, .planning)
+        XCTAssertFalse(store.wouldReconcile(runId: "staging"))
     }
 
     func testOrphanWithDeadPidResolvesToInterrupted() throws {
