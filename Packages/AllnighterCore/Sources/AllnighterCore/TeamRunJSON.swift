@@ -123,6 +123,9 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         /// Why a terminal run ended (`completed|failed|cancelled|reconciledOrphan|killed|unknown`).
         /// Actor-stamped only — never inferred. Nil while live (PO-S01 v2).
         public var endReason: String?
+        /// What a non-terminal run is durably waiting on (RLR-L4). Present only while
+        /// blocked (`queued`/`waitingForWriteLock`); nil once running or terminal.
+        public var blocker: BlockerJSON?
 
         public init(
             id: String, status: Status, origin: Origin, originAgent: String? = nil,
@@ -132,7 +135,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             teamPresetId: String? = nil, teamDisplayName: String? = nil, outputKind: String? = nil,
             workerId: String? = nil, writePolicy: String? = nil, identitySummary: String? = nil,
             planWriterWorkerId: String? = nil, reproduceCommand: String? = nil,
-            endReason: String? = nil
+            endReason: String? = nil, blocker: BlockerJSON? = nil
         ) {
             self.id = id; self.status = status; self.origin = origin
             self.originAgent = originAgent; self.lane = lane; self.type = type
@@ -145,6 +148,33 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             self.planWriterWorkerId = planWriterWorkerId
             self.reproduceCommand = reproduceCommand
             self.endReason = endReason
+            self.blocker = blocker
+        }
+    }
+
+    /// Public projection of `RunBlocker` (RLR-L4). `heldSinceSeconds` is derived at
+    /// projection from `holderAcquiredAt` (never stored). `holderKind` is the public
+    /// `run` (P0), never the internal site kind. `holderDeadlineAt` is null in P0.
+    public struct BlockerJSON: Codable, Equatable, Sendable {
+        public var resource: String
+        public var scopeRoot: String
+        public var holderId: String?
+        public var holderKind: String?
+        public var ticketPosition: Int?
+        public var holderAcquiredAt: String?
+        public var heldSinceSeconds: Double?
+        public var holderDeadlineAt: String?
+
+        public init(
+            resource: String, scopeRoot: String, holderId: String? = nil,
+            holderKind: String? = nil, ticketPosition: Int? = nil,
+            holderAcquiredAt: String? = nil, heldSinceSeconds: Double? = nil,
+            holderDeadlineAt: String? = nil
+        ) {
+            self.resource = resource; self.scopeRoot = scopeRoot
+            self.holderId = holderId; self.holderKind = holderKind
+            self.ticketPosition = ticketPosition; self.holderAcquiredAt = holderAcquiredAt
+            self.heldSinceSeconds = heldSinceSeconds; self.holderDeadlineAt = holderDeadlineAt
         }
     }
 

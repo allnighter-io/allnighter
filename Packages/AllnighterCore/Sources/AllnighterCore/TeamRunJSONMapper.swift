@@ -87,6 +87,23 @@ public enum TeamRunJSONMapper {
         let started = run.workerAnswers.compactMap(\.result.timing.startedAt).min()
         let completed = run.status.isTerminal ? run.workerAnswers.compactMap(\.result.timing.finishedAt).max() : nil
 
+        // RLR-S02a — project the durable FIFO blocker onto the wire (never wired before).
+        // Only for non-terminal runs; terminal transitions clear the blocker in the journal.
+        let blockerInfo: TeamRunJSON.BlockerJSON? = {
+            guard !run.status.isTerminal, let b = run.blocker else { return nil }
+            return TeamRunJSON.BlockerJSON(
+                resource: b.resource.rawValue,
+                scopeRoot: b.scopeRoot,
+                holderId: b.holderId,
+                // RLR-L4: P0 public holderKind is `run`; never leak the internal site kind.
+                holderKind: b.holderKind.map { _ in "run" },
+                ticketPosition: b.ticketPosition,
+                holderAcquiredAt: iso(b.holderAcquiredAt),
+                // Derived at projection, never stored (RLR-L4).
+                heldSinceSeconds: b.holderAcquiredAt.map { max(0, Date().timeIntervalSince($0)) },
+                holderDeadlineAt: nil)
+        }()
+
         // Prefer the run's own catalog facts (self-describing); fall back to
         // caller-supplied context for legacy runs that did not record them.
         let workerModelId = RunIdentity.primaryWorkerModelId(run)
@@ -106,7 +123,7 @@ public enum TeamRunJSONMapper {
                 workerId: workerModelId, lane: run.lane, mutating: run.mutating,
                 laneContextOnly: run.laneContextOnly == true),
             planWriterWorkerId: plan?.writerWorkerId, reproduceCommand: context.reproduceCommand,
-            endReason: run.endReason?.rawValue
+            endReason: run.endReason?.rawValue, blocker: blockerInfo
         )
 
         let modelInfos = models.map {

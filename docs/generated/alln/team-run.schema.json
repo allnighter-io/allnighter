@@ -70,6 +70,63 @@
       ],
       "type" : "object"
     },
+    "BlockerJSON" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "heldSinceSeconds" : {
+          "type" : [
+            "number",
+            "null"
+          ]
+        },
+        "holderAcquiredAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "holderDeadlineAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "holderId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "holderKind" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "resource" : {
+          "enum" : [
+            "repoWriteLock",
+            "teamGovernor",
+            "driverCapacity"
+          ],
+          "type" : "string"
+        },
+        "scopeRoot" : {
+          "type" : "string"
+        },
+        "ticketPosition" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "resource",
+        "scopeRoot"
+      ],
+      "type" : "object"
+    },
     "DesignBoard" : {
       "additionalProperties" : false,
       "properties" : {
@@ -556,6 +613,16 @@
     "RunInfo" : {
       "additionalProperties" : false,
       "properties" : {
+        "blocker" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/BlockerJSON"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
         "completedAt" : {
           "type" : [
             "string",

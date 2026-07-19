@@ -17,11 +17,14 @@ public struct RunLink: Codable, Sendable, Equatable {
     public init(kind: Kind, runId: String) { self.kind = kind; self.runId = runId }
 }
 
-/// What a non-terminal run is durably waiting on (RLR-L4). S01b writes the
-/// minimal stub — `resource` + canonical `scopeRoot` — during the pre-spawn
-/// write-lock wait so a second process can name the cause; the full FIFO/ticket
-/// facts (holder ref, ticketPosition, timestamps) land in S02. Terminal
-/// transitions clear it in the same journal revision (RLR-L3 atomic rule).
+/// What a non-terminal run is durably waiting on (RLR-L4). S01b wrote the
+/// minimal stub — `resource` + canonical `scopeRoot`. S02a enriches it, while the
+/// run is parked in the per-root FIFO, with the ticket facts (holder ref, queue
+/// position, holder acquire time) so a second process can name WHO holds the lock
+/// and WHERE we sit in line. Terminal transitions clear it in the same journal
+/// revision (RLR-L3 atomic rule). The frozen S01 names `resource`/`scopeRoot` are
+/// untouched — the S02a fields are additive and optional so legacy `run.json`
+/// decodes them `nil`.
 public struct RunBlocker: Codable, Sendable, Equatable {
     public enum Resource: String, Codable, Sendable, CaseIterable {
         case repoWriteLock, teamGovernor, driverCapacity
@@ -29,9 +32,31 @@ public struct RunBlocker: Codable, Sendable, Equatable {
     public var resource: Resource
     /// Canonical (symlink + case normalized) repo root the wait is scoped to.
     public var scopeRoot: String
-    public init(resource: Resource, scopeRoot: String) {
+    /// Canonical id of the holding work (S02a: the holder run's own id). Nil until
+    /// the ticket is minted / when there is no identified holder.
+    public var holderId: String?
+    /// Public holder kind — always `run` in P0 (RLR-L4; relay/pilot/proof later),
+    /// never the raw internal `ExecutionLaneSite` string.
+    public var holderKind: String?
+    /// 1-based FIFO position among blocked waiters (head of queue = 1).
+    public var ticketPosition: Int?
+    /// When the current holder acquired the lane; `heldSinceSeconds` is derived at
+    /// projection, never stored (RLR-L4).
+    public var holderAcquiredAt: Date?
+    public init(
+        resource: Resource,
+        scopeRoot: String,
+        holderId: String? = nil,
+        holderKind: String? = nil,
+        ticketPosition: Int? = nil,
+        holderAcquiredAt: Date? = nil
+    ) {
         self.resource = resource
         self.scopeRoot = scopeRoot
+        self.holderId = holderId
+        self.holderKind = holderKind
+        self.ticketPosition = ticketPosition
+        self.holderAcquiredAt = holderAcquiredAt
     }
 }
 

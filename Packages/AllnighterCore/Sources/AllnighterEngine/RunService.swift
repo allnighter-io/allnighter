@@ -267,6 +267,30 @@ public actor RunService {
         }
     }
 
+    /// RLR-S02a — enrich the durable blocker with the FIFO ticket facts while the mutating
+    /// run is parked in the write-lock queue. Runs off the `ExecutionLaneRegistry` actor as the
+    /// `onTicket` callback (hence `nonisolated static`, capturing only Sendable state). Loads
+    /// the just-saved queued run, sets `holderId`/`holderKind`/`ticketPosition`/`holderAcquiredAt`
+    /// and re-saves in one revision. It never changes `phase` or clears `resource`/`scopeRoot`, so
+    /// the RLR-L3 atomic phase/blocker rule is not intersected — the blocker is only enriched.
+    /// A vanished run or an already-cleared blocker is a no-op (the wait moved on).
+    nonisolated static func recordBlockerTicket(
+        runId: String,
+        ticket: ExecutionLaneTicket,
+        store: RunStore,
+        models: [Model],
+        now: @Sendable () -> Date
+    ) {
+        guard var run = store.loadRaw(runId: runId), var blocker = run.blocker else { return }
+        blocker.holderId = ticket.holder.id
+        // RLR-L4: P0 public holderKind is always `run`, never the internal site kind.
+        blocker.holderKind = "run"
+        blocker.ticketPosition = ticket.position
+        blocker.holderAcquiredAt = now().addingTimeInterval(-ticket.heldSinceSeconds)
+        run.blocker = blocker
+        try? store.save(run, models: models)
+    }
+
     /// Model ids that are a runnable substitute *right now*: ON the Bench AND their
     /// source CLI is installed + probe-ready. Mirrors the readiness the `defaults` /
     /// `models` projections show, so Auto's "→ Opus 4.8" preview equals what actually
@@ -494,7 +518,31 @@ public actor RunService {
             // instead of erroring. The bounded timeout is the safety valve: if a wedged holder
             // outlives even its own worker timeout/watchdog, we stop queueing forever and refuse
             // honestly (RUN_WRITE_LOCK_BUSY, retryable). Read-only runs never reach here.
-            guard let token = await writeLock.waitToAcquire(lockKey, timeout: Self.writeLockWaitTimeout) else {
+            //
+            // RLR-S02a: claim the lane by our own `runId` (so `holder.json.id` and a second
+            // run's ticket name THIS run's canonical id, not a throwaway UUID) and consume the
+            // FIFO ticket via `onTicket` to durably record who holds the lock + our queue
+            // position while blocked. The ticket write only enriches the blocker (phase stays
+            // `waitingForWriteLock`), so RLR-L3's atomic phase/blocker rule is untouched.
+            let claim = ExecutionLane.Claim.current(
+                id: id, kind: ExecutionLaneSite.mutatingRun.rawValue
+            ) ?? ExecutionLane.Claim(
+                id: id,
+                kind: ExecutionLaneSite.mutatingRun.rawValue,
+                identity: ProcessOwnership.OwnerIdentity(
+                    pid: ProcessInfo.processInfo.processIdentifier,
+                    pgid: nil, startTimeTicks: 0, kind: .inProcess))
+            let ticketStore = runStore
+            let ticketModels = models
+            let ticketClock = now
+            guard let token = await writeLock.waitToAcquire(
+                lockKey, claim: claim, timeout: Self.writeLockWaitTimeout,
+                onTicket: { ticket in
+                    Self.recordBlockerTicket(
+                        runId: id, ticket: ticket,
+                        store: ticketStore, models: ticketModels, now: ticketClock)
+                }
+            ) else {
                 // The run is already durable — stamp it terminal HONESTLY rather than
                 // letting it vanish (RLR-L2). `RunEndReason` has no `timedOut` case, so
                 // the honest terminal is `failed` (the run never acquired the lock).

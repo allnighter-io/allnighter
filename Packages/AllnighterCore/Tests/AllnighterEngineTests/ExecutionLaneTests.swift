@@ -306,6 +306,55 @@ final class ExecutionLaneTests: XCTestCase {
                        "flock released on the outer release")
     }
 
+    /// RLR-S02a regression — the mutating run now claims the lane by its own `runId`
+    /// (was an anonymous `mutatingRun-<UUID>`). That intersects `canReenter`'s equal-id
+    /// short-circuit shared with relay/pilot/proof, so this pins BOTH reentry grants the
+    /// nested proof relies on: (1) a nested `harnessProof` with the SAME id (equal-id
+    /// short-circuit), and (2) a nested `harnessProof` with a DIFFERENT id (the
+    /// mutatingRun→harnessProof kind chain). A peer mutating run with a different id must
+    /// still NOT reenter (FIFO ticket), proving concurrent runs stay serialized.
+    func testMutatingRunClaimByRunIdStillAdmitsNestedProofReentry() async throws {
+        let reg = ExecutionLaneRegistry()
+        let key = ExecutionLane.key(repoRoot: "/tmp/lane-s02a-reentry-\(UUID().uuidString)")
+        let runId = "run-\(UUID().uuidString)"
+        let outer = try XCTUnwrap(
+            ExecutionLane.Claim.current(id: runId, kind: ExecutionLaneSite.mutatingRun.rawValue))
+        guard case .success(let t1) = await reg.tryAcquire(key, claim: outer, now: Date()) else {
+            return XCTFail("outer mutating run should acquire the lane")
+        }
+
+        // (1) nested proof, SAME id → equal-id reentry, same token.
+        let proofSameId = ExecutionLane.Claim(
+            id: runId, kind: ExecutionLaneSite.harnessProof.rawValue, identity: outer.identity)
+        guard case .success(let t2) = await reg.tryAcquire(key, claim: proofSameId, now: Date()) else {
+            return XCTFail("nested harness proof with the same runId must reenter (equal-id)")
+        }
+        XCTAssertEqual(t1, t2, "equal-id reentry returns the existing token")
+        await reg.release(key, token: t2)
+
+        // (2) nested proof, DIFFERENT id → mutatingRun→harnessProof kind chain, same token.
+        let proofDiffId = ExecutionLane.Claim(
+            id: "proof-\(UUID().uuidString)", kind: ExecutionLaneSite.harnessProof.rawValue,
+            identity: outer.identity)
+        guard case .success(let t3) = await reg.tryAcquire(key, claim: proofDiffId, now: Date()) else {
+            return XCTFail("nested harness proof must reenter via the mutatingRun→harnessProof chain")
+        }
+        XCTAssertEqual(t1, t3, "kind-chain reentry returns the existing token")
+        await reg.release(key, token: t3)
+
+        // A peer mutating run with a DIFFERENT id must NOT reenter — it gets a FIFO ticket.
+        let peer = ExecutionLane.Claim(
+            id: "run-\(UUID().uuidString)", kind: ExecutionLaneSite.mutatingRun.rawValue,
+            identity: outer.identity)
+        guard case .failure = await reg.tryAcquire(key, claim: peer, now: Date()) else {
+            return XCTFail("a peer mutating run with a different id must NOT reenter")
+        }
+
+        await reg.release(key, token: t1)
+        let held = await reg.isHeld(key)
+        XCTAssertFalse(held, "outermost release frees the lane")
+    }
+
     // MARK: - PO-F2: waitToAcquire timeout reliability
 
     /// Under held-lane contention, `waitToAcquire` must resume within a bounded

@@ -68,8 +68,14 @@ public enum ContractSchema {
                 "workerId": nullable("string"), "writePolicy": nullable("string"),
                 "identitySummary": nullable("string"),
                 "planWriterWorkerId": nullable("string"), "reproduceCommand": nullable("string"),
-                "endReason": nullable("string"),
+                "endReason": nullable("string"), "blocker": nullableRef("BlockerJSON"),
             ], required: ["id", "status", "origin", "prompt", "promptSource", "createdAt"]),
+            "BlockerJSON": obj([
+                "resource": enumStr(["repoWriteLock", "teamGovernor", "driverCapacity"]),
+                "scopeRoot": str, "holderId": nullable("string"), "holderKind": nullable("string"),
+                "ticketPosition": nullable("integer"), "holderAcquiredAt": nullable("string"),
+                "heldSinceSeconds": nullable("number"), "holderDeadlineAt": nullable("string"),
+            ], required: ["resource", "scopeRoot"]),
             "PromptSource": obj([
                 "kind": enumStr(["positional", "file", "stdin"]), "path": nullable("string"),
             ], required: ["kind"]),

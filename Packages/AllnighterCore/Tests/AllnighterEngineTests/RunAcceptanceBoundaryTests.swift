@@ -27,7 +27,10 @@ final class RunAcceptanceBoundaryTests: XCTestCase {
         func pollStore() -> RunStore { RunStore(rootDirectory: runsDir) }
     }
 
-    private func makeHarness(idempotency: IdempotencyStore? = nil) throws -> Harness {
+    private func makeHarness(
+        idempotency: IdempotencyStore? = nil,
+        commandRunner: CommandRunner? = nil
+    ) throws -> Harness {
         let repo = FileManager.default.temporaryDirectory
             .appendingPathComponent("run-accept-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
@@ -45,13 +48,32 @@ final class RunAcceptanceBoundaryTests: XCTestCase {
             models: [model],
             registry: DriverRegistry([TestSupport.headlessManifest(id: "cursor_agent", command: "cursor")]),
             runStore: runStore,
-            commandRunner: MockCommandRunner(scripts: ["cursor": .init(stdout: "Done.", exitCode: 0)]),
+            commandRunner: commandRunner
+                ?? MockCommandRunner(scripts: ["cursor": .init(stdout: "Done.", exitCode: 0)]),
             writeLock: registry,
             defaultSettings: { settings },
             probeRecords: { [probe] },
             idempotency: idempotency ?? IdempotencyStore(
                 fileURL: repo.appendingPathComponent("idempotency.json")))
         return Harness(repo: repo, runsDir: runsDir, runStore: runStore, registry: registry, service: service)
+    }
+
+    /// Records whether the worker CLI was ever launched — the no-spawn-while-blocked proof.
+    private final class SpyCommandRunner: CommandRunner, @unchecked Sendable {
+        private let lock = NSLock()
+        private var _launched = false
+        private let inner: MockCommandRunner
+        init(inner: MockCommandRunner) { self.inner = inner }
+        var launched: Bool { lock.withLock { _launched } }
+        func run(
+            command: String, args: [String], stdin: String?, env: [String: String],
+            workingDirectory: String?, timeout: Duration
+        ) async -> CommandResult {
+            lock.withLock { _launched = true }
+            return await inner.run(
+                command: command, args: args, stdin: stdin, env: env,
+                workingDirectory: workingDirectory, timeout: timeout)
+        }
     }
 
     // MARK: - 1. Durable, pollable queued run + blocker during the write-lock wait
@@ -89,6 +111,124 @@ final class RunAcceptanceBoundaryTests: XCTestCase {
         // Release the lock → our run acquires it, clears the blocker, and settles.
         await h.registry.release(h.lockKey, token: holderToken)
         _ = await runTask.value
+        let settled = try XCTUnwrap(poll.loadRaw(runId: runId))
+        XCTAssertTrue(settled.status.isTerminal)
+        XCTAssertNil(settled.blocker)
+        XCTAssertNil(settled.phase)
+    }
+
+    // MARK: - S02a. Durable FIFO ticket facts naming the holder run; no spawn while blocked
+
+    func testBlockedRunCarriesFifoTicketFactsNamingHolderRun() async throws {
+        let spy = SpyCommandRunner(
+            inner: MockCommandRunner(scripts: ["cursor": .init(stdout: "Done.", exitCode: 0)]))
+        let h = try makeHarness(commandRunner: spy)
+        defer { try? FileManager.default.removeItem(at: h.repo) }
+
+        // Pre-hold the lane with a claim whose id IS a canonical run id (as the mutating
+        // run now claims). A second run's ticket must name THIS id, not a throwaway UUID.
+        let holderRunId = "holder-run-\(UUID().uuidString)"
+        let holderClaim = try XCTUnwrap(
+            ExecutionLane.Claim.current(id: holderRunId, kind: ExecutionLaneSite.mutatingRun.rawValue))
+        guard case .success(let holderToken) = await h.registry.tryAcquire(h.lockKey, claim: holderClaim) else {
+            return XCTFail("test could not pre-hold the write lock")
+        }
+
+        // Start run B (blocks in waitToAcquire).
+        let runId = UUID().uuidString
+        let request = RunRequest(message: "edit the repo", repoRoot: h.repo.path)
+        let runTask = Task { await h.service.run(request, origin: .cli, runId: runId) }
+
+        // Poll the durable blocker until the ticket facts are stamped.
+        let poll = h.pollStore()
+        var blocked: TeamRun?
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            if let r = poll.loadRaw(runId: runId), r.status == .queued, r.blocker?.holderId != nil {
+                blocked = r; break
+            }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        let run = try XCTUnwrap(blocked, "the blocked run must carry durable FIFO ticket facts")
+
+        XCTAssertEqual(run.phase, .waitingForWriteLock)
+        XCTAssertEqual(run.blocker?.resource, .repoWriteLock)
+        XCTAssertEqual(run.blocker?.scopeRoot, h.root)
+        XCTAssertEqual(run.blocker?.holderId, holderRunId, "the ticket must name the HOLDING run's id")
+        XCTAssertEqual(run.blocker?.holderKind, "run", "public holderKind is `run` in P0, never the site kind")
+        XCTAssertEqual(run.blocker?.ticketPosition, 1, "single waiter is at the head of the queue")
+        XCTAssertNotNil(run.blocker?.holderAcquiredAt)
+        // No spawn while blocked: control never reaches the worker invoker.
+        XCTAssertFalse(spy.launched, "no worker may be launched while the run is blocked on the write lock")
+        XCTAssertTrue(run.workers.isEmpty)
+        XCTAssertTrue(run.workerAnswers.isEmpty)
+
+        // Release → B acquires, clears the blocker, spawns, settles.
+        await h.registry.release(h.lockKey, token: holderToken)
+        _ = await runTask.value
+        let settled = try XCTUnwrap(poll.loadRaw(runId: runId))
+        XCTAssertTrue(settled.status.isTerminal)
+        XCTAssertNil(settled.blocker)
+        XCTAssertTrue(spy.launched, "the worker must launch once the lane is granted")
+    }
+
+    func testGrantClearsBlockerAndAdvancesPhaseInOneRevision() async throws {
+        // A short worker delay keeps B observable in `working` (blocker cleared, non-terminal)
+        // so the atomic clear-and-advance is caught in a live revision, not only at settle.
+        let h = try makeHarness(
+            commandRunner: MockCommandRunner(
+                scripts: ["cursor": .init(stdout: "Done.", exitCode: 0, delay: .milliseconds(400))]))
+        defer { try? FileManager.default.removeItem(at: h.repo) }
+
+        let holderRunId = "holder-run-\(UUID().uuidString)"
+        let holderClaim = try XCTUnwrap(
+            ExecutionLane.Claim.current(id: holderRunId, kind: ExecutionLaneSite.mutatingRun.rawValue))
+        guard case .success(let holderToken) = await h.registry.tryAcquire(h.lockKey, claim: holderClaim) else {
+            return XCTFail("test could not pre-hold the write lock")
+        }
+
+        let runId = UUID().uuidString
+        let runTask = Task {
+            await h.service.run(RunRequest(message: "edit the repo", repoRoot: h.repo.path),
+                                origin: .cli, runId: runId)
+        }
+
+        // Confirm B is durably blocked before releasing.
+        let poll = h.pollStore()
+        let blockedDeadline = Date().addingTimeInterval(10)
+        while Date() < blockedDeadline {
+            if let r = poll.loadRaw(runId: runId), r.phase == .waitingForWriteLock, r.blocker != nil { break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        let pre = try XCTUnwrap(poll.loadRaw(runId: runId))
+        XCTAssertEqual(pre.phase, .waitingForWriteLock)
+        XCTAssertNotNil(pre.blocker)
+
+        // Release and rapidly sample every revision. The atomic rule (RLR-L3): a blocker is
+        // present IFF the phase is `waitingForWriteLock`. There must never be a revision with a
+        // cleared blocker still on `waitingForWriteLock`, nor a set blocker past that phase.
+        await h.registry.release(h.lockKey, token: holderToken)
+        var sawClearedAndAdvancedLive = false
+        var sawForbidden = false
+        let sampleDeadline = Date().addingTimeInterval(10)
+        while Date() < sampleDeadline {
+            if let r = poll.loadRaw(runId: runId) {
+                let blockerSet = r.blocker != nil
+                let onWaitPhase = r.phase == .waitingForWriteLock
+                if blockerSet != onWaitPhase { sawForbidden = true }
+                if !r.status.isTerminal, !blockerSet, r.phase != nil, r.phase != .waitingForWriteLock {
+                    sawClearedAndAdvancedLive = true
+                }
+                if r.status.isTerminal { break }
+            }
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        _ = await runTask.value
+
+        XCTAssertFalse(sawForbidden,
+                       "blocker and `waitingForWriteLock` must be set/cleared in the SAME revision (RLR-L3)")
+        XCTAssertTrue(sawClearedAndAdvancedLive,
+                      "a live post-grant revision must show blocker cleared AND phase advanced together")
         let settled = try XCTUnwrap(poll.loadRaw(runId: runId))
         XCTAssertTrue(settled.status.isTerminal)
         XCTAssertNil(settled.blocker)

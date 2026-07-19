@@ -114,6 +114,12 @@ public actor ExecutionLaneRegistry {
         let enqueuedAt: Date
         /// Cross-process waiter file (cleaned on grant / abandon).
         let waiterFileURL: URL?
+        /// RLR-S02a: ticket callback, re-fired when this waiter's FIFO position
+        /// changes so a durable `ticketPosition` never goes stale (nil for callers
+        /// that don't consume tickets — relay/pilot/proof).
+        let onTicket: (@Sendable (ExecutionLaneTicket) -> Void)?
+        /// Last position handed to `onTicket` (suppresses redundant re-fires).
+        var lastNotifiedPosition: Int
     }
 
     /// Multi-holder per root key (PO-S06). Legacy exclusive = one full-scope build holder.
@@ -253,6 +259,7 @@ public actor ExecutionLaneRegistry {
         }()
         onTicket?(busyTicket(for: key, claim: claim, position: position, now: t0))
 
+        let enqueuePosition = position
         let reconcileTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(200))
@@ -280,7 +287,9 @@ public actor ExecutionLaneRegistry {
                         claim: claim,
                         continuation: continuation,
                         enqueuedAt: t0,
-                        waiterFileURL: waiterFile
+                        waiterFileURL: waiterFile,
+                        onTicket: onTicket,
+                        lastNotifiedPosition: enqueuePosition
                     )
                 )
             }
@@ -473,6 +482,30 @@ public actor ExecutionLaneRegistry {
             }
         }
         waiters[key] = remaining.isEmpty ? nil : remaining
+        // RLR-S02a: the queue just shifted — re-fire tickets whose position changed
+        // so blocked runs' durable `ticketPosition` tracks the draining line.
+        renotifyWaitersOnPositionChange(key: key, now: now)
+    }
+
+    /// Re-fire each still-blocked waiter's `onTicket` when its FIFO position changed
+    /// (RLR-S02a). Only ticket-consuming waiters (RunService's mutating wait) are
+    /// notified; position is re-ranked from the same source as enqueue (cross-process
+    /// waiter file when present, else in-process index).
+    private func renotifyWaitersOnPositionChange(key: String, now: Date) {
+        guard var queue = waiters[key], !queue.isEmpty else { return }
+        for idx in queue.indices {
+            guard let onTicket = queue[idx].onTicket else { continue }
+            let position: Int = {
+                if let url = queue[idx].waiterFileURL {
+                    return ExecutionLaneFlock.waiterPosition(laneKey: key, waiterURL: url)
+                }
+                return idx + 1
+            }()
+            guard position != queue[idx].lastNotifiedPosition else { continue }
+            queue[idx].lastNotifiedPosition = position
+            onTicket(busyTicket(for: key, claim: queue[idx].claim, position: position, now: now))
+        }
+        waiters[key] = queue
     }
 
     /// Cross-process / periodic: try granting waiters after reconcile.
