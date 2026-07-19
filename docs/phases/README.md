@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-07-19
+Updated: 2026-07-20
 
 ## Purpose
 
@@ -31,13 +31,14 @@ one's truth now lives.
 | [`Field_Reports_3.md`](Field_Reports_3.md) | **In progress** — piloted delivery #10 | Lane-label truth, JSON stream discipline, retry idempotency from live dogfood. |
 | [`Field_Reports_4.md`](Field_Reports_4.md) | **In progress** — piloted delivery #11 | Commit fidelity, proof surfacing, token truth from live dogfood. |
 
-### Agent front door (gate 2 live; gates 1 & 3 archived)
+### Agent front door (V1 Complete — gates 1–3 archived)
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Team_Catalog_Normalization.md`](../archive/Team_Catalog_Normalization.md) | **SHIPPED 2026-07-19, archived** (founder-approved; CN-S01–S06 + Law 4 guards landed) | Decisive normalized family list: obvious job names, optional Min/Default/Max tiers (Spec Review, Bug Hunt, Growth, Design), Law 3 caliber+capability staffing, Law 4 unique typeTags. The catalog in `BuiltInTeams.swift` now matches this doc. |
-| [`Agent_Intent_Router.md`](../archive/phases/Agent_Intent_Router.md) | **Complete 2026-07-19, archived** — IR-S00–S02 (`3d515ff0` / `aafb6ce6` / `df334af8`); PARKED remain parked | `alln team hello --for "<intent>"` routes to team/primitive + named worker + lifecycle bundle. Code SSOT: `AgentIntentRouter.swift`. Next: `Agent_Onboarding.md`. |
-| [`Agent_Onboarding.md`](Agent_Onboarding.md) | **APPROVED, UNBLOCKED** — IR-S02 Complete; RLR gate cleared | From findable to suggested: the app teaches every CLI session about `alln`. Ready to start ONB-S01. |
+| [`Agent_Front_Door.md`](../archive/phases/Agent_Front_Door.md) | **SHIPPED, archived** (gate 1 — findable) | `install-cli` / `bootstrap` / no empty silence. Code SSOT: `InstallCLI.swift`, `Bootstrap.swift`. |
+| [`Agent_Onboarding.md`](../archive/phases/Agent_Onboarding.md) | **Complete 2026-07-20, archived** — ONB-S01–S03 (`b6083575` / `bd28ebf0` / `a732d234` / `99fb5778`); PARKED remain parked | From findable to suggested: Teach your CLIs + recipe cards + `teaching.installed` doctor. Code SSOT: `TeachingSnippet.swift`, `GlobalTeachingInstaller.swift`, `RecipeCatalog`. |
+| [`Agent_Intent_Router.md`](../archive/phases/Agent_Intent_Router.md) | **Complete 2026-07-19, archived** — IR-S00–S02 (`3d515ff0` / `aafb6ce6` / `df334af8`); PARKED remain parked | `alln team hello --for "<intent>"` routes to team/primitive + named worker + lifecycle bundle. Code SSOT: `AgentIntentRouter.swift`. |
 
 ### CLI spine & law SSOTs (living reference — keep, do not archive)
 
@@ -182,7 +183,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Two `alln`s on different projects colliding, scoped reconcile/kill, per-invocation isolation | archived `Concurrent_Invocation_Isolation.md` (code SSOT; extends archived `Process_Ownership.md`) |
 | Default-chat / team-run latency, streaming throughput, rail click stalls, scroll jank | archived `Team_Run_Load_Performance.md` (code SSOT; warm path: archived `Warm_Single_Lane_Chat.md`) |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
-| Agent front door — findable/suggested/routed, `team hello --for`, catalog normalization | archived `Run_Lifecycle_Reliability.md` → archived `Team_Catalog_Normalization.md` → archived `Agent_Intent_Router.md` → `Agent_Onboarding.md` (gate 1 shipped: archived `Agent_Front_Door.md`; gate 3 Complete) |
+| Agent front door — findable/suggested/routed, `team hello --for`, catalog normalization | Front door V1 Complete — archived `Agent_Front_Door.md` (gate 1) → archived `Agent_Onboarding.md` (gate 2) → archived `Agent_Intent_Router.md` (gate 3); catalog: archived `Team_Catalog_Normalization.md` |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
 | Run model, answer vs execution teams, dispatch/source safety | `Unified_Run_Model.md` + `Work_Order_Team_Model.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` + `Language_Cutover.md` |

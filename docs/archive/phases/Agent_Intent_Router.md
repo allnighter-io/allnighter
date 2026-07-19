@@ -9,12 +9,13 @@ Owner: AllnighterCore (`AgentHello` + `AgentIntentRouter`) + AllnighterCLI
 Updated: 2026-07-19 (archived).
 
 Execution order: ~~archived `Run_Lifecycle_Reliability.md`~~ (Complete /
-RLR-S06) → ~~**IR-S02**~~ (Complete) → `Agent_Onboarding.md` (next; unblocked).
+RLR-S06) → ~~**IR-S02**~~ (Complete) → ~~archived `Agent_Onboarding.md`~~
+(Complete 2026-07-20; front-door V1 done).
 
 **Closeout (deslop/audit):** Docs-only archive. No product-code deslop in this
 turn — IR-S02a/b already landed with focused golden tests (29/29
 `AgentIntentRouterTests|AgentHelloTests`). No structural audit findings to
-carry; successor work is `Agent_Onboarding.md`. Code SSOT:
+carry; successor gate 2 archived Complete: `Agent_Onboarding.md`. Code SSOT:
 `AgentIntentRouter.swift` / `AgentHello.swift`.
 
 ## The gap (the third gate)
@@ -22,7 +23,8 @@ carry; successor work is `Agent_Onboarding.md`. Code SSOT:
 An agent passes three gates before Allnighter gets used:
 
 1. **FIND it** — `alln` on PATH, no empty silence → `Agent_Front_Door.md` (SHIPPED).
-2. **SUGGEST it** — a cold session reaches for it unprompted → `Agent_Onboarding.md`.
+2. **SUGGEST it** — a cold session reaches for it unprompted → archived
+   `Agent_Onboarding.md` (Complete).
 3. **ROUTE it** — given the user's intent, land on the *right killer team or
    primitive* without memorizing the catalog → **THIS doc.**
 

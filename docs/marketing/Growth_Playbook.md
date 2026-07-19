@@ -9,7 +9,7 @@ Self-funded; no paid ads. Channels are smart, savvy, and receipt-driven:
 Reddit, Product Hunt, X, HN, newsletters, and built-in viral loops.
 
 Related product surfaces: archived `docs/archive/phases/Agent_Intent_Router.md`,
-`docs/phases/Agent_Onboarding.md` (pilot, relay, agent-facing CLI).
+archived `docs/archive/phases/Agent_Onboarding.md` (pilot, relay, agent-facing CLI).
 
 ---
 

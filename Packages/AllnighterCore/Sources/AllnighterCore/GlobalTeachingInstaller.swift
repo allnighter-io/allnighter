@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 /// One-click GLOBAL teaching-snippet install for host agent context files
-/// (`docs/phases/Agent_Onboarding.md` Decision 3 + ONB-S03).
+/// (`docs/archive/phases/Agent_Onboarding.md` Decision 3 + ONB-S03).
 ///
 /// Pure Core: injectable home + FileManager. Project-scoped files are NEVER
 /// touched. The CLI still never writes vendor files — only the Mac app on an

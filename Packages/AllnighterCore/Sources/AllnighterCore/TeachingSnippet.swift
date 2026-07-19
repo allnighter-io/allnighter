@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 /// Marker-delimited teaching block for host-agent context files
-/// (`docs/phases/Agent_Onboarding.md` Decision 4 + ONB-S01).
+/// (`docs/archive/phases/Agent_Onboarding.md` Decision 4 + ONB-S01).
 ///
 /// Pure Core SSOT: body text, schema version, content hash, wrap/unwrap.
 /// No filesystem writes — the CLI prints; the Mac app (ONB-S03) owns clicks.

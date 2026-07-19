@@ -1,37 +1,34 @@
 # Agent Onboarding — from findable to suggested
 
-Status: **APPROVED, UNBLOCKED.** IR-S02 Complete 2026-07-19 (archived
-`Agent_Intent_Router.md`; commits `aafb6ce6` / `df334af8`). RLR-S06 cleared
-2026-07-19 (archived `Run_Lifecycle_Reliability.md` Complete) — lifecycle trust
-is green. Router contract frozen through named-worker + lifecycle bundles;
-ONB-S01 may proceed.
-Specced v2 — hardened by five-seat panel panel_753613c7 (2026-07-16:
-21 findings across consent/simplify/adoption/failure-modes/strategy lenses;
-accepted set folded below). v3 sharpening (2026-07-18): trigger line points at
-the intent router; recipes retitled by intent; works test made adversarial.
-v3.1 (2026-07-19): works-test battery gains the named-worker/read-only
-utterance class surfaced by a live cold-agent probe (see archived
-`Agent_Intent_Router.md` field evidence); Sol read-only review hardening —
-one-source-per-artifact-class SSOT fix, discovery-vs-execution split in the
-trigger line, snippet blocks on IR-S01+S02, marker version+hash doctor
-states, host support matrix + filesystem contract in S03, reproducible
-battery harness. v3.2 (2026-07-19): first-contact **single-worker review**
-recipe — run-vs-team, `--project` required, Codex Sol vs Cursor Sol, silent
-`--json`, paste-ready snippet (field footguns from the Isolation/Perf Sol
-audit via `alln run --worker model_chatgpt`). v3.3 (2026-07-19): Kimi lifecycle
-failure makes observable/stoppable/recoverable runs a blocking prerequisite;
-the single-worker recipe no longer teaches indefinite silence as healthy.
-v3.4 (2026-07-19): RLR gate cleared. v3.5 (2026-07-19): IR-S02 shipped —
-Onboarding V1 unblocked.
-V1 = three slices; the rest parked.
+Status: **Complete (archived 2026-07-20).** ONB-S01–ONB-S03 delivered.
+ONB-S01 `b6083575` · ONB-S02a `bd28ebf0` · ONB-S02b `a732d234` ·
+ONB-S03 `99fb5778`. Code is SSOT; this doc is the historical law + proof
+packet. PARKED items remain parked (per-project AGENTS.md offer; done-card
+graduation nudge; Core recipe registry / `--recipe`). Front-door V1 is
+complete: gate 1 findable · gate 2 suggested · gate 3 routed.
 Owner: Mac app (first-run/Settings) + AllnighterCore content SSOT + bootstrap
-Updated: 2026-07-19
+Updated: 2026-07-20 (archived).
 
 Related: archived `Agent_Front_Door.md` (gate 1 — findable, SHIPPED) · this doc
-(gate 2 — suggested) · archived `Agent_Intent_Router.md` (gate 3 — Complete;
-routes intent to the right team; the trigger line below depends on it) ·
-archived `Run_Lifecycle_Reliability.md` (P0 trust gate — the recommended work
-remains observable, stoppable, and recoverable).
+(gate 2 — suggested, Complete) · archived `Agent_Intent_Router.md` (gate 3 —
+Complete; routes intent to the right team; the trigger line below depends on
+it) · archived `Run_Lifecycle_Reliability.md` (P0 trust gate — the recommended
+work remains observable, stoppable, and recoverable).
+
+**Closeout (deslop/audit):** Docs-only archive. No product-code deslop in this
+turn — ONB-S01–S03 already landed with focused Core tests
+(`BootstrapTests`, `TeachingInstalledCheckTests`, `RecipeCatalogTests`,
+`GlobalTeachingInstallerTests`) plus Mac Settings surfaces. No structural
+audit findings to carry. PARKED work stays out of V1. Adversarial cold-agent
+battery is a human/harness acceptance criterion, not claimed automated this
+turn (no reproducible battery harness found in-repo).
+
+**Works-test notes (honest):** Mechanical proof for V1 is green — bootstrap
+router-reflex + size budget, `teaching.installed` doctor states, recipe card
+SSOT/discovery + CLI help, Application Support mirror, GlobalTeachingInstaller
+preview/append/repair/remove. The adversarial cold-agent utterance battery
+(fresh session reaches for `alln team hello --for` unprompted) remains a
+human/harness acceptance criterion; it was not automated in this closeout.
 
 ## The gap (named precisely)
 
@@ -145,23 +142,27 @@ exists before any agent session does. It must be the missionary.
   flag suggestion: one posture per surface, no exceptions; the app owns clicks.
 - No hand-authored duplicate content — SSOT or it rots.
 
-## Slices (proposed)
+## Slices
 
-V1 = three slices (panel simplify consensus); everything else parked until the
-works test is green. IR-S02 Complete — ONB-S01 may start (RLR-S06 already Complete).
+V1 = three slices (panel simplify consensus); everything else parked.
+ONB-S01–S03 Complete 2026-07-20.
 
-| Slice | Deliverable |
-| --- | --- |
-| ONB-S01 | Bootstrap trigger line + size-budget test (BLOCKING for S03) + a `teaching.installed` doctor check per global target. The marker carries a **schema version + content hash**, so doctor distinguishes installed / absent / **stale** (older snippet version) / **modified** (hash mismatch — user hand-edit, never destructively repaired) / **malformed** — a bare installed/absent bit can't drive safe repair. (The mechanical stand-in for the untestable "cold user never clicks" path.) |
-| ONB-S02 | Shipped recipe `.md` folder (v1 SSOT) + app "Use from your CLI" surface with copy buttons (GUI proof gate applies). Names the canonical on-disk install path, update-on-app-update behavior, and how an agent discovers the folder — an unfindable recipe file is a dead recipe. |
-| ONB-S03 | App one-click GLOBAL snippet install: per-host target enumeration (global paths only) including the **v1 host support matrix** — which hosts actually load a global instructions file, exact path per host, and what unsupported hosts show in UI/doctor; preview (names every affected host + states the instruction applies across all projects + detects pre-existing/older-format Allnighter blocks and offers repair, never a duplicate append); marker append/repair-with-diff/remove under an explicit filesystem contract (missing-file creation, symlinks, CRLF preservation, malformed/duplicate markers, atomic write, preview→click content drift re-check); write-failure surfacing |
-| PARKED | Per-project AGENTS.md offer (uncommitted-write discipline specced above) · done-card graduation nudge + CLI nextActions echo · Core recipe registry/`--recipe` |
+| Slice | Status | Deliverable |
+| --- | --- | --- |
+| ONB-S01 | **DONE** `b6083575` | Bootstrap trigger line + size-budget test (BLOCKING for S03) + a `teaching.installed` doctor check per global target. The marker carries a **schema version + content hash**, so doctor distinguishes installed / absent / **stale** (older snippet version) / **modified** (hash mismatch — user hand-edit, never destructively repaired) / **malformed** — a bare installed/absent bit can't drive safe repair. (The mechanical stand-in for the untestable "cold user never clicks" path.) |
+| ONB-S02a | **DONE** `bd28ebf0` | Shipped recipe `.md` folder (v1 SSOT) + CLI discovery (`RecipeCatalog` / help). Names the canonical on-disk install path and how an agent discovers the folder — an unfindable recipe file is a dead recipe. |
+| ONB-S02b | **DONE** `a732d234` | App "Use from your CLI" Settings surface with copy buttons + Application Support mirror (GUI proof gate applies). Update-on-app-update behavior for the mirrored folder. |
+| ONB-S03 | **DONE** `99fb5778` | App one-click GLOBAL snippet install (`GlobalTeachingInstaller` + Teach your CLIs UI): per-host target enumeration (global paths only) including the **v1 host support matrix** — which hosts actually load a global instructions file, exact path per host, and what unsupported hosts show in UI/doctor; preview (names every affected host + states the instruction applies across all projects + detects pre-existing/older-format Allnighter blocks and offers repair, never a duplicate append); marker append/repair-with-diff/remove under an explicit filesystem contract (missing-file creation, symlinks, CRLF preservation, malformed/duplicate markers, atomic write, preview→click content drift re-check); write-failure surfacing |
+| PARKED | **PARKED** (remain parked) | Per-project AGENTS.md offer (uncommitted-write discipline specced above) · done-card graduation nudge + CLI nextActions echo · Core recipe registry/`--recipe` |
 
 ## Works test (adversarial — v3)
 
-A fresh machine-state simulation: install app → click "Teach your CLIs" → open a
-new agent session → the session reaches for `alln team hello --for` **unprompted,
-on a battery of utterances that never name Allnighter**:
+**V1 mechanical proof (shipped):** installer + recipes + doctor/bootstrap tests
+above. **Adversarial cold-agent battery (acceptance criterion, not automated
+this turn):** a fresh machine-state simulation — install app → click "Teach
+your CLIs" → open a new agent session → the session reaches for
+`alln team hello --for` **unprompted, on a battery of utterances that never
+name Allnighter**:
 
 - "Ask Grok to implement this."
 - "Can you get a second opinion?"
@@ -175,11 +176,14 @@ on a battery of utterances that never name Allnighter**:
   no-silent-substitution law, the field-probe stall case)
 
 A cold agent should suggest `alln` for each — that's the reflex firing, not
-recall of a specific noun. The battery is a **reproducible harness, not an
-anecdote**: pinned host fixtures (host + version + clean global state), the
-snippet installed by the real installer, N trials per utterance with a stated
-pass threshold, and the expected observable = the agent invoking (or explicitly
-proposing) `alln team hello --for`. One lucky session proves nothing. Recipe copy-paste runs end-to-end for at least
+recall of a specific noun. The battery is specified as a **reproducible
+harness, not an anecdote**: pinned host fixtures (host + version + clean
+global state), the snippet installed by the real installer, N trials per
+utterance with a stated pass threshold, and the expected observable = the
+agent invoking (or explicitly proposing) `alln team hello --for`. One lucky
+session proves nothing. **V1 closeout:** no in-repo harness for that battery
+was found; treat it as a standing human/harness acceptance criterion, not a
+claimed automated green. Recipe copy-paste runs end-to-end for at least
 delegate + panel. Removal click leaves vendor files byte-clean outside the
 markers. Snippet size budget green (smaller than v2); recipes render from SSOT
 (drift test).

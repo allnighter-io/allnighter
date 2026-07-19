@@ -1,7 +1,7 @@
 import Foundation
 
 /// Doctor probe: is the Allnighter teaching snippet installed in each GLOBAL
-/// host instructions file? (`docs/phases/Agent_Onboarding.md` ONB-S01).
+/// host instructions file? (`docs/archive/phases/Agent_Onboarding.md` ONB-S01).
 ///
 /// Pure Core — reads only. Project-scoped files are NEVER probed. Unit tests
 /// inject contents / a fake home; they must not touch real `~/.claude` or

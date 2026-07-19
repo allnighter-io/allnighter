@@ -14,11 +14,12 @@ contracts clean. Closes Opus field reports #1, #3, #4.
 Owner: AllnighterCore + CLI
 Updated: 2026-07-18
 
-Related (the three agent gates): this doc = gate 1 (findable, SHIPPED) ·
-`Agent_Onboarding.md` = gate 2 (suggested) · `Agent_Intent_Router.md` = gate 3
-(routes intent → the right killer team). The no-empty-silence law (F3) extends to
-the router's `team hello --for` mode: it too must return a concrete command or an
-honest fallback, never a bare "pick a team."
+Related (the three agent gates — front-door V1 Complete): this doc = gate 1
+(findable, SHIPPED) · archived `Agent_Onboarding.md` = gate 2 (suggested,
+Complete) · archived `Agent_Intent_Router.md` = gate 3 (routes intent → the
+right killer team). The no-empty-silence law (F3) extends to the router's
+`team hello --for` mode: it too must return a concrete command or an honest
+fallback, never a bare "pick a team."
 
 ## Why (founder call: first-class, nothing more important)
 

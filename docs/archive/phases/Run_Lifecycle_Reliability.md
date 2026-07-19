@@ -3,7 +3,7 @@
 Status: **Complete (archived 2026-07-19).** RLR-S00–S06 delivered on
 `feat/design-chain` (through `e75b7c96`). Code is SSOT; this doc is the
 historical law + proof packet. Works Test matrix GREEN (item 7 waived).
-Unblocks IR-S02 + Agent Onboarding V1 (Onboarding still waits on IR-S02).
+Unblocks IR-S02 + Agent Onboarding V1 (both Complete / archived; front-door V1 done).
 Owner: AllnighterCore + AllnighterEngine + AllnighterCLI (`TeamRun`/`RunStore`,
 `RunService`, `ProcessOwnership`, `ExecutionLaneRegistry`, CLI JSON/NDJSON)
 Updated: 2026-07-19 (archived).
@@ -11,8 +11,8 @@ Slice status: **RLR-S00–S06 delivered end-to-end.** Plans + matrix:
 `docs/archive/phases/rlr/`.
 
 Related: `Unified_Run_Model.md` · `CLI_Implementation_Contract.md` · archived
-`Process_Ownership.md` + `Concurrent_Invocation_Isolation.md` ·
-`Agent_Intent_Router.md` · `Agent_Onboarding.md`.
+`Process_Ownership.md` + `Concurrent_Invocation_Isolation.md` · archived
+`Agent_Intent_Router.md` · archived `Agent_Onboarding.md`.
 
 Provenance: Codex Sol Spec Review Min lenses (`2ADCE96A-…`) · live Kimi
 `alln run` re-hang (`8AAA520D-…`, `BD26C1D1-…`) · Kimi K3 direct review

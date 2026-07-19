@@ -3,7 +3,7 @@ import SwiftUI
 import AllnighterCore
 
 /// Settings › **Teach your CLIs** — one-click GLOBAL teaching-snippet install
-/// (`docs/phases/Agent_Onboarding.md` Decision 3 + ONB-S03).
+/// (`docs/archive/phases/Agent_Onboarding.md` Decision 3 + ONB-S03).
 ///
 /// Preview first, write only on explicit click. Never touches project-scoped
 /// files. Codex is unsupported for global write — paste via bootstrap instead.
