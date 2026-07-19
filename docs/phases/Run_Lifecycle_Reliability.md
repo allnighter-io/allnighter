@@ -52,7 +52,21 @@ verified at the normalize layer — no second normalizer; frozen key
 untouched); terminal revision clears blocker + withdraws the FIFO waiter
 atomically incl. second-process kill (self-abandon poll + pre-spawn
 terminal guard; late-grant race pinned). Works Test items 3 + 14 GREEN
-cross-process. **S03 (activity truth + seq NDJSON) is next.**
+cross-process.
+
+**S03 DELIVERED 2026-07-19** (commits `45e2674c` S03a, `defe7354` S03b,
+`a3ff27d4` S03c; plan `docs/phases/rlr/S03_Execution_Plan.md`): durable
+`lastActivityAt`/`lastActivityKind` on the journal from L6 events only
+(spawn provably never advances; ≤1 coalesced write/s); the L6-banned
+per-tick heartbeat floor timer DELETED (the incident's frozen-heartbeat
+lie), heartbeat.json demoted to never-read debug artifact, all readers
+re-sourced; `progressStale`/heartbeat age are read-time derivations;
+`--stream` rides the durable per-Mac seq (restart/reattach continuity
+proven), exactly-one-terminal per attachment, replay attach marked +
+gap-detectable, `--json` final-only pinned; dropped activity events now
+flow as bounded `workerActivity`/`stageActivity` metadata (never payload
+text). Works Test 4 shape GREEN. **S04 (runtimeOwnership +
+foreground-kill protocol — turns the terminal-lie test green) is next.**
 
 ## Founder intent
 
