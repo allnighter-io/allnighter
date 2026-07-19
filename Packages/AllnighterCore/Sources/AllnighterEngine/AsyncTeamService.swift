@@ -128,18 +128,10 @@ public actor AsyncTeamService {
         }
 
         let canonical = AsyncTeamCanonicalPayload(from: request)
-        if let key = request.idempotencyKey, !key.isEmpty {
-            if let existing = idempotency.lookup(key: key, now: now()) {
-                let digest = IdempotencyStore.digest(canonical)
-                if existing.payloadDigest != digest {
-                    return .failure(.init(code: "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
-                                          message: "idempotency key was already used with a different payload"))
-                }
-                // Same key + payload → same run id; never spawn a second runner.
-                if let run = runStore.loadRaw(runId: existing.runId) ?? runStore.load(runId: existing.runId) {
-                    return .success(startResponse(for: run, acceptedAt: existing.acceptedAt))
-                }
-            }
+        // Fast-path sequential replay (F5b claim below is the cross-process gate).
+        if let key = request.idempotencyKey, !key.isEmpty,
+           let replay = replayIfPresent(key: key, canonical: canonical) {
+            return replay
         }
 
         if RecursionGuard.atOrOverCeiling(config.maxTeamRunDepth, environment: environment) {
@@ -213,15 +205,27 @@ public actor AsyncTeamService {
         let (prompt, _) = assemblePrompt(request)
         let runId = idFactory()
         let acceptedAt = now()
+
+        // F5b: claim before mint so concurrent same-key callers single-flight.
+        if let key = request.idempotencyKey, !key.isEmpty {
+            switch claimIdempotency(key: key, canonical: canonical, runId: runId, at: acceptedAt) {
+            case .failure(let refusal):
+                // Drop the unused slot (deinit releases flock).
+                _ = slot
+                return .failure(refusal)
+            case .success(.replay(let response)):
+                _ = slot
+                return .success(response)
+            case .success(.proceed):
+                break
+            }
+        }
+
         let run = mintRun(
             runId: runId, prompt: prompt, request: request, origin: origin,
             resolved: resolved, resolvedRequest: resolvedRequest, acceptedAt: acceptedAt
         )
         persist(run, endReasonIfTerminal: nil)
-
-        if let key = request.idempotencyKey, !key.isEmpty {
-            _ = try? idempotency.record(key: key, payload: canonical, runId: runId, now: acceptedAt)
-        }
 
         launchInProcess(
             run: run, resolved: resolved, request: request, origin: origin,
@@ -256,6 +260,19 @@ public actor AsyncTeamService {
         let (prompt, _) = assemblePrompt(request)
         let runId = idFactory()
         let stagedAt = now()
+
+        // F5b: claim before staging so concurrent same-key starts share one runner.
+        if let key = request.idempotencyKey, !key.isEmpty {
+            switch claimIdempotency(key: key, canonical: canonical, runId: runId, at: stagedAt) {
+            case .failure(let refusal):
+                return .failure(refusal)
+            case .success(.replay(let response)):
+                return .success(response)
+            case .success(.proceed):
+                break
+            }
+        }
+
         let run = mintRun(
             runId: runId, prompt: prompt, request: request, origin: origin,
             resolved: resolved, resolvedRequest: resolvedRequest, acceptedAt: stagedAt
@@ -276,12 +293,6 @@ public actor AsyncTeamService {
             ),
             in: stagedDirectory
         )
-
-        // Reserve the idempotency key before spawn so a retry mid-handshake
-        // returns the same run id and never launches a second runner.
-        if let key = request.idempotencyKey, !key.isEmpty {
-            _ = try? idempotency.record(key: key, payload: canonical, runId: runId, now: stagedAt)
-        }
 
         let directory: URL
         do {
@@ -401,6 +412,112 @@ public actor AsyncTeamService {
             originMessageId: request.originMessageId,
             repoRoot: request.repoRoot
         )
+    }
+
+    // MARK: - Idempotency (F5b)
+
+    private enum IdempotencyClaimAction: Equatable {
+        case proceed
+        case replay(TeamStartResponse)
+    }
+
+    /// Sequential fast path when the journal is already durable.
+    private func replayIfPresent(
+        key: String,
+        canonical: AsyncTeamCanonicalPayload
+    ) -> Result<TeamStartResponse, AsyncTeamStartRefusal>? {
+        guard let existing = idempotency.lookup(key: key, now: now()) else { return nil }
+        let digest = IdempotencyStore.digest(canonical)
+        if existing.payloadDigest != digest {
+            return .failure(.init(
+                code: "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+                message: "idempotency key was already used with a different payload"
+            ))
+        }
+        if let run = runStore.loadRaw(runId: existing.runId) ?? runStore.load(runId: existing.runId) {
+            return .success(startResponse(for: run, acceptedAt: existing.acceptedAt))
+        }
+        return nil
+    }
+
+    /// Atomic same-key claim before mint/spawn. Concurrent identical callers
+    /// resolve to one run id; digest mismatch stays a typed refusal.
+    private func claimIdempotency(
+        key: String,
+        canonical: AsyncTeamCanonicalPayload,
+        runId: String,
+        at acceptedAt: Date
+    ) -> Result<IdempotencyClaimAction, AsyncTeamStartRefusal> {
+        let result: IdempotencyStore.ClaimResult
+        do {
+            result = try idempotency.claim(
+                key: key,
+                payload: canonical,
+                runId: runId,
+                now: acceptedAt
+            )
+        } catch {
+            return .failure(.init(code: "INTERNAL_ERROR", message: "idempotency claim failed: \(error)"))
+        }
+        switch result {
+        case .claimed:
+            return .success(.proceed)
+        case .conflict:
+            return .failure(.init(
+                code: "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+                message: "idempotency key was already used with a different payload"
+            ))
+        case .replay(let entry):
+            if let response = waitForIdempotentReplay(entry: entry) {
+                return .success(.replay(response))
+            }
+            // Peer claimed then vanished — take over under a forced claim.
+            do {
+                let takeover = try idempotency.forceClaim(
+                    key: key,
+                    payload: canonical,
+                    runId: runId,
+                    now: acceptedAt,
+                    runExists: { [runStore] id in
+                        runStore.loadRaw(runId: id) != nil || runStore.load(runId: id) != nil
+                    }
+                )
+                switch takeover {
+                case .claimed:
+                    return .success(.proceed)
+                case .conflict:
+                    return .failure(.init(
+                        code: "IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD",
+                        message: "idempotency key was already used with a different payload"
+                    ))
+                case .replay(let again):
+                    if let response = waitForIdempotentReplay(entry: again) {
+                        return .success(.replay(response))
+                    }
+                    return .failure(.init(
+                        code: "INTERNAL_ERROR",
+                        message: "idempotency replay run never appeared: \(again.runId)"
+                    ))
+                }
+            } catch {
+                return .failure(.init(code: "INTERNAL_ERROR", message: "idempotency reclaim failed: \(error)"))
+            }
+        }
+    }
+
+    /// Peer may have claimed and still be persisting the journal — wait briefly.
+    private func waitForIdempotentReplay(
+        entry: IdempotencyStore.Entry,
+        timeout: TimeInterval = 5.0
+    ) -> TeamStartResponse? {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let run = runStore.loadRaw(runId: entry.runId) ?? runStore.load(runId: entry.runId) {
+                return startResponse(for: run, acceptedAt: entry.acceptedAt)
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        return nil
     }
 
     private func removeRunDirectory(runId: String) {

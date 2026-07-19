@@ -442,4 +442,92 @@ final class IdempotencyTests: XCTestCase {
         }
         XCTAssertEqual(store.lookup(key: "key-7")?.runId, "run-7")
     }
+
+    /// F5b: simultaneous same-key claims — exactly one caller mints; the rest replay.
+    func testConcurrentSameKeyClaimSingleFlights() throws {
+        let root = AsyncTeamTestHarness.tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = IdempotencyStore(fileURL: root.appendingPathComponent("idempotency.json"))
+        let payload = AsyncTeamCanonicalPayload(from: AsyncTeamTestHarness.startRequest("same"))
+        let lock = NSLock()
+        var results: [IdempotencyStore.ClaimResult] = []
+        let failures = NSMutableArray()
+        DispatchQueue.concurrentPerform(iterations: 16) { i in
+            do {
+                let result = try store.claim(key: "shared-key", payload: payload, runId: "run-\(i)")
+                lock.lock(); results.append(result); lock.unlock()
+            } catch {
+                failures.add(error)
+            }
+        }
+        XCTAssertEqual(failures.count, 0)
+        let claimed = results.filter {
+            if case .claimed = $0 { return true }
+            return false
+        }
+        let replayed = results.filter {
+            if case .replay = $0 { return true }
+            return false
+        }
+        XCTAssertEqual(claimed.count, 1, "exactly one claim must win: \(results)")
+        XCTAssertEqual(replayed.count, 15)
+        guard case .claimed(let winner) = claimed.first else {
+            return XCTFail("missing claimed winner")
+        }
+        for case .replay(let entry) in replayed {
+            XCTAssertEqual(entry.runId, winner.runId)
+            XCTAssertEqual(entry.payloadDigest, winner.payloadDigest)
+        }
+        XCTAssertEqual(store.lookup(key: "shared-key")?.runId, winner.runId)
+    }
+
+    /// F5b: in-process concurrent starts with the same key mint one run only.
+    func testConcurrentSameKeyStartsShareOneRun() async {
+        await asyncTeamLifecycleGate.run {
+            let root = AsyncTeamTestHarness.tempRoot()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let store = IdempotencyStore(fileURL: root.appendingPathComponent("idempotency.json"))
+            let mock = MockCommandRunner(scripts: [
+                "claude": .init(stdout: AsyncTeamTestHarness.planMarkdown)
+            ])
+            let counter = LockedCounter()
+            let registry = DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")])
+            let service = AsyncTeamService(
+                models: [AsyncTeamTestHarness.opus()],
+                registry: registry,
+                teams: [AsyncTeamTestHarness.testTeam()],
+                config: ToolConfig(maxConcurrentTeamRuns: 4, maxTeamRunDepth: 1),
+                runStore: RunStore(rootDirectory: root.appendingPathComponent("Runs")),
+                commandRunner: mock,
+                governor: TeamGovernor(directory: root.appendingPathComponent("gov"), capacity: 4),
+                idempotency: store,
+                environment: AsyncTeamTestHarness.cleanEnvironment,
+                idFactory: { "run-concurrent-\(counter.next())" }
+            )
+            let req = AsyncTeamTestHarness.startRequest("same prompt", key: "key-concurrent")
+            async let a = service.start(req, origin: .cli, readyModels: [AsyncTeamTestHarness.opus()])
+            async let b = service.start(req, origin: .cli, readyModels: [AsyncTeamTestHarness.opus()])
+            let first = await a
+            let second = await b
+            guard case .success(let ra) = first, case .success(let rb) = second else {
+                return XCTFail("expected successes: \(first) \(second)")
+            }
+            XCTAssertEqual(ra.runId, rb.runId)
+            let runs = (try? FileManager.default.contentsOfDirectory(
+                atPath: root.appendingPathComponent("Runs").path
+            )) ?? []
+            XCTAssertEqual(runs.filter { $0.hasPrefix("run_") }.count, 1)
+            _ = await service.cancel(runId: ra.runId)
+        }
+    }
+}
+
+private final class LockedCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    func next() -> Int {
+        lock.lock(); defer { lock.unlock() }
+        value += 1
+        return value
+    }
 }

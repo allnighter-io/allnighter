@@ -190,6 +190,135 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
         )
     }
 
+    /// F5b Works Test: two real `alln team start` subprocesses, same key +
+    /// payload, one support root — both responses share one run id, one run
+    /// directory, and one worker invocation; same-key/different-payload refuses.
+    func testTwoRealProcessesSameKeyIdempotencySingleFlight() throws {
+        let alln = try Self.locateAllnBinary()
+        let fm = FileManager.default
+        let temp = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("idempotency2proc-\(UUID().uuidString)", isDirectory: true)
+        let support = temp.appendingPathComponent("support", isDirectory: true)
+        let repo = temp.appendingPathComponent("repo", isDirectory: true)
+        let fakebin = temp.appendingPathComponent("fakebin", isDirectory: true)
+        let home = temp.appendingPathComponent("home", isDirectory: true)
+        let workerLog = temp.appendingPathComponent("fake_worker_args.log")
+        for dir in [support, repo, fakebin, home] {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        defer {
+            _ = try? Self.runAlln(
+                alln, ["kill", "--all", "--all-projects", "--json"],
+                cwd: repo, env: Self.spawnEnv(support: support, fakebin: fakebin, home: home),
+                timeout: 30
+            )
+            let pkill = Process()
+            pkill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+            pkill.arguments = ["-f", "^sleep 617$"]
+            try? pkill.run()
+            pkill.waitUntilExit()
+            try? fm.removeItem(at: temp)
+        }
+
+        let fakeClaude = fakebin.appendingPathComponent("claude")
+        try """
+        #!/bin/bash
+        if [ "${1:-}" = "--version" ]; then echo "claude-fake 0.0.1"; exit 0; fi
+        flat=$(printf '%s' "$*" | tr '\\n' ' ')
+        printf 'pwd=%s args=%s\\n' "$PWD" "$flat" >> "\(workerLog.path)"
+        exec sleep 617
+        """
+        .write(to: fakeClaude, atomically: true, encoding: .utf8)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeClaude.path)
+
+        try SetupStore(fileURL: support.appendingPathComponent("Config/cli_setup.json"))
+            .save(.init(
+                records: [ToolProbeRecord(
+                    driverId: "claude_code", status: .ready(version: "fake-0.0.1"),
+                    invocation: nil, version: "fake-0.0.1", lastProbeAt: Date()
+                )],
+                setupCompletedAt: Date()
+            ))
+
+        let team = TeamPreset(
+            id: Self.teamId, displayName: "Isolation Gate", lane: .code, outputKind: .plan,
+            defaultEffort: .low, isDefaultForLane: false,
+            workerSpecs: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
+            lead: TeamLeadSpec(skillId: "plan_writer_build"),
+            builtIn: false
+        )
+        let teamsDir = support.appendingPathComponent("Catalogs/teams", isDirectory: true)
+        try fm.createDirectory(at: teamsDir, withIntermediateDirectories: true)
+        try CoreJSON.encode(CatalogEnvelope(kind: .team, definition: team))
+            .write(to: teamsDir.appendingPathComponent("\(team.id).json"))
+
+        let env = Self.spawnEnv(support: support, fakebin: fakebin, home: home)
+        let key = "f5b-same-key-\(UUID().uuidString)"
+        let prompt = "f5b single-flight brief"
+
+        let outcomesBox = ConcurrentOutcomeBox<(status: Int32, stdout: String, stderr: String)>()
+        let group = DispatchGroup()
+        for _ in 0..<2 {
+            group.enter()
+            DispatchQueue.global().async {
+                defer { group.leave() }
+                do {
+                    let result = try Self.runAlln(
+                        alln,
+                        [
+                            "team", "start", prompt, "--json",
+                            "--lane", "code", "--team", Self.teamId, "--effort", "low",
+                            "--idempotency-key", key,
+                        ],
+                        cwd: repo, env: env, timeout: 90
+                    )
+                    outcomesBox.append((result.status, result.stdout, result.stderr))
+                } catch {
+                    outcomesBox.append((-1, "", "\(error)"))
+                }
+            }
+        }
+        XCTAssertEqual(group.wait(timeout: .now() + 120), .success, "concurrent starts timed out")
+
+        let outcomes = outcomesBox.snapshot()
+        XCTAssertEqual(outcomes.count, 2)
+        var runIds: [String] = []
+        for outcome in outcomes {
+            XCTAssertEqual(outcome.status, 0, "start failed: \(outcome.stderr)\n\(outcome.stdout)")
+            let json = try Self.jsonObject(outcome.stdout)
+            runIds.append(try XCTUnwrap(json["runId"] as? String))
+        }
+        XCTAssertEqual(Set(runIds).count, 1, "same key must resolve to one run id: \(runIds)")
+        let runId = try XCTUnwrap(runIds.first)
+
+        let runsRoot = support.appendingPathComponent("Runs", isDirectory: true)
+        let runDirs = (try? fm.contentsOfDirectory(atPath: runsRoot.path))?
+            .filter { $0.hasPrefix("run_") } ?? []
+        XCTAssertEqual(runDirs, ["run_\(runId)"], "exactly one run directory for \(runId)")
+
+        _ = waitForWorkerLog(at: workerLog, needles: [prompt])
+        let log = (try? String(contentsOf: workerLog, encoding: .utf8)) ?? ""
+        let invocations = log.split(separator: "\n").filter { $0.contains(prompt) }
+        XCTAssertEqual(invocations.count, 1, "exactly one worker invocation: \(log)")
+
+        // Same key, different payload → typed refusal.
+        let conflict = try Self.runAlln(
+            alln,
+            [
+                "team", "start", "different payload", "--json",
+                "--lane", "code", "--team", Self.teamId, "--effort", "low",
+                "--idempotency-key", key,
+            ],
+            cwd: repo, env: env, timeout: 90
+        )
+        XCTAssertNotEqual(conflict.status, 0, "different payload must refuse")
+        XCTAssertTrue(
+            conflict.stdout.contains("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD")
+                || conflict.stderr.contains("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD"),
+            "expected typed conflict, got stdout=\(conflict.stdout) stderr=\(conflict.stderr)"
+        )
+    }
+
     // MARK: - Fixture plumbing
 
     /// One fake-worker invocation record from the log, with the cwd run
@@ -300,5 +429,18 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
         let err = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         XCTAssertFalse(timedOut, "alln \(arguments.prefix(2).joined(separator: " ")) did not exit within \(timeout)s\nstdout: \(out.prefix(400))\nstderr: \(err.prefix(400))")
         return ProcessResult(status: process.terminationStatus, stdout: out, stderr: err)
+    }
+}
+
+private final class ConcurrentOutcomeBox<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [T] = []
+    func append(_ value: T) {
+        lock.lock(); defer { lock.unlock() }
+        values.append(value)
+    }
+    func snapshot() -> [T] {
+        lock.lock(); defer { lock.unlock() }
+        return values
     }
 }

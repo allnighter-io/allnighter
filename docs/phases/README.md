@@ -25,7 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Concurrent_Invocation_Isolation.md`](Concurrent_Invocation_Isolation.md) | **ACTIVE P0 CLOSEOUT** — F1–F5a and the committed two-process mutation/context gate landed. Remaining launch fix: atomic same-key idempotency claim/replay (F5b). Mutation receipts deferred. | Two `alln`s on different projects must isolate like two `claude`s. Scoped `reconcileAll`/`killAll`, stage-lease liveness, context-provenance gate, and `IdempotencyStore.record()` RMW lock are in. Closeout: same-key single-flight across processes, then archive. |
+| [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
 | [`Team_Run_Load_Performance.md`](Team_Run_Load_Performance.md) | **TOP PERF PRIORITY** — S01–S03 and RunStore progress fast path landed; S00 proof incomplete. Next: S04a default-chat live overlay, then S04b off-main generation-safe reads and S06 hard timing gates. | Team-run open stall fixed; Team/execution streaming no longer reloads per token. Remaining hot path: default-chat 150 ms full `reload()` poll + MainActor store scans + unproved paint/Floor gates. |
 | [`Field_Reports_3.md`](Field_Reports_3.md) | **In progress** — piloted delivery #10 | Lane-label truth, JSON stream discipline, retry idempotency from live dogfood. |
 | [`Field_Reports_4.md`](Field_Reports_4.md) | **In progress** — piloted delivery #11 | Commit fidelity, proof surfacing, token truth from live dogfood. |
@@ -176,7 +176,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 
 | Work | Read first |
 | --- | --- |
-| Two `alln`s on different projects colliding, scoped reconcile/kill, per-invocation isolation | `Concurrent_Invocation_Isolation.md` (extends archived `Process_Ownership.md`) |
+| Two `alln`s on different projects colliding, scoped reconcile/kill, per-invocation isolation | archived `Concurrent_Invocation_Isolation.md` (code SSOT; extends archived `Process_Ownership.md`) |
 | Default-chat / team-run latency, streaming throughput, rail click stalls, scroll jank | `Team_Run_Load_Performance.md` (warm path shipped: archived `Warm_Single_Lane_Chat.md`) |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Agent front door — findable/suggested/routed, `team hello --for`, catalog normalization | `Team_Catalog_Normalization.md` → `Agent_Intent_Router.md` → `Agent_Onboarding.md` (gate 1 shipped: archived `Agent_Front_Door.md`) |

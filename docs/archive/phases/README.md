@@ -82,7 +82,8 @@ source; remaining leftovers were pure GUI-polish unless noted. Live successors
 
 | Doc | Final status | Code SSOT / successor |
 | --- | --- | --- |
-| [Process_Ownership.md](Process_Ownership.md) | Built PO-S01–S05 + F9/F10/F11 | `ProcessOwnership.swift`, `ProcessOwnershipSurface`, `…GarbageCollector`; extended live by `Concurrent_Invocation_Isolation.md` |
+| [Process_Ownership.md](Process_Ownership.md) | Built PO-S01–S05 + F9/F10/F11 | `ProcessOwnership.swift`, `ProcessOwnershipSurface`, `…GarbageCollector`; extended by archived `Concurrent_Invocation_Isolation.md` |
+| [Concurrent_Invocation_Isolation.md](Concurrent_Invocation_Isolation.md) | SHIPPED 2026-07-19 — F1–F5b + two-process gates | `IdempotencyStore.claim`, scoped `reconcileAll`/`killAll`, `RunContextProvenance`, `ConcurrentInvocationTwoProcessTests` |
 | [Stalled_Work_Watchdog.md](Stalled_Work_Watchdog.md) | Built (check/dismiss/list/wait) | `StalledCLI.swift`, `StallRecoveryService.swift` |
 | [Pending_Work_And_Drain.md](Pending_Work_And_Drain.md) | Built (GUI-polish leftovers only) | `PendingCLI.swift` |
 | [Try_Fix_Auto_Implement.md](Try_Fix_Auto_Implement.md) | Built (Mac checkbox GUI leftover) | `TryFixGate.swift`, `TryFixChainJSON.swift`, `alln run --try-fix` |

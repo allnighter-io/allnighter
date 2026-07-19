@@ -1,11 +1,10 @@
 # Concurrent Invocation Isolation — two `alln`s must behave like two `claude`s (P0)
 
-Status: **Active P0 closeout — F1–F5 and the two-process isolation gate landed;
-atomic same-key idempotency claim remains.** Hardened via Spec Review (ChatGPT
-5.6 Sol lead + 5 lenses, 2026-07-18) and re-audited by direct Codex Sol review
-(2026-07-19, run `C5192F32`). This revision **retracts the original team-start
-causal thesis** (see History) and reframes the fix around durable project-root
-scope and an executable two-process proof.
+Status: **SHIPPED 2026-07-19 — archived.** F1–F5b + two-process isolation gate
+landed (including atomic same-key idempotency claim/replay). Hardened via Spec
+Review (ChatGPT 5.6 Sol lead + 5 lenses, 2026-07-18) and re-audited by direct
+Codex Sol review (2026-07-19, run `C5192F32`). Code is SSOT; mutation receipts
+remain deferred observability, not a phase blocker.
 Trigger: the founder ran `alln` across three projects in parallel all day
 (Allnighter, Ikiro, XTerminal) and it kept breaking — live async runs died
 `reconciledOrphan`, and a team reviewed the wrong doc. Two `claude`/`codex`
@@ -132,7 +131,7 @@ P0** (that would break the daemon's fleet/iOS inventory).
   `CONTEXT_PROVENANCE_MISMATCH`.
 - **F5a — Lock `IdempotencyStore.record()` RMW.** ✅ Landed
   (per-file flock / atomic save).
-- **F5b — Atomic same-key idempotency claim/replay.** ⬜ Remaining P0.
+- **F5b — Atomic same-key idempotency claim/replay.** ✅ Landed 2026-07-19.
   Exactly one caller may mint/spawn for a given key+payload; concurrent
   identical callers must resolve to the same run; same-key/different-payload
   remains the existing typed conflict.
@@ -188,21 +187,12 @@ deferred observability packet if still wanted.
 **Cut from this phase:** per-project registries, per-project governors, daemon
 replacement, SQLite migration, or any second ownership-key system.
 
-## Next slice (F5b)
+## Closeout (F5b landed 2026-07-19)
 
-**Goal:** make an idempotency key a cross-process single-flight claim, so
-simultaneous identical starts produce one run/runner and one run ID.
-
-**Allowlist hint:**
-
-- `Packages/AllnighterCore/Sources/AllnighterEngine/IdempotencyStore.swift`
-- `Packages/AllnighterCore/Sources/AllnighterEngine/AsyncTeamService.swift`
-- `Packages/AllnighterCore/Tests/AllnighterEngineTests/ConcurrentInvocationTwoProcessTests.swift`
-
-**Works Test:** launch two real `alln team start` subprocesses concurrently with
-one support root and the same key/payload. Assert both responses identify the
-same run, exactly one run directory and worker invocation exist, and
-same-key/different-payload remains a typed refusal.
+`IdempotencyStore.claim` / `forceClaim` + `AsyncTeamService` claim-before-mint.
+Works Test green:
+`ConcurrentInvocationTwoProcessTests.testTwoRealProcessesSameKeyIdempotencySingleFlight`
+(+ in-process `IdempotencyTests`). Mutation receipts stay deferred.
 
 ## History (why this was rewritten)
 
