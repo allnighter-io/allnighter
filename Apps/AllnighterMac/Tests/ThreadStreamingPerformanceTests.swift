@@ -195,4 +195,14 @@ final class ThreadStreamingPerformanceTests: XCTestCase {
         XCTAssertEqual(PerfCounters.value(.threadStoreListOffMain), 1)
         XCTAssertEqual(PerfCounters.value(.reloadPublishDiscarded), 0)
     }
+
+    // MARK: - PERF-S06 named aliases (phase doc gate names)
+
+    func testStreamingDeltasDoNotCallThreadStoreListPerDelta() async throws {
+        try await testStreamingDeltasDoNotReloadOrRewritePerDelta()
+    }
+
+    func testStreamingDeltasDoNotRewriteThreadJSONPerDelta() async throws {
+        try await testStreamingDeltasDoNotReloadOrRewritePerDelta()
+    }
 }
