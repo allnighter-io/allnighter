@@ -1,246 +1,285 @@
 # Rate Limit Continuity — parked, not dead: runs survive vendor usage windows
 
-Status: **DRAFT (founder brainstorm captured 2026-07-19; pre–Spec Review).**
-Sequencing: the park state rides the RLR blocker/activity truth spine — do not
-start RLC slices before `Run_Lifecycle_Reliability.md` S03 (activity truth)
-lands, or the watchdog will be taught about parked runs twice. RLC-S00 (binary
-path fix) is independent and can land any time.
-Owner: AllnighterCore + AllnighterEngine (driver dialects, `RunStore` blocker
-facts, watchdog/reaper, `ExecutionLaneRegistry`, SBDS tier resolver) +
-AllnighterCLI/Mac (park surface).
+Status: **DRAFT v2 (2026-07-19; rebased after three-mentor spec review + code
+verification). Convergence phase — promotes EXISTING capacity machinery into
+unified-run truth; builds no parallel stack.**
+Sequencing: contract work (S01 shapes) can be specced now; **implementation
+starts after the RLR-S06 works-test gate** (RLR owns the lifecycle spine RLC
+parks on; S03 activity truth + S04 runtimeOwnership already landed).
+Substitution (RLC-S04) additionally leans on RLR-S04 quiescence/settlement
+proof semantics.
+Owner: AllnighterCore + AllnighterEngine (`CapacityClassifier`/
+`CapacityObservation`, `SourceCapacityLedger`, `SeatReseat`,
+`PendingWakePlanner`/`Scheduler`, `ResidentCoordinator`, `RunBlocker`,
+`ExecutionLaneRegistry`) + CLI/Mac (park surface).
 Updated: 2026-07-19.
 
-Related: `Run_Lifecycle_Reliability.md` (blocker truth, FIFO tickets, activity
-truth) · `Warm_Single_Lane_Chat.md` (per-driver dialects — the isolation
-pattern the limit classifier copies) · SBDS default-model/tier system (the
-substitution map Tier 2 reuses) · `Unified_Run_Model.md`.
+Related: `Run_Lifecycle_Reliability.md` (blocker wire, activity truth,
+runtimeOwnership) · `parked/Utilization_Admission_Control.md` — RLC is the
+**in-flight-run half** of that story: it consumes `CapacityObservation` +
+RLR blockers and does **not** revive the admission ledger / Pending drain /
+Away Mode (one observation type, two consumers — park now, admission later) ·
+`archive/Worker_Session_Continuity.md` (vendor session resume, all five CLIs
+proven incl. `codex exec resume`) · SBDS default-model/tier system.
 
 ## Founder intent
 
-Every vendor CLI has a rolling usage window (~5h). Hitting it kills work
-**hard**, and — deliberately — nothing resumes when the window resets. The
-founder's real workflow today is an Apple Watch alarm clock. Live transcript
-from a Claude Code session driving Allnighter's own RLR build (2026-07-19):
+Every vendor CLI has a usage cap. Hitting it kills work **hard**, and nothing
+resumes when the window resets. The founder's real workflow today is an Apple
+Watch alarm. Live transcript, 2026-07-19, driving Allnighter's own RLR build:
 
 ```text
-⏺ Agent(RLR-S03 recon + execution plan) Opus 4.8 (1M context)
 ⏺ Agent "RLR-S03 recon + execution plan" failed: Agent terminated early due to
   an API error: You've hit your session limit · resets 4:20pm (Europe/Madrid)
-You've hit your session limit · resets 4:20pm (Europe/Madrid)
-/upgrade to increase your usage limit.
 
 ✻ Baked for 3h 12m 55s
 
 ❯ Please continue
 ```
 
-**3h 12m of dead air**, ended only because a human alarm fired and a human
-typed "Please continue." The vendor *printed the reset time* and still did
-nothing with it. That gap — noticing the limit, waiting out the stated window,
-sending "continue" — is pure orchestration, and it is exactly what Allnighter
-is for. The caps are per-vendor; the work is not.
+**3h 12m of dead air**, ended by a human alarm and a typed "Please continue."
+The vendor printed the reset time and did nothing with it. Closing that gap —
+notice the limit, wait out the stated window, continue — is pure
+orchestration. The caps are per-vendor; the work is not, and only a layer
+above the vendors can carry it across.
 
-Why vendors won't fix it: flat-rate subscriptions price for the median user;
-the hard stop + manual restart friction *is* the throttle on the tail. No
-vendor will auto-resume its own CLI, and no vendor can ever resume your work
-on a competitor's CLI. Only the layer above the vendors can — structural moat.
-They can't stop it any more than they can stop a user setting an alarm clock.
+Honest claim (deliberately not absolute — trust is the feature):
 
-### Vendor window landscape (observed 2026-07-19 — drifts, keep current)
+> Once accepted, a rate-limited run is never silently lost or mislabeled
+> dead. Allnighter records the sourced wait, releases unsafe resources, and
+> resumes at the next safe opportunity. When the user's selection policy
+> permits, it may continue with a compatible substitute after the prior
+> worker is proven quiescent.
 
-| Vendor | Window shape |
+## Law: converge, don't invent
+
+Verified in code 2026-07-19 — Allnighter **already has** the Tier 1 parts:
+
+- `CapacityClassifier` → `CapacityObservation` (kinds `accountRateLimit` /
+  `providerBusy` / `cooldown` / `authRequired` / …; `observedResetAt`,
+  `retryAfterSeconds`, `wakeAfter`, `confidence`; structured + text fixtures)
+- `SourceCapacityLedger` (source cooldown projection),
+  `PendingCapacityResumeWriter`, `PendingWakePlanner`/`PendingWakeScheduler`
+- `SeatReseat` (mid-run hop on capacity walls), `ResidentCoordinator`
+- RLR `RunBlocker.resource` wire (`repoWriteLock`/`teamGovernor`/
+  `driverCapacity`) with **`vendorBackoff` explicitly deferred post-P0**
+- Vendor session continuity proven on all five CLIs (CONT-S1–S5; the "Codex
+  session id never captured" note is stale)
+
+RLC is therefore: **promote an observed `CapacityObservation` into a durable
+`vendorBackoff` run blocker, reconciled by the resident coordinator, resumed
+as the same run.** No second classifier, no second wake planner, no second
+hop surface, no `rateLimited(vendor, resumesAt)` type family. S01 must state
+which existing Pending-path pieces are promoted into unified-run truth and
+which are retired — duplicate capacity truth is the failure mode this law
+exists to prevent.
+
+## Lifecycle (the part v1 must get exactly right)
+
+```text
+running/working
+  → queued/waitingForVendor   (vendorBackoff blocker, quota-scoped)
+  → queued/waitingForWriteLock
+  → running/working
+  → terminal
+```
+
+- **One run id, durable sequential `attempts[]`** under the RunRecord:
+  attempt number, requested + resolved source/model, start/end, capacity
+  observation, vendor session receipt, substitution provenance, terminal
+  result. History is appended, never overwritten.
+- **Blocked time suspends clocks**: handshake, first-activity, idle, and
+  ordinary wall clocks pause while parked; a separate maximum-park policy
+  may still apply.
+- **Kill/cancel/manual-resume on a parked run are first-class** and
+  journal-revision/lease protected so two processes can never resume the
+  same run. `alln ps` shows parked truthfully; the watchdog treats
+  `waitingForVendor` as quiet-by-design (S03 activity truth), never as
+  stalled/orphaned.
+
+## Park rules
+
+- **Release the repo write lock. Never hold it across a capacity wait.** A
+  parked mutating run monopolizing the lane for hours would freeze every
+  other run in that repo — the feature would feel like a bug. On a settled
+  capacity event: close the warm transport, preserve the vendor session
+  receipt, release the lock, park outside the lock queue; at wake, transition
+  to `waitingForWriteLock` and reacquire normally. The resumed worker is
+  instructed to **re-read current repository state** — never depend on the
+  repo being unchanged or on frequent commits; continuity must survive
+  uncommitted partial work.
+- **Close warm workers.** No process is kept alive for hours as a
+  checkpoint — that buys little and adds ownership/reboot/idle-TTL/orphan
+  complexity. The session id is the checkpoint; the transport is recreated
+  at wake.
+- **Park only on high confidence.** `accountRateLimit`-class structured
+  observations park; low-confidence text cues (`busy`, `unavailable`) stay
+  in the existing fail/retry/`SeatReseat` path — never a multi-hour quiet on
+  vibes. Classifier order: driver-specific structured events first, text
+  fallback only on failed/error channels, **negative fixtures** where
+  ordinary model output merely discusses rate limits.
+- **Persist a redacted, bounded diagnostic snippet — never raw output**
+  (errors can carry prompts, tokens, paths, session material).
+
+## Wake — stateless, from the coordinator tick
+
+No OS timers, no alarm re-arming. The `ResidentCoordinator` periodic tick
+inspects journals: any run whose `vendorBackoff` blocker has
+`wakeAfter <= now` wakes. This is reboot- and sleep-immune by construction —
+overdue parks resume at the next reconciliation. Honest availability
+boundary: if the Mac is asleep or the coordinator stopped, resume happens at
+next reconciliation; the promise is never "the Mac wakes itself at exactly
+4:20."
+
+- `wakeAfter = observedResetAt + anti-drift pad (≥2 min) + jitter (1–5 min)`;
+  normalize to a UTC instant immediately at parse (session tz labels drift —
+  Vienna→Madrid observed). Date-less times resolve to the next valid future
+  occurrence in the stated IANA timezone; DST/clock-jump/malformed/past/
+  absurd-future inputs all route to the unknown-reset path — never invent a
+  clock, never display a guessed time as vendor truth.
+- **Resume-attempt-as-probe**: on wake, send the real resume — a rejection
+  re-parks, a success is already working. No separate readiness ping. But no
+  "rejections are free" assumption: honor stated reset + `Retry-After`
+  always; unknown reset uses bounded exponential backoff with a max cadence,
+  a **hard max attempt count, then escalate to human**; single-flight per
+  source.
+- **Probe hardening**: every resume attempt runs under a strict short
+  timeout (~30s) and is tracked via `runtimeOwnership` so the reaper can
+  kill a hung probe. The resident engine resumes the run **directly** —
+  never by spawning a child `alln run` that could mint a second run.
+- **Source-scoped cooldown, not run-scoped.** Ten runs on one capped source
+  must not produce ten wake attempts. One cooldown fact per quota scope
+  (driver-provided where known: source/account/profile/model-family) lives
+  in `SourceCapacityLedger`; the **oldest parked run is the nominated
+  readiness attempt** — still limited updates the shared cooldown and the
+  rest stay parked; success releases the others gradually through normal
+  admission. Cooldown truth is retained **through the observed reset**
+  (weekly/monthly caps outlive any 12-hour lookback).
+
+## Resume
+
+Recreate the transport and resume the vendor session (proven on all five
+CLIs — see `archive/Worker_Session_Continuity.md`). If the vendor rejects
+the stored session (expired during a long park), fall back cleanly to a
+fresh session with a **bounded handoff**: original goal, prior-attempt
+summary, transcript reference, and the instruction to inspect current repo
+state. Then work; on another sourced limit, re-park (append a new attempt).
+
+## Substitution — authorized by provenance, never inferred
+
+"Chat hops, Execute waits" was wrong: default chat is mutating-allowed and
+safety must never be inferred from prompt prose. Substitution follows **how
+the worker was selected**:
+
+| Selection origin | Automatic substitution |
 | --- | --- |
-| Claude | 5h rolling window + weekly cap |
-| Kimi | 5h window |
-| Codex | weekly only (recently **dropped** its 5h window) |
-| Grok | weekly |
-| Cursor | monthly (plan-based) |
-| Qwen (CLI support pending) | **stacked**: ~6k req / rolling 5h (rolling-restore, not block reset) + ~45k req / week + 90k req / month — reported, verify at integration |
+| Auto/default selection | Same-tier compatible substitute when the existing Auto toggle is on |
+| Team preset with declared fallbacks | Follow the declared chain |
+| Explicitly named worker | Never silently hop — park and offer "Use another model" |
+| Substitutions off / unresolved | Wait for the same source |
 
-Qwen note: caps are request-counted, stacked, and rolling-restore — a shape
-no human governs by alarm clock, and exactly what this design absorbs
-unchanged (everything keys off `resumesAt` distance + the limit-event log).
-As a cheap high-headroom vendor it is the ideal Tier 2 hop target.
-Integration law: qwen ships via its own CLI login only — never the plan's
-API key (no-API-keys rule); if parts of the deal exist only at the key
-layer, those parts are out of scope.
+- A tier is a quality shelf, not a full equivalence map: candidates are
+  additionally filtered on tool/image/context/permission/write/model-family/
+  driver capability requirements.
+- Mutating work: the original worker must be **proven quiescent** (RLR-S04
+  ownership/settlement semantics) before another source starts; one source
+  executes at a time; keep a visited-source set and a bounded hop count —
+  never bounce between cooling vendors.
+- All of it flows through the existing SBDS resolver + `SeatReseat` — no
+  third substitution surface.
+- Product default: same-vendor continuation **always on**; cross-vendor
+  follows the table above.
 
-Two regimes, two strategies. **Short windows (hours):** waiting is viable —
-park + wake is the whole answer. **Long windows (week/month):** the reset is
-days away; parking is not a completion strategy, so **substitution (Tier 2)
-is the only way the job finishes** — for Grok/Cursor/Codex it is a must, not
-a nice-to-have. Window *shapes* are drifting (Codex just moved), but caps
-themselves are permanent — they are the economics of flat-rate subscriptions.
-Everything in this design except the wake timer is window-shape-agnostic: the
-limit classifier, the park blocker, the substitution trigger, and the
-limit-event log are the same durable facts whenever the window resets. Resume
-strategy keys off the observed `resumesAt` **distance**, never off a
-hardcoded "5h" assumption.
+## Scope — v1 is single-worker accepted runs only
 
-Honest claim:
+Answer teams already have one-shot reseating: a limited answer seat
+fail-softs (board proceeds with remaining answers, absence explicit to the
+plan writer) or reseats immediately — **never park a parallel round**.
+Parked-seat / partial-board settlement semantics are a later slice.
 
-> A run that hits a vendor usage limit **parks with a truthful blocker naming
-> the reset time**, is never reaped as dead, and **resumes itself** — same
-> vendor by default, substitute vendor by policy. Zero limit-caused dead runs.
+Moved out of RLC:
 
-## Design
+- **Tier 3 self-metering + cost advisor** — conflicts with the product law
+  "Observed usage only. No estimates." Parked as a separate idea on its own
+  law-compliant (retrospective, observed-facts) footing; nothing in RLC
+  productizes burn advice. Limit events are logged durably anyway (they are
+  the blocker facts).
+- **Qwen** — not supported (founder 2026-07-19: its subscription doesn't
+  include their best frontier models; trivial to add later if that changes).
+- **Detached `alln` binary-path bug** (dispatch spawns `<project>/alln`
+  cwd-relative; killed detached rounds in the field) — real, prerequisite,
+  but belongs to dispatch/runtime reliability, not RLC. Fix there: resolve
+  `argv[0]` via `realpath` at runtime and record the absolute path at
+  `alln bootstrap`; referenced here only because resume dispatch depends on
+  it.
+- Vendor-motive speculation and "they can't stop us" language — the bright
+  lines below are **enforced product policy**, not a legal argument.
 
-### Detection — the failing turn IS the notice
+Bright lines (never weakened): honor stated reset/`Retry-After`; never probe
+faster than the floor; jittered wakes; hard attempt caps; no multi-account,
+no client spoofing, no hammering.
 
-No polling is needed to *notice* a limit. Allnighter owns every worker's
-stream; when a turn dies on a limit, the evidence lands in the settlement path
-(stream-json error for Claude, ACP/app-server error for Grok/Cursor/Codex,
-stderr for cold CLIs). Add a per-driver **limit-signal classifier** at the
-point where a turn is already being classified as failed:
+## Product surface (RLC-S03)
 
-- Output: `rateLimited(vendor, resumesAt: Date?, raw: String)` instead of a
-  generic failure.
-- `resumesAt` is parsed when the vendor states it (Claude prints
-  "resets at 4:20pm (Europe/Vienna)" — parse time **and timezone**; observed
-  same-session drift Vienna→Madrid, so trust the instant, not the label).
-- Isolated per driver, same pattern as the warm dialects — vendor error text
-  will drift; keep each parser a small replaceable unit with fixture tests
-  from real captured transcripts (the one above is fixture #1).
+The notification loop **completes the founder story** — it is not polish:
 
-### Park — a first-class blocker fact on the RLR truth spine
-
-`rateLimited` is a **blocker**, not a terminal state, durable in the run
-journal like the S02 FIFO ticket facts:
-
-- **The watchdog/reaper must treat a parked run as legitimately quiet.** A
-  parked run has no activity by design; reaping it as stalled/orphaned would
-  be Allnighter killing the very run it is saving. This is why RLC waits for
-  RLR S03 activity truth — parked is a truth state, taught once.
-- Lane policy: the parked run **holds its FIFO ticket** by default (a
-  mutating order mid-flight must not lose its place or admit a competitor
-  onto the same lane). Revisit only with evidence.
-- Wire + GUI: `blocker{kind: rateLimited, resumesAt}` on the JSON/NDJSON
-  surface; Mac shows **"Parked — resumes ~4:20pm"** (amber, calm), never a
-  dead/stalled run.
-
-### Resume — the resume attempt IS the probe
-
-A 429/limit rejection happens **before any work is done and costs nothing
-against quota**. So there is no separate readiness ping: on schedule, send the
-real resume prompt; if it rejects, re-park; if it lands, work is already
-flowing. One mechanism, no wasted successful probe turns.
-
-Schedule:
-
-1. `resumesAt` known → **one wake at resumesAt + jitter (1–5 min)**. Zero
-   probes, maximally polite.
-2. `resumesAt` unknown → resume attempts on a slow fixed cadence
-   (~every 60 min, floor 30). Honor any `Retry-After` the vendor supplies.
-3. **Park horizon:** if `resumesAt` is beyond a user-configurable horizon
-   (default ~8h), silent parking is the wrong answer — a weekly/monthly cap
-   means the run would sit for days. Beyond the horizon, apply the Tier 2
-   substitution policy immediately (hop if allowed) or surface a loud
-   decision to the human ("Grok capped until Tuesday — substitute or hold?").
-   Within the horizon, park quietly and wake.
-
-Resume prompt by worker state:
-
-- **Warm worker still alive:** bare "continue" — the parked process is the
-  checkpoint (warm-worker investment pays again).
-- **Worker dead** (long park, process reaped, machine slept): resume via
-  vendor session continuity (`claude --resume <sessionId>` etc.). This makes
-  the open **Codex `vendorSessionId` capture gap load-bearing** — pull that
-  follow-up into this phase.
-- Momentum loss is bounded by commit granularity: agents commit as they go
-  (no-git-management model), so "continue" resumes from the last commit.
-
-### Tier 2 — substitution through the existing SBDS resolver
-
-Rate-limited is just **"down until T."** SBDS Auto already routes around a
-down CLI; fire the same resolver on the `rateLimited` blocker. For
-long-window vendors (Grok weekly, Cursor monthly, Codex weekly) this tier is
-**required for completion** — there is no "wait it out" when T is days away.
-No new settings surface:
-
-- The many-to-many **tier map = the equivalence map** (user-edits it on the
-  Default-model screen today).
-- The **Auto toggle = substitution ON/OFF** (OFF ⇒ always wait for the named
-  vendor).
-- New piece is **per-order-kind policy**: chat/plan/review work hops vendors
-  freely; a mutating Execute order mid-flight defaults to *wait for its own
-  vendor* (session + lane continuity), with hop-on-limit **opt-in**. In-flight
-  waste on a hop is acceptable to most users (fixed subscription cost —
-  "basically free AI") but must be their choice.
-
-### Tier 3 — self-metered headroom (later, emergent)
-
-Vendors do not expose remaining quota headless (deliberately). Allnighter
-doesn't need them to: it sends every turn and streams report token usage back.
-Self-metering gives a per-vendor lower-bound burn meter, and every observed
-limit + reset teaches the window shape. Pacing/scheduling ("Claude is running
-hot — drain light work, front-load heavy slices") falls out of Tier 1–2
-telemetry. Weekly/monthly budgets make this *more* valuable, not less: a 5h
-window forgives a burn mistake by dinnertime; blowing a monthly Cursor cap on
-day 9 hurts for three weeks — budget pacing becomes real money management. Not in scope for the first slices; just **log every limit event
-durably now** (vendor, timestamp, resumesAt, what was parked) so Tier 3 has
-history on day one.
-
-**Cost advisor (Tier 3 projection, separate idea — see memory/founder
-brainstorm 2026-07-19):** the same telemetry, joined with alln's *outcome*
-data (verify pass/fail, works-test results, retries — per model, per work
-kind, on the user's own repos), powers spend advice: "70% of your Claude
-spend was implementation work K3 verified 9/10 times — flip these tier
-entries, save ~$N/mo." The recommended fix is literally an SBDS tier-map
-edit, one click. Deliver it at the park moment ("Claude capped — substitute
-now + here's the edit that stops this recurring"). Trust law: rankings driven
-ONLY by the user's own measured usage/outcomes — never by affiliate
-relationships (affiliate links may ride along, disclosed, but must never
-touch the recommendation). Measured-on-your-repo success rates are the moat;
-vendor benchmark claims are not evidence.
-
-## Respectful by construction (ToS stance)
-
-Not circumvention — the user resuming the CLI they already paid for, at the
-vendor's own stated reset time, from their own authenticated login.
-Indistinguishable from a disciplined human with an alarm clock. Bright lines,
-enforced by design, never weakened:
-
-- Never probe faster than the floor (30–60 min); always honor stated
-  reset/`Retry-After`; jittered wakes.
-- Never hammer through a limit, never rotate accounts, never spoof clients.
-- Same-vendor resume is one prompt at human cadence; substitution uses a
-  different subscription the user also pays for.
-
-## Prerequisite fix (dogfooded the hard way)
-
-RLC-S00 — **detached dispatch must resolve the `alln` binary absolutely.**
-Field report 2026-07-19: detached/`--no-wait` dispatch spawns `alln` as a
-cwd-relative path (`<project>/alln`), so any detached dev turn from a project
-without a local symlink silently fails to start (reaped rounds #12/#13 and
-S3c.2 in the RLR pilot). Workaround in the wild: gitignored `alln` symlink in
-the project dir. Fix: resolve via absolute path/PATH at dispatch build time.
-Independent of everything else; land first. **Every RLC resume is a detached
-dispatch — resume cannot ship on a spawn path that only works by symlink.**
+- Run row: **"Waiting for Claude — resumes around 4:20"** with `Resume now`
+  / `Use another model` / `Cancel`.
+- One park notification ("Claude paused until ~4:20. No action needed."),
+  one recovery notification ("Claude resumed at 4:22."), completion as
+  normal.
+- **Morning receipt** — the growth artifact: "Allnighter covered 3h 12m of
+  vendor waiting and completed the run without intervention." Optional local
+  weekly summary (runs resumed, waits covered, interventions avoided) —
+  observed facts only, no estimates, nothing leaves the machine.
+- Activation demo: the fake-CLI two-minute-limit fixture run during
+  onboarding — a visibly pausing-and-resuming run sells the wedge better
+  than settings copy.
 
 ## Slices
 
 | Slice | Deliverable |
 | --- | --- |
-| RLC-S00 | Absolute `alln` binary resolution for detached/background dispatch (field fix; independent, land first) |
-| RLC-S01 | Per-driver limit-signal classifier at settlement → `rateLimited(vendor, resumesAt?)`; fixture tests from real transcripts; durable limit-event log |
-| RLC-S02 | Park truth: `rateLimited` blocker fact in journal + on the wire; watchdog/reaper treats parked as quiet-by-design; lane ticket held; Mac "Parked — resumes ~T" |
-| RLC-S03 | Wake scheduler + resume-attempt-as-probe: resumesAt+jitter wake, slow-cadence fallback, park-horizon policy (far reset → substitute/escalate, never silent multi-day park), warm "continue" path; re-park on repeat rejection |
-| RLC-S04 | Dead-worker resume via vendor session continuity (incl. closing the Codex `vendorSessionId` capture gap) |
-| RLC-S05 | Tier 2: `rateLimited` fires the SBDS resolver; per-order-kind hop policy (chat/plan hop free; mutating Execute opt-in); Auto toggle gates all substitution |
+| RLC-S01 | **Contract convergence**: `vendorBackoff` case on `RunBlocker.resource` + quota-scope fields; `attempts[]` on the RunRecord; lifecycle transitions frozen; `CapacityObservation` promoted as the only capacity truth (name what retires from the Pending path); redacted-snippet rule; classifier fixtures incl. negatives |
+| RLC-S02 | **Durable same-source continuation**: settle capacity event → close transport, release write lock, persist `wakeAfter`, coordinator-tick reconcile, reacquire lock, vendor-session resume (fresh-session fallback w/ bounded handoff), re-park on repeat; probe timeout + runtimeOwnership; source-scoped single-flight cooldown |
+| RLC-S03 | **Product surface**: park/resume statuses + actions, two notifications, morning receipt, onboarding fixture demo |
+| RLC-S04 | **Authorized substitution**: provenance table, capability filter, quiescence proof, visited-set + hop bound, one run id + sequential attempts |
 
-Works test (the honest-claim proof): fake CLI emits a limit error with a
-stated reset 2 minutes out → run parks with truthful blocker, survives a
-watchdog pass and an `alln ps` from another process, resumes itself at reset,
-settles. Then the same with no stated reset (cadence fallback), and once with
-substitution ON (worker hops, order completes on the substitute).
+## Works test / proof matrix
 
-## Open questions
+Core shape: fake CLI emits a limit with a stated reset 2 minutes out → run
+parks with truthful blocker, survives a watchdog pass and `alln ps` from
+another process, write lock is released and taken by an intervening run,
+wakes at reset, reacquires, resumes the vendor session, settles. Plus:
 
-- Park across machine sleep/reboot: wake scheduler must be re-armed from the
-  durable blocker on next Allnighter start (blocker is truth; timer is
-  projection — probably falls out of RLR reconcile, verify).
-- Does a parked run's held FIFO ticket starve unrelated same-lane work for
-  hours? Default = hold (safety), but surface it loudly in `alln ps`/GUI.
-- Multi-worker teams where only one seat parks: park the seat or the round?
-- Notification: push/menu-bar "Claude parked until 4:20pm — will resume" so
-  the human can choose to hop manually before the timer fires.
+- Known reset · `Retry-After` · unknown reset · malformed reset ·
+  false-positive text (model *discussing* rate limits) → no park.
+- Redaction: no secrets/prompt content in persisted diagnostics.
+- Repeated limit responses → bounded attempts, no retry loop, escalation.
+- Coordinator crash before wake / during wake claim / after spawn; two
+  coordinators attempting one wake (lease holds).
+- Mac sleep + clock jump → overdue reconciliation resumes correctly.
+- Cancel and manual substitution while parked.
+- Original worker not quiescent → substitution refused.
+- Auto substitution allowed; explicitly-named-worker substitution refused;
+  incompatible and already-visited substitutes rejected.
+- Weekly/monthly cooldown surviving beyond any short lookback.
+- N runs on one capped source → exactly one readiness attempt.
+
+## Appendix (nonbinding, observational): vendor window landscape
+
+Observed 2026-07-19; drifts — informs the short-vs-long-reset policy split,
+binds nothing:
+
+| Vendor | Window shape |
+| --- | --- |
+| Claude | 5h rolling window + weekly cap |
+| Kimi | 5h window |
+| Codex | weekly only (recently dropped its 5h window) |
+| Grok | weekly |
+| Cursor | monthly (plan-based) |
+
+Short resets (hours) → park + wake is the whole answer. Long resets
+(days) → parking is not a completion strategy; the substitution table or a
+loud human decision applies. Resume strategy always keys off the observed
+`wakeAfter` distance, never a hardcoded window shape.
