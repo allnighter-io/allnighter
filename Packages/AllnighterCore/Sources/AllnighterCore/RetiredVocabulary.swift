@@ -95,6 +95,30 @@ public enum RetiredVocabulary {
     ]
     /// END livingDocDenyPatterns
 
+    // MARK: - Enumerated flag-value deny (AE-S06)
+
+    /// Phrases that must never appear in `FlagSpec.summary` / `ArgSpec.summary`
+    /// (generated docs teach these as enum values). Extends ASF deny-list from
+    /// command names to enumerated flag values.
+    public static let retiredFlagValuePhrases: [String] = [
+        "build | design | copy",
+        "build|design|copy",
+        "build | design | copy |",
+    ]
+
+    /// First retired flag-value phrase found in `text`, or nil.
+    public static func flagSummaryContainsRetiredValue(_ text: String) -> String? {
+        let lower = text.lowercased()
+        for phrase in retiredFlagValuePhrases {
+            if lower.contains(phrase.lowercased()) { return phrase }
+        }
+        // Lone dead lane token when presented as an enum alternative.
+        if lower.contains("build |") || lower.contains("| build") || lower.contains("|build|") {
+            return "build (as lane enum)"
+        }
+        return nil
+    }
+
     // MARK: - Matching helpers
 
     /// Case-fold match for deny terms, except `dryRun` which is case-sensitive

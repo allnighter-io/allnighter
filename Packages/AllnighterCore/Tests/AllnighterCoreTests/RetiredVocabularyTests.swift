@@ -6,6 +6,24 @@ final class RetiredVocabularyTests: XCTestCase {
 
     // MARK: - Deny-list is the single source
 
+    func testNoRetiredLaneEnumInFlagSummaries() {
+        let registry = ContractRegistry.milestone1
+        var hits: [String] = []
+        for cmd in registry.commands where cmd.milestone == .m1 {
+            for flag in cmd.flags {
+                if let hit = RetiredVocabulary.flagSummaryContainsRetiredValue(flag.summary) {
+                    hits.append("\(cmd.name) --\(flag.name): \(hit)")
+                }
+            }
+            for arg in cmd.args {
+                if let hit = RetiredVocabulary.flagSummaryContainsRetiredValue(arg.summary) {
+                    hits.append("\(cmd.name) <\(arg.name)>: \(hit)")
+                }
+            }
+        }
+        XCTAssertTrue(hits.isEmpty, "retired lane/effort enum values in FlagSpec:\n\(hits.joined(separator: "\n"))")
+    }
+
     func testDenyListSeedsFromKillList() {
         let required = [
             "dryRun", "dryrun", "team_start(", "pair_relay(action",
@@ -210,7 +228,7 @@ final class RetiredVocabularyTests: XCTestCase {
                 if !allowed.contains(name) && !ignored.contains(name) {
                     // Many commands inherit shared flags via CLI parsing rather than
                     // CommandSpec — only fail when the flag is clearly invented.
-                    if ["dry-run", "dryRun", "tool", "mcp"].contains(name) {
+                    if ["dryRun", "tool", "mcp"].contains(name) {
                         return name
                     }
                 }

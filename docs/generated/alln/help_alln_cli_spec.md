@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 1.5.1, schemaVersion 1).
+Generated from the contract registry (contractVersion 1.5.2, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -402,7 +402,7 @@ Examples: `skills_duplicate_json`.
 Create a custom skill.
 
 Flags:
-- `--lane <lane>` — build | design | copy.
+- `--lane <lane>` — code | design | copy | signal.
 - `--name <string>` — Display name.
 - `--purpose <purpose>` — answer | review | planWriter.
 - `--template-file <path>` — Skill template text file.
@@ -465,7 +465,7 @@ Flags:
 Validate lane/team/effort against the ready bench without running.
 
 Flags:
-- `--lane <lane>` — build | design | copy.
+- `--lane <lane>` — code | design | copy | signal.
 - `--team <id>` — Team id.
 - `--effort <effort>` — low | med | high.
 - `--type <type>` — Copy-only routing sugar.
@@ -478,7 +478,7 @@ Arguments:
 - `prompt` (optional) — The prompt (or use --file).
 
 Flags:
-- `--lane <lane>` — build | design | copy.
+- `--lane <lane>` — code | design | copy | signal.
 - `--team <id>` — Team id.
 - `--effort <effort>` — low | med | high.
 - `--type <type>` — Copy-only routing sugar.

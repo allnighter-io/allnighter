@@ -984,7 +984,7 @@
       "flags" : [
         {
           "name" : "lane",
-          "summary" : "build | design | copy.",
+          "summary" : "code | design | copy | signal.",
           "takesValue" : true,
           "valueType" : "lane"
         },
@@ -1193,7 +1193,7 @@
       "flags" : [
         {
           "name" : "lane",
-          "summary" : "build | design | copy.",
+          "summary" : "code | design | copy | signal.",
           "takesValue" : true,
           "valueType" : "lane"
         },
@@ -1239,7 +1239,7 @@
       "flags" : [
         {
           "name" : "lane",
-          "summary" : "build | design | copy.",
+          "summary" : "code | design | copy | signal.",
           "takesValue" : true,
           "valueType" : "lane"
         },
@@ -3916,7 +3916,7 @@
       "summary" : "Approve iOS\/Mac pairing."
     }
   ],
-  "contractVersion" : "1.5.1",
+  "contractVersion" : "1.5.2",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

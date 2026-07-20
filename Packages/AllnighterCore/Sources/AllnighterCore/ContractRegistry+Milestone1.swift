@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "1.5.1"
+    static let contractVersion = "1.5.2"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -263,7 +263,7 @@ public extension ContractRegistry {
         CommandSpec(
             "skills new", summary: "Create a custom skill.", milestone: .m1,
             flags: [
-                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "build | design | copy."),
+                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "code | design | copy | signal."),
                 FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name."),
                 FlagSpec("purpose", takesValue: true, valueType: "purpose", summary: "answer | review | planWriter."),
                 FlagSpec("template-file", takesValue: true, valueType: "path", summary: "Skill template text file."),
@@ -329,7 +329,7 @@ public extension ContractRegistry {
         CommandSpec(
             "team preflight", summary: "Validate lane/team/effort against the ready bench without running.", milestone: .m1,
             flags: [
-                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "build | design | copy."),
+                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "code | design | copy | signal."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
@@ -339,7 +339,7 @@ public extension ContractRegistry {
             "team start", summary: "Start a resumable/asynchronous team run.", milestone: .m1,
             args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
             flags: [
-                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "build | design | copy."),
+                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "code | design | copy | signal."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
