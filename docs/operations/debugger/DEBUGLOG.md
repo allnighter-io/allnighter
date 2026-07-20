@@ -16,6 +16,19 @@ Deferred proof:
 Pattern candidate:
 ```
 
+## 2026-07-20 - ordinary project run + repeated TCC protected-folder dialogs + explicit Documents repoRoot / missing TCC-to-spawn receipt
+
+Tier: T3 Critical (repeated macOS permission regression; founder saw approximately ten dialogs)
+Symptom: macOS again showed repeated Documents/Downloads/network-volume-class permission dialogs attributed to Allnighter. The exact action and popup timestamps are missing. The strongest local correlation is ten identical Kimi K3 runs from 15:53:20Z–15:54:47Z on 2026-07-19; all used `/Users/mike/Documents/GitHub/websitemd.studio` as CWD and failed with Kimi's 403 usage-limit response.
+Truth owner: macOS TCC audit events own the prompting process/path; `Project.repoRoot` owns ordinary-run CWD; `WorkerInvocation` + `spawnDiagnostics` own standard worker command/CWD receipts; route-specific direct spawners own OpenCode serve and warm ACP facts.
+Lie-prone layer: The green no-root `WorkerRunnerCWDTests` looks like TCC proof, but ordinary project runs now always pass repoRoot. `AllnighterSpawnEnvironmentPolicy` owns env only and direct `Foundation.Process` paths can bypass it. The dialog's “Allnighter” label does not identify the responsible child.
+RCA: Proven structural cause is proof-boundary drift/new authority path: `2f57af74` fixed nil/inherited CWD, then the Unified Run Model and `765611d4` deliberately moved repo-aware workers into the real repo root. `e617a97d` preserved the CWD resolution rule and focused tests remain green. Event-level RCA is still open because TCC timestamps/audit tokens are unavailable. The exact ten Kimi receipts strongly correlate but do not prove Kimi-specific access.
+Fix boundary: Do not patch the Kimi manifest, restore blind ProbeScratch runs, or add Full Disk Access. Build the mandatory signed-app TCC isolation harness, then define one spawn-authority contract (operation class + effective CWD + env + receipt) across standard AgentOS workers, OpenCode serve/direct helpers, warm ACP, probes, and detached runners. Separately prove durable user authorization for a registered project under a protected root.
+Proof: `swift test --disable-sandbox --package-path Packages/AllnighterCore --filter 'LaunchAuthorityProbeTests|WorkerRunnerCWDTests'` passed 12/12 on 2026-07-20. This proves current probe/no-root/explicit-CWD policy, not TCC behavior. Full packet: `docs/operations/debugger/2026-07-20-macos-tcc-popups-returned-packet.md`.
+Deferred proof: Popup timestamps/action/decision; TCC audit-token ancestry; Kimi-vs-other-CLI A/B under one signed app and identical protected CWD; OpenCode serve inherited-CWD harness; warm ACP comparison. The sandbox cannot run `/usr/bin/log show` for TCC. No wall-reachable signed-app TCC kill command exists yet.
+Pattern candidate: A mock asserting the CWD string is not TCC proof. Any change that makes a previously rootless worker project-scoped must extend the signed-app TCC harness to the explicit protected-root path and audit every direct process launcher outside the shared worker adapter.
+What was the agent allowed to do that must never be allowed again: Change ordinary chat from rootless/scratch to mandatory repo-root execution while leaving the old no-root CWD unit test presented as the permission-regression proof.
+
 ## 2026-06-24 - Apps/AllnighteriOS TestFlight old screen survived fixes because archive used another worktree
 
 Tier: T3 Critical (same repeated TestFlight launch regression after multiple failed fixes)
