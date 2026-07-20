@@ -114,6 +114,80 @@ public enum CLIUsage {
         return nil
     }
 
+    /// Registry-owned flag mode / companion violations (SH-S04 / Law 6).
+    /// Covers mutual-exclusion groups plus `requires` / `onlyWith` constraints.
+    public struct FlagConstraintError: Equatable, Sendable {
+        public var commandName: String
+        public var message: String
+        public var subject: String?
+        public var peers: [String]
+
+        public init(commandName: String, message: String, subject: String? = nil, peers: [String] = []) {
+            self.commandName = commandName
+            self.message = message
+            self.subject = subject
+            self.peers = peers
+        }
+    }
+
+    /// Fail closed on registry constraints before dry-run / run / provider start.
+    /// Returns the first violation, or nil when the present flag set is legal.
+    public static func validateFlagConstraints(
+        args: [String],
+        commandName: String,
+        registry: ContractRegistry = .milestone1
+    ) -> FlagConstraintError? {
+        guard let spec = registry.commands.first(where: { $0.name == commandName && $0.milestone == .m1 }) else {
+            return nil
+        }
+        let present = Set(parsedFlagNames(from: args, commandName: commandName, registry: registry))
+
+        for group in spec.mutuallyExclusiveFlags {
+            let hit = group.filter { present.contains($0) }
+            guard hit.count >= 2 else { continue }
+            let labels = hit.map { "--\($0)" }
+            let message: String
+            if labels.count == 2 {
+                message = "\(labels[0]) and \(labels[1]) are mutually exclusive"
+            } else {
+                message = "\(labels.joined(separator: ", ")) are mutually exclusive"
+            }
+            return FlagConstraintError(
+                commandName: commandName,
+                message: message,
+                subject: hit.first,
+                peers: Array(hit.dropFirst())
+            )
+        }
+
+        for constraint in spec.flagConstraints {
+            guard present.contains(constraint.subject) else { continue }
+            switch constraint.kind {
+            case .requires:
+                let missing = constraint.peers.filter { !present.contains($0) }
+                guard !missing.isEmpty else { continue }
+                let needed = missing.map { "--\($0)" }.joined(separator: " and ")
+                return FlagConstraintError(
+                    commandName: commandName,
+                    message: "--\(constraint.subject) requires \(needed)",
+                    subject: constraint.subject,
+                    peers: missing
+                )
+            case .onlyWith:
+                let ok = constraint.peers.contains { present.contains($0) }
+                guard !ok else { continue }
+                let companions = constraint.peers.map { "--\($0)" }.joined(separator: " or ")
+                return FlagConstraintError(
+                    commandName: commandName,
+                    message: "--\(constraint.subject) is only valid with \(companions)",
+                    subject: constraint.subject,
+                    peers: constraint.peers
+                )
+            }
+        }
+        return nil
+    }
+
     /// Edit-distance nearest flag names (top `limit`), for did-you-mean recovery.
     public static func nearestFlagMatches(to flag: String, in candidates: [String], limit: Int = 3) -> [String] {
         guard !candidates.isEmpty, limit > 0 else { return [] }

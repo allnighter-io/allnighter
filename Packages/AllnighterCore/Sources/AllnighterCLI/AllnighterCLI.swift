@@ -23,9 +23,14 @@ struct AllnighterCLI {
         }
 
         // AE-S12: fail closed on unknown flags before any handler spends quota.
-        if let cmdName = CLIUsage.resolveCommandName(rootCommand: command, args: args),
-           let bad = CLIUsage.validateFlags(args: args, commandName: cmdName) {
-            fail(code: "UNKNOWN_FLAG", message: bad.message)
+        // SH-S04: registry mutual-exclusion / requires / onlyWith before dry-run/run.
+        if let cmdName = CLIUsage.resolveCommandName(rootCommand: command, args: args) {
+            if let bad = CLIUsage.validateFlags(args: args, commandName: cmdName) {
+                fail(code: "UNKNOWN_FLAG", message: bad.message)
+            }
+            if let bad = CLIUsage.validateFlagConstraints(args: args, commandName: cmdName) {
+                fail(code: "CLI_USAGE_ERROR", message: bad.message)
+            }
         }
 
         let runtime = ToolRuntime()

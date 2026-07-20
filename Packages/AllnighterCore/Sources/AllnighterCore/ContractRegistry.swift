@@ -262,6 +262,32 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         }
     }
 
+    /// Mode / companion requirements beyond mutual exclusion (SH-S04 / Law 6).
+    /// `mutuallyExclusiveFlags` stays the exclusive-group owner; this owns
+    /// `requires` (all companions) and `onlyWith` (at least one companion).
+    public struct FlagConstraint: Codable, Sendable, Equatable {
+        public enum Kind: String, Codable, Sendable, Equatable {
+            /// If `subject` is present, every flag in `peers` must also be present.
+            case requires
+            /// If `subject` is present, at least one flag in `peers` must also be present.
+            case onlyWith
+        }
+
+        public var kind: Kind
+        public var subject: String
+        public var peers: [String]
+
+        public init(_ kind: Kind, _ subject: String, _ peers: [String]) {
+            self.kind = kind
+            self.subject = subject
+            self.peers = peers
+        }
+
+        public init(_ kind: Kind, _ subject: String, _ peer: String) {
+            self.init(kind, subject, [peer])
+        }
+    }
+
     public struct CommandSpec: Codable, Sendable, Equatable {
         public var name: String                       // full path, e.g. "doctor explain"
         public var summary: String
@@ -275,6 +301,8 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public var args: [ArgSpec]
         public var flags: [FlagSpec]
         public var mutuallyExclusiveFlags: [[String]]
+        /// Companion / mode requirements (`requires`, `onlyWith`). SH-S04.
+        public var flagConstraints: [FlagConstraint]
         public var outputSchema: OutputSchema
         public var exampleIds: [String]
         /// AE-S04: true when invoking this command may spend model quota.
@@ -297,6 +325,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
             args: [ArgSpec] = [],
             flags: [FlagSpec] = [],
             mutuallyExclusiveFlags: [[String]] = [],
+            flagConstraints: [FlagConstraint] = [],
             outputSchema: OutputSchema = .none,
             exampleIds: [String] = [],
             spendsQuota: Bool = false,
@@ -309,6 +338,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
             self.trigger = trigger; self.example = example; self.antiExample = antiExample
             self.args = args; self.flags = flags
             self.mutuallyExclusiveFlags = mutuallyExclusiveFlags
+            self.flagConstraints = flagConstraints
             self.outputSchema = outputSchema; self.exampleIds = exampleIds
             self.spendsQuota = spendsQuota
             self.freeTwinCommand = freeTwinCommand
@@ -319,12 +349,12 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
 
         private enum CodingKeys: String, CodingKey {
             case name, summary, trigger, example, antiExample, milestone, args, flags
-            case mutuallyExclusiveFlags, outputSchema, exampleIds, spendsQuota, freeTwinCommand
+            case mutuallyExclusiveFlags, flagConstraints, outputSchema, exampleIds, spendsQuota, freeTwinCommand
             case visibility, menuAction, effects
         }
 
         /// Tolerant decode: pre-1.7.0 artifacts without visibility/menuAction/effects
-        /// read as public / false / inferred.
+        /// read as public / false / inferred; pre-SH-S04 without `flagConstraints` → [].
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             name = try c.decode(String.self, forKey: .name)
@@ -336,6 +366,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
             args = try c.decodeIfPresent([ArgSpec].self, forKey: .args) ?? []
             flags = try c.decodeIfPresent([FlagSpec].self, forKey: .flags) ?? []
             mutuallyExclusiveFlags = try c.decodeIfPresent([[String]].self, forKey: .mutuallyExclusiveFlags) ?? []
+            flagConstraints = try c.decodeIfPresent([FlagConstraint].self, forKey: .flagConstraints) ?? []
             outputSchema = try c.decodeIfPresent(OutputSchema.self, forKey: .outputSchema) ?? .none
             exampleIds = try c.decodeIfPresent([String].self, forKey: .exampleIds) ?? []
             spendsQuota = try c.decodeIfPresent(Bool.self, forKey: .spendsQuota) ?? false

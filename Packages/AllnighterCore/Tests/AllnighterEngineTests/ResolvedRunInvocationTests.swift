@@ -190,6 +190,8 @@ final class ResolvedRunInvocationTests: XCTestCase {
     }
 
     func testValueFlagsSurviveInArgvTemplate() {
+        // Mode-scoped flags (executor / thread ids) are exercised in dedicated
+        // mode tests below — dry-run must not accept them without companions.
         let dry = resolve(
             flags: .init(
                 workerId: "model_sonnet",
@@ -200,16 +202,12 @@ final class ResolvedRunInvocationTests: XCTestCase {
                 json: true,
                 commitMessage: "secret commit",
                 proofCommand: "swift test",
-                executorTeamId: "build_slice",
                 idleTimeoutSeconds: 600,
                 handshakeTimeoutSeconds: 60,
                 firstActivityTimeoutSeconds: 30,
                 wallTimeoutSeconds: 3600,
                 idempotencyKey: "idem-1",
                 retryOf: "run_prior",
-                threadId: "thread_1",
-                conversationId: "conv_1",
-                messageId: "msg_1",
                 agent: "agent_x"
             )
         )
@@ -226,10 +224,6 @@ final class ResolvedRunInvocationTests: XCTestCase {
         XCTAssertTrue(argv.contains("--retry-of") && argv.contains("run_prior"))
         XCTAssertTrue(argv.contains("--commit-message") && argv.contains("{commitMessage}"))
         XCTAssertTrue(argv.contains("--proof") && argv.contains("{proof}"))
-        XCTAssertTrue(argv.contains("--executor") && argv.contains("build_slice"))
-        XCTAssertTrue(argv.contains("--thread-id") && argv.contains("thread_1"))
-        XCTAssertTrue(argv.contains("--conversation-id") && argv.contains("conv_1"))
-        XCTAssertTrue(argv.contains("--message-id") && argv.contains("msg_1"))
         XCTAssertTrue(argv.contains("--agent") && argv.contains("agent_x"))
 
         XCTAssertEqual(dry.templateVariables["context"], "secret context prose")
@@ -244,6 +238,54 @@ final class ResolvedRunInvocationTests: XCTestCase {
         XCTAssertTrue(substituted.contains("secret commit"))
         XCTAssertTrue(substituted.contains("swift test"))
         assertNoDroppedSelectors(dry, worker: "model_sonnet")
+    }
+
+    func testDetachOnlyFlagsSurviveInDetachMode() {
+        let detach = resolve(
+            mode: .detach,
+            flags: .init(
+                workerId: "model_sonnet",
+                json: true,
+                threadId: "thread_1",
+                conversationId: "conv_1",
+                messageId: "msg_1"
+            )
+        )
+        XCTAssertTrue(detach.argvTemplate.contains("--detach"))
+        XCTAssertTrue(detach.argvTemplate.contains("--thread-id") && detach.argvTemplate.contains("thread_1"))
+        XCTAssertTrue(detach.argvTemplate.contains("--conversation-id") && detach.argvTemplate.contains("conv_1"))
+        XCTAssertTrue(detach.argvTemplate.contains("--message-id") && detach.argvTemplate.contains("msg_1"))
+        assertNoDroppedSelectors(detach, worker: "model_sonnet")
+    }
+
+    func testExecutorSurvivesInTryFixMode() {
+        let tryFix = resolve(
+            mode: .tryFix,
+            flags: .init(
+                workerId: "model_sonnet",
+                json: true,
+                executorTeamId: "build_slice"
+            )
+        )
+        XCTAssertTrue(tryFix.argvTemplate.contains("--try-fix"))
+        XCTAssertTrue(tryFix.argvTemplate.contains("--executor") && tryFix.argvTemplate.contains("build_slice"))
+        assertNoDroppedSelectors(tryFix, worker: "model_sonnet")
+    }
+
+    func testAcceptSurvivorsSurvivesWithRetryOfAcrossModes() {
+        for mode in [RunInvocationFlagMode.dryRun, .foreground, .detach, .tryFix] {
+            let inv = resolve(
+                mode: mode,
+                flags: .init(
+                    workerId: "model_sonnet",
+                    json: true,
+                    acceptSurvivors: true,
+                    retryOf: "run_prior"
+                )
+            )
+            XCTAssertTrue(inv.argvTemplate.contains("--accept-survivors"), "\(mode)")
+            XCTAssertTrue(inv.argvTemplate.contains("--retry-of") && inv.argvTemplate.contains("run_prior"), "\(mode)")
+        }
     }
 
     func testBooleanFlagsSurviveInArgvTemplate() {

@@ -18,6 +18,9 @@
       "exampleIds" : [
         "docs_all"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "errors",
@@ -62,6 +65,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -101,6 +107,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -133,6 +142,9 @@
       },
       "exampleIds" : [
         "doctor_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -202,6 +214,9 @@
       "exampleIds" : [
         "doctor_explain"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -233,6 +248,9 @@
       },
       "exampleIds" : [
         "bootstrap_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -272,6 +290,9 @@
       "exampleIds" : [
         "version_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -303,6 +324,9 @@
       },
       "exampleIds" : [
         "install_cli_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -346,6 +370,9 @@
       },
       "exampleIds" : [
         "models_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -394,6 +421,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -430,6 +460,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -460,6 +493,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -527,6 +563,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "name",
@@ -581,6 +620,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -612,6 +654,9 @@
       },
       "exampleIds" : [
         "teams_code_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -664,6 +709,9 @@
       },
       "exampleIds" : [
         "thread_send_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -726,6 +774,9 @@
       "exampleIds" : [
         "thread_get_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -766,6 +817,9 @@
       },
       "exampleIds" : [
         "thread_rename_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -814,6 +868,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -850,6 +907,9 @@
       "exampleIds" : [
         "thread_status_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -881,6 +941,9 @@
       },
       "exampleIds" : [
         "skills_code_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -924,6 +987,9 @@
       "exampleIds" : [
         "skills_show_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -959,6 +1025,9 @@
       },
       "exampleIds" : [
         "teams_show_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -996,6 +1065,9 @@
       "exampleIds" : [
         "teams_definition_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -1031,6 +1103,9 @@
       },
       "exampleIds" : [
         "teams_duplicate_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -1074,6 +1149,9 @@
       "exampleIds" : [
         "teams_edit_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "file",
@@ -1116,6 +1194,9 @@
       "exampleIds" : [
         "teams_set_default_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -1151,6 +1232,9 @@
       },
       "exampleIds" : [
         "teams_delete_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -1188,6 +1272,9 @@
       "exampleIds" : [
         "teams_restore_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -1223,6 +1310,9 @@
       },
       "exampleIds" : [
         "skills_duplicate_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -1261,6 +1351,9 @@
       },
       "exampleIds" : [
         "skills_new_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -1322,6 +1415,9 @@
       "exampleIds" : [
         "skills_edit_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "name",
@@ -1370,6 +1466,9 @@
       "exampleIds" : [
         "skills_delete_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -1404,6 +1503,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -1454,6 +1556,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -1488,6 +1593,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -1526,6 +1634,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "all-projects",
@@ -1561,6 +1672,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -1602,6 +1716,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -1646,6 +1763,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "dry-run",
@@ -1688,6 +1808,43 @@
       "example" : "alln run \"summarize AGENTS.md\" --project . --json",
       "exampleIds" : [
         "run_detach_json"
+      ],
+      "flagConstraints" : [
+        {
+          "kind" : "onlyWith",
+          "peers" : [
+            "detach"
+          ],
+          "subject" : "thread-id"
+        },
+        {
+          "kind" : "onlyWith",
+          "peers" : [
+            "detach"
+          ],
+          "subject" : "conversation-id"
+        },
+        {
+          "kind" : "onlyWith",
+          "peers" : [
+            "detach"
+          ],
+          "subject" : "message-id"
+        },
+        {
+          "kind" : "onlyWith",
+          "peers" : [
+            "try-fix"
+          ],
+          "subject" : "executor"
+        },
+        {
+          "kind" : "requires",
+          "peers" : [
+            "retry-of"
+          ],
+          "subject" : "accept-survivors"
+        }
       ],
       "flags" : [
         {
@@ -1906,6 +2063,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -1938,6 +2098,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -1968,6 +2131,9 @@
         "workerStart" : "dependsOnFlags"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -2044,6 +2210,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "relay",
@@ -2080,6 +2249,9 @@
         "workerStart" : "dependsOnFlags"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -2138,6 +2310,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "relay",
@@ -2192,6 +2367,9 @@
         "workerStart" : "dependsOnFlags"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -2254,6 +2432,9 @@
         "workerStart" : "dependsOnFlags"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -2339,6 +2520,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "relay",
@@ -2375,6 +2559,9 @@
         "workerStart" : "dependsOnFlags"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -2415,6 +2602,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "relay",
@@ -2451,6 +2641,9 @@
         "workerStart" : "dependsOnFlags"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -2495,6 +2688,9 @@
         "workerStart" : "dependsOnFlags"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -2559,6 +2755,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "panel",
@@ -2614,6 +2813,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "panel",
@@ -2652,6 +2854,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "panel",
@@ -2688,6 +2893,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -2732,6 +2940,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -2782,6 +2993,9 @@
       "exampleIds" : [
         "show_latest_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -2823,6 +3037,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -2858,6 +3075,9 @@
       },
       "exampleIds" : [
         "spec_full"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -2902,6 +3122,9 @@
       "exampleIds" : [
         "export_md"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "defaultValue" : "md",
@@ -2940,6 +3163,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -2972,6 +3198,9 @@
       "exampleIds" : [
         "export_contracts_check"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "check",
@@ -3003,6 +3232,9 @@
       },
       "exampleIds" : [
         "serve_health_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -3044,6 +3276,9 @@
       },
       "exampleIds" : [
         "pending_add_json"
+      ],
+      "flagConstraints" : [
+
       ],
       "flags" : [
         {
@@ -3118,6 +3353,9 @@
       "exampleIds" : [
         "pending_list_json"
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -3148,6 +3386,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -3186,6 +3427,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -3222,6 +3466,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -3256,6 +3503,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -3336,6 +3586,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "before",
@@ -3390,6 +3643,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -3424,6 +3680,9 @@
         "workerStart" : "dependsOnFlags"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -3467,6 +3726,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "all",
@@ -3506,6 +3768,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -3550,6 +3815,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -3584,6 +3852,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -3622,6 +3893,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -3656,6 +3930,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -3694,6 +3971,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -3728,6 +4008,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -3765,6 +4048,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -3808,6 +4094,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -3842,6 +4131,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -3887,6 +4179,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -3921,6 +4216,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -3959,6 +4257,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -3995,6 +4296,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -4025,6 +4329,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -4063,6 +4370,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -4097,6 +4407,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -4155,6 +4468,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "tier",
@@ -4197,6 +4513,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -4227,6 +4546,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -4261,6 +4583,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -4291,6 +4616,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -4347,6 +4675,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -4377,6 +4708,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -4421,6 +4755,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "defaultValue" : "5",
@@ -4462,6 +4799,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [
@@ -4515,6 +4855,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
         {
           "name" : "json",
@@ -4547,6 +4890,9 @@
       "exampleIds" : [
 
       ],
+      "flagConstraints" : [
+
+      ],
       "flags" : [
 
       ],
@@ -4573,6 +4919,9 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
 
       ],
       "flags" : [

@@ -568,6 +568,16 @@ Mutually exclusive: `--detach`, `--stream`.
 
 Mutually exclusive: `--detach`, `--try-fix`.
 
+Only with: `--thread-id` only with `--detach`.
+
+Only with: `--conversation-id` only with `--detach`.
+
+Only with: `--message-id` only with `--detach`.
+
+Only with: `--executor` only with `--try-fix`.
+
+Requires: `--accept-survivors` requires `--retry-of`.
+
 Output schema: `teamRunJSON`.
 
 Examples: `run_detach_json`.

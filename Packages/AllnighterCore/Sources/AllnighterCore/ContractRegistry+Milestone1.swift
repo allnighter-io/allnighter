@@ -396,7 +396,24 @@ public extension ContractRegistry {
                 FlagSpec("json", summary: "Emit TeamRunJSON (or RunDryRunJSON with --dry-run; TeamStartResponse with --detach)."),
                 FlagSpec("stream", summary: "Emit NDJSON events."),
             ],
-            mutuallyExclusiveFlags: [["json", "stream"], ["no-commit", "commit-message"], ["dry-run", "stream"], ["dry-run", "try-fix"], ["detach", "stream"], ["detach", "try-fix"]],
+            mutuallyExclusiveFlags: [
+                ["json", "stream"],
+                ["no-commit", "commit-message"],
+                ["dry-run", "stream"],
+                ["dry-run", "try-fix"],
+                ["detach", "stream"],
+                ["detach", "try-fix"],
+            ],
+            flagConstraints: [
+                // Detach-only provenance ids (ignored outside --detach before SH-S04).
+                FlagConstraint(.onlyWith, "thread-id", "detach"),
+                FlagConstraint(.onlyWith, "conversation-id", "detach"),
+                FlagConstraint(.onlyWith, "message-id", "detach"),
+                // Try-fix companion.
+                FlagConstraint(.onlyWith, "executor", "try-fix"),
+                // Retry companion.
+                FlagConstraint(.requires, "accept-survivors", "retry-of"),
+            ],
             outputSchema: .teamRunJSON,
             exampleIds: ["run_detach_json"],
             spendsQuota: true,

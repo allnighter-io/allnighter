@@ -33,19 +33,11 @@ enum RunCLI {
             exit(2)
         }
 
+        // Flag mutual-exclusion / requires / onlyWith are owned by ContractRegistry
+        // and gated in `AllnighterCLI.main` via `CLIUsage.validateFlagConstraints`
+        // before this handler runs (SH-S04 / Law 6).
         let noCommit = opts.flag("no-commit")
         let commitMessage = opts.value("commit-message")
-        if noCommit, commitMessage != nil {
-            FileHandle.standardError.write(Data(
-                "usage: --no-commit and --commit-message are mutually exclusive\n".utf8))
-            exit(2)
-        }
-        if opts.flag("dry-run"), opts.flag("stream") {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--dry-run and --stream are mutually exclusive")
-        }
-        if opts.flag("dry-run"), opts.flag("try-fix") {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--dry-run and --try-fix are mutually exclusive")
-        }
 
         let store = ProjectStore()
         let project: Project
@@ -97,12 +89,6 @@ enum RunCLI {
         }
 
         if opts.flag("detach") {
-            if opts.flag("stream") {
-                AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--detach and --stream are mutually exclusive")
-            }
-            if opts.flag("try-fix") {
-                AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--detach and --try-fix are mutually exclusive")
-            }
             await runDetached(
                 message: message,
                 project: project,

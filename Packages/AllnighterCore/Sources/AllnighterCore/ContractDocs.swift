@@ -42,6 +42,16 @@ public enum ContractDocs {
                 line("Mutually exclusive: \(group.map { "`--\($0)`" }.joined(separator: ", ")).")
                 line()
             }
+            for constraint in c.flagConstraints {
+                let peers = constraint.peers.map { "`--\($0)`" }.joined(separator: ", ")
+                switch constraint.kind {
+                case .requires:
+                    line("Requires: `--\(constraint.subject)` requires \(peers).")
+                case .onlyWith:
+                    line("Only with: `--\(constraint.subject)` only with \(peers).")
+                }
+                line()
+            }
             if c.outputSchema != .none {
                 line("Output schema: `\(c.outputSchema.rawValue)`.")
                 line()

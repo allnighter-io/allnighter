@@ -66,7 +66,7 @@ final class ContractRegistryTests: XCTestCase {
         }
     }
 
-    /// Mutually-exclusive flag names must actually be declared on the command.
+    /// Mutually-exclusive / requires / onlyWith flag names must actually be declared.
     func testMutualExclusionsReferenceRealFlags() {
         for command in reg.commands {
             let declared = Set(command.flags.map(\.name))
@@ -75,11 +75,22 @@ final class ContractRegistryTests: XCTestCase {
                     XCTAssertTrue(declared.contains(flag), "\(command.name) mutual-exclusion references unknown flag \(flag)")
                 }
             }
+            for constraint in command.flagConstraints {
+                XCTAssertTrue(declared.contains(constraint.subject),
+                              "\(command.name) constraint subject unknown: \(constraint.subject)")
+                for peer in constraint.peers {
+                    XCTAssertTrue(declared.contains(peer),
+                                  "\(command.name) constraint peer unknown: \(peer)")
+                }
+            }
         }
         // The contract's M1 mutual exclusion on run: --json | --stream (plus dry-run / detach pairs).
         let run = reg.commands.first { $0.name == "run" }
         XCTAssertTrue(run?.mutuallyExclusiveFlags.contains(["json", "stream"]) == true)
         XCTAssertTrue(run?.mutuallyExclusiveFlags.contains(["detach", "stream"]) == true)
+        XCTAssertTrue(run?.flagConstraints.contains(where: {
+            $0.subject == "executor" && $0.kind == .onlyWith && $0.peers == ["try-fix"]
+        }) == true)
     }
 
     /// Every emitted error code carries the recovery metadata the ladder needs.
