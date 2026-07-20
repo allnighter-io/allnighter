@@ -457,6 +457,8 @@ struct AllnighterCLI {
             binaryVersion: binaryVersion,
             contractVersion: ContractRegistry.contractVersion,
             docsVersionMatchesBinary: true,
+            binaryGitSha: BuildInfo.gitSha,
+            workspaceHeadSha: workspaceHeadGitSha(),
             configDirWritable: ensureWritable(AllnighterPaths.config),
             runsDirWritable: ensureWritable(AllnighterPaths.runs),
             pendingDirWritable: ensureWritable(AllnighterPaths.pending),
@@ -469,10 +471,11 @@ struct AllnighterCLI {
                     isDirectory: true
                 )
             ),
-            runningBinaryPath: InstallCLI.resolvedRunningBinary(
-                argv0: CommandLine.arguments.first,
-                pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
-            ),
+            runningBinaryPath: ProcessOwnership.currentExecutablePath()
+                ?? InstallCLI.resolvedRunningBinary(
+                    argv0: CommandLine.arguments.first,
+                    pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
+                ),
             pathEnvironment: ProcessInfo.processInfo.environment["PATH"],
             pilot: pilotContext,
             teachingInputs: TeachingInstalledCheck.defaultInputs(
@@ -1592,6 +1595,29 @@ struct AllnighterCLI {
         return resolveProject(gitRoot, store: store)
     }
 
+    /// Workspace `git rev-parse HEAD` from cwd (AE-S08), or nil outside a checkout.
+    static func workspaceHeadGitSha(
+        cwd: String = FileManager.default.currentDirectoryPath
+    ) -> String? {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        task.arguments = ["-C", cwd, "rev-parse", "HEAD"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = Pipe()
+        do {
+            try task.run()
+            task.waitUntilExit()
+            guard task.terminationStatus == 0 else { return nil }
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let s = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return (s?.isEmpty == false) ? s : nil
+        } catch {
+            return nil
+        }
+    }
+
     /// Resolve a project token (id or repo-root path) to a Project. One SSOT for the
     /// run entrypoints — `alln run` and the team engine resolve the same way.
     static func resolveProject(_ token: String, store: ProjectStore) -> Project? {
@@ -1746,7 +1772,9 @@ struct AllnighterCLI {
         let payload = VersionJSON(
             binaryVersion: binaryVersion,
             gitSha: BuildInfo.gitSha,
-            buildTime: BuildInfo.buildTime
+            buildTime: BuildInfo.buildTime,
+            binaryPath: ProcessOwnership.currentExecutablePath()
+                ?? CommandLine.arguments.first
         )
         if opts.flag("json") {
             print(jsonString(payload))

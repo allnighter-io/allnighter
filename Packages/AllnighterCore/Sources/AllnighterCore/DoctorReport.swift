@@ -13,6 +13,10 @@ public enum DoctorReport {
         public var binaryVersion: String
         public var contractVersion: String
         public var docsVersionMatchesBinary: Bool
+        /// Running binary's embedded gitSha (AE-S08).
+        public var binaryGitSha: String?
+        /// Workspace HEAD gitSha when doctor runs inside a checkout (AE-S08).
+        public var workspaceHeadSha: String?
         public var configDirWritable: Bool
         public var runsDirWritable: Bool
         public var pendingDirWritable: Bool
@@ -40,6 +44,8 @@ public enum DoctorReport {
             binaryVersion: String,
             contractVersion: String,
             docsVersionMatchesBinary: Bool = true,
+            binaryGitSha: String? = nil,
+            workspaceHeadSha: String? = nil,
             configDirWritable: Bool,
             runsDirWritable: Bool,
             pendingDirWritable: Bool = true,
@@ -55,6 +61,8 @@ public enum DoctorReport {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
             self.docsVersionMatchesBinary = docsVersionMatchesBinary
+            self.binaryGitSha = binaryGitSha
+            self.workspaceHeadSha = workspaceHeadSha
             self.configDirWritable = configDirWritable
             self.runsDirWritable = runsDirWritable
             self.pendingDirWritable = pendingDirWritable
@@ -106,6 +114,7 @@ public enum DoctorReport {
                   status: inputs.docsVersionMatchesBinary ? .ok : .degraded,
                   detail: inputs.docsVersionMatchesBinary ? "generated docs match the contract registry" : "generated docs drift from the registry",
                   fixCommand: inputs.docsVersionMatchesBinary ? nil : "alln dev export-contracts"),
+            binaryStaleCheck(inputs),
             .init(name: "configDir",
                   status: inputs.configDirWritable ? .ok : .critical,
                   detail: inputs.configDirWritable ? "config dir writable" : "config dir missing or not writable",
@@ -213,6 +222,27 @@ public enum DoctorReport {
     }
 
     // MARK: - Per-check helpers
+
+    private static func binaryStaleCheck(_ inputs: Inputs) -> DoctorResult.Check {
+        guard let binary = inputs.binaryGitSha, !binary.isEmpty, binary != "unknown",
+              let head = inputs.workspaceHeadSha, !head.isEmpty else {
+            return .init(name: "BINARY_STALE", status: .notChecked,
+                         detail: "workspace HEAD unavailable — run doctor from a git checkout to compare")
+        }
+        let binShort = String(binary.prefix(12))
+        let headShort = String(head.prefix(12))
+        if binary.hasPrefix(headShort) || head.hasPrefix(binShort) || binary == head {
+            return .init(name: "BINARY_STALE", status: .ok,
+                         detail: "on-PATH binary gitSha matches workspace HEAD (\(binShort))")
+        }
+        return .init(
+            name: "BINARY_STALE",
+            status: .degraded,
+            detail: "on-PATH binary gitSha \(binShort) ≠ workspace HEAD \(headShort)",
+            fixCommand: "alln install-cli",
+            requiresManual: false
+        )
+    }
 
     private static func installedCheck(_ r: ToolProbeRecord, name: String) -> DoctorResult.Check {
         switch r.status {

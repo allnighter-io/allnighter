@@ -10,6 +10,8 @@ public struct VersionJSON: Codable, Sendable, Equatable {
     public var gitSha: String?
     /// UTC build timestamp (`YYYY-MM-DDTHH:MM:SSZ`), or `unknown`.
     public var buildTime: String?
+    /// Absolute path of the running binary (AE-S08).
+    public var binaryPath: String?
 
     public init(
         schemaVersion: Int = 1,
@@ -17,7 +19,8 @@ public struct VersionJSON: Codable, Sendable, Equatable {
         contractVersion: String = ContractRegistry.contractVersion,
         contractHash: String = ContractRegistry.contractHash(),
         gitSha: String? = nil,
-        buildTime: String? = nil
+        buildTime: String? = nil,
+        binaryPath: String? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.binaryVersion = binaryVersion
@@ -25,5 +28,6 @@ public struct VersionJSON: Codable, Sendable, Equatable {
         self.contractHash = contractHash
         self.gitSha = gitSha
         self.buildTime = buildTime
+        self.binaryPath = binaryPath
     }
 }

@@ -399,6 +399,7 @@ public enum ContractSchema {
         let top = obj([
             "schemaVersion": int, "binaryVersion": str, "contractVersion": str, "contractHash": str,
             "gitSha": nullable("string"), "buildTime": nullable("string"),
+            "binaryPath": nullable("string"),
         ], required: ["schemaVersion", "binaryVersion", "contractVersion", "contractHash"])
         schema.merge(top) { _, new in new }
         return schema
