@@ -185,7 +185,7 @@ public enum CLIUsage {
         }
         // Golden-path families first; remaining families alphabetical.
         let preferred = [
-            "run", "team", "teams", "models", "doctor", "bootstrap", "help", "docs",
+            "run", "team", "teams", "models", "doctor", "bootstrap", "help", "docs", "commands",
             "version", "install-cli", "project", "thread", "skills", "pending", "stalled",
             "show", "export", "history", "floor", "spec", "defaults", "boost-window",
             "ps", "kill", "gc", "continuity", "serve", "pair", "panel", "dev",
@@ -208,8 +208,9 @@ public enum CLIUsage {
             lines.append("")
         }
         let count = m1.count
+        // AE-S13 completeness marker — incompleteness must never be implied.
         lines.append(
-            "\(count) commands · alln <cmd> --help for usage · alln docs <cmd> for schema · alln help search \"<intent>\" to find one"
+            "\(count) commands · alln docs <cmd> for schema · alln commands --json · alln help search \"<intent>\" to find one"
         )
         return lines.joined(separator: "\n")
     }

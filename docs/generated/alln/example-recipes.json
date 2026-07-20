@@ -5,6 +5,11 @@
     "title" : "Generate the full reference"
   },
   {
+    "command" : "alln commands --json",
+    "id" : "commands_json",
+    "title" : "Full command manifest (machine front door)"
+  },
+  {
     "command" : "alln doctor --json",
     "id" : "doctor_json",
     "title" : "Structured diagnostics"

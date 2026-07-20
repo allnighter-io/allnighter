@@ -24,6 +24,9 @@ final class CLIHelpDriftTests: XCTestCase {
             help.contains("\(m1.count) commands"),
             "help must carry an explicit completeness marker with the command count"
         )
+        XCTAssertTrue(help.contains("alln docs <cmd> for schema"), "hydrate path `alln docs <cmd>` must be named")
+        XCTAssertTrue(help.contains("alln commands --json"), "machine front door `alln commands --json` must be named")
+        XCTAssertTrue(help.contains("alln help search"), "intent search path must be named")
     }
 
     /// Every M1 registry command must project usage via the global `--help` funnel.

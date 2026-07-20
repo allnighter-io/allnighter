@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 1.1.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 1.2.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -20,6 +20,17 @@ Flags:
 Output schema: `contractDoc`.
 
 Examples: `docs_all`.
+
+### `alln commands`
+
+Full command manifest for agents (name, trigger, args, examples, anti-examples). Machine front door for discovery.
+
+Flags:
+- `--json` — Emit CommandsManifestJSON (default; always machine JSON).
+
+Output schema: `commandsManifestJSON`.
+
+Examples: `commands_json`.
 
 ### `alln doctor`
 
@@ -1555,6 +1566,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 ## Example recipes
 
 - `docs_all` — Generate the full reference: `alln docs`
+- `commands_json` — Full command manifest (machine front door): `alln commands --json`
 - `doctor_json` — Structured diagnostics: `alln doctor --json`
 - `doctor_explain` — Explain an error code: `alln doctor explain SOURCE_AUTH_EXPIRED --json`
 - `bootstrap_json` — Agent activation snippet for Claude Code: `alln bootstrap --host claude --json`

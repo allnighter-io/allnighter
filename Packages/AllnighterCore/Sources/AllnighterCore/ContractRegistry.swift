@@ -119,6 +119,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case bootstrapJSON
         case installCLIJSON
         case versionJSON
+        case commandsManifestJSON
         case ownershipPsJSON
         case ownershipKillJSON
         case ownershipGarbageCollectionJSON

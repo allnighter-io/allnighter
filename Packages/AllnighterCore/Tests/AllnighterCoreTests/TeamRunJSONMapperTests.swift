@@ -22,7 +22,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         let run = try Fixtures.run(.runComplete)            // internal status .complete
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
 
-        XCTAssertEqual(trj.contractVersion, "1.0.0")
+        XCTAssertEqual(trj.contractVersion, ContractRegistry.contractVersion)
         XCTAssertEqual(trj.teamRun.status, .done)           // .complete -> done
         XCTAssertEqual(trj.workers.count, run.workers.count)
         XCTAssertEqual(trj.workerAnswers.count, run.workerAnswers.count)

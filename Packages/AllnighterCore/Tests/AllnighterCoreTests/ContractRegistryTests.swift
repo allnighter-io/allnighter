@@ -10,7 +10,7 @@ final class ContractRegistryTests: XCTestCase {
     func testContractVersionMatchesTeamRunFixture() throws {
         let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
         XCTAssertEqual(reg.contractVersion, trj.contractVersion)
-        XCTAssertEqual(reg.contractVersion, "1.0.0")
+        XCTAssertEqual(reg.contractVersion, "1.2.0")
     }
 
     /// Team-run and Pending next-action kinds must match the registry catalog.
@@ -25,7 +25,7 @@ final class ContractRegistryTests: XCTestCase {
     func testM1CommandSetMatchesMilestoneBoundary() {
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
         let expected: Set<String> = [
-            "docs", "doctor", "doctor explain", "bootstrap", "install-cli", "version",
+            "docs", "commands", "doctor", "doctor explain", "bootstrap", "install-cli", "version",
             "models", "models enable", "models disable", "models add", "models update", "models delete",
             "team show",
             "teams", "teams show", "teams definition", "teams duplicate", "teams edit", "teams set-default", "teams delete", "teams restore",

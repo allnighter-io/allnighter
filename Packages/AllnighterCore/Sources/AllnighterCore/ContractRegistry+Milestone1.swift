@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "1.1.0"
+    static let contractVersion = "1.2.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -33,6 +33,14 @@ public extension ContractRegistry {
                 FlagSpec("examples", summary: "Print example recipes."),
             ],
             outputSchema: .contractDoc, exampleIds: ["docs_all"]
+        ),
+        CommandSpec(
+            "commands",
+            summary: "Full command manifest for agents (name, trigger, args, examples, anti-examples). Machine front door for discovery.",
+            milestone: .m1,
+            flags: [FlagSpec("json", summary: "Emit CommandsManifestJSON (default; always machine JSON).")],
+            outputSchema: .commandsManifestJSON,
+            exampleIds: ["commands_json"]
         ),
         CommandSpec(
             "doctor", summary: "Check sources, models, auth, and coordinator.", milestone: .m1,
@@ -1199,6 +1207,7 @@ public extension ContractRegistry {
 
     static let m1Examples: [ExampleRecipe] = [
         ExampleRecipe("docs_all", title: "Generate the full reference", command: "alln docs"),
+        ExampleRecipe("commands_json", title: "Full command manifest (machine front door)", command: "alln commands --json"),
         ExampleRecipe("doctor_json", title: "Structured diagnostics", command: "alln doctor --json"),
         ExampleRecipe("doctor_explain", title: "Explain an error code", command: "alln doctor explain SOURCE_AUTH_EXPIRED --json"),
         ExampleRecipe("bootstrap_json", title: "Agent activation snippet for Claude Code", command: "alln bootstrap --host claude --json"),

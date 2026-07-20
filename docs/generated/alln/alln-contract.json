@@ -41,6 +41,28 @@
 
       ],
       "exampleIds" : [
+        "commands_json"
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit CommandsManifestJSON (default; always machine JSON).",
+          "takesValue" : false
+        }
+      ],
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "commands",
+      "outputSchema" : "commandsManifestJSON",
+      "summary" : "Full command manifest for agents (name, trigger, args, examples, anti-examples). Machine front door for discovery."
+    },
+    {
+      "args" : [
+
+      ],
+      "exampleIds" : [
         "doctor_json"
       ],
       "flags" : [
@@ -3697,7 +3719,7 @@
       "summary" : "Approve iOS\/Mac pairing."
     }
   ],
-  "contractVersion" : "1.1.0",
+  "contractVersion" : "1.2.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5019,6 +5041,11 @@
       "command" : "alln docs",
       "id" : "docs_all",
       "title" : "Generate the full reference"
+    },
+    {
+      "command" : "alln commands --json",
+      "id" : "commands_json",
+      "title" : "Full command manifest (machine front door)"
     },
     {
       "command" : "alln doctor --json",

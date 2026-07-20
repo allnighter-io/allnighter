@@ -67,6 +67,7 @@ struct AllnighterCLI {
         case "help": await HelpCLI.run(args, runtime: runtime)
         case "history": await runHistory(args, runtime)
         case "docs": runDocs(args)
+        case "commands": runCommands(args)
         case "show": runShow(args, runtime)
         case "floor" where args.first == "show": runFloorShow(Array(args.dropFirst()), runtime)
         case "spec": runSpec(args, runtime)
@@ -1488,6 +1489,13 @@ struct AllnighterCLI {
                 message: "refusing to signal \(mid): recorded identity does not match the live process (pid reuse)"
             )
         }
+    }
+
+    /// `alln commands [--json]` — full M1 command manifest (AE-S13 machine front door).
+    /// Always emits JSON; `--json` is accepted for agent habit consistency.
+    static func runCommands(_ args: [String]) {
+        _ = Options(args) // validates / consumes flags; output is always machine JSON
+        print(jsonString(CommandsManifestJSON.project()))
     }
 
     /// `alln docs [topic] [--errors] [--schema] [--examples]` — the generated,
