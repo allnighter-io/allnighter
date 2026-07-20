@@ -187,17 +187,25 @@ struct AllnighterCLI {
     /// recovery fields (`ruleId`/`agentAction`/`requiresManual`/`retryable`) are
     /// taken from the error catalog so the emitted envelope and `error_explain`
     /// always agree (M-C).
-    static func emitFailure(code: String, message: String, supportDir: String? = nil) {
+    static func emitFailure(
+        code: String,
+        message: String,
+        supportDir: String? = nil,
+        suggestions: [String] = []
+    ) {
         struct Failure: Encodable { let schemaVersion = 1; let success = false; let error: ErrorEnvelope }
         let spec = ContractRegistry.milestone1.errorSpec(for: code)
+        let enriched = ErrorDiscovery.messageWithSuggestions(message, suggestions: suggestions)
         let env = ErrorEnvelope(
             code: code,
             ruleId: spec?.ruleId,
-            message: message,
+            message: enriched,
             agentAction: spec?.agentAction,
             requiresManual: spec?.requiresManual ?? false,
             retryable: spec?.retryable ?? false,
-            supportDir: supportDir
+            supportDir: supportDir,
+            suggestions: suggestions,
+            nextAction: ErrorDiscovery.nextAction(forErrorCode: code)
         )
         print(jsonString(Failure(error: env)))
     }
@@ -205,8 +213,13 @@ struct AllnighterCLI {
     /// Emits the failure envelope and exits with the catalog-derived process exit
     /// code (usage → 2, operational → 1). The single funnel for terminal CLI
     /// failures so the error code and its exit class can never drift apart (M-C).
-    static func fail(code: String, message: String, supportDir: String? = nil) -> Never {
-        emitFailure(code: code, message: message, supportDir: supportDir)
+    static func fail(
+        code: String,
+        message: String,
+        supportDir: String? = nil,
+        suggestions: [String] = []
+    ) -> Never {
+        emitFailure(code: code, message: message, supportDir: supportDir, suggestions: suggestions)
         exit(ContractRegistry.milestone1.processExitCode(forErrorCode: code))
     }
 
@@ -773,7 +786,7 @@ struct AllnighterCLI {
             fail(code: "CLI_USAGE_ERROR", message: "usage: alln skills show <skill-id> [--json]")
         }
         guard let skill = SkillCatalog.get(id) else {
-            fail(code: "SKILL_NOT_FOUND", message: "unknown skill: \(id)")
+            failUnknownSkill(id)
         }
         if opts.flag("json") {
             print(skillShowJSONString(skill))
@@ -808,6 +821,18 @@ struct AllnighterCLI {
         ))
     }
 
+    static func failUnknownTeam(_ id: String, lane: WorkLane? = nil) -> Never {
+        let candidates = TeamCatalog.all.map(\.id)
+        let suggestions = ErrorDiscovery.nearestMatches(to: id, in: candidates)
+        fail(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)", suggestions: suggestions)
+    }
+
+    static func failUnknownSkill(_ id: String) -> Never {
+        let candidates = WorkLane.allCases.flatMap { SkillCatalog.list(lane: $0) }.map(\.id)
+        let suggestions = ErrorDiscovery.nearestMatches(to: id, in: candidates)
+        fail(code: "SKILL_NOT_FOUND", message: "unknown skill: \(id)", suggestions: suggestions)
+    }
+
     // MARK: - Catalog mutation (teams)
 
     /// `alln teams definition <team-id> [--json]` — full TeamPreset for edit/save round-trip.
@@ -817,7 +842,7 @@ struct AllnighterCLI {
             fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams definition <team-id> [--json]")
         }
         guard let team = TeamCatalog.get(id) else {
-            fail(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)")
+            failUnknownTeam(id)
         }
         if opts.flag("json") { print(teamDefinitionJSONString(team)) }
         else { print(teamDefinitionJSONString(team)) }
@@ -830,7 +855,7 @@ struct AllnighterCLI {
             fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams show <team-id> [--json]")
         }
         guard let team = TeamCatalog.get(id) else {
-            fail(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)")
+            failUnknownTeam(id)
         }
         if opts.flag("json") { print(teamShowJSONString(team)) }
         else {
@@ -1047,7 +1072,7 @@ struct AllnighterCLI {
             fail(code: "CLI_USAGE_ERROR", message: "usage: alln skills edit <skill-id> [--name <name>] [--template-file <path>] [--json]")
         }
         guard var skill = SkillCatalog.get(id) else {
-            fail(code: "SKILL_NOT_FOUND", message: "unknown skill: \(id)")
+            failUnknownSkill(id)
         }
         if let name = opts.value("name") { skill.displayName = name }
         do {

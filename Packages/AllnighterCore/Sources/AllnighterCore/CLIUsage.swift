@@ -127,6 +127,24 @@ public enum CLIUsage {
         return scored.filter { $0.1 <= maxDist }.prefix(limit).map(\.0)
     }
 
+    /// Levenshtein edit distance (AE-S07 / AE-S12 did-you-mean).
+    public static func editDistance(_ a: String, _ b: String) -> Int {
+        let a = Array(a), b = Array(b)
+        if a.isEmpty { return b.count }
+        if b.isEmpty { return a.count }
+        var prev = Array(0...b.count)
+        var cur = Array(repeating: 0, count: b.count + 1)
+        for i in 1...a.count {
+            cur[0] = i
+            for j in 1...b.count {
+                let cost = a[i - 1] == b[j - 1] ? 0 : 1
+                cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+            }
+            swap(&prev, &cur)
+        }
+        return prev[b.count]
+    }
+
     /// Usage text for a registered command (testable; no IO).
     /// Returns `nil` when the name is not in the registry — never invents a surface (AE-S01 / Law 8).
     public static func usageText(for commandName: String, registry: ContractRegistry = .milestone1) -> String? {
@@ -213,24 +231,5 @@ public enum CLIUsage {
             "\(count) commands · alln docs <cmd> for schema · alln commands --json · alln help search \"<intent>\" to find one"
         )
         return lines.joined(separator: "\n")
-    }
-
-    // MARK: - Edit distance
-
-    private static func editDistance(_ a: String, _ b: String) -> Int {
-        let a = Array(a), b = Array(b)
-        if a.isEmpty { return b.count }
-        if b.isEmpty { return a.count }
-        var prev = Array(0...b.count)
-        var cur = Array(repeating: 0, count: b.count + 1)
-        for i in 1...a.count {
-            cur[0] = i
-            for j in 1...b.count {
-                let cost = a[i - 1] == b[j - 1] ? 0 : 1
-                cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
-            }
-            swap(&prev, &cur)
-        }
-        return prev[b.count]
     }
 }

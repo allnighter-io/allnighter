@@ -187,12 +187,24 @@ public enum TeamPreflight {
     ) -> Result {
         switch TeamRequestResolver.resolve(teams: teams, lane: lane, teamId: teamId, type: type, effort: effort) {
         case .failure(let failure):
+            let teamDiscovery = AgentNextAction(
+                kind: "discover",
+                label: "List teams",
+                command: ErrorDiscovery.discoveryCommand(forErrorCode: "TEAM_NOT_FOUND", lane: lane?.rawValue)
+                    ?? "alln teams --json")
+            let next: AgentNextAction = {
+                if failure.code == "CLI_USAGE_ERROR" { return .performHumanAction }
+                if failure.code == "TEAM_NOT_FOUND" || failure.description.lowercased().contains("unknown team") {
+                    return teamDiscovery
+                }
+                return ErrorDiscovery.nextAction(forErrorCode: failure.code) ?? .runDoctor
+            }()
             return Result(
                 canStart: false, lane: lane?.rawValue, teamPresetId: teamId, teamDisplayName: nil,
                 effort: effort?.rawValue, outputKind: nil, readyWorkers: [], blockedWorkers: [],
                 selfFusion: SelfFusion(enabled: false, reason: nil), warnings: [],
                 blockedReason: failure.description,
-                nextAction: failure.code == "CLI_USAGE_ERROR" ? .performHumanAction : .runDoctor,
+                nextAction: next,
                 sourceGateStatus: nil)
         case .success(let req):
             let resolved = TeamResolver.resolve(

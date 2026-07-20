@@ -3916,7 +3916,7 @@
       "summary" : "Approve iOS\/Mac pairing."
     }
   ],
-  "contractVersion" : "1.5.2",
+  "contractVersion" : "1.5.3",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
