@@ -1,8 +1,8 @@
 # Alln Sharpening — from a tool agents can use to a tool agents prefer
 
-Status: **Blocked on founder ratification of D1–D5 (2026-07-20).** Slices
-SH-S00–S10 specified; SH-S00 (green wall) is the entry gate. Do not start
-implementation until the ratification line below is real.
+Status: **Ready for Implementation (2026-07-20) — D1–D4 ratified and D5
+replaced by typed founder reply; SH-S00 (green wall) is the entry gate;
+SH-S00–S10 not started.**
 Owner: AllnighterCore (`TeamRunJSON`, `RunDryRunJSON`, `TeamCatalog`,
 `MenuCatalog`, `ContractRegistry`) + AllnighterEngine (run resolution/timing) +
 AllnighterCLI (run/docs/teams projections)
@@ -127,12 +127,11 @@ menu 32,418 bytes, 103 commands, 4 actions, 25 teams, 22 models).
 
 ## Founder decisions — resolved
 
-**Proposed — NOT yet founder-ratified.** These were drafted by a consultant
-and endorsed by the PM session; the founder has not read or ruled on them
-(2026-07-20). A ratification recorded from a clicked-through dialog is not a
-ratification — only an explicit typed founder reply counts. Once ratified,
-implementation agents do not reopen D1–D5; new evidence changes a decision
-only through the verified claims ledger.
+**Founder-ratified by typed reply, 2026-07-20:** D1 "yes both" · D2 "keep as
+is" · D3 "yes, clean single cut" · D4 "yes" · D5 **rejected as proposed**
+("stupid and irrelevant, theater") and replaced by the founder's own ruling
+below. Implementation agents do not reopen D1–D5; new evidence changes a
+decision only through the verified claims ledger.
 
 ### D1. Ship `teams new` *and* deterministic duplicate
 
@@ -185,13 +184,21 @@ resolved `writePolicy` and effect booleans. A caller requiring a mechanical
 read-only guarantee selects an answer team; a Default Team or explicit worker
 may write and must say so.
 
-### D5. Stop using “zero hallucinations” as a release promise
+### D5. Alln never rates itself — agents rate alln (founder ruling)
 
-Alln owns executable truth, not a caller model's narrative. The release gate is
-a deterministic scorecard plus evidence-bearing dogfood. Unsupported claims are
-recorded, probed, and either promoted to a verified finding or rejected. A
-repeated false claim across independent agents is a teaching-surface signal, not
-automatic proof that the claimed feature is missing.
+Founder, 2026-07-20, replacing the consultant's ≥90/100 scorecard: a
+self-assigned score is theater. *"Don't even try to rate it. We know it when
+agents start using it well and rave about using it. Agents rate alln. We have
+no say. Period."*
+
+So: no 9/10 target, no ≥90/100, no internal rating of any kind, ever. What
+remains is not a rating: a **pass/fail regression gate** over mechanical
+truths (preview/run identity, selector preservation, zero wrong spend,
+budgets) — bug detectors, binary, no number — plus the receipts ledger:
+unsupported agent claims are recorded, probed, and promoted to a verified
+finding or rejected. Success is observed externally and only externally:
+agents choosing alln and raving unprompted. That signal cannot be
+manufactured by a gate, and alln has no vote in it.
 
 ## Laws
 
@@ -226,8 +233,8 @@ erosion, not to forbid amendment.
    including lead/scout and row multiplicity. Crew rows and lead are separately
    named; public `workerCount` is retired rather than left ambiguous.
 9. **Feedback is a hypothesis ledger.** Claims need pinned binary identity plus
-   a command/code receipt before they become scope. Ratings are corroboration,
-   never acceptance criteria.
+   a command/code receipt before they become scope. Ratings belong to agents;
+   alln never rates itself (D5).
 
 ## Anti-goals
 
@@ -358,10 +365,10 @@ Sequencing).
 | **SH-S06 — One team read explains the whole team** | Clean-cut public `workerCount` to `seatCount`. `teams show` exposes crew, optional scout, and lead with role, skill, count, preferred/fallback/allowed models, required capabilities, and triangulation; `teams definition` remains the full round-trippable manifest, not a prerequisite for understanding. Menu/list/show/dry-run derive seat count from `TeamPreset.catalogSeatCount`. Gate all built-ins/customs: projected seat sum = list = menu = preview, including row multiplicity. Fixes 9; Law 8. |
 | **SH-S07 — Team authoring has two explicit motions** | Add `teams new <team-id> --file <path> --json` and `teams duplicate <source-id> --id <new-id> [--name] --json`. `new` rejects an existing/reserved/mismatched/invalid id with stable errors; duplicate rejects collisions and preserves generated-id behavior only when `--id` is omitted. Both return the same structured team detail. Generated docs/cards teach duplicate → definition → edit for variants and definition → new for novel manifests. Gate deterministic ids, collisions, built-in immutability, restore, and cold-agent custom Bug Hunt. Fixes 8; D1. |
 | **SH-S08 — Surface observed timing without causal fiction** | Add per-worker `queueMs`, `ttftMs`, and `durationMs` from existing timing truth plus terminal `outcome.timing.wallMs`. Null means the driver did not report the observation. Docs state clock boundaries; headline may summarize a single-worker split but may not call subtraction “Alln overhead” or assign blame in parallel runs. No forecasts or targets. Gate exact fixture timestamps and absence of `estimate` vocabulary. |
-| **SH-S09 — Diversified, quota-free sharpening scorecard** | Add `scripts/agent_eval.sh --suite sharpening` backed by fixture drivers and isolated temporary project/catalog state; it starts no paid provider. Cases: one-worker answer, answer team, team inspect, both authoring paths, detach + wait + result, bad-id recovery, unregistered-root recovery, typed-ref docs. Capture binary SHA, argv, exit, response bytes, created-run/provider evidence, preview/result identity, and claim ledger. Enforce the score below. |
+| **SH-S09 — Diversified, quota-free regression gate** | Add `scripts/agent_eval.sh --suite sharpening` backed by fixture drivers and isolated temporary project/catalog state; it starts no paid provider. Cases: one-worker answer, answer team, team inspect, both authoring paths, detach + wait + result, bad-id recovery, unregistered-root recovery, typed-ref docs. Capture binary SHA, argv, exit, response bytes, created-run/provider evidence, preview/result identity, and claim ledger. Enforce the pass/fail gate below (no score — D5). |
 | **SH-S10 — Generated papercuts, no new grammar** | Render enum domains and registry flag constraints in usage, docs, menu detail, and generated schema; document NDJSON `--stream` framing/terminal rule and why token/temperature controls belong to vendor CLIs. Keep `menu.actions` short and ≤32 KiB; add no action solely to improve the 4/103 ratio. Gate every enum/constraint projection against its owner and the active help-corpus resolvability/retired-vocabulary wall. Fixes 6–7 and the verified teaching gaps. |
 
-## Mechanical 9/10 scorecard
+## Mechanical pass/fail gate (no score — D5)
 
 Each case starts from only the bootstrap snippet and its task. Its call budget
 includes one `menu --json` discovery read. Poll loops use the blocking/wait form,
@@ -379,21 +386,23 @@ comparable.
 | Recover bad id / unregistered root | 4 each | structured error → exact next action → successful retry; zero spend before retry |
 | Open docs from a menu ref | 2 | menu → `docs <typed-ref>`; no spelling translation |
 
-Ten equal controls produce the score: bounded complete menu; one-worker call
-budget; one-worker byte budget; preview/result identity; selector preservation;
-team inspection/count consistency; both authoring paths; detach lifecycle;
-error recovery without spend; typed-ref round-trip. Target is **≥90/100**.
+There is no score (D5). The gate is binary: every case passes within its
+budgets or the phase is not done. The checked truths: bounded complete menu;
+one-worker call budget; one-worker byte budget; preview/result identity;
+selector preservation; team inspection/count consistency; both authoring
+paths; detach lifecycle; error recovery without spend; typed-ref round-trip.
 
-Regardless of score, any preview/result identity mismatch, dropped explicit
-selector, unintended provider start, accepted-but-ignored flag, or write-policy
-falsehood is a hard failure.
+Independently of the case table, any preview/result identity mismatch, dropped
+explicit selector, unintended provider start, accepted-but-ignored flag, or
+write-policy falsehood fails the gate outright.
 
-Dogfood corroboration runs after the mechanical bar with at least three caller
-model families and varied tasks. Every factual critique is entered as
-`claim + binary SHA + command/code receipt + verdict`. Claim precision is
-reported; repeated unsupported claims from two independent callers require a
-teaching-surface investigation or an explicit no-fix ruling. Numeric ratings are
-recorded but never averaged into the score.
+Dogfood corroboration runs after the mechanical gate with at least three
+caller model families and varied tasks. Every factual critique is entered as
+`claim + binary SHA + command/code receipt + verdict`; repeated unsupported
+claims from two independent callers require a teaching-surface investigation
+or an explicit no-fix ruling. Ratings belong to the agents (D5): alln records
+them as external signal and never computes one of its own. The rave —
+unprompted preference by working agents — is the only rating that counts.
 
 ## Works Test
 
@@ -407,8 +416,8 @@ scripts/agent_eval.sh --suite sharpening --binary "$B"
 bash scripts/check.sh
 ```
 
-The suite must print the 10-control score, hard-failure count, per-case calls and
-bytes, binary SHA/version, and its isolated state directory. It must also prove
+The suite must print per-case pass/fail, hard-failure count, per-case calls and
+bytes, binary SHA/version, and its isolated state directory — no score (D5). It must also prove
 no provider process started in preview/recovery cases. A live Sonnet smoke is
 optional corroboration and requires explicit quota-spend approval; it is not
 part of the green wall.
@@ -436,7 +445,7 @@ part of the green wall.
 - Contract v3/schema v2 is one clean cut across CLI, generated artifacts,
   Engine, Mac, and iOS; no compatibility branch or duplicate canonical markdown
   survives.
-- `scripts/agent_eval.sh --suite sharpening` scores ≥90/100 with zero hard
+- `scripts/agent_eval.sh --suite sharpening` passes every case with zero hard
   failures on a release binary built from committed HEAD.
 - One-worker answer overhead is within the SH-S02 measured budget, Tier-1 menu
   is ≤32 KiB, and the caller reaches every matrix result within its call
@@ -446,13 +455,12 @@ part of the green wall.
 
 ## Open questions
 
-One: **founder ratification of D1–D5 and the three PM hardening additions**
-(SH-S00 green-wall entry gate, single end-of-phase v3 cut, measured-not-
-asserted envelope budget). Genuinely founder-authored already, from typed
-words 2026-07-20: laws-are-working-hypotheses (amendment clause in §Laws) and
-budgets-as-guards-are-a-must. Everything else in this doc waits for a typed
-yes/no per decision — nothing here may be treated as ratified from a dialog
-click.
+None. D1–D4 ratified and D5 replaced by typed founder reply 2026-07-20; the
+three PM hardening additions (SH-S00 green-wall entry gate, single
+end-of-phase v3 cut, measured-not-asserted envelope budget) ride with them.
+Laws-are-working-hypotheses and budgets-as-guards were founder-authored the
+same day. New evidence changes a decision only through the verified claims
+ledger.
 
 ## Routing
 
