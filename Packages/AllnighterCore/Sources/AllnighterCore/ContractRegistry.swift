@@ -257,12 +257,42 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public var takesValue: Bool
         public var valueType: String?     // "path", "lane", "effort", "format", … nil ⇒ boolean
         public var defaultValue: String?
+        /// Closed enum domain for this flag (SH-S10). Resolved from
+        /// `valueTypeDomains[valueType]` when omitted at init; open types stay nil.
+        public var allowedValues: [String]?
         public var summary: String
-        public init(_ name: String, takesValue: Bool = false, valueType: String? = nil, defaultValue: String? = nil, summary: String) {
-            self.name = name; self.takesValue = takesValue; self.valueType = valueType
-            self.defaultValue = defaultValue; self.summary = summary
+        public init(
+            _ name: String,
+            takesValue: Bool = false,
+            valueType: String? = nil,
+            defaultValue: String? = nil,
+            allowedValues: [String]? = nil,
+            summary: String
+        ) {
+            self.name = name
+            self.takesValue = takesValue
+            self.valueType = valueType
+            self.defaultValue = defaultValue
+            self.allowedValues = allowedValues
+                ?? valueType.flatMap { ContractRegistry.valueTypeDomains[$0] }
+            self.summary = summary
         }
     }
+
+    /// Closed flag value domains keyed by `FlagSpec.valueType` (Law 6 / SH-S10).
+    /// Open types (`path`, `id`, `string`, …) are intentionally absent. A flag may
+    /// override with an explicit `allowedValues` when one valueType name spans
+    /// different domains (e.g. export vs help `format`).
+    public static let valueTypeDomains: [String: [String]] = [
+        "effort": EffortLevel.allCases.map(\.rawValue),
+        "lane": WorkLane.allCases.map(\.rawValue),
+        "host": ["claude", "cursor", "codex", "generic"],
+        "modelRole": ModelRole.allCases.map(\.rawValue),
+        "purpose": SkillPurpose.allCases.map(\.rawValue),
+        "state": RunLifecycle.allCases.map(\.rawValue) + ["terminal"],
+        "detail": SpecRetrieval.Detail.allCases.map(\.rawValue),
+        "verdict": ["continue", "done", "escalate"],
+    ]
 
     /// Mode / companion requirements beyond mutual exclusion (Law 6).
     /// `mutuallyExclusiveFlags` stays the exclusive-group owner; this owns

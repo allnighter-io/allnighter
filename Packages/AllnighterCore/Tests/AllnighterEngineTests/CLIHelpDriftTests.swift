@@ -39,6 +39,10 @@ final class CLIHelpDriftTests: XCTestCase {
             }
             XCTAssertTrue(text.hasPrefix("usage: alln \(spec.name)"), "`\(spec.name)` help must name the command")
             XCTAssertTrue(text.contains(spec.summary), "`\(spec.name)` help must include the registry summary")
+            if spec.name == "run" {
+                XCTAssertTrue(text.contains("[--effort <low|med|high>]"), "run help must project effort enum domain")
+                XCTAssertTrue(text.contains("Mutually exclusive: --json, --stream."), "run help must project json/stream exclusion")
+            }
         }
     }
 

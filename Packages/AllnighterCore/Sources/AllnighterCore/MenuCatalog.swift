@@ -562,7 +562,9 @@ public enum MenuCatalog {
                 freeTwinCommand: spec.freeTwinCommand,
                 effects: spec.effects,
                 args: spec.args,
-                flags: spec.flags
+                flags: spec.flags,
+                mutuallyExclusiveFlags: spec.mutuallyExclusiveFlags,
+                flagConstraints: spec.flagConstraints
             )
         )
     }

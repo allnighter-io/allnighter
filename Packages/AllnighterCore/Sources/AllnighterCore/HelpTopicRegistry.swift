@@ -169,14 +169,28 @@ public enum HelpTopicRegistry {
             `ttftMs` (spawn→first token), `durationMs` (spawn→exit), plus terminal \
             `outcome.timing.wallMs` (createdAt→latest finishedAt). Null means unreported. \
             These are clock boundaries only — not forecasts, and not an invented orchestration tax.
+
+            `--stream` emits NDJSON (one JSON object per stdout line). A stream ends with \
+            exactly one of `teamRunCompleted`, `teamRunFailed`, or `error`. On `run`, \
+            `--stream` is mutually exclusive with `--json`, `--dry-run`, and `--detach`.
+
+            Canonical answer text is `TeamRunJSON.answer` (status, markdown, source) — prefer \
+            that field over hunting `workerAnswers` or plan markdown.
+
+            `alln run` does not expose `--temperature` or `--max-tokens`. Alln drives \
+            subscription CLIs; use `--effort`, `--worker`, and each driver's supported controls.
             """,
             aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt",
                       "read only", "readonly", "write policy", "mutating",
-                      "timing", "queueMs", "ttftMs", "durationMs", "wallMs", "latency"],
+                      "timing", "queueMs", "ttftMs", "durationMs", "wallMs", "latency",
+                      "stream", "ndjson", "temperature", "max tokens", "max-tokens",
+                      "answer field", "canonical answer"],
             sections: [
                 .init("preflight", "Dry-run first", "Always call `alln run --dry-run` before a real `alln run --detach` so a bad lineup fails before quota is spent."),
                 .init("write-policy", "Permission vs outcome", "`effects.repoWrite` means the resolved invocation may write. Answer teams are mechanical read-only; terminal `repoDelta` reports whether a mutating run did write."),
                 .init("timing", "Observed timing", "`queueMs` / `ttftMs` / `durationMs` / `outcome.timing.wallMs` are recorded clocks. Null means unreported. Do not invent an orchestration tax by subtracting duration from wall."),
+                .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` / `--detach` on `run`."),
+                .init("vendor-controls", "Vendor CLI controls", "No `--temperature` / `--max-tokens` on `alln run`. Use `--effort`, `--worker`, and the selected subscription CLI's own supported flags."),
                 .init("polling", "Polling", "Poll `alln team result` using the returned `nextPollAfterMs`; do not busy-loop."),
             ],
             relatedCommandNames: ["run", "team status", "team result", "team cancel", "team reconcile", "floor show"],

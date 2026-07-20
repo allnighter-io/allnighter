@@ -254,6 +254,12 @@
       ],
       "flags" : [
         {
+          "allowedValues" : [
+            "claude",
+            "cursor",
+            "codex",
+            "generic"
+          ],
           "name" : "host",
           "summary" : "claude | cursor | codex | generic (default generic).",
           "takesValue" : true,
@@ -518,6 +524,11 @@
           "valueType" : "string"
         },
         {
+          "allowedValues" : [
+            "answerer",
+            "planWriter",
+            "both"
+          ],
           "name" : "role",
           "summary" : "answerer|planWriter|both (default answerer).",
           "takesValue" : true,
@@ -580,6 +591,11 @@
           "valueType" : "string"
         },
         {
+          "allowedValues" : [
+            "answerer",
+            "planWriter",
+            "both"
+          ],
           "name" : "role",
           "summary" : "New role.",
           "takesValue" : true,
@@ -660,6 +676,12 @@
       ],
       "flags" : [
         {
+          "allowedValues" : [
+            "code",
+            "design",
+            "copy",
+            "signal"
+          ],
           "name" : "lane",
           "summary" : "Filter to one lane.",
           "takesValue" : true,
@@ -947,6 +969,12 @@
       ],
       "flags" : [
         {
+          "allowedValues" : [
+            "code",
+            "design",
+            "copy",
+            "signal"
+          ],
           "name" : "lane",
           "summary" : "Filter to one lane.",
           "takesValue" : true,
@@ -1408,6 +1436,12 @@
       ],
       "flags" : [
         {
+          "allowedValues" : [
+            "code",
+            "design",
+            "copy",
+            "signal"
+          ],
           "name" : "lane",
           "summary" : "code | design | copy | signal.",
           "takesValue" : true,
@@ -1420,6 +1454,11 @@
           "valueType" : "string"
         },
         {
+          "allowedValues" : [
+            "answer",
+            "review",
+            "planWriter"
+          ],
           "name" : "purpose",
           "summary" : "answer | review | planWriter.",
           "takesValue" : true,
@@ -1566,6 +1605,15 @@
           "takesValue" : false
         },
         {
+          "allowedValues" : [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "timedOut",
+            "cancelled",
+            "terminal"
+          ],
           "name" : "wait-for",
           "summary" : "Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`.",
           "takesValue" : true,
@@ -1923,12 +1971,23 @@
           "valueType" : "string"
         },
         {
+          "allowedValues" : [
+            "low",
+            "med",
+            "high"
+          ],
           "name" : "effort",
           "summary" : "low | med | high.",
           "takesValue" : true,
           "valueType" : "effort"
         },
         {
+          "allowedValues" : [
+            "code",
+            "design",
+            "copy",
+            "signal"
+          ],
           "name" : "lane",
           "summary" : "Lane tags the run for context and filtering; `--team` routes.",
           "takesValue" : true,
@@ -2056,7 +2115,7 @@
         },
         {
           "name" : "stream",
-          "summary" : "Emit NDJSON events.",
+          "summary" : "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json \/ --dry-run \/ --detach.",
           "takesValue" : false
         }
       ],
@@ -2502,10 +2561,15 @@
           "valueType" : "path"
         },
         {
+          "allowedValues" : [
+            "continue",
+            "done",
+            "escalate"
+          ],
           "name" : "verdict",
           "summary" : "Required with --handover-file\/--handover-stdin; synthesizes the RelayVerdict tail internally.",
           "takesValue" : true,
-          "valueType" : "continue|done|escalate"
+          "valueType" : "verdict"
         },
         {
           "name" : "handover-file",
@@ -3132,6 +3196,11 @@
       ],
       "flags" : [
         {
+          "allowedValues" : [
+            "summary",
+            "full",
+            "artifactRefsOnly"
+          ],
           "defaultValue" : "summary",
           "name" : "detail",
           "summary" : "summary | full | artifactRefsOnly.",
@@ -3178,6 +3247,9 @@
       ],
       "flags" : [
         {
+          "allowedValues" : [
+            "md"
+          ],
           "defaultValue" : "md",
           "name" : "format",
           "summary" : "Export format (md).",
@@ -4869,6 +4941,10 @@
           "valueType" : "string"
         },
         {
+          "allowedValues" : [
+            "json",
+            "md"
+          ],
           "defaultValue" : "json",
           "name" : "format",
           "summary" : "json | md.",

@@ -1404,8 +1404,7 @@ struct AllnighterCLI {
             case .commands(let cmds):
                 for c in cmds {
                     print("### alln \(c.name)\n\(c.summary)")
-                    for a in c.args { print("- arg `\(a.name)`\(a.required ? " (required)" : ""): \(a.summary)") }
-                    for f in c.flags { print("- `--\(f.name)`: \(f.summary)") }
+                    print(CommandProjection.markdownCommandBody(c), terminator: "")
                     print("")
                 }
             case .nearMiss(let query, let suggestions):

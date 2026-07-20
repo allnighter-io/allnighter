@@ -406,7 +406,7 @@ public extension ContractRegistry {
                 FlagSpec("detach", summary: "Start asynchronously; return the durable run id and exit (async twin of foreground run)."),
                 FlagSpec("dry-run", summary: "Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Free twin of both foreground and --detach. effects.repoWrite is permission (may write), not a prompt prediction — pick an answer team for mechanical read-only; terminal repoDelta reports whether a mutating run wrote."),
                 FlagSpec("json", summary: "Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects; TeamStartResponse with --detach)."),
-                FlagSpec("stream", summary: "Emit NDJSON events."),
+                FlagSpec("stream", summary: "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run / --detach."),
             ],
             mutuallyExclusiveFlags: [
                 ["json", "stream"],
@@ -502,7 +502,7 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the full submission markdown from a file (verdict tail included; omit to read stdin)."),
-                FlagSpec("verdict", takesValue: true, valueType: "continue|done|escalate", summary: "Required with --handover-file/--handover-stdin; synthesizes the RelayVerdict tail internally."),
+                FlagSpec("verdict", takesValue: true, valueType: "verdict", summary: "Required with --handover-file/--handover-stdin; synthesizes the RelayVerdict tail internally."),
                 FlagSpec("handover-file", takesValue: true, valueType: "path", summary: "Raw order markdown for the dev seat (mutually exclusive with --file)."),
                 FlagSpec("handover-stdin", summary: "Read the handover markdown from stdin (mutually exclusive with --file)."),
                 FlagSpec("note", takesValue: true, valueType: "string", summary: "Optional closing note for done/escalate verdicts."),
@@ -626,7 +626,7 @@ public extension ContractRegistry {
         CommandSpec(
             "export", summary: "Export a result bundle.", milestone: .m1,
             args: [ArgSpec("run-id|latest", required: true, summary: "A run id or `latest`.")],
-            flags: [FlagSpec("format", takesValue: true, valueType: "format", defaultValue: "md", summary: "Export format (md).")],
+            flags: [FlagSpec("format", takesValue: true, valueType: "format", defaultValue: "md", allowedValues: ["md"], summary: "Export format (md).")],
             outputSchema: .markdown, exampleIds: ["export_md"]
         ),
         CommandSpec(
@@ -925,7 +925,7 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("ref", takesValue: true, valueType: "string", summary: "An alln:// ref (help/schema/error)."),
                 FlagSpec("error", takesValue: true, valueType: "string", summary: "Find the topic for this error code."),
-                FlagSpec("format", takesValue: true, valueType: "format", defaultValue: "json", summary: "json | md."),
+                FlagSpec("format", takesValue: true, valueType: "format", defaultValue: "json", allowedValues: ["json", "md"], summary: "json | md."),
                 FlagSpec("json", summary: "Emit a HelpGetJSON object."),
             ],
             outputSchema: .helpGetJSON

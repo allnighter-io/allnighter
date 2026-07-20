@@ -146,6 +146,63 @@ public struct MenuShowJSON: Codable, Sendable, Equatable {
         public var effects: ContractRegistry.EffectProfile
         public var args: [ContractRegistry.ArgSpec]
         public var flags: [ContractRegistry.FlagSpec]
+        /// Registry mutual-exclusion groups (SH-S10 teaching projection).
+        public var mutuallyExclusiveFlags: [[String]]
+        /// Registry `requires` / `onlyWith` constraints (SH-S10 teaching projection).
+        public var flagConstraints: [ContractRegistry.FlagConstraint]
+
+        private enum CodingKeys: String, CodingKey {
+            case ref, name, summary, trigger, example, antiExample, spendsQuota
+            case freeTwinCommand, effects, args, flags
+            case mutuallyExclusiveFlags, flagConstraints
+        }
+
+        public init(
+            ref: String,
+            name: String,
+            summary: String,
+            trigger: String,
+            example: String,
+            antiExample: String,
+            spendsQuota: Bool,
+            freeTwinCommand: String?,
+            effects: ContractRegistry.EffectProfile,
+            args: [ContractRegistry.ArgSpec],
+            flags: [ContractRegistry.FlagSpec],
+            mutuallyExclusiveFlags: [[String]] = [],
+            flagConstraints: [ContractRegistry.FlagConstraint] = []
+        ) {
+            self.ref = ref
+            self.name = name
+            self.summary = summary
+            self.trigger = trigger
+            self.example = example
+            self.antiExample = antiExample
+            self.spendsQuota = spendsQuota
+            self.freeTwinCommand = freeTwinCommand
+            self.effects = effects
+            self.args = args
+            self.flags = flags
+            self.mutuallyExclusiveFlags = mutuallyExclusiveFlags
+            self.flagConstraints = flagConstraints
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            ref = try c.decode(String.self, forKey: .ref)
+            name = try c.decode(String.self, forKey: .name)
+            summary = try c.decode(String.self, forKey: .summary)
+            trigger = try c.decode(String.self, forKey: .trigger)
+            example = try c.decode(String.self, forKey: .example)
+            antiExample = try c.decode(String.self, forKey: .antiExample)
+            spendsQuota = try c.decode(Bool.self, forKey: .spendsQuota)
+            freeTwinCommand = try c.decodeIfPresent(String.self, forKey: .freeTwinCommand)
+            effects = try c.decode(ContractRegistry.EffectProfile.self, forKey: .effects)
+            args = try c.decodeIfPresent([ContractRegistry.ArgSpec].self, forKey: .args) ?? []
+            flags = try c.decodeIfPresent([ContractRegistry.FlagSpec].self, forKey: .flags) ?? []
+            mutuallyExclusiveFlags = try c.decodeIfPresent([[String]].self, forKey: .mutuallyExclusiveFlags) ?? []
+            flagConstraints = try c.decodeIfPresent([ContractRegistry.FlagConstraint].self, forKey: .flagConstraints) ?? []
+        }
     }
 
     public struct TeamDetail: Codable, Sendable, Equatable {

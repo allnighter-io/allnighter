@@ -95,6 +95,12 @@ final class MenuCatalogTests: XCTestCase {
         let run = try MenuCatalog.show(ref: "command:run")
         XCTAssertEqual(run.kind, "command")
         XCTAssertEqual(run.command?.name, "run")
+        XCTAssertFalse(try XCTUnwrap(run.command).mutuallyExclusiveFlags.isEmpty)
+        XCTAssertFalse(try XCTUnwrap(run.command).flagConstraints.isEmpty)
+        XCTAssertEqual(
+            try XCTUnwrap(run.command?.flags.first(where: { $0.name == "effort" })?.allowedValues),
+            ["low", "med", "high"]
+        )
 
         let team = try MenuCatalog.show(ref: "team:code_growth")
         XCTAssertEqual(team.kind, "team")

@@ -161,6 +161,10 @@ final class ContractSchemaTests: XCTestCase {
         }
         // No estimate language leaks into the generated reference.
         XCTAssertFalse(md.lowercased().contains("estimated cost"))
+        // SH-S10 teaching sections.
+        XCTAssertTrue(md.contains("## Run stream mode (`--stream`)"))
+        XCTAssertTrue(md.contains("## Model controls (vendor CLI boundary)"))
+        XCTAssertTrue(md.contains("`--effort <low|med|high>`"))
     }
 
     /// CLI M1 step 8: the public contract (generated docs + registry) must teach

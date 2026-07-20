@@ -38,6 +38,12 @@
         "example" : {
           "type" : "string"
         },
+        "flagConstraints" : {
+          "items" : {
+            "$ref" : "#\/$defs\/FlagConstraint"
+          },
+          "type" : "array"
+        },
         "flags" : {
           "items" : {
             "$ref" : "#\/$defs\/FlagSpec"
@@ -49,6 +55,15 @@
             "string",
             "null"
           ]
+        },
+        "mutuallyExclusiveFlags" : {
+          "items" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "type" : "array"
         },
         "name" : {
           "type" : "string"
@@ -76,7 +91,9 @@
         "spendsQuota",
         "effects",
         "args",
-        "flags"
+        "flags",
+        "mutuallyExclusiveFlags",
+        "flagConstraints"
       ],
       "type" : "object"
     },
@@ -138,9 +155,49 @@
       ],
       "type" : "object"
     },
+    "FlagConstraint" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "kind" : {
+          "enum" : [
+            "requires",
+            "onlyWith"
+          ],
+          "type" : "string"
+        },
+        "peers" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "subject" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "kind",
+        "subject",
+        "peers"
+      ],
+      "type" : "object"
+    },
     "FlagSpec" : {
       "additionalProperties" : false,
       "properties" : {
+        "allowedValues" : {
+          "oneOf" : [
+            {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
         "defaultValue" : {
           "type" : [
             "string",

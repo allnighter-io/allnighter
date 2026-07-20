@@ -101,7 +101,10 @@ Add a Core-owned command/contract registry before broad CLI wiring.
 The registry owns:
 
 - commands and subcommands
-- flags, argument types, defaults, mutual exclusions, and examples
+- flags, argument types, defaults, mutual exclusions, companion constraints
+  (`requires` / `onlyWith`), and examples
+- closed flag value domains keyed by `valueType` (`effort` → `low|med|high`,
+  etc.); open types (`path`, `id`, `string`, …) stay open
 - output schema references
 - NDJSON event definitions
 - doctor check descriptors
@@ -109,6 +112,11 @@ The registry owns:
 - generated docs/help sections
 - ~~MCP tool descriptors~~ **retired** — do not re-add
 - example recipe IDs
+
+Every behavior-affecting flag constraint and every closed enum domain must
+project onto usage (`alln <cmd> --help`), per-command docs (`alln docs <cmd>`),
+`menu show` detail, and generated schema from that registry — never a second
+hand-maintained enum list (Law 6 / SH-S10).
 
 Derived from the registry:
 
@@ -440,9 +448,23 @@ Milestone 1 event catalog:
 Rules:
 
 - Events are ordered by `seq`.
-- A final stream must end with `teamRunCompleted`, `teamRunFailed`, or `error`.
+- A final stream must end with `teamRunCompleted`, `teamRunFailed`, or `error`
+  (exactly one terminal; `NDJSONStreamProjector.terminalEventNames` is the code
+  SSOT).
+- NDJSON is one JSON object per stdout line; human progress never mixes into
+  stdout in stream mode.
 - NDJSON `error.error` uses the same error envelope as JSON mode.
-- Human progress is never mixed into stdout in stream mode.
+- On `run`, `--stream` is mutually exclusive with `--json`, `--dry-run`, and
+  `--detach` (registry constraints; invalid combinations exit 2 before any
+  provider start).
+
+### Model controls (vendor CLI boundary)
+
+`alln run` drives subscription CLIs the user already pays for. It does **not**
+expose model-API knobs such as `--temperature` or `--max-tokens` — Alln cannot
+enforce those through every vendor CLI. Use `--effort` (`low|med|high`),
+`--worker`, and each driver's supported flags (via manifests) for controls that
+actually reach the selected CLI.
 
 > **Historical M1 boundary, now superseded by the RLR gate:** M1 projected a
 > faithful settled event log. Some current paths now expose `RunEvent`s live,

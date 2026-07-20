@@ -909,16 +909,26 @@ public enum ContractSchema {
             ], required: ["name", "required", "summary"]),
             "FlagSpec": obj([
                 "name": str, "takesValue": bool, "valueType": nullable("string"),
-                "defaultValue": nullable("string"), "summary": str,
+                "defaultValue": nullable("string"),
+                "allowedValues": ["oneOf": [arr(str), ["type": "null"]]],
+                "summary": str,
             ], required: ["name", "takesValue", "summary"]),
+            "FlagConstraint": obj([
+                "kind": enumStr(["requires", "onlyWith"]),
+                "subject": str,
+                "peers": arr(str),
+            ], required: ["kind", "subject", "peers"]),
             "CommandDetail": obj([
                 "ref": str, "name": str, "summary": str, "trigger": str,
                 "example": str, "antiExample": str, "spendsQuota": bool,
                 "freeTwinCommand": nullable("string"), "effects": ref("EffectProfile"),
                 "args": arr(ref("ArgSpec")), "flags": arr(ref("FlagSpec")),
+                "mutuallyExclusiveFlags": arr(arr(str)),
+                "flagConstraints": arr(ref("FlagConstraint")),
             ], required: [
                 "ref", "name", "summary", "trigger", "example", "antiExample",
                 "spendsQuota", "effects", "args", "flags",
+                "mutuallyExclusiveFlags", "flagConstraints",
             ]),
             "TeamDetail": obj([
                 "ref": str, "id": str, "displayName": str, "description": str,

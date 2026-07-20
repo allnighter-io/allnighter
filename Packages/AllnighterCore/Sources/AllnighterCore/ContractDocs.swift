@@ -22,36 +22,7 @@ public enum ContractDocs {
             line()
             line(c.summary)
             line()
-            if !c.args.isEmpty {
-                line("Arguments:")
-                for a in c.args {
-                    line("- `\(a.name)`\(a.required ? " (required)" : " (optional)") — \(a.summary)")
-                }
-                line()
-            }
-            if !c.flags.isEmpty {
-                line("Flags:")
-                for f in c.flags {
-                    let value = f.takesValue ? " <\(f.valueType ?? "value")>" : ""
-                    let def = f.defaultValue.map { " (default: \($0))" } ?? ""
-                    line("- `--\(f.name)\(value)`\(def) — \(f.summary)")
-                }
-                line()
-            }
-            for group in c.mutuallyExclusiveFlags {
-                line("Mutually exclusive: \(group.map { "`--\($0)`" }.joined(separator: ", ")).")
-                line()
-            }
-            for constraint in c.flagConstraints {
-                let peers = constraint.peers.map { "`--\($0)`" }.joined(separator: ", ")
-                switch constraint.kind {
-                case .requires:
-                    line("Requires: `--\(constraint.subject)` requires \(peers).")
-                case .onlyWith:
-                    line("Only with: `--\(constraint.subject)` only with \(peers).")
-                }
-                line()
-            }
+            out += CommandProjection.markdownCommandBody(c)
             if c.outputSchema != .none {
                 line("Output schema: `\(c.outputSchema.rawValue)`.")
                 line()
@@ -92,11 +63,14 @@ public enum ContractDocs {
         line("## NDJSON events")
         line()
         line("| Event | Required data |")
-        line("| --- | --- |")
+        line("| --- | --- | --- |")
         for ev in registry.events {
             line("| `\(ev.name)` | \(ev.requiredData.map { "`\($0)`" }.joined(separator: ", ")) |")
         }
         line()
+
+        out += CommandProjection.streamFramingMarkdown
+        out += CommandProjection.vendorCLIControlsMarkdown
 
         line("## Next-action kinds")
         line()

@@ -221,6 +221,7 @@ public enum CLIUsage {
 
     /// Usage text for a registered command (testable; no IO).
     /// Returns `nil` when the name is not in the registry — never invents a surface (AE-S01 / Law 8).
+    /// Enum domains and registry flag constraints project from `CommandProjection` (SH-S10).
     public static func usageText(for commandName: String, registry: ContractRegistry = .milestone1) -> String? {
         guard let spec = registry.commands.first(where: { $0.name == commandName && $0.milestone == .m1 }) else {
             return nil
@@ -230,13 +231,11 @@ public enum CLIUsage {
             syn += arg.required ? " <\(arg.name)>" : " [<\(arg.name)>]"
         }
         for flag in spec.flags {
-            if flag.takesValue {
-                syn += " [--\(flag.name) <\(flag.valueType ?? "value")>]"
-            } else {
-                syn += " [--\(flag.name)]"
-            }
+            syn += " \(CommandProjection.usageFlagClause(for: flag))"
         }
-        return "usage: \(syn)\n\(spec.summary)"
+        var lines = ["usage: \(syn)", spec.summary]
+        lines.append(contentsOf: CommandProjection.constraintLines(for: spec, style: .plain))
+        return lines.joined(separator: "\n")
     }
 
     /// When the invocation is not an exact registry name, enumerate immediate subcommands.

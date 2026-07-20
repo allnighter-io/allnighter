@@ -1,8 +1,8 @@
 # Alln Sharpening — from a tool agents can use to a tool agents prefer
 
 Status: **In Implementation (2026-07-21) — D1–D4 ratified and D5 replaced by
-typed founder reply; SH-S00–S09 done (owned wall green + remaining reds named in
-`docs/operations/debugger/QUARANTINE.md` § SH-S00); SH-S10 not started.**
+typed founder reply; SH-S00–S10 done (owned wall green + remaining reds named in
+`docs/operations/debugger/QUARANTINE.md` § SH-S00). Ready for phase archive.**
 Owner: AllnighterCore (`TeamRunJSON`, `RunDryRunJSON`, `TeamCatalog`,
 `MenuCatalog`, `ContractRegistry`) + AllnighterEngine (run resolution/timing) +
 AllnighterCLI (run/docs/teams projections)
@@ -366,7 +366,7 @@ Sequencing).
 | **SH-S07 — Team authoring has two explicit motions** ✅ | **Done 2026-07-20.** `teams new <team-id> --file` creates a supplied TeamPreset (fail on exists / file id ≠ positional / invalid id); `teams duplicate --id` is deterministic (omit `--id` keeps generated-id). No `teams create` alias. Both return `TeamShowJSON` detail. Docs/cards teach duplicate→definition→edit (Bug Hunt) vs definition→new. Gate: deterministic ids, collisions, built-in immutability, restore, cold-agent custom Bug Hunt. Contract stays **3.0.0** (hash refresh for new command/flag). Gate: `swift test --package-path Packages/AllnighterCore --filter 'TeamsNew|TeamsDuplicate|TeamCatalog|ContractRegistry'`. Fixes 8; D1. |
 | **SH-S08 — Surface observed timing without causal fiction** ✅ | **Done 2026-07-21.** Per-worker `queueMs` / `ttftMs` / `durationMs` projected from existing `TeamAnswer` / `RunTiming` truth; terminal `outcome.timing.wallMs` = createdAt→latest finishedAt. Null = unreported. Docs name clock boundaries; single-worker headline may list observed phases; never “Alln overhead” / parallel blame / forecasts. Gate: exact fixture timestamps + no `estimate` vocabulary. Contract stays **3.0.0** (hash refresh for TeamRunJSON shape). Gate: `swift test --package-path Packages/AllnighterCore --filter 'TeamRunJSON|Timing|FixtureRoundTrip'`. |
 | **SH-S09 — Diversified, quota-free regression gate** ✅ | **Done 2026-07-21.** `scripts/agent_eval.sh --suite sharpening` → `scripts/sharpening_eval.py`: fixture drivers on curated PATH + isolated `ALLNIGHTER_SUPPORT_DIR`; starts no paid provider. Mechanical cases (call budgets + pass/fail, no score — D5): one-worker answer (envelope ≤4096), answer-team preview/result identity, team inspect seatCount, Bug Hunt duplicate `--id` + edit, `teams new`, detach→wait→result, bad-id / unregistered-root recovery (zero spend before retry), docs typed-ref. Captures binary SHA, argv, exit, bytes, provider evidence, claim ledger. Gate: `scripts/agent_eval.sh --suite sharpening --binary "$B"`. |
-| **SH-S10 — Generated papercuts, no new grammar** | Render enum domains and registry flag constraints in usage, docs, menu detail, and generated schema; document NDJSON `--stream` framing/terminal rule and why token/temperature controls belong to vendor CLIs. Keep `menu.actions` short and ≤32 KiB; add no action solely to improve the 4/103 ratio. Gate every enum/constraint projection against its owner and the active help-corpus resolvability/retired-vocabulary wall. Fixes 6–7 and the verified teaching gaps. |
+| **SH-S10 — Generated papercuts, no new grammar** ✅ | **Done 2026-07-21.** `ContractRegistry.valueTypeDomains` + `FlagSpec.allowedValues` own closed enums; `CommandProjection` renders domains + `mutuallyExclusiveFlags` / `flagConstraints` into usage, per-command docs, menu show, and generated schema/docs. NDJSON `--stream` framing/terminal rule and vendor-CLI boundary (no `--temperature` / `--max-tokens`) taught in `ContractDocs` + `team_run_loop` help. `menu.actions` unchanged; Tier-1 ≤32 KiB. Gate: `CommandProjectionTests` + help-corpus / retired-vocabulary wall; `scripts/agent_eval.sh --suite sharpening`. Contract stays **3.0.0** (hash refresh). Fixes 6–7 teaching gaps. |
 
 ## Mechanical pass/fail gate (no score — D5)
 

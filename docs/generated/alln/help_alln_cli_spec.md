@@ -78,7 +78,7 @@ Examples: `doctor_explain`.
 Print a paste-ready agent-activation snippet for a host's context file (never edits files).
 
 Flags:
-- `--host <host>` — claude | cursor | codex | generic (default generic).
+- `--host <claude|cursor|codex|generic>` — claude | cursor | codex | generic (default generic).
 - `--json` — Structured { host, pasteTarget, snippet, binaryPath, onPath }.
 
 Output schema: `bootstrapJSON`.
@@ -154,7 +154,7 @@ Flags:
 - `--driver <driverId>` — Source driver id.
 - `--name <string>` — Display name.
 - `--model-label <string>` — Label passed to the CLI.
-- `--role <modelRole>` — answerer|planWriter|both (default answerer).
+- `--role <answerer|planWriter|both>` — answerer|planWriter|both (default answerer).
 - `--disabled` — Create off-Bench.
 - `--json` — Return refreshed ModelListJSON.
 
@@ -170,7 +170,7 @@ Arguments:
 Flags:
 - `--name <string>` — New display name.
 - `--model-label <string>` — New CLI model label.
-- `--role <modelRole>` — New role.
+- `--role <answerer|planWriter|both>` — New role.
 - `--json` — Return refreshed ModelListJSON.
 
 Output schema: `modelListJSON`.
@@ -192,7 +192,7 @@ Output schema: `modelListJSON`.
 List the lane-scoped team catalog. Prefer `alln menu --json` / `alln teams show <id>` over guessing ids.
 
 Flags:
-- `--lane <lane>` — Filter to one lane.
+- `--lane <code|design|copy|signal>` — Filter to one lane.
 - `--all` — Include inactive (switched-OFF) teams.
 - `--json` — Structured catalog summary.
 
@@ -279,7 +279,7 @@ Examples: `thread_status_json`.
 List the lane-scoped skill catalog.
 
 Flags:
-- `--lane <lane>` — Filter to one lane.
+- `--lane <code|design|copy|signal>` — Filter to one lane.
 - `--json` — Structured catalog summary (no templates).
 
 Output schema: `skillCatalogJSON`.
@@ -416,9 +416,9 @@ Examples: `skills_duplicate_json`.
 Create a custom skill.
 
 Flags:
-- `--lane <lane>` — code | design | copy | signal.
+- `--lane <code|design|copy|signal>` — code | design | copy | signal.
 - `--name <string>` — Display name.
-- `--purpose <purpose>` — answer | review | planWriter.
+- `--purpose <answer|review|planWriter>` — answer | review | planWriter.
 - `--template-file <path>` — Skill template text file.
 - `--json` — Structured skill detail.
 
@@ -459,7 +459,7 @@ Arguments:
 
 Flags:
 - `--json` — Structured TeamStatusResponse.
-- `--wait-for <state>` — Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`.
+- `--wait-for <queued|running|done|failed|timedOut|cancelled|terminal>` — Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`.
 - `--timeout <seconds>` — Max seconds to wait when --wait-for is set (required with --wait-for). Exit 3 (timeout) if the target is not reached.
 
 Output schema: `teamStatusResponse`.
@@ -545,8 +545,8 @@ Flags:
 - `--team <id>` — Team preset id; omit for Default Team.
 - `--worker <id>` — Override worker model id.
 - `--message <string>` — Alias for the positional message.
-- `--effort <effort>` — low | med | high.
-- `--lane <lane>` — Lane tags the run for context and filtering; `--team` routes.
+- `--effort <low|med|high>` — low | med | high.
+- `--lane <code|design|copy|signal>` — Lane tags the run for context and filtering; `--team` routes.
 - `--type <type>` — Copy routing sugar.
 - `--context <string>` — Bounded context snippet.
 - `--idle-timeout <integer>` — Override the worker idle-stall budget in seconds (default = driver manifest timeout, typically 300). Resets on any streaming progress (tool-call/reasoning/stderr/child activity), not only answer tokens (PO-F5).
@@ -568,7 +568,7 @@ Flags:
 - `--detach` — Start asynchronously; return the durable run id and exit (async twin of foreground run).
 - `--dry-run` — Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Free twin of both foreground and --detach. effects.repoWrite is permission (may write), not a prompt prediction — pick an answer team for mechanical read-only; terminal repoDelta reports whether a mutating run wrote.
 - `--json` — Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects; TeamStartResponse with --detach).
-- `--stream` — Emit NDJSON events.
+- `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run / --detach.
 
 Mutually exclusive: `--json`, `--stream`.
 
@@ -848,7 +848,7 @@ Arguments:
 - `run-id|latest` (optional) — A run id or `latest` (default latest).
 
 Flags:
-- `--detail <detail>` (default: summary) — summary | full | artifactRefsOnly.
+- `--detail <summary|full|artifactRefsOnly>` (default: summary) — summary | full | artifactRefsOnly.
 - `--json` — Structured SpecRetrieval result.
 
 Output schema: `specResult`.
@@ -863,7 +863,7 @@ Arguments:
 - `run-id|latest` (required) — A run id or `latest`.
 
 Flags:
-- `--format <format>` (default: md) — Export format (md).
+- `--format <md>` (default: md) — Export format (md).
 
 Output schema: `markdown`.
 
@@ -1345,7 +1345,7 @@ Arguments:
 Flags:
 - `--ref <string>` — An alln:// ref (help/schema/error).
 - `--error <string>` — Find the topic for this error code.
-- `--format <format>` (default: json) — json | md.
+- `--format <json|md>` (default: json) — json | md.
 - `--json` — Emit a HelpGetJSON object.
 
 Output schema: `helpGetJSON`.
@@ -1504,7 +1504,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 ## NDJSON events
 
 | Event | Required data |
-| --- | --- |
+| --- | --- | --- |
 | `teamRunStarted` | `status`, `origin`, `teamPresetId` |
 | `workerStarted` | `workerId`, `modelId`, `skillId` |
 | `workerAnswered` | `workerId`, `durationMs` |
@@ -1522,6 +1522,21 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `pendingReordered` | `pendingItemId` |
 | `pendingCancelled` | `pendingItemId`, `status` |
 
+## Run stream mode (`--stream`)
+
+`--stream` emits **NDJSON**: one JSON object per line on stdout. Human progress
+never mixes into stdout. Events are ordered by durable `seq`. A stream ends with
+exactly one terminal event among `error`, `teamRunCompleted`, `teamRunFailed`.
+
+On `run`, `--stream` is mutually exclusive with `--json`, `--dry-run`, and `--detach`
+(registry constraints; invalid combinations exit 2 before any provider start).
+## Model controls (vendor CLI boundary)
+
+`alln run` drives **subscription CLIs** the user already pays for. It does **not**
+expose model-API knobs such as `--temperature` or `--max-tokens` — Alln cannot
+enforce those through every vendor CLI. Use `--effort` (`low|med|high`), `--worker`,
+and the driver's own supported flags (via manifests) for controls that actually reach
+the selected CLI.
 ## Next-action kinds
 
 - `showRun` — Show the full run.
