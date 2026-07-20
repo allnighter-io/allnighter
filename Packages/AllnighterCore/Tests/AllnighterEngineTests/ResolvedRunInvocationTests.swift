@@ -140,7 +140,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         XCTAssertEqual(dry.teamPresetId, fg.teamPresetId)
         XCTAssertEqual(dry.workerId, fg.workerId)
         XCTAssertEqual(dry.seatCount, fg.seatCount)
-        XCTAssertEqual(substitutedArgv(dry).contains("model_sonnet"), true)
+        XCTAssertTrue(substitutedArgv(dry).contains("model_sonnet"))
     }
 
     func testExplicitTeamUsesThatTeamSeats() {

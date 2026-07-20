@@ -286,7 +286,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
                 : AgentNextAction(
                     kind: "runDoctor",
                     label: "Check setup and sources",
-                    command: blockedReason.map { _ in teachingCommand } ?? "alln doctor --json")
+                    command: blockedReason == nil ? "alln doctor --json" : teachingCommand)
         )
     }
 
@@ -425,7 +425,7 @@ public enum RunInvocationResolver {
         let writePolicy = preset.writePolicy
         let takesWriteLock = writePolicy == .mutating && !input.advisoryReview
         let lockKey = RunWriteLock.key(repoRoot: root)
-        var writeLockHeld = takesWriteLock ? context.writeLockHeld : nil
+        let writeLockHeld = takesWriteLock ? context.writeLockHeld : nil
         if writeLockHeld == true {
             warnings.append("repo write lock is currently held")
         }
@@ -458,9 +458,8 @@ public enum RunInvocationResolver {
         }
 
         // --- Seats (execution shape = one seat; answer = team seats or pin) ---
-        let requestLane = lane
         var teamResolved = TeamResolver.resolve(
-            team: preset, requestLane: requestLane, requestEffort: effort,
+            team: preset, requestLane: lane, requestEffort: effort,
             readyModels: context.readyModels
         )
         TeamSourceFacts.enrich(&teamResolved, models: context.models)
@@ -468,6 +467,7 @@ public enum RunInvocationResolver {
         var seats: [ResolvedRunSeat] = []
         if preset.runShape == .execution {
             // One worker — explicit pin, Auto, or team's answer seat.
+            // Selected worker owns the seat; team roster readiness is not the canStart gate.
             let modelId = workerId
                 ?? teamResolved.answerWorkers.first?.modelId
             if let modelId {
@@ -486,12 +486,6 @@ public enum RunInvocationResolver {
                 warnings.append(contentsOf: teamResolved.warnings.filter { warning in
                     warning.localizedCaseInsensitiveContains(modelId)
                 })
-                // Selected worker (explicit pin or Auto) owns the seat — team preferred
-                // roster readiness is not the canStart gate (matches runExecution).
-                if (workerId ?? "").isEmpty, !teamResolved.isRunnable, canStart {
-                    canStart = false
-                    blockedReason = teamResolved.blockReason ?? "team cannot run"
-                }
             } else if canStart {
                 canStart = false
                 blockedReason = teamResolved.blockReason ?? "no worker resolved"
@@ -549,13 +543,9 @@ public enum RunInvocationResolver {
         )
 
         var flags = input.flags
-        // Preserve explicit selectors exactly as provided (for templates).
-        if explicitTeamChosen { flags.teamId = input.flags.teamId }
+        // Canonicalize resolved worker id; type echoes only when valid for the team.
         if explicitWorkerChosen { flags.workerId = workerId ?? input.flags.workerId }
-        flags.effort = input.flags.effort
-        flags.lane = input.flags.lane
         flags.type = typeEcho ?? input.flags.type
-        flags.projectId = input.flags.projectId ?? flags.projectId
 
         let (templateVariables, argvTemplate) = buildTemplate(
             message: input.message,

@@ -1125,19 +1125,6 @@ public actor AsyncTeamService {
         )
     }
 
-    private func preflightCode(_ request: AsyncTeamStartRequest, _ preflight: TeamPreflight.Result) -> String {
-        if preflight.sourceGateStatus == SourceGateStatus.blocked.rawValue {
-            return ExecutionTeamSourceGate.mixedSourcesCode
-        }
-        if case .failure(let failure) = TeamRequestResolver.resolve(
-            teams: teams, lane: request.lane, teamId: request.teamPresetId,
-            type: request.type, effort: request.effort) {
-            return failure.code
-        }
-        if preflight.blockedReason?.contains("plan/output writer") == true { return "PLAN_WRITER_FAILED" }
-        return "DEFAULT_TEAM_INVALID"
-    }
-
     private static func normalizedModelId(_ modelId: String?) -> String? {
         guard let modelId else { return nil }
         let trimmed = modelId.trimmingCharacters(in: .whitespacesAndNewlines)
