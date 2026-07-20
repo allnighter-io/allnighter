@@ -1,7 +1,8 @@
 # MR-S06 — Cold-agent proof
 
-Status: **ready** (after MR-S05)
+Status: **done**
 SSOT: `docs/phases/Menu_Not_Router.md` §MR-S06 + Cold-agent acceptance matrix
+(after archive: `docs/archive/phases/Menu_Not_Router.md`)
 
 ## Goal
 
@@ -21,6 +22,15 @@ scripts/check.sh
 ```
 
 Then run the full phase Works Test from `Menu_Not_Router.md`.
+
+## Delivered
+
+- `scripts/menu_not_router_eval.py` — mechanical pinned-binary matrix (not a live
+  frontier LLM eval). Selects by displayName/useWhen from `menu --json`, asserts
+  dry-run / management command shapes, zero wrong spends, discovery budgets.
+- `scripts/agent_eval.sh --suite menu-not-router --binary "$B"` — suite entrypoint;
+  pins binary SHA256, records version + menu meta + transcript under
+  `.build/agent-eval/menu-not-router/`.
 
 ## Phase closeout
 

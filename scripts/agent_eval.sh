@@ -1,59 +1,77 @@
 #!/usr/bin/env bash
-# AE-S09 — reproducible cold-agent evaluation harness.
-# Pins a freshly built alln binary, records its gitSha, runs a fixed probe script,
-# and captures the transcript so dogfood feedback is attributable to a known SHA.
+# Cold-agent evaluation harness.
+#
+# Primary suite (MR-S06): pinned-binary *mechanical* menu-not-router matrix.
+# This is not a live frontier-LLM dogfood. It drives `alln` the way a cold
+# agent must after reading `menu --json`: one discovery → exact ids → dry-run.
+#
+# Usage:
+#   scripts/agent_eval.sh --suite menu-not-router --binary "$B"
+#   scripts/agent_eval.sh --suite menu-not-router          # builds release alln first
+#   scripts/agent_eval.sh                                  # defaults to menu-not-router
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+SUITE="menu-not-router"
+BINARY=""
+ALLOW_STALE_GITSHA=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --suite)
+      SUITE="${2:?}"
+      shift 2
+      ;;
+    --binary)
+      BINARY="${2:?}"
+      shift 2
+      ;;
+    --allow-stale-gitsha)
+      ALLOW_STALE_GITSHA=1
+      shift
+      ;;
+    -h|--help)
+      sed -n '2,20p' "$0"
+      exit 0
+      ;;
+    *)
+      echo "agent_eval: unknown arg: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
 OUT_DIR="${ALLN_EVAL_OUT:-$ROOT/.build/agent-eval}"
 mkdir -p "$OUT_DIR"
 
-echo "== AE-S09 cold-agent eval =="
-echo "repo: $ROOT"
-echo "out:  $OUT_DIR"
-
-# 1. Build a release binary from this checkout.
-swift build -c release --package-path Packages/AllnighterCore --product alln
-B="$ROOT/Packages/AllnighterCore/.build/release/alln"
-test -x "$B"
-
-# 2. Pin identity.
-VERSION_JSON="$OUT_DIR/version.json"
-"$B" version --json > "$VERSION_JSON"
-GIT_SHA="$(/usr/bin/python3 -c 'import json; print(json.load(open("'"$VERSION_JSON"'")).get("gitSha") or "unknown")')"
-HEAD_SHA="$(git rev-parse HEAD)"
-echo "binary gitSha: $GIT_SHA"
-echo "workspace HEAD: $HEAD_SHA"
-printf '%s\n' "$GIT_SHA" > "$OUT_DIR/pinned-gitSha.txt"
-printf '%s\n' "$HEAD_SHA" > "$OUT_DIR/workspace-HEAD.txt"
-
-# 3. Fixed probe script (discovery → route → dry-run).
-PROBE="$OUT_DIR/probe.sh"
-cat > "$PROBE" <<'PROBE'
-#!/usr/bin/env bash
-set -euo pipefail
-B="${ALLN_BIN:?}"
-echo "--- help ---"
-"$B" --help | tail -5
-echo "--- commands count ---"
-"$B" commands --json | /usr/bin/python3 -c 'import json,sys; print(len(json.load(sys.stdin)["commands"]))'
-echo "--- route ---"
-"$B" route --for "ask Sonnet 5 a question" --json | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("recommended",{}).get("command") or d.get("nextActions",[{}])[0].get("command"))'
-echo "--- dry-run ---"
-"$B" run "probe" --dry-run --json | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); print("canStart=", d.get("canStart"), "project=", d.get("projectId"))'
-echo "--- unknown flag (must fail) ---"
-set +e
-"$B" version --bogus-flag >/dev/null 2>&1
-echo "exit=$?"
-set -e
-PROBE
-chmod +x "$PROBE"
-
-# 4. Run and capture transcript.
-export ALLN_BIN="$B"
-TRANSCRIPT="$OUT_DIR/transcript.txt"
-bash "$PROBE" > "$TRANSCRIPT" 2>&1
-echo "transcript: $TRANSCRIPT"
-echo "OK — eval harness complete for gitSha=$GIT_SHA"
+case "$SUITE" in
+  menu-not-router)
+    echo "== MR-S06 menu-not-router (mechanical pinned-binary matrix) =="
+    if [[ -z "$BINARY" ]]; then
+      echo "building release alln…"
+      swift build -c release --package-path Packages/AllnighterCore --product alln
+      BINARY="$ROOT/Packages/AllnighterCore/.build/release/alln"
+    fi
+    test -x "$BINARY"
+    EXTRA=()
+    if [[ "$ALLOW_STALE_GITSHA" == "1" ]] || [[ "${ALLN_EVAL_ALLOW_STALE_GITSHA:-}" == "1" ]]; then
+      EXTRA+=(--allow-stale-gitsha)
+    fi
+    /usr/bin/python3 "$ROOT/scripts/menu_not_router_eval.py" \
+      --binary "$BINARY" \
+      --out-dir "$OUT_DIR/menu-not-router" \
+      ${EXTRA[@]+"${EXTRA[@]}"}
+    # Convenience pins at suite root (AE-S09 attribution habit).
+    cp "$OUT_DIR/menu-not-router/pinned-binary.sha256" "$OUT_DIR/pinned-binary.sha256"
+    cp "$OUT_DIR/menu-not-router/version.json" "$OUT_DIR/version.json"
+    cp "$OUT_DIR/menu-not-router/workspace-HEAD.txt" "$OUT_DIR/workspace-HEAD.txt"
+    cp "$OUT_DIR/menu-not-router/transcript.txt" "$OUT_DIR/transcript.txt"
+    echo "transcript: $OUT_DIR/transcript.txt"
+    ;;
+  *)
+    echo "agent_eval: unknown suite '$SUITE' (known: menu-not-router)" >&2
+    exit 2
+    ;;
+esac
