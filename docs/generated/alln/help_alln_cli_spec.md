@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 1.5.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 1.5.1, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -585,7 +585,7 @@ Arguments:
 - `message` (required) — The user's prompt.
 
 Flags:
-- `--project <id>` — Project id, name, or repo path (required).
+- `--project <id>` — Project id, name, or repo path. When omitted, walk to the git root and match a registered project (AE-S05).
 - `--team <id>` — Team preset id; omit for Default Team.
 - `--worker <id>` — Override worker model id.
 - `--message <string>` — Alias for the positional message.
@@ -1530,7 +1530,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `MODEL_INVALID` | yes | no | `operational` | Fix the model definition and retry the edit. |
 | `MODEL_DRIVER_MISSING` | yes | no | `operational` | Reference a known driver id, or add the driver manifest first. |
 | `INTERNAL_ERROR` | yes | no | `operational` | Capture the message and `traceId`; retry once, then report if it persists. |
-| `PROJECT_NOT_FOUND` | yes | no | `operational` | Run `alln project list --json`; retry with a valid id or name. |
+| `PROJECT_NOT_FOUND` | yes | no | `operational` | If cwd is an unregistered git root, run `alln project add <path>`. Otherwise `alln project list --json` and retry with a valid id or path. |
 | `NO_PROJECT_SELECTED` | yes | no | `usage` | Select or add a project, then re-run the mutating action. |
 | `DUPLICATE_PROJECT_ROOT` | no | no | `operational` | Use the existing project that owns this normalized root. |
 | `PROJECT_ROOT_UNAVAILABLE` | yes | yes | `operational` | Restore the folder/permissions, then `alln project show <id>` to re-observe. |

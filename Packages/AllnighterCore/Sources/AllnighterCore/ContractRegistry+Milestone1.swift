@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "1.5.0"
+    static let contractVersion = "1.5.1"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -422,7 +422,7 @@ public extension ContractRegistry {
             antiExample: "Do NOT use this to explore shapes — prefer `alln team preflight` or `alln route --for` first; this spends quota.",
             args: [ArgSpec("message", required: true, summary: "The user's prompt.")],
             flags: [
-                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
+                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path. When omitted, walk to the git root and match a registered project (AE-S05)."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id; omit for Default Team."),
                 FlagSpec("worker", takesValue: true, valueType: "id", summary: "Override worker model id."),
                 FlagSpec("message", takesValue: true, valueType: "string", summary: "Alias for the positional message."),
@@ -1137,7 +1137,7 @@ public extension ContractRegistry {
         ErrorSpec("INTERNAL_ERROR", ruleId: "internal.error", agentAction: "Capture the message and `traceId`; retry once, then report if it persists.", requiresManual: true, retryable: false, explain: "An unexpected internal failure occurred (not a usage error). The detail is in the message; this is a defensive catch-all, not a routine condition."),
         // Project foundation (PRJ-S07+). The full set is registered up front so the
         // recovery ladder and doctor explain cover them as the later slices emit them.
-        ErrorSpec("PROJECT_NOT_FOUND", ruleId: "project.not_found", agentAction: "Run `alln project list --json`; retry with a valid id or name.", requiresManual: true, retryable: false, explain: "No project matches the given id or name. List projects and retry with a valid identifier."),
+        ErrorSpec("PROJECT_NOT_FOUND", ruleId: "project.not_found", agentAction: "If cwd is an unregistered git root, run `alln project add <path>`. Otherwise `alln project list --json` and retry with a valid id or path.", requiresManual: true, retryable: false, explain: "No project matches the given id/path, or cwd's git root is not registered. Add the project or pick a valid identifier."),
         ErrorSpec("NO_PROJECT_SELECTED", ruleId: "project.none_selected", agentAction: "Select or add a project, then re-run the mutating action.", requiresManual: true, retryable: false, explain: "A mutating action was attempted with no project selected. Mutating work is always scoped to one project root.", exitClass: .usage),
         ErrorSpec("DUPLICATE_PROJECT_ROOT", ruleId: "project.duplicate_root", agentAction: "Use the existing project that owns this normalized root.", requiresManual: false, retryable: false, explain: "The path resolves to an existing project's normalized root; the existing project is returned rather than a duplicate."),
         ErrorSpec("PROJECT_ROOT_UNAVAILABLE", ruleId: "project.root_unavailable", agentAction: "Restore the folder/permissions, then `alln project show <id>` to re-observe.", requiresManual: true, retryable: true, explain: "The project root is missing or permission-denied (rootState != available); mutating runs are blocked until the root is restored."),

@@ -1557,6 +1557,16 @@ struct AllnighterCLI {
         return "latest"
     }
 
+    /// Resolve the registered project for cwd: walk to git root, match
+    /// `normalizedRootPath` (AE-S05). Returns nil when the root is unregistered.
+    static func resolveProjectFromCwd(
+        store: ProjectStore,
+        cwd: String = FileManager.default.currentDirectoryPath
+    ) -> Project? {
+        let gitRoot = GitObserver().repoTopLevel(forPath: cwd) ?? RootNormalization.normalize(cwd).key
+        return resolveProject(gitRoot, store: store)
+    }
+
     /// Resolve a project token (id or repo-root path) to a Project. One SSOT for the
     /// run entrypoints — `alln run` and the team engine resolve the same way.
     static func resolveProject(_ token: String, store: ProjectStore) -> Project? {

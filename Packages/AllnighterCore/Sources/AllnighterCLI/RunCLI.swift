@@ -47,12 +47,22 @@ enum RunCLI {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--dry-run and --try-fix are mutually exclusive")
         }
 
-        guard let projectToken = opts.value("project") else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--project <id|path> required")
-        }
         let store = ProjectStore()
-        guard let project = AllnighterCLI.resolveProject(projectToken, store: store) else {
-            AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found: \(projectToken)")
+        let project: Project
+        if let projectToken = opts.value("project") {
+            guard let resolved = AllnighterCLI.resolveProject(projectToken, store: store) else {
+                AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found: \(projectToken)")
+            }
+            project = resolved
+        } else if let resolved = AllnighterCLI.resolveProjectFromCwd(store: store) {
+            project = resolved
+        } else {
+            let cwd = FileManager.default.currentDirectoryPath
+            let gitRoot = GitObserver().repoTopLevel(forPath: cwd) ?? cwd
+            AllnighterCLI.fail(
+                code: "PROJECT_NOT_FOUND",
+                message: "no registered project for \(gitRoot) — run `alln project add \(gitRoot)`"
+            )
         }
 
         let effort = opts.value("effort").flatMap(EffortLevel.init(rawValue:))
