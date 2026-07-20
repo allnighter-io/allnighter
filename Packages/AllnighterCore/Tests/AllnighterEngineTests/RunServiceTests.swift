@@ -348,4 +348,52 @@ final class RunServiceTests: XCTestCase {
         XCTAssertEqual(run.executionSourceId, "cursor_agent")
         XCTAssertEqual(run.status, .complete)
     }
+
+    /// AE-S03: answer-path (non-mutating team) must fail closed on a bogus `--worker`,
+    /// never accept-and-drop.
+    func testAnswerPathBogusWorkerFailsWithWorkerNotAvailable() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-service-answer-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        guard let bugHunt = TeamCatalog.get("code_bug_hunt"), bugHunt.mutating == false else {
+            return XCTFail("code_bug_hunt must be a non-mutating answer team for this gate")
+        }
+
+        let gpt = Model(
+            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            driverId: "codex", role: .both, enabled: true
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .flagship, allowHealthySubstitutions: true,
+            tiers: TierMembership(flagship: ["model_chatgpt"]))
+        let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
+        let service = RunService(
+            models: [gpt],
+            registry: DriverRegistry([TestSupport.headlessManifest(id: "codex", command: "codex")]),
+            teams: [bugHunt],
+            commandRunner: MockCommandRunner(scripts: [
+                "codex": .init(stdout: "Should never run.", exitCode: 0),
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] }
+        )
+
+        let result = await service.run(
+            RunRequest(
+                message: "probe",
+                repoRoot: repo.path,
+                presetId: "code_bug_hunt",
+                workerId: "model_bogus_id"
+            ),
+            origin: .cli
+        )
+        guard case .failure(let err) = result else {
+            return XCTFail("expected WORKER_NOT_AVAILABLE on answer path, got success: \(result)")
+        }
+        XCTAssertEqual(err.code, "WORKER_NOT_AVAILABLE")
+        XCTAssertTrue(err.description.contains("model_bogus_id"))
+    }
 }

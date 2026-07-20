@@ -913,6 +913,7 @@ public actor RunService {
             preset: preset, prompt: answerPrompt, effort: effort, repoRoot: root,
             projectId: request.projectId, lane: request.lane ?? preset.lane,
             explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
+            workerOverride: effectiveWorkerId,
             origin: origin, originAgent: originAgent, runId: id, runner: runner,
             deliveries: request.deliveries, timing: timing, events: events,
             retryLinks: retryLinks,
@@ -1721,6 +1722,7 @@ public actor RunService {
         lane: WorkLane,
         explicitTeamChosen: Bool,
         laneContextOnly: Bool,
+        workerOverride: String? = nil,
         origin: RunOrigin,
         originAgent: String?,
         runId: String,
@@ -1734,12 +1736,42 @@ public actor RunService {
         var timing = seedTiming
         let bench = readyModels()
         timing.stamp(RunTimingKey.workerResolveStart)
-        let resolved = TeamResolver.resolve(
+        var resolvedMut = TeamResolver.resolve(
             team: preset, requestLane: lane, requestEffort: effort, readyModels: bench
         )
-        guard resolved.isRunnable else {
-            return .failure(.teamResolution(resolved.blockReason ?? "team cannot run", code: "DEFAULT_TEAM_INVALID"))
+        guard resolvedMut.isRunnable else {
+            return .failure(.teamResolution(resolvedMut.blockReason ?? "team cannot run", code: "DEFAULT_TEAM_INVALID"))
         }
+
+        // AE-S03 / PO-F10: explicit --worker on the answer path is honored or fails
+        // loud — never accepted into the idempotency payload and then dropped.
+        if let override = workerOverride, !override.isEmpty {
+            switch resolveExplicitWorker(override) {
+            case .failure(let error):
+                return .failure(error)
+            case .success(let m):
+                guard let manifest = registry.manifest(for: m), manifest.kind == .headlessCLI else {
+                    return .failure(.workerNotAvailable(
+                        "\(override) is not a runnable CLI — pick a ready worker; see `alln models` / `alln doctor`."
+                    ))
+                }
+                let skillId = resolvedMut.answerWorkers.first?.skillId ?? "first_principles_builder"
+                let skillName = resolvedMut.answerWorkers.first?.skillName
+                let pinned = Worker(
+                    id: Worker.makeID(modelId: m.id, instanceIndex: 0),
+                    modelId: m.id,
+                    instanceIndex: 0,
+                    skillId: skillId,
+                    skillName: skillName,
+                    purpose: .answer
+                )
+                resolvedMut.scoutWorker = nil
+                resolvedMut.answerWorkers = [pinned]
+                resolvedMut.reviewWorkers = []
+                TeamSourceFacts.enrich(&resolvedMut, models: models)
+            }
+        }
+        let resolved = resolvedMut
         timing.stamp(RunTimingKey.workerResolveEnd)
 
         let store = runStore
