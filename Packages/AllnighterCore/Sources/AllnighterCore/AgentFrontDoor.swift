@@ -16,6 +16,13 @@ public enum AgentFrontDoor {
     public static let doctorFirst = AgentSurfaceNextAction(
         kind: "runDoctor", label: "Check setup and sources", command: "alln doctor --json")
 
+    /// Prefer the intent resolver over a bare catalog browse when an agent is
+    /// hunting by natural-language model/team name (AE-S14).
+    public static let routeFirst = AgentSurfaceNextAction(
+        kind: "routeIntent",
+        label: "Resolve intent to a ready model or team",
+        command: "alln route --for \"<intent>\" --json")
+
     public static func emptyModelsCounsel(
         benchOnly: Bool,
         driverId: String?,
@@ -31,13 +38,13 @@ public enum AgentFrontDoor {
         } else {
             reason = "No models are configured on this machine."
         }
-        let counsel = "\(reason) Run `alln doctor --json` first to see which sources are installed and ready."
-        return (counsel, [doctorFirst])
+        let counsel = "\(reason) Looking for a model by name (Sonnet, Grok, Sol)? Run `alln route --for \"<intent>\" --json` — do not stop at an empty models list. Then `alln doctor --json` if sources look down."
+        return (counsel, [routeFirst, doctorFirst])
     }
 
     public static func emptyTeamsCounsel() -> (counsel: String, nextActions: [AgentSurfaceNextAction]) {
-        let counsel = "No active teams are visible. Run `alln doctor --json` to confirm the bench and sources."
-        return (counsel, [doctorFirst])
+        let counsel = "No active teams are visible. Looking for a team by intent? Run `alln route --for \"<intent>\" --json`. Otherwise `alln doctor --json` to confirm the bench and sources."
+        return (counsel, [routeFirst, doctorFirst])
     }
 
     public static func missingConfigCounsel() -> (counsel: String, nextActions: [AgentSurfaceNextAction]) {

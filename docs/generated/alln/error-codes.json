@@ -864,10 +864,10 @@
     "ruleId" : "thread.send.failed"
   },
   {
-    "agentAction" : "Run `alln models --json` and retry with a valid model id.",
+    "agentAction" : "If you have a natural-language name (e.g. Sonnet 5), run `alln route --for \"<intent>\" --json` first. Otherwise list ids with `alln models --json` and retry with a valid ModelID.",
     "code" : "MODEL_NOT_FOUND",
     "exitClass" : "operational",
-    "explain" : "No model matches the given id. List models and retry with a valid ModelID.",
+    "explain" : "No model matches the given id. Prefer `alln route --for` for natural-language model names; use `alln models --json` only when you already have a catalog ModelID.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "model.not_found"

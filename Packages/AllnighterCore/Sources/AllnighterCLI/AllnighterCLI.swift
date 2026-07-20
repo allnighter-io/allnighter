@@ -53,6 +53,7 @@ struct AllnighterCLI {
         case "continuity": runContinuity(args)
         case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
         case "team" where args.first == "hello": print(teamHelloJSONString(Array(args.dropFirst()), runtime))
+        case "route", "resolve": print(teamHelloJSONString(args, runtime))
         case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
         case "team" where args.first == "start": await runTeamStart(Array(args.dropFirst()), runtime)
         case "team" where args.first == "__runner": await runTeamRunner(Array(args.dropFirst()), runtime)

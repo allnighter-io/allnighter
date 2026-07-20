@@ -57,8 +57,10 @@ final class FrontDoorTests: XCTestCase {
 
         XCTAssertTrue(json.models.isEmpty)
         XCTAssertFalse(json.nextActions.isEmpty)
-        XCTAssertEqual(json.nextActions.first?.command, "alln doctor --json")
+        XCTAssertTrue(json.nextActions.contains { $0.command.hasPrefix("alln route --for") })
+        XCTAssertEqual(json.nextActions.first?.command, AgentFrontDoor.routeFirst.command)
         XCTAssertNotNil(json.counsel)
+        XCTAssertTrue(json.counsel?.contains("route --for") == true)
 
         let data = try CoreJSON.encode(json)
         let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]

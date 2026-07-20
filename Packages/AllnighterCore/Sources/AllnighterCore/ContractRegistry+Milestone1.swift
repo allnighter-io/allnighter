@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "1.2.0"
+    static let contractVersion = "1.3.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -85,7 +85,7 @@ public extension ContractRegistry {
             outputSchema: .installCLIJSON, exampleIds: ["install_cli_json"]
         ),
         CommandSpec(
-            "models", summary: "List model catalog and Bench state.", milestone: .m1,
+            "models", summary: "List model catalog and Bench state. For natural-language model names (Sonnet, Grok), use `alln route --for` first — this list is catalog ids only.", milestone: .m1,
             flags: [
                 FlagSpec("json", summary: "Structured ModelListJSON."),
                 FlagSpec("driver", takesValue: true, valueType: "driverId", summary: "Filter to one source."),
@@ -141,7 +141,7 @@ public extension ContractRegistry {
             exampleIds: ["team_show_json"]
         ),
         CommandSpec(
-            "teams", summary: "List the lane-scoped team catalog.", milestone: .m1,
+            "teams", summary: "List the lane-scoped team catalog. Looking for a team by intent or name? Prefer `alln route --for` over guessing ids.", milestone: .m1,
             flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
                     FlagSpec("all", summary: "Include inactive (switched-OFF) teams."),
                     FlagSpec("json", summary: "Structured catalog summary.")],
@@ -286,10 +286,32 @@ public extension ContractRegistry {
             exampleIds: ["skills_delete_json"]
         ),
         CommandSpec(
-            "team hello", summary: "Agent bootstrap: readiness + ready teams + next action (quota-free). With --for, resolve intent to a recommended team/primitive + runnable command.", milestone: .m1,
+            "team hello",
+            summary: "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Omitting `--for` returns readiness + ready teams (quota-free).",
+            milestone: .m1,
             flags: [
-                FlagSpec("for", takesValue: true, valueType: "string", summary: "Intent phrase to route (e.g. \"harden this spec\"). Omitting keeps the static readiness report."),
+                FlagSpec("for", takesValue: true, valueType: "string", summary: "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report."),
                 FlagSpec("json", summary: "Structured hello / intent-route JSON (default)."),
+            ],
+            outputSchema: .none
+        ),
+        CommandSpec(
+            "route",
+            summary: "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
+            milestone: .m1,
+            flags: [
+                FlagSpec("for", takesValue: true, valueType: "string", summary: "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report."),
+                FlagSpec("json", summary: "Structured intent-route JSON (default)."),
+            ],
+            outputSchema: .none
+        ),
+        CommandSpec(
+            "resolve",
+            summary: "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
+            milestone: .m1,
+            flags: [
+                FlagSpec("for", takesValue: true, valueType: "string", summary: "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report."),
+                FlagSpec("json", summary: "Structured intent-route JSON (default)."),
             ],
             outputSchema: .none
         ),
@@ -1081,7 +1103,7 @@ public extension ContractRegistry {
         ErrorSpec("KILL_REFUSED", ruleId: "kill.refused", agentAction: "No recorded member could be signalled (all identity-mismatched or non-PG-killable). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans; do not re-signal a recycled pid.", requiresManual: true, retryable: false, explain: "`alln kill`/`team cancel` found recorded members but could signal none of them — every candidate was a recycled pid or a non-group-killable owner. Nothing was stopped; the verdict is `killOutcome: refused` and the lifecycle stays non-terminal."),
         ErrorSpec("KILL_VERIFICATION_UNAVAILABLE", ruleId: "kill.verification_unavailable", agentAction: "The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — poll `alln team status` or stop the worker at its source; the tool will not stamp `killed` unverified.", requiresManual: true, retryable: false, explain: "The executing run carries no recorded worker identity to verify against (the warm-driver exclusion seam — warm pools record nothing). `killOutcome: verificationUnavailable`: a stop cannot be proven, so no terminal `killed` is stamped (RLR-L5)."),
         ErrorSpec("THREAD_SEND_FAILED", ruleId: "thread.send.failed", agentAction: "Inspect the error detail; retry the send or fix the worker.", requiresManual: false, retryable: true, explain: "The thread send did not complete (worker or transport failure). Inspect the detail, then retry."),
-        ErrorSpec("MODEL_NOT_FOUND", ruleId: "model.not_found", agentAction: "Run `alln models --json` and retry with a valid model id.", requiresManual: true, retryable: false, explain: "No model matches the given id. List models and retry with a valid ModelID."),
+        ErrorSpec("MODEL_NOT_FOUND", ruleId: "model.not_found", agentAction: "If you have a natural-language name (e.g. Sonnet 5), run `alln route --for \"<intent>\" --json` first. Otherwise list ids with `alln models --json` and retry with a valid ModelID.", requiresManual: true, retryable: false, explain: "No model matches the given id. Prefer `alln route --for` for natural-language model names; use `alln models --json` only when you already have a catalog ModelID."),
         ErrorSpec("MODEL_BUILTIN_IMMUTABLE", ruleId: "model.builtin.immutable", agentAction: "Duplicate the built-in model, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in models cannot be edited or deleted. Duplicate to a custom model and edit that copy."),
         ErrorSpec("MODEL_ID_COLLISION", ruleId: "model.id.collision", agentAction: "Pick a different model id or delete the conflicting custom model.", requiresManual: true, retryable: false, explain: "A model with this id already exists."),
         ErrorSpec("MODEL_INVALID", ruleId: "model.invalid", agentAction: "Fix the model definition and retry the edit.", requiresManual: true, retryable: false, explain: "The model definition or id is invalid (bad id, missing fields, or unknown driver mapping)."),

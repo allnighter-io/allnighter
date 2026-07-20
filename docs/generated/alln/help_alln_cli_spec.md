@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 1.2.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 1.3.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -101,7 +101,7 @@ Examples: `install_cli_json`.
 
 ### `alln models`
 
-List model catalog and Bench state.
+List model catalog and Bench state. For natural-language model names (Sonnet, Grok), use `alln route --for` first — this list is catalog ids only.
 
 Flags:
 - `--json` — Structured ModelListJSON.
@@ -189,7 +189,7 @@ Examples: `team_show_json`.
 
 ### `alln teams`
 
-List the lane-scoped team catalog.
+List the lane-scoped team catalog. Looking for a team by intent or name? Prefer `alln route --for` over guessing ids.
 
 Flags:
 - `--lane <lane>` — Filter to one lane.
@@ -438,11 +438,27 @@ Examples: `skills_delete_json`.
 
 ### `alln team hello`
 
-Agent bootstrap: readiness + ready teams + next action (quota-free). With --for, resolve intent to a recommended team/primitive + runnable command.
+Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for "ask Sonnet 5 a question"`. Omitting `--for` returns readiness + ready teams (quota-free).
 
 Flags:
-- `--for <string>` — Intent phrase to route (e.g. "harden this spec"). Omitting keeps the static readiness report.
+- `--for <string>` — Natural-language intent to resolve (e.g. "ask Sonnet 5 a question"). Omitting keeps the static readiness report.
 - `--json` — Structured hello / intent-route JSON (default).
+
+### `alln route`
+
+Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for "ask Sonnet 5 a question"`. Alias of `team hello --for`.
+
+Flags:
+- `--for <string>` — Natural-language intent to resolve (e.g. "ask Sonnet 5 a question"). Omitting keeps the static readiness report.
+- `--json` — Structured intent-route JSON (default).
+
+### `alln resolve`
+
+Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for "ask Sonnet 5 a question"`. Alias of `team hello --for`.
+
+Flags:
+- `--for <string>` — Natural-language intent to resolve (e.g. "ask Sonnet 5 a question"). Omitting keeps the static readiness report.
+- `--json` — Structured intent-route JSON (default).
 
 ### `alln team preflight`
 
@@ -1503,7 +1519,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `KILL_REFUSED` | yes | no | `operational` | No recorded member could be signalled (all identity-mismatched or non-PG-killable). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans; do not re-signal a recycled pid. |
 | `KILL_VERIFICATION_UNAVAILABLE` | yes | no | `operational` | The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — poll `alln team status` or stop the worker at its source; the tool will not stamp `killed` unverified. |
 | `THREAD_SEND_FAILED` | no | yes | `operational` | Inspect the error detail; retry the send or fix the worker. |
-| `MODEL_NOT_FOUND` | yes | no | `operational` | Run `alln models --json` and retry with a valid model id. |
+| `MODEL_NOT_FOUND` | yes | no | `operational` | If you have a natural-language name (e.g. Sonnet 5), run `alln route --for "<intent>" --json` first. Otherwise list ids with `alln models --json` and retry with a valid ModelID. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | `operational` | Duplicate the built-in model, then edit the custom copy. |
 | `MODEL_ID_COLLISION` | yes | no | `operational` | Pick a different model id or delete the conflicting custom model. |
 | `MODEL_INVALID` | yes | no | `operational` | Fix the model definition and retry the edit. |

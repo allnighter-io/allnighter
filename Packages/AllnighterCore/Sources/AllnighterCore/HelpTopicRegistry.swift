@@ -110,10 +110,10 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "tool_selection", title: "Command Selection", audience: .agent,
-            summary: "When unsure, start with `alln team hello --for`. Then pick `run`, `team`/`team start`, `thread send`, or pending by intent.",
+            summary: "When unsure, start with `alln route --for` (alias of `team hello --for`). Then pick `run`, `team`/`team start`, `thread send`, or pending by intent.",
             bodyMarkdown: """
-            When unsure which command to use, call `alln team hello --for "<intent>" --json` \
-            first — it recommends a team or primitive and a runnable `command`. Do not invent flags.
+            When unsure which command to use, call `alln route --for "<intent>" --json` \
+            first (same as `alln team hello --for`) — it recommends a team or primitive and a runnable `command`. Do not invent flags.
 
             Verb tree:
             - `alln run` — single worker / chat / named-model ask in the project root \
@@ -132,15 +132,17 @@ public enum HelpTopicRegistry {
             aliases: ["which tool", "what tool should i use", "routing", "help",
                       "which command", "which command should i use", "what command",
                       "run vs team", "thread send", "command selection", "first contact",
-                      "when to use run", "when to use team"],
+                      "when to use run", "when to use team",
+                      "ask a model", "which model", "resolve intent", "resolve", "route",
+                      "intent", "ask sonnet", "which worker"],
             sections: [
-                .init("when-unsure", "When unsure", "Call `alln team hello --for \"<intent>\" --json` before picking a verb."),
+                .init("when-unsure", "When unsure", "Call `alln route --for \"<intent>\" --json` before picking a verb."),
                 .init("run", "alln run", "Single worker / chat / named-model ask in the project root."),
                 .init("team", "alln team / team start", "Multi-seat: foreground `alln team`, or async `alln team start` after preflight."),
                 .init("thread", "alln thread send", "Continue a work thread with `alln thread send`."),
                 .init("pending", "Pending", "Defer with `alln pending add`; execute later with `alln pending run`."),
             ],
-            relatedCommandNames: ["help search", "help get", "team hello", "run", "team",
+            relatedCommandNames: ["help search", "help get", "route", "resolve", "team hello", "run", "team",
                                   "team preflight", "team start", "team result", "thread send",
                                   "pending add", "pending run", "spec", "show"],
             schemaRefs: ["teamStartResponse"],
@@ -267,10 +269,12 @@ public enum HelpTopicRegistry {
             A team is a lane-scoped roster of workers, each a model running a skill. \
             Built-in teams are immutable — duplicate one to edit the copy. Skills are the \
             reusable prompts workers run. List and inspect with `alln teams`, `alln skills`, \
-            and `alln models`; the Default Team (Auto) is the no-pick route.
+            and `alln models`; the Default Team (Auto) is the no-pick route. Looking for a \
+            model or vendor by natural-language name? Use `alln route --for "<intent>" --json` \
+            (alias of `team hello --for`) — do not stop at a models/teams list miss.
             """,
-            aliases: ["teams", "workers", "skills", "roster", "catalog"],
-            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams restore", "skills", "skills show", "models"],
+            aliases: ["teams", "workers", "skills", "roster", "catalog", "which model", "ask a model"],
+            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams restore", "skills", "skills show", "models", "route", "resolve", "team hello"],
             schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON"],
             errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_RESTORE_UNSUPPORTED", "SKILL_NOT_FOUND"],
             needsLiveCheck: false),

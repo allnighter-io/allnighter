@@ -166,17 +166,22 @@ public enum HelpProjector {
         }
         guard let top = r.results.first else { return missRecoveryPlan() }
 
-        // ASF-S03: catalog discovery hits point at models / run --worker, not only help get.
+        // ASF-S03 / AE-S14: catalog discovery hits point at the intent resolver
+        // first (natural-language model names), then models / run --worker.
         if !r.discoveryModelIds.isEmpty {
             var steps = [
                 HelpNextToolStep(
                     order: 1,
+                    command: "alln route --for \"\(r.query)\" --json",
+                    why: "Resolve a natural-language model or vendor name to a ready worker + runnable command."),
+                HelpNextToolStep(
+                    order: 2,
                     command: "alln models --json",
                     why: "List the model catalog (includes OpenCode / GLM and other workers)."),
             ]
             if let modelId = preferredDiscoveryModelId(r.discoveryModelIds, query: r.query) {
                 steps.append(HelpNextToolStep(
-                    order: 2,
+                    order: 3,
                     command: "alln run --worker \(modelId) \"<prompt>\" --json",
                     why: "Run a single worker from the matched catalog entry."))
             }
@@ -229,7 +234,7 @@ public enum HelpProjector {
                 why: "Check sources, auth, and bench readiness."),
             HelpNextToolStep(
                 order: 4,
-                command: "alln team hello --for \"<intent>\" --json",
+                command: "alln route --for \"<intent>\" --json",
                 why: "Route an intent phrase to a ready team or worker."),
         ]
     }
