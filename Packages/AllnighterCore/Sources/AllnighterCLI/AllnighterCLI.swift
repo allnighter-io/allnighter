@@ -1388,19 +1388,36 @@ struct AllnighterCLI {
             return
         }
         if let topic = opts.positional.first {
-            if let markdown = HelpService.docsMarkdown(topic: topic) {
+            // SH-S03 / Law 5: typed `command:<id>` refs resolve here; bare dotted
+            // ids stay near-misses with structured suggestions (no alias).
+            switch TypedRef.resolveDocsTopic(topic, registry: reg) {
+            case .helpMarkdown(let markdown):
                 print(markdown)
-                return
-            }
-            let cmds = reg.commands.filter { $0.name == topic || $0.name.hasPrefix(topic + " ") }
-            guard !cmds.isEmpty else {
-                FileHandle.standardError.write(Data("no docs for topic: \(topic)\n".utf8)); exit(2)
-            }
-            for c in cmds {
-                print("### alln \(c.name)\n\(c.summary)")
-                for a in c.args { print("- arg `\(a.name)`\(a.required ? " (required)" : ""): \(a.summary)") }
-                for f in c.flags { print("- `--\(f.name)`: \(f.summary)") }
-                print("")
+            case .commands(let cmds):
+                for c in cmds {
+                    print("### alln \(c.name)\n\(c.summary)")
+                    for a in c.args { print("- arg `\(a.name)`\(a.required ? " (required)" : ""): \(a.summary)") }
+                    for f in c.flags { print("- `--\(f.name)`: \(f.summary)") }
+                    print("")
+                }
+            case .nearMiss(let query, let suggestions):
+                fail(
+                    code: "CLI_USAGE_ERROR",
+                    message: "no docs for topic: \(query)",
+                    suggestions: suggestions
+                )
+            case .notFound(let query, let suggestions):
+                let message: String
+                if let parsed = TypedRef.parse(query), parsed.kind != .command {
+                    message = "no docs for topic: \(query); use `alln menu show \(query) --json`"
+                } else {
+                    message = "no docs for topic: \(query)"
+                }
+                fail(
+                    code: "CLI_USAGE_ERROR",
+                    message: message,
+                    suggestions: suggestions
+                )
             }
             return
         }
