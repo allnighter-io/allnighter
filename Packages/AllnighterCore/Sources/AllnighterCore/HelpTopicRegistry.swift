@@ -276,16 +276,19 @@ public enum HelpTopicRegistry {
             summary: "Teams are lane-scoped rosters of workers (a model + skill); manage built-ins and custom copies in the catalog.",
             bodyMarkdown: """
             A team is a lane-scoped roster of workers, each a model running a skill. \
-            Built-in teams are immutable — duplicate one to edit the copy. Skills are the \
+            Built-in teams are immutable — customize a shipped method with \
+            `teams duplicate` → `teams definition` → `teams edit` (prefer Bug Hunt; \
+            pass `--id` for a deterministic custom id). Create a novel manifest with \
+            `teams definition` (or a hand-authored TeamPreset) → `teams new`. Skills are the \
             reusable prompts workers run. List and inspect with `alln teams`, `alln skills`, \
             and `alln models`; the Default Team (Auto) is the no-pick route. Looking for a \
             model or vendor by natural-language name? Use `alln menu --json` \
             — do not stop at a models/teams list miss.
             """,
-            aliases: ["teams", "workers", "skills", "roster", "catalog", "which model", "ask a model"],
-            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams restore", "skills", "skills show", "models", "menu"],
+            aliases: ["teams", "workers", "skills", "roster", "catalog", "which model", "ask a model", "create team", "custom team"],
+            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams new", "teams edit", "teams restore", "skills", "skills show", "models", "menu"],
             schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON"],
-            errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_RESTORE_UNSUPPORTED", "SKILL_NOT_FOUND"],
+            errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_RESTORE_UNSUPPORTED", "TEAM_ID_COLLISION", "TEAM_INVALID", "CATALOG_ID_INVALID", "SKILL_NOT_FOUND"],
             needsLiveCheck: false),
 
         HelpTopic(

@@ -454,14 +454,45 @@ public enum TeamCatalog {
         get("default_chat") ?? BuiltInTeams.defaultChat
     }
 
+    /// Duplicate a shipped built-in into a custom team (Bug Hunt customization path).
+    /// When `customId` is nil, mints a collision-free generated id; when set, uses that
+    /// id and rejects collisions / invalid ids (SH-S07 / D1).
     @discardableResult
-    public static func duplicateBuiltIn(_ id: TeamID, name: String?) throws -> TeamDefinition {
+    public static func duplicateBuiltIn(
+        _ id: TeamID, name: String?, customId: TeamID? = nil
+    ) throws -> TeamDefinition {
         guard let source = BuiltInTeams.team(id) else { throw CatalogError.teamNotFound }
-        var newId = CatalogIDGenerator.customID(lane: source.lane, displayName: name ?? source.displayName)
-        while get(newId) != nil { newId = CatalogIDGenerator.customID(lane: source.lane, displayName: name ?? source.displayName, suffix: String(Int.random(in: 1000...9999))) }
+        let newId: TeamID
+        if let customId {
+            guard CatalogIDValidator.isValid(customId) else { throw CatalogError.idInvalid }
+            if get(customId) != nil { throw CatalogError.idCollision }
+            newId = customId
+        } else {
+            var generated = CatalogIDGenerator.customID(
+                lane: source.lane, displayName: name ?? source.displayName)
+            while get(generated) != nil {
+                generated = CatalogIDGenerator.customID(
+                    lane: source.lane,
+                    displayName: name ?? source.displayName,
+                    suffix: String(Int.random(in: 1000...9999)))
+            }
+            newId = generated
+        }
         let copy = source.duplicated(newId: newId, newName: name)
         try saveCustom(copy)
         return copy
+    }
+
+    /// Create a novel custom team from a supplied manifest (SH-S07 / D1).
+    /// Fails if the id already exists (built-in, override, or custom) or is invalid.
+    /// Does not create built-in overrides — that remains `saveCustom` / `teams edit`.
+    @discardableResult
+    public static func createNew(_ team: TeamDefinition) throws -> TeamDefinition {
+        guard CatalogIDValidator.isValid(team.id) else { throw CatalogError.idInvalid }
+        if get(team.id) != nil { throw CatalogError.idCollision }
+        try saveCustom(team)
+        guard let saved = get(team.id) else { throw CatalogError.teamNotFound }
+        return saved
     }
 
     /// A fresh, collision-free custom team id for a lane — used when creating a

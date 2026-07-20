@@ -109,13 +109,19 @@ final class MenuSelectionGradeTests: XCTestCase {
         }
         let run = try! XCTUnwrap(m.actions.first { $0.id == "run" })
         XCTAssertTrue(run.dontUseWhen.contains("teams duplicate"), run.dontUseWhen)
-        XCTAssertTrue(run.dontUseWhen.contains("teams edit"), run.dontUseWhen)
+        XCTAssertTrue(run.dontUseWhen.contains("new") || run.dontUseWhen.contains("edit"), run.dontUseWhen)
         let dup = try! XCTUnwrap(m.actions.first { $0.id == "teams duplicate" })
-        XCTAssertTrue(dup.dontUseWhen.contains("`run`") || dup.dontUseWhen.contains(" use `run`"), dup.dontUseWhen)
+        XCTAssertTrue(dup.dontUseWhen.contains("`run`") || dup.dontUseWhen.contains("run"), dup.dontUseWhen)
         XCTAssertFalse(dup.dontUseWhen.contains("team start"), "cross-verb leak: \(dup.dontUseWhen)")
         let edit = try! XCTUnwrap(m.actions.first { $0.id == "teams edit" })
-        XCTAssertTrue(edit.dontUseWhen.contains("`run`") || edit.dontUseWhen.contains(" use `run`"), edit.dontUseWhen)
+        XCTAssertTrue(edit.dontUseWhen.contains("`run`") || edit.dontUseWhen.contains("run"), edit.dontUseWhen)
         XCTAssertFalse(edit.dontUseWhen.contains("team start"), "cross-verb leak: \(edit.dontUseWhen)")
+        XCTAssertNil(m.actions.first { $0.id == "teams new" }, "teams new is not a menu action")
+        XCTAssertNotNil(MenuSelectionCopy.action("teams new"))
+        XCTAssertTrue(MenuSelectionCopy.action("teams new")!.useWhen.lowercased().contains("novel")
+            || MenuSelectionCopy.action("teams new")!.useWhen.contains("TeamPreset"))
+        XCTAssertTrue(MenuSelectionCopy.action("teams duplicate")!.dontUseWhen.contains("teams new")
+            || MenuSelectionCopy.action("teams duplicate")!.dontUseWhen.contains("novel"))
     }
 
     func testPerRowBoundsAndBuiltInFixtureStillWithin32KiB() throws {

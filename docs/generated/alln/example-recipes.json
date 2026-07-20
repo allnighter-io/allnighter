@@ -42,7 +42,17 @@
   {
     "command" : "alln teams definition code_bug_hunt --json",
     "id" : "teams_definition_json",
-    "title" : "Full team definition for edit"
+    "title" : "Full team definition for edit or novel new"
+  },
+  {
+    "command" : "alln teams duplicate code_bug_hunt --id custom_code_my_bug_hunt --name \"My Bug Hunt\" --json",
+    "id" : "teams_duplicate_json",
+    "title" : "Deterministic Bug Hunt variant"
+  },
+  {
+    "command" : "alln teams new custom_code_novel --file .\/TeamPreset.json --json",
+    "id" : "teams_new_json",
+    "title" : "Create novel team from manifest"
   },
   {
     "command" : "alln skills --lane code --json",

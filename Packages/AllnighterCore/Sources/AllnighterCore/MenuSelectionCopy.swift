@@ -127,15 +127,19 @@ public enum MenuSelectionCopy {
     private static let actions: [String: Pair] = [
         "run": Pair(
             useWhen: "Ask one worker or Send-to-team (starts work)",
-            dontUseWhen: "Not for duplicate/edit — use `teams duplicate` / `teams edit`"
+            dontUseWhen: "Not for catalog write — teams duplicate/new/edit"
         ),
         "teams duplicate": Pair(
-            useWhen: "Copy a built-in team before editing seats",
-            dontUseWhen: "Not for starting work — use `run`; not overwrite — `teams edit`"
+            useWhen: "Copy shipped team before definition→edit",
+            dontUseWhen: "Not for run; novel manifest → teams new"
+        ),
+        "teams new": Pair(
+            useWhen: "Create novel team from TeamPreset JSON",
+            dontUseWhen: "Not for run; shipped variants → teams duplicate"
         ),
         "teams edit": Pair(
-            useWhen: "Replace a custom team definition from JSON file",
-            dontUseWhen: "Not for starting work — use `run`; not for copy — `teams duplicate`"
+            useWhen: "Replace custom team JSON after dup/new",
+            dontUseWhen: "Not for run; copy → duplicate; first create → new"
         ),
         "models": Pair(
             useWhen: "List Bench models (domain catalog view)",

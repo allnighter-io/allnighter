@@ -38,6 +38,7 @@ struct AllnighterCLI {
         case "teams" where args.first == "show": runTeamsShow(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "definition": runTeamsDefinition(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "duplicate": runTeamsDuplicate(Array(args.dropFirst()), runtime)
+        case "teams" where args.first == "new": runTeamsNew(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "edit": runTeamsEdit(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "set-default": runTeamsSetDefault(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "delete": runTeamsDelete(Array(args.dropFirst()), runtime)
@@ -878,16 +879,34 @@ struct AllnighterCLI {
             id: id, restored: restored, origin: teamOrigin(id)))
     }
 
-    /// `alln teams duplicate <team-id> [--name <displayName>] [--json]`
+    /// `alln teams duplicate <team-id> [--id <new-id>] [--name <displayName>] [--json]`
     static func runTeamsDuplicate(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams duplicate <team-id> [--name <name>] [--json]")
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams duplicate <team-id> [--id <new-id>] [--name <name>] [--json]")
         }
         do {
-            let team = try TeamCatalog.duplicateBuiltIn(id, name: opts.value("name"))
+            let team = try TeamCatalog.duplicateBuiltIn(
+                id, name: opts.value("name"), customId: opts.value("id"))
             if opts.flag("json") { print(teamShowJSONString(team)) }
             else { print("duplicated \(id) → \(team.id)") }
+        } catch let error as CatalogError { emitCatalogError(error) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
+    }
+
+    /// `alln teams new <team-id> --file <path> [--json]` — create a novel custom team
+    /// from a supplied TeamPreset. Fails if the id exists or the file id ≠ positional id.
+    /// No `teams create` alias (SH-S07 / D1).
+    static func runTeamsNew(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams new <team-id> --file <path> [--json]")
+        }
+        do {
+            let team = try loadTeamDefinition(from: opts.value("file"), expectedId: id, verb: "new")
+            let created = try TeamCatalog.createNew(team)
+            if opts.flag("json") { print(teamShowJSONString(created)) }
+            else { print("created \(created.id)") }
         } catch let error as CatalogError { emitCatalogError(error) }
         catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
@@ -902,7 +921,7 @@ struct AllnighterCLI {
             failUnknownTeam(id)
         }
         do {
-            let team = try loadTeamDefinition(from: opts.value("file"), expectedId: id)
+            let team = try loadTeamDefinition(from: opts.value("file"), expectedId: id, verb: "edit")
             try TeamCatalog.saveCustom(team)
             if opts.flag("json") { print(teamShowJSONString(team)) }
             else { print("saved \(team.id)") }
@@ -938,9 +957,9 @@ struct AllnighterCLI {
         catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
-    static func loadTeamDefinition(from path: String?, expectedId: TeamID) throws -> TeamPreset {
+    static func loadTeamDefinition(from path: String?, expectedId: TeamID, verb: String = "edit") throws -> TeamPreset {
         guard let path else {
-            throw CatalogError.teamInvalid("--file is required for teams edit (full replacement)")
+            throw CatalogError.teamInvalid("--file is required for teams \(verb)")
         }
         let url = URL(fileURLWithPath: path)
         let data = try Data(contentsOf: url)

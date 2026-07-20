@@ -234,15 +234,27 @@ public extension ContractRegistry {
             exampleIds: ["teams_definition_json"]
         ),
         CommandSpec(
-            "teams duplicate", summary: "Duplicate a built-in team into a custom team.", milestone: .m1,
-            args: [ArgSpec("team-id", required: true, summary: "Source team id.")],
-            flags: [FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name for the copy."),
-                    FlagSpec("json", summary: "Structured team detail.")],
+            "teams duplicate", summary: "Copy a shipped team (prefer Bug Hunt) into a custom variant; then definition → edit. Omit --id for a generated id.", milestone: .m1,
+            args: [ArgSpec("team-id", required: true, summary: "Source built-in team id.")],
+            flags: [
+                FlagSpec("id", takesValue: true, valueType: "string", summary: "Caller-chosen custom team id (deterministic; rejects collisions)."),
+                FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name for the copy."),
+                FlagSpec("json", summary: "Structured team detail (same shape as teams show / teams new)."),
+            ],
             exampleIds: ["teams_duplicate_json"],
             menuAction: true
         ),
         CommandSpec(
-            "teams edit", summary: "Edit a custom team definition (full replacement).", milestone: .m1,
+            "teams new", summary: "Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. Not an alias for teams create.", milestone: .m1,
+            args: [ArgSpec("team-id", required: true, summary: "New team id (must match file definition.id).")],
+            flags: [
+                FlagSpec("file", takesValue: true, valueType: "path", summary: "TeamPreset JSON file (or CatalogEnvelope)."),
+                FlagSpec("json", summary: "Structured team detail (same shape as teams show / teams duplicate)."),
+            ],
+            exampleIds: ["teams_new_json"]
+        ),
+        CommandSpec(
+            "teams edit", summary: "Replace a custom (or overridden) team definition from JSON after duplicate or new.", milestone: .m1,
             args: [ArgSpec("team-id", required: true, summary: "Team id.")],
             flags: [FlagSpec("file", takesValue: true, valueType: "path", summary: "TeamPreset JSON file."),
                     FlagSpec("json", summary: "Structured team detail.")],
@@ -1204,7 +1216,9 @@ public extension ContractRegistry {
         ExampleRecipe("version_json", title: "Print binary and contract identity", command: "alln version --json"),
         ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
         ExampleRecipe("teams_code_json", title: "List Code teams", command: "alln teams --lane code --json"),
-        ExampleRecipe("teams_definition_json", title: "Full team definition for edit", command: "alln teams definition code_bug_hunt --json"),
+        ExampleRecipe("teams_definition_json", title: "Full team definition for edit or novel new", command: "alln teams definition code_bug_hunt --json"),
+        ExampleRecipe("teams_duplicate_json", title: "Deterministic Bug Hunt variant", command: "alln teams duplicate code_bug_hunt --id custom_code_my_bug_hunt --name \"My Bug Hunt\" --json"),
+        ExampleRecipe("teams_new_json", title: "Create novel team from manifest", command: "alln teams new custom_code_novel --file ./TeamPreset.json --json"),
         ExampleRecipe("skills_code_json", title: "List Code skills", command: "alln skills --lane code --json"),
         ExampleRecipe("skills_show_json", title: "Show a Code skill", command: "alln skills show bug_reproducer --json"),
         ExampleRecipe("run_detach_json", title: "Start async run", command: "alln run --detach --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\""),

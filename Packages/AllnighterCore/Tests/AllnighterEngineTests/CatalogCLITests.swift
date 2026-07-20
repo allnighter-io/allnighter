@@ -61,6 +61,47 @@ final class CatalogCLITests: XCTestCase {
         XCTAssertFalse(json.contains("\"workerCount\""), "public workerCount retired")
     }
 
+    func testTeamsNewAndDuplicateShareShowJSONShape() throws {
+        let seed = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
+        let novel = seed.duplicated(newId: "custom_code_cli_novel", newName: "CLI Novel")
+        let created = try TeamCatalog.createNew(novel)
+        let duplicated = try TeamCatalog.duplicateBuiltIn(
+            "code_bug_hunt", name: "CLI Dup", customId: "custom_code_cli_dup")
+
+        let createdJSON = AllnighterCLI.teamShowJSONString(created)
+        let duplicatedJSON = AllnighterCLI.teamShowJSONString(duplicated)
+        for json in [createdJSON, duplicatedJSON] {
+            XCTAssertTrue(json.contains("\"seatCount\""))
+            XCTAssertTrue(json.contains("\"lead\""))
+            XCTAssertTrue(json.contains("\"crew\""))
+            XCTAssertTrue(json.contains("\"origin\""))
+            XCTAssertFalse(json.contains("\"workerSpecs\""))
+        }
+        XCTAssertTrue(createdJSON.contains("custom_code_cli_novel"))
+        XCTAssertTrue(duplicatedJSON.contains("custom_code_cli_dup"))
+    }
+
+    func testTeamsNewFileIdMismatch() throws {
+        let seed = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
+        let fileTeam = seed.duplicated(newId: "custom_code_file_id", newName: "File Id")
+        let url = teamsRoot.deletingLastPathComponent().appendingPathComponent("manifest.json")
+        try FileManager.default.createDirectory(
+            at: teamsRoot.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try CoreJSON.encode(fileTeam).write(to: url)
+
+        XCTAssertThrowsError(
+            try AllnighterCLI.loadTeamDefinition(
+                from: url.path, expectedId: "custom_code_positional", verb: "new")
+        ) { error in
+            guard case CatalogError.teamInvalid(let detail) = error else {
+                return XCTFail("expected teamInvalid, got \(error)")
+            }
+            XCTAssertTrue(detail.contains("does not match"), detail)
+            let envelope = AllnighterCLI.catalogErrorEnvelope(.teamInvalid(detail))
+            XCTAssertEqual(envelope.code, "TEAM_INVALID")
+        }
+    }
+
     func testSkillsNewCreatesCustomSkill() throws {
         let skill = try SkillCatalog.createCustom(
             lane: .code, name: "Fresh Skill", purpose: .answer, template: "Be precise."

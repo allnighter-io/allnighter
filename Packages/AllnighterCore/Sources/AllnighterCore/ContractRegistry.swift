@@ -191,6 +191,8 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
                 name.hasPrefix("teams edit")
                 || name.hasPrefix("teams delete")
                 || name.hasPrefix("teams duplicate")
+                || name.hasPrefix("teams new")
+                || name.hasPrefix("teams restore")
                 || name.hasPrefix("teams set-default")
                 || name.hasPrefix("skills edit")
                 || name.hasPrefix("skills delete")

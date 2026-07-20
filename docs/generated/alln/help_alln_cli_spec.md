@@ -324,20 +324,34 @@ Examples: `teams_definition_json`.
 
 ### `alln teams duplicate`
 
-Duplicate a built-in team into a custom team.
+Copy a shipped team (prefer Bug Hunt) into a custom variant; then definition → edit. Omit --id for a generated id.
 
 Arguments:
-- `team-id` (required) — Source team id.
+- `team-id` (required) — Source built-in team id.
 
 Flags:
+- `--id <string>` — Caller-chosen custom team id (deterministic; rejects collisions).
 - `--name <string>` — Display name for the copy.
-- `--json` — Structured team detail.
+- `--json` — Structured team detail (same shape as teams show / teams new).
 
 Examples: `teams_duplicate_json`.
 
+### `alln teams new`
+
+Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. Not an alias for teams create.
+
+Arguments:
+- `team-id` (required) — New team id (must match file definition.id).
+
+Flags:
+- `--file <path>` — TeamPreset JSON file (or CatalogEnvelope).
+- `--json` — Structured team detail (same shape as teams show / teams duplicate).
+
+Examples: `teams_new_json`.
+
 ### `alln teams edit`
 
-Edit a custom team definition (full replacement).
+Replace a custom (or overridden) team definition from JSON after duplicate or new.
 
 Arguments:
 - `team-id` (required) — Team id.
@@ -1528,7 +1542,9 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 - `version_json` — Print binary and contract identity: `alln version --json`
 - `models_json` — List model catalog and Bench state: `alln models --json`
 - `teams_code_json` — List Code teams: `alln teams --lane code --json`
-- `teams_definition_json` — Full team definition for edit: `alln teams definition code_bug_hunt --json`
+- `teams_definition_json` — Full team definition for edit or novel new: `alln teams definition code_bug_hunt --json`
+- `teams_duplicate_json` — Deterministic Bug Hunt variant: `alln teams duplicate code_bug_hunt --id custom_code_my_bug_hunt --name "My Bug Hunt" --json`
+- `teams_new_json` — Create novel team from manifest: `alln teams new custom_code_novel --file ./TeamPreset.json --json`
 - `skills_code_json` — List Code skills: `alln skills --lane code --json`
 - `skills_show_json` — Show a Code skill: `alln skills show bug_reproducer --json`
 - `run_detach_json` — Start async run: `alln run --detach --json --lane code --team code_bug_hunt --effort low "tiny async sanity"`
