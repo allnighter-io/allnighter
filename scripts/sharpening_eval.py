@@ -117,7 +117,6 @@ class Harness:
         self.claims: list[Claim] = []
         self.attempts: list[Attempt] = []
         self.env: dict[str, str] = {}
-        self.project_id = ""
         self.hard_failures = 0
         self._menu_budget_checked = False
 
@@ -167,8 +166,7 @@ class Harness:
         )
         body = add.parsed or {}
         project = body.get("project") or {}
-        self.project_id = str(project.get("id") or "")
-        if not self.project_id:
+        if not str(project.get("id") or ""):
             self.fail_hard("project add did not return project.id")
 
     def _seed_setup_cache(self) -> None:
@@ -327,7 +325,6 @@ class Harness:
             if not (isinstance(parsed, dict) and parsed.get("success") is False):
                 self.fail_hard(f"expected failure for {args} but exit=0")
         if forbid_provider and attempt.provider_started:
-            self.hard_failures += 1
             self.fail_hard(f"provider process started on forbidden path: {args}")
         return attempt
 
@@ -371,11 +368,6 @@ class Harness:
                 return t
         self.fail_hard(f"team {team_id!r} missing from menu")
         raise AssertionError
-
-    def find_command_ref(self, command_id: str) -> str:
-        # Prefer menu show / command row ref; fall back to command:<id with dots>.
-        dotted = command_id.replace(" ", ".")
-        return f"command:{dotted}"
 
     def record_claim(self, claim: str, receipt: str, verdict: str) -> None:
         self.claims.append(
@@ -814,8 +806,6 @@ class Harness:
                     error=f"expected caller id {novel_id}, got {body.get('id')} (generated-id parse?)",
                 )
             )
-        # No generated-id parse: we never extracted a generated id from stdout
-        # to feed the next step — positional id was caller-chosen end-to-end.
         self.record_claim(
             "teams new accepts caller-chosen id with no generated-id parse",
             f"id={novel_id}",
@@ -1094,21 +1084,21 @@ class Harness:
                 )
             )
         add_path = match.group(1).rstrip("`'\"")
-        # Normalize to the fixture root we created.
-        if Path(add_path).resolve() != unreg.resolve():
-            # Accept string-equal absolute path spellings.
-            if os.path.normpath(add_path) != os.path.normpath(str(unreg)):
-                return self.finish_case(
-                    CaseResult(
-                        name,
-                        False,
-                        calls,
-                        max_calls,
-                        bytes_total,
-                        attempts=attempts,
-                        error=f"add path {add_path!r} != {str(unreg)!r}",
-                    )
+        if (
+            Path(add_path).resolve() != unreg.resolve()
+            and os.path.normpath(add_path) != os.path.normpath(str(unreg))
+        ):
+            return self.finish_case(
+                CaseResult(
+                    name,
+                    False,
+                    calls,
+                    max_calls,
+                    bytes_total,
+                    attempts=attempts,
+                    error=f"add path {add_path!r} != {str(unreg)!r}",
                 )
+            )
 
         add = self.run(
             ["project", "add", str(unreg), "--json"],
