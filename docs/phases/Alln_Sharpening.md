@@ -1,7 +1,8 @@
 # Alln Sharpening — from a tool agents can use to a tool agents prefer
 
-Status: **Ready for Implementation (2026-07-20) — D1–D5 founder-ratified;
-SH-S00 (green wall) is the entry gate; SH-S00–S10 not started.**
+Status: **Blocked on founder ratification of D1–D5 (2026-07-20).** Slices
+SH-S00–S10 specified; SH-S00 (green wall) is the entry gate. Do not start
+implementation until the ratification line below is real.
 Owner: AllnighterCore (`TeamRunJSON`, `RunDryRunJSON`, `TeamCatalog`,
 `MenuCatalog`, `ContractRegistry`) + AllnighterEngine (run resolution/timing) +
 AllnighterCLI (run/docs/teams projections)
@@ -126,10 +127,12 @@ menu 32,418 bytes, 103 commands, 4 actions, 25 teams, 22 models).
 
 ## Founder decisions — resolved
 
-**Ratified by the founder 2026-07-20** (session record; drafted by a
-consultant, stamped by the founder — the stamp is real). Implementation agents
-do not reopen D1–D5; new evidence changes a decision only through the verified
-claims ledger.
+**Proposed — NOT yet founder-ratified.** These were drafted by a consultant
+and endorsed by the PM session; the founder has not read or ruled on them
+(2026-07-20). A ratification recorded from a clicked-through dialog is not a
+ratification — only an explicit typed founder reply counts. Once ratified,
+implementation agents do not reopen D1–D5; new evidence changes a decision
+only through the verified claims ledger.
 
 ### D1. Ship `teams new` *and* deterministic duplicate
 
@@ -443,12 +446,13 @@ part of the green wall.
 
 ## Open questions
 
-None open. D1–D5 plus four hardening rulings — SH-S00 green-wall entry gate,
-single end-of-phase v3 cut (D3 Sequencing), measured-not-asserted envelope
-budget (SH-S02), and the laws-are-working-hypotheses amendment clause — were
-ratified by the founder 2026-07-20. New evidence may change a decision only
-through the verified claims ledger; implementation agents do not reopen
-D1–D5 from preference.
+One: **founder ratification of D1–D5 and the three PM hardening additions**
+(SH-S00 green-wall entry gate, single end-of-phase v3 cut, measured-not-
+asserted envelope budget). Genuinely founder-authored already, from typed
+words 2026-07-20: laws-are-working-hypotheses (amendment clause in §Laws) and
+budgets-as-guards-are-a-must. Everything else in this doc waits for a typed
+yes/no per decision — nothing here may be treated as ratified from a dialog
+click.
 
 ## Routing
 
