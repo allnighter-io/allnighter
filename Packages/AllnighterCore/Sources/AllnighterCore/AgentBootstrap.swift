@@ -154,6 +154,8 @@ public enum TeamPreflight {
         public var sourceGateStatus: String?
         public var sourceGateBlocker: SourceGateBlocker?
         public var repairOptions: [SourceGateRepairOption]
+        /// Effort does not change seat count (AE-S10 / Law 7).
+        public var effortAffectsSeats: Bool
 
         public init(
             canStart: Bool, lane: String?, teamPresetId: String?, teamDisplayName: String?,
@@ -161,7 +163,8 @@ public enum TeamPreflight {
             selfFusion: SelfFusion, warnings: [String], blockedReason: String?, nextAction: AgentNextAction,
             executionSourcePolicy: String? = nil, resolvedSourceIds: [String] = [],
             executionSourceId: String? = nil, sourceGateStatus: String? = nil,
-            sourceGateBlocker: SourceGateBlocker? = nil, repairOptions: [SourceGateRepairOption] = []
+            sourceGateBlocker: SourceGateBlocker? = nil, repairOptions: [SourceGateRepairOption] = [],
+            effortAffectsSeats: Bool = false
         ) {
             self.canStart = canStart; self.lane = lane; self.teamPresetId = teamPresetId
             self.teamDisplayName = teamDisplayName; self.effort = effort; self.outputKind = outputKind
@@ -171,6 +174,7 @@ public enum TeamPreflight {
             self.resolvedSourceIds = resolvedSourceIds; self.executionSourceId = executionSourceId
             self.sourceGateStatus = sourceGateStatus; self.sourceGateBlocker = sourceGateBlocker
             self.repairOptions = repairOptions
+            self.effortAffectsSeats = effortAffectsSeats
         }
     }
 

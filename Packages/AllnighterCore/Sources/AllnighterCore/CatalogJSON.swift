@@ -85,7 +85,9 @@ public struct TeamCatalogJSON: Codable, Sendable, Equatable {
             return Entry(id: team.id, displayName: team.displayName, lane: team.lane.rawValue,
                          outputKind: team.outputKind.rawValue, defaultEffort: team.defaultEffort.rawValue,
                          mutating: team.mutating, builtIn: team.builtIn,
-                         isDefaultForLane: team.isDefaultForLane, workerCount: team.workerSpecs.count,
+                         isDefaultForLane: team.isDefaultForLane,
+                         // Seat count includes Team Lead + worker rows (AE-S10 — matches preflight).
+                         workerCount: team.workerSpecs.count + 1,
                          active: active)
         }
         var payload = TeamCatalogJSON(contractVersion: contractVersion, lane: lane?.rawValue, teams: entries)

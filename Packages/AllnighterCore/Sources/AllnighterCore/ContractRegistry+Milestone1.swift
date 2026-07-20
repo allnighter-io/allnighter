@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "1.5.4"
+    static let contractVersion = "1.6.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -333,6 +333,7 @@ public extension ContractRegistry {
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
+                FlagSpec("json", summary: "Structured TeamPreflight.Result (default; always machine JSON)."),
             ]
         ),
         CommandSpec(

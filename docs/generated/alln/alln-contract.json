@@ -1214,6 +1214,11 @@
           "summary" : "Copy-only routing sugar.",
           "takesValue" : true,
           "valueType" : "type"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured TeamPreflight.Result (default; always machine JSON).",
+          "takesValue" : false
         }
       ],
       "milestone" : "m1",
@@ -3916,7 +3921,7 @@
       "summary" : "Approve iOS\/Mac pairing."
     }
   ],
-  "contractVersion" : "1.5.4",
+  "contractVersion" : "1.6.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
