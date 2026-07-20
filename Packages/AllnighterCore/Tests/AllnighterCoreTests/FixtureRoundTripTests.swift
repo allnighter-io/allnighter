@@ -157,7 +157,7 @@ final class FixtureRoundTripTests: XCTestCase {
     }
 
     /// SH-S02 envelope budget: one-worker terminal overhead stays within the
-    /// measured budget recorded in Alln_Sharpening.md.
+    /// measured budget recorded in archived Alln_Sharpening.md.
     func testOneWorkerEnvelopeOverheadWithinBudget() throws {
         let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
         let answerMarkdown = try XCTUnwrap(trj.answer?.markdown)

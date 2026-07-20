@@ -137,6 +137,28 @@ checked-in schema/example artifacts
 Rule: change the registry first, regenerate, then patch runtime behavior. Do not
 hand-edit generated artifacts.
 
+### Sharpening laws (promoted from archived Alln_Sharpening)
+
+Durable product laws now owned here + code (do not re-decide mid-slice):
+
+1. **Cost ∝ ask** — one-worker results do not embed global catalogs; one-worker
+   envelope overhead budget is **4096** bytes (`FixtureRoundTripTests`).
+2. **Canonical answer once** — `TeamRunJSON.answer` is the stable result path;
+   selected worker/plan markdown is moved there, not duplicated.
+3. **Preview = run** — dry-run and execution share one `ResolvedRunInvocation`
+   (Engine); selectors and mode-valid flags survive teaching templates.
+4. **Flags honor-or-fail** — registry `mutuallyExclusiveFlags` + `flagConstraints`
+   gate before run/provider; the same data projects to usage/docs/menu
+   (`CommandProjection`).
+5. **Permission ≠ outcome** — dry-run `writePolicy` / `effects.repoWrite` are
+   permission after resolve; only terminal `repoDelta` reports observed writes.
+6. **One seat count** — public `seatCount` includes lead/scout and row
+   multiplicity; `workerCount` is retired.
+7. **No self-rating** — mechanical pass/fail gates only; agents rate alln
+   externally (`scripts/agent_eval.sh --suite sharpening`).
+8. **Vendor CLI boundary** — no `--temperature` / `--max-tokens` on `alln run`;
+   closed enums and stream framing are taught, not second registries.
+
 ## Generated Artifacts
 
 Committed generated artifacts should live under one generated folder, for

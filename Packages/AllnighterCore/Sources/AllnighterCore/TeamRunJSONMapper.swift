@@ -181,7 +181,7 @@ public enum TeamRunJSONMapper {
         )
     }
 
-    /// Deterministic canonical-answer derivation (Alln_Sharpening § Canonical answer).
+    /// Deterministic canonical-answer derivation (archived Alln_Sharpening § Canonical answer).
     /// Mutates `plan` / `workerAnswers` so markdown is not duplicated (Law 2).
     public static func deriveAnswer(
         runStatus: TeamRunJSON.Status,

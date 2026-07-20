@@ -11,7 +11,7 @@ Format:
 
 ## Active — SH-S00 (2026-07-20)
 
-Alln Sharpening entry gate (`docs/phases/Alln_Sharpening.md` SH-S00). The three
+Alln Sharpening entry gate (`docs/archive/phases/Alln_Sharpening.md` SH-S00). The three
 SH-S00-owned failures are **fixed** (not quarantined): contract fixture /
 `ContractRegistryTests` → `2.1.0`; `CodeReviewParallelSafety` maxConcurrent in
 `testDisjointFindingsTouchesAreSafe`; hermetic `ALLNIGHTER_SUPPORT_DIR` for

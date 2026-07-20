@@ -1,7 +1,7 @@
 import Foundation
 
 /// Single owner for projecting registry flag domains and constraints onto usage,
-/// docs, menu detail, and teaching text (Alln_Sharpening SH-S10 / Law 6).
+/// docs, menu detail, and teaching text (archived Alln_Sharpening SH-S10 / Law 6).
 /// Validation stays in `CLIUsage.validateFlagConstraints`; this file only teaches.
 public enum CommandProjection {
     public enum Style: Sendable {

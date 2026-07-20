@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-07-20
+Updated: 2026-07-21
 
 ## Purpose
 
@@ -25,8 +25,8 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Alln_Sharpening.md`](Alln_Sharpening.md) | **Ready for Implementation 2026-07-20** — SH-S01–S10; founder decisions resolved | Post-MNR preference pass: preview/run identity, canonical answer + slim v2 envelope, honor-or-fail flags, complete team inspection/authoring, resolved effects, observed timing, and a mechanical 9/10 scorecard. |
-| [`CLI_Agent_Ergonomics.md`](CLI_Agent_Ergonomics.md) | **Complete 2026-07-20** — AE-S00–S15 shipped; selection work superseded by archived MNR | Generated/comprehensive help, honor-or-fail ids and flags, free `run --dry-run`, cwd→project, contract lock/versioning, and the first pinned-binary agent harness. Successor: `Alln_Sharpening.md`. |
+| [`CLI_Agent_Ergonomics.md`](CLI_Agent_Ergonomics.md) | **Complete 2026-07-20** — AE-S00–S15 shipped; selection work superseded by archived MNR | Generated/comprehensive help, honor-or-fail ids and flags, free `run --dry-run`, cwd→project, contract lock/versioning, and the first pinned-binary agent harness. Successor: archived [`Alln_Sharpening.md`](../archive/phases/Alln_Sharpening.md). |
+| [`Alln_Sharpening.md`](../archive/phases/Alln_Sharpening.md) | **Complete 2026-07-21, archived** — SH-S00–S10 (`3f64a7d6` + prior SH commits) | Post-MNR preference pass: preview/run identity, canonical answer + slim v2 envelope, honor-or-fail flags, complete team inspection/authoring, resolved effects, observed timing, teaching projections. Code SSOT: `ResolvedRunInvocation`, `TeamRunJSON.answer`, `CommandProjection`, `ContractRegistry`; harness `scripts/agent_eval.sh --suite sharpening`. |
 | [`CLI_Agent_Surface_Fidelity.md`](../archive/phases/CLI_Agent_Surface_Fidelity.md) | **Complete 2026-07-20, archived** — ASF-S00–S08 (`ddd6cc39` / `5b1f27ba` / `791d591e` / `02819c6b` / `ce65caf3`) | Help + transactional nextActions speak CLI only; catalog search; miss recovery; version gitSha; `RetiredVocabulary` + check.sh gates. Code SSOT: `HelpTopicRegistry`, `RetiredVocabulary`. |
 | [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
 | [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md) | **Complete 2026-07-19, archived** — S00–S06; Works Test 14 GREEN / item 7 waived | Accepted runs stay observable, stoppable, recoverable. Code SSOT: `KillSettlement`, `RunClockEnforcer`, `RunContradiction`, `IdempotencyStore`; matrix `archive/phases/rlr/`. Unblocks IR-S02. |

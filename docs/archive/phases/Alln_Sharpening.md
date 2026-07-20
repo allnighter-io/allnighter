@@ -1,11 +1,11 @@
 # Alln Sharpening — from a tool agents can use to a tool agents prefer
 
-Status: **In Implementation (2026-07-21) — D1–D4 ratified and D5 replaced by
-typed founder reply; SH-S00–S10 done (owned wall green + remaining reds named in
-`docs/operations/debugger/QUARANTINE.md` § SH-S00). Ready for phase archive.**
+Status: **Complete (2026-07-21)** — SH-S00–S10 done; contract v3 / schema v2 cut;
+sharpening mechanical gate green; durable teaching laws promoted to
+`CLI_Implementation_Contract.md` + code SSOTs. Archive this doc.
 Owner: AllnighterCore (`TeamRunJSON`, `RunDryRunJSON`, `TeamCatalog`,
-`MenuCatalog`, `ContractRegistry`) + AllnighterEngine (run resolution/timing) +
-AllnighterCLI (run/docs/teams projections)
+`MenuCatalog`, `ContractRegistry`, `CommandProjection`) + AllnighterEngine
+(`ResolvedRunInvocation`) + AllnighterCLI (run/docs/teams projections)
 Updated: 2026-07-21
 
 Successor to archived `Menu_Not_Router.md` (MNR) and completed
