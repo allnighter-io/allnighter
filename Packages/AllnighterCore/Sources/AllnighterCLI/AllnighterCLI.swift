@@ -1758,40 +1758,9 @@ struct AllnighterCLI {
         }
     }
 
+    /// AE-S01: top-level help is a pure projection of `ContractRegistry` — no hand-written rows.
     static func helpText() -> String {
-        """
-        alln — local team run, callable by any agent (zero API cost)
-          run "<message>" --project <id|path> [--worker <modelId>] [--lane code|design|copy|signal] [--try-fix]  mutating project run (--try-fix: Bug Hunt → gate → one fix)
-          team "<question>" [--team id] [--json | --stream]          run a team (--json: TeamRunJSON; --stream: NDJSON)
-          team show [--json]                                        show the current default team
-          team start "<question>" --json [--lane ...] [--team id]   start async team run (returns run id)
-          team status <run-id> --json [--wait-for <state> --timeout <s>]  poll or block-wait async run status
-          team result <run-id> --json                             fetch TeamRunJSON when ready
-          team cancel <run-id> --json                             cancel an active async run
-          team reconcile [run-id] [--all-projects] --json           reap identity-dead async runs (bare: caller's project scope)
-          ps [--all-projects] [--json]                              list owned process trees (read-only; project scope by default)
-          kill <id> | --all [--all-projects] [--json]               identity-checked total kill + endReason=killed (--all: project scope)
-          gc [--json]                                               prune old dead terminal ownership records
-          show <run-id|latest> [--json]                             show one run
-          export <run-id|latest> --format md                        export a result bundle
-          history "<query>" [--json]                                search prior team runs
-          models [--json] [--driver <driverId>] [--bench]              list model catalog and Bench state
-          models enable|disable <model-id> [--json]                  toggle Bench membership
-          models add --driver <id> --name <name> --model-label <l>   add a custom model
-          models update|delete <custom-model-id> [--json]            edit or remove a custom model
-          boost-window show|set|seed|observations [--json]           configure the Boost window
-          doctor [--json] [--full]                                  recovery surface; --full smoke-probes (spends quota)
-          doctor explain <code> [--json]                            explain an error/recovery code
-          bootstrap [--host claude|cursor|codex|generic] [--json]   paste-ready agent-activation snippet (never edits files)
-          version [--json]                                          binary version + contract hash
-          docs [topic] [--errors|--schema|--examples]               generated agent-facing reference
-          detect                                                    first-run CLI detection, headless
-          dev export-contracts [--check]                            regenerate/verify generated contract artifacts
-          serve [--health --json]                                 resident coordinator (Serve0 skeleton)
-          pair list|approve|revoke|begin [--json]                   manage trusted remote devices
-          panel start|round|status|watch|scaffold-brief|done        session-led blind jury on any target
-          install-cli [--path <dir>] [--print] [--json]              symlink alln onto your PATH
-        """
+        CLIUsage.topLevelHelpText()
     }
 
     static func printHelp() {

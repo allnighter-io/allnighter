@@ -128,9 +128,10 @@ public enum CLIUsage {
     }
 
     /// Usage text for a registered command (testable; no IO).
-    public static func usageText(for commandName: String, registry: ContractRegistry = .milestone1) -> String {
+    /// Returns `nil` when the name is not in the registry — never invents a surface (AE-S01 / Law 8).
+    public static func usageText(for commandName: String, registry: ContractRegistry = .milestone1) -> String? {
         guard let spec = registry.commands.first(where: { $0.name == commandName && $0.milestone == .m1 }) else {
-            return "usage: alln \(commandName)"
+            return nil
         }
         var syn = "alln \(spec.name)"
         for arg in spec.args {
@@ -147,7 +148,8 @@ public enum CLIUsage {
     }
 
     /// When the invocation is not an exact registry name, enumerate immediate subcommands.
-    public static func usageTextForPrefix(_ prefix: String, registry: ContractRegistry = .milestone1) -> String {
+    /// Returns `nil` when the prefix matches nothing — never fabricates `usage: alln <unknown>`.
+    public static func usageTextForPrefix(_ prefix: String, registry: ContractRegistry = .milestone1) -> String? {
         let trimmed = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
         let matches = registry.commands.filter {
             $0.milestone == .m1 && ($0.name == trimmed || $0.name.hasPrefix(trimmed + " "))
@@ -155,20 +157,61 @@ public enum CLIUsage {
         if let exact = matches.first(where: { $0.name == trimmed }) {
             return usageText(for: exact.name, registry: registry)
         }
-        guard !matches.isEmpty else { return "usage: alln \(trimmed)" }
+        guard !matches.isEmpty else { return nil }
         let suffixes = matches.map { String($0.name.dropFirst(trimmed.count)).trimmingCharacters(in: .whitespaces) }
         let children = Array(Set(suffixes.compactMap { $0.split(separator: " ").first.map(String.init) })).sorted()
-        if children.isEmpty { return "usage: alln \(trimmed)" }
+        if children.isEmpty { return nil }
         return "usage: alln \(trimmed) \(children.joined(separator: "|"))"
     }
 
     /// Resolve usage for a help request at the top-level funnel (testable).
+    /// Unknown commands return `nil` so the CLI can fail closed without inventing usage (finding 12).
     public static func helpText(rootCommand: String, args: [String], registry: ContractRegistry = .milestone1) -> String? {
         guard helpRequested(args) else { return nil }
         if let name = resolveCommandName(rootCommand: rootCommand, args: args, registry: registry) {
             return usageText(for: name, registry: registry)
         }
         return usageTextForPrefix(invocationPath(rootCommand: rootCommand, args: args), registry: registry)
+    }
+
+    /// Top-level `alln --help` — exhaustive name list projected from the registry (AE-S01 / Law 1).
+    /// One line per M1 command, grouped by family; no hand-written command rows.
+    public static func topLevelHelpText(registry: ContractRegistry = .milestone1) -> String {
+        let m1 = registry.commands.filter { $0.milestone == .m1 }.sorted { $0.name < $1.name }
+        var families: [String: [(name: String, summary: String)]] = [:]
+        for spec in m1 {
+            let family = spec.name.split(separator: " ").first.map(String.init) ?? spec.name
+            families[family, default: []].append((spec.name, spec.summary))
+        }
+        // Golden-path families first; remaining families alphabetical.
+        let preferred = [
+            "run", "team", "teams", "models", "doctor", "bootstrap", "help", "docs",
+            "version", "install-cli", "project", "thread", "skills", "pending", "stalled",
+            "show", "export", "history", "floor", "spec", "defaults", "boost-window",
+            "ps", "kill", "gc", "continuity", "serve", "pair", "panel", "dev",
+        ]
+        let remaining = families.keys.filter { !preferred.contains($0) }.sorted()
+        let order = preferred.filter { families[$0] != nil } + remaining
+
+        var lines: [String] = [
+            "alln — local team run, callable by any agent (zero API cost)",
+            "",
+        ]
+        for family in order {
+            guard let rows = families[family] else { continue }
+            lines.append(family)
+            for row in rows {
+                let pad = String(repeating: " ", count: max(1, 36 - row.name.count))
+                let summary = row.summary.replacingOccurrences(of: "\n", with: " ")
+                lines.append("  \(row.name)\(pad)\(summary)")
+            }
+            lines.append("")
+        }
+        let count = m1.count
+        lines.append(
+            "\(count) commands · alln <cmd> --help for usage · alln docs <cmd> for schema · alln help search \"<intent>\" to find one"
+        )
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - Edit distance
