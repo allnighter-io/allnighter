@@ -1532,7 +1532,11 @@ struct AllnighterCLI {
         } else {
             print("Run \(run.id) · \(run.status.rawValue)")
             print(run.prompt)
-            if let plan = run.plan { print("\n\(plan)") }
+            if let answer = humanAnswer(
+                for: run, models: runtime.models, manifests: runtime.registry.all
+            ) {
+                print("\n\(answer)")
+            }
         }
     }
 
@@ -1579,7 +1583,9 @@ struct AllnighterCLI {
            let bundle = try? String(contentsOf: dir.appendingPathComponent("bundle.md"), encoding: .utf8) {
             print(bundle)
         } else {
-            print("# \(run.id)\n\n\(run.prompt)\n\n\(run.plan ?? "(no plan)")")
+            let body = humanAnswer(for: run, models: runtime.models, manifests: runtime.registry.all)
+                ?? "(no answer)"
+            print("# \(run.id)\n\n\(run.prompt)\n\n\(body)")
         }
     }
 
@@ -1685,6 +1691,25 @@ struct AllnighterCLI {
     static func jsonString<T: Encodable>(_ value: T) -> String {
         guard let data = try? CoreJSON.encode(value) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    /// Canonical human result text from the TeamRunJSON answer projection (SH-S02).
+    /// Falls back to seat markdown only when no canonical answer exists (partial multi-seat).
+    static func humanAnswer(
+        for run: TeamRun,
+        models: [Model],
+        manifests: [DriverManifest],
+        runJournalPath: String = ""
+    ) -> String? {
+        let trj = TeamRunJSONMapper.map(
+            run, models: models, manifests: manifests,
+            context: .init(runJournalPath: runJournalPath)
+        )
+        if let md = trj.answer?.markdown, !md.isEmpty { return md }
+        if let seat = trj.workerAnswers.first(where: { ($0.markdown ?? "").isEmpty == false })?.markdown {
+            return seat
+        }
+        return nil
     }
 
     /// One compact, single-line JSON object — the house law for any `--json` command that

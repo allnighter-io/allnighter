@@ -53,16 +53,22 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
     workers = team_result.get("workers", [])
     answers = team_result.get("workerAnswers", [])
     prompts = sum(1 for w in workers if w.get("resolvedWorkerPromptSnapshot"))
-    answered = sum(1 for a in answers if (a.get("markdown") or "").strip())
     plan = team_result.get("plan") or {}
     plan_md = (plan.get("markdown") or "").strip() if isinstance(plan, dict) else ""
+    answer = team_result.get("answer") or {}
+    answer_md = (answer.get("markdown") or "").strip() if isinstance(answer, dict) else ""
+    # SH-S02: canonical text lives on answer; plan.markdown is null when moved.
+    canonical_md = answer_md or plan_md
     # Terminal worker status lives in workerAnswers[].status (NOT workers[].status,
     # which the contract does not carry). Every non-plan worker must have a status so
     # a hidden/dropped answer/review worker cannot pass as a clean run.
     non_plan = [w for w in workers if w.get("purpose") != "plan"]
     workers_by_id = {w["id"]: w for w in workers if w.get("id")}
     statused_answers = [a for a in answers if (a.get("status") or "").strip()]
-    writer_status_present = bool(isinstance(plan, dict) and (plan.get("status") or "").strip())
+    writer_status_present = bool(
+        (isinstance(plan, dict) and (plan.get("status") or "").strip())
+        or (isinstance(answer, dict) and answer.get("source", {}).get("kind") == "plan")
+    )
     nonempty_answers = 0
     for ans in answers:
         wid = ans.get("workerId")
@@ -71,16 +77,21 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
         meta = workers_by_id.get(wid, {})
         if meta.get("purpose") == "plan":
             continue
-        if (ans.get("markdown") or "").strip():
+        seat_md = (ans.get("markdown") or "").strip()
+        # One-worker canonical text may live only on answer (Law 2).
+        if not seat_md and isinstance(answer, dict) and answer.get("source", {}).get("workerId") == wid:
+            seat_md = answer_md
+        if seat_md:
             nonempty_answers += 1
+    answered = nonempty_answers
     return {
-        "ok": prompts > 0 and answered > 0 and bool(plan_md),
+        "ok": prompts > 0 and answered > 0 and bool(canonical_md),
         "workerCount": len(workers),
         "answerCount": answered,
         "nonemptyAnswerCount": nonempty_answers,
         "promptSnapshots": prompts,
-        "hasPlan": bool(plan_md),
-        "hasBundleMarkdown": bool(plan_md),
+        "hasPlan": bool(canonical_md),
+        "hasBundleMarkdown": bool(canonical_md),
         "nonPlanWorkerCount": len(non_plan),
         "statusedAnswerCount": len(statused_answers),
         "writerStatusPresent": writer_status_present,
@@ -92,6 +103,8 @@ def load_logical_workers(lab_dir: Path) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     team_result = load_team_result(lab_dir)
     if team_result:
+        answer = team_result.get("answer") or {}
+        answer_md = (answer.get("markdown") or "").strip() if isinstance(answer, dict) else ""
         workers_by_id = {w["id"]: w for w in team_result.get("workers", []) if w.get("id")}
         for ans in team_result.get("workerAnswers", []):
             wid = ans.get("workerId")
@@ -99,6 +112,8 @@ def load_logical_workers(lab_dir: Path) -> dict[str, dict[str, Any]]:
                 continue
             meta = workers_by_id.get(wid, {})
             text = (ans.get("markdown") or "").strip()
+            if not text and isinstance(answer, dict) and answer.get("source", {}).get("workerId") == wid:
+                text = answer_md
             if meta.get("purpose") == "plan":
                 continue
             out[normalize_worker_id(wid)] = {
@@ -152,6 +167,11 @@ def load_logical_workers(lab_dir: Path) -> dict[str, dict[str, Any]]:
 def load_writer_bundle(lab_dir: Path) -> tuple[str, str]:
     team_result = load_team_result(lab_dir)
     if team_result:
+        answer = team_result.get("answer") or {}
+        if isinstance(answer, dict):
+            md = (answer.get("markdown") or "").strip()
+            if md:
+                return md, "mcp"
         plan = team_result.get("plan") or {}
         if isinstance(plan, dict):
             md = (plan.get("markdown") or "").strip()

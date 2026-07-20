@@ -23,18 +23,61 @@ final class TeamRunJSONMapperTests: XCTestCase {
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
 
         XCTAssertEqual(trj.contractVersion, ContractRegistry.contractVersion)
+        XCTAssertEqual(trj.schemaVersion, 2)
         XCTAssertEqual(trj.teamRun.status, .done)           // .complete -> done
         XCTAssertEqual(trj.workers.count, run.workers.count)
         XCTAssertEqual(trj.workerAnswers.count, run.workerAnswers.count)
-        // Plan produced → plan-writer invariant holds.
+        // Plan produced → plan-writer invariant holds; markdown moved to answer.
         XCTAssertEqual(trj.plan?.status, .done)
         XCTAssertNotNil(trj.plan?.writerWorkerId)
         XCTAssertEqual(trj.plan?.writerWorkerId, trj.teamRun.planWriterWorkerId)
+        XCTAssertNil(trj.plan?.markdown)
+        let answer = try XCTUnwrap(trj.answer)
+        XCTAssertEqual(answer.source.kind, .plan)
+        XCTAssertEqual(answer.markdown, run.plan)
         XCTAssertGreaterThan(trj.usage.cliCalls, 0)
         XCTAssertEqual(trj.nextActions.map(\.kind), [.showRun, .export])
-        // The projection is a valid TeamRunJSON (round-trips).
+        // Catalog-free: no top-level models.
         let data = try CoreJSON.encode(trj)
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertNil(root["models"])
         XCTAssertEqual(try CoreJSON.decode(TeamRunJSON.self, from: data), trj)
+    }
+
+    func testOneWorkerMovesMarkdownToAnswer() throws {
+        let run = terminalRun(
+            status: .complete,
+            answers: [TeamAnswer(
+                memberId: "model_sonnet#0", modelId: "model_sonnet", role: "answer",
+                result: WorkerRunResult(status: .done, output: "success"))],
+            mutating: false)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertEqual(trj.answer?.markdown, "success")
+        XCTAssertEqual(trj.answer?.source.kind, .worker)
+        XCTAssertNil(trj.workerAnswers.first?.markdown)
+        XCTAssertNil(trj.plan)
+    }
+
+    func testPartialMultiSeatWithoutSynthesisLeavesAnswerNull() throws {
+        let run = try Fixtures.run(.runPartial)             // status .partial, plan failed
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertNil(trj.answer)
+        XCTAssertTrue(trj.workerAnswers.contains { ($0.markdown ?? "").isEmpty == false })
+    }
+
+    func testFailedRunSerializesAnswerNull() throws {
+        let run = terminalRun(
+            status: .failed,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .failed))],
+            mutating: false)
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: ctx())
+        XCTAssertNil(trj.answer)
+        let data = try CoreJSON.encode(trj)
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertTrue(root.keys.contains("answer"))
+        XCTAssertTrue(root["answer"] is NSNull)
     }
 
     func testPartialRunIsDoneWithNoPlanButFailuresCarryErrors() throws {

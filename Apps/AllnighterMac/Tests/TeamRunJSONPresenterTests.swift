@@ -16,21 +16,26 @@ final class TeamRunJSONPresenterTests: XCTestCase {
         XCTAssertFalse(p.prompt.isEmpty)
         XCTAssertEqual(p.workerRows.count, run.workers.count)
         XCTAssertTrue(p.workerRows.allSatisfy { !$0.modelName.isEmpty })   // model name straight from `workers`
-        XCTAssertTrue(p.hasPlan)
-        XCTAssertEqual(p.planWriterWorkerId, run.plan?.writerWorkerId)     // plan-writer invariant, GUI-side
-        XCTAssertFalse(p.stageSummaries.isEmpty)
-        // Worker answers come from `workerAnswers` (new vocab), keyed by workerId.
+        XCTAssertEqual(run.schemaVersion, 2)
+        XCTAssertNotNil(run.answer?.markdown)
+        XCTAssertEqual(p.answerMarkdown, run.answer?.markdown)
+        XCTAssertEqual(p.planMarkdown, run.answer?.markdown)
+        // Worker answers come from `workerAnswers` (new vocab), keyed by workerId;
+        // one-worker canonical text is on `answer` and surfaced on that row.
         XCTAssertTrue(p.workerRows.contains { $0.answerMarkdown != nil })
+        let encoded = try CoreJSON.encode(run)
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertNil(root["models"], "catalog models must not appear on TeamRunJSON v2")
+        XCTAssertNotNil(root["answer"])
     }
 
     /// A run with a failed worker and a failed plan renders failures honestly —
     /// the GUI surfaces the failure and shows no plan, straight from TeamRunJSON.
     func testRendersFailedWorkersHonestly() {
         let json = TeamRunJSON(
-            contractVersion: "1.0.0",
+            contractVersion: "3.0.0",
             teamRun: .init(id: "run_x", status: .done, origin: .cli, prompt: "p",
                            promptSource: .init(kind: .positional), createdAt: "2026-06-15T00:00:00Z"),
-            models: [.init(id: "m", displayName: "Opus 4.8", sourceId: "claude_code", status: .ready)],
             workers: [
                 .init(id: "w_ok", modelId: "m", modelName: "Opus 4.8", sourceId: "claude_code", purpose: .answer, instanceIndex: 0),
                 .init(id: "w_bad", modelId: "m", modelName: "Opus 4.8", sourceId: "claude_code", purpose: .answer, instanceIndex: 1),
@@ -40,6 +45,7 @@ final class TeamRunJSONPresenterTests: XCTestCase {
                 .init(workerId: "w_bad", status: .failed,
                       error: .init(code: "WORKER_FAILED", message: "boom", requiresManual: false, retryable: true)),
             ],
+            answer: nil,
             stages: [.init(id: "s_plan", purpose: .plan, status: .failed)],
             plan: nil,
             usage: .init(cliCalls: 2),
@@ -48,6 +54,7 @@ final class TeamRunJSONPresenterTests: XCTestCase {
         let p = TeamRunJSONPresenter(run: json)
 
         XCTAssertFalse(p.hasPlan)                             // failed plan -> no plan rendered
+        XCTAssertFalse(p.hasAnswer)
         XCTAssertEqual(p.failedWorkers.count, 1)              // failure is visible, not hidden
         XCTAssertEqual(p.failedWorkers.first?.failureReason, "boom")
         XCTAssertTrue(p.failedWorkers.first?.didFail ?? false)

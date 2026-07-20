@@ -46,8 +46,9 @@ public enum ContractSchema {
         ]
         let top = obj([
             "schemaVersion": int, "contractVersion": str,
-            "teamRun": ref("RunInfo"), "models": arr(ref("ModelInfo")),
+            "teamRun": ref("RunInfo"),
             "workers": arr(ref("WorkerInfo")), "workerAnswers": arr(ref("AnswerInfo")),
+            "answer": nullableRef("Answer"),
             "stages": arr(ref("StageInfo")), "plan": nullableRef("Plan"),
             "designBoard": nullableRef("DesignBoard"),
             "repoDelta": nullableRef("RepoDelta"),
@@ -56,8 +57,8 @@ public enum ContractSchema {
             "errors": arr(ref("ErrorEnvelope")), "nextActions": arr(ref("NextAction")),
             "audit": ref("Audit"),
         ], required: [
-            "schemaVersion", "contractVersion", "teamRun", "models", "workers",
-            "workerAnswers", "stages", "plan", "usage", "warnings", "errors", "nextActions", "audit",
+            "schemaVersion", "contractVersion", "teamRun", "workers",
+            "workerAnswers", "answer", "stages", "plan", "usage", "warnings", "errors", "nextActions", "audit",
         ])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
@@ -126,14 +127,27 @@ public enum ContractSchema {
                 "durationMs": nullable("integer"), "markdown": nullable("string"),
                 "error": nullableRef("ErrorEnvelope"),
             ], required: ["workerId", "status"]),
+            "Answer": obj([
+                "status": runStatus,
+                "outputKind": nullable("string"),
+                "markdown": nullable("string"),
+                "source": ref("AnswerSource"),
+                "typedResultField": nullable("string"),
+            ], required: ["status", "source"]),
+            "AnswerSource": obj([
+                "kind": enumStr(["plan", "worker", "typed"]),
+                "workerId": nullable("string"),
+                "modelId": nullable("string"),
+                "stageId": nullable("string"),
+            ], required: ["kind"]),
             "StageInfo": obj([
                 "id": str, "purpose": enumStr(["analysis", "plan", "review"]), "status": runStatus,
                 "producedByWorkerId": nullable("string"), "promptProfileId": nullable("string"),
             ], required: ["id", "purpose", "status"]),
             "Plan": obj([
                 "status": runStatus, "writerWorkerId": nullable("string"),
-                "stageId": nullable("string"), "markdown": str,
-            ], required: ["status", "markdown"]),
+                "stageId": nullable("string"), "markdown": nullable("string"),
+            ], required: ["status"]),
             "DesignBoard": obj([
                 "targetShape": str, "screenshotPath": nullable("string"),
                 "screenshotAbsolutePath": nullable("string"),

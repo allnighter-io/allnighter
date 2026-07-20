@@ -14,9 +14,11 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var contractVersion: String
     public var teamRun: RunInfo
-    public var models: [ModelInfo]
     public var workers: [WorkerInfo]
     public var workerAnswers: [AnswerInfo]
+    /// Canonical result text. Always serialized (JSON `null` while non-terminal or
+    /// when no canonical result exists). See `TeamRunJSONMapper.deriveAnswer`.
+    public var answer: Answer?
     public var designBoard: DesignBoard?
     public var repoDelta: RepoDelta?
     /// Mechanical run verdict from worker terminal states + repo delta — never a correctness claim.
@@ -30,12 +32,12 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var audit: Audit
 
     public init(
-        schemaVersion: Int = 1,
+        schemaVersion: Int = 2,
         contractVersion: String,
         teamRun: RunInfo,
-        models: [ModelInfo],
         workers: [WorkerInfo],
         workerAnswers: [AnswerInfo],
+        answer: Answer? = nil,
         designBoard: DesignBoard? = nil,
         repoDelta: RepoDelta? = nil,
         outcome: Outcome? = nil,
@@ -50,9 +52,9 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
         self.teamRun = teamRun
-        self.models = models
         self.workers = workers
         self.workerAnswers = workerAnswers
+        self.answer = answer
         self.designBoard = designBoard
         self.repoDelta = repoDelta
         self.outcome = outcome
@@ -63,6 +65,54 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.errors = errors
         self.nextActions = nextActions
         self.audit = audit
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, contractVersion, teamRun, workers, workerAnswers, answer
+        case designBoard, repoDelta, outcome, stages, plan, usage, warnings, errors
+        case nextActions, audit
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        contractVersion = try c.decode(String.self, forKey: .contractVersion)
+        teamRun = try c.decode(RunInfo.self, forKey: .teamRun)
+        workers = try c.decode([WorkerInfo].self, forKey: .workers)
+        workerAnswers = try c.decode([AnswerInfo].self, forKey: .workerAnswers)
+        // Always present on the wire; decode null → nil.
+        answer = try c.decodeIfPresent(Answer.self, forKey: .answer)
+        designBoard = try c.decodeIfPresent(DesignBoard.self, forKey: .designBoard)
+        repoDelta = try c.decodeIfPresent(RepoDelta.self, forKey: .repoDelta)
+        outcome = try c.decodeIfPresent(Outcome.self, forKey: .outcome)
+        stages = try c.decode([StageInfo].self, forKey: .stages)
+        plan = try c.decodeIfPresent(Plan.self, forKey: .plan)
+        usage = try c.decode(Usage.self, forKey: .usage)
+        warnings = try c.decode([Warning].self, forKey: .warnings)
+        errors = try c.decode([ErrorEnvelope].self, forKey: .errors)
+        nextActions = try c.decode([NextAction].self, forKey: .nextActions)
+        audit = try c.decode(Audit.self, forKey: .audit)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(schemaVersion, forKey: .schemaVersion)
+        try c.encode(contractVersion, forKey: .contractVersion)
+        try c.encode(teamRun, forKey: .teamRun)
+        try c.encode(workers, forKey: .workers)
+        try c.encode(workerAnswers, forKey: .workerAnswers)
+        // Law 2 / SH-S02: always serialize `answer` (including JSON null).
+        try c.encode(answer, forKey: .answer)
+        try c.encodeIfPresent(designBoard, forKey: .designBoard)
+        try c.encodeIfPresent(repoDelta, forKey: .repoDelta)
+        try c.encodeIfPresent(outcome, forKey: .outcome)
+        try c.encode(stages, forKey: .stages)
+        try c.encode(plan, forKey: .plan)
+        try c.encode(usage, forKey: .usage)
+        try c.encode(warnings, forKey: .warnings)
+        try c.encode(errors, forKey: .errors)
+        try c.encode(nextActions, forKey: .nextActions)
+        try c.encode(audit, forKey: .audit)
     }
 
     // MARK: - Closed, shared enums
@@ -281,8 +331,10 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public init(kind: Kind, path: String? = nil) { self.kind = kind; self.path = path }
     }
 
-    // MARK: - models / workers
+    // MARK: - models (DoctorResult reuse) / workers / answer
 
+    /// Bench-model snapshot. Owned by `DoctorResult` / `menu`; not embedded in
+    /// run envelopes (SH-S02 — catalog-free TeamRunJSON).
     public struct ModelInfo: Codable, Equatable, Sendable {
         public var id: String
         public var displayName: String
@@ -292,6 +344,51 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public init(id: String, displayName: String, sourceId: String, sourceName: String? = nil, status: ModelStatus) {
             self.id = id; self.displayName = displayName; self.sourceId = sourceId
             self.sourceName = sourceName; self.status = status
+        }
+    }
+
+    /// Canonical result path (SH-S02). Markdown appears here exactly once.
+    public struct Answer: Codable, Equatable, Sendable {
+        public var status: Status
+        public var outputKind: String?
+        public var markdown: String?
+        public var source: Source
+        public var typedResultField: String?
+
+        public init(
+            status: Status,
+            outputKind: String? = nil,
+            markdown: String? = nil,
+            source: Source,
+            typedResultField: String? = nil
+        ) {
+            self.status = status
+            self.outputKind = outputKind
+            self.markdown = markdown
+            self.source = source
+            self.typedResultField = typedResultField
+        }
+
+        public struct Source: Codable, Equatable, Sendable {
+            public enum Kind: String, Codable, Sendable {
+                case plan, worker, typed
+            }
+            public var kind: Kind
+            public var workerId: String?
+            public var modelId: String?
+            public var stageId: String?
+
+            public init(
+                kind: Kind,
+                workerId: String? = nil,
+                modelId: String? = nil,
+                stageId: String? = nil
+            ) {
+                self.kind = kind
+                self.workerId = workerId
+                self.modelId = modelId
+                self.stageId = stageId
+            }
         }
     }
 
@@ -456,14 +553,14 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         }
     }
 
-    /// The final synthesized result. When `status == .done`, `writerWorkerId` must
-    /// be non-null and equal to `teamRun.planWriterWorkerId`.
+    /// Synthesized-plan provenance. When the plan is the canonical result,
+    /// markdown moves to `answer` and `plan.markdown` is null (Law 2).
     public struct Plan: Codable, Equatable, Sendable {
         public var status: Status
         public var writerWorkerId: String?
         public var stageId: String?
-        public var markdown: String
-        public init(status: Status, writerWorkerId: String? = nil, stageId: String? = nil, markdown: String) {
+        public var markdown: String?
+        public init(status: Status, writerWorkerId: String? = nil, stageId: String? = nil, markdown: String? = nil) {
             self.status = status; self.writerWorkerId = writerWorkerId
             self.stageId = stageId; self.markdown = markdown
         }

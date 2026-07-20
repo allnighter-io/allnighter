@@ -36,9 +36,10 @@ public enum TeamRunJSONMapper {
 
     public static func map(_ run: TeamRun, models: [Model], manifests: [DriverManifest], context: Context) -> TeamRunJSON {
         let modelById = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        func sourceName(_ driverId: String) -> String? { manifests.first { $0.id == driverId }?.displayName }
         func modelName(_ id: String) -> String { modelById[id]?.displayName ?? id }
         func sourceId(_ modelId: String) -> String { modelById[modelId]?.driverId ?? "" }
+        // manifests kept for call-site compatibility; worker source names come from model snapshots.
+        _ = manifests
 
         let planStage = run.latestStage(.plan)
 
@@ -71,8 +72,8 @@ public enum TeamRunJSONMapper {
 
         // Emit a plan only when one was actually produced (stage done → `run.plan`
         // is the markdown). A failed/absent plan is null here and remains visible
-        // as a stage in `stages`.
-        let plan: TeamRunJSON.Plan? = {
+        // as a stage in `stages`. Canonical markdown moves to `answer` below.
+        var plan: TeamRunJSON.Plan? = {
             guard let stage = planStage, let markdown = run.plan else { return nil }
             return TeamRunJSON.Plan(
                 status: .done, writerWorkerId: stage.producedByWorkerId,
@@ -129,8 +130,9 @@ public enum TeamRunJSONMapper {
         // Prefer the run's own catalog facts (self-describing); fall back to
         // caller-supplied context for legacy runs that did not record them.
         let workerModelId = RunIdentity.primaryWorkerModelId(run)
+        let runStatus = mapRun(run.status)
         let info = TeamRunJSON.RunInfo(
-            id: run.id, status: mapRun(run.status), origin: mapOrigin(run.origin),
+            id: run.id, status: runStatus, origin: mapOrigin(run.origin),
             originAgent: run.originAgent,
             lane: run.lane?.rawValue ?? context.lane,
             type: run.type ?? context.type,
@@ -148,13 +150,20 @@ public enum TeamRunJSONMapper {
             endReason: run.endReason?.rawValue, blocker: blockerInfo, attempts: attempts
         )
 
-        let modelInfos = models.map {
-            TeamRunJSON.ModelInfo(id: $0.id, displayName: $0.displayName, sourceId: $0.driverId, sourceName: sourceName($0.driverId), status: .ready)
-        }
+        var workerAnswers = answers
+        let answer = deriveAnswer(
+            runStatus: runStatus,
+            outputKind: run.outputKind?.rawValue,
+            plan: &plan,
+            workerAnswers: &workerAnswers,
+            designBoard: designBoard
+        )
 
         return TeamRunJSON(
+            schemaVersion: 2,
             contractVersion: ContractRegistry.contractVersion,
-            teamRun: info, models: modelInfos, workers: workers, workerAnswers: answers,
+            teamRun: info, workers: workers, workerAnswers: workerAnswers,
+            answer: answer,
             designBoard: designBoard,
             repoDelta: run.mutating ? run.repoDelta : nil,
             outcome: run.status.isTerminal ? mapOutcome(run) : nil,
@@ -166,6 +175,84 @@ public enum TeamRunJSONMapper {
             ],
             audit: .init(traceId: "trace_\(run.id)", runJournalPath: context.runJournalPath)
         )
+    }
+
+    /// Deterministic canonical-answer derivation (Alln_Sharpening § Canonical answer).
+    /// Mutates `plan` / `workerAnswers` so markdown is not duplicated (Law 2).
+    public static func deriveAnswer(
+        runStatus: TeamRunJSON.Status,
+        outputKind: String?,
+        plan: inout TeamRunJSON.Plan?,
+        workerAnswers: inout [TeamRunJSON.AnswerInfo],
+        designBoard: TeamRunJSON.DesignBoard?
+    ) -> TeamRunJSON.Answer? {
+        switch runStatus {
+        case .queued, .running:
+            return nil
+        case .failed, .timedOut, .cancelled, .interrupted, .skipped:
+            return nil
+        case .done:
+            break
+        }
+
+        // 1. Completed synthesized plan → answer from plan; plan keeps provenance only.
+        if var donePlan = plan, donePlan.status == .done,
+           let markdown = donePlan.markdown, !markdown.isEmpty {
+            donePlan.markdown = nil
+            plan = donePlan
+            return TeamRunJSON.Answer(
+                status: .done,
+                outputKind: outputKind,
+                markdown: markdown,
+                source: .init(
+                    kind: .plan,
+                    workerId: donePlan.writerWorkerId,
+                    modelId: workerAnswers.first { $0.workerId == donePlan.writerWorkerId }?.modelId,
+                    stageId: donePlan.stageId
+                )
+            )
+        }
+
+        // 2. Successful one-worker → answer from that worker; row keeps status/model/timing.
+        let seats = workerAnswers.filter { $0.status != .skipped }
+        if seats.count == 1, let only = seats.first, only.status == .done,
+           let markdown = only.markdown, !markdown.isEmpty,
+           let idx = workerAnswers.firstIndex(where: { $0.workerId == only.workerId }) {
+            workerAnswers[idx].markdown = nil
+            return TeamRunJSON.Answer(
+                status: .done,
+                outputKind: outputKind,
+                markdown: markdown,
+                source: .init(
+                    kind: .worker,
+                    workerId: only.workerId,
+                    modelId: only.modelId
+                )
+            )
+        }
+
+        // 3. Typed board → typedResultField + optional lead summary; payload stays typed.
+        if designBoard != nil {
+            let leadSummary: String? = {
+                if let md = plan?.markdown, !md.isEmpty { return md }
+                return nil
+            }()
+            if leadSummary != nil, var p = plan {
+                p.markdown = nil
+                plan = p
+            }
+            return TeamRunJSON.Answer(
+                status: .done,
+                outputKind: outputKind,
+                markdown: leadSummary,
+                source: .init(kind: .typed),
+                typedResultField: "designBoard"
+            )
+        }
+
+        // 4. Partial multi-seat without synthesis → answer null; keep seat markdowns.
+        // 5. Covered above for failed/cancelled/timed-out.
+        return nil
     }
 
     /// Worker terminal states → mechanical outcome status (never a correctness verdict).

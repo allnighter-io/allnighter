@@ -28,7 +28,11 @@ final class ContractSchemaTests: XCTestCase {
 
         XCTAssertEqual(try properties(schema), labels(trj), "TeamRunJSON top-level schema drifted from the type")
         XCTAssertEqual(try properties(def(schema, "RunInfo")), labels(trj.teamRun), "RunInfo schema drifted")
-        let model = try XCTUnwrap(trj.models.first)
+        let answer = try XCTUnwrap(trj.answer)
+        XCTAssertEqual(try properties(def(schema, "Answer")), labels(answer), "Answer schema drifted")
+        XCTAssertEqual(try properties(def(schema, "AnswerSource")), labels(answer.source), "AnswerSource schema drifted")
+        // ModelInfo remains a nested type for DoctorResult; keep $defs parity via a constructed value.
+        let model = TeamRunJSON.ModelInfo(id: "m", displayName: "M", sourceId: "s", status: .ready)
         XCTAssertEqual(try properties(def(schema, "ModelInfo")), labels(model), "ModelInfo schema drifted")
     }
 

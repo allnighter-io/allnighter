@@ -5,14 +5,17 @@ import AllnighterCore
 /// contract) into display-ready values for the Mac UI — with **no legacy field
 /// translation**. This is the GUI-side proof for CLI M1 step 9: the same shape
 /// `alln team --json` emits drives the app directly. Reads only new-vocabulary
-/// fields (`workers`, `workerAnswers`, `stages`, `plan`, `errors`); it never sees
+/// fields (`workers`, `workerAnswers`, `answer`, `stages`, `plan`, `errors`); it never sees
 /// `seat`/`member`/`council`/`panel`/`masterPlan`. No SwiftUI/AppKit here.
 struct TeamRunJSONPresenter {
     let run: TeamRunJSON
 
     var prompt: String { run.teamRun.prompt }
     var statusLabel: String { run.teamRun.status.rawValue }
-    var planMarkdown: String? { run.plan?.markdown }
+    /// Canonical result text (SH-S02). Prefer `answer.markdown`; plan/worker rows
+    /// no longer duplicate it.
+    var planMarkdown: String? { run.answer?.markdown ?? run.plan?.markdown }
+    var answerMarkdown: String? { run.answer?.markdown }
     var planWriterWorkerId: String? { run.teamRun.planWriterWorkerId }
     var stageSummaries: [String] { run.stages.map { "\($0.purpose.rawValue): \($0.status.rawValue)" } }
 
@@ -31,18 +34,27 @@ struct TeamRunJSONPresenter {
     var workerRows: [WorkerRow] {
         run.workers.map { worker in
             let answer = run.workerAnswers.first { $0.workerId == worker.id }
+            // One-worker canonical text lives on `run.answer`; surface it on that row.
+            let rowMarkdown: String? = {
+                if let md = answer?.markdown, !md.isEmpty { return md }
+                if run.answer?.source.workerId == worker.id {
+                    return run.answer?.markdown
+                }
+                return nil
+            }()
             return WorkerRow(
                 id: worker.id,
                 modelName: worker.modelName,
                 skillName: worker.skillName,
                 statusLabel: (answer?.status ?? .queued).rawValue,
                 durationMs: answer?.durationMs,
-                answerMarkdown: answer?.markdown,
+                answerMarkdown: rowMarkdown,
                 failureReason: answer?.error?.message
             )
         }
     }
 
     var failedWorkers: [WorkerRow] { workerRows.filter(\.didFail) }
-    var hasPlan: Bool { run.plan != nil }
+    var hasPlan: Bool { run.plan != nil || run.answer?.source.kind == .plan }
+    var hasAnswer: Bool { run.answer?.markdown != nil }
 }

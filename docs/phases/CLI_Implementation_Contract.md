@@ -234,23 +234,50 @@ Parsing rules:
 `TeamRunJSON` is the first public machine contract. It is not the same as the
 internal persistence model, though it may project from it.
 
+**Schema v2 / contract 3.0.0 (SH-S02):** catalog-free and answer-first. Top-level
+`models` is removed (`menu` / `models` own catalogs). Canonical result text lives
+exactly once on `answer` (JSON `null` while non-terminal or when no canonical
+result exists). When `answer` is derived from a completed plan or a successful
+one-worker seat, that source's markdown is cleared so bytes are not duplicated.
+
 Top-level fields:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `schemaVersion` | integer | Public machine schema version. Starts at `1`. |
-| `contractVersion` | string | CLI contract version, independent from app version. |
+| `schemaVersion` | integer | Public machine schema version. Current: `2`. |
+| `contractVersion` | string | CLI contract version, independent from app version. Current: `3.0.0`. |
 | `teamRun` | object | Run identity, status, origin, prompt, and run metadata. |
-| `models` | array | Bench models referenced by this run. Models at rest. |
-| `workers` | array | Runtime workers: one model wearing one skill. |
-| `workerAnswers` | array | One answer or failure per answer worker. |
+| `workers` | array | Runtime workers: one model wearing one skill (includes run-relevant model/source snapshots). |
+| `workerAnswers` | array | One answer or failure per answer worker (status/model/timing; markdown may be null when moved to `answer`). |
+| `answer` | object or null | Canonical result. Always serialized. |
 | `stages` | array | Planner/review/reduce stages. |
-| `plan` | object or null | Final synthesized result, if produced. |
+| `plan` | object or null | Synthesized-plan provenance/status; `markdown` is null when moved to `answer`. |
 | `usage` | object | Observed usage only. No estimates. |
 | `warnings` | array | Non-fatal warnings. |
 | `errors` | array | Structured errors encountered during the run. |
 | `nextActions` | array | Typed follow-up actions and exact commands. |
 | `audit` | object | Trace/run journal pointers. |
+
+`answer` fields:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `status` | enum | Closed status set (usually `done` when present). |
+| `outputKind` | string/null | Team output kind when known. |
+| `markdown` | string/null | Canonical result text (exactly once). |
+| `source.kind` | enum | `plan`, `worker`, or `typed`. |
+| `source.workerId` | string/null | Provenance worker when applicable. |
+| `source.modelId` | string/null | Provenance model when applicable. |
+| `source.stageId` | string/null | Plan stage id when `kind == plan`. |
+| `typedResultField` | string/null | Owning top-level typed field (e.g. `designBoard`) when `kind == typed`. |
+
+Derivation (deterministic):
+
+1. Completed synthesized plan → `answer` from plan; plan keeps provenance/status, no duplicate markdown.
+2. Successful one-worker → `answer` from that worker; `workerAnswers[]` row keeps status/model/timing, no duplicate markdown.
+3. Typed board → `typedResultField` + optional lead summary; typed payload stays in its typed field.
+4. Partial multi-seat without synthesis → `answer: null`; seat markdowns remain.
+5. Failed/cancelled/timed-out → `answer: null`.
 
 Required `teamRun` fields:
 
@@ -293,7 +320,7 @@ two transient statuses not present in the archived record:
 `skipped` appears in archived `TeamRunJSON` only for individual worker records, not
 for the top-level run status.
 
-Model fields:
+Model fields (DoctorResult / menu catalogs — **not** on TeamRunJSON v2):
 
 ```json
 {
@@ -334,6 +361,8 @@ Plan writer rule:
 - The plan writer is a worker in the team snapshot.
 - `teamRun.planWriterWorkerId` and `plan.writerWorkerId` point to that worker.
 - When `plan.status == "done"`, both writer fields must be non-null and equal.
+- When the plan is the canonical result, its markdown moves to `answer` and
+  `plan.markdown` is null (SH-S02 Law 2).
 - When this run is attached to a work thread, that worker is the default
   follow-up reply target for the team result.
 - Answer workers are never inferred as user-facing reply targets. They remain

@@ -213,7 +213,8 @@ enum RunCLI {
                 let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
                 print(AllnighterCLI.jsonString(trj))
             } else {
-                print(run.plan ?? run.workerAnswers.first?.output ?? "(run \(run.status.rawValue))")
+                print(AllnighterCLI.humanAnswer(for: run, models: runtime.models, manifests: runtime.registry.all)
+                      ?? "(run \(run.status.rawValue))")
                 FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
             }
         }
@@ -438,7 +439,8 @@ enum RunCLI {
                 ))
                 FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
             } else {
-                print(run.plan ?? run.workerAnswers.first?.output ?? "(run \(run.status.rawValue))")
+                print(AllnighterCLI.humanAnswer(for: run, models: runtime.models, manifests: runtime.registry.all)
+                      ?? "(run \(run.status.rawValue))")
                 FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
             }
         }

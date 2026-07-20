@@ -1,5 +1,49 @@
 {
   "$defs" : {
+    "Answer" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "markdown" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "outputKind" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "source" : {
+          "$ref" : "#\/$defs\/AnswerSource"
+        },
+        "status" : {
+          "enum" : [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "timedOut",
+            "cancelled",
+            "skipped",
+            "interrupted"
+          ],
+          "type" : "string"
+        },
+        "typedResultField" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "status",
+        "source"
+      ],
+      "type" : "object"
+    },
     "AnswerInfo" : {
       "additionalProperties" : false,
       "properties" : {
@@ -51,6 +95,41 @@
       "required" : [
         "workerId",
         "status"
+      ],
+      "type" : "object"
+    },
+    "AnswerSource" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "kind" : {
+          "enum" : [
+            "plan",
+            "worker",
+            "typed"
+          ],
+          "type" : "string"
+        },
+        "modelId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "stageId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "workerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "kind"
       ],
       "type" : "object"
     },
@@ -611,7 +690,10 @@
       "additionalProperties" : false,
       "properties" : {
         "markdown" : {
-          "type" : "string"
+          "type" : [
+            "string",
+            "null"
+          ]
         },
         "stageId" : {
           "type" : [
@@ -640,8 +722,7 @@
         }
       },
       "required" : [
-        "status",
-        "markdown"
+        "status"
       ],
       "type" : "object"
     },
@@ -1135,6 +1216,16 @@
   "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
   "additionalProperties" : false,
   "properties" : {
+    "answer" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/Answer"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
     "audit" : {
       "$ref" : "#\/$defs\/Audit"
     },
@@ -1154,12 +1245,6 @@
     "errors" : {
       "items" : {
         "$ref" : "#\/$defs\/ErrorEnvelope"
-      },
-      "type" : "array"
-    },
-    "models" : {
-      "items" : {
-        "$ref" : "#\/$defs\/ModelInfo"
       },
       "type" : "array"
     },
@@ -1237,9 +1322,9 @@
     "schemaVersion",
     "contractVersion",
     "teamRun",
-    "models",
     "workers",
     "workerAnswers",
+    "answer",
     "stages",
     "plan",
     "usage",

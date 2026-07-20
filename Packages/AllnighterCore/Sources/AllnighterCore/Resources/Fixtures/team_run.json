@@ -1,55 +1,37 @@
 {
-  "schemaVersion": 1,
-  "contractVersion": "2.1.0",
+  "schemaVersion": 2,
+  "contractVersion": "3.0.0",
   "teamRun": {
-    "id": "run_20260615_2214",
+    "id": "run_20260720_1200",
     "status": "done",
     "origin": "cli",
     "originAgent": null,
     "lane": "code",
-    "type": "feature",
-    "effort": "deep",
-    "prompt": "Stress-test this launch plan.",
+    "type": null,
+    "effort": null,
+    "prompt": "Say success.",
     "promptSource": { "kind": "positional", "path": null },
-    "createdAt": "2026-06-15T22:14:00Z",
-    "startedAt": "2026-06-15T22:14:01Z",
-    "completedAt": "2026-06-15T22:16:08Z",
+    "createdAt": "2026-07-20T12:00:00Z",
+    "startedAt": "2026-07-20T12:00:01Z",
+    "completedAt": "2026-07-20T12:00:05Z",
     "threadId": null,
-    "teamPresetId": "preset_quality",
-    "planWriterWorkerId": "model_opus#0",
-    "reproduceCommand": "alln run --lane code --type feature --effort deep \"Stress-test this launch plan.\""
+    "teamPresetId": null,
+    "teamDisplayName": null,
+    "outputKind": null,
+    "workerId": "model_sonnet",
+    "writePolicy": "mutating",
+    "identitySummary": "worker model_sonnet · lane code · mutating",
+    "planWriterWorkerId": null,
+    "reproduceCommand": "alln run --worker model_sonnet \"Say success.\"",
+    "endReason": "completed",
+    "blocker": null,
+    "attempts": []
   },
-  "models": [
-    {
-      "id": "model_opus",
-      "displayName": "Opus 4.8",
-      "sourceId": "claude_code",
-      "sourceName": "Claude Code",
-      "status": "ready"
-    },
-    {
-      "id": "model_sonnet",
-      "displayName": "Sonnet 4.6",
-      "sourceId": "claude_code",
-      "sourceName": "Claude Code",
-      "status": "ready"
-    }
-  ],
   "workers": [
     {
-      "id": "model_opus#0",
-      "skillId": "first_principles",
-      "skillName": "First Principles",
-      "modelId": "model_opus",
-      "modelName": "Opus 4.8",
-      "sourceId": "claude_code",
-      "purpose": "answer",
-      "instanceIndex": 0
-    },
-    {
       "id": "model_sonnet#0",
-      "skillId": "skeptic",
-      "skillName": "Skeptic",
+      "skillId": null,
+      "skillName": null,
       "modelId": "model_sonnet",
       "modelName": "Sonnet 4.6",
       "sourceId": "claude_code",
@@ -59,53 +41,45 @@
   ],
   "workerAnswers": [
     {
-      "workerId": "model_opus#0",
-      "modelId": "model_opus",
-      "status": "done",
-      "durationMs": 102000,
-      "markdown": "The launch plan underestimates onboarding friction.",
-      "error": null
-    },
-    {
       "workerId": "model_sonnet#0",
       "modelId": "model_sonnet",
       "status": "done",
-      "durationMs": 70000,
-      "markdown": "Messaging is strong but proof is thin.",
+      "durationMs": 4000,
+      "markdown": null,
       "error": null
     }
   ],
-  "stages": [
-    {
-      "id": "stage_analysis_01",
-      "purpose": "analysis",
-      "status": "done",
-      "producedByWorkerId": "model_opus#0",
-      "promptProfileId": "plan_analysis_v1"
-    },
-    {
-      "id": "stage_plan_01",
-      "purpose": "plan",
-      "status": "done",
-      "producedByWorkerId": "model_opus#0",
-      "promptProfileId": "plan_writer_v1"
-    }
-  ],
-  "plan": {
+  "answer": {
     "status": "done",
-    "writerWorkerId": "model_opus#0",
-    "stageId": "stage_plan_01",
-    "markdown": "# Plan\n\n## The Plan\nTighten proof before launch and add a guided first-run."
+    "outputKind": null,
+    "markdown": "success",
+    "source": {
+      "kind": "worker",
+      "workerId": "model_sonnet#0",
+      "modelId": "model_sonnet",
+      "stageId": null
+    },
+    "typedResultField": null
   },
-  "usage": { "cliCalls": 3 },
+  "stages": [],
+  "plan": null,
+  "outcome": {
+    "status": "completed",
+    "committed": false,
+    "headline": "worker model_sonnet · lane code · mutating",
+    "commitMessageMatched": null,
+    "proof": null,
+    "usage": null
+  },
+  "usage": { "cliCalls": 1 },
   "warnings": [],
   "errors": [],
   "nextActions": [
-    { "kind": "showRun", "command": "alln show run_20260615_2214", "label": "Show run" },
-    { "kind": "export", "command": "alln export run_20260615_2214 --format md", "label": "Export markdown" }
+    { "kind": "showRun", "command": "alln show run_20260720_1200", "label": "Show run" },
+    { "kind": "export", "command": "alln export run_20260720_1200 --format md", "label": "Export markdown" }
   ],
   "audit": {
-    "traceId": "trace_20260615_2214",
-    "runJournalPath": "~/.allnighter/Runs/run_20260615_2214/run.json"
+    "traceId": "trace_run_20260720_1200",
+    "runJournalPath": "~/.allnighter/Runs/run_20260720_1200/run.json"
   }
 }

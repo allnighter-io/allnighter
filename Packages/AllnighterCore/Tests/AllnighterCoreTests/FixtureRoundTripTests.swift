@@ -108,26 +108,48 @@ final class FixtureRoundTripTests: XCTestCase {
         try assertRoundTrips(TeamRunJSON.self, .teamRunJSON)
 
         let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
-        XCTAssertEqual(trj.schemaVersion, 1)
+        XCTAssertEqual(trj.schemaVersion, 2)
+        XCTAssertEqual(trj.contractVersion, "3.0.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
-        XCTAssertEqual(trj.models.count, 2)
-        XCTAssertEqual(trj.workers.count, 2)
-        XCTAssertEqual(trj.workerAnswers.count, 2)
-        XCTAssertTrue(trj.workerAnswers.allSatisfy { $0.markdown != nil })
+        XCTAssertEqual(trj.workers.count, 1)
+        XCTAssertEqual(trj.workerAnswers.count, 1)
+        XCTAssertNil(trj.workerAnswers.first?.markdown)  // Law 2: markdown moved to answer
+        let answer = try XCTUnwrap(trj.answer)
+        XCTAssertEqual(answer.markdown, "success")
+        XCTAssertEqual(answer.source.kind, .worker)
+        XCTAssertLessThanOrEqual(answer.markdown?.utf8.count ?? 0, 256)
 
-        // Plan-writer rule: when the plan is done, both writer fields are non-null and equal.
-        XCTAssertEqual(trj.plan?.status, .done)
-        XCTAssertNotNil(trj.plan?.writerWorkerId)
-        XCTAssertEqual(trj.plan?.writerWorkerId, trj.teamRun.planWriterWorkerId)
+        // No catalog models on the run envelope (SH-S02).
+        let encoded = try CoreJSON.encode(trj)
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertNil(root["models"])
+        XCTAssertNotNil(root["answer"])
 
         // Required top-level contract objects are present.
-        XCTAssertEqual(trj.usage.cliCalls, 3)
+        XCTAssertEqual(trj.usage.cliCalls, 1)
         XCTAssertFalse(trj.audit.traceId.isEmpty)
         XCTAssertFalse(trj.audit.runJournalPath.isEmpty)
 
         // nextActions.kind is a closed enum (registry-owned at step 2).
         XCTAssertEqual(trj.nextActions.map(\.kind), [.showRun, .export])
+    }
+
+    /// SH-S02 envelope budget: one-worker terminal overhead stays within the
+    /// measured budget recorded in Alln_Sharpening.md.
+    func testOneWorkerEnvelopeOverheadWithinBudget() throws {
+        let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
+        let answerMarkdown = try XCTUnwrap(trj.answer?.markdown)
+        let encoded = try CoreJSON.encode(trj)
+        let overhead = encoded.count - answerMarkdown.utf8.count
+        // Measured 2026-07-20: CoreJSON pretty+sortedKeys overhead = 2293 bytes
+        // against this fixture. Budget = 4096 (measured + headroom).
+        let budget = 4096
+        XCTAssertLessThanOrEqual(
+            overhead, budget,
+            "one-worker envelope overhead \(overhead) exceeds budget \(budget)"
+        )
+        XCTAssertFalse(String(decoding: encoded, as: UTF8.self).contains("\"models\""))
     }
 
     /// The shared error envelope decodes from its fixture and round-trips
