@@ -57,4 +57,15 @@ final class UnknownFlagTests: XCTestCase {
         XCTAssertEqual(spec?.exitClass, .usage)
         XCTAssertFalse(spec?.agentAction.isEmpty ?? true)
     }
+
+    func testBooleanFlagNamesCoverPilotDefaultAndHandover() {
+        let names = ContractRegistry.booleanFlagNames()
+        XCTAssertTrue(names.contains("json"))
+        XCTAssertTrue(names.contains("dry-run"))
+        XCTAssertTrue(names.contains("pilot"), "doctor --pilot must parse as boolean")
+        XCTAssertTrue(names.contains("default"), "defaults --default must parse as boolean")
+        XCTAssertTrue(names.contains("handover-stdin"))
+        XCTAssertFalse(names.contains("project"), "value flags must not be boolean")
+        XCTAssertFalse(names.contains("lane"))
+    }
 }

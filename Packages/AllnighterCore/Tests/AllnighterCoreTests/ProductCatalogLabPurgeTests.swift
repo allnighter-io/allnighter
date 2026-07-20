@@ -80,4 +80,20 @@ final class ProductCatalogLabPurgeTests: XCTestCase {
         prefixed.typeTags = []
         XCTAssertFalse(prefixed.isLabTeam, "lab_ id prefix alone must not imply lab")
     }
+
+    func testCatalogSeatCountIncludesLeadAndScout() {
+        let min = try! XCTUnwrap(BuiltInTeams.team("code_bug_hunt_min"))
+        XCTAssertNil(min.scout)
+        XCTAssertEqual(min.catalogSeatCount, min.workerSpecs.count + 1)
+
+        let signal = try! XCTUnwrap(BuiltInTeams.team("signal_outside"))
+        XCTAssertNotNil(signal.scout)
+        XCTAssertEqual(signal.catalogSeatCount, signal.workerSpecs.count + 2)
+
+        let projected = TeamCatalogJSON.project(
+            [min, signal], lane: nil, contractVersion: ContractRegistry.contractVersion
+        )
+        XCTAssertEqual(projected.teams.first { $0.id == min.id }?.workerCount, min.catalogSeatCount)
+        XCTAssertEqual(projected.teams.first { $0.id == signal.id }?.workerCount, signal.catalogSeatCount)
+    }
 }

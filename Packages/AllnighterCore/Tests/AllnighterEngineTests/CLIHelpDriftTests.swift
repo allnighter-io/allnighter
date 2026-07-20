@@ -50,6 +50,13 @@ final class CLIHelpDriftTests: XCTestCase {
         XCTAssertNil(CLIUsage.usageTextForPrefix("config"))
     }
 
+    /// Options boolean parsing must use FlagSpec (no parallel hand list).
+    func testOptionsBooleanFlagsMatchRegistry() {
+        XCTAssertEqual(Options.booleanFlags, ContractRegistry.booleanFlagNames())
+        XCTAssertTrue(Options.booleanFlags.contains("pilot"))
+        XCTAssertTrue(Options.booleanFlags.contains("dry-run"))
+    }
+
     /// `docs <topic>` and `help get <topic>` share `HelpTopicRegistry` resolution.
     func testEveryHelpTopicResolvesViaDocsAndHelpGet() {
         for topic in HelpTopicRegistry.topics {

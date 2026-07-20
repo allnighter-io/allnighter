@@ -52,20 +52,35 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
+    /// Names of M1 flags with `takesValue == false`. Single owner for argv boolean
+    /// parsing (`Options.booleanFlags`) so FlagSpec cannot drift from the parser.
+    public static func booleanFlagNames(_ registry: ContractRegistry = .milestone1) -> Set<String> {
+        Set(
+            registry.commands
+                .filter { $0.milestone == .m1 }
+                .flatMap(\.flags)
+                .filter { !$0.takesValue }
+                .map(\.name)
+        )
+    }
+
     /// Canonical serialization hashed by `contractHash`. Deterministic: CoreJSON
     /// (sorted keys) of the registry, plus sorted schema artifact bodies.
+    /// Encode / schema projection failures fail loud — a truncated payload would
+    /// silently under-hash the surface (AE code-audit / no silent fallbacks).
     public static func canonicalSurfacePayload(_ registry: ContractRegistry = .milestone1) -> String {
-        var parts: [String] = []
-        if let data = try? CoreJSON.encode(registry) {
-            parts.append(String(decoding: data, as: UTF8.self))
-        } else {
-            parts.append(registry.contractVersion)
+        guard let data = try? CoreJSON.encode(registry) else {
+            preconditionFailure("ContractRegistry.canonicalSurfacePayload: registry encode failed")
         }
-        if let schemas = try? ContractExport.schemaArtifactsForHash() {
+        var parts: [String] = [String(decoding: data, as: UTF8.self)]
+        do {
+            let schemas = try ContractExport.schemaArtifactsForHash()
             for artifact in schemas.sorted(by: { $0.filename < $1.filename }) {
                 parts.append(artifact.filename)
                 parts.append(artifact.contents)
             }
+        } catch {
+            preconditionFailure("ContractRegistry.canonicalSurfacePayload: schema artifacts failed: \(error)")
         }
         return parts.joined(separator: "\n")
     }

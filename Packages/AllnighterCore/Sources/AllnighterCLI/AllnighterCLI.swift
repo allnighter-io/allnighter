@@ -723,7 +723,7 @@ struct AllnighterCLI {
                             outputKind: t.outputKind.rawValue, defaultEffort: t.defaultEffort.rawValue,
                             mutating: t.mutating,
                             isDefaultForLane: true,
-                            workerCount: t.workerSpecs.count)
+                            workerCount: t.catalogSeatCount)
         }
         return jsonString(Snapshot(contractVersion: ContractRegistry.contractVersion, defaults: defaults))
     }
@@ -971,7 +971,7 @@ struct AllnighterCLI {
             fail(code: "CLI_USAGE_ERROR", message: "usage: alln teams edit <team-id> [--file <path>] [--json]")
         }
         guard TeamCatalog.get(id) != nil else {
-            fail(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)")
+            failUnknownTeam(id)
         }
         do {
             let team = try loadTeamDefinition(from: opts.value("file"), expectedId: id)
@@ -1965,11 +1965,9 @@ struct ToolRuntime {
 struct Options {
     /// Boolean flags never consume the next token as a value, so
     /// `alln team --json "prompt"` keeps "prompt" as the positional.
-    static let booleanFlags: Set<String> = [
-        "json", "stream", "full", "check", "errors", "schema", "examples", "quiet", "auto-fix", "health", "submit",
-        "bench", "disabled", "no-wait", "dry-run", "all", "all-projects", "print", "include-cleared",
-        "accept-survivors", "try-fix", "no-commit",
-    ]
+    /// Derived from M1 `FlagSpec.takesValue == false` — never a parallel hand list
+    /// (AE code-audit: FlagSpec is the choke point for flag shape).
+    static let booleanFlags: Set<String> = ContractRegistry.booleanFlagNames()
     var positional: [String] = []
     var values: [String: String] = [:]
     var flags: Set<String> = []

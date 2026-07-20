@@ -338,6 +338,14 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     public var isLabTeam: Bool { typeTags.contains(Self.labTypeTag) }
 
     public static let labTypeTag = "lab"
+
+    /// Advertised seat count for catalog/list surfaces (AE-S10): scout + worker
+    /// rows + Team Lead — the same structural seats preflight resolves into
+    /// `readyWorkers` when every row resolves. One truth; do not re-derive at
+    /// call sites.
+    public var catalogSeatCount: Int {
+        (scout == nil ? 0 : 1) + workerSpecs.count + 1
+    }
 }
 
 // MARK: - Default-per-lane integrity

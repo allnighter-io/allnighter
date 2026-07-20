@@ -213,7 +213,7 @@ public enum PanelTeamResolver {
     }
 
     public static func seatCount(_ team: TeamPreset) -> Int {
-        (team.scout == nil ? 0 : 1) + team.workerSpecs.count
+        team.catalogSeatCount
     }
 
     private static func matchesAlias(_ alias: String, team: TeamPreset) -> Bool {
