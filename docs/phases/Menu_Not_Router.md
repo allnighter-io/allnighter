@@ -1,6 +1,6 @@
 # Menu, Not Router — the caller is the brain; `alln` is the tool menu
 
-Status: **READY FOR IMPLEMENTATION — final hardened contract (2026-07-20).**
+Status: **FINAL (v4, 2026-07-20) — READY FOR IMPLEMENTATION.**
 Founder-ordered clean replacement for the retired intent-router architecture.
 No users; this cut carries no migration, compatibility aliases/readers, or dead
 selection paths.
@@ -11,9 +11,13 @@ Updated: 2026-07-20 (v3, final hardening pass)
 
 Supersedes the selection architecture in archived `Agent_Intent_Router.md` and
 the `team hello` / `route` / `resolve` conclusions in
-`CLI_Agent_Ergonomics.md`. It is subordinate to `Language_Cutover.md` and
-`Unified_Run_Model.md`: **Team** is the noun, **Send to team** is the human
-action, and direct model/team work uses the one `alln run` primitive.
+`CLI_Agent_Ergonomics.md`. Vocabulary is `Language_Cutover.md`'s locked set:
+**Team** is the noun, **Send to team** is the human action, and direct
+model/team work uses the one `alln run` primitive. **Grammar-cut ownership
+(founder decision 2026-07-20): THIS doc is the execution vehicle.** MR-S02
+delivers the one-run-primitive cut end to end here; no other phase re-cuts,
+sequences ahead of, or duplicates this grammar work. Effects/write-policy
+semantics defer to `Unified_Run_Model.md`.
 
 ## Verdict
 
@@ -86,7 +90,10 @@ winner, confidence score, “recommended” target, or sole next action.
 hand-authored help. One atomic response contains:
 
 - `actions`: a short fast-path set for common jobs, generated from tagged command
-  specs; each has an exact grammar template and free validation template;
+  specs; each has an exact grammar template and free validation template. Tags
+  live on command specs and each action maps 1:1 to a public command row —
+  `actions` may never grow its own intent categories or become a second
+  selection vocabulary;
 - `commands`: the exhaustive accepted public grammar as compact rows;
 - `teams`: every effective built-in and custom team, including inactive teams
   with an explicit blocked reason;
@@ -285,6 +292,8 @@ for the protocol; the live binary owns the catalog.
 - No static catalog copied into bootstrap or host instructions.
 - No hand-authored menu beside `ContractRegistry` and the live catalogs.
 - No default recommendation, confidence score, or “best” row from search.
+- No intent-category taxonomy inside `actions` — fast-path tags are per-command,
+  1:1 with public command rows, or they are the router growing back.
 - No second confirmation after the caller invokes a normal run; dry-run is an
   inspection tool, not an approval ceremony. Separate high-risk operations keep
   their owning safety policy.
@@ -430,7 +439,8 @@ scripts/check.sh
 | --- | --- |
 | Selection, discovery, menus, router removal | **This doc** |
 | Canonical product vocabulary | `Language_Cutover.md` |
-| One run primitive, answer/execution safety, write lock | `Unified_Run_Model.md` |
+| Run-grammar cut / one run primitive | **This doc** (MR-S02 — owns it end to end) |
+| Answer/execution safety semantics, write lock | `Unified_Run_Model.md` |
 | Registry, JSON/errors/generated artifacts | `CLI_Implementation_Contract.md` |
 | Run stuck/status/activity/kill/retry | archived `Run_Lifecycle_Reliability.md` |
 | Bootstrap and help teaching updates | this doc MR-S05 + `SSOT_Feature_Workflow.md` |
