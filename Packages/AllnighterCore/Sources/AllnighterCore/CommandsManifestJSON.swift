@@ -1,8 +1,8 @@
 import Foundation
 
-/// `alln commands --json` — full M1 command manifest for agent discovery (AE-S13).
+/// `alln commands --json` — full M1 command manifest for agent discovery (AE-S13 / AE-S15).
 /// Two-tier disclosure: `--help` lists names; this hydrate path carries trigger,
-/// args, examples, and anti-examples. Anti-examples stay empty until AE-S15.
+/// args, example, anti-example.
 public struct CommandsManifestJSON: Codable, Sendable, Equatable {
     public var schemaVersion: Int
     public var contractVersion: String
@@ -11,10 +11,15 @@ public struct CommandsManifestJSON: Codable, Sendable, Equatable {
 
     public struct Entry: Codable, Sendable, Equatable {
         public var name: String
-        /// When-to-use trigger. Today: `CommandSpec.summary` (AE-S15 will split).
+        /// When-to-use trigger (situation-shaped).
         public var trigger: String
+        /// One worked invocation with real or placeholder values (AE-S15).
+        public var example: String
+        /// One anti-example: "Do NOT use this when…" (AE-S15).
+        public var antiExample: String
         public var args: [Arg]
         public var flags: [Flag]
+        /// Richer recipe list when authored; always includes `example` as first when non-empty.
         public var examples: [Example]
         public var antiExamples: [String]
 
@@ -58,9 +63,23 @@ public struct CommandsManifestJSON: Codable, Sendable, Equatable {
             .filter { $0.milestone == .m1 }
             .sorted { $0.name < $1.name }
             .map { spec -> Entry in
-                Entry(
+                let trigger = CommandDescription.trigger(for: spec)
+                let example = CommandDescription.example(for: spec, recipes: recipes)
+                let anti = CommandDescription.antiExample(for: spec)
+                var examples = spec.exampleIds.compactMap { id -> Entry.Example? in
+                    guard let recipe = recipes[id] else { return nil }
+                    return Entry.Example(id: recipe.id, title: recipe.title, command: recipe.command)
+                }
+                if examples.isEmpty {
+                    examples = [Entry.Example(id: "\(spec.name.replacingOccurrences(of: " ", with: "_"))_derived",
+                                              title: "Derived example",
+                                              command: example)]
+                }
+                return Entry(
                     name: spec.name,
-                    trigger: spec.summary,
+                    trigger: trigger,
+                    example: example,
+                    antiExample: anti,
                     args: spec.args.map {
                         Entry.Arg(name: $0.name, required: $0.required, summary: $0.summary)
                     },
@@ -73,11 +92,8 @@ public struct CommandsManifestJSON: Codable, Sendable, Equatable {
                             summary: $0.summary
                         )
                     },
-                    examples: spec.exampleIds.compactMap { id in
-                        guard let recipe = recipes[id] else { return nil }
-                        return Entry.Example(id: recipe.id, title: recipe.title, command: recipe.command)
-                    },
-                    antiExamples: []
+                    examples: examples,
+                    antiExamples: [anti]
                 )
             }
         return CommandsManifestJSON(

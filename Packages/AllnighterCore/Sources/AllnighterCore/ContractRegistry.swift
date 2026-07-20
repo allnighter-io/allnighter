@@ -149,14 +149,33 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
     public struct CommandSpec: Codable, Sendable, Equatable {
         public var name: String                       // full path, e.g. "doctor explain"
         public var summary: String
+        /// Optional trigger situation (AE-S15). When nil, `summary` is the trigger.
+        public var trigger: String?
+        /// Optional worked invocation with real values (AE-S15).
+        public var example: String?
+        /// Optional anti-example: "Do NOT use this when…" (AE-S15).
+        public var antiExample: String?
         public var milestone: Milestone
         public var args: [ArgSpec]
         public var flags: [FlagSpec]
         public var mutuallyExclusiveFlags: [[String]]
         public var outputSchema: OutputSchema
         public var exampleIds: [String]
-        public init(_ name: String, summary: String, milestone: Milestone, args: [ArgSpec] = [], flags: [FlagSpec] = [], mutuallyExclusiveFlags: [[String]] = [], outputSchema: OutputSchema = .none, exampleIds: [String] = []) {
+        public init(
+            _ name: String,
+            summary: String,
+            milestone: Milestone,
+            trigger: String? = nil,
+            example: String? = nil,
+            antiExample: String? = nil,
+            args: [ArgSpec] = [],
+            flags: [FlagSpec] = [],
+            mutuallyExclusiveFlags: [[String]] = [],
+            outputSchema: OutputSchema = .none,
+            exampleIds: [String] = []
+        ) {
             self.name = name; self.summary = summary; self.milestone = milestone
+            self.trigger = trigger; self.example = example; self.antiExample = antiExample
             self.args = args; self.flags = flags
             self.mutuallyExclusiveFlags = mutuallyExclusiveFlags
             self.outputSchema = outputSchema; self.exampleIds = exampleIds

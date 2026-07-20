@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "1.3.0"
+    static let contractVersion = "1.4.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -289,6 +289,9 @@ public extension ContractRegistry {
             "team hello",
             summary: "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Omitting `--for` returns readiness + ready teams (quota-free).",
             milestone: .m1,
+            trigger: "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
+            example: "alln team hello --for \"ask Sonnet 5 a question\" --json",
+            antiExample: "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
             flags: [
                 FlagSpec("for", takesValue: true, valueType: "string", summary: "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report."),
                 FlagSpec("json", summary: "Structured hello / intent-route JSON (default)."),
@@ -299,6 +302,9 @@ public extension ContractRegistry {
             "route",
             summary: "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
             milestone: .m1,
+            trigger: "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
+            example: "alln route --for \"ask Sonnet 5 a question\" --json",
+            antiExample: "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
             flags: [
                 FlagSpec("for", takesValue: true, valueType: "string", summary: "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report."),
                 FlagSpec("json", summary: "Structured intent-route JSON (default)."),
@@ -309,6 +315,9 @@ public extension ContractRegistry {
             "resolve",
             summary: "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
             milestone: .m1,
+            trigger: "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
+            example: "alln resolve --for \"ask Sonnet 5 a question\" --json",
+            antiExample: "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
             flags: [
                 FlagSpec("for", takesValue: true, valueType: "string", summary: "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report."),
                 FlagSpec("json", summary: "Structured intent-route JSON (default)."),
@@ -401,7 +410,12 @@ public extension ContractRegistry {
             outputSchema: .ownershipGarbageCollectionJSON
         ),
         CommandSpec(
-            "run", summary: "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.", milestone: .m1,
+            "run",
+            summary: "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.",
+            milestone: .m1,
+            trigger: "Use when the user wants one worker to answer or act in a project repo root (chat / named-model ask / Default Team).",
+            example: "alln run \"summarize AGENTS.md\" --project . --json",
+            antiExample: "Do NOT use this to explore shapes — prefer `alln team preflight` or `alln route --for` first; this spends quota.",
             args: [ArgSpec("message", required: true, summary: "The user's prompt.")],
             flags: [
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),

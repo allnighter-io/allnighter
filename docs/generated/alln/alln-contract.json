@@ -1054,9 +1054,11 @@
       "summary" : "Delete a custom skill."
     },
     {
+      "antiExample" : "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
       "args" : [
 
       ],
+      "example" : "alln team hello --for \"ask Sonnet 5 a question\" --json",
       "exampleIds" : [
 
       ],
@@ -1079,12 +1081,15 @@
       ],
       "name" : "team hello",
       "outputSchema" : "none",
-      "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Omitting `--for` returns readiness + ready teams (quota-free)."
+      "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Omitting `--for` returns readiness + ready teams (quota-free).",
+      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it."
     },
     {
+      "antiExample" : "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
       "args" : [
 
       ],
+      "example" : "alln route --for \"ask Sonnet 5 a question\" --json",
       "exampleIds" : [
 
       ],
@@ -1107,12 +1112,15 @@
       ],
       "name" : "route",
       "outputSchema" : "none",
-      "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`."
+      "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
+      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it."
     },
     {
+      "antiExample" : "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
       "args" : [
 
       ],
+      "example" : "alln resolve --for \"ask Sonnet 5 a question\" --json",
       "exampleIds" : [
 
       ],
@@ -1135,7 +1143,8 @@
       ],
       "name" : "resolve",
       "outputSchema" : "none",
-      "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`."
+      "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
+      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it."
     },
     {
       "args" : [
@@ -1476,6 +1485,7 @@
       "summary" : "Prune old identity-dead terminal run\/relay records beyond retention. Keeps identity-alive, non-terminal, recent, and thread-referenced records."
     },
     {
+      "antiExample" : "Do NOT use this to explore shapes — prefer `alln team preflight` or `alln route --for` first; this spends quota.",
       "args" : [
         {
           "name" : "message",
@@ -1483,6 +1493,7 @@
           "summary" : "The user's prompt."
         }
       ],
+      "example" : "alln run \"summarize AGENTS.md\" --project . --json",
       "exampleIds" : [
 
       ],
@@ -1634,7 +1645,8 @@
       ],
       "name" : "run",
       "outputSchema" : "teamRunJSON",
-      "summary" : "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict."
+      "summary" : "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.",
+      "trigger" : "Use when the user wants one worker to answer or act in a project repo root (chat \/ named-model ask \/ Default Team)."
     },
     {
       "args" : [
@@ -3775,7 +3787,7 @@
       "summary" : "Approve iOS\/Mac pairing."
     }
   ],
-  "contractVersion" : "1.3.0",
+  "contractVersion" : "1.4.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
