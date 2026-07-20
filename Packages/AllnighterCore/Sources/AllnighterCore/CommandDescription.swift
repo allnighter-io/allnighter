@@ -45,9 +45,6 @@ public enum CommandDescription {
         } else if spec.flags.contains(where: { $0.name == "for" }) {
             parts.append("--for")
             parts.append("\"<intent>\"")
-            if spec.flags.contains(where: { $0.name == "json" }) == false {
-                // still fine
-            }
         }
         return parts.joined(separator: " ")
     }

@@ -3,7 +3,8 @@ import Foundation
 /// AE-S07: discovery command + near-match suggestions for identifier errors.
 public enum ErrorDiscovery {
     /// Discovery command for a `*_NOT_FOUND` / `*_NOT_AVAILABLE` code.
-    /// Never returns `alln doctor` for noun-lookup failures.
+    /// Prefer catalog/list discovery over `alln doctor` for noun lookup
+    /// (`SOURCE_NOT_FOUND` is the exception — sources live on doctor).
     public static func discoveryCommand(forErrorCode code: String, lane: String? = nil) -> String? {
         let laneFlag = lane.map { " --lane \($0)" } ?? ""
         switch code {
@@ -30,9 +31,6 @@ public enum ErrorDiscovery {
         case "PANEL_NOT_FOUND":
             return "alln panel status --json"
         default:
-            if code.hasSuffix("_NOT_FOUND") || code.hasSuffix("_NOT_AVAILABLE") {
-                return nil
-            }
             return nil
         }
     }

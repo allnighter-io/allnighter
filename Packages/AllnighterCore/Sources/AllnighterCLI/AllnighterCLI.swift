@@ -825,7 +825,7 @@ struct AllnighterCLI {
         ))
     }
 
-    static func failUnknownTeam(_ id: String, lane: WorkLane? = nil) -> Never {
+    static func failUnknownTeam(_ id: String) -> Never {
         let candidates = TeamCatalog.all.map(\.id)
         let suggestions = ErrorDiscovery.nearestMatches(to: id, in: candidates)
         fail(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)", suggestions: suggestions)

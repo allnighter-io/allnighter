@@ -76,7 +76,6 @@ enum RunCLI {
 
         if opts.flag("dry-run") {
             await emitDryRun(
-                message: message,
                 project: project,
                 teamId: opts.value("team"),
                 workerId: opts.value("worker"),
@@ -192,7 +191,6 @@ enum RunCLI {
 
     /// AE-S04: resolve identifiers and return canStart + counts; never dispatch.
     private static func emitDryRun(
-        message: String,
         project: Project,
         teamId: String?,
         workerId: String?,
@@ -201,7 +199,6 @@ enum RunCLI {
         type: String?,
         runtime: ToolRuntime
     ) async {
-        _ = message
         var warnings: [String] = []
         let presetId = teamId ?? TeamCatalog.defaultRunTeam()?.id
         var args: [String: Any] = [:]
