@@ -643,51 +643,34 @@ public actor RunService {
             return .failure(.repoRootUnavailable(root))
         }
 
-        let preset: TeamPreset
-        if let presetId = request.presetId, !presetId.isEmpty {
-            // MR-S04: exact-id choke point before any run mint / process spawn.
-            let lookup = teams.isEmpty ? TeamCatalog.all : teams
-            switch ExactIdResolver.resolveTeam(presetId, flag: "--team", teams: lookup) {
-            case .success(let team):
-                preset = team
-            case .failure(let failure):
-                if let team = TeamCatalog.get(presetId) {
-                    preset = team
-                } else {
-                    return .failure(.teamResolution(failure.message, code: failure.code))
-                }
+        // SH-S01: one resolver owns team/worker/Auto selection (same as dry-run).
+        let invocation = RunInvocationResolver.resolve(
+            RunInvocationInput(request: request, flagMode: .foreground),
+            context: RunInvocationResolveContext(
+                models: models,
+                teams: teams.isEmpty ? TeamCatalog.all : teams,
+                readyModels: readyModels(),
+                readyModelIds: sourceReadyModelIds(),
+                defaultSettings: loadDefaultSettings()
+            )
+        )
+        if !invocation.canStart {
+            let reason = invocation.blockedReason ?? "run cannot start"
+            if invocation.explicitWorkerChosen {
+                return .failure(.workerNotAvailable(reason))
             }
-        } else {
-            guard let team = TeamCatalog.defaultRunTeam() else {
-                return .failure(.teamResolution("no default team configured", code: "DEFAULT_TEAM_INVALID"))
-            }
-            preset = team
+            return .failure(.teamResolution(reason, code: "DEFAULT_TEAM_INVALID"))
         }
 
-        // MR-S04: validate explicit --worker before minting a RunRecord.
-        if let workerId = request.workerId, !workerId.isEmpty {
-            if case .failure(let error) = resolveExplicitWorker(workerId) {
-                return .failure(error)
-            }
-        }
-
-        // Auto (the no-pick / default route): resolve the worker model from the
-        // Default-model tiers instead of the team's static preference — using the tier
-        // default, or the first source-ready substitute on the same tier when it's down
-        // (route around a down CLI, no prompt). A blocked tier fails clean ("Auto
-        // waits"), never guesses. An explicit per-chat model pick (workerId) wins.
-        var effectiveWorkerId = request.workerId
-        if preset.id == TeamCatalog.defaultRunTeam()?.id, (request.workerId ?? "").isEmpty {
-            let settings = loadDefaultSettings()
-            let auto = SubstitutionResolver.resolveAuto(
-                settings: settings, readyModelIds: sourceReadyModelIds())
-            guard let modelId = auto.resolvedModelId else {
-                return .failure(.teamResolution(
-                    "Auto waits — no ready model on the \(settings.defaultTier.displayName) tier",
-                    code: "DEFAULT_TEAM_INVALID"))
-            }
-            effectiveWorkerId = modelId
-        }
+        let preset = invocation.preset
+        let effectiveWorkerId = invocation.workerId
+        let explicitTeamChosen = invocation.explicitTeamChosen
+        let laneContextOnly = request.lane != nil && !(request.workerId ?? "").isEmpty
+        let effectiveLane = invocation.lane
+        let effort = invocation.effort
+        let lockKey = invocation.lockKey
+        var lockToken: RunWriteLock.Token?
+        let takesWriteLock = invocation.takesWriteLock
 
         var prompt = request.message.trimmingCharacters(in: .whitespacesAndNewlines)
         if let starter = preset.starterPrompts.first, !starter.isEmpty, preset.mutating {
@@ -696,14 +679,6 @@ public actor RunService {
         // NOTE: thread context is appended below per-path. The execution path appends it
         // CONDITIONALLY (Worker_Session_Continuity: when resuming a live vendor session the
         // CLI already holds the history, so we don't re-dump it); the answer path always does.
-
-        let effort = request.effort ?? preset.defaultEffort
-        let explicitTeamChosen = request.presetId.map { !$0.isEmpty } ?? false
-        let laneContextOnly = request.lane != nil && !(request.workerId ?? "").isEmpty
-        let effectiveLane = request.lane ?? preset.lane
-        let lockKey = RunWriteLock.key(repoRoot: root)
-        var lockToken: RunWriteLock.Token?
-        let takesWriteLock = preset.writePolicy == .mutating && !request.advisoryReview
 
         // RLR-L1: the canonical id is minted BEFORE any long wait so the emitted
         // id and the durable journal always exist together.
@@ -877,9 +852,8 @@ public actor RunService {
         defer { ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: nil) }
 
         if preset.runShape == .execution {
-            let autoResolved = preset.id == TeamCatalog.defaultRunTeam()?.id
-                && (request.workerId ?? "").isEmpty
-            let explicitPin = !(request.workerId ?? "").isEmpty || laneContextOnly
+            let autoResolved = invocation.autoResolved
+            let explicitPin = invocation.explicitWorkerChosen || laneContextOnly
             let provisionalWorker = Worker(
                 id: Worker.makeID(modelId: effectiveWorkerId ?? "unknown", instanceIndex: 0),
                 modelId: effectiveWorkerId ?? "unknown",
@@ -997,8 +971,12 @@ public actor RunService {
         let resolved = TeamResolver.resolve(
             team: preset, requestLane: preset.lane, requestEffort: effort, readyModels: bench
         )
-        guard resolved.isRunnable else {
-            return .failure(.teamResolution(resolved.blockReason ?? "team cannot run", code: "DEFAULT_TEAM_INVALID"))
+        // SH-S01: an explicit/Auto worker override owns the seat — team roster
+        // resolution is only required when we still need the team's preferred pick.
+        if workerOverride == nil || (workerOverride ?? "").isEmpty {
+            guard resolved.isRunnable else {
+                return .failure(.teamResolution(resolved.blockReason ?? "team cannot run", code: "DEFAULT_TEAM_INVALID"))
+            }
         }
 
         let worker: Worker

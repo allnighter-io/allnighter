@@ -90,6 +90,7 @@ enum RunCLI {
                 effort: effort,
                 lane: lane,
                 type: opts.value("type"),
+                opts: opts,
                 runtime: runtime
             )
             return
@@ -268,7 +269,8 @@ enum RunCLI {
         }
     }
 
-    /// AE-S04: resolve identifiers and return canStart + counts; never dispatch.
+    /// AE-S04 / SH-S01: project `RunDryRunJSON` from one `ResolvedRunInvocation`.
+    /// Never re-resolves team/worker/seats independently of foreground/detach.
     private static func emitDryRun(
         project: Project,
         teamId: String?,
@@ -276,80 +278,93 @@ enum RunCLI {
         effort: EffortLevel?,
         lane: WorkLane?,
         type: String?,
+        opts: Options,
         runtime: ToolRuntime
     ) async {
-        var warnings: [String] = []
-        let presetId = teamId ?? TeamCatalog.defaultRunTeam()?.id
-        var args: [String: Any] = [:]
-        if let lane { args["lane"] = lane.rawValue }
-        if let presetId { args["team"] = presetId }
-        if let effort { args["effort"] = effort.rawValue }
-        if let type { args["type"] = type }
-        let preflight = AllnighterCLI.preflight(runtime, args: args)
+        let root = project.normalizedRootPath
+        let provisionalMutating = TeamCatalog.get(teamId ?? "")?.mutating
+            ?? (teamId == nil ? TeamCatalog.defaultRunTeam()?.mutating : nil)
+            ?? false
+        var writeLockHeld: Bool?
+        if provisionalMutating {
+            let key = ExecutionLane.key(repoRoot: root)
+            writeLockHeld = await RunWriteLockRegistry.shared.isHeld(key)
+        }
 
-        var canStart = preflight.canStart
-        var blockedReason = preflight.blockedReason
-        var next = preflight.nextAction
-        warnings.append(contentsOf: preflight.warnings)
+        var governorAvailable = true
+        var governorBlockedReason: String?
+        switch runtime.governor.availability() {
+        case .available:
+            break
+        case .busy:
+            governorAvailable = false
+            governorBlockedReason = "busy: \(runtime.config.maxConcurrentTeamRuns) team runs already running"
+        case .unavailable(let reason):
+            governorAvailable = false
+            governorBlockedReason = reason
+        }
 
-        var resolvedWorker = workerId
-        if let workerId, !workerId.isEmpty {
-            let service = RunService(
-                models: runtime.models,
-                registry: runtime.registry,
-                teams: runtime.teams,
-                invocations: runtime.invocations
+        let readyIds = Set(runtime.readyModels.map(\.id))
+        let input = RunInvocationInput(
+            message: opts.positional.first ?? opts.value("message") ?? "",
+            projectRoot: root,
+            flagMode: .dryRun,
+            flags: RunInvocationNormalizedFlags(
+                projectId: project.id,
+                teamId: teamId,
+                workerId: workerId,
+                effort: effort,
+                lane: lane,
+                type: type,
+                context: opts.value("context"),
+                json: true,
+                noCommit: opts.flag("no-commit"),
+                acceptSurvivors: opts.flag("accept-survivors"),
+                commitMessage: opts.value("commit-message"),
+                proofCommand: opts.value("proof"),
+                executorTeamId: opts.value("executor"),
+                idleTimeoutSeconds: RunCLI.parsePositiveTimeoutSeconds(
+                    opts.value("idle-timeout"), flag: "--idle-timeout").value,
+                handshakeTimeoutSeconds: RunCLI.parsePositiveTimeoutSeconds(
+                    opts.value("handshake-timeout"), flag: "--handshake-timeout").value,
+                firstActivityTimeoutSeconds: RunCLI.parsePositiveTimeoutSeconds(
+                    opts.value("first-activity-timeout"), flag: "--first-activity-timeout").value,
+                wallTimeoutSeconds: RunCLI.parsePositiveTimeoutSeconds(
+                    opts.value("wall-timeout"), flag: "--wall-timeout").value,
+                idempotencyKey: opts.value("idempotency-key"),
+                retryOf: opts.value("retry-of"),
+                threadId: opts.value("thread-id"),
+                conversationId: opts.value("conversation-id"),
+                messageId: opts.value("message-id"),
+                agent: opts.value("agent")
             )
-            switch await service.resolveExplicitWorker(workerId) {
-            case .failure(let err):
-                canStart = false
-                blockedReason = err.description
-                next = AgentNextAction(
+        )
+        let resolved = RunInvocationResolver.resolve(
+            input,
+            context: RunInvocationResolveContext(
+                models: runtime.models,
+                teams: runtime.teams,
+                readyModels: runtime.readyModels,
+                readyModelIds: readyIds,
+                defaultSettings: DefaultModelSettingsPersistence().load(),
+                writeLockHeld: writeLockHeld,
+                governorAvailable: governorAvailable,
+                governorBlockedReason: governorBlockedReason
+            )
+        )
+        var payload = resolved.makeDryRunJSON()
+        if !resolved.canStart, resolved.explicitWorkerChosen {
+            let reason = resolved.blockedReason ?? ""
+            if reason.localizedCaseInsensitiveContains("notReady")
+                || reason.localizedCaseInsensitiveContains("disabled")
+                || reason.localizedCaseInsensitiveContains("unknown")
+                || reason.localizedCaseInsensitiveContains("not a runnable") {
+                payload.nextAction = AgentNextAction(
                     kind: "listModels",
                     label: "List models",
                     command: "alln models --json")
-            case .success(let model):
-                resolvedWorker = model.id
             }
         }
-
-        let mutating = TeamCatalog.get(presetId ?? "")?.mutating
-            ?? TeamCatalog.defaultRunTeam()?.mutating
-            ?? false
-        var writeLockHeld: Bool?
-        if mutating {
-            let key = ExecutionLane.key(repoRoot: project.normalizedRootPath)
-            writeLockHeld = await RunWriteLockRegistry.shared.isHeld(key)
-            if writeLockHeld == true {
-                warnings.append("repo write lock is currently held")
-            }
-        }
-
-        let payload = RunDryRunJSON(
-            canStart: canStart,
-            blockedReason: blockedReason,
-            projectId: project.id,
-            projectRoot: project.normalizedRootPath,
-            teamPresetId: preflight.teamPresetId ?? presetId,
-            teamDisplayName: preflight.teamDisplayName,
-            workerId: resolvedWorker,
-            mutating: mutating,
-            lane: preflight.lane ?? lane?.rawValue,
-            counts: .init(
-                readyWorkers: preflight.readyWorkers.count,
-                blockedWorkers: preflight.blockedWorkers.count,
-                resolvedSourceIds: preflight.resolvedSourceIds.count,
-                seatCount: preflight.readyWorkers.count
-            ),
-            writeLockHeld: writeLockHeld,
-            warnings: warnings,
-            nextAction: canStart
-                ? AgentNextAction(
-                    kind: "startRun",
-                    label: "Run for real (spends quota)",
-                    command: "alln run \"<message>\" --project \(project.id) --json")
-                : next
-        )
         print(AllnighterCLI.jsonString(payload))
         // Dry-run always exits 0 — canStart carries the verdict (AE-S04).
     }

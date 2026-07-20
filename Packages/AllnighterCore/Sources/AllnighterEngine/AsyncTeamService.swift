@@ -120,16 +120,39 @@ public actor AsyncTeamService {
         readyModels: [Model],
         ownership: AsyncTeamStartOwnership = .inProcess
     ) async -> Result<TeamStartResponse, AsyncTeamStartRefusal> {
-        let preflight = TeamPreflight.preflight(
-            teams: teams,
-            lane: request.lane,
-            teamId: request.teamPresetId,
-            type: request.type,
-            effort: request.effort,
-            readyModels: readyModels
+        let flagMode: RunInvocationFlagMode = {
+            if case .detachedRunner = ownership { return .detach }
+            return .foreground
+        }()
+        let readyIds = Set(readyModels.map(\.id))
+        let invocation = RunInvocationResolver.resolve(
+            RunInvocationInput(request: request, flagMode: flagMode),
+            context: RunInvocationResolveContext(
+                models: models,
+                teams: teams,
+                readyModels: readyModels,
+                readyModelIds: readyIds
+            )
         )
-        guard preflight.canStart else {
-            return .failure(.init(code: preflightCode(request, preflight), message: preflight.blockedReason ?? "team cannot start", preset: preflight.teamPresetId ?? ""))
+        guard invocation.canStart else {
+            return .failure(.init(
+                code: invocation.explicitWorkerChosen ? "CLI_USAGE_ERROR" : "DEFAULT_TEAM_INVALID",
+                message: invocation.blockedReason ?? "team cannot start",
+                preset: invocation.teamPresetId
+            ))
+        }
+
+        // Normalize request to the resolved selectors so downstream mint/idempotency
+        // see the same team/worker dry-run projected (SH-S01 — no re-resolution).
+        var request = request
+        request.teamPresetId = invocation.teamPresetId
+        request.lane = invocation.lane
+        request.effort = invocation.effort
+        if let worker = invocation.workerId {
+            request.modelId = worker
+        }
+        if request.repoRoot == nil || request.repoRoot?.isEmpty == true {
+            request.repoRoot = invocation.projectRoot.isEmpty ? nil : invocation.projectRoot
         }
 
         let canonical = AsyncTeamCanonicalPayload(from: request)
@@ -143,8 +166,22 @@ public actor AsyncTeamService {
             return .failure(.init(code: "NESTED_TEAM_BLOCKED", message: "already inside a team; nested teams are disabled"))
         }
 
-        guard let resolvedRequest = resolveRequest(request) else {
-            return .failure(.init(code: "CLI_USAGE_ERROR", message: "invalid lane/team/effort combination"))
+        let resolvedRequest: TeamRequestResolver.Resolved
+        switch TeamRequestResolver.resolve(
+            teams: teams,
+            lane: invocation.lane,
+            teamId: invocation.teamPresetId,
+            type: invocation.type,
+            effort: invocation.effort
+        ) {
+        case .success(let req):
+            resolvedRequest = req
+        case .failure(let failure):
+            return .failure(.init(
+                code: failure.code,
+                message: failure.description,
+                preset: invocation.teamPresetId
+            ))
         }
         var resolved = TeamResolver.resolve(
             team: resolvedRequest.team, requestLane: resolvedRequest.lane,
@@ -165,6 +202,22 @@ public actor AsyncTeamService {
                     message: "model is not ready: \(modelId)",
                     preset: resolvedRequest.team.id
                 ))
+            } else if !resolved.mutating, invocation.explicitWorkerChosen {
+                // Answer-team pin (matches RunService.runAnswer / dry-run seats).
+                let skillId = resolved.answerWorkers.first?.skillId ?? "first_principles_builder"
+                let skillName = resolved.answerWorkers.first?.skillName
+                let pinned = Worker(
+                    id: Worker.makeID(modelId: modelId, instanceIndex: 0),
+                    modelId: modelId,
+                    instanceIndex: 0,
+                    skillId: skillId,
+                    skillName: skillName,
+                    purpose: .answer
+                )
+                resolved.scoutWorker = nil
+                resolved.answerWorkers = [pinned]
+                resolved.reviewWorkers = []
+                TeamSourceFacts.enrich(&resolved, models: models)
             }
         }
 
