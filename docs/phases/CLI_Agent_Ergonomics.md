@@ -1,11 +1,18 @@
 # CLI Agent Ergonomics — stop making agents guess what exists
 
-Status: **Draft — Ready for founder approval (2026-07-20).** Successor to
-archived `CLI_Agent_Surface_Fidelity.md` (ASF). ASF made the CLI **honest in
-what it says**. This phase makes it **complete in what it reveals** and
-**leak-free in what it enforces**.
-Owner: AllnighterCLI (`AllnighterCLI.helpText`, `RunCLI`) + AllnighterCore
-(`ContractRegistry`, `TeamCatalog.isLabTeam`, error catalog) + AllnighterEngine
+Status: **Ready for Implementation — pending founder approval (2026-07-20).**
+Hardened by three passes: code verification of all 11 original claims (7 refuted),
+a six-vendor harness study (AE-S00, executed), and founder rulings on catalog
+purge + SSOT-generated help. Every finding below is verified against code or a
+live binary; refuted claims are kept visible so they are not "fixed" later.
+Successor to archived `CLI_Agent_Surface_Fidelity.md` (ASF). ASF made the CLI
+**honest in what it says**. This phase makes it **complete in what it reveals**
+and **leak-free in what it enforces**.
+**Wave 1 (AE-S12, unknown-flag fail-closed) is a standalone P0 safety fix and
+should ship without waiting for approval of the rest.**
+Owner: AllnighterCLI (`AllnighterCLI.helpText`, `Options` parser, `RunCLI`) +
+AllnighterCore (`ContractRegistry`, contract lock, `TeamCatalog.isLabTeam`,
+error catalog) + AllnighterEngine
 (`RunService` explicit-worker choke point)
 Updated: 2026-07-20
 
@@ -306,6 +313,22 @@ false-map problem.
 | **AE-S09** (P2) | **Reproducible cold-agent evaluation.** A scripted harness (`scripts/agent_eval.sh` or a `docs/operations/` playbook) that pins a freshly built binary, records its `gitSha`, runs a fixed probe script, and captures the transcript. Future dogfood feedback is then attributable to a known SHA instead of an unknown binary. Prevents another review cycle spent refuting stale-binary claims. |
 | **AE-S10** (P3) | **Papercuts.** Reconcile `workerCount` (catalog, 3) with resolved seats (preflight, 4) — advertise one truth. Unknown command exits 2, not 0. `team list` accepted as an alias for `teams` (agents guess it; cheap, no contract churn). Surface `effortAffectsSeats: false` in preflight so "low = smaller team" dies mechanically (Law 7: a fact, not an estimate). |
 
+## Execution order
+
+Slice IDs are stable (they appear in commit history); this is the order to
+**build** them, not the order they are numbered.
+
+| Wave | Slices | Why this order |
+| --- | --- | --- |
+| **1 — Stop the bleeding** | **S12** (unknown flags fail closed) | Pure safety, no dependencies. Until this lands, every agent that assumes `--dry-run` exists is silently charged. Ship it alone if nothing else ships. |
+| **2 — One truth, many renderings** | **S01** (generated help) → **S11** (contract lock + forced bump) → **S13** (two-tier disclosure + `commands --json`) | S01 makes help a projection; S11 makes drift unshippable; S13 gives the projection its completeness guarantee. Doing S13 before S01 would mean hand-writing a 108-line banner — the exact anti-pattern. |
+| **3 — Findability** | **S14** (front-door alias + trigger text) → **S15** (description standard) → **S06** (catalog purge) | S14 is the single highest-leverage change per the vendor study; S15 generalizes its lesson to all 108 commands; S06 removes the noise competing with it. |
+| **4 — Behavior matches the promise** | **S03** (PO-F10 answer-path leak) → **S04** (`run --dry-run`) → **S05** (cwd→project) | S04 depends on S12 — a dry-run flag is worthless while unknown flags are swallowed. |
+| **5 — Quality** | **S07** (error routing) · **S02** (lane vocabulary + value deny-list) · **S08** (binary identity) · **S09** (cold-agent eval) · **S10** (papercuts) | S09 is the regression harness for the whole phase — it re-runs the 1-of-3 measurement. |
+
+Wave 1 is shippable today and independently valuable. Waves 2–3 are where the
+1-in-3 → 3-in-3 movement comes from.
+
 ## Rejected from the feedback (with reasons)
 
 - **Auto-default to `--json` when stdout is not a TTY.** Rejected. It makes the
@@ -335,8 +358,38 @@ $B --help | grep -qE '\bteams\b|help search' && echo OK
 $B teams --lane code --json | grep -q '"lab_' && echo FAIL || echo OK
 $B teams --lane code --json   # shipped built-ins + user customs only; Bug Hunt Min visible
 
-# S12 — no phantom commands
+# S01 — no phantom commands (per-command help rendered from the spec)
 $B config --help    # MUST NOT print `usage: alln config`; unknown command, exit 2
+rg -n 'usage: alln' --glob '!*Tests*' Packages/ | grep -v CLIUsage.swift && echo FAIL || echo OK
+# ^ zero hand-written usage literals outside the renderer
+
+# S12 — unknown flags fail closed (SAFETY — run this first, it is the spend guard)
+$B teams --lane code --totally-bogus-flag; test $? -ne 0 && echo OK || echo FAIL
+$B version --jsonn;                        test $? -ne 0 && echo OK || echo FAIL
+$B docs --errors | grep -q UNKNOWN_FLAG && echo OK
+
+# S13 — completeness guarantee
+$B --help | grep -cE '^\s+alln |^\s+[a-z]' # all 108 command names present
+$B --help | tail -3                        # MUST carry an explicit completeness marker
+$B commands --json | /usr/bin/python3 -c 'import json,sys; print(len(json.load(sys.stdin)["commands"]))'
+# ^ 108; every entry carries trigger + args + example
+
+# S14 — front door is findable under the words agents actually use
+for q in sonnet "ask a model" "which model" resolve intent; do
+  $B help search "$q" --json | grep -q 'team hello\|alln route' || echo "MISS: $q"
+done
+$B route --for "ask Sonnet 5 a question" --json   # alias resolves
+
+# S15 — description standard is enforced, not aspirational
+$B commands --json | /usr/bin/python3 -c '
+import json,sys
+bad=[c["name"] for c in json.load(sys.stdin)["commands"]
+     if not c.get("trigger") or not c.get("example")]
+print("FAIL:",bad) if bad else print("OK")'
+
+# S11 — surface change cannot ship without a version bump
+# (edit any FlagSpec summary, then:)
+$B dev export-contracts --check   # MUST fail CONTRACT_VERSION_NOT_BUMPED
 
 # S03 — no accept-and-drop on the answer path
 $B run "probe" --project "$PWD" --team code_bug_hunt --worker model_bogus_id --json
@@ -356,7 +409,21 @@ $B docs | grep -q 'build | design | copy' && echo FAIL || echo OK
 $B team preflight --lane code --team code_bug_hunt_typo --json
 # suggestions include code_bug_hunt; nextAction.command is `alln teams …`, not doctor
 
-scripts/check.sh   # empty help allowlist, spending-command twin gate, value deny-list
+# S08 — binary identity / staleness
+$B version --json | grep -q binaryPath && echo OK
+$B doctor --json | grep -q BINARY_STALE   # only when on-PATH gitSha != workspace HEAD
+
+# S10 — papercuts
+$B nonexistent-command; test $? -eq 2 && echo OK   # exit 2, not 0
+$B team list --json >/dev/null && echo OK          # alias for `teams`
+$B team preflight --team code_bug_hunt_min --json | grep -q effortAffectsSeats && echo OK
+
+# S09 — the regression harness for this whole phase
+scripts/agent_eval.sh   # re-runs the 1-of-3 measurement on a pinned gitSha;
+                        # target: 3 of 3 agents reach `run --dry-run` unaided
+
+scripts/check.sh   # empty help allowlist, spending-command twin gate, value deny-list,
+                   # contract lock, unknown-flag table test, description standard
 ```
 
 ## Inference bans
@@ -368,6 +435,9 @@ scripts/check.sh   # empty help allowlist, spending-command twin gate, value den
 | `teams` ↔ TeamCatalog | `TeamCatalog.isLabTeam` | "Everything listed is shippable" | Lab hidden unless `--lab` | Default list contains zero lab teams |
 | Flag values ↔ generated docs | `RetiredVocabulary` | "Enum values need no drift gate" | Value-level deny-list | `docs` free of `build` lane |
 | Effort ↔ seat count | `TeamResolver` | "`--effort low` ⇒ fewer/cheaper seats" | Publish `effortAffectsSeats: false` | Preflight seat count identical low/med/high |
+| Flag parsing ↔ intent | `Options` parser | "Exit 0 ⇒ my flags were understood" | Unknown flag is an error, never a no-op | Bogus flag on every command exits non-zero |
+| Banner ↔ catalog size | rendered help | "The list I see is the whole product" | Help carries an explicit completeness marker | `--help` tail asserts total count + hydrate path |
+| Registry ↔ shipped binary | contract lock | "Docs regenerate themselves later" | Hash change without version bump fails the build | Edit a FlagSpec summary → `export-contracts --check` fails |
 
 ## Done when
 
