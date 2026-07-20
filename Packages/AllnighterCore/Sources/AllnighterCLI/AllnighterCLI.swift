@@ -896,7 +896,7 @@ struct AllnighterCLI {
 
     /// `alln teams new <team-id> --file <path> [--json]` — create a novel custom team
     /// from a supplied TeamPreset. Fails if the id exists or the file id ≠ positional id.
-    /// No `teams create` alias (SH-S07 / D1).
+    /// No `teams create` alias.
     static func runTeamsNew(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {

@@ -1,7 +1,7 @@
 import XCTest
 @testable import AllnighterCore
 
-/// SH-S07 / D1 — `teams new <id> --file` creates a novel custom team.
+/// `teams new <id> --file` creates a novel custom team.
 final class TeamsNewTests: XCTestCase {
 
     private var teamsRoot: URL!
@@ -69,7 +69,7 @@ final class TeamsNewTests: XCTestCase {
     private func novelBugHuntManifest(id: TeamID) throws -> TeamPreset {
         let seed = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
         var copy = seed.duplicated(newId: id, newName: "Novel Bug Hunt")
-        copy.description = "Novel custom Bug Hunt for SH-S07"
+        copy.description = "Novel custom Bug Hunt"
         return copy
     }
 }

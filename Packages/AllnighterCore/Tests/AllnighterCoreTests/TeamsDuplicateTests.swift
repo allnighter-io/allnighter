@@ -1,7 +1,7 @@
 import XCTest
 @testable import AllnighterCore
 
-/// SH-S07 / D1 — `teams duplicate --id` plus generated-id, collision, restore, Bug Hunt path.
+/// `teams duplicate --id` plus generated-id, collision, restore, Bug Hunt path.
 final class TeamsDuplicateTests: XCTestCase {
 
     private var teamsRoot: URL!
@@ -80,7 +80,6 @@ final class TeamsDuplicateTests: XCTestCase {
         try TeamCatalog.saveCustom(edited)
         XCTAssertEqual(TeamCatalog.get(chosen)?.displayName, "Cold Bug Hunt (edited)")
 
-        // Built-in seed stays immutable / restoreable independently.
         XCTAssertEqual(BuiltInTeams.team("code_bug_hunt")?.displayName, "Bug Hunt")
         var override = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
         override.displayName = "Bug Hunt (mine)"
@@ -89,7 +88,6 @@ final class TeamsDuplicateTests: XCTestCase {
         let restored = try TeamCatalog.restore("code_bug_hunt")
         XCTAssertTrue(restored.removedOverride)
         XCTAssertEqual(TeamCatalog.get("code_bug_hunt")?.displayName, "Bug Hunt")
-        // Custom variant untouched by restore of the built-in.
         XCTAssertEqual(TeamCatalog.get(chosen)?.displayName, "Cold Bug Hunt (edited)")
     }
 
