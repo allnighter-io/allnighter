@@ -1,7 +1,7 @@
 # Alln Sharpening — from a tool agents can use to a tool agents prefer
 
-Status: **Ready for Implementation (2026-07-20) — founder decisions resolved;
-SH-S01–S10 not started.**
+Status: **Ready for Implementation (2026-07-20) — D1–D5 founder-ratified;
+SH-S00 (green wall) is the entry gate; SH-S00–S10 not started.**
 Owner: AllnighterCore (`TeamRunJSON`, `RunDryRunJSON`, `TeamCatalog`,
 `MenuCatalog`, `ContractRegistry`) + AllnighterEngine (run resolution/timing) +
 AllnighterCLI (run/docs/teams projections)
@@ -126,6 +126,11 @@ menu 32,418 bytes, 103 commands, 4 actions, 25 teams, 22 models).
 
 ## Founder decisions — resolved
 
+**Ratified by the founder 2026-07-20** (session record; drafted by a
+consultant, stamped by the founder — the stamp is real). Implementation agents
+do not reopen D1–D5; new evidence changes a decision only through the verified
+claims ledger.
+
 ### D1. Ship `teams new` *and* deterministic duplicate
 
 These are different acts, not aliases:
@@ -161,6 +166,14 @@ reader. `menu`/`models` own catalogs; run snapshots own only facts used by the
 run. A `--full` flag would preserve two answer contracts and make every caller
 choose again.
 
+**Sequencing (founder 2026-07-20): the v3 cut lands once, at the end.**
+SH-S01's `ResolvedRunInvocation` is internal and lands first. Every
+public-shape change — the S02 envelope, S05 dry-run effects, S06 `seatCount`,
+S07's new grammar, and any new error codes — is staged behind one coordinated
+v3/schema-v2 landing as the phase's final cut. No intermediate contract bumps;
+slices may merge behind the cut but the public surface changes exactly once
+(AE-S11 forced-bump fires exactly once).
+
 ### D4. Keep one `run` verb and report write policy honestly
 
 No `alln ask`, no prompt classifier, and no silent conversion of an execution
@@ -180,6 +193,11 @@ automatic proof that the claimed feature is missing.
 ## Laws
 
 Numbered locally; ASF/AE/MNR laws continue to bind.
+
+**Laws are working hypotheses, not physics** (founder ruling 2026-07-20): a
+law is revisable by founder ruling with a recorded why — and never by an
+implementing agent mid-slice. The strong word exists to stop quiet mid-slice
+erosion, not to forbid amendment.
 
 1. **Cost is proportional to the ask.** A one-worker answer does not carry
    global catalog data. Response overhead is bounded independently of answer
@@ -323,11 +341,14 @@ path is introduced.
 ## Slices — implementation order
 
 Each slice is one bounded work order and leaves the release binary runnable.
+Public-shape changes are staged behind the single end-of-phase v3 cut (D3
+Sequencing).
 
 | Slice | Deliverable and acceptance |
 | --- | --- |
+| **SH-S00 — Green the wall (entry gate)** | The phase does not start on a red wall (founder ruling 2026-07-20). Fix or explicitly quarantine-with-ruling the three known failures before SH-S01: stale contract fixture (2.0.0 vs registry 2.1.0 — the exact AE-S11 drift class this phase relies on), `CodeReviewParallelSafety` assertions, and the execution-lane tests blocked from `~/Library` (they guard the inviolable one-Running-per-lane law that S01/S04 touch — a sandbox-path fix or hermetic state dir, never a weakened assertion). Gate: full test wall green on committed HEAD, or each remaining red named in a written quarantine ruling. Every later failure in this phase is then attributable. |
 | **SH-S01 — One resolved invocation serves preview and run** | Introduce `ResolvedRunInvocation` containing effective project, team, explicit/default worker, seats, effort/lane/type, write policy, readiness, lock key, and normalized flag mode. Both dry-run and foreground/detach execution consume it; neither re-resolves. Dry-run warnings come only from selected seats. Its next action preserves every behavior-affecting flag, uses `{name}` placeholders declared in `templateVariables` for sensitive prose, and exposes a tokenized `argvTemplate` so shell escaping is not caller inference. Gate: table-test default, `--worker`, `--team`, `--detach`, and every value/boolean flag; substitute variables, parse the template, and assert preview/execution identity plus zero dropped selectors. Fixes 1–2; Laws 3–4. |
-| **SH-S02 — TeamRunJSON v2: answer-first and catalog-free** | Make the v3/schema-v2 cut defined above. Remove top-level `models`; move canonical text exactly once to `answer`; update mapper, schema, fixture, generated docs, CLI show/result/export, remote snapshot, Mac/iOS consumers, and Team Lab scorer reads in the same slice. Preserve run-relevant model/source snapshots under workers/answer source. Gates: every terminal fixture follows the derivation table; canonical answer bytes occur once; one-worker envelope overhead (`encoded bytes - answer bytes`) ≤8 KiB; no `models` key. Fixes 3–4; Laws 1–2. |
+| **SH-S02 — TeamRunJSON v2: answer-first and catalog-free** | Make the v3/schema-v2 cut defined above. Remove top-level `models`; move canonical text exactly once to `answer`; update mapper, schema, fixture, generated docs, CLI show/result/export, remote snapshot, Mac/iOS consumers, and Team Lab scorer reads in the same slice. Preserve run-relevant model/source snapshots under workers/answer source. Gates: every terminal fixture follows the derivation table; canonical answer bytes occur once; no `models` key; one-worker envelope overhead (`encoded bytes - answer bytes`) within the measured budget — **first task of this slice**: encode the minimal honest terminal fixture, measure it, set the budget at measured truth + headroom and record the measurement in this doc (8 KiB is the unverified working figure, not the ruling). If honest content cannot meet the budget, simplify the schema — never truncate truth (MNR rule); the budget is revised only loudly, with a written why. Fixes 3–4; Laws 1–2. |
 | **SH-S03 — Typed refs round-trip** | `docs command:teams.duplicate` and every other emitted typed command ref resolve directly. Existing quoted command names remain their canonical human grammar. Bare `teams.duplicate` stays a near-miss and returns a structured suggestion for `command:teams.duplicate` / `teams duplicate`; no alias. Add a walker over refs and templates emitted by menu/docs/errors that resolves each on its stated consumer. Fixes 5; Law 5. |
 | **SH-S04 — Run flags are honor-or-fail** | Extend registry constraint data beyond mutual exclusion to mode requirements (`requires`, `onlyWith`) and route validation through it before dry-run/run. At minimum: detach-only thread/conversation/message ids; `--executor` only with `--try-fix`; `--accept-survivors` only with `--retry-of`; current dry-run/stream/try-fix and detach/stream/try-fix exclusions; commit flags exclusive. No accepted flag may disappear in foreground, detach, try-fix, or dry-run. Gate every declared run flag across valid/invalid modes and assert invalid combinations create no run/provider process. Fixes 6; Law 6. |
 | **SH-S05 — Resolved effects say permission, not prediction** | Project the v2 `writePolicy` + full boolean `effects` block from `ResolvedRunInvocation`; remove top-level `mutating` from dry-run. Docs define `repoWrite` as permission and point mechanically read-only callers to answer teams. Run results retain actual `repoDelta`; no prompt inspection. Gate execution team, answer team, explicit worker, and `--dry-run` free-twin matrices against registry effects and lock behavior. Fixes 10 and the Q&A confusion; Law 7. |
@@ -346,7 +367,7 @@ comparable.
 
 | Case | Maximum CLI calls | Required result |
 | --- | ---: | --- |
-| Ask one named worker | 3 | menu → dry-run → run; `answer.markdown` first try; ≤8 KiB envelope overhead |
+| Ask one named worker | 3 | menu → dry-run → run; `answer.markdown` first try; envelope overhead within the SH-S02 measured budget |
 | Send to one answer team | 3 | menu → dry-run → run; preview/result team and seats identical |
 | Inspect one team | 2 | menu → show; lead + crew + exact `seatCount` visible |
 | Make a custom Bug Hunt | 4 | menu → duplicate → definition → edit; caller-chosen id survives |
@@ -405,22 +426,29 @@ part of the green wall.
 
 ## Done when
 
-- SH-S01–S10 are checked or explicitly waived by the founder; no blocking
+- SH-S00–S10 are checked or explicitly waived by the founder; no blocking
   product question remains.
+- The wall was green (or quarantined by written ruling) *before* SH-S01
+  started, and is fully green at close.
 - Contract v3/schema v2 is one clean cut across CLI, generated artifacts,
   Engine, Mac, and iOS; no compatibility branch or duplicate canonical markdown
   survives.
 - `scripts/agent_eval.sh --suite sharpening` scores ≥90/100 with zero hard
   failures on a release binary built from committed HEAD.
-- One-worker answer overhead is ≤8 KiB, Tier-1 menu is ≤32 KiB, and the caller
-  reaches every matrix result within its call budget.
+- One-worker answer overhead is within the SH-S02 measured budget, Tier-1 menu
+  is ≤32 KiB, and the caller reaches every matrix result within its call
+  budget.
 - The full green wall passes, the phase is archived, and durable laws are
   promoted to the owning code/docs.
 
 ## Open questions
 
-None. New evidence may change a decision only through the verified claims
-ledger; implementation agents do not reopen D1–D5 from preference.
+None open. D1–D5 plus four hardening rulings — SH-S00 green-wall entry gate,
+single end-of-phase v3 cut (D3 Sequencing), measured-not-asserted envelope
+budget (SH-S02), and the laws-are-working-hypotheses amendment clause — were
+ratified by the founder 2026-07-20. New evidence may change a decision only
+through the verified claims ledger; implementation agents do not reopen
+D1–D5 from preference.
 
 ## Routing
 
