@@ -5,6 +5,28 @@ import Foundation
 public enum CLIUsage {
     public static let helpTokens: Set<String> = ["--help", "-h", "help"]
 
+    /// AE-S12: an argv flag not declared on the resolved command's `FlagSpec` list.
+    public struct UnknownFlagError: Equatable, Sendable {
+        public var flag: String
+        public var commandName: String
+        public var suggestions: [String]
+
+        public init(flag: String, commandName: String, suggestions: [String]) {
+            self.flag = flag
+            self.commandName = commandName
+            self.suggestions = suggestions
+        }
+
+        public var message: String {
+            var msg = "unknown flag --\(flag) for command `\(commandName)`"
+            if !suggestions.isEmpty {
+                msg += "; did you mean: " + suggestions.map { "--\($0)" }.joined(separator: ", ")
+            }
+            msg += ". Run `alln \(commandName) --help`."
+            return msg
+        }
+    }
+
     public static func helpRequested(_ args: [String]) -> Bool {
         args.contains { helpTokens.contains($0) }
     }
@@ -28,6 +50,81 @@ public enum CLIUsage {
             from: invocationPath(rootCommand: rootCommand, args: args),
             registry: registry
         )
+    }
+
+    /// Flag keys present in argv (`--name` / `--name value`), excluding help tokens.
+    /// Value consumption mirrors registry `FlagSpec.takesValue` when the command is
+    /// known; unknown flags never consume the next token (so a following positional
+    /// is not mistaken for a flag value during validation).
+    public static func parsedFlagNames(
+        from args: [String],
+        commandName: String? = nil,
+        registry: ContractRegistry = .milestone1
+    ) -> [String] {
+        let takesValue: Set<String> = {
+            guard let commandName,
+                  let spec = registry.commands.first(where: { $0.name == commandName && $0.milestone == .m1 })
+            else { return [] }
+            return Set(spec.flags.filter(\.takesValue).map(\.name))
+        }()
+
+        var names: [String] = []
+        var i = 0
+        while i < args.count {
+            let a = args[i]
+            if a == "--" { break }
+            if a.hasPrefix("--") {
+                let key = String(a.dropFirst(2))
+                if key == "help" {
+                    i += 1
+                    continue
+                }
+                names.append(key)
+                if takesValue.contains(key), i + 1 < args.count, !args[i + 1].hasPrefix("-") {
+                    i += 2
+                } else {
+                    i += 1
+                }
+            } else {
+                i += 1
+            }
+        }
+        return names
+    }
+
+    /// Fail-closed flag check (AE-S12). Returns the first unknown flag, or nil.
+    public static func validateFlags(
+        args: [String],
+        commandName: String,
+        registry: ContractRegistry = .milestone1
+    ) -> UnknownFlagError? {
+        guard let spec = registry.commands.first(where: { $0.name == commandName && $0.milestone == .m1 }) else {
+            return nil
+        }
+        let allowed = Set(spec.flags.map(\.name))
+        let candidates = spec.flags.map(\.name)
+        for flag in parsedFlagNames(from: args, commandName: commandName, registry: registry) {
+            if allowed.contains(flag) { continue }
+            return UnknownFlagError(
+                flag: flag,
+                commandName: commandName,
+                suggestions: nearestFlagMatches(to: flag, in: candidates)
+            )
+        }
+        return nil
+    }
+
+    /// Edit-distance nearest flag names (top `limit`), for did-you-mean recovery.
+    public static func nearestFlagMatches(to flag: String, in candidates: [String], limit: Int = 3) -> [String] {
+        guard !candidates.isEmpty, limit > 0 else { return [] }
+        let scored = candidates.map { ($0, editDistance(flag, $0)) }
+            .sorted { lhs, rhs in
+                if lhs.1 != rhs.1 { return lhs.1 < rhs.1 }
+                return lhs.0 < rhs.0
+            }
+        // Only suggest when reasonably close (typo / near-miss), not the whole flag list.
+        let maxDist = max(2, flag.count / 2)
+        return scored.filter { $0.1 <= maxDist }.prefix(limit).map(\.0)
     }
 
     /// Usage text for a registered command (testable; no IO).
@@ -72,5 +169,24 @@ public enum CLIUsage {
             return usageText(for: name, registry: registry)
         }
         return usageTextForPrefix(invocationPath(rootCommand: rootCommand, args: args), registry: registry)
+    }
+
+    // MARK: - Edit distance
+
+    private static func editDistance(_ a: String, _ b: String) -> Int {
+        let a = Array(a), b = Array(b)
+        if a.isEmpty { return b.count }
+        if b.isEmpty { return a.count }
+        var prev = Array(0...b.count)
+        var cur = Array(repeating: 0, count: b.count + 1)
+        for i in 1...a.count {
+            cur[0] = i
+            for j in 1...b.count {
+                let cost = a[i - 1] == b[j - 1] ? 0 : 1
+                cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+            }
+            swap(&prev, &cur)
+        }
+        return prev[b.count]
     }
 }

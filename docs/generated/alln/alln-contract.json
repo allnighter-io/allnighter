@@ -565,6 +565,12 @@
       ],
       "flags" : [
         {
+          "name" : "title",
+          "summary" : "Alias for the positional new title.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
           "name" : "json",
           "summary" : "Structured thread JSON.",
           "takesValue" : false
@@ -1131,6 +1137,18 @@
           "valueType" : "type"
         },
         {
+          "name" : "file",
+          "summary" : "Read the prompt from a file.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "agent",
+          "summary" : "Origin agent id for attribution (does not select the worker).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
           "name" : "json",
           "summary" : "Structured TeamStartResponse.",
           "takesValue" : false
@@ -1361,6 +1379,11 @@
       ],
       "flags" : [
         {
+          "name" : "dry-run",
+          "summary" : "Report what would be pruned without deleting.",
+          "takesValue" : false
+        },
+        {
           "name" : "json",
           "summary" : "Structured OwnershipGarbageCollectionJSON summary with every keep reason.",
           "takesValue" : false
@@ -1403,6 +1426,12 @@
           "summary" : "Override worker model id.",
           "takesValue" : true,
           "valueType" : "id"
+        },
+        {
+          "name" : "message",
+          "summary" : "Alias for the positional message.",
+          "takesValue" : true,
+          "valueType" : "string"
         },
         {
           "name" : "effort",
@@ -1494,6 +1523,12 @@
         {
           "name" : "executor",
           "summary" : "Mutating executor team id (default build_slice).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "agent",
+          "summary" : "Origin agent id for attribution (does not select the worker).",
           "takesValue" : true,
           "valueType" : "id"
         },
@@ -2240,6 +2275,12 @@
           "valueType" : "path"
         },
         {
+          "name" : "question",
+          "summary" : "Alias for the positional prompt.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
           "name" : "lane",
           "summary" : "code | design | copy | signal.",
           "takesValue" : true,
@@ -2262,6 +2303,12 @@
           "summary" : "low | med | high.",
           "takesValue" : true,
           "valueType" : "effort"
+        },
+        {
+          "name" : "agent",
+          "summary" : "Origin agent id for attribution (does not select the worker).",
+          "takesValue" : true,
+          "valueType" : "id"
         },
         {
           "name" : "json",
@@ -3742,6 +3789,15 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "cli.usage.error"
+    },
+    {
+      "agentAction" : "Re-run `alln <command> --help` or `alln docs <command>`; fix or remove the unknown flag.",
+      "code" : "UNKNOWN_FLAG",
+      "exitClass" : "usage",
+      "explain" : "The invocation included a flag not declared for this command. Near-matches are listed in the error message. Unknown flags never no-op — a misspelled safety flag must not dispatch a real run.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "cli.flag.unknown"
     },
     {
       "agentAction" : "Retry with `alln install-cli --path ~\/.local\/bin` or choose a writable directory.",

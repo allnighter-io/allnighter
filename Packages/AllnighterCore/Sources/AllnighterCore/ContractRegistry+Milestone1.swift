@@ -162,7 +162,10 @@ public extension ContractRegistry {
             "thread rename", summary: "Rename a work thread (same SSOT as the inbox double-click rename).", milestone: .m1,
             args: [ArgSpec("thread-id", required: true, summary: "Thread id or `latest`."),
                    ArgSpec("title", required: true, summary: "New non-empty thread title.")],
-            flags: [FlagSpec("json", summary: "Structured thread JSON.")],
+            flags: [
+                FlagSpec("title", takesValue: true, valueType: "string", summary: "Alias for the positional new title."),
+                FlagSpec("json", summary: "Structured thread JSON."),
+            ],
             outputSchema: .threadGetJSON,
             exampleIds: ["thread_rename_json"]
         ),
@@ -296,6 +299,8 @@ public extension ContractRegistry {
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
+                FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the prompt from a file."),
+                FlagSpec("agent", takesValue: true, valueType: "id", summary: "Origin agent id for attribution (does not select the worker)."),
                 FlagSpec("json", summary: "Structured TeamStartResponse."),
                 FlagSpec("idempotency-key", takesValue: true, valueType: "id", summary: "Client idempotency key."),
                 FlagSpec("conversation-id", takesValue: true, valueType: "id", summary: "Origin conversation id."),
@@ -356,7 +361,10 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "gc", summary: "Prune old identity-dead terminal run/relay records beyond retention. Keeps identity-alive, non-terminal, recent, and thread-referenced records.", milestone: .m1,
-            flags: [FlagSpec("json", summary: "Structured OwnershipGarbageCollectionJSON summary with every keep reason.")],
+            flags: [
+                FlagSpec("dry-run", summary: "Report what would be pruned without deleting."),
+                FlagSpec("json", summary: "Structured OwnershipGarbageCollectionJSON summary with every keep reason."),
+            ],
             outputSchema: .ownershipGarbageCollectionJSON
         ),
         CommandSpec(
@@ -366,6 +374,7 @@ public extension ContractRegistry {
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id; omit for Default Team."),
                 FlagSpec("worker", takesValue: true, valueType: "id", summary: "Override worker model id."),
+                FlagSpec("message", takesValue: true, valueType: "string", summary: "Alias for the positional message."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
                 FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Lane tags the run for context and filtering; `--team` routes."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy routing sugar."),
@@ -382,6 +391,7 @@ public extension ContractRegistry {
                 FlagSpec("proof", takesValue: true, valueType: "string", summary: "Run a bounded proof command after the worker settles; surface pass/fail (never blocks git)."),
                 FlagSpec("try-fix", summary: "Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt."),
                 FlagSpec("executor", takesValue: true, valueType: "id", summary: "Mutating executor team id (default build_slice)."),
+                FlagSpec("agent", takesValue: true, valueType: "id", summary: "Origin agent id for attribution (does not select the worker)."),
                 FlagSpec("json", summary: "Emit TeamRunJSON."),
                 FlagSpec("stream", summary: "Emit NDJSON events."),
             ],
@@ -566,10 +576,12 @@ public extension ContractRegistry {
             args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
             flags: [
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the prompt from a file."),
+                FlagSpec("question", takesValue: true, valueType: "string", summary: "Alias for the positional prompt."),
                 FlagSpec("lane", takesValue: true, valueType: "lane", summary: "code | design | copy | signal."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id (the public team selector)."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
+                FlagSpec("agent", takesValue: true, valueType: "id", summary: "Origin agent id for attribution (does not select the worker)."),
                 FlagSpec("json", summary: "Emit one TeamRunJSON object."),
                 FlagSpec("stream", summary: "Emit NDJSON events."),
             ],
@@ -919,6 +931,15 @@ public extension ContractRegistry {
 
     static let m1Errors: [ErrorSpec] = [
         ErrorSpec("CLI_USAGE_ERROR", ruleId: "cli.usage.error", agentAction: "Re-run `alln docs <command>` and fix arguments.", requiresManual: true, retryable: false, explain: "The command was called with invalid or conflicting arguments. Consult the generated docs for the command and correct the invocation.", exitClass: .usage),
+        ErrorSpec(
+            "UNKNOWN_FLAG",
+            ruleId: "cli.flag.unknown",
+            agentAction: "Re-run `alln <command> --help` or `alln docs <command>`; fix or remove the unknown flag.",
+            requiresManual: true,
+            retryable: false,
+            explain: "The invocation included a flag not declared for this command. Near-matches are listed in the error message. Unknown flags never no-op — a misspelled safety flag must not dispatch a real run.",
+            exitClass: .usage
+        ),
         ErrorSpec("INSTALL_CLI_TARGET_UNWRITABLE", ruleId: "install_cli.target.unwritable", agentAction: "Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory.", requiresManual: true, retryable: true, explain: "The install-cli target directory is missing or not writable. Use --path to a writable directory (e.g. ~/.local/bin) or fix permissions on /usr/local/bin."),
         ErrorSpec("CONTRACT_DRIFT", ruleId: "contract.drift", agentAction: "Run `alln dev export-contracts`, then rebuild.", requiresManual: true, retryable: false, explain: "Generated artifacts no longer match the registry. Regenerate and rebuild before relying on output."),
         ErrorSpec("CONTRACT_ARTIFACTS_NOT_FOUND", ruleId: "contract.artifacts.not_found", agentAction: "Run `alln dev export-contracts` from inside the repo (repo root or a subdirectory).", requiresManual: true, retryable: false, explain: "The repo root, the generated artifacts dir, or an individual artifact file could not be found. This is not content drift — it means the artifacts were never generated at the resolved location, or the command ran outside the repo."),

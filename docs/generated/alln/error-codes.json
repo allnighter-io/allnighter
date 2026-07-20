@@ -9,6 +9,15 @@
     "ruleId" : "cli.usage.error"
   },
   {
+    "agentAction" : "Re-run `alln <command> --help` or `alln docs <command>`; fix or remove the unknown flag.",
+    "code" : "UNKNOWN_FLAG",
+    "exitClass" : "usage",
+    "explain" : "The invocation included a flag not declared for this command. Near-matches are listed in the error message. Unknown flags never no-op — a misspelled safety flag must not dispatch a real run.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "cli.flag.unknown"
+  },
+  {
     "agentAction" : "Retry with `alln install-cli --path ~\/.local\/bin` or choose a writable directory.",
     "code" : "INSTALL_CLI_TARGET_UNWRITABLE",
     "exitClass" : "operational",

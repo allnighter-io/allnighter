@@ -229,6 +229,7 @@ Arguments:
 - `title` (required) — New non-empty thread title.
 
 Flags:
+- `--title <string>` — Alias for the positional new title.
 - `--json` — Structured thread JSON.
 
 Output schema: `threadGetJSON`.
@@ -454,6 +455,8 @@ Flags:
 - `--team <id>` — Team id.
 - `--effort <effort>` — low | med | high.
 - `--type <type>` — Copy-only routing sugar.
+- `--file <path>` — Read the prompt from a file.
+- `--agent <id>` — Origin agent id for attribution (does not select the worker).
 - `--json` — Structured TeamStartResponse.
 - `--idempotency-key <id>` — Client idempotency key.
 - `--conversation-id <id>` — Origin conversation id.
@@ -542,6 +545,7 @@ Output schema: `ownershipKillJSON`.
 Prune old identity-dead terminal run/relay records beyond retention. Keeps identity-alive, non-terminal, recent, and thread-referenced records.
 
 Flags:
+- `--dry-run` — Report what would be pruned without deleting.
 - `--json` — Structured OwnershipGarbageCollectionJSON summary with every keep reason.
 
 Output schema: `ownershipGarbageCollectionJSON`.
@@ -557,6 +561,7 @@ Flags:
 - `--project <id>` — Project id, name, or repo path (required).
 - `--team <id>` — Team preset id; omit for Default Team.
 - `--worker <id>` — Override worker model id.
+- `--message <string>` — Alias for the positional message.
 - `--effort <effort>` — low | med | high.
 - `--lane <lane>` — Lane tags the run for context and filtering; `--team` routes.
 - `--type <type>` — Copy routing sugar.
@@ -573,6 +578,7 @@ Flags:
 - `--proof <string>` — Run a bounded proof command after the worker settles; surface pass/fail (never blocks git).
 - `--try-fix` — Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.
 - `--executor <id>` — Mutating executor team id (default build_slice).
+- `--agent <id>` — Origin agent id for attribution (does not select the worker).
 - `--json` — Emit TeamRunJSON.
 - `--stream` — Emit NDJSON events.
 
@@ -808,10 +814,12 @@ Arguments:
 
 Flags:
 - `--file <path>` — Read the prompt from a file.
+- `--question <string>` — Alias for the positional prompt.
 - `--lane <lane>` — code | design | copy | signal.
 - `--team <id>` — Team id (the public team selector).
 - `--type <type>` — Copy-only routing sugar.
 - `--effort <effort>` — low | med | high.
+- `--agent <id>` — Origin agent id for attribution (does not select the worker).
 - `--json` — Emit one TeamRunJSON object.
 - `--stream` — Emit NDJSON events.
 
@@ -1389,6 +1397,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | Code | Manual | Retryable | Exit class | Agent action |
 | --- | --- | --- | --- | --- |
 | `CLI_USAGE_ERROR` | yes | no | `usage` | Re-run `alln docs <command>` and fix arguments. |
+| `UNKNOWN_FLAG` | yes | no | `usage` | Re-run `alln <command> --help` or `alln docs <command>`; fix or remove the unknown flag. |
 | `INSTALL_CLI_TARGET_UNWRITABLE` | yes | yes | `operational` | Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory. |
 | `CONTRACT_DRIFT` | yes | no | `operational` | Run `alln dev export-contracts`, then rebuild. |
 | `CONTRACT_ARTIFACTS_NOT_FOUND` | yes | no | `operational` | Run `alln dev export-contracts` from inside the repo (repo root or a subdirectory). |

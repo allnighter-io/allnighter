@@ -22,6 +22,12 @@ struct AllnighterCLI {
             return
         }
 
+        // AE-S12: fail closed on unknown flags before any handler spends quota.
+        if let cmdName = CLIUsage.resolveCommandName(rootCommand: command, args: args),
+           let bad = CLIUsage.validateFlags(args: args, commandName: cmdName) {
+            fail(code: "UNKNOWN_FLAG", message: bad.message)
+        }
+
         let runtime = ToolRuntime()
         switch command {
         case "teams" where args.first == "show": runTeamsShow(Array(args.dropFirst()), runtime)
@@ -1914,7 +1920,8 @@ struct Options {
     /// `alln team --json "prompt"` keeps "prompt" as the positional.
     static let booleanFlags: Set<String> = [
         "json", "stream", "full", "check", "errors", "schema", "examples", "quiet", "auto-fix", "health", "submit",
-        "bench", "disabled", "no-wait",
+        "bench", "disabled", "no-wait", "dry-run", "all", "all-projects", "print", "include-cleared",
+        "accept-survivors", "try-fix", "no-commit",
     ]
     var positional: [String] = []
     var values: [String: String] = [:]

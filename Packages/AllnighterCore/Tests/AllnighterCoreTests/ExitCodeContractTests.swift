@@ -63,7 +63,7 @@ final class ExitCodeContractTests: XCTestCase {
         XCTAssertEqual(registry.processExitCode(forErrorCode: "NO_PROJECT_SELECTED"), ExitCode.usageError)
         // The usage-class (exit 2) codes: bad invocation before any work started.
         let usage = registry.errors.filter { $0.exitClass == .usage }.map(\.code)
-        XCTAssertEqual(Set(usage), ["CLI_USAGE_ERROR", "NO_PROJECT_SELECTED", "DEFAULTS_TIER_INVALID",
+        XCTAssertEqual(Set(usage), ["CLI_USAGE_ERROR", "UNKNOWN_FLAG", "NO_PROJECT_SELECTED", "DEFAULTS_TIER_INVALID",
                                      "UTILIZATION_SOURCE_NOT_FOUND", "UTILIZATION_SOURCE_UNCONFIGURED"])
     }
 
