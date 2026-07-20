@@ -41,10 +41,14 @@ final class UnknownFlagTests: XCTestCase {
         XCTAssertNil(CLIUsage.validateFlags(args: ["probe", "--project", "/tmp", "--worker", "x"], commandName: "run"))
     }
 
-    func testDryRunRejectedUntilAE_S04() {
-        // Safety: a nonexistent safety flag must not no-op.
-        let err = CLIUsage.validateFlags(args: ["probe", "--project", "/tmp", "--dry-run"], commandName: "run")
-        XCTAssertEqual(err?.flag, "dry-run")
+    func testDryRunAcceptedAfterAE_S04() {
+        // AE-S04 shipped `--dry-run` on `run`; unknown-flag gate must accept it.
+        XCTAssertNil(CLIUsage.validateFlags(
+            args: ["probe", "--project", "/tmp", "--dry-run"], commandName: "run"))
+        // Invented near-miss still fails closed.
+        let err = CLIUsage.validateFlags(
+            args: ["probe", "--project", "/tmp", "--dryrun"], commandName: "run")
+        XCTAssertEqual(err?.flag, "dryrun")
     }
 
     func testUnknownFlagErrorIsCatalogued() {
