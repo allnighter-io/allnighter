@@ -108,6 +108,35 @@
             "null"
           ]
         },
+        "candidates" : {
+          "items" : {
+            "additionalProperties" : false,
+            "properties" : {
+              "displayName" : {
+                "type" : "string"
+              },
+              "driverId" : {
+                "type" : [
+                  "string",
+                  "null"
+                ]
+              },
+              "id" : {
+                "type" : "string"
+              },
+              "state" : {
+                "type" : "string"
+              }
+            },
+            "required" : [
+              "id",
+              "displayName",
+              "state"
+            ],
+            "type" : "object"
+          },
+          "type" : "array"
+        },
         "code" : {
           "type" : "string"
         },
@@ -149,6 +178,12 @@
             "string",
             "null"
           ]
+        },
+        "suggestions" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
         },
         "supportDir" : {
           "type" : [

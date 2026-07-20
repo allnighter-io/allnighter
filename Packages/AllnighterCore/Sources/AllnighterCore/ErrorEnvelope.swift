@@ -25,8 +25,10 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
     /// failure (RLR-L1). Set on `RUN_NOT_FOUND` so a machine caller can see which
     /// support root was searched (RCA class 5 — wrong/isolated config home).
     public var supportDir: String?
-    /// Top near-match ids (AE-S07).
+    /// Top near-match ids (AE-S07). Suggestion-only — never auto-dispatched.
     public var suggestions: [String]
+    /// MR-S04: same-kind candidates with id / displayName / driver / state.
+    public var candidates: [ExactIdResolver.Candidate]
     /// Discovery next action for the failed noun (AE-S07).
     public var nextAction: AgentNextAction?
 
@@ -45,6 +47,7 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         workerId: String? = nil,
         supportDir: String? = nil,
         suggestions: [String] = [],
+        candidates: [ExactIdResolver.Candidate] = [],
         nextAction: AgentNextAction? = nil
     ) {
         self.code = code
@@ -61,12 +64,13 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         self.workerId = workerId
         self.supportDir = supportDir
         self.suggestions = suggestions
+        self.candidates = candidates
         self.nextAction = nextAction ?? ErrorDiscovery.nextAction(forErrorCode: code)
     }
 
     private enum CodingKeys: String, CodingKey {
         case code, ruleId, message, agentAction, fixCommand, requiresManual, retryable
-        case traceId, runId, sourceId, modelId, workerId, supportDir, suggestions, nextAction
+        case traceId, runId, sourceId, modelId, workerId, supportDir, suggestions, candidates, nextAction
     }
 
     public init(from decoder: Decoder) throws {
@@ -85,6 +89,7 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         workerId = try c.decodeIfPresent(String.self, forKey: .workerId)
         supportDir = try c.decodeIfPresent(String.self, forKey: .supportDir)
         suggestions = try c.decodeIfPresent([String].self, forKey: .suggestions) ?? []
+        candidates = try c.decodeIfPresent([ExactIdResolver.Candidate].self, forKey: .candidates) ?? []
         nextAction = try c.decodeIfPresent(AgentNextAction.self, forKey: .nextAction)
             ?? ErrorDiscovery.nextAction(forErrorCode: code)
     }

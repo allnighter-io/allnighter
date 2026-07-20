@@ -1,9 +1,7 @@
 import Foundation
 
-/// Fuzzy team-alias resolution for `panel start --team` (`docs/phases/Pilot_Panel.md`
-/// decision 4 / PN-S04). Mirrors `PilotSeatResolver`: case-insensitive exact /
-/// contains / suffix match over team id + displayName. Unique → resolved and
-/// echoed; ambiguous → candidates with displayName + seat count; none → list teams.
+/// Exact-id team resolution for `panel start --team` (MR-S04 / Menu Not Router).
+/// Canonical team ids only — display names never authorize dispatch.
 ///
 /// **Roster mapping (stated):** each team worker row becomes a `PanelSeat` with
 /// `workerId = preferredModelId ?? row.id` and `lens = skillId` (the skill is the
@@ -15,6 +13,8 @@ public enum PanelTeamResolver {
         case ambiguous(alias: String, candidates: [TeamPreset])
         case noMatch(alias: String, available: [TeamPreset])
         case noTeams
+        /// Structured exact-id failure (preferred path).
+        case exactId(ExactIdResolver.Failure)
     }
 
     public enum RosterValidationError: Swift.Error, Equatable, Sendable {
@@ -56,21 +56,14 @@ public enum PanelTeamResolver {
         }
     }
 
-    /// Resolve a team alias to exactly one `TeamPreset`.
+    /// Resolve a canonical team id to exactly one `TeamPreset`.
     public static func resolveTeam(alias raw: String, teams: [TeamPreset]) -> Result<TeamPreset, Error> {
-        let alias = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !alias.isEmpty else {
-            return .failure(.noMatch(alias: raw, available: teams.sorted { $0.id < $1.id }))
-        }
         guard !teams.isEmpty else { return .failure(.noTeams) }
-        let matches = teams.filter { matchesAlias(alias, team: $0) }
-        switch matches.count {
-        case 0:
-            return .failure(.noMatch(alias: raw, available: teams.sorted { $0.id < $1.id }))
-        case 1:
-            return .success(matches[0])
-        default:
-            return .failure(.ambiguous(alias: raw, candidates: matches.sorted { $0.id < $1.id }))
+        switch ExactIdResolver.resolveTeam(raw, flag: "--team", teams: teams) {
+        case .success(let team):
+            return .success(team)
+        case .failure(let failure):
+            return .failure(.exactId(failure))
         }
     }
 
@@ -121,14 +114,8 @@ public enum PanelTeamResolver {
         return ParsedSeatFlag(alias: alias, lens: lens)
     }
 
-    /// Resolve a seat alias to a real model id via the same `PilotSeatResolver`
-    /// algorithm as `pilot start --dev-worker` (case-insensitive substring/suffix
-    /// over model id + displayName).
-    ///
-    /// Call-site policy (panel start only): prefer **enabled** (on-bench) models so
-    /// short aliases like `sonnet` resolve uniquely when only one match is enabled;
-    /// fall back to the full catalog so off-bench seats stay addressable
-    /// (`cursor_grok` → `model_cursor_grok_45`). Ambiguous among enabled → error.
+    /// Resolve a seat token to a real model id via `ExactIdResolver` (MR-S04).
+    /// Canonical model ids only — display names never authorize dispatch.
     public static func resolveSeatAlias(
         _ alias: String,
         models: [Model]
@@ -138,9 +125,7 @@ public enum PanelTeamResolver {
             switch PilotSeatResolver.resolve(alias: alias, models: enabled) {
             case .success(let id):
                 return .success(id)
-            case .failure(.ambiguous(let a, let candidates)):
-                return .failure(.ambiguous(alias: a, candidates: candidates))
-            case .failure(.noMatch), .failure(.noReadySeats):
+            case .failure(.exactId), .failure(.noMatch), .failure(.noReadySeats), .failure(.ambiguous):
                 break
             }
         }
@@ -216,12 +201,4 @@ public enum PanelTeamResolver {
         team.catalogSeatCount
     }
 
-    private static func matchesAlias(_ alias: String, team: TeamPreset) -> Bool {
-        let id = team.id.lowercased()
-        let name = team.displayName.lowercased()
-        if id == alias || name == alias { return true }
-        if id.contains(alias) || name.contains(alias) { return true }
-        if id.hasSuffix(alias) || name.hasSuffix(alias) { return true }
-        return false
-    }
 }

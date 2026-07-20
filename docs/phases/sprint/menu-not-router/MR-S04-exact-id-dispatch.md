@@ -1,6 +1,6 @@
 # MR-S04 — Exact-id dispatch and one-shot repair
 
-Status: **ready** (after MR-S03)
+Status: **complete**
 SSOT: `docs/phases/Menu_Not_Router.md` §MR-S04
 
 ## Goal

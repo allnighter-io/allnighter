@@ -4590,7 +4590,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "2.0.0",
+  "contractVersion" : "2.0.1",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -4801,10 +4801,10 @@
       "ruleId" : "model.unavailable"
     },
     {
-      "agentAction" : "Run `alln models enable <id>`, or pick a ready worker; see `alln models` \/ `alln doctor`.",
+      "agentAction" : "Run `alln menu --json` (or `alln menu show model:<id>`); pass a canonical model_* id. Never substitute a display name.",
       "code" : "WORKER_NOT_AVAILABLE",
       "exitClass" : "operational",
-      "explain" : "An explicit `--worker` \/ `--dev-worker` request named a model that is disabled, notReady, or unknown. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10).",
+      "explain" : "An explicit `--worker` \/ `--dev-worker` request named a model that is disabled, notReady, unknown, or a display name. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10 \/ Menu_Not_Router MR-S04).",
       "requiresManual" : true,
       "retryable" : true,
       "ruleId" : "run.worker_not_available"
@@ -5008,10 +5008,10 @@
       "ruleId" : "skill.not_found"
     },
     {
-      "agentAction" : "Run `alln teams --lane <lane> --json` and pick a valid team id.",
+      "agentAction" : "Run `alln menu --json` (or `alln menu show team:<id>`) and retry with a canonical team id — never a display name.",
       "code" : "TEAM_NOT_FOUND",
       "exitClass" : "operational",
-      "explain" : "No team matches the given id. List teams for the lane and retry with a valid TeamID.",
+      "explain" : "No team matches the given id (or a display name was passed). List the live menu and retry with a valid TeamID.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "team.not_found"

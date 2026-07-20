@@ -518,10 +518,12 @@ public struct PendingService: Sendable {
     }
 
     private func resolveWorkerId(_ token: String) throws -> String {
-        let normalized = token.lowercased()
-        if models.contains(where: { $0.id == token }) { return token }
-        if let model = models.first(where: { $0.id.lowercased() == normalized }) { return model.id }
-        throw PendingServiceError.invalidWorker(token)
+        switch ExactIdResolver.resolveWorker(token, flag: "--worker", models: models) {
+        case .success(let model):
+            return model.id
+        case .failure(let failure):
+            throw PendingServiceError.invalidWorker(failure.message)
+        }
     }
 
     private func stopRunning(_ item: PendingItem) throws -> PendingItem {

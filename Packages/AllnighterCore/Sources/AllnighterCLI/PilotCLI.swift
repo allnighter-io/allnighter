@@ -115,7 +115,8 @@ enum PilotCLI {
             switch PilotSeatResolver.resolve(alias: token, models: catalogModels) {
             case .success(let resolved):
                 devWorkerId = resolved
-                devWorkerAlias = resolved == token ? nil : token
+                // Exact-id only — alias echo is retired (MR-S04).
+                devWorkerAlias = nil
                 remembered = false
             case .failure(.ambiguous(let alias, let candidates)):
                 throw PilotCLIError.ambiguousDevWorker(
@@ -125,6 +126,11 @@ enum PilotCLI {
             case .failure(.noMatch(let alias, _)):
                 throw PilotCLIError.devWorkerNotFound(
                     alias: alias,
+                    readySeats: PilotSeatResolver.formatReadySeats(readySeats)
+                )
+            case .failure(.exactId(let failure)):
+                throw PilotCLIError.devWorkerNotFound(
+                    alias: failure.provided,
                     readySeats: PilotSeatResolver.formatReadySeats(readySeats)
                 )
             case .failure(.noReadySeats):

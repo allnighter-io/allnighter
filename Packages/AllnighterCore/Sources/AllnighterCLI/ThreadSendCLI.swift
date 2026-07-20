@@ -61,6 +61,12 @@ enum ThreadSendCLI {
         }
 
         let workerId = opts.value("worker")
+        AllnighterCLI.requireExactSelectors(
+            workerId: workerId,
+            teamId: nil,
+            models: runtime.models,
+            teams: runtime.teams
+        )
         let canonical = ThreadSendCanonicalPayload(
             threadId: threadId,
             message: message,

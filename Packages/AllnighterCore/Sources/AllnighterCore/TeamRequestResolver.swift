@@ -57,21 +57,23 @@ public enum TeamRequestResolver {
     ) -> Result<Resolved, Failure> {
         // Explicit team wins; lane is derived from it when omitted.
         if let teamId, !teamId.isEmpty {
-            guard let team = teams.first(where: { $0.id == teamId }) else {
+            switch ExactIdResolver.resolveTeam(teamId, flag: "--team", teams: teams) {
+            case .failure:
                 return .failure(.unknownTeam(teamId))
-            }
-            if let lane, lane != team.lane {
-                return .failure(.laneMismatch(team: teamId, teamLane: team.lane, requestLane: lane))
-            }
-            var matchedType: String?
-            if let type, !type.isEmpty {
-                guard team.typeTags.contains(type) else {
-                    return .failure(.conflictingTeamAndType(team: teamId, type: type))
+            case .success(let team):
+                if let lane, lane != team.lane {
+                    return .failure(.laneMismatch(team: teamId, teamLane: team.lane, requestLane: lane))
                 }
-                matchedType = type
+                var matchedType: String?
+                if let type, !type.isEmpty {
+                    guard team.typeTags.contains(type) else {
+                        return .failure(.conflictingTeamAndType(team: teamId, type: type))
+                    }
+                    matchedType = type
+                }
+                return .success(Resolved(team: team, lane: team.lane,
+                                         effort: effort ?? team.defaultEffort, type: matchedType))
             }
-            return .success(Resolved(team: team, lane: team.lane,
-                                     effort: effort ?? team.defaultEffort, type: matchedType))
         }
 
         // No explicit team: lane is required.

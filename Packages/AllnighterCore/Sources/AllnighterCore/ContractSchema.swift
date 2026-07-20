@@ -222,13 +222,21 @@ public enum ContractSchema {
     }
 
     private static func errorEnvelopeDef() -> [String: Any] {
-        obj([
+        let candidate = obj([
+            "id": str,
+            "displayName": str,
+            "driverId": nullable("string"),
+            "state": str,
+        ], required: ["id", "displayName", "state"])
+        return obj([
             "code": str, "ruleId": nullable("string"), "message": str,
             "agentAction": nullable("string"), "fixCommand": nullable("string"),
             "requiresManual": bool, "retryable": bool, "traceId": nullable("string"),
             "runId": nullable("string"), "sourceId": nullable("string"),
             "modelId": nullable("string"), "workerId": nullable("string"),
             "supportDir": nullable("string"),
+            "suggestions": arr(str),
+            "candidates": arr(candidate),
         ], required: ["code", "message", "requiresManual", "retryable"])
     }
 

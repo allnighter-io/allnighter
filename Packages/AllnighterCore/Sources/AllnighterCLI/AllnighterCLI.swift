@@ -118,7 +118,9 @@ struct AllnighterCLI {
         code: String,
         message: String,
         supportDir: String? = nil,
-        suggestions: [String] = []
+        suggestions: [String] = [],
+        candidates: [ExactIdResolver.Candidate] = [],
+        nextAction: AgentNextAction? = nil
     ) {
         struct Failure: Encodable { let schemaVersion = 1; let success = false; let error: ErrorEnvelope }
         let spec = ContractRegistry.milestone1.errorSpec(for: code)
@@ -132,7 +134,8 @@ struct AllnighterCLI {
             retryable: spec?.retryable ?? false,
             supportDir: supportDir,
             suggestions: suggestions,
-            nextAction: ErrorDiscovery.nextAction(forErrorCode: code)
+            candidates: candidates,
+            nextAction: nextAction ?? ErrorDiscovery.nextAction(forErrorCode: code)
         )
         print(jsonString(Failure(error: env)))
     }
@@ -144,10 +147,52 @@ struct AllnighterCLI {
         code: String,
         message: String,
         supportDir: String? = nil,
-        suggestions: [String] = []
+        suggestions: [String] = [],
+        candidates: [ExactIdResolver.Candidate] = [],
+        nextAction: AgentNextAction? = nil
     ) -> Never {
-        emitFailure(code: code, message: message, supportDir: supportDir, suggestions: suggestions)
+        emitFailure(
+            code: code, message: message, supportDir: supportDir,
+            suggestions: suggestions, candidates: candidates, nextAction: nextAction)
         exit(ContractRegistry.milestone1.processExitCode(forErrorCode: code))
+    }
+
+    /// MR-S04 — honor-or-fail every explicit `--worker` / `--team` before dispatch.
+    static func requireExactSelectors(
+        workerId: String?,
+        teamId: String?,
+        models: [Model],
+        teams: [TeamPreset]
+    ) {
+        if let workerId, !workerId.isEmpty {
+            if case .failure(let failure) = ExactIdResolver.resolveWorker(
+                workerId, flag: "--worker", models: models
+            ) {
+                failExactId(failure)
+            }
+        }
+        if let teamId, !teamId.isEmpty {
+            let lookup = teams.isEmpty ? TeamCatalog.all : teams
+            if case .failure(let failure) = ExactIdResolver.resolveTeam(
+                teamId, flag: "--team", teams: lookup
+            ) {
+                failExactId(failure)
+            }
+        }
+    }
+
+    static func failExactId(_ failure: ExactIdResolver.Failure) -> Never {
+        fail(
+            code: failure.code,
+            message: failure.message,
+            suggestions: failure.suggestionIds,
+            candidates: failure.candidates,
+            nextAction: AgentNextAction(
+                kind: "discover",
+                label: "List menu rows",
+                command: failure.discoveryCommand
+            )
+        )
     }
 
     /// Effective `ALLNIGHTER_SUPPORT_DIR` (RLR-L1) — surfaced in not-found / kill
@@ -715,9 +760,12 @@ struct AllnighterCLI {
     }
 
     static func failUnknownTeam(_ id: String) -> Never {
-        let candidates = TeamCatalog.all.map(\.id)
-        let suggestions = ErrorDiscovery.nearestMatches(to: id, in: candidates)
-        fail(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)", suggestions: suggestions)
+        let lookup = TeamCatalog.all
+        if case .failure(let failure) = ExactIdResolver.resolveTeam(id, flag: "--team", teams: lookup) {
+            failExactId(failure)
+        }
+        // Unreachable when catalog is the lookup set; keep a hard fail for safety.
+        fail(code: "TEAM_NOT_FOUND", message: "unknown team: \(id)")
     }
 
     static func failUnknownSkill(_ id: String) -> Never {

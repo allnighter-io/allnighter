@@ -1,53 +1,24 @@
 import Foundation
 
-/// Resolves a dev-seat alias for `pilot start --dev-worker` (Pilot_DX.md §DX4).
-/// Case-insensitive substring or suffix match over model id + displayName.
-///
-/// When several models match (e.g. `opus` → Claude Opus 4.8 and Antigravity Opus
-/// 4.6), prefer the highest catalog `strengthRank` so the preferred seat wins
-/// without forcing the user to disambiguate when a clear flagship exists.
+/// Resolves `--dev-worker` / panel `--seat` to a canonical model id (MR-S04).
+/// Exact ids only — display names and fuzzy aliases never authorize dispatch.
+/// Unknown values fail with same-kind candidates via `ExactIdResolver`.
 public enum PilotSeatResolver {
     public enum Error: Swift.Error, Equatable, Sendable {
         case ambiguous(alias: String, candidates: [Model])
         case noMatch(alias: String, readySeats: [Model])
         case noReadySeats
+        /// Structured exact-id failure (preferred path).
+        case exactId(ExactIdResolver.Failure)
     }
 
-    /// Returns the resolved model id when the alias matches exactly one model, or
-    /// when multiple matches share a single clear strength-rank winner.
+    /// Honor an exact model id, or fail closed. Never matches display names.
     public static func resolve(alias raw: String, models: [Model]) -> Result<String, Error> {
-        let alias = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !alias.isEmpty else {
-            return .failure(.noMatch(alias: raw, readySeats: readySeats(from: models.filter(\.enabled))))
-        }
-        // Exact id or displayName match is unambiguous and wins over fuzzy substring/rank
-        // resolution — a full model id must always resolve to ITSELF even when it is a
-        // substring of other ids (e.g. `model_chatgpt` vs `model_chatgpt_54`/`_sol`, which
-        // otherwise tie on strengthRank and error, or silently resolve to the wrong seat).
-        if let exact = models.first(where: { $0.id.lowercased() == alias || $0.displayName.lowercased() == alias }) {
-            return .success(exact.id)
-        }
-        let matches = models.filter { matchesAlias(alias, model: $0) }
-        switch matches.count {
-        case 0:
-            return .failure(.noMatch(alias: raw, readySeats: readySeats(from: models.filter(\.enabled))))
-        case 1:
-            return .success(matches[0].id)
-        default:
-            // Prefer the strongest catalog match (Opus 4.8 over Opus 4.6 fallback).
-            // Still ambiguous only when two+ models tie on strengthRank.
-            let ranked = matches.sorted { a, b in
-                let ra = ModelCatalog.capabilities(a.id).strengthRank
-                let rb = ModelCatalog.capabilities(b.id).strengthRank
-                return ra != rb ? ra > rb : a.id < b.id
-            }
-            let top = ranked[0]
-            let topRank = ModelCatalog.capabilities(top.id).strengthRank
-            let tied = ranked.filter { ModelCatalog.capabilities($0.id).strengthRank == topRank }
-            if tied.count == 1 {
-                return .success(top.id)
-            }
-            return .failure(.ambiguous(alias: raw, candidates: matches.sorted { $0.id < $1.id }))
+        switch ExactIdResolver.resolveWorker(raw, flag: "--dev-worker", models: models) {
+        case .success(let model):
+            return .success(model.id)
+        case .failure(let failure):
+            return .failure(.exactId(failure))
         }
     }
 
@@ -63,19 +34,6 @@ public enum PilotSeatResolver {
         return models.filter { m in
             m.enabled && (recordsByDriver[m.driverId]?.status.isReady ?? false)
         }.sorted { $0.id < $1.id }
-    }
-
-    private static func readySeats(from models: [Model]) -> [Model] {
-        models.sorted { $0.id < $1.id }
-    }
-
-    private static func matchesAlias(_ alias: String, model: Model) -> Bool {
-        let id = model.id.lowercased()
-        let name = model.displayName.lowercased()
-        if id == alias || name == alias { return true }
-        if id.contains(alias) || name.contains(alias) { return true }
-        if id.hasSuffix(alias) || name.hasSuffix(alias) { return true }
-        return false
     }
 
     public static func formatCandidates(_ models: [Model]) -> String {

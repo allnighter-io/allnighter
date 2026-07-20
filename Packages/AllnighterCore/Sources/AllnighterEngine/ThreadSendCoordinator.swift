@@ -628,7 +628,15 @@ public struct ThreadSendCoordinator: Sendable {
     }
 
     private func resolveWorkerId(for thread: WorkThread, requested: String?) -> String? {
-        if let requested, models.contains(where: { $0.id == requested }) { return requested }
+        if let requested, !requested.isEmpty {
+            // MR-S04: explicit --worker is honor-or-fail; never fall through to a default.
+            switch ExactIdResolver.resolveWorker(requested, flag: "--worker", models: models) {
+            case .success(let model):
+                return model.id
+            case .failure:
+                return nil
+            }
+        }
         if let d = thread.defaultWorkerId, models.contains(where: { $0.id == d }) { return d }
         if let last = thread.lastWorkerId, models.contains(where: { $0.id == last }) { return last }
         if let global = defaultDriverWorkerId, models.contains(where: { $0.id == global }) { return global }

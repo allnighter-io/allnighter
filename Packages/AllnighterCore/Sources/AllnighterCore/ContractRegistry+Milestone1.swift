@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "2.0.0"
+    static let contractVersion = "2.0.1"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -953,10 +953,10 @@ public extension ContractRegistry {
         ErrorSpec(
             "WORKER_NOT_AVAILABLE",
             ruleId: "run.worker_not_available",
-            agentAction: "Run `alln models enable <id>`, or pick a ready worker; see `alln models` / `alln doctor`.",
+            agentAction: "Run `alln menu --json` (or `alln menu show model:<id>`); pass a canonical model_* id. Never substitute a display name.",
             requiresManual: true,
             retryable: true,
-            explain: "An explicit `--worker` / `--dev-worker` request named a model that is disabled, notReady, or unknown. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10)."
+            explain: "An explicit `--worker` / `--dev-worker` request named a model that is disabled, notReady, unknown, or a display name. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10 / Menu_Not_Router MR-S04)."
         ),
         ErrorSpec("DEFAULT_TEAM_INVALID", ruleId: "team.default.invalid", agentAction: "Run `alln menu --json` / `alln teams show <id> --json`; fix unavailable workers.", requiresManual: true, retryable: false, explain: "The default team has no runnable workers. Inspect and repair the team lineup before running."),
         ErrorSpec("WORKER_FAILED", ruleId: "worker.failed", agentAction: "Inspect `workerId` and source error; failed worker remains visible.", requiresManual: false, retryable: true, explain: "One worker failed. The failure is shown, never hidden; other workers may still have answered. Retry the worker or proceed with partial results."),
@@ -1001,7 +1001,7 @@ public extension ContractRegistry {
         ),
         ErrorSpec("COORDINATOR_UNAVAILABLE", ruleId: "coordinator.unavailable", agentAction: "Use foreground CLI or start resident mode when available.", requiresManual: false, retryable: true, explain: "The resident coordinator is not running. Use a foreground command, or start resident mode when it is available."),
         ErrorSpec("SKILL_NOT_FOUND", ruleId: "skill.not_found", agentAction: "Run `alln skills --lane <lane> --json` and pick a valid skill id.", requiresManual: true, retryable: false, explain: "No skill matches the given id. List skills for the lane and retry with a valid SkillID."),
-        ErrorSpec("TEAM_NOT_FOUND", ruleId: "team.not_found", agentAction: "Run `alln teams --lane <lane> --json` and pick a valid team id.", requiresManual: true, retryable: false, explain: "No team matches the given id. List teams for the lane and retry with a valid TeamID."),
+        ErrorSpec("TEAM_NOT_FOUND", ruleId: "team.not_found", agentAction: "Run `alln menu --json` (or `alln menu show team:<id>`) and retry with a canonical team id — never a display name.", requiresManual: true, retryable: false, explain: "No team matches the given id (or a display name was passed). List the live menu and retry with a valid TeamID."),
         ErrorSpec("TEAM_BUILTIN_IMMUTABLE", ruleId: "team.builtin.immutable", agentAction: "Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version).", requiresManual: true, retryable: false, explain: "A built-in team that was never edited has nothing to delete. Edit it in place with `teams edit`, or use `teams restore` to revert prior edits."),
         ErrorSpec("TEAM_RESTORE_UNSUPPORTED", ruleId: "team.restore.unsupported", agentAction: "Only built-in teams can be restored; for a custom team, edit or delete it instead.", requiresManual: true, retryable: false, explain: "Restore reverts a built-in team to its shipped version. A custom team has no shipped version to restore to."),
         ErrorSpec("SKILL_BUILTIN_IMMUTABLE", ruleId: "skill.builtin.immutable", agentAction: "Duplicate the built-in skill, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in skills cannot be edited or deleted. Duplicate to a custom skill and edit that copy."),

@@ -124,7 +124,7 @@ final class PanelCLITests: XCTestCase {
         let store = makeProjectStore()
         let project = try addProject(store)
         let request = try PanelCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", project.id, "--team", "spec_review"],
+            ["--doc", "docs/spec.md", "--project", project.id, "--team", "code_spec_review"],
             projectStore: store,
             models: roModels(),
             registry: roRegistry(),
@@ -136,7 +136,7 @@ final class PanelCLITests: XCTestCase {
         XCTAssertFalse(request.rememberedTeam)
     }
 
-    func testParseStartAmbiguousTeam() throws {
+    func testParseStartFuzzyTeamRejected() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
         XCTAssertThrowsError(try PanelCLI.parseStartConfig(
@@ -146,8 +146,8 @@ final class PanelCLITests: XCTestCase {
             registry: roRegistry(),
             teams: sampleTeams()
         )) { error in
-            guard case .ambiguousTeam = error as? PanelCLI.PanelCLIError else {
-                return XCTFail("expected ambiguousTeam, got \(error)")
+            guard case .teamNotFound = error as? PanelCLI.PanelCLIError else {
+                return XCTFail("expected teamNotFound, got \(error)")
             }
         }
     }
@@ -173,7 +173,7 @@ final class PanelCLITests: XCTestCase {
         let project = try addProject(store)
         let request = try PanelCLI.parseStartConfig(
             [
-                "--doc", "docs/spec.md", "--project", project.id, "--team", "spec_review",
+                "--doc", "docs/spec.md", "--project", project.id, "--team", "code_spec_review",
                 "--seat", "model_opus:adversary",
                 "--seat", "model_codex:contracts",
             ],
@@ -243,7 +243,7 @@ final class PanelCLITests: XCTestCase {
         let store = makeProjectStore()
         let project = try addProject(store)
         XCTAssertThrowsError(try PanelCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", project.id, "--team", "spec_review", "--max-rounds", "0"],
+            ["--doc", "docs/spec.md", "--project", project.id, "--team", "code_spec_review", "--max-rounds", "0"],
             projectStore: store,
             models: roModels(),
             registry: roRegistry(),
@@ -253,17 +253,17 @@ final class PanelCLITests: XCTestCase {
         }
     }
 
-    // MARK: - --seat alias resolution at start (works-test fix)
+    // MARK: - --seat exact-id resolution (MR-S04)
 
-    func testParseStartSeatAliasHappyPathResolvesRealIds() throws {
+    func testParseStartSeatExactIdsHappyPath() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
         let request = try PanelCLI.parseStartConfig(
             [
                 "--doc", "docs/spec.md", "--project", project.id,
-                "--seat", "sonnet:failure-modes",
-                "--seat", "grok 4.5:simplify",
-                "--seat", "cursor_grok:adoption",
+                "--seat", "model_sonnet:failure-modes",
+                "--seat", "model_grok:simplify",
+                "--seat", "model_cursor_grok_45:adoption",
             ],
             projectStore: store,
             models: roModels(),
@@ -275,11 +275,7 @@ final class PanelCLITests: XCTestCase {
             ["model_sonnet", "model_grok", "model_cursor_grok_45"]
         )
         XCTAssertEqual(request.seats.map(\.lens), ["failure-modes", "simplify", "adoption"])
-        // PanelState must never hold the raw alias strings.
         for seat in request.seats {
-            XCTAssertFalse(seat.workerId == "sonnet")
-            XCTAssertFalse(seat.workerId == "grok 4.5")
-            XCTAssertFalse(seat.workerId == "cursor_grok")
             XCTAssertTrue(seat.workerId.hasPrefix("model_"))
         }
         let plan = PanelCoordinator.isolationPlan(
@@ -291,10 +287,9 @@ final class PanelCLITests: XCTestCase {
         XCTAssertEqual(byId["model_cursor_grok_45"], .clone)
     }
 
-    func testParseStartSeatAliasAmbiguousErrors() throws {
+    func testParseStartSeatFuzzyAliasRejected() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
-        // Two enabled models matching "sonnet".
         let models = [
             Model(id: "model_sonnet", displayName: "Sonnet", modelLabel: "sonnet", driverId: "claude_code", role: .both, enabled: true),
             Model(id: "model_agy_sonnet", displayName: "AGY Sonnet", modelLabel: "agy", driverId: "antigravity", role: .both, enabled: true),
@@ -306,12 +301,10 @@ final class PanelCLITests: XCTestCase {
             registry: roRegistry(),
             teams: sampleTeams()
         )) { error in
-            guard case .ambiguousSeat(let alias, let candidates) = error as? PanelCLI.PanelCLIError else {
-                return XCTFail("expected ambiguousSeat, got \(error)")
+            guard case .seatNotFound(let alias, _) = error as? PanelCLI.PanelCLIError else {
+                return XCTFail("expected seatNotFound, got \(error)")
             }
             XCTAssertEqual(alias, "sonnet")
-            XCTAssertTrue(candidates.contains("model_sonnet"))
-            XCTAssertTrue(candidates.contains("model_agy_sonnet"))
         }
     }
 

@@ -233,25 +233,25 @@ public actor RunService {
 
     private func readyModels() -> [Model] { models.filter(\.enabled) }
 
-    /// PO-F10: honor an explicit worker id or fail with `WORKER_NOT_AVAILABLE`.
-    /// Never returns a substitute model.
+    /// PO-F10 / MR-S04: honor an explicit worker id or fail with `WORKER_NOT_AVAILABLE`.
+    /// Never returns a substitute model. Display names fail closed via ExactIdResolver.
     public func resolveExplicitWorker(_ id: String) -> Result<Model, RunServiceError> {
-        guard let m = models.first(where: { $0.id == id }) else {
-            return .failure(.workerNotAvailable(
-                "unknown worker id \(id) — run `alln models enable <id>`, or pick a ready worker; see `alln models` / `alln doctor`."
-            ))
+        switch ExactIdResolver.resolveWorker(id, flag: "--worker", models: models, readyModelIds: Set(sourceReadyModelIds())) {
+        case .failure(let failure):
+            return .failure(.workerNotAvailable(failure.message))
+        case .success(let m):
+            guard m.enabled else {
+                return .failure(.workerNotAvailable(
+                    "\(id) is disabled — run `alln models enable \(id)`, or pick a ready worker; see `alln menu --json` / `alln doctor`."
+                ))
+            }
+            guard sourceReadyModelIds().contains(m.id) else {
+                return .failure(.workerNotAvailable(
+                    "\(id) is notReady — check `alln doctor` (or run `alln doctor --full`); see `alln menu --json`."
+                ))
+            }
+            return .success(m)
         }
-        guard m.enabled else {
-            return .failure(.workerNotAvailable(
-                "\(id) is disabled — run `alln models enable \(id)`, or pick a ready worker; see `alln models` / `alln doctor`."
-            ))
-        }
-        guard sourceReadyModelIds().contains(m.id) else {
-            return .failure(.workerNotAvailable(
-                "\(id) is notReady — check `alln doctor` (or run `alln doctor --full`); see `alln models`."
-            ))
-        }
-        return .success(m)
     }
 
     // MARK: - Try Fix support (FollowUpCoordinator)
@@ -645,15 +645,30 @@ public actor RunService {
 
         let preset: TeamPreset
         if let presetId = request.presetId, !presetId.isEmpty {
-            guard let team = teams.first(where: { $0.id == presetId }) ?? TeamCatalog.get(presetId) else {
-                return .failure(.teamResolution("unknown team: \(presetId)", code: "TEAM_NOT_FOUND"))
+            // MR-S04: exact-id choke point before any run mint / process spawn.
+            let lookup = teams.isEmpty ? TeamCatalog.all : teams
+            switch ExactIdResolver.resolveTeam(presetId, flag: "--team", teams: lookup) {
+            case .success(let team):
+                preset = team
+            case .failure(let failure):
+                if let team = TeamCatalog.get(presetId) {
+                    preset = team
+                } else {
+                    return .failure(.teamResolution(failure.message, code: failure.code))
+                }
             }
-            preset = team
         } else {
             guard let team = TeamCatalog.defaultRunTeam() else {
                 return .failure(.teamResolution("no default team configured", code: "DEFAULT_TEAM_INVALID"))
             }
             preset = team
+        }
+
+        // MR-S04: validate explicit --worker before minting a RunRecord.
+        if let workerId = request.workerId, !workerId.isEmpty {
+            if case .failure(let error) = resolveExplicitWorker(workerId) {
+                return .failure(error)
+            }
         }
 
         // Auto (the no-pick / default route): resolve the worker model from the

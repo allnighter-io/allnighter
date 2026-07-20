@@ -40,33 +40,36 @@ final class PanelTeamResolverTests: XCTestCase {
     }
 
     func testUniqueTeamAliasResolvesAndEchoes() {
-        let result = PanelTeamResolver.resolveTeam(alias: "spec_review", teams: sampleTeams())
+        let result = PanelTeamResolver.resolveTeam(alias: "code_spec_review", teams: sampleTeams())
         guard case .success(let team) = result else { return XCTFail("\(result)") }
         XCTAssertEqual(team.id, "code_spec_review")
     }
 
-    func testAmbiguousAliasListsCandidatesWithSeatCount() {
-        // "review" matches Spec Review and Security Review
+    func testFuzzyAliasRejectedWithCandidates() {
+        // MR-S04: "review" is not a canonical id — fail closed with suggestions.
         let result = PanelTeamResolver.resolveTeam(alias: "review", teams: sampleTeams())
-        guard case .failure(.ambiguous(let alias, let candidates)) = result else {
-            return XCTFail("expected ambiguous, got \(result)")
+        guard case .failure(.exactId(let failure)) = result else {
+            return XCTFail("expected exactId failure, got \(result)")
         }
-        XCTAssertEqual(alias, "review")
-        XCTAssertEqual(candidates.count, 2)
-        let formatted = PanelTeamResolver.formatCandidates(candidates)
-        XCTAssertTrue(formatted.contains("seats"))
-        XCTAssertTrue(formatted.contains("Spec Review") || formatted.contains("code_spec_review"))
+        XCTAssertEqual(failure.code, "TEAM_NOT_FOUND")
+        XCTAssertFalse(failure.candidates.isEmpty)
     }
 
     func testNoMatchListsAvailableTeams() {
         let result = PanelTeamResolver.resolveTeam(alias: "pressure", teams: sampleTeams())
-        guard case .failure(.noMatch(let alias, let available)) = result else {
-            return XCTFail("expected noMatch, got \(result)")
+        guard case .failure(.exactId(let failure)) = result else {
+            return XCTFail("expected exactId failure, got \(result)")
         }
-        XCTAssertEqual(alias, "pressure")
-        XCTAssertFalse(available.isEmpty)
-        let formatted = PanelTeamResolver.formatAvailable(available)
-        XCTAssertTrue(formatted.contains("code_plan"))
+        XCTAssertEqual(failure.provided, "pressure")
+        XCTAssertEqual(failure.discoveryCommand, "alln menu --json")
+    }
+
+    func testDisplayNameRejected() {
+        let result = PanelTeamResolver.resolveTeam(alias: "Spec Review", teams: sampleTeams())
+        guard case .failure(.exactId(let failure)) = result else {
+            return XCTFail("expected exactId failure, got \(result)")
+        }
+        XCTAssertTrue(failure.message.lowercased().contains("display"))
     }
 
     func testSeatsMappingUsesPreferredModelAndSkillAsLens() {
@@ -108,97 +111,68 @@ final class PanelTeamResolverTests: XCTestCase {
         Model(id: id, displayName: name, modelLabel: name.lowercased(), driverId: driver, role: .both, enabled: enabled)
     }
 
-    func testResolveSeatAliasPrefersEnabledUnique() {
+    func testResolveSeatAliasHonorsExactId() {
         let models = [
             model("model_agy_sonnet", name: "Claude Sonnet 4.6", driver: "antigravity", enabled: false),
             model("model_sonnet", name: "Sonnet 4.6", enabled: true),
         ]
         XCTAssertEqual(
-            try PanelTeamResolver.resolveSeatAlias("sonnet", models: models).get(),
+            try PanelTeamResolver.resolveSeatAlias("model_sonnet", models: models).get(),
             "model_sonnet"
         )
     }
 
-    func testResolveSeatAliasFallsBackToFullCatalogForOffBench() {
+    func testResolveSeatAliasFallsBackToFullCatalogForOffBenchExactId() {
         let models = [
             model("model_sonnet", name: "Sonnet 4.6", enabled: true),
             model("model_cursor_grok_45", name: "Cursor Grok 4.5", driver: "cursor_agent", enabled: false),
         ]
         XCTAssertEqual(
-            try PanelTeamResolver.resolveSeatAlias("cursor_grok", models: models).get(),
+            try PanelTeamResolver.resolveSeatAlias("model_cursor_grok_45", models: models).get(),
             "model_cursor_grok_45"
         )
     }
 
-    func testResolveSeatAliasExactDisplayNamePrefersEnabled() {
+    func testResolveSeatAliasRejectsDisplayName() {
         let models = [
             model("model_cursor_grok_45", name: "Cursor Grok 4.5", driver: "cursor_agent", enabled: false),
             model("model_grok", name: "Grok 4.5", driver: "grok", enabled: true),
         ]
-        XCTAssertEqual(
-            try PanelTeamResolver.resolveSeatAlias("grok 4.5", models: models).get(),
-            "model_grok"
-        )
+        let result = PanelTeamResolver.resolveSeatAlias("Grok 4.5", models: models)
+        guard case .failure(.exactId) = result else {
+            return XCTFail("expected exactId failure, got \(result)")
+        }
     }
 
-    func testResolveSeatAliasPrefersStrongerWhenMultipleEnabledMatch() {
-        // model_sonnet (rank 80) beats unranked AGY Sonnet; same policy as pilot.
+    func testResolveSeatAliasRejectsFuzzy() {
         let models = [
             model("model_sonnet", name: "Sonnet 4.6", enabled: true),
             model("model_agy_sonnet", name: "AGY Sonnet", driver: "antigravity", enabled: true),
         ]
-        XCTAssertEqual(
-            try PanelTeamResolver.resolveSeatAlias("sonnet", models: models).get(),
-            "model_sonnet"
-        )
+        XCTAssertThrowsError(try PanelTeamResolver.resolveSeatAlias("sonnet", models: models).get())
     }
 
-    func testResolveSeatAliasOpusPrefersClaude48OverAgy() {
-        let models = [
-            model("model_agy_opus", name: "Claude Opus 4.6", driver: "antigravity", enabled: true),
-            model("model_opus", name: "Opus 4.8", enabled: true),
-        ]
-        XCTAssertEqual(
-            try PanelTeamResolver.resolveSeatAlias("opus", models: models).get(),
-            "model_opus"
-        )
-    }
-
-    func testResolveSeatAliasAmbiguousWhenRanksTieAmongEnabled() {
-        let models = [
-            model("model_custom_a", name: "Custom Alpha", driver: "codex", enabled: true),
-            model("model_custom_b", name: "Custom Alpha Plus", driver: "codex", enabled: true),
-        ]
-        let result = PanelTeamResolver.resolveSeatAlias("alpha", models: models)
-        guard case .failure(.ambiguous(let alias, let candidates)) = result else {
-            return XCTFail("expected ambiguous, got \(result)")
-        }
-        XCTAssertEqual(alias, "alpha")
-        XCTAssertEqual(candidates.map(\.id).sorted(), ["model_custom_a", "model_custom_b"])
-    }
-
-    func testResolveSeatAliasUnknownListsReadyViaNoMatch() {
+    func testResolveSeatAliasUnknownIsExactIdFailure() {
         let models = [
             model("model_sonnet", name: "Sonnet 4.6", enabled: true),
         ]
         let result = PanelTeamResolver.resolveSeatAlias("nope", models: models)
-        guard case .failure(.noMatch(let alias, let ready)) = result else {
-            return XCTFail("expected noMatch, got \(result)")
+        guard case .failure(.exactId(let failure)) = result else {
+            return XCTFail("expected exactId failure, got \(result)")
         }
-        XCTAssertEqual(alias, "nope")
-        XCTAssertEqual(ready.map(\.id), ["model_sonnet"])
+        XCTAssertEqual(failure.provided, "nope")
+        XCTAssertTrue(failure.suggestionIds.contains("model_sonnet") || !failure.candidates.isEmpty)
     }
 
     func testResolveSeatFlagStoresResolvedModelIdNotAlias() {
         let models = [model("model_sonnet", name: "Sonnet 4.6")]
         guard case .success(let seat)? = PanelTeamResolver.resolveSeatFlag(
-            "sonnet:failure-modes", models: models
+            "model_sonnet:failure-modes", models: models
         ) else {
             return XCTFail("expected resolved seat")
         }
         XCTAssertEqual(seat.workerId, "model_sonnet")
         XCTAssertEqual(seat.lens, "failure-modes")
-        XCTAssertNotEqual(seat.workerId, "sonnet")
     }
 
     func testValidateRosterUnknownModel() {

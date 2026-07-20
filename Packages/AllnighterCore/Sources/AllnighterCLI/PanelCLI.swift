@@ -149,6 +149,11 @@ enum PanelCLI {
                     alias: alias,
                     available: PanelTeamResolver.formatAvailable(available)
                 )
+            case .failure(.exactId(let failure)):
+                throw PanelCLIError.teamNotFound(
+                    alias: failure.provided,
+                    available: PanelTeamResolver.formatAvailable(catalog)
+                )
             case .failure(.noTeams):
                 throw PanelCLIError.teamNotFound(alias: teamAlias, available: "(none)")
             }
@@ -194,6 +199,11 @@ enum PanelCLI {
             case .failure(.noMatch(let alias, _)):
                 throw PanelCLIError.seatNotFound(
                     alias: alias,
+                    readySeats: PilotSeatResolver.formatReadySeats(readyForErrors)
+                )
+            case .failure(.exactId(let failure)):
+                throw PanelCLIError.seatNotFound(
+                    alias: failure.provided,
                     readySeats: PilotSeatResolver.formatReadySeats(readyForErrors)
                 )
             case .failure(.noReadySeats):

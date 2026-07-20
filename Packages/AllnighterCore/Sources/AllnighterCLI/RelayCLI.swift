@@ -142,6 +142,13 @@ enum RelayCLI {
         guard let projectToken = opts.value("project") else { throw RelayCLIError.missingRequired("--project <id|path>") }
         guard let pmWorkerId = opts.value("pm-worker") else { throw RelayCLIError.missingRequired("--pm-worker <modelId>") }
         guard let devWorkerId = opts.value("dev-worker") else { throw RelayCLIError.missingRequired("--dev-worker <modelId>") }
+        let models = ModelCatalog.resolvedModels(registry: DefaultConfig.registry)
+        if case .failure(let failure) = ExactIdResolver.resolveWorker(pmWorkerId, flag: "--pm-worker", models: models) {
+            AllnighterCLI.failExactId(failure)
+        }
+        if case .failure(let failure) = ExactIdResolver.resolveWorker(devWorkerId, flag: "--dev-worker", models: models) {
+            AllnighterCLI.failExactId(failure)
+        }
         guard let project = AllnighterCLI.resolveProject(projectToken, store: projectStore) else {
             throw RelayCLIError.projectNotFound(projectToken)
         }

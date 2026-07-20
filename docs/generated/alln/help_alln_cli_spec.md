@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 2.0.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 2.0.1, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1370,7 +1370,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `SOURCE_AUTH_EXPIRED` | yes | no | `operational` | Re-authenticate the named source. |
 | `SOURCE_KEYCHAIN_UNAVAILABLE` | yes | yes | `operational` | Open the provider app once, run its login command in Terminal, then `alln doctor --full --agent <source>`. |
 | `MODEL_UNAVAILABLE` | no | yes | `operational` | Run `alln models --json`; pick an on-Bench ready model or enable one. |
-| `WORKER_NOT_AVAILABLE` | yes | yes | `operational` | Run `alln models enable <id>`, or pick a ready worker; see `alln models` / `alln doctor`. |
+| `WORKER_NOT_AVAILABLE` | yes | yes | `operational` | Run `alln menu --json` (or `alln menu show model:<id>`); pass a canonical model_* id. Never substitute a display name. |
 | `DEFAULT_TEAM_INVALID` | yes | no | `operational` | Run `alln menu --json` / `alln teams show <id> --json`; fix unavailable workers. |
 | `WORKER_FAILED` | no | yes | `operational` | Inspect `workerId` and source error; failed worker remains visible. |
 | `PLAN_WRITER_FAILED` | no | yes | `operational` | Retry with a ready plan writer or export worker answers. |
@@ -1393,7 +1393,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
 | `COORDINATOR_UNAVAILABLE` | no | yes | `operational` | Use foreground CLI or start resident mode when available. |
 | `SKILL_NOT_FOUND` | yes | no | `operational` | Run `alln skills --lane <lane> --json` and pick a valid skill id. |
-| `TEAM_NOT_FOUND` | yes | no | `operational` | Run `alln teams --lane <lane> --json` and pick a valid team id. |
+| `TEAM_NOT_FOUND` | yes | no | `operational` | Run `alln menu --json` (or `alln menu show team:<id>`) and retry with a canonical team id — never a display name. |
 | `TEAM_BUILTIN_IMMUTABLE` | yes | no | `operational` | Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version). |
 | `TEAM_RESTORE_UNSUPPORTED` | yes | no | `operational` | Only built-in teams can be restored; for a custom team, edit or delete it instead. |
 | `SKILL_BUILTIN_IMMUTABLE` | yes | no | `operational` | Duplicate the built-in skill, then edit the custom copy. |

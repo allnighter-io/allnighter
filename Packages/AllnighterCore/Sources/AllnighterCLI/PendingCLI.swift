@@ -34,6 +34,18 @@ enum PendingCLI {
         let service = makeService(runtime)
         let drainMode = parseWhen(opts.value("when"))
         let fallbacks = opts.value("fallback").map { [$0] } ?? []
+        AllnighterCLI.requireExactSelectors(
+            workerId: opts.value("worker"),
+            teamId: opts.value("team"),
+            models: runtime.models,
+            teams: runtime.teams
+        )
+        if let fallback = opts.value("fallback"), !fallback.isEmpty {
+            AllnighterCLI.requireExactSelectors(
+                workerId: fallback, teamId: nil,
+                models: runtime.models, teams: runtime.teams
+            )
+        }
         do {
             let item = try service.add(.init(
                 prompt: prompt,
@@ -125,6 +137,18 @@ enum PendingCLI {
         let service = makeService(runtime)
         let prompt = opts.value("prompt") ?? opts.value("file").flatMap { try? String(contentsOfFile: $0) }
         let fallbacks = opts.value("fallback").map { [$0] }
+        AllnighterCLI.requireExactSelectors(
+            workerId: opts.value("worker"),
+            teamId: opts.value("team"),
+            models: runtime.models,
+            teams: runtime.teams
+        )
+        if let fallback = opts.value("fallback"), !fallback.isEmpty {
+            AllnighterCLI.requireExactSelectors(
+                workerId: fallback, teamId: nil,
+                models: runtime.models, teams: runtime.teams
+            )
+        }
         do {
             let item = try service.edit(id: id, .init(
                 prompt: prompt,

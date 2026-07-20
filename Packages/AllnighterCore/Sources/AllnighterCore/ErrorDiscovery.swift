@@ -9,11 +9,12 @@ public enum ErrorDiscovery {
         let laneFlag = lane.map { " --lane \($0)" } ?? ""
         switch code {
         case "TEAM_NOT_FOUND":
-            return "alln teams\(laneFlag) --json"
+            // MR-S04: menu is the selection truth; teams list remains a domain projection.
+            return "alln menu --json"
         case "SKILL_NOT_FOUND":
             return "alln skills\(laneFlag) --json"
         case "MODEL_NOT_FOUND", "WORKER_NOT_AVAILABLE":
-            return "alln models --json"
+            return "alln menu --json"
         case "PROJECT_NOT_FOUND":
             return "alln project list --json"
         case "RUN_NOT_FOUND":

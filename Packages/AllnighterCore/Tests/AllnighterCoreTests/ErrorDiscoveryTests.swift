@@ -23,9 +23,9 @@ final class ErrorDiscoveryTests: XCTestCase {
         XCTAssertTrue(bad.isEmpty, "NOT_FOUND nextAction must not be doctor:\n\(bad.joined(separator: "\n"))")
     }
 
-    func testTeamNotFoundDiscoveryIsTeams() {
+    func testTeamNotFoundDiscoveryIsMenu() {
         let cmd = ErrorDiscovery.discoveryCommand(forErrorCode: "TEAM_NOT_FOUND", lane: "code")
-        XCTAssertEqual(cmd, "alln teams --lane code --json")
+        XCTAssertEqual(cmd, "alln menu --json")
         XCTAssertFalse(cmd?.contains("doctor") == true)
     }
 
@@ -46,7 +46,7 @@ final class ErrorDiscoveryTests: XCTestCase {
             suggestions: ["code_bug_hunt"]
         )
         XCTAssertEqual(env.suggestions, ["code_bug_hunt"])
-        XCTAssertEqual(env.nextAction?.command, "alln teams --json")
+        XCTAssertEqual(env.nextAction?.command, "alln menu --json")
         XCTAssertFalse(env.nextAction?.command.contains("doctor") == true)
     }
 }

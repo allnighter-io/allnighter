@@ -74,6 +74,14 @@ enum RunCLI {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw)")
         }
 
+        // MR-S04: exact-id choke point before dry-run soft path or any RunRecord mint.
+        AllnighterCLI.requireExactSelectors(
+            workerId: opts.value("worker"),
+            teamId: opts.value("team"),
+            models: runtime.models,
+            teams: runtime.teams
+        )
+
         if opts.flag("dry-run") {
             await emitDryRun(
                 project: project,

@@ -1,5 +1,5 @@
 import XCTest
-import AllnighterCore
+@testable import AllnighterCore
 
 final class PilotSeatResolverTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_750_000_000)
@@ -8,49 +8,41 @@ final class PilotSeatResolverTests: XCTestCase {
         Model(id: id, displayName: name, modelLabel: name.lowercased(), driverId: driver, role: .both)
     }
 
-    func testUniqueAliasResolves() {
+    func testExactModelIdHonored() {
         let models = [
             model("model_sonnet", name: "Sonnet 4.6"),
             model("model_opus", name: "Opus 4.8"),
         ]
-        XCTAssertEqual(try PilotSeatResolver.resolve(alias: "opus", models: models).get(), "model_opus")
+        XCTAssertEqual(try PilotSeatResolver.resolve(alias: "model_opus", models: models).get(), "model_opus")
     }
 
-    func testOpusAliasPrefersClaude48OverAgy46() {
-        // Both catalog Opus seats match "opus"; Claude 4.8 (rank 100) must win.
-        let models = [
-            model("model_agy_opus", name: "Claude Opus 4.6", driver: "antigravity"),
-            model("model_opus", name: "Opus 4.8"),
-        ]
-        XCTAssertEqual(try PilotSeatResolver.resolve(alias: "opus", models: models).get(), "model_opus")
-    }
-
-    func testAmbiguousAliasListsCandidatesWhenRanksTie() {
-        // Two models match with equal (zero) strength — still ambiguous.
-        let models = [
-            model("model_custom_a", name: "Custom Alpha", driver: "codex"),
-            model("model_custom_b", name: "Custom Alpha Plus", driver: "codex"),
-        ]
-        let result = PilotSeatResolver.resolve(alias: "alpha", models: models)
-        guard case .failure(.ambiguous(let alias, let candidates)) = result else {
-            return XCTFail("expected ambiguous")
+    func testDisplayNameRejected() {
+        let models = [model("model_opus", name: "Opus 4.8")]
+        let result = PilotSeatResolver.resolve(alias: "Opus 4.8", models: models)
+        guard case .failure(.exactId(let failure)) = result else {
+            return XCTFail("expected exactId failure, got \(result)")
         }
-        XCTAssertEqual(alias, "alpha")
-        XCTAssertEqual(candidates.map(\.id).sorted(), ["model_custom_a", "model_custom_b"])
+        XCTAssertEqual(failure.provided, "Opus 4.8")
+        XCTAssertTrue(failure.suggestionIds.contains("model_opus"))
     }
 
-    func testSonnetAliasPrefersClaudeCodeOverAgyWhenRanksDiffer() {
-        // model_sonnet rank 80; model_agy_sonnet has no explicit rank (0) → Claude Code wins.
+    func testFuzzyAliasRejected() {
         let models = [
             model("model_sonnet", name: "Sonnet 4.6"),
-            model("model_agy_sonnet", name: "AGY Sonnet", driver: "antigravity"),
+            model("model_opus", name: "Opus 4.8"),
         ]
-        XCTAssertEqual(try PilotSeatResolver.resolve(alias: "sonnet", models: models).get(), "model_sonnet")
+        XCTAssertThrowsError(try PilotSeatResolver.resolve(alias: "opus", models: models).get())
     }
 
-    func testCaseInsensitiveSubstringMatch() {
-        let models = [model("model_cursor_grok", name: "Grok 4.5", driver: "cursor_agent")]
-        XCTAssertEqual(try PilotSeatResolver.resolve(alias: "GROK", models: models).get(), "model_cursor_grok")
+    /// An exact model id must resolve to itself even when it is a substring of other ids.
+    func testExactModelIdResolvesToItselfNotAFuzzyMatch() {
+        let models = [
+            model("model_chatgpt", name: "ChatGPT 5.6 Sol (Codex)"),
+            model("model_chatgpt_54", name: "ChatGPT 5.4"),
+            model("model_chatgpt_sol", name: "ChatGPT 5.6 Sol (Cursor)"),
+        ]
+        XCTAssertEqual(PilotSeatResolver.resolve(alias: "model_chatgpt", models: models), .success("model_chatgpt"))
+        XCTAssertEqual(PilotSeatResolver.resolve(alias: "model_chatgpt_sol", models: models), .success("model_chatgpt_sol"))
     }
 
     func testReadySeatsUsesGlobalProbe() {
@@ -66,21 +58,7 @@ final class PilotSeatResolverTests: XCTestCase {
         XCTAssertEqual(ready.map(\.id), ["model_ready"])
     }
 
-    /// SR-14 (Sol F28): duplicate probe records for one driver (possible via a hand-edited or
-    /// migrated `cli_setup.json`) must degrade gracefully — keep the latest — not trap the
-    /// process. Before the fix `Dictionary(uniqueKeysWithValues:)` crashed `pilot start`.
-    /// An exact model id must resolve to itself even when it is a substring of other ids
-    /// that tie/beat it on strengthRank (model_chatgpt vs model_chatgpt_54/_sol).
-    func testExactModelIdResolvesToItselfNotAFuzzyMatch() {
-        let models = [
-            model("model_chatgpt", name: "ChatGPT 5.6 Sol (Codex)"),
-            model("model_chatgpt_54", name: "ChatGPT 5.4"),
-            model("model_chatgpt_sol", name: "ChatGPT 5.6 Sol (Cursor)"),
-        ]
-        XCTAssertEqual(PilotSeatResolver.resolve(alias: "model_chatgpt", models: models), .success("model_chatgpt"))
-        XCTAssertEqual(PilotSeatResolver.resolve(alias: "model_chatgpt_sol", models: models), .success("model_chatgpt_sol"))
-    }
-
+    /// SR-14 (Sol F28): duplicate probe records for one driver must degrade gracefully.
     func testReadySeatsWithDuplicateDriverRecordsDoesNotCrash() {
         let models = [model("model_ready", name: "Ready", driver: "claude_code")]
         let records = [
@@ -88,7 +66,6 @@ final class PilotSeatResolverTests: XCTestCase {
             ToolProbeRecord(driverId: "claude_code", status: .ready(version: "2"), lastProbeAt: now),
         ]
         let ready = PilotSeatResolver.readySeats(from: models, probeRecords: records)
-        // Latest record (ready) wins → seat is offered.
         XCTAssertEqual(ready.map(\.id), ["model_ready"])
     }
 }
