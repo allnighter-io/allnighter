@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 1.6.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 1.7.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -31,6 +31,27 @@ Flags:
 Output schema: `commandsManifestJSON`.
 
 Examples: `commands_json`.
+
+### `alln menu`
+
+Live compact agent menu: public commands, teams, models, recipes, effects, and defaults.
+
+Flags:
+- `--json` — Emit MenuJSON (default; always machine JSON).
+
+Output schema: `menuJSON`.
+
+### `alln menu show`
+
+Hydrate one typed menu ref (command:/team:/model:/recipe:) into Tier-2 detail.
+
+Arguments:
+- `ref` (required) — Typed ref, e.g. command:run, team:code_growth, model:model_sonnet.
+
+Flags:
+- `--json` — Emit MenuShowJSON (default; always machine JSON).
+
+Output schema: `menuShowJSON`.
 
 ### `alln doctor`
 

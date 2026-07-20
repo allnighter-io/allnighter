@@ -138,6 +138,110 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case ownershipPsJSON
         case ownershipKillJSON
         case ownershipGarbageCollectionJSON
+        case menuJSON
+        case menuShowJSON
+    }
+
+    /// Registry-owned parser visibility (MR-S01). Public rows appear in `alln menu`;
+    /// developer/internal stay out of the agent front door.
+    public enum CommandVisibility: String, Codable, Sendable, CaseIterable {
+        case `public`
+        case developer
+        case `internal`
+    }
+
+    /// Structured effect level for one effect axis (MR-S01).
+    public enum EffectLevel: String, Codable, Sendable, CaseIterable {
+        case never
+        case always
+        case dependsOnFlags
+        case dependsOnSelection
+    }
+
+    /// Registry-owned command effects (MR-S01). Facts, not adjectives.
+    public struct EffectProfile: Codable, Sendable, Equatable {
+        public var workerStart: EffectLevel
+        public var quotaSpend: EffectLevel
+        public var repoWrite: EffectLevel
+        public var destructive: EffectLevel
+        public var humanInteraction: EffectLevel
+
+        public init(
+            workerStart: EffectLevel = .never,
+            quotaSpend: EffectLevel = .never,
+            repoWrite: EffectLevel = .never,
+            destructive: EffectLevel = .never,
+            humanInteraction: EffectLevel = .never
+        ) {
+            self.workerStart = workerStart
+            self.quotaSpend = quotaSpend
+            self.repoWrite = repoWrite
+            self.destructive = destructive
+            self.humanInteraction = humanInteraction
+        }
+
+        /// Sensible defaults from `spendsQuota` + command-name semantics.
+        public static func inferred(spendsQuota: Bool, name: String) -> EffectProfile {
+            let startsWorker =
+                spendsQuota
+                || name == "run"
+                || name == "team"
+                || name.hasPrefix("team start")
+                || name.hasPrefix("pair ")
+                || name.hasPrefix("panel start")
+                || name.hasPrefix("thread send")
+            let catalogWrite =
+                name.hasPrefix("teams edit")
+                || name.hasPrefix("teams delete")
+                || name.hasPrefix("teams duplicate")
+                || name.hasPrefix("teams set-default")
+                || name.hasPrefix("skills edit")
+                || name.hasPrefix("skills delete")
+                || name.hasPrefix("skills new")
+                || name.hasPrefix("models add")
+                || name.hasPrefix("models update")
+                || name.hasPrefix("models delete")
+                || name.hasPrefix("models enable")
+                || name.hasPrefix("models disable")
+                || name.hasPrefix("project add")
+                || name.hasPrefix("project archive")
+                || name.hasPrefix("defaults ")
+                || name.hasPrefix("boost-window set")
+            let destructive =
+                name == "kill"
+                || name == "gc"
+                || name.hasPrefix("teams delete")
+                || name.hasPrefix("skills delete")
+                || name.hasPrefix("models delete")
+                || name.hasPrefix("pending cancel")
+                || name.hasPrefix("team cancel")
+            return EffectProfile(
+                workerStart: startsWorker ? .dependsOnFlags : .never,
+                quotaSpend: spendsQuota ? .dependsOnFlags : .never,
+                repoWrite: startsWorker ? .dependsOnSelection : (catalogWrite ? .always : .never),
+                destructive: destructive ? .dependsOnSelection : .never,
+                humanInteraction: .never
+            )
+        }
+
+        /// Stable short key for `effectProfiles` dedup maps.
+        public var profileKey: String {
+            func abbrev(_ level: EffectLevel) -> String {
+                switch level {
+                case .never: return "n"
+                case .always: return "a"
+                case .dependsOnFlags: return "f"
+                case .dependsOnSelection: return "s"
+                }
+            }
+            return [
+                abbrev(workerStart),
+                abbrev(quotaSpend),
+                abbrev(repoWrite),
+                abbrev(destructive),
+                abbrev(humanInteraction),
+            ].joined(separator: "")
+        }
     }
 
     public struct ArgSpec: Codable, Sendable, Equatable {
@@ -180,6 +284,12 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public var spendsQuota: Bool
         /// Free twin invocation when `spendsQuota` (e.g. `alln run --dry-run`, `alln team preflight`).
         public var freeTwinCommand: String?
+        /// Parser visibility (MR-S01). Default `.public` for Codable back-compat.
+        public var visibility: CommandVisibility
+        /// When true, this command generates one `menu.actions[]` row (1:1, MR-S01).
+        public var menuAction: Bool
+        /// Structured effects (MR-S01). Inferred from semantics when omitted at init.
+        public var effects: EffectProfile
         public init(
             _ name: String,
             summary: String,
@@ -193,7 +303,10 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
             outputSchema: OutputSchema = .none,
             exampleIds: [String] = [],
             spendsQuota: Bool = false,
-            freeTwinCommand: String? = nil
+            freeTwinCommand: String? = nil,
+            visibility: CommandVisibility = .public,
+            menuAction: Bool = false,
+            effects: EffectProfile? = nil
         ) {
             self.name = name; self.summary = summary; self.milestone = milestone
             self.trigger = trigger; self.example = example; self.antiExample = antiExample
@@ -202,6 +315,38 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
             self.outputSchema = outputSchema; self.exampleIds = exampleIds
             self.spendsQuota = spendsQuota
             self.freeTwinCommand = freeTwinCommand
+            self.visibility = visibility
+            self.menuAction = menuAction
+            self.effects = effects ?? EffectProfile.inferred(spendsQuota: spendsQuota, name: name)
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case name, summary, trigger, example, antiExample, milestone, args, flags
+            case mutuallyExclusiveFlags, outputSchema, exampleIds, spendsQuota, freeTwinCommand
+            case visibility, menuAction, effects
+        }
+
+        /// Tolerant decode: pre-1.7.0 artifacts without visibility/menuAction/effects
+        /// read as public / false / inferred.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            name = try c.decode(String.self, forKey: .name)
+            summary = try c.decode(String.self, forKey: .summary)
+            trigger = try c.decodeIfPresent(String.self, forKey: .trigger)
+            example = try c.decodeIfPresent(String.self, forKey: .example)
+            antiExample = try c.decodeIfPresent(String.self, forKey: .antiExample)
+            milestone = try c.decode(Milestone.self, forKey: .milestone)
+            args = try c.decodeIfPresent([ArgSpec].self, forKey: .args) ?? []
+            flags = try c.decodeIfPresent([FlagSpec].self, forKey: .flags) ?? []
+            mutuallyExclusiveFlags = try c.decodeIfPresent([[String]].self, forKey: .mutuallyExclusiveFlags) ?? []
+            outputSchema = try c.decodeIfPresent(OutputSchema.self, forKey: .outputSchema) ?? .none
+            exampleIds = try c.decodeIfPresent([String].self, forKey: .exampleIds) ?? []
+            spendsQuota = try c.decodeIfPresent(Bool.self, forKey: .spendsQuota) ?? false
+            freeTwinCommand = try c.decodeIfPresent(String.self, forKey: .freeTwinCommand)
+            visibility = try c.decodeIfPresent(CommandVisibility.self, forKey: .visibility) ?? .public
+            menuAction = try c.decodeIfPresent(Bool.self, forKey: .menuAction) ?? false
+            effects = try c.decodeIfPresent(EffectProfile.self, forKey: .effects)
+                ?? EffectProfile.inferred(spendsQuota: spendsQuota, name: name)
         }
     }
 

@@ -775,6 +775,156 @@ public enum ContractSchema {
         return schema
     }
 
+    // MARK: - MenuJSON (MR-S01)
+
+    public static func menuSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/menu.schema.json",
+            "title": "MenuJSON",
+        ]
+        let effectLevel = enumStr(["never", "always", "dependsOnFlags", "dependsOnSelection"])
+        let top = obj([
+            "schemaVersion": int, "contractVersion": str, "contractHash": str,
+            "catalogRevision": str, "truncated": bool, "detailTemplate": str,
+            "actions": arr(ref("MenuAction")),
+            "commands": arr(ref("MenuCommand")),
+            "teams": arr(ref("MenuTeam")),
+            "models": arr(ref("MenuModel")),
+            "recipes": arr(ref("MenuRecipe")),
+            "effectProfiles": ["type": "object", "additionalProperties": ref("EffectProfile")],
+            "defaults": ref("MenuDefaults"),
+            "completeness": ref("MenuCompleteness"),
+        ], required: [
+            "schemaVersion", "contractVersion", "contractHash", "catalogRevision",
+            "truncated", "detailTemplate", "actions", "commands", "teams", "models",
+            "recipes", "effectProfiles", "defaults", "completeness",
+        ])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "EffectProfile": obj([
+                "workerStart": effectLevel, "quotaSpend": effectLevel,
+                "repoWrite": effectLevel, "destructive": effectLevel,
+                "humanInteraction": effectLevel,
+            ], required: ["workerStart", "quotaSpend", "repoWrite", "destructive", "humanInteraction"]),
+            "MenuAction": obj([
+                "id": str, "useWhen": str, "dontUseWhen": str,
+                "effectsRef": str, "example": str, "validateExample": str,
+            ], required: ["id", "useWhen", "dontUseWhen", "effectsRef", "example", "validateExample"]),
+            "MenuCommand": obj([
+                "ref": str, "name": str, "effectsRef": str,
+            ], required: ["ref", "name", "effectsRef"]),
+            "MenuTeam": obj([
+                "ref": str, "id": str, "displayName": str, "useWhen": str, "dontUseWhen": str,
+                "shape": str, "mutating": bool, "workerCount": int, "isDefault": bool,
+                "active": bool, "blockedReason": nullable("string"),
+                "runTemplate": str, "validateTemplate": str,
+            ], required: [
+                "ref", "id", "displayName", "useWhen", "dontUseWhen", "shape", "mutating",
+                "workerCount", "isDefault", "active", "runTemplate", "validateTemplate",
+            ]),
+            "MenuModel": obj([
+                "ref": str, "id": str, "displayName": str, "driverId": str,
+                "enabled": bool, "ready": bool, "blockedReason": nullable("string"),
+                "capabilities": ref("ModelCapabilities"),
+                "runTemplate": str, "validateTemplate": str,
+            ], required: [
+                "ref", "id", "displayName", "driverId", "enabled", "ready",
+                "capabilities", "runTemplate", "validateTemplate",
+            ]),
+            "MenuRecipe": obj([
+                "ref": str, "id": str, "title": str, "useWhen": str, "dontUseWhen": str,
+            ], required: ["ref", "id", "title", "useWhen", "dontUseWhen"]),
+            "MenuDefaults": obj([
+                "defaultTeamRef": str, "defaultWorkerId": nullable("string"),
+            ], required: ["defaultTeamRef"]),
+            "CollectionCompleteness": obj([
+                "count": int, "complete": bool,
+            ], required: ["count", "complete"]),
+            "MenuCompleteness": obj([
+                "actions": ref("CollectionCompleteness"),
+                "commands": ref("CollectionCompleteness"),
+                "teams": ref("CollectionCompleteness"),
+                "models": ref("CollectionCompleteness"),
+                "recipes": ref("CollectionCompleteness"),
+                "effectProfiles": ref("CollectionCompleteness"),
+            ], required: ["actions", "commands", "teams", "models", "recipes", "effectProfiles"]),
+            "ModelCapabilities": obj([
+                "laneTags": arr(str), "capabilityTags": arr(str), "strengthRank": int,
+            ], required: ["laneTags", "capabilityTags", "strengthRank"]),
+        ]
+        return schema
+    }
+
+    public static func menuShowSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.app/schemas/menu-show.schema.json",
+            "title": "MenuShowJSON",
+        ]
+        let effectLevel = enumStr(["never", "always", "dependsOnFlags", "dependsOnSelection"])
+        let top = obj([
+            "schemaVersion": int, "contractVersion": str, "ref": str, "kind": str,
+            "command": nullableRef("CommandDetail"),
+            "team": nullableRef("TeamDetail"),
+            "model": nullableRef("ModelDetail"),
+            "recipe": nullableRef("RecipeDetail"),
+        ], required: ["schemaVersion", "contractVersion", "ref", "kind"])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "EffectProfile": obj([
+                "workerStart": effectLevel, "quotaSpend": effectLevel,
+                "repoWrite": effectLevel, "destructive": effectLevel,
+                "humanInteraction": effectLevel,
+            ], required: ["workerStart", "quotaSpend", "repoWrite", "destructive", "humanInteraction"]),
+            "ArgSpec": obj([
+                "name": str, "required": bool, "summary": str,
+            ], required: ["name", "required", "summary"]),
+            "FlagSpec": obj([
+                "name": str, "takesValue": bool, "valueType": nullable("string"),
+                "defaultValue": nullable("string"), "summary": str,
+            ], required: ["name", "takesValue", "summary"]),
+            "CommandDetail": obj([
+                "ref": str, "name": str, "summary": str, "trigger": str,
+                "example": str, "antiExample": str, "spendsQuota": bool,
+                "freeTwinCommand": nullable("string"), "effects": ref("EffectProfile"),
+                "args": arr(ref("ArgSpec")), "flags": arr(ref("FlagSpec")),
+            ], required: [
+                "ref", "name", "summary", "trigger", "example", "antiExample",
+                "spendsQuota", "effects", "args", "flags",
+            ]),
+            "TeamDetail": obj([
+                "ref": str, "id": str, "displayName": str, "description": str,
+                "lane": str, "outputKind": str, "shape": str, "mutating": bool,
+                "workerCount": int, "isDefault": bool, "active": bool,
+                "blockedReason": nullable("string"),
+                "runTemplate": str, "validateTemplate": str, "purposeTags": arr(str),
+            ], required: [
+                "ref", "id", "displayName", "description", "lane", "outputKind",
+                "shape", "mutating", "workerCount", "isDefault", "active",
+                "runTemplate", "validateTemplate", "purposeTags",
+            ]),
+            "ModelDetail": obj([
+                "ref": str, "id": str, "displayName": str, "driverId": str, "driverName": str,
+                "enabled": bool, "ready": bool, "status": str,
+                "blockedReason": nullable("string"),
+                "capabilities": ref("ModelCapabilities"),
+                "runTemplate": str, "validateTemplate": str,
+            ], required: [
+                "ref", "id", "displayName", "driverId", "driverName", "enabled", "ready",
+                "status", "capabilities", "runTemplate", "validateTemplate",
+            ]),
+            "RecipeDetail": obj([
+                "ref": str, "id": str, "title": str, "useWhen": str, "dontUseWhen": str,
+                "markdown": str,
+            ], required: ["ref", "id", "title", "useWhen", "dontUseWhen", "markdown"]),
+            "ModelCapabilities": obj([
+                "laneTags": arr(str), "capabilityTags": arr(str), "strengthRank": int,
+            ], required: ["laneTags", "capabilityTags", "strengthRank"]),
+        ]
+        return schema
+    }
+
     // MARK: - Deterministic serialization
 
     public static func json(_ schema: [String: Any]) throws -> String {

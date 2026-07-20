@@ -8,6 +8,13 @@
           "summary" : "Limit docs to one command family."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "docs_all"
       ],
@@ -28,6 +35,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -35,12 +43,20 @@
       "name" : "docs",
       "outputSchema" : "contractDoc",
       "spendsQuota" : false,
-      "summary" : "Generated AI-facing command reference."
+      "summary" : "Generated AI-facing command reference.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "commands_json"
       ],
@@ -51,6 +67,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -58,12 +75,94 @@
       "name" : "commands",
       "outputSchema" : "commandsManifestJSON",
       "spendsQuota" : false,
-      "summary" : "Full command manifest for agents (name, trigger, args, examples, anti-examples). Machine front door for discovery."
+      "summary" : "Full command manifest for agents (name, trigger, args, examples, anti-examples). Machine front door for discovery.",
+      "visibility" : "public"
+    },
+    {
+      "antiExample" : "Do NOT use this to start work — choose a command\/team\/model from the menu, then validate with its template.",
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "alln menu --json",
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit MenuJSON (default; always machine JSON).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "menu",
+      "outputSchema" : "menuJSON",
+      "spendsQuota" : false,
+      "summary" : "Live compact agent menu: public commands, teams, models, recipes, effects, and defaults.",
+      "trigger" : "Use before first Allnighter spend in a session to discover runnable commands, teams, and models.",
+      "visibility" : "public"
+    },
+    {
+      "antiExample" : "Do NOT use this to discover the catalog — call `alln menu --json` first.",
+      "args" : [
+        {
+          "name" : "ref",
+          "required" : true,
+          "summary" : "Typed ref, e.g. command:run, team:code_growth, model:model_sonnet."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "alln menu show command:run --json",
+      "exampleIds" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit MenuShowJSON (default; always machine JSON).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "menu show",
+      "outputSchema" : "menuShowJSON",
+      "spendsQuota" : false,
+      "summary" : "Hydrate one typed menu ref (command:\/team:\/model:\/recipe:) into Tier-2 detail.",
+      "trigger" : "Use when a Tier-1 menu row is not enough and you need flags, prose, or full recipe body.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "doctor_json"
       ],
@@ -106,6 +205,7 @@
           "valueType" : "id"
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -113,7 +213,8 @@
       "name" : "doctor",
       "outputSchema" : "doctorResult",
       "spendsQuota" : false,
-      "summary" : "Check sources, models, auth, and coordinator."
+      "summary" : "Check sources, models, auth, and coordinator.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -123,6 +224,13 @@
           "summary" : "Error code to explain."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "doctor_explain"
       ],
@@ -133,6 +241,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -140,12 +249,20 @@
       "name" : "doctor explain",
       "outputSchema" : "errorExplainJSON",
       "spendsQuota" : false,
-      "summary" : "Explain one failure\/recovery code, bridged to the help topic that documents it."
+      "summary" : "Explain one failure\/recovery code, bridged to the help topic that documents it.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "bootstrap_json"
       ],
@@ -162,6 +279,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -169,12 +287,20 @@
       "name" : "bootstrap",
       "outputSchema" : "bootstrapJSON",
       "spendsQuota" : false,
-      "summary" : "Print a paste-ready agent-activation snippet for a host's context file (never edits files)."
+      "summary" : "Print a paste-ready agent-activation snippet for a host's context file (never edits files).",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "version_json"
       ],
@@ -185,6 +311,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -192,12 +319,20 @@
       "name" : "version",
       "outputSchema" : "versionJSON",
       "spendsQuota" : false,
-      "summary" : "Print the running binary version and contract hash."
+      "summary" : "Print the running binary version and contract hash.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "install_cli_json"
       ],
@@ -219,6 +354,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -226,12 +362,20 @@
       "name" : "install-cli",
       "outputSchema" : "installCLIJSON",
       "spendsQuota" : false,
-      "summary" : "Symlink the running `alln` binary onto PATH (running the command is consent)."
+      "summary" : "Symlink the running `alln` binary onto PATH (running the command is consent).",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "models_json"
       ],
@@ -253,6 +397,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : true,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -260,7 +405,8 @@
       "name" : "models",
       "outputSchema" : "modelListJSON",
       "spendsQuota" : false,
-      "summary" : "List model catalog and Bench state. For natural-language model names (Sonnet, Grok), use `alln route --for` first — this list is catalog ids only."
+      "summary" : "List model catalog and Bench state. For natural-language model names (Sonnet, Grok), use `alln route --for` first — this list is catalog ids only.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -270,6 +416,13 @@
           "summary" : "Model id to enable."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -280,6 +433,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -287,7 +441,8 @@
       "name" : "models enable",
       "outputSchema" : "modelListJSON",
       "spendsQuota" : false,
-      "summary" : "Enable a model on the Bench."
+      "summary" : "Enable a model on the Bench.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -297,6 +452,13 @@
           "summary" : "Model id to disable."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -307,6 +469,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -314,12 +477,20 @@
       "name" : "models disable",
       "outputSchema" : "modelListJSON",
       "spendsQuota" : false,
-      "summary" : "Remove a model from the Bench."
+      "summary" : "Remove a model from the Bench.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -359,6 +530,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -366,7 +538,8 @@
       "name" : "models add",
       "outputSchema" : "modelListJSON",
       "spendsQuota" : false,
-      "summary" : "Add a custom model for a source."
+      "summary" : "Add a custom model for a source.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -376,6 +549,13 @@
           "summary" : "Custom model id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -404,6 +584,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -411,7 +592,8 @@
       "name" : "models update",
       "outputSchema" : "modelListJSON",
       "spendsQuota" : false,
-      "summary" : "Update a custom model definition."
+      "summary" : "Update a custom model definition.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -421,6 +603,13 @@
           "summary" : "Custom model id."
         }
       ],
+      "effects" : {
+        "destructive" : "dependsOnSelection",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -431,6 +620,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -438,12 +628,20 @@
       "name" : "models delete",
       "outputSchema" : "modelListJSON",
       "spendsQuota" : false,
-      "summary" : "Delete a custom model definition."
+      "summary" : "Delete a custom model definition.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "team_show_json"
       ],
@@ -460,6 +658,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -467,12 +666,20 @@
       "name" : "team show",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Show the default team for each lane."
+      "summary" : "Show the default team for each lane.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "teams_code_json"
       ],
@@ -494,6 +701,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -501,7 +709,8 @@
       "name" : "teams",
       "outputSchema" : "teamCatalogJSON",
       "spendsQuota" : false,
-      "summary" : "List the lane-scoped team catalog. Looking for a team by intent or name? Prefer `alln route --for` over guessing ids."
+      "summary" : "List the lane-scoped team catalog. Looking for a team by intent or name? Prefer `alln route --for` over guessing ids.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -516,6 +725,13 @@
           "summary" : "User message text."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
         "thread_send_json"
       ],
@@ -551,6 +767,7 @@
         }
       ],
       "freeTwinCommand" : "alln route --for",
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -558,7 +775,8 @@
       "name" : "thread send",
       "outputSchema" : "none",
       "spendsQuota" : true,
-      "summary" : "Send a message and\/or images to a work thread."
+      "summary" : "Send a message and\/or images to a work thread.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -568,6 +786,13 @@
           "summary" : "Thread id or `latest`."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "thread_get_json"
       ],
@@ -578,6 +803,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -585,7 +811,8 @@
       "name" : "thread get",
       "outputSchema" : "threadGetJSON",
       "spendsQuota" : false,
-      "summary" : "Fetch one work thread snapshot."
+      "summary" : "Fetch one work thread snapshot.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -600,6 +827,13 @@
           "summary" : "New non-empty thread title."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "thread_rename_json"
       ],
@@ -616,6 +850,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -623,7 +858,8 @@
       "name" : "thread rename",
       "outputSchema" : "threadGetJSON",
       "spendsQuota" : false,
-      "summary" : "Rename a work thread (same SSOT as the inbox double-click rename)."
+      "summary" : "Rename a work thread (same SSOT as the inbox double-click rename).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -638,6 +874,13 @@
           "summary" : "Attachment id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -648,6 +891,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -655,7 +899,8 @@
       "name" : "thread attachment",
       "outputSchema" : "threadAttachmentJSON",
       "spendsQuota" : false,
-      "summary" : "Fetch one thread attachment by id."
+      "summary" : "Fetch one thread attachment by id.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -665,6 +910,13 @@
           "summary" : "Thread id or `latest`."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "thread_status_json"
       ],
@@ -675,6 +927,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -682,12 +935,20 @@
       "name" : "thread status",
       "outputSchema" : "threadStatus",
       "spendsQuota" : false,
-      "summary" : "Poll thread running\/attention state."
+      "summary" : "Poll thread running\/attention state.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "skills_code_json"
       ],
@@ -704,6 +965,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -711,7 +973,8 @@
       "name" : "skills",
       "outputSchema" : "skillCatalogJSON",
       "spendsQuota" : false,
-      "summary" : "List the lane-scoped skill catalog."
+      "summary" : "List the lane-scoped skill catalog.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -721,6 +984,13 @@
           "summary" : "Skill id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "skills_show_json"
       ],
@@ -731,6 +1001,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -738,7 +1009,8 @@
       "name" : "skills show",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Show one skill definition including template."
+      "summary" : "Show one skill definition including template.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -748,6 +1020,13 @@
           "summary" : "Team id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "teams_show_json"
       ],
@@ -758,6 +1037,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -765,7 +1045,8 @@
       "name" : "teams show",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Show one team definition including worker rows."
+      "summary" : "Show one team definition including worker rows.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -775,6 +1056,13 @@
           "summary" : "Team id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "teams_definition_json"
       ],
@@ -785,6 +1073,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -792,7 +1081,8 @@
       "name" : "teams definition",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Full TeamPreset JSON round-trippable through teams edit\/save."
+      "summary" : "Full TeamPreset JSON round-trippable through teams edit\/save.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -802,6 +1092,13 @@
           "summary" : "Source team id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "teams_duplicate_json"
       ],
@@ -818,6 +1115,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : true,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -825,7 +1123,8 @@
       "name" : "teams duplicate",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Duplicate a built-in team into a custom team."
+      "summary" : "Duplicate a built-in team into a custom team.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -835,6 +1134,13 @@
           "summary" : "Team id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "teams_edit_json"
       ],
@@ -851,6 +1157,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : true,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -858,7 +1165,8 @@
       "name" : "teams edit",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Edit a custom team definition (full replacement)."
+      "summary" : "Edit a custom team definition (full replacement).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -868,6 +1176,13 @@
           "summary" : "Team id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "teams_set_default_json"
       ],
@@ -878,6 +1193,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -885,7 +1201,8 @@
       "name" : "teams set-default",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Set the default team for a lane."
+      "summary" : "Set the default team for a lane.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -895,6 +1212,13 @@
           "summary" : "Team id."
         }
       ],
+      "effects" : {
+        "destructive" : "dependsOnSelection",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "teams_delete_json"
       ],
@@ -905,6 +1229,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -912,7 +1237,8 @@
       "name" : "teams delete",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Delete a custom team (or restore a built-in to shipped)."
+      "summary" : "Delete a custom team (or restore a built-in to shipped).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -922,6 +1248,13 @@
           "summary" : "Team id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "teams_restore_json"
       ],
@@ -932,6 +1265,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -939,7 +1273,8 @@
       "name" : "teams restore",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Restore a built-in team to its shipped version (remove edits)."
+      "summary" : "Restore a built-in team to its shipped version (remove edits).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -949,6 +1284,13 @@
           "summary" : "Source skill id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "skills_duplicate_json"
       ],
@@ -965,6 +1307,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -972,12 +1315,20 @@
       "name" : "skills duplicate",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Duplicate a built-in skill into a custom skill."
+      "summary" : "Duplicate a built-in skill into a custom skill.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "skills_new_json"
       ],
@@ -1012,6 +1363,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1019,7 +1371,8 @@
       "name" : "skills new",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Create a custom skill."
+      "summary" : "Create a custom skill.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -1029,6 +1382,13 @@
           "summary" : "Skill id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "skills_edit_json"
       ],
@@ -1051,6 +1411,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1058,7 +1419,8 @@
       "name" : "skills edit",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Edit a custom skill definition."
+      "summary" : "Edit a custom skill definition.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -1068,6 +1430,13 @@
           "summary" : "Skill id."
         }
       ],
+      "effects" : {
+        "destructive" : "dependsOnSelection",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "skills_delete_json"
       ],
@@ -1078,6 +1447,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1085,13 +1455,21 @@
       "name" : "skills delete",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Delete a custom skill."
+      "summary" : "Delete a custom skill.",
+      "visibility" : "public"
     },
     {
       "antiExample" : "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "example" : "alln team hello --for \"ask Sonnet 5 a question\" --json",
       "exampleIds" : [
 
@@ -1109,6 +1487,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1117,13 +1496,21 @@
       "outputSchema" : "none",
       "spendsQuota" : false,
       "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Omitting `--for` returns readiness + ready teams (quota-free).",
-      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it."
+      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
+      "visibility" : "public"
     },
     {
       "antiExample" : "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "example" : "alln route --for \"ask Sonnet 5 a question\" --json",
       "exampleIds" : [
 
@@ -1141,6 +1528,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1149,13 +1537,21 @@
       "outputSchema" : "none",
       "spendsQuota" : false,
       "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
-      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it."
+      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
+      "visibility" : "public"
     },
     {
       "antiExample" : "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "example" : "alln resolve --for \"ask Sonnet 5 a question\" --json",
       "exampleIds" : [
 
@@ -1173,6 +1569,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1181,12 +1578,20 @@
       "outputSchema" : "none",
       "spendsQuota" : false,
       "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
-      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it."
+      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -1221,6 +1626,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : true,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1228,7 +1634,8 @@
       "name" : "team preflight",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Validate lane\/team\/effort against the ready bench without running."
+      "summary" : "Validate lane\/team\/effort against the ready bench without running.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -1238,6 +1645,13 @@
           "summary" : "The prompt (or use --file)."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
         "team_start_json"
       ],
@@ -1309,6 +1723,7 @@
         }
       ],
       "freeTwinCommand" : "alln team preflight",
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1316,7 +1731,8 @@
       "name" : "team start",
       "outputSchema" : "teamStartResponse",
       "spendsQuota" : true,
-      "summary" : "Start a resumable\/asynchronous team run."
+      "summary" : "Start a resumable\/asynchronous team run.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -1326,6 +1742,13 @@
           "summary" : "The run id from team start."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -1348,6 +1771,7 @@
           "valueType" : "seconds"
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1355,7 +1779,8 @@
       "name" : "team status",
       "outputSchema" : "teamStatusResponse",
       "spendsQuota" : false,
-      "summary" : "Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin)."
+      "summary" : "Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -1365,6 +1790,13 @@
           "summary" : "The run id from team start."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -1375,6 +1807,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1382,7 +1815,8 @@
       "name" : "team result",
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : false,
-      "summary" : "Fetch TeamRunJSON when an async run is terminal."
+      "summary" : "Fetch TeamRunJSON when an async run is terminal.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -1392,6 +1826,13 @@
           "summary" : "The run id from team start."
         }
       ],
+      "effects" : {
+        "destructive" : "dependsOnSelection",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -1402,6 +1843,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1409,7 +1851,8 @@
       "name" : "team cancel",
       "outputSchema" : "teamCancelResponse",
       "spendsQuota" : false,
-      "summary" : "Cancel an active async team run."
+      "summary" : "Cancel an active async team run.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -1419,6 +1862,13 @@
           "summary" : "Optional run id; omit to sweep the caller's project scope."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -1434,6 +1884,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1441,12 +1892,20 @@
       "name" : "team reconcile",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. An exact run-id may target any project; the bare sweep is scoped to the caller's canonical project root (fail closed on unresolved roots) — machine-wide only via the explicit --all-projects."
+      "summary" : "Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. An exact run-id may target any project; the bare sweep is scoped to the caller's canonical project root (fail closed on unresolved roots) — machine-wide only via the explicit --all-projects.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -1462,6 +1921,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1469,7 +1929,8 @@
       "name" : "ps",
       "outputSchema" : "ownershipPsJSON",
       "spendsQuota" : false,
-      "summary" : "List the process trees Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing. Defaults to the caller's project scope; --all-projects is the explicit machine-wide fleet view."
+      "summary" : "List the process trees Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing. Defaults to the caller's project scope; --all-projects is the explicit machine-wide fleet view.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -1479,6 +1940,13 @@
           "summary" : "Owned process id (run\/relay\/pilot\/proof). Required unless --all."
         }
       ],
+      "effects" : {
+        "destructive" : "dependsOnSelection",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -1499,6 +1967,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1506,12 +1975,20 @@
       "name" : "kill",
       "outputSchema" : "ownershipKillJSON",
       "spendsQuota" : false,
-      "summary" : "Identity-checked total group kill of one owned tree (or --all identity-alive trees in the caller's project scope) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid). An exact id may target any project."
+      "summary" : "Identity-checked total group kill of one owned tree (or --all identity-alive trees in the caller's project scope) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid). An exact id may target any project.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "dependsOnSelection",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -1527,6 +2004,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1534,7 +2012,8 @@
       "name" : "gc",
       "outputSchema" : "ownershipGarbageCollectionJSON",
       "spendsQuota" : false,
-      "summary" : "Prune old identity-dead terminal run\/relay records beyond retention. Keeps identity-alive, non-terminal, recent, and thread-referenced records."
+      "summary" : "Prune old identity-dead terminal run\/relay records beyond retention. Keeps identity-alive, non-terminal, recent, and thread-referenced records.",
+      "visibility" : "public"
     },
     {
       "antiExample" : "Do NOT use this to explore shapes — prefer `alln team preflight` or `alln route --for` first; this spends quota.",
@@ -1545,6 +2024,13 @@
           "summary" : "The user's prompt."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "example" : "alln run \"summarize AGENTS.md\" --project . --json",
       "exampleIds" : [
 
@@ -1690,6 +2176,7 @@
         }
       ],
       "freeTwinCommand" : "alln run --dry-run",
+      "menuAction" : true,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
         [
@@ -1713,7 +2200,8 @@
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : true,
       "summary" : "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.",
-      "trigger" : "Use when the user wants one worker to answer or act in a project repo root (chat \/ named-model ask \/ Default Team)."
+      "trigger" : "Use when the user wants one worker to answer or act in a project repo root (chat \/ named-model ask \/ Default Team).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -1723,6 +2211,13 @@
           "summary" : "Parked run id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -1733,6 +2228,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1740,12 +2236,20 @@
       "name" : "run resume",
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : false,
-      "summary" : "Resume a run parked on vendor capacity (same run id, in-process)."
+      "summary" : "Resume a run parked on vendor capacity (same run id, in-process).",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -1756,6 +2260,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1763,12 +2268,20 @@
       "name" : "continuity receipt",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Local observed-facts summary of vendor waits covered and automatic resumes (last 24h)."
+      "summary" : "Local observed-facts summary of vendor waits covered and automatic resumes (last 24h).",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -1821,6 +2334,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1828,12 +2342,20 @@
       "name" : "pair relay",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done\/escalate\/a ceiling."
+      "summary" : "Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done\/escalate\/a ceiling.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -1850,6 +2372,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1857,12 +2380,20 @@
       "name" : "pair relay-status",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Read a PM Relay's durable state — rounds, verdicts, gate decisions."
+      "summary" : "Read a PM Relay's durable state — rounds, verdicts, gate decisions.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -1897,6 +2428,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1904,12 +2436,20 @@
       "name" : "pair relay-resume",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Resume an escalated PM Relay with the founder's answer, then continue the loop."
+      "summary" : "Resume an escalated PM Relay with the founder's answer, then continue the loop.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -1944,6 +2484,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -1951,12 +2492,20 @@
       "name" : "pair relay adopt",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Night-shift handover: converts a parked Pilot relay (awaitingPM or escalated) to a spawned PM relay and continues the loop from the durable round log."
+      "summary" : "Night-shift handover: converts a parked Pilot relay (awaitingPM or escalated) to a spawned PM relay and continues the loop from the durable round log.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -1997,6 +2546,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2004,12 +2554,20 @@
       "name" : "pair pilot start",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat + rails). Parks awaitingPM."
+      "summary" : "Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat + rails). Parks awaitingPM.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -2060,6 +2618,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
         [
@@ -2078,12 +2637,20 @@
       "name" : "pair pilot handoff",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim."
+      "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -2100,6 +2667,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2107,12 +2675,20 @@
       "name" : "pair pilot status",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Read a Pilot relay's durable state — rounds, verdicts, gate decisions, dirty-tree snapshots."
+      "summary" : "Read a Pilot relay's durable state — rounds, verdicts, gate decisions, dirty-tree snapshots.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -2129,6 +2705,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2136,12 +2713,20 @@
       "name" : "pair pilot watch",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status)."
+      "summary" : "Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status).",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -2158,6 +2743,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2165,12 +2751,20 @@
       "name" : "pair pilot adopt",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Reverse flip: hands a parked spawned relay's PM seat to a piloting session (pmMode → external, status → awaitingPM). No dispatch."
+      "summary" : "Reverse flip: hands a parked spawned relay's PM seat to a piloting session (pmMode → external, status → awaitingPM). No dispatch.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -2193,6 +2787,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2200,12 +2795,20 @@
       "name" : "pair pilot scaffold-handover",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Write or re-emit a suggested PM handover markdown template for a relay round."
+      "summary" : "Write or re-emit a suggested PM handover markdown template for a relay round.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -2246,6 +2849,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2253,12 +2857,20 @@
       "name" : "panel start",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Start a Panel session: session-led blind jury on any target. Parks awaitingPM with a resolved roster."
+      "summary" : "Start a Panel session: session-led blind jury on any target. Parks awaitingPM with a resolved roster.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2292,6 +2904,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2299,12 +2912,20 @@
       "name" : "panel round",
       "outputSchema" : "panelRoundJSON",
       "spendsQuota" : false,
-      "summary" : "Dispatch one panel round (or a --seats subset rerun). Blocks; prints per-seat findings verbatim + statuses; NDJSON progress while running."
+      "summary" : "Dispatch one panel round (or a --seats subset rerun). Blocks; prints per-seat findings verbatim + statuses; NDJSON progress while running.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2321,6 +2942,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2328,12 +2950,20 @@
       "name" : "panel status",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Read a Panel session's durable state — roster, rounds, target hash, recovery nextActions when in flight."
+      "summary" : "Read a Panel session's durable state — roster, rounds, target hash, recovery nextActions when in flight.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2350,6 +2980,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2357,12 +2988,20 @@
       "name" : "panel watch",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Poll a Panel until its in-flight round settles back to awaitingPM (or a terminal status). Dead-owner → run panel watch (DX5)."
+      "summary" : "Poll a Panel until its in-flight round settles back to awaitingPM (or a terminal status). Dead-owner → run panel watch (DX5).",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2385,6 +3024,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2392,12 +3032,20 @@
       "name" : "panel scaffold-brief",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Write or re-emit a suggested focus-brief template (rejection-carry + stance lines) for a panel round."
+      "summary" : "Write or re-emit a suggested focus-brief template (rejection-carry + stance lines) for a panel round.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2420,6 +3068,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2427,7 +3076,8 @@
       "name" : "panel done",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Declare a Panel session done (session judgment only — never auto-converges). Optional survivors note."
+      "summary" : "Declare a Panel session done (session judgment only — never auto-converges). Optional survivors note.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2437,6 +3087,13 @@
           "summary" : "The prompt (or use --file)."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
         "team_basic",
         "team_json",
@@ -2497,6 +3154,7 @@
         }
       ],
       "freeTwinCommand" : "alln team preflight",
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
         [
@@ -2507,7 +3165,8 @@
       "name" : "team",
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : true,
-      "summary" : "Run a lane team on a prompt, foreground."
+      "summary" : "Run a lane team on a prompt, foreground.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2517,6 +3176,13 @@
           "summary" : "A run id or `latest`."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "show_latest_json"
       ],
@@ -2532,6 +3198,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2539,7 +3206,8 @@
       "name" : "show",
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : false,
-      "summary" : "Show one run."
+      "summary" : "Show one run.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2549,6 +3217,13 @@
           "summary" : "A run id or `latest` (default latest)."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2559,6 +3234,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2566,7 +3242,8 @@
       "name" : "floor show",
       "outputSchema" : "floorRun",
       "spendsQuota" : false,
-      "summary" : "Show the inspectable Floor for one team run (worker lanes, artifacts, typed return, timeline, Execute requirements)."
+      "summary" : "Show the inspectable Floor for one team run (worker lanes, artifacts, typed return, timeline, Execute requirements).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2576,6 +3253,13 @@
           "summary" : "A run id or `latest` (default latest)."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "spec_full"
       ],
@@ -2593,6 +3277,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2600,7 +3285,8 @@
       "name" : "spec",
       "outputSchema" : "specResult",
       "spendsQuota" : false,
-      "summary" : "Retrieve a run's spec\/result packet (summary|full|artifactRefsOnly)."
+      "summary" : "Retrieve a run's spec\/result packet (summary|full|artifactRefsOnly).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2610,6 +3296,13 @@
           "summary" : "A run id or `latest`."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "export_md"
       ],
@@ -2622,6 +3315,7 @@
           "valueType" : "format"
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2629,7 +3323,8 @@
       "name" : "export",
       "outputSchema" : "markdown",
       "spendsQuota" : false,
-      "summary" : "Export a result bundle."
+      "summary" : "Export a result bundle.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2639,6 +3334,13 @@
           "summary" : "Search text."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2649,6 +3351,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2656,12 +3359,20 @@
       "name" : "history",
       "outputSchema" : "historyJSON",
       "spendsQuota" : false,
-      "summary" : "Search prior team runs (read-only)."
+      "summary" : "Search prior team runs (read-only).",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "export_contracts_check"
       ],
@@ -2672,6 +3383,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2679,12 +3391,20 @@
       "name" : "dev export-contracts",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Regenerate or verify generated artifacts."
+      "summary" : "Regenerate or verify generated artifacts.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "serve_health_json"
       ],
@@ -2700,6 +3420,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2707,7 +3428,8 @@
       "name" : "serve",
       "outputSchema" : "coordinatorHealth",
       "spendsQuota" : false,
-      "summary" : "Resident Mac coordinator (foreground skeleton)."
+      "summary" : "Resident Mac coordinator (foreground skeleton).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2717,6 +3439,13 @@
           "summary" : "Work prompt (or use --file)."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "pending_add_json"
       ],
@@ -2768,6 +3497,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2775,12 +3505,20 @@
       "name" : "pending add",
       "outputSchema" : "pendingItemJSON",
       "spendsQuota" : false,
-      "summary" : "Create a Draft Pending item."
+      "summary" : "Create a Draft Pending item.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
         "pending_list_json"
       ],
@@ -2791,6 +3529,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2798,12 +3537,20 @@
       "name" : "pending list",
       "outputSchema" : "pendingListJSON",
       "spendsQuota" : false,
-      "summary" : "List Pending items."
+      "summary" : "List Pending items.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2814,6 +3561,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2821,7 +3569,8 @@
       "name" : "pending queue",
       "outputSchema" : "pendingQueueJSON",
       "spendsQuota" : false,
-      "summary" : "Render-ready Pending queue (armed items grouped by project, in order, headed by the running item) + total armed count for the pending pill."
+      "summary" : "Render-ready Pending queue (armed items grouped by project, in order, headed by the running item) + total armed count for the pending pill.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2831,6 +3580,13 @@
           "summary" : "Pending item id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2841,6 +3597,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2848,7 +3605,8 @@
       "name" : "pending show",
       "outputSchema" : "pendingItemJSON",
       "spendsQuota" : false,
-      "summary" : "Show one Pending item."
+      "summary" : "Show one Pending item.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2858,6 +3616,13 @@
           "summary" : "Pending item id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2868,6 +3633,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2875,7 +3641,8 @@
       "name" : "pending submit",
       "outputSchema" : "pendingItemJSON",
       "spendsQuota" : false,
-      "summary" : "Move a Draft item to Pending."
+      "summary" : "Move a Draft item to Pending.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2885,6 +3652,13 @@
           "summary" : "Pending item id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2937,6 +3711,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2944,7 +3719,8 @@
       "name" : "pending edit",
       "outputSchema" : "pendingItemJSON",
       "spendsQuota" : false,
-      "summary" : "Edit a Pending item (Pending returns to Draft)."
+      "summary" : "Edit a Pending item (Pending returns to Draft).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2954,6 +3730,13 @@
           "summary" : "Item to move."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -2982,6 +3765,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -2989,7 +3773,8 @@
       "name" : "pending reorder",
       "outputSchema" : "pendingItemJSON",
       "spendsQuota" : false,
-      "summary" : "Reorder Pending items."
+      "summary" : "Reorder Pending items.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -2999,6 +3784,13 @@
           "summary" : "Pending item id."
         }
       ],
+      "effects" : {
+        "destructive" : "dependsOnSelection",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3009,6 +3801,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3016,7 +3809,8 @@
       "name" : "pending cancel",
       "outputSchema" : "pendingItemJSON",
       "spendsQuota" : false,
-      "summary" : "Cancel a Draft or Pending item."
+      "summary" : "Cancel a Draft or Pending item.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3026,6 +3820,13 @@
           "summary" : "Pending item id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
       "exampleIds" : [
 
       ],
@@ -3042,6 +3843,7 @@
         }
       ],
       "freeTwinCommand" : "alln pending show",
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
         [
@@ -3052,12 +3854,20 @@
       "name" : "pending run",
       "outputSchema" : "pendingItemJSON",
       "spendsQuota" : true,
-      "summary" : "Run a Pending item now (manual attempt; no drain)."
+      "summary" : "Run a Pending item now (manual attempt; no drain).",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3073,6 +3883,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3080,7 +3891,8 @@
       "name" : "project list",
       "outputSchema" : "projectListJSON",
       "spendsQuota" : false,
-      "summary" : "List projects (active by default; --all includes archived)."
+      "summary" : "List projects (active by default; --all includes archived).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3090,6 +3902,13 @@
           "summary" : "Local folder \/ git repo root."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3106,6 +3925,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3113,7 +3933,8 @@
       "name" : "project add",
       "outputSchema" : "projectJSON",
       "spendsQuota" : false,
-      "summary" : "Add (or return the existing) project for a local root. Idempotent on normalized root."
+      "summary" : "Add (or return the existing) project for a local root. Idempotent on normalized root.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3123,6 +3944,13 @@
           "summary" : "Project id or name."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3133,6 +3961,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3140,7 +3969,8 @@
       "name" : "project show",
       "outputSchema" : "projectJSON",
       "spendsQuota" : false,
-      "summary" : "Show one project; re-observes root\/git so output reflects current truth."
+      "summary" : "Show one project; re-observes root\/git so output reflects current truth.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3150,6 +3980,13 @@
           "summary" : "Project id or name."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3160,6 +3997,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3167,7 +4005,8 @@
       "name" : "project archive",
       "outputSchema" : "projectJSON",
       "spendsQuota" : false,
-      "summary" : "Archive a project (hides it; never deletes local files or threads)."
+      "summary" : "Archive a project (hides it; never deletes local files or threads).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3177,6 +4016,13 @@
           "summary" : "Project id or name."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3187,6 +4033,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3194,7 +4041,8 @@
       "name" : "project unarchive",
       "outputSchema" : "projectJSON",
       "spendsQuota" : false,
-      "summary" : "Restore an archived project to the active roster."
+      "summary" : "Restore an archived project to the active roster.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3204,6 +4052,13 @@
           "summary" : "Project id or name."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3214,6 +4069,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3221,7 +4077,8 @@
       "name" : "project threads",
       "outputSchema" : "projectThreadsJSON",
       "spendsQuota" : false,
-      "summary" : "List the work threads bound to one project."
+      "summary" : "List the work threads bound to one project.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3231,6 +4088,13 @@
           "summary" : "Project id or name."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3241,6 +4105,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3248,7 +4113,8 @@
       "name" : "project pending",
       "outputSchema" : "projectPendingJSON",
       "spendsQuota" : false,
-      "summary" : "List the pending work bound to one project (a filtered view of the one Pending store)."
+      "summary" : "List the pending work bound to one project (a filtered view of the one Pending store).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3258,6 +4124,13 @@
           "summary" : "Project id or name."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3273,6 +4146,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3280,12 +4154,20 @@
       "name" : "project stalled",
       "outputSchema" : "stallEpisodeListJSON",
       "spendsQuota" : false,
-      "summary" : "Read-only stalled-work episodes for one project."
+      "summary" : "Read-only stalled-work episodes for one project.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3301,6 +4183,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3308,7 +4191,8 @@
       "name" : "stalled list",
       "outputSchema" : "stallListJSON",
       "spendsQuota" : false,
-      "summary" : "Aggregate stalled-work episodes grouped by project."
+      "summary" : "Aggregate stalled-work episodes grouped by project.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3318,6 +4202,13 @@
           "summary" : "Stall episode id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3328,6 +4219,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3335,7 +4227,8 @@
       "name" : "stalled check",
       "outputSchema" : "stallEpisodeJSON",
       "spendsQuota" : false,
-      "summary" : "Re-observe a stall episode's target; clears it if it progressed\/terminated."
+      "summary" : "Re-observe a stall episode's target; clears it if it progressed\/terminated.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3345,6 +4238,13 @@
           "summary" : "Stall episode id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3362,6 +4262,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3369,7 +4270,8 @@
       "name" : "stalled wait",
       "outputSchema" : "stallEpisodeJSON",
       "spendsQuota" : false,
-      "summary" : "Snooze a stall episode's attention for N minutes (default 30)."
+      "summary" : "Snooze a stall episode's attention for N minutes (default 30).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3379,6 +4281,13 @@
           "summary" : "Stall episode id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3389,6 +4298,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3396,7 +4306,8 @@
       "name" : "stalled dismiss",
       "outputSchema" : "stallEpisodeJSON",
       "spendsQuota" : false,
-      "summary" : "Dismiss a stall episode (cleared, user-dismiss). Re-surfaces on the next scan if still stalled."
+      "summary" : "Dismiss a stall episode (cleared, user-dismiss). Re-surfaces on the next scan if still stalled.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3406,6 +4317,13 @@
           "summary" : "Project id or name."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3416,6 +4334,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3423,7 +4342,8 @@
       "name" : "project context",
       "outputSchema" : "projectContextJSON",
       "spendsQuota" : false,
-      "summary" : "Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth)."
+      "summary" : "Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3433,6 +4353,13 @@
           "summary" : "Project id or name."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3443,6 +4370,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3450,7 +4378,8 @@
       "name" : "project workers",
       "outputSchema" : "projectWorkersJSON",
       "spendsQuota" : false,
-      "summary" : "Show cached per-project worker readiness (read-only; never probes)."
+      "summary" : "Show cached per-project worker readiness (read-only; never probes).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3460,6 +4389,13 @@
           "summary" : "Project id or name."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3470,6 +4406,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3477,12 +4414,20 @@
       "name" : "project recheck-workers",
       "outputSchema" : "projectWorkersJSON",
       "spendsQuota" : false,
-      "summary" : "Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config\/auth."
+      "summary" : "Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config\/auth.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3493,6 +4438,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3500,7 +4446,8 @@
       "name" : "defaults show",
       "outputSchema" : "defaultSettingsJSON",
       "spendsQuota" : false,
-      "summary" : "Show the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now."
+      "summary" : "Show the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3510,6 +4457,13 @@
           "summary" : "flagship | balanced | fast."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3520,6 +4474,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3527,7 +4482,8 @@
       "name" : "defaults tier",
       "outputSchema" : "defaultSettingsJSON",
       "spendsQuota" : false,
-      "summary" : "Set which tier Auto draws from (flagship|balanced|fast)."
+      "summary" : "Set which tier Auto draws from (flagship|balanced|fast).",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3537,6 +4493,13 @@
           "summary" : "Model id (see `alln models --json`)."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3564,6 +4527,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
         [
@@ -3574,7 +4538,8 @@
       "name" : "defaults assign",
       "outputSchema" : "defaultSettingsJSON",
       "spendsQuota" : false,
-      "summary" : "Add a model to a tier (or move it within that tier). Membership is many-to-many — assigning to one tier never removes it from another."
+      "summary" : "Add a model to a tier (or move it within that tier). Membership is many-to-many — assigning to one tier never removes it from another.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3584,6 +4549,13 @@
           "summary" : "Model id."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3600,6 +4572,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3607,7 +4580,8 @@
       "name" : "defaults unassign",
       "outputSchema" : "defaultSettingsJSON",
       "spendsQuota" : false,
-      "summary" : "Remove a model from one tier (--tier) or from all tiers (default). Removing from every tier benches it from Auto & substitution."
+      "summary" : "Remove a model from one tier (--tier) or from all tiers (default). Removing from every tier benches it from Auto & substitution.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3617,6 +4591,13 @@
           "summary" : "on | off."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3627,6 +4608,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3634,12 +4616,20 @@
       "name" : "defaults substitutions",
       "outputSchema" : "defaultSettingsJSON",
       "spendsQuota" : false,
-      "summary" : "Turn healthy substitutions on or off. ON: a down model falls back to a ready model on the same tier. OFF: Auto uses only the tier default and waits if it's down."
+      "summary" : "Turn healthy substitutions on or off. ON: a down model falls back to a ready model on the same tier. OFF: Auto uses only the tier default and waits if it's down.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3650,6 +4640,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3657,12 +4648,20 @@
       "name" : "defaults reset",
       "outputSchema" : "defaultSettingsJSON",
       "spendsQuota" : false,
-      "summary" : "Restore the fresh-install tier seed and substitutions ON."
+      "summary" : "Restore the fresh-install tier seed and substitutions ON.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3673,6 +4672,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3680,12 +4680,20 @@
       "name" : "boost-window show",
       "outputSchema" : "boostWindowSettingsJSON",
       "spendsQuota" : false,
-      "summary" : "Show Boost window settings, derived seed\/reset times, provider rows, and display state."
+      "summary" : "Show Boost window settings, derived seed\/reset times, provider rows, and display state.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3714,6 +4722,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3721,7 +4730,8 @@
       "name" : "boost-window set",
       "outputSchema" : "boostWindowSettingsJSON",
       "spendsQuota" : false,
-      "summary" : "Set Boost window master toggle, 5h window start, and applies-to sources."
+      "summary" : "Set Boost window master toggle, 5h window start, and applies-to sources.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3731,6 +4741,13 @@
           "summary" : "Driver id (e.g. claude_code, codex)."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3741,6 +4758,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3748,12 +4766,20 @@
       "name" : "boost-window seed",
       "outputSchema" : "utilizationSeedEventJSON",
       "spendsQuota" : false,
-      "summary" : "Force one Boost window seed for a configured source."
+      "summary" : "Force one Boost window seed for a configured source.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3770,6 +4796,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3777,7 +4804,8 @@
       "name" : "boost-window observations clear",
       "outputSchema" : "utilizationObservationsClearJSON",
       "spendsQuota" : false,
-      "summary" : "Clear local Boost window seed observations."
+      "summary" : "Clear local Boost window seed observations.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3787,6 +4815,13 @@
           "summary" : "Natural-language question or keywords."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3804,6 +4839,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3811,7 +4847,8 @@
       "name" : "help search",
       "outputSchema" : "helpSearchJSON",
       "spendsQuota" : false,
-      "summary" : "Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan."
+      "summary" : "Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan.",
+      "visibility" : "public"
     },
     {
       "args" : [
@@ -3821,6 +4858,13 @@
           "summary" : "Topic id or alln:\/\/ ref (omit when using --ref\/--error)."
         }
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3850,6 +4894,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3857,12 +4902,20 @@
       "name" : "help get",
       "outputSchema" : "helpGetJSON",
       "spendsQuota" : false,
-      "summary" : "Retrieve one help topic by id, alln:\/\/ ref, or --error. Unknown selectors return close matches + the sitemap."
+      "summary" : "Retrieve one help topic by id, alln:\/\/ ref, or --error. Unknown selectors return close matches + the sitemap.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
@@ -3873,6 +4926,7 @@
           "takesValue" : false
         }
       ],
+      "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
@@ -3880,18 +4934,27 @@
       "name" : "help topics",
       "outputSchema" : "helpTopicsJSON",
       "spendsQuota" : false,
-      "summary" : "List the installed help topic sitemap + the help-first routing law."
+      "summary" : "List the installed help topic sitemap + the help-first routing law.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
       "flags" : [
 
       ],
+      "menuAction" : false,
       "milestone" : "deferred",
       "mutuallyExclusiveFlags" : [
 
@@ -3899,18 +4962,27 @@
       "name" : "pending stop",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Stop a running Pending item."
+      "summary" : "Stop a running Pending item.",
+      "visibility" : "public"
     },
     {
       "args" : [
 
       ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
       "exampleIds" : [
 
       ],
       "flags" : [
 
       ],
+      "menuAction" : false,
       "milestone" : "deferred",
       "mutuallyExclusiveFlags" : [
 
@@ -3918,10 +4990,11 @@
       "name" : "pair",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Approve iOS\/Mac pairing."
+      "summary" : "Approve iOS\/Mac pairing.",
+      "visibility" : "public"
     }
   ],
-  "contractVersion" : "1.6.0",
+  "contractVersion" : "1.7.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

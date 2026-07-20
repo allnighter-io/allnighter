@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "1.6.0"
+    static let contractVersion = "1.7.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -41,6 +41,31 @@ public extension ContractRegistry {
             flags: [FlagSpec("json", summary: "Emit CommandsManifestJSON (default; always machine JSON).")],
             outputSchema: .commandsManifestJSON,
             exampleIds: ["commands_json"]
+        ),
+        CommandSpec(
+            "menu",
+            summary: "Live compact agent menu: public commands, teams, models, recipes, effects, and defaults.",
+            milestone: .m1,
+            trigger: "Use before first Allnighter spend in a session to discover runnable commands, teams, and models.",
+            example: "alln menu --json",
+            antiExample: "Do NOT use this to start work — choose a command/team/model from the menu, then validate with its template.",
+            flags: [FlagSpec("json", summary: "Emit MenuJSON (default; always machine JSON).")],
+            outputSchema: .menuJSON,
+            spendsQuota: false,
+            effects: EffectProfile()
+        ),
+        CommandSpec(
+            "menu show",
+            summary: "Hydrate one typed menu ref (command:/team:/model:/recipe:) into Tier-2 detail.",
+            milestone: .m1,
+            trigger: "Use when a Tier-1 menu row is not enough and you need flags, prose, or full recipe body.",
+            example: "alln menu show command:run --json",
+            antiExample: "Do NOT use this to discover the catalog — call `alln menu --json` first.",
+            args: [ArgSpec("ref", required: true, summary: "Typed ref, e.g. command:run, team:code_growth, model:model_sonnet.")],
+            flags: [FlagSpec("json", summary: "Emit MenuShowJSON (default; always machine JSON).")],
+            outputSchema: .menuShowJSON,
+            spendsQuota: false,
+            effects: EffectProfile()
         ),
         CommandSpec(
             "doctor", summary: "Check sources, models, auth, and coordinator.", milestone: .m1,
@@ -91,7 +116,8 @@ public extension ContractRegistry {
                 FlagSpec("driver", takesValue: true, valueType: "driverId", summary: "Filter to one source."),
                 FlagSpec("bench", summary: "Show only enabled Bench models."),
             ],
-            outputSchema: .modelListJSON, exampleIds: ["models_json"]
+            outputSchema: .modelListJSON, exampleIds: ["models_json"],
+            menuAction: true
         ),
         CommandSpec(
             "models enable", summary: "Enable a model on the Bench.", milestone: .m1,
@@ -226,14 +252,16 @@ public extension ContractRegistry {
             args: [ArgSpec("team-id", required: true, summary: "Source team id.")],
             flags: [FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name for the copy."),
                     FlagSpec("json", summary: "Structured team detail.")],
-            exampleIds: ["teams_duplicate_json"]
+            exampleIds: ["teams_duplicate_json"],
+            menuAction: true
         ),
         CommandSpec(
             "teams edit", summary: "Edit a custom team definition (full replacement).", milestone: .m1,
             args: [ArgSpec("team-id", required: true, summary: "Team id.")],
             flags: [FlagSpec("file", takesValue: true, valueType: "path", summary: "TeamPreset JSON file."),
                     FlagSpec("json", summary: "Structured team detail.")],
-            exampleIds: ["teams_edit_json"]
+            exampleIds: ["teams_edit_json"],
+            menuAction: true
         ),
         CommandSpec(
             "teams set-default", summary: "Set the default team for a lane.", milestone: .m1,
@@ -334,7 +362,8 @@ public extension ContractRegistry {
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
                 FlagSpec("json", summary: "Structured TeamPreflight.Result (default; always machine JSON)."),
-            ]
+            ],
+            menuAction: true
         ),
         CommandSpec(
             "team start", summary: "Start a resumable/asynchronous team run.", milestone: .m1,
@@ -452,7 +481,8 @@ public extension ContractRegistry {
             outputSchema: .teamRunJSON,
             exampleIds: [],
             spendsQuota: true,
-            freeTwinCommand: "alln run --dry-run"
+            freeTwinCommand: "alln run --dry-run",
+            menuAction: true
         ),
         CommandSpec(
             "run resume", summary: "Resume a run parked on vendor capacity (same run id, in-process).", milestone: .m1,

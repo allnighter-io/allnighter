@@ -1,0 +1,428 @@
+{
+  "$defs" : {
+    "ArgSpec" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "name" : {
+          "type" : "string"
+        },
+        "required" : {
+          "type" : "boolean"
+        },
+        "summary" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "name",
+        "required",
+        "summary"
+      ],
+      "type" : "object"
+    },
+    "CommandDetail" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "antiExample" : {
+          "type" : "string"
+        },
+        "args" : {
+          "items" : {
+            "$ref" : "#\/$defs\/ArgSpec"
+          },
+          "type" : "array"
+        },
+        "effects" : {
+          "$ref" : "#\/$defs\/EffectProfile"
+        },
+        "example" : {
+          "type" : "string"
+        },
+        "flags" : {
+          "items" : {
+            "$ref" : "#\/$defs\/FlagSpec"
+          },
+          "type" : "array"
+        },
+        "freeTwinCommand" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "name" : {
+          "type" : "string"
+        },
+        "ref" : {
+          "type" : "string"
+        },
+        "spendsQuota" : {
+          "type" : "boolean"
+        },
+        "summary" : {
+          "type" : "string"
+        },
+        "trigger" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "ref",
+        "name",
+        "summary",
+        "trigger",
+        "example",
+        "antiExample",
+        "spendsQuota",
+        "effects",
+        "args",
+        "flags"
+      ],
+      "type" : "object"
+    },
+    "EffectProfile" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "destructive" : {
+          "enum" : [
+            "never",
+            "always",
+            "dependsOnFlags",
+            "dependsOnSelection"
+          ],
+          "type" : "string"
+        },
+        "humanInteraction" : {
+          "enum" : [
+            "never",
+            "always",
+            "dependsOnFlags",
+            "dependsOnSelection"
+          ],
+          "type" : "string"
+        },
+        "quotaSpend" : {
+          "enum" : [
+            "never",
+            "always",
+            "dependsOnFlags",
+            "dependsOnSelection"
+          ],
+          "type" : "string"
+        },
+        "repoWrite" : {
+          "enum" : [
+            "never",
+            "always",
+            "dependsOnFlags",
+            "dependsOnSelection"
+          ],
+          "type" : "string"
+        },
+        "workerStart" : {
+          "enum" : [
+            "never",
+            "always",
+            "dependsOnFlags",
+            "dependsOnSelection"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "workerStart",
+        "quotaSpend",
+        "repoWrite",
+        "destructive",
+        "humanInteraction"
+      ],
+      "type" : "object"
+    },
+    "FlagSpec" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "defaultValue" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "name" : {
+          "type" : "string"
+        },
+        "summary" : {
+          "type" : "string"
+        },
+        "takesValue" : {
+          "type" : "boolean"
+        },
+        "valueType" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "name",
+        "takesValue",
+        "summary"
+      ],
+      "type" : "object"
+    },
+    "ModelCapabilities" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "capabilityTags" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "laneTags" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "strengthRank" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "laneTags",
+        "capabilityTags",
+        "strengthRank"
+      ],
+      "type" : "object"
+    },
+    "ModelDetail" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "blockedReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "capabilities" : {
+          "$ref" : "#\/$defs\/ModelCapabilities"
+        },
+        "displayName" : {
+          "type" : "string"
+        },
+        "driverId" : {
+          "type" : "string"
+        },
+        "driverName" : {
+          "type" : "string"
+        },
+        "enabled" : {
+          "type" : "boolean"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "ready" : {
+          "type" : "boolean"
+        },
+        "ref" : {
+          "type" : "string"
+        },
+        "runTemplate" : {
+          "type" : "string"
+        },
+        "status" : {
+          "type" : "string"
+        },
+        "validateTemplate" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "ref",
+        "id",
+        "displayName",
+        "driverId",
+        "driverName",
+        "enabled",
+        "ready",
+        "status",
+        "capabilities",
+        "runTemplate",
+        "validateTemplate"
+      ],
+      "type" : "object"
+    },
+    "RecipeDetail" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "dontUseWhen" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "markdown" : {
+          "type" : "string"
+        },
+        "ref" : {
+          "type" : "string"
+        },
+        "title" : {
+          "type" : "string"
+        },
+        "useWhen" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "ref",
+        "id",
+        "title",
+        "useWhen",
+        "dontUseWhen",
+        "markdown"
+      ],
+      "type" : "object"
+    },
+    "TeamDetail" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "active" : {
+          "type" : "boolean"
+        },
+        "blockedReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "description" : {
+          "type" : "string"
+        },
+        "displayName" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "isDefault" : {
+          "type" : "boolean"
+        },
+        "lane" : {
+          "type" : "string"
+        },
+        "mutating" : {
+          "type" : "boolean"
+        },
+        "outputKind" : {
+          "type" : "string"
+        },
+        "purposeTags" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "ref" : {
+          "type" : "string"
+        },
+        "runTemplate" : {
+          "type" : "string"
+        },
+        "shape" : {
+          "type" : "string"
+        },
+        "validateTemplate" : {
+          "type" : "string"
+        },
+        "workerCount" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "ref",
+        "id",
+        "displayName",
+        "description",
+        "lane",
+        "outputKind",
+        "shape",
+        "mutating",
+        "workerCount",
+        "isDefault",
+        "active",
+        "runTemplate",
+        "validateTemplate",
+        "purposeTags"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/menu-show.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "command" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/CommandDetail"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "kind" : {
+      "type" : "string"
+    },
+    "model" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/ModelDetail"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
+    "recipe" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/RecipeDetail"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
+    "ref" : {
+      "type" : "string"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "team" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/TeamDetail"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "contractVersion",
+    "ref",
+    "kind"
+  ],
+  "title" : "MenuShowJSON",
+  "type" : "object"
+}

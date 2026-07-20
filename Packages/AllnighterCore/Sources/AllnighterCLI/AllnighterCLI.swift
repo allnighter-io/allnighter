@@ -70,6 +70,8 @@ struct AllnighterCLI {
         case "history": await runHistory(args, runtime)
         case "docs": runDocs(args)
         case "commands": runCommands(args)
+        case "menu" where args.first == "show": MenuCLI.runShow(Array(args.dropFirst()), runtime: runtime)
+        case "menu": MenuCLI.run(args, runtime: runtime)
         case "show": runShow(args, runtime)
         case "floor" where args.first == "show": runFloorShow(Array(args.dropFirst()), runtime)
         case "spec": runSpec(args, runtime)

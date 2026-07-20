@@ -1,0 +1,429 @@
+{
+  "$defs" : {
+    "CollectionCompleteness" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "complete" : {
+          "type" : "boolean"
+        },
+        "count" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "count",
+        "complete"
+      ],
+      "type" : "object"
+    },
+    "EffectProfile" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "destructive" : {
+          "enum" : [
+            "never",
+            "always",
+            "dependsOnFlags",
+            "dependsOnSelection"
+          ],
+          "type" : "string"
+        },
+        "humanInteraction" : {
+          "enum" : [
+            "never",
+            "always",
+            "dependsOnFlags",
+            "dependsOnSelection"
+          ],
+          "type" : "string"
+        },
+        "quotaSpend" : {
+          "enum" : [
+            "never",
+            "always",
+            "dependsOnFlags",
+            "dependsOnSelection"
+          ],
+          "type" : "string"
+        },
+        "repoWrite" : {
+          "enum" : [
+            "never",
+            "always",
+            "dependsOnFlags",
+            "dependsOnSelection"
+          ],
+          "type" : "string"
+        },
+        "workerStart" : {
+          "enum" : [
+            "never",
+            "always",
+            "dependsOnFlags",
+            "dependsOnSelection"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "workerStart",
+        "quotaSpend",
+        "repoWrite",
+        "destructive",
+        "humanInteraction"
+      ],
+      "type" : "object"
+    },
+    "MenuAction" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "dontUseWhen" : {
+          "type" : "string"
+        },
+        "effectsRef" : {
+          "type" : "string"
+        },
+        "example" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "useWhen" : {
+          "type" : "string"
+        },
+        "validateExample" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "id",
+        "useWhen",
+        "dontUseWhen",
+        "effectsRef",
+        "example",
+        "validateExample"
+      ],
+      "type" : "object"
+    },
+    "MenuCommand" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "effectsRef" : {
+          "type" : "string"
+        },
+        "name" : {
+          "type" : "string"
+        },
+        "ref" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "ref",
+        "name",
+        "effectsRef"
+      ],
+      "type" : "object"
+    },
+    "MenuCompleteness" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "actions" : {
+          "$ref" : "#\/$defs\/CollectionCompleteness"
+        },
+        "commands" : {
+          "$ref" : "#\/$defs\/CollectionCompleteness"
+        },
+        "effectProfiles" : {
+          "$ref" : "#\/$defs\/CollectionCompleteness"
+        },
+        "models" : {
+          "$ref" : "#\/$defs\/CollectionCompleteness"
+        },
+        "recipes" : {
+          "$ref" : "#\/$defs\/CollectionCompleteness"
+        },
+        "teams" : {
+          "$ref" : "#\/$defs\/CollectionCompleteness"
+        }
+      },
+      "required" : [
+        "actions",
+        "commands",
+        "teams",
+        "models",
+        "recipes",
+        "effectProfiles"
+      ],
+      "type" : "object"
+    },
+    "MenuDefaults" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "defaultTeamRef" : {
+          "type" : "string"
+        },
+        "defaultWorkerId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "defaultTeamRef"
+      ],
+      "type" : "object"
+    },
+    "MenuModel" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "blockedReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "capabilities" : {
+          "$ref" : "#\/$defs\/ModelCapabilities"
+        },
+        "displayName" : {
+          "type" : "string"
+        },
+        "driverId" : {
+          "type" : "string"
+        },
+        "enabled" : {
+          "type" : "boolean"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "ready" : {
+          "type" : "boolean"
+        },
+        "ref" : {
+          "type" : "string"
+        },
+        "runTemplate" : {
+          "type" : "string"
+        },
+        "validateTemplate" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "ref",
+        "id",
+        "displayName",
+        "driverId",
+        "enabled",
+        "ready",
+        "capabilities",
+        "runTemplate",
+        "validateTemplate"
+      ],
+      "type" : "object"
+    },
+    "MenuRecipe" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "dontUseWhen" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "ref" : {
+          "type" : "string"
+        },
+        "title" : {
+          "type" : "string"
+        },
+        "useWhen" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "ref",
+        "id",
+        "title",
+        "useWhen",
+        "dontUseWhen"
+      ],
+      "type" : "object"
+    },
+    "MenuTeam" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "active" : {
+          "type" : "boolean"
+        },
+        "blockedReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "displayName" : {
+          "type" : "string"
+        },
+        "dontUseWhen" : {
+          "type" : "string"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "isDefault" : {
+          "type" : "boolean"
+        },
+        "mutating" : {
+          "type" : "boolean"
+        },
+        "ref" : {
+          "type" : "string"
+        },
+        "runTemplate" : {
+          "type" : "string"
+        },
+        "shape" : {
+          "type" : "string"
+        },
+        "useWhen" : {
+          "type" : "string"
+        },
+        "validateTemplate" : {
+          "type" : "string"
+        },
+        "workerCount" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "ref",
+        "id",
+        "displayName",
+        "useWhen",
+        "dontUseWhen",
+        "shape",
+        "mutating",
+        "workerCount",
+        "isDefault",
+        "active",
+        "runTemplate",
+        "validateTemplate"
+      ],
+      "type" : "object"
+    },
+    "ModelCapabilities" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "capabilityTags" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "laneTags" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "strengthRank" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "laneTags",
+        "capabilityTags",
+        "strengthRank"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.app\/schemas\/menu.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "actions" : {
+      "items" : {
+        "$ref" : "#\/$defs\/MenuAction"
+      },
+      "type" : "array"
+    },
+    "catalogRevision" : {
+      "type" : "string"
+    },
+    "commands" : {
+      "items" : {
+        "$ref" : "#\/$defs\/MenuCommand"
+      },
+      "type" : "array"
+    },
+    "completeness" : {
+      "$ref" : "#\/$defs\/MenuCompleteness"
+    },
+    "contractHash" : {
+      "type" : "string"
+    },
+    "contractVersion" : {
+      "type" : "string"
+    },
+    "defaults" : {
+      "$ref" : "#\/$defs\/MenuDefaults"
+    },
+    "detailTemplate" : {
+      "type" : "string"
+    },
+    "effectProfiles" : {
+      "additionalProperties" : {
+        "$ref" : "#\/$defs\/EffectProfile"
+      },
+      "type" : "object"
+    },
+    "models" : {
+      "items" : {
+        "$ref" : "#\/$defs\/MenuModel"
+      },
+      "type" : "array"
+    },
+    "recipes" : {
+      "items" : {
+        "$ref" : "#\/$defs\/MenuRecipe"
+      },
+      "type" : "array"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "teams" : {
+      "items" : {
+        "$ref" : "#\/$defs\/MenuTeam"
+      },
+      "type" : "array"
+    },
+    "truncated" : {
+      "type" : "boolean"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "contractVersion",
+    "contractHash",
+    "catalogRevision",
+    "truncated",
+    "detailTemplate",
+    "actions",
+    "commands",
+    "teams",
+    "models",
+    "recipes",
+    "effectProfiles",
+    "defaults",
+    "completeness"
+  ],
+  "title" : "MenuJSON",
+  "type" : "object"
+}
