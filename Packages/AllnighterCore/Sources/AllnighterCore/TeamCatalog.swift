@@ -489,6 +489,13 @@ public enum TeamCatalog {
             guard CatalogIDValidator.isValid(team.id) else { throw CatalogError.idInvalid }
         }
         guard !team.workerSpecs.isEmpty else { throw CatalogError.teamInvalid("team must have at least one worker row") }
+        // Cap description so custom-team menu fallbacks stay bounded.
+        let descriptionBound = MenuSelectionCopy.useWhenMax * 8
+        if team.description.count > descriptionBound {
+            throw CatalogError.teamInvalid(
+                "description length \(team.description.count) exceeds selection metadata bound \(descriptionBound)"
+            )
+        }
         if team.mutating {
             guard team.workerSpecs.count == 1, team.workerSpecs.first?.count == 1 else {
                 throw CatalogError.teamInvalid("mutating teams run exactly one worker")

@@ -41,42 +41,63 @@ public enum MenuCatalog {
         let recipesById = Dictionary(uniqueKeysWithValues: registry.examples.map { ($0.id, $0) })
         let actionSpecs = publicCommands.filter(\.menuAction)
         let actions: [MenuJSON.Action] = actionSpecs.map { spec in
-            let example = CommandDescription.example(for: spec, recipes: recipesById)
-            let validate = validateExample(for: spec, example: example)
+            guard let authored = MenuSelectionCopy.action(spec.name) else {
+                preconditionFailure(
+                    "MenuCatalog: menuAction '\(spec.name)' missing MenuSelectionCopy authorship"
+                )
+            }
+            let example = actionExample(for: spec, recipes: recipesById)
+            let validate = actionValidateExample(for: spec, example: example)
             let key = spec.effects.profileKey
             effectProfiles[key] = spec.effects
+            enforceSelectionBounds(authored, kind: "action", id: spec.name)
             return MenuJSON.Action(
                 id: spec.name,
-                useWhen: compact(CommandDescription.trigger(for: spec), limit: 40),
-                dontUseWhen: compact(CommandDescription.antiExample(for: spec), limit: 40),
+                useWhen: authored.useWhen,
+                dontUseWhen: authored.dontUseWhen,
                 effectsRef: key,
-                example: compact(example, limit: 72),
-                validateExample: compact(validate, limit: 72)
+                example: compact(example, limit: 96),
+                validateExample: compact(validate, limit: 96)
             )
         }
 
         let teamRows: [MenuJSON.Team] = teamList.map { team in
             let active = TeamVisibility.isEnabled(team.id)
             let shape = team.mutating ? "execution" : "answer"
+            let copy = MenuSelectionCopy.team(
+                id: team.id,
+                displayName: team.displayName,
+                description: team.description,
+                mutating: team.mutating
+            )
+            enforceSelectionBounds(copy, kind: "team", id: team.id)
+            let run = "alln run \"{message}\" --team \(team.id) --json"
+            let validate = "alln run \"{message}\" --team \(team.id) --dry-run --json"
             return MenuJSON.Team(
                 ref: "team:\(team.id)",
                 id: team.id,
                 displayName: team.displayName,
-                useWhen: compact(teamUseWhen(team), limit: 40),
-                dontUseWhen: teamDontUseWhen(team),
+                useWhen: copy.useWhen,
+                dontUseWhen: copy.dontUseWhen,
                 shape: shape,
                 mutating: team.mutating,
                 workerCount: team.catalogSeatCount,
                 isDefault: team.isDefaultForLane || team.id == "default_chat",
                 active: active,
                 blockedReason: active ? nil : "Switched off (TeamVisibility)",
-                runTemplate: "alln run \"{message}\" --team \(team.id) --json",
-                validateTemplate: "alln run \"{message}\" --team \(team.id) --dry-run --json"
+                runTemplate: run,
+                validateTemplate: validate
             )
         }
 
         let modelRows: [MenuJSON.Model] = models.map { entry in
-            MenuJSON.Model(
+            let copy = MenuSelectionCopy.model(
+                id: entry.id,
+                displayName: entry.displayName,
+                driverId: entry.driverId
+            )
+            enforceSelectionBounds(copy, kind: "model", id: entry.id)
+            return MenuJSON.Model(
                 ref: "model:\(entry.id)",
                 id: entry.id,
                 displayName: entry.displayName,
@@ -84,19 +105,22 @@ public enum MenuCatalog {
                 enabled: entry.enabled,
                 ready: entry.ready,
                 blockedReason: modelBlockedReason(entry),
-                capabilities: compactCapabilities(entry.capabilities),
+                useWhen: copy.useWhen,
+                dontUseWhen: copy.dontUseWhen,
                 runTemplate: "alln run \"{message}\" --worker \(entry.id) --json",
                 validateTemplate: "alln run \"{message}\" --worker \(entry.id) --dry-run --json"
             )
         }
 
         let recipeRows: [MenuJSON.Recipe] = recipeList.map { recipe in
-            MenuJSON.Recipe(
+            let copy = MenuSelectionCopy.recipe(id: recipe.id, title: recipe.title)
+            enforceSelectionBounds(copy, kind: "recipe", id: recipe.id)
+            return MenuJSON.Recipe(
                 ref: "recipe:\(recipe.id)",
                 id: recipe.id,
                 title: recipe.title,
-                useWhen: compact(recipe.title, limit: 48),
-                dontUseWhen: "Pick from menu.recipes only"
+                useWhen: copy.useWhen,
+                dontUseWhen: copy.dontUseWhen
             )
         }
 
@@ -247,27 +271,6 @@ public enum MenuCatalog {
         return String(trimmed[..<idx]) + "…"
     }
 
-    /// Tier-1 keeps capabilities short: top tags only (full set lives in menu show).
-    private static func compactCapabilities(_ caps: ModelCapabilities) -> ModelCapabilities {
-        ModelCapabilities(
-            laneTags: Array(caps.laneTags.prefix(1)),
-            capabilityTags: Array(caps.capabilityTags.prefix(2)),
-            strengthRank: caps.strengthRank
-        )
-    }
-
-    private static func teamUseWhen(_ team: TeamPreset) -> String {
-        if !team.description.isEmpty { return team.description }
-        if !team.purposeTags.isEmpty {
-            return team.purposeTags.prefix(3).joined(separator: ",")
-        }
-        return team.displayName
-    }
-
-    private static func teamDontUseWhen(_ team: TeamPreset) -> String {
-        team.mutating ? "Not for parallel judgment" : "Not for mutating/write runs"
-    }
-
     private static func modelBlockedReason(_ entry: ModelListJSON.Entry) -> String? {
         if !entry.enabled { return "Not on Bench" }
         if entry.ready { return nil }
@@ -279,12 +282,26 @@ public enum MenuCatalog {
         }
     }
 
-    private static func validateExample(for spec: ContractRegistry.CommandSpec, example: String) -> String {
+    /// Fast-path action examples prefer `{message}` + dry-run twin for spend paths.
+    private static func actionExample(
+        for spec: ContractRegistry.CommandSpec,
+        recipes: [String: ContractRegistry.ExampleRecipe]
+    ) -> String {
+        if spec.name == "run" {
+            return "alln run \"{message}\" --team code_growth --json"
+        }
+        return CommandDescription.example(for: spec, recipes: recipes)
+    }
+
+    private static func actionValidateExample(
+        for spec: ContractRegistry.CommandSpec,
+        example: String
+    ) -> String {
+        if spec.name == "run" {
+            return "alln run \"{message}\" --team code_growth --dry-run --json"
+        }
         if let twin = spec.freeTwinCommand, !twin.isEmpty {
             return twin.contains("--json") ? twin : "\(twin) --json"
-        }
-        if spec.name == "run" {
-            return "alln run \"{message}\" --dry-run --json"
         }
         if example.contains("--json") { return example }
         return example + " --json"
@@ -423,6 +440,7 @@ public enum MenuCatalog {
                 suggestions: Array(menu.recipes.prefix(8).map(\.ref))
             )
         }
+        let copy = MenuSelectionCopy.recipe(id: recipe.id, title: recipe.title)
         return MenuShowJSON(
             contractVersion: menu.contractVersion,
             ref: ref,
@@ -431,10 +449,22 @@ public enum MenuCatalog {
                 ref: "recipe:\(recipe.id)",
                 id: recipe.id,
                 title: recipe.title,
-                useWhen: compact(recipe.title, limit: 48),
-                dontUseWhen: "Pick from menu.recipes only",
+                useWhen: copy.useWhen,
+                dontUseWhen: copy.dontUseWhen,
                 markdown: recipe.markdown
             )
         )
+    }
+
+    private static func enforceSelectionBounds(
+        _ pair: MenuSelectionCopy.Pair,
+        kind: String,
+        id: String
+    ) {
+        do {
+            try MenuSelectionCopy.validateBounds(pair, kind: kind, id: id)
+        } catch {
+            preconditionFailure("MenuCatalog: \(error)")
+        }
     }
 }

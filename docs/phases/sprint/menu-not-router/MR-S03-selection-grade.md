@@ -1,6 +1,6 @@
 # MR-S03 — Make every row selection-grade
 
-Status: **ready** (after MR-S02)
+Status: **complete**
 SSOT: `docs/phases/Menu_Not_Router.md` §MR-S03
 
 ## Goal

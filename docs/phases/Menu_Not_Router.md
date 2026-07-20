@@ -139,7 +139,7 @@ The shapes are deliberately small:
 | action | `id`, `useWhen`, `dontUseWhen`, `effects`, `example`, `validateExample` |
 | command | `ref`, `name`, `effectsRef` |
 | team | `ref`, `id`, `displayName`, `useWhen`, `dontUseWhen`, `shape`, `mutating`, `workerCount`, `isDefault`, `active`, `blockedReason`, `runTemplate`, `validateTemplate` |
-| model | `ref`, `id`, `displayName`, `driverId`, `enabled`, `ready`, `blockedReason`, `capabilities`, `runTemplate`, `validateTemplate` |
+| model | `ref`, `id`, `displayName`, `driverId`, `enabled`, `ready`, `blockedReason`, `useWhen`, `dontUseWhen`, `runTemplate`, `validateTemplate` |
 | recipe | `ref`, `id`, `title`, `useWhen`, `dontUseWhen` |
 
 One top-level `detailTemplate` (`alln menu show <ref> --json`) hydrates every

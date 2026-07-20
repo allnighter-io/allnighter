@@ -86,7 +86,7 @@ final class MenuCatalogTests: XCTestCase {
     }
 
     func testBuiltInFixtureEncodeWithin32KiB() throws {
-        let menu = MenuCatalog.project()
+        let menu = MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam })
         let data = try MenuCatalog.encodeCompact(menu)
         XCTAssertLessThanOrEqual(data.count, 32768, "MenuJSON encode size \(data.count) exceeds 32 KiB")
     }

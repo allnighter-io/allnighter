@@ -57,7 +57,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         public var enabled: Bool
         public var ready: Bool
         public var blockedReason: String?
-        public var capabilities: ModelCapabilities
+        public var useWhen: String
+        public var dontUseWhen: String
         public var runTemplate: String
         public var validateTemplate: String
     }
