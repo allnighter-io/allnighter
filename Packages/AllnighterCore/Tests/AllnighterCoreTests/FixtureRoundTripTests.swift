@@ -147,11 +147,9 @@ final class FixtureRoundTripTests: XCTestCase {
     }
 
     /// SH-S08: generated teaching surfaces must not use estimate vocabulary.
-    /// SH-S08: generated teaching surfaces must not use estimate vocabulary.
     func testObservedTimingDocsOmitEstimateVocabulary() {
         let md = ContractDocs.markdown().lowercased()
         XCTAssertFalse(md.contains("estimate"), "ContractDocs leaked estimate vocabulary")
-        XCTAssertFalse(md.contains("estimated"), "ContractDocs leaked estimated vocabulary")
         XCTAssertTrue(md.contains("queuems"), "docs must name queueMs")
         XCTAssertTrue(md.contains("ttftms"), "docs must name ttftMs")
         XCTAssertTrue(md.contains("wallms") || md.contains("wall ms"), "docs must name wallMs")

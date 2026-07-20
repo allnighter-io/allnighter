@@ -90,7 +90,7 @@ public enum RunIdentity {
 
     /// Observed phase clocks for a single executable seat only. Parallel runs stay
     /// identity-only — never subtract phases into an invented orchestration tax or seat blame.
-    public static func singleWorkerTimingSummary(_ run: TeamRun, wallMs: Int?) -> [String] {
+    private static func singleWorkerTimingSummary(_ run: TeamRun, wallMs: Int?) -> [String] {
         let seats = run.workerAnswers.filter { $0.result.status != .skipped }
         guard seats.count == 1, let answer = seats.first else { return [] }
         var parts: [String] = []

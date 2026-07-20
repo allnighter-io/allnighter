@@ -542,7 +542,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var proof: Proof?
         /// Present when the execution driver reported token usage on the wire.
         public var usage: TokenUsage?
-        /// Observed wall timing for a terminal run (SH-S08).
+        /// Observed wall timing for a terminal run.
         public var timing: Timing?
 
         public init(
