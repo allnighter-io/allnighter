@@ -14,6 +14,28 @@ import AllnighterCore
 ///     `alln run` acceptance path claims / replays / conflicts on the key.
 final class RunAcceptanceBoundaryTests: XCTestCase {
 
+    /// Hermetic support root so FIFO/lane flock paths never touch
+    /// `~/Library/Application Support/Allnighter/Lanes/` (sandbox-safe).
+    private var hermeticSupportDir: URL!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        let support = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-accept-support-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        hermeticSupportDir = support
+        setenv("ALLNIGHTER_SUPPORT_DIR", support.path, 1)
+    }
+
+    override func tearDownWithError() throws {
+        unsetenv("ALLNIGHTER_SUPPORT_DIR")
+        if let hermeticSupportDir {
+            try? FileManager.default.removeItem(at: hermeticSupportDir)
+        }
+        hermeticSupportDir = nil
+        try super.tearDownWithError()
+    }
+
     // MARK: - Shared harness (cursor default-route worker, mock CLI)
 
     private struct Harness {

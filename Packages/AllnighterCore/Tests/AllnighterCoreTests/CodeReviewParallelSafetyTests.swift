@@ -11,8 +11,10 @@ final class CodeReviewParallelSafetyTests: XCTestCase {
             sliceId: "CR-02",
             touchAllowlist: ["docs/phases/code_review/findings/CR-02.md"]
         )
-        XCTAssertTrue(CodeReviewParallelSafety.canRunConcurrently([a, b]))
-        XCTAssertTrue(CodeReviewParallelSafety.violations([a, b]).isEmpty)
+        // Product default is sequential-first (defaultMaxConcurrent = 1); this
+        // test asserts touch-disjoint safety at concurrency ≥2, not the default.
+        XCTAssertTrue(CodeReviewParallelSafety.canRunConcurrently([a, b], maxConcurrent: 2))
+        XCTAssertTrue(CodeReviewParallelSafety.violations([a, b], maxConcurrent: 2).isEmpty)
     }
 
     func testTouchOverlapIsUnsafe() {
