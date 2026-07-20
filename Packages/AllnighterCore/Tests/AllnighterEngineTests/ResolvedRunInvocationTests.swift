@@ -303,17 +303,22 @@ final class ResolvedRunInvocationTests: XCTestCase {
         assertNoDroppedSelectors(dry, worker: "model_sonnet")
     }
 
-    func testDryRunJSONProjectionKeepsSchemaV1Shape() throws {
+    func testDryRunJSONProjectionKeepsSchemaV2Shape() throws {
         let dry = resolve(flags: .init(workerId: "model_sonnet", json: true))
         let json = dry.makeDryRunJSON()
         let data = try JSONEncoder().encode(json)
         let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        XCTAssertEqual(obj?["schemaVersion"] as? Int, 1)
-        XCTAssertNotNil(obj?["mutating"])
-        XCTAssertNil(obj?["argvTemplate"], "argvTemplate stays internal until v3 cut")
+        XCTAssertEqual(obj?["schemaVersion"] as? Int, 2)
+        XCTAssertNil(obj?["mutating"], "top-level mutating retired — use writePolicy + effects.repoWrite")
+        XCTAssertEqual(obj?["writePolicy"] as? String, "mutating")
+        let effects = obj?["effects"] as? [String: Any]
+        XCTAssertEqual(effects?["workerStart"] as? Bool, true)
+        XCTAssertEqual(effects?["quotaSpend"] as? Bool, true)
+        XCTAssertEqual(effects?["repoWrite"] as? Bool, true)
+        XCTAssertEqual(effects?["destructive"] as? Bool, false)
+        XCTAssertEqual(effects?["humanInteraction"] as? Bool, false)
+        XCTAssertNil(obj?["argvTemplate"], "argvTemplate stays internal")
         XCTAssertNil(obj?["templateVariables"])
-        XCTAssertNil(obj?["writePolicy"])
-        XCTAssertNil(obj?["effects"])
     }
 
     func testMakeRunRequestPreservesSelectors() {
@@ -346,5 +351,109 @@ final class ResolvedRunInvocationTests: XCTestCase {
             writeLockHeld: true
         )
         XCTAssertNil(answer.writeLockHeld, "read-only teams do not probe the write lock")
+    }
+
+    // MARK: - SH-S05 effects matrix (Law 7)
+
+    func testEffectsMatrixExecutionTeamAnswerTeamExplicitWorker() throws {
+        let runEffects = try XCTUnwrap(
+            ContractRegistry.milestone1.commands.first { $0.name == "run" }?.effects
+        )
+
+        // Execution / Default Team / explicit worker → mutating permission.
+        let execution = resolve(flags: .init(teamId: "build_slice", json: true))
+        XCTAssertEqual(execution.writePolicy, .mutating)
+        XCTAssertTrue(execution.effects.repoWrite)
+        XCTAssertTrue(execution.takesWriteLock)
+        XCTAssertEqual(
+            execution.effects,
+            runEffects.resolve(spending: true, repoWritePermitted: true)
+        )
+
+        let worker = resolve(flags: .init(workerId: "model_sonnet", json: true))
+        XCTAssertEqual(worker.writePolicy, .mutating)
+        XCTAssertTrue(worker.effects.repoWrite)
+        XCTAssertTrue(worker.effects.workerStart)
+        XCTAssertTrue(worker.effects.quotaSpend)
+        XCTAssertFalse(worker.effects.destructive)
+        XCTAssertFalse(worker.effects.humanInteraction)
+
+        // Answer team → mechanical read-only permission.
+        let answer = resolve(flags: .init(teamId: "code_bug_hunt", json: true))
+        XCTAssertEqual(answer.writePolicy, .readOnly)
+        XCTAssertFalse(answer.effects.repoWrite)
+        XCTAssertFalse(answer.takesWriteLock)
+        XCTAssertEqual(
+            answer.effects,
+            runEffects.resolve(spending: true, repoWritePermitted: false)
+        )
+
+        // Prompt prose must not flip write policy (Law 7 / D4).
+        let qaLooking = resolve(
+            message: "Just answer this Q&A — do not modify any files",
+            flags: .init(workerId: "model_sonnet", json: true)
+        )
+        XCTAssertEqual(qaLooking.writePolicy, .mutating)
+        XCTAssertTrue(qaLooking.effects.repoWrite)
+    }
+
+    func testDryRunFreeTwinMatrixMatchesRegistryAndForegroundIdentity() throws {
+        let runEffects = try XCTUnwrap(
+            ContractRegistry.milestone1.commands.first { $0.name == "run" }?.effects
+        )
+
+        let cases: [(String, RunInvocationNormalizedFlags)] = [
+            ("default", .init(json: true)),
+            ("worker", .init(workerId: "model_sonnet", json: true)),
+            ("answer", .init(teamId: "code_bug_hunt", json: true)),
+            ("execution", .init(teamId: "build_slice", json: true)),
+        ]
+
+        for (label, flags) in cases {
+            let dry = resolve(mode: .dryRun, flags: flags)
+            let fg = resolve(mode: .foreground, flags: flags)
+            let detach = resolve(mode: .detach, flags: flags)
+
+            // Preview/run identity on write permission (Law 3).
+            XCTAssertEqual(dry.writePolicy, fg.writePolicy, label)
+            XCTAssertEqual(dry.effects.repoWrite, fg.effects.repoWrite, label)
+            XCTAssertEqual(dry.effects, fg.effects, label)
+            XCTAssertEqual(fg.writePolicy, detach.writePolicy, label)
+            XCTAssertEqual(fg.effects, detach.effects, label)
+
+            let permitted = dry.writePolicy == .mutating
+            // Dry-run JSON projects the spend twin's effects (MNR: effects the real run will use).
+            XCTAssertEqual(
+                dry.makeDryRunJSON().effects,
+                runEffects.resolve(spending: true, repoWritePermitted: permitted),
+                label
+            )
+            // Free twin itself: registry resolves workerStart/quotaSpend false when not spending.
+            let free = runEffects.resolve(spending: false, repoWritePermitted: permitted)
+            XCTAssertFalse(free.workerStart, label)
+            XCTAssertFalse(free.quotaSpend, label)
+            XCTAssertEqual(free.repoWrite, permitted, label)
+            XCTAssertEqual(free.destructive, false, label)
+            XCTAssertEqual(free.humanInteraction, false, label)
+
+            let json = dry.makeDryRunJSON()
+            XCTAssertEqual(json.writePolicy, dry.writePolicy.rawValue, label)
+            XCTAssertEqual(json.effects.repoWrite, permitted, label)
+            if permitted {
+                XCTAssertTrue(dry.takesWriteLock, label)
+            } else {
+                XCTAssertNil(dry.writeLockHeld, label)
+                XCTAssertFalse(dry.takesWriteLock, label)
+            }
+        }
+    }
+
+    func testWritePolicyNotOwnedByPrompt() {
+        let mutatingPrompt = resolve(
+            message: "refactor the module and commit",
+            flags: .init(teamId: "code_bug_hunt", json: true)
+        )
+        XCTAssertEqual(mutatingPrompt.writePolicy, .readOnly)
+        XCTAssertFalse(mutatingPrompt.effects.repoWrite)
     }
 }

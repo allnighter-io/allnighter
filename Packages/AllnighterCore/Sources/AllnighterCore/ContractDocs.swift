@@ -112,6 +112,17 @@ public enum ContractDocs {
         }
         line()
 
+        line("## Run dry-run write policy (SH-S05)")
+        line()
+        line("`alln run --dry-run --json` returns `writePolicy` (`readOnly` | `mutating`) and an `effects` block:")
+        line("`workerStart`, `quotaSpend`, `repoWrite`, `destructive`, `humanInteraction`.")
+        line()
+        line("- `effects.repoWrite` is **permission** after selectors resolve — the invocation *may* write and therefore uses write safety. It is not a prediction from prompt prose, and it is not an observed git delta.")
+        line("- Terminal `TeamRunJSON.repoDelta` reports whether a mutating run *did* write.")
+        line("- Callers that need a mechanical read-only guarantee select an **answer team** (`--team <answer-team-id>`); Default Team and explicit `--worker` are mutating-allowed and say so.")
+        line("- Dry-run itself starts no worker and spends no quota; `effects.workerStart` / `effects.quotaSpend` describe the spend twin `nextAction` would run.")
+        line()
+
         return out
     }
 }

@@ -160,10 +160,16 @@ public enum HelpTopicRegistry {
             `alln team status` and `alln team result` report progress or the settled packet \
             (poll with `nextPollAfterMs`); `alln team cancel` stops a run. Inspect a finished \
             run with `alln show`, `alln spec`, or `alln floor show`.
+
+            Dry-run `writePolicy` / `effects.repoWrite` report write *permission*, not prompt \
+            intent. For mechanical read-only, pick an answer team; Default Team and `--worker` \
+            are mutating-allowed. Observed writes appear only as terminal `repoDelta`.
             """,
-            aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt"],
+            aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt",
+                      "read only", "readonly", "write policy", "mutating"],
             sections: [
                 .init("preflight", "Dry-run first", "Always call `alln run --dry-run` before a real `alln run --detach` so a bad lineup fails before quota is spent."),
+                .init("write-policy", "Permission vs outcome", "`effects.repoWrite` means the resolved invocation may write. Answer teams are mechanical read-only; terminal `repoDelta` reports whether a mutating run did write."),
                 .init("polling", "Polling", "Poll `alln team result` using the returned `nextPollAfterMs`; do not busy-loop."),
             ],
             relatedCommandNames: ["run", "team status", "team result", "team cancel", "team reconcile", "floor show"],

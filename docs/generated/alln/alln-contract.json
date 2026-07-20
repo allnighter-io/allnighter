@@ -1995,12 +1995,12 @@
         },
         {
           "name" : "dry-run",
-          "summary" : "Resolve project\/worker\/auth\/mutating\/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04). Free twin of both foreground and --detach.",
+          "summary" : "Resolve project\/worker\/auth\/writePolicy\/effects\/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04\/SH-S05). Free twin of both foreground and --detach. effects.repoWrite is permission (may write), not a prompt prediction — pick an answer team for mechanical read-only; terminal repoDelta reports whether a mutating run wrote.",
           "takesValue" : false
         },
         {
           "name" : "json",
-          "summary" : "Emit TeamRunJSON (or RunDryRunJSON with --dry-run; TeamStartResponse with --detach).",
+          "summary" : "Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects; TeamStartResponse with --detach).",
           "takesValue" : false
         },
         {

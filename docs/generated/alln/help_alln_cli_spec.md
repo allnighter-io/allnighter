@@ -552,8 +552,8 @@ Flags:
 - `--conversation-id <id>` — Origin conversation id (detach path).
 - `--message-id <id>` — Origin message id (detach path).
 - `--detach` — Start asynchronously; return the durable run id and exit (async twin of foreground run).
-- `--dry-run` — Resolve project/worker/auth/mutating/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04). Free twin of both foreground and --detach.
-- `--json` — Emit TeamRunJSON (or RunDryRunJSON with --dry-run; TeamStartResponse with --detach).
+- `--dry-run` — Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04/SH-S05). Free twin of both foreground and --detach. effects.repoWrite is permission (may write), not a prompt prediction — pick an answer team for mechanical read-only; terminal repoDelta reports whether a mutating run wrote.
+- `--json` — Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects; TeamStartResponse with --detach).
 - `--stream` — Emit NDJSON events.
 
 Mutually exclusive: `--json`, `--stream`.
@@ -1544,4 +1544,14 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 - `pending_list_json` — List Pending items: `alln pending list --json`
 - `boost_window_show_json` — Show Boost window settings: `alln boost-window show --json`
 - `boost_window_set_json` — Enable Boost window for Claude and Codex: `alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex --json`
+
+## Run dry-run write policy (SH-S05)
+
+`alln run --dry-run --json` returns `writePolicy` (`readOnly` | `mutating`) and an `effects` block:
+`workerStart`, `quotaSpend`, `repoWrite`, `destructive`, `humanInteraction`.
+
+- `effects.repoWrite` is **permission** after selectors resolve — the invocation *may* write and therefore uses write safety. It is not a prediction from prompt prose, and it is not an observed git delta.
+- Terminal `TeamRunJSON.repoDelta` reports whether a mutating run *did* write.
+- Callers that need a mechanical read-only guarantee select an **answer team** (`--team <answer-team-id>`); Default Team and explicit `--worker` are mutating-allowed and say so.
+- Dry-run itself starts no worker and spends no quota; `effects.workerStart` / `effects.quotaSpend` describe the spend twin `nextAction` would run.
 

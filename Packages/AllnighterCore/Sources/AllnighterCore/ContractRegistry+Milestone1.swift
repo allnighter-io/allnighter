@@ -392,8 +392,8 @@ public extension ContractRegistry {
                 FlagSpec("conversation-id", takesValue: true, valueType: "id", summary: "Origin conversation id (detach path)."),
                 FlagSpec("message-id", takesValue: true, valueType: "id", summary: "Origin message id (detach path)."),
                 FlagSpec("detach", summary: "Start asynchronously; return the durable run id and exit (async twin of foreground run)."),
-                FlagSpec("dry-run", summary: "Resolve project/worker/auth/mutating/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04). Free twin of both foreground and --detach."),
-                FlagSpec("json", summary: "Emit TeamRunJSON (or RunDryRunJSON with --dry-run; TeamStartResponse with --detach)."),
+                FlagSpec("dry-run", summary: "Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04/SH-S05). Free twin of both foreground and --detach. effects.repoWrite is permission (may write), not a prompt prediction — pick an answer team for mechanical read-only; terminal repoDelta reports whether a mutating run wrote."),
+                FlagSpec("json", summary: "Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects; TeamStartResponse with --detach)."),
                 FlagSpec("stream", summary: "Emit NDJSON events."),
             ],
             mutuallyExclusiveFlags: [
