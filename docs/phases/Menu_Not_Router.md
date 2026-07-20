@@ -1,181 +1,338 @@
-# Menu, Not Router — the caller is the brain; alln is the menu
+# Menu, Not Router — the caller is the brain; `alln` is the tool menu
 
-Status: **Draft v2 (2026-07-20) — founder-ordered replacement for the retired
-intent-router architecture, hardened by two independent mentor reviews.**
-Supersedes archived `Agent_Intent_Router.md` in full. Foundation-first: no
-users, no migration, no compatibility shims, no salvage. The router code is
-deleted, not wrapped.
-**Scope of the claim (mentor-forced honesty): this phase ends
-wrong-spend-from-guessing.** It does not by itself make `alln` the tool of
-choice — the named follow-ons are listed below and are NOT this phase.
-Owner: AllnighterCore (`ContractRegistry`, `TeamCatalog`, `ModelCatalog`,
-error catalog) + AllnighterCLI (listings, bootstrap snippet)
-Updated: 2026-07-20 (v2)
+Status: **READY FOR IMPLEMENTATION — final hardened contract (2026-07-20).**
+Founder-ordered clean replacement for the retired intent-router architecture.
+No users; this cut carries no migration, compatibility aliases/readers, or dead
+selection paths.
+Owner: AllnighterCore (`ContractRegistry`, `MenuCatalog`, `TeamCatalog`,
+`ModelCatalog`, `RecipeCatalog`, error catalog) + AllnighterCLI (`menu`, `run`,
+`bootstrap`, help/search projections)
+Updated: 2026-07-20 (v3, final hardening pass)
 
-Related: archived `Agent_Intent_Router.md` (the retired architecture — read
-only to understand what NOT to rebuild) · `CLI_Agent_Ergonomics.md`
-(AE — this phase completes its thesis; Laws 2/3/6 and S13/S15 are the
-foundation this builds on) · `docs/workflows/SSOT_Feature_Workflow.md`
-(Prior Art step — this phase exists because that step was skipped once)
+Supersedes the selection architecture in archived `Agent_Intent_Router.md` and
+the `team hello` / `route` / `resolve` conclusions in
+`CLI_Agent_Ergonomics.md`. It is subordinate to `Language_Cutover.md` and
+`Unified_Run_Model.md`: **Team** is the noun, **Send to team** is the human
+action, and direct model/team work uses the one `alln run` primitive.
 
-## Founder ruling (2026-07-20)
+## Verdict
 
-A deterministic server-side intent router is the wrong architecture, period.
-`alln`'s caller is a frontier LLM — the best intent-understander on the
-machine, already paid for, holding conversation context we will never see.
-Claude Code, Codex, Cursor, and Grok all solved capability selection the same
-way: **a complete, well-described menu that the model reads and chooses
-from.** None of them ship a keyword NLU that guesses what the user meant.
-Retrieval may be lexical; **decision is never lexical.**
+**Yes: “menu, not router” is the right architecture. The v2 draft was not yet a
+great agent interface.** It deleted the wrong brain but left the right brain to
+assemble a fragmented, oversized menu from several commands. That is still slow,
+easy to forget, and unlike selecting a native tool in Codex.
 
-We built the opposite — a Swift keyword matcher deciding, on the caller's
-behalf, which quota-spending command to run — and it failed every cold-agent
-probe in exactly the way open intent space guarantees a closed keyword list
-must fail. Our own AE-S00 vendor study said this verbatim ("disclosure to the
-model; the model selects") before the router shipped. The premise was never
-audited. It is now, and it is dead.
+Measured against the 2026-07-20 release dogfood binary:
 
-## The from-scratch derivation (what this phase builds)
+| Read | Rows | Bytes |
+| --- | ---: | ---: |
+| `alln commands --json` | 109 commands | 140,580 |
+| `alln models --json` | 22 models | 16,283 |
+| `alln teams --json` | 25 teams | 7,667 |
+| **Total before recipes or detail** | **156 rows** | **164,530** |
 
-Question: an agent wants to use Allnighter — chat with a named model, run a
-team, start a pilot — without memorizing the catalog. What is the minimum
-honest machinery?
+That is a contract dump, not a usable menu. The final design is one compact live
+read, one optional detail read, one quota-free validation, then one run:
 
-1. **A complete menu written for model selection.** Names, trigger-shaped
-   descriptions ("use when the user says…"), anti-examples ("do NOT use
-   when…"), one worked invocation. The caller's weights do the rest at an
-   accuracy no matcher can approach. *Mostly shipped:* AE-S13
-   (`commands --json`, completeness marker) + AE-S15 (description standard)
-   cover commands. The gaps: `teams --json` / `models --json` / recipe rows
-   do not yet carry the standard, and full-detail dumps violate the two-tier
-   pattern the vendors are unanimous on.
-2. **Exactness at the point of use.** Every identifier flag resolves by
-   **exact match over id ∪ display name** (normalized case/whitespace) or
-   fails loudly with structured near-matches. A *unique* exact display name
-   ("Sonnet 5") resolves — that is validation, not routing. An *ambiguous*
-   name ("Sol", two drivers) fails listing every candidate with driver
-   metadata and no default. A miss fails with suggestions carrying
-   ready-to-paste argv. Never edit-distance auto-resolution; suggest, never
-   substitute. *Mostly shipped:* AE Law 2 + AE-S07; the gaps are
-   display-name matching and structured repair payloads.
-3. **Probing is free; spending is explicit.** Free twins for every spending
-   verb, so the caller can verify its choice before quota moves. *Shipped:*
-   AE-S04 / AE Law 3. No new work.
+```bash
+alln menu --json
+alln run "Review the release plan" --worker model_sonnet --dry-run --json
+alln run "Review the release plan" --worker model_sonnet --json
 
-That is the entire architecture. **There is no fourth component.** No intent
-endpoint, no taxonomy, no scorer, no "front door" command. The front door is
-`alln --help` and the bootstrap snippet pointing at the menu.
+alln run "Find three launch options" --team code_growth --dry-run --json
+alln run "Find three launch options" --team code_growth --json
+```
 
-## The residual risk the mentors both found
+If the caller already has a current canonical id, it skips discovery. For the
+common ask-one-model or Send-to-team path, `menu` must contain enough information
+to reach `run --dry-run` without another help call.
 
-**The menu can mislead without a router.** Post-deletion, the dangerous path
-is an *honest* one: an agent reads `teams --json`, sees `code_growth`, and
-maps "create a growth team" → `team start --team code_growth`. No matcher
-required — just a spending row with no management anti-example. The menu is
-only as safe as its anti-examples are ruthless. That risk drives MR-S02's
-mandatory cross-verb anti-examples and MR-S05's honest-menu-misread probe;
-zero-wrong-spends is asserted against *this* path, not only the deleted
-router's.
+## Founder intent translated into a product claim
 
-Second residual: **`alln` is not ambient.** Claude Code and Cursor re-present
-their tool menus every turn; `alln` is an external binary the agent must
-remember to consult, and a catalog memorized in one session is stale in the
-next. The countermeasure is taught discipline (MR-S04), not machinery:
-re-read the relevant listing before any unfamiliar spend; never trust a
-cached catalog across sessions.
+> A cold frontier agent can discover every public `alln` capability and every
+> selectable model, team, and recipe in one bounded machine read; choose using
+> its own conversation context; validate without spending quota; and invoke one
+> exact run command. `alln` never guesses the intent, silently substitutes a
+> target, or exposes two commands for the same direct run.
+
+This phase owns the selection and invocation path. It does not claim that run
+lifecycle, answer envelopes, or every composition workflow is already great.
+
+## Why the caller owns selection
+
+The calling agent already has the user's words, the conversation, repo context,
+and a frontier model. Allnighter has the authoritative live facts: commands,
+models, drivers, readiness, teams, mutability, and exact invocation grammar.
+The clean boundary is therefore:
+
+```text
+caller: understands intent and chooses
+alln:   discloses facts, validates exact ids, previews effects, executes
+```
+
+A keyword or embedded-model router reverses that boundary. It discards context,
+creates a second intent model, adds latency or quota, and can turn a weak guess
+into a real spend. Delete it rather than improving it.
+
+Lexical retrieval is allowed. `help search` may return zero or many matching
+menu records, including their normal templates. It may not emit a selected
+winner, confidence score, “recommended” target, or sole next action.
+
+## The end-state interface
+
+### 1. One live menu
+
+`alln menu --json` is the stable agent front door. It is a Core projection, not
+hand-authored help. One atomic response contains:
+
+- `actions`: a short fast-path set for common jobs, generated from tagged command
+  specs; each has an exact grammar template and free validation template;
+- `commands`: the exhaustive accepted public grammar as compact rows;
+- `teams`: every effective built-in and custom team, including inactive teams
+  with an explicit blocked reason;
+- `models`: every configured model, including disabled/off-Bench/unready models
+  with explicit state;
+- `recipes`: every shipped recipe card;
+- `effectProfiles`: deduplicated command-level effect records referenced by
+  compact command rows;
+- `defaults`: the one effective Default Team ref and resolved default worker id;
+- completeness counts and booleans for every collection;
+- `contractVersion`, `contractHash`, and a `catalogRevision` covering the dynamic
+  team/model/recipe snapshot.
+
+The complete compact index is Tier 1. Tier 2 is one uniform hydrate command:
+
+```bash
+alln menu show command:run --json
+alln menu show team:code_growth --json
+alln menu show model:model_sonnet --json
+alln menu show recipe:ask-several-models-and-compare --json
+```
+
+Typed refs make noun ambiguity impossible. An unknown ref fails with structured
+same-kind suggestions. Refs never contain whitespace (`command:teams.duplicate`,
+not `command:teams duplicate`). `menu show` is read-only and quota-free.
+
+`alln --help` remains complete human grammar. `docs` remains the full schema and
+reference renderer. `teams --json` and `models --json` may remain useful domain
+views, but they must project the same `MenuCatalog` records; they are not separate
+selection truth. The oversized `commands --json` surface is replaced by `menu`
+and deleted, with no alias.
+
+`menu` reads local registry/catalog/readiness state only. It never launches a
+smoke probe or worker and never spends provider quota.
+
+### 2. Compact does not mean incomplete
+
+Tier-1 rows omit full flag schemas and prompt bodies, never identities or state.
+The shapes are deliberately small:
+
+| Kind | Required Tier-1 fields |
+| --- | --- |
+| action | `id`, `useWhen`, `dontUseWhen`, `effects`, `example`, `validateExample` |
+| command | `ref`, `name`, `effectsRef` |
+| team | `ref`, `id`, `displayName`, `useWhen`, `dontUseWhen`, `shape`, `mutating`, `workerCount`, `isDefault`, `active`, `blockedReason`, `runTemplate`, `validateTemplate` |
+| model | `ref`, `id`, `displayName`, `driverId`, `enabled`, `ready`, `blockedReason`, `capabilities`, `runTemplate`, `validateTemplate` |
+| recipe | `ref`, `id`, `title`, `useWhen`, `dontUseWhen` |
+
+One top-level `detailTemplate` (`alln menu show <ref> --json`) hydrates every
+kind; repeating it in every row is forbidden. `effectProfiles` removes another
+large repeated object without asking the caller to infer semantics. Template
+variables use one declared syntax (for example `{message}`); target-specific
+templates bind the canonical team/model id and never contain an `<id>` guess.
+
+Every public command accepted by the parser appears in `commands`. Every parser
+path has a registry-owned `public | developer | internal` visibility; unregistered
+parser branches are forbidden. Developer/internal commands do not pollute the
+public menu. Every effective catalog object appears even when it cannot currently
+run. Deferred, lab-only, retired, and parser-inaccessible records appear nowhere.
+The response states `truncated: false`; pagination and hidden tails are forbidden
+on the default menu.
+
+The built-in fixture must encode to **≤32 KiB**. Custom records stay linear and
+use the same bounded row fields; prompt templates, full flag descriptions,
+transcripts, diagnostics, and prose counsel belong in Tier 2. A byte-size
+regression test guards the built-in fixture. Creation/edit validation bounds
+custom selection metadata per row so one record cannot explode the result. If
+the schema cannot meet the budget, simplify the schema—do not truncate truth.
+
+### 3. Effects are facts, not adjectives
+
+Every action and command record carries registry-owned effects, directly or via
+`effectsRef`. Command-level values are enums because flags or target selection
+can change the result:
+
+```json
+{
+  "workerStart": "dependsOnFlags",
+  "quotaSpend": "dependsOnFlags",
+  "repoWrite": "dependsOnSelection",
+  "destructive": "never",
+  "humanInteraction": "never"
+}
+```
+
+Allowed values are `never | always | dependsOnFlags | dependsOnSelection`.
+After target and flags resolve, `run --dry-run` returns effective booleans, not
+conditional prose.
+
+These fields derive from command semantics and the effective team/worker
+selection. Text such as “safe,” “cheap,” or “read-only” cannot own behavior.
+No estimates of money, tokens, duration, or future quota are emitted.
+
+For teams, `shape` and `mutating` come from the effective `TeamPreset`. Answer
+teams may say `repoWrite: false` only when Unified Run Model's mechanical
+read-only guarantee exists for every selected worker. Otherwise the team is
+blocked, not optimistically described.
+
+### 4. IDs execute; display names explain
+
+Canonical ids are the only executable selector values:
+
+```text
+--worker model_sonnet
+--team code_growth
+```
+
+Display names are selection text for the caller, not aliases accepted by a
+spending command. This matches native tool calling: the model reads a friendly
+description, then invokes an exact stable name. It also deletes ambiguity rules,
+normalization policy, and mutable-name coupling from the spend path.
+
+An unknown id fails before dispatch and returns:
+
+- stable error code, command, flag, and provided value;
+- zero or more same-kind candidates with canonical id, display name, driver, and
+  state;
+- a ready-to-paste **discovery or validation** command;
+- no auto-selected candidate and no spending command based on edit distance.
+
+Suggestions repair spelling; they never authorize substitution. All explicit
+team/model ids pass through one resolver choke point and are either honored or
+rejected. Accept-and-drop is impossible.
+
+### 5. One direct-run grammar
+
+Direct work with the Default Team, a named worker, or a Team uses `alln run`.
+`alln team "…"` and `alln team start "…"` are duplicate spending grammars and
+are deleted, not aliased. Team management remains under `teams …`; run lifecycle
+commands may remain under their owning lifecycle nouns until that contract is
+separately simplified.
+
+Foreground vs detached execution is a flag, not a second verb:
+
+```bash
+alln run "Review this" --team code_spec_review --json
+alln run "Review this overnight" --team code_spec_review --detach --json
+```
+
+`--detach` returns the durably accepted run id and preserves the async capability
+currently hidden behind `team start`.
+
+Every worker-starting path has a quota-free twin. For direct runs it is the same
+grammar plus `--dry-run`. Dry-run resolves the project, canonical ids, effective
+team shape, readiness, auth knowledge, write policy, and lock state; it creates
+no `RunRecord`, starts no worker, and spends no provider quota. Its JSON returns
+the exact resolved ids and effects the real run will use. It is not a reservation:
+the real run repeats live readiness, catalog, write-policy, and lock validation
+and fails closed if state changed.
+
+Distinct workflow commands may eventually create runs, but they must represent a
+real product operation—not an alias for direct `run`—and must declare effects and
+a free twin in `ContractRegistry`.
+
+### 6. Bootstrap teaches a reflex, not a catalog
+
+`alln bootstrap` contains only stable rules:
+
+1. Before first Allnighter use in a session, read `alln menu --json`.
+2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.
+3. Before an unfamiliar worker-starting action, run its validation template.
+4. Re-read the live menu in a new session; never trust a pasted catalog.
+
+It does not embed models, teams, recipes, or command rows. Static host context is
+for the protocol; the live binary owns the catalog.
 
 ## Laws
 
-1. **The caller decides; alln discloses, resolves, and verifies.** No alln
-   code path may map free natural-language text to a command, team, or
-   worker. Free text is never an input to selection — only identifiers and
-   flags are.
-2. **Retrieval is honest about being retrieval.** Lexical search surfaces
-   (`help search`) return **menu slices** — the same structured fields as the
-   listings — never a runnable recommendation, never a spending argv. A
-   search result is a menu excerpt, not a verdict.
-3. **The menu is complete, selection-grade, and skimmable — two tiers.**
-   Tier 1: every listing's default output is a **complete compact index**
-   (id, display name, one-line trigger) cheap enough to read whole — a
-   listing that doesn't fit in a tool result is incomplete in practice.
-   Tier 2: full selection-grade detail (`useWhen`, `dontUseWhen`, worked
-   example) on demand per id or via `--full`, on **existing nouns** (`team
-   show`, `models`, `docs`) — no new discovery commands. The completeness
-   gates bind to the tier-2 records.
-4. **Every spending row carries cross-verb anti-examples.** A row whose
-   example spends quota must state the adjacent intents it does NOT serve
-   and name where they live ("do NOT use for create / duplicate / edit /
-   customize a team — `teams duplicate`, `teams edit`"). This is the
-   structural defense for the honest-misread path above.
-5. **Errors are structured repairs.** An unresolved or ambiguous identifier
-   returns machine fields — error code, flag, provided value, candidates
-   with `{id, displayName, driver, nativeDriver}` and a ready-to-paste
-   corrected argv — so the caller applies a one-shot repair without parsing
-   prose. (Agent-first schemas law, applied to the failure path.)
-6. **Nothing fuzzy ever spends.** Only an exact, validated identifier can
-   reach a spending dispatch. With no router, no code path is *left* that
-   could fuzzy-match into a spend; this law keeps it that way.
+1. **The caller chooses.** No Allnighter policy maps unstructured intent to one
+   selected command, team, model, or recipe.
+2. **One menu owns discovery.** `MenuCatalog` is the source for `menu`, domain
+   listings, help search, and generated selection docs. Bootstrap teaches the
+   stable `menu` command from `ContractRegistry`; it never copies menu rows.
+3. **Complete means executable truth.** The menu lists every public
+   parser-accepted command and every effective catalog object, including blocked
+   objects with reasons; it lists no deferred or unreachable fiction.
+4. **Common work is one read away.** Ask-one-worker and Send-to-team reach
+   `run --dry-run` from the default menu without hydration or search.
+5. **Only canonical ids cross the dispatch boundary.** Names and fuzzy matches
+   can aid selection but never execute.
+6. **Effects are structured and registry-owned.** Every worker-starting action
+   declares quota and mutation behavior plus a free twin.
+7. **Nothing fuzzy, stale, dropped, or ambiguous spends.** Validation fails
+   closed before a run record or provider process exists.
+8. **One semantic act has one grammar.** No aliases or alternate direct-run
+   entrypoints survive the clean cut.
 
 ## Anti-goals
 
-- **No intent endpoint, ever again** — not deterministic, not model-assisted,
-  not "just for the easy cases." The parked "fuzzy/model-assisted match" from
-  the archived router doc is not parked; it is rejected.
-- **No model call inside alln** (no-API-keys law; latency). The model in the
-  loop is the caller, for free.
-- **No salvage wrappers.** `AgentIntentRouter` is deleted, not demoted to a
-  "suggest" helper. Dead architecture leaves no residue to re-grow from.
-- **No compatibility aliases** for `team hello` / `route` / `resolve`.
-  Pre-user, foundation-first: removed commands are removed
-  (contractVersion major bump per AE-S11 semantics).
-- **No new discovery nouns.** Two-tier disclosure lands on existing surfaces;
-  the menu gets finished, not multiplied.
-- **No static catalog copies in installed surfaces.** The bootstrap snippet
-  teaches the reflex and the stable family names only — an embedded full
-  catalog in host configs is a hand-written drift surface reborn (AE
-  Pattern C).
+- No deterministic, regex, keyword, embedding, or model-assisted intent router.
+- No hidden model call or API key inside `alln` for selection.
+- No `team hello`, `route`, `resolve`, `--for`, or compatibility wrappers.
+- No `team list`, `team show`, or `team preflight` selection aliases; `menu`,
+  `teams show <id>`, and `run --dry-run` own those jobs.
+- No display-name aliases on `--worker` or `--team`.
+- No static catalog copied into bootstrap or host instructions.
+- No hand-authored menu beside `ContractRegistry` and the live catalogs.
+- No default recommendation, confidence score, or “best” row from search.
+- No second confirmation after the caller invokes a normal run; dry-run is an
+  inspection tool, not an approval ceremony. Separate high-risk operations keep
+  their owning safety policy.
+- No broad cleanup of unrelated lifecycle, Pending, Pilot, or GUI contracts.
 
-## What this phase does NOT fix (named follow-ons, not smuggled in)
+## Implementation slices
 
-- **Posture honesty + skinny chat envelope** — a one-word ask today returns a
-  bloated envelope labeled `mutating`; agents need an honest read-only
-  posture and a thin answer view. This is the next bottleneck after the menu
-  is correct, and it is its own phase.
-- **Composition workflows** — Growth → phase doc → Pilot is a chain, not a
-  row pick. MR-S02 puts recipes into the menu; teaching multi-step chains
-  well is follow-on work.
-- **Misc discovery friction** — positional-only `help search`, missing
-  `docs` topics, no cheap "list active runs," placeholder-heavy examples
-  outside the touched surfaces. Real; tracked; not this phase.
-
-## Slices
+Slices are deletion-forward and must leave the binary runnable. Surface changes
+advance `contractVersion` under AE-S11; the completed phase is one clean major
+contract cut, not a compatibility release.
 
 | Slice | Deliverable |
 | --- | --- |
-| **MR-S01** | **Delete the router.** Remove `AgentIntentRouter.swift`, `AgentHello.swift`, the `--for` mode, `team hello`, `route`/`resolve` aliases, their `ContractRegistry` entries, `AgentIntentRouterTests` + `AgentHelloTests`, and every teaching-surface reference (`Bootstrap.swift`, `TeachingSnippet.swift`, `RecipeCatalog.swift`, help topics). contractVersion **major** bump; regenerate contracts + lock (AE-S11 gate enforces). Add `team hello`, `route`, `resolve`, `--for` to `RetiredVocabulary`. **Readiness facts survive elsewhere:** before deleting, verify every fact bare `team hello` reported is available via `doctor` / `team preflight` / `teams`; anything orphaned moves there in the same slice — free probe-before-spend is a pillar, and it must not be collapsed into "preflight after you've chosen." |
-| **MR-S02** | **Selection-grade, two-tier menu everywhere.** Tier 1: `teams --json` / `models --json` default to the complete compact index (Law 3). Tier 2: detail records carry `useWhen` (situation-shaped), `dontUseWhen`, `example` (runnable argv, real values); model records add `displayName`, `driver`, `nativeDriver: bool`, posture capability. **Every spending row carries cross-verb anti-examples (Law 4) — gate enforced.** Recipes join the completeness guarantee as rows reachable from `commands --json`/existing help surfaces (no new noun), so composition intents ("ask several models…") are findable from the menu alone. Gate: registry test over all tier-2 records for the three fields + the management anti-example on spending rows. |
-| **MR-S03** | **Point-of-use resolution: exact over id ∪ display name, structured repairs.** Unique exact display name resolves (`--worker "Sonnet 5"` → `model_sonnet`, logged as resolved-by-display-name in the envelope). Ambiguity fails listing all candidates with driver metadata, no default. Miss fails with structured suggestions per Law 5 (candidates + ready-to-paste corrected argv). Reuses AE-S07 machinery; matching stays exact — no edit-distance auto-resolution. Gates: `"Sonnet 5"` resolves; `"Sol"` exits non-zero with both driver entries, neither preselected; `"Sonet 5"` exits non-zero with `model_sonnet` in a structured `didYouMean` carrying corrected argv. |
-| **MR-S04** | **Bootstrap teaches the menu reflex — one call, then re-fetch discipline.** The taught reflex: **one** tier-1 fetch (`alln commands --json`, which names the teams/models/recipes listings) → pick → `--dry-run`/`preflight` → run. Delete every `team hello --for` teaching. The snippet states the completeness guarantee ("this list is exhaustive; if it isn't listed, it doesn't exist") and the two staleness rules: re-read the relevant listing before any unfamiliar spending command; never reuse a catalog memorized in a previous session. Snippet contains the reflex + stable family names only — never an embedded catalog (anti-goal). |
-| **MR-S05** | **Cold-agent proof, out-of-distribution, positive AND negative.** AE-S09 harness with permanent rows: named-model ask ("ask Sonnet 5 …"), management intent ("duplicate the growth team so I can edit seats"), composition intent ("ask several models for growth ideas"), bare model name ("Sonnet 5"), and the **honest-misread probe** — an agent given only the menu must land management intents on `teams duplicate`/`teams edit`, proving Law 4's anti-examples carry the weight the router no longer pretends to. **Negative assertions:** zero spending dispatches on management/composition/bare probes; zero invented flags; `help search` output contains no spending argv (Law 2 regression row). **Positive assertions:** each probe reaches the *correct* command — not merely no wrong one — within ≤3 discovery steps (vendor patience budget), terminating in an exact command or an explicit cannot-fulfill; a discovery loop (re-reading listings without converging) is a FAIL, not a timeout. |
+| **MR-S01 — Build the real menu** | Add Core-owned `MenuCatalog`, typed refs, effects, compact/detail schemas, `alln menu --json`, and `alln menu show <ref> --json`. Give every parser path a registry-owned visibility and reject unregistered branches. Project public command specs, effective teams, configured models, and recipes atomically. Add completeness, reachability, deterministic ordering, snapshot revision, duplicate-ref, per-row bound, and ≤32 KiB built-in-fixture gates. `actions` are generated from tagged command specs, never a second registry. |
+| **MR-S02 — Clean-cut the wrong and duplicate grammars** | Delete `AgentIntentRouter.swift`, `AgentHello.swift`, all router tests/errors/help/recipes, `team hello`, `route`, `resolve`, `--for`, and the `team list` alias. Replace/delete `commands --json`. Delete selection duplicates `team show` and `team preflight`; `menu`, `teams show <id>`, and `run --dry-run` own those facts. Delete direct-run aliases `alln team [prompt]` and `alln team start [prompt]`; preserve async work as `alln run --detach` and route the product contract to `alln run`. Add every retired path/token to `RetiredVocabulary`; regenerate all derived contracts; perform the required major version cut. Preserve readiness facts through `menu`, `doctor`, and `run --dry-run`, not an oracle-shaped replacement. |
+| **MR-S03 — Make every row selection-grade** | Author bounded `useWhen` and `dontUseWhen` for every team/model/recipe and every fast-path action. Spending actions name adjacent management intents and their exact commands. Add structured effects and direct validation/run templates. Gate declared template variables, target-bound canonical ids, valid command refs, and cross-verb anti-examples. Derived generic prose does not satisfy the gate for fast-path actions or selectable targets. |
+| **MR-S04 — Exact-id dispatch and one-shot repair** | Route every explicit worker/team selector through one exact-id resolver. Remove display-name matching and all silent/default substitution. Unknown ids return same-kind candidates and exact discovery/validation commands; ambiguity is structurally impossible because ids are unique. Table-test every identifier flag for honor-or-fail and every dispatch path for no process/run creation on failure. |
+| **MR-S05 — Teach and retrieve from the same truth** | Rewrite bootstrap to the four-rule live-menu reflex. Project `teams`, `models`, generated docs, and `help search` from `MenuCatalog`. Search returns zero/many menu cards and no selection/recommendation fields. Delete every static or router-era teaching copy from Core, CLI, active docs, generated artifacts, recipes, and host snippets. Tombstone the archived router doc and update active routing docs in the same slice. |
+| **MR-S06 — Cold-agent proof** | Replace the router-era harness with pinned-binary, out-of-distribution tests. Record binary SHA, menu bytes/counts, every command attempted, dry-run JSON, whether a run/provider process was created, and final exact command. Fail on stale binary, invented grammar, discovery loops, wrong spend, display-name execution, catalog incompleteness, or a common path requiring hydration. |
 
-## Rejected from mentor feedback (with reasons)
+## Cold-agent acceptance matrix
 
-- **New `alln menu --summary` noun.** Two-tier disclosure is adopted — on
-  existing nouns. A new discovery command multiplies the surface this phase
-  exists to finish.
-- **Hard 2-step execution cap.** The vendor study's measured patience is 2–3
-  discovery attempts; ≤3 with loop-detection keeps the teeth without
-  manufacturing false failures.
-- **Embedding the full catalog in the bootstrap snippet.** An installed
-  static copy is a hand-authored drift surface (AE Pattern C) that goes
-  stale in every host config that pasted it. The reflex is one cheap live
-  call instead.
-- **Keeping bare `team hello` as a readiness surface.** The readiness
-  *facts* are preserved (MR-S01); the *command name* is an oracle-shaped
-  attractor that dies with the router.
-- **Skinny answer envelope / read-only posture in this phase.** Real, and
-  the likely next bottleneck — named as a follow-on above, not smuggled into
-  this scope (the reviewing mentor agrees).
+Each row starts with only the bootstrap snippet and the user ask. The evaluator
+must not mention `menu`, `run`, ids, or flags in the prompt.
+
+| Ask shape | Required outcome before any spend |
+| --- | --- |
+| “Ask Sonnet 5 to review this” | one menu read → exact `model_*` id → `run --worker … --dry-run` |
+| “Ask several models for launch options” | one menu read → appropriate answer-team id → `run --team … --dry-run` |
+| “Use the growth team” | one menu read → exact team id → dry-run; no name passed as id |
+| “Duplicate the growth team so I can edit seats” | `teams duplicate`; zero worker starts |
+| “Edit the growth team” | `teams edit`; zero worker starts |
+| “Fix this with the execution team” | exact mutating team id; dry-run reports `repoWrite: true` and lock state |
+| bare “Sonnet 5” | ask/clarify or prepare a named-worker dry-run; never execute the display name |
+| unknown model/team name | explicit cannot-fulfill or candidate presentation; zero worker starts |
+| rare administrative intent | menu → at most one `menu show` → exact command |
+
+Pass bar:
+
+- common named-worker, Send-to-team, and team-management rows: **one discovery
+  call maximum** before the free validation or exact non-spending command;
+- rare rows: **two discovery calls maximum** (`menu`, then `menu show`);
+- 100% correct command family and canonical id across the permanent matrix;
+- zero wrong worker starts, quota spends, repo writes, invented flags, aliases,
+  or repeated discovery loops.
+
+“No wrong spend” alone is not a pass. The caller must reach the right executable
+command or an honest cannot-fulfill result within the budget.
 
 ## Works test
 
@@ -183,72 +340,98 @@ cached catalog across sessions.
 swift build -c release --package-path Packages/AllnighterCore --product alln
 B=Packages/AllnighterCore/.build/release/alln
 
-# MR-S01 — the router is gone, loudly; readiness facts survived
-$B team hello --for "anything" --json; test $? -ne 0 && echo OK   # unknown command
-$B route --for "anything"; test $? -ne 0 && echo OK
-rg -l 'AgentIntentRouter|AgentHello' Packages/ && echo FAIL || echo OK
-$B dev export-contracts --check   # passes only with major-bumped contractVersion
-$B doctor --json | grep -q ready && echo OK   # bench readiness reachable without hello
+# One bounded, complete menu
+$B menu --json > /tmp/alln-menu.json
+/usr/bin/python3 scripts/verify_menu_contract.py /tmp/alln-menu.json \
+  --max-built-in-bytes 32768 --require-complete --require-unique-refs
+$B menu show command:run --json >/dev/null
+$B menu show team:code_growth --json >/dev/null
+$B menu show model:model_sonnet --json >/dev/null
 
-# MR-S02 — two tiers: compact-complete index; selection-grade detail
-$B teams --json | wc -c        # tier-1: complete AND small enough to read whole
-$B team show code_growth --json | /usr/bin/python3 -c 'import json,sys; r=json.load(sys.stdin); ok=r.get("useWhen") and r.get("dontUseWhen") and r.get("example"); print("OK" if ok else "FAIL")'
-$B team show code_growth --json | grep -qi 'duplicate' && echo OK   # cross-verb anti-example present
-$B models --json | /usr/bin/python3 -c 'import json,sys; rows=json.load(sys.stdin)["models"]; bad=[r["id"] for r in rows if "nativeDriver" not in r]; print("FAIL:",bad) if bad else print("OK")'
-$B commands --json | grep -qi recipe && echo OK   # recipes inside the completeness guarantee
+# The wrong brain and duplicate direct-run grammar are gone
+$B team hello --for anything >/dev/null 2>&1; test $? -ne 0
+$B route --for anything >/dev/null 2>&1; test $? -ne 0
+$B resolve --for anything >/dev/null 2>&1; test $? -ne 0
+$B commands --json >/dev/null 2>&1; test $? -ne 0
+$B team list --json >/dev/null 2>&1; test $? -ne 0
+$B team show --json >/dev/null 2>&1; test $? -ne 0
+$B team preflight --team code_growth --json >/dev/null 2>&1; test $? -ne 0
+test ! -e Packages/AllnighterCore/Sources/AllnighterCore/AgentIntentRouter.swift
+test ! -e Packages/AllnighterCore/Sources/AllnighterCore/AgentHello.swift
 
-# MR-S03 — exact over id ∪ display name; structured repairs
-$B run "probe" --project "$PWD" --worker "Sonnet 5" --dry-run --json && echo OK
-# ^ unique display name RESOLVES to model_sonnet (dry-run: proves resolution, spends nothing)
-$B run "probe" --project "$PWD" --worker "Sol" --json; test $? -ne 0 && echo OK
-# MUST list model_chatgpt (Codex, native) AND model_chatgpt_sol (Cursor); no default
-$B run "probe" --project "$PWD" --worker "Sonet 5" --json 2>&1 | grep -q didYouMean && echo OK
-# structured suggestions with ready-to-paste argv; MUST NOT dispatch
+# Canonical ids only; suggestions never dispatch
+$B run "probe" --worker model_sonnet --dry-run --json
+$B run "probe" --worker 'Sonnet 5' --dry-run --json; test $? -ne 0
+$B run "probe" --worker model_sonet --json; test $? -ne 0
+$B history "probe" --json  # no run created by the two rejected selectors
 
-# MR-S04 — bootstrap teaches the one-call menu reflex, not a router, not a cached catalog
-$B bootstrap | grep -q 'team hello' && echo FAIL || echo OK
-$B bootstrap | grep -q 'commands --json' && echo OK
-$B bootstrap | grep -qiE 're-read|refetch|stale' && echo OK   # staleness discipline taught
+# One direct-run grammar and a free twin
+$B run "probe" --team code_growth --dry-run --json
+$B run "probe" --team code_growth --detach --dry-run --json
+$B team "probe" --json; test $? -ne 0
+$B team start "probe" --json; test $? -ne 0
 
-# MR-S05 — the harness rows that killed the router, now permanent
-scripts/agent_eval.sh   # management/composition/bare-name/honest-misread probes;
-                        # PASS = zero wrong spends AND correct command reached ≤3 steps;
-                        # discovery loop = FAIL; help search output free of spending argv
+# Static teaching points to live truth and contains no retired catalog/router
+$B bootstrap | grep -q 'alln menu --json'
+$B bootstrap | grep -qE 'team hello|route --for|resolve --for' && echo FAIL || echo OK
+
+# Generated contract, deterministic gates, and cold-agent proof
+$B dev export-contracts --check
+scripts/agent_eval.sh --suite menu-not-router --binary "$B"
+scripts/check.sh
 ```
 
 ## Inference bans
 
-| Junction | Owner | Bad inference | Ban | Negative test |
-| --- | --- | --- | --- | --- |
-| Free text ↔ selection | (deleted) | "alln can guess what the user meant" | No code path maps free text → command/team/worker | grep gate: no router artifacts in Packages/ |
-| Search ↔ decision | `help search` | "top search hit ⇒ run it" | Search returns menu slices, never a runnable spending argv | harness row: search output free of spending argv |
-| Menu row ↔ adjacent verbs | spending rows | "the Growth row serves every growth-flavored intent" | Cross-verb anti-examples mandatory on spending rows | honest-misread probe lands on `teams duplicate` |
-| Display name ↔ id | error catalog | "closest name ⇒ silently use it" | Exact-unique resolves; ambiguity lists all, defaults none; miss suggests with argv | `"Sol"` exits non-zero, two candidates, no pick |
-| Listing size ↔ completeness | tier-1 listings | "complete means dump everything" | Compact-complete index; detail on demand | tier-1 output fits a tool result; tier-2 gates hold |
-| Session memory ↔ catalog | bootstrap discipline | "the catalog I read yesterday still holds" | Re-read before unfamiliar spend; no cross-session cache | snippet teaches staleness rules (grep gate) |
-| Snippet ↔ reflex | bootstrap | "teach one magic command" | Teach the one-call menu reflex; no oracle command exists | bootstrap free of retired router vocab |
+| Junction | Truth owner | Bad inference | Mechanical ban |
+| --- | --- | --- | --- |
+| user prose → selection | caller | “Allnighter should guess the winner” | no unstructured-intent selector in Core/CLI |
+| menu → parser | `ContractRegistry` | “menu rows can drift from commands” | every command row resolves; counts match; generated projection only |
+| menu → catalogs | `MenuCatalog` | “inactive means nonexistent” | list all effective records with explicit state/blocker |
+| display name → dispatch | exact-id resolver | “unique-looking name is safe enough” | selector flags accept canonical ids only |
+| suggestion → authorization | error catalog | “nearest candidate may run” | suggestions contain no auto-selected spending action |
+| team label → write safety | `TeamPreset` + run resolver | “answer implies read-only” | effects derive mechanically; unsafe answer teams block |
+| search rank → decision | `MenuCatalog` search projection | “top lexical hit is recommended” | no selected/confidence/recommended fields |
+| bootstrap → catalog | live `menu` | “pasted ids stay current” | static snippet contains protocol only |
+| direct work → grammar | `run` command spec | “aliases are harmless” | retired-vocabulary + parser tests reject duplicate entrypoints |
+
+## Out of scope and next bottlenecks
+
+- **Run lifecycle trust:** durable admission, activity, blocker, kill, retry, and
+  progress truth remain owned by archived `Run_Lifecycle_Reliability.md` (code is
+  the current SSOT).
+- **Skinny answer output:** a short question still needs a compact answer view and
+  honest read/write posture. Give that its own phase after selection is correct.
+- **Multi-step composition:** recipes are discoverable here; richer Growth → phase
+  doc → Pilot chains remain separate workflow work.
+- **Broad CLI taxonomy cleanup:** this phase deletes selection/router residue and
+  duplicate direct-run grammar. It does not rename unrelated Pending, Pilot,
+  lifecycle, or administration commands.
 
 ## Done when
 
-- MR-S01–S05 checked; works test green on a release binary from committed HEAD.
-- Zero router artifacts in the codebase (grep gate) and `RetiredVocabulary`
-  refuses their return.
-- Tier-1 listings are complete and compact; every tier-2 record is
-  selection-grade; every spending row carries cross-verb anti-examples
-  (mechanical gates).
-- The AE-S09 harness — including the management-verb, composition,
-  bare-name, and honest-misread probes — passes with **zero wrong spending
-  dispatches AND the correct command reached** within ≤3 steps on every row.
-- The archived `Agent_Intent_Router.md` gains a one-line tombstone pointing
-  here, so nobody re-reads it as live law.
+- MR-S01–S06 are complete on committed HEAD and the release-binary Works Test is
+  green.
+- `alln menu --json` is complete, untruncated, deterministic, bounded, and the
+  only selection truth; all projections share `MenuCatalog`.
+- Common model/team work reaches exact `run --dry-run` after one menu read; rare
+  work needs at most one hydrate read.
+- Direct work has one grammar: `alln run`. Router commands, duplicate direct-run
+  entrypoints, display-name dispatch, and `commands --json` do not parse.
+- Every worker-starting action declares effects and has a proven quota-free twin.
+- The permanent cold-agent matrix reaches the correct command or honest stop with
+  zero wrong spends, writes, invented grammar, or loops.
+- Active routing/teaching docs point here; archived router material is visibly
+  tombstoned; generated contracts contain no retired grammar.
 
 ## Routing
 
 | Work | Read first |
 | --- | --- |
-| Anything "route intent" shaped | **This doc** — the answer is: don't. Laws 1–2. |
-| Listing/description quality, anti-examples | MR-S02 + Laws 3–4 + AE-S15 standard |
-| Identifier errors / display names / repairs | MR-S03 + Laws 5–6 + AE-S07 |
-| Onboarding snippet / staleness discipline | MR-S04; archived `Agent_Onboarding.md` for history |
-| Cold-agent evaluation | MR-S05 + AE-S09 harness |
-| Chat posture / envelope size complaints | Follow-on phase (see "does NOT fix") — not here |
+| Selection, discovery, menus, router removal | **This doc** |
+| Canonical product vocabulary | `Language_Cutover.md` |
+| One run primitive, answer/execution safety, write lock | `Unified_Run_Model.md` |
+| Registry, JSON/errors/generated artifacts | `CLI_Implementation_Contract.md` |
+| Run stuck/status/activity/kill/retry | archived `Run_Lifecycle_Reliability.md` |
+| Bootstrap and help teaching updates | this doc MR-S05 + `SSOT_Feature_Workflow.md` |
+| Implementation/commit/closeout | `docs/operations/Execution-Playbook.md` |
