@@ -141,7 +141,7 @@ The existing RB6 surface must be replaced deliberately:
 | `allnighter` binary | `alln` | Rename the SPM product/install path for public use. No public long-form alias. |
 | `ask` | `alln team` | Replace, do not alias as public grammar. |
 | `detect` / narrow doctor output | `alln doctor` | Merge into Doctor; hidden debug commands are allowed only for local development. |
-| `presets` | `alln team show` now; team preset commands later | Do not ship a separate old preset grammar. |
+| `presets` | `alln teams` now; team preset commands later | Do not ship a separate old preset grammar. |
 | `recall` | `alln history` / `alln show` | History and show own retrieval. |
 | `council_ask` / RB6 tool names | `team_ask` / `team_*` | Rename before advertising MCP again. |
 | `masterPlan` JSON / copy | `plan` | Rename in persisted/public JSON at the same time as CLI output. |
@@ -169,10 +169,10 @@ Core commands:
 
 ```bash
 alln team [prompt]                 # ask the default team, foreground
-alln team start [prompt]           # start a resumable/asynchronous team run
+alln run --detach [prompt]           # start a resumable/asynchronous team run
 alln team status <run-id>          # show live state for a team run
 alln team result <run-id>          # show final result for a team run
-alln team show                     # show current default team
+alln teams                     # show current default team
 alln team edit                     # edit team lineup
 alln team deployables              # list deployable team jobs
 alln team deployable show <id>     # inspect one deployable team job
@@ -212,7 +212,7 @@ Agent activation (live):
 
 ```bash
 alln bootstrap                     # paste-ready host context snippet (replaces MCP install)
-alln team hello --for "<intent>"   # first-contact readiness + next command
+alln menu --json   # first-contact readiness + next command
 ```
 
 > **TOMBSTONE (2026-07-16):** the MCP transport verb family is **retired**. There is
@@ -248,7 +248,7 @@ separate risks such as pairing, new local API clients, permission changes,
 session kills, or destructive cleanup.
 
 `alln skills` is real only when the skill library exists. Until then, skill
-names may appear inside `alln team show` and run output, but do not imply a
+names may appear inside `alln teams` and run output, but do not imply a
 standalone editable library.
 
 Lane shortcuts may exist later:
@@ -559,13 +559,13 @@ GUI/iOS:    shared command handlers or local coordinator
 
 Transport names may differ, but operation semantics must map to the same command
 handlers. Underscore tool ids below are **historical labels only** — live agents
-speak CLI verbs (`alln team start`, not `team_start`).
+speak CLI verbs (`alln run --detach`, not `team_start`).
 
 | Operation | CLI shape (live) | Historical tool label (retired) |
 | --- | --- | --- |
-| Show available teams | `alln team show --json` | `teams_list` / `team_show` |
+| Show available teams | `alln teams --json` | `teams_list` / `team_show` |
 | Synchronous ask | `alln team --json "..."` | (foreground CLI) |
-| Async start | `alln team start --json "..."` | `team_start` |
+| Async start | `alln run --detach --json "..."` | `team_start` |
 | Status | `alln team status <run-id> --json` | `team_status` |
 | Result | `alln team result <run-id> --json` | `team_result` |
 | Pending work | `alln pending add --project ...`, `alln pending list --project ...`, `alln pending list --all`, `alln pending submit/edit/reorder/show/cancel/run/stop --json` | `pending_*` |
@@ -710,7 +710,7 @@ Do not revive MCP transport; CLI is the only agent surface
    renderer/reducer?
 2. ~~Should MCP projection ship after milestone 1?~~ **Closed** — MCP retired;
    CLI is the only agent surface (`MCP_Retirement.md`).
-3. Should `alln team start/status/result` require resident mode, or can the first
+3. Should `alln run --detach/status/result` require resident mode, or can the first
    async run journal work without a long-lived coordinator?
 4. ~~Is MCP install the right subcommand shape?~~ **Closed** — replaced by
    `alln bootstrap` (paste-ready host context; no client file edits).
@@ -727,7 +727,7 @@ commands:
 4. `alln doctor` plus `alln doctor --json`.
 5. `alln doctor explain <code> --json`.
 6. `alln models` plus `alln models --json`.
-7. `alln team show` plus `alln team show --json`.
+7. `alln teams` plus `alln teams --json`.
 8. `alln team "prompt"` using the current default team.
 9. `alln team --json "prompt"` matching the fixture.
 10. `alln team --stream "prompt"` with NDJSON events.
@@ -743,7 +743,7 @@ alln docs --errors > /tmp/alln-errors.md
 alln docs --schema > /tmp/alln-schema.md
 alln doctor --json
 alln models --json
-alln team show --json
+alln teams --json
 alln team "Give me three ways to simplify the Allnighter CLI."
 alln show latest --json
 alln export latest --format md

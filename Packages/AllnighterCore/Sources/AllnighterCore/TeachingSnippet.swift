@@ -8,18 +8,17 @@ import Foundation
 /// No filesystem writes — the CLI prints; the Mac app (ONB-S03) owns clicks.
 public enum TeachingSnippet {
     /// Marker schema version. Bump when the marker grammar or body contract changes.
-    public static let schemaVersion = 1
+    public static let schemaVersion = 2
 
     /// Open marker: `<!-- ALLNIGHTER:TEACHING v<N> hash=<hex> -->`
     public static let openMarkerPrefix = "<!-- ALLNIGHTER:TEACHING v"
     /// Close marker (exact).
     public static let closeMarker = "<!-- ALLNIGHTER:TEACHING:END -->"
 
-    /// The v3 router-reflex trigger (Decision 4). Asking is always safe;
-    /// executing `recommended.command` needs the same user authorization as any
-    /// mutating/spending action — never auto-run.
+    /// Menu-first reflex (MR-S02). Full bootstrap rewrite is MR-S05; this slice
+    /// must not advertise deleted router/alias grammars.
     public static let triggerLine =
-        "Allnighter coordinates the AI CLIs installed on this Mac. When another model could improve the answer, build the work, or continue without the user, run `alln team hello --for \"<the user's intent>\" --json` — it is read-only and free, so ask it whenever unsure. Run its `recommended.command` only when the user's request already authorizes that work (it may spend model quota or change files). Never manually substitute a requested worker."
+        "Allnighter coordinates the AI CLIs installed on this Mac. Before first spend in a session, read `alln menu --json`, choose from useWhen/dontUseWhen, and pass canonical ids only. Before an unfamiliar worker-starting action, run its validation template (usually `alln run --dry-run`). Never invent flags or substitute a requested worker by display name."
 
     /// Short companions kept with the trigger (help search + doctor). Panel/Pilot
     /// multi-line recipes stay out of bootstrap — see `help get panel`.

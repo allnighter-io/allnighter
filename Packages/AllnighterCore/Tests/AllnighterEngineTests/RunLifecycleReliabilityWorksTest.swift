@@ -413,11 +413,12 @@ final class RunLifecycleReliabilityWorksTest: XCTestCase {
     private static func startTeam(
         _ alln: URL, prompt: String, cwd: URL, env: [String: String], teamId: String
     ) throws -> [String: Any] {
+        _ = try runAlln(alln, ["project", "add", cwd.path, "--json"], cwd: cwd, env: env, timeout: 30)
         let result = try runAlln(
             alln,
-            ["team", "start", prompt, "--json", "--lane", "code", "--team", teamId, "--effort", "low"],
+            ["run", prompt, "--detach", "--json", "--lane", "code", "--team", teamId, "--effort", "low"],
             cwd: cwd, env: env, timeout: 90)
-        XCTAssertEqual(result.status, 0, "team start failed: \(result.stderr)")
+        XCTAssertEqual(result.status, 0, "run --detach failed: \(result.stderr)")
         return try jsonObject(result.stdout)
     }
 

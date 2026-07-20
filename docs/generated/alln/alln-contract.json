@@ -47,38 +47,6 @@
       "visibility" : "public"
     },
     {
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
-        "commands_json"
-      ],
-      "flags" : [
-        {
-          "name" : "json",
-          "summary" : "Emit CommandsManifestJSON (default; always machine JSON).",
-          "takesValue" : false
-        }
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "commands",
-      "outputSchema" : "commandsManifestJSON",
-      "spendsQuota" : false,
-      "summary" : "Full command manifest for agents (name, trigger, args, examples, anti-examples). Machine front door for discovery.",
-      "visibility" : "public"
-    },
-    {
       "antiExample" : "Do NOT use this to start work — choose a command\/team\/model from the menu, then validate with its template.",
       "args" : [
 
@@ -405,7 +373,7 @@
       "name" : "models",
       "outputSchema" : "modelListJSON",
       "spendsQuota" : false,
-      "summary" : "List model catalog and Bench state. For natural-language model names (Sonnet, Grok), use `alln route --for` first — this list is catalog ids only.",
+      "summary" : "List model catalog and Bench state (catalog ids). Prefer `alln menu --json` to discover selectable models.",
       "visibility" : "public"
     },
     {
@@ -643,44 +611,6 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
-        "team_show_json"
-      ],
-      "flags" : [
-        {
-          "name" : "lane",
-          "summary" : "Limit to one lane.",
-          "takesValue" : true,
-          "valueType" : "lane"
-        },
-        {
-          "name" : "json",
-          "summary" : "Structured team snapshot.",
-          "takesValue" : false
-        }
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "team show",
-      "outputSchema" : "none",
-      "spendsQuota" : false,
-      "summary" : "Show the default team for each lane.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
         "teams_code_json"
       ],
       "flags" : [
@@ -709,7 +639,7 @@
       "name" : "teams",
       "outputSchema" : "teamCatalogJSON",
       "spendsQuota" : false,
-      "summary" : "List the lane-scoped team catalog. Looking for a team by intent or name? Prefer `alln route --for` over guessing ids.",
+      "summary" : "List the lane-scoped team catalog. Prefer `alln menu --json` \/ `alln teams show <id>` over guessing ids.",
       "visibility" : "public"
     },
     {
@@ -766,7 +696,7 @@
           "takesValue" : false
         }
       ],
-      "freeTwinCommand" : "alln route --for",
+      "freeTwinCommand" : "alln menu --json",
       "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
@@ -1459,287 +1389,11 @@
       "visibility" : "public"
     },
     {
-      "antiExample" : "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "example" : "alln team hello --for \"ask Sonnet 5 a question\" --json",
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "for",
-          "summary" : "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report.",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "json",
-          "summary" : "Structured hello \/ intent-route JSON (default).",
-          "takesValue" : false
-        }
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "team hello",
-      "outputSchema" : "none",
-      "spendsQuota" : false,
-      "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Omitting `--for` returns readiness + ready teams (quota-free).",
-      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
-      "visibility" : "public"
-    },
-    {
-      "antiExample" : "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "example" : "alln route --for \"ask Sonnet 5 a question\" --json",
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "for",
-          "summary" : "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report.",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "json",
-          "summary" : "Structured intent-route JSON (default).",
-          "takesValue" : false
-        }
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "route",
-      "outputSchema" : "none",
-      "spendsQuota" : false,
-      "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
-      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
-      "visibility" : "public"
-    },
-    {
-      "antiExample" : "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "example" : "alln resolve --for \"ask Sonnet 5 a question\" --json",
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "for",
-          "summary" : "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report.",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "json",
-          "summary" : "Structured intent-route JSON (default).",
-          "takesValue" : false
-        }
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "resolve",
-      "outputSchema" : "none",
-      "spendsQuota" : false,
-      "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
-      "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "lane",
-          "summary" : "code | design | copy | signal.",
-          "takesValue" : true,
-          "valueType" : "lane"
-        },
-        {
-          "name" : "team",
-          "summary" : "Team id.",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "effort",
-          "summary" : "low | med | high.",
-          "takesValue" : true,
-          "valueType" : "effort"
-        },
-        {
-          "name" : "type",
-          "summary" : "Copy-only routing sugar.",
-          "takesValue" : true,
-          "valueType" : "type"
-        },
-        {
-          "name" : "json",
-          "summary" : "Structured TeamPreflight.Result (default; always machine JSON).",
-          "takesValue" : false
-        }
-      ],
-      "menuAction" : true,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "team preflight",
-      "outputSchema" : "none",
-      "spendsQuota" : false,
-      "summary" : "Validate lane\/team\/effort against the ready bench without running.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-        {
-          "name" : "prompt",
-          "required" : false,
-          "summary" : "The prompt (or use --file)."
-        }
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "dependsOnFlags",
-        "repoWrite" : "dependsOnSelection",
-        "workerStart" : "dependsOnFlags"
-      },
-      "exampleIds" : [
-        "team_start_json"
-      ],
-      "flags" : [
-        {
-          "name" : "lane",
-          "summary" : "code | design | copy | signal.",
-          "takesValue" : true,
-          "valueType" : "lane"
-        },
-        {
-          "name" : "team",
-          "summary" : "Team id.",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "effort",
-          "summary" : "low | med | high.",
-          "takesValue" : true,
-          "valueType" : "effort"
-        },
-        {
-          "name" : "type",
-          "summary" : "Copy-only routing sugar.",
-          "takesValue" : true,
-          "valueType" : "type"
-        },
-        {
-          "name" : "file",
-          "summary" : "Read the prompt from a file.",
-          "takesValue" : true,
-          "valueType" : "path"
-        },
-        {
-          "name" : "agent",
-          "summary" : "Origin agent id for attribution (does not select the worker).",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "json",
-          "summary" : "Structured TeamStartResponse.",
-          "takesValue" : false
-        },
-        {
-          "name" : "idempotency-key",
-          "summary" : "Client idempotency key.",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "conversation-id",
-          "summary" : "Origin conversation id.",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "message-id",
-          "summary" : "Origin message id.",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "thread-id",
-          "summary" : "Owning work thread id.",
-          "takesValue" : true,
-          "valueType" : "id"
-        }
-      ],
-      "freeTwinCommand" : "alln team preflight",
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "team start",
-      "outputSchema" : "teamStartResponse",
-      "spendsQuota" : true,
-      "summary" : "Start a resumable\/asynchronous team run.",
-      "visibility" : "public"
-    },
-    {
       "args" : [
         {
           "name" : "run-id",
           "required" : true,
-          "summary" : "The run id from team start."
+          "summary" : "The run id from `alln run --detach`."
         }
       ],
       "effects" : {
@@ -1787,7 +1441,7 @@
         {
           "name" : "run-id",
           "required" : true,
-          "summary" : "The run id from team start."
+          "summary" : "The run id from `alln run --detach`."
         }
       ],
       "effects" : {
@@ -1823,7 +1477,7 @@
         {
           "name" : "run-id",
           "required" : true,
-          "summary" : "The run id from team start."
+          "summary" : "The run id from `alln run --detach`."
         }
       ],
       "effects" : {
@@ -2016,7 +1670,7 @@
       "visibility" : "public"
     },
     {
-      "antiExample" : "Do NOT use this to explore shapes — prefer `alln team preflight` or `alln route --for` first; this spends quota.",
+      "antiExample" : "Do NOT use this to explore shapes — prefer `alln run --dry-run` or `alln menu --json` first; this spends quota.",
       "args" : [
         {
           "name" : "message",
@@ -2033,7 +1687,7 @@
       },
       "example" : "alln run \"summarize AGENTS.md\" --project . --json",
       "exampleIds" : [
-
+        "run_detach_json"
       ],
       "flags" : [
         {
@@ -2160,13 +1814,36 @@
           "valueType" : "id"
         },
         {
+          "name" : "thread-id",
+          "summary" : "Owning work thread id (detach path).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "conversation-id",
+          "summary" : "Origin conversation id (detach path).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "message-id",
+          "summary" : "Origin message id (detach path).",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "detach",
+          "summary" : "Start asynchronously; return the durable run id and exit (async twin of foreground run).",
+          "takesValue" : false
+        },
+        {
           "name" : "dry-run",
-          "summary" : "Resolve project\/worker\/auth\/mutating\/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04).",
+          "summary" : "Resolve project\/worker\/auth\/mutating\/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04). Free twin of both foreground and --detach.",
           "takesValue" : false
         },
         {
           "name" : "json",
-          "summary" : "Emit TeamRunJSON (or RunDryRunJSON with --dry-run).",
+          "summary" : "Emit TeamRunJSON (or RunDryRunJSON with --dry-run; TeamStartResponse with --detach).",
           "takesValue" : false
         },
         {
@@ -2194,13 +1871,21 @@
         [
           "dry-run",
           "try-fix"
+        ],
+        [
+          "detach",
+          "stream"
+        ],
+        [
+          "detach",
+          "try-fix"
         ]
       ],
       "name" : "run",
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : true,
-      "summary" : "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.",
-      "trigger" : "Use when the user wants one worker to answer or act in a project repo root (chat \/ named-model ask \/ Default Team).",
+      "summary" : "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. `--detach` returns a durable run id (async). TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.",
+      "trigger" : "Use when the user wants one worker or team to answer or act in a project repo root (chat \/ named-model ask \/ Default Team \/ async overnight).",
       "visibility" : "public"
     },
     {
@@ -3077,95 +2762,6 @@
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
       "summary" : "Declare a Panel session done (session judgment only — never auto-converges). Optional survivors note.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-        {
-          "name" : "prompt",
-          "required" : false,
-          "summary" : "The prompt (or use --file)."
-        }
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "dependsOnFlags",
-        "repoWrite" : "dependsOnSelection",
-        "workerStart" : "dependsOnFlags"
-      },
-      "exampleIds" : [
-        "team_basic",
-        "team_json",
-        "team_stream"
-      ],
-      "flags" : [
-        {
-          "name" : "file",
-          "summary" : "Read the prompt from a file.",
-          "takesValue" : true,
-          "valueType" : "path"
-        },
-        {
-          "name" : "question",
-          "summary" : "Alias for the positional prompt.",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "lane",
-          "summary" : "code | design | copy | signal.",
-          "takesValue" : true,
-          "valueType" : "lane"
-        },
-        {
-          "name" : "team",
-          "summary" : "Team id (the public team selector).",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "type",
-          "summary" : "Copy-only routing sugar.",
-          "takesValue" : true,
-          "valueType" : "type"
-        },
-        {
-          "name" : "effort",
-          "summary" : "low | med | high.",
-          "takesValue" : true,
-          "valueType" : "effort"
-        },
-        {
-          "name" : "agent",
-          "summary" : "Origin agent id for attribution (does not select the worker).",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit one TeamRunJSON object.",
-          "takesValue" : false
-        },
-        {
-          "name" : "stream",
-          "summary" : "Emit NDJSON events.",
-          "takesValue" : false
-        }
-      ],
-      "freeTwinCommand" : "alln team preflight",
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-        [
-          "json",
-          "stream"
-        ]
-      ],
-      "name" : "team",
-      "outputSchema" : "teamRunJSON",
-      "spendsQuota" : true,
-      "summary" : "Run a lane team on a prompt, foreground.",
       "visibility" : "public"
     },
     {
@@ -4994,7 +4590,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "1.7.0",
+  "contractVersion" : "2.0.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5214,7 +4810,7 @@
       "ruleId" : "run.worker_not_available"
     },
     {
-      "agentAction" : "Run `alln team show --json`; fix unavailable workers.",
+      "agentAction" : "Run `alln menu --json` \/ `alln teams show <id> --json`; fix unavailable workers.",
       "code" : "DEFAULT_TEAM_INVALID",
       "exitClass" : "operational",
       "explain" : "The default team has no runnable workers. Inspect and repair the team lineup before running.",
@@ -5943,10 +5539,10 @@
       "ruleId" : "thread.send.failed"
     },
     {
-      "agentAction" : "If you have a natural-language name (e.g. Sonnet 5), run `alln route --for \"<intent>\" --json` first. Otherwise list ids with `alln models --json` and retry with a valid ModelID.",
+      "agentAction" : "List ids with `alln menu --json` or `alln models --json` and retry with a valid ModelID.",
       "code" : "MODEL_NOT_FOUND",
       "exitClass" : "operational",
-      "explain" : "No model matches the given id. Prefer `alln route --for` for natural-language model names; use `alln models --json` only when you already have a catalog ModelID.",
+      "explain" : "No model matches the given id. Use `alln menu --json` \/ `alln models --json` for catalog ModelIDs.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "model.not_found"
@@ -6112,42 +5708,6 @@
       "requiresManual" : true,
       "retryable" : true,
       "ruleId" : "run.worker_not_ready"
-    },
-    {
-      "agentAction" : "Rephrase the intent, or pick a team id from `alln team show --json` and start it explicitly.",
-      "code" : "INTENT_NO_MATCH",
-      "exitClass" : "operational",
-      "explain" : "team hello --for could not match the intent phrase to a catalog family or primitive strongly enough. nextActions always carry a concrete next step — never bare 'pick a team'.",
-      "requiresManual" : false,
-      "retryable" : true,
-      "ruleId" : "hello.intent.no_match"
-    },
-    {
-      "agentAction" : "Run `alln models --json` and retry --for with a known display name or model id.",
-      "code" : "WORKER_NAME_UNKNOWN",
-      "exitClass" : "operational",
-      "explain" : "The intent named a worker\/model that is not in the catalog. nearest matches are listed in nextActions.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "hello.worker_name.unknown"
-    },
-    {
-      "agentAction" : "Disambiguate with a full display name or exact model id from the candidates in nextActions.",
-      "code" : "WORKER_NAME_AMBIGUOUS",
-      "exitClass" : "operational",
-      "explain" : "The intent named a worker\/model that matches multiple unrelated catalog entries. The router refuses to guess.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "hello.worker_name.ambiguous"
-    },
-    {
-      "agentAction" : "Pick a driver that can mechanically enforce the requested safety posture (e.g. Codex for read-only ChatGPT asks), or drop the read-only constraint.",
-      "code" : "WORKER_NAME_POSTURE_UNSAFE",
-      "exitClass" : "operational",
-      "explain" : "The named worker resolved only to drivers that cannot honor the requested safety posture (e.g. read-only ask on a Cursor --trust seat with no Codex twin).",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "hello.worker_name.posture_unsafe"
     },
     {
       "agentAction" : "Pick one execution source, run as non-mutating review\/propose, or split into judgment then execution.",
@@ -6318,11 +5878,6 @@
       "title" : "Generate the full reference"
     },
     {
-      "command" : "alln commands --json",
-      "id" : "commands_json",
-      "title" : "Full command manifest (machine front door)"
-    },
-    {
       "command" : "alln doctor --json",
       "id" : "doctor_json",
       "title" : "Structured diagnostics"
@@ -6353,11 +5908,6 @@
       "title" : "List model catalog and Bench state"
     },
     {
-      "command" : "alln team show --json",
-      "id" : "team_show_json",
-      "title" : "Show the current team"
-    },
-    {
       "command" : "alln teams --lane code --json",
       "id" : "teams_code_json",
       "title" : "List Code teams"
@@ -6378,29 +5928,9 @@
       "title" : "Show a Code skill"
     },
     {
-      "command" : "alln team preflight --lane code --team code_bug_hunt --effort high",
-      "id" : "team_preflight",
-      "title" : "Preflight a team"
-    },
-    {
-      "command" : "alln team --lane code --team code_bug_hunt \"Why does run history disappear?\"",
-      "id" : "team_basic",
-      "title" : "Ask the team"
-    },
-    {
-      "command" : "alln team --json \"Give me one small naming test.\"",
-      "id" : "team_json",
-      "title" : "Machine team run"
-    },
-    {
-      "command" : "alln team --stream \"Give me one tiny event-stream test.\"",
-      "id" : "team_stream",
-      "title" : "Streamed team run"
-    },
-    {
-      "command" : "alln team start --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\"",
-      "id" : "team_start_json",
-      "title" : "Start async team run"
+      "command" : "alln run --detach --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\"",
+      "id" : "run_detach_json",
+      "title" : "Start async run"
     },
     {
       "command" : "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json",

@@ -47,11 +47,11 @@ final class FloorProjectorTests: XCTestCase {
     }
 
     func testRunCarriesFamilyPostureMutating() {
-        let floor = FloorProjector.project(signalRun(), reproduceCommand: "alln team ...")
+        let floor = FloorProjector.project(signalRun(), reproduceCommand: "alln run ...")
         XCTAssertEqual(floor.run.family, "signal")
         XCTAssertFalse(floor.run.mutating)
         XCTAssertEqual(floor.run.status, .done)
-        XCTAssertEqual(floor.run.reproduceCommand, "alln team ...")
+        XCTAssertEqual(floor.run.reproduceCommand, "alln run ...")
         XCTAssertEqual(floor.team.outputKind, "insight")
         XCTAssertEqual(floor.team.leadWorkerId, "model_opus#1")   // the .plan worker is the lead
         XCTAssertEqual(floor.team.modelCount, 2)                   // grok + opus

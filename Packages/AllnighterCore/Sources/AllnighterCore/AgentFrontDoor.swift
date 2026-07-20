@@ -16,12 +16,11 @@ public enum AgentFrontDoor {
     public static let doctorFirst = AgentSurfaceNextAction(
         kind: "runDoctor", label: "Check setup and sources", command: "alln doctor --json")
 
-    /// Prefer the intent resolver over a bare catalog browse when an agent is
-    /// hunting by natural-language model/team name (AE-S14).
-    public static let routeFirst = AgentSurfaceNextAction(
-        kind: "routeIntent",
-        label: "Resolve intent to a ready model or team",
-        command: "alln route --for \"<intent>\" --json")
+    /// Live menu owns discovery after MR-S02 (no intent router).
+    public static let menuFirst = AgentSurfaceNextAction(
+        kind: "readMenu",
+        label: "Read the live agent menu",
+        command: "alln menu --json")
 
     public static func emptyModelsCounsel(
         benchOnly: Bool,
@@ -38,13 +37,13 @@ public enum AgentFrontDoor {
         } else {
             reason = "No models are configured on this machine."
         }
-        let counsel = "\(reason) Looking for a model by name (Sonnet, Grok, Sol)? Run `alln route --for \"<intent>\" --json` — do not stop at an empty models list. Then `alln doctor --json` if sources look down."
-        return (counsel, [routeFirst, doctorFirst])
+        let counsel = "\(reason) Read `alln menu --json` for selectable model ids, or `alln models --json` for the full catalog. Then `alln doctor --json` if sources look down."
+        return (counsel, [menuFirst, doctorFirst])
     }
 
     public static func emptyTeamsCounsel() -> (counsel: String, nextActions: [AgentSurfaceNextAction]) {
-        let counsel = "No active teams are visible. Looking for a team by intent? Run `alln route --for \"<intent>\" --json`. Otherwise `alln doctor --json` to confirm the bench and sources."
-        return (counsel, [routeFirst, doctorFirst])
+        let counsel = "No active teams are visible. Read `alln menu --json` for selectable team ids, or `alln doctor --json` to confirm the bench and sources."
+        return (counsel, [menuFirst, doctorFirst])
     }
 
     public static func missingConfigCounsel() -> (counsel: String, nextActions: [AgentSurfaceNextAction]) {

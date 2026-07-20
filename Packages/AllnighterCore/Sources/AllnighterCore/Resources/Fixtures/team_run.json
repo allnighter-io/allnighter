@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "1.7.0",
+  "contractVersion": "2.0.0",
   "teamRun": {
     "id": "run_20260615_2214",
     "status": "done",
@@ -17,7 +17,7 @@
     "threadId": null,
     "teamPresetId": "preset_quality",
     "planWriterWorkerId": "model_opus#0",
-    "reproduceCommand": "alln team --lane build --type feature --effort deep \"Stress-test this launch plan.\""
+    "reproduceCommand": "alln run --lane code --type feature --effort deep \"Stress-test this launch plan.\""
   },
   "models": [
     {

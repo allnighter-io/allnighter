@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "1.7.0"
+    static let contractVersion = "2.0.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -33,14 +33,6 @@ public extension ContractRegistry {
                 FlagSpec("examples", summary: "Print example recipes."),
             ],
             outputSchema: .contractDoc, exampleIds: ["docs_all"]
-        ),
-        CommandSpec(
-            "commands",
-            summary: "Full command manifest for agents (name, trigger, args, examples, anti-examples). Machine front door for discovery.",
-            milestone: .m1,
-            flags: [FlagSpec("json", summary: "Emit CommandsManifestJSON (default; always machine JSON).")],
-            outputSchema: .commandsManifestJSON,
-            exampleIds: ["commands_json"]
         ),
         CommandSpec(
             "menu",
@@ -110,7 +102,7 @@ public extension ContractRegistry {
             outputSchema: .installCLIJSON, exampleIds: ["install_cli_json"]
         ),
         CommandSpec(
-            "models", summary: "List model catalog and Bench state. For natural-language model names (Sonnet, Grok), use `alln route --for` first — this list is catalog ids only.", milestone: .m1,
+            "models", summary: "List model catalog and Bench state (catalog ids). Prefer `alln menu --json` to discover selectable models.", milestone: .m1,
             flags: [
                 FlagSpec("json", summary: "Structured ModelListJSON."),
                 FlagSpec("driver", takesValue: true, valueType: "driverId", summary: "Filter to one source."),
@@ -161,13 +153,7 @@ public extension ContractRegistry {
             outputSchema: .modelListJSON
         ),
         CommandSpec(
-            "team show", summary: "Show the default team for each lane.", milestone: .m1,
-            flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Limit to one lane."),
-                    FlagSpec("json", summary: "Structured team snapshot.")],
-            exampleIds: ["team_show_json"]
-        ),
-        CommandSpec(
-            "teams", summary: "List the lane-scoped team catalog. Looking for a team by intent or name? Prefer `alln route --for` over guessing ids.", milestone: .m1,
+            "teams", summary: "List the lane-scoped team catalog. Prefer `alln menu --json` / `alln teams show <id>` over guessing ids.", milestone: .m1,
             flags: [FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Filter to one lane."),
                     FlagSpec("all", summary: "Include inactive (switched-OFF) teams."),
                     FlagSpec("json", summary: "Structured catalog summary.")],
@@ -188,7 +174,7 @@ public extension ContractRegistry {
             ],
             exampleIds: ["thread_send_json"],
             spendsQuota: true,
-            freeTwinCommand: "alln route --for"
+            freeTwinCommand: "alln menu --json"
         ),
         CommandSpec(
             "thread get", summary: "Fetch one work thread snapshot.", milestone: .m1,
@@ -316,79 +302,8 @@ public extension ContractRegistry {
             exampleIds: ["skills_delete_json"]
         ),
         CommandSpec(
-            "team hello",
-            summary: "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Omitting `--for` returns readiness + ready teams (quota-free).",
-            milestone: .m1,
-            trigger: "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
-            example: "alln team hello --for \"ask Sonnet 5 a question\" --json",
-            antiExample: "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
-            flags: [
-                FlagSpec("for", takesValue: true, valueType: "string", summary: "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report."),
-                FlagSpec("json", summary: "Structured hello / intent-route JSON (default)."),
-            ],
-            outputSchema: .none
-        ),
-        CommandSpec(
-            "route",
-            summary: "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
-            milestone: .m1,
-            trigger: "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
-            example: "alln route --for \"ask Sonnet 5 a question\" --json",
-            antiExample: "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
-            flags: [
-                FlagSpec("for", takesValue: true, valueType: "string", summary: "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report."),
-                FlagSpec("json", summary: "Structured intent-route JSON (default)."),
-            ],
-            outputSchema: .none
-        ),
-        CommandSpec(
-            "resolve",
-            summary: "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
-            milestone: .m1,
-            trigger: "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it.",
-            example: "alln resolve --for \"ask Sonnet 5 a question\" --json",
-            antiExample: "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly.",
-            flags: [
-                FlagSpec("for", takesValue: true, valueType: "string", summary: "Natural-language intent to resolve (e.g. \"ask Sonnet 5 a question\"). Omitting keeps the static readiness report."),
-                FlagSpec("json", summary: "Structured intent-route JSON (default)."),
-            ],
-            outputSchema: .none
-        ),
-        CommandSpec(
-            "team preflight", summary: "Validate lane/team/effort against the ready bench without running.", milestone: .m1,
-            flags: [
-                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "code | design | copy | signal."),
-                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id."),
-                FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
-                FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
-                FlagSpec("json", summary: "Structured TeamPreflight.Result (default; always machine JSON)."),
-            ],
-            menuAction: true
-        ),
-        CommandSpec(
-            "team start", summary: "Start a resumable/asynchronous team run.", milestone: .m1,
-            args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
-            flags: [
-                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "code | design | copy | signal."),
-                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id."),
-                FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
-                FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
-                FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the prompt from a file."),
-                FlagSpec("agent", takesValue: true, valueType: "id", summary: "Origin agent id for attribution (does not select the worker)."),
-                FlagSpec("json", summary: "Structured TeamStartResponse."),
-                FlagSpec("idempotency-key", takesValue: true, valueType: "id", summary: "Client idempotency key."),
-                FlagSpec("conversation-id", takesValue: true, valueType: "id", summary: "Origin conversation id."),
-                FlagSpec("message-id", takesValue: true, valueType: "id", summary: "Origin message id."),
-                FlagSpec("thread-id", takesValue: true, valueType: "id", summary: "Owning work thread id."),
-            ],
-            outputSchema: .teamStartResponse,
-            exampleIds: ["team_start_json"],
-            spendsQuota: true,
-            freeTwinCommand: "alln team preflight"
-        ),
-        CommandSpec(
             "team status", summary: "Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).", milestone: .m1,
-            args: [ArgSpec("run-id", required: true, summary: "The run id from team start.")],
+            args: [ArgSpec("run-id", required: true, summary: "The run id from `alln run --detach`.")],
             flags: [
                 FlagSpec("json", summary: "Structured TeamStatusResponse."),
                 FlagSpec("wait-for", takesValue: true, valueType: "state", summary: "Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`."),
@@ -398,13 +313,13 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "team result", summary: "Fetch TeamRunJSON when an async run is terminal.", milestone: .m1,
-            args: [ArgSpec("run-id", required: true, summary: "The run id from team start.")],
+            args: [ArgSpec("run-id", required: true, summary: "The run id from `alln run --detach`.")],
             flags: [FlagSpec("json", summary: "TeamRunJSON or not-ready envelope.")],
             outputSchema: .teamRunJSON
         ),
         CommandSpec(
             "team cancel", summary: "Cancel an active async team run.", milestone: .m1,
-            args: [ArgSpec("run-id", required: true, summary: "The run id from team start.")],
+            args: [ArgSpec("run-id", required: true, summary: "The run id from `alln run --detach`.")],
             flags: [FlagSpec("json", summary: "Structured TeamCancelResponse.")],
             outputSchema: .teamCancelResponse
         ),
@@ -445,11 +360,11 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "run",
-            summary: "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.",
+            summary: "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. `--detach` returns a durable run id (async). TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.",
             milestone: .m1,
-            trigger: "Use when the user wants one worker to answer or act in a project repo root (chat / named-model ask / Default Team).",
+            trigger: "Use when the user wants one worker or team to answer or act in a project repo root (chat / named-model ask / Default Team / async overnight).",
             example: "alln run \"summarize AGENTS.md\" --project . --json",
-            antiExample: "Do NOT use this to explore shapes — prefer `alln team preflight` or `alln route --for` first; this spends quota.",
+            antiExample: "Do NOT use this to explore shapes — prefer `alln run --dry-run` or `alln menu --json` first; this spends quota.",
             args: [ArgSpec("message", required: true, summary: "The user's prompt.")],
             flags: [
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path. When omitted, walk to the git root and match a registered project (AE-S05)."),
@@ -473,13 +388,17 @@ public extension ContractRegistry {
                 FlagSpec("try-fix", summary: "Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt."),
                 FlagSpec("executor", takesValue: true, valueType: "id", summary: "Mutating executor team id (default build_slice)."),
                 FlagSpec("agent", takesValue: true, valueType: "id", summary: "Origin agent id for attribution (does not select the worker)."),
-                FlagSpec("dry-run", summary: "Resolve project/worker/auth/mutating/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04)."),
-                FlagSpec("json", summary: "Emit TeamRunJSON (or RunDryRunJSON with --dry-run)."),
+                FlagSpec("thread-id", takesValue: true, valueType: "id", summary: "Owning work thread id (detach path)."),
+                FlagSpec("conversation-id", takesValue: true, valueType: "id", summary: "Origin conversation id (detach path)."),
+                FlagSpec("message-id", takesValue: true, valueType: "id", summary: "Origin message id (detach path)."),
+                FlagSpec("detach", summary: "Start asynchronously; return the durable run id and exit (async twin of foreground run)."),
+                FlagSpec("dry-run", summary: "Resolve project/worker/auth/mutating/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04). Free twin of both foreground and --detach."),
+                FlagSpec("json", summary: "Emit TeamRunJSON (or RunDryRunJSON with --dry-run; TeamStartResponse with --detach)."),
                 FlagSpec("stream", summary: "Emit NDJSON events."),
             ],
-            mutuallyExclusiveFlags: [["json", "stream"], ["no-commit", "commit-message"], ["dry-run", "stream"], ["dry-run", "try-fix"]],
+            mutuallyExclusiveFlags: [["json", "stream"], ["no-commit", "commit-message"], ["dry-run", "stream"], ["dry-run", "try-fix"], ["detach", "stream"], ["detach", "try-fix"]],
             outputSchema: .teamRunJSON,
-            exampleIds: [],
+            exampleIds: ["run_detach_json"],
             spendsQuota: true,
             freeTwinCommand: "alln run --dry-run",
             menuAction: true
@@ -656,25 +575,6 @@ public extension ContractRegistry {
                 FlagSpec("json", summary: "Emit PanelJSON."),
             ],
             outputSchema: .panelJSON
-        ),
-        CommandSpec(
-            "team", summary: "Run a lane team on a prompt, foreground.", milestone: .m1,
-            args: [ArgSpec("prompt", required: false, summary: "The prompt (or use --file).")],
-            flags: [
-                FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the prompt from a file."),
-                FlagSpec("question", takesValue: true, valueType: "string", summary: "Alias for the positional prompt."),
-                FlagSpec("lane", takesValue: true, valueType: "lane", summary: "code | design | copy | signal."),
-                FlagSpec("team", takesValue: true, valueType: "id", summary: "Team id (the public team selector)."),
-                FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy-only routing sugar."),
-                FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
-                FlagSpec("agent", takesValue: true, valueType: "id", summary: "Origin agent id for attribution (does not select the worker)."),
-                FlagSpec("json", summary: "Emit one TeamRunJSON object."),
-                FlagSpec("stream", summary: "Emit NDJSON events."),
-            ],
-            mutuallyExclusiveFlags: [["json", "stream"]],
-            outputSchema: .teamRunJSON, exampleIds: ["team_basic", "team_json", "team_stream"],
-            spendsQuota: true,
-            freeTwinCommand: "alln team preflight"
         ),
         CommandSpec(
             "show", summary: "Show one run.", milestone: .m1,
@@ -1058,7 +958,7 @@ public extension ContractRegistry {
             retryable: true,
             explain: "An explicit `--worker` / `--dev-worker` request named a model that is disabled, notReady, or unknown. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10)."
         ),
-        ErrorSpec("DEFAULT_TEAM_INVALID", ruleId: "team.default.invalid", agentAction: "Run `alln team show --json`; fix unavailable workers.", requiresManual: true, retryable: false, explain: "The default team has no runnable workers. Inspect and repair the team lineup before running."),
+        ErrorSpec("DEFAULT_TEAM_INVALID", ruleId: "team.default.invalid", agentAction: "Run `alln menu --json` / `alln teams show <id> --json`; fix unavailable workers.", requiresManual: true, retryable: false, explain: "The default team has no runnable workers. Inspect and repair the team lineup before running."),
         ErrorSpec("WORKER_FAILED", ruleId: "worker.failed", agentAction: "Inspect `workerId` and source error; failed worker remains visible.", requiresManual: false, retryable: true, explain: "One worker failed. The failure is shown, never hidden; other workers may still have answered. Retry the worker or proceed with partial results."),
         ErrorSpec("PLAN_WRITER_FAILED", ruleId: "plan_writer.failed", agentAction: "Retry with a ready plan writer or export worker answers.", requiresManual: false, retryable: true, explain: "The plan-writer stage failed. Retry with a ready plan writer, or export the worker answers and synthesize later."),
         ErrorSpec("TEAM_RUN_TIMEOUT", ruleId: "team.run.timeout", agentAction: "Retry with lower effort or fewer workers.", requiresManual: false, retryable: true, explain: "The team run exceeded its time budget. Reduce effort or the worker count and retry.", exitClass: .timeout),
@@ -1160,7 +1060,7 @@ public extension ContractRegistry {
         ErrorSpec("KILL_REFUSED", ruleId: "kill.refused", agentAction: "No recorded member could be signalled (all identity-mismatched or non-PG-killable). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans; do not re-signal a recycled pid.", requiresManual: true, retryable: false, explain: "`alln kill`/`team cancel` found recorded members but could signal none of them — every candidate was a recycled pid or a non-group-killable owner. Nothing was stopped; the verdict is `killOutcome: refused` and the lifecycle stays non-terminal."),
         ErrorSpec("KILL_VERIFICATION_UNAVAILABLE", ruleId: "kill.verification_unavailable", agentAction: "The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — poll `alln team status` or stop the worker at its source; the tool will not stamp `killed` unverified.", requiresManual: true, retryable: false, explain: "The executing run carries no recorded worker identity to verify against (the warm-driver exclusion seam — warm pools record nothing). `killOutcome: verificationUnavailable`: a stop cannot be proven, so no terminal `killed` is stamped (RLR-L5)."),
         ErrorSpec("THREAD_SEND_FAILED", ruleId: "thread.send.failed", agentAction: "Inspect the error detail; retry the send or fix the worker.", requiresManual: false, retryable: true, explain: "The thread send did not complete (worker or transport failure). Inspect the detail, then retry."),
-        ErrorSpec("MODEL_NOT_FOUND", ruleId: "model.not_found", agentAction: "If you have a natural-language name (e.g. Sonnet 5), run `alln route --for \"<intent>\" --json` first. Otherwise list ids with `alln models --json` and retry with a valid ModelID.", requiresManual: true, retryable: false, explain: "No model matches the given id. Prefer `alln route --for` for natural-language model names; use `alln models --json` only when you already have a catalog ModelID."),
+        ErrorSpec("MODEL_NOT_FOUND", ruleId: "model.not_found", agentAction: "List ids with `alln menu --json` or `alln models --json` and retry with a valid ModelID.", requiresManual: true, retryable: false, explain: "No model matches the given id. Use `alln menu --json` / `alln models --json` for catalog ModelIDs."),
         ErrorSpec("MODEL_BUILTIN_IMMUTABLE", ruleId: "model.builtin.immutable", agentAction: "Duplicate the built-in model, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in models cannot be edited or deleted. Duplicate to a custom model and edit that copy."),
         ErrorSpec("MODEL_ID_COLLISION", ruleId: "model.id.collision", agentAction: "Pick a different model id or delete the conflicting custom model.", requiresManual: true, retryable: false, explain: "A model with this id already exists."),
         ErrorSpec("MODEL_INVALID", ruleId: "model.invalid", agentAction: "Fix the model definition and retry the edit.", requiresManual: true, retryable: false, explain: "The model definition or id is invalid (bad id, missing fields, or unknown driver mapping)."),
@@ -1203,10 +1103,6 @@ public extension ContractRegistry {
         ),
         ErrorSpec("NO_PROJECT_ROOT", ruleId: "run.no_project_root", agentAction: "Restore the project folder or pick an available project root, then retry.", requiresManual: true, retryable: true, explain: "The project repo root is missing or unreadable; runs require a real cwd in the repo."),
         ErrorSpec("WORKER_NOT_READY", ruleId: "run.worker_not_ready", agentAction: "Pick a ready worker or run setup health, then retry.", requiresManual: true, retryable: true, explain: "No runnable worker resolved for this run (missing CLI, wrong driver, or bench not ready)."),
-        ErrorSpec("INTENT_NO_MATCH", ruleId: "hello.intent.no_match", agentAction: "Rephrase the intent, or pick a team id from `alln team show --json` and start it explicitly.", requiresManual: false, retryable: true, explain: "team hello --for could not match the intent phrase to a catalog family or primitive strongly enough. nextActions always carry a concrete next step — never bare 'pick a team'."),
-        ErrorSpec("WORKER_NAME_UNKNOWN", ruleId: "hello.worker_name.unknown", agentAction: "Run `alln models --json` and retry --for with a known display name or model id.", requiresManual: true, retryable: false, explain: "The intent named a worker/model that is not in the catalog. nearest matches are listed in nextActions."),
-        ErrorSpec("WORKER_NAME_AMBIGUOUS", ruleId: "hello.worker_name.ambiguous", agentAction: "Disambiguate with a full display name or exact model id from the candidates in nextActions.", requiresManual: true, retryable: false, explain: "The intent named a worker/model that matches multiple unrelated catalog entries. The router refuses to guess."),
-        ErrorSpec("WORKER_NAME_POSTURE_UNSAFE", ruleId: "hello.worker_name.posture_unsafe", agentAction: "Pick a driver that can mechanically enforce the requested safety posture (e.g. Codex for read-only ChatGPT asks), or drop the read-only constraint.", requiresManual: true, retryable: false, explain: "The named worker resolved only to drivers that cannot honor the requested safety posture (e.g. read-only ask on a Cursor --trust seat with no Codex twin)."),
         ErrorSpec("EXECUTION_TEAM_MIXED_SOURCES", ruleId: "execution.team.mixed_sources", agentAction: "Pick one execution source, run as non-mutating review/propose, or split into judgment then execution.", requiresManual: true, retryable: false, explain: "Mutating execution teams must resolve to one CLI driver. Mixed-source execution is blocked before spawn."),
         // Boost window (Utilization_Window_Priming).
         ErrorSpec("UTILIZATION_SOURCE_NOT_FOUND", ruleId: "utilization.source.not_found", agentAction: "Run `alln models --json`; use a known driver id in appliesTo.", requiresManual: true, retryable: false, explain: "The utilization source id is not registered on this bench.", exitClass: .usage),
@@ -1286,23 +1182,17 @@ public extension ContractRegistry {
 
     static let m1Examples: [ExampleRecipe] = [
         ExampleRecipe("docs_all", title: "Generate the full reference", command: "alln docs"),
-        ExampleRecipe("commands_json", title: "Full command manifest (machine front door)", command: "alln commands --json"),
         ExampleRecipe("doctor_json", title: "Structured diagnostics", command: "alln doctor --json"),
         ExampleRecipe("doctor_explain", title: "Explain an error code", command: "alln doctor explain SOURCE_AUTH_EXPIRED --json"),
         ExampleRecipe("bootstrap_json", title: "Agent activation snippet for Claude Code", command: "alln bootstrap --host claude --json"),
         ExampleRecipe("install_cli_json", title: "Install the running binary onto PATH", command: "alln install-cli --json"),
         ExampleRecipe("version_json", title: "Print binary and contract identity", command: "alln version --json"),
         ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
-        ExampleRecipe("team_show_json", title: "Show the current team", command: "alln team show --json"),
         ExampleRecipe("teams_code_json", title: "List Code teams", command: "alln teams --lane code --json"),
         ExampleRecipe("teams_definition_json", title: "Full team definition for edit", command: "alln teams definition code_bug_hunt --json"),
         ExampleRecipe("skills_code_json", title: "List Code skills", command: "alln skills --lane code --json"),
         ExampleRecipe("skills_show_json", title: "Show a Code skill", command: "alln skills show bug_reproducer --json"),
-        ExampleRecipe("team_preflight", title: "Preflight a team", command: "alln team preflight --lane code --team code_bug_hunt --effort high"),
-        ExampleRecipe("team_basic", title: "Ask the team", command: "alln team --lane code --team code_bug_hunt \"Why does run history disappear?\""),
-        ExampleRecipe("team_json", title: "Machine team run", command: "alln team --json \"Give me one small naming test.\""),
-        ExampleRecipe("team_stream", title: "Streamed team run", command: "alln team --stream \"Give me one tiny event-stream test.\""),
-        ExampleRecipe("team_start_json", title: "Start async team run", command: "alln team start --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\""),
+        ExampleRecipe("run_detach_json", title: "Start async run", command: "alln run --detach --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\""),
         ExampleRecipe("try_fix_bug", title: "Auto Fix: Bug Hunt then one bounded fix", command: "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json"),
         ExampleRecipe("show_latest_json", title: "Show the latest run", command: "alln show latest --json"),
         ExampleRecipe("spec_full", title: "Retrieve the full result packet", command: "alln spec latest --detail full --json"),

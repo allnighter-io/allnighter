@@ -17,15 +17,15 @@ final class CLIHelpDriftTests: XCTestCase {
             }
         }
         XCTAssertTrue(missing.isEmpty, "top-level help missing contract commands (allowlist banned):\n\(missing.joined(separator: "\n"))")
-        XCTAssertTrue(help.contains("team hello"), "golden-path `team hello` must be visible")
-        XCTAssertTrue(help.contains("team preflight"), "golden-path `team preflight` must be visible")
+        XCTAssertTrue(help.contains("menu"), "golden-path `menu` must be visible")
+        XCTAssertTrue(help.contains("run"), "golden-path `run` must be visible")
         XCTAssertTrue(help.contains("help search"), "`help search` must be visible")
         XCTAssertTrue(
             help.contains("\(m1.count) commands"),
             "help must carry an explicit completeness marker with the command count"
         )
         XCTAssertTrue(help.contains("alln docs <cmd> for schema"), "hydrate path `alln docs <cmd>` must be named")
-        XCTAssertTrue(help.contains("alln commands --json"), "machine front door `alln commands --json` must be named")
+        XCTAssertTrue(help.contains("alln menu --json"), "machine front door `alln menu --json` must be named")
         XCTAssertTrue(help.contains("alln help search"), "intent search path must be named")
     }
 

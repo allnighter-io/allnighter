@@ -18,7 +18,7 @@ final class HelpProjectorTests: XCTestCase {
         let j = HelpProjector.get(topic: "current_setup", contractVersion: "1.0.0")
         XCTAssertTrue(j.found)
         XCTAssertEqual(j.topic?.needsLiveCheck, true)
-        XCTAssertEqual(j.nextToolPlan.first?.command, "alln team hello --json")
+        XCTAssertEqual(j.nextToolPlan.first?.command, "alln menu --json")
     }
 
     func testGetByError() {
@@ -100,7 +100,7 @@ final class HelpProjectorTests: XCTestCase {
         XCTAssertFalse(j.discoveryModelIds.isEmpty)
         XCTAssertTrue(j.discoveryModelIds.contains { $0.contains("opencode") })
         XCTAssertFalse(j.nextToolPlan.isEmpty)
-        XCTAssertTrue(j.nextToolPlan.contains { $0.command.hasPrefix("alln route --for ") })
+        XCTAssertTrue(j.nextToolPlan.contains { $0.command.hasPrefix("alln menu --json") })
         XCTAssertTrue(j.nextToolPlan.contains { $0.command == "alln models --json" })
         XCTAssertTrue(j.nextToolPlan.contains { $0.command.hasPrefix("alln run --worker ") })
         for step in j.nextToolPlan {
@@ -115,7 +115,7 @@ final class HelpProjectorTests: XCTestCase {
         XCTAssertFalse(j.results.isEmpty)
         XCTAssertEqual(j.results.first?.topicId, HelpDiscoveryIndex.discoveryTopicId)
         XCTAssertTrue(j.discoveryModelIds.contains("model_opencode_glm_5_2"))
-        XCTAssertTrue(j.nextToolPlan.contains { $0.command.hasPrefix("alln route --for ") })
+        XCTAssertTrue(j.nextToolPlan.contains { $0.command.hasPrefix("alln menu --json") })
         XCTAssertTrue(j.nextToolPlan.contains { $0.command == "alln models --json" })
         XCTAssertTrue(
             j.nextToolPlan.contains { $0.command.contains("model_opencode_glm_5_2") },
@@ -134,9 +134,9 @@ final class HelpProjectorTests: XCTestCase {
         XCTAssertFalse(j.nextToolPlan.isEmpty, "miss recovery must be non-empty")
         let commands = j.nextToolPlan.map(\.command)
         XCTAssertTrue(commands.contains("alln models --json"))
-        XCTAssertTrue(commands.contains("alln team show --json"))
+        XCTAssertTrue(commands.contains("alln teams --json"))
         XCTAssertTrue(commands.contains("alln doctor --json"))
-        XCTAssertTrue(commands.contains { $0.hasPrefix("alln route --for ") })
+        XCTAssertTrue(commands.contains("alln menu --json"))
         for step in j.nextToolPlan {
             XCTAssertTrue(step.command.hasPrefix("alln "))
             XCTAssertNotNil(ContractRegistry.resolveCommandName(from: step.command))

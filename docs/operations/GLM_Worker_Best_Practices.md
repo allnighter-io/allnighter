@@ -23,7 +23,7 @@ alln run --worker model_opencode_glm_5_2 --json "Review <file>: what invariant b
 
 # Or: confirm the worker is on the bench, then run
 alln models --json          # look for model_opencode_glm_5_2
-alln team hello --for "glm advisory review" --json
+alln menu --json
 ```
 
 Self-build + install if `which alln` fails:

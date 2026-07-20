@@ -10,18 +10,18 @@ One named worker, one read-only ask — use `alln run`, not a multi-seat team. P
 
 ## Teaching (keep in sync with TeachingSnippet)
 
-<!-- ALLNIGHTER:TEACHING v1 hash=e48793afee945b1f3727641d740b8b9df5b41d059f20a5a5d3c687eda5f093e4 -->
-Allnighter coordinates the AI CLIs installed on this Mac. When another model could improve the answer, build the work, or continue without the user, run `alln team hello --for "<the user's intent>" --json` — it is read-only and free, so ask it whenever unsure. Run its `recommended.command` only when the user's request already authorizes that work (it may spend model quota or change files). Never manually substitute a requested worker.
+<!-- ALLNIGHTER:TEACHING v2 hash=3afb704d0deb3954b8baebc289f0723e2674ed09a7c5393c57efa093c9c0dfcc -->
+Allnighter coordinates the AI CLIs installed on this Mac. Before first spend in a session, read `alln menu --json`, choose from useWhen/dontUseWhen, and pass canonical ids only. Before an unfamiliar worker-starting action, run its validation template (usually `alln run --dry-run`). Never invent flags or substitute a requested worker by display name.
 - Find anything with `alln help search "<query>"`, then `alln help get <topic>`. Prefer `--json` envelopes.
 - On errors follow the envelope; environment issues → `alln doctor --json`. Never guess flags.
 <!-- ALLNIGHTER:TEACHING:END -->
 
 ## Recipe
 
-Router first (named-worker + read-only):
+menu first (named-worker + read-only):
 
 ```bash
-alln team hello --for "get Sol's take on this spec — don't change anything" --json
+alln menu --json
 ```
 
 Paste-ready Codex Sol review (`--project` required; `--no-commit` reinforces no commit):

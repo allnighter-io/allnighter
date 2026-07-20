@@ -6,7 +6,7 @@ final class AgentBootstrapTests: XCTestCase {
     private func opus() -> Model { Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both) }
     private let teams = BuiltInTeams.all
 
-    // MARK: - team hello readiness
+    // MARK: - readiness
 
     func testReadyBenchCanStartTeams() {
         let v = AgentReadiness.evaluate(teams: teams, readyModels: [opus()])
@@ -14,8 +14,8 @@ final class AgentBootstrapTests: XCTestCase {
         XCTAssertTrue(v.readyTeams.contains { $0.team == "code_bug_hunt" })
         XCTAssertNil(v.blockedReason)
         XCTAssertEqual(v.nextAction.kind, "startTeamRun")
-        XCTAssertEqual(v.nextAction.command, "alln team start --team <team-id> --json \"<message>\"")
-        XCTAssertEqual(ContractRegistry.resolveCommandName(from: v.nextAction.command), "team start")
+        XCTAssertEqual(v.nextAction.command, "alln run \"<message>\" --team <team-id> --detach --json")
+        XCTAssertEqual(ContractRegistry.resolveCommandName(from: v.nextAction.command), "run")
     }
 
     func testEmptyBenchBlocksWithSourceAction() {
@@ -27,7 +27,7 @@ final class AgentBootstrapTests: XCTestCase {
         XCTAssertTrue(v.blockedReason?.contains("No ready model") ?? false)
     }
 
-    // MARK: - team_preflight
+    // MARK: - preflight
 
     /// Max roster is 8 answer/review + writer = 9.
     /// Retargeted to `code_bug_hunt_max` so the Team_Depth_Naming rename does not change
@@ -42,7 +42,7 @@ final class AgentBootstrapTests: XCTestCase {
         XCTAssertEqual(r.readyWorkers.count, 9) // 8 answer/review + writer
         XCTAssertTrue(r.selfFusion.enabled)
         XCTAssertEqual(r.nextAction.kind, "startTeamRun")
-        XCTAssertEqual(r.nextAction.command, "alln team start --team code_bug_hunt_max --json \"<message>\"")
+        XCTAssertEqual(r.nextAction.command, "alln run \"<message>\" --team code_bug_hunt_max --detach --json")
         XCTAssertTrue(r.readyWorkers.contains { $0.purpose == "plan" }) // synthetic writer
     }
 
@@ -86,8 +86,8 @@ final class AgentBootstrapTests: XCTestCase {
         let r = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_bug_hunt",
                                         type: nil, effort: nil, readyModels: [opus()])
         XCTAssertTrue(r.canStart)
-        XCTAssertTrue(r.nextAction.command.hasPrefix("alln team start"))
-        XCTAssertEqual(ContractRegistry.resolveCommandName(from: r.nextAction.command), "team start")
+        XCTAssertTrue(r.nextAction.command.hasPrefix("alln run"))
+        XCTAssertEqual(ContractRegistry.resolveCommandName(from: r.nextAction.command), "run")
 
         let obj = try JSONSerialization.jsonObject(with: CoreJSON.encode(r)) as? [String: Any]
         let next = try XCTUnwrap(obj?["nextAction"] as? [String: Any])

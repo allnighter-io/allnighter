@@ -1,6 +1,6 @@
 # MR-S02 — Clean-cut wrong and duplicate grammars
 
-Status: **ready** (after MR-S01)
+Status: **complete**
 SSOT: `docs/phases/Menu_Not_Router.md` §MR-S02 + one-run-primitive ownership
 
 ## Goal

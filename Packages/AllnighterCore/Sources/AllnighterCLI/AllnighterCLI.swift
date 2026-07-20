@@ -51,25 +51,17 @@ struct AllnighterCLI {
         case "thread" where args.first == "rename": await ThreadRenameCLI.runRename(Array(args.dropFirst()), runtime: runtime)
         case "run": await RunCLI.run(args, runtime: runtime)
         case "continuity": runContinuity(args)
-        case "team" where args.first == "show": runTeamShow(Array(args.dropFirst()), runtime)
-        case "team" where args.first == "hello": print(teamHelloJSONString(Array(args.dropFirst()), runtime))
-        case "team" where args.first == "list": runTeamCatalog(Array(args.dropFirst()), runtime)
-        case "route", "resolve": print(teamHelloJSONString(args, runtime))
-        case "team" where args.first == "preflight": runTeamPreflight(Array(args.dropFirst()), runtime)
-        case "team" where args.first == "start": await runTeamStart(Array(args.dropFirst()), runtime)
         case "team" where args.first == "__runner": await runTeamRunner(Array(args.dropFirst()), runtime)
         case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()), runtime)
         case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()), runtime)
         case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
         case "team" where args.first == "reconcile": await runTeamReconcile(Array(args.dropFirst()), runtime)
-        case "team": await runTeam(args, runtime)
         case "models": await ModelsCLI.run(args, runtime: runtime)
         case "defaults": await DefaultsCLI.run(args, runtime: runtime)
         case "boost-window": await BoostWindowCLI.run(args, runtime: runtime)
         case "help": await HelpCLI.run(args, runtime: runtime)
         case "history": await runHistory(args, runtime)
         case "docs": runDocs(args)
-        case "commands": runCommands(args)
         case "menu" where args.first == "show": MenuCLI.runShow(Array(args.dropFirst()), runtime: runtime)
         case "menu": MenuCLI.run(args, runtime: runtime)
         case "show": runShow(args, runtime)
@@ -100,83 +92,15 @@ struct AllnighterCLI {
 
     // MARK: - Subcommands
 
-    static func runTeam(_ args: [String], _ runtime: ToolRuntime) async {
-        let opts = Options(args)
-        guard let question = opts.positional.first ?? opts.value("question") else {
-            FileHandle.standardError.write(Data("usage: alln team \"<question>\" [--lane code|design|copy|signal] [--team id] [--effort low|med|high] [--type t] [--json | --stream]\n".utf8)); exit(2)
-        }
-        // --json and --stream are mutually exclusive (checked before spending quota).
-        if opts.flag("json") && opts.flag("stream") {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "--json and --stream are mutually exclusive")
-            exit(2)
-        }
-        let teamId = opts.value("team")
-        let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
-        if let raw = opts.value("lane"), lane == nil {
-            fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw) (use code|design|copy|signal)")
-        }
-        let effort = opts.value("effort").flatMap(EffortLevel.init(rawValue:))
-        if let raw = opts.value("effort"), effort == nil {
-            fail(code: "CLI_USAGE_ERROR", message: "unknown effort: \(raw) (use low|med|high)")
-        }
-        let request = TeamRequest(
-            question: question, lane: lane, teamPresetId: teamId, effort: effort,
-            type: opts.value("type"), context: opts.value("context")
-        )
-
-        if opts.flag("stream") {
-            // Live NDJSON: emit events as the run progresses, not after it settles.
-            let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
-            let runTask = Task { await runtime.service().run(request, origin: .cli, originAgent: opts.value("agent"), events: continuation) }
-            let mapper = NDJSONStreamProjector.LiveMapper()
-            for await event in stream {
-                if let line = mapper.line(for: event) { print(line) }
-            }
-            _ = await runTask.value   // run is persisted by the time the stream ends
-            return
-        }
-
-        let result = await runtime.service().run(request, origin: .cli, originAgent: opts.value("agent"))
-
-        if opts.flag("json") {
-            // A refused request (conflict / unknown team / blocked / busy) never
-            // persists a run — emit the machine failure envelope with its code.
-            guard !result.runId.isEmpty else {
-                emitFailure(code: result.errorCode ?? "DEFAULT_TEAM_INVALID", message: result.note.isEmpty ? "team run did not start" : result.note)
-                exit(1)
-            }
-            guard let run = loadRun(result.runId) else {
-                emitRunNotFound(result.runId, "team run did not persist")
-                exit(1)
-            }
-            let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?
-                .appendingPathComponent("run.json").path ?? ""
-            let context = TeamRunJSONMapper.Context(
-                promptSource: .init(kind: opts.value("file") != nil ? .file : .positional, path: opts.value("file")),
-                runJournalPath: journalPath, reproduceCommand: reproduceCommand(run)
-            )
-            let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
-            print(jsonString(trj))
-            return
-        }
-
-        if result.status == .failed && result.runId.isEmpty {
-            FileHandle.standardError.write(Data((result.note + "\n").utf8)); exit(1)
-        } else {
-            print(result.plan ?? "(no plan — status \(result.status.rawValue))")
-            for w in result.warnings { FileHandle.standardError.write(Data("⚠︎ \(w)\n".utf8)) }
-            FileHandle.standardError.write(Data("\n[team \(result.preset): \(result.invocations) invocations; run \(result.runId)]\n".utf8))
-        }
-    }
-
-    /// The `alln team …` command that replays this run's intent (lane/team/effort).
-    /// The worker snapshot in the run is the historical truth; replay may resolve a
-    /// different concrete model set if the bench changed.
+    /// Replay grammar for legacy show/export paths — always `alln run` (MR-S02).
     static func reproduceCommand(_ run: TeamRun) -> String {
-        var parts = ["alln team"]
+        var parts = ["alln run"]
         if let lane = run.lane { parts.append("--lane \(lane.rawValue)") }
         if let team = run.presetId { parts.append("--team \(team)") }
         if let effort = run.effort { parts.append("--effort \(effort.rawValue)") }
+        if !run.prompt.isEmpty {
+            parts.append("\"\(run.prompt)\"")
+        }
         return parts.joined(separator: " ")
     }
 
@@ -691,44 +615,7 @@ struct AllnighterCLI {
         fail(code: "CONTRACT_ARTIFACTS_NOT_FOUND", message: message)
     }
 
-    // MARK: - team show / docs / show / export / doctor explain
-
-    /// `alln team show [--lane code|design|copy|signal] [--json]` — the default team for
-    /// each lane (or one lane). Does NOT run.
-    static func runTeamShow(_ args: [String], _ runtime: ToolRuntime) {
-        let opts = Options(args)
-        if opts.flag("json") { print(teamShowJSONString(runtime, lane: opts.value("lane").flatMap(WorkLane.init(rawValue:)))); return }
-        let lanes = opts.value("lane").flatMap(WorkLane.init(rawValue:)).map { [$0] } ?? WorkLane.allCases
-        for lane in lanes {
-            guard let team = runtime.teams.defaultTeam(for: lane) else { continue }
-            print("\(lane.rawValue) → \(team.displayName) (\(team.id)) · default effort \(team.defaultEffort.displayLabel) · \(team.outputKind.rawValue)")
-            print("  \(team.workerSpecs.count) workers · lead \(team.lead.skillId)")
-        }
-    }
-
-    /// The default-team-per-lane snapshot JSON for `alln team show --json`.
-    static func teamShowJSONString(_ runtime: ToolRuntime, lane: WorkLane? = nil) -> String {
-        let lanes = lane.map { [$0] } ?? WorkLane.allCases
-        struct TeamView: Encodable {
-            let id, displayName, lane, outputKind, defaultEffort: String
-            let mutating, isDefaultForLane: Bool
-            let workerCount: Int
-        }
-        struct Snapshot: Encodable {
-            let schemaVersion = 1
-            let contractVersion: String
-            let defaults: [TeamView]
-        }
-        let defaults = lanes.compactMap { lane -> TeamView? in
-            guard let t = runtime.teams.defaultTeam(for: lane) else { return nil }
-            return TeamView(id: t.id, displayName: t.displayName, lane: t.lane.rawValue,
-                            outputKind: t.outputKind.rawValue, defaultEffort: t.defaultEffort.rawValue,
-                            mutating: t.mutating,
-                            isDefaultForLane: true,
-                            workerCount: t.catalogSeatCount)
-        }
-        return jsonString(Snapshot(contractVersion: ContractRegistry.contractVersion, defaults: defaults))
-    }
+    // MARK: - teams catalog / docs / show / export / doctor explain
 
     /// `alln teams [--lane code|design|copy|signal] [--json]` — the lane-scoped team
     /// catalog summary (no full prompt templates).
@@ -1114,36 +1001,7 @@ struct AllnighterCLI {
         let deleted: String
     }
 
-    /// The agent bootstrap snapshot JSON for `alln team hello`. Cheap, non-mutating,
-    /// quota-free (cached readiness). With `--for "<intent>"`, returns the intent
-    /// router payload (`Agent_Intent_Router.md`) instead of the static readiness report.
-    static func teamHelloJSONString(_ args: [String], _ runtime: ToolRuntime) -> String {
-        let opts = Options(args)
-        let verdict = AgentReadiness.evaluate(teams: runtime.teams, readyModels: runtime.readyModels)
-        if let intent = opts.value("for") {
-            return AgentHello.intentRouteJSONString(
-                intent: intent,
-                verdict: verdict,
-                readyModels: runtime.readyModels,
-                teams: runtime.teams
-            )
-        }
-        return AgentHello.jsonString(
-            verdict: verdict,
-            binaryVersion: binaryVersion
-        )
-    }
-
-    /// `alln team preflight [--lane l] [--team id] [--effort e] [--type t]` — resolve
-    /// against the ready bench without running. Always prints JSON.
-    static func runTeamPreflight(_ args: [String], _ runtime: ToolRuntime) {
-        let opts = Options(args)
-        var dict: [String: Any] = [:]
-        for k in ["lane", "team", "effort", "type"] { if let v = opts.value(k) { dict[k] = v } }
-        print(jsonString(preflight(runtime, args: dict)))
-    }
-
-    /// Run preflight from CLI args (lane/team/type/effort) against the ready bench.
+    /// Shared readiness check for `run --dry-run` (and any other free twin).
     static func preflight(_ runtime: ToolRuntime, args: [String: Any]) -> TeamPreflight.Result {
         var result = TeamPreflight.preflight(
             teams: runtime.teams,
@@ -1172,71 +1030,7 @@ struct AllnighterCLI {
         return result
     }
 
-    static func parseAsyncTeamStart(_ args: [String], _ opts: Options) -> AsyncTeamStartRequest? {
-        guard let question = opts.positional.first ?? opts.value("question") else { return nil }
-        return AsyncTeamStartRequest(
-            question: question,
-            lane: opts.value("lane").flatMap(WorkLane.init(rawValue:)),
-            teamPresetId: opts.value("team"),
-            effort: opts.value("effort").flatMap(EffortLevel.init(rawValue:)),
-            type: opts.value("type"),
-            context: opts.value("context"),
-            threadId: opts.value("thread-id"),
-            originAgent: opts.value("agent"),
-            originConversationId: opts.value("conversation-id"),
-            originMessageId: opts.value("message-id"),
-            idempotencyKey: opts.value("idempotency-key")
-        )
-    }
-
-    /// `alln team start ... --json` — async start; forks a self-owning runner
-    /// (PO-S01), prints the accepted envelope, and exits. The runner process
-    /// owns the journal + heartbeat for the life of the run.
-    static func runTeamStart(_ args: [String], _ runtime: ToolRuntime) async {
-        let opts = Options(args)
-        guard opts.flag("json") else {
-            FileHandle.standardError.write(Data("usage: alln team start \"<prompt>\" --json [--lane code|design|copy|signal] [--team id] [--effort low|med|high] [--idempotency-key key]\n".utf8))
-            exit(2)
-        }
-        guard var request = parseAsyncTeamStart(args, opts) else {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "missing prompt")
-            exit(2)
-        }
-        if let raw = opts.value("lane"), request.lane == nil {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw)")
-            exit(2)
-        }
-        if let raw = opts.value("effort"), request.effort == nil {
-            emitFailure(code: "CLI_USAGE_ERROR", message: "unknown effort: \(raw)")
-            exit(2)
-        }
-        // Default cwd is the project root workers should run in when the caller
-        // did not pass an explicit repo root.
-        if request.repoRoot == nil {
-            request.repoRoot = FileManager.default.currentDirectoryPath
-        }
-        // Absolute path via _NSGetExecutablePath — never argv[0] (posix_spawn
-        // does no PATH search; chdir makes relative argv[0] resolve wrongly).
-        guard let executable = ProcessOwnership.currentExecutablePath() else {
-            emitFailure(code: "INTERNAL_ERROR", message: "could not resolve alln executable path")
-            exit(1)
-        }
-        let outcome = await runtime.asyncTeamService().start(
-            request,
-            origin: .cli,
-            readyModels: runtime.readyModels,
-            ownership: .detachedRunner(executablePath: executable)
-        )
-        switch outcome {
-        case .success(let response):
-            print(jsonString(response))
-        case .failure(let refusal):
-            emitFailure(code: refusal.code, message: refusal.message)
-            exit(1)
-        }
-    }
-
-    /// Internal: detached runner body for `team start` (PO-S01). Becomes a
+    /// Internal: detached runner body for `alln run --detach` (PO-S01). Becomes a
     /// session leader, claims ownership of the accepted run, and executes it.
     /// Not part of the public agent surface.
     static func runTeamRunner(_ args: [String], _ runtime: ToolRuntime) async {
@@ -1521,13 +1315,6 @@ struct AllnighterCLI {
                 message: "refusing to signal \(mid): recorded identity does not match the live process (pid reuse)"
             )
         }
-    }
-
-    /// `alln commands [--json]` — full M1 command manifest (AE-S13 machine front door).
-    /// Always emits JSON; `--json` is accepted for agent habit consistency.
-    static func runCommands(_ args: [String]) {
-        _ = Options(args) // validates / consumes flags; output is always machine JSON
-        print(jsonString(CommandsManifestJSON.project()))
     }
 
     /// `alln docs [topic] [--errors] [--schema] [--examples]` — the generated,

@@ -87,6 +87,27 @@ enum RunCLI {
             return
         }
 
+        if opts.flag("detach") {
+            if opts.flag("stream") {
+                AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--detach and --stream are mutually exclusive")
+            }
+            if opts.flag("try-fix") {
+                AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--detach and --try-fix are mutually exclusive")
+            }
+            await runDetached(
+                message: message,
+                project: project,
+                teamId: opts.value("team"),
+                workerId: opts.value("worker"),
+                effort: effort,
+                lane: lane,
+                type: opts.value("type"),
+                opts: opts,
+                runtime: runtime
+            )
+            return
+        }
+
         let idleParsed = parsePositiveTimeoutSeconds(opts.value("idle-timeout"), flag: "--idle-timeout")
         if let message = idleParsed.error {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: message)
@@ -186,6 +207,56 @@ enum RunCLI {
                 print(run.plan ?? run.workerAnswers.first?.output ?? "(run \(run.status.rawValue))")
                 FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
             }
+        }
+    }
+
+    /// `alln run --detach` — async start; forks a self-owning runner (former `team start`).
+    private static func runDetached(
+        message: String,
+        project: Project,
+        teamId: String?,
+        workerId: String?,
+        effort: EffortLevel?,
+        lane: WorkLane?,
+        type: String?,
+        opts: Options,
+        runtime: ToolRuntime
+    ) async {
+        let request = AsyncTeamStartRequest(
+            question: message,
+            lane: lane,
+            teamPresetId: teamId,
+            effort: effort,
+            modelId: workerId,
+            type: type,
+            context: opts.value("context"),
+            threadId: opts.value("thread-id"),
+            originAgent: opts.value("agent"),
+            originConversationId: opts.value("conversation-id"),
+            originMessageId: opts.value("message-id"),
+            idempotencyKey: opts.value("idempotency-key"),
+            repoRoot: project.normalizedRootPath
+        )
+        guard let executable = ProcessOwnership.currentExecutablePath() else {
+            AllnighterCLI.emitFailure(code: "INTERNAL_ERROR", message: "could not resolve alln executable path")
+            exit(1)
+        }
+        let outcome = await runtime.asyncTeamService().start(
+            request,
+            origin: .cli,
+            readyModels: runtime.readyModels,
+            ownership: .detachedRunner(executablePath: executable)
+        )
+        switch outcome {
+        case .success(let response):
+            if opts.flag("json") {
+                print(AllnighterCLI.jsonString(response))
+            } else {
+                print(response.runId)
+            }
+        case .failure(let refusal):
+            AllnighterCLI.emitFailure(code: refusal.code, message: refusal.message)
+            exit(1)
         }
     }
 

@@ -33,15 +33,15 @@ public struct AgentNextAction: Codable, Sendable, Equatable {
         return AgentNextAction(
             kind: "startTeamRun",
             label: "Start team run",
-            command: "alln team start --team \(team) --json \"<message>\"")
+            command: "alln run \"<message>\" --team \(team) --detach --json")
     }
 
     public static func retryLater(teamId: String? = nil) -> AgentNextAction {
         let team = teamId ?? "<team-id>"
         return AgentNextAction(
             kind: "retryLater",
-            label: "Retry team start when capacity frees",
-            command: "alln team start --team \(team) --json \"<message>\"")
+            label: "Retry run when capacity frees",
+            command: "alln run \"<message>\" --team \(team) --detach --json")
     }
 
     public static let runDoctor = AgentNextAction(

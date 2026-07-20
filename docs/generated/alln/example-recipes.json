@@ -5,11 +5,6 @@
     "title" : "Generate the full reference"
   },
   {
-    "command" : "alln commands --json",
-    "id" : "commands_json",
-    "title" : "Full command manifest (machine front door)"
-  },
-  {
     "command" : "alln doctor --json",
     "id" : "doctor_json",
     "title" : "Structured diagnostics"
@@ -40,11 +35,6 @@
     "title" : "List model catalog and Bench state"
   },
   {
-    "command" : "alln team show --json",
-    "id" : "team_show_json",
-    "title" : "Show the current team"
-  },
-  {
     "command" : "alln teams --lane code --json",
     "id" : "teams_code_json",
     "title" : "List Code teams"
@@ -65,29 +55,9 @@
     "title" : "Show a Code skill"
   },
   {
-    "command" : "alln team preflight --lane code --team code_bug_hunt --effort high",
-    "id" : "team_preflight",
-    "title" : "Preflight a team"
-  },
-  {
-    "command" : "alln team --lane code --team code_bug_hunt \"Why does run history disappear?\"",
-    "id" : "team_basic",
-    "title" : "Ask the team"
-  },
-  {
-    "command" : "alln team --json \"Give me one small naming test.\"",
-    "id" : "team_json",
-    "title" : "Machine team run"
-  },
-  {
-    "command" : "alln team --stream \"Give me one tiny event-stream test.\"",
-    "id" : "team_stream",
-    "title" : "Streamed team run"
-  },
-  {
-    "command" : "alln team start --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\"",
-    "id" : "team_start_json",
-    "title" : "Start async team run"
+    "command" : "alln run --detach --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\"",
+    "id" : "run_detach_json",
+    "title" : "Start async run"
   },
   {
     "command" : "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json",

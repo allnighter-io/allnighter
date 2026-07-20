@@ -36,14 +36,11 @@ final class BootstrapTests: XCTestCase {
         let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
         XCTAssertTrue(s.contains("`alln` CLI"), "must name the CLI surface")
         XCTAssertTrue(s.contains("fallback: `\(sampleBinary)`"), "must carry binary fallback")
-        XCTAssertTrue(s.contains("alln team hello --for"), "must teach intent router")
+        XCTAssertTrue(s.contains("alln menu --json"), "must teach live menu")
         XCTAssertTrue(s.contains("--json"), "must prefer structured envelopes")
-        XCTAssertTrue(s.contains("recommended.command"), "must name frozen router field")
-        XCTAssertTrue(
-            s.contains("only when the user's request already authorizes"),
-            "must teach authorization law (never auto-run)"
-        )
-        XCTAssertTrue(s.contains("Never manually substitute"), "must forbid silent worker substitution")
+        XCTAssertTrue(s.contains("alln run --dry-run"), "must teach dry-run validation")
+        XCTAssertTrue(s.contains("canonical ids"), "must teach exact-id dispatch")
+        XCTAssertTrue(s.contains("Never invent flags"), "must forbid invented grammar")
         XCTAssertTrue(s.contains("alln help search"), "must teach help search")
         XCTAssertTrue(s.contains("alln help get"), "must teach help get")
         XCTAssertTrue(s.contains("alln doctor --json"), "must route environment failures to doctor")

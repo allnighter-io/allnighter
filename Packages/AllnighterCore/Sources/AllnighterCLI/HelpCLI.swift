@@ -64,7 +64,7 @@ enum HelpCLI {
         if !t.relatedCommandNames.isEmpty {
             print("\ncommands: " + t.relatedCommandNames.map { "alln \($0)" }.joined(separator: ", "))
         }
-        if t.needsLiveCheck { print("\n(this answer depends on live state — run `alln doctor` / `alln team hello`)") }
+        if t.needsLiveCheck { print("\n(this answer depends on live state — run `alln doctor` / `alln menu --json`)") }
         if let step = json.nextToolPlan.first {
             print("\nnext: \(step.command)")
         }

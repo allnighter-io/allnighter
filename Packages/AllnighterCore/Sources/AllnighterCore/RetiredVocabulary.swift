@@ -7,10 +7,6 @@ import Foundation
 /// marked block below). The Retirement Rule
 /// (`docs/workflows/SSOT_Feature_Workflow.md`) appends here forever — never
 /// narrow a red gate by deleting a term to make CI pass.
-///
-/// Carve-outs for underscore ids that are **workflow labels**, not callable
-/// tools, live in `allowedWorkflowIds` and must be named explicitly
-/// (`AgentHello.defaultWorkflows`).
 public enum RetiredVocabulary {
 
     // MARK: - Help prose / next-action deny terms
@@ -46,6 +42,17 @@ public enum RetiredVocabulary {
         "pair status",
         // Retired MCP CLI family
         "alln mcp",
+        // MR-S02 — router + duplicate grammars (delete, not alias)
+        "team hello",
+        "route --for",
+        "resolve --for",
+        "commands --json",
+        "team list",
+        "team show",
+        "team preflight",
+        "team start",
+        "recommended.command",
+        "USE THIS FIRST",
     ]
 
     /// Underscore tool ids that must never appear as callable ids in agent-visible
@@ -73,15 +80,6 @@ public enum RetiredVocabulary {
         "pending_run",
     ]
 
-    /// `AgentHello.defaultWorkflows` ids — workflow *labels*, not callable tools.
-    /// The underscore-tool-id ban must carve these out **by explicit name**
-    /// (ASF law 8 — never weaken the gate silently).
-    public static let allowedWorkflowIds: Set<String> = [
-        "run_async",
-        "diagnose",
-        "resolve_stalls",
-    ]
-
     // MARK: - Living-doc grep patterns (check.sh)
 
     /// Exact instructional forms that must not appear in living agent-facing
@@ -92,6 +90,14 @@ public enum RetiredVocabulary {
         "alln mcp serve",
         "alln mcp install",
         "pair slice",
+        "alln team hello",
+        "alln route --for",
+        "alln resolve --for",
+        "alln commands --json",
+        "alln team list",
+        "alln team show",
+        "alln team preflight",
+        "alln team start",
     ]
     /// END livingDocDenyPatterns
 
@@ -156,9 +162,8 @@ public enum RetiredVocabulary {
         return re.firstMatch(in: prose, options: [], range: range) != nil
     }
 
-    /// True when `id` is a retired underscore tool id (not an allowed workflow label).
+    /// True when `id` is a retired underscore tool id.
     public static func isBannedUnderscoreToolId(_ id: String) -> Bool {
-        if allowedWorkflowIds.contains(id) { return false }
-        return deadToolIds.contains(id)
+        deadToolIds.contains(id)
     }
 }

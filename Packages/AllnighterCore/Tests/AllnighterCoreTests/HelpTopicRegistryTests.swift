@@ -60,17 +60,17 @@ final class HelpTopicRegistryTests: XCTestCase {
         }
     }
 
-    /// ASF-S05: first-contact decision tree covers run / team / thread / pending / hello --for.
+    /// ASF-S05: first-contact decision tree covers run / detach / thread / pending / menu.
     func testToolSelectionDecisionTreeMentionsCoreVerbs() throws {
         let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "tool_selection"))
         let prose = ([topic.summary, topic.bodyMarkdown]
                      + topic.sections.map(\.bodyMarkdown)).joined(separator: "\n")
         for needle in [
             "alln run",
-            "alln team start",
+            "alln run --detach",
             "alln thread send",
             "alln pending add",
-            "hello --for",
+            "alln menu --json",
         ] {
             XCTAssertTrue(prose.contains(needle), "tool_selection must mention '\(needle)'")
         }
@@ -86,7 +86,7 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertTrue(prose.contains("swift build -c release --product alln"))
         XCTAssertTrue(prose.contains("alln install-cli"))
         XCTAssertTrue(prose.contains("version --json") || prose.contains("alln version"))
-        XCTAssertTrue(prose.contains("tool_selection") || prose.contains("hello --for"))
+        XCTAssertTrue(prose.contains("tool_selection") || prose.contains("menu --json"))
     }
 
     /// Golden: team_run_loop teaches CLI verbs in both markdown projections.
@@ -97,8 +97,8 @@ final class HelpTopicRegistryTests: XCTestCase {
 
         for surface in [("topicMarkdown", md), ("docsMarkdown", docs)] {
             let (label, text) = surface
-            XCTAssertTrue(text.contains("alln team preflight"), "\(label) must teach alln team preflight")
-            XCTAssertTrue(text.contains("alln team start"), "\(label) must teach alln team start")
+            XCTAssertTrue(text.contains("alln run --dry-run"), "\(label) must teach alln run --dry-run")
+            XCTAssertTrue(text.contains("alln run --detach"), "\(label) must teach alln run --detach")
             for banned in ["dryRun", "team_start(", "team_run", "team_ask", "run_get"] {
                 XCTAssertFalse(text.contains(banned), "\(label) must not contain '\(banned)'")
             }

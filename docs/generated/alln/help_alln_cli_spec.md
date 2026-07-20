@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 1.7.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 2.0.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -20,17 +20,6 @@ Flags:
 Output schema: `contractDoc`.
 
 Examples: `docs_all`.
-
-### `alln commands`
-
-Full command manifest for agents (name, trigger, args, examples, anti-examples). Machine front door for discovery.
-
-Flags:
-- `--json` — Emit CommandsManifestJSON (default; always machine JSON).
-
-Output schema: `commandsManifestJSON`.
-
-Examples: `commands_json`.
 
 ### `alln menu`
 
@@ -122,7 +111,7 @@ Examples: `install_cli_json`.
 
 ### `alln models`
 
-List model catalog and Bench state. For natural-language model names (Sonnet, Grok), use `alln route --for` first — this list is catalog ids only.
+List model catalog and Bench state (catalog ids). Prefer `alln menu --json` to discover selectable models.
 
 Flags:
 - `--json` — Structured ModelListJSON.
@@ -198,19 +187,9 @@ Flags:
 
 Output schema: `modelListJSON`.
 
-### `alln team show`
-
-Show the default team for each lane.
-
-Flags:
-- `--lane <lane>` — Limit to one lane.
-- `--json` — Structured team snapshot.
-
-Examples: `team_show_json`.
-
 ### `alln teams`
 
-List the lane-scoped team catalog. Looking for a team by intent or name? Prefer `alln route --for` over guessing ids.
+List the lane-scoped team catalog. Prefer `alln menu --json` / `alln teams show <id>` over guessing ids.
 
 Flags:
 - `--lane <lane>` — Filter to one lane.
@@ -457,71 +436,12 @@ Flags:
 
 Examples: `skills_delete_json`.
 
-### `alln team hello`
-
-Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for "ask Sonnet 5 a question"`. Omitting `--for` returns readiness + ready teams (quota-free).
-
-Flags:
-- `--for <string>` — Natural-language intent to resolve (e.g. "ask Sonnet 5 a question"). Omitting keeps the static readiness report.
-- `--json` — Structured hello / intent-route JSON (default).
-
-### `alln route`
-
-Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for "ask Sonnet 5 a question"`. Alias of `team hello --for`.
-
-Flags:
-- `--for <string>` — Natural-language intent to resolve (e.g. "ask Sonnet 5 a question"). Omitting keeps the static readiness report.
-- `--json` — Structured intent-route JSON (default).
-
-### `alln resolve`
-
-Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for "ask Sonnet 5 a question"`. Alias of `team hello --for`.
-
-Flags:
-- `--for <string>` — Natural-language intent to resolve (e.g. "ask Sonnet 5 a question"). Omitting keeps the static readiness report.
-- `--json` — Structured intent-route JSON (default).
-
-### `alln team preflight`
-
-Validate lane/team/effort against the ready bench without running.
-
-Flags:
-- `--lane <lane>` — code | design | copy | signal.
-- `--team <id>` — Team id.
-- `--effort <effort>` — low | med | high.
-- `--type <type>` — Copy-only routing sugar.
-- `--json` — Structured TeamPreflight.Result (default; always machine JSON).
-
-### `alln team start`
-
-Start a resumable/asynchronous team run.
-
-Arguments:
-- `prompt` (optional) — The prompt (or use --file).
-
-Flags:
-- `--lane <lane>` — code | design | copy | signal.
-- `--team <id>` — Team id.
-- `--effort <effort>` — low | med | high.
-- `--type <type>` — Copy-only routing sugar.
-- `--file <path>` — Read the prompt from a file.
-- `--agent <id>` — Origin agent id for attribution (does not select the worker).
-- `--json` — Structured TeamStartResponse.
-- `--idempotency-key <id>` — Client idempotency key.
-- `--conversation-id <id>` — Origin conversation id.
-- `--message-id <id>` — Origin message id.
-- `--thread-id <id>` — Owning work thread id.
-
-Output schema: `teamStartResponse`.
-
-Examples: `team_start_json`.
-
 ### `alln team status`
 
 Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).
 
 Arguments:
-- `run-id` (required) — The run id from team start.
+- `run-id` (required) — The run id from `alln run --detach`.
 
 Flags:
 - `--json` — Structured TeamStatusResponse.
@@ -535,7 +455,7 @@ Output schema: `teamStatusResponse`.
 Fetch TeamRunJSON when an async run is terminal.
 
 Arguments:
-- `run-id` (required) — The run id from team start.
+- `run-id` (required) — The run id from `alln run --detach`.
 
 Flags:
 - `--json` — TeamRunJSON or not-ready envelope.
@@ -547,7 +467,7 @@ Output schema: `teamRunJSON`.
 Cancel an active async team run.
 
 Arguments:
-- `run-id` (required) — The run id from team start.
+- `run-id` (required) — The run id from `alln run --detach`.
 
 Flags:
 - `--json` — Structured TeamCancelResponse.
@@ -601,7 +521,7 @@ Output schema: `ownershipGarbageCollectionJSON`.
 
 ### `alln run`
 
-Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.
+Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. `--detach` returns a durable run id (async). TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.
 
 Arguments:
 - `message` (required) — The user's prompt.
@@ -628,8 +548,12 @@ Flags:
 - `--try-fix` — Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.
 - `--executor <id>` — Mutating executor team id (default build_slice).
 - `--agent <id>` — Origin agent id for attribution (does not select the worker).
-- `--dry-run` — Resolve project/worker/auth/mutating/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04).
-- `--json` — Emit TeamRunJSON (or RunDryRunJSON with --dry-run).
+- `--thread-id <id>` — Owning work thread id (detach path).
+- `--conversation-id <id>` — Origin conversation id (detach path).
+- `--message-id <id>` — Origin message id (detach path).
+- `--detach` — Start asynchronously; return the durable run id and exit (async twin of foreground run).
+- `--dry-run` — Resolve project/worker/auth/mutating/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04). Free twin of both foreground and --detach.
+- `--json` — Emit TeamRunJSON (or RunDryRunJSON with --dry-run; TeamStartResponse with --detach).
 - `--stream` — Emit NDJSON events.
 
 Mutually exclusive: `--json`, `--stream`.
@@ -640,7 +564,13 @@ Mutually exclusive: `--dry-run`, `--stream`.
 
 Mutually exclusive: `--dry-run`, `--try-fix`.
 
+Mutually exclusive: `--detach`, `--stream`.
+
+Mutually exclusive: `--detach`, `--try-fix`.
+
 Output schema: `teamRunJSON`.
+
+Examples: `run_detach_json`.
 
 ### `alln run resume`
 
@@ -858,30 +788,6 @@ Flags:
 - `--json` — Emit PanelJSON.
 
 Output schema: `panelJSON`.
-
-### `alln team`
-
-Run a lane team on a prompt, foreground.
-
-Arguments:
-- `prompt` (optional) — The prompt (or use --file).
-
-Flags:
-- `--file <path>` — Read the prompt from a file.
-- `--question <string>` — Alias for the positional prompt.
-- `--lane <lane>` — code | design | copy | signal.
-- `--team <id>` — Team id (the public team selector).
-- `--type <type>` — Copy-only routing sugar.
-- `--effort <effort>` — low | med | high.
-- `--agent <id>` — Origin agent id for attribution (does not select the worker).
-- `--json` — Emit one TeamRunJSON object.
-- `--stream` — Emit NDJSON events.
-
-Mutually exclusive: `--json`, `--stream`.
-
-Output schema: `teamRunJSON`.
-
-Examples: `team_basic`, `team_json`, `team_stream`.
 
 ### `alln show`
 
@@ -1465,7 +1371,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `SOURCE_KEYCHAIN_UNAVAILABLE` | yes | yes | `operational` | Open the provider app once, run its login command in Terminal, then `alln doctor --full --agent <source>`. |
 | `MODEL_UNAVAILABLE` | no | yes | `operational` | Run `alln models --json`; pick an on-Bench ready model or enable one. |
 | `WORKER_NOT_AVAILABLE` | yes | yes | `operational` | Run `alln models enable <id>`, or pick a ready worker; see `alln models` / `alln doctor`. |
-| `DEFAULT_TEAM_INVALID` | yes | no | `operational` | Run `alln team show --json`; fix unavailable workers. |
+| `DEFAULT_TEAM_INVALID` | yes | no | `operational` | Run `alln menu --json` / `alln teams show <id> --json`; fix unavailable workers. |
 | `WORKER_FAILED` | no | yes | `operational` | Inspect `workerId` and source error; failed worker remains visible. |
 | `PLAN_WRITER_FAILED` | no | yes | `operational` | Retry with a ready plan writer or export worker answers. |
 | `TEAM_RUN_TIMEOUT` | no | yes | `timeout` | Retry with lower effort or fewer workers. |
@@ -1546,7 +1452,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `KILL_REFUSED` | yes | no | `operational` | No recorded member could be signalled (all identity-mismatched or non-PG-killable). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans; do not re-signal a recycled pid. |
 | `KILL_VERIFICATION_UNAVAILABLE` | yes | no | `operational` | The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — poll `alln team status` or stop the worker at its source; the tool will not stamp `killed` unverified. |
 | `THREAD_SEND_FAILED` | no | yes | `operational` | Inspect the error detail; retry the send or fix the worker. |
-| `MODEL_NOT_FOUND` | yes | no | `operational` | If you have a natural-language name (e.g. Sonnet 5), run `alln route --for "<intent>" --json` first. Otherwise list ids with `alln models --json` and retry with a valid ModelID. |
+| `MODEL_NOT_FOUND` | yes | no | `operational` | List ids with `alln menu --json` or `alln models --json` and retry with a valid ModelID. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | `operational` | Duplicate the built-in model, then edit the custom copy. |
 | `MODEL_ID_COLLISION` | yes | no | `operational` | Pick a different model id or delete the conflicting custom model. |
 | `MODEL_INVALID` | yes | no | `operational` | Fix the model definition and retry the edit. |
@@ -1565,10 +1471,6 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `STANDING_INVARIANT_FAILED` | yes | no | `operational` | Inspect roundLog.standingFailed and proofResults entries with standing:true. For contractDrift: rebuild the turn tree, run `alln dev export-contracts` (regenerate docs/generated/alln/*), commit the artifacts, and re-run. The harness never auto-regenerates or auto-commits (Process_Ownership.md PO-F4). |
 | `NO_PROJECT_ROOT` | yes | yes | `operational` | Restore the project folder or pick an available project root, then retry. |
 | `WORKER_NOT_READY` | yes | yes | `operational` | Pick a ready worker or run setup health, then retry. |
-| `INTENT_NO_MATCH` | no | yes | `operational` | Rephrase the intent, or pick a team id from `alln team show --json` and start it explicitly. |
-| `WORKER_NAME_UNKNOWN` | yes | no | `operational` | Run `alln models --json` and retry --for with a known display name or model id. |
-| `WORKER_NAME_AMBIGUOUS` | yes | no | `operational` | Disambiguate with a full display name or exact model id from the candidates in nextActions. |
-| `WORKER_NAME_POSTURE_UNSAFE` | yes | no | `operational` | Pick a driver that can mechanically enforce the requested safety posture (e.g. Codex for read-only ChatGPT asks), or drop the read-only constraint. |
 | `EXECUTION_TEAM_MIXED_SOURCES` | yes | no | `operational` | Pick one execution source, run as non-mutating review/propose, or split into judgment then execution. |
 | `UTILIZATION_SOURCE_NOT_FOUND` | yes | no | `usage` | Run `alln models --json`; use a known driver id in appliesTo. |
 | `UTILIZATION_SOURCE_UNCONFIGURED` | yes | no | `usage` | Add the source to Boost window appliesTo, then retry. |
@@ -1609,23 +1511,17 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 ## Example recipes
 
 - `docs_all` — Generate the full reference: `alln docs`
-- `commands_json` — Full command manifest (machine front door): `alln commands --json`
 - `doctor_json` — Structured diagnostics: `alln doctor --json`
 - `doctor_explain` — Explain an error code: `alln doctor explain SOURCE_AUTH_EXPIRED --json`
 - `bootstrap_json` — Agent activation snippet for Claude Code: `alln bootstrap --host claude --json`
 - `install_cli_json` — Install the running binary onto PATH: `alln install-cli --json`
 - `version_json` — Print binary and contract identity: `alln version --json`
 - `models_json` — List model catalog and Bench state: `alln models --json`
-- `team_show_json` — Show the current team: `alln team show --json`
 - `teams_code_json` — List Code teams: `alln teams --lane code --json`
 - `teams_definition_json` — Full team definition for edit: `alln teams definition code_bug_hunt --json`
 - `skills_code_json` — List Code skills: `alln skills --lane code --json`
 - `skills_show_json` — Show a Code skill: `alln skills show bug_reproducer --json`
-- `team_preflight` — Preflight a team: `alln team preflight --lane code --team code_bug_hunt --effort high`
-- `team_basic` — Ask the team: `alln team --lane code --team code_bug_hunt "Why does run history disappear?"`
-- `team_json` — Machine team run: `alln team --json "Give me one small naming test."`
-- `team_stream` — Streamed team run: `alln team --stream "Give me one tiny event-stream test."`
-- `team_start_json` — Start async team run: `alln team start --json --lane code --team code_bug_hunt --effort low "tiny async sanity"`
+- `run_detach_json` — Start async run: `alln run --detach --json --lane code --team code_bug_hunt --effort low "tiny async sanity"`
 - `try_fix_bug` — Auto Fix: Bug Hunt then one bounded fix: `alln run "The history view loses finished runs after restart." --project <id> --team code_bug_hunt --try-fix --executor build_slice --json`
 - `show_latest_json` — Show the latest run: `alln show latest --json`
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`

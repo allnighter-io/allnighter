@@ -2,7 +2,7 @@ import Foundation
 
 // Help System — H0a: pure Core lookup/search/render over the installed help
 // topics. No IO, no network, no live state (topics flagged `needsLiveCheck` route the
-// caller to `alln team hello`/`alln doctor`). The `alln help` CLI adapter calls this so
+// caller to `alln menu`/`alln doctor`). The `alln help` CLI adapter calls this so
 // every caller projects the same truth. Search is deterministic local lexical scoring
 // — no embeddings, no network.
 

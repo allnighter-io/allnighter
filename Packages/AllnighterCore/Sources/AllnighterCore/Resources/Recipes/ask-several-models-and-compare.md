@@ -10,25 +10,25 @@ Multi-seat team run (Auto / named team). One prompt → parallel workers → one
 
 ## Teaching (keep in sync with TeachingSnippet)
 
-<!-- ALLNIGHTER:TEACHING v1 hash=e48793afee945b1f3727641d740b8b9df5b41d059f20a5a5d3c687eda5f093e4 -->
-Allnighter coordinates the AI CLIs installed on this Mac. When another model could improve the answer, build the work, or continue without the user, run `alln team hello --for "<the user's intent>" --json` — it is read-only and free, so ask it whenever unsure. Run its `recommended.command` only when the user's request already authorizes that work (it may spend model quota or change files). Never manually substitute a requested worker.
+<!-- ALLNIGHTER:TEACHING v2 hash=3afb704d0deb3954b8baebc289f0723e2674ed09a7c5393c57efa093c9c0dfcc -->
+Allnighter coordinates the AI CLIs installed on this Mac. Before first spend in a session, read `alln menu --json`, choose from useWhen/dontUseWhen, and pass canonical ids only. Before an unfamiliar worker-starting action, run its validation template (usually `alln run --dry-run`). Never invent flags or substitute a requested worker by display name.
 - Find anything with `alln help search "<query>"`, then `alln help get <topic>`. Prefer `--json` envelopes.
 - On errors follow the envelope; environment issues → `alln doctor --json`. Never guess flags.
 <!-- ALLNIGHTER:TEACHING:END -->
 
 ## Recipe
 
-Ask the router first (it may recommend a team id):
+Read the live menu first:
 
 ```bash
-alln team hello --for "ask several models and compare" --json
+alln menu --json
 ```
 
 List teams, then start an async multi-seat run (example: Plan):
 
 ```bash
 alln teams --lane code --json
-alln team start --team code_plan --json "<your prompt>"
+alln run --detach --team code_plan --json "<your prompt>"
 ```
 
 Lifecycle if the terminal scrolled away (IR-S02):

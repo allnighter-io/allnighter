@@ -31,6 +31,7 @@ final class ContractExportTests: XCTestCase {
             "history.schema.json", "thread-status.schema.json",
             "thread-get.schema.json", "thread-attachment.schema.json",
             "ownership-ps.schema.json", "ownership-kill.schema.json", "ownership-gc.schema.json",
+            "menu.schema.json", "menu-show.schema.json",
             "help_alln_cli_spec.md",
             "contract.lock.json",
         ])

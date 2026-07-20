@@ -42,33 +42,27 @@ public enum CommandDescription {
         }
         if spec.flags.contains(where: { $0.name == "json" }) {
             parts.append("--json")
-        } else if spec.flags.contains(where: { $0.name == "for" }) {
-            parts.append("--for")
-            parts.append("\"<intent>\"")
         }
         return parts.joined(separator: " ")
     }
 
     private static func derivedAntiExample(for spec: ContractRegistry.CommandSpec) -> String {
         let name = spec.name
-        if name == "route" || name == "resolve" || name == "team hello" {
-            return "Do NOT use this when you already know the exact `alln` command and ids — invoke that command directly."
-        }
-        if name == "run" || name.hasPrefix("team start") || name == "team" {
-            return "Do NOT use this to explore shapes — prefer `alln team preflight` or `alln route --for` first; this spends quota."
+        if name == "run" {
+            return "Do NOT use this to explore shapes — prefer `alln run --dry-run` or `alln menu --json` first; this spends quota."
         }
         if name == "models" || name == "teams" || name == "skills" {
-            return "Do NOT use this when you only have a natural-language model/team name — run `alln route --for \"<intent>\" --json` first."
+            return "Do NOT use this when you need the selection-grade catalog — run `alln menu --json` first."
         }
-        if name.hasPrefix("help ") || name == "commands" || name == "docs" {
-            return "Do NOT use this when you need live readiness or a runnable command for an intent — use `alln route --for` or `alln doctor --json`."
+        if name.hasPrefix("help ") || name == "docs" || name == "menu" || name.hasPrefix("menu ") {
+            return "Do NOT use this when you need live readiness for a spend — use `alln run --dry-run` or `alln doctor --json`."
         }
         if name == "doctor" {
-            return "Do NOT use this to pick a model or team by name — use `alln route --for \"<intent>\" --json`."
+            return "Do NOT use this to pick a model or team by name — use `alln menu --json`."
         }
         if name.hasPrefix("pending ") {
-            return "Do NOT use this when the user wants work started now — use `alln run` / `alln team start` after preflight."
+            return "Do NOT use this when the user wants work started now — use `alln run` (add `--detach` for async) after `--dry-run`."
         }
-        return "Do NOT use this when `alln route --for \"<intent>\" --json` or `alln help search \"<intent>\" --json` already answers the question."
+        return "Do NOT use this when `alln menu --json` or `alln help search \"<intent>\" --json` already answers the question."
     }
 }

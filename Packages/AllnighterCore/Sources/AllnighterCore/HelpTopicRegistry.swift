@@ -31,7 +31,7 @@ public struct HelpTopic: Codable, Sendable, Equatable, Identifiable {
     public var schemaRefs: [String]      // ⊆ OutputSchema rawValues
     public var errorRefs: [String]       // ⊆ error catalog codes
     /// True when the real answer depends on this machine's live state (the topic must
-    /// route to a live command — `alln team hello` / `alln doctor` — rather than pretend to know).
+    /// route to a live command — `alln menu` / `alln doctor` — rather than pretend to know).
     public var needsLiveCheck: Bool
 
     public init(
@@ -55,11 +55,11 @@ public enum HelpTopicRegistry {
     public static let topics: [HelpTopic] = [
         HelpTopic(
             id: "quickstart", title: "Quickstart", audience: .both,
-            summary: "Ensure `alln` is on your PATH, then check readiness with `alln team hello` or `alln doctor`.",
+            summary: "Ensure `alln` is on your PATH, then check readiness with `alln menu --json` or `alln doctor`.",
             bodyMarkdown: """
             Step zero: make sure `alln` resolves on your PATH. If `which alln` fails, run \
             `alln install-cli` (or invoke the built binary by absolute path and follow its \
-            install step). Then check what your machine can do with `alln team hello` or \
+            install step). Then check what your machine can do with `alln menu --json` or \
             `alln doctor`.
 
             Allnighter turns the AI CLIs you already have (Claude Code, Codex, Cursor, \
@@ -68,10 +68,10 @@ public enum HelpTopicRegistry {
             team when you want a multi-worker pass.
 
             Other agents: run `alln bootstrap` for a paste-ready context snippet that teaches \
-            the router reflex (`alln team hello --for`) in one paste (no MCP server, no config file edits).
+            the live-menu reflex (`alln menu --json`) in one paste (no MCP server, no config file edits).
             """,
             aliases: ["getting started", "first run", "what is allnighter"],
-            relatedCommandNames: ["install-cli", "run", "doctor", "bootstrap", "team hello"],
+            relatedCommandNames: ["install-cli", "run", "doctor", "bootstrap", "menu"],
             needsLiveCheck: false),
 
         HelpTopic(
@@ -85,8 +85,8 @@ public enum HelpTopicRegistry {
             `~/.claude/CLAUDE.md` for Claude, `~/.cursor/rules/allnighter.mdc` for Cursor, \
             project AGENTS.md for Codex (no global Codex path in v1), or a host-neutral \
             block when `--host` is omitted. The block teaches one reflex — \
-            `alln team hello --for "<intent>" --json` (read-only, free; run \
-            `recommended.command` only when the user already authorized that work), plus \
+            `alln menu --json` (read-only, free; run \
+            `exact command from the menu` only when the user already authorized that work), plus \
             `alln help search`/`alln help get` and `alln doctor --json`. Panel cockpit \
             recipes stay in `help get panel`, not bootstrap. Marker-delimited with schema \
             version + content hash so `alln doctor` can report teaching.installed. \
@@ -94,8 +94,8 @@ public enum HelpTopicRegistry {
             so an agent can install itself and discover intent-titled recipe cards \
             (`recipes[]` is id+title only; full markdown via `recipesHelp`).
 
-            When unsure which verb to use (`run` vs `team` vs `thread send` vs `pending`), \
-            call `alln team hello --for` or read `alln help get tool_selection`.
+            When unsure which verb to use (`run` vs `thread send` vs `pending`), \
+            call `alln menu --json` or read `alln help get tool_selection`.
 
             To rebuild this CLI from an Allnighter checkout: `swift build -c release --product alln`, \
             then `alln install-cli` (symlinks the workspace release build onto PATH). Confirm \
@@ -104,28 +104,28 @@ public enum HelpTopicRegistry {
             aliases: ["install", "setup", "connect agent", "activation", "add to agent",
                      "wire up allnighter", "onboard agent", "mcp install", "mcp", "install mcp",
                      "rebuild", "self build", "fresh binary", "build alln"],
-            relatedCommandNames: ["install-cli", "bootstrap", "help get", "help search", "team hello", "doctor", "version"],
+            relatedCommandNames: ["install-cli", "bootstrap", "help get", "help search", "menu", "doctor", "version"],
             schemaRefs: [],
             needsLiveCheck: false),
 
         HelpTopic(
             id: "tool_selection", title: "Command Selection", audience: .agent,
-            summary: "When unsure, start with `alln route --for` (alias of `team hello --for`). Then pick `run`, `team`/`team start`, `thread send`, or pending by intent.",
+            summary: "When unsure, start with `alln menu --json`. Then pick `run` (add `--detach` for async), `thread send`, or pending by intent.",
             bodyMarkdown: """
-            When unsure which command to use, call `alln route --for "<intent>" --json` \
-            first (same as `alln team hello --for`) — it recommends a team or primitive and a runnable `command`. Do not invent flags.
+            When unsure which command to use, call `alln menu --json` \
+            first — choose from useWhen/dontUseWhen and pass canonical ids only. Do not invent flags.
 
             Verb tree:
             - `alln run` — single worker / chat / named-model ask in the project root \
             (Default Team). One message; optional `--worker` or `--team`.
-            - `alln team` — foreground multi-seat lane team on a prompt.
-            - `alln team start` — async multi-seat team run. Always `alln team preflight` \
+            - `alln run --team <id>` — multi-seat team in the project root.
+            - `alln run --detach` — async multi-seat team run. Always `alln run --dry-run` \
             before a real start; poll `alln team status` / `alln team result` with \
             `nextPollAfterMs`, then `alln show`.
             - `alln thread send` — continue an existing work thread (not a fresh one-shot).
             - Pending — defer work with `alln pending add`; run later with `alln pending run`.
 
-            For a quick capability check call `alln team hello`. For full run packets use \
+            For a quick capability check call `alln menu --json`. For full run packets use \
             `alln spec`. Do not answer Allnighter product questions from training data when \
             these commands are available.
             """,
@@ -133,37 +133,37 @@ public enum HelpTopicRegistry {
                       "which command", "which command should i use", "what command",
                       "run vs team", "thread send", "command selection", "first contact",
                       "when to use run", "when to use team",
-                      "ask a model", "which model", "resolve intent", "resolve", "route",
+                      "ask a model", "which model", "resolve intent", "route", "resolve",
                       "intent", "ask sonnet", "which worker"],
             sections: [
-                .init("when-unsure", "When unsure", "Call `alln route --for \"<intent>\" --json` before picking a verb."),
+                .init("when-unsure", "When unsure", "Call `alln menu --json` before picking a verb."),
                 .init("run", "alln run", "Single worker / chat / named-model ask in the project root."),
-                .init("team", "alln team / team start", "Multi-seat: foreground `alln team`, or async `alln team start` after preflight."),
+                .init("run-team", "alln run --team / --detach", "Multi-seat: foreground `alln run --team …`, or async `alln run --detach` after dry-run."),
                 .init("thread", "alln thread send", "Continue a work thread with `alln thread send`."),
                 .init("pending", "Pending", "Defer with `alln pending add`; execute later with `alln pending run`."),
             ],
-            relatedCommandNames: ["help search", "help get", "route", "resolve", "team hello", "run", "team",
-                                  "team preflight", "team start", "team result", "thread send",
+            relatedCommandNames: ["help search", "help get", "menu", "run",
+                                  "team result", "thread send",
                                   "pending add", "pending run", "spec", "show"],
             schemaRefs: ["teamStartResponse"],
             needsLiveCheck: true),
 
         HelpTopic(
             id: "team_run_loop", title: "Running a Team", audience: .both,
-            summary: "Send work to a team: preflight, start, poll status/result, cancel if needed.",
+            summary: "Send work to a team: dry-run, run (or --detach), poll status/result, cancel if needed.",
             bodyMarkdown: """
-            Sending work to a team is preflight → start → status/result. `alln team preflight` \
-            validates the lineup before spending quota; `alln team start` begins the run; \
+            Sending work to a team is dry-run → run/detach → status/result. `alln run --dry-run` \
+            validates the lineup before spending quota; `alln run --detach` begins an async run; \
             `alln team status` and `alln team result` report progress or the settled packet \
             (poll with `nextPollAfterMs`); `alln team cancel` stops a run. Inspect a finished \
             run with `alln show`, `alln spec`, or `alln floor show`.
             """,
             aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt"],
             sections: [
-                .init("preflight", "Preflight first", "Always call `alln team preflight` before a real `alln team start` so a bad lineup fails before quota is spent."),
+                .init("preflight", "Dry-run first", "Always call `alln run --dry-run` before a real `alln run --detach` so a bad lineup fails before quota is spent."),
                 .init("polling", "Polling", "Poll `alln team result` using the returned `nextPollAfterMs`; do not busy-loop."),
             ],
-            relatedCommandNames: ["team preflight", "team start", "team status", "team result", "team cancel", "team reconcile", "floor show"],
+            relatedCommandNames: ["run", "team status", "team result", "team cancel", "team reconcile", "floor show"],
             schemaRefs: ["teamStartResponse", "teamStatusResponse", "teamRunJSON"],
             needsLiveCheck: true),
 
@@ -270,11 +270,11 @@ public enum HelpTopicRegistry {
             Built-in teams are immutable — duplicate one to edit the copy. Skills are the \
             reusable prompts workers run. List and inspect with `alln teams`, `alln skills`, \
             and `alln models`; the Default Team (Auto) is the no-pick route. Looking for a \
-            model or vendor by natural-language name? Use `alln route --for "<intent>" --json` \
-            (alias of `team hello --for`) — do not stop at a models/teams list miss.
+            model or vendor by natural-language name? Use `alln menu --json` \
+            — do not stop at a models/teams list miss.
             """,
             aliases: ["teams", "workers", "skills", "roster", "catalog", "which model", "ask a model"],
-            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams restore", "skills", "skills show", "models", "route", "resolve", "team hello"],
+            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams restore", "skills", "skills show", "models", "menu"],
             schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON"],
             errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_RESTORE_UNSUPPORTED", "SKILL_NOT_FOUND"],
             needsLiveCheck: false),
@@ -312,7 +312,7 @@ public enum HelpTopicRegistry {
             aliases: ["later", "save for later", "desk", "queue", "put this on codex's desk"],
             sections: [
                 .init("when-to-use-pending", "When to use Pending", "Use Pending when the user wants work done later, or when Allnighter cannot start it right now."),
-                .init("pending-vs-running", "Pending vs running a team", "Pending stores work for later; running a team starts work now after preflight."),
+                .init("pending-vs-running", "Pending vs running a team", "Pending stores work for later; starting work with `alln run` happens now after dry-run."),
             ],
             relatedCommandNames: ["pending add", "pending list", "pending queue", "pending show", "pending run",
                                   "pending submit", "pending edit", "pending reorder", "pending cancel"],
@@ -362,14 +362,14 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "current_setup", title: "Current Setup", audience: .both,
-            summary: "What can THIS install do right now? Call `alln team hello` (or `alln doctor`) — this is live state, not guide truth.",
+            summary: "What can THIS install do right now? Call `alln menu --json` (or `alln doctor`) — this is live state, not guide truth.",
             bodyMarkdown: """
-            To answer "what can my install do right now?", call `alln team hello` for a compact \
+            To answer "what can my install do right now?", call `alln menu --json` for a compact \
             readiness snapshot, or `alln doctor` for the full per-source report. The help \
             bundle describes product behavior; it does not know this machine's live state.
             """,
             aliases: ["can it run", "ready", "readiness", "what can it do now", "status"],
-            relatedCommandNames: ["team hello", "doctor", "show"],
+            relatedCommandNames: ["menu", "doctor", "show"],
             needsLiveCheck: true),
 
         HelpTopic(
@@ -416,7 +416,7 @@ public enum HelpTopicRegistry {
             Exact command (from the contract example `try_fix_bug`):
             `alln run "<symptom>" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json`
 
-            For open exploration or multi-step feature work, use a normal `alln run` or `alln team` \
+            For open exploration or multi-step feature work, use a normal `alln run` or `alln run --team` \
             instead. If the gate blocks, read the reason — danger requires human resolution; low \
             confidence alone does not block.
             """,
@@ -477,7 +477,7 @@ public enum HelpTopicRegistry {
             ],
             sections: recipes.map { HelpTopic.Section($0.id, $0.title, $0.markdown) },
             relatedCommandNames: [
-                "bootstrap", "help get", "help search", "team hello",
+                "bootstrap", "help get", "help search", "menu",
                 "pair pilot start", "panel start", "pair relay", "run",
                 "team status", "team result", "team cancel",
             ],

@@ -60,9 +60,9 @@ final class TeachingSnippetTests: XCTestCase {
         XCTAssertEqual(TeachingSnippet.parse(text).state, .malformed)
     }
 
-    func testBodyTeachesRouterNotPanel() {
-        XCTAssertTrue(TeachingSnippet.body.contains("alln team hello --for"))
-        XCTAssertTrue(TeachingSnippet.body.contains("recommended.command"))
+    func testBodyTeachesMenuNotPanel() {
+        XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))
+        XCTAssertTrue(TeachingSnippet.body.contains("alln run --dry-run"))
         XCTAssertFalse(TeachingSnippet.body.contains("panel start"))
     }
 }

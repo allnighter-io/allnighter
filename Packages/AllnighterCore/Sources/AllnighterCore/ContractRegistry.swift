@@ -46,7 +46,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
     /// Covers commands, flags, value types, summaries, errors, events, examples,
     /// and declared output schemas — not merely command names — so any surface
     /// edit flips the hash. Agents use this to detect a stale cached snapshot
-    /// (`alln team hello`'s `contractHash`).
+    /// (`alln version`'s `contractHash`).
     public static func contractHash(_ registry: ContractRegistry = .milestone1) -> String {
         let digest = SHA256.hash(data: Data(canonicalSurfacePayload(registry).utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
@@ -102,7 +102,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         }
     }
 
-    /// Longest-prefix match of an invocation (`alln team preflight …`) to a registered M1 command name.
+    /// Longest-prefix match of an invocation (`alln run --dry-run …`) to a registered M1 command name.
     public static func resolveCommandName(
         from invocation: String,
         registry: ContractRegistry = .milestone1
@@ -134,7 +134,6 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case bootstrapJSON
         case installCLIJSON
         case versionJSON
-        case commandsManifestJSON
         case ownershipPsJSON
         case ownershipKillJSON
         case ownershipGarbageCollectionJSON
@@ -185,8 +184,6 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
             let startsWorker =
                 spendsQuota
                 || name == "run"
-                || name == "team"
-                || name.hasPrefix("team start")
                 || name.hasPrefix("pair ")
                 || name.hasPrefix("panel start")
                 || name.hasPrefix("thread send")
@@ -282,7 +279,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public var exampleIds: [String]
         /// AE-S04: true when invoking this command may spend model quota.
         public var spendsQuota: Bool
-        /// Free twin invocation when `spendsQuota` (e.g. `alln run --dry-run`, `alln team preflight`).
+        /// Free twin invocation when `spendsQuota` (e.g. `alln run --dry-run`).
         public var freeTwinCommand: String?
         /// Parser visibility (MR-S01). Default `.public` for Codable back-compat.
         public var visibility: CommandVisibility

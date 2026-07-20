@@ -54,7 +54,7 @@ In scope:
 - `alln docs`
 - `alln doctor`, `alln doctor --json`, `alln doctor explain <code> --json`
 - `alln models --json`
-- `alln team show --json`
+- `alln teams --json`
 - `alln team "prompt"`
 - `alln team --json "prompt"`
 - `alln team --stream "prompt"`
@@ -158,7 +158,7 @@ alln docs [topic] [--errors] [--schema] [--examples]
 alln doctor [--json] [--quiet] [--full] [--auto-fix] [--agent <agent>]
 alln doctor explain <code|check> [--json] [--agent <agent>]
 alln models [--json]
-alln team show [--json]
+alln teams [--json]
 alln team [prompt] [--file <path>] [--lane <lane>] [--team <id>] [--type <type>] [--preset <id>] [--json | --stream]
 alln show <run-id|latest> [--json]
 alln export <run-id|latest> --format md
@@ -168,8 +168,8 @@ alln dev export-contracts [--check]
 Named but deferred:
 
 ```bash
-alln team start [prompt]
-alln team preflight [prompt]
+alln run --detach [prompt]
+alln run --dry-run [prompt]
 alln team status <run-id>
 alln team result <run-id>
 alln team cancel <run-id>
@@ -498,7 +498,7 @@ Starter error catalog:
 | `SOURCE_NOT_FOUND` | Run `alln doctor --json`; add/configure the missing source. |
 | `SOURCE_AUTH_EXPIRED` | Re-authenticate the named source. |
 | `MODEL_UNAVAILABLE` | Choose a ready model or run `alln models --json`. |
-| `DEFAULT_TEAM_INVALID` | Run `alln team show --json`; fix unavailable workers. |
+| `DEFAULT_TEAM_INVALID` | Run `alln teams --json`; fix unavailable workers. |
 | `WORKER_FAILED` | Inspect `workerId` and source error; failed worker remains visible. |
 | `PLAN_WRITER_FAILED` | Retry with a ready plan writer or export worker answers. |
 | `TEAM_RUN_TIMEOUT` | Retry with a smaller/simpler Team or inspect failed worker/source state. |
@@ -737,7 +737,7 @@ secrets/tokens/cookies, and must not be persisted beyond non-secret metadata.
 > **TOMBSTONE (2026-07-16):** MCP is **not** a live product surface. The `mcp`
 > CLI verb family, tool-descriptor projection, and install path were deleted.
 > See `docs/archive/phases/MCP_Retirement.md`. Agents speak **CLI verbs only**
-> (`alln team start`, `alln bootstrap`, `alln help …`). Do not reintroduce a
+> (`alln run --detach`, `alln bootstrap`, `alln help …`). Do not reintroduce a
 > parallel underscore-tool-id grammar beside runnable `alln …` commands.
 >
 > Historical labels (`team_start`, `help_get`, `mcp_hello`, …) exist only in
@@ -747,8 +747,8 @@ secrets/tokens/cookies, and must not be persisted beyond non-secret metadata.
 Async CLI lifecycle (the replacement for the retired MCP async tools):
 
 ```bash
-alln team preflight --team <id> --json
-alln team start --team <id> --json "…"
+alln run --dry-run --team <id> --json
+alln run --detach --team <id> --json "…"
 alln team status <run-id> --json
 alln team result <run-id> --json
 alln team cancel <run-id> --json
@@ -805,7 +805,7 @@ alln docs --errors > /tmp/alln-errors.md
 alln docs --schema > /tmp/alln-schema.md
 alln doctor --json
 alln models --json
-alln team show --json
+alln teams --json
 alln team "Give me three ways to simplify the Allnighter CLI."
 alln show latest --json
 alln export latest --format md
@@ -829,13 +829,13 @@ alln dev export-contracts --check
     only agent surface (`docs/archive/phases/MCP_Retirement.md`).
 11. ~~Land `mcp_hello` / MCP help tools~~ **Closed** — help is CLI-only
     (`alln help get` / `alln help search` / `alln docs`).
-12. Add `alln team preflight` before async `alln team start` so setup/auth/entitlement
+12. Add `alln run --dry-run` before async `alln run --detach` so setup/auth/entitlement
     blockers are caught before any "started" acknowledgement.
 13. Add idempotency, `nextPollAfterMs`, payload caps, and cursor contracts before
     exposing OpenClaw/Hermes generated examples.
 
 Journal boundary: M1's foreground synchronous runs may keep the current
-one-shot-at-end journal write. Before any async `alln team start/status/result`
+one-shot-at-end journal write. Before any async `alln run --detach/status/result`
 or the Mac background coordinator, the run journal MUST be hardened to incremental
 writes (per worker answer / status change), with an orphaned run resolving to
 `interrupted` on read — never silently absent, never a false `running`. See the

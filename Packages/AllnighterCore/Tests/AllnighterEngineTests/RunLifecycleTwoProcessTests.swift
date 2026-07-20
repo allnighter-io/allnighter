@@ -50,7 +50,7 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
         // Process 1: start the run (returns after the accepted handshake; the
         // detached runner keeps the blocking worker alive).
         let start = try Self.startTeam(alln, prompt: "hang brief a", cwd: fixture.repo, env: env, teamId: Self.teamId)
-        let runId = try XCTUnwrap(start["runId"] as? String, "team start must return a runId")
+        let runId = try XCTUnwrap(start["runId"] as? String, "run --detach must return a runId")
 
         // The worker process actually spawned and is a live OS child.
         _ = fixture.waitForWorkerLog(needles: ["hang brief a"], test: self)
@@ -119,7 +119,7 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
         let store = RunStore(rootDirectory: fixture.support.appendingPathComponent("Runs", isDirectory: true))
 
         let start = try Self.startTeam(alln, prompt: "kill brief b", cwd: fixture.repo, env: env, teamId: Self.teamId)
-        let runId = try XCTUnwrap(start["runId"] as? String, "team start must return a runId")
+        let runId = try XCTUnwrap(start["runId"] as? String, "run --detach must return a runId")
 
         _ = fixture.waitForWorkerLog(needles: ["kill brief b"], test: self)
         XCTAssertFalse(Self.waitForAlive(matching: "sleep 4933", timeout: 15).isEmpty,
@@ -292,7 +292,7 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
 
     // MARK: - RLR-S04a: async worker runtimeOwnership recorded as a group leader
 
-    /// The async `alln team start` worker is now spawned via
+    /// The async `alln run --detach` worker is now spawned via
     /// `ProcessGroupCommandRunner` (RLR-S04a), so its OS identity is recorded as
     /// `runtimeOwnership` keyed by worker id — `pgid == its own pid`, atomic at
     /// spawn — and the recorded group is genuinely reachable. This proves the old
@@ -315,7 +315,7 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
         let store = RunStore(rootDirectory: fixture.support.appendingPathComponent("Runs", isDirectory: true))
 
         let start = try Self.startTeam(alln, prompt: "owner brief c", cwd: fixture.repo, env: env, teamId: Self.teamId)
-        let runId = try XCTUnwrap(start["runId"] as? String, "team start must return a runId")
+        let runId = try XCTUnwrap(start["runId"] as? String, "run --detach must return a runId")
 
         _ = fixture.waitForWorkerLog(needles: ["owner brief c"], test: self)
         XCTAssertFalse(Self.waitForAlive(matching: "sleep 4935", timeout: 15).isEmpty,
@@ -590,12 +590,13 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
         _ alln: URL, prompt: String, cwd: URL, env: [String: String], teamId: String,
         file: StaticString = #filePath, line: UInt = #line
     ) throws -> [String: Any] {
+        _ = try runAlln(alln, ["project", "add", cwd.path, "--json"], cwd: cwd, env: env, timeout: 30)
         let result = try runAlln(
             alln,
-            ["team", "start", prompt, "--json", "--lane", "code", "--team", teamId, "--effort", "low"],
+            ["run", prompt, "--detach", "--json", "--lane", "code", "--team", teamId, "--effort", "low"],
             cwd: cwd, env: env, timeout: 90
         )
-        XCTAssertEqual(result.status, 0, "team start failed: \(result.stderr)", file: file, line: line)
+        XCTAssertEqual(result.status, 0, "run --detach failed: \(result.stderr)", file: file, line: line)
         return try jsonObject(result.stdout)
     }
 

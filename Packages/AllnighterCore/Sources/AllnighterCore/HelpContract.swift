@@ -7,7 +7,7 @@ import Foundation
 
 public extension HelpService {
     /// The help-first routing law repeated on every help-aware surface (topic
-    /// bodies, `alln team hello`, host-agent snippets).
+    /// bodies, `alln menu`, host-agent snippets).
     static let routingLaw =
         "For Allnighter product questions, run `alln help search <query>` or `alln help get <topic>` before answering from memory."
 
@@ -166,14 +166,13 @@ public enum HelpProjector {
         }
         guard let top = r.results.first else { return missRecoveryPlan() }
 
-        // ASF-S03 / AE-S14: catalog discovery hits point at the intent resolver
-        // first (natural-language model names), then models / run --worker.
+        // ASF-S03: catalog discovery hits point at the live menu, then models / run --worker.
         if !r.discoveryModelIds.isEmpty {
             var steps = [
                 HelpNextToolStep(
                     order: 1,
-                    command: "alln route --for \"\(r.query)\" --json",
-                    why: "Resolve a natural-language model or vendor name to a ready worker + runnable command."),
+                    command: "alln menu --json",
+                    why: "Read selectable model and team ids from the live menu."),
                 HelpNextToolStep(
                     order: 2,
                     command: "alln models --json",
@@ -199,8 +198,8 @@ public enum HelpProjector {
         if top.needsLiveCheck {
             steps.append(HelpNextToolStep(
                 order: 2,
-                command: "alln team hello --json",
-                why: "This answer depends on local readiness — check live state."))
+                command: "alln menu --json",
+                why: "This answer depends on local readiness — check the live menu."))
         }
         return steps
     }
@@ -222,20 +221,20 @@ public enum HelpProjector {
         [
             HelpNextToolStep(
                 order: 1,
+                command: "alln menu --json",
+                why: "Read the live selectable catalog."),
+            HelpNextToolStep(
+                order: 2,
                 command: "alln models --json",
                 why: "Browse the model / worker catalog."),
             HelpNextToolStep(
-                order: 2,
-                command: "alln team show --json",
-                why: "Inspect default teams per lane."),
-            HelpNextToolStep(
                 order: 3,
-                command: "alln doctor --json",
-                why: "Check sources, auth, and bench readiness."),
+                command: "alln teams --json",
+                why: "List lane-scoped teams."),
             HelpNextToolStep(
                 order: 4,
-                command: "alln route --for \"<intent>\" --json",
-                why: "Route an intent phrase to a ready team or worker."),
+                command: "alln doctor --json",
+                why: "Check sources, auth, and bench readiness."),
         ]
     }
 
@@ -248,14 +247,13 @@ public enum HelpProjector {
         }
         guard topic.needsLiveCheck else { return [] }
         // Live-state topics route to a live command rather than pretend to know.
-        // Prefer `team hello` when listed; otherwise `doctor`.
+        // Prefer menu; doctor only when listed and menu is not.
         let command: String
-        if topic.relatedCommandNames.contains("team hello") {
-            command = "alln team hello --json"
-        } else if topic.relatedCommandNames.contains("doctor") {
+        if topic.relatedCommandNames.contains("doctor"),
+           !topic.relatedCommandNames.contains("menu") {
             command = "alln doctor --json"
         } else {
-            command = "alln team hello --json"
+            command = "alln menu --json"
         }
         return [HelpNextToolStep(
             order: 1,

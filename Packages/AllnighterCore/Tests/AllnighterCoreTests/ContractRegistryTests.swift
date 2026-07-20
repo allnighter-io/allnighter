@@ -10,7 +10,7 @@ final class ContractRegistryTests: XCTestCase {
     func testContractVersionMatchesTeamRunFixture() throws {
         let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
         XCTAssertEqual(reg.contractVersion, trj.contractVersion)
-        XCTAssertEqual(reg.contractVersion, "1.7.0")
+        XCTAssertEqual(reg.contractVersion, "2.0.0")
     }
 
     /// Team-run and Pending next-action kinds must match the registry catalog.
@@ -25,13 +25,11 @@ final class ContractRegistryTests: XCTestCase {
     func testM1CommandSetMatchesMilestoneBoundary() {
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
         let expected: Set<String> = [
-            "docs", "commands", "menu", "menu show", "doctor", "doctor explain", "bootstrap", "install-cli", "version",
+            "docs", "menu", "menu show", "doctor", "doctor explain", "bootstrap", "install-cli", "version",
             "models", "models enable", "models disable", "models add", "models update", "models delete",
-            "team show",
             "teams", "teams show", "teams definition", "teams duplicate", "teams edit", "teams set-default", "teams delete", "teams restore",
             "skills", "skills show", "skills duplicate", "skills new", "skills edit", "skills delete",
-            "team hello", "route", "resolve", "team preflight",
-            "team start", "team status", "team result", "team cancel", "team reconcile",
+            "team status", "team result", "team cancel", "team reconcile",
             "ps", "kill", "gc",
             "thread send", "thread get", "thread attachment", "thread rename", "thread status",
             "run", "run resume",
@@ -40,7 +38,7 @@ final class ContractRegistryTests: XCTestCase {
             "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
             // Panel family (landed with Pilot_Panel; expectation lagged the registry — fixed with PO-S05)
             "panel start", "panel round", "panel status", "panel watch", "panel scaffold-brief", "panel done",
-            "team", "show", "floor show", "spec", "history", "export", "dev export-contracts", "serve",
+            "show", "floor show", "spec", "history", "export", "dev export-contracts", "serve",
             "pending add", "pending list", "pending queue", "pending show", "pending submit", "pending edit",
             "pending reorder", "pending cancel", "pending run",
             "project list", "project add", "project show", "project archive", "project unarchive",
@@ -78,9 +76,10 @@ final class ContractRegistryTests: XCTestCase {
                 }
             }
         }
-        // The contract's one M1 mutual exclusion: team --json | --stream.
-        let team = reg.commands.first { $0.name == "team" }
-        XCTAssertEqual(team?.mutuallyExclusiveFlags, [["json", "stream"]])
+        // The contract's M1 mutual exclusion on run: --json | --stream (plus dry-run / detach pairs).
+        let run = reg.commands.first { $0.name == "run" }
+        XCTAssertTrue(run?.mutuallyExclusiveFlags.contains(["json", "stream"]) == true)
+        XCTAssertTrue(run?.mutuallyExclusiveFlags.contains(["detach", "stream"]) == true)
     }
 
     /// Every emitted error code carries the recovery metadata the ladder needs.

@@ -31,23 +31,24 @@ final class RetiredVocabularyTests: XCTestCase {
             "pending_update", "project_get", "stalled_update",
             "teams_get", "skills_get", "defaults_get", "error_explain",
             "pair slice", "pair status", "alln mcp",
+            "team hello", "route --for", "resolve --for", "commands --json",
+            "team list", "team show", "team preflight", "team start",
         ]
         for term in required {
             XCTAssertTrue(
                 RetiredVocabulary.denyTerms.contains(term),
                 "RetiredVocabulary.denyTerms must include kill-list term '\(term)'")
         }
-        for id in ["run_async", "diagnose", "resolve_stalls"] {
-            XCTAssertTrue(
-                RetiredVocabulary.allowedWorkflowIds.contains(id),
-                "workflow carve-out '\(id)' must be named explicitly")
-        }
     }
 
     func testLivingDocPatternsAreExactInstructionalForms() {
-        XCTAssertEqual(
-            Set(RetiredVocabulary.livingDocDenyPatterns),
-            Set(["alln mcp serve", "alln mcp install", "pair slice"]))
+        let expected: Set<String> = [
+            "alln mcp serve", "alln mcp install", "pair slice",
+            "alln team hello", "alln route --for", "alln resolve --for",
+            "alln commands --json", "alln team list", "alln team show",
+            "alln team preflight", "alln team start",
+        ]
+        XCTAssertEqual(Set(RetiredVocabulary.livingDocDenyPatterns), expected)
     }
 
     // MARK: - (b) Help prose deny-list
@@ -145,52 +146,7 @@ final class RetiredVocabularyTests: XCTestCase {
         return s
     }
 
-    // MARK: - (c) Underscore-tool-id ban + workflow carve-out
-
-    func testAllowedWorkflowIdsMatchAgentHelloDefaults() {
-        let helloIds = Set(AgentHello.defaultWorkflows.map(\.id))
-        XCTAssertEqual(
-            helloIds, RetiredVocabulary.allowedWorkflowIds,
-            "carve-out must stay in lockstep with AgentHello.defaultWorkflows")
-    }
-
-    func testAgentHelloJSONHasNoBannedToolIdsOrToolKey() throws {
-        let verdict = AgentReadiness.Verdict(
-            canStartTeamRun: true,
-            readyTeams: BuiltInTeams.all.map {
-                ReadyTeam(lane: $0.lane.rawValue, team: $0.id, displayName: $0.displayName)
-            },
-            blockedReason: nil,
-            nextAction: AgentNextAction.startTeamRun()
-        )
-        let payload = AgentHello.build(
-            verdict: verdict,
-            contractHash: ContractRegistry.contractHash(),
-            binaryVersion: "test"
-        )
-        let data = try CoreJSON.encode(payload)
-        let obj = try JSONSerialization.jsonObject(with: data)
-        assertNoToolKey(in: obj, path: "$")
-
-        // Workflow ids are the only allowed underscore labels in this envelope.
-        for wf in payload.workflows {
-            XCTAssertFalse(
-                RetiredVocabulary.isBannedUnderscoreToolId(wf.id),
-                "workflow id \(wf.id) must be carved out or renamed")
-            XCTAssertTrue(
-                RetiredVocabulary.allowedWorkflowIds.contains(wf.id),
-                "unexpected workflow id \(wf.id) — add an explicit carve-out or stop emitting it")
-        }
-
-        let raw = String(data: data, encoding: .utf8) ?? ""
-        for id in RetiredVocabulary.deadToolIds {
-            // Substring caution: do not flag workflow step commands that happen
-            // to contain overlapping letters; require JSON string form.
-            XCTAssertFalse(
-                raw.contains("\"\(id)\""),
-                "AgentHello JSON must not contain dead tool id \"\(id)\"")
-        }
-    }
+    // MARK: - (c) Underscore-tool-id ban
 
     func testPreflightAndHelpGoldensHaveNoToolKey() throws {
         let preflight = AgentNextAction.startTeamRun(teamId: "code_bug_hunt")

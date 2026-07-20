@@ -104,8 +104,8 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
         // --- Two real invocations, one per project, one shared support root ---
         let startA = try Self.startTeam(alln, prompt: "project A brief", cwd: repoA, env: env)
         let startB = try Self.startTeam(alln, prompt: "project B brief", cwd: repoB, env: env)
-        let runA = try XCTUnwrap(startA["runId"] as? String, "team start A must return a runId")
-        let runB = try XCTUnwrap(startB["runId"] as? String, "team start B must return a runId")
+        let runA = try XCTUnwrap(startA["runId"] as? String, "run --detach A must return a runId")
+        let runB = try XCTUnwrap(startB["runId"] as? String, "run --detach B must return a runId")
         XCTAssertNotEqual(runA, runB)
 
         // Context isolation, durable layer: each journal minted by its own
@@ -190,7 +190,7 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
         )
     }
 
-    /// F5b Works Test: two real `alln team start` subprocesses, same key +
+    /// F5b Works Test: two real `alln run --detach` subprocesses, same key +
     /// payload, one support root — both responses share one run id, one run
     /// directory, and one worker invocation; same-key/different-payload refuses.
     func testTwoRealProcessesSameKeyIdempotencySingleFlight() throws {
@@ -253,6 +253,7 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
             .write(to: teamsDir.appendingPathComponent("\(team.id).json"))
 
         let env = Self.spawnEnv(support: support, fakebin: fakebin, home: home)
+        _ = try Self.runAlln(alln, ["project", "add", repo.path, "--json"], cwd: repo, env: env, timeout: 30)
         let key = "f5b-same-key-\(UUID().uuidString)"
         let prompt = "f5b single-flight brief"
 
@@ -266,7 +267,7 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
                     let result = try Self.runAlln(
                         alln,
                         [
-                            "team", "start", prompt, "--json",
+                            "run", prompt, "--detach", "--json",
                             "--lane", "code", "--team", Self.teamId, "--effort", "low",
                             "--idempotency-key", key,
                         ],
@@ -305,7 +306,7 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
         let conflict = try Self.runAlln(
             alln,
             [
-                "team", "start", "different payload", "--json",
+                "run", "different payload", "--detach", "--json",
                 "--lane", "code", "--team", Self.teamId, "--effort", "low",
                 "--idempotency-key", key,
             ],
@@ -356,16 +357,17 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
         ]
     }
 
-    /// `alln team start` (blocks on the runner-ready handshake) → parsed JSON.
+    /// `alln run --detach` (blocks on the runner-ready handshake) → parsed JSON.
     private static func startTeam(
         _ alln: URL, prompt: String, cwd: URL, env: [String: String], file: StaticString = #filePath, line: UInt = #line
     ) throws -> [String: Any] {
+        _ = try runAlln(alln, ["project", "add", cwd.path, "--json"], cwd: cwd, env: env, timeout: 30)
         let result = try runAlln(
             alln,
-            ["team", "start", prompt, "--json", "--lane", "code", "--team", teamId, "--effort", "low"],
+            ["run", prompt, "--detach", "--json", "--lane", "code", "--team", teamId, "--effort", "low"],
             cwd: cwd, env: env, timeout: 90
         )
-        XCTAssertEqual(result.status, 0, "team start failed: \(result.stderr)", file: file, line: line)
+        XCTAssertEqual(result.status, 0, "run --detach failed: \(result.stderr)", file: file, line: line)
         return try jsonObject(result.stdout)
     }
 
