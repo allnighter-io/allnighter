@@ -353,14 +353,13 @@ final class ResolvedRunInvocationTests: XCTestCase {
         XCTAssertNil(answer.writeLockHeld, "read-only teams do not probe the write lock")
     }
 
-    // MARK: - SH-S05 effects matrix (Law 7)
+    // MARK: - Effects matrix (Law 7)
 
     func testEffectsMatrixExecutionTeamAnswerTeamExplicitWorker() throws {
         let runEffects = try XCTUnwrap(
             ContractRegistry.milestone1.commands.first { $0.name == "run" }?.effects
         )
 
-        // Execution / Default Team / explicit worker → mutating permission.
         let execution = resolve(flags: .init(teamId: "build_slice", json: true))
         XCTAssertEqual(execution.writePolicy, .mutating)
         XCTAssertTrue(execution.effects.repoWrite)
@@ -378,7 +377,6 @@ final class ResolvedRunInvocationTests: XCTestCase {
         XCTAssertFalse(worker.effects.destructive)
         XCTAssertFalse(worker.effects.humanInteraction)
 
-        // Answer team → mechanical read-only permission.
         let answer = resolve(flags: .init(teamId: "code_bug_hunt", json: true))
         XCTAssertEqual(answer.writePolicy, .readOnly)
         XCTAssertFalse(answer.effects.repoWrite)
@@ -388,7 +386,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
             runEffects.resolve(spending: true, repoWritePermitted: false)
         )
 
-        // Prompt prose must not flip write policy (Law 7 / D4).
+        // Prompt prose must not flip write policy (Law 7).
         let qaLooking = resolve(
             message: "Just answer this Q&A — do not modify any files",
             flags: .init(workerId: "model_sonnet", json: true)
@@ -414,7 +412,6 @@ final class ResolvedRunInvocationTests: XCTestCase {
             let fg = resolve(mode: .foreground, flags: flags)
             let detach = resolve(mode: .detach, flags: flags)
 
-            // Preview/run identity on write permission (Law 3).
             XCTAssertEqual(dry.writePolicy, fg.writePolicy, label)
             XCTAssertEqual(dry.effects.repoWrite, fg.effects.repoWrite, label)
             XCTAssertEqual(dry.effects, fg.effects, label)
@@ -422,13 +419,13 @@ final class ResolvedRunInvocationTests: XCTestCase {
             XCTAssertEqual(fg.effects, detach.effects, label)
 
             let permitted = dry.writePolicy == .mutating
-            // Dry-run JSON projects the spend twin's effects (MNR: effects the real run will use).
+            // Dry-run JSON projects the spend twin's effects.
             XCTAssertEqual(
                 dry.makeDryRunJSON().effects,
                 runEffects.resolve(spending: true, repoWritePermitted: permitted),
                 label
             )
-            // Free twin itself: registry resolves workerStart/quotaSpend false when not spending.
+            // Free twin: workerStart/quotaSpend false when not spending.
             let free = runEffects.resolve(spending: false, repoWritePermitted: permitted)
             XCTAssertFalse(free.workerStart, label)
             XCTAssertFalse(free.quotaSpend, label)

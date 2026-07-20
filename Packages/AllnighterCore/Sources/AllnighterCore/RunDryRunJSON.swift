@@ -1,8 +1,8 @@
 import Foundation
 
-/// `alln run --dry-run` probe (AE-S04 / SH-S05). Resolves project/worker/auth/write
-/// policy and write-lock state without dispatch. Exit 0 always; `canStart` carries
-/// the verdict. Effects describe the spend twin the preview validates — not a
+/// `alln run --dry-run` probe. Resolves project/worker/auth/write policy and
+/// write-lock state without dispatch. Exit 0 always; `canStart` carries the
+/// verdict. Effects describe the spend twin the preview validates — not a
 /// prediction that the prompt will or will not write (Law 7).
 public struct RunDryRunJSON: Codable, Sendable, Equatable {
     public var schemaVersion: Int
@@ -13,9 +13,9 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
     public var teamPresetId: String?
     public var teamDisplayName: String?
     public var workerId: String?
-    /// `readOnly` or `mutating` — permission after selectors resolve (D4 / Law 7).
+    /// `readOnly` or `mutating` — permission after selectors resolve (Law 7).
     public var writePolicy: String
-    /// Resolved effect booleans for the spend twin (MNR §3 / SH-S05).
+    /// Resolved effect booleans for the spend twin.
     public var effects: Effects
     public var lane: String?
     public var counts: Counts
@@ -97,7 +97,7 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
 }
 
 public extension ContractRegistry.EffectProfile {
-    /// Resolve registry effect levels into dry-run booleans (SH-S05).
+    /// Resolve registry effect levels into dry-run booleans.
     /// - `spending`: false for the free twin (`--dry-run`); true for the spend path.
     /// - `repoWritePermitted`: selection write policy (`mutating` → true).
     func resolve(spending: Bool, repoWritePermitted: Bool) -> RunDryRunJSON.Effects {

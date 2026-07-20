@@ -258,15 +258,17 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
 
     public var seatCount: Int { seats.count }
 
-    /// Resolved effects for the spend twin this preview validates (SH-S05 / Law 7).
+    /// Resolved effects for the spend twin this preview validates (Law 7).
     /// `repoWrite` is permission from `writePolicy`, not an observed repo delta.
     /// Dry-run itself does not start workers or spend; those booleans describe the
-    /// real run `nextAction` would dispatch (MNR: effects the real run will use).
+    /// real run `nextAction` would dispatch.
     public var effects: RunDryRunJSON.Effects {
-        let profile = ContractRegistry.milestone1.commands
+        guard let profile = ContractRegistry.milestone1.commands
             .first(where: { $0.name == "run" })?
             .effects
-            ?? ContractRegistry.EffectProfile.inferred(spendsQuota: true, name: "run")
+        else {
+            preconditionFailure("ContractRegistry.milestone1 missing run command effects")
+        }
         return profile.resolve(
             spending: true,
             repoWritePermitted: writePolicy == .mutating
@@ -276,7 +278,6 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
     /// Project public dry-run envelope (schema v2 — writePolicy + effects; no top-level `mutating`).
     public func makeDryRunJSON() -> RunDryRunJSON {
         RunDryRunJSON(
-            schemaVersion: 2,
             canStart: canStart,
             blockedReason: blockedReason,
             projectId: projectId,

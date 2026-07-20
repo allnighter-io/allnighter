@@ -112,7 +112,7 @@ public enum ContractDocs {
         }
         line()
 
-        line("## Run dry-run write policy (SH-S05)")
+        line("## Run dry-run write policy")
         line()
         line("`alln run --dry-run --json` returns `writePolicy` (`readOnly` | `mutating`) and an `effects` block:")
         line("`workerStart`, `quotaSpend`, `repoWrite`, `destructive`, `humanInteraction`.")

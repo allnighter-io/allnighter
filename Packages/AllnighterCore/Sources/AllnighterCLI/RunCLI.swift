@@ -255,7 +255,7 @@ enum RunCLI {
         }
     }
 
-    /// AE-S04 / SH-S01 / SH-S05: project `RunDryRunJSON` v2 from one `ResolvedRunInvocation`.
+    /// Project `RunDryRunJSON` v2 from one `ResolvedRunInvocation`.
     /// Never re-resolves team/worker/seats independently of foreground/detach.
     private static func emitDryRun(
         project: Project,
