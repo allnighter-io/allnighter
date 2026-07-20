@@ -1504,7 +1504,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 ## NDJSON events
 
 | Event | Required data |
-| --- | --- | --- |
+| --- | --- |
 | `teamRunStarted` | `status`, `origin`, `teamPresetId` |
 | `workerStarted` | `workerId`, `modelId`, `skillId` |
 | `workerAnswered` | `workerId`, `durationMs` |

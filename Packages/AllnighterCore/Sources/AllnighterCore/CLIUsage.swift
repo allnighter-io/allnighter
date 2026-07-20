@@ -221,7 +221,6 @@ public enum CLIUsage {
 
     /// Usage text for a registered command (testable; no IO).
     /// Returns `nil` when the name is not in the registry — never invents a surface (AE-S01 / Law 8).
-    /// Enum domains and registry flag constraints project from `CommandProjection` (SH-S10).
     public static func usageText(for commandName: String, registry: ContractRegistry = .milestone1) -> String? {
         guard let spec = registry.commands.first(where: { $0.name == commandName && $0.milestone == .m1 }) else {
             return nil

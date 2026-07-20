@@ -63,7 +63,7 @@ public enum ContractDocs {
         line("## NDJSON events")
         line()
         line("| Event | Required data |")
-        line("| --- | --- | --- |")
+        line("| --- | --- |")
         for ev in registry.events {
             line("| `\(ev.name)` | \(ev.requiredData.map { "`\($0)`" }.joined(separator: ", ")) |")
         }
