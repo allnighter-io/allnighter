@@ -18,9 +18,33 @@ TeamCatalog") · `Language_Cutover.md` (owns lane vocabulary) ·
 
 ## What happened (and the finding that matters most)
 
-Two AI agents were asked to build and test `alln` cold. Both produced detailed
-adoption feedback. **Seven of their claims are factually wrong**, including the
+Three AI agents were asked to build and test `alln` cold. Two produced detailed
+adoption feedback in which **seven claims are factually wrong**, including the
 most severe one — and they *missed* a real bug.
+
+**The third agent succeeded, and the difference is the entire phase.**
+
+Mentor 3 read the `bootstrap` snippet first, found `alln team hello --for`, and
+ran `alln team hello --for "ask sonnet 5 a question"`. It resolved the intent to
+`model_sonnet` (Sonnet 5 via `claude_code`), returned a runnable command, and
+**proactively flagged the name collision** with Antigravity's "Claude Sonnet
+4.6" as a loud alternate. Verdict: *"genuinely impressive."*
+
+Agent 2, given the identical task, concluded **"Sonnet 5 does not resolve, no
+fuzzy suggestions"** and filed it as a high-severity gap.
+
+Same product. Same machine. Same intent. One agent found the front door; two
+did not. The capability Agent 2 declared missing is not merely present — it is
+the best thing we ship. It is simply **invisible from `alln --help`**.
+
+That is the whole thesis in one experiment: **we are not missing features, we
+are failing discovery.** Mentor 3 independently confirmed the mechanism —
+*"the bootstrap snippet mentions `alln team hello --for` and `alln help search`,
+but the top-level help doesn't show these."*
+
+The same pattern repeats across the feedback. Agent 2 accused the CLI of silent
+model substitution; we ship a recipe card literally titled
+**"use-a-specific-model-without-silent-substitution"** — which Agent 2 never saw.
 
 That is not a knock on the agents. It is the finding. Two capable models,
 reading the CLI's own surfaces, built a materially false map of the product.
@@ -60,6 +84,8 @@ whole class of downstream agent errors disappears at once — including agents
 | 9 | **Seat count disagrees with itself.** `teams` reports `workerCount: 3` for `code_bug_hunt_min`; `team preflight` resolves **4** ready workers (catalog count omits the lead row). | live probe; `TeamResolver.swift:233` |
 | 10 | **`--effort` does not change seat count** — agents reasonably assume "low = smaller/cheaper team" and pay full. | `TeamResolver.swift:98` |
 | 11 | **Two binaries at different SHAs in one workspace** (`.build/debug` at `791d591e`, installed at `ce65caf3`) — almost certainly the source of the false "silent spend" report. | live `--version` comparison |
+| 12 | **Phantom command: help invents a surface that does not exist.** `alln config --help` prints `usage: alln config` — implying the command is real — while `alln config` returns `unknown command: config`. The inverse of finding 1: where `--help` under-reports what exists, the `--help` *handler* over-reports it. Any `alln <anything> --help` likely fabricates a usage line. | Mentor 3 transcript |
+| 13 | **The catalog ships non-product.** 14 `lab_*` teams plus `code_core` are Team Lab artifacts living in the production `TeamCatalog`, violating `Team_Lab_Run_Factory.md` §"No silent champion flip into production TeamCatalog." Founder ruling 2026-07-20: **we do not have 31 teams — delete them.** | live `teams --lane code --json` |
 
 **Refuted — do NOT "fix" these:**
 
@@ -95,6 +121,19 @@ matter how carefully we fix it today. ASF already proved this for help prose.
 The same medicine applies: generate from `ContractRegistry`, or gate with no
 allowlist.
 
+**Pattern E — We re-derive solved problems under incident pressure.** Every
+recent phase was triggered by a dogfood incident and scoped to that incident,
+which reliably produces a local fix and never a standard. The tell is
+`helpText()`: a hand-maintained string literal in a codebase that already owns a
+complete command tree (`ContractRegistry`). No mature CLI hand-writes help —
+clap, cobra, oclif, and Swift's own ArgumentParser all render help, usage,
+validation, and completion *from the declaration*. We built the declaration and
+then hand-wrote every rendering of it, so each rendering became an independent
+drift surface. That is the mechanical reason drift keeps recurring under
+different names. Root process gap: `SSOT_Feature_Workflow.md`'s planning order
+never once said "check how this is already solved elsewhere" — so we didn't.
+(Fixed 2026-07-20: Prior Art is now step 2 of the planning order.)
+
 **Pattern D — Absence is inferred, and inference is expensive.** Agents treat
 an incomplete listing as an exhaustive one. Under-reporting does not merely slow
 an agent down; it makes the agent confidently report the product is missing
@@ -123,7 +162,17 @@ turned real capability into "pathetic" first-contact feedback.
 6. **Errors are the documentation agents actually read.** An error names what
    was wrong, the top-3 near-matches, and the one command that lists valid
    values — and its structured `nextAction` must match its own prose.
-7. **Observed facts, never projections.** Preflight may report resolved seat
+7. **The catalog is product, not workspace.** `TeamCatalog` contains only what
+   we ship plus what the user made. Experiments, lab champions, and candidates
+   live in lab storage and never appear in a product list. Enforced at the write
+   path — a read-side filter is a workaround, not a law.
+8. **Never invent a surface in an error or help path.** A `--help` handler must
+   not print usage for a command that does not exist (`alln config`). Help is
+   generated from the registry or it is not printed.
+9. **Adopt before you invent.** If a mature CLI has solved a problem, the
+   default is to match its convention and record the decision; deviating
+   requires a written reason. (See AE-S00.)
+10. **Observed facts, never projections.** Preflight may report resolved seat
    count, source count, and effort — never token or cost estimates
    (no-estimates law, `Cost_Advisor` parked scope).
 
@@ -150,8 +199,9 @@ false-map problem.
 
 | Slice | Deliverable |
 | --- | --- |
+| **AE-S00** (P0, cheap, do first) | **Steal the wheel — prior-art survey before we design anything.** One pass over CLIs that solved this decades ago, producing a decisions table we adopt rather than re-derive: **generation** (Swift ArgumentParser / clap / cobra / oclif — help, usage, completion and validation all rendered from one command declaration); **preflight/apply separation** (`terraform plan`, `kubectl --dry-run=server`, `rsync -n`, `apt --simulate`); **machine output** (`kubectl -o json`, `gh --json`, `git --porcelain`); **did-you-mean** (git, cargo, npm, kubectl); **context resolution** (git repo-root walk, docker context, terraform cwd); **first-run onboarding** (wrangler, vercel, gh auth). Separately survey the AI CLIs we orchestrate (`claude`, `codex`, `cursor-agent`, `opencode`) — their conventions are what agents already expect, so matching them removes surprise for free. Deliverable: a short table of "convention → do we match → adopt/reject + why," and every later slice cites it. |
 | **AE-S01** (P0, cheap) | **`--help` generated from `ContractRegistry`.** Replace the hardcoded `helpText()` literal with a grouped rendering of every M1 command. Delete `excludedFromTopLevelHelp`; if a command is genuinely too niche for the banner, the group line must still name the family and the command that lists it. Gate: `testPrintHelpCoversContractRegistryCommands` runs with an **empty** allowlist. |
-| **AE-S02** (P0, cheap) | **`teams` calls the filter that already exists.** Default list surfaces show shipped built-ins; `--lab` / `--all` opts in. Filter on `typeTags` (**not** id prefix — `code_core` has displayName `Code Core · Lab` with no `lab_` prefix and would evade a prefix check). Gate: default `teams --json` contains zero `isLabTeam`; `--lab` returns them. |
+| **AE-S02** (P0) | **Purge non-shipped teams from the catalog** (founder ruling, supersedes "hide behind `--lab`"). The production `TeamCatalog` contains **only shipped built-ins + the user's own customs** — never Team Lab artifacts. Delete the 14 `lab_*` entries and `code_core`; Team Lab writes champions to lab storage (`docs/team-lab/champions/`) and **never** into the product catalog, per `Team_Lab_Run_Factory.md`'s own law. Gate: catalog contains zero `isLabTeam` entries — enforced at the **write** path, not the read path, so no future lab run can reintroduce them. Match on `typeTags`, **not** id prefix (`code_core` displays as `Code Core · Lab` with no `lab_` prefix and would evade a prefix check). |
 | **AE-S03** (P0) | **Close the PO-F10 answer-path leak.** `runAnswer` accepts and honors `workerOverride`, or rejects `--worker` with `WORKER_NOT_AVAILABLE`. Accept-and-drop is banned. Route all explicit-identifier resolution through one choke point (Law 4). Gate: table test — for every command declaring an identifier flag, a bogus value exits non-zero and dispatches nothing. |
 | **AE-S04** (P1) | **`alln run --dry-run`.** Resolves project, worker, auth, mutating/shape, and write-lock; returns `canStart`, resolved worker + source counts, and `nextAction.command`; exit 0, no dispatch. Durable half: mark quota-spending commands in `ContractRegistry` and gate that **each one has a free twin** — so future spending verbs cannot ship without a preflight. |
 | **AE-S05** (P1, cheap) | **cwd→project for `run`.** When `--project` is omitted, walk up from cwd to the git root and match `normalizedRootPath` (the resolver already exists). Unregistered git root → structured error whose `nextAction.command` is `alln project add <path>`. Reuses the pattern already live in `team`/`ps`/`kill`. |
@@ -186,9 +236,12 @@ B=Packages/AllnighterCore/.build/release/alln
 $B --help | grep -qE 'team hello' && $B --help | grep -qE 'team preflight' && echo OK
 $B --help | grep -qE '\bteams\b|help search' && echo OK
 
-# S02 — catalog signal
-$B teams --lane code --json   # zero isLabTeam entries; Bug Hunt Min visible
-$B teams --lane code --lab --json | grep -q lab_ && echo OK
+# S02 — catalog is product only
+$B teams --lane code --json | grep -q '"lab_' && echo FAIL || echo OK
+$B teams --lane code --json   # shipped built-ins + user customs only; Bug Hunt Min visible
+
+# S12 — no phantom commands
+$B config --help    # MUST NOT print `usage: alln config`; unknown command, exit 2
 
 # S03 — no accept-and-drop on the answer path
 $B run "probe" --project "$PWD" --team code_bug_hunt --worker model_bogus_id --json
@@ -232,6 +285,12 @@ scripts/check.sh   # empty help allowlist, spending-command twin gate, value den
   gate (Law 3).
 - A cold agent, given only `alln --help`, can reach `team hello` → `preflight` →
   `run --dry-run` without reading any doc in this repo.
+- **The Mentor 3 replication test:** three fresh agents, told only "use alln to
+  ask Sonnet 5 a question," all three find `team hello --for` and none reports a
+  missing capability. Today one of three succeeds; that ratio is the metric this
+  phase moves.
+- The product catalog contains zero lab artifacts, enforced at the write path.
+- No `--help` path prints usage for a command `ContractRegistry` cannot resolve.
 
 ## Open questions
 

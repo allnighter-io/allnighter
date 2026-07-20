@@ -84,21 +84,26 @@ review once the rule is known.
 ## Planning Order
 
 1. Read `ALLNIGHTER.md`, `docs/mvp/README.md`, and `docs/WORKING_RULES.md`.
-2. Translate founder/user input into a Feature Packet.
-3. Identify the trusted workflow slice.
-4. Name the truth owner.
-5. Name affected models, WebSocket messages, Mac/iOS surfaces, parsers, and
+2. **Prior art.** Name how this problem is already solved by mature tools
+   (CLI frameworks, `git`/`kubectl`/`terraform`/`gh`/`wrangler`, and the AI CLIs
+   we orchestrate). Adopt the convention or write down why we deviate. We do not
+   re-derive solved problems under incident pressure — that is how a codebase
+   ends up hand-maintaining what a framework generates.
+3. Translate founder/user input into a Feature Packet.
+4. Identify the trusted workflow slice.
+5. Name the truth owner.
+6. Name affected models, WebSocket messages, Mac/iOS surfaces, parsers, and
    agent driver configs.
-6. Define the CLI surface first: the `alln` command(s), their arguments, JSON
+7. Define the CLI surface first: the `alln` command(s), their arguments, JSON
    output, exit codes, and errors. The GUI/iOS present this contract; they never
    own a parallel one.
-7. Define the teaching surface: which help topics teach it, what search terms
+8. Define the teaching surface: which help topics teach it, what search terms
    find it, what the retirement sweep must remove and deny-list.
-8. Define the user-visible claim.
-9. Define the Works Test: setup, gesture, owner path, output, assertion.
-10. Name supporting checks.
-11. Name deletion targets for duplicate truth.
-12. Name proof waiver only when proof cannot be built yet.
+9. Define the user-visible claim.
+10. Define the Works Test: setup, gesture, owner path, output, assertion.
+11. Name supporting checks.
+12. Name deletion targets for duplicate truth.
+13. Name proof waiver only when proof cannot be built yet.
 
 If the rule cannot be assigned to an owner, stop and fix the design.
 
@@ -111,6 +116,7 @@ Status: Draft | Blocked | Ready for Implementation
 
 Founder Intent
 - Raw request:
+- Prior art (how mature tools solve this; adopt or justify deviation):
 - Product value:
 - Trusted workflow slice:
 - Non-goals:
