@@ -1,8 +1,8 @@
 import Foundation
 
-/// SH-S03 / Law 5: one typed-ref grammar. Every ref emitted by menu/docs/errors
-/// resolves on its stated consumer; near-miss spellings suggest the canonical
-/// form and never become aliases.
+/// One typed-ref grammar (Law 5). Every ref emitted by menu/docs/errors resolves
+/// on its stated consumer; near-miss spellings suggest the canonical form and
+/// never become aliases.
 public enum TypedRef {
     public enum Kind: String, Sendable, Equatable, CaseIterable {
         case command, team, model, recipe
@@ -15,10 +15,10 @@ public enum TypedRef {
     }
 
     public struct Emitted: Equatable, Sendable {
-        public var ref: String
-        public var kind: Kind
-        public var consumers: [Consumer]
-        public var source: String
+        public let ref: String
+        public let kind: Kind
+        public let consumers: [Consumer]
+        public let source: String
 
         public init(ref: String, kind: Kind, consumers: [Consumer], source: String) {
             self.ref = ref
@@ -83,7 +83,7 @@ public enum TypedRef {
                     suggestions: nearestCommandSuggestions(to: name, registry: registry)
                 )
             case .team, .model, .recipe:
-                // Docs is not a consumer for non-command refs — point at menu show.
+                // Docs is not a consumer for non-command refs.
                 return .notFound(query: trimmed, suggestions: [])
             }
         }
@@ -257,23 +257,24 @@ public enum TypedRef {
         return Array(out.prefix(limit * 2))
     }
 
-    /// Pull concrete `kind:id` tokens from prose/templates (skips placeholders).
+    /// Pull concrete `kind:id` tokens from prose/templates. Placeholders such as
+    /// `team:<id>` are excluded by the id character class.
     public static func extractTypedRefs(from text: String) -> [(kind: Kind, ref: String)] {
         var results: [(Kind, String)] = []
-        let pattern = #"(command|team|model|recipe):([A-Za-z0-9][A-Za-z0-9_.-]*)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        regex.enumerateMatches(in: text, range: range) { match, _, _ in
+        typedRefPattern.enumerateMatches(in: text, range: range) { match, _, _ in
             guard let match,
                   match.numberOfRanges >= 3,
                   let kindRange = Range(match.range(at: 1), in: text),
                   let idRange = Range(match.range(at: 2), in: text),
                   let kind = Kind(rawValue: String(text[kindRange])) else { return }
             let id = String(text[idRange])
-            // Skip template placeholders that somehow matched.
-            guard !id.contains("<"), !id.contains("{"), !id.contains("}") else { return }
             results.append((kind, "\(kind.rawValue):\(id)"))
         }
         return results
     }
+
+    private static let typedRefPattern = try! NSRegularExpression(
+        pattern: #"(command|team|model|recipe):([A-Za-z0-9][A-Za-z0-9_.-]*)"#
+    )
 }

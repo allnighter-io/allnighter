@@ -1388,8 +1388,6 @@ struct AllnighterCLI {
             return
         }
         if let topic = opts.positional.first {
-            // SH-S03 / Law 5: typed `command:<id>` refs resolve here; bare dotted
-            // ids stay near-misses with structured suggestions (no alias).
             switch TypedRef.resolveDocsTopic(topic, registry: reg) {
             case .helpMarkdown(let markdown):
                 print(markdown)
@@ -1407,15 +1405,15 @@ struct AllnighterCLI {
                     suggestions: suggestions
                 )
             case .notFound(let query, let suggestions):
-                let message: String
+                let hint: String
                 if let parsed = TypedRef.parse(query), parsed.kind != .command {
-                    message = "no docs for topic: \(query); use `alln menu show \(query) --json`"
+                    hint = "; use `alln menu show \(query) --json`"
                 } else {
-                    message = "no docs for topic: \(query)"
+                    hint = ""
                 }
                 fail(
                     code: "CLI_USAGE_ERROR",
-                    message: message,
+                    message: "no docs for topic: \(query)\(hint)",
                     suggestions: suggestions
                 )
             }

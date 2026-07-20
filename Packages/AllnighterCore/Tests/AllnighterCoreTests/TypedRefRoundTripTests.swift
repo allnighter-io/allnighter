@@ -1,8 +1,8 @@
 import XCTest
 @testable import AllnighterCore
 
-/// SH-S03 / Law 5: typed command refs round-trip across menu and docs;
-/// bare dotted ids stay near-misses with structured suggestions (no alias).
+/// Typed command refs round-trip across menu and docs; bare dotted ids stay
+/// near-misses with structured suggestions (no alias).
 final class TypedRefRoundTripTests: XCTestCase {
 
     func testDocsResolvesTypedCommandRef() {
