@@ -632,6 +632,11 @@ struct AllnighterCLI {
                 case .drifted(let files):
                     FileHandle.standardError.write(Data("CONTRACT_DRIFT: \(files.joined(separator: ", "))\nRun `alln dev export-contracts`, then rebuild.\n".utf8))
                     exit(ContractRegistry.milestone1.processExitCode(forErrorCode: "CONTRACT_DRIFT"))
+                case .versionNotBumped(let lockedVersion, _, let currentHash):
+                    fail(
+                        code: "CONTRACT_VERSION_NOT_BUMPED",
+                        message: "contract surface hash changed (\(currentHash.prefix(12))…) but contractVersion is still \(lockedVersion). Bump ContractRegistry.contractVersion, then run `alln dev export-contracts`."
+                    )
                 }
             } catch let notFound as ContractExport.NotFoundError {
                 failContractsNotFound(notFound)

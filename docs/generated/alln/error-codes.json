@@ -36,6 +36,15 @@
     "ruleId" : "contract.drift"
   },
   {
+    "agentAction" : "Bump `ContractRegistry.contractVersion` (minor for additions, major for removals\/renames), then run `alln dev export-contracts`.",
+    "code" : "CONTRACT_VERSION_NOT_BUMPED",
+    "exitClass" : "usage",
+    "explain" : "The agent-facing contract surface hash changed but contractVersion was not bumped. Surface edits cannot ship without an explicit compatibility bump (AE-S11).",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "contract.version.not_bumped"
+  },
+  {
     "agentAction" : "Run `alln dev export-contracts` from inside the repo (repo root or a subdirectory).",
     "code" : "CONTRACT_ARTIFACTS_NOT_FOUND",
     "exitClass" : "operational",
@@ -277,6 +286,15 @@
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "run.not_found"
+  },
+  {
+    "agentAction" : "Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`.",
+    "code" : "VENDOR_WAKE_NOT_CLAIMED",
+    "exitClass" : "operational",
+    "explain" : "Vendor-wake resume could not claim the run — it is not parked waiting for a vendor, or another coordinator already holds the wake lease.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "run.vendor_wake.not_claimed"
   },
   {
     "agentAction" : "Check the support dir is writable (disk space \/ permissions), then retry the run.",

@@ -42,12 +42,49 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         self.examples = examples
     }
 
-    /// Stable hash over CLI command names + contract version — agents can detect a
-    /// stale cached contract snapshot (`alln team hello`'s `contractHash`).
+    /// Stable hash over the full agent-facing surface (AE-S11).
+    /// Covers commands, flags, value types, summaries, errors, events, examples,
+    /// and declared output schemas — not merely command names — so any surface
+    /// edit flips the hash. Agents use this to detect a stale cached snapshot
+    /// (`alln team hello`'s `contractHash`).
     public static func contractHash(_ registry: ContractRegistry = .milestone1) -> String {
-        let payload = registry.contractVersion + "\n" + registry.commands.map(\.name).sorted().joined(separator: "\n")
-        let digest = SHA256.hash(data: Data(payload.utf8))
+        let digest = SHA256.hash(data: Data(canonicalSurfacePayload(registry).utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Canonical serialization hashed by `contractHash`. Deterministic: CoreJSON
+    /// (sorted keys) of the registry, plus sorted schema artifact bodies.
+    public static func canonicalSurfacePayload(_ registry: ContractRegistry = .milestone1) -> String {
+        var parts: [String] = []
+        if let data = try? CoreJSON.encode(registry) {
+            parts.append(String(decoding: data, as: UTF8.self))
+        } else {
+            parts.append(registry.contractVersion)
+        }
+        if let schemas = try? ContractExport.schemaArtifactsForHash() {
+            for artifact in schemas.sorted(by: { $0.filename < $1.filename }) {
+                parts.append(artifact.filename)
+                parts.append(artifact.contents)
+            }
+        }
+        return parts.joined(separator: "\n")
+    }
+
+    /// Checked-in lock file payload (`docs/generated/alln/contract.lock.json`).
+    public struct ContractLock: Codable, Sendable, Equatable {
+        public var contractVersion: String
+        public var contractHash: String
+        public init(contractVersion: String, contractHash: String) {
+            self.contractVersion = contractVersion
+            self.contractHash = contractHash
+        }
+
+        public static func current(_ registry: ContractRegistry = .milestone1) -> ContractLock {
+            ContractLock(
+                contractVersion: registry.contractVersion,
+                contractHash: ContractRegistry.contractHash(registry)
+            )
+        }
     }
 
     /// Longest-prefix match of an invocation (`alln team preflight …`) to a registered M1 command name.

@@ -61,12 +61,19 @@ public enum ContractExport {
     public enum CheckOutcome: Equatable {
         case upToDate(count: Int)
         case drifted([String])
+        /// Surface hash changed but `contractVersion` was not bumped (AE-S11).
+        case versionNotBumped(lockedVersion: String, lockedHash: String, currentHash: String)
     }
+
+    public static let lockFilename = "contract.lock.json"
 
     /// `--check`: resolves the repo root from `cwd`, then compares the on-disk
     /// artifacts to the registry. Throws `NotFoundError` — never reports
     /// missing files as `.drifted` — when the root, the generated dir, or an
     /// individual artifact file can't be found.
+    ///
+    /// AE-S11: if the surface hash differs from the lock while `contractVersion`
+    /// is unchanged, returns `.versionNotBumped` (not generic drift).
     public static func check(from cwd: String, registry: ContractRegistry = .milestone1) throws -> CheckOutcome {
         guard let root = findRepoRoot(from: cwd) else {
             throw NotFoundError.repoRootNotFound(cwd: cwd)
@@ -74,6 +81,9 @@ public enum ContractExport {
         let dir = root.appendingPathComponent(generatedDir)
         guard FileManager.default.fileExists(atPath: dir.path) else {
             throw NotFoundError.generatedDirMissing(path: dir.path)
+        }
+        if let notBumped = try versionNotBumpedIfNeeded(dir: dir, registry: registry) {
+            return notBumped
         }
         let expected = try artifacts(registry)
         var missing: [String] = []
@@ -88,6 +98,24 @@ public enum ContractExport {
             throw NotFoundError.artifactsMissing(path: dir.path, filenames: missing)
         }
         return drifted.isEmpty ? .upToDate(count: expected.count) : .drifted(drifted)
+    }
+
+    /// AE-S11 gate: surface changed, version did not.
+    private static func versionNotBumpedIfNeeded(dir: URL, registry: ContractRegistry) throws -> CheckOutcome? {
+        let lockURL = dir.appendingPathComponent(lockFilename)
+        guard let onDisk = try? String(contentsOf: lockURL, encoding: .utf8),
+              let locked = try? CoreJSON.decode(ContractRegistry.ContractLock.self, from: Data(onDisk.utf8))
+        else { return nil }
+        let currentHash = ContractRegistry.contractHash(registry)
+        if currentHash != locked.contractHash,
+           registry.contractVersion == locked.contractVersion {
+            return .versionNotBumped(
+                lockedVersion: locked.contractVersion,
+                lockedHash: locked.contractHash,
+                currentHash: currentHash
+            )
+        }
+        return nil
     }
 
     /// Writes the registry-derived artifacts under the repo root resolved from
@@ -108,12 +136,26 @@ public enum ContractExport {
     }
 
     public static func artifacts(_ registry: ContractRegistry = .milestone1) throws -> [Artifact] {
-        [
+        let schemas = try schemaArtifactsForHash()
+        var rows: [Artifact] = [
             Artifact(filename: "alln-contract.json", contents: try jsonString(registry)),
             Artifact(filename: "error-codes.json", contents: try jsonString(registry.errors)),
             Artifact(filename: "exit-codes.json", contents: try jsonString(ExitCodeExport.rows)),
             Artifact(filename: "ndjson-events.json", contents: try jsonString(registry.events)),
             Artifact(filename: "example-recipes.json", contents: try jsonString(registry.examples)),
+        ]
+        rows.append(contentsOf: schemas)
+        rows.append(Artifact(filename: "help_alln_cli_spec.md", contents: ContractDocs.markdown(registry)))
+        rows.append(Artifact(
+            filename: lockFilename,
+            contents: try jsonString(ContractRegistry.ContractLock.current(registry))
+        ))
+        return rows
+    }
+
+    /// Schema artifacts included in `contractHash` (AE-S11). Excludes lock + markdown.
+    public static func schemaArtifactsForHash() throws -> [Artifact] {
+        [
             Artifact(filename: "team-run.schema.json", contents: try ContractSchema.json(ContractSchema.teamRunSchema())),
             Artifact(filename: "doctor-result.schema.json", contents: try ContractSchema.json(ContractSchema.doctorResultSchema())),
             Artifact(filename: "coordinator-health.schema.json", contents: try ContractSchema.json(ContractSchema.coordinatorHealthSchema())),
@@ -131,7 +173,6 @@ public enum ContractExport {
             Artifact(filename: "ownership-ps.schema.json", contents: try ContractSchema.json(ContractSchema.ownershipPsSchema())),
             Artifact(filename: "ownership-kill.schema.json", contents: try ContractSchema.json(ContractSchema.ownershipKillSchema())),
             Artifact(filename: "ownership-gc.schema.json", contents: try ContractSchema.json(ContractSchema.ownershipGarbageCollectionSchema())),
-            Artifact(filename: "help_alln_cli_spec.md", contents: ContractDocs.markdown(registry)),
         ]
     }
 

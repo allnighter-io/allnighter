@@ -5,7 +5,10 @@ import Foundation
 /// §NDJSON Stream, §Error Envelope, §Doctor Contract). This is the data; the
 /// generators that project docs/schemas from it are step 3.
 public extension ContractRegistry {
-    static let contractVersion = "1.0.0"
+    /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
+    /// flag = major; adding a command/flag/error = minor. Distinct from
+    /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
+    static let contractVersion = "1.1.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -942,6 +945,15 @@ public extension ContractRegistry {
         ),
         ErrorSpec("INSTALL_CLI_TARGET_UNWRITABLE", ruleId: "install_cli.target.unwritable", agentAction: "Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory.", requiresManual: true, retryable: true, explain: "The install-cli target directory is missing or not writable. Use --path to a writable directory (e.g. ~/.local/bin) or fix permissions on /usr/local/bin."),
         ErrorSpec("CONTRACT_DRIFT", ruleId: "contract.drift", agentAction: "Run `alln dev export-contracts`, then rebuild.", requiresManual: true, retryable: false, explain: "Generated artifacts no longer match the registry. Regenerate and rebuild before relying on output."),
+        ErrorSpec(
+            "CONTRACT_VERSION_NOT_BUMPED",
+            ruleId: "contract.version.not_bumped",
+            agentAction: "Bump `ContractRegistry.contractVersion` (minor for additions, major for removals/renames), then run `alln dev export-contracts`.",
+            requiresManual: true,
+            retryable: false,
+            explain: "The agent-facing contract surface hash changed but contractVersion was not bumped. Surface edits cannot ship without an explicit compatibility bump (AE-S11).",
+            exitClass: .usage
+        ),
         ErrorSpec("CONTRACT_ARTIFACTS_NOT_FOUND", ruleId: "contract.artifacts.not_found", agentAction: "Run `alln dev export-contracts` from inside the repo (repo root or a subdirectory).", requiresManual: true, retryable: false, explain: "The repo root, the generated artifacts dir, or an individual artifact file could not be found. This is not content drift — it means the artifacts were never generated at the resolved location, or the command ran outside the repo."),
         ErrorSpec("DEFAULTS_TIER_INVALID", ruleId: "defaults.tier.invalid", agentAction: "Use one of flagship | balanced | fast.", requiresManual: true, retryable: false, explain: "The tier name was not one of flagship, balanced, or fast.", exitClass: .usage),
         ErrorSpec("DEFAULTS_MODEL_UNKNOWN", ruleId: "defaults.model.unknown", agentAction: "Run `alln models --json` and pass a known model id.", requiresManual: true, retryable: false, explain: "The model id is not in the catalog, so it cannot be assigned to a tier. List models and use a real id."),
@@ -976,6 +988,14 @@ public extension ContractRegistry {
         ErrorSpec("RETRY_OF_SURVIVORS", ruleId: "retryOf.survivors", agentAction: "Wait for verified stop, or pass --accept-survivors.", requiresManual: false, retryable: true, explain: "`--retry-of` refused because the prior run still has identity-alive recorded workers. Pass --accept-survivors to proceed anyway."),
         ErrorSpec("RESULT_NOT_READY", ruleId: "result.not_ready", agentAction: "Poll team status using nextPollAfterMs, then call team result again.", requiresManual: false, retryable: true, explain: "The run is not terminal yet. Poll team status and retry team result when resultAvailable is true."),
         ErrorSpec("RUN_NOT_FOUND", ruleId: "run.not_found", agentAction: "Run `alln history --json`.", requiresManual: true, retryable: false, explain: "No run matches the given id. List history and pick a valid run id or `latest`."),
+        ErrorSpec(
+            "VENDOR_WAKE_NOT_CLAIMED",
+            ruleId: "run.vendor_wake.not_claimed",
+            agentAction: "Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`.",
+            requiresManual: true,
+            retryable: true,
+            explain: "Vendor-wake resume could not claim the run — it is not parked waiting for a vendor, or another coordinator already holds the wake lease."
+        ),
         ErrorSpec(
             "RUN_JOURNAL_UNAVAILABLE",
             ruleId: "run.journal.unavailable",

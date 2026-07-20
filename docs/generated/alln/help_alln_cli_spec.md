@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 1.0.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 1.1.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1400,6 +1400,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `UNKNOWN_FLAG` | yes | no | `usage` | Re-run `alln <command> --help` or `alln docs <command>`; fix or remove the unknown flag. |
 | `INSTALL_CLI_TARGET_UNWRITABLE` | yes | yes | `operational` | Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory. |
 | `CONTRACT_DRIFT` | yes | no | `operational` | Run `alln dev export-contracts`, then rebuild. |
+| `CONTRACT_VERSION_NOT_BUMPED` | yes | no | `usage` | Bump `ContractRegistry.contractVersion` (minor for additions, major for removals/renames), then run `alln dev export-contracts`. |
 | `CONTRACT_ARTIFACTS_NOT_FOUND` | yes | no | `operational` | Run `alln dev export-contracts` from inside the repo (repo root or a subdirectory). |
 | `DEFAULTS_TIER_INVALID` | yes | no | `usage` | Use one of flagship | balanced | fast. |
 | `DEFAULTS_MODEL_UNKNOWN` | yes | no | `operational` | Run `alln models --json` and pass a known model id. |
@@ -1427,6 +1428,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RETRY_OF_SURVIVORS` | no | yes | `operational` | Wait for verified stop, or pass --accept-survivors. |
 | `RESULT_NOT_READY` | no | yes | `operational` | Poll team status using nextPollAfterMs, then call team result again. |
 | `RUN_NOT_FOUND` | yes | no | `operational` | Run `alln history --json`. |
+| `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |
 | `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
 | `COORDINATOR_UNAVAILABLE` | no | yes | `operational` | Use foreground CLI or start resident mode when available. |
