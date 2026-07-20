@@ -10,15 +10,16 @@ Pin a named worker. Never invent a substitute when the user named one — ask th
 
 ## Teaching (keep in sync with TeachingSnippet)
 
-<!-- ALLNIGHTER:TEACHING v2 hash=3afb704d0deb3954b8baebc289f0723e2674ed09a7c5393c57efa093c9c0dfcc -->
-Allnighter coordinates the AI CLIs installed on this Mac. Before first spend in a session, read `alln menu --json`, choose from useWhen/dontUseWhen, and pass canonical ids only. Before an unfamiliar worker-starting action, run its validation template (usually `alln run --dry-run`). Never invent flags or substitute a requested worker by display name.
-- Find anything with `alln help search "<query>"`, then `alln help get <topic>`. Prefer `--json` envelopes.
-- On errors follow the envelope; environment issues → `alln doctor --json`. Never guess flags.
+<!-- ALLNIGHTER:TEACHING v3 hash=428a37496be9dffc4070f094dfc4410b4fae625cb5c412e452e61df649a751ba -->
+1. Before first Allnighter use in a session, read `alln menu --json`.
+2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.
+3. Before an unfamiliar worker-starting action, run its validation template.
+4. Re-read the live menu in a new session; never trust a pasted catalog.
 <!-- ALLNIGHTER:TEACHING:END -->
 
 ## Recipe
 
-Route with the user's named model in the intent:
+Read the live menu, choose the model id from useWhen/dontUseWhen, then dry-run:
 
 ```bash
 alln menu --json
@@ -30,10 +31,11 @@ Confirm the model id is on the Bench:
 alln models --json
 ```
 
-Run the pinned worker (fill `--project`; use the id the menu named):
+Validate, then run the pinned worker (fill `--project`; use the canonical id only):
 
 ```bash
+alln run --project <id|path> --worker <model-id> --dry-run --json "<prompt>"
 alln run --project <id|path> --worker <model-id> --json "<prompt>"
 ```
 
-If the requested worker is unavailable, follow `nextActions` (models / doctor) — do not pick a different worker unless the user says so.
+If the requested worker is unavailable, follow menu blockedReason / doctor — do not pick a different worker unless the user says so.

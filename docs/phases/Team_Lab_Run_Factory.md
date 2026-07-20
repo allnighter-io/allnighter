@@ -72,11 +72,11 @@ Primary slice:
 
 ```text
 developer starts Team Lab Run Factory
--> factory invokes `alln` (team / run / floor / docs / doctor) with `--json`
--> factory calls `alln team hello --json` (optional readiness / front door)
+-> factory invokes `alln` (menu / run / floor / docs / doctor) with `--json`
+-> factory calls `alln menu --json` (optional readiness / front door)
 -> factory selects a benchmark suite and Team
--> factory calls `alln team preflight ... --json`
--> factory calls `alln team start ... --json` with an idempotency key
+-> factory calls `alln run ... --dry-run --json`
+-> factory calls `alln run ... --detach --json` with an idempotency key
 -> factory polls `alln team status <run-id> --json` (or follows `--stream` NDJSON)
 -> factory fetches `alln team result <run-id> --json`
 -> factory fetches Floor/artifact views through `alln floor show ... --json`
@@ -124,11 +124,11 @@ baseline suite for Bug Hunt
 
 Useful substrate already exists:
 
-- `alln` exposes the agent-facing CLI surface (`alln team`, `alln run`, `alln floor`,
+- `alln` exposes the agent-facing CLI surface (`alln run`, `alln menu`, `alln floor`,
   `alln docs`, `alln doctor`, `alln help`).
-- Team lifecycle verbs: `alln team hello`, `alln team preflight`, `alln team start`,
-  `alln team status`, `alln team result`, `alln team cancel`, plus synchronous
-  `alln team --json` where appropriate.
+- Team lifecycle verbs: `alln run` / `alln run --detach`, `alln team status`,
+  `alln team result`, `alln team cancel` (router-era `team hello` / `team start`
+  / `team preflight` are retired — see `Menu_Not_Router.md`).
 - Catalog write/read verbs (live; not greenfield): `alln teams definition`,
   `alln teams edit`, `alln teams duplicate`, `alln teams show`,
   `alln teams set-default`, `alln teams delete`, `alln teams restore`;
@@ -147,7 +147,7 @@ Useful substrate already exists:
   events on stdout (progress on stderr). See `CLI_Product_Spine.md` and
   `CLI_Implementation_Contract.md`.
 - `TeamCatalog` and `SkillCatalog` own default Team and Skill definitions.
-- Agent front door: `alln bootstrap`, `alln team hello` (`Agent_Front_Door.md`).
+- Agent front door: `alln bootstrap`, `alln menu --json` (`Menu_Not_Router.md`).
 - Depth rename already landed in Swift/catalog: bare `code_bug_hunt` is default
   send; Max is `code_bug_hunt_max` (`Team_Depth_Naming.md`). Lab artifacts that
   still hardcode `code_bug_hunt_lite` are **rot** (PRE-S0 / slice 1).
@@ -291,11 +291,11 @@ Allowed:
 ```text
 invoke: alln <verb> ... --json
 stream: alln <verb> ... --stream   # NDJSON events when supported
-call: alln team hello --json
+call: alln menu --json
 call: alln help / alln docs / alln docs --errors / --schema
 # Lifecycle
-call: alln team preflight ... --json
-call: alln team start ... --json
+call: alln run ... --dry-run --json
+call: alln run ... --detach --json
 call: alln team status <run-id> --json
 call: alln team result <run-id> --json
 call: alln team cancel <run-id> --json
@@ -317,7 +317,7 @@ call: alln skills edit ... --json
 
 | Verb | Meaning |
 | --- | --- |
-| `alln team show` | Default team **per lane** (runtime default), not full definition dump |
+| `alln teams show` | Default team **per lane** (runtime default), not full definition dump |
 | `alln teams show` / `alln teams definition` | Catalog listing / full `TeamPreset` definition round-trip |
 
 Overlay deploy and champion banking use the **plural** `teams *` / `skills *`
@@ -545,14 +545,14 @@ Each run must log:
 - exact CLI argv, stdout/stderr, exit codes, and timestamps for every `alln`
   invocation (full JSON envelope / stream transcripts);
 - `alln docs` / contract snapshot hash when used for readiness;
-- `alln team hello --json` readiness result when used;
+- `alln menu --json` / doctor readiness result when used;
 - Allnighter support root, relevant process environment, and whether the
   support root was overridden for lab/sandbox execution;
 - first-start facts: binary path, binary version, git head, contract hash,
   support root, current working directory, PATH source, process pid, and client
   identity;
-- `alln team preflight` result;
-- `alln team start` request and start-response envelope;
+- `alln run --dry-run --json` result;
+- `alln run --detach --json` request and start-response envelope;
 - every `alln team status` response and polling interval (or NDJSON stream events);
 - `alln team result` response, including not-ready envelopes;
 - Floor/artifact retrieval responses (`alln floor show`);
@@ -727,9 +727,9 @@ whose template differs from built-in). Human reviews before catalog merge.
 provenance + templates. **Reserve a scope dimension** in the key path (e.g. future
 `champions/<suite>/<scope>/<team>.json` for per-user / per-root learning). Name the
 axis; do **not** wire per-user learning in v1. `run.py --champion-overlay` deploys
-a lab team via CLI before `alln team start`.
+a lab team via CLI before `alln run --detach`.
 
-**Catalog refresh semantics:** each `alln team start` is a **fresh process**. Unlike
+**Catalog refresh semantics:** each `alln run --detach` is a **fresh process**. Unlike
 the retired MCP harness (which snapshotted the catalog at `mcp serve` init and
 needed a restart after save), CLI-native deploy does not require process restart
 for the next start to see `teams edit` / `teams duplicate` results. Spec must
@@ -761,7 +761,7 @@ Measures whether Allnighter told the truth. PRE-S0 / harness must also cover the
 items under **Contract & proof checklist** in Implementation Slices.
 
 - preflight blocked bad runs before quota;
-- `alln team start` returned a run id only after journal creation;
+- `alln run --detach` returned a run id only after journal creation;
 - status changed honestly;
 - polling cadence was respected;
 - terminal state matched artifacts;
@@ -1199,7 +1199,7 @@ Hard gates before any quality claim is trusted:
 6. **Contract withholds named.** SUB-1 (`completedAt`) and SUB-2 (`StageInfo`
    missing markdown/timestamps) remain explicit withholds — do not claim temporal
    stage truth over CLI until fixed.
-7. **Catalog refresh stated.** Next `alln team start` after `teams edit` sees new
+7. **Catalog refresh stated.** Next `alln run --detach` after `teams edit` sees new
    definition without MCP restart ritual (fresh process each start).
 8. **Async ownership.** Subprocess-only v1; `alln serve` is v2.
 
@@ -1237,10 +1237,10 @@ rewrite.
 | List / inspect teams | `alln teams show … --json` |
 | Clone skill template | `alln skills duplicate … --json` |
 | Patch skill body | `alln skills edit … --json` |
-| Run lifecycle | `alln team preflight/start/status/result/cancel --json` |
+| Run lifecycle | `alln run --dry-run` / `alln run --detach` / `alln team status|result|cancel --json` |
 | Floor / artifacts | `alln floor show … --json` |
 
-**Warning:** `alln team show` ≠ `alln teams show`. Definition round-trip is plural.
+**Warning:** use plural `alln teams show` for definition round-trip (singular `team show` is retired).
 
 ### Deferred (v2)
 

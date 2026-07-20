@@ -1,6 +1,6 @@
 # MR-S05 — Teach and retrieve from the same truth
 
-Status: **ready** (after MR-S04)
+Status: **complete**
 SSOT: `docs/phases/Menu_Not_Router.md` §MR-S05
 
 ## Goal

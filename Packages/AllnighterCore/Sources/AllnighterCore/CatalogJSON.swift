@@ -72,23 +72,31 @@ public struct TeamCatalogJSON: Codable, Sendable, Equatable {
         self.lane = lane; self.teams = teams; self.counsel = counsel; self.nextActions = nextActions
     }
 
-    /// Projects the lane-scoped catalog. Teams switched OFF in `TeamVisibility` are
-    /// dropped unless `includeInactive` is true, in which case they are returned with
-    /// `active: false`. This is the single funnel for `alln teams --json` and the MCP
-    /// `teams_list` tool, so the "Inactive" state is honored identically across GUI,
-    /// CLI, and MCP.
+    /// Projects the lane-scoped catalog from the same `MenuCatalog` team rows that
+    /// `alln menu --json` exposes (MR-S05 / Law 2). Domain fields (lane, effort,
+    /// builtIn) come from `TeamPreset`; selection identity/state come from the menu.
+    /// Teams switched OFF are dropped unless `includeInactive` is true.
     public static func project(_ teams: [TeamPreset], lane: WorkLane?, contractVersion: String,
                                includeInactive: Bool = false) -> TeamCatalogJSON {
-        let entries = teams.compactMap { team -> Entry? in
-            let active = TeamVisibility.isEnabled(team.id)
-            guard active || includeInactive else { return nil }
-            return Entry(id: team.id, displayName: team.displayName, lane: team.lane.rawValue,
-                         outputKind: team.outputKind.rawValue, defaultEffort: team.defaultEffort.rawValue,
-                         mutating: team.mutating, builtIn: team.builtIn,
-                         isDefaultForLane: team.isDefaultForLane,
-                         // AE-S10: one seat-count owner (`TeamPreset.catalogSeatCount`).
-                         workerCount: team.catalogSeatCount,
-                         active: active)
+        let scoped = lane.map { l in teams.filter { $0.lane == l } } ?? teams
+        let byId = Dictionary(uniqueKeysWithValues: scoped.map { ($0.id, $0) })
+        let menu = MenuCatalog.project(teams: scoped.filter { !$0.isLabTeam })
+        let entries = menu.teams.compactMap { row -> Entry? in
+            guard row.active || includeInactive else { return nil }
+            guard let team = byId[row.id] else { return nil }
+            return Entry(
+                id: row.id,
+                displayName: row.displayName,
+                lane: team.lane.rawValue,
+                outputKind: team.outputKind.rawValue,
+                defaultEffort: team.defaultEffort.rawValue,
+                mutating: row.mutating,
+                builtIn: team.builtIn,
+                isDefaultForLane: team.isDefaultForLane,
+                workerCount: row.workerCount,
+                active: row.active,
+                disabledReason: row.blockedReason
+            )
         }
         var payload = TeamCatalogJSON(contractVersion: contractVersion, lane: lane?.rawValue, teams: entries)
         if entries.isEmpty {

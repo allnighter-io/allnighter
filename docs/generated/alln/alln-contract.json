@@ -4431,7 +4431,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit a HelpSearchJSON object.",
+          "summary" : "Emit a HelpSearchJSON object of menu cards.",
           "takesValue" : false
         }
       ],
@@ -4443,7 +4443,7 @@
       "name" : "help search",
       "outputSchema" : "helpSearchJSON",
       "spendsQuota" : false,
-      "summary" : "Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan.",
+      "summary" : "Lexical retrieval over MenuCatalog — returns zero or many menu cards (no selected\/confidence\/recommended fields).",
       "visibility" : "public"
     },
     {
@@ -4590,7 +4590,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "2.0.1",
+  "contractVersion" : "2.1.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

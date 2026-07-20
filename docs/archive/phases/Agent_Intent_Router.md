@@ -1,40 +1,35 @@
 # Agent Intent Router — one front door that routes intent to the right killer team
 
-Status: **Complete (archived 2026-07-19).** IR-S00–IR-S02 delivered.
-IR-S01 `3d515ff0` · IR-S02a `aafb6ce6` · IR-S02b `df334af8`. Code is SSOT;
-this doc is the historical law + proof packet. PARKED items remain parked
-(fuzzy/model-assisted match; completion-receipt unified result shape).
-Owner: AllnighterCore (`AgentHello` + `AgentIntentRouter`) + AllnighterCLI
-(`team hello`)
-Updated: 2026-07-19 (archived).
+> **TOMBSTONE (2026-07-20, MR-S05):** The intent router (`team hello --for`,
+> `route --for`, `resolve --for`, `AgentIntentRouter.swift`, `AgentHello.swift`)
+> is **retired**. Selection truth is the live menu — see
+> [`docs/phases/Menu_Not_Router.md`](../../phases/Menu_Not_Router.md).
+> Do not implement, revive, or cite this doc as active SSOT. Historical IR-S00–S02
+> proof below is archival only.
 
-Execution order: ~~archived `Run_Lifecycle_Reliability.md`~~ (Complete /
-RLR-S06) → ~~**IR-S02**~~ (Complete) → ~~archived `Agent_Onboarding.md`~~
-(Complete 2026-07-20; front-door V1 done).
+Status: **TOMBSTONED (archived 2026-07-19; superseded 2026-07-20 by Menu_Not_Router).**
+IR-S00–IR-S02 were delivered then deleted under MR-S02. Code is gone;
+this doc is historical law + proof packet only.
+Owner: ~~AllnighterCore (`AgentHello` + `AgentIntentRouter`)~~ — deleted.
+Updated: 2026-07-20 (tombstoned).
 
-**Closeout (deslop/audit):** Docs-only archive. No product-code deslop in this
-turn — IR-S02a/b already landed with focused golden tests (29/29
-`AgentIntentRouterTests|AgentHelloTests`). No structural audit findings to
-carry; successor gate 2 archived Complete: `Agent_Onboarding.md`. Code SSOT:
-`AgentIntentRouter.swift` / `AgentHello.swift`.
+Execution order: ~~archived `Run_Lifecycle_Reliability.md`~~ → ~~IR-S02~~ →
+~~archived `Agent_Onboarding.md`~~ → **`Menu_Not_Router.md`** (active).
 
-## The gap (the third gate)
+**Closeout (deslop/audit):** Docs-only archive. Router code deleted in MR-S02.
+Successor selection SSOT: `Menu_Not_Router.md`.
+
+## The gap (the third gate) — historical
 
 An agent passes three gates before Allnighter gets used:
 
 1. **FIND it** — `alln` on PATH, no empty silence → `Agent_Front_Door.md` (SHIPPED).
 2. **SUGGEST it** — a cold session reaches for it unprompted → archived
    `Agent_Onboarding.md` (Complete).
-3. **ROUTE it** — given the user's intent, land on the *right killer team or
-   primitive* without memorizing the catalog → **THIS doc.**
+3. **CHOOSE it** — given the user's intent, the **caller** reads `alln menu --json`
+   and picks from useWhen/dontUseWhen — **`Menu_Not_Router.md`** (replaces this doc).
 
-Today `alln team hello` is a **static readiness report**: it returns the same
-`nextCommandPlan` (`alln team preflight --team <team-id> --json`, a literal
-placeholder) regardless of what the user actually wants. The agent still has to
-know which team `<team-id>` should be. As the catalog grows — Bug Hunt,
-Security, Growth, Design, Copy, Signal — a bigger catalog gets *worse* for a
-cold agent, not better, unless something routes by intent. **More killer teams
-only pay off behind an intent router.**
+~~Today `alln team hello` is a **static readiness report**…~~ (deleted.)
 
 ### Field evidence (2026-07-19, live probe)
 

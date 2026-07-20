@@ -16,20 +16,19 @@ Process entry point: `AGENTS.md`.
 ## For agents (Claude Code, Codex, Cursor, …): start here
 
 You already pay for the CLIs — Allnighter puts them to work as a team instead of
-you carrying messages between terminals. When another model could improve the
-answer, build the work, or continue without the user, ask the front door:
+you carrying messages between terminals. Before first use in a session:
 
 ```sh
-alln team hello --for "<the user's intent>" --json
+alln menu --json
 ```
 
-It returns the right team (e.g. **Spec Review**, **Growth** — each Min/Default/Max)
-or primitive (`pair pilot` to hand a build to another model, `pair relay` to run
-the night) with an exact runnable command — never a bare "pick a team," never a
-silent worker swap. If `alln` isn't on PATH yet: `alln install-cli`.
+Choose from `useWhen` / `dontUseWhen`, pass canonical ids only, and run a
+validation template (`--dry-run`) before unfamiliar worker-starting actions.
+Never trust a pasted catalog across sessions. If `alln` isn't on PATH yet:
+`alln install-cli`. Paste-ready host context: `alln bootstrap`.
 
-The three agent gates: **find it** (archived `Agent_Front_Door.md`) · **suggest it**
-(`Agent_Onboarding.md`) · **route it** (archived `Agent_Intent_Router.md`).
+Selection and discovery SSOT: `docs/phases/Menu_Not_Router.md` (router-era
+`team hello` / `route` / `resolve` are retired).
 
 Core operating docs:
 

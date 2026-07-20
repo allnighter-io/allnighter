@@ -169,6 +169,225 @@ public enum MenuCatalog {
         )
     }
 
+    /// Lexical retrieval over projected menu rows (MR-S05). Returns zero or many
+    /// cards ordered by match strength; never emits selected/confidence/recommended.
+    public static func search(
+        _ query: String,
+        limit: Int = 5,
+        registry: ContractRegistry = .milestone1,
+        teams: [TeamPreset]? = nil,
+        modelEntries: [ModelListJSON.Entry]? = nil,
+        recipes: [RecipeCatalog.Recipe]? = nil,
+        menu: MenuJSON? = nil
+    ) -> MenuSearchResult {
+        let limit = max(0, limit)
+        let menu = menu ?? project(
+            registry: registry,
+            teams: teams,
+            modelEntries: modelEntries,
+            recipes: recipes
+        )
+        let tokens = tokenize(query)
+        let phrase = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !phrase.isEmpty, limit > 0 else {
+            return MenuSearchResult(query: query, catalogRevision: menu.catalogRevision, results: [])
+        }
+
+        var scored: [(MenuSearchHit, Double)] = []
+
+        for action in menu.actions {
+            let raw = score(
+                phrase: phrase,
+                tokens: tokens,
+                id: action.id,
+                title: action.id,
+                useWhen: action.useWhen,
+                dontUseWhen: action.dontUseWhen,
+                extras: [action.example, action.validateExample]
+            )
+            guard raw >= minimumHitScore else { continue }
+            scored.append((
+                MenuSearchHit(
+                    kind: "action",
+                    ref: commandRef(action.id),
+                    id: action.id,
+                    title: action.id,
+                    useWhen: action.useWhen,
+                    dontUseWhen: action.dontUseWhen,
+                    example: action.example,
+                    validateExample: action.validateExample
+                ),
+                raw
+            ))
+        }
+
+        for command in menu.commands {
+            let raw = score(
+                phrase: phrase,
+                tokens: tokens,
+                id: command.name,
+                title: command.name,
+                useWhen: nil,
+                dontUseWhen: nil,
+                extras: [command.ref, command.name]
+            )
+            guard raw >= minimumHitScore else { continue }
+            scored.append((
+                MenuSearchHit(
+                    kind: "command",
+                    ref: command.ref,
+                    id: command.name,
+                    title: command.name
+                ),
+                raw
+            ))
+        }
+
+        for team in menu.teams {
+            let raw = score(
+                phrase: phrase,
+                tokens: tokens,
+                id: team.id,
+                title: team.displayName,
+                useWhen: team.useWhen,
+                dontUseWhen: team.dontUseWhen,
+                extras: [team.shape, team.runTemplate, team.validateTemplate]
+            )
+            guard raw >= minimumHitScore else { continue }
+            scored.append((
+                MenuSearchHit(
+                    kind: "team",
+                    ref: team.ref,
+                    id: team.id,
+                    title: team.displayName,
+                    useWhen: team.useWhen,
+                    dontUseWhen: team.dontUseWhen,
+                    runTemplate: team.runTemplate,
+                    validateTemplate: team.validateTemplate,
+                    active: team.active,
+                    blockedReason: team.blockedReason,
+                    mutating: team.mutating,
+                    shape: team.shape
+                ),
+                raw
+            ))
+        }
+
+        for model in menu.models {
+            let raw = score(
+                phrase: phrase,
+                tokens: tokens,
+                id: model.id,
+                title: model.displayName,
+                useWhen: model.useWhen,
+                dontUseWhen: model.dontUseWhen,
+                extras: [model.driverId, model.runTemplate, model.validateTemplate]
+            )
+            guard raw >= minimumHitScore else { continue }
+            scored.append((
+                MenuSearchHit(
+                    kind: "model",
+                    ref: model.ref,
+                    id: model.id,
+                    title: model.displayName,
+                    useWhen: model.useWhen,
+                    dontUseWhen: model.dontUseWhen,
+                    runTemplate: model.runTemplate,
+                    validateTemplate: model.validateTemplate,
+                    blockedReason: model.blockedReason,
+                    enabled: model.enabled,
+                    ready: model.ready
+                ),
+                raw
+            ))
+        }
+
+        for recipe in menu.recipes {
+            let raw = score(
+                phrase: phrase,
+                tokens: tokens,
+                id: recipe.id,
+                title: recipe.title,
+                useWhen: recipe.useWhen,
+                dontUseWhen: recipe.dontUseWhen,
+                extras: []
+            )
+            guard raw >= minimumHitScore else { continue }
+            scored.append((
+                MenuSearchHit(
+                    kind: "recipe",
+                    ref: recipe.ref,
+                    id: recipe.id,
+                    title: recipe.title,
+                    useWhen: recipe.useWhen,
+                    dontUseWhen: recipe.dontUseWhen
+                ),
+                raw
+            ))
+        }
+
+        scored.sort {
+            if $0.1 != $1.1 { return $0.1 > $1.1 }
+            if $0.0.kind != $1.0.kind { return $0.0.kind < $1.0.kind }
+            return $0.0.ref < $1.0.ref
+        }
+        return MenuSearchResult(
+            query: query,
+            catalogRevision: menu.catalogRevision,
+            results: Array(scored.prefix(limit).map(\.0))
+        )
+    }
+
+    /// Absolute raw-score floor — weak body-only noise does not become a card.
+    public static let minimumHitScore: Double = 3
+
+    // MARK: - Search scoring
+
+    private static func score(
+        phrase: String,
+        tokens: [String],
+        id: String,
+        title: String,
+        useWhen: String?,
+        dontUseWhen: String?,
+        extras: [String]
+    ) -> Double {
+        let idTokens = tokenSet(id)
+        let titleTokens = tokenSet(title)
+        let useTokens = tokenSet(useWhen ?? "")
+        let dontTokens = tokenSet(dontUseWhen ?? "")
+        let extraTokens = tokenSet(extras.joined(separator: " "))
+        var strong = 0.0
+        let idLower = id.lowercased()
+        let titleLower = title.lowercased()
+        if phrase == idLower || phrase == titleLower { strong += 12 }
+        else if idLower.contains(phrase) || titleLower.contains(phrase) { strong += 8 }
+        for tok in tokens {
+            if idTokens.contains(tok) { strong += 4 }
+            if titleTokens.contains(tok) { strong += 4 }
+            if useTokens.contains(tok) { strong += 3 }
+            if dontTokens.contains(tok) { strong += 2 }
+            if extraTokens.contains(tok) { strong += 1 }
+        }
+        return strong
+    }
+
+    private static func tokenize(_ s: String) -> [String] {
+        let stop: Set<String> = [
+            "the", "a", "an", "to", "of", "is", "do", "i", "how", "my", "on", "in",
+            "for", "this", "can", "what", "and", "with", "it", "no",
+        ]
+        return s.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { $0.count >= 2 && !stop.contains($0) }
+    }
+
+    private static func tokenSet(_ s: String) -> Set<String> {
+        Set(s.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { $0.count >= 2 })
+    }
+
     /// Tier-2 hydrate for a typed ref. Unknown refs throw `MenuRefError` with same-kind suggestions.
     public static func show(
         ref: String,

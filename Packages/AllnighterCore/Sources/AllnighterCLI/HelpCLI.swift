@@ -2,13 +2,12 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// `alln help …` — the installed product guide (search/get/topics), the one help
-/// surface any calling agent uses via `HelpProjector`. `alln docs` stays the raw
-/// generated contract reference; `alln help` is the friendly retrieval surface.
+/// `alln help …` — the installed product guide (search/get/topics).
+/// Search (MR-S05) returns menu cards from `MenuCatalog`; get/topics stay narrative.
 enum HelpCLI {
     static func run(_ args: [String], runtime: ToolRuntime) async {
         switch args.first {
-        case "search": search(Array(args.dropFirst()))
+        case "search": search(Array(args.dropFirst()), runtime: runtime)
         case "get": get(Array(args.dropFirst()))
         case "topics": topics(Array(args.dropFirst()))
         case nil: topics([])
@@ -18,21 +17,26 @@ enum HelpCLI {
 
     private static var cv: String { ContractRegistry.contractVersion }
 
-    private static func search(_ args: [String]) {
+    private static func search(_ args: [String], runtime: ToolRuntime) {
         let opts = Options(args)
         let query = opts.positional.joined(separator: " ")
         guard !query.isEmpty else { usage("search <query> [--limit N] [--json]") }
         let limit = opts.value("limit").flatMap(Int.init) ?? 5
-        let json = HelpProjector.search(query, limit: limit, contractVersion: cv)
+        let menu = MenuCatalog.project(
+            modelEntries: ModelsCLI.modelListJSON(runtime: runtime).models
+        )
+        let json = HelpProjector.search(query, limit: limit, contractVersion: cv, menu: menu)
         if opts.flag("json") { print(AllnighterCLI.jsonString(json)); return }
-        if let answer = json.suggestedAnswerMarkdown { print(answer + "\n") }
-        for hit in json.results {
-            let live = hit.needsLiveCheck ? "  (needs live check)" : ""
-            print("\(hit.topicId)\t\(String(format: "%.2f", hit.score))\t\(hit.title)\(live)")
-            print("  \(hit.summary)")
+        if json.results.isEmpty {
+            print("No menu cards matched. Read `alln menu --json` for the full catalog.")
+            return
         }
-        if let step = json.nextToolPlan.first {
-            print("\nnext: \(step.command)")
+        for hit in json.results {
+            print("\(hit.kind)\t\(hit.ref)\t\(hit.title)")
+            if let useWhen = hit.useWhen { print("  useWhen: \(useWhen)") }
+            if let validate = hit.validateTemplate ?? hit.validateExample {
+                print("  validate: \(validate)")
+            }
         }
     }
 

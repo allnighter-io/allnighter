@@ -1,22 +1,16 @@
 import Foundation
 
 // Help System — H1/H2 contract envelopes + projector. `alln help …` calls
-// `HelpProjector` so every caller (CLI, agents) projects the SAME shapes over the
-// same `HelpService`/`HelpTopicRegistry` SSOT. Allnighter is CLI-only for agents
-// (docs/phases/MCP_Retirement.md) — there is no second wire format to keep in sync.
+// `HelpProjector` so every caller (CLI, agents) projects the SAME shapes.
+// Search (MR-S05) projects `MenuCatalog` cards; get/topics stay on HelpTopicRegistry.
 
 public extension HelpService {
     /// The help-first routing law repeated on every help-aware surface (topic
-    /// bodies, `alln menu`, host-agent snippets).
+    /// bodies, host-agent snippets). Selection truth is the live menu.
     static let routingLaw =
-        "For Allnighter product questions, run `alln help search <query>` or `alln help get <topic>` before answering from memory."
+        "For Allnighter product questions, read `alln menu --json` first. Use `alln help search <query>` to retrieve matching menu cards, or `alln help get <topic>` for narrative topics — never answer selection from memory or a pasted catalog."
 
-    /// Companion workflow lines shared with the teaching snippet (ONB-S01).
-    /// Trigger + markers live in `TeachingSnippet`; binary fallback/install are
-    /// assembled by `Bootstrap.snippet(binaryPath:onPath:)`.
-    static var bootstrapWorkflowLines: [String] { TeachingSnippet.companionLines }
-
-    /// Static help-topic preview when live binary path is unknown (help corpus only).
+    /// Host-instruction preview when live binary path is unknown (help corpus only).
     static var hostInstructionBlock: String {
         Bootstrap.snippet(binaryPath: "alln", onPath: true)
     }
@@ -30,31 +24,6 @@ public struct HelpNextToolStep: Codable, Sendable, Equatable {
     public var why: String
     public init(order: Int, command: String, why: String) {
         self.order = order; self.command = command; self.why = why
-    }
-}
-
-public struct HelpSearchJSON: Codable, Sendable, Equatable {
-    public var schemaVersion: Int
-    public var contractVersion: String
-    public var routingLaw: String
-    public var query: String
-    public var results: [HelpSearchHit]
-    public var suggestedAnswerMarkdown: String?
-    public var suggestedAnswerRefs: [String]
-    public var nextToolPlan: [HelpNextToolStep]
-    /// Catalog model ids matched by discovery (ASF-S03); empty on a miss.
-    public var discoveryModelIds: [String]
-    /// True when search treated the query as a miss (ASF-S04).
-    public var isMiss: Bool
-    public init(schemaVersion: Int = 1, contractVersion: String, routingLaw: String, query: String,
-                results: [HelpSearchHit], suggestedAnswerMarkdown: String?, suggestedAnswerRefs: [String],
-                nextToolPlan: [HelpNextToolStep], discoveryModelIds: [String] = [], isMiss: Bool = false) {
-        self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
-        self.routingLaw = routingLaw; self.query = query; self.results = results
-        self.suggestedAnswerMarkdown = suggestedAnswerMarkdown; self.suggestedAnswerRefs = suggestedAnswerRefs
-        self.nextToolPlan = nextToolPlan
-        self.discoveryModelIds = discoveryModelIds
-        self.isMiss = isMiss
     }
 }
 
@@ -131,16 +100,22 @@ public enum ErrorHelpBridge {
     }
 }
 
-/// Pure builder of the help contract envelopes (adds contractVersion + routing law +
-/// next-tool plans over `HelpService`). No IO.
+/// Pure builder of the help contract envelopes. Search projects `MenuCatalog`;
+/// get/topics project `HelpTopicRegistry`. No IO.
 public enum HelpProjector {
-    public static func search(_ query: String, limit: Int, contractVersion: String) -> HelpSearchJSON {
-        let r = HelpService.search(query, limit: limit)
+    public static func search(
+        _ query: String,
+        limit: Int,
+        contractVersion: String,
+        menu: MenuJSON? = nil
+    ) -> HelpSearchJSON {
+        let r = MenuCatalog.search(query, limit: limit, menu: menu)
         return HelpSearchJSON(
-            contractVersion: contractVersion, routingLaw: HelpService.routingLaw, query: r.query,
-            results: r.results, suggestedAnswerMarkdown: r.suggestedAnswerMarkdown,
-            suggestedAnswerRefs: r.suggestedAnswerRefs, nextToolPlan: planForSearch(r),
-            discoveryModelIds: r.discoveryModelIds, isMiss: r.isMiss)
+            contractVersion: contractVersion,
+            catalogRevision: r.catalogRevision,
+            query: r.query,
+            results: r.results
+        )
     }
 
     public static func get(topic: String? = nil, ref: String? = nil,
@@ -157,97 +132,16 @@ public enum HelpProjector {
                        topics: HelpService.sitemap())
     }
 
-    // MARK: - Plans
-
-    private static func planForSearch(_ r: HelpSearchResult) -> [HelpNextToolStep] {
-        // ASF-S04: empty / below-threshold miss → concrete recovery, never silence.
-        if r.isMiss || r.results.isEmpty {
-            return missRecoveryPlan()
-        }
-        guard let top = r.results.first else { return missRecoveryPlan() }
-
-        // ASF-S03: catalog discovery hits point at the live menu, then models / run --worker.
-        if !r.discoveryModelIds.isEmpty {
-            var steps = [
-                HelpNextToolStep(
-                    order: 1,
-                    command: "alln menu --json",
-                    why: "Read selectable model and team ids from the live menu."),
-                HelpNextToolStep(
-                    order: 2,
-                    command: "alln models --json",
-                    why: "List the model catalog (includes OpenCode / GLM and other workers)."),
-            ]
-            if let modelId = preferredDiscoveryModelId(r.discoveryModelIds, query: r.query) {
-                steps.append(HelpNextToolStep(
-                    order: 3,
-                    command: "alln run --worker \(modelId) \"<prompt>\" --json",
-                    why: "Run a single worker from the matched catalog entry."))
-            }
-            steps.append(HelpNextToolStep(
-                order: steps.count + 1,
-                command: "alln help get \(top.topicId) --json",
-                why: "Read the teams / workers topic for catalog management."))
-            return steps
-        }
-
-        var steps = [HelpNextToolStep(
-            order: 1,
-            command: "alln help get \(top.topicId) --json",
-            why: "Retrieve the full topic, decision table, and refs.")]
-        if top.needsLiveCheck {
-            steps.append(HelpNextToolStep(
-                order: 2,
-                command: "alln menu --json",
-                why: "This answer depends on local readiness — check the live menu."))
-        }
-        return steps
-    }
-
-    /// Prefer a model whose id/label tokens intersect the query (e.g. glm → model_opencode_glm_5_2).
-    private static func preferredDiscoveryModelId(_ modelIds: [String], query: String) -> String? {
-        let q = query.lowercased()
-        let tokens = q.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { $0.count >= 2 }
-        if let exact = modelIds.first(where: { id in
-            tokens.contains(where: { id.lowercased().contains($0) && $0.count >= 3 })
-        }) {
-            return exact
-        }
-        return modelIds.first
-    }
-
-    /// Recovery when help search finds nothing useful (ASF-S04).
-    private static func missRecoveryPlan() -> [HelpNextToolStep] {
-        [
-            HelpNextToolStep(
-                order: 1,
-                command: "alln menu --json",
-                why: "Read the live selectable catalog."),
-            HelpNextToolStep(
-                order: 2,
-                command: "alln models --json",
-                why: "Browse the model / worker catalog."),
-            HelpNextToolStep(
-                order: 3,
-                command: "alln teams --json",
-                why: "List lane-scoped teams."),
-            HelpNextToolStep(
-                order: 4,
-                command: "alln doctor --json",
-                why: "Check sources, auth, and bench readiness."),
-        ]
-    }
+    // MARK: - Plans (get/error only — search never recommends)
 
     private static func planForTopic(_ topic: HelpTopic?, found: Bool) -> [HelpNextToolStep] {
         guard found, let topic else {
             return [HelpNextToolStep(
                 order: 1,
                 command: "alln help search <query> --json",
-                why: "Topic not found — search for the right one.")]
+                why: "Topic not found — search menu cards for the right one.")]
         }
         guard topic.needsLiveCheck else { return [] }
-        // Live-state topics route to a live command rather than pretend to know.
-        // Prefer menu; doctor only when listed and menu is not.
         let command: String
         if topic.relatedCommandNames.contains("doctor"),
            !topic.relatedCommandNames.contains("menu") {

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 2.0.1, schemaVersion 1).
+Generated from the contract registry (contractVersion 2.1.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1300,14 +1300,14 @@ Output schema: `utilizationObservationsClearJSON`.
 
 ### `alln help search`
 
-Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan.
+Lexical retrieval over MenuCatalog — returns zero or many menu cards (no selected/confidence/recommended fields).
 
 Arguments:
 - `query` (required) — Natural-language question or keywords.
 
 Flags:
 - `--limit <int>` (default: 5) — Max results.
-- `--json` — Emit a HelpSearchJSON object.
+- `--json` — Emit a HelpSearchJSON object of menu cards.
 
 Output schema: `helpSearchJSON`.
 

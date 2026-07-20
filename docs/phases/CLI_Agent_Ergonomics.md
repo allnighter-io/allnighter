@@ -1,5 +1,10 @@
 # CLI Agent Ergonomics — stop making agents guess what exists
 
+> **Note (2026-07-20, MR-S05):** Intent-router teaching (`team hello --for`,
+> `route --for`, `resolve --for`) is retired. Selection SSOT is
+> [`Menu_Not_Router.md`](Menu_Not_Router.md). Historical Mentor-3 narratives below
+> describe the pre-menu front door and must not be re-implemented.
+
 Status: **Implementation Complete (2026-07-20) — pending deslop / code audit / archive.**
 All slices AE-S00…S15 shipped on `feat/design-chain` (contractVersion `1.6.0`).
 Parent owns deslop, Code Audit, and archive; do not archive from this closeout.
@@ -21,6 +26,7 @@ the origin of Laws 5/7/8) · `Team_Depth_Naming.md` (owns Min/bare/Max naming �
 **do not re-decide here**) · archived `Team_Catalog_Normalization.md` ·
 `Team_Lab_Run_Factory.md` (§"No silent champion flip into production
 TeamCatalog") · `Language_Cutover.md` (owns lane vocabulary) ·
+`Menu_Not_Router.md` (selection / menu / bootstrap teaching) ·
 `docs/workflows/SSOT_Feature_Workflow.md` §Teaching Surface Rule
 
 ## What happened (and the finding that matters most)
@@ -31,8 +37,8 @@ most severe one — and they *missed* a real bug.
 
 **The third agent succeeded, and the difference is the entire phase.**
 
-Mentor 3 read the `bootstrap` snippet first, found `alln team hello --for`, and
-ran `alln team hello --for "ask sonnet 5 a question"`. It resolved the intent to
+Mentor 3 read the `bootstrap` snippet first, used the then-current intent-router
+front door, and resolved `"ask sonnet 5 a question"` to
 `model_sonnet` (Sonnet 5 via `claude_code`), returned a runnable command, and
 **proactively flagged the name collision** with Antigravity's "Claude Sonnet
 4.6" as a loud alternate. Verdict: *"genuinely impressive."*
@@ -46,8 +52,8 @@ the best thing we ship. It is simply **invisible from `alln --help`**.
 
 That is the whole thesis in one experiment: **we are not missing features, we
 are failing discovery.** Mentor 3 independently confirmed the mechanism —
-*"the bootstrap snippet mentions `alln team hello --for` and `alln help search`,
-but the top-level help doesn't show these."*
+the bootstrap taught a front door that top-level help did not surface.
+(That router front door is now retired; see `Menu_Not_Router.md`.)
 
 The same pattern repeats across the feedback. Agent 2 accused the CLI of silent
 model substitution; we ship a recipe card literally titled
@@ -80,8 +86,8 @@ whole class of downstream agent errors disappears at once — including agents
 
 | # | Finding | Evidence |
 | --- | --- | --- |
-| 1 | **`--help` is a hardcoded 31-line string literal**, not generated. Registry declares ~100 commands. Missing: `teams`, `team hello`, `team preflight`, `help search/get/topics`, all `project` (11), `thread` (5), `skills` (5), `pending` (9), `stalled`, `floor show`, `spec`, `defaults`. | `AllnighterCLI.swift:1755+` `helpText()` |
-| 2 | **The completeness gate exists and is neutered by a ~70-command allowlist** — including the entire golden path. `team hello` is excluded because it is *"surfaced via `alln team hello`"*. | `CLIHelpDriftTests.swift:10-48` |
+| 1 | **`--help` is a hardcoded 31-line string literal**, not generated. Registry declares ~100 commands. Missing: `teams`, (retired) `team hello` / `team preflight`, `help search/get/topics`, all `project` (11), `thread` (5), `skills` (5), `pending` (9), `stalled`, `floor show`, `spec`, `defaults`. | `AllnighterCLI.swift:1755+` `helpText()` |
+| 2 | **The completeness gate exists and is neutered by a ~70-command allowlist** — including the entire golden path. (Retired) `team hello` was excluded because it was *"surfaced via team hello"*. | `CLIHelpDriftTests.swift:10-48` |
 | 3 | **PO-F10 leaks on the answer path.** `runAnswer` has **no `workerOverride` parameter**; the call site never passes one. So for a non-mutating team, `--worker` is accepted, echoed into the idempotency payload, and **silently dropped**. The execution path enforces it correctly. | `RunService.swift:1715-1733` vs `:912-919`; enforced at `:1009-1015` |
 | 4 | **No free way to validate a `run`.** No `--dry-run`/`--preflight`/`--validate`; registry has only `run` + `run resume`. `team preflight` cannot substitute — it has **no `--worker` or `--project` flag**, the two things `run` requires. | `RunCLI.swift` flags; `ContractRegistry+Milestone1.swift:282-290` |
 | 5 | **No cwd→project for `run`**, though the pattern exists everywhere else (`team`, `ps`, `kill` all use `currentDirectoryPath`) and resolve-by-path already works. | `RunCLI.swift:44-46` vs `AllnighterCLI.swift:1172, 1338, 1542-1546` |
@@ -299,8 +305,8 @@ false-map problem.
 | **AE-S00 ✅ DONE (2026-07-20)** | **Steal the wheel — prior-art survey.** Executed: six vendor harnesses probed via `alln run --worker` on their own tool-selection layers; findings in §Vendor harness study above, and they reshaped this phase (new S12–S15, revised S01/S13). Remaining optional tail: the infra-CLI conventions below, now lower priority than the harness findings. One pass over CLIs that solved this decades ago, producing a decisions table we adopt rather than re-derive: **generation** (Swift ArgumentParser / clap / cobra / oclif — help, usage, completion and validation all rendered from one command declaration); **preflight/apply separation** (`terraform plan`, `kubectl --dry-run=server`, `rsync -n`, `apt --simulate`); **machine output** (`kubectl -o json`, `gh --json`, `git --porcelain`); **did-you-mean** (git, cargo, npm, kubectl); **context resolution** (git repo-root walk, docker context, terraform cwd); **first-run onboarding** (wrangler, vercel, gh auth). Separately survey the AI CLIs we orchestrate (`claude`, `codex`, `cursor-agent`, `opencode`) — their conventions are what agents already expect, so matching them removes surprise for free. Deliverable: a short table of "convention → do we match → adopt/reject + why," and every later slice cites it. |
 | **AE-S01 ✅ DONE** | **One declaration, many renderings — zero hand-written surface.** `ContractRegistry` is already the command tree; every rendering becomes a pure function of it. Delete the `helpText()` literal and render `alln --help` from the registry, grouped by family. Render `alln <cmd> --help` from that command's `CommandSpec` — which structurally kills the phantom-command bug (finding 12), because usage cannot be rendered for a spec that does not exist. Delete `excludedFromTopLevelHelp` entirely. Shell completion falls out for free once help is rendered. **Acceptance invariant: zero hand-written usage/help string literals in the codebase** — a grep gate, not a review habit. |
 | **AE-S12 ✅ DONE** | **Fail closed on unknown flags.** `Options` (`AllnighterCLI.swift:1912`) swallows unrecognized flags and exits 0. Validate every parsed flag against the resolved command's `FlagSpec` list; unknown flag → new `UNKNOWN_FLAG` error with nearest-match suggestions, exit non-zero. **Safety rationale, not ergonomics:** today `alln run "…" --dry-run` discards the flag and dispatches a real spending run. Until AE-S04 ships, every agent that assumes a standard safety flag is silently charged. Gate: table test — a bogus flag on every command exits non-zero. |
-| **AE-S13 ✅ DONE** | **Two-tier disclosure with a completeness guarantee** (the unanimous vendor pattern). `alln --help` lists **all 108 command names**, one line each, grouped by family, no flags — a few hundred tokens — and ends with an explicit completeness marker (`108 commands · alln docs <cmd> for schema · alln help search "<intent>" to find one`). Hydrate step: `alln docs <command> --schema`. Plus a single guaranteed machine front door, `alln commands --json`, emitting the full manifest (name, when-to-use trigger, args, examples, anti-examples) — `dev export-contracts` already produces this content; it just is not reachable as a first-class agent command. **The invariant that matters is not brevity, it is that incompleteness is never implied.** |
-| **AE-S14 ✅ DONE** | **Rename/alias the front door and rewrite its trigger text.** All six vendors independently rejected `hello`. Add `alln route --for` / `alln resolve --for` as first-class aliases (keep `team hello` working; `Team_Depth_Naming`/`Language_Cutover` own any hard rename). Rewrite the `ContractRegistry` summary from capability-shaped ("Intent phrase to route") to trigger-shaped: *"Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`."* Add intent-aware recovery to `models` and `teams` (ChatGPT's predicted wrong-entry path): a failed model lookup must point at the resolver, never end at "not found." |
+| **AE-S13 ✅ DONE** | **Two-tier disclosure with a completeness guarantee** (the unanimous vendor pattern). `alln --help` lists **all 108 command names**, one line each, grouped by family, no flags — a few hundred tokens — and ends with an explicit completeness marker (`108 commands · alln docs <cmd> for schema · alln help search "<intent>" to find one`). Hydrate step: `alln docs <command> --schema`. (The former machine manifest command `commands --json` is retired under `Menu_Not_Router.md`; use `alln menu --json`.) **The invariant that matters is not brevity, it is that incompleteness is never implied.** |
+| **AE-S14 ✅ DONE (superseded by Menu_Not_Router)** | Historical: vendors rejected `hello`; aliases `route`/`resolve` were added. **MR-S02 deleted the intent router and those aliases.** Selection front door is now `alln menu --json` — see `Menu_Not_Router.md`. |
 | **AE-S15 ✅ DONE** | **Description authoring standard, enforced.** Every `CommandSpec` summary carries, in this order: trigger phrased as a *situation*, one anti-example (`Do NOT use this when…`), and one worked invocation with real values. Ranked by the vendor study as the top-3 selection drivers; anti-examples are the cheapest unclaimed win. Gate: test asserting every M1 command's summary contains a trigger clause and an example — mechanical, since summaries live in the registry. |
 | **AE-S11 ✅ DONE** | **Make surface drift mechanically impossible to ship (the founder's SSOT ask).** Three parts. **(a) Widen the hash:** `contractHash` today is a SHA over contract version + sorted command *names* (`ContractRegistry.swift:47-51`), so adding a flag or changing a summary does **not** flip it. Hash the full canonical serialization — commands, flags, value types, summaries, errors, schemas — so *any* surface change flips it. **(b) Lock file:** check in `docs/generated/alln/contract.lock.json` = `{contractVersion, contractHash}` (the `package-lock`/`terraform.lock` pattern). **(c) Forced bump:** extend `alln dev export-contracts --check` (already in `check.sh` via ASF-S08) — if the computed hash differs from the lock and `contractVersion` was **not** bumped, fail with `CONTRACT_VERSION_NOT_BUMPED`. A surface change then cannot land without a version bump and regenerated artifacts. No discipline required; the build refuses. Also fix the number semantics: `contractVersion` is the **agent-facing compatibility number** (removing/renaming a command or flag = major, adding = minor), `binaryVersion` stays the human release label, `gitSha`/`buildTime` stay build identity. |
 | **AE-S02 ✅ DONE** | **Purge non-shipped teams from the catalog** (founder ruling, supersedes "hide behind `--lab`"). The production `TeamCatalog` contains **only shipped built-ins + the user's own customs** — never Team Lab artifacts. Delete the 14 `lab_*` entries and `code_core`; Team Lab writes champions to lab storage (`docs/team-lab/champions/`) and **never** into the product catalog, per `Team_Lab_Run_Factory.md`'s own law. Gate: catalog contains zero `isLabTeam` entries — enforced at the **write** path, not the read path, so no future lab run can reintroduce them. Match on `typeTags`, **not** id prefix (`code_core` displays as `Code Core · Lab` with no `lab_` prefix and would evade a prefix check). |
@@ -369,16 +375,14 @@ $B version --jsonn;                        test $? -ne 0 && echo OK || echo FAIL
 $B docs --errors | grep -q UNKNOWN_FLAG && echo OK
 
 # S13 — completeness guarantee
-$B --help | grep -cE '^\s+alln |^\s+[a-z]' # all 108 command names present
+$B --help | grep -cE '^\s+alln |^\s+[a-z]' # all command names present
 $B --help | tail -3                        # MUST carry an explicit completeness marker
-$B commands --json | /usr/bin/python3 -c 'import json,sys; print(len(json.load(sys.stdin)["commands"]))'
-# ^ 108; every entry carries trigger + args + example
+$B menu --json | /usr/bin/python3 -c 'import json,sys; m=json.load(sys.stdin); print(m["completeness"]["commands"]["count"])'
 
-# S14 — front door is findable under the words agents actually use
-for q in sonnet "ask a model" "which model" resolve intent; do
-  $B help search "$q" --json | grep -q 'team hello\|alln route' || echo "MISS: $q"
-done
-$B route --for "ask Sonnet 5 a question" --json   # alias resolves
+# S14 — front door is the live menu (router retired; see Menu_Not_Router.md)
+$B menu --json >/dev/null
+$B bootstrap | grep -q 'alln menu --json'
+$B help search run --json | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d.get("results"), list)'
 
 # S15 — description standard is enforced, not aspirational
 $B commands --json | /usr/bin/python3 -c '

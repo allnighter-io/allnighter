@@ -84,18 +84,21 @@ public enum HelpTopicRegistry {
             files) a short, paste-ready instruction block for a host agent's own context: \
             `~/.claude/CLAUDE.md` for Claude, `~/.cursor/rules/allnighter.mdc` for Cursor, \
             project AGENTS.md for Codex (no global Codex path in v1), or a host-neutral \
-            block when `--host` is omitted. The block teaches one reflex — \
-            `alln menu --json` (read-only, free; run \
-            `exact command from the menu` only when the user already authorized that work), plus \
-            `alln help search`/`alln help get` and `alln doctor --json`. Panel cockpit \
-            recipes stay in `help get panel`, not bootstrap. Marker-delimited with schema \
-            version + content hash so `alln doctor` can report teaching.installed. \
+            block when `--host` is omitted. The block teaches the four-rule live-menu \
+            reflex only: read `alln menu --json` before first use; choose from \
+            useWhen/dontUseWhen with canonical ids; run the validation template before \
+            unfamiliar worker-starting actions; re-read the live menu in a new session \
+            and never trust a pasted catalog. It does not embed models, teams, recipes, \
+            or command rows. Panel cockpit recipes stay in `help get panel`, not \
+            bootstrap. Marker-delimited with schema version + content hash so \
+            `alln doctor` can report teaching.installed. \
             `--json` returns `{ host, pasteTarget, snippet, binaryPath, onPath, recipes, recipesHelp }` \
             so an agent can install itself and discover intent-titled recipe cards \
             (`recipes[]` is id+title only; full markdown via `recipesHelp`).
 
             When unsure which verb to use (`run` vs `thread send` vs `pending`), \
-            call `alln menu --json` or read `alln help get tool_selection`.
+            call `alln menu --json` or `alln help search "<intent>" --json` for matching \
+            menu cards (no recommended winner).
 
             To rebuild this CLI from an Allnighter checkout: `swift build -c release --product alln`, \
             then `alln install-cli` (symlinks the workspace release build onto PATH). Confirm \

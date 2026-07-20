@@ -69,11 +69,11 @@ final class RetiredVocabularyTests: XCTestCase {
 
     func testHelpNextToolPlanEncodingsHaveNoToolKeyAndNoDenyTerms() throws {
         let envelopes: [any Encodable] = [
-            HelpProjector.search("team", limit: 5, contractVersion: "1.0.0"),
-            HelpProjector.search("asdfqwerty-no-such-topic-999", limit: 5, contractVersion: "1.0.0"),
-            HelpProjector.get(topic: "team_run_loop", contractVersion: "1.0.0"),
-            HelpProjector.get(topic: "totally-unknown-topic", contractVersion: "1.0.0"),
-            HelpProjector.topics(contractVersion: "1.0.0"),
+            HelpProjector.search("team", limit: 5, contractVersion: "2.1.0"),
+            HelpProjector.search("asdfqwerty-no-such-topic-999", limit: 5, contractVersion: "2.1.0"),
+            HelpProjector.get(topic: "team_run_loop", contractVersion: "2.1.0"),
+            HelpProjector.get(topic: "totally-unknown-topic", contractVersion: "2.1.0"),
+            HelpProjector.topics(contractVersion: "2.1.0"),
         ]
         for env in envelopes {
             let data = try CoreJSON.encode(env)
@@ -81,13 +81,14 @@ final class RetiredVocabularyTests: XCTestCase {
             assertNoToolKey(in: obj, path: "$")
         }
 
-        // nextToolPlan steps (agent-visible guidance) must not teach retired grammar.
-        // Topic aliases may still carry retired search terms — that is intentional.
+        // Search never emits nextToolPlan (MR-S05). Get/miss plans must not teach retired grammar.
+        let searchData = try CoreJSON.encode(HelpProjector.search("team", limit: 5, contractVersion: "2.1.0"))
+        let searchObj = try XCTUnwrap(JSONSerialization.jsonObject(with: searchData) as? [String: Any])
+        XCTAssertNil(searchObj["nextToolPlan"])
+
         let plans: [[HelpNextToolStep]] = [
-            HelpProjector.search("team", limit: 5, contractVersion: "1.0.0").nextToolPlan,
-            HelpProjector.search("asdfqwerty-no-such-topic-999", limit: 5, contractVersion: "1.0.0").nextToolPlan,
-            HelpProjector.get(topic: "team_run_loop", contractVersion: "1.0.0").nextToolPlan,
-            HelpProjector.get(topic: "totally-unknown-topic", contractVersion: "1.0.0").nextToolPlan,
+            HelpProjector.get(topic: "team_run_loop", contractVersion: "2.1.0").nextToolPlan,
+            HelpProjector.get(topic: "totally-unknown-topic", contractVersion: "2.1.0").nextToolPlan,
         ]
         for plan in plans {
             XCTAssertFalse(plan.isEmpty)

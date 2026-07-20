@@ -2,34 +2,32 @@ import CryptoKit
 import Foundation
 
 /// Marker-delimited teaching block for host-agent context files
-/// (`docs/archive/phases/Agent_Onboarding.md` Decision 4 + ONB-S01).
+/// (`docs/archive/phases/Agent_Onboarding.md` Decision 4 + ONB-S01;
+/// MR-S05 four-rule live-menu reflex).
 ///
 /// Pure Core SSOT: body text, schema version, content hash, wrap/unwrap.
 /// No filesystem writes — the CLI prints; the Mac app (ONB-S03) owns clicks.
 public enum TeachingSnippet {
     /// Marker schema version. Bump when the marker grammar or body contract changes.
-    public static let schemaVersion = 2
+    public static let schemaVersion = 3
 
     /// Open marker: `<!-- ALLNIGHTER:TEACHING v<N> hash=<hex> -->`
     public static let openMarkerPrefix = "<!-- ALLNIGHTER:TEACHING v"
     /// Close marker (exact).
     public static let closeMarker = "<!-- ALLNIGHTER:TEACHING:END -->"
 
-    /// Menu-first reflex (MR-S02). Full bootstrap rewrite is MR-S05; this slice
-    /// must not advertise deleted router/alias grammars.
-    public static let triggerLine =
-        "Allnighter coordinates the AI CLIs installed on this Mac. Before first spend in a session, read `alln menu --json`, choose from useWhen/dontUseWhen, and pass canonical ids only. Before an unfamiliar worker-starting action, run its validation template (usually `alln run --dry-run`). Never invent flags or substitute a requested worker by display name."
-
-    /// Short companions kept with the trigger (help search + doctor). Panel/Pilot
-    /// multi-line recipes stay out of bootstrap — see `help get panel`.
-    public static let companionLines = [
-        "- Find anything with `alln help search \"<query>\"`, then `alln help get <topic>`. Prefer `--json` envelopes.",
-        "- On errors follow the envelope; environment issues → `alln doctor --json`. Never guess flags.",
+    /// Four-rule live-menu reflex (Menu_Not_Router.md §Bootstrap teaches a reflex).
+    /// Protocol only — never embed models, teams, recipes, or command rows.
+    public static let reflexLines = [
+        "1. Before first Allnighter use in a session, read `alln menu --json`.",
+        "2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.",
+        "3. Before an unfamiliar worker-starting action, run its validation template.",
+        "4. Re-read the live menu in a new session; never trust a pasted catalog.",
     ]
 
     /// Canonical inner teaching body (hash input). No trailing newline.
     public static var body: String {
-        ([triggerLine] + companionLines).joined(separator: "\n")
+        reflexLines.joined(separator: "\n")
     }
 
     /// SHA256 hex of the canonical inner body UTF-8 bytes.

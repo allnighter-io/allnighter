@@ -45,12 +45,35 @@ public enum ModelListProjector {
                 headlessTrust: headlessTrust
             )
         }
+        // Selection identity/state share MenuCatalog records (MR-S05 / Law 2).
+        // Probe/capability fields stay on the domain Entry; enabled/ready/display
+        // align to the same menu rows `alln menu --json` exposes.
+        let menuModels = MenuCatalog.project(modelEntries: entries).models
+        let byId = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+        let reconciled: [ModelListJSON.Entry] = menuModels.compactMap { row in
+            guard let base = byId[row.id] else { return nil }
+            return ModelListJSON.Entry(
+                id: row.id,
+                displayName: row.displayName,
+                modelLabel: base.modelLabel,
+                driverId: row.driverId,
+                driverName: base.driverName,
+                role: base.role,
+                origin: base.origin,
+                enabled: row.enabled,
+                ready: row.ready,
+                status: base.status,
+                state: row.enabled ? "onBench" : "available",
+                capabilities: base.capabilities,
+                headlessTrust: base.headlessTrust
+            )
+        }
         var payload = ModelListJSON(
             contractVersion: ContractRegistry.contractVersion,
-            models: entries,
+            models: reconciled,
             diagnostics: diagnostics
         )
-        if entries.isEmpty {
+        if reconciled.isEmpty {
             let catalogCount = ModelCatalog.list(driverId: driverId).count
             let (counsel, nextActions) = AgentFrontDoor.emptyModelsCounsel(
                 benchOnly: benchOnly, driverId: driverId, catalogCount: catalogCount)

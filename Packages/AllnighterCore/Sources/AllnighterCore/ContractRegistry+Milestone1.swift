@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "2.0.1"
+    static let contractVersion = "2.1.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -884,11 +884,11 @@ public extension ContractRegistry {
         // Help System — the installed product guide. `alln help` answers usage; `alln
         // docs` stays the raw generated contract reference.
         CommandSpec(
-            "help search", summary: "Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan.", milestone: .m1,
+            "help search", summary: "Lexical retrieval over MenuCatalog — returns zero or many menu cards (no selected/confidence/recommended fields).", milestone: .m1,
             args: [ArgSpec("query", required: true, summary: "Natural-language question or keywords.")],
             flags: [
                 FlagSpec("limit", takesValue: true, valueType: "int", defaultValue: "5", summary: "Max results."),
-                FlagSpec("json", summary: "Emit a HelpSearchJSON object."),
+                FlagSpec("json", summary: "Emit a HelpSearchJSON object of menu cards."),
             ],
             outputSchema: .helpSearchJSON
         ),

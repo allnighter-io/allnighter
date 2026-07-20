@@ -1,8 +1,7 @@
 import XCTest
 @testable import AllnighterCore
 
-/// `alln bootstrap` — the activation surface that replaced `alln mcp install`
-/// (docs/phases/MCP_Retirement.md §Activation; ONB-S01 router reflex).
+/// `alln bootstrap` — activation surface (MR-S05 four-rule live-menu reflex).
 final class BootstrapTests: XCTestCase {
     private let sampleBinary = "/tmp/allnighter-build/alln"
 
@@ -30,20 +29,22 @@ final class BootstrapTests: XCTestCase {
         }
     }
 
-    // MARK: - v3 router reflex (ONB-S01)
+    // MARK: - MR-S05 four-rule reflex
 
-    func testSnippetTeachesRouterReflexAndAuthorizationLaw() {
+    func testSnippetTeachesFourRuleLiveMenuReflex() {
         let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
         XCTAssertTrue(s.contains("`alln` CLI"), "must name the CLI surface")
         XCTAssertTrue(s.contains("fallback: `\(sampleBinary)`"), "must carry binary fallback")
         XCTAssertTrue(s.contains("alln menu --json"), "must teach live menu")
-        XCTAssertTrue(s.contains("--json"), "must prefer structured envelopes")
-        XCTAssertTrue(s.contains("alln run --dry-run"), "must teach dry-run validation")
+        XCTAssertTrue(s.contains("useWhen"), "must teach useWhen")
+        XCTAssertTrue(s.contains("dontUseWhen"), "must teach dontUseWhen")
         XCTAssertTrue(s.contains("canonical ids"), "must teach exact-id dispatch")
-        XCTAssertTrue(s.contains("Never invent flags"), "must forbid invented grammar")
-        XCTAssertTrue(s.contains("alln help search"), "must teach help search")
-        XCTAssertTrue(s.contains("alln help get"), "must teach help get")
-        XCTAssertTrue(s.contains("alln doctor --json"), "must route environment failures to doctor")
+        XCTAssertTrue(s.contains("validation template"), "must teach validation twin")
+        XCTAssertTrue(s.contains("never trust a pasted catalog"), "must teach session re-read")
+        XCTAssertFalse(s.contains("team hello"))
+        XCTAssertFalse(s.contains("route --for"))
+        XCTAssertFalse(s.contains("resolve --for"))
+        XCTAssertFalse(s.contains("model_sonnet"), "must not embed catalog rows")
         XCTAssertTrue(s.contains(TeachingSnippet.openMarkerPrefix), "must wrap teaching in markers")
         XCTAssertTrue(s.contains(TeachingSnippet.closeMarker), "must close teaching markers")
         XCTAssertTrue(s.contains("hash=\(TeachingSnippet.contentHash)"), "marker must carry content hash")
@@ -64,7 +65,7 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains("plain `alln` works everywhere"))
     }
 
-    /// ONB-S01 size budget: clearly smaller than v2 (≤8 on-path; ≤10 with install line).
+    /// Four-rule body + markers stays compact.
     func testSnippetStaysWithinLineBudget() {
         let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
             .split(separator: "\n", omittingEmptySubsequences: false)

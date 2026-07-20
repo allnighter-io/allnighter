@@ -38,9 +38,10 @@ one's truth now lives.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Team_Catalog_Normalization.md`](../archive/Team_Catalog_Normalization.md) | **SHIPPED 2026-07-19, archived** (founder-approved; CN-S01–S06 + Law 4 guards landed) | Decisive normalized family list: obvious job names, optional Min/Default/Max tiers (Spec Review, Bug Hunt, Growth, Design), Law 3 caliber+capability staffing, Law 4 unique typeTags. The catalog in `BuiltInTeams.swift` now matches this doc. |
+| [`Menu_Not_Router.md`](Menu_Not_Router.md) | **Active** — MR-S01–S05; MR-S06 cold-agent proof next | Live `alln menu --json` owns discovery; caller chooses; no intent router. Code SSOT: `MenuCatalog`, `TeachingSnippet`, exact-id resolvers. |
 | [`Agent_Front_Door.md`](../archive/phases/Agent_Front_Door.md) | **SHIPPED, archived** (gate 1 — findable) | `install-cli` / `bootstrap` / no empty silence. Code SSOT: `InstallCLI.swift`, `Bootstrap.swift`. |
 | [`Agent_Onboarding.md`](../archive/phases/Agent_Onboarding.md) | **Complete 2026-07-20, archived** — ONB-S01–S03 (`b6083575` / `bd28ebf0` / `a732d234` / `99fb5778`); PARKED remain parked | From findable to suggested: Teach your CLIs + recipe cards + `teaching.installed` doctor. Code SSOT: `TeachingSnippet.swift`, `GlobalTeachingInstaller.swift`, `RecipeCatalog`. |
-| [`Agent_Intent_Router.md`](../archive/phases/Agent_Intent_Router.md) | **Complete 2026-07-19, archived** — IR-S00–S02 (`3d515ff0` / `aafb6ce6` / `df334af8`); PARKED remain parked | `alln team hello --for "<intent>"` routes to team/primitive + named worker + lifecycle bundle. Code SSOT: `AgentIntentRouter.swift`. |
+| [`Agent_Intent_Router.md`](../archive/phases/Agent_Intent_Router.md) | **TOMBSTONED** — superseded by `Menu_Not_Router.md` | Historical intent-router phase. Do not implement; selection truth is the live menu. |
 
 ### CLI spine & law SSOTs (living reference — keep, do not archive)
 

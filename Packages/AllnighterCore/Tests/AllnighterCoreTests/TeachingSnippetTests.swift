@@ -10,6 +10,24 @@ final class TeachingSnippetTests: XCTestCase {
         XCTAssertEqual(TeachingSnippet.contentHash, a)
     }
 
+    func testBodyIsFourRuleReflexOnly() {
+        XCTAssertEqual(TeachingSnippet.schemaVersion, 3)
+        XCTAssertEqual(TeachingSnippet.reflexLines.count, 4)
+        XCTAssertEqual(TeachingSnippet.body, TeachingSnippet.reflexLines.joined(separator: "\n"))
+        XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))
+        XCTAssertTrue(TeachingSnippet.body.contains("useWhen"))
+        XCTAssertTrue(TeachingSnippet.body.contains("dontUseWhen"))
+        XCTAssertTrue(TeachingSnippet.body.contains("validation template"))
+        XCTAssertTrue(TeachingSnippet.body.contains("never trust a pasted catalog"))
+        XCTAssertFalse(TeachingSnippet.body.contains("team hello"))
+        XCTAssertFalse(TeachingSnippet.body.contains("route --for"))
+        XCTAssertFalse(TeachingSnippet.body.contains("resolve --for"))
+        XCTAssertFalse(TeachingSnippet.body.contains("panel start"))
+        // No embedded catalog rows.
+        XCTAssertFalse(TeachingSnippet.body.contains("model_sonnet"))
+        XCTAssertFalse(TeachingSnippet.body.contains("code_growth"))
+    }
+
     func testWrapUnwrapRoundTrip() {
         let marked = TeachingSnippet.wrap()
         XCTAssertTrue(marked.hasPrefix(TeachingSnippet.openMarkerPrefix))
@@ -58,11 +76,5 @@ final class TeachingSnippetTests: XCTestCase {
     func testParseMalformedCloseOnly() {
         let text = "preamble\n\(TeachingSnippet.closeMarker)\n"
         XCTAssertEqual(TeachingSnippet.parse(text).state, .malformed)
-    }
-
-    func testBodyTeachesMenuNotPanel() {
-        XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))
-        XCTAssertTrue(TeachingSnippet.body.contains("alln run --dry-run"))
-        XCTAssertFalse(TeachingSnippet.body.contains("panel start"))
     }
 }
