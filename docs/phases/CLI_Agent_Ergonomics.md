@@ -83,7 +83,8 @@ whole class of downstream agent errors disappears at once — including agents
 | 8 | **`nextAction` is runnable but wrong.** Unknown team in preflight returns `blockedReason: "unknown team … run alln teams"` while `nextAction.command` says `alln doctor --json`. The machine field contradicts the prose. No "did you mean" for an id one token off. | live probe: `team preflight --team code_bug_hunt_typo` |
 | 9 | **Seat count disagrees with itself.** `teams` reports `workerCount: 3` for `code_bug_hunt_min`; `team preflight` resolves **4** ready workers (catalog count omits the lead row). | live probe; `TeamResolver.swift:233` |
 | 10 | **`--effort` does not change seat count** — agents reasonably assume "low = smaller/cheaper team" and pay full. | `TeamResolver.swift:98` |
-| 11 | **Two binaries at different SHAs in one workspace** (`.build/debug` at `791d591e`, installed at `ce65caf3`) — almost certainly the source of the false "silent spend" report. | live `--version` comparison |
+| 11 | **Two binaries at different SHAs in one workspace** (`.build/debug` at `791d591e`, installed at `ce65caf3`). ~~Almost certainly the source of the false "silent spend" report.~~ **Superseded 2026-07-20:** finding 14 is the better explanation. Still a real identity defect (AE-S08). | live `--version` comparison |
+| 14 | **Unknown flags are silently swallowed; exit 0.** No `UNKNOWN_FLAG` code exists in the source. `--totally-bogus-flag`, `--jsonn`, `--bogus-flag` all exit 0 with the flag discarded. **Safety consequence: `alln run "…" --dry-run` discards the flag and dispatches a real spending run** — a nonexistent safety flag is a live dispatch, which explains Agent 2's "accidental run while probing shapes" without needing the stale-binary theory. | `AllnighterCLI.swift:1912`; verified live |
 | 12 | **Phantom command: help invents a surface that does not exist.** `alln config --help` prints `usage: alln config` — implying the command is real — while `alln config` returns `unknown command: config`. The inverse of finding 1: where `--help` under-reports what exists, the `--help` *handler* over-reports it. Any `alln <anything> --help` likely fabricates a usage line. | Mentor 3 transcript |
 | 13 | **The catalog ships non-product.** 14 `lab_*` teams plus `code_core` are Team Lab artifacts living in the production `TeamCatalog`, violating `Team_Lab_Run_Factory.md` §"No silent champion flip into production TeamCatalog." Founder ruling 2026-07-20: **we do not have 31 teams — delete them.** | live `teams --lane code --json` |
 
@@ -98,6 +99,95 @@ whole class of downstream agent errors disappears at once — including agents
 | `team preflight --help` returns a JSON error | Prints proper usage, exit 0. |
 | `project --help` dumps root help | Prints correct subcommand usage. |
 | `team hello` dumps lab clones | Returns 3 teams, **zero** lab teams — it already calls the filter. |
+
+## Vendor harness study — AE-S00 executed 2026-07-20
+
+The same 7-question probe was sent to six vendor CLIs through `alln run --worker`
+(Opus 4.8, Grok 4.5, Cursor Composer 2.5, Gemini 3.5 Flash, GLM 5.2, ChatGPT 5.6
+Sol), each asked to introspect **its own tool-selection layer** — the mechanism
+by which a model picks the right capability from an unfamiliar surface with no
+human in the loop. Raw transcripts: session scratchpad `probe_*.json`.
+
+This is the prior art that matters. These harnesses solve *agent* capability
+selection at production scale; kubectl and terraform solve *human* ergonomics.
+
+**Unanimous findings (6/6, independently):**
+
+1. **`hello` is the wrong name.** Every vendor flagged it unprompted. "Reads as
+   a greeting/health-check" (Opus). "Anti-discoverable name for intent
+   resolution" (Grok). "Metaphorical — I would read it as onboarding,
+   connectivity testing, or greeting the configured team" (ChatGPT). A name that
+   misleads is worse than no name, because agents skip it *after* seeing it.
+2. **A partial list that does not announce its partiality is the root cause.**
+   "Under-disclosure doesn't produce hesitant agents. It produces confidently
+   wrong ones" (Opus). "Incomplete-but-confident docs cause false negatives more
+   than missing docs" (Grok). "I treat top-level listings as exhaustive unless
+   told otherwise" (Cursor).
+3. **The failure mode at scale is false absence, not wrong-tool.** "Recall
+   breaks first" (Opus). "Confident omission, not random thrashing" (Grok).
+   "False absence — 'this capability doesn't exist' — your 2/3 failure mode"
+   (Cursor, naming our exact bug unprompted).
+4. **Every harness solves scale with two-tier disclosure plus a completeness
+   guarantee** — a complete list of *names* (cheap) and a hydrate step for
+   schemas (on demand). Opus: *"the deferred list is complete. It is not 'the 19
+   most common of 40.' If a tool isn't listed, it does not exist, and I can rely
+   on that. `alln --help` breaks exactly this invariant."*
+5. **Trigger text phrased as a situation beats capability description.** Ranked
+   #1 or #2 by five of six. The winning shape is `Use when the user says X` /
+   `TRIGGER — whenever…`, not "Intent phrase to route."
+6. **Anti-examples are top-3 for every vendor and omitted by almost every CLI.**
+   "Do NOT use this when…" is the cheapest unclaimed win on the board.
+7. **Parameter schemas drive correct invocation, not selection** (5/6 explicit).
+   We have invested in schemas; selection is where we are thin.
+8. **The scale cliff is ~20–40 flat items.** Estimates: 20–30 (Opus), 15–40
+   (Grok), 20–40 (Cursor), ~15 (Gemini), 20–30 (GLM). **`alln` exposes 108.**
+   Opus adds the sharper variable: *near-neighbor density* beats raw count —
+   "fifteen tools that all sort of run something — `run`, `team run`,
+   `team start`, `pair`, `panel`, `serve` — is hard, and alln is that shape."
+9. **Errors must route, not report.** One-turn recovery = error naming the
+   nearest valid candidates + the exact next command. Worst possible outcome,
+   named independently by Opus and Grok: **silent success**.
+10. **Patience is ~2–3 discovery attempts**, then agents route around us to the
+    vendor CLI directly. Strategic framing (Opus): *"alln's competitor is not
+    another orchestrator. It's the vendor CLI one layer down, always installed,
+    always in PATH, needing zero discovery. You get about two commands of
+    patience before I route around you."*
+
+**Two predictions that landed:**
+
+- ChatGPT, without seeing Agent 2's transcript, predicted its exact path:
+  *"'Sonnet 5' sounds like model selection, so I would look under `models`, not
+  under the metaphorical `team hello`."* Agent 2 ran `alln models --json`,
+  found no Sonnet 5, and filed the false report. `models` must therefore carry
+  intent-aware recovery pointing at the resolver.
+- GLM explained the phantom-command class: *"Absence of evidence is not evidence
+  of absence to me — I pattern-match by default. If every CLI in my training
+  data has `init`, `status`, `list`, I will assume `alln init` exists unless
+  `--help` explicitly tells me otherwise."* Cursor confirmed finding 12 from the
+  other direction: *"I'll assume `config` exists because `config --help` printed
+  usage."*
+
+**Severe bug surfaced by the study (verified independently):** Opus found that
+`Options` (`AllnighterCLI.swift:1912`) **swallows every unknown flag** — no
+`UNKNOWN_FLAG` code exists anywhere in the source. Confirmed live:
+`alln teams --lane code --totally-bogus-flag`, `--jsonn`, and
+`alln version --bogus-flag` all exit **0**. Opus's assessment: *"the single
+worst property an agent-facing CLI can have… a wrong exit-0 manufactures false
+beliefs about behavior, which I then report to you as fact."*
+
+**This retires the stale-binary theory for Agent 2's accidental run.** Any
+safety flag an agent reasonably assumes exists — `--dry-run`, `--validate`,
+`--no-execute` — is today **silently discarded, and the run executes for real**.
+A nonexistent safety flag is not an error; it is a live dispatch. That is a P0
+safety defect independent of everything else in this phase.
+
+**Already-built halves the study identified:** `CLIUsage.usageTextForPrefix`
+(`CLIUsage.swift:53`) already projects command subtrees; `alln dev
+export-contracts` already emits the full 108-command manifest to
+`docs/generated/alln/alln-contract.json`; `HelpCLI.swift:50` already prints
+`did you mean:` from `closeMatches` — but wired to help *topics*, not commands.
+Opus's summary: *"The 108-entry registry is your deferred-tool list. You built
+it, then hid it behind a hand-written banner that shows a quarter of it."*
 
 ## Root patterns (why this recurs)
 
@@ -199,8 +289,13 @@ false-map problem.
 
 | Slice | Deliverable |
 | --- | --- |
-| **AE-S00** (P0, cheap, do first) | **Steal the wheel — prior-art survey before we design anything.** One pass over CLIs that solved this decades ago, producing a decisions table we adopt rather than re-derive: **generation** (Swift ArgumentParser / clap / cobra / oclif — help, usage, completion and validation all rendered from one command declaration); **preflight/apply separation** (`terraform plan`, `kubectl --dry-run=server`, `rsync -n`, `apt --simulate`); **machine output** (`kubectl -o json`, `gh --json`, `git --porcelain`); **did-you-mean** (git, cargo, npm, kubectl); **context resolution** (git repo-root walk, docker context, terraform cwd); **first-run onboarding** (wrangler, vercel, gh auth). Separately survey the AI CLIs we orchestrate (`claude`, `codex`, `cursor-agent`, `opencode`) — their conventions are what agents already expect, so matching them removes surprise for free. Deliverable: a short table of "convention → do we match → adopt/reject + why," and every later slice cites it. |
-| **AE-S01** (P0, cheap) | **`--help` generated from `ContractRegistry`.** Replace the hardcoded `helpText()` literal with a grouped rendering of every M1 command. Delete `excludedFromTopLevelHelp`; if a command is genuinely too niche for the banner, the group line must still name the family and the command that lists it. Gate: `testPrintHelpCoversContractRegistryCommands` runs with an **empty** allowlist. |
+| **AE-S00 ✅ DONE (2026-07-20)** | **Steal the wheel — prior-art survey.** Executed: six vendor harnesses probed via `alln run --worker` on their own tool-selection layers; findings in §Vendor harness study above, and they reshaped this phase (new S12–S15, revised S01/S13). Remaining optional tail: the infra-CLI conventions below, now lower priority than the harness findings. One pass over CLIs that solved this decades ago, producing a decisions table we adopt rather than re-derive: **generation** (Swift ArgumentParser / clap / cobra / oclif — help, usage, completion and validation all rendered from one command declaration); **preflight/apply separation** (`terraform plan`, `kubectl --dry-run=server`, `rsync -n`, `apt --simulate`); **machine output** (`kubectl -o json`, `gh --json`, `git --porcelain`); **did-you-mean** (git, cargo, npm, kubectl); **context resolution** (git repo-root walk, docker context, terraform cwd); **first-run onboarding** (wrangler, vercel, gh auth). Separately survey the AI CLIs we orchestrate (`claude`, `codex`, `cursor-agent`, `opencode`) — their conventions are what agents already expect, so matching them removes surprise for free. Deliverable: a short table of "convention → do we match → adopt/reject + why," and every later slice cites it. |
+| **AE-S01** (P0) | **One declaration, many renderings — zero hand-written surface.** `ContractRegistry` is already the command tree; every rendering becomes a pure function of it. Delete the `helpText()` literal and render `alln --help` from the registry, grouped by family. Render `alln <cmd> --help` from that command's `CommandSpec` — which structurally kills the phantom-command bug (finding 12), because usage cannot be rendered for a spec that does not exist. Delete `excludedFromTopLevelHelp` entirely. Shell completion falls out for free once help is rendered. **Acceptance invariant: zero hand-written usage/help string literals in the codebase** — a grep gate, not a review habit. |
+| **AE-S12** (P0, safety) | **Fail closed on unknown flags.** `Options` (`AllnighterCLI.swift:1912`) swallows unrecognized flags and exits 0. Validate every parsed flag against the resolved command's `FlagSpec` list; unknown flag → new `UNKNOWN_FLAG` error with nearest-match suggestions, exit non-zero. **Safety rationale, not ergonomics:** today `alln run "…" --dry-run` discards the flag and dispatches a real spending run. Until AE-S04 ships, every agent that assumes a standard safety flag is silently charged. Gate: table test — a bogus flag on every command exits non-zero. |
+| **AE-S13** (P0) | **Two-tier disclosure with a completeness guarantee** (the unanimous vendor pattern). `alln --help` lists **all 108 command names**, one line each, grouped by family, no flags — a few hundred tokens — and ends with an explicit completeness marker (`108 commands · alln docs <cmd> for schema · alln help search "<intent>" to find one`). Hydrate step: `alln docs <command> --schema`. Plus a single guaranteed machine front door, `alln commands --json`, emitting the full manifest (name, when-to-use trigger, args, examples, anti-examples) — `dev export-contracts` already produces this content; it just is not reachable as a first-class agent command. **The invariant that matters is not brevity, it is that incompleteness is never implied.** |
+| **AE-S14** (P0, cheap) | **Rename/alias the front door and rewrite its trigger text.** All six vendors independently rejected `hello`. Add `alln route --for` / `alln resolve --for` as first-class aliases (keep `team hello` working; `Team_Depth_Naming`/`Language_Cutover` own any hard rename). Rewrite the `ContractRegistry` summary from capability-shaped ("Intent phrase to route") to trigger-shaped: *"Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`."* Add intent-aware recovery to `models` and `teams` (ChatGPT's predicted wrong-entry path): a failed model lookup must point at the resolver, never end at "not found." |
+| **AE-S15** (P1) | **Description authoring standard, enforced.** Every `CommandSpec` summary carries, in this order: trigger phrased as a *situation*, one anti-example (`Do NOT use this when…`), and one worked invocation with real values. Ranked by the vendor study as the top-3 selection drivers; anti-examples are the cheapest unclaimed win. Gate: test asserting every M1 command's summary contains a trigger clause and an example — mechanical, since summaries live in the registry. |
+| **AE-S11** (P0, cheap) | **Make surface drift mechanically impossible to ship (the founder's SSOT ask).** Three parts. **(a) Widen the hash:** `contractHash` today is a SHA over contract version + sorted command *names* (`ContractRegistry.swift:47-51`), so adding a flag or changing a summary does **not** flip it. Hash the full canonical serialization — commands, flags, value types, summaries, errors, schemas — so *any* surface change flips it. **(b) Lock file:** check in `docs/generated/alln/contract.lock.json` = `{contractVersion, contractHash}` (the `package-lock`/`terraform.lock` pattern). **(c) Forced bump:** extend `alln dev export-contracts --check` (already in `check.sh` via ASF-S08) — if the computed hash differs from the lock and `contractVersion` was **not** bumped, fail with `CONTRACT_VERSION_NOT_BUMPED`. A surface change then cannot land without a version bump and regenerated artifacts. No discipline required; the build refuses. Also fix the number semantics: `contractVersion` is the **agent-facing compatibility number** (removing/renaming a command or flag = major, adding = minor), `binaryVersion` stays the human release label, `gitSha`/`buildTime` stay build identity. |
 | **AE-S02** (P0) | **Purge non-shipped teams from the catalog** (founder ruling, supersedes "hide behind `--lab`"). The production `TeamCatalog` contains **only shipped built-ins + the user's own customs** — never Team Lab artifacts. Delete the 14 `lab_*` entries and `code_core`; Team Lab writes champions to lab storage (`docs/team-lab/champions/`) and **never** into the product catalog, per `Team_Lab_Run_Factory.md`'s own law. Gate: catalog contains zero `isLabTeam` entries — enforced at the **write** path, not the read path, so no future lab run can reintroduce them. Match on `typeTags`, **not** id prefix (`code_core` displays as `Code Core · Lab` with no `lab_` prefix and would evade a prefix check). |
 | **AE-S03** (P0) | **Close the PO-F10 answer-path leak.** `runAnswer` accepts and honors `workerOverride`, or rejects `--worker` with `WORKER_NOT_AVAILABLE`. Accept-and-drop is banned. Route all explicit-identifier resolution through one choke point (Law 4). Gate: table test — for every command declaring an identifier flag, a bogus value exits non-zero and dispatches nothing. |
 | **AE-S04** (P1) | **`alln run --dry-run`.** Resolves project, worker, auth, mutating/shape, and write-lock; returns `canStart`, resolved worker + source counts, and `nextAction.command`; exit 0, no dispatch. Durable half: mark quota-spending commands in `ContractRegistry` and gate that **each one has a free twin** — so future spending verbs cannot ship without a preflight. |
