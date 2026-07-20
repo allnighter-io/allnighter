@@ -1,7 +1,7 @@
 # MR-S04 — Exact-id dispatch and one-shot repair
 
 Status: **complete**
-SSOT: `docs/phases/Menu_Not_Router.md` §MR-S04
+SSOT: `docs/archive/phases/Menu_Not_Router.md` §MR-S04
 
 ## Goal
 
@@ -23,4 +23,4 @@ swift test --package-path Packages/AllnighterCore --filter ExactIdResolver
 
 ## SSOT
 
-`docs/phases/Menu_Not_Router.md` — MR-S04
+`docs/archive/phases/Menu_Not_Router.md` — MR-S04

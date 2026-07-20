@@ -1,7 +1,7 @@
 # MR-S01 — Build the real menu
 
 Status: **complete**
-SSOT: `docs/phases/Menu_Not_Router.md` §Implementation slices MR-S01 + §The end-state interface
+SSOT: `docs/archive/phases/Menu_Not_Router.md` §Implementation slices MR-S01 + §The end-state interface
 
 ## Goal
 
@@ -25,7 +25,7 @@ Done when: menu --json encodes ≤32 KiB built-in fixture; unique refs; complete
 
 ## Read first
 
-- `docs/phases/Menu_Not_Router.md` (MR-S01 + end-state interface + compact field table)
+- `docs/archive/phases/Menu_Not_Router.md` (MR-S01 + end-state interface + compact field table)
 - `Packages/AllnighterCore/Sources/AllnighterCore/CommandsManifestJSON.swift` (projection pattern)
 - `Packages/AllnighterCore/Sources/AllnighterCore/CatalogJSON.swift` (team active/blocked)
 - `Packages/AllnighterCore/Sources/AllnighterCore/ContractRegistry.swift` (CommandSpec)
@@ -89,4 +89,4 @@ $B dev export-contracts --check
 
 ## SSOT
 
-`docs/phases/Menu_Not_Router.md` — MR-S01
+`docs/archive/phases/Menu_Not_Router.md` — MR-S01

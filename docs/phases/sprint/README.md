@@ -38,6 +38,13 @@ Each sprint file must fit on **one to two screens** and include:
 
 ## Active sprints
 
+### Menu Not Router (MR-S01–S06) — archived Complete 2026-07-20
+
+Sprint work orders moved to
+[`docs/archive/phases/sprint/menu-not-router/`](../../archive/phases/sprint/menu-not-router/).
+SSOT: archived [`Menu_Not_Router.md`](../../archive/phases/Menu_Not_Router.md).
+
+
 ### OpenCode driver (OC-S01)
 
 | Order | Doc | Status |

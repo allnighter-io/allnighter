@@ -27,8 +27,8 @@ validation template (`--dry-run`) before unfamiliar worker-starting actions.
 Never trust a pasted catalog across sessions. If `alln` isn't on PATH yet:
 `alln install-cli`. Paste-ready host context: `alln bootstrap`.
 
-Selection and discovery SSOT: `docs/phases/Menu_Not_Router.md` (router-era
-`team hello` / `route` / `resolve` are retired).
+Selection and discovery SSOT: `docs/archive/phases/Menu_Not_Router.md`
+(router-era `team hello` / `route` / `resolve` are retired).
 
 Core operating docs:
 

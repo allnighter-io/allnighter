@@ -1,13 +1,21 @@
 # Menu, Not Router — the caller is the brain; `alln` is the tool menu
 
-Status: **FINAL (v4, 2026-07-20) — READY FOR IMPLEMENTATION.**
-Founder-ordered clean replacement for the retired intent-router architecture.
-No users; this cut carries no migration, compatibility aliases/readers, or dead
-selection paths.
+Status: **Complete (archived 2026-07-20).** MR-S01–MR-S06 delivered.
+MR-S01 `2ef2ed43` · MR-S02 `e1519edd` · MR-S03 `e724595d` · MR-S04 `e2ab104f` ·
+MR-S05 `f0bd3e02` · MR-S06 `9fd50e19`. Code is SSOT; this doc is the historical
+law + proof packet. Selection truth is live `alln menu --json` + exact-id
+`alln run` (MenuCatalog + ContractRegistry).
 Owner: AllnighterCore (`ContractRegistry`, `MenuCatalog`, `TeamCatalog`,
 `ModelCatalog`, `RecipeCatalog`, error catalog) + AllnighterCLI (`menu`, `run`,
 `bootstrap`, help/search projections)
-Updated: 2026-07-20 (v3, final hardening pass)
+Updated: 2026-07-20 (archived).
+
+**Closeout (deslop/audit):** Harness + docs archive. Product code landed in
+MR-S01–S05; MR-S06 added `scripts/menu_not_router_eval.py` (mechanical
+pinned-binary matrix, not a live LLM eval) and suite entry
+`scripts/agent_eval.sh --suite menu-not-router`. Deslop CLEAN on harness hunks.
+Code Audit CLEAN for docs/harness closeout (no new product modules). BuildInfo
+gitSha freshness left untouched (file SHA pins the binary instead).
 
 Supersedes the selection architecture in archived `Agent_Intent_Router.md` and
 the `team hello` / `route` / `resolve` conclusions in
@@ -430,8 +438,9 @@ scripts/check.sh
 - Every worker-starting action declares effects and has a proven quota-free twin.
 - The permanent cold-agent matrix reaches the correct command or honest stop with
   zero wrong spends, writes, invented grammar, or loops.
-- Active routing/teaching docs point here; archived router material is visibly
-  tombstoned; generated contracts contain no retired grammar.
+- Active routing/teaching docs point at the archived phase (or code SSOT);
+  archived router material is visibly tombstoned; generated contracts contain no
+  retired grammar.
 
 ## Routing
 

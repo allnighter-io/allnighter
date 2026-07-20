@@ -1,7 +1,7 @@
 # MR-S02 — Clean-cut wrong and duplicate grammars
 
 Status: **complete**
-SSOT: `docs/phases/Menu_Not_Router.md` §MR-S02 + one-run-primitive ownership
+SSOT: `docs/archive/phases/Menu_Not_Router.md` §MR-S02 + one-run-primitive ownership
 
 ## Goal
 
@@ -54,4 +54,4 @@ $B dev export-contracts --check
 
 ## SSOT
 
-`docs/phases/Menu_Not_Router.md` — MR-S02
+`docs/archive/phases/Menu_Not_Router.md` — MR-S02

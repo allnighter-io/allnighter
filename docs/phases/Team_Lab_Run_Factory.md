@@ -128,7 +128,7 @@ Useful substrate already exists:
   `alln docs`, `alln doctor`, `alln help`).
 - Team lifecycle verbs: `alln run` / `alln run --detach`, `alln team status`,
   `alln team result`, `alln team cancel` (router-era `team hello` / `team start`
-  / `team preflight` are retired — see `Menu_Not_Router.md`).
+  / `team preflight` are retired — see archived `Menu_Not_Router.md`).
 - Catalog write/read verbs (live; not greenfield): `alln teams definition`,
   `alln teams edit`, `alln teams duplicate`, `alln teams show`,
   `alln teams set-default`, `alln teams delete`, `alln teams restore`;
@@ -147,7 +147,7 @@ Useful substrate already exists:
   events on stdout (progress on stderr). See `CLI_Product_Spine.md` and
   `CLI_Implementation_Contract.md`.
 - `TeamCatalog` and `SkillCatalog` own default Team and Skill definitions.
-- Agent front door: `alln bootstrap`, `alln menu --json` (`Menu_Not_Router.md`).
+- Agent front door: `alln bootstrap`, `alln menu --json` (archived `Menu_Not_Router.md`).
 - Depth rename already landed in Swift/catalog: bare `code_bug_hunt` is default
   send; Max is `code_bug_hunt_max` (`Team_Depth_Naming.md`). Lab artifacts that
   still hardcode `code_bug_hunt_lite` are **rot** (PRE-S0 / slice 1).

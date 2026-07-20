@@ -1,8 +1,8 @@
 # MR-S06 — Cold-agent proof
 
 Status: **done**
-SSOT: `docs/phases/Menu_Not_Router.md` §MR-S06 + Cold-agent acceptance matrix
-(after archive: `docs/archive/phases/Menu_Not_Router.md`)
+SSOT: `docs/archive/phases/Menu_Not_Router.md` §MR-S06 + Cold-agent acceptance matrix
+
 
 ## Goal
 
@@ -39,4 +39,4 @@ update `docs/phases/README.md` + archive README + routed references.
 
 ## SSOT
 
-`docs/phases/Menu_Not_Router.md` — MR-S06 + Done when
+`docs/archive/phases/Menu_Not_Router.md` — MR-S06 + Done when

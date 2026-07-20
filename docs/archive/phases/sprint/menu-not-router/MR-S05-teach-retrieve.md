@@ -1,7 +1,7 @@
 # MR-S05 — Teach and retrieve from the same truth
 
 Status: **complete**
-SSOT: `docs/phases/Menu_Not_Router.md` §MR-S05
+SSOT: `docs/archive/phases/Menu_Not_Router.md` §MR-S05
 
 ## Goal
 
@@ -22,4 +22,4 @@ $B help search run --json | /usr/bin/python3 -c 'import json,sys; d=json.load(sy
 
 ## SSOT
 
-`docs/phases/Menu_Not_Router.md` — MR-S05
+`docs/archive/phases/Menu_Not_Router.md` — MR-S05

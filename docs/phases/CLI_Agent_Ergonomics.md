@@ -2,7 +2,7 @@
 
 > **Note (2026-07-20, MR-S05):** Intent-router teaching (`team hello --for`,
 > `route --for`, `resolve --for`) is retired. Selection SSOT is
-> [`Menu_Not_Router.md`](Menu_Not_Router.md). Historical Mentor-3 narratives below
+> [`Menu_Not_Router.md`](../archive/phases/Menu_Not_Router.md). Historical Mentor-3 narratives below
 > describe the pre-menu front door and must not be re-implemented.
 
 Status: **Implementation Complete (2026-07-20) — pending deslop / code audit / archive.**
@@ -26,7 +26,7 @@ the origin of Laws 5/7/8) · `Team_Depth_Naming.md` (owns Min/bare/Max naming �
 **do not re-decide here**) · archived `Team_Catalog_Normalization.md` ·
 `Team_Lab_Run_Factory.md` (§"No silent champion flip into production
 TeamCatalog") · `Language_Cutover.md` (owns lane vocabulary) ·
-`Menu_Not_Router.md` (selection / menu / bootstrap teaching) ·
+archived `Menu_Not_Router.md` (selection / menu / bootstrap teaching) ·
 `docs/workflows/SSOT_Feature_Workflow.md` §Teaching Surface Rule
 
 ## What happened (and the finding that matters most)
@@ -53,7 +53,7 @@ the best thing we ship. It is simply **invisible from `alln --help`**.
 That is the whole thesis in one experiment: **we are not missing features, we
 are failing discovery.** Mentor 3 independently confirmed the mechanism —
 the bootstrap taught a front door that top-level help did not surface.
-(That router front door is now retired; see `Menu_Not_Router.md`.)
+(That router front door is now retired; see archived `Menu_Not_Router.md`.)
 
 The same pattern repeats across the feedback. Agent 2 accused the CLI of silent
 model substitution; we ship a recipe card literally titled
@@ -305,8 +305,8 @@ false-map problem.
 | **AE-S00 ✅ DONE (2026-07-20)** | **Steal the wheel — prior-art survey.** Executed: six vendor harnesses probed via `alln run --worker` on their own tool-selection layers; findings in §Vendor harness study above, and they reshaped this phase (new S12–S15, revised S01/S13). Remaining optional tail: the infra-CLI conventions below, now lower priority than the harness findings. One pass over CLIs that solved this decades ago, producing a decisions table we adopt rather than re-derive: **generation** (Swift ArgumentParser / clap / cobra / oclif — help, usage, completion and validation all rendered from one command declaration); **preflight/apply separation** (`terraform plan`, `kubectl --dry-run=server`, `rsync -n`, `apt --simulate`); **machine output** (`kubectl -o json`, `gh --json`, `git --porcelain`); **did-you-mean** (git, cargo, npm, kubectl); **context resolution** (git repo-root walk, docker context, terraform cwd); **first-run onboarding** (wrangler, vercel, gh auth). Separately survey the AI CLIs we orchestrate (`claude`, `codex`, `cursor-agent`, `opencode`) — their conventions are what agents already expect, so matching them removes surprise for free. Deliverable: a short table of "convention → do we match → adopt/reject + why," and every later slice cites it. |
 | **AE-S01 ✅ DONE** | **One declaration, many renderings — zero hand-written surface.** `ContractRegistry` is already the command tree; every rendering becomes a pure function of it. Delete the `helpText()` literal and render `alln --help` from the registry, grouped by family. Render `alln <cmd> --help` from that command's `CommandSpec` — which structurally kills the phantom-command bug (finding 12), because usage cannot be rendered for a spec that does not exist. Delete `excludedFromTopLevelHelp` entirely. Shell completion falls out for free once help is rendered. **Acceptance invariant: zero hand-written usage/help string literals in the codebase** — a grep gate, not a review habit. |
 | **AE-S12 ✅ DONE** | **Fail closed on unknown flags.** `Options` (`AllnighterCLI.swift:1912`) swallows unrecognized flags and exits 0. Validate every parsed flag against the resolved command's `FlagSpec` list; unknown flag → new `UNKNOWN_FLAG` error with nearest-match suggestions, exit non-zero. **Safety rationale, not ergonomics:** today `alln run "…" --dry-run` discards the flag and dispatches a real spending run. Until AE-S04 ships, every agent that assumes a standard safety flag is silently charged. Gate: table test — a bogus flag on every command exits non-zero. |
-| **AE-S13 ✅ DONE** | **Two-tier disclosure with a completeness guarantee** (the unanimous vendor pattern). `alln --help` lists **all 108 command names**, one line each, grouped by family, no flags — a few hundred tokens — and ends with an explicit completeness marker (`108 commands · alln docs <cmd> for schema · alln help search "<intent>" to find one`). Hydrate step: `alln docs <command> --schema`. (The former machine manifest command `commands --json` is retired under `Menu_Not_Router.md`; use `alln menu --json`.) **The invariant that matters is not brevity, it is that incompleteness is never implied.** |
-| **AE-S14 ✅ DONE (superseded by Menu_Not_Router)** | Historical: vendors rejected `hello`; aliases `route`/`resolve` were added. **MR-S02 deleted the intent router and those aliases.** Selection front door is now `alln menu --json` — see `Menu_Not_Router.md`. |
+| **AE-S13 ✅ DONE** | **Two-tier disclosure with a completeness guarantee** (the unanimous vendor pattern). `alln --help` lists **all 108 command names**, one line each, grouped by family, no flags — a few hundred tokens — and ends with an explicit completeness marker (`108 commands · alln docs <cmd> for schema · alln help search "<intent>" to find one`). Hydrate step: `alln docs <command> --schema`. (The former machine manifest command `commands --json` is retired under archived `Menu_Not_Router.md`; use `alln menu --json`.) **The invariant that matters is not brevity, it is that incompleteness is never implied.** |
+| **AE-S14 ✅ DONE (superseded by Menu_Not_Router)** | Historical: vendors rejected `hello`; aliases `route`/`resolve` were added. **MR-S02 deleted the intent router and those aliases.** Selection front door is now `alln menu --json` — see archived `Menu_Not_Router.md`. |
 | **AE-S15 ✅ DONE** | **Description authoring standard, enforced.** Every `CommandSpec` summary carries, in this order: trigger phrased as a *situation*, one anti-example (`Do NOT use this when…`), and one worked invocation with real values. Ranked by the vendor study as the top-3 selection drivers; anti-examples are the cheapest unclaimed win. Gate: test asserting every M1 command's summary contains a trigger clause and an example — mechanical, since summaries live in the registry. |
 | **AE-S11 ✅ DONE** | **Make surface drift mechanically impossible to ship (the founder's SSOT ask).** Three parts. **(a) Widen the hash:** `contractHash` today is a SHA over contract version + sorted command *names* (`ContractRegistry.swift:47-51`), so adding a flag or changing a summary does **not** flip it. Hash the full canonical serialization — commands, flags, value types, summaries, errors, schemas — so *any* surface change flips it. **(b) Lock file:** check in `docs/generated/alln/contract.lock.json` = `{contractVersion, contractHash}` (the `package-lock`/`terraform.lock` pattern). **(c) Forced bump:** extend `alln dev export-contracts --check` (already in `check.sh` via ASF-S08) — if the computed hash differs from the lock and `contractVersion` was **not** bumped, fail with `CONTRACT_VERSION_NOT_BUMPED`. A surface change then cannot land without a version bump and regenerated artifacts. No discipline required; the build refuses. Also fix the number semantics: `contractVersion` is the **agent-facing compatibility number** (removing/renaming a command or flag = major, adding = minor), `binaryVersion` stays the human release label, `gitSha`/`buildTime` stay build identity. |
 | **AE-S02 ✅ DONE** | **Purge non-shipped teams from the catalog** (founder ruling, supersedes "hide behind `--lab`"). The production `TeamCatalog` contains **only shipped built-ins + the user's own customs** — never Team Lab artifacts. Delete the 14 `lab_*` entries and `code_core`; Team Lab writes champions to lab storage (`docs/team-lab/champions/`) and **never** into the product catalog, per `Team_Lab_Run_Factory.md`'s own law. Gate: catalog contains zero `isLabTeam` entries — enforced at the **write** path, not the read path, so no future lab run can reintroduce them. Match on `typeTags`, **not** id prefix (`code_core` displays as `Code Core · Lab` with no `lab_` prefix and would evade a prefix check). |
@@ -316,7 +316,7 @@ false-map problem.
 | **AE-S06 ✅ DONE** | **Lane vocabulary + value-level deny-list.** Fix `build \| design \| copy` → `code \| design \| copy \| signal` at `ContractRegistry+Milestone1.swift:250, 285, 295` (vocabulary change coordinated with `Language_Cutover.md`). Durable half: extend ASF's `RetiredVocabulary` gate from **command names to enumerated flag values**, so generated docs can never again advertise a lane/effort/type that no longer exists. |
 | **AE-S07 ✅ DONE** | **Error quality: suggestions + next-action correctness.** Unknown-identifier errors carry top-3 near-matches (edit distance over the real catalog). `nextAction.command` must be the discovery command for the noun that failed (unknown team → `alln teams --lane <lane> --json`), never a generic `doctor`. Gate: for each `*_NOT_FOUND` / `*_NOT_AVAILABLE` error, assert `nextAction` is the matching discovery command. |
 | **AE-S08 ✅ DONE** | **Binary identity you cannot get wrong.** Add resolved binary path to `version --json` (gitSha/buildTime already shipped, ASF-S06). `doctor` compares the on-PATH binary's `gitSha` against workspace `HEAD` and emits `BINARY_STALE` with `alln install-cli` recovery. Motivation: this review found two binaries at different SHAs in one workspace, which produced a false P0 bug report. |
-| **AE-S09 ✅ DONE** | **Reproducible cold-agent evaluation.** A scripted harness (`scripts/agent_eval.sh` or a `docs/operations/` playbook) that pins a freshly built binary, records its `gitSha`, runs a fixed probe script, and captures the transcript. Future dogfood feedback is then attributable to a known SHA instead of an unknown binary. Prevents another review cycle spent refuting stale-binary claims. |
+| **AE-S09 ✅ DONE** | **Reproducible cold-agent evaluation.** A scripted harness (`scripts/agent_eval.sh --suite menu-not-router`) that pins a freshly built binary (SHA256 + version JSON), runs the mechanical cold-agent matrix, and captures the transcript. Future dogfood feedback is then attributable to a known SHA instead of an unknown binary. Prevents another review cycle spent refuting stale-binary claims. |
 | **AE-S10 ✅ DONE** | **Papercuts.** Reconcile `workerCount` (catalog, 3) with resolved seats (preflight, 4) — advertise one truth. Unknown command exits 2, not 0. `team list` accepted as an alias for `teams` (agents guess it; cheap, no contract churn). Surface `effortAffectsSeats: false` in preflight so "low = smaller team" dies mechanically (Law 7: a fact, not an estimate). |
 
 ## Execution order
@@ -379,7 +379,7 @@ $B --help | grep -cE '^\s+alln |^\s+[a-z]' # all command names present
 $B --help | tail -3                        # MUST carry an explicit completeness marker
 $B menu --json | /usr/bin/python3 -c 'import json,sys; m=json.load(sys.stdin); print(m["completeness"]["commands"]["count"])'
 
-# S14 — front door is the live menu (router retired; see Menu_Not_Router.md)
+# S14 — front door is the live menu (router retired; see archived Menu_Not_Router.md)
 $B menu --json >/dev/null
 $B bootstrap | grep -q 'alln menu --json'
 $B help search run --json | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d.get("results"), list)'
@@ -423,7 +423,7 @@ $B team list --json >/dev/null && echo OK          # alias for `teams`
 $B team preflight --team code_bug_hunt_min --json | grep -q effortAffectsSeats && echo OK
 
 # S09 — the regression harness for this whole phase
-scripts/agent_eval.sh   # re-runs the 1-of-3 measurement on a pinned gitSha;
+scripts/agent_eval.sh --suite menu-not-router  # pinned-binary mechanical matrix;
                         # target: 3 of 3 agents reach `run --dry-run` unaided
 
 scripts/check.sh   # empty help allowlist, spending-command twin gate, value deny-list,

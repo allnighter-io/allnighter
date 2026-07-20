@@ -1,7 +1,7 @@
 # MR-S03 — Make every row selection-grade
 
 Status: **complete**
-SSOT: `docs/phases/Menu_Not_Router.md` §MR-S03
+SSOT: `docs/archive/phases/Menu_Not_Router.md` §MR-S03
 
 ## Goal
 
@@ -21,4 +21,4 @@ $B menu --json | /usr/bin/python3 scripts/verify_menu_contract.py /dev/stdin \
 
 ## SSOT
 
-`docs/phases/Menu_Not_Router.md` — MR-S03
+`docs/archive/phases/Menu_Not_Router.md` — MR-S03

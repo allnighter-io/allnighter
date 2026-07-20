@@ -41,7 +41,8 @@ source; remaining leftovers were pure GUI-polish unless noted. Live successors
 | --- | --- | --- |
 | [Agent_Front_Door.md](Agent_Front_Door.md) | SHIPPED (gate 1 — findable) | `InstallCLI.swift`, `Bootstrap.swift` |
 | [Agent_Onboarding.md](Agent_Onboarding.md) | Complete 2026-07-20 — ONB-S01–S03 (`b6083575` / `bd28ebf0` / `a732d234` / `99fb5778`); PARKED remain parked | `TeachingSnippet.swift`, `TeachingInstalledCheck.swift`, `GlobalTeachingInstaller.swift`, `RecipeCatalog`; Mac Teach your CLIs / Use from your CLI; mechanical tests green; adversarial cold-agent battery = human/harness criterion |
-| [Agent_Intent_Router.md](Agent_Intent_Router.md) | Complete 2026-07-19 — IR-S00–S02 (`3d515ff0` / `aafb6ce6` / `df334af8`); PARKED remain parked | `AgentIntentRouter.swift`, `AgentHello.swift`; live works probe + 29/29 golden tests |
+| [Agent_Intent_Router.md](Agent_Intent_Router.md) | TOMBSTONED — superseded by Menu_Not_Router; IR-S00–S02 deleted under MR-S02 | Historical only; do not revive router |
+| [Menu_Not_Router.md](Menu_Not_Router.md) | Complete 2026-07-20 — MR-S01–S06 (`2ef2ed43` / `e1519edd` / `e724595d` / `e2ab104f` / `f0bd3e02` / `9fd50e19`) | `MenuCatalog`, `TeachingSnippet`, exact-id resolvers, `alln menu` / `alln run`; harness `scripts/agent_eval.sh --suite menu-not-router`; sprint archive `sprint/menu-not-router/` |
 | [CLI_Agent_Surface_Fidelity.md](CLI_Agent_Surface_Fidelity.md) | Complete 2026-07-20 — ASF-S00–S08 (`ddd6cc39` / `5b1f27ba` / `791d591e` / `02819c6b` / `ce65caf3`) | `HelpTopicRegistry`, `HelpDiscoveryIndex`, `RetiredVocabulary`, `BuildInfo`; help + nextActions CLI-only; check.sh deny-list + export-contracts |
 
 ### Team / catalog / model / run substrate — built

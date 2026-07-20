@@ -3,7 +3,7 @@
 > **TOMBSTONE (2026-07-20, MR-S05):** The intent router (`team hello --for`,
 > `route --for`, `resolve --for`, `AgentIntentRouter.swift`, `AgentHello.swift`)
 > is **retired**. Selection truth is the live menu — see
-> [`docs/phases/Menu_Not_Router.md`](../../phases/Menu_Not_Router.md).
+> [`docs/archive/phases/Menu_Not_Router.md`](Menu_Not_Router.md).
 > Do not implement, revive, or cite this doc as active SSOT. Historical IR-S00–S02
 > proof below is archival only.
 
@@ -14,10 +14,10 @@ Owner: ~~AllnighterCore (`AgentHello` + `AgentIntentRouter`)~~ — deleted.
 Updated: 2026-07-20 (tombstoned).
 
 Execution order: ~~archived `Run_Lifecycle_Reliability.md`~~ → ~~IR-S02~~ →
-~~archived `Agent_Onboarding.md`~~ → **`Menu_Not_Router.md`** (active).
+~~archived `Agent_Onboarding.md`~~ → archived **`Menu_Not_Router.md`** (Complete).
 
 **Closeout (deslop/audit):** Docs-only archive. Router code deleted in MR-S02.
-Successor selection SSOT: `Menu_Not_Router.md`.
+Successor selection SSOT: archived `Menu_Not_Router.md`.
 
 ## The gap (the third gate) — historical
 
@@ -27,7 +27,7 @@ An agent passes three gates before Allnighter gets used:
 2. **SUGGEST it** — a cold session reaches for it unprompted → archived
    `Agent_Onboarding.md` (Complete).
 3. **CHOOSE it** — given the user's intent, the **caller** reads `alln menu --json`
-   and picks from useWhen/dontUseWhen — **`Menu_Not_Router.md`** (replaces this doc).
+   and picks from useWhen/dontUseWhen — archived **`Menu_Not_Router.md`** (replaces this doc).
 
 ~~Today `alln team hello` is a **static readiness report**…~~ (deleted.)
 
