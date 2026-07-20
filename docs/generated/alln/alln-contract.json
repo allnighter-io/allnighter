@@ -34,6 +34,7 @@
       ],
       "name" : "docs",
       "outputSchema" : "contractDoc",
+      "spendsQuota" : false,
       "summary" : "Generated AI-facing command reference."
     },
     {
@@ -56,6 +57,7 @@
       ],
       "name" : "commands",
       "outputSchema" : "commandsManifestJSON",
+      "spendsQuota" : false,
       "summary" : "Full command manifest for agents (name, trigger, args, examples, anti-examples). Machine front door for discovery."
     },
     {
@@ -110,6 +112,7 @@
       ],
       "name" : "doctor",
       "outputSchema" : "doctorResult",
+      "spendsQuota" : false,
       "summary" : "Check sources, models, auth, and coordinator."
     },
     {
@@ -136,6 +139,7 @@
       ],
       "name" : "doctor explain",
       "outputSchema" : "errorExplainJSON",
+      "spendsQuota" : false,
       "summary" : "Explain one failure\/recovery code, bridged to the help topic that documents it."
     },
     {
@@ -164,6 +168,7 @@
       ],
       "name" : "bootstrap",
       "outputSchema" : "bootstrapJSON",
+      "spendsQuota" : false,
       "summary" : "Print a paste-ready agent-activation snippet for a host's context file (never edits files)."
     },
     {
@@ -186,6 +191,7 @@
       ],
       "name" : "version",
       "outputSchema" : "versionJSON",
+      "spendsQuota" : false,
       "summary" : "Print the running binary version and contract hash."
     },
     {
@@ -219,6 +225,7 @@
       ],
       "name" : "install-cli",
       "outputSchema" : "installCLIJSON",
+      "spendsQuota" : false,
       "summary" : "Symlink the running `alln` binary onto PATH (running the command is consent)."
     },
     {
@@ -252,6 +259,7 @@
       ],
       "name" : "models",
       "outputSchema" : "modelListJSON",
+      "spendsQuota" : false,
       "summary" : "List model catalog and Bench state. For natural-language model names (Sonnet, Grok), use `alln route --for` first — this list is catalog ids only."
     },
     {
@@ -278,6 +286,7 @@
       ],
       "name" : "models enable",
       "outputSchema" : "modelListJSON",
+      "spendsQuota" : false,
       "summary" : "Enable a model on the Bench."
     },
     {
@@ -304,6 +313,7 @@
       ],
       "name" : "models disable",
       "outputSchema" : "modelListJSON",
+      "spendsQuota" : false,
       "summary" : "Remove a model from the Bench."
     },
     {
@@ -355,6 +365,7 @@
       ],
       "name" : "models add",
       "outputSchema" : "modelListJSON",
+      "spendsQuota" : false,
       "summary" : "Add a custom model for a source."
     },
     {
@@ -399,6 +410,7 @@
       ],
       "name" : "models update",
       "outputSchema" : "modelListJSON",
+      "spendsQuota" : false,
       "summary" : "Update a custom model definition."
     },
     {
@@ -425,6 +437,7 @@
       ],
       "name" : "models delete",
       "outputSchema" : "modelListJSON",
+      "spendsQuota" : false,
       "summary" : "Delete a custom model definition."
     },
     {
@@ -453,6 +466,7 @@
       ],
       "name" : "team show",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Show the default team for each lane."
     },
     {
@@ -486,6 +500,7 @@
       ],
       "name" : "teams",
       "outputSchema" : "teamCatalogJSON",
+      "spendsQuota" : false,
       "summary" : "List the lane-scoped team catalog. Looking for a team by intent or name? Prefer `alln route --for` over guessing ids."
     },
     {
@@ -535,12 +550,14 @@
           "takesValue" : false
         }
       ],
+      "freeTwinCommand" : "alln route --for",
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
       ],
       "name" : "thread send",
       "outputSchema" : "none",
+      "spendsQuota" : true,
       "summary" : "Send a message and\/or images to a work thread."
     },
     {
@@ -567,6 +584,7 @@
       ],
       "name" : "thread get",
       "outputSchema" : "threadGetJSON",
+      "spendsQuota" : false,
       "summary" : "Fetch one work thread snapshot."
     },
     {
@@ -604,6 +622,7 @@
       ],
       "name" : "thread rename",
       "outputSchema" : "threadGetJSON",
+      "spendsQuota" : false,
       "summary" : "Rename a work thread (same SSOT as the inbox double-click rename)."
     },
     {
@@ -635,6 +654,7 @@
       ],
       "name" : "thread attachment",
       "outputSchema" : "threadAttachmentJSON",
+      "spendsQuota" : false,
       "summary" : "Fetch one thread attachment by id."
     },
     {
@@ -661,6 +681,7 @@
       ],
       "name" : "thread status",
       "outputSchema" : "threadStatus",
+      "spendsQuota" : false,
       "summary" : "Poll thread running\/attention state."
     },
     {
@@ -689,6 +710,7 @@
       ],
       "name" : "skills",
       "outputSchema" : "skillCatalogJSON",
+      "spendsQuota" : false,
       "summary" : "List the lane-scoped skill catalog."
     },
     {
@@ -715,6 +737,7 @@
       ],
       "name" : "skills show",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Show one skill definition including template."
     },
     {
@@ -741,6 +764,7 @@
       ],
       "name" : "teams show",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Show one team definition including worker rows."
     },
     {
@@ -767,6 +791,7 @@
       ],
       "name" : "teams definition",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Full TeamPreset JSON round-trippable through teams edit\/save."
     },
     {
@@ -799,6 +824,7 @@
       ],
       "name" : "teams duplicate",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Duplicate a built-in team into a custom team."
     },
     {
@@ -831,6 +857,7 @@
       ],
       "name" : "teams edit",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Edit a custom team definition (full replacement)."
     },
     {
@@ -857,6 +884,7 @@
       ],
       "name" : "teams set-default",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Set the default team for a lane."
     },
     {
@@ -883,6 +911,7 @@
       ],
       "name" : "teams delete",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Delete a custom team (or restore a built-in to shipped)."
     },
     {
@@ -909,6 +938,7 @@
       ],
       "name" : "teams restore",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Restore a built-in team to its shipped version (remove edits)."
     },
     {
@@ -941,6 +971,7 @@
       ],
       "name" : "skills duplicate",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Duplicate a built-in skill into a custom skill."
     },
     {
@@ -987,6 +1018,7 @@
       ],
       "name" : "skills new",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Create a custom skill."
     },
     {
@@ -1025,6 +1057,7 @@
       ],
       "name" : "skills edit",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Edit a custom skill definition."
     },
     {
@@ -1051,6 +1084,7 @@
       ],
       "name" : "skills delete",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Delete a custom skill."
     },
     {
@@ -1081,6 +1115,7 @@
       ],
       "name" : "team hello",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Omitting `--for` returns readiness + ready teams (quota-free).",
       "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it."
     },
@@ -1112,6 +1147,7 @@
       ],
       "name" : "route",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
       "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it."
     },
@@ -1143,6 +1179,7 @@
       ],
       "name" : "resolve",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Resolve a natural-language intent — including a model or vendor name — to a ready model plus a runnable command. USE THIS FIRST when you know what you want but not which `alln` command runs it. Examples: `--for \"ask Sonnet 5 a question\"`. Alias of `team hello --for`.",
       "trigger" : "USE THIS FIRST when you know what you want (including a model or vendor name) but not which `alln` command runs it."
     },
@@ -1185,6 +1222,7 @@
       ],
       "name" : "team preflight",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Validate lane\/team\/effort against the ready bench without running."
     },
     {
@@ -1265,12 +1303,14 @@
           "valueType" : "id"
         }
       ],
+      "freeTwinCommand" : "alln team preflight",
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
 
       ],
       "name" : "team start",
       "outputSchema" : "teamStartResponse",
+      "spendsQuota" : true,
       "summary" : "Start a resumable\/asynchronous team run."
     },
     {
@@ -1309,6 +1349,7 @@
       ],
       "name" : "team status",
       "outputSchema" : "teamStatusResponse",
+      "spendsQuota" : false,
       "summary" : "Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin)."
     },
     {
@@ -1335,6 +1376,7 @@
       ],
       "name" : "team result",
       "outputSchema" : "teamRunJSON",
+      "spendsQuota" : false,
       "summary" : "Fetch TeamRunJSON when an async run is terminal."
     },
     {
@@ -1361,6 +1403,7 @@
       ],
       "name" : "team cancel",
       "outputSchema" : "teamCancelResponse",
+      "spendsQuota" : false,
       "summary" : "Cancel an active async team run."
     },
     {
@@ -1392,6 +1435,7 @@
       ],
       "name" : "team reconcile",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Explicit ownership reconcile: identity-dead async runs are reaped (PG-kill recorded pgid when present) and stamped endReason=reconciledOrphan. An exact run-id may target any project; the bare sweep is scoped to the caller's canonical project root (fail closed on unresolved roots) — machine-wide only via the explicit --all-projects."
     },
     {
@@ -1419,6 +1463,7 @@
       ],
       "name" : "ps",
       "outputSchema" : "ownershipPsJSON",
+      "spendsQuota" : false,
       "summary" : "List the process trees Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing. Defaults to the caller's project scope; --all-projects is the explicit machine-wide fleet view."
     },
     {
@@ -1455,6 +1500,7 @@
       ],
       "name" : "kill",
       "outputSchema" : "ownershipKillJSON",
+      "spendsQuota" : false,
       "summary" : "Identity-checked total group kill of one owned tree (or --all identity-alive trees in the caller's project scope) and stamp endReason=killed. Refuses on identity mismatch (never signals a recycled pid). An exact id may target any project."
     },
     {
@@ -1482,6 +1528,7 @@
       ],
       "name" : "gc",
       "outputSchema" : "ownershipGarbageCollectionJSON",
+      "spendsQuota" : false,
       "summary" : "Prune old identity-dead terminal run\/relay records beyond retention. Keeps identity-alive, non-terminal, recent, and thread-referenced records."
     },
     {
@@ -1622,8 +1669,13 @@
           "valueType" : "id"
         },
         {
+          "name" : "dry-run",
+          "summary" : "Resolve project\/worker\/auth\/mutating\/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04).",
+          "takesValue" : false
+        },
+        {
           "name" : "json",
-          "summary" : "Emit TeamRunJSON.",
+          "summary" : "Emit TeamRunJSON (or RunDryRunJSON with --dry-run).",
           "takesValue" : false
         },
         {
@@ -1632,6 +1684,7 @@
           "takesValue" : false
         }
       ],
+      "freeTwinCommand" : "alln run --dry-run",
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
         [
@@ -1641,10 +1694,19 @@
         [
           "no-commit",
           "commit-message"
+        ],
+        [
+          "dry-run",
+          "stream"
+        ],
+        [
+          "dry-run",
+          "try-fix"
         ]
       ],
       "name" : "run",
       "outputSchema" : "teamRunJSON",
+      "spendsQuota" : true,
       "summary" : "Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.",
       "trigger" : "Use when the user wants one worker to answer or act in a project repo root (chat \/ named-model ask \/ Default Team)."
     },
@@ -1672,6 +1734,7 @@
       ],
       "name" : "run resume",
       "outputSchema" : "teamRunJSON",
+      "spendsQuota" : false,
       "summary" : "Resume a run parked on vendor capacity (same run id, in-process)."
     },
     {
@@ -1694,6 +1757,7 @@
       ],
       "name" : "continuity receipt",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Local observed-facts summary of vendor waits covered and automatic resumes (last 24h)."
     },
     {
@@ -1758,6 +1822,7 @@
       ],
       "name" : "pair relay",
       "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
       "summary" : "Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done\/escalate\/a ceiling."
     },
     {
@@ -1786,6 +1851,7 @@
       ],
       "name" : "pair relay-status",
       "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
       "summary" : "Read a PM Relay's durable state — rounds, verdicts, gate decisions."
     },
     {
@@ -1832,6 +1898,7 @@
       ],
       "name" : "pair relay-resume",
       "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
       "summary" : "Resume an escalated PM Relay with the founder's answer, then continue the loop."
     },
     {
@@ -1878,6 +1945,7 @@
       ],
       "name" : "pair relay adopt",
       "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
       "summary" : "Night-shift handover: converts a parked Pilot relay (awaitingPM or escalated) to a spawned PM relay and continues the loop from the durable round log."
     },
     {
@@ -1930,6 +1998,7 @@
       ],
       "name" : "pair pilot start",
       "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
       "summary" : "Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat + rails). Parks awaitingPM."
     },
     {
@@ -2003,6 +2072,7 @@
       ],
       "name" : "pair pilot handoff",
       "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
       "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim."
     },
     {
@@ -2031,6 +2101,7 @@
       ],
       "name" : "pair pilot status",
       "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
       "summary" : "Read a Pilot relay's durable state — rounds, verdicts, gate decisions, dirty-tree snapshots."
     },
     {
@@ -2059,6 +2130,7 @@
       ],
       "name" : "pair pilot watch",
       "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
       "summary" : "Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status)."
     },
     {
@@ -2087,6 +2159,7 @@
       ],
       "name" : "pair pilot adopt",
       "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
       "summary" : "Reverse flip: hands a parked spawned relay's PM seat to a piloting session (pmMode → external, status → awaitingPM). No dispatch."
     },
     {
@@ -2121,6 +2194,7 @@
       ],
       "name" : "pair pilot scaffold-handover",
       "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
       "summary" : "Write or re-emit a suggested PM handover markdown template for a relay round."
     },
     {
@@ -2173,6 +2247,7 @@
       ],
       "name" : "panel start",
       "outputSchema" : "panelJSON",
+      "spendsQuota" : false,
       "summary" : "Start a Panel session: session-led blind jury on any target. Parks awaitingPM with a resolved roster."
     },
     {
@@ -2218,6 +2293,7 @@
       ],
       "name" : "panel round",
       "outputSchema" : "panelRoundJSON",
+      "spendsQuota" : false,
       "summary" : "Dispatch one panel round (or a --seats subset rerun). Blocks; prints per-seat findings verbatim + statuses; NDJSON progress while running."
     },
     {
@@ -2246,6 +2322,7 @@
       ],
       "name" : "panel status",
       "outputSchema" : "panelJSON",
+      "spendsQuota" : false,
       "summary" : "Read a Panel session's durable state — roster, rounds, target hash, recovery nextActions when in flight."
     },
     {
@@ -2274,6 +2351,7 @@
       ],
       "name" : "panel watch",
       "outputSchema" : "panelJSON",
+      "spendsQuota" : false,
       "summary" : "Poll a Panel until its in-flight round settles back to awaitingPM (or a terminal status). Dead-owner → run panel watch (DX5)."
     },
     {
@@ -2308,6 +2386,7 @@
       ],
       "name" : "panel scaffold-brief",
       "outputSchema" : "panelJSON",
+      "spendsQuota" : false,
       "summary" : "Write or re-emit a suggested focus-brief template (rejection-carry + stance lines) for a panel round."
     },
     {
@@ -2342,6 +2421,7 @@
       ],
       "name" : "panel done",
       "outputSchema" : "panelJSON",
+      "spendsQuota" : false,
       "summary" : "Declare a Panel session done (session judgment only — never auto-converges). Optional survivors note."
     },
     {
@@ -2411,6 +2491,7 @@
           "takesValue" : false
         }
       ],
+      "freeTwinCommand" : "alln team preflight",
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
         [
@@ -2420,6 +2501,7 @@
       ],
       "name" : "team",
       "outputSchema" : "teamRunJSON",
+      "spendsQuota" : true,
       "summary" : "Run a lane team on a prompt, foreground."
     },
     {
@@ -2451,6 +2533,7 @@
       ],
       "name" : "show",
       "outputSchema" : "teamRunJSON",
+      "spendsQuota" : false,
       "summary" : "Show one run."
     },
     {
@@ -2477,6 +2560,7 @@
       ],
       "name" : "floor show",
       "outputSchema" : "floorRun",
+      "spendsQuota" : false,
       "summary" : "Show the inspectable Floor for one team run (worker lanes, artifacts, typed return, timeline, Execute requirements)."
     },
     {
@@ -2510,6 +2594,7 @@
       ],
       "name" : "spec",
       "outputSchema" : "specResult",
+      "spendsQuota" : false,
       "summary" : "Retrieve a run's spec\/result packet (summary|full|artifactRefsOnly)."
     },
     {
@@ -2538,6 +2623,7 @@
       ],
       "name" : "export",
       "outputSchema" : "markdown",
+      "spendsQuota" : false,
       "summary" : "Export a result bundle."
     },
     {
@@ -2564,6 +2650,7 @@
       ],
       "name" : "history",
       "outputSchema" : "historyJSON",
+      "spendsQuota" : false,
       "summary" : "Search prior team runs (read-only)."
     },
     {
@@ -2586,6 +2673,7 @@
       ],
       "name" : "dev export-contracts",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Regenerate or verify generated artifacts."
     },
     {
@@ -2613,6 +2701,7 @@
       ],
       "name" : "serve",
       "outputSchema" : "coordinatorHealth",
+      "spendsQuota" : false,
       "summary" : "Resident Mac coordinator (foreground skeleton)."
     },
     {
@@ -2680,6 +2769,7 @@
       ],
       "name" : "pending add",
       "outputSchema" : "pendingItemJSON",
+      "spendsQuota" : false,
       "summary" : "Create a Draft Pending item."
     },
     {
@@ -2702,6 +2792,7 @@
       ],
       "name" : "pending list",
       "outputSchema" : "pendingListJSON",
+      "spendsQuota" : false,
       "summary" : "List Pending items."
     },
     {
@@ -2724,6 +2815,7 @@
       ],
       "name" : "pending queue",
       "outputSchema" : "pendingQueueJSON",
+      "spendsQuota" : false,
       "summary" : "Render-ready Pending queue (armed items grouped by project, in order, headed by the running item) + total armed count for the pending pill."
     },
     {
@@ -2750,6 +2842,7 @@
       ],
       "name" : "pending show",
       "outputSchema" : "pendingItemJSON",
+      "spendsQuota" : false,
       "summary" : "Show one Pending item."
     },
     {
@@ -2776,6 +2869,7 @@
       ],
       "name" : "pending submit",
       "outputSchema" : "pendingItemJSON",
+      "spendsQuota" : false,
       "summary" : "Move a Draft item to Pending."
     },
     {
@@ -2844,6 +2938,7 @@
       ],
       "name" : "pending edit",
       "outputSchema" : "pendingItemJSON",
+      "spendsQuota" : false,
       "summary" : "Edit a Pending item (Pending returns to Draft)."
     },
     {
@@ -2888,6 +2983,7 @@
       ],
       "name" : "pending reorder",
       "outputSchema" : "pendingItemJSON",
+      "spendsQuota" : false,
       "summary" : "Reorder Pending items."
     },
     {
@@ -2914,6 +3010,7 @@
       ],
       "name" : "pending cancel",
       "outputSchema" : "pendingItemJSON",
+      "spendsQuota" : false,
       "summary" : "Cancel a Draft or Pending item."
     },
     {
@@ -2939,6 +3036,7 @@
           "takesValue" : false
         }
       ],
+      "freeTwinCommand" : "alln pending show",
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
         [
@@ -2948,6 +3046,7 @@
       ],
       "name" : "pending run",
       "outputSchema" : "pendingItemJSON",
+      "spendsQuota" : true,
       "summary" : "Run a Pending item now (manual attempt; no drain)."
     },
     {
@@ -2975,6 +3074,7 @@
       ],
       "name" : "project list",
       "outputSchema" : "projectListJSON",
+      "spendsQuota" : false,
       "summary" : "List projects (active by default; --all includes archived)."
     },
     {
@@ -3007,6 +3107,7 @@
       ],
       "name" : "project add",
       "outputSchema" : "projectJSON",
+      "spendsQuota" : false,
       "summary" : "Add (or return the existing) project for a local root. Idempotent on normalized root."
     },
     {
@@ -3033,6 +3134,7 @@
       ],
       "name" : "project show",
       "outputSchema" : "projectJSON",
+      "spendsQuota" : false,
       "summary" : "Show one project; re-observes root\/git so output reflects current truth."
     },
     {
@@ -3059,6 +3161,7 @@
       ],
       "name" : "project archive",
       "outputSchema" : "projectJSON",
+      "spendsQuota" : false,
       "summary" : "Archive a project (hides it; never deletes local files or threads)."
     },
     {
@@ -3085,6 +3188,7 @@
       ],
       "name" : "project unarchive",
       "outputSchema" : "projectJSON",
+      "spendsQuota" : false,
       "summary" : "Restore an archived project to the active roster."
     },
     {
@@ -3111,6 +3215,7 @@
       ],
       "name" : "project threads",
       "outputSchema" : "projectThreadsJSON",
+      "spendsQuota" : false,
       "summary" : "List the work threads bound to one project."
     },
     {
@@ -3137,6 +3242,7 @@
       ],
       "name" : "project pending",
       "outputSchema" : "projectPendingJSON",
+      "spendsQuota" : false,
       "summary" : "List the pending work bound to one project (a filtered view of the one Pending store)."
     },
     {
@@ -3168,6 +3274,7 @@
       ],
       "name" : "project stalled",
       "outputSchema" : "stallEpisodeListJSON",
+      "spendsQuota" : false,
       "summary" : "Read-only stalled-work episodes for one project."
     },
     {
@@ -3195,6 +3302,7 @@
       ],
       "name" : "stalled list",
       "outputSchema" : "stallListJSON",
+      "spendsQuota" : false,
       "summary" : "Aggregate stalled-work episodes grouped by project."
     },
     {
@@ -3221,6 +3329,7 @@
       ],
       "name" : "stalled check",
       "outputSchema" : "stallEpisodeJSON",
+      "spendsQuota" : false,
       "summary" : "Re-observe a stall episode's target; clears it if it progressed\/terminated."
     },
     {
@@ -3254,6 +3363,7 @@
       ],
       "name" : "stalled wait",
       "outputSchema" : "stallEpisodeJSON",
+      "spendsQuota" : false,
       "summary" : "Snooze a stall episode's attention for N minutes (default 30)."
     },
     {
@@ -3280,6 +3390,7 @@
       ],
       "name" : "stalled dismiss",
       "outputSchema" : "stallEpisodeJSON",
+      "spendsQuota" : false,
       "summary" : "Dismiss a stall episode (cleared, user-dismiss). Re-surfaces on the next scan if still stalled."
     },
     {
@@ -3306,6 +3417,7 @@
       ],
       "name" : "project context",
       "outputSchema" : "projectContextJSON",
+      "spendsQuota" : false,
       "summary" : "Generate the on-demand, source-labeled context packet for a project (a receipt, never durable truth)."
     },
     {
@@ -3332,6 +3444,7 @@
       ],
       "name" : "project workers",
       "outputSchema" : "projectWorkersJSON",
+      "spendsQuota" : false,
       "summary" : "Show cached per-project worker readiness (read-only; never probes)."
     },
     {
@@ -3358,6 +3471,7 @@
       ],
       "name" : "project recheck-workers",
       "outputSchema" : "projectWorkersJSON",
+      "spendsQuota" : false,
       "summary" : "Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config\/auth."
     },
     {
@@ -3380,6 +3494,7 @@
       ],
       "name" : "defaults show",
       "outputSchema" : "defaultSettingsJSON",
+      "spendsQuota" : false,
       "summary" : "Show the Default model: Auto's tier, the per-tier rosters, the unassigned shelf, and what Auto resolves to right now."
     },
     {
@@ -3406,6 +3521,7 @@
       ],
       "name" : "defaults tier",
       "outputSchema" : "defaultSettingsJSON",
+      "spendsQuota" : false,
       "summary" : "Set which tier Auto draws from (flagship|balanced|fast)."
     },
     {
@@ -3452,6 +3568,7 @@
       ],
       "name" : "defaults assign",
       "outputSchema" : "defaultSettingsJSON",
+      "spendsQuota" : false,
       "summary" : "Add a model to a tier (or move it within that tier). Membership is many-to-many — assigning to one tier never removes it from another."
     },
     {
@@ -3484,6 +3601,7 @@
       ],
       "name" : "defaults unassign",
       "outputSchema" : "defaultSettingsJSON",
+      "spendsQuota" : false,
       "summary" : "Remove a model from one tier (--tier) or from all tiers (default). Removing from every tier benches it from Auto & substitution."
     },
     {
@@ -3510,6 +3628,7 @@
       ],
       "name" : "defaults substitutions",
       "outputSchema" : "defaultSettingsJSON",
+      "spendsQuota" : false,
       "summary" : "Turn healthy substitutions on or off. ON: a down model falls back to a ready model on the same tier. OFF: Auto uses only the tier default and waits if it's down."
     },
     {
@@ -3532,6 +3651,7 @@
       ],
       "name" : "defaults reset",
       "outputSchema" : "defaultSettingsJSON",
+      "spendsQuota" : false,
       "summary" : "Restore the fresh-install tier seed and substitutions ON."
     },
     {
@@ -3554,6 +3674,7 @@
       ],
       "name" : "boost-window show",
       "outputSchema" : "boostWindowSettingsJSON",
+      "spendsQuota" : false,
       "summary" : "Show Boost window settings, derived seed\/reset times, provider rows, and display state."
     },
     {
@@ -3594,6 +3715,7 @@
       ],
       "name" : "boost-window set",
       "outputSchema" : "boostWindowSettingsJSON",
+      "spendsQuota" : false,
       "summary" : "Set Boost window master toggle, 5h window start, and applies-to sources."
     },
     {
@@ -3620,6 +3742,7 @@
       ],
       "name" : "boost-window seed",
       "outputSchema" : "utilizationSeedEventJSON",
+      "spendsQuota" : false,
       "summary" : "Force one Boost window seed for a configured source."
     },
     {
@@ -3648,6 +3771,7 @@
       ],
       "name" : "boost-window observations clear",
       "outputSchema" : "utilizationObservationsClearJSON",
+      "spendsQuota" : false,
       "summary" : "Clear local Boost window seed observations."
     },
     {
@@ -3681,6 +3805,7 @@
       ],
       "name" : "help search",
       "outputSchema" : "helpSearchJSON",
+      "spendsQuota" : false,
       "summary" : "Search the installed help for a product question; returns ranked topics, a suggested answer, and a next-tool plan."
     },
     {
@@ -3726,6 +3851,7 @@
       ],
       "name" : "help get",
       "outputSchema" : "helpGetJSON",
+      "spendsQuota" : false,
       "summary" : "Retrieve one help topic by id, alln:\/\/ ref, or --error. Unknown selectors return close matches + the sitemap."
     },
     {
@@ -3748,6 +3874,7 @@
       ],
       "name" : "help topics",
       "outputSchema" : "helpTopicsJSON",
+      "spendsQuota" : false,
       "summary" : "List the installed help topic sitemap + the help-first routing law."
     },
     {
@@ -3766,6 +3893,7 @@
       ],
       "name" : "pending stop",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Stop a running Pending item."
     },
     {
@@ -3784,10 +3912,11 @@
       ],
       "name" : "pair",
       "outputSchema" : "none",
+      "spendsQuota" : false,
       "summary" : "Approve iOS\/Mac pairing."
     }
   ],
-  "contractVersion" : "1.4.0",
+  "contractVersion" : "1.5.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

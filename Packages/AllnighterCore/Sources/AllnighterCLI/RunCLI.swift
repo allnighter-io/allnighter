@@ -28,7 +28,7 @@ enum RunCLI {
         let opts = Options(args)
         guard let message = opts.positional.first ?? opts.value("message") else {
             FileHandle.standardError.write(Data(
-                "usage: alln run \"<message>\" --project <id|path> [...]\n       alln run resume <runId> [--json]\n"
+                "usage: alln run \"<message>\" [--project <id|path>] [--dry-run] [...]\n       alln run resume <runId> [--json]\n"
                     .utf8))
             exit(2)
         }
@@ -39,6 +39,12 @@ enum RunCLI {
             FileHandle.standardError.write(Data(
                 "usage: --no-commit and --commit-message are mutually exclusive\n".utf8))
             exit(2)
+        }
+        if opts.flag("dry-run"), opts.flag("stream") {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--dry-run and --stream are mutually exclusive")
+        }
+        if opts.flag("dry-run"), opts.flag("try-fix") {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--dry-run and --try-fix are mutually exclusive")
         }
 
         guard let projectToken = opts.value("project") else {
@@ -56,6 +62,20 @@ enum RunCLI {
         let lane = opts.value("lane").flatMap(WorkLane.init(rawValue:))
         if let raw = opts.value("lane"), lane == nil {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "unknown lane: \(raw)")
+        }
+
+        if opts.flag("dry-run") {
+            await emitDryRun(
+                message: message,
+                project: project,
+                teamId: opts.value("team"),
+                workerId: opts.value("worker"),
+                effort: effort,
+                lane: lane,
+                type: opts.value("type"),
+                runtime: runtime
+            )
+            return
         }
 
         let idleParsed = parsePositiveTimeoutSeconds(opts.value("idle-timeout"), flag: "--idle-timeout")
@@ -158,6 +178,94 @@ enum RunCLI {
                 FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
             }
         }
+    }
+
+    /// AE-S04: resolve identifiers and return canStart + counts; never dispatch.
+    private static func emitDryRun(
+        message: String,
+        project: Project,
+        teamId: String?,
+        workerId: String?,
+        effort: EffortLevel?,
+        lane: WorkLane?,
+        type: String?,
+        runtime: ToolRuntime
+    ) async {
+        _ = message
+        var warnings: [String] = []
+        let presetId = teamId ?? TeamCatalog.defaultRunTeam()?.id
+        var args: [String: Any] = [:]
+        if let lane { args["lane"] = lane.rawValue }
+        if let presetId { args["team"] = presetId }
+        if let effort { args["effort"] = effort.rawValue }
+        if let type { args["type"] = type }
+        let preflight = AllnighterCLI.preflight(runtime, args: args)
+
+        var canStart = preflight.canStart
+        var blockedReason = preflight.blockedReason
+        var next = preflight.nextAction
+        warnings.append(contentsOf: preflight.warnings)
+
+        var resolvedWorker = workerId
+        if let workerId, !workerId.isEmpty {
+            let service = RunService(
+                models: runtime.models,
+                registry: runtime.registry,
+                teams: runtime.teams,
+                invocations: runtime.invocations
+            )
+            switch await service.resolveExplicitWorker(workerId) {
+            case .failure(let err):
+                canStart = false
+                blockedReason = err.description
+                next = AgentNextAction(
+                    kind: "listModels",
+                    label: "List models",
+                    command: "alln models --json")
+            case .success(let model):
+                resolvedWorker = model.id
+            }
+        }
+
+        let mutating = TeamCatalog.get(presetId ?? "")?.mutating
+            ?? TeamCatalog.defaultRunTeam()?.mutating
+            ?? false
+        var writeLockHeld: Bool?
+        if mutating {
+            let key = ExecutionLane.key(repoRoot: project.normalizedRootPath)
+            writeLockHeld = await RunWriteLockRegistry.shared.isHeld(key)
+            if writeLockHeld == true {
+                warnings.append("repo write lock is currently held")
+            }
+        }
+
+        let payload = RunDryRunJSON(
+            canStart: canStart,
+            blockedReason: blockedReason,
+            projectId: project.id,
+            projectRoot: project.normalizedRootPath,
+            teamPresetId: preflight.teamPresetId ?? presetId,
+            teamDisplayName: preflight.teamDisplayName,
+            workerId: resolvedWorker,
+            mutating: mutating,
+            lane: preflight.lane ?? lane?.rawValue,
+            counts: .init(
+                readyWorkers: preflight.readyWorkers.count,
+                blockedWorkers: preflight.blockedWorkers.count,
+                resolvedSourceIds: preflight.resolvedSourceIds.count,
+                seatCount: preflight.readyWorkers.count
+            ),
+            writeLockHeld: writeLockHeld,
+            warnings: warnings,
+            nextAction: canStart
+                ? AgentNextAction(
+                    kind: "startRun",
+                    label: "Run for real (spends quota)",
+                    command: "alln run \"<message>\" --project \(project.id) --json")
+                : next
+        )
+        print(AllnighterCLI.jsonString(payload))
+        // Dry-run always exits 0 — canStart carries the verdict (AE-S04).
     }
 
     /// `alln run resume <runId>` — claim a parked vendor wait and resume the

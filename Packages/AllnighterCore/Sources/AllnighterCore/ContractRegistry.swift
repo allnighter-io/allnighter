@@ -161,6 +161,10 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public var mutuallyExclusiveFlags: [[String]]
         public var outputSchema: OutputSchema
         public var exampleIds: [String]
+        /// AE-S04: true when invoking this command may spend model quota.
+        public var spendsQuota: Bool
+        /// Free twin invocation when `spendsQuota` (e.g. `alln run --dry-run`, `alln team preflight`).
+        public var freeTwinCommand: String?
         public init(
             _ name: String,
             summary: String,
@@ -172,13 +176,17 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
             flags: [FlagSpec] = [],
             mutuallyExclusiveFlags: [[String]] = [],
             outputSchema: OutputSchema = .none,
-            exampleIds: [String] = []
+            exampleIds: [String] = [],
+            spendsQuota: Bool = false,
+            freeTwinCommand: String? = nil
         ) {
             self.name = name; self.summary = summary; self.milestone = milestone
             self.trigger = trigger; self.example = example; self.antiExample = antiExample
             self.args = args; self.flags = flags
             self.mutuallyExclusiveFlags = mutuallyExclusiveFlags
             self.outputSchema = outputSchema; self.exampleIds = exampleIds
+            self.spendsQuota = spendsQuota
+            self.freeTwinCommand = freeTwinCommand
         }
     }
 

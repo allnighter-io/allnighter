@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 1.4.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 1.5.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -606,12 +606,17 @@ Flags:
 - `--try-fix` — Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.
 - `--executor <id>` — Mutating executor team id (default build_slice).
 - `--agent <id>` — Origin agent id for attribution (does not select the worker).
-- `--json` — Emit TeamRunJSON.
+- `--dry-run` — Resolve project/worker/auth/mutating/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04).
+- `--json` — Emit TeamRunJSON (or RunDryRunJSON with --dry-run).
 - `--stream` — Emit NDJSON events.
 
 Mutually exclusive: `--json`, `--stream`.
 
 Mutually exclusive: `--no-commit`, `--commit-message`.
+
+Mutually exclusive: `--dry-run`, `--stream`.
+
+Mutually exclusive: `--dry-run`, `--try-fix`.
 
 Output schema: `teamRunJSON`.
 

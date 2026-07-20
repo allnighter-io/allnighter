@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "1.4.0"
+    static let contractVersion = "1.5.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -160,7 +160,9 @@ public extension ContractRegistry {
                 FlagSpec("idempotency-key", takesValue: true, valueType: "string", summary: "Idempotency key (24h)."),
                 FlagSpec("json", summary: "Structured send result."),
             ],
-            exampleIds: ["thread_send_json"]
+            exampleIds: ["thread_send_json"],
+            spendsQuota: true,
+            freeTwinCommand: "alln route --for"
         ),
         CommandSpec(
             "thread get", summary: "Fetch one work thread snapshot.", milestone: .m1,
@@ -350,7 +352,9 @@ public extension ContractRegistry {
                 FlagSpec("thread-id", takesValue: true, valueType: "id", summary: "Owning work thread id."),
             ],
             outputSchema: .teamStartResponse,
-            exampleIds: ["team_start_json"]
+            exampleIds: ["team_start_json"],
+            spendsQuota: true,
+            freeTwinCommand: "alln team preflight"
         ),
         CommandSpec(
             "team status", summary: "Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).", milestone: .m1,
@@ -439,11 +443,15 @@ public extension ContractRegistry {
                 FlagSpec("try-fix", summary: "Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt."),
                 FlagSpec("executor", takesValue: true, valueType: "id", summary: "Mutating executor team id (default build_slice)."),
                 FlagSpec("agent", takesValue: true, valueType: "id", summary: "Origin agent id for attribution (does not select the worker)."),
-                FlagSpec("json", summary: "Emit TeamRunJSON."),
+                FlagSpec("dry-run", summary: "Resolve project/worker/auth/mutating/write-lock and return canStart + counts; exit 0, no dispatch (AE-S04)."),
+                FlagSpec("json", summary: "Emit TeamRunJSON (or RunDryRunJSON with --dry-run)."),
                 FlagSpec("stream", summary: "Emit NDJSON events."),
             ],
-            mutuallyExclusiveFlags: [["json", "stream"], ["no-commit", "commit-message"]],
-            outputSchema: .teamRunJSON
+            mutuallyExclusiveFlags: [["json", "stream"], ["no-commit", "commit-message"], ["dry-run", "stream"], ["dry-run", "try-fix"]],
+            outputSchema: .teamRunJSON,
+            exampleIds: [],
+            spendsQuota: true,
+            freeTwinCommand: "alln run --dry-run"
         ),
         CommandSpec(
             "run resume", summary: "Resume a run parked on vendor capacity (same run id, in-process).", milestone: .m1,
@@ -633,7 +641,9 @@ public extension ContractRegistry {
                 FlagSpec("stream", summary: "Emit NDJSON events."),
             ],
             mutuallyExclusiveFlags: [["json", "stream"]],
-            outputSchema: .teamRunJSON, exampleIds: ["team_basic", "team_json", "team_stream"]
+            outputSchema: .teamRunJSON, exampleIds: ["team_basic", "team_json", "team_stream"],
+            spendsQuota: true,
+            freeTwinCommand: "alln team preflight"
         ),
         CommandSpec(
             "show", summary: "Show one run.", milestone: .m1,
@@ -760,7 +770,9 @@ public extension ContractRegistry {
                 FlagSpec("stream", summary: "NDJSON attempt events (deferred until async attempts)."),
             ],
             mutuallyExclusiveFlags: [["json", "stream"]],
-            outputSchema: .pendingItemJSON
+            outputSchema: .pendingItemJSON,
+            spendsQuota: true,
+            freeTwinCommand: "alln pending show"
         ),
         // Project foundation (PRJ-S07). list/add/show/archive the local work
         // floors and read the threads/pending/context bound to one.

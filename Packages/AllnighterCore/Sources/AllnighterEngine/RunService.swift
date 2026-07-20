@@ -235,7 +235,7 @@ public actor RunService {
 
     /// PO-F10: honor an explicit worker id or fail with `WORKER_NOT_AVAILABLE`.
     /// Never returns a substitute model.
-    func resolveExplicitWorker(_ id: String) -> Result<Model, RunServiceError> {
+    public func resolveExplicitWorker(_ id: String) -> Result<Model, RunServiceError> {
         guard let m = models.first(where: { $0.id == id }) else {
             return .failure(.workerNotAvailable(
                 "unknown worker id \(id) — run `alln models enable <id>`, or pick a ready worker; see `alln models` / `alln doctor`."
