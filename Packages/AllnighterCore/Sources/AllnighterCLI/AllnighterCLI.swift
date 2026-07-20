@@ -690,7 +690,7 @@ struct AllnighterCLI {
             } else {
                 for t in visible {
                     let off = TeamVisibility.isEnabled(t.id) ? "" : "\t(inactive)"
-                    print("\(t.id)\t\(t.displayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\t\(t.workerSpecs.count) workers\(t.isDefaultForLane ? "\t(default)" : "")\(off)")
+                    print("\(t.id)\t\(t.displayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\t\(t.catalogSeatCount) seats\(t.isDefaultForLane ? "\t(default)" : "")\(off)")
                 }
             }
         }
@@ -794,7 +794,7 @@ struct AllnighterCLI {
         else { print(teamDefinitionJSONString(team)) }
     }
 
-    /// `alln teams show <team-id> [--json]` — one team including worker rows.
+    /// `alln teams show <team-id> [--json]` — one team with crew, scout, lead, seatCount.
     static func runTeamsShow(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
@@ -805,10 +805,22 @@ struct AllnighterCLI {
         }
         if opts.flag("json") { print(teamShowJSONString(team)) }
         else {
-            print("\(team.id)\t\(team.displayName)\t\(team.lane.rawValue)/\(team.outputKind.rawValue)")
-            for row in team.workerSpecs {
-                print("  \(row.id)\t\(row.skillId)\t\(row.purpose.rawValue)")
+            let show = TeamShowJSON.project(
+                team,
+                contractVersion: ContractRegistry.contractVersion,
+                origin: teamOrigin(team.id),
+                seedId: BuiltInTeams.team(team.id) != nil ? team.id : nil,
+                restoreAvailable: TeamCatalog.hasOverride(team.id),
+                isDefaultForRun: team.id == "default_chat"
+            )
+            print("\(show.id)\t\(show.displayName)\t\(show.lane)/\(show.outputKind)\t\(show.seatCount) seats")
+            if let scout = show.scout {
+                print("  scout\t\(scout.id)\t\(scout.skillId)\tcount \(scout.count)")
             }
+            for row in show.crew {
+                print("  crew\t\(row.id)\t\(row.skillId)\tcount \(row.count)\(row.triangulate ? "\ttriangulate" : "")")
+            }
+            print("  lead\t\(show.lead.skillId)\tcount \(show.lead.count)")
         }
     }
 
@@ -818,36 +830,11 @@ struct AllnighterCLI {
     }
 
     static func teamShowJSONString(_ team: TeamPreset) -> String {
-        struct WorkerRow: Encodable {
-            let id, skillId, purpose: String
-            let count: Int
-            let required: Bool
-        }
-        struct Detail: Encodable {
-            let schemaVersion = 1
-            let contractVersion: String
-            let id, displayName, lane, outputKind, defaultEffort: String
-            let builtIn, isDefaultForLane: Bool
-            let description: String
-            let workerSpecs: [WorkerRow]
-            // Edit-in-place metadata: where this effective team came from and whether a
-            // Restore (revert-to-shipped) is available.
-            let origin: String
-            let seedId: String?
-            let restoreAvailable: Bool
-            let isDefaultForRun: Bool
-        }
-        let rows = team.workerSpecs.map {
-            WorkerRow(id: $0.id, skillId: $0.skillId, purpose: $0.purpose.rawValue,
-                      count: $0.count, required: $0.required)
-        }
-        return jsonString(Detail(
+        jsonString(TeamShowJSON.project(
+            team,
             contractVersion: ContractRegistry.contractVersion,
-            id: team.id, displayName: team.displayName, lane: team.lane.rawValue,
-            outputKind: team.outputKind.rawValue, defaultEffort: team.defaultEffort.rawValue,
-            builtIn: team.builtIn, isDefaultForLane: team.isDefaultForLane,
-            description: team.description, workerSpecs: rows,
-            origin: teamOrigin(team.id), seedId: BuiltInTeams.team(team.id) != nil ? team.id : nil,
+            origin: teamOrigin(team.id),
+            seedId: BuiltInTeams.team(team.id) != nil ? team.id : nil,
             restoreAvailable: TeamCatalog.hasOverride(team.id),
             isDefaultForRun: team.id == "default_chat"
         ))

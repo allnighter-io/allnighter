@@ -56,7 +56,7 @@
         "outputKind" : {
           "type" : "string"
         },
-        "workerCount" : {
+        "seatCount" : {
           "type" : "integer"
         }
       },
@@ -69,7 +69,7 @@
         "mutating",
         "builtIn",
         "isDefaultForLane",
-        "workerCount",
+        "seatCount",
         "active"
       ],
       "type" : "object"

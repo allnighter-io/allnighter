@@ -300,13 +300,13 @@ Examples: `skills_show_json`.
 
 ### `alln teams show`
 
-Show one team definition including worker rows.
+Show one team with crew, optional scout, lead, and seatCount (not the round-trip manifest — use teams definition).
 
 Arguments:
 - `team-id` (required) — Team id.
 
 Flags:
-- `--json` — Structured team detail.
+- `--json` — Structured team detail with crew/scout/lead and seatCount.
 
 Examples: `teams_show_json`.
 

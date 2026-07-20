@@ -54,6 +54,11 @@ final class CatalogCLITests: XCTestCase {
         let json = AllnighterCLI.teamShowJSONString(team)
         XCTAssertTrue(json.contains(team.id))
         XCTAssertTrue(json.contains("WT Code Team"))
+        XCTAssertTrue(json.contains("\"seatCount\""))
+        XCTAssertTrue(json.contains("\"lead\""))
+        XCTAssertTrue(json.contains("\"crew\""))
+        XCTAssertFalse(json.contains("\"workerSpecs\""), "show is inspect projection, not definition")
+        XCTAssertFalse(json.contains("\"workerCount\""), "public workerCount retired (SH-S06)")
     }
 
     func testSkillsNewCreatesCustomSkill() throws {

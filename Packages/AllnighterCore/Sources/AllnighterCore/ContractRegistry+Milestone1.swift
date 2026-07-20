@@ -222,9 +222,9 @@ public extension ContractRegistry {
             exampleIds: ["skills_show_json"]
         ),
         CommandSpec(
-            "teams show", summary: "Show one team definition including worker rows.", milestone: .m1,
+            "teams show", summary: "Show one team with crew, optional scout, lead, and seatCount (not the round-trip manifest — use teams definition).", milestone: .m1,
             args: [ArgSpec("team-id", required: true, summary: "Team id.")],
-            flags: [FlagSpec("json", summary: "Structured team detail.")],
+            flags: [FlagSpec("json", summary: "Structured team detail with crew/scout/lead and seatCount.")],
             exampleIds: ["teams_show_json"]
         ),
         CommandSpec(

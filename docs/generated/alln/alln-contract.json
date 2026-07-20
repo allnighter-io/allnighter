@@ -1032,7 +1032,7 @@
       "flags" : [
         {
           "name" : "json",
-          "summary" : "Structured team detail.",
+          "summary" : "Structured team detail with crew\/scout\/lead and seatCount.",
           "takesValue" : false
         }
       ],
@@ -1044,7 +1044,7 @@
       "name" : "teams show",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Show one team definition including worker rows.",
+      "summary" : "Show one team with crew, optional scout, lead, and seatCount (not the round-trip manifest — use teams definition).",
       "visibility" : "public"
     },
     {

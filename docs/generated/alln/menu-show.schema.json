@@ -331,14 +331,14 @@
         "runTemplate" : {
           "type" : "string"
         },
+        "seatCount" : {
+          "type" : "integer"
+        },
         "shape" : {
           "type" : "string"
         },
         "validateTemplate" : {
           "type" : "string"
-        },
-        "workerCount" : {
-          "type" : "integer"
         }
       },
       "required" : [
@@ -350,7 +350,7 @@
         "outputKind",
         "shape",
         "mutating",
-        "workerCount",
+        "seatCount",
         "isDefault",
         "active",
         "runTemplate",

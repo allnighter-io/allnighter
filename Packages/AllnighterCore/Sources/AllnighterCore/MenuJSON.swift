@@ -41,7 +41,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         public var dontUseWhen: String
         public var shape: String
         public var mutating: Bool
-        public var workerCount: Int
+        public var seatCount: Int
         public var isDefault: Bool
         public var active: Bool
         public var blockedReason: String?
@@ -157,7 +157,7 @@ public struct MenuShowJSON: Codable, Sendable, Equatable {
         public var outputKind: String
         public var shape: String
         public var mutating: Bool
-        public var workerCount: Int
+        public var seatCount: Int
         public var isDefault: Bool
         public var active: Bool
         public var blockedReason: String?

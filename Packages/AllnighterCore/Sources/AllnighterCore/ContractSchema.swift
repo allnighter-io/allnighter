@@ -563,8 +563,8 @@ public enum ContractSchema {
             "TeamCatalogEntry": obj([
                 "id": str, "displayName": str, "lane": str, "outputKind": str, "defaultEffort": str,
                 "mutating": bool, "builtIn": bool, "isDefaultForLane": bool,
-                "workerCount": int, "active": bool, "disabledReason": nullable("string"),
-            ], required: ["id", "displayName", "lane", "outputKind", "defaultEffort", "mutating", "builtIn", "isDefaultForLane", "workerCount", "active"]),
+                "seatCount": int, "active": bool, "disabledReason": nullable("string"),
+            ], required: ["id", "displayName", "lane", "outputKind", "defaultEffort", "mutating", "builtIn", "isDefaultForLane", "seatCount", "active"]),
             "AgentSurfaceNextAction": agentSurfaceNextActionDef(),
         ]
         return schema
@@ -838,12 +838,12 @@ public enum ContractSchema {
             ], required: ["ref", "name", "effectsRef"]),
             "MenuTeam": obj([
                 "ref": str, "id": str, "displayName": str, "useWhen": str, "dontUseWhen": str,
-                "shape": str, "mutating": bool, "workerCount": int, "isDefault": bool,
+                "shape": str, "mutating": bool, "seatCount": int, "isDefault": bool,
                 "active": bool, "blockedReason": nullable("string"),
                 "runTemplate": str, "validateTemplate": str,
             ], required: [
                 "ref", "id", "displayName", "useWhen", "dontUseWhen", "shape", "mutating",
-                "workerCount", "isDefault", "active", "runTemplate", "validateTemplate",
+                "seatCount", "isDefault", "active", "runTemplate", "validateTemplate",
             ]),
             "MenuModel": obj([
                 "ref": str, "id": str, "displayName": str, "driverId": str,
@@ -918,12 +918,12 @@ public enum ContractSchema {
             "TeamDetail": obj([
                 "ref": str, "id": str, "displayName": str, "description": str,
                 "lane": str, "outputKind": str, "shape": str, "mutating": bool,
-                "workerCount": int, "isDefault": bool, "active": bool,
+                "seatCount": int, "isDefault": bool, "active": bool,
                 "blockedReason": nullable("string"),
                 "runTemplate": str, "validateTemplate": str, "purposeTags": arr(str),
             ], required: [
                 "ref", "id", "displayName", "description", "lane", "outputKind",
-                "shape", "mutating", "workerCount", "isDefault", "active",
+                "shape", "mutating", "seatCount", "isDefault", "active",
                 "runTemplate", "validateTemplate", "purposeTags",
             ]),
             "ModelDetail": obj([
