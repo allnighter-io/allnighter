@@ -1,7 +1,7 @@
 import XCTest
 @testable import AllnighterCore
 
-/// SH-S06 / Law 8: one seatCount across list, menu, show (and catalog owner).
+/// Law 8: one seatCount across list, menu, show (and catalog owner).
 final class SeatCountConsistencyTests: XCTestCase {
     func testBuiltInSeatCountMatchesListMenuShowAndProjectedSum() throws {
         let teams = BuiltInTeams.all.filter { !$0.isLabTeam }

@@ -142,13 +142,12 @@ public struct SkillCatalogJSON: Codable, Sendable, Equatable {
     }
 }
 
-
-// MARK: - teams show (SH-S06)
+// MARK: - teams show
 
 /// One-team inspection projection for `alln teams show --json`. Crew, optional
-/// scout, and lead are named with role / skill / count / models / capabilities /
-/// triangulation so callers need not open `teams definition` to understand size
-/// or staffing. `teams definition` remains the full round-trippable `TeamPreset`.
+/// scout, and lead carry role / skill / count / models / capabilities /
+/// triangulation so callers need not open `teams definition` for size or
+/// staffing. `teams definition` remains the full round-trippable `TeamPreset`.
 public struct TeamShowJSON: Codable, Sendable, Equatable {
     public struct CrewSeat: Codable, Sendable, Equatable {
         public var role: String

@@ -1,7 +1,7 @@
 import XCTest
 @testable import AllnighterCore
 
-/// SH-S06: `teams show` exposes crew, scout, lead — not crew-only workerSpecs.
+/// `teams show` exposes crew, scout, lead — not crew-only workerSpecs.
 final class TeamsShowTests: XCTestCase {
     func testBugHuntShowIncludesLeadCrewAndExactSeatCount() throws {
         let team = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
@@ -27,7 +27,6 @@ final class TeamsShowTests: XCTestCase {
         )
         XCTAssertEqual(show.seatCount, team.catalogSeatCount)
         XCTAssertEqual(show.projectedSeatSum, show.seatCount)
-        // Claim 9: list used to say 5 while show hid the lead — both now agree.
         XCTAssertEqual(show.seatCount, show.crew.reduce(0) { $0 + $1.count } + 1)
     }
 

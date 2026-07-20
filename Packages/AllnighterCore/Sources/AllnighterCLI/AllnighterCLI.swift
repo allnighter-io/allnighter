@@ -803,16 +803,10 @@ struct AllnighterCLI {
         guard let team = TeamCatalog.get(id) else {
             failUnknownTeam(id)
         }
-        if opts.flag("json") { print(teamShowJSONString(team)) }
-        else {
-            let show = TeamShowJSON.project(
-                team,
-                contractVersion: ContractRegistry.contractVersion,
-                origin: teamOrigin(team.id),
-                seedId: BuiltInTeams.team(team.id) != nil ? team.id : nil,
-                restoreAvailable: TeamCatalog.hasOverride(team.id),
-                isDefaultForRun: team.id == "default_chat"
-            )
+        let show = teamShowProjection(team)
+        if opts.flag("json") {
+            print(jsonString(show))
+        } else {
             print("\(show.id)\t\(show.displayName)\t\(show.lane)/\(show.outputKind)\t\(show.seatCount) seats")
             if let scout = show.scout {
                 print("  scout\t\(scout.id)\t\(scout.skillId)\tcount \(scout.count)")
@@ -830,14 +824,19 @@ struct AllnighterCLI {
     }
 
     static func teamShowJSONString(_ team: TeamPreset) -> String {
-        jsonString(TeamShowJSON.project(
+        jsonString(teamShowProjection(team))
+    }
+
+    /// Shared inspect projection for text and `--json` `teams show`.
+    static func teamShowProjection(_ team: TeamPreset) -> TeamShowJSON {
+        TeamShowJSON.project(
             team,
             contractVersion: ContractRegistry.contractVersion,
             origin: teamOrigin(team.id),
             seedId: BuiltInTeams.team(team.id) != nil ? team.id : nil,
             restoreAvailable: TeamCatalog.hasOverride(team.id),
             isDefaultForRun: team.id == "default_chat"
-        ))
+        )
     }
 
     /// Where the effective team came from: an unedited shipped team (`seed`), the user's

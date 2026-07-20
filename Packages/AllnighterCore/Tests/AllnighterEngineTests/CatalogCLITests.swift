@@ -58,7 +58,7 @@ final class CatalogCLITests: XCTestCase {
         XCTAssertTrue(json.contains("\"lead\""))
         XCTAssertTrue(json.contains("\"crew\""))
         XCTAssertFalse(json.contains("\"workerSpecs\""), "show is inspect projection, not definition")
-        XCTAssertFalse(json.contains("\"workerCount\""), "public workerCount retired (SH-S06)")
+        XCTAssertFalse(json.contains("\"workerCount\""), "public workerCount retired")
     }
 
     func testSkillsNewCreatesCustomSkill() throws {

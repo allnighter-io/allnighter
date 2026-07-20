@@ -339,10 +339,10 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
 
     public static let labTypeTag = "lab"
 
-    /// Advertised seat count for catalog/list/show/menu (SH-S06 / Law 8): scout
-    /// (0|1) + Σ crew-row `count` (row multiplicity) + Team Lead. Matches the
-    /// structural seats preflight expands when every row resolves. One truth;
-    /// do not re-derive at call sites. Public field name is `seatCount`.
+    /// Advertised seat count for catalog/list/show/menu (Law 8): scout (0|1) +
+    /// Σ crew-row `count` (row multiplicity) + Team Lead. Matches the structural
+    /// seats preflight expands when every row resolves. One truth; do not
+    /// re-derive at call sites. Public field name is `seatCount`.
     public var catalogSeatCount: Int {
         let scoutSeats = scout == nil ? 0 : 1
         let crewSeats = workerSpecs.reduce(0) { $0 + max(1, $1.count) }
