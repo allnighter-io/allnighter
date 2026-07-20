@@ -1,8 +1,8 @@
 import XCTest
 @testable import AllnighterCore
 
-/// SH-S04 — run flag constraints are honor-or-fail (Law 6).
-/// Registry owns mutual exclusion + requires/onlyWith; validation is not CLI-local.
+/// Run flag constraints are honor-or-fail (Law 6). Registry owns mutual exclusion
+/// plus requires/onlyWith; validation is not CLI-local.
 final class RunFlagConstraintTests: XCTestCase {
     private let registry = ContractRegistry.milestone1
 
@@ -10,7 +10,7 @@ final class RunFlagConstraintTests: XCTestCase {
         registry.commands.first { $0.name == "run" }!
     }
 
-    private func present(_ args: [String]) -> CLIUsage.FlagConstraintError? {
+    private func constraintError(for args: [String]) -> CLIUsage.FlagConstraintError? {
         CLIUsage.validateFlagConstraints(args: args, commandName: "run", registry: registry)
     }
 
@@ -60,7 +60,7 @@ final class RunFlagConstraintTests: XCTestCase {
 
     func testDetachOnlyIdsRejectedOutsideDetach() {
         for flag in ["thread-id", "conversation-id", "message-id"] {
-            let err = present(["probe", "--\(flag)", "x"])
+            let err = constraintError(for: ["probe", "--\(flag)", "x"])
             XCTAssertNotNil(err, flag)
             XCTAssertEqual(err?.subject, flag)
             XCTAssertTrue(err?.message.contains("--detach") == true, err?.message ?? "")
@@ -70,41 +70,43 @@ final class RunFlagConstraintTests: XCTestCase {
 
     func testDetachOnlyIdsAcceptedWithDetach() {
         for flag in ["thread-id", "conversation-id", "message-id"] {
-            XCTAssertNil(present(["probe", "--detach", "--\(flag)", "x", "--json"]), flag)
+            XCTAssertNil(constraintError(for: ["probe", "--detach", "--\(flag)", "x", "--json"]), flag)
         }
     }
 
     func testExecutorOnlyWithTryFix() {
-        let bad = present(["probe", "--executor", "build_slice"])
+        let bad = constraintError(for: ["probe", "--executor", "build_slice"])
         XCTAssertEqual(bad?.subject, "executor")
         XCTAssertTrue(bad?.message.contains("--try-fix") == true)
 
-        XCTAssertNil(present(["probe", "--try-fix", "--executor", "build_slice"]))
+        XCTAssertNil(constraintError(for: ["probe", "--try-fix", "--executor", "build_slice"]))
     }
 
     func testAcceptSurvivorsRequiresRetryOf() {
-        let bad = present(["probe", "--accept-survivors"])
+        let bad = constraintError(for: ["probe", "--accept-survivors"])
         XCTAssertEqual(bad?.subject, "accept-survivors")
         XCTAssertTrue(bad?.message.contains("--retry-of") == true)
 
-        XCTAssertNil(present(["probe", "--retry-of", "run_prior", "--accept-survivors"]))
+        XCTAssertNil(constraintError(for: ["probe", "--retry-of", "run_prior", "--accept-survivors"]))
     }
 
     func testDryRunStreamTryFixExclusions() {
-        XCTAssertNotNil(present(["probe", "--dry-run", "--stream"]))
-        XCTAssertTrue(present(["probe", "--dry-run", "--stream"])?.message.contains("mutually exclusive") == true)
+        let stream = constraintError(for: ["probe", "--dry-run", "--stream"])
+        XCTAssertNotNil(stream)
+        XCTAssertTrue(stream?.message.contains("mutually exclusive") == true)
 
-        XCTAssertNotNil(present(["probe", "--dry-run", "--try-fix"]))
-        XCTAssertTrue(present(["probe", "--dry-run", "--try-fix"])?.message.contains("mutually exclusive") == true)
+        let tryFix = constraintError(for: ["probe", "--dry-run", "--try-fix"])
+        XCTAssertNotNil(tryFix)
+        XCTAssertTrue(tryFix?.message.contains("mutually exclusive") == true)
     }
 
     func testDetachStreamTryFixExclusions() {
-        XCTAssertNotNil(present(["probe", "--detach", "--stream"]))
-        XCTAssertNotNil(present(["probe", "--detach", "--try-fix"]))
+        XCTAssertNotNil(constraintError(for: ["probe", "--detach", "--stream"]))
+        XCTAssertNotNil(constraintError(for: ["probe", "--detach", "--try-fix"]))
     }
 
     func testCommitFlagsExclusive() {
-        let err = present(["probe", "--no-commit", "--commit-message", "ship it"])
+        let err = constraintError(for: ["probe", "--no-commit", "--commit-message", "ship it"])
         XCTAssertNotNil(err)
         XCTAssertTrue(err?.message.contains("mutually exclusive") == true)
         XCTAssertTrue(err?.message.contains("--no-commit") == true)
@@ -112,56 +114,18 @@ final class RunFlagConstraintTests: XCTestCase {
     }
 
     func testJsonStreamExclusive() {
-        let err = present(["probe", "--json", "--stream"])
+        let err = constraintError(for: ["probe", "--json", "--stream"])
         XCTAssertNotNil(err)
         XCTAssertTrue(err?.message.contains("mutually exclusive") == true)
     }
 
-    /// Every declared run flag has at least one valid argv shape (or is a mode flag).
+    /// Every declared run flag has at least one valid argv shape.
     func testEveryDeclaredRunFlagHasValidMode() {
-        let modeFlags: Set<String> = ["dry-run", "detach", "stream", "try-fix"]
         var failures: [String] = []
         for flag in run.flags {
-            let name = flag.name
-            var args = ["probe"]
-            // Satisfy companion constraints first.
-            if let constraint = run.flagConstraints.first(where: { $0.subject == name }) {
-                for peer in constraint.peers { args.append("--\(peer)") }
-            }
-            if flag.takesValue {
-                args.append(contentsOf: ["--\(name)", "value"])
-            } else {
-                args.append("--\(name)")
-            }
-            // Avoid mutual-exclusion collisions with companions we added.
-            if name == "stream" {
-                args = ["probe", "--stream"]
-            } else if name == "try-fix" {
-                args = ["probe", "--try-fix"]
-            } else if name == "dry-run" {
-                args = ["probe", "--dry-run"]
-            } else if name == "detach" {
-                args = ["probe", "--detach"]
-            } else if name == "json" {
-                args = ["probe", "--json"]
-            } else if name == "no-commit" {
-                args = ["probe", "--no-commit"]
-            } else if name == "commit-message" {
-                args = ["probe", "--commit-message", "msg"]
-            } else if name == "accept-survivors" {
-                args = ["probe", "--retry-of", "run_x", "--accept-survivors"]
-            } else if ["thread-id", "conversation-id", "message-id"].contains(name) {
-                args = ["probe", "--detach", "--\(name)", "id"]
-            } else if name == "executor" {
-                args = ["probe", "--try-fix", "--executor", "build_slice"]
-            }
-
-            if let err = present(args) {
-                failures.append("\(name): \(err.message) — argv \(args)")
-            }
-            // Mode flags themselves are always valid alone.
-            if modeFlags.contains(name) {
-                XCTAssertNil(present(["probe", "--\(name)"]), name)
+            let args = validArgv(for: flag)
+            if let err = constraintError(for: args) {
+                failures.append("\(flag.name): \(err.message) — argv \(args)")
             }
         }
         XCTAssertTrue(failures.isEmpty, failures.joined(separator: "\n"))
@@ -187,8 +151,8 @@ final class RunFlagConstraintTests: XCTestCase {
             ["probe", "--stream", "--accept-survivors"],
         ]
         for args in invalid {
-            XCTAssertNotNil(present(args), "expected gate fail for \(args)")
-            // Unknown-flag gate must also stay clean so the constraint owns the reject.
+            XCTAssertNotNil(constraintError(for: args), "expected gate fail for \(args)")
+            // Constraint owns the reject; unknown-flag gate must stay clean.
             XCTAssertNil(CLIUsage.validateFlags(args: args, commandName: "run", registry: registry), "\(args)")
         }
     }
@@ -208,11 +172,38 @@ final class RunFlagConstraintTests: XCTestCase {
             ["probe", "--dry-run", "--worker", "model_sonnet", "--team", "code_bug_hunt", "--effort", "high"],
         ]
         for args in valid {
-            XCTAssertNil(present(args), "unexpected reject for \(args): \(present(args)?.message ?? "")")
+            let err = constraintError(for: args)
+            XCTAssertNil(err, "unexpected reject for \(args): \(err?.message ?? "")")
         }
     }
 
     func testUsageErrorExitClassIsTwo() {
         XCTAssertEqual(registry.processExitCode(forErrorCode: "CLI_USAGE_ERROR"), 2)
+    }
+
+    private func validArgv(for flag: ContractRegistry.FlagSpec) -> [String] {
+        switch flag.name {
+        case "stream", "try-fix", "dry-run", "detach", "json", "no-commit":
+            return ["probe", "--\(flag.name)"]
+        case "commit-message":
+            return ["probe", "--commit-message", "msg"]
+        case "accept-survivors":
+            return ["probe", "--retry-of", "run_x", "--accept-survivors"]
+        case "thread-id", "conversation-id", "message-id":
+            return ["probe", "--detach", "--\(flag.name)", "id"]
+        case "executor":
+            return ["probe", "--try-fix", "--executor", "build_slice"]
+        default:
+            var args = ["probe"]
+            if let constraint = run.flagConstraints.first(where: { $0.subject == flag.name }) {
+                for peer in constraint.peers { args.append("--\(peer)") }
+            }
+            if flag.takesValue {
+                args.append(contentsOf: ["--\(flag.name)", "value"])
+            } else {
+                args.append("--\(flag.name)")
+            }
+            return args
+        }
     }
 }

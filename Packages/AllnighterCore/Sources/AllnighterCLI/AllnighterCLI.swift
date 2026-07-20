@@ -22,8 +22,8 @@ struct AllnighterCLI {
             return
         }
 
-        // AE-S12: fail closed on unknown flags before any handler spends quota.
-        // SH-S04: registry mutual-exclusion / requires / onlyWith before dry-run/run.
+        // Fail closed on unknown flags and registry constraints before any handler
+        // spends quota or starts a provider.
         if let cmdName = CLIUsage.resolveCommandName(rootCommand: command, args: args) {
             if let bad = CLIUsage.validateFlags(args: args, commandName: cmdName) {
                 fail(code: "UNKNOWN_FLAG", message: bad.message)

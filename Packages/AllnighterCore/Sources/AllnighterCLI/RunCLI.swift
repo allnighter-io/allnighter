@@ -33,9 +33,8 @@ enum RunCLI {
             exit(2)
         }
 
-        // Flag mutual-exclusion / requires / onlyWith are owned by ContractRegistry
-        // and gated in `AllnighterCLI.main` via `CLIUsage.validateFlagConstraints`
-        // before this handler runs (SH-S04 / Law 6).
+        // Mutual-exclusion / requires / onlyWith live in ContractRegistry and are
+        // gated in `AllnighterCLI.main` via `CLIUsage.validateFlagConstraints`.
         let noCommit = opts.flag("no-commit")
         let commitMessage = opts.value("commit-message")
 

@@ -190,8 +190,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
     }
 
     func testValueFlagsSurviveInArgvTemplate() {
-        // Mode-scoped flags (executor / thread ids) are exercised in dedicated
-        // mode tests below — dry-run must not accept them without companions.
+        // Mode-scoped flags need companions; dry-run alone must not carry them.
         let dry = resolve(
             flags: .init(
                 workerId: "model_sonnet",

@@ -114,13 +114,13 @@ public enum CLIUsage {
         return nil
     }
 
-    /// Registry-owned flag mode / companion violations (SH-S04 / Law 6).
+    /// Registry-owned flag mode / companion violations (Law 6).
     /// Covers mutual-exclusion groups plus `requires` / `onlyWith` constraints.
     public struct FlagConstraintError: Equatable, Sendable {
-        public var commandName: String
-        public var message: String
-        public var subject: String?
-        public var peers: [String]
+        public let commandName: String
+        public let message: String
+        public let subject: String?
+        public let peers: [String]
 
         public init(commandName: String, message: String, subject: String? = nil, peers: [String] = []) {
             self.commandName = commandName

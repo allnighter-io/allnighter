@@ -405,13 +405,11 @@ public extension ContractRegistry {
                 ["detach", "try-fix"],
             ],
             flagConstraints: [
-                // Detach-only provenance ids (ignored outside --detach before SH-S04).
+                // Detach-only provenance ids.
                 FlagConstraint(.onlyWith, "thread-id", "detach"),
                 FlagConstraint(.onlyWith, "conversation-id", "detach"),
                 FlagConstraint(.onlyWith, "message-id", "detach"),
-                // Try-fix companion.
                 FlagConstraint(.onlyWith, "executor", "try-fix"),
-                // Retry companion.
                 FlagConstraint(.requires, "accept-survivors", "retry-of"),
             ],
             outputSchema: .teamRunJSON,

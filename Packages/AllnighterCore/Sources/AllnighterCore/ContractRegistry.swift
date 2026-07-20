@@ -262,7 +262,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         }
     }
 
-    /// Mode / companion requirements beyond mutual exclusion (SH-S04 / Law 6).
+    /// Mode / companion requirements beyond mutual exclusion (Law 6).
     /// `mutuallyExclusiveFlags` stays the exclusive-group owner; this owns
     /// `requires` (all companions) and `onlyWith` (at least one companion).
     public struct FlagConstraint: Codable, Sendable, Equatable {
@@ -273,9 +273,9 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
             case onlyWith
         }
 
-        public var kind: Kind
-        public var subject: String
-        public var peers: [String]
+        public let kind: Kind
+        public let subject: String
+        public let peers: [String]
 
         public init(_ kind: Kind, _ subject: String, _ peers: [String]) {
             self.kind = kind
@@ -301,7 +301,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         public var args: [ArgSpec]
         public var flags: [FlagSpec]
         public var mutuallyExclusiveFlags: [[String]]
-        /// Companion / mode requirements (`requires`, `onlyWith`). SH-S04.
+        /// Companion / mode requirements (`requires`, `onlyWith`).
         public var flagConstraints: [FlagConstraint]
         public var outputSchema: OutputSchema
         public var exampleIds: [String]
@@ -354,7 +354,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         }
 
         /// Tolerant decode: pre-1.7.0 artifacts without visibility/menuAction/effects
-        /// read as public / false / inferred; pre-SH-S04 without `flagConstraints` → [].
+        /// read as public / false / inferred; missing `flagConstraints` → [].
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             name = try c.decode(String.self, forKey: .name)
