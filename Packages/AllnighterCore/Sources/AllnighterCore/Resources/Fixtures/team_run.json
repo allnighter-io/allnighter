@@ -44,6 +44,8 @@
       "workerId": "model_sonnet#0",
       "modelId": "model_sonnet",
       "status": "done",
+      "queueMs": 1000,
+      "ttftMs": 500,
       "durationMs": 4000,
       "markdown": null,
       "error": null
@@ -66,10 +68,11 @@
   "outcome": {
     "status": "completed",
     "committed": false,
-    "headline": "worker model_sonnet · lane code · mutating",
+    "headline": "worker model_sonnet · lane code · mutating · queue 1000ms · ttft 500ms · duration 4000ms · wall 5000ms",
     "commitMessageMatched": null,
     "proof": null,
-    "usage": null
+    "usage": null,
+    "timing": { "wallMs": 5000 }
   },
   "usage": { "cliCalls": 1 },
   "warnings": [],

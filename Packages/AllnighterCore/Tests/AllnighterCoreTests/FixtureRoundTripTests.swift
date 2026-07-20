@@ -133,6 +133,29 @@ final class FixtureRoundTripTests: XCTestCase {
 
         // nextActions.kind is a closed enum (registry-owned at step 2).
         XCTAssertEqual(trj.nextActions.map(\.kind), [.showRun, .export])
+
+        // SH-S08 — exact observed timing on the one-worker fixture.
+        let answerRow = try XCTUnwrap(trj.workerAnswers.first)
+        XCTAssertEqual(answerRow.queueMs, 1000)
+        XCTAssertEqual(answerRow.ttftMs, 500)
+        XCTAssertEqual(answerRow.durationMs, 4000)
+        XCTAssertEqual(trj.outcome?.timing?.wallMs, 5000)
+        XCTAssertEqual(
+            trj.outcome?.headline,
+            "worker model_sonnet · lane code · mutating · queue 1000ms · ttft 500ms · duration 4000ms · wall 5000ms"
+        )
+    }
+
+    /// SH-S08: generated teaching surfaces must not use estimate vocabulary.
+    /// SH-S08: generated teaching surfaces must not use estimate vocabulary.
+    func testObservedTimingDocsOmitEstimateVocabulary() {
+        let md = ContractDocs.markdown().lowercased()
+        XCTAssertFalse(md.contains("estimate"), "ContractDocs leaked estimate vocabulary")
+        XCTAssertFalse(md.contains("estimated"), "ContractDocs leaked estimated vocabulary")
+        XCTAssertTrue(md.contains("queuems"), "docs must name queueMs")
+        XCTAssertTrue(md.contains("ttftms"), "docs must name ttftMs")
+        XCTAssertTrue(md.contains("wallms") || md.contains("wall ms"), "docs must name wallMs")
+        XCTAssertFalse(md.contains("alln overhead"))
     }
 
     /// SH-S02 envelope budget: one-worker terminal overhead stays within the

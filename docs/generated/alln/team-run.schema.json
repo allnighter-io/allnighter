@@ -75,6 +75,12 @@
             "null"
           ]
         },
+        "queueMs" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
         "status" : {
           "enum" : [
             "queued",
@@ -87,6 +93,12 @@
             "interrupted"
           ],
           "type" : "string"
+        },
+        "ttftMs" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
         },
         "workerId" : {
           "type" : "string"
@@ -621,6 +633,16 @@
           ],
           "type" : "string"
         },
+        "timing" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/OutcomeTiming"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
         "usage" : {
           "oneOf" : [
             {
@@ -662,6 +684,21 @@
         "command",
         "passed",
         "outputTail"
+      ],
+      "type" : "object"
+    },
+    "OutcomeTiming" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "wallMs" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+
       ],
       "type" : "object"
     },

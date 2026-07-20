@@ -255,4 +255,90 @@ final class TeamRunJSONMapperTests: XCTestCase {
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
         XCTAssertNil(trj.outcome)
     }
+
+    // MARK: - SH-S08 observed timing
+
+    func testMapperProjectsQueueTtftDurationAndWallMs() throws {
+        let created = Date(timeIntervalSince1970: 1_753_000_000)
+        let started = created.addingTimeInterval(1)
+        let firstToken = started.addingTimeInterval(0.5)
+        let finished = started.addingTimeInterval(4)
+        let run = TeamRun(
+            id: "timing-one", prompt: "Say success.", status: .complete,
+            workers: [Worker(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0)],
+            workerAnswers: [
+                TeamAnswer(
+                    memberId: "model_sonnet#0", modelId: "model_sonnet", role: "answer",
+                    result: WorkerRunResult(
+                        status: .done, output: "success",
+                        timing: RunTiming(
+                            startedAt: started, finishedAt: finished, durationMs: 4000,
+                            firstTokenAt: firstToken, ttftMs: 500)),
+                    queueMs: 1000)
+            ],
+            createdAt: created, lane: .code, mutating: true)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let row = try XCTUnwrap(trj.workerAnswers.first)
+        XCTAssertEqual(row.queueMs, 1000)
+        XCTAssertEqual(row.ttftMs, 500)
+        XCTAssertEqual(row.durationMs, 4000)
+        XCTAssertEqual(trj.outcome?.timing?.wallMs, 5000)
+        XCTAssertTrue(trj.outcome?.headline.contains("queue 1000ms") == true)
+        XCTAssertTrue(trj.outcome?.headline.contains("ttft 500ms") == true)
+        XCTAssertTrue(trj.outcome?.headline.contains("duration 4000ms") == true)
+        XCTAssertTrue(trj.outcome?.headline.contains("wall 5000ms") == true)
+        XCTAssertFalse(trj.outcome?.headline.lowercased().contains("overhead") == true)
+        XCTAssertFalse(trj.outcome?.headline.lowercased().contains("estimate") == true)
+    }
+
+    func testNullTimingWhenDriverDidNotReport() throws {
+        let run = terminalRun(
+            status: .complete,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .done, output: "x"))],
+            mutating: false)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let row = try XCTUnwrap(trj.workerAnswers.first)
+        XCTAssertNil(row.queueMs)
+        XCTAssertNil(row.ttftMs)
+        XCTAssertNil(row.durationMs)
+        XCTAssertNil(trj.outcome?.timing?.wallMs)
+        XCTAssertFalse(trj.outcome?.headline.contains("queue") == true)
+        XCTAssertFalse(trj.outcome?.headline.contains("wall") == true)
+    }
+
+    func testParallelRunHeadlineOmitsTimingBlameSplit() throws {
+        let created = Date(timeIntervalSince1970: 1_753_000_100)
+        let finished = created.addingTimeInterval(3)
+        let run = TeamRun(
+            id: "timing-multi", prompt: "p", status: .complete,
+            workers: [
+                Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0),
+                Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0),
+            ],
+            workerAnswers: [
+                TeamAnswer(
+                    memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                    result: WorkerRunResult(
+                        status: .done, output: "a",
+                        timing: RunTiming(startedAt: created, finishedAt: finished, durationMs: 3000)),
+                    queueMs: 10),
+                TeamAnswer(
+                    memberId: "model_opus#0", modelId: "model_opus", role: "answer",
+                    result: WorkerRunResult(
+                        status: .done, output: "b",
+                        timing: RunTiming(startedAt: created, finishedAt: finished, durationMs: 2800)),
+                    queueMs: 20),
+            ],
+            createdAt: created, lane: .code, mutating: false)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertEqual(trj.workerAnswers.map(\.queueMs), [10, 20])
+        XCTAssertEqual(trj.outcome?.timing?.wallMs, 3000)
+        let headline = try XCTUnwrap(trj.outcome?.headline)
+        XCTAssertFalse(headline.contains("queue"), headline)
+        XCTAssertFalse(headline.contains("wall"), headline)
+        XCTAssertFalse(headline.lowercased().contains("overhead"), headline)
+        XCTAssertFalse(headline.lowercased().contains("estimate"), headline)
+    }
 }

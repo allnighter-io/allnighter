@@ -413,21 +413,31 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
 
     /// One answer or failure per answer worker. A failed worker is shown failed,
     /// never hidden (`error` carries the reason).
+    ///
+    /// Timing fields are observed clock boundaries only (null = driver did not report):
+    /// `queueMs` request→spawn, `ttftMs` spawn→first token, `durationMs` spawn→exit.
     public struct AnswerInfo: Codable, Equatable, Sendable {
         public var workerId: String
         public var modelId: String?
         public var status: Status
+        /// Ms from run request accepted to this seat's CLI spawn. Null when unmeasured.
+        public var queueMs: Int?
+        /// Ms from spawn to first visible streamed delta. Null when unreported.
+        public var ttftMs: Int?
+        /// Ms of worker work-time (spawn → exit). Null when unmeasured.
         public var durationMs: Int?
         public var markdown: String?
         /// Absolute path when `markdown` is a run-relative design image file.
         public var outputAbsolutePath: String?
         public var error: ErrorEnvelope?
         public init(
-            workerId: String, modelId: String? = nil, status: Status, durationMs: Int? = nil,
+            workerId: String, modelId: String? = nil, status: Status,
+            queueMs: Int? = nil, ttftMs: Int? = nil, durationMs: Int? = nil,
             markdown: String? = nil, outputAbsolutePath: String? = nil, error: ErrorEnvelope? = nil
         ) {
             self.workerId = workerId; self.modelId = modelId; self.status = status
-            self.durationMs = durationMs; self.markdown = markdown
+            self.queueMs = queueMs; self.ttftMs = ttftMs; self.durationMs = durationMs
+            self.markdown = markdown
             self.outputAbsolutePath = outputAbsolutePath; self.error = error
         }
     }
@@ -517,6 +527,12 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
                 self.outputTokens = outputTokens
             }
         }
+        /// Terminal observed wall clock. Null fields mean the observation was not recorded.
+        public struct Timing: Codable, Equatable, Sendable {
+            /// Ms from run `createdAt` to the latest worker `finishedAt`. Null when unmeasured.
+            public var wallMs: Int?
+            public init(wallMs: Int? = nil) { self.wallMs = wallMs }
+        }
         public var status: Status
         public var committed: Bool
         public var headline: String
@@ -526,10 +542,13 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var proof: Proof?
         /// Present when the execution driver reported token usage on the wire.
         public var usage: TokenUsage?
+        /// Observed wall timing for a terminal run (SH-S08).
+        public var timing: Timing?
 
         public init(
             status: Status, committed: Bool, headline: String,
-            commitMessageMatched: Bool? = nil, proof: Proof? = nil, usage: TokenUsage? = nil
+            commitMessageMatched: Bool? = nil, proof: Proof? = nil, usage: TokenUsage? = nil,
+            timing: Timing? = nil
         ) {
             self.status = status
             self.committed = committed
@@ -537,6 +556,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             self.commitMessageMatched = commitMessageMatched
             self.proof = proof
             self.usage = usage
+            self.timing = timing
         }
     }
 
@@ -569,7 +589,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
 
     // MARK: - usage / warnings / errors / nextActions / audit
 
-    /// Observed usage only. No estimates of future cost, quota, or runtime.
+    /// Observed usage only. No forecasts of future cost, quota, or runtime.
     public struct Usage: Codable, Equatable, Sendable {
         public var cliCalls: Int
         public init(cliCalls: Int) { self.cliCalls = cliCalls }

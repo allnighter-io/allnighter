@@ -164,12 +164,19 @@ public enum HelpTopicRegistry {
             Dry-run `writePolicy` / `effects.repoWrite` report write *permission*, not prompt \
             intent. For mechanical read-only, pick an answer team; Default Team and `--worker` \
             are mutating-allowed. Observed writes appear only as terminal `repoDelta`.
+
+            Observed timing on the settled packet: per-worker `queueMs` (request→spawn), \
+            `ttftMs` (spawn→first token), `durationMs` (spawn→exit), plus terminal \
+            `outcome.timing.wallMs` (createdAt→latest finishedAt). Null means unreported. \
+            These are clock boundaries only — not forecasts, and not an invented orchestration tax.
             """,
             aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt",
-                      "read only", "readonly", "write policy", "mutating"],
+                      "read only", "readonly", "write policy", "mutating",
+                      "timing", "queueMs", "ttftMs", "durationMs", "wallMs", "latency"],
             sections: [
                 .init("preflight", "Dry-run first", "Always call `alln run --dry-run` before a real `alln run --detach` so a bad lineup fails before quota is spent."),
                 .init("write-policy", "Permission vs outcome", "`effects.repoWrite` means the resolved invocation may write. Answer teams are mechanical read-only; terminal `repoDelta` reports whether a mutating run did write."),
+                .init("timing", "Observed timing", "`queueMs` / `ttftMs` / `durationMs` / `outcome.timing.wallMs` are recorded clocks. Null means unreported. Do not invent an orchestration tax by subtracting duration from wall."),
                 .init("polling", "Polling", "Poll `alln team result` using the returned `nextPollAfterMs`; do not busy-loop."),
             ],
             relatedCommandNames: ["run", "team status", "team result", "team cancel", "team reconcile", "floor show"],

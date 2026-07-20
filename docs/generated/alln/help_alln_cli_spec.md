@@ -1571,3 +1571,17 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 - Callers that need a mechanical read-only guarantee select an **answer team** (`--team <answer-team-id>`); Default Team and explicit `--worker` are mutating-allowed and say so.
 - Dry-run itself starts no worker and spends no quota; `effects.workerStart` / `effects.quotaSpend` describe the spend twin `nextAction` would run.
 
+## Observed run timing
+
+Terminal `TeamRunJSON` projects observed clocks only — null means the driver did not report that observation. No forecasts or targets.
+
+Per-worker on `workerAnswers[]`:
+
+- `queueMs` — run request accepted → this seat's CLI spawn (lock / lane / resolution / staging).
+- `ttftMs` — CLI spawn → first visible streamed delta (null off the streaming path).
+- `durationMs` — CLI spawn → process exit (worker work-time).
+
+Terminal `outcome.timing.wallMs` — run `createdAt` → latest worker `finishedAt`.
+
+Clock boundaries are named above. A single-worker `outcome.headline` may list those observed phases; do not invent an orchestration tax by subtracting duration from wall, and do not assign blame across parallel seats.
+

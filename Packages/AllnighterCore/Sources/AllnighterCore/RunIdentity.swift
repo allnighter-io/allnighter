@@ -43,7 +43,9 @@ public enum RunIdentity {
     }
 
     /// Headline for `TeamRunJSON.outcome` and human stderr: identity + repo delta when mutating.
-    public static func outcomeHeadline(_ run: TeamRun) -> String {
+    /// Optional `wallMs` lets a single-worker terminal summarize observed phase clocks
+    /// (queue / ttft / duration / wall) without inventing overhead or blaming parallel seats.
+    public static func outcomeHeadline(_ run: TeamRun, wallMs: Int? = nil) -> String {
         var parts = [
             summary(
                 workerId: primaryWorkerModelId(run), lane: run.lane, mutating: run.mutating,
@@ -82,7 +84,21 @@ public enum RunIdentity {
         if let suffix = run.workerAnswers.first?.result.reportedTokenUsage?.headlineSuffix {
             parts.append(suffix)
         }
+        parts.append(contentsOf: singleWorkerTimingSummary(run, wallMs: wallMs))
         return parts.joined(separator: " · ")
+    }
+
+    /// Observed phase clocks for a single executable seat only. Parallel runs stay
+    /// identity-only — never subtract phases into an invented orchestration tax or seat blame.
+    public static func singleWorkerTimingSummary(_ run: TeamRun, wallMs: Int?) -> [String] {
+        let seats = run.workerAnswers.filter { $0.result.status != .skipped }
+        guard seats.count == 1, let answer = seats.first else { return [] }
+        var parts: [String] = []
+        if let queueMs = answer.queueMs { parts.append("queue \(queueMs)ms") }
+        if let ttftMs = answer.result.timing.ttftMs { parts.append("ttft \(ttftMs)ms") }
+        if let durationMs = answer.result.timing.durationMs { parts.append("duration \(durationMs)ms") }
+        if let wallMs { parts.append("wall \(wallMs)ms") }
+        return parts
     }
 
     /// stderr / human footer after a plain `alln run` (not --json).

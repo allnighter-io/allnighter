@@ -252,7 +252,8 @@ Top-level fields:
 | `answer` | object or null | Canonical result. Always serialized. |
 | `stages` | array | Planner/review/reduce stages. |
 | `plan` | object or null | Synthesized-plan provenance/status; `markdown` is null when moved to `answer`. |
-| `usage` | object | Observed usage only. No estimates. |
+| `outcome` | object or null | Terminal mechanical summary (`status`, `committed`, `headline`, optional `timing`). |
+| `usage` | object | Observed usage only. No forecasts. |
 | `warnings` | array | Non-fatal warnings. |
 | `errors` | array | Structured errors encountered during the run. |
 | `nextActions` | array | Typed follow-up actions and exact commands. |
@@ -278,6 +279,24 @@ Derivation (deterministic):
 3. Typed board → `typedResultField` + optional lead summary; typed payload stays in its typed field.
 4. Partial multi-seat without synthesis → `answer: null`; seat markdowns remain.
 5. Failed/cancelled/timed-out → `answer: null`.
+
+`workerAnswers[]` observed timing (null = driver did not report):
+
+| Field | Type | Clock boundary |
+| --- | --- | --- |
+| `queueMs` | integer/null | Run request accepted → this seat's CLI spawn. |
+| `ttftMs` | integer/null | CLI spawn → first visible streamed delta. |
+| `durationMs` | integer/null | CLI spawn → process exit (work-time). |
+
+Terminal `outcome.timing`:
+
+| Field | Type | Clock boundary |
+| --- | --- | --- |
+| `wallMs` | integer/null | Run `createdAt` → latest worker `finishedAt`. |
+
+These are recorded clocks only. A single-worker `outcome.headline` may list the
+observed phases; do not invent an orchestration tax by subtracting duration from
+wall, and do not assign blame across parallel seats. No forecasts or targets.
 
 Required `teamRun` fields:
 
@@ -375,7 +394,7 @@ Usage rule:
 - `usage.cliCalls` may count actual spawned source/model calls.
 - Provider-reported token/cost/quota data may be included only when directly
   observed from a source.
-- Do not estimate future cost, quota burn, or task complexity.
+- Do not invent future cost, quota burn, or task complexity.
 
 Forbidden new public fields:
 

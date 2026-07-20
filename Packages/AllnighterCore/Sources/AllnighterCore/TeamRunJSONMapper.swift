@@ -63,6 +63,7 @@ public enum TeamRunJSONMapper {
             }()
             return TeamRunJSON.AnswerInfo(
                 workerId: a.memberId, modelId: a.modelId, status: mapWorker(a.result.status),
+                queueMs: a.queueMs, ttftMs: a.result.timing.ttftMs,
                 durationMs: a.result.timing.durationMs, markdown: a.output,
                 outputAbsolutePath: outputAbsolute,
                 error: errorEnvelope(for: a, runId: run.id)
@@ -272,13 +273,23 @@ public enum TeamRunJSONMapper {
                 return TeamRunJSON.Outcome.TokenUsage(
                     inputTokens: reported.inputTokens, outputTokens: reported.outputTokens)
             }
+        let wallMs = observedWallMs(run)
         return TeamRunJSON.Outcome(
             status: mapOutcomeStatus(run),
             committed: run.repoDelta?.changed == true,
-            headline: RunIdentity.outcomeHeadline(run),
+            headline: RunIdentity.outcomeHeadline(run, wallMs: wallMs),
             commitMessageMatched: commitMatched,
             proof: proof,
-            usage: usage)
+            usage: usage,
+            timing: .init(wallMs: wallMs))
+    }
+
+    /// Observed wall ms: run `createdAt` → latest worker `finishedAt`. Null when unfinished.
+    static func observedWallMs(_ run: TeamRun) -> Int? {
+        guard let finished = run.workerAnswers.compactMap(\.result.timing.finishedAt).max() else {
+            return nil
+        }
+        return max(0, Int(finished.timeIntervalSince(run.createdAt) * 1000))
     }
 
     // MARK: - Enum mappings

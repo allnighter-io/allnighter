@@ -124,6 +124,7 @@ public enum ContractSchema {
             ], required: ["id", "modelId", "modelName", "sourceId", "purpose", "instanceIndex"]),
             "AnswerInfo": obj([
                 "workerId": str, "modelId": nullable("string"), "status": runStatus,
+                "queueMs": nullable("integer"), "ttftMs": nullable("integer"),
                 "durationMs": nullable("integer"), "markdown": nullable("string"),
                 "error": nullableRef("ErrorEnvelope"),
             ], required: ["workerId", "status"]),
@@ -175,12 +176,16 @@ public enum ContractSchema {
                 "commitMessageMatched": nullable("boolean"),
                 "proof": nullableRef("OutcomeProof"),
                 "usage": nullableRef("OutcomeTokenUsage"),
+                "timing": nullableRef("OutcomeTiming"),
             ], required: ["status", "committed", "headline"]),
             "OutcomeProof": obj([
                 "command": str, "exitCode": nullable("integer"), "passed": bool, "outputTail": str,
             ], required: ["command", "passed", "outputTail"]),
             "OutcomeTokenUsage": obj([
                 "inputTokens": nullable("integer"), "outputTokens": nullable("integer"),
+            ], required: []),
+            "OutcomeTiming": obj([
+                "wallMs": nullable("integer"),
             ], required: []),
             "Usage": obj(["cliCalls": int], required: ["cliCalls"]),
             "Warning": obj(["code": nullable("string"), "message": str], required: ["message"]),
