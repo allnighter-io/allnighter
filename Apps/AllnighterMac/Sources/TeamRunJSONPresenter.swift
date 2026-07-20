@@ -12,8 +12,7 @@ struct TeamRunJSONPresenter {
 
     var prompt: String { run.teamRun.prompt }
     var statusLabel: String { run.teamRun.status.rawValue }
-    /// Canonical result text (SH-S02). Prefer `answer.markdown`; plan/worker rows
-    /// no longer duplicate it.
+    /// Canonical result text. Prefer `answer.markdown`; plan/worker rows no longer duplicate it.
     var planMarkdown: String? { run.answer?.markdown ?? run.plan?.markdown }
     var answerMarkdown: String? { run.answer?.markdown }
     var planWriterWorkerId: String? { run.teamRun.planWriterWorkerId }
@@ -35,13 +34,9 @@ struct TeamRunJSONPresenter {
         run.workers.map { worker in
             let answer = run.workerAnswers.first { $0.workerId == worker.id }
             // One-worker canonical text lives on `run.answer`; surface it on that row.
-            let rowMarkdown: String? = {
-                if let md = answer?.markdown, !md.isEmpty { return md }
-                if run.answer?.source.workerId == worker.id {
-                    return run.answer?.markdown
-                }
-                return nil
-            }()
+            let seatMarkdown = answer?.markdown.flatMap { $0.isEmpty ? nil : $0 }
+            let rowMarkdown = seatMarkdown
+                ?? (run.answer?.source.workerId == worker.id ? run.answer?.markdown : nil)
             return WorkerRow(
                 id: worker.id,
                 modelName: worker.modelName,

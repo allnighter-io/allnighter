@@ -55,9 +55,8 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
     prompts = sum(1 for w in workers if w.get("resolvedWorkerPromptSnapshot"))
     plan = team_result.get("plan") or {}
     plan_md = (plan.get("markdown") or "").strip() if isinstance(plan, dict) else ""
-    answer = team_result.get("answer") or {}
-    answer_md = (answer.get("markdown") or "").strip() if isinstance(answer, dict) else ""
-    # SH-S02: canonical text lives on answer; plan.markdown is null when moved.
+    answer, answer_md = _team_answer_markdown(team_result)
+    # Canonical text lives on answer; plan.markdown is null when moved (Law 2).
     canonical_md = answer_md or plan_md
     # Terminal worker status lives in workerAnswers[].status (NOT workers[].status,
     # which the contract does not carry). Every non-plan worker must have a status so
@@ -67,7 +66,7 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
     statused_answers = [a for a in answers if (a.get("status") or "").strip()]
     writer_status_present = bool(
         (isinstance(plan, dict) and (plan.get("status") or "").strip())
-        or (isinstance(answer, dict) and answer.get("source", {}).get("kind") == "plan")
+        or answer.get("source", {}).get("kind") == "plan"
     )
     nonempty_answers = 0
     for ans in answers:
@@ -77,17 +76,12 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
         meta = workers_by_id.get(wid, {})
         if meta.get("purpose") == "plan":
             continue
-        seat_md = (ans.get("markdown") or "").strip()
-        # One-worker canonical text may live only on answer (Law 2).
-        if not seat_md and isinstance(answer, dict) and answer.get("source", {}).get("workerId") == wid:
-            seat_md = answer_md
-        if seat_md:
+        if _seat_or_canonical_markdown(ans, answer, answer_md):
             nonempty_answers += 1
-    answered = nonempty_answers
     return {
-        "ok": prompts > 0 and answered > 0 and bool(canonical_md),
+        "ok": prompts > 0 and nonempty_answers > 0 and bool(canonical_md),
         "workerCount": len(workers),
-        "answerCount": answered,
+        "answerCount": nonempty_answers,
         "nonemptyAnswerCount": nonempty_answers,
         "promptSnapshots": prompts,
         "hasPlan": bool(canonical_md),
@@ -98,22 +92,39 @@ def mcp_artifact_status(team_result: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def _team_answer_markdown(team_result: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    answer = team_result.get("answer") or {}
+    if not isinstance(answer, dict):
+        return {}, ""
+    return answer, (answer.get("markdown") or "").strip()
+
+
+def _seat_or_canonical_markdown(
+    ans: dict[str, Any], answer: dict[str, Any], answer_md: str
+) -> str:
+    """Seat markdown, or canonical answer text when Law 2 moved it off the row."""
+    text = (ans.get("markdown") or "").strip()
+    if text:
+        return text
+    wid = ans.get("workerId")
+    if wid and answer.get("source", {}).get("workerId") == wid:
+        return answer_md
+    return ""
+
+
 def load_logical_workers(lab_dir: Path) -> dict[str, dict[str, Any]]:
     """One entry per logical worker id. Prefer MCP team_result over copied journal."""
     out: dict[str, dict[str, Any]] = {}
     team_result = load_team_result(lab_dir)
     if team_result:
-        answer = team_result.get("answer") or {}
-        answer_md = (answer.get("markdown") or "").strip() if isinstance(answer, dict) else ""
+        answer, answer_md = _team_answer_markdown(team_result)
         workers_by_id = {w["id"]: w for w in team_result.get("workers", []) if w.get("id")}
         for ans in team_result.get("workerAnswers", []):
             wid = ans.get("workerId")
             if not wid:
                 continue
             meta = workers_by_id.get(wid, {})
-            text = (ans.get("markdown") or "").strip()
-            if not text and isinstance(answer, dict) and answer.get("source", {}).get("workerId") == wid:
-                text = answer_md
+            text = _seat_or_canonical_markdown(ans, answer, answer_md)
             if meta.get("purpose") == "plan":
                 continue
             out[normalize_worker_id(wid)] = {
@@ -167,11 +178,9 @@ def load_logical_workers(lab_dir: Path) -> dict[str, dict[str, Any]]:
 def load_writer_bundle(lab_dir: Path) -> tuple[str, str]:
     team_result = load_team_result(lab_dir)
     if team_result:
-        answer = team_result.get("answer") or {}
-        if isinstance(answer, dict):
-            md = (answer.get("markdown") or "").strip()
-            if md:
-                return md, "mcp"
+        _, answer_md = _team_answer_markdown(team_result)
+        if answer_md:
+            return answer_md, "mcp"
         plan = team_result.get("plan") or {}
         if isinstance(plan, dict):
             md = (plan.get("markdown") or "").strip()

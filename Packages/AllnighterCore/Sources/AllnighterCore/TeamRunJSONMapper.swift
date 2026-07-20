@@ -34,12 +34,15 @@ public enum TeamRunJSONMapper {
         }
     }
 
-    public static func map(_ run: TeamRun, models: [Model], manifests: [DriverManifest], context: Context) -> TeamRunJSON {
+    public static func map(
+        _ run: TeamRun,
+        models: [Model],
+        manifests _: [DriverManifest],
+        context: Context
+    ) -> TeamRunJSON {
         let modelById = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         func modelName(_ id: String) -> String { modelById[id]?.displayName ?? id }
         func sourceId(_ modelId: String) -> String { modelById[modelId]?.driverId ?? "" }
-        // manifests kept for call-site compatibility; worker source names come from model snapshots.
-        _ = manifests
 
         let planStage = run.latestStage(.plan)
 
@@ -186,14 +189,7 @@ public enum TeamRunJSONMapper {
         workerAnswers: inout [TeamRunJSON.AnswerInfo],
         designBoard: TeamRunJSON.DesignBoard?
     ) -> TeamRunJSON.Answer? {
-        switch runStatus {
-        case .queued, .running:
-            return nil
-        case .failed, .timedOut, .cancelled, .interrupted, .skipped:
-            return nil
-        case .done:
-            break
-        }
+        guard runStatus == .done else { return nil }
 
         // 1. Completed synthesized plan → answer from plan; plan keeps provenance only.
         if var donePlan = plan, donePlan.status == .done,
@@ -233,10 +229,7 @@ public enum TeamRunJSONMapper {
 
         // 3. Typed board → typedResultField + optional lead summary; payload stays typed.
         if designBoard != nil {
-            let leadSummary: String? = {
-                if let md = plan?.markdown, !md.isEmpty { return md }
-                return nil
-            }()
+            let leadSummary = plan?.markdown.flatMap { $0.isEmpty ? nil : $0 }
             if leadSummary != nil, var p = plan {
                 p.markdown = nil
                 plan = p
@@ -251,7 +244,6 @@ public enum TeamRunJSONMapper {
         }
 
         // 4. Partial multi-seat without synthesis → answer null; keep seat markdowns.
-        // 5. Covered above for failed/cancelled/timed-out.
         return nil
     }
 

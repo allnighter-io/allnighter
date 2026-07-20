@@ -80,13 +80,14 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         teamRun = try c.decode(RunInfo.self, forKey: .teamRun)
         workers = try c.decode([WorkerInfo].self, forKey: .workers)
         workerAnswers = try c.decode([AnswerInfo].self, forKey: .workerAnswers)
-        // Always present on the wire; decode null → nil.
-        answer = try c.decodeIfPresent(Answer.self, forKey: .answer)
+        // Required on the wire (null while non-terminal / no canonical result).
+        answer = try c.decode(Answer?.self, forKey: .answer)
         designBoard = try c.decodeIfPresent(DesignBoard.self, forKey: .designBoard)
         repoDelta = try c.decodeIfPresent(RepoDelta.self, forKey: .repoDelta)
         outcome = try c.decodeIfPresent(Outcome.self, forKey: .outcome)
         stages = try c.decode([StageInfo].self, forKey: .stages)
-        plan = try c.decodeIfPresent(Plan.self, forKey: .plan)
+        // Required on the wire (null when no plan stage produced).
+        plan = try c.decode(Plan?.self, forKey: .plan)
         usage = try c.decode(Usage.self, forKey: .usage)
         warnings = try c.decode([Warning].self, forKey: .warnings)
         errors = try c.decode([ErrorEnvelope].self, forKey: .errors)
@@ -101,7 +102,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         try c.encode(teamRun, forKey: .teamRun)
         try c.encode(workers, forKey: .workers)
         try c.encode(workerAnswers, forKey: .workerAnswers)
-        // Law 2 / SH-S02: always serialize `answer` (including JSON null).
+        // Law 2: always serialize `answer` (including JSON null).
         try c.encode(answer, forKey: .answer)
         try c.encodeIfPresent(designBoard, forKey: .designBoard)
         try c.encodeIfPresent(repoDelta, forKey: .repoDelta)
@@ -331,10 +332,10 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public init(kind: Kind, path: String? = nil) { self.kind = kind; self.path = path }
     }
 
-    // MARK: - models (DoctorResult reuse) / workers / answer
+    // MARK: - ModelInfo (DoctorResult) / workers / answer
 
     /// Bench-model snapshot. Owned by `DoctorResult` / `menu`; not embedded in
-    /// run envelopes (SH-S02 — catalog-free TeamRunJSON).
+    /// run envelopes (catalog-free TeamRunJSON).
     public struct ModelInfo: Codable, Equatable, Sendable {
         public var id: String
         public var displayName: String
@@ -347,7 +348,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         }
     }
 
-    /// Canonical result path (SH-S02). Markdown appears here exactly once.
+    /// Canonical result path. Markdown appears here exactly once.
     public struct Answer: Codable, Equatable, Sendable {
         public var status: Status
         public var outputKind: String?

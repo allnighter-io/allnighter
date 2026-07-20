@@ -1693,7 +1693,7 @@ struct AllnighterCLI {
         return String(decoding: data, as: UTF8.self)
     }
 
-    /// Canonical human result text from the TeamRunJSON answer projection (SH-S02).
+    /// Canonical human result text from the TeamRunJSON answer projection.
     /// Falls back to seat markdown only when no canonical answer exists (partial multi-seat).
     static func humanAnswer(
         for run: TeamRun,
@@ -1706,10 +1706,9 @@ struct AllnighterCLI {
             context: .init(runJournalPath: runJournalPath)
         )
         if let md = trj.answer?.markdown, !md.isEmpty { return md }
-        if let seat = trj.workerAnswers.first(where: { ($0.markdown ?? "").isEmpty == false })?.markdown {
-            return seat
-        }
-        return nil
+        return trj.workerAnswers.lazy
+            .compactMap(\.markdown)
+            .first { !$0.isEmpty }
     }
 
     /// One compact, single-line JSON object — the house law for any `--json` command that
