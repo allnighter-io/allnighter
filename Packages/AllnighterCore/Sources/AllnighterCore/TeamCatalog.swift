@@ -371,21 +371,33 @@ public extension Array where Element == TeamPreset {
 // MARK: - Team catalog API
 
 /// Built-in and custom team definitions. Built-in ids are reserved; customs persist
-/// under `Catalogs/teams/<id>.json`.
+/// under `Catalogs/teams/<id>.json`. Lab experiment teams (`typeTags` contains `"lab"`)
+/// never live in the product catalog — they are redirected to `Catalogs/lab-teams/`
+/// (AE-S02 / Law 7).
 public enum TeamCatalog {
     public static var all: [TeamDefinition] {
-        mergeCustom(CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.teams, as: TeamPreset.self))
+        migrateStrayLabTeamsFromProductCatalog()
+        return mergeCustom(CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.teams, as: TeamPreset.self))
     }
 
     public static func list(lane: WorkLane) -> [TeamDefinition] { all.teams(in: lane) }
 
     public static func get(_ id: TeamID) -> TeamDefinition? {
+        migrateStrayLabTeamsFromProductCatalog()
         // A saved file ALWAYS wins — for a built-in id that's the user's edited version
         // (the "override"); the shipped team stays hidden as the restore source. So
         // editing any team edits it in place; there is never a duplicate "(custom)" row.
         if let file = CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) {
-            return normalizedOverride(file)
+            let normalized = normalizedOverride(file)
+            // Stray lab copies must not remain in the product root.
+            if normalized.isLabTeam {
+                try? LabTeamCatalog.save(normalized)
+                try? CatalogFileIO.delete(id: id, root: CatalogRoots.teams)
+                return LabTeamCatalog.get(id) ?? normalized
+            }
+            return normalized
         }
+        if let lab = LabTeamCatalog.get(id) { return lab }
         return BuiltInTeams.team(id)
     }
 
@@ -453,6 +465,15 @@ public enum TeamCatalog {
     }
 
     public static func saveCustom(_ team: TeamDefinition) throws {
+        // AE-S02 / Law 7: lab teams never enter the product catalog. Match on
+        // `typeTags` containing `"lab"` (not id prefix — `code_core` is lab-tagged).
+        if team.isLabTeam {
+            try LabTeamCatalog.save(team)
+            if CatalogFileIO.loadOne(id: team.id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) != nil {
+                try? CatalogFileIO.delete(id: team.id, root: CatalogRoots.teams)
+            }
+            return
+        }
         // Any team saves in place. A built-in id writes the user's edited version (the
         // "override") at that same id — no duplicate. A new id is an ordinary custom team.
         let editsBuiltIn = BuiltInTeams.team(team.id) != nil
@@ -546,13 +567,74 @@ public enum TeamCatalog {
     private static func mergeCustom(_ customs: [TeamPreset]) -> [TeamPreset] {
         // An edited built-in REPLACES its seed in place (shipped order preserved), so each
         // built-in id appears exactly once — edited version or seed, never both. Ordinary
-        // custom teams (non-built-in ids) follow.
+        // custom teams (non-built-in ids) follow. Lab-tagged customs are never product.
         let overridesById = Dictionary(
-            customs.compactMap { BuiltInTeams.team($0.id) != nil ? ($0.id, normalizedOverride($0)) : nil },
+            customs.compactMap { BuiltInTeams.team($0.id) != nil && !$0.isLabTeam ? ($0.id, normalizedOverride($0)) : nil },
             uniquingKeysWith: { first, _ in first })
         let merged = BuiltInTeams.all.map { overridesById[$0.id] ?? $0 }
         let builtInIds = Set(BuiltInTeams.all.map(\.id))
-        let ordinaryCustoms = customs.filter { !builtInIds.contains($0.id) }
+        let ordinaryCustoms = customs.filter { !builtInIds.contains($0.id) && !$0.isLabTeam }
         return merged + ordinaryCustoms
+    }
+
+    /// Move any lab-tagged files that landed in the product `Catalogs/teams/` root
+    /// into lab storage. Idempotent. Match on `typeTags`, never id prefix (AE-S02).
+    private static func migrateStrayLabTeamsFromProductCatalog() {
+        let strays = CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.teams, as: TeamPreset.self)
+            .filter(\.isLabTeam)
+        guard !strays.isEmpty else { return }
+        for team in strays {
+            try? LabTeamCatalog.save(team)
+            try? CatalogFileIO.delete(id: team.id, root: CatalogRoots.teams)
+        }
+    }
+}
+
+// MARK: - Lab team storage (AE-S02)
+
+/// Team Lab experiment teams. Champions and candidates live here (and under
+/// `docs/team-lab/champions/`), never in the product `TeamCatalog` list.
+public enum LabTeamCatalog {
+    public static var all: [TeamDefinition] {
+        CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.labTeams, as: TeamPreset.self)
+    }
+
+    public static func get(_ id: TeamID) -> TeamDefinition? {
+        CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.labTeams, as: TeamPreset.self)
+    }
+
+    public static func save(_ team: TeamDefinition) throws {
+        guard team.isLabTeam else {
+            throw CatalogError.teamInvalid("lab storage requires typeTags to include \"\(TeamPreset.labTypeTag)\"")
+        }
+        guard CatalogIDValidator.isValid(team.id) else {
+            throw CatalogError.idInvalid
+        }
+        guard !team.workerSpecs.isEmpty else {
+            throw CatalogError.teamInvalid("team must have at least one worker row")
+        }
+        for row in team.workerSpecs {
+            guard let skill = SkillCatalog.get(row.skillId) else {
+                throw CatalogError.teamInvalid("unknown skill \(row.skillId)")
+            }
+            guard skill.lane == team.lane else {
+                throw CatalogError.skillLaneMismatch(skillId: row.skillId, teamId: team.id)
+            }
+        }
+        guard let leadSkill = SkillCatalog.get(team.lead.skillId) else {
+            throw CatalogError.teamInvalid("unknown Team Lead skill \(team.lead.skillId)")
+        }
+        guard leadSkill.lane == team.lane else {
+            throw CatalogError.skillLaneMismatch(skillId: team.lead.skillId, teamId: team.id)
+        }
+        var custom = team
+        custom.builtIn = false
+        custom.isDefaultForLane = false
+        try CatalogFileIO.save(custom, id: custom.id, kind: .team, root: CatalogRoots.labTeams)
+    }
+
+    public static func delete(_ id: TeamID) throws {
+        guard get(id) != nil else { throw CatalogError.teamNotFound }
+        try CatalogFileIO.delete(id: id, root: CatalogRoots.labTeams)
     }
 }

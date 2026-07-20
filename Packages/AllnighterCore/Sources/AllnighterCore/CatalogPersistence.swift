@@ -84,9 +84,18 @@ public enum CatalogRoots {
     nonisolated(unsafe) private static var teamsOverride: URL?
     nonisolated(unsafe) private static var skillsOverride: URL?
     nonisolated(unsafe) private static var modelsOverride: URL?
+    nonisolated(unsafe) private static var labTeamsOverride: URL?
 
     public static var teams: URL {
         teamsOverride ?? defaultSupport.appendingPathComponent("Catalogs/teams", isDirectory: true)
+    }
+
+    /// Team Lab experiment teams (`typeTags` contains `"lab"`). Never listed in the
+    /// product catalog (AE-S02 / Law 7).
+    public static var labTeams: URL {
+        labTeamsOverride
+            ?? teamsOverride?.deletingLastPathComponent().appendingPathComponent("lab-teams", isDirectory: true)
+            ?? defaultSupport.appendingPathComponent("Catalogs/lab-teams", isDirectory: true)
     }
 
     public static var skills: URL {
@@ -99,16 +108,19 @@ public enum CatalogRoots {
 
     private static var defaultSupport: URL { AllnighterSupportRoot.support }
 
-    public static func overrideForTesting(teams: URL, skills: URL, models: URL? = nil) {
+    public static func overrideForTesting(teams: URL, skills: URL, models: URL? = nil, labTeams: URL? = nil) {
         teamsOverride = teams
         skillsOverride = skills
         modelsOverride = models
+        labTeamsOverride = labTeams
+            ?? teams.deletingLastPathComponent().appendingPathComponent("lab-teams", isDirectory: true)
     }
 
     public static func resetTestingOverrides() {
         teamsOverride = nil
         skillsOverride = nil
         modelsOverride = nil
+        labTeamsOverride = nil
     }
 }
 
