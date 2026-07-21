@@ -313,7 +313,9 @@ struct AllnighterCLI {
         }
     }
 
-    static let binaryVersion = "0.9.0"
+    /// ADP-S05: single-sourced from `AllnighterVersionIdentity` (AllnighterCore) —
+    /// do not hardcode a semver literal here.
+    static let binaryVersion = AllnighterVersionIdentity.binaryVersion
 
     /// `alln doctor [--json] [--full]` — the product recovery surface. Default is
     /// quota-free (resolve + version + local checks; auth/smoke/readiness reported
