@@ -1,6 +1,10 @@
 import Foundation
 import AllnighterCore
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 /// Assembles the exact context a worker will see for one turn, as a
 /// `ThreadContextPacket`. Pure and deterministic: file reads go through an

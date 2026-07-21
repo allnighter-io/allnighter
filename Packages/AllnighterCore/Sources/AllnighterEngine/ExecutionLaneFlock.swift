@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 import AllnighterCore
 
 /// OS-level per-root execution-lane mutual exclusion (PO-S03b) with scoped

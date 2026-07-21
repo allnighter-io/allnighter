@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 /// One structured finding from a panel seat (`docs/phases/Pilot_Panel.md` §1 decision 3).
 /// Shape only — content judgment is the session's. Severity stays a closed 3-value set.

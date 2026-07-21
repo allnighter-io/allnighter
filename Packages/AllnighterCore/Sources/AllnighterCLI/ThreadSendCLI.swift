@@ -1,7 +1,11 @@
 import Foundation
 import AllnighterCore
 import AllnighterEngine
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 enum ThreadSendCLI {
     struct Response: Codable {

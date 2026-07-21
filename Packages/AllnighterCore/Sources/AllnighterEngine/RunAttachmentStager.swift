@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import AllnighterCore
 
 /// Stages user-attached images for a *run* (single-worker default chat OR a team

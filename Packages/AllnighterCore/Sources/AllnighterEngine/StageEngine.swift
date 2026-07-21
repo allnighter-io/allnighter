@@ -1,6 +1,10 @@
 import Foundation
 import AllnighterCore
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 /// Assembles a reduce/review stage's prompt from explicit `InputSelector`s over
 /// the current run. Centralized so every post-panel stage composes inputs the

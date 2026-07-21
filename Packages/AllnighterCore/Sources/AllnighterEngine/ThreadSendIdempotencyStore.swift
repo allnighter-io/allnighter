@@ -1,6 +1,10 @@
 import Foundation
 import AllnighterCore
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 public struct ThreadSendCanonicalPayload: Codable, Sendable, Equatable {
     public var threadId: String

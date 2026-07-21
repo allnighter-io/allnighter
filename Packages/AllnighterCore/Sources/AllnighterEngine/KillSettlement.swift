@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 import AllnighterCore
 
 /// The ONE identity-checked kill/cancel settlement (RLR-L5, RLR-S04b).

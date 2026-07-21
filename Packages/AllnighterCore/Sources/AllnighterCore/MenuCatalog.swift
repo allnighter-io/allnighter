@@ -1,4 +1,8 @@
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 /// Core-owned live menu projection (MR-S01). One atomic Tier-1 catalog + Tier-2 hydrate.

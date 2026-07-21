@@ -1,6 +1,10 @@
 import Foundation
 import AllnighterCore
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 /// Canonical attachment bytes and indexes under `thread_<id>/draft_attachments/`
 /// and `thread_<id>/attachments/`. All writes are atomic (temp + rename).

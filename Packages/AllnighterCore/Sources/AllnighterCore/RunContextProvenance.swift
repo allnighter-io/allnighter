@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 /// Immutable context provenance for a team run (Concurrent Invocation
 /// Isolation F4 — `docs/phases/Concurrent_Invocation_Isolation.md`).

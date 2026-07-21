@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 import AllnighterCore
 
 /// Process-group ownership + progress-heartbeat helpers for self-owning async
@@ -687,6 +691,7 @@ public enum ProcessOwnership {
     /// Never use argv[0]: `posix_spawn` does no PATH search, and chdir-before-exec
     /// makes relative argv[0] resolve against the new cwd.
     public static func currentExecutablePath() -> String? {
+        #if canImport(Darwin)
         var size: UInt32 = 4096
         var buffer = [CChar](repeating: 0, count: Int(size))
         while true {
@@ -702,6 +707,11 @@ public enum ProcessOwnership {
             guard size > 0, Int(size) > buffer.count else { return nil }
             buffer = [CChar](repeating: 0, count: Int(size))
         }
+        #else
+        // Linux: /proc/self/exe is the kernel's answer to the same question.
+        return (try? FileManager.default.destinationOfSymbolicLink(atPath: "/proc/self/exe"))
+            .map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
+        #endif
     }
 
     /// Become a session leader so this process is its own process-group owner

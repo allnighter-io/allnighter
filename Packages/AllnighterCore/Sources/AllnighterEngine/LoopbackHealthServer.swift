@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /// Minimal loopback-only HTTP listener for coordinator health. Binds `127.0.0.1`
 /// only; responds to `GET /health` with the caller-provided JSON body.

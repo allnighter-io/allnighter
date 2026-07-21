@@ -1,6 +1,10 @@
 import Foundation
 import AllnighterCore
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 /// Durable idempotency records for async `team start` / sync `alln run` (RLR-L9).
 ///

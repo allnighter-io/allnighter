@@ -1,6 +1,10 @@
 import Foundation
 import AllnighterCore
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /// Foreground resident coordinator for `alln serve`. Owns process lifetime,
 /// health, and the one-shot Wake Ticket loop.

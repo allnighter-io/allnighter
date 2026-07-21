@@ -1,6 +1,10 @@
 #if canImport(AuthenticationServices) && (os(iOS) || os(macOS))
 import AuthenticationServices
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 public enum RemoteAppleSignInError: Error, Equatable, Sendable {
