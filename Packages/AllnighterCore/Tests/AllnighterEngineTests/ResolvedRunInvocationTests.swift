@@ -453,4 +453,66 @@ final class ResolvedRunInvocationTests: XCTestCase {
         XCTAssertEqual(mutatingPrompt.writePolicy, .readOnly)
         XCTAssertFalse(mutatingPrompt.effects.repoWrite)
     }
+
+    // MARK: - ADP-S02: dry-run teaches the read-only answer path at the decision point
+
+    /// A bare prompt ask (no `--team`) resolves mutating-allowed → the steer appears:
+    /// one warning naming the answer team + an `alternatives` entry carrying a ready
+    /// read-only answer-team invocation.
+    func testBarePromptAskTeachesReadOnlyAnswerTeam() {
+        let dry = resolve(flags: .init(json: true))
+        XCTAssertTrue(dry.mutating, "bare Default Team ask is mutating-allowed")
+        let json = dry.makeDryRunJSON()
+
+        XCTAssertTrue(
+            json.warnings.contains(where: { $0.contains("code_plan") && $0.contains("read-only") }),
+            "warnings must name the read-only answer team: \(json.warnings)")
+
+        let alts = try? XCTUnwrap(json.alternatives)
+        XCTAssertEqual(alts?.count, 1)
+        let alt = json.alternatives?.first
+        XCTAssertEqual(alt?.kind, "readOnlyAnswerTeam")
+        XCTAssertTrue(alt?.argvTemplate.contains("--team") ?? false)
+        XCTAssertTrue(alt?.argvTemplate.contains("code_plan") ?? false)
+        XCTAssertTrue(alt?.command.contains("--team code_plan") ?? false, alt?.command ?? "nil")
+        // No auto-routing / no write-policy change: the resolved run stays mutating.
+        XCTAssertEqual(json.writePolicy, RunWritePolicy.mutating.rawValue)
+    }
+
+    /// Explicit `--worker` bare ask still shows the steer AND the alternative
+    /// preserves the caller's `--worker` selector (answer team + pin = read-only).
+    func testExplicitWorkerBareAskTeachesSteerPreservingWorker() {
+        let dry = resolve(flags: .init(workerId: "model_sonnet", json: true))
+        XCTAssertTrue(dry.explicitWorkerChosen)
+        XCTAssertTrue(dry.mutating)
+        let json = dry.makeDryRunJSON()
+
+        let alt = try? XCTUnwrap(json.alternatives?.first)
+        XCTAssertEqual(alt?.kind, "readOnlyAnswerTeam")
+        XCTAssertTrue(alt?.argvTemplate.contains("--worker") ?? false,
+                      "answer-team alternative must preserve the explicit worker")
+        XCTAssertTrue(alt?.argvTemplate.contains("model_sonnet") ?? false)
+        XCTAssertTrue(alt?.argvTemplate.contains("code_plan") ?? false)
+        // Read-only alternative drops the redundant --no-commit even if the caller asked.
+        XCTAssertFalse(alt?.argvTemplate.contains("--no-commit") ?? true)
+    }
+
+    /// An explicit answer-team dry-run does NOT show the steer (already read-only).
+    func testAnswerTeamDryRunHasNoSteer() {
+        let dry = resolve(flags: .init(teamId: "code_bug_hunt", json: true))
+        XCTAssertFalse(dry.mutating, "Bug Hunt is an answer team")
+        let json = dry.makeDryRunJSON()
+        XCTAssertNil(json.alternatives, "answer-team dry-run must not teach a read-only alternative")
+        XCTAssertFalse(json.warnings.contains(where: { $0.contains("mechanical read-only guarantee") }))
+    }
+
+    /// An explicit mutating team (e.g. Build a Slice) also does NOT show the steer:
+    /// the caller chose that team explicitly; alln discloses, it never overrides.
+    func testExplicitMutatingTeamHasNoSteer() {
+        let dry = resolve(flags: .init(teamId: "build_slice", json: true))
+        XCTAssertTrue(dry.mutating)
+        XCTAssertTrue(dry.explicitTeamChosen)
+        let json = dry.makeDryRunJSON()
+        XCTAssertNil(json.alternatives, "explicit --team is a deliberate choice; no steer")
+    }
 }

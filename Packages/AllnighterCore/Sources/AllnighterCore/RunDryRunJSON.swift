@@ -22,6 +22,42 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
     public var writeLockHeld: Bool?
     public var warnings: [String]
     public var nextAction: AgentNextAction
+    /// ADP-S02 — additive OPTIONAL teaching field. When the resolution is a bare
+    /// prompt ask (no `--team`) that lands mutating-allowed, this carries the ready
+    /// answer-team invocation the caller can run instead for a mechanical read-only
+    /// guarantee (Menu-Not-Router: alln discloses, caller chooses — no auto-routing,
+    /// no write-policy change). Omitted (nil) whenever there is nothing to teach, so
+    /// the field is additive and does not change the shape for existing callers.
+    public var alternatives: [Alternative]?
+
+    /// One ready-to-run alternative invocation. Same tokenized-argv teaching shape
+    /// as `ResolvedRunInvocation` (`argvTemplate` + `templateVariables`), plus the
+    /// shell-joined `command` for direct display.
+    public struct Alternative: Codable, Sendable, Equatable {
+        /// Stable machine tag for the alternative, e.g. `readOnlyAnswerTeam`.
+        public var kind: String
+        public var label: String
+        /// Shell-joined teaching command (sensitive prose stays a `{name}` token).
+        public var command: String
+        /// Tokenized replay argv; callers substitute `templateVariables`.
+        public var argvTemplate: [String]
+        /// Declared sensitive placeholders referenced by `argvTemplate` tokens.
+        public var templateVariables: [String: String]
+
+        public init(
+            kind: String,
+            label: String,
+            command: String,
+            argvTemplate: [String],
+            templateVariables: [String: String]
+        ) {
+            self.kind = kind
+            self.label = label
+            self.command = command
+            self.argvTemplate = argvTemplate
+            self.templateVariables = templateVariables
+        }
+    }
 
     /// Boolean effects after flags + selection resolve. `repoWrite` is permission
     /// (may write / uses write safety), not an observed `repoDelta`.
@@ -76,7 +112,8 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
         counts: Counts = .init(readyWorkers: 0, blockedWorkers: 0, resolvedSourceIds: 0, seatCount: 0),
         writeLockHeld: Bool? = nil,
         warnings: [String] = [],
-        nextAction: AgentNextAction
+        nextAction: AgentNextAction,
+        alternatives: [Alternative]? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.canStart = canStart
@@ -93,6 +130,7 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
         self.writeLockHeld = writeLockHeld
         self.warnings = warnings
         self.nextAction = nextAction
+        self.alternatives = alternatives
     }
 }
 

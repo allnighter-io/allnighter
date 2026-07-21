@@ -277,7 +277,8 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
 
     /// Project public dry-run envelope (schema v2 — writePolicy + effects; no top-level `mutating`).
     public func makeDryRunJSON() -> RunDryRunJSON {
-        RunDryRunJSON(
+        let readOnlySteer = readOnlyAnswerTeamSteer()
+        return RunDryRunJSON(
             canStart: canStart,
             blockedReason: blockedReason,
             projectId: projectId,
@@ -295,7 +296,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
                 seatCount: seats.count
             ),
             writeLockHeld: writeLockHeld,
-            warnings: warnings,
+            warnings: warnings + (readOnlySteer.map { [$0.warning] } ?? []),
             nextAction: canStart
                 ? AgentNextAction(
                     kind: "startRun",
@@ -304,13 +305,57 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
                 : AgentNextAction(
                     kind: "runDoctor",
                     label: "Check setup and sources",
-                    command: blockedReason == nil ? "alln doctor --json" : teachingCommand)
+                    command: blockedReason == nil ? "alln doctor --json" : teachingCommand),
+            alternatives: readOnlySteer.map { [$0.alternative] }
         )
     }
 
+    /// Canonical read-only ask team the docs already reference (the Code lane
+    /// default answer team). Teaching this preserves the caller's `--worker`/`--effort`
+    /// selectors while swapping to a team that is read-only by construction.
+    static let readOnlyAnswerTeamId = "code_plan"
+
+    /// ADP-S02 — when a dry-run resolves mutating-allowed on a bare prompt ask (no
+    /// `--team`), teach the mechanical read-only answer-team alternative at the
+    /// decision point. Returns `nil` (nothing taught) for answer-team runs, read-only
+    /// resolutions, or when the answer team can't be resolved read-only. This changes
+    /// no routing, lanes, or write-policy — it only discloses (SH-S05 / Menu-Not-Router).
+    func readOnlyAnswerTeamSteer() -> (warning: String, alternative: RunDryRunJSON.Alternative)? {
+        guard writePolicy == .mutating, !explicitTeamChosen else { return nil }
+        guard let answerTeam = TeamCatalog.get(Self.readOnlyAnswerTeamId),
+              answerTeam.writePolicy == .readOnly else { return nil }
+
+        var altFlags = normalizedFlags
+        altFlags.teamId = answerTeam.id
+        // A read-only answer team never writes, so `--no-commit` is redundant noise.
+        altFlags.noCommit = false
+        let (altVars, altArgv) = RunInvocationResolver.buildTemplate(
+            message: templateVariables["message"] ?? "",
+            flagMode: flagMode,
+            flags: altFlags,
+            resolvedWorkerId: explicitWorkerChosen ? workerId : nil,
+            resolvedTeamId: answerTeam.id
+        )
+        let command = Self.shellJoin(altArgv)
+        let warning = "writePolicy is mutating because a bare prompt ask (Default Team / explicit --worker) is mutating-allowed. For a mechanical read-only guarantee, run an answer team instead — e.g. `--team \(answerTeam.id)` — which is read-only by construction and preserves your selectors. See `alternatives`."
+        let alternative = RunDryRunJSON.Alternative(
+            kind: "readOnlyAnswerTeam",
+            label: "Run as a read-only answer team (\(answerTeam.displayName))",
+            command: command,
+            argvTemplate: altArgv,
+            templateVariables: altVars
+        )
+        return (warning, alternative)
+    }
+
     /// Shell-joined teaching command using `{name}` placeholders from `templateVariables`.
-    public var teachingCommand: String {
-        argvTemplate.map { token in
+    public var teachingCommand: String { Self.shellJoin(argvTemplate) }
+
+    /// Shell-join a tokenized argv template, quoting `{name}` placeholders and any
+    /// token that carries spaces/quotes. Shared by `teachingCommand` and the ADP-S02
+    /// answer-team `alternatives` command so both render identically.
+    static func shellJoin(_ argv: [String]) -> String {
+        argv.map { token in
             if token.hasPrefix("{"), token.hasSuffix("}"), token.count > 2 {
                 return "\"\(token)\""
             }
