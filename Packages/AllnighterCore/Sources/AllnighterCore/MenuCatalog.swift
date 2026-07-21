@@ -68,9 +68,14 @@ public enum MenuCatalog {
         let teamRows: [MenuJSON.Team] = teamList.map { team in
             let active = TeamVisibility.isEnabled(team.id)
             let shape = team.mutating ? "execution" : "answer"
+            // ADP-S03: a custom team saved with a blank display name (e.g.
+            // `teams duplicate --name ""`) must still disclose a non-empty,
+            // human-readable name next to its canonical id in every catalog
+            // row — `disclosedDisplayName` falls back to the id.
+            let displayName = team.disclosedDisplayName
             let copy = MenuSelectionCopy.team(
                 id: team.id,
-                displayName: team.displayName,
+                displayName: displayName,
                 description: team.description,
                 mutating: team.mutating
             )
@@ -80,7 +85,7 @@ public enum MenuCatalog {
             return MenuJSON.Team(
                 ref: "team:\(team.id)",
                 id: team.id,
-                displayName: team.displayName,
+                displayName: displayName,
                 useWhen: copy.useWhen,
                 dontUseWhen: copy.dontUseWhen,
                 shape: shape,
@@ -597,7 +602,7 @@ public enum MenuCatalog {
             team: MenuShowJSON.TeamDetail(
                 ref: "team:\(team.id)",
                 id: team.id,
-                displayName: team.displayName,
+                displayName: team.disclosedDisplayName,
                 description: team.description,
                 lane: team.lane.rawValue,
                 outputKind: team.outputKind.rawValue,

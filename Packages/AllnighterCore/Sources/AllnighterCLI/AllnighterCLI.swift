@@ -701,7 +701,7 @@ struct AllnighterCLI {
             } else {
                 for t in visible {
                     let off = TeamVisibility.isEnabled(t.id) ? "" : "\t(inactive)"
-                    print("\(t.id)\t\(t.displayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\t\(t.catalogSeatCount) seats\(t.isDefaultForLane ? "\t(default)" : "")\(off)")
+                    print("\(t.id)\t\(t.disclosedDisplayName)\t\(t.lane.rawValue)/\(t.outputKind.rawValue)\tdefault \(t.defaultEffort.rawValue)\t\(t.catalogSeatCount) seats\(t.isDefaultForLane ? "\t(default)" : "")\(off)")
                 }
             }
         }

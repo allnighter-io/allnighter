@@ -348,6 +348,17 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         let crewSeats = workerSpecs.reduce(0) { $0 + max(1, $1.count) }
         return scoutSeats + crewSeats + 1
     }
+
+    /// ADP-S03: the human-readable name every catalog/menu row must disclose
+    /// next to the canonical `id`. Custom teams can be saved with a blank
+    /// `displayName` (e.g. `teams duplicate --name ""`); this is the one
+    /// place that falls back to the id so no catalog row ever discloses an
+    /// empty name. Callers that read `displayName` directly (Codable
+    /// round-trip, editing) are unaffected — this is disclosure-only.
+    public var disclosedDisplayName: String {
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? id : displayName
+    }
 }
 
 // MARK: - Default-per-lane integrity

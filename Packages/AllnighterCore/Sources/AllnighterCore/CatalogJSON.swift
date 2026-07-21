@@ -275,7 +275,7 @@ public struct TeamShowJSON: Codable, Sendable, Equatable {
         let lead = LeadSeat.from(team.lead)
         return TeamShowJSON(
             contractVersion: contractVersion,
-            id: team.id, displayName: team.displayName, lane: team.lane.rawValue,
+            id: team.id, displayName: team.disclosedDisplayName, lane: team.lane.rawValue,
             outputKind: team.outputKind.rawValue, defaultEffort: team.defaultEffort.rawValue,
             mutating: team.mutating, builtIn: team.builtIn, isDefaultForLane: team.isDefaultForLane,
             description: team.description, seatCount: team.catalogSeatCount,

@@ -97,4 +97,53 @@ final class TeamCatalogTests: XCTestCase {
         // Falls back to the <lane>_core built-in when no explicit default is set.
         XCTAssertEqual(noDefault.defaultTeam(for: .design)?.id, "design_design")
     }
+
+    // MARK: - ADP-S03: every catalog row discloses a non-empty name
+
+    /// Reproduces the caller-reported mechanism: `teams duplicate --name ""`
+    /// (an explicit blank, not an omitted flag) saves a custom team whose
+    /// `displayName` is a literal empty string. `disclosedDisplayName` — used
+    /// by every catalog/menu projection — must still surface a non-empty
+    /// human name (falling back to the canonical id) rather than leaking "".
+    func testBlankDisplayNameFallsBackToIdForDisclosure() {
+        var team = sampleTeam(id: "custom_code_blank")
+        team.displayName = ""
+        XCTAssertEqual(team.disclosedDisplayName, "custom_code_blank")
+
+        var whitespaceOnly = sampleTeam(id: "custom_code_ws")
+        whitespaceOnly.displayName = "   "
+        XCTAssertEqual(whitespaceOnly.disclosedDisplayName, "custom_code_ws")
+
+        // Non-empty names are passed through untouched.
+        XCTAssertEqual(sampleTeam(id: "custom_code_named").disclosedDisplayName, "Sample")
+    }
+
+    /// `teams --json` (`TeamCatalogJSON.project`) never emits an empty
+    /// `displayName` for any row — built-in or a duplicate saved with a
+    /// blank `--name`.
+    func testTeamCatalogJSONNeverEmitsEmptyDisplayName() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let teamsRoot = base.appendingPathComponent("teams", isDirectory: true)
+        let skillsRoot = base.appendingPathComponent("skills", isDirectory: true)
+        CatalogRoots.overrideForTesting(teams: teamsRoot, skills: skillsRoot)
+        defer {
+            CatalogRoots.resetTestingOverrides()
+            try? FileManager.default.removeItem(at: base)
+        }
+
+        _ = try TeamCatalog.duplicateBuiltIn(
+            "code_bug_hunt", name: "", customId: "custom_code_blank_dup")
+
+        let payload = TeamCatalogJSON.project(
+            TeamCatalog.all, lane: nil, contractVersion: ContractRegistry.contractVersion)
+        XCTAssertFalse(payload.teams.isEmpty)
+        for entry in payload.teams {
+            XCTAssertFalse(
+                entry.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                "team \(entry.id) discloses an empty displayName"
+            )
+        }
+        let blank = try XCTUnwrap(payload.teams.first { $0.id == "custom_code_blank_dup" })
+        XCTAssertEqual(blank.displayName, "custom_code_blank_dup")
+    }
 }
