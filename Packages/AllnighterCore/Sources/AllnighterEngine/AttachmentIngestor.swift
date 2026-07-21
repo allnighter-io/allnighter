@@ -1,9 +1,15 @@
 import Foundation
 import AllnighterCore
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
+#if canImport(ImageIO) && canImport(CoreGraphics) && canImport(UniformTypeIdentifiers)
 import ImageIO
 import CoreGraphics
 import UniformTypeIdentifiers
+#endif
 
 /// Shared image ingest pipeline for GUI, CLI, and MCP surfaces.
 public struct AttachmentIngestor: Sendable {
@@ -36,6 +42,7 @@ public struct AttachmentIngestor: Sendable {
         let sniffed = sniffMIME(data: data, declared: declaredMIME)
         guard isAllowedImageMIME(sniffed) else { throw AttachmentError.unsupportedType }
 
+        #if canImport(ImageIO) && canImport(CoreGraphics) && canImport(UniformTypeIdentifiers)
         guard let (cgImage, originalWidth, originalHeight) = try decodeImage(data: data) else {
             throw AttachmentError.decodeFailed
         }
@@ -60,6 +67,10 @@ public struct AttachmentIngestor: Sendable {
             storedHeight: storedHeight,
             wasDownscaled: wasDownscaled
         )
+        #else
+        // No platform image codec: image ingest is unsupported off Apple platforms.
+        throw AttachmentError.unsupportedType
+        #endif
     }
 
     public func ingestBase64(
@@ -101,6 +112,7 @@ public struct AttachmentIngestor: Sendable {
         }
     }
 
+    #if canImport(ImageIO) && canImport(CoreGraphics) && canImport(UniformTypeIdentifiers)
     private func decodeImage(data: Data) throws -> (CGImage, Int, Int)? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
@@ -145,4 +157,5 @@ public struct AttachmentIngestor: Sendable {
         guard CGImageDestinationFinalize(dest) else { return nil }
         return data as Data
     }
+    #endif
 }
