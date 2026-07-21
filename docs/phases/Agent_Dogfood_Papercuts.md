@@ -74,5 +74,7 @@ re-litigated from future tester feedback.
 
 - Receipts and verdicts: this doc. Durable laws: `CLI_Implementation_Contract.md`
   (nothing promoted from this batch — no new laws created).
-- Fix routing (founder 2026-07-21): Claude-only; ADP-S01/S02 heavy (Opus),
-  ADP-S03/S04/S05 light (Sonnet); session is PM.
+- How this batch was executed (historical record, NOT a routing policy —
+  there is no standing routing rule; the founder names the executor per task):
+  ADP-S01/S02 via an Opus agent, ADP-S03/S04/S05 via a Sonnet agent, PM session
+  verified and committed.
