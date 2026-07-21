@@ -306,7 +306,15 @@ public enum HelpTopicRegistry {
             model or vendor by natural-language name? Use `alln menu --json` \
             — do not stop at a models/teams list miss.
             """,
-            aliases: ["teams", "workers", "skills", "roster", "catalog", "which model", "ask a model", "create team", "custom team"],
+            aliases: [
+                "teams", "workers", "skills", "roster", "catalog", "which model", "ask a model",
+                "create team", "custom team",
+                // ADP-S04: task-verb phrasing a caller actually types for team authoring
+                // must outrank the generic "team" overlap with team_run_loop (running a
+                // team), which otherwise wins ties on every bare "team" query.
+                "create a team", "make a team", "make a custom team", "new team",
+                "customize a team", "build a team", "build a custom team",
+            ],
             relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams new", "teams edit", "teams restore", "skills", "skills show", "models", "menu"],
             schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON"],
             errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_RESTORE_UNSUPPORTED", "TEAM_ID_COLLISION", "TEAM_INVALID", "CATALOG_ID_INVALID", "SKILL_NOT_FOUND"],

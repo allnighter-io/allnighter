@@ -131,6 +131,21 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(top("auto fix"), "auto_fix")
     }
 
+    /// ADP-S04: task-verb team-authoring queries must resolve to the
+    /// `teams_and_workers` topic (which teaches `teams duplicate` / `teams new`)
+    /// rather than losing the ranking tie to `team_run_loop` (running a team) —
+    /// every one of these phrases contains the bare word "team", which
+    /// `team_run_loop` also scores heavily on via its title/summary/related
+    /// commands. Before ADP-S04 every query below topped out at `team_run_loop`.
+    func testSearchRoutesTeamAuthoringQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("create a team"), "teams_and_workers")
+        XCTAssertEqual(top("make a custom team"), "teams_and_workers")
+        XCTAssertEqual(top("new team"), "teams_and_workers")
+        XCTAssertEqual(top("customize a team"), "teams_and_workers")
+        XCTAssertEqual(top("build a team"), "teams_and_workers")
+    }
+
     func testSearchScoresAreNormalizedAndOrdered() throws {
         let r = HelpService.search("team run preflight start")
         let first = try XCTUnwrap(r.results.first)

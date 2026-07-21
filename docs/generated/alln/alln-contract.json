@@ -1207,7 +1207,7 @@
       "name" : "teams new",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. Not an alias for teams create.",
+      "summary" : "Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. To copy a shipped team instead, use teams duplicate.",
       "visibility" : "public"
     },
     {

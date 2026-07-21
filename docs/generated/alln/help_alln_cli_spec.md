@@ -338,7 +338,7 @@ Examples: `teams_duplicate_json`.
 
 ### `alln teams new`
 
-Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. Not an alias for teams create.
+Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. To copy a shipped team instead, use teams duplicate.
 
 Arguments:
 - `team-id` (required) — New team id (must match file definition.id).

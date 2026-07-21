@@ -245,7 +245,7 @@ public extension ContractRegistry {
             menuAction: true
         ),
         CommandSpec(
-            "teams new", summary: "Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. Not an alias for teams create.", milestone: .m1,
+            "teams new", summary: "Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. To copy a shipped team instead, use teams duplicate.", milestone: .m1,
             args: [ArgSpec("team-id", required: true, summary: "New team id (must match file definition.id).")],
             flags: [
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "TeamPreset JSON file (or CatalogEnvelope)."),

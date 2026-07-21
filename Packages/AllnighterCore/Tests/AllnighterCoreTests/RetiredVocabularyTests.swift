@@ -24,6 +24,31 @@ final class RetiredVocabularyTests: XCTestCase {
         XCTAssertTrue(hits.isEmpty, "retired lane/effort enum values in FlagSpec:\n\(hits.joined(separator: "\n"))")
     }
 
+    /// ADP-S04: a command summary must never name a verb that does not exist
+    /// (the false affordance `teams new` carried: "Not an alias for teams
+    /// create" — there is no `teams create`). Checked directly against the
+    /// new `"not an alias for"` deny-term rather than the full deny-list —
+    /// several other deny-terms (e.g. "dryrun") are legitimate substrings of
+    /// real schema type names in these summaries (`RunDryRunJSON`) and would
+    /// false-positive under `proseContainsDenyTerm`'s prose-oriented matcher.
+    func testNoFalseAffordancePhraseInCommandSummaries() {
+        XCTAssertTrue(RetiredVocabulary.denyTerms.contains("not an alias for"))
+        let registry = ContractRegistry.milestone1
+        var hits: [String] = []
+        for cmd in registry.commands where cmd.milestone == .m1 {
+            if cmd.summary.lowercased().contains("not an alias for") {
+                hits.append("\(cmd.name) summary")
+            }
+            for flag in cmd.flags where flag.summary.lowercased().contains("not an alias for") {
+                hits.append("\(cmd.name) --\(flag.name)")
+            }
+            for arg in cmd.args where arg.summary.lowercased().contains("not an alias for") {
+                hits.append("\(cmd.name) <\(arg.name)>")
+            }
+        }
+        XCTAssertTrue(hits.isEmpty, "false-affordance phrasing in CommandSpec summaries:\n\(hits.joined(separator: "\n"))")
+    }
+
     func testDenyListSeedsFromKillList() {
         let required = [
             "dryRun", "dryrun", "team_start(", "pair_relay(action",

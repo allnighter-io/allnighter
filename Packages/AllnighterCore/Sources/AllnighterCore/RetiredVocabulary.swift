@@ -53,6 +53,11 @@ public enum RetiredVocabulary {
         "team start",
         "recommended.command",
         "USE THIS FIRST",
+        // ADP-S04 — a command summary must never name a verb that does not
+        // exist ("teams new" carried "Not an alias for teams create" — there
+        // is no `teams create`). A caller reading the false negative can
+        // conclude the named verb exists, just unreachable from here.
+        "not an alias for",
     ]
 
     /// Underscore tool ids that must never appear as callable ids in agent-visible
