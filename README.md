@@ -1,11 +1,13 @@
 # Allnighter
 
-Native macOS agent factory + iOS remote floor manager for terminal-based AI
-coding agents.
+Cross-CLI orchestration for terminal-based AI coding agents — one command
+surface (`alln`) plus a native macOS app and iOS remote.
 
-**Allnighter** turns a developer's Mac into an overnight agent factory and their
-iPhone into the floor manager for that factory — coordinating Claude Code, Codex
-CLI, Grok, and other subscription CLIs the user already pays for.
+**Allnighter** coordinates Claude Code, Codex CLI, Grok, and other subscription
+CLIs the user already pays for as one team: multi-model spec review, blind
+fan-outs that kill copy-paste between terminals, piloted PM/dev loops, and
+unattended relay. Despite the name, runs are usually live and attended —
+nothing here assumes overnight.
 
 Core promise: parallel safe lanes, multi-model planning, radical privacy,
 zero mandatory cloud. It never swaps your model, fakes completion, or lets two
