@@ -133,6 +133,12 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// True when `--lane` was passed alongside an explicit `--worker` — lane is context
     /// metadata on the run identity, not the router (`Field_Reports_3.md` FR7).
     public var laneContextOnly: Bool? = nil
+    /// ADP-S01 — the caller's explicit `--worker` selector(s) at run acceptance,
+    /// canonicalized to the resolved worker id(s). Persisted so every replay surface
+    /// (`reproduceCommand`) can round-trip the explicit selection that `workers` alone
+    /// can't distinguish from default-team resolution. Optional so legacy `run.json`
+    /// (no key) decodes to `nil`; `nil`/empty means no explicit `--worker` was given.
+    public var explicitWorkerIds: [String]? = nil
     /// FR12 — requested verbatim commit message (verification only).
     public var requestedCommitMessage: String? = nil
     /// FR12 — worker was instructed to leave work uncommitted.
@@ -201,6 +207,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         timing: RunTimingReport? = nil,
         repoDelta: RepoDelta? = nil,
         laneContextOnly: Bool? = nil,
+        explicitWorkerIds: [String]? = nil,
         requestedCommitMessage: String? = nil,
         noCommitOrdered: Bool? = nil,
         uncommittedFileCount: Int? = nil,
@@ -240,6 +247,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.timing = timing
         self.repoDelta = repoDelta
         self.laneContextOnly = laneContextOnly
+        self.explicitWorkerIds = explicitWorkerIds
         self.requestedCommitMessage = requestedCommitMessage
         self.noCommitOrdered = noCommitOrdered
         self.uncommittedFileCount = uncommittedFileCount

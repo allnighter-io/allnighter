@@ -507,10 +507,25 @@ enum RunCLI {
         return lines.joined(separator: "\n")
     }
 
+    /// ADP-S01 — a runnable `alln run` replay that round-trips every explicit
+    /// selector the original run resolved with, so re-running it lands on the same
+    /// seats and write policy: the prompt, `--project`, `--team`, each explicit
+    /// `--worker`, `--effort`, `--lane` (only when it was explicit context alongside
+    /// a pinned worker), and `--no-commit` when the run was ordered to leave work
+    /// uncommitted.
     static func reproduceCommand(_ run: TeamRun, project: Project) -> String {
-        var parts = ["alln run", "--project", project.id]
+        var parts = ["alln run"]
+        if !run.prompt.isEmpty { parts.append("\"\(run.prompt)\"") }
+        parts.append(contentsOf: ["--project", project.id])
         if let team = run.presetId { parts.append(contentsOf: ["--team", team]) }
+        for worker in run.explicitWorkerIds ?? [] where !worker.isEmpty {
+            parts.append(contentsOf: ["--worker", worker])
+        }
         if let effort = run.effort { parts.append(contentsOf: ["--effort", effort.rawValue]) }
+        if run.laneContextOnly == true, let lane = run.lane {
+            parts.append(contentsOf: ["--lane", lane.rawValue])
+        }
+        if run.noCommitOrdered == true { parts.append("--no-commit") }
         return parts.joined(separator: " ")
     }
 }

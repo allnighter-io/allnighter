@@ -570,6 +570,7 @@ public actor RunService {
             requestLane: parked.lane,
             explicitTeamChosen: true,
             laneContextOnly: parked.laneContextOnly == true,
+            explicitWorkerIds: parked.explicitWorkerIds,
             projectId: nil,
             workerOverride: modelId,
             origin: parked.origin,
@@ -666,6 +667,12 @@ public actor RunService {
         let effectiveWorkerId = invocation.workerId
         let explicitTeamChosen = invocation.explicitTeamChosen
         let laneContextOnly = request.lane != nil && !(request.workerId ?? "").isEmpty
+        // ADP-S01: the explicit `--worker` selection, canonicalized to the resolved
+        // id so a `reproduceCommand` replay resolves to the same seat. Nil when the
+        // worker was default-team/Auto resolved (no explicit `--worker`).
+        let explicitWorkerIds: [String]? = invocation.explicitWorkerChosen
+            ? (effectiveWorkerId.map { [$0] } ?? request.workerId.map { [$0] })
+            : nil
         let effectiveLane = invocation.lane
         let effort = invocation.effort
         let lockKey = invocation.lockKey
@@ -750,6 +757,7 @@ public actor RunService {
                     explicitTeamChosen: explicitTeamChosen),
                 outputKind: preset.outputKind, mutating: true, repoRoot: root,
                 laneContextOnly: laneContextOnly ? true : nil,
+                explicitWorkerIds: explicitWorkerIds,
                 blocker: RunBlocker(resource: .repoWriteLock, scopeRoot: root),
                 clockBudgets: clockBudgets,
                 links: retryLinks)
@@ -874,6 +882,7 @@ public actor RunService {
                 preset: preset, prompt: prompt, context: request.context, threadId: request.threadId,
                 effort: effort, repoRoot: root, requestLane: request.lane,
                 explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
+                explicitWorkerIds: explicitWorkerIds,
                 projectId: request.projectId, workerOverride: effectiveWorkerId,
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
                 deliveries: request.deliveries, requestedAt: requestedAt, timing: timing, events: events,
@@ -902,6 +911,7 @@ public actor RunService {
             preset: preset, prompt: answerPrompt, effort: effort, repoRoot: root,
             projectId: request.projectId, lane: request.lane ?? preset.lane,
             explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
+            explicitWorkerIds: explicitWorkerIds,
             workerOverride: effectiveWorkerId,
             origin: origin, originAgent: originAgent, runId: id, runner: runner,
             deliveries: request.deliveries, timing: timing, events: events,
@@ -926,6 +936,7 @@ public actor RunService {
         requestLane: WorkLane?,
         explicitTeamChosen: Bool,
         laneContextOnly: Bool,
+        explicitWorkerIds: [String]? = nil,
         projectId: String?,
         workerOverride: String?,
         origin: RunOrigin,
@@ -1143,6 +1154,7 @@ public actor RunService {
                 mutating: true, executionSourceId: model.driverId,
                 threadId: threadId, repoRoot: repoRoot,
                 laneContextOnly: laneContextOnly ? true : nil,
+                explicitWorkerIds: explicitWorkerIds,
                 attempts: [RunAttempt(
                     attemptNumber: 1,
                     requestedSourceId: model.driverId,
@@ -1444,6 +1456,7 @@ public actor RunService {
                     requestLane: requestLane,
                     explicitTeamChosen: explicitTeamChosen,
                     laneContextOnly: laneContextOnly,
+                    explicitWorkerIds: explicitWorkerIds,
                     projectId: projectId,
                     workerOverride: candidate.modelId,
                     origin: origin,
@@ -1715,6 +1728,7 @@ public actor RunService {
         lane: WorkLane,
         explicitTeamChosen: Bool,
         laneContextOnly: Bool,
+        explicitWorkerIds: [String]? = nil,
         workerOverride: String? = nil,
         origin: RunOrigin,
         originAgent: String?,
@@ -1777,6 +1791,7 @@ public actor RunService {
             var r = run
             r.lane = lane; r.effort = effort
             r.laneContextOnly = laneContextOnly ? true : nil
+            r.explicitWorkerIds = explicitWorkerIds
             r.teamDisplayName = RunIdentity.teamDisplayName(
                 presetId: preset.id, catalogDisplayName: resolved.teamDisplayName,
                 explicitTeamChosen: explicitTeamChosen)

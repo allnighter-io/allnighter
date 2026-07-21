@@ -99,14 +99,24 @@ struct AllnighterCLI {
     // MARK: - Subcommands
 
     /// Replay grammar for legacy show/export paths — always `alln run` (MR-S02).
+    /// ADP-S01 — round-trips every explicit selector: the prompt, `--team`, each
+    /// explicit `--worker`, `--effort`, `--lane` (only when it was explicit context
+    /// alongside a pinned worker, so an answer-team replay isn't given a redundant
+    /// lane that could conflict with `--team`), and `--no-commit` when ordered.
     static func reproduceCommand(_ run: TeamRun) -> String {
         var parts = ["alln run"]
-        if let lane = run.lane { parts.append("--lane \(lane.rawValue)") }
-        if let team = run.presetId { parts.append("--team \(team)") }
-        if let effort = run.effort { parts.append("--effort \(effort.rawValue)") }
         if !run.prompt.isEmpty {
             parts.append("\"\(run.prompt)\"")
         }
+        if let team = run.presetId { parts.append("--team \(team)") }
+        for worker in run.explicitWorkerIds ?? [] where !worker.isEmpty {
+            parts.append("--worker \(worker)")
+        }
+        if let effort = run.effort { parts.append("--effort \(effort.rawValue)") }
+        if run.laneContextOnly == true, let lane = run.lane {
+            parts.append("--lane \(lane.rawValue)")
+        }
+        if run.noCommitOrdered == true { parts.append("--no-commit") }
         return parts.joined(separator: " ")
     }
 
