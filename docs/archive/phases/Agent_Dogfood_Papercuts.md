@@ -1,6 +1,8 @@
 # Agent Dogfood Papercuts (ADP)
 
-**Status: Done (2026-07-21).** ADP-S01–S05 all landed. SSOT for the post-Sharpening dogfood batch.
+**Status: Done (2026-07-21), archived 2026-07-22.** ADP-S01–S05 all landed;
+durable truth lives in code (see per-slice gates below). SSOT for the
+post-Sharpening dogfood batch.
 Origin: two independent cold-caller dogfood reports against contract 3.0.0
 (2026-07-21). Per the archived Sharpening dogfood law
 (`docs/archive/phases/Alln_Sharpening.md`), every factual critique below is

@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-07-21
+Updated: 2026-07-22
 
 ## Purpose
 
@@ -211,7 +211,8 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Feature semantics before implementation | `docs/workflows/SSOT_Feature_Workflow.md` |
 | Sprint execution and closeout | `docs/operations/Execution-Playbook.md` |
 | Stack and proof commands | `docs/operations/TechStack.md` |
-| **Anything shipped & archived** (MCP, Pilot/Relay/Panel, Process Ownership, Pending, Stalled Watchdog, Try-Fix, Warm chat, Team/Model catalogs, Composer image, thread MLP/notifications/streaming/unread, Field Reports 1–2, GLM code-review logs) | [`docs/archive/phases/README.md`](../archive/phases/README.md) — code is SSOT |
+| Post-Sharpening dogfood batch — reproduce selector round-trip, dry-run read-only steer, team-name disclosure, authoring findability, single-source binary version | archived `Agent_Dogfood_Papercuts.md` (Done — code SSOT: `TeamRun.explicitWorkerIds`, `RunDryRunJSON.alternatives`, `TeamPreset.disclosedDisplayName`, `AllnighterVersionIdentity.binaryVersion`) |
+| **Anything shipped & archived** (MCP, Pilot/Relay/Panel, Process Ownership, Pending, Stalled Watchdog, Try-Fix, Warm chat, Team/Model catalogs, Composer image, thread MLP/notifications/streaming/unread, Field Reports 1–2, Agent Dogfood Papercuts, GLM code-review logs) | [`docs/archive/phases/README.md`](../archive/phases/README.md) — code is SSOT |
 
 ## Retired Content
 
