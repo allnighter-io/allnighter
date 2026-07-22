@@ -107,8 +107,10 @@ source; remaining leftovers were pure GUI-polish unless noted. Live successors
 
 | Doc | Final status | Code SSOT / successor |
 | --- | --- | --- |
-| [Field_Reports_1.md](Field_Reports_1.md) | Shipped (delivery #5) | live: `Field_Reports_3.md`, `Field_Reports_4.md` |
-| [Field_Reports_2.md](Field_Reports_2.md) | Shipped (delivery #8, FR5+FR6) | live: `Field_Reports_3.md`, `Field_Reports_4.md` |
+| [Field_Reports_1.md](Field_Reports_1.md) | Shipped (delivery #5) | code SSOT (FR1–FR4); `RunIdentity`, `alln run` help/registry |
+| [Field_Reports_2.md](Field_Reports_2.md) | Shipped (delivery #8, FR5+FR6) | code SSOT; `TeamRunJSON.outcome`, trailer convention |
+| [Field_Reports_3.md](Field_Reports_3.md) | Shipped 2026-07-16 (delivery #10, FR7–FR11; `8882c8e3` / `4dfe97db` / `12b9fb49` / `70aefa02` / `d998b0da`) | `RunIdentity.laneLabel`, `JSONStreamLawTests`/`RunStreamContractTests`, delivered-not-stalled retry, handoff-ack + panel `isolation`, unattended vocabulary |
+| [Field_Reports_4.md](Field_Reports_4.md) | Shipped 2026-07-16 (delivery #11, FR12–FR14; `021b120f` / `ca1f0001`) | `--commit-message` + `commitMessageMatched` (`ProvenanceConvention`), `--proof` (`proofCommand`/`proofTimeoutSeconds`), `ReportedTokenUsage`/`outcome.usage`; tests `RunCommitProofTests`/`RunFlagConstraintTests`/`RunTokenUsageTests` |
 
 ### GLM code-review run logs — historical
 

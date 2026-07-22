@@ -31,8 +31,6 @@ one's truth now lives.
 | [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
 | [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md) | **Complete 2026-07-19, archived** — S00–S06; Works Test 14 GREEN / item 7 waived | Accepted runs stay observable, stoppable, recoverable. Code SSOT: `KillSettlement`, `RunClockEnforcer`, `RunContradiction`, `IdempotencyStore`; matrix `archive/phases/rlr/`. Unblocks IR-S02. |
 | [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md) | **SHIPPED 2026-07-19, archived** — S01–S04b, S05a, S06 gates; S05b deferred | Team-run open + streaming/reload hot path. Code SSOT: `ThreadsViewModel.applyLiveDelta` / `reloadAsync`, `PerfCounters`, `RunDecodeCache`. |
-| [`Field_Reports_3.md`](Field_Reports_3.md) | **In progress** — piloted delivery #10 | Lane-label truth, JSON stream discipline, retry idempotency from live dogfood. |
-| [`Field_Reports_4.md`](Field_Reports_4.md) | **In progress** — piloted delivery #11 | Commit fidelity, proof surfacing, token truth from live dogfood. |
 
 ### Agent front door (V1 Complete — gates 1–3 archived)
 
@@ -212,7 +210,8 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Sprint execution and closeout | `docs/operations/Execution-Playbook.md` |
 | Stack and proof commands | `docs/operations/TechStack.md` |
 | Post-Sharpening dogfood batch — reproduce selector round-trip, dry-run read-only steer, team-name disclosure, authoring findability, single-source binary version | archived `Agent_Dogfood_Papercuts.md` (Done — code SSOT: `TeamRun.explicitWorkerIds`, `RunDryRunJSON.alternatives`, `TeamPreset.disclosedDisplayName`, `AllnighterVersionIdentity.binaryVersion`) |
-| **Anything shipped & archived** (MCP, Pilot/Relay/Panel, Process Ownership, Pending, Stalled Watchdog, Try-Fix, Warm chat, Team/Model catalogs, Composer image, thread MLP/notifications/streaming/unread, Field Reports 1–2, Agent Dogfood Papercuts, GLM code-review logs) | [`docs/archive/phases/README.md`](../archive/phases/README.md) — code is SSOT |
+| Piloted-delivery field reports #10/#11 — lane-label truth, `--json` stream law, retry idempotency, unattended vocabulary, commit fidelity, proof surfacing, token truth | archived `Field_Reports_3.md` + `Field_Reports_4.md` (Shipped 2026-07-16 — FR7–FR14 all in code with tests) |
+| **Anything shipped & archived** (MCP, Pilot/Relay/Panel, Process Ownership, Pending, Stalled Watchdog, Try-Fix, Warm chat, Team/Model catalogs, Composer image, thread MLP/notifications/streaming/unread, Field Reports 1–4, Agent Dogfood Papercuts, GLM code-review logs) | [`docs/archive/phases/README.md`](../archive/phases/README.md) — code is SSOT |
 
 ## Retired Content
 

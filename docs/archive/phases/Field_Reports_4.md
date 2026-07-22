@@ -1,8 +1,12 @@
 # Field Reports 4 — commit fidelity, proof surfacing, token truth
 
-Status: In progress — piloted delivery #11 (PM = live Claude session; dev = Cursor Grok 4.5)
+Status: **Shipped 2026-07-16, archived 2026-07-22.** FR12–FR14 (+ the FR4 #1
+residual) all landed the same day the spec was written (commits `021b120f` /
+`ca1f0001`), each with a dedicated test. Durable truth lives in code (see the
+per-item receipt in the archive index). Piloted delivery #11 (PM = live Claude
+session; dev = Cursor Grok 4.5).
 Owner: AllnighterCore + CLI
-Updated: 2026-07-16
+Updated: 2026-07-22
 
 Source: founder field report from the first extended relay-rhythm usage (9 slices,
 a full iOS surface + an isolated feature, zero scope violations — "the core loop

@@ -1,8 +1,12 @@
 # Field Reports 3 — lane-label truth, JSON stream discipline, retry idempotency, unattended vocabulary
 
-Status: In progress — piloted delivery #10 (PM = live Claude session; dev = Cursor Grok 4.5)
+Status: **Shipped 2026-07-16, archived 2026-07-22.** FR7–FR11 all landed the
+same day the spec was written (commits `8882c8e3` / `4dfe97db` / `12b9fb49` /
+`70aefa02` / `d998b0da`), each with a dedicated test. Durable truth lives in
+code (see the per-item receipt in the archive index). Piloted delivery #10
+(PM = live Claude session; dev = Cursor Grok 4.5).
 Owner: AllnighterCore + CLI
-Updated: 2026-07-16
+Updated: 2026-07-22
 
 Sources: a repeat founder field report (lane labeling), three PM-verified anomalies
 from piloted deliveries #7–#9, and the pre-launch nocturnal-language audit.
