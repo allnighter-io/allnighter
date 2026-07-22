@@ -63,6 +63,13 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .design, .image, .copy, .localContext],
             strengthRank: 99),
+        // ChatGPT 5.6 Terra via Codex — the medium-tier ChatGPT seat. It is a
+        // distinct model from Sol, so it remains eligible to substitute other
+        // Balanced-tier models rather than being excluded as a duplicate seat.
+        "model_chatgpt_terra": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .design, .copy, .localContext],
+            strengthRank: 86),
         // ChatGPT 5.4 (Codex, off-Bench by default) — a capable non-Sol ChatGPT.
         // Copy-capable per founder so Copy teams have depth beyond the Sol/flagship seats.
         "model_chatgpt_54": ModelCapabilities(
@@ -163,6 +170,9 @@ public enum ModelCatalog {
             // and `gpt-5.6-sol` itself needs codex >= 0.144.x ("requires a newer version of
             // Codex"). Sol is the default ChatGPT seat via Codex.
             def("model_chatgpt", "ChatGPT 5.6 Sol (Codex)", "gpt-5.6-sol", "codex", .both, defaultEnabled: true),
+            // Terra is the Codex medium seat. It belongs to the Balanced
+            // substitution roster, so a ready Terra can cover another medium model.
+            def("model_chatgpt_terra", "ChatGPT 5.6 Terra (Codex)", "gpt-5.6-terra", "codex", .both, defaultEnabled: true),
             def("model_chatgpt_54", "ChatGPT 5.4", "gpt-5.4", "codex", .answerer, defaultEnabled: false),
             def("model_chatgpt_54_mini", "ChatGPT 5.4 mini", "gpt-5.4-mini", "codex", .answerer, defaultEnabled: false),
             def("model_codex_spark", "Codex Spark", "gpt-5.3-codex-spark", "codex", .answerer, defaultEnabled: false),

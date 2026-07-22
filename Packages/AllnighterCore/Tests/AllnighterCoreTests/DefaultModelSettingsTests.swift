@@ -14,7 +14,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(s.tiers.flagship, ["model_fable", "model_chatgpt"])
         XCTAssertFalse(s.tiers.flagship.contains("model_chatgpt_sol"))
         XCTAssertEqual(s.tiers.balanced, [
-            "model_chatgpt", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
+            "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         XCTAssertEqual(s.tiers.fast, ["model_cursor_auto", "model_composer", "model_gemini"])
@@ -46,6 +46,16 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertTrue(r.substituted)
     }
 
+    func testRequestedMediumModelFallsBackToCodexTerra() {
+        let r = SubstitutionResolver.resolveRequested(
+            modelId: "model_opus",
+            settings: .fresh,
+            readyModelIds: ["model_chatgpt_terra"])
+        XCTAssertEqual(r.resolvedModelId, "model_chatgpt_terra")
+        XCTAssertTrue(r.substituted)
+        XCTAssertEqual(r.tier, .balanced)
+    }
+
     func testRoundTripCodable() throws {
         let s = DefaultModelSettings.fresh
         let data = try CoreJSON.encode(s)
@@ -60,9 +70,10 @@ final class DefaultModelSettingsTests: XCTestCase {
 
     func testModelCanBelongToMultipleTiers() {
         let s = DefaultModelSettings.fresh
-        // ChatGPT spans Flagship + Balanced; Gemini spans Balanced + Fast.
-        XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt"), [.flagship, .balanced])
+        // Sol is Flagship-only; medium Terra is in Balanced; Gemini spans Balanced + Fast.
+        XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt"), [.flagship])
         XCTAssertEqual(s.tiers.highestTier(of: "model_chatgpt"), .flagship)
+        XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt_terra"), [.balanced])
         XCTAssertEqual(s.tiers.tiers(of: "model_gemini"), [.balanced, .fast])
         // Composer Fast is Fast-only in the seed; Composer 2.5 is Balanced-only.
         XCTAssertEqual(s.tiers.tiers(of: "model_composer"), [.fast])

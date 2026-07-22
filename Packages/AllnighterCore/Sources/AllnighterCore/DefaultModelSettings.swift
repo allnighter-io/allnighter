@@ -142,9 +142,9 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// Fresh-install seed: ordered membership per tier across multiple CLIs so
     /// substitution always has somewhere to go even when a user has only one or two
     /// CLIs. Each tier's default (index 0) is on-by-default, so Auto works day-one.
-    /// Flagship-only: Fable 5 + ChatGPT 5.6 Sol. Balanced orders High + High/Mid
-    /// seats as ChatGPT 5.6, Opus, Cursor Grok, Kimi K3, CLI Grok, Sonnet,
-    /// Composer, then Gemini.
+    /// Flagship-only: Fable 5 + ChatGPT 5.6 Sol. Balanced starts with the
+    /// medium ChatGPT 5.6 Terra seat, then orders Opus, Cursor Grok, Kimi K3,
+    /// CLI Grok, Sonnet, Composer, then Gemini.
     /// Fast stays cheap/auto. Seed only — fully user-overridable.
     public static let fresh = DefaultModelSettings(
         defaultTier: .flagship,
@@ -152,7 +152,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         tiers: TierMembership(
             flagship: ["model_fable", "model_chatgpt"],
             balanced: [
-                "model_chatgpt", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
+                "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
                 "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
             ],
             fast: ["model_cursor_auto", "model_composer", "model_gemini"]))
