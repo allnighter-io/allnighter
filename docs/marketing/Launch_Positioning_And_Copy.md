@@ -211,6 +211,111 @@ architecture calls, product decisions, refactors, launch copy, pricing, risk
 reviews, and final specs.
 ```
 
+## The Shape-Not-Count Angle (DeepMind proof point)
+
+This is our second, complementary research proof point. Fusion proves the value
+of fanning out. DeepMind proves *when* to fan out, *when not to*, and why the
+synthesizer is the thing that makes fan-out safe. Together they are ammunition
+for why Allnighter is right on BOTH lanes — research and execution.
+
+Source: Google DeepMind, "Towards a Science of Scaling Agent Systems: When and
+Why Agent Systems Work."
+https://research.google/blog/towards-a-science-of-scaling-agent-systems-when-and-why-agent-systems-work/
+
+They ran 180 agent-team configurations, all on the same budget, on the same
+tasks. Directional findings (treat as directional, not gospel — a study, not a
+law):
+
+```text
+- On work that splits into independent pieces (research, audits, broad scans),
+  teams beat a single agent by ~80.9%.
+- On step-by-step work where each move depends on the last, every single team
+  configuration LOST to one agent working alone.
+- Uncoordinated agents amplified each other's mistakes ~17.2x: one wrong finding
+  spreads through the team as if it were verified. With one owner of the merge,
+  it barely spreads.
+- The count of agents was never the lever. The SHAPE of the work decides, and
+  the coordinated merge decides whether a team win survives.
+```
+
+### Why this is unusually good ammunition
+
+Everyone in the category is scaling agent *count*. This research says count was
+never the lever — shape is, and the synthesizer is. That validates the
+*counterintuitive* half of Allnighter's design, not just the obvious half.
+Anyone can say "we fan out." Almost nobody can say "and we deliberately do NOT
+on execution, because the science shows teams lose there." Restraint backed by
+research reads as depth.
+
+### The two-lane frame
+
+```text
+Research lane (divergent, low-overlap work): fan out to a team — WITH a lead
+who owns the synthesis. The team win is real, but only coordinated. Uncoordinated
+teams amplify their own mistakes. Allnighter's team lead / synthesizer IS that
+owner of the merge.
+
+Execution lane (step-by-step, dependent work): one agent, one thread. Allnighter
+keeps execution single-agent — no team — because the research is clear that
+teams lose on sequential work.
+
+Two lanes. One product that knows the difference.
+```
+
+### The synthesizer is the moat detail
+
+```text
+A team without an owner is 17x louder about being wrong. Every Allnighter team
+has a lead who synthesizes — one owner of the merge. That is the difference
+between a team that wins and a mob that is confidently wrong.
+```
+
+### Fusion + DeepMind = a three-legged stool
+
+```text
+1. Fan-out has real value.            (OpenRouter Fusion)
+2. Fan-out only pays off coordinated. (DeepMind: 17.2x amplification without a
+                                       merge owner; the synthesizer is required)
+3. Keep it OFF sequential work.       (DeepMind: solo wins every time on chains)
+
+Allnighter operationalizes all three: fan out research to a team, synthesize
+with a lead, and keep execution single-agent.
+```
+
+### Ready-to-use copy lines
+
+```text
+More agents was never the strategy. The right shape was.
+
+Allnighter reads the work. Divergent research goes to a team — with a lead who
+owns the synthesis, not a pile of agents amplifying each other. Step-by-step
+execution stays with one agent, because the science says teams lose there.
+Two lanes. One product that knows the difference.
+```
+
+```text
+A team without an owner is 17x louder about being wrong.
+Every Allnighter team has a synthesizer. That is the whole game.
+```
+
+```text
+Everyone is scaling agent count. The research says count was never the lever.
+```
+
+### Honesty guardrails (same discipline as the Fusion numbers)
+
+```text
+- Cite as external validation of a PRINCIPLE, not an Allnighter benchmark.
+  "Independent research from DeepMind supports..." — never "Allnighter delivers
+  80.9%." Borrowing someone's benchmark and implying it is ours is the same sin
+  as Allnighter rating itself.
+- Frame as directional / "research supports," not "proven." It is one study.
+- Keep it live/attended. The story is fan-out, synthesis, spec review — not
+  "runs while you sleep." Do not let the misleading name creep into copy.
+- The 80.9% / 17.2x figures come from a popular summary of the paper. Before any
+  number goes on the public site, confirm it against the paper itself.
+```
+
 ## Homepage Draft
 
 ```text
