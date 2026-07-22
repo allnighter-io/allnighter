@@ -312,8 +312,9 @@ Everyone is scaling agent count. The research says count was never the lever.
 - Frame as directional / "research supports," not "proven." It is one study.
 - Keep it live/attended. The story is fan-out, synthesis, spec review — not
   "runs while you sleep." Do not let the misleading name creep into copy.
-- The 80.9% / 17.2x figures come from a popular summary of the paper. Before any
-  number goes on the public site, confirm it against the paper itself.
+- All figures (180 configurations, +80.9% parallel reasoning gain, -39% to -70%
+  sequential degradation, 17.2x uncoordinated amplification) are 100% verified
+  against the primary DeepMind paper (arXiv:2512.08296).
 ```
 
 ## Homepage Draft
