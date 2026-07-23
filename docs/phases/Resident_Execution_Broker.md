@@ -2,7 +2,7 @@
 
 Status: **Draft feature packet — architecture decision proposed; no implementation started**
 Owner: AllnighterCore + `alln serve` + CLI
-Updated: 2026-07-23
+Updated: 2026-07-23 (hardened after multi-model Spec Review panel, same day)
 Supersedes: the resident execution boundary in archived
 `Mac_Standalone_App_And_Background_Coordinator.md`; its Mac app shell history
 remains historical.
@@ -234,6 +234,13 @@ There are four truths and no duplicate execution state:
 The client owns none of these after acceptance. Client death must not cancel or
 orphan coordinator-owned work.
 
+One coordinator serves every project of the user concurrently, so isolation
+between concurrently-submitting projects is request-level, not process-level:
+every accepted request is scoped to its canonical project root, reconcile and
+cancel operate only within that scope, and no coordinator maintenance sweep may
+reap work belonging to a different project's run (the concurrent-invocation
+isolation rules apply unchanged inside the coordinator).
+
 ## Local broker contract
 
 ### Request envelope
@@ -252,16 +259,37 @@ ResidentExecutionRequest
     contractVersion
     pid
     origin
-  operation
+  operation            # one tagged union: each case carries its own typed payload
     teamRun
     panelStart
     panelRound
     panelDone
     sourceProbe
+    query              # typed read: runStatus | panelStatus | processSnapshot
     cancel
-  projectId / canonicalProjectRoot?
-  typedPayload
+  projectId / canonicalProjectRoot
 ```
+
+Replies and progress share one typed envelope, `ResidentExecutionEvent`: a
+cursor-ordered, request-correlated Codable carrying progress, a terminal
+boundary, or a typed error — the `eventCursor` in the receipt indexes this
+stream. Reply files in the rendezvous are named by request ID and cursor so a
+client can correlate and resume without guessing. Both transports carry these
+same event types; neither invents its own.
+
+The operation is a single tagged-union Codable: the case carries the payload,
+so a kind and a payload can never disagree. Each case states whether the
+project root is required (run/Panel dispatch) or forbidden
+(cancel-by-canonical-object-id); there is no optional root.
+
+Observe/control verbs that remain on the CLI surface (`panel status`, `panel
+watch`, `ps`, `kill`, doctor probes) are not a second contract: mutating verbs
+(`kill`, cancel) are typed operations in the union above; read verbs are the
+`query` case, answered from the durable journals and broker store and returned
+to a restricted client as `ResidentExecutionEvent` replies over the rendezvous.
+Live-vs-journal semantics are explicit: a query answers from current
+coordinator state plus the journal, and a watch is a query with a cursor that
+follows the event stream.
 
 The acceptance receipt contains:
 
@@ -293,7 +321,12 @@ permission-restricted temporary rendezvous directory:
   replies/
 ```
 
-- coordinator creates the root with mode `0700`;
+- coordinator creates the root with mode `0700` using exclusive-creation
+  semantics: it never follows a symlink at the rendezvous path, verifies the
+  resolved directory is owned by its own uid with no wider permissions, and
+  fails closed if the path pre-exists with wrong ownership, wrong mode, or as a
+  symlink — the rendezvous lives under a world-writable parent, so pre-creation
+  and symlink hijack by another local user are in the threat model;
 - client writes a temporary request and atomically renames it into `inbox`;
 - coordinator atomically claims it before validation;
 - an accepted request is persisted into the durable broker store before the
@@ -301,7 +334,25 @@ permission-restricted temporary rendezvous directory:
 - replies contain no credentials or source environment;
 - boot/temp cleanup cannot erase an accepted run because the durable journal is
   already authoritative;
-- the client streams from the normal event/journal contract after acceptance.
+- after acceptance, progress and terminal results reach a sandboxed client
+  through the rendezvous `replies/` channel — that channel is normative for
+  restricted clients, because the normal journal location under the user's
+  application-support directory may be unreadable from the caller's sandbox.
+  `journalRef` names coordinator-side authority; it is never a client
+  filesystem dependency. Unrestricted clients may read the journal directly as
+  an optimization, but every projection a restricted client needs (round and
+  status JSON included) must be servable over the rendezvous;
+- coordinator reachability has a sandbox-safe form over the same channel: a
+  ping request answered through `replies/`. Doctor and
+  `COORDINATOR_UNAVAILABLE` classification use this path when loopback is
+  blocked, so a blocked loopback is never reported as a missing coordinator.
+
+The concrete rendezvous root is resolved, not hardcoded: a per-uid directory
+derived from the platform temporary-directory convention (honoring a
+sandbox-relocated `TMPDIR` when the coordinator and client can both resolve the
+same path), with `/private/tmp/alln-<uid>/` as the Darwin fallback. This phase
+specifies Darwin behavior only; non-Darwin rendezvous is out of scope and must
+not be improvised per driver.
 
 Loopback HTTP/WS may later provide a faster app/iOS presentation path, but it is
 not the only CLI handoff because restricted hosts may block network and
@@ -312,7 +363,10 @@ the same Core request/receipt/event types.
 
 - local-only, one macOS user; no remote listener;
 - request and reply directories are user-only;
-- requests carry a per-install client proof and coordinator nonce;
+- requests carry a per-install client proof and coordinator nonce — the
+  concrete proof mechanism is **not yet decided**; it is Open question 1 and a
+  hard gate on REB-S01. Until that ruling, this bullet is a requirement shape,
+  not a contract;
 - coordinator validates command kind, project registration/root, contract
   version, request size, and payload schema;
 - no arbitrary executable, environment map, shell command, or credential may
@@ -325,19 +379,30 @@ This boundary prevents the broker from becoming a general sandbox escape.
 
 ## Coordinator lifecycle
 
-The Allnighter Mac installation owns a user-level LaunchAgent/login item for
-`alln serve`. Setup explains that background execution lets any installed agent
-send work to the user's CLI Team without granting that agent broad machine
-access.
+Enablement is app-independent, because the CLI is the product and the Mac app
+is optional. `alln serve install` (final name decided in REB-S04) registers the
+user-level LaunchAgent/login item from a plain terminal; the Mac app setup path
+calls the same mechanism. Setup explains that background execution lets any
+installed agent send work to the user's CLI Team without granting that agent
+broad machine access.
 
 - No root daemon and no Full Disk Access.
 - One coordinator per logged-in user.
 - launchd restarts it after crashes.
+- **Clients never start the coordinator.** A coordinator spawned by a caller
+  would inherit that caller's sandbox — the exact defect this phase removes —
+  while reporting healthy. Only the launchd/login-item registration owns
+  coordinator start; the coordinator records its launch origin, and a cold
+  start from a client is answered by `COORDINATOR_UNAVAILABLE` with the one
+  enablement action, never by auto-start.
 - The coordinator may remain idle with a tiny footprint; eliminating the
   foreground spawn path is more important than demand-start cleverness.
 - Client/coordinator version handshake is mandatory.
 - On compatible patch drift, the coordinator drains and restarts on the current
-  installed binary.
+  installed binary. Drain means: accepted work either runs to its terminal
+  journal state before restart or is re-adopted by the new coordinator from
+  the durable broker store and journals; in-flight source processes are never
+  silently orphaned or killed by a version restart.
 - On incompatible contract drift, no dispatch occurs; the client reports
   `COORDINATOR_VERSION_MISMATCH` with one repair action.
 - An accepted run survives client exit, terminal closure, or host-agent
@@ -355,6 +420,9 @@ Existing user commands remain the product surface:
 - setup/detect commands that touch a source
 - `alln ps|kill ...`
 - `alln serve [--health --json]`
+- `alln serve install` — register/enable the user-level coordinator without the
+  Mac app (exact verb finalized in REB-S04; the Works Test uses this command
+  verbatim)
 
 There is no public `broker exec` command. Routing through the resident execution
 authority is an implementation invariant, not a second way to run work.
@@ -377,7 +445,11 @@ New errors:
 
 Every error is added to `ContractRegistry` with an agent action, retryability,
 and a deterministic exit code. Generated contracts are regenerated from the
-registry.
+registry. The existing `COORDINATOR_UNAVAILABLE` entry is rewritten in the same
+pass: its agent action today suggests using the foreground CLI, which after
+cutover would recommend the exact fallback this phase deletes. The regenerated
+action points only to the one enablement path (`alln serve install` / the Mac
+app equivalent) and is non-retryable for spawn attempts.
 
 ## Teaching surface
 
@@ -414,12 +486,23 @@ Teaching rules:
   Untracked/ignored files and `.env*` are excluded unless a future explicit,
   typed attachment contract names a safe file.
 - Project registration does not authorize arbitrary roots; every request root
-  is canonicalized and matched against registered project truth.
+  is canonicalized and matched against registered project truth. A restricted
+  client submits the workspace-visible canonical root it is running in; the
+  coordinator — not the client — resolves and validates registration.
+  Registering a project remains an unrestricted-host prerequisite; there is no
+  broker operation for project add.
 - Mutating-run write locks remain keyed by canonical repo root and are enforced
   inside the coordinator.
 - Cancel/kill remains typed, scoped, identity-checked, and auditable.
 
 ## Implementation impact
+
+Version impact: the new request/receipt/operation contracts and the five new
+registry errors are additive — no existing contract shape changes meaning — so
+this phase is a binary `+0.0.1` bump per shipped slice (one definition:
+`AllnighterVersionIdentity.binaryVersion`), not a contractVersion major cut.
+If a later slice is forced to break an existing contract shape, that slice
+performs the major cut explicitly.
 
 ### AllnighterCore
 
@@ -491,6 +574,9 @@ After cutover:
 | Coordinator -> shell | Typed operation registry | Local caller may pass executable/env | Broker accepts only registered typed operations | Arbitrary command/env fields fail schema validation |
 | Isolation copy -> safe snapshot | Answer snapshot owner | Repo copy is safe because workers are read-only | Ignored/untracked secrets never enter answer snapshots | Fixture `.env.local` is absent from every seat snapshot |
 | Client death -> run death | Resident coordinator | Foreground process lifetime owns work | Accepted work survives client death | Kill submitting CLI; run reaches terminal journal state |
+| Client auto-start -> clean environment | Coordinator launch origin | Client may start a missing coordinator | A client-spawned coordinator is never trusted; start is owned by launchd/login-item registration and launch origin is recorded | Coordinator started from a restricted client refuses dispatch; client reports `COORDINATOR_UNAVAILABLE` with the enablement action |
+| Catalog presence -> source readiness | Spawn-time observation | Model is listed, therefore it can run now | Readiness is only established by a spawn in the execution environment; catalog listing and past probes are not spawnability | Seat whose vendor is at capacity fails (or is re-resolved under the substitution contract) with a classified capacity reason, never reported as ready |
+| Coordinator restart -> in-flight loss | Drain/re-adopt contract | Version restart may drop running work | Accepted work is drained to terminal state or re-adopted from durable stores across coordinator restart | Restart coordinator mid-run; run reaches terminal journal state with no orphaned source process |
 
 ## Ordered slices
 
@@ -505,14 +591,28 @@ After cutover:
 - Add Core request/receipt/error types.
 - Add permission-restricted rendezvous and durable acceptance store.
 - Prove claim, retry, conflict, crash-before-accept, and size/schema rejection.
-- Extend `alln serve --health --json` with broker readiness.
+- Prove hostile-rendezvous behavior: pre-created wrong-owner directory,
+  symlinked path, and wrong-mode root each fail closed.
+- **Prove restricted-client writability:** a Codex workspace-write client can
+  create a request and atomically rename it into the rendezvous inbox, and can
+  read its receipt and replies. If it cannot, the fallback channel becomes an
+  Open question and later slices do not delete direct spawn.
+- Extend `alln serve --health --json` with broker readiness, including the
+  rendezvous ping path.
 
 ### REB-S02 — Generic resident Team execution
 
 - Move production Team worker execution behind resident acceptance.
 - Make `alln run` submit, stream, and render the existing TeamRunJSON.
 - Make coordinator process ownership and per-source queues authoritative.
-- Delete production direct-spawn fallback.
+- Delete the direct-spawn path **for the Team-run surface only**, gated on the
+  REB-S01 restricted-client writability proof. Panel rounds and doctor/setup
+  probes still spawn foreground until REB-S03; the global "no second spawn
+  path" invariant is asserted at the end of REB-S03, not here.
+- Interim ship gate: no release is described as broker-ready between S02 and
+  S03. During that window, Panel and doctor invoked from a restricted client
+  fail closed with the documented sandbox truth instead of foreground-spawning
+  into the known failure mode.
 
 ### REB-S03 — Panel and source probes
 
@@ -521,18 +621,24 @@ After cutover:
 - Remove readiness self-fusion containment.
 - Add queued/running truth and per-seat process ownership.
 - Fix answer snapshots to exclude ignored/untracked secrets.
+- Assert the global one-authority invariant: after this slice, no production
+  code path outside the coordinator can spawn a vendor source.
 
 ### REB-S04 — Installation and version lifecycle
 
-- Install/enable the user-level coordinator through the Mac setup path.
+- Finalize and ship `alln serve install` as the app-independent enablement
+  path; the Mac setup path calls the same mechanism.
 - Add launchd restart and client/coordinator compatibility handshake.
-- Add drain/restart behavior for binary updates.
+- Add drain/restart behavior for binary updates, including re-adoption of
+  in-flight accepted work.
 - Make unavailable/mismatch recovery one action and agent-readable.
 
 ### REB-S05 — Host matrix and closeout
 
 - Run the same acceptance suite from Codex workspace-write, Claude, Cursor,
   Grok, a normal terminal, and the Mac app.
+- Include a CLI-only arm: enable and run the coordinator on a machine with no
+  Mac app installed.
 - Prove no host requires Full Access for Allnighter source execution.
 - Prove distinct sources stay distinct.
 - Update help, generated contracts, doctor, setup, and GUI presentation.
@@ -542,7 +648,8 @@ After cutover:
 
 Setup:
 
-1. Enable the installed user-level `alln serve`.
+1. Enable the coordinator with `alln serve install` (the same command named in
+   §CLI surface), then verify with `alln serve --health --json`.
 2. Configure at least three distinct authenticated source CLIs.
 3. Start Codex in its ordinary workspace-write sandbox with no Full Access.
 4. Select a Panel whose roster names those distinct sources.
@@ -563,10 +670,21 @@ Assertions:
 - every source child appears in `alln ps`;
 - each seat persists progress and a terminal report/reason;
 - client termination after acceptance does not terminate the Panel;
+- round and status JSON return to the sandboxed client without reading the
+  user's application-support directories;
 - no vendor credential or state directory is copied or remapped;
 - no `.env*` or ignored/untracked secret enters a seat snapshot;
 - the same commands still work from Claude, Cursor, Grok, terminal, and app;
 - Phase target remains unmodified by answer workers.
+
+Negative assertions (fail-closed proof):
+
+- a request with an invalid or missing client proof is rejected;
+- a request whose root is not a registered project is rejected;
+- a second mutating run on the same canonical repo root fails on the write
+  lock, not by queueing silently;
+- a pre-created wrong-owner or symlinked rendezvous root causes the
+  coordinator to refuse the rendezvous, not adopt it.
 
 Proof commands after implementation:
 
@@ -575,6 +693,16 @@ swift test --package-path Packages/AllnighterCore --filter ResidentExecution
 swift test --package-path Packages/AllnighterCore --filter Panel
 bash scripts/check.sh
 ```
+
+Two proof obligations exceed `swift test`'s single-process reach and are
+scripted (in `scripts/check.sh` or a dedicated harness):
+
+- **client-death survival:** SIGKILL the submitting CLI after acceptance and
+  assert the run reaches its terminal journal state;
+- **CI arm:** the full hostile-host matrix needs real authenticated vendor
+  CLIs and runs on a dogfood machine, not CI. CI covers the broker itself
+  (claim, retry, conflict, hostile rendezvous, client-kill survival) with a
+  mock source driver; the mock driver never ships in a release binary.
 
 Missing proof today: no resident command broker or hostile-host harness exists.
 The phase is not Ready for Implementation until REB-S01 request authentication
@@ -602,6 +730,19 @@ and the macOS background enablement mechanism are reviewed.
    require one explicit "Keep Allnighter ready" choice?
 3. What compatibility range permits an automatic coordinator drain/restart
    versus a hard version-mismatch refusal?
+4. Should the coordinator auto-substitute a **resolver-chosen** seat on a
+   capacity-classified spawn failure (fail fast, re-resolve, record
+   `original -> substitute (capacity)` provenance in the roster), instead of
+   tracking vendor availability between runs? Availability is time-windowed
+   state alln cannot observe except at spawn, so tracked state rots; spawn-time
+   fallback is self-healing. Constraints if adopted: user-pinned models never
+   auto-substitute; a substitute may not duplicate an already-seated model
+   while distinct sources remain; substitution is always disclosed in the
+   result. Policy mechanics belong to Rate Limit Continuity (which owns
+   capacity classification); this phase only requires that spawn failures be
+   capacity-classified and that the broker is the single place a future
+   substitution policy would live.
 
-These questions affect local trust and permission posture. They must be decided
+Questions 1–3 affect local trust and permission posture. They must be decided
 before REB-S01 implementation; they do not change the one-authority decision.
+Question 4 is a product-policy ruling that can land any time before REB-S03.
