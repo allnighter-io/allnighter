@@ -232,25 +232,43 @@ enum RunCLI {
             idempotencyKey: opts.value("idempotency-key"),
             repoRoot: project.normalizedRootPath
         )
-        guard let executable = ProcessOwnership.currentExecutablePath() else {
-            AllnighterCLI.emitFailure(code: "INTERNAL_ERROR", message: "could not resolve alln executable path")
-            exit(1)
-        }
-        let outcome = await runtime.asyncTeamService().start(
-            request,
-            origin: .cli,
-            readyModels: runtime.readyModels,
-            ownership: .detachedRunner(executablePath: executable)
-        )
-        switch outcome {
-        case .success(let response):
+        let rendezvous = ResidentExecutionRendezvous()
+        do {
+            let submitted = try rendezvous.submit(
+                operation: .teamRun(request),
+                idempotencyKey: request.idempotencyKey ?? UUID().uuidString.lowercased()
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+                AllnighterCLI.emitFailure(
+                    code: "RESIDENT_ACCEPT_TIMEOUT",
+                    message: "resident coordinator did not accept the Team request before timeout"
+                )
+                exit(1)
+            }
+            if let rejection = receipt.rejection {
+                AllnighterCLI.emitFailure(code: rejection.code, message: rejection.message)
+                exit(1)
+            }
+            guard case .teamStart(let response) = receipt.result else {
+                AllnighterCLI.emitFailure(
+                    code: "RESIDENT_REQUEST_REJECTED",
+                    message: "resident coordinator accepted an invalid Team response"
+                )
+                exit(1)
+            }
             if opts.flag("json") {
                 print(AllnighterCLI.jsonString(response))
             } else {
                 print(response.runId)
             }
-        case .failure(let refusal):
-            AllnighterCLI.emitFailure(code: refusal.code, message: refusal.message)
+        } catch ResidentExecutionRendezvous.Error.unavailable {
+            AllnighterCLI.emitFailure(
+                code: "COORDINATOR_UNAVAILABLE",
+                message: "resident coordinator is unavailable; enable it with `alln serve install`"
+            )
+            exit(1)
+        } catch {
+            AllnighterCLI.emitFailure(code: "RESIDENT_REQUEST_REJECTED", message: "resident request failed: \(error)")
             exit(1)
         }
     }

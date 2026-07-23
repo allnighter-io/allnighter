@@ -4,27 +4,13 @@ import Foundation
 /// union: a foreground client can request product operations, never a shell,
 /// environment, executable path, or arbitrary process arguments.
 public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
-    case teamRun(TeamRun)
+    case teamRun(AsyncTeamStartRequest)
     case panelStart(PanelStart)
     case panelRound(PanelRound)
     case panelDone(PanelDone)
     case sourceProbe(SourceProbe)
     case query(Query)
     case cancel(Cancel)
-
-    public struct TeamRun: Codable, Equatable, Sendable {
-        public var projectRoot: String
-        public var prompt: String
-        public var teamId: String?
-        public var mutating: Bool
-
-        public init(projectRoot: String, prompt: String, teamId: String? = nil, mutating: Bool) {
-            self.projectRoot = projectRoot
-            self.prompt = prompt
-            self.teamId = teamId
-            self.mutating = mutating
-        }
-    }
 
     public struct PanelStart: Codable, Equatable, Sendable {
         public var projectRoot: String
@@ -97,7 +83,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .type) {
-        case .teamRun: self = .teamRun(try container.decode(TeamRun.self, forKey: .payload))
+        case .teamRun: self = .teamRun(try container.decode(AsyncTeamStartRequest.self, forKey: .payload))
         case .panelStart: self = .panelStart(try container.decode(PanelStart.self, forKey: .payload))
         case .panelRound: self = .panelRound(try container.decode(PanelRound.self, forKey: .payload))
         case .panelDone: self = .panelDone(try container.decode(PanelDone.self, forKey: .payload))
@@ -173,6 +159,7 @@ public struct ResidentExecutionReceipt: Codable, Equatable, Sendable {
     public var canonicalId: String?
     public var state: State
     public var acceptedAt: Date
+    public var result: ResidentExecutionResult?
     public var rejection: ResidentExecutionRejection?
 
     public init(
@@ -181,6 +168,7 @@ public struct ResidentExecutionReceipt: Codable, Equatable, Sendable {
         canonicalId: String? = nil,
         state: State,
         acceptedAt: Date,
+        result: ResidentExecutionResult? = nil,
         rejection: ResidentExecutionRejection? = nil
     ) {
         self.schemaVersion = schemaVersion
@@ -188,7 +176,33 @@ public struct ResidentExecutionReceipt: Codable, Equatable, Sendable {
         self.canonicalId = canonicalId
         self.state = state
         self.acceptedAt = acceptedAt
+        self.result = result
         self.rejection = rejection
+    }
+}
+
+/// Typed acceptance payload. Result-bearing commands reuse their existing
+/// public contracts rather than inventing broker-only JSON.
+public enum ResidentExecutionResult: Codable, Equatable, Sendable {
+    case teamStart(TeamStartResponse)
+
+    private enum CodingKeys: String, CodingKey { case type, payload }
+    private enum Kind: String, Codable { case teamStart }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .type) {
+        case .teamStart: self = .teamStart(try container.decode(TeamStartResponse.self, forKey: .payload))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .teamStart(value):
+            try container.encode(Kind.teamStart, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        }
     }
 }
 

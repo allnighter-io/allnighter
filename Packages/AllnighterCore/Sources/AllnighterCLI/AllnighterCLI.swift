@@ -372,7 +372,9 @@ struct AllnighterCLI {
                 models: runtime.models,
                 registry: runtime.registry,
                 teams: runtime.teams,
-                invocations: runtime.invocations
+                invocations: runtime.invocations,
+                asyncTeam: runtime.asyncTeamService(),
+                readyModels: { runtime.readyModels }
             )
             var remoteDependencies: ResidentCoordinator.RemoteDependencies?
             if let environment = RemoteSupabaseEnvironment.load(), environment.hasMacAgentCredentials {

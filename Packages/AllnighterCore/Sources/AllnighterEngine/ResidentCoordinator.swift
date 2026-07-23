@@ -18,6 +18,8 @@ public final class ResidentCoordinator: @unchecked Sendable {
         public var runStore: RunStore
         public var sessionStore: ExternalWorkerSessionStore
         public var writeLock: RunWriteLockRegistry
+        public var asyncTeam: AsyncTeamService
+        public var readyModels: @Sendable () -> [Model]
 
         public init(
             models: [Model],
@@ -27,7 +29,9 @@ public final class ResidentCoordinator: @unchecked Sendable {
             invocations: [String: ToolInvocation] = [:],
             runStore: RunStore = RunStore(),
             sessionStore: ExternalWorkerSessionStore = ExternalWorkerSessionStore(),
-            writeLock: RunWriteLockRegistry = .shared
+            writeLock: RunWriteLockRegistry = .shared,
+            asyncTeam: AsyncTeamService,
+            readyModels: @escaping @Sendable () -> [Model]
         ) {
             self.models = models
             self.registry = registry
@@ -37,6 +41,8 @@ public final class ResidentCoordinator: @unchecked Sendable {
             self.runStore = runStore
             self.sessionStore = sessionStore
             self.writeLock = writeLock
+            self.asyncTeam = asyncTeam
+            self.readyModels = readyModels
         }
     }
 
@@ -117,6 +123,16 @@ public final class ResidentCoordinator: @unchecked Sendable {
                 shutdown.fire()
             }
             if let wake = wakeDependencies {
+                group.addTask { [rendezvous] in
+                    let broker = ResidentExecutionBroker(
+                        rendezvous: rendezvous,
+                        dependencies: .init(
+                            asyncTeam: wake.asyncTeam,
+                            readyModels: wake.readyModels
+                        )
+                    )
+                    await broker.run(isCancelled: { shutdown.isCancelled })
+                }
                 group.addTask {
                     let scheduler = PendingWakeScheduler(
                         models: wake.models,

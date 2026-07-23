@@ -150,7 +150,12 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
 
     /// Records an acceptance atomically and implements same-key replay/conflict.
     /// The caller owns process creation only after this returns `.accepted`.
-    public func accept(_ claim: Claim, canonicalId: String, at date: Date = Date()) throws -> ResidentExecutionReceipt {
+    public func accept(
+        _ claim: Claim,
+        canonicalId: String,
+        result: ResidentExecutionResult? = nil,
+        at date: Date = Date()
+    ) throws -> ResidentExecutionReceipt {
         let digest = try payloadDigest(for: claim.request)
         let indexURL = acceptance.appendingPathComponent("\(digestKey(claim.request.idempotencyKey)).json")
         if fileManager.fileExists(atPath: indexURL.path) {
@@ -164,7 +169,8 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
             requestId: claim.request.requestId,
             canonicalId: canonicalId,
             state: .accepted,
-            acceptedAt: date
+            acceptedAt: date,
+            result: result
         )
         let record = Acceptance(payloadDigest: digest, receipt: receipt)
         do {
@@ -197,6 +203,19 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         guard fileManager.fileExists(atPath: url.path) else { return nil }
         try validateExistingFile(url, mode: 0o600)
         return try CoreJSON.decode(ResidentExecutionReceipt.self, from: Data(contentsOf: url))
+    }
+
+    public func waitForReceipt(
+        requestId: String,
+        timeout: TimeInterval = 10,
+        pollNanoseconds: UInt64 = 100_000_000
+    ) async throws -> ResidentExecutionReceipt? {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let receipt = try receipt(requestId: requestId) { return receipt }
+            try await Task.sleep(nanoseconds: pollNanoseconds)
+        }
+        return try receipt(requestId: requestId)
     }
 
     public func verify(_ request: ResidentExecutionRequest) throws {
@@ -355,6 +374,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
             canonicalId: accepted.canonicalId,
             state: accepted.state,
             acceptedAt: accepted.acceptedAt,
+            result: accepted.result,
             rejection: accepted.rejection
         )
         try recordReceipt(receipt)
