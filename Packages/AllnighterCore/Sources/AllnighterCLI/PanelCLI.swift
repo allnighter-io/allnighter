@@ -126,6 +126,10 @@ enum PanelCLI {
         }
 
         let catalog = teams ?? TeamCatalog.all
+        let registryForValidation = registry.all.isEmpty ? DefaultConfig.registry : registry
+        let catalogModels = models.isEmpty
+            ? ModelCatalog.resolvedModels(registry: registryForValidation)
+            : models
         var baseSeats: [PanelSeat] = []
         var teamId: String?
         var remembered = false
@@ -138,7 +142,7 @@ enum PanelCLI {
             switch PanelTeamResolver.resolveTeam(alias: teamAlias, teams: catalog) {
             case .success(let team):
                 teamId = team.id
-                baseSeats = PanelTeamResolver.seats(from: team)
+                baseSeats = PanelTeamResolver.seats(from: team, readyModels: catalogModels)
             case .failure(.ambiguous(let alias, let candidates)):
                 throw PanelCLIError.ambiguousTeam(
                     alias: alias,
@@ -163,11 +167,11 @@ enum PanelCLI {
         } else if let rememberedId = teamStore.load(projectId: project.id)?.teamId,
                   let team = catalog.first(where: { $0.id == rememberedId }) {
             teamId = team.id
-            baseSeats = PanelTeamResolver.seats(from: team)
+            baseSeats = PanelTeamResolver.seats(from: team, readyModels: catalogModels)
             remembered = true
         } else if let defaultTeam = catalog.defaultTeam(for: .code) {
             teamId = defaultTeam.id
-            baseSeats = PanelTeamResolver.seats(from: defaultTeam)
+            baseSeats = PanelTeamResolver.seats(from: defaultTeam, readyModels: catalogModels)
             laneDefault = true
         } else {
             throw PanelCLIError.missingRoster(
@@ -178,10 +182,6 @@ enum PanelCLI {
         // --seat entries override/extend (Options only keeps last --seat; collect all).
         // Resolve each alias through PilotSeatResolver AT START — never store the raw
         // alias string as workerId in PanelState (decision 4 / works-test fix).
-        let registryForValidation = registry.all.isEmpty ? DefaultConfig.registry : registry
-        let catalogModels = models.isEmpty
-            ? ModelCatalog.resolvedModels(registry: registryForValidation)
-            : models
         let readyForErrors = catalogModels.filter(\.enabled)
         var overrides: [PanelSeat] = []
         for raw in seatFlags {

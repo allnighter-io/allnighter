@@ -136,6 +136,29 @@ final class PanelCLITests: XCTestCase {
         XCTAssertFalse(request.rememberedTeam)
     }
 
+    func testParseStartCapabilityOnlyTeamResolvesSkillRowsToReadyModels() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let team = try XCTUnwrap(BuiltInTeams.team("code_spec_review"))
+
+        let request = try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--team", team.id],
+            projectStore: store,
+            models: roModels(),
+            registry: roRegistry(),
+            teams: [team]
+        )
+
+        XCTAssertEqual(request.seats.count, 5)
+        XCTAssertFalse(request.seats.contains {
+            $0.workerId.hasPrefix("spec_")
+        })
+        XCTAssertTrue(request.seats.allSatisfy {
+            let modelID = PanelTeamResolver.modelId(for: $0.workerId)
+            return roModels().contains(where: { $0.id == modelID })
+        })
+    }
+
     func testParseStartFuzzyTeamRejected() throws {
         let store = makeProjectStore()
         let project = try addProject(store)

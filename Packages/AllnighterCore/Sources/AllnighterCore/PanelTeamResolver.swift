@@ -3,11 +3,11 @@ import Foundation
 /// Exact-id team resolution for `panel start --team` (MR-S04 / Menu Not Router).
 /// Canonical team ids only — display names never authorize dispatch.
 ///
-/// **Roster mapping (stated):** each team worker row becomes a `PanelSeat` with
-/// `workerId = preferredModelId ?? row.id` and `lens = skillId` (the skill is the
-/// lens identity; purpose selects answer vs review, both are jury seats). The
-/// Team Lead / plan-writer is NOT a panel seat — Panel has no synthesis seat
-/// (decision 1: the session is the synthesizer).
+/// **Roster mapping (stated):** Panel resolves each worker row against the ready
+/// model bench, then uses the resolved model id as its `PanelSeat.workerId` and
+/// the skill as its lens. This matters for capability-only built-ins: their row
+/// ids are skill ids, not model ids. The Team Lead / plan-writer is NOT a panel
+/// seat — Panel has no synthesis seat (decision 1: the session is the synthesizer).
 public enum PanelTeamResolver {
     public enum Error: Swift.Error, Equatable, Sendable {
         case ambiguous(alias: String, candidates: [TeamPreset])
@@ -92,6 +92,31 @@ public enum PanelTeamResolver {
                 workerId = model
             }
             return PanelSeat(workerId: workerId, lens: row.skillId)
+        }
+    }
+
+    /// Resolve a team's panel jury against the ready bench. Unlike the legacy
+    /// static projection above, this never mistakes a capability-only worker row
+    /// id for a model id (for example `spec_proof_planner`).
+    public static func seats(from team: TeamPreset, readyModels: [Model]) -> [PanelSeat] {
+        let rows = (team.scout.map { [$0] } ?? []) + team.workerSpecs
+        // Preserve the legacy exact-preference roster byte-for-byte. Only teams
+        // that actually express capability-only need require dynamic resolution.
+        guard rows.contains(where: { $0.preferredModelId == nil }) else {
+            return seats(from: team)
+        }
+        let resolved = TeamResolver.resolve(
+            team: team,
+            requestLane: team.lane,
+            requestEffort: team.defaultEffort,
+            readyModels: readyModels.filter(\.enabled)
+        )
+        let workers = (resolved.scoutWorker.map { [$0] } ?? [])
+            + resolved.answerWorkers
+            + resolved.reviewWorkers
+        return workers.compactMap {
+            guard let skillID = $0.skillId else { return nil }
+            return PanelSeat(workerId: $0.id, lens: skillID)
         }
     }
 

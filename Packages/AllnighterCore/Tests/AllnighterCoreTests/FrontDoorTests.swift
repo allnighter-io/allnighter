@@ -38,6 +38,25 @@ final class FrontDoorTests: XCTestCase {
         XCTAssertNotNil(ModelRosterPersistence(fileURL: rosterURL).load())
     }
 
+    func testCodexSandboxUsesStableThreadTempSupportRoot() {
+        let previousSandbox = ProcessInfo.processInfo.environment["CODEX_SANDBOX"]
+        let previousThreadID = ProcessInfo.processInfo.environment["CODEX_THREAD_ID"]
+        unsetenv("ALLNIGHTER_SUPPORT_DIR")
+        setenv("CODEX_SANDBOX", "workspace-write", 1)
+        setenv("CODEX_THREAD_ID", "thread/with spaces", 1)
+        defer {
+            setenv("ALLNIGHTER_SUPPORT_DIR", supportRoot.path, 1)
+            if let previousSandbox { setenv("CODEX_SANDBOX", previousSandbox, 1) }
+            else { unsetenv("CODEX_SANDBOX") }
+            if let previousThreadID { setenv("CODEX_THREAD_ID", previousThreadID, 1) }
+            else { unsetenv("CODEX_THREAD_ID") }
+        }
+
+        let root = AllnighterSupportRoot.support
+        XCTAssertTrue(root.path.hasPrefix(FileManager.default.temporaryDirectory.path))
+        XCTAssertTrue(root.path.hasSuffix("Allnighter-Codex/thread_with_spaces"))
+    }
+
     func testEmptyBenchModelsJSONIncludesCounselNotBareArray() throws {
         let registry = DriverRegistry([])
         let rosterURL = AllnighterSupportRoot.config.appendingPathComponent("model_roster.json")

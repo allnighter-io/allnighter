@@ -1,5 +1,15 @@
 # Debug Log
 
+## 2026-07-23 — Codex sandbox blocks the default support root
+
+Tier: T2 SSOT
+Symptom / repro: In a managed Codex session, `alln panel start` and read-only `alln run` could read the repo but could not create their durable Panel/Run journal under `~/Library/Application Support/Allnighter/` (NSCocoaErrorDomain 513). Capability-only `code_spec_review` panel rows also surfaced their skill ids as unknown model ids.
+Bug fingerprint: CLI acceptance journal + Codex filesystem boundary / panel roster projection + capability-only team rows.
+Truth owner: `AllnighterSupportRoot` owns the support root; `TeamResolver` owns capability-to-ready-model resolution.
+Lie-prone layer: the default macOS path assumed home-directory writes were available; `PanelTeamResolver.seats(from:)` treated `row.id` as a model id when no preferred model was declared.
+Fix boundary: In a detected Codex sandbox, route the default support root to a stable per-thread temporary directory; `ALLNIGHTER_SUPPORT_DIR` remains the explicit override for a repository-local writable root. Panel start now derives team seats through `TeamResolver` using the ready bench.
+Proof: `FrontDoorTests.testCodexSandboxUsesStableThreadTempSupportRoot`; `PanelCLITests.testParseStartCapabilityOnlyTeamResolvesSkillRowsToReadyModels`.
+
 Append repeated bugs, `T3` bugs, and `T2-T3` fixes with deferred proof.
 
 ```text
