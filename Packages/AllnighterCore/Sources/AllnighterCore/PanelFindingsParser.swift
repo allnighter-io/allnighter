@@ -83,15 +83,16 @@ public enum PanelFindingsParser {
         lens: String,
         report: String,
         runId: String? = nil,
-        dispatchStatus: SeatResult.Status = .done
+        dispatchStatus: SeatResult.Status = .done,
+        dispatchReason: String? = nil
     ) -> SeatResult {
         // Non-success dispatch outcomes keep the report but do not attempt schema parse
-        // as the primary truth (failed/timedOut/empty stay honest).
+        // as the primary truth (running/failed/timedOut/empty stay honest).
         guard dispatchStatus == .done else {
             return SeatResult(
                 workerId: workerId, lens: lens, status: dispatchStatus,
                 findings: nil, noMaterialFindings: false,
-                reason: nil, report: report, runId: runId
+                reason: dispatchReason, report: report, runId: runId
             )
         }
         let trimmed = report.trimmingCharacters(in: .whitespacesAndNewlines)

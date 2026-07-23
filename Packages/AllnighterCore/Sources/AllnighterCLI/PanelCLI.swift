@@ -39,7 +39,8 @@ enum PanelCLI {
             request = try parseStartConfig(
                 args,
                 models: runtime.models,
-                registry: runtime.registry
+                registry: runtime.registry,
+                probeRecords: SetupStore().load().records
             )
         } catch let error as PanelCLIError {
             fail(error)
@@ -113,7 +114,8 @@ enum PanelCLI {
         models: [Model] = [],
         registry: DriverRegistry = DriverRegistry(),
         teams: [TeamPreset]? = nil,
-        teamStore: PanelTeamStore = PanelTeamStore()
+        teamStore: PanelTeamStore = PanelTeamStore(),
+        probeRecords: [ToolProbeRecord] = []
     ) throws -> StartRequest {
         let opts = Options(args)
         guard let docPath = opts.value("doc") else { throw PanelCLIError.missingRequired("--doc <path>") }
@@ -130,6 +132,13 @@ enum PanelCLI {
         let catalogModels = models.isEmpty
             ? ModelCatalog.resolvedModels(registry: registryForValidation)
             : models
+        let readyModels = PilotSeatResolver.readySeats(
+            from: catalogModels,
+            probeRecords: probeRecords
+        )
+        // No cache keeps the historical first-use path. Once readiness has been
+        // observed, Panel must resolve only from the proven-ready bench.
+        let dispatchableModels = probeRecords.isEmpty ? catalogModels : readyModels
         var baseSeats: [PanelSeat] = []
         var teamId: String?
         var remembered = false
@@ -142,7 +151,7 @@ enum PanelCLI {
             switch PanelTeamResolver.resolveTeam(alias: teamAlias, teams: catalog) {
             case .success(let team):
                 teamId = team.id
-                baseSeats = PanelTeamResolver.seats(from: team, readyModels: catalogModels)
+                baseSeats = PanelTeamResolver.seats(from: team, readyModels: dispatchableModels)
             case .failure(.ambiguous(let alias, let candidates)):
                 throw PanelCLIError.ambiguousTeam(
                     alias: alias,
@@ -167,11 +176,11 @@ enum PanelCLI {
         } else if let rememberedId = teamStore.load(projectId: project.id)?.teamId,
                   let team = catalog.first(where: { $0.id == rememberedId }) {
             teamId = team.id
-            baseSeats = PanelTeamResolver.seats(from: team, readyModels: catalogModels)
+            baseSeats = PanelTeamResolver.seats(from: team, readyModels: dispatchableModels)
             remembered = true
         } else if let defaultTeam = catalog.defaultTeam(for: .code) {
             teamId = defaultTeam.id
-            baseSeats = PanelTeamResolver.seats(from: defaultTeam, readyModels: catalogModels)
+            baseSeats = PanelTeamResolver.seats(from: defaultTeam, readyModels: dispatchableModels)
             laneDefault = true
         } else {
             throw PanelCLIError.missingRoster(
@@ -182,10 +191,10 @@ enum PanelCLI {
         // --seat entries override/extend (Options only keeps last --seat; collect all).
         // Resolve each alias through PilotSeatResolver AT START — never store the raw
         // alias string as workerId in PanelState (decision 4 / works-test fix).
-        let readyForErrors = catalogModels.filter(\.enabled)
+        let readyForErrors = dispatchableModels.filter(\.enabled)
         var overrides: [PanelSeat] = []
         for raw in seatFlags {
-            guard let resolved = PanelTeamResolver.resolveSeatFlag(raw, models: catalogModels) else {
+            guard let resolved = PanelTeamResolver.resolveSeatFlag(raw, models: dispatchableModels) else {
                 throw PanelCLIError.invalidSeat(raw)
             }
             switch resolved {
@@ -573,6 +582,7 @@ enum PanelCLI {
                 panel: panelJSON,
                 round: payload.round.roundNumber,
                 attempt: payload.attempt.attemptNumber,
+                outcome: PanelRoundOutcome.project(from: payload.round),
                 targetHash: payload.round.targetHash,
                 briefSource: payload.round.briefSource.rawValue,
                 seatResults: payload.round.seatResults.map(SeatResultJSON.init),
@@ -582,6 +592,7 @@ enum PanelCLI {
         } else {
             print("panel \(payload.state.id) round \(payload.round.roundNumber) attempt \(payload.attempt.attemptNumber)")
             print("status: \(payload.state.status.rawValue)")
+            print("outcome: \(PanelRoundOutcome.project(from: payload.round))")
             print("targetHash: \(payload.round.targetHash)")
             for workerId in unstructuredSeats {
                 print("⚠ unstructured seat: \(workerId) — no parseable findings block; read its verbatim report (content may be real)")
@@ -642,6 +653,10 @@ enum PanelCLI {
             print("rounds: \(state.rounds.count)/\(state.maxRounds)")
             if let last = state.rounds.last {
                 print("last targetHash: \(last.targetHash)")
+                for seat in last.seatResults {
+                    let detail = seat.reason.map { " — \($0)" } ?? ""
+                    print("seat \(seat.workerId): \(seat.status.rawValue)\(detail)")
+                }
             }
             switch recovery {
             case .none: break
@@ -664,7 +679,11 @@ enum PanelCLI {
             if let last = state.rounds.last {
                 for seat in last.seatResults {
                     print("\n----- seat \(seat.workerId) (\(seat.lens)) [\(seat.status.rawValue)] -----")
-                    if !seat.report.isEmpty { print(seat.report) }
+                    if !seat.report.isEmpty {
+                        print(seat.report)
+                    } else if let reason = seat.reason {
+                        print(reason)
+                    }
                 }
             }
             if let note { print("\nnote: \(note)") }

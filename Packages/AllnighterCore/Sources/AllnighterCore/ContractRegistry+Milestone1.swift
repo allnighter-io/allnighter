@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "3.0.0"
+    static let contractVersion = "3.1.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -559,7 +559,7 @@ public extension ContractRegistry {
             outputSchema: .panelJSON
         ),
         CommandSpec(
-            "panel round", summary: "Dispatch one panel round (or a --seats subset rerun). Blocks; prints per-seat findings verbatim + statuses; NDJSON progress while running.", milestone: .m1,
+            "panel round", summary: "Dispatch one panel round (or a --seats subset rerun). Blocks; reports complete/partial/failed outcome plus per-seat findings, statuses, and reasons; NDJSON progress while running.", milestone: .m1,
             flags: [
                 FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
                 FlagSpec("brief", takesValue: true, valueType: "path", summary: "Focus brief markdown path, or `-` for stdin. Built-in on round 1 when omitted; required on round 2+."),

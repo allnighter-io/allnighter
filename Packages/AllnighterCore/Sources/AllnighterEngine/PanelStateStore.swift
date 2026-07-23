@@ -91,9 +91,17 @@ public struct PanelStateStore: Sendable {
             // Mark any seat that never produced a report as timed-out so the partial
             // round is honest about what arrived vs what was cut short.
             var seats = reconciled.rounds[lastIndex].seatResults
-            for i in seats.indices where seats[i].report.isEmpty && seats[i].status == .done {
-                seats[i].status = .timedOut
-                seats[i].reason = seats[i].reason ?? PanelState.orphanReconciledNote
+            for i in seats.indices {
+                let unfinished =
+                    seats[i].status == .running
+                    || seats[i].status == .empty
+                    || (seats[i].status == .done
+                        && seats[i].report.isEmpty
+                        && seats[i].findings == nil)
+                if unfinished {
+                    seats[i].status = .timedOut
+                    seats[i].reason = seats[i].reason ?? PanelState.orphanReconciledNote
+                }
             }
             reconciled.rounds[lastIndex].seatResults = seats
             reconciled.rounds[lastIndex].finishedAt = now()

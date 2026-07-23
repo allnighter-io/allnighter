@@ -1,5 +1,6 @@
 import Foundation
 import AllnighterCore
+import AgentOSTeam
 
 /// Panel round coordinator (`docs/phases/Pilot_Panel.md` PN-S03) — session-led blind
 /// jury control plane. Mirrors Pilot's durability-as-mutex pattern: the first thing a
@@ -133,6 +134,9 @@ public struct PanelCoordinator: Sendable {
             let registry = registry
             let panelsRoot = panelsRoot
             let copier = cloneCopier
+            let stateStore = stateStore
+            let projector = threadProjector
+            let now = now
             self.seatDispatch = { seats, brief, targetPath, projectRoot, panelId in
                 await PanelCoordinator.defaultDispatch(
                     seats: seats,
@@ -144,7 +148,18 @@ public struct PanelCoordinator: Sendable {
                     models: models,
                     registry: registry,
                     panelsRoot: panelsRoot,
-                    cloneCopier: copier
+                    cloneCopier: copier,
+                    progress: { run in
+                        PanelCoordinator.persistDispatchProgress(
+                            run: run,
+                            seats: seats,
+                            panelId: panelId,
+                            stateStore: stateStore
+                        )
+                        if let state = stateStore.load(id: panelId) {
+                            projector?.sync(state: state, now: now())
+                        }
+                    }
                 )
             }
         }
@@ -284,7 +299,7 @@ public struct PanelCoordinator: Sendable {
                 brief: resolvedBrief,
                 briefSource: briefSource,
                 seatResults: seatsToRun.map {
-                    SeatResult(workerId: $0.workerId, lens: $0.lens, status: .empty, report: "")
+                    SeatResult(workerId: $0.workerId, lens: $0.lens, status: .running, report: "")
                 },
                 attempts: [],
                 startedAt: startedAt,
@@ -407,7 +422,8 @@ public struct PanelCoordinator: Sendable {
         models: [Model],
         registry: DriverRegistry,
         panelsRoot: URL?,
-        cloneCopier: PanelSeatIsolation.Copier?
+        cloneCopier: PanelSeatIsolation.Copier?,
+        progress: @escaping @Sendable (TeamRun) -> Void
     ) async -> [SeatResult] {
         guard let workerRunner else {
             return seats.map {
@@ -518,29 +534,72 @@ public struct PanelCoordinator: Sendable {
             runId: "panel_\(UUID().uuidString.lowercased())",
             repoRoot: projectRoot,
             workerPrompts: workerPrompts,
-            workerWorkingDirectories: workerWorkingDirectories
+            workerWorkingDirectories: workerWorkingDirectories,
+            persist: progress
         )
 
         var results: [SeatResult] = earlyFailures
         for seat in runnableSeats {
             let answer = run.workerAnswers.first { $0.memberId == seat.workerId }
-            let report = answer?.output ?? ""
-            let dispatchStatus: SeatResult.Status
-            switch answer?.result.status {
-            case .done: dispatchStatus = .done
-            case .timedOut: dispatchStatus = .timedOut
-            case .failed, .cancelled, .skipped: dispatchStatus = .failed
-            case .queued, .running, .none: dispatchStatus = report.isEmpty ? .empty : .done
-            }
-            results.append(PanelFindingsParser.seatResult(
-                workerId: seat.workerId,
-                lens: seat.lens,
-                report: report,
-                runId: run.id,
-                dispatchStatus: dispatchStatus
-            ))
+            results.append(seatResult(seat: seat, answer: answer, runId: run.id))
         }
         return results
+    }
+
+    /// Persist every worker transition into the open panel round. A slow or hung
+    /// final seat must not leave peers that already failed/completed displayed as
+    /// empty placeholders.
+    private static func persistDispatchProgress(
+        run: TeamRun,
+        seats: [PanelSeat],
+        panelId: String,
+        stateStore: PanelStateStore
+    ) {
+        guard var state = stateStore.load(id: panelId),
+              state.status == .running,
+              let roundIndex = state.rounds.indices.last else { return }
+
+        var byId = Dictionary(
+            uniqueKeysWithValues: state.rounds[roundIndex].seatResults.map { ($0.workerId, $0) }
+        )
+        for seat in seats {
+            guard let answer = run.workerAnswers.first(where: { $0.memberId == seat.workerId }) else {
+                continue
+            }
+            byId[seat.workerId] = seatResult(seat: seat, answer: answer, runId: run.id)
+        }
+        state.rounds[roundIndex].seatResults = state.seats.compactMap { byId[$0.workerId] }
+        _ = try? stateStore.save(state)
+    }
+
+    private static func seatResult(
+        seat: PanelSeat,
+        answer: TeamAnswer?,
+        runId: String
+    ) -> SeatResult {
+        let report = answer?.output ?? ""
+        let dispatchStatus: SeatResult.Status
+        switch answer?.result.status {
+        case .done:
+            dispatchStatus = .done
+        case .timedOut:
+            dispatchStatus = .timedOut
+        case .failed, .cancelled, .skipped:
+            dispatchStatus = .failed
+        case .queued, .running:
+            dispatchStatus = .running
+        case .none:
+            dispatchStatus = .failed
+        }
+        return PanelFindingsParser.seatResult(
+            workerId: seat.workerId,
+            lens: seat.lens,
+            report: report,
+            runId: runId,
+            dispatchStatus: dispatchStatus,
+            dispatchReason: answer?.result.errorReason
+                ?? (answer == nil ? "seat produced no worker result" : nil)
+        )
     }
 }
 

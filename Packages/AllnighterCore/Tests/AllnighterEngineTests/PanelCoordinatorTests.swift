@@ -19,6 +19,30 @@ private final class EventBox: @unchecked Sendable {
     }
 }
 
+private struct StaggeredFailingPanelRunner: WorkerInvoking {
+    func invoke(_ invocation: WorkerInvocation) -> AsyncThrowingStream<WorkerStreamEvent, Error> {
+        let modelId = invocation.model.id
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                continuation.yield(.started(
+                    workerId: modelId,
+                    modelId: modelId,
+                    sourceId: invocation.manifest.id
+                ))
+                if modelId == "model_b" {
+                    try? await Task.sleep(for: .milliseconds(750))
+                }
+                continuation.yield(.failed(WorkerRunResult(
+                    status: .failed,
+                    errorReason: "\(modelId) session directory permission denied"
+                )))
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+}
+
 final class PanelCoordinatorTests: XCTestCase {
     private var tmp: URL!
 
@@ -190,6 +214,79 @@ final class PanelCoordinatorTests: XCTestCase {
         XCTAssertEqual(byId["model_a"]?.status, .done)
         XCTAssertEqual(byId["model_b"]?.status, .failed)
         XCTAssertEqual(byId["model_a"]?.findings?.count, 1, "arrived findings kept")
+    }
+
+    func testDefaultDispatchPersistsFastFailureWhileSlowSeatIsStillRunning() async throws {
+        let (root, path) = try makeTarget()
+        let store = PanelStateStore(rootDirectory: tmp.appendingPathComponent("panels"))
+        let models = [
+            Model(
+                id: "model_a", displayName: "A", modelLabel: "a",
+                driverId: "claude_code", role: .both, enabled: true
+            ),
+            Model(
+                id: "model_b", displayName: "B", modelLabel: "b",
+                driverId: "codex", role: .both, enabled: true
+            ),
+        ]
+        let registry = DriverRegistry([
+            DriverManifest(
+                id: "claude_code", displayName: "Claude", kind: .headlessCLI,
+                invoke: .init(command: "claude", args: ["--permission-mode", "plan", "-p", "{{prompt}}"])
+            ),
+            DriverManifest(
+                id: "codex", displayName: "Codex", kind: .headlessCLI,
+                invoke: .init(command: "codex", args: ["exec", "-m", "{{model}}", "{{prompt}}"])
+            ),
+        ])
+        let coord = PanelCoordinator(
+            stateStore: store,
+            workerRunner: StaggeredFailingPanelRunner(),
+            models: models,
+            registry: registry,
+            panelsRoot: tmp.appendingPathComponent("panels")
+        )
+        try store.save(PanelState(
+            id: "panel_incremental", projectRoot: root.path, projectId: "p",
+            targetPath: path, seats: seats(), status: .awaitingPM,
+            rounds: [], createdAt: Date()
+        ))
+
+        let roundTask = Task {
+            await coord.runRound(panelId: "panel_incremental")
+        }
+
+        var observed: [String: SeatResult] = [:]
+        for _ in 0..<100 {
+            if let round = store.load(id: "panel_incremental")?.rounds.last {
+                observed = Dictionary(
+                    uniqueKeysWithValues: round.seatResults.map { ($0.workerId, $0) }
+                )
+                if observed["model_a"]?.status == .failed,
+                   observed["model_b"]?.status == .running {
+                    break
+                }
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(observed["model_a"]?.status, .failed)
+        XCTAssertEqual(
+            observed["model_a"]?.reason,
+            "model_a session directory permission denied"
+        )
+        XCTAssertEqual(observed["model_b"]?.status, .running)
+
+        let settled = await roundTask.value
+        guard case .success(let payload) = settled else {
+            return XCTFail("expected settled partial round, got \(settled)")
+        }
+        XCTAssertEqual(payload.state.status, .awaitingPM)
+        XCTAssertTrue(payload.round.seatResults.allSatisfy { $0.status == .failed })
+        XCTAssertEqual(PanelRoundOutcome.project(from: payload.round), "failed")
+        XCTAssertTrue(payload.round.seatResults.allSatisfy {
+            $0.reason?.contains("session directory permission denied") == true
+        })
     }
 
     // MARK: - --seats rerun replaces only those seats

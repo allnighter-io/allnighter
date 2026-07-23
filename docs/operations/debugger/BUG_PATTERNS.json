@@ -37,6 +37,14 @@
       "seam": "Release launch fallback after live remote credentials are unavailable",
       "law": "Until remote sign-in is actually wired, any unauthenticated Release build must enter the supported dogfood preview/home path, not the dead sign-in/onboarding wall. Do not close this by clearing DerivedData, changing target selection, bumping the build number, or relying on App Store receipt filename alone; prove the release fallback policy.",
       "proof": "xcodebuild test -project Apps/AllnighteriOS/AllnighteriOS.xcodeproj -scheme AllnighteriOS -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:AllnighteriOSTests/AllnighteriOSTests/testUnauthenticatedReleaseFallbackUsesPreviewUntilSignInShips"
+    },
+    {
+      "id": "panel-projects-each-seat-transition",
+      "surface": "Packages/AllnighterCore/Sources/AllnighterEngine/PanelCoordinator.swift + Packages/AllnighterCore/Sources/AllnighterCore/PanelFindingsParser.swift",
+      "seam": "AgentOS TeamAnswer transitions -> Panel journal -> CLI status/watch",
+      "requiresHarness": true,
+      "law": "A parallel Panel must durably project every seat transition and terminal error reason as it arrives. An unfinished seat is `running`, never `empty`; batch completion may settle the round but must not be the first time fast failures become visible.",
+      "proof": "swift test --disable-sandbox --package-path Packages/AllnighterCore --filter PanelCoordinatorTests/testDefaultDispatchPersistsFastFailureWhileSlowSeatIsStillRunning"
     }
   ]
 }

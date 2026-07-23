@@ -137,9 +137,13 @@ public struct PanelThreadProjector: Sendable {
         }
     }
 
-    /// Empty placeholder seats opened at dispatch time for a new round.
+    /// Current running seats plus legacy empty placeholders opened at dispatch time.
     private func seatLooksInFlight(_ seat: SeatResult) -> Bool {
-        seat.status == .empty && seat.report.isEmpty && seat.runId == nil && seat.reason == nil
+        seat.status == .running
+            || (seat.status == .empty
+                && seat.report.isEmpty
+                && seat.runId == nil
+                && seat.reason == nil)
     }
 
     private func syncRunningSeat(
@@ -231,6 +235,8 @@ public struct PanelThreadProjector: Sendable {
         switch seat.status {
         case .done, .empty:
             return .done
+        case .running:
+            return .running
         case .failed:
             return .failed
         case .timedOut:

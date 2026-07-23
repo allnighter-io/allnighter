@@ -502,12 +502,23 @@ struct AllnighterCLI {
             spawnKind: .doctorProbe
         )
         if full {
-            return await CLIDetector(
+            let records = await CLIDetector(
                 commandRunner: runner,
                 detectTimeout: .seconds(8),
                 smokeTimeout: .seconds(60),
                 interactive: true
             ).probeAll(manifests, models: labels, now: Date(), smoke: true)
+            let previous = setupStore.load()
+            let refreshedDriverIds = Set(records.map(\.driverId))
+            let merged = previous.records.filter {
+                !refreshedDriverIds.contains($0.driverId)
+            } + records
+            _ = try? setupStore.save(.init(
+                records: merged.sorted { $0.driverId < $1.driverId },
+                setupCompletedAt: previous.setupCompletedAt,
+                assembledTeam: previous.assembledTeam
+            ))
+            return records
         }
         let headlessIds = Set(manifests.filter { $0.kind == .headlessCLI }.map(\.id))
         let cached = setupStore.load().records.filter { headlessIds.contains($0.driverId) }

@@ -35,6 +35,7 @@ public struct Finding: Sendable, Codable, Equatable {
 /// structured findings are best-effort (unparseable → findings nil, status still `.done`).
 public struct SeatResult: Sendable, Codable, Equatable {
     public enum Status: String, Sendable, Codable, CaseIterable {
+        case running
         case done
         case failed
         case timedOut

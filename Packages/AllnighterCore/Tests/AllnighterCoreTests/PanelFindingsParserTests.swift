@@ -120,6 +120,24 @@ final class PanelFindingsParserTests: XCTestCase {
         XCTAssertEqual(seat.status, .empty)
     }
 
+    func testTerminalDispatchFailureKeepsActionableReason() {
+        let seat = PanelFindingsParser.seatResult(
+            workerId: "model_codex",
+            lens: "contracts",
+            report: "",
+            runId: "run_1",
+            dispatchStatus: .failed,
+            dispatchReason: "app-server initialization failed: permission denied"
+        )
+
+        XCTAssertEqual(seat.status, .failed)
+        XCTAssertEqual(
+            seat.reason,
+            "app-server initialization failed: permission denied"
+        )
+        XCTAssertEqual(seat.report, "")
+    }
+
     // MARK: - PP-S01 unstructuredSeats envelope projection
 
     /// agy-style prose report (real content, no fenced block) surfaces at envelope top

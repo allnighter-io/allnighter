@@ -275,7 +275,7 @@ Top-level fields:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `schemaVersion` | integer | Public machine schema version. Current: `2`. |
-| `contractVersion` | string | CLI contract version, independent from app version. Current: `3.0.0`. |
+| `contractVersion` | string | CLI contract version, independent from app version. Current: `3.1.0`. |
 | `teamRun` | object | Run identity, status, origin, prompt, and run metadata. |
 | `workers` | array | Runtime workers: one model wearing one skill (includes run-relevant model/source snapshots). |
 | `workerAnswers` | array | One answer or failure per answer worker (status/model/timing; markdown may be null when moved to `answer`). |

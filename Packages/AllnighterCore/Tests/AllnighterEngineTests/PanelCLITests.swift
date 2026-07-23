@@ -159,6 +159,41 @@ final class PanelCLITests: XCTestCase {
         })
     }
 
+    func testParseStartUsesOnlyReadinessProvenModelWhenDoctorCacheExists() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let team = try XCTUnwrap(BuiltInTeams.team("code_spec_review"))
+        let models = roModels() + [
+            Model(
+                id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt-5.6-sol",
+                driverId: "codex", role: .both, enabled: true
+            ),
+        ]
+        let records = models.map { model in
+            ToolProbeRecord(
+                driverId: model.driverId,
+                status: model.driverId == "codex"
+                    ? .ready(version: "1")
+                    : .probeFailed(reason: "sandbox state directory is not writable"),
+                lastProbeAt: .distantPast
+            )
+        }
+
+        let request = try PanelCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--team", team.id],
+            projectStore: store,
+            models: models,
+            registry: roRegistry(),
+            teams: [team],
+            probeRecords: records
+        )
+
+        XCTAssertEqual(request.seats.count, 5, "all review lenses remain represented")
+        XCTAssertTrue(request.seats.allSatisfy {
+            PanelTeamResolver.modelId(for: $0.workerId) == "model_chatgpt"
+        }, "one ready model should self-fuse the review instead of launching blocked CLIs")
+    }
+
     func testParseStartFuzzyTeamRejected() throws {
         let store = makeProjectStore()
         let project = try addProject(store)

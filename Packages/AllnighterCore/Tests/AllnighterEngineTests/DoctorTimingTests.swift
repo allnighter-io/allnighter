@@ -88,6 +88,48 @@ final class DoctorTimingTests: XCTestCase {
             "doctor must reap a probe that ignores SIGTERM"
         )
     }
+
+    func testFullDoctorPersistsFreshReadinessForLaterPanelResolution() async throws {
+        let setupURL = tmp.appendingPathComponent("full_setup.json")
+        let setupStore = SetupStore(fileURL: setupURL)
+        try setupStore.save(.init(records: [
+            ToolProbeRecord(
+                driverId: "unrelated",
+                status: .ready(version: "1"),
+                lastProbeAt: .distantPast
+            ),
+        ]))
+        let manifests = [
+            DriverManifest(
+                id: "codex", displayName: "Codex", kind: .headlessCLI,
+                detectCommand: "codex --version",
+                invoke: .init(command: "codex", args: ["exec", "{{prompt}}"]),
+                setup: SetupBlock(bins: ["codex"], knownPaths: [])
+            ),
+        ]
+
+        let records = await AllnighterCLI.doctorProbeRecords(
+            manifests: manifests,
+            labels: ["codex": "gpt-5.6-sol"],
+            full: true,
+            setupStore: setupStore,
+            commandRunner: MockCommandRunner(
+                scripts: [:],
+                fallback: .init(stdout: "", exitCode: 1)
+            )
+        )
+
+        XCTAssertEqual(records.map(\.driverId), ["codex"])
+        XCTAssertEqual(
+            Set(setupStore.load().records.map(\.driverId)),
+            Set(["codex", "unrelated"]),
+            "full doctor must refresh its drivers without erasing other cached sources"
+        )
+        XCTAssertEqual(
+            setupStore.load().records.first { $0.driverId == "codex" }?.status,
+            records.first?.status
+        )
+    }
 }
 
 /// Command runner that blocks longer than any doctor default-path timeout.

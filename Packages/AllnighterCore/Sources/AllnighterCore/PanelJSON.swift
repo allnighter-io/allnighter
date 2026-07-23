@@ -61,6 +61,9 @@ public struct SeatResultJSON: Codable, Equatable, Sendable {
 /// Wire shape for one panel round (merged seat results + attempt count).
 public struct PanelRoundLogEntry: Codable, Equatable, Sendable {
     public var round: Int
+    /// `running | complete | partial | failed` — result of this round, distinct
+    /// from the long-lived panel session status.
+    public var outcome: String?
     public var targetHash: String
     public var briefSource: String
     public var attemptCount: Int
@@ -71,11 +74,27 @@ public struct PanelRoundLogEntry: Codable, Equatable, Sendable {
 
     public init(_ round: PanelRound) {
         self.round = round.roundNumber
+        self.outcome = PanelRoundOutcome.project(from: round)
         self.targetHash = round.targetHash
         self.briefSource = round.briefSource.rawValue
         self.attemptCount = max(1, round.attempts.count)
         self.seatResults = round.seatResults.map(SeatResultJSON.init)
         self.unstructuredSeats = PanelUnstructuredSeats.project(from: round.seatResults)
+    }
+}
+
+/// Honest round-level projection. The panel session parks at `awaitingPM` after
+/// every settled round so the user can rerun; this value says whether that
+/// particular review actually produced results.
+public enum PanelRoundOutcome {
+    public static func project(from round: PanelRound) -> String {
+        if round.finishedAt == nil || round.seatResults.contains(where: { $0.status == .running }) {
+            return "running"
+        }
+        let completed = round.seatResults.filter { $0.status == .done }.count
+        if completed == round.seatResults.count, completed > 0 { return "complete" }
+        if completed > 0 { return "partial" }
+        return "failed"
     }
 }
 
@@ -182,6 +201,8 @@ public struct PanelRoundJSON: Codable, Equatable, Sendable {
     public var panel: PanelJSON
     public var round: Int
     public var attempt: Int
+    /// `complete | partial | failed` for this settled round.
+    public var outcome: String?
     public var targetHash: String
     public var briefSource: String
     public var seatResults: [SeatResultJSON]
@@ -197,6 +218,7 @@ public struct PanelRoundJSON: Codable, Equatable, Sendable {
         panel: PanelJSON,
         round: Int,
         attempt: Int,
+        outcome: String? = nil,
         targetHash: String,
         briefSource: String,
         seatResults: [SeatResultJSON],
@@ -208,6 +230,7 @@ public struct PanelRoundJSON: Codable, Equatable, Sendable {
         self.panel = panel
         self.round = round
         self.attempt = attempt
+        self.outcome = outcome
         self.targetHash = targetHash
         self.briefSource = briefSource
         self.seatResults = seatResults
