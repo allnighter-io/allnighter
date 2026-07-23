@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "3.1.0"
+    static let contractVersion = "3.2.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -1026,7 +1026,11 @@ public extension ContractRegistry {
             retryable: false,
             explain: "A run.json exists on disk but failed to decode (e.g. an unknown/legacy status raw value). Distinct from RUN_NOT_FOUND, which means no journal was ever found at all (RLR-L8)."
         ),
-        ErrorSpec("COORDINATOR_UNAVAILABLE", ruleId: "coordinator.unavailable", agentAction: "Use foreground CLI or start resident mode when available.", requiresManual: false, retryable: true, explain: "The resident coordinator is not running. Use a foreground command, or start resident mode when it is available."),
+        ErrorSpec("COORDINATOR_UNAVAILABLE", ruleId: "coordinator.unavailable", agentAction: "Enable the resident coordinator with `alln serve install`, then retry; foreground spawning is not a fallback.", requiresManual: true, retryable: false, explain: "The resident coordinator is not reachable. Enable it with `alln serve install`; Allnighter never falls back to a caller-owned vendor process."),
+        ErrorSpec("COORDINATOR_VERSION_MISMATCH", ruleId: "coordinator.version_mismatch", agentAction: "Refresh the installed coordinator with `alln serve install`, then retry.", requiresManual: true, retryable: false, explain: "The coordinator binary or contract version does not exactly match this client, so dispatch was refused."),
+        ErrorSpec("RESIDENT_REQUEST_REJECTED", ruleId: "resident.request.rejected", agentAction: "Inspect the returned typed rejection and correct the request; do not retry by spawning a source directly.", requiresManual: false, retryable: false, explain: "The resident coordinator rejected the typed request before source execution."),
+        ErrorSpec("RESIDENT_REQUEST_CONFLICT", ruleId: "resident.request.conflict", agentAction: "Reuse the original payload for this idempotency key, or submit a new key for new work.", requiresManual: false, retryable: false, explain: "A request reused an idempotency key with a different semantic payload."),
+        ErrorSpec("RESIDENT_ACCEPT_TIMEOUT", ruleId: "resident.accept.timeout", agentAction: "Retry the same idempotency key and payload; do not create a second direct run.", requiresManual: false, retryable: true, explain: "The client did not observe a durable resident acceptance receipt before its timeout."),
         ErrorSpec("SKILL_NOT_FOUND", ruleId: "skill.not_found", agentAction: "Run `alln skills --lane <lane> --json` and pick a valid skill id.", requiresManual: true, retryable: false, explain: "No skill matches the given id. List skills for the lane and retry with a valid SkillID."),
         ErrorSpec("TEAM_NOT_FOUND", ruleId: "team.not_found", agentAction: "Run `alln menu --json` (or `alln menu show team:<id>`) and retry with a canonical team id — never a display name.", requiresManual: true, retryable: false, explain: "No team matches the given id (or a display name was passed). List the live menu and retry with a valid TeamID."),
         ErrorSpec("TEAM_BUILTIN_IMMUTABLE", ruleId: "team.builtin.immutable", agentAction: "Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version).", requiresManual: true, retryable: false, explain: "A built-in team that was never edited has nothing to delete. Edit it in place with `teams edit`, or use `teams restore` to revert prior edits."),

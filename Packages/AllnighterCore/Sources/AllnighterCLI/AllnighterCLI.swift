@@ -357,6 +357,7 @@ struct AllnighterCLI {
                 print("coordinator \(health.state.rawValue)")
                 if let pid = health.pid { print("pid \(pid)") }
                 if let port = health.loopback.port { print("loopback \(health.loopback.host):\(port)") }
+                print("broker \(health.broker.ready ? "ready" : "unavailable")")
                 print("obligations \(health.activeObligationCount)")
             }
             return

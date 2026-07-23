@@ -53,6 +53,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
     private let store: ResidentCoordinatorStore
     private let probe: ResidentCoordinatorProbe
     private let server: LoopbackHealthServer
+    private let rendezvous: ResidentExecutionRendezvous
     private let wakeDependencies: WakeDependencies?
     private let remoteDependencies: RemoteDependencies?
     private let coordinatorId: String
@@ -63,14 +64,16 @@ public final class ResidentCoordinator: @unchecked Sendable {
         contractVersion: String = ContractRegistry.contractVersion,
         store: ResidentCoordinatorStore = ResidentCoordinatorStore(),
         server: LoopbackHealthServer = LoopbackHealthServer(),
+        rendezvous: ResidentExecutionRendezvous = ResidentExecutionRendezvous(),
         wakeDependencies: WakeDependencies? = nil,
         remoteDependencies: RemoteDependencies? = nil
     ) {
         self.binaryVersion = binaryVersion
         self.contractVersion = contractVersion
         self.store = store
-        self.probe = ResidentCoordinatorProbe(store: store)
         self.server = server
+        self.rendezvous = rendezvous
+        self.probe = ResidentCoordinatorProbe(store: store, rendezvous: rendezvous)
         self.wakeDependencies = wakeDependencies
         self.remoteDependencies = remoteDependencies
         self.coordinatorId = UUID().uuidString.lowercased()
@@ -80,6 +83,11 @@ public final class ResidentCoordinator: @unchecked Sendable {
     /// Starts loopback health, writes durable state, runs wake loop until shutdown.
     /// Always clears durable state on exit.
     public func run(untilShutdown: @escaping @Sendable () async -> Void) async throws {
+        _ = try rendezvous.prepareCoordinator(
+            coordinatorId: coordinatorId,
+            binaryVersion: binaryVersion,
+            contractVersion: contractVersion
+        )
         let healthProvider: @Sendable () -> String = { [probe, binaryVersion, contractVersion] in
             let health = probe.health(binaryVersion: binaryVersion, contractVersion: contractVersion)
             guard let data = try? CoreJSON.encode(health) else { return "{}" }
@@ -99,6 +107,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
         defer {
             server.stop()
             store.clear()
+            rendezvous.deactivateCoordinator()
         }
 
         let shutdown = ShutdownFlag()

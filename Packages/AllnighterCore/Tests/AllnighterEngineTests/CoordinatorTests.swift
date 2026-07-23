@@ -150,6 +150,27 @@ final class CoordinatorRunTests: XCTestCase {
         XCTAssertNil(store.load(), "clean shutdown clears durable coordinator state")
     }
 
+    func testResidentCoordinatorBootstrapsAndDeactivatesBrokerRendezvous() async throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-broker-\(UUID().uuidString)")
+        let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
+        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
+        let probe = ResidentCoordinatorProbe(store: store, rendezvous: rendezvous)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+        let brokerWasReady = BoolBox()
+        try await ResidentCoordinator(
+            binaryVersion: "0.1.0",
+            store: store,
+            rendezvous: rendezvous
+        ).run(untilShutdown: {
+            brokerWasReady.value = probe.health(binaryVersion: "0.1.0").broker.ready
+        })
+
+        XCTAssertTrue(brokerWasReady.value)
+        XCTAssertThrowsError(try rendezvous.currentIdentity(), "shutdown removes the live endpoint identity")
+    }
+
     func testResidentCoordinatorRunsRemoteDependencyUntilShutdown() async throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-remote-\(UUID().uuidString)")
         let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))

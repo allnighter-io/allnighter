@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 3.1.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 3.2.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1415,7 +1415,11 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |
 | `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
-| `COORDINATOR_UNAVAILABLE` | no | yes | `operational` | Use foreground CLI or start resident mode when available. |
+| `COORDINATOR_UNAVAILABLE` | yes | no | `operational` | Enable the resident coordinator with `alln serve install`, then retry; foreground spawning is not a fallback. |
+| `COORDINATOR_VERSION_MISMATCH` | yes | no | `operational` | Refresh the installed coordinator with `alln serve install`, then retry. |
+| `RESIDENT_REQUEST_REJECTED` | no | no | `operational` | Inspect the returned typed rejection and correct the request; do not retry by spawning a source directly. |
+| `RESIDENT_REQUEST_CONFLICT` | no | no | `operational` | Reuse the original payload for this idempotency key, or submit a new key for new work. |
+| `RESIDENT_ACCEPT_TIMEOUT` | no | yes | `operational` | Retry the same idempotency key and payload; do not create a second direct run. |
 | `SKILL_NOT_FOUND` | yes | no | `operational` | Run `alln skills --lane <lane> --json` and pick a valid skill id. |
 | `TEAM_NOT_FOUND` | yes | no | `operational` | Run `alln menu --json` (or `alln menu show team:<id>`) and retry with a canonical team id — never a display name. |
 | `TEAM_BUILTIN_IMMUTABLE` | yes | no | `operational` | Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version). |

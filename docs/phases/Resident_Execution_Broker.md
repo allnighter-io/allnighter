@@ -1,8 +1,8 @@
 # Resident Execution Broker — One Spawn Path for Every CLI
 
-Status: **Draft feature packet — architecture decision proposed; no implementation started**
+Status: **Implementation in progress — REB-S01 envelope/rendezvous/health bootstrap landed; no Team or Panel command is broker-routed yet**
 Owner: AllnighterCore + `alln serve` + CLI
-Updated: 2026-07-23 (hardened after multi-model Spec Review panel, same day)
+Updated: 2026-07-23 (implementation review and REB-S01 started)
 Supersedes: the resident execution boundary in archived
 `Mac_Standalone_App_And_Background_Coordinator.md`; its Mac app shell history
 remains historical.

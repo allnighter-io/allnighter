@@ -16,6 +16,8 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
     public var binaryVersion: String
     public var journal: Journal
     public var loopback: Loopback
+    /// File-rendezvous execution endpoint, distinct from loopback health.
+    public var broker: Broker
     public var activeObligationCount: Int
 
     public init(
@@ -28,6 +30,7 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
         binaryVersion: String,
         journal: Journal,
         loopback: Loopback,
+        broker: Broker = .init(ready: false),
         activeObligationCount: Int = 0
     ) {
         self.schemaVersion = schemaVersion
@@ -39,6 +42,7 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
         self.binaryVersion = binaryVersion
         self.journal = journal
         self.loopback = loopback
+        self.broker = broker
         self.activeObligationCount = activeObligationCount
     }
 
@@ -72,6 +76,16 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
             self.listening = listening
             self.host = host
             self.port = port
+        }
+    }
+
+    public struct Broker: Codable, Equatable, Sendable {
+        public var ready: Bool
+        public var transport: String
+
+        public init(ready: Bool, transport: String = "file-rendezvous") {
+            self.ready = ready
+            self.transport = transport
         }
     }
 }

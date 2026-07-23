@@ -5,17 +5,20 @@ import AllnighterCore
 /// `alln doctor --json`. Never fakes liveness.
 public struct ResidentCoordinatorProbe: Sendable {
     public let store: ResidentCoordinatorStore
+    public let rendezvous: ResidentExecutionRendezvous
     public let runsDirectory: URL
     public let processAlive: @Sendable (Int32) -> Bool
     public let currentPID: @Sendable () -> Int32
 
     public init(
         store: ResidentCoordinatorStore = ResidentCoordinatorStore(),
+        rendezvous: ResidentExecutionRendezvous = ResidentExecutionRendezvous(),
         runsDirectory: URL? = nil,
         processAlive: @escaping @Sendable (Int32) -> Bool = { RunStore.processAlive($0) },
         currentPID: @escaping @Sendable () -> Int32 = { ProcessInfo.processInfo.processIdentifier }
     ) {
         self.store = store
+        self.rendezvous = rendezvous
         self.runsDirectory = runsDirectory ?? AllnighterPaths.runs
         self.processAlive = processAlive
         self.currentPID = currentPID
@@ -35,6 +38,7 @@ public struct ResidentCoordinatorProbe: Sendable {
                 binaryVersion: binaryVersion,
                 journal: journal,
                 loopback: .init(listening: false),
+                broker: .init(ready: false),
                 activeObligationCount: 0
             )
         }
@@ -48,6 +52,7 @@ public struct ResidentCoordinatorProbe: Sendable {
                 binaryVersion: record.binaryVersion,
                 journal: journal,
                 loopback: .init(listening: false, host: record.loopbackHost, port: Int(record.loopbackPort)),
+                broker: .init(ready: false),
                 activeObligationCount: 0
             )
         }
@@ -60,6 +65,11 @@ public struct ResidentCoordinatorProbe: Sendable {
             binaryVersion: record.binaryVersion,
             journal: journal,
             loopback: .init(listening: true, host: record.loopbackHost, port: Int(record.loopbackPort)),
+            broker: .init(ready: rendezvous.isReady(
+                coordinatorId: record.coordinatorId,
+                binaryVersion: record.binaryVersion,
+                contractVersion: record.contractVersion
+            )),
             activeObligationCount: 0
         )
     }

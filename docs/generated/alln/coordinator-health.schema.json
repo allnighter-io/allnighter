@@ -1,5 +1,21 @@
 {
   "$defs" : {
+    "Broker" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "ready" : {
+          "type" : "boolean"
+        },
+        "transport" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "ready",
+        "transport"
+      ],
+      "type" : "object"
+    },
     "Journal" : {
       "additionalProperties" : false,
       "properties" : {
@@ -53,6 +69,9 @@
     "binaryVersion" : {
       "type" : "string"
     },
+    "broker" : {
+      "$ref" : "#\/$defs\/Broker"
+    },
     "contractVersion" : {
       "type" : "string"
     },
@@ -99,6 +118,7 @@
     "binaryVersion",
     "journal",
     "loopback",
+    "broker",
     "activeObligationCount"
   ],
   "title" : "CoordinatorHealth",

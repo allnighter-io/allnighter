@@ -5066,7 +5066,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "3.1.0",
+  "contractVersion" : "3.2.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5466,13 +5466,49 @@
       "ruleId" : "run.journal.corrupt"
     },
     {
-      "agentAction" : "Use foreground CLI or start resident mode when available.",
+      "agentAction" : "Enable the resident coordinator with `alln serve install`, then retry; foreground spawning is not a fallback.",
       "code" : "COORDINATOR_UNAVAILABLE",
       "exitClass" : "operational",
-      "explain" : "The resident coordinator is not running. Use a foreground command, or start resident mode when it is available.",
+      "explain" : "The resident coordinator is not reachable. Enable it with `alln serve install`; Allnighter never falls back to a caller-owned vendor process.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "coordinator.unavailable"
+    },
+    {
+      "agentAction" : "Refresh the installed coordinator with `alln serve install`, then retry.",
+      "code" : "COORDINATOR_VERSION_MISMATCH",
+      "exitClass" : "operational",
+      "explain" : "The coordinator binary or contract version does not exactly match this client, so dispatch was refused.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "coordinator.version_mismatch"
+    },
+    {
+      "agentAction" : "Inspect the returned typed rejection and correct the request; do not retry by spawning a source directly.",
+      "code" : "RESIDENT_REQUEST_REJECTED",
+      "exitClass" : "operational",
+      "explain" : "The resident coordinator rejected the typed request before source execution.",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "resident.request.rejected"
+    },
+    {
+      "agentAction" : "Reuse the original payload for this idempotency key, or submit a new key for new work.",
+      "code" : "RESIDENT_REQUEST_CONFLICT",
+      "exitClass" : "operational",
+      "explain" : "A request reused an idempotency key with a different semantic payload.",
+      "requiresManual" : false,
+      "retryable" : false,
+      "ruleId" : "resident.request.conflict"
+    },
+    {
+      "agentAction" : "Retry the same idempotency key and payload; do not create a second direct run.",
+      "code" : "RESIDENT_ACCEPT_TIMEOUT",
+      "exitClass" : "operational",
+      "explain" : "The client did not observe a durable resident acceptance receipt before its timeout.",
       "requiresManual" : false,
       "retryable" : true,
-      "ruleId" : "coordinator.unavailable"
+      "ruleId" : "resident.accept.timeout"
     },
     {
       "agentAction" : "Run `alln skills --lane <lane> --json` and pick a valid skill id.",
