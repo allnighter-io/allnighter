@@ -47,6 +47,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         public enum Kind: String, Codable, Sendable {
             case health
             case runStatus
+            case runResult
             case panelStatus
         }
         public var kind: Kind
@@ -185,14 +186,20 @@ public struct ResidentExecutionReceipt: Codable, Equatable, Sendable {
 /// public contracts rather than inventing broker-only JSON.
 public enum ResidentExecutionResult: Codable, Equatable, Sendable {
     case teamStart(TeamStartResponse)
+    case teamStatus(TeamStatusResponse)
+    case teamResult(TeamRunJSON)
+    case teamResultNotReady(TeamResultNotReady)
 
     private enum CodingKeys: String, CodingKey { case type, payload }
-    private enum Kind: String, Codable { case teamStart }
+    private enum Kind: String, Codable { case teamStart, teamStatus, teamResult, teamResultNotReady }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .type) {
         case .teamStart: self = .teamStart(try container.decode(TeamStartResponse.self, forKey: .payload))
+        case .teamStatus: self = .teamStatus(try container.decode(TeamStatusResponse.self, forKey: .payload))
+        case .teamResult: self = .teamResult(try container.decode(TeamRunJSON.self, forKey: .payload))
+        case .teamResultNotReady: self = .teamResultNotReady(try container.decode(TeamResultNotReady.self, forKey: .payload))
         }
     }
 
@@ -201,6 +208,15 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
         switch self {
         case let .teamStart(value):
             try container.encode(Kind.teamStart, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .teamStatus(value):
+            try container.encode(Kind.teamStatus, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .teamResult(value):
+            try container.encode(Kind.teamResult, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .teamResultNotReady(value):
+            try container.encode(Kind.teamResultNotReady, forKey: .type)
             try container.encode(value, forKey: .payload)
         }
     }

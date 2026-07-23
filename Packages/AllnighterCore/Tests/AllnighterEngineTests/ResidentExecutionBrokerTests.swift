@@ -36,6 +36,15 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         XCTAssertEqual(healthReceipt.state, .accepted)
         XCTAssertEqual(healthReceipt.canonicalId, "coord")
 
+        let missingStatus = try rendezvous.submit(
+            operation: .query(.init(kind: .runStatus, canonicalId: "missing")),
+            idempotencyKey: "missing-status", requestId: "missing-status-request"
+        )
+        let missingStatusMaybeReceipt = try await rendezvous.waitForReceipt(requestId: missingStatus.requestId)
+        let missingStatusReceipt = try XCTUnwrap(missingStatusMaybeReceipt)
+        XCTAssertEqual(missingStatusReceipt.state, .rejected)
+        XCTAssertEqual(missingStatusReceipt.rejection?.code, "RUN_NOT_FOUND")
+
         let team = try rendezvous.submit(
             operation: .teamRun(.init(question: "hello", repoRoot: root.path)),
             idempotencyKey: "team", requestId: "team-request"

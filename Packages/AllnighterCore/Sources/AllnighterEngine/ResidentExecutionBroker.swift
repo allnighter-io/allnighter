@@ -7,15 +7,24 @@ import AllnighterCore
 public final class ResidentExecutionBroker: @unchecked Sendable {
     public struct Dependencies: Sendable {
         public var asyncTeam: AsyncTeamService
+        public var models: [Model]
+        public var registry: DriverRegistry
+        public var runStore: RunStore
         public var readyModels: @Sendable () -> [Model]
         public var executablePath: @Sendable () -> String?
 
         public init(
             asyncTeam: AsyncTeamService,
+            models: [Model] = [],
+            registry: DriverRegistry = DefaultConfig.registry,
+            runStore: RunStore = RunStore(),
             readyModels: @escaping @Sendable () -> [Model],
             executablePath: @escaping @Sendable () -> String? = ProcessOwnership.currentExecutablePath
         ) {
             self.asyncTeam = asyncTeam
+            self.models = models
+            self.registry = registry
+            self.runStore = runStore
             self.readyModels = readyModels
             self.executablePath = executablePath
         }
@@ -75,6 +84,36 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             }
         case .query(let query) where query.kind == .health:
             try? rendezvous.accept(claim, canonicalId: claim.request.coordinatorId)
+        case .query(let query) where query.kind == .runStatus:
+            guard let runId = query.canonicalId, let status = await dependencies.asyncTeam.status(runId: runId) else {
+                try? rendezvous.reject(claim, code: "RUN_NOT_FOUND", message: "no run matches \(query.canonicalId ?? "")")
+                return
+            }
+            try? rendezvous.accept(claim, canonicalId: runId, result: .teamStatus(status))
+        case .query(let query) where query.kind == .runResult:
+            guard let runId = query.canonicalId else {
+                try? rendezvous.reject(claim, code: "RUN_NOT_FOUND", message: "no run id was supplied")
+                return
+            }
+            switch await dependencies.asyncTeam.result(runId: runId) {
+            case .notFound:
+                try? rendezvous.reject(claim, code: "RUN_NOT_FOUND", message: "no run matches \(runId)")
+            case .notReady(let result):
+                try? rendezvous.accept(claim, canonicalId: runId, result: .teamResultNotReady(result))
+            case .ready(let run):
+                let directory = try? dependencies.runStore.runDirectory(forRunId: run.id)
+                let context = TeamRunJSONMapper.Context(
+                    runJournalPath: directory?.appendingPathComponent("run.json").path ?? "",
+                    runDirectory: directory
+                )
+                let result = TeamRunJSONMapper.map(
+                    run,
+                    models: dependencies.models,
+                    manifests: dependencies.registry.all,
+                    context: context
+                )
+                try? rendezvous.accept(claim, canonicalId: runId, result: .teamResult(result))
+            }
         default:
             try? rendezvous.reject(
                 claim,
