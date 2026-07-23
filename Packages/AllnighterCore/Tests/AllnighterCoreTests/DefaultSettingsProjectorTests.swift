@@ -32,7 +32,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
             entry("model_grok", "Grok 4.5", driver: "grok", ready: ready.contains("model_grok")),
             entry("model_cursor_composer_25", "Composer 2.5", driver: "cursor_agent",
                   ready: ready.contains("model_cursor_composer_25")),
-            entry("model_gemini", "Gemini 3.5 Flash", driver: "antigravity", ready: ready.contains("model_gemini")),
+            entry("model_gemini", "Gemini 3.6 Flash", driver: "antigravity", ready: ready.contains("model_gemini")),
             entry("model_cursor_auto", "Cursor Auto", driver: "cursor", ready: ready.contains("model_cursor_auto")),
             entry("model_composer", "Grok Composer 2.5 Fast", driver: "grok", ready: ready.contains("model_composer")),
             entry("model_extra", "Zed Helper", ready: ready.contains("model_extra")),          // on + unassigned

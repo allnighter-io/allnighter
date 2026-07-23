@@ -146,7 +146,7 @@ public enum ModelCatalog {
         // per-model (3.1 Pro has no Medium → route med to High; the Claude/GPT-OSS
         // routes expose a single variant). Recognized from live `agy` switcher.
         let flashVariants: [EffortLevel: String] = [
-            .low: "Gemini 3.5 Flash (Low)", .med: "Gemini 3.5 Flash (Medium)", .high: "Gemini 3.5 Flash (High)"]
+            .low: "Gemini 3.6 Flash (Low)", .med: "Gemini 3.6 Flash (Medium)", .high: "Gemini 3.6 Flash (High)"]
         let proVariants: [EffortLevel: String] = [
             .low: "Gemini 3.1 Pro (Low)", .med: "Gemini 3.1 Pro (High)", .high: "Gemini 3.1 Pro (High)"]
         let cursorGrokVariants: [EffortLevel: String] = [
@@ -191,7 +191,7 @@ public enum ModelCatalog {
             def("model_chatgpt_sol", "ChatGPT 5.6 Sol (Cursor)", "gpt-5.6-sol-high", "cursor_agent", .both, defaultEnabled: false, effortVariants: chatgptSolVariants),
             def("model_cursor_composer_25_fast", "Composer 2.5 Fast", "composer-2.5-fast", "cursor_agent", .answerer, defaultEnabled: false),
             // Antigravity — a multi-model router; effort is encoded in the model name.
-            def("model_gemini", "Gemini 3.5 Flash", "Gemini 3.5 Flash (Medium)", "antigravity", .answerer, defaultEnabled: true, effortVariants: flashVariants),
+            def("model_gemini", "Gemini 3.6 Flash", "Gemini 3.6 Flash (Medium)", "antigravity", .answerer, defaultEnabled: true, effortVariants: flashVariants),
             def("model_gemini_pro", "Gemini 3.1 Pro", "Gemini 3.1 Pro (High)", "antigravity", .answerer, defaultEnabled: false, effortVariants: proVariants),
             def("model_agy_sonnet", "Claude Sonnet 4.6", "Claude Sonnet 4.6 (Thinking)", "antigravity", .answerer, defaultEnabled: false, effortVariants: fixed("Claude Sonnet 4.6 (Thinking)")),
             def("model_agy_opus", "Claude Opus 4.6", "Claude Opus 4.6 (Thinking)", "antigravity", .both, defaultEnabled: false, effortVariants: fixed("Claude Opus 4.6 (Thinking)")),

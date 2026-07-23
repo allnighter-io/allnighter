@@ -51,13 +51,13 @@ final class EffortRoutingTests: XCTestCase {
         // AGY carries no effort flag — effort rides in the model name.
         XCTAssertNil(manifest("antigravity").invoke?.effortFlag)
         let gemini = ModelCatalog.builtIns.first { $0.id == "model_gemini" }!
-        XCTAssertEqual(gemini.effortVariants?[.low], "Gemini 3.5 Flash (Low)")
-        XCTAssertEqual(gemini.effortVariants?[.high], "Gemini 3.5 Flash (High)")
+        XCTAssertEqual(gemini.effortVariants?[.low], "Gemini 3.6 Flash (Low)")
+        XCTAssertEqual(gemini.effortVariants?[.high], "Gemini 3.6 Flash (High)")
         let model = Model(id: gemini.id, displayName: gemini.displayName, modelLabel: gemini.modelLabel,
                           driverId: gemini.driverId, effortVariants: gemini.effortVariants)
         let args = manifest("antigravity").resolvedArgs(
             .init(prompt: "hi", model: model.resolvedLabel(at: .high), effort: .high))
-        XCTAssertTrue(args.contains("Gemini 3.5 Flash (High)"), "high effort selects the High variant")
+        XCTAssertTrue(args.contains("Gemini 3.6 Flash (High)"), "high effort selects the High variant")
         XCTAssertFalse(args.contains("--effort"))
     }
 

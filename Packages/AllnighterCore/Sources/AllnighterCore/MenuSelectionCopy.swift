@@ -308,7 +308,7 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not full Composer — model_cursor_composer_25"
         ),
         "model_gemini": Pair(
-            useWhen: "Gemini 3.5 Flash via Antigravity",
+            useWhen: "Gemini 3.6 Flash via Antigravity",
             dontUseWhen: "Not Pro — that is model_gemini_pro"
         ),
         "model_gemini_pro": Pair(

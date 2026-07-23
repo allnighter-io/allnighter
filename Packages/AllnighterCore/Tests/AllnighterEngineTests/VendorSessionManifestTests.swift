@@ -43,7 +43,7 @@ final class VendorSessionManifestTests: XCTestCase {
         XCTAssertEqual(agy.session?.capture?.from, .sessionDir)
         XCTAssertEqual(agy.session?.capture?.dir, "~/.gemini/antigravity-cli/brain")
         XCTAssertNil(agy.session?.capture?.field, "session_dir captures the folder NAME, no string field")
-        let ctx = DriverManifest.ResolveContext(prompt: "p", model: "Gemini 3.5 Flash (Low)", resumeSessionId: "conv-123")
+        let ctx = DriverManifest.ResolveContext(prompt: "p", model: "Gemini 3.6 Flash (Low)", resumeSessionId: "conv-123")
         let args = try XCTUnwrap(agy.resolvedSessionArgs(ctx, resuming: true))
         XCTAssertTrue(args.contains("--conversation"), "agy resumes by --conversation <id>")
         XCTAssertTrue(args.contains("conv-123"))

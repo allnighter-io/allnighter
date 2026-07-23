@@ -28,7 +28,7 @@ DRIVERS = {
     "grok": lambda: ["grok", "-p", PROMPT, "-m", "grok-composer-2.5-fast",
                      "--output-format", "plain", "--always-approve", "--cwd", CWD],
     # agy is already proven broken; include only if asked, as a positive control.
-    "antigravity": lambda: ["agy", "--print", PROMPT, "--model", "Gemini 3.5 Flash",
+    "antigravity": lambda: ["agy", "--print", PROMPT, "--model", "Gemini 3.6 Flash",
                             "--dangerously-skip-permissions"],
 }
 

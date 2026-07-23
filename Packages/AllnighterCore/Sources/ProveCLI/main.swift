@@ -39,7 +39,7 @@ enum ProveCLI {
         let cases: [(name: String, worker: Model)] = [
             ("claude", Model(id: "prove_claude", displayName: "Claude", modelLabel: "sonnet", driverId: "claude_code")),
             ("grok", Model(id: "prove_grok", displayName: "Grok", modelLabel: "grok-build", driverId: "grok")),
-            ("agy", Model(id: "prove_agy", displayName: "Gemini/Antigravity", modelLabel: "Gemini 3.5 Flash (Medium)", driverId: "antigravity")),
+            ("agy", Model(id: "prove_agy", displayName: "Gemini/Antigravity", modelLabel: "Gemini 3.6 Flash (Medium)", driverId: "antigravity")),
         ]
 
         var anyFailed = false
@@ -78,7 +78,7 @@ enum ProveCLI {
                   manifest.canGenerateImages else {
                 fputs("[\(driverId)] SKIP — no imageGen manifest\n", stderr); continue
             }
-            let modelLabel = driverId == "antigravity" ? "Gemini 3.5 Flash (Medium)" : (driverId == "grok" ? "grok-build" : "gpt-5.5")
+            let modelLabel = driverId == "antigravity" ? "Gemini 3.6 Flash (Medium)" : (driverId == "grok" ? "grok-build" : "gpt-5.5")
             let worker = Model(id: "prove_\(driverId)", displayName: driverId, modelLabel: modelLabel, driverId: driverId)
             let seat = Worker(id: "prove_\(driverId)#0", modelId: worker.id, instanceIndex: 0, skillId: "minimal")
             let runDir = FileManager.default.temporaryDirectory.appendingPathComponent("alln-design-prove-\(driverId)")

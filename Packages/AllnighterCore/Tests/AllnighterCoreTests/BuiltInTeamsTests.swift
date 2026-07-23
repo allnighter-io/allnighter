@@ -79,7 +79,7 @@ final class BuiltInTeamsTests: XCTestCase {
             Model(id: "model_cursor_composer_25", displayName: "Composer 2.5", modelLabel: "composer-2.5",
                   driverId: "cursor_agent", role: .answerer),
             Model(id: "model_chatgpt", displayName: "ChatGPT 5.6", modelLabel: "gpt-5.6", driverId: "codex", role: .answerer),
-            Model(id: "model_gemini", displayName: "Gemini 3.5 Flash", modelLabel: "g", driverId: "antigravity", role: .answerer),
+            Model(id: "model_gemini", displayName: "Gemini 3.6 Flash", modelLabel: "g", driverId: "antigravity", role: .answerer),
             Model(id: "model_sonnet", displayName: "Sonnet 5", modelLabel: "claude-sonnet-5", driverId: "claude_code", role: .answerer),
             Model(id: "model_grok", displayName: "Grok 4.5", modelLabel: "grok-4.5", driverId: "grok", role: .answerer),
             Model(id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-code/k3", driverId: "kimi", role: .answerer),
