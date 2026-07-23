@@ -722,15 +722,33 @@ and the macOS background enablement mechanism are reviewed.
 - The hostile-host Works Test and normal-host regression matrix are green.
 - Generated contracts and teaching surfaces describe only shipped behavior.
 
-## Open questions
+## Decisions made at implementation review
 
-1. Which per-install client proof is available to restricted local clients
-   without copying a reusable credential into every workspace?
-2. Should background readiness be enabled by default during first-run setup or
-   require one explicit "Keep Allnighter ready" choice?
-3. What compatibility range permits an automatic coordinator drain/restart
-   versus a hard version-mismatch refusal?
-4. Should the coordinator auto-substitute a **resolver-chosen** seat on a
+The following decisions close the pre-REB-S01 trust and lifecycle gates. They
+are deliberately narrow and fail closed; a later revision may widen them only
+with a Works Test that preserves these boundaries.
+
+1. **Client proof:** coordinator bootstrap creates one random 256-bit,
+   per-install broker secret in the hardened rendezvous root (mode `0600`).
+   A foreground `alln` client reads it only while signing its canonical typed
+   request with HMAC-SHA256; it is never copied into a project, passed to a
+   vendor CLI, or used as a vendor credential. A coordinator-start nonce is
+   also signed, so a request for an earlier coordinator cannot be replayed at a
+   later one. The local-user account is the trust boundary; this proof protects
+   the broker protocol from malformed/stale/unauthenticated request files, not
+   from another process already trusted as the same macOS user.
+2. **Enablement:** background readiness requires the one explicit
+   `alln serve install` action (or the Mac app action that calls the exact same
+   implementation). Clients never auto-start a coordinator.
+3. **Compatibility:** the initial shipped range is exact binary and contract
+   version equality. A mismatch rejects dispatch with a typed error and one
+   recovery action. Automatic drain/restart is deferred until it has a
+   re-adoption Works Test; it is not silently attempted in the first broker
+   release.
+
+## Open question
+
+Should the coordinator auto-substitute a **resolver-chosen** seat on a
    capacity-classified spawn failure (fail fast, re-resolve, record
    `original -> substitute (capacity)` provenance in the roster), instead of
    tracking vendor availability between runs? Availability is time-windowed
