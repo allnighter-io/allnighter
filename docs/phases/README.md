@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-07-22
+Updated: 2026-07-23
 
 ## Purpose
 
@@ -25,6 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Resident_Execution_Broker.md`](Resident_Execution_Broker.md) | **Draft feature packet — REB-S00–S05 unbuilt** | One resident `alln serve` execution authority for every vendor CLI and every caller; removes host-sandbox inheritance, direct-spawn split truth, silent roster collapse, and per-driver state workarounds. |
 | [`CLI_Agent_Ergonomics.md`](CLI_Agent_Ergonomics.md) | **Complete 2026-07-20** — AE-S00–S15 shipped; selection work superseded by archived MNR | Generated/comprehensive help, honor-or-fail ids and flags, free `run --dry-run`, cwd→project, contract lock/versioning, and the first pinned-binary agent harness. Successor: archived [`Alln_Sharpening.md`](../archive/phases/Alln_Sharpening.md). |
 | [`Alln_Sharpening.md`](../archive/phases/Alln_Sharpening.md) | **Complete 2026-07-21, archived** — SH-S00–S10 (`3f64a7d6` + prior SH commits) | Post-MNR preference pass: preview/run identity, canonical answer + slim v2 envelope, honor-or-fail flags, complete team inspection/authoring, resolved effects, observed timing, teaching projections. Code SSOT: `ResolvedRunInvocation`, `TeamRunJSON.answer`, `CommandProjection`, `ContractRegistry`; harness `scripts/agent_eval.sh --suite sharpening`. |
 | [`CLI_Agent_Surface_Fidelity.md`](../archive/phases/CLI_Agent_Surface_Fidelity.md) | **Complete 2026-07-20, archived** — ASF-S00–S08 (`ddd6cc39` / `5b1f27ba` / `791d591e` / `02819c6b` / `ce65caf3`) | Help + transactional nextActions speak CLI only; catalog search; miss recovery; version gitSha; `RetiredVocabulary` + check.sh gates. Code SSOT: `HelpTopicRegistry`, `RetiredVocabulary`. |
@@ -180,6 +181,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 
 | Work | Read first |
 | --- | --- |
+| Codex/host sandbox blocks child CLIs, resident execution authority, `alln serve` command broker, source processes absent from ownership | `Resident_Execution_Broker.md` |
 | Foreground/async run stuck, journal/status mismatch, opaque blocker, orphan worker, kill/retry failure, missing lifecycle stream | archived `Run_Lifecycle_Reliability.md` (Complete; extends archived Process Ownership + Concurrent Invocation Isolation) |
 | Vendor usage limit / session cap, parked run, wake/resume, authorized substitute | archived `Rate_Limit_Continuity.md` (code SSOT: `VendorBackoffReconciler`, `VendorSubstitutionPolicy`) |
 | Two `alln`s on different projects colliding, scoped reconcile/kill, per-invocation isolation | archived `Concurrent_Invocation_Isolation.md` (code SSOT; extends archived `Process_Ownership.md`) |

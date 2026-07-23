@@ -67,6 +67,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
 | Run model: chat/run = agent in repo root, Default Team, presets, write lock | `docs/phases/Unified_Run_Model.md` |
 | Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | `docs/archive/phases/Run_Lifecycle_Reliability.md` (Complete; code SSOT) |
+| Codex/host sandbox blocks child CLIs, resident execution, `alln serve` broker, source processes missing from `alln ps` | `docs/phases/Resident_Execution_Broker.md` |
 | Vendor usage limit / parked run / wake-resume / authorized substitute | archived `docs/archive/phases/Rate_Limit_Continuity.md` (code SSOT) |
 | Composer `@` file references, Project file search, file chips | `docs/phases/Composer_File_References.md` |
 | Model/skill/worker/team vocabulary | `docs/phases/Work_Order_Team_Model.md` |
@@ -82,7 +83,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
 | Shared models, worker drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `02`/`04` as scoped |
-| Forward Mac app shell, Dock app, background coordinator, resident mode | `docs/phases/Mac_Standalone_App_And_Background_Coordinator.md` |
+| Forward Mac app shell, Dock app, background coordinator, resident mode | `docs/phases/Resident_Execution_Broker.md` + archived `docs/archive/phases/Mac_Standalone_App_And_Background_Coordinator.md` |
 | Historical MVP Mac app shell, run loop, what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
 | Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |
