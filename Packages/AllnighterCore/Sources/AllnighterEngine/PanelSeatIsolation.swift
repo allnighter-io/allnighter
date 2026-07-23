@@ -6,7 +6,8 @@ import AllnighterCore
 /// **real** project root. Every other seat runs against an **ephemeral APFS
 /// clone** (copy-on-write `cp -c -R`, plain `cp -R` fallback) under
 /// `panels/<id>/clones/<seat>/` in the Allnighter support dir — a COPY, never a
-/// git worktree, never any git command.
+/// git worktree. A read-only Git inventory removes ignored and untracked source
+/// paths before the clone is handed to a seat.
 ///
 /// Clones exclude heavy disposable build dirs (same allowlist spirit as
 /// `HandoverGate` / the project file walker) so seats read **source truth**, not
@@ -149,9 +150,11 @@ public enum PanelSeatIsolation {
     // MARK: - Materialize / cleanup
 
     /// Materialize an ephemeral copy of `projectRoot` for one seat. Prefers bulk
-    /// `cp -c -R` (APFS clonefile — copy-on-write, near-instant) then strips
-    /// excluded disposable directories so seats read source truth, not build
-    /// artifacts. Falls back to plain `cp -R` when clonefile is unsupported.
+    /// `cp -c -R` (APFS clonefile — copy-on-write, near-instant), then removes
+    /// ignored/untracked paths and every `.env*` entry before stripping excluded
+    /// disposable directories. Seats receive tracked source truth, not local
+    /// secrets or build artifacts. Falls back to plain `cp -R` when clonefile is
+    /// unsupported.
     @discardableResult
     public static func materializeClone(
         projectRoot: String,
@@ -166,13 +169,27 @@ public enum PanelSeatIsolation {
             throw CopyError.sourceMissing(projectRoot)
         }
 
+        // This is deliberately read from the source before copying. A clone has
+        // the same worktree state, but the source is the authoritative answer to
+        // which files are local-only and must never enter a seat snapshot.
+        let localOnlyPaths = try ignoredOrUntrackedPaths(projectRoot: projectRoot)
+
         let dest = seatCloneDirectory(panelId: panelId, seatId: seatId, panelsRoot: panelsRoot)
         try? fm.removeItem(at: dest)
         // Parent of dest must exist; bulk `cp -c -R src dest` creates `dest` itself.
         try fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var completed = false
+        defer {
+            // A partially filtered clone is not a safe snapshot. Do not leave it
+            // available for a later dispatch when any safety step failed.
+            if !completed { try? fm.removeItem(at: dest) }
+        }
 
         try copyItemPreferringClonefile(source: projectRoot, destination: dest.path, copier: copier)
+        try removeSnapshotPaths(localOnlyPaths, from: dest)
+        try removeEnvironmentEntries(from: dest)
         stripExcludedDirectories(at: dest)
+        completed = true
         return dest
     }
 
@@ -213,6 +230,100 @@ public enum PanelSeatIsolation {
 
     public static func isExcludedDirectoryName(_ name: String) -> Bool {
         excludedDirectoryNames.contains(name.lowercased())
+    }
+
+    // MARK: - Snapshot safety
+
+    /// List every source path Git classifies as ignored or untracked. This must
+    /// succeed before we make a seat clone: silently treating an uninspectable
+    /// root as safe would expose local-only files to a worker.
+    private static func ignoredOrUntrackedPaths(projectRoot: String) throws -> [String] {
+        let untracked = try gitPaths(
+            arguments: ["ls-files", "-z", "--others", "--exclude-standard"],
+            projectRoot: projectRoot
+        )
+        let ignored = try gitPaths(
+            arguments: ["ls-files", "-z", "--others", "--ignored", "--exclude-standard"],
+            projectRoot: projectRoot
+        )
+        return Array(Set(untracked).union(ignored)).sorted()
+    }
+
+    private static func gitPaths(arguments: [String], projectRoot: String) throws -> [String] {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.currentDirectoryURL = URL(fileURLWithPath: projectRoot)
+        process.arguments = arguments
+        process.standardInput = FileHandle.nullDevice
+        let output = Pipe()
+        process.standardOutput = output
+        let errors = Pipe()
+        process.standardError = errors
+        do {
+            try process.run()
+        } catch {
+            throw CopyError.copyFailed("could not inspect source safety with git: \(error)")
+        }
+
+        // Drain before waiting so a large local-only tree cannot deadlock on the
+        // pipe buffer.
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            let detail = String(
+                data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8
+            )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            throw CopyError.copyFailed("could not inspect source safety with git: \(detail)")
+        }
+        return data
+            .split(separator: 0)
+            .map { String(decoding: $0, as: UTF8.self) }
+    }
+
+    private static func removeSnapshotPaths(_ paths: [String], from root: URL) throws {
+        let fm = FileManager.default
+        for path in paths {
+            guard isSafeSnapshotRelativePath(path) else {
+                throw CopyError.copyFailed("git returned an unsafe snapshot path: \(path)")
+            }
+            let entry = root.appendingPathComponent(path)
+            guard (try? fm.attributesOfItem(atPath: entry.path)) != nil else { continue }
+            do {
+                try fm.removeItem(at: entry)
+            } catch {
+                throw CopyError.copyFailed("could not remove local-only snapshot path '\(path)': \(error)")
+            }
+        }
+    }
+
+    /// Remove all dotenv-shaped files regardless of Git tracking state. A
+    /// committed `.env.example` is still a `.env*` file and must not be part of
+    /// an answer snapshot.
+    private static func removeEnvironmentEntries(from root: URL) throws {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(
+            at: root,
+            includingPropertiesForKeys: nil,
+            options: [.skipsPackageDescendants]
+        ) else { return }
+        var entries: [URL] = []
+        while let entry = enumerator.nextObject() as? URL {
+            guard entry.lastPathComponent.lowercased().hasPrefix(".env") else { continue }
+            entries.append(entry)
+            enumerator.skipDescendants()
+        }
+        for entry in entries {
+            do {
+                try fm.removeItem(at: entry)
+            } catch {
+                throw CopyError.copyFailed("could not remove dotenv snapshot entry '\(entry.path)': \(error)")
+            }
+        }
+    }
+
+    private static func isSafeSnapshotRelativePath(_ path: String) -> Bool {
+        guard !path.isEmpty, !path.hasPrefix("/") else { return false }
+        return !path.split(separator: "/").contains("..")
     }
 
     // MARK: - Tree copy

@@ -22,6 +22,7 @@ final class PanelSeatIsolationTests: XCTestCase {
     private func makeProjectTree() throws -> URL {
         let root = tmp.appendingPathComponent("repo", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try runGit(["init"], in: root)
         try "source truth".write(
             to: root.appendingPathComponent("README.md"), atomically: true, encoding: .utf8
         )
@@ -46,7 +47,28 @@ final class PanelSeatIsolationTests: XCTestCase {
             to: root.appendingPathComponent("Packages/Demo/Source.swift"),
             atomically: true, encoding: .utf8
         )
+        try runGit(["add", "README.md", "docs/spec.md", "Packages/Demo/Source.swift"], in: root)
         return root
+    }
+
+    private func runGit(_ arguments: [String], in root: URL) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.currentDirectoryURL = root
+        process.arguments = arguments
+        process.standardInput = FileHandle.nullDevice
+        let errors = Pipe()
+        process.standardError = errors
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            let detail = String(
+                data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8
+            ) ?? ""
+            throw NSError(domain: "PanelSeatIsolationTests", code: Int(process.terminationStatus), userInfo: [
+                NSLocalizedDescriptionKey: "git \(arguments.joined(separator: " ")) failed: \(detail)",
+            ])
+        }
     }
 
     private func fmCopyCopier() -> PanelSeatIsolation.Copier {
@@ -92,6 +114,54 @@ final class PanelSeatIsolationTests: XCTestCase {
         )
         // Real tree still has them.
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(".build").path))
+    }
+
+    func testCloneExcludesIgnoredUntrackedAndEveryDotenvEntry() throws {
+        let root = try makeProjectTree()
+        try "ignored/\n".write(
+            to: root.appendingPathComponent(".gitignore"), atomically: true, encoding: .utf8
+        )
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("ignored", isDirectory: true), withIntermediateDirectories: true
+        )
+        try "local secret".write(
+            to: root.appendingPathComponent("ignored/secret.txt"), atomically: true, encoding: .utf8
+        )
+        try "scratch".write(
+            to: root.appendingPathComponent("scratch.txt"), atomically: true, encoding: .utf8
+        )
+        try "tracked dotenv must still be removed".write(
+            to: root.appendingPathComponent(".env.example"), atomically: true, encoding: .utf8
+        )
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("Config", isDirectory: true), withIntermediateDirectories: true
+        )
+        try "nested dotenv must be removed".write(
+            to: root.appendingPathComponent("Config/.env.production"), atomically: true, encoding: .utf8
+        )
+        try runGit(["add", ".gitignore", ".env.example", "Config/.env.production"], in: root)
+
+        let clone = try PanelSeatIsolation.materializeClone(
+            projectRoot: root.path,
+            panelId: "panel_snapshot_safety",
+            seatId: "seat",
+            panelsRoot: tmp.appendingPathComponent("panels", isDirectory: true),
+            copier: fmCopyCopier()
+        )
+        defer { PanelSeatIsolation.removeClone(at: clone) }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: clone.appendingPathComponent("README.md").path))
+        for path in ["ignored/secret.txt", "scratch.txt", ".env.example", "Config/.env.production"] {
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: clone.appendingPathComponent(path).path),
+                "\(path) must never enter a seat snapshot"
+            )
+        }
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent("ignored/secret.txt").path),
+            "snapshot filtering must not alter the source tree"
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(".env.example").path))
     }
 
     // MARK: - Cleanup
