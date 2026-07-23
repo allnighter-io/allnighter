@@ -70,7 +70,12 @@ let package = Package(
             dependencies: ["AllnighterEngine", "AllnighterCore"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
-            ]
+            ],
+            plugins: ["BuildInfoPlugin"]
+        ),
+        .plugin(
+            name: "BuildInfoPlugin",
+            capability: .buildTool()
         )
     ]
 )
