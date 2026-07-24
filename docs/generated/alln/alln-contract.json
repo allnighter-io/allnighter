@@ -5386,7 +5386,7 @@
       "agentAction" : "Check the support dir is writable (disk space \/ permissions), then retry the run.",
       "code" : "RUN_JOURNAL_UNAVAILABLE",
       "exitClass" : "operational",
-      "explain" : "The acceptance journal write failed at mint time, so no run was started — RLR-L2 refuses to hand back an id without a durable, pollable journal.",
+      "explain" : "An authoritative run journal write failed. At mint time (RLR-L2) this refuses to hand back an id without a durable, pollable journal, so no run was started. At terminal settlement (CR-S02) the worker may have run, but its result could not be durably persisted — the run is reported as failed rather than returning success over a lost journal. Either way the durable record is unavailable; check disk space \/ permissions on the support dir and retry.",
       "requiresManual" : true,
       "retryable" : true,
       "ruleId" : "run.journal.unavailable"

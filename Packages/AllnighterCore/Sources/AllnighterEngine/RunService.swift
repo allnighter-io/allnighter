@@ -144,7 +144,7 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         case .noWorker(let m): return m
         case .workerNotAvailable(let m): return m
         case .journalUnavailable(let m):
-            return "run journal could not be written at acceptance — no run was started (\(m))"
+            return "run journal could not be written — the run's durable record is unavailable, so it cannot be reported honestly; check disk space and permissions on the Allnighter support directory, then retry (\(m))"
         }
     }
 
@@ -1804,7 +1804,13 @@ public actor RunService {
         timing.stamp(RunTimingKey.runOutcomePersisted)
         timing.count(RunTimingKey.runStoreSaveCount, by: 1)
         run.timing = timing
-        try? runStore.save(run, models: models)
+        // CR-S02: the terminal result is authoritative. A swallowed write here would
+        // report success while the durable journal is lost — surface it (RUN_JOURNAL_UNAVAILABLE).
+        do {
+            try runStore.save(run, models: models)
+        } catch {
+            return .failure(.journalUnavailable("terminal execution result: \(error)"))
+        }
         return .success(run)
     }
 
@@ -1904,7 +1910,12 @@ public actor RunService {
         timing.stamp(RunTimingKey.runOutcomePersisted)
         timing.count(RunTimingKey.runStoreSaveCount, by: 1)
         run.timing = timing
-        try? runStore.save(run, models: models)
+        // CR-S02: authoritative terminal result — never swallow a failed journal write.
+        do {
+            try runStore.save(run, models: models)
+        } catch {
+            return .failure(.journalUnavailable("terminal research result: \(error)"))
+        }
         return .success(run)
     }
 
