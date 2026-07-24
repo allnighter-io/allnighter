@@ -1,98 +1,185 @@
 # CODE RED — Core Infrastructure Repair
 
-Status: **CODE RED — ACTIVE. Blocks all forward feature work and all claims that
-resident-backed Team execution is fixed.**
+Status: **READY FOR IMPLEMENTATION — Code Red remains active; CR-S00 is
+complete and CR-S01 is next. All forward execution-path feature work is
+blocked until this document is green.**
 Owner: AllnighterCore + CLI execution path
 Updated: 2026-07-24
 
 ## Authority and precedence
 
-This is the binding recovery document for the current execution failure.
+This is the binding recovery packet for the current execution failure. It was
+derived through `SSOT_Founder_Input_Workflow.md`, `SSOT_Feature_Workflow.md`,
+and the T3 Debugger workflow.
 
 Until this phase closes, it supersedes:
 
-- the mechanical read-only requirement for answer Teams in
-  `Unified_Run_Model.md`;
-- the project-mirror / protected-project-byte direction in
-  `Resident_Execution_Broker.md` CPH-3;
-- any current code, help, test, or phase status that implies a verified mirror
-  is equivalent to the registered repository;
-- any claim that matching release or contract numbers make different source
-  builds safe to mix;
+- mechanical read-only requirements for research Teams;
+- project mirrors, Panel clones, protected-project byte transfer, and any other
+  alternate repository representation;
+- any resident path that owns run semantics instead of transporting one proven
+  foreground run;
+- compatibility logic that permits different source builds to cooperate;
 - any developer closeout that says “should work,” “tests pass,” or “fixed”
-  without the Works Tests in this document.
+  without the Works Test receipt in this document.
 
-This document does **not** authorize destructive rollback, history rewriting,
-permission changes, moving repositories, killing live user work, or deleting
-user data. Those remain explicit human stops.
+This packet authorizes deletion and repair inside the execution path. It does
+**not** authorize destructive Git history changes, deleting user data, moving
+repositories, changing macOS permissions, killing unrelated live work, or
+changing credentials. Those remain explicit founder stops.
 
-## Code Red order
+## Decision method — mentor input is evidence, not authority
 
-Stop expanding the current architecture.
+The mentor reviews were compared against founder intent, current code, the
+trusted workflow, and the requirement to reduce concepts. They are not work
+orders.
 
-1. Freeze forward Mac, iOS, Panel, Pending, doctor, background-lifecycle, and
-   new-source work that touches the execution path.
-2. Do not add another mirror, snapshot, compatibility bridge, fallback,
-   transport, lifecycle state, or permission workaround.
-3. Recover one direct, real-repository Team path before repairing any adjacent
-   surface.
-4. Delete failed infrastructure before adding replacement infrastructure.
-5. A slice may not advance because unit tests are green. It advances only when
-   its owner-visible Works Test is green.
+Accepted because they simplify and close a demonstrated seam:
 
-The recovery must be net-negative in execution-path concepts and production
-code. Any slice that adds more infrastructure than it deletes requires a
-founder boundary decision before implementation continues.
+- one canonical repository and one run-semantics owner;
+- restore the direct Terminal path before touching resident execution;
+- delete mirrors and clone-based read-only enforcement, including Panel’s
+  parallel version of the same mistake;
+- reuse the existing process-group and stream-draining primitives, then test
+  their actual failure seams;
+- exact Git SHA equality across a resident handoff;
+- no swallowed authoritative handoff errors;
+- checked-in live Works Test automation plus deterministic architecture gates.
 
-## Founder intent
+Not adopted:
 
-### Raw request
+- a generic four-operation resident API. Code Red permits one foreground
+  `run` handoff only; observe, cancel, health, detach, Panel, Pending, and
+  scheduler operations are separate future decisions;
+- a new repository integrity, hashing, watcher, or undo service. Git remains
+  the owner; Code Red adds only bounded pre/post observation;
+- rewriting working process infrastructure merely because it is old. Existing
+  spawn, process-group, pipe-drain, journal, and write-lock owners are reused
+  where their focused tests prove them;
+- treating a line-count target as correctness. The size budget is a tripwire;
+  the semantic and live Works Tests remain the proof.
 
-Allnighter has gone off track by turning ordinary Team research into a
-mechanically read-only filesystem problem and then building mirrors, transfer,
-hashing, compatibility, and permission machinery around that invented
-requirement.
+Any later advice is evaluated by the same rule: adopt the smallest part that
+restores the trusted workflow without introducing a new truth owner.
 
-The intended product is:
+## Founder note — make the wrong architecture hard to introduce
 
-- **Team:** ask several CLIs for research, review, judgment, or input;
-- **Execution:** ask one CLI to perform the requested work in the actual
+The founder did not approve a mirror, a second repository truth, or a parallel
+execution system. No agent stopped to ask before creating them. The founder
+should not need to reverse-engineer Swift infrastructure to discover that the
+product thesis changed.
+
+This is a process and architecture failure, not a founder-technical-depth
+failure.
+
+Agent promises are insufficient. Under bug pressure, an agent can optimize for
+making one symptom disappear and quietly change the product. Therefore:
+
+1. A bug report authorizes restoration of the existing trusted behavior. It
+   does not authorize a new filesystem representation, run owner, permission
+   posture, fallback, compatibility path, transport, protocol operation, or
+   durable state.
+2. Any such new concept is a **Founder Architecture Stop**. Before code, its
+   proponent must provide a feature packet naming the user value, prior art,
+   new authority, deleted authority, CLI/help impact, risk, and Works Test.
+3. Production guardrails must reject the known forbidden concepts and prove
+   the positive canonical-root/single-owner invariants.
+4. The architecture-policy file and its enforcement test are founder-owned.
+   Changing either is an explicit architecture proposal, never incidental bug
+   work.
+5. CI and local `scripts/check.sh` must fail before lengthy test suites when
+   the architecture policy is violated.
+
+Tests cannot prevent a fully authorized developer from deleting the tests.
+The enforcement boundary is therefore both technical and procedural:
+declarative policy + early local/CI gate + code-owner review for changes to the
+policy or its gate. The policy must be plain enough for the founder to review
+without understanding the entire implementation.
+
+## Feature packet
+
+### Founder intent
+
+Allnighter is a bench for the CLIs the user already pays for:
+
+- **Team:** several selected CLIs independently research, review, or provide
+  input from the real repository.
+- **Execution:** one selected CLI performs the requested work in the real
   repository.
 
-The founder did not request project mirrors, disposable repositories, hidden
-copies, or a second filesystem truth. Git and the underlying CLI provide the
-normal diff, commit, and undo workflow.
+When the user asks for research, return the independent answers. When the user
+asks for execution, execute. Do not interpose a product approval ritual, turn
+execution into a plan, silently downgrade it, or run it against copied bytes.
 
 ### Product value
 
-One prompt reaches the CLIs the user already pays for. Research Teams return
-independent answers. Execution makes the requested change. Both happen in the
-registered repository, using the same context a directly launched CLI sees.
+One prompt reaches the intended real CLIs, in the registered repository, with
+the same repository context they receive when launched directly. Git supplies
+the familiar diff, commit, and recovery model.
+
+### Prior art and adopted convention
+
+- Git owns working-tree truth, diff, commit, and rollback. Allnighter does not
+  create a competing filesystem or undo model.
+- Mature CLI client/daemon tools keep transport separate from command
+  semantics. If Allnighter needs a resident hop, the daemon invokes the same
+  run service as the direct CLI; it does not reinterpret the request.
+- POSIX process groups own child-process cancellation, and stdout/stderr must
+  be drained concurrently while the process runs. Allnighter reuses its
+  existing primitives and proves those seams instead of inventing new ones.
+- Vendor CLIs own their normal permissions and approval behavior. Allnighter
+  adds no blanket read-only permission layer.
+
+Deviation requires a founder-approved feature packet before implementation.
 
 ### Trusted workflow slice
 
 ```text
 registered repository
-  -> alln run with a research Team
-  -> two distinct authenticated CLIs read the real repository
-  -> both answers return
-  -> alln run with an execution Team
-  -> one authenticated CLI changes the real repository
-  -> the real git diff proves the change
+  -> research Team
+  -> two selected authenticated CLIs run in that repository
+  -> two independently attributed answers return
+  -> execution Team
+  -> one selected authenticated CLI runs in that repository
+  -> the requested real Git diff exists
 ```
 
-### Non-goals during repair
+### User-visible claim
 
-- Mechanical read-only enforcement for research Teams.
-- Project mirrors, snapshots, worktree copies, secret-filtered byte transfer,
-  or a second repository representation.
+“Team asks the selected CLIs for independent input in your real repository.
+Execution uses one selected CLI to do the requested work there.”
+
+### Non-goals
+
+- Mechanical filesystem read-only enforcement.
+- Mirrors, snapshots, clones, scratch repositories, hidden worktrees, byte
+  transfer, or context packets presented as repository truth.
 - Detached execution, automatic resident installation/update, drain/restart,
-  parked work, wake/resume, Panel routing, Pending routing, or doctor routing.
+  parked/wake behavior, Panel routing, Pending routing, or doctor routing.
+- A general local RPC framework.
 - Mac or iOS presentation work.
 - Compatibility with stale coordinator builds.
-- New transport abstractions or a general local RPC framework.
-- Hiding a failed worker, permission failure, dirty-tree change, or stale
-  binary behind a fallback.
+- Automatic cleanup or reset of unexpected Git changes.
+- New lifecycle, process, Git, or permission frameworks.
+
+## Risk classification and founder stops
+
+This is T3 Critical because the repeated fixes crossed permission, filesystem,
+cross-process, and durable-run boundaries.
+
+Stop for founder approval before any implementation that would:
+
+- request or change Full Disk Access, Files and Folders, security-scoped
+  bookmarks, entitlements, sandbox posture, or another macOS permission;
+- require moving repositories out of a protected folder;
+- send repository/session data outside the user’s existing selected CLIs;
+- delete user mirrors, worktrees, run state, or live processes;
+- broaden credential or Keychain access;
+- alter distribution, billing, or quota-spend behavior;
+- add an alternate repository representation or execution authority.
+
+A normal permission failure is evidence, not permission to work around the
+boundary. The run fails honestly and Code Red stops for a product decision.
 
 ## Locked product model
 
@@ -101,318 +188,535 @@ registered repository
 The registered canonical repository root is the working directory for every
 project-scoped worker.
 
-No production execution path may replace it with:
+No production path may replace it with a mirror, clone, snapshot, scratch
+directory, copied checkout, generated context, or isolation worktree. If a
+process cannot access the registered repository, the run fails honestly.
 
-- a mirror;
-- a snapshot;
-- a scratch directory;
-- a copied checkout;
-- a worktree created only to simulate read-only behavior;
-- a context packet presented as repository truth.
+### 2. Research Teams are observational, not mechanically read-only
 
-If a process cannot access the registered repository, the run fails honestly.
-It must not silently run somewhere else.
+A Team with `mutating == false`:
 
-### 2. Team means research and input
+- resolves to the explicitly selected workers;
+- runs those workers in the canonical repository;
+- asks for research, review, judgment, or options;
+- returns each answer with its real worker/source identity;
+- never adds vendor read-only flags or a copied filesystem.
 
-A non-execution Team:
+The prompt communicates the task. A bounded Git observation detects obvious
+unexpected changes:
 
-- runs its selected workers against the real repository;
-- asks for analysis, review, options, or judgment;
-- returns each worker’s answer;
-- does not promise mechanical filesystem immutability;
-- does not create a separate filesystem for safety.
+- capture canonical root, exact HEAD, porcelain status, and a digest of Git’s
+  tracked diff before dispatch;
+- capture the same values after terminal settlement;
+- compare against the pre-existing state instead of assuming a clean repo;
+- if the observed Git state changed, mark a visible research-write violation;
+- never silently reset, delete, or “repair” the user’s files.
 
-The Team prompt may clearly say that the task is research-only. That is worker
-guidance, not a new infrastructure contract.
-
-Allnighter records the repository’s pre-run and post-run git status. If a
-research worker writes unexpectedly, Allnighter:
-
-- reports the unexpected diff as a run violation;
-- preserves the evidence;
-- does not claim success;
-- never silently reverts or deletes the user’s files.
-
-Git remains owned by the repository and the user’s CLI workflow. Allnighter
-does not invent another undo system.
+This is observation, not a new integrity service. The live Code Red fixture is
+clean so its assertion is exact. Product code must not hash/copy the whole
+repository, monitor arbitrary filesystem bytes, or claim stronger protection
+than Git observation provides.
 
 ### 3. Execution means execution
 
-An execution Team:
+A Team with `mutating == true`:
 
-- resolves to exactly one worker;
-- runs that worker in the real registered repository;
-- permits the worker to edit, test, and commit as requested;
-- uses the existing per-root write lock to prevent concurrent Allnighter
-  execution workers;
-- returns the real changed paths, git diff/proof, and terminal worker result.
+- resolves to exactly one worker before dispatch;
+- uses the canonical repository root;
+- acquires the existing per-root write lock;
+- permits the selected CLI to edit, test, and commit as requested;
+- never silently substitutes a worker, returns research instead, or asks
+  Allnighter for a redundant approval;
+- succeeds only when the requested owner-visible proof succeeds in the real
+  repository.
 
-Success is impossible unless the requested outcome exists in the registered
-repository. A change in scratch, temp, mirror, journal, or generated output is
-not execution success.
+A file in temp, a journal entry, a worker promise, or a copied-tree diff is not
+execution success.
 
-### 4. One run primitive
+### 4. One semantics owner
 
-Both shapes use the same run record and worker adapter:
+`RunService.run` is the sole production owner of run resolution, canonical
+root selection, Team shape, worker roster, write-lock acquisition, spawn
+request, lifecycle settlement, and result projection. A deliberately renamed
+replacement is allowed only if the old owner is deleted in the same slice.
+
+The existing worker/process runner remains the sole low-level spawn owner.
+`RunCLI` and any later resident adapter may call `RunService`; neither may
+duplicate or reinterpret its semantics.
 
 ```text
-message + optional Team + worker selection + canonical repo root
+normal Terminal ───────────────┐
+                              v
+                         RunService.run
+                              |
+restricted host -> run bytes -┘
+                              |
+                    existing worker runner
+                              |
+                selected vendor CLI process(es)
+                              |
+                  canonical registered repo
 ```
 
-The Team shape changes worker count and expected output. It does not select a
-different filesystem architecture.
+There are two callers only if the restricted-host harness proves the second
+caller is necessary. There is always one execution engine.
 
-### 5. The broker is plumbing only
+### 5. Resident execution is optional transport
 
-If a resident broker is required so vendor CLIs do not inherit a restricted
-host’s sandbox, it may only move the typed request to a normally authorized
-process. It may not change:
+CR-S01–CR-S04 do not use resident execution.
 
-- repository root;
-- Team membership;
-- worker identity;
-- prompt;
-- research versus execution meaning;
-- result contract.
+If CR-S05 proves a resident hop is necessary, its Code Red surface is exactly
+one foreground operation:
 
-The broker is not a repository service, snapshot service, permission
-workaround, scheduler product, compatibility layer, or second run owner.
+```text
+run(request) -> accepted + events + terminal result
+```
+
+The resident adapter may serialize/deserialize the canonical request/result,
+require exact build identity, durably accept one idempotency key, and invoke
+`RunService.run`. It may not own Team resolution, root selection, lifecycle
+meaning, retries, fallback, or a second journal.
+
+Observe, cancel, health, detach, Panel, Pending, doctor, scheduling, install,
+update, drain, re-adoption, and stale-build bridging are outside this repair.
+Adding any operation requires its own feature packet and live Works Test.
+
+For a resident request, durable acceptance must exist before a worker spawns.
+Retrying the same idempotency key returns the same acceptance/result and never
+spawns a second vendor process. Direct Terminal execution needs no resident
+receipt or resident idempotency machinery.
+
+Foreground Terminal interruption continues to use the existing process-group
+owner. It is not a resident protocol operation. Resident cancellation is
+unsupported during Code Red rather than approximated by another control path.
 
 ## Current-state audit
 
-### Incident window
+### Incident evidence
 
 The 2026-07-24 repair window produced:
 
 - 31 commits in roughly four hours;
 - 55 changed files;
 - 2,644 inserted lines and 178 deleted lines;
-- 11 separate changes to `ResidentExecutionBroker.swift`;
+- 11 separate edits to `ResidentExecutionBroker.swift`;
 - successive repairs for probe prompts, protected roots, project mirrors,
   coordinator ownership, admission, status, install recovery, and stale
   coordinator compatibility.
 
-This is expansion under incident pressure, not convergence.
+Current production evidence includes:
 
-### Proven structural failures
+- `ProjectMirror` / `ProjectMirrorPayload`;
+- `ProjectMirrorStore` / `ProjectMirrorMaterializer`;
+- `ProjectMirrorCapture`;
+- `ResidentProjectAccessBoundary`;
+- `projectMirrorId` in canonical request types;
+- `RunCLI.runForegroundThroughResident`;
+- Panel’s separate `PanelSeatIsolation` clone system and `PanelReadOnlyArgs`;
+- 14 `ResidentExecutionOperation` cases;
+- 2,600 lines across only seven central resident/mirror files, before install,
+  probe, reaper, CLI wiring, Panel isolation, models, and tests are counted;
+- authoritative broker replies frequently wrapped in `try?`.
 
-1. Protected project requests are replaced with a mirror before the Team is
-   resolved as research or execution. Execution can therefore modify a
-   disposable directory instead of the registered repository.
-2. The mirror omits `.git`, so it is not equivalent to the repository context
-   promised by the run model.
-3. Mirror capture copies all tracked bytes before resident validation, has no
-   active lifecycle cleanup, and can accumulate a full repository copy per run.
-4. Mirror capture waits for `git` to exit before draining its output pipe. The
-   Allnighter checkout already emits more than 140 KB from `git ls-files -z`,
-   so the capture path has an unproved blocking seam.
-5. The compatibility path allows a new client to submit using a stale
-   coordinator’s Git SHA while the human binary version remains unchanged
-   across materially different builds.
-6. Broker acceptance/result writes are frequently wrapped in `try?`. A worker
-   can continue while the client never receives the authoritative reply.
-7. Focused unit tests prove materialization, validation, and broker-adjacent
-   facts. They do not spawn two real CLIs through the installed path, prove the
-   real repository CWD, or prove a requested edit reaches the real repository.
-8. The active resident phase still names the hostile-host/no-prompt Works Test
-   as red. A “fixed” claim therefore contradicts the phase’s own proof state.
+The architecture grew under incident pressure while the end-to-end user path
+remained red.
+
+### Proven failures
+
+1. A registered project can be replaced with copied bytes before the run is
+   resolved as research or execution.
+2. The copy omits `.git`, so it cannot satisfy the promised repository context.
+3. Execution can succeed against disposable bytes while the real repository is
+   unchanged.
+4. New and stale source builds can be treated as compatible.
+5. Authoritative handoff writes can fail silently while work continues.
+6. Unit tests prove components that the founder never asked for, but do not
+   prove two real selected CLIs or one real-root edit through the installed
+   user path.
+7. Panel independently created another copied-repository/read-only system,
+   showing that deleting only the symbol `ProjectMirror` would not fix the
+   governing mistake.
 
 ### Boundary verdict
 
-The current resident-backed project path is **RED**. It is not eligible for
-dogfood trust, release claims, or further feature layering.
+Resident-backed project execution is **RED**. It is not trusted for dogfood or
+eligible for further feature layering.
 
 ### Truth owners
 
 | Truth | Sole owner |
 | --- | --- |
-| Project bytes and changes | Registered repository root |
-| Diff, commit, rollback | Repository Git state and the worker/user CLI |
-| Team selection and shape | Resolved `TeamPreset` |
-| Durable run status/result | Canonical `TeamRun` / run journal |
-| Live worker ownership | The process that actually spawned the vendor CLI |
-| Build freshness | Exact executable build Git SHA |
+| Repository bytes, diff, commit, rollback | Registered repository + its Git state |
+| Team selection and `mutating` shape | Resolved `TeamPreset` |
+| Run resolution and lifecycle semantics | `RunService.run` |
+| Worker process | Existing worker/process runner |
+| Durable run status/result | Canonical `TeamRun` / run store |
+| Concurrent mutation | Existing canonical-root write lock |
+| Cross-process build freshness | Exact executable Git SHA |
 
 ### Lie-prone layers
 
-- mirror manifests and content hashes;
-- broker receipts written after work begins;
-- client-side health inferred from an identity file;
-- matching human version / contract version with different source builds;
-- unit tests that stop before a real vendor spawn;
+- copied files and hashes presented as repository truth;
+- separate direct/resident resolution paths;
+- broker acceptance presented as completed work;
 - journal state presented as live process truth;
-- “the request was accepted” presented as “the user workflow works.”
+- human version or contract version presented as source-build identity;
+- generated/help text describing retired behavior;
+- mock/component tests presented as dogfood proof.
 
 ## Inference bans
 
-| Junction | Owner | Forbidden inference | Required negative proof |
-| --- | --- | --- | --- |
-| Research prompt -> filesystem policy | Team contract | “Research” requires a copied or mechanically read-only repository | Research Team runs in the canonical root and returns answers |
-| Mirror verified -> repository context | Registered root | Matching file hashes mean a mirror is the repository | Worker reports canonical `pwd`, `.git`, and HEAD from the real root |
-| Broker accepted -> work succeeded | Run journal + worker result | A receipt proves a CLI ran or produced a result | Distinct vendor process receipt plus terminal answer |
-| Tests green -> dogfood green | Works Test | Mock/unit coverage proves the cross-process user path | Exact founder command with two authenticated CLIs |
-| Matching release -> matching code | Build identity | Same `binaryVersion`/contract means different SHAs are compatible | Mismatch fails before dispatch |
-| Execution output -> repository changed | Registered root | Worker prose or temp files prove execution | Requested real-root diff and proof command |
-| Unexpected Team write -> automatic cleanup | User Git state | Allnighter may silently reset research changes | Diff is surfaced; no automatic destructive action occurs |
+| Junction | Forbidden inference | Deterministic negative proof |
+| --- | --- | --- |
+| Research intent -> filesystem | Research requires read-only flags or a copy | Forbidden-concept gate + real-root Team test |
+| Alternate bytes -> repository | Matching content equals the registered repo | Request schema has one `repoRoot`; canonical-root test |
+| Broker accepted -> run worked | Acceptance proves worker/result | Live vendor process + terminal result |
+| Execution prose -> change | Worker says it edited, therefore it did | Fixture’s real Git diff + sentinel proof |
+| Human version -> source identity | Same product version means compatible build | exact-SHA mismatch test |
+| Retry -> second attempt | Retrying an accepted request may respawn | resident idempotency kill test |
+| Green unit tests -> green product | Component tests prove the founder gesture | checked-in live Works Test receipt |
+| Bug fix -> architecture authority | Fixing a symptom permits a new subsystem | policy/Code Owner gate |
+| Unexpected Team write -> cleanup | Allnighter may reset the tree | test proves violation is surfaced and files preserved |
 
-## Recovery architecture
+## CLI and teaching surface
 
-The target path is deliberately small:
-
-```text
-alln run
-  -> resolve registered project and Team once
-  -> use canonical project root once
-  -> spawn selected vendor CLI(s)
-  -> persist sourced worker transitions
-  -> return worker answers / real execution result
-```
-
-For the first green slice:
-
-- the caller is a normal macOS Terminal;
-- execution is foreground;
-- no resident broker is involved;
-- two explicitly selected, authenticated CLIs are the only Team matrix;
-- no Panel, synthesis chain, detach, retry substitution, or background
-  lifecycle participates.
-
-Only after that path is green may a restricted Codex client be connected to the
-same executor through a thin resident handoff.
-
-## CLI surface during Code Red
-
-The supported recovery surface is one command:
+The only trusted recovery command is:
 
 ```text
-alln run "<message>" --project <id|path> --team <team-id>
+alln run "<message>" --project <id|path> --team <team-id> [--json]
 ```
 
-Required behavior:
+Contract:
 
-- Research Team: selected workers run and return independent answers.
-- Execution Team: exactly one selected worker changes the registered repo.
-- `--json` projects the same canonical Team run, worker identities, statuses,
-  output, repo root, and proof facts.
-- `--dry-run` resolves selection only and must say it did not execute.
+- research Team: selected workers return separately attributed answers;
+- execution Team: exactly one selected worker executes in the registered root;
+- `--json`: projects the canonical `TeamRunJSON`; no resident-specific parallel
+  result shape;
+- `--dry-run`: resolves selection and clearly says no worker executed;
+- unsupported Code Red surfaces fail with a stable nonzero error and one honest
+  recovery action; they do not fall back.
 
-Temporarily out of the trusted recovery surface:
+Temporarily unsupported/untrusted:
 
 - `--detach`;
 - Panel start/round/watch;
-- pending run;
-- broker-routed doctor/detect;
-- automatic coordinator installation/update;
-- stale-build compatibility;
-- background drain/re-adoption.
+- Pending run/wake;
+- resident-routed doctor/detect;
+- coordinator install/update/drain;
+- stale-build compatibility.
 
-Existing commands outside the trusted surface must fail honestly or remain
-clearly marked unverified. They may not call the recovered path “green.”
+Required teaching changes ship with CR-S01 and CR-S02:
 
-## Ordered recovery slices
+- update `team_run_loop` and the directly related error/recovery topics;
+- make `help search` find the path using `team research`, `team input`,
+  `execute`, `real repository`, `coordinator mismatch`, and `sandbox`;
+- remove and deny-list teaching for project mirrors, Panel clones, mechanical
+  read-only Teams, stale coordinator bridging, and direct/resident fallback;
+- regenerate contract artifacts from `ContractRegistry`;
+- assert every named command/flag resolves.
 
-No slice begins until the prior slice’s Works Test is recorded green.
+### Implementation impact ledger
 
-### CR-S00 — Freeze and semantic cutover
+| Surface | Code Red impact |
+| --- | --- |
+| Core models | Remove `projectMirrorId` and mirror/isolation JSON. Preserve canonical `TeamRunJSON`; do not create a Code Red result schema. |
+| Engine | Reuse `RunService`, worker/process runner, run store, and write lock. Delete alternate root and duplicate resident semantics. |
+| CLI | Make `RunCLI` a thin adapter to `RunService.run`; unsupported surfaces fail closed. |
+| Generated contracts | Regenerate from `ContractRegistry` after source changes; no hand edits. |
+| Help | Update `team_run_loop` and error recovery; deny-list retired grammar. |
+| Mac app | Frozen. No GUI work or new app-owned run semantics during Code Red. |
+| iOS app | No impact. Remote control remains parked. |
+| Resident protocol | Delete or reduce to one foreground `run` handoff after CR-S05 evidence. |
+| Agent drivers | No new per-driver permission flags, filesystem rules, or fallback. Existing invocation manifests remain the owner. |
+| Auth/privacy/permissions | No credential movement or permission change. Any TCC/product-location decision is a founder stop. |
+
+## Mechanical architecture policy
+
+CR-S01 adds one declarative policy file and one early gate:
+
+```text
+config/architecture-policy.json
+scripts/check_architecture_policy.sh
+```
+
+`scripts/check.sh` invokes the gate before Swift builds/tests. CI invokes the
+same script; it may not implement a parallel policy.
+
+The policy records:
+
+- the production paths it scans;
+- forbidden symbols/terms;
+- the exact allowed resident operation set;
+- the one run-semantics owner;
+- the one canonical-root field;
+- the resident production line budget;
+- founder-owned policy/gate paths.
+
+Initial forbidden concepts include all current spellings:
+
+```text
+ProjectMirror
+ProjectMirrorPayload
+ProjectMirrorStore
+ProjectMirrorMaterializer
+ProjectMirrorCapture
+projectMirrorId
+ResidentProjectAccessBoundary
+residentSafe
+project-mirrors
+cli-compatible-resident
+PanelSeatIsolation
+PanelReadOnlyArgs
+--sandbox read-only
+--permission-mode plan
+```
+
+The gate also rejects obvious alternate-root schema fields and production
+filesystem-copy code in the run path. It scans production sources and living
+agent teaching surfaces; archives and this incident document are evidence and
+are excluded.
+
+The check must be fixture-tested: each policy rule is fed a violating sample,
+must exit nonzero, then passes when the sample is absent. A substring sweep
+alone is not sufficient. Positive XCTest invariants prove canonical-root
+identity and the single run owner.
+
+### Policy ownership
+
+CR-S01 adds Code Owner coverage for:
+
+- `config/architecture-policy.json`;
+- `scripts/check_architecture_policy.sh`;
+- its fixture tests;
+- the CI workflow that requires it;
+- this Code Red packet while active.
+
+The repository’s protected branch must require the architecture-policy CI job
+and Code Owner review when those paths change. Enabling or changing remote
+branch protection is a founder action, not implicitly authorized by this
+packet.
+
+## Quantitative tripwires
+
+CR-S01 checks in `scripts/code_red_metrics.sh` and records the exact committed
+baseline before deletion. The script, not prose, owns the measured file set.
+
+| Metric | Current evidence | Required before Code Red closes |
+| --- | ---: | ---: |
+| Alternate repository implementations | at least 2 | 0 |
+| Resident operation cases | 14 | 1 (`run`) |
+| Run-semantics owners | more than 1 path | 1 (`RunService.run`) |
+| Silent authoritative handoff writes | dozens | 0 |
+| Central seven-file resident/mirror LOC | 2,600 | mirror files deleted |
+| Entire Code Red resident handoff LOC | baseline in CR-S01 | <= 800 |
+| Forbidden production concept hits | baseline in CR-S01 | 0 |
+
+The 800-line resident cap includes request/result transport, rendezvous, broker
+adapter, and coordinator handoff production code. It excludes shared
+`RunService`, shared worker/process primitives, tests, and generated artifacts.
+It is deliberately generous, not a target. An increase requires founder
+approval and a revised feature packet.
+
+Production code across Code Red must be net-negative. Test/harness code may
+grow. A slice may add a small adapter or observation only when it deletes the
+superseded owner in the same slice.
+
+## Supporting proof wall
+
+Required wall-reachable checks:
+
+1. `ArchitecturePolicyTests`
+   - violating fixtures make the policy script red;
+   - changing allowed operations/owner/root fields is visible.
+2. `CanonicalRepoRootInvariantTests`
+   - resolved root, worker CWD, reported root, `.git`, and fixture filesystem
+     identity all match the registered root;
+   - no alternate root exists in the request/result schema.
+3. `SingleRunOwnerInvariantTests`
+   - direct CLI and resident adapter call the same `RunService.run`;
+   - CLI/broker contain no Team/root/write-lock resolution.
+4. `ResearchGitObservationTests`
+   - clean unchanged, pre-existing dirty unchanged, new tracked change, new
+     untracked path, and preserved unexpected write.
+5. `ExecutionWriteLockTests`
+   - one mutating owner per canonical root; research does not take the lock.
+6. `ResidentBuildIdentityTests`
+   - exact SHA match accepts; mismatch fails before spawn; no compatibility
+     rewrite.
+7. `ResidentRunSurfaceTests`
+   - only `run` decodes; all retired operations fail closed.
+8. `AuthoritativeHandoffFailureTests`
+   - acceptance persistence failure spawns nothing;
+   - result/event persistence failure is terminally visible, never `try?`.
+9. Existing process-ownership tests plus a focused large-output test
+   - workers own a process group and cancellation targets that group;
+   - stdout and stderr each exceed 256 KB and are drained concurrently before
+     wait without deadlock or truncation.
+10. Contract/help drift tests
+    - retired grammar cannot be re-taught;
+    - the Code Red command and recovery terms resolve.
+
+Tests should reuse current owners. They must not create a second run service,
+process runner, Git service, or resident protocol to make testing convenient.
+
+## Ordered implementation slices
+
+No slice begins until the prior slice’s Works Test is recorded green. Each
+slice is deletion-first, committed independently, and leaves the supported
+surface runnable.
+
+### CR-S00 — Freeze and semantic cutover — COMPLETE
 
 - Land and route this document.
-- Mark the resident/mirror direction frozen and superseded.
-- Ban “fixed” language without the Code Red proof receipt.
-- Make the current RED status visible in active routing.
+- Mark the old resident/mirror direction superseded.
+- Block “fixed” language without the Code Red receipt.
 
-Proof: documentation links resolve; no active router sends core-repair work
-directly to the old resident plan.
+Proof: active routing reaches this packet first.
 
-### CR-S01 — Delete false repository truth
+### CR-S01 — Remove alternate repositories and restore direct ownership
 
-- Delete `ProjectMirror`, `ProjectMirrorPayload`, `ProjectMirrorStore`,
-  `ProjectMirrorMaterializer`, `ProjectMirrorCapture`, and
-  `ResidentProjectAccessBoundary`.
-- Delete `projectMirrorId` from public/internal run requests.
-- Delete broker `residentSafe` root substitution.
-- Delete mirror-specific errors, generated contract entries, tests, temp
-  directories, and help.
-- Preserve unrelated user data; removal of existing temp mirrors requires an
-  explicit, bounded cleanup action and must be reported.
+Do these in one slice so deletion cannot leave the mirror path as the only
+working path:
 
-Proof: a repository-wide sweep finds no production project-mirror execution
-path; project-scoped runs either use the canonical root or fail.
+- route foreground `alln run` directly to existing `RunService.run`;
+- delete `runForegroundThroughResident` and protected-root mirror capture from
+  `RunCLI`;
+- fail `--detach` and resident foreground routing as temporarily unsupported;
+- delete `ProjectMirror*`, `ResidentProjectAccessBoundary`,
+  `projectMirrorId`, `residentSafe`, mirror storage paths/errors/tests/help;
+- delete Panel’s `PanelSeatIsolation`, `PanelReadOnlyArgs`, clone lifecycle,
+  isolation JSON, tests, and mirror capture wiring; Panel itself remains
+  frozen/untrusted;
+- add the architecture policy, fixture tests, metrics script, Code Owner entry,
+  and early `scripts/check.sh` hook;
+- rewrite living run-model/help claims so no active SSOT still requires
+  mechanical read-only or alternate repositories.
 
-### CR-S02 — Restore the direct golden path
+Works Test:
 
-- Restore one foreground `alln run` executor callable from normal Terminal.
-- Resolve the Team and repository once.
-- Spawn one real authenticated CLI in the canonical repo root.
-- Keep lifecycle state minimal: accepted, running, terminal.
-- Propagate every acceptance/result write error; no `try?` at the authoritative
-  handoff.
+```text
+normal Terminal -> alln run -> one real authenticated CLI
+```
 
-Works Test: one selected CLI reads the real repo, reports canonical `pwd`, reads
-HEAD through `.git`, and returns a sourced answer.
+The worker reports canonical `pwd`, reads `.git`/HEAD, returns a sourced answer,
+and no resident request or alternate repository is created.
+
+### CR-S02 — Establish the single run owner
+
+- make `RunService.run` the only resolution/execution semantic owner;
+- make `RunCLI` a parser/project lookup/output adapter only;
+- remove duplicate foreground/resident Team/root/write-lock resolution;
+- propagate authoritative lifecycle/result failures;
+- add canonical-root, single-owner, Git-observation, write-lock, process-group,
+  and large-pipe tests;
+- keep lifecycle terms limited to the existing canonical run states.
+
+Works Test: the CR-S01 command still passes and its canonical `TeamRunJSON`
+identities/statuses match the actual process.
 
 ### CR-S03 — Prove the two-CLI research Team
 
-- Run exactly two distinct authenticated CLIs from one Team.
-- Preserve selected identities; no substitution or roster collapse.
-- Run both against the same canonical repo root.
-- Persist each worker’s actual queued/running/terminal transition and failure.
-- Capture pre/post git status and surface unexpected writes.
+- run exactly two explicitly configured, distinct authenticated CLIs;
+- preserve the selected roster with no substitution or collapse;
+- run both in the same canonical root;
+- return separately attributed non-empty answers;
+- record bounded pre/post Git observation and surface any violation.
 
-Works Test: the founder’s exact research prompt returns two distinct answers,
-both workers prove real-root context, and the run settles without hidden
-failures.
+Works Test: the founder’s exact research gesture returns two real answers and
+the clean fixture remains unchanged.
 
 ### CR-S04 — Prove execution
 
-- Resolve an execution Team to exactly one worker.
-- Acquire the existing canonical-root write lock.
-- Make one bounded requested edit in a disposable fixture repository.
-- Run the requested proof.
-- Return the actual changed path and git diff.
+- resolve a `mutating` Team to exactly one selected worker;
+- acquire the existing canonical-root write lock;
+- make one bounded requested edit in the fixture repository;
+- run the requested proof;
+- return the actual changed path and Git diff;
+- prove an execution request is never downgraded to research or a dry run.
 
-Works Test: the sentinel change exists in the fixture’s real working tree. A
-change anywhere else fails the test.
+Works Test: the sentinel change exists exactly once in the fixture’s real
+working tree. A change anywhere else fails.
 
-### CR-S05 — Add the thinnest restricted-host handoff
+### CR-S05 — Prove and, only if necessary, add restricted-host transport
 
-- First build an isolation harness that proves which single local transport a
-  restricted Codex client can use.
-- Start the execution owner manually from a normal Terminal for dogfood.
-- Route only `alln run` through it.
-- Require exact build Git SHA equality.
-- On mismatch or unavailable coordinator, fail with one restart action.
-- Do not auto-install, auto-update, bridge, mirror, drain, or fall back.
+First run the existing isolated host/sandbox harness. Record the exact
+primitive that fails and the smallest transport that crosses it.
 
-Works Test: the same CR-S03 and CR-S04 commands originate from Codex and produce
-the same real-root results with no duplicate vendor spawn.
+If direct execution from Codex now works, delete resident run routing and close
+this slice with no replacement.
 
-If the normal execution owner cannot access a protected project root, stop and
-report the permission boundary. Do not build a mirror. Any product permission
-or repository-location decision is a separate founder-approved phase.
+Only if the harness proves a resident hop is necessary:
+
+- manually start one execution owner from normal Terminal;
+- implement one foreground `run` request/event/result stream;
+- require exact client/execution-owner Git SHA equality;
+- persist acceptance before spawn;
+- make idempotent retry return the same run;
+- invoke the same `RunService.run`;
+- fail unavailable/mismatch with one manual restart action.
+
+Do not install, update, probe multiple transports, mirror, bridge, drain,
+detach, or fall back.
+
+Works Test: the CR-S03 and CR-S04 gestures originate from Codex and produce the
+same real-root results with exactly one spawn per selected worker.
+
+If the normally launched owner cannot access the registered protected root,
+stop. The choices are a future explicit macOS permission design or a founder
+decision about supported project locations. No agent chooses either during
+Code Red.
 
 ### CR-S06 — Delete the abandoned control plane
 
-- Remove broker operation cases not required by the proven `alln run` path.
-- Remove stale-build impersonation and compatibility branches.
-- Remove duplicate foreground/resident run owners.
-- Remove dead generated contracts, help, fixtures, and phase claims.
-- Re-count execution concepts and production lines; the repaired path must be
-  materially smaller than the Code Red starting point.
+- delete all resident operations except the proven foreground `run` operation,
+  or delete resident execution entirely if CR-S05 did not need it;
+- delete stale-build compatibility, auto-install/update, drain/restart,
+  duplicate query/status surfaces, and dead adapters;
+- delete dead contracts, generated outputs, fixtures, help, and phase claims;
+- enforce the quantitative tripwires;
+- run the full local wall and live Code Red harness.
 
-Proof: banned-path sweep, focused tests, full green wall, and the complete
-Code Red Works Test.
+Works Test: all deterministic checks pass and the full live proof succeeds
+three consecutive times from unchanged committed HEAD.
 
-## Code Red Works Test
+### CR-S07 — Lock the gate and close Code Red
 
-### Setup
+- commit the live proof packet;
+- confirm `scripts/check.sh` starts with the architecture gate;
+- confirm the required CI job is green;
+- founder enables/confirms protected-branch and Code Owner enforcement;
+- archive the superseded resident plan and this packet’s incident-only detail;
+- route active docs to the simplified Unified Run Model.
 
-1. Build `alln` from committed HEAD.
-2. Record the exact binary Git SHA.
-3. Use a disposable registered fixture repository with a committed sentinel
-   file and clean git status.
-4. Configure exactly two distinct authenticated CLIs.
-5. Record worker/source identities before dispatch.
+This is the only remote governance action in the phase and requires the
+founder. Until it is confirmed, Code Red may be functionally green but is not
+closed against recurrence.
+
+## Checked-in Code Red Works Test
+
+CR-S01 creates `scripts/code_red_works_test.sh`. Structural fixture mode runs
+in the wall. Live mode is manual because CI does not possess the founder’s
+authenticated vendor sessions.
+
+Required modes:
+
+```text
+bash scripts/code_red_works_test.sh structural
+bash scripts/code_red_works_test.sh live-direct
+bash scripts/code_red_works_test.sh live-resident   # CR-S05 only, if needed
+```
+
+The script:
+
+1. refuses a dirty product checkout;
+2. builds `alln` from committed HEAD and records the exact Git SHA;
+3. creates a disposable clean Git fixture as the registered canonical root;
+4. uses exactly two explicitly named, authenticated vendor CLIs in live mode;
+5. records selected source IDs and observed process IDs;
+6. performs the research and execution gestures below;
+7. emits a machine-readable receipt plus a human summary;
+8. exits nonzero on any missing assertion;
+9. never accepts mocks, fake drivers, or developer prose as live proof.
 
 ### Research gesture
 
@@ -423,17 +727,16 @@ alln run "Inspect this repository and independently name its most important infr
   --json
 ```
 
-### Research assertions
+Assertions:
 
-- exactly two selected source CLIs spawn;
-- both run with `cwd` equal to the registered canonical root;
-- both can read `.git` and the committed sentinel;
+- exactly two selected distinct source CLIs spawn;
+- both use the canonical root as `cwd`;
+- both read `.git`, HEAD, and the committed sentinel;
 - both return non-empty, separately attributed answers;
-- worker status reflects real process state;
-- no selected source is silently substituted or duplicated;
-- the run reaches one terminal result;
-- pre/post git status is shown;
-- any unexpected write makes the run a visible violation, not fake success.
+- actual process state matches persisted worker state;
+- no substitution, duplication, or roster collapse occurs;
+- one canonical run reaches a terminal result;
+- the clean fixture’s Git state is unchanged.
 
 ### Execution gesture
 
@@ -444,46 +747,50 @@ alln run "Append the exact line CODE_RED_EXECUTION_PROOF to sentinel.txt, then s
   --json
 ```
 
-### Execution assertions
+Assertions:
 
-- exactly one worker spawns;
-- it runs in the registered canonical root;
-- `sentinel.txt` in that root contains the exact line once;
-- the returned diff matches the fixture repository’s real `git diff`;
-- no mirror, snapshot, scratch repo, or alternate checkout exists in the path;
-- the run reaches one terminal result.
+- exactly one selected worker spawns;
+- it uses the canonical root;
+- `sentinel.txt` there contains the exact line once;
+- the returned diff matches that fixture’s real `git diff`;
+- no alternate repository exists in the path;
+- the proof command passes;
+- one canonical run reaches a terminal result.
 
-### Restricted-host assertions
+### Resident-only assertions
 
-After CR-S05:
+When CR-S05 proves resident transport is necessary:
 
-- the same gestures can originate from Codex;
-- client and execution owner report the same exact build Git SHA;
-- dropping or retrying one accepted request does not create a second vendor
-  run;
-- no stale coordinator is treated as compatible;
-- no permission prompt is hidden or transformed into mirror execution.
+- direct and resident paths report the same exact build Git SHA;
+- mismatch fails before a vendor spawn;
+- acceptance exists before spawn;
+- retrying the same key produces no duplicate spawn;
+- the same `RunService.run` owns both calls;
+- permission failure is visible and creates no alternate root.
 
 ### Trust reset threshold
 
 “GREEN” requires:
 
-1. all assertions above;
-2. three consecutive complete Works Test passes from committed HEAD;
-3. at least one pass after a clean execution-owner restart;
-4. no code changes between those three passes;
-5. a saved proof packet with commands, SHAs, source identities, run IDs,
-   terminal results, and real git diffs.
+1. every applicable assertion above;
+2. three consecutive complete live passes from committed HEAD;
+3. at least one pass after a clean execution-owner restart if resident
+   transport exists;
+4. no product code or policy changes between passes;
+5. one committed proof packet containing commands, SHAs, source IDs, process
+   IDs, run IDs, terminal results, canonical roots, and real Git diffs.
 
-Anything less is **RED** or **PARTIAL**, never “should work.”
+Anything else is **RED** or **PARTIAL**, never “should work.”
 
-## Mandatory developer closeout
+## Mandatory slice closeout
 
 Every Code Red slice reports:
 
 ```text
 Status: RED | PARTIAL | GREEN
 Commit:
+Production lines added / deleted:
+Concepts deleted / added:
 Client binary SHA:
 Execution-owner binary SHA:
 Exact command:
@@ -491,15 +798,16 @@ Canonical repo root:
 Selected source IDs:
 Observed source process IDs:
 Run ID:
-Git status before:
-Git status after:
+Git observation before:
+Git observation after:
 Real changed paths:
 Proof command/result:
+Architecture policy result:
 Missing assertion:
 Next deletion:
 ```
 
-Prohibited closeout language without the completed receipt:
+Prohibited without a complete GREEN receipt:
 
 - “should work”;
 - “everything is fixed”;
@@ -508,40 +816,58 @@ Prohibited closeout language without the completed receipt:
 - “the mirror is verified”;
 - “same version, so it is compatible.”
 
-## Debugger stop rules
+## Debugger packet and stop rules
 
-- This incident is T3 Critical and repeated.
-- The attempt count is exhausted for in-place resident/mirror patching.
-- A repeated fingerprint may not receive another product patch without the
-  required isolation harness.
-- One true adjacent layer is not seam proof.
-- If a slice fails the same Works Test twice, stop. Do not reclassify, add a
-  fallback, or broaden scope. Produce the conflicting evidence and request a
-  boundary decision.
+```text
+Tier: T3 Critical
+Fingerprint: resident project run + alternate root / wrong process authority +
+             missing real-vendor, real-root end-to-end proof
+Attempt count: exhausted for in-place broker/mirror patching
+Truth owner: canonical repository + RunService.run
+Lie-prone layer: mirror/resident compatibility and component-only proof
+Isolation harness: existing TCC host harness; required before CR-S05
+Fix boundary: delete alternate truth, restore direct path, then prove one thin hop
+Kill test: architecture policy + live Code Red Works Test
+```
+
+Stop rules:
+
+- no more in-place repair of mirror/clone paths;
+- no third reclassification of this fingerprint;
+- one green adjacent component is not seam proof;
+- if a slice fails the same Works Test twice, stop and present conflicting
+  evidence; do not add a fallback or broaden the protocol;
+- if implementation needs a new truth owner or permission posture, stop for a
+  founder feature decision;
+- every regression answer must state: “What was the agent allowed to do that
+  must never be allowed again?” and add the deterministic law to the wall.
 
 ## Done when
 
-- Project mirrors and root substitution are deleted.
-- Research Teams run selected CLIs against the real repository and return
-  independently sourced answers.
-- Execution Teams run one worker against the real repository and produce the
-  requested real diff.
-- The normal-Terminal golden path is green before the resident path.
-- The restricted-host handoff is thin, exact-build, and routes only the proven
-  run primitive.
-- No authoritative reply error is silently swallowed.
-- No stale coordinator compatibility or hidden foreground fallback remains.
-- The Code Red Works Test passes three consecutive times from unchanged,
-  committed HEAD, including one clean execution-owner restart.
-- `bash scripts/check.sh` passes.
-- Generated contracts and agent-facing help teach only the proven surface.
-- The audit proof packet is committed.
+- alternate repository and mechanical read-only systems are deleted from every
+  production path, including Panel;
+- research Teams run selected CLIs in the real repository and return
+  independently attributed answers;
+- execution Teams run exactly one selected CLI in the real repository and
+  produce the requested real diff;
+- `RunService.run` is the sole semantic owner;
+- the normal-Terminal path is green before any resident path;
+- resident execution is absent or a single exact-build foreground transport;
+- no authoritative handoff error is swallowed;
+- no stale coordinator compatibility or hidden fallback remains;
+- architecture policy, positive invariants, generated contracts, and live help
+  teach only the proven surface;
+- `bash scripts/check.sh` passes from clean committed HEAD;
+- the live Code Red Works Test passes three consecutive times from unchanged
+  committed HEAD;
+- the proof packet is committed;
+- the founder confirms the protected architecture gate.
 
-## Open questions
+## Blocking questions
 
-None block CR-S00–CR-S04.
+None block CR-S01–CR-S04.
 
-Any later decision to request macOS protected-folder permission, move project
-locations, auto-install a resident service, restore detached execution, or add
-mechanical answer-team isolation requires a new founder-approved feature
-packet. It may not be smuggled into Code Red repair.
+CR-S05 is conditional on harness evidence. A macOS permission or supported
+project-location decision is a Founder Architecture Stop, not an implementation
+detail. Remote protected-branch enforcement in CR-S07 also requires the
+founder’s explicit action.

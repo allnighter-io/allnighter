@@ -317,3 +317,50 @@ Seam: AgentOS `TeamAnswer` transitions -> Panel incremental journal -> CLI statu
 Proof: `PanelCoordinatorTests.testDefaultDispatchPersistsFastFailureWhileSlowSeatIsStillRunning`; `PanelFindingsParserTests.testTerminalDispatchFailureKeepsActionableReason`; `PanelCLITests.testParseStartUsesOnlyReadinessProvenModelWhenDoctorCacheExists`; `DoctorTimingTests.testFullDoctorPersistsFreshReadinessForLaterPanelResolution`; focused `swift test --filter Panel`.
 Pattern candidate: A parallel Panel must durably project each seat transition and terminal reason as it arrives. Batch completion may settle the round, but it must never be the first time fast seat truth becomes visible.
 What was the agent allowed to do that must never be allowed again: Treat a batch-level `running` marker plus terminal-looking empty placeholders as adequate liveness, discard the worker-owned error reason, and advise indefinite watch without a regression test containing one fast failure and one slow seat.
+
+## 2026-07-24 - Core Team execution + repeated resident fixes + alternate repository truth
+
+Tier: T3 Critical (31 incident-window commits and repeated founder-visible
+“fixed” claims without a working dogfood path)
+Symptom: Research Teams and execution runs launched through the resident path
+still failed or behaved incorrectly. Attempts to contain host sandbox and TCC
+failures introduced project mirrors, Panel clones, protected-root substitution,
+stale-build compatibility, and a growing resident control plane. Execution
+could modify copied bytes instead of the registered repository.
+Truth owner: The registered repository and its Git state own project bytes;
+`RunService.run` owns run semantics; the existing worker runner owns vendor
+processes.
+Lie-prone layer: Mirror verification, broker acceptance, stale coordinator
+compatibility, parallel direct/resident resolution, and component tests were
+presented as proof of the user workflow.
+RCA: “Research” was incorrectly expanded into a mechanical filesystem
+read-only requirement. Each failure in that invented constraint was patched
+with another infrastructure concept instead of returning to the product thesis:
+multiple CLIs provide input in the real repository; one CLI executes there.
+The workflow did not require a founder architecture stop or a deterministic
+gate before adding a second repository representation or run owner.
+Fix boundary: Binding packet
+`docs/phases/CODE_RED_Core_Infrastructure_Repair.md`. Delete mirrors, clones,
+read-only injection, duplicate run semantics, and resident scope. Restore and
+prove direct `RunService.run` first. Add one foreground resident `run` transport
+only if the isolated sandbox harness proves it necessary. Do not change macOS
+permissions or supported project locations without founder approval.
+Isolation harness: Reuse the existing TCC/restricted-host harness before any
+resident replacement. CR-S01–CR-S04 require no resident transport.
+Attempt count: exhausted for in-place mirror/resident patching.
+Seam: host process authority -> optional local transport -> `RunService.run` ->
+worker process -> canonical repository.
+Proof: Planned wall owner is the architecture-policy gate plus positive
+canonical-root/single-owner tests. Product proof owner is checked-in
+`scripts/code_red_works_test.sh`: two real authenticated CLIs return separately
+attributed research from the canonical root, then one real CLI creates the
+requested sentinel diff there. GREEN requires three consecutive passes from
+unchanged committed HEAD.
+Pattern candidate: A bug fix cannot introduce a new filesystem representation,
+execution owner, permission posture, fallback, compatibility layer, or protocol
+surface. Any such concept is a Founder Architecture Stop and must fail the
+architecture policy until separately approved.
+What was the agent allowed to do that must never be allowed again: Replace the
+registered repository with copied bytes and grow a second execution/control
+plane without explicit founder approval or an end-to-end test proving the
+founder’s real workflow.

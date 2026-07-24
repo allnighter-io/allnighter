@@ -45,6 +45,14 @@
       "requiresHarness": true,
       "law": "A parallel Panel must durably project every seat transition and terminal error reason as it arrives. An unfinished seat is `running`, never `empty`; batch completion may settle the round but must not be the first time fast failures become visible.",
       "proof": "swift test --disable-sandbox --package-path Packages/AllnighterCore --filter PanelCoordinatorTests/testDefaultDispatchPersistsFastFailureWhileSlowSeatIsStillRunning"
+    },
+    {
+      "id": "incident-fix-cannot-create-alternate-repository-or-run-owner",
+      "surface": "Packages/AllnighterCore/Sources + scripts/check_architecture_policy.sh",
+      "seam": "host process authority -> optional transport -> RunService.run -> worker process -> canonical registered repository",
+      "requiresHarness": true,
+      "law": "A bug fix cannot introduce a mirror, clone, snapshot, scratch checkout, alternate-root request field, second run-semantics owner, permission workaround, fallback, compatibility bridge, or new resident operation. Those are Founder Architecture Stops requiring a separate feature packet.",
+      "proof": "Planned in CODE_RED_Core_Infrastructure_Repair.md: bash scripts/check_architecture_policy.sh plus bash scripts/code_red_works_test.sh live-direct; remains on REGRESSION_LAW_BACKLOG.md until both are wall-reachable."
     }
   ]
 }

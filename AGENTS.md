@@ -22,9 +22,9 @@ on one screen. See `docs/phases/Unified_Run_Model.md` for the run model.
 
 It is **not** a model provider, IDE, chat aggregator, cloud coding service, or
 terminal viewer. Dark-mode-only native macOS app; brand is "amber phosphor on
-midnight." Agents must preserve: parallel work isolated per lane (the user never
-hears "worktree"), option generation, pick-as-work-order, quota harvesting, and
-preference compounding.
+midnight." Agents must preserve: parallel research from the selected Team in the
+canonical repository, exactly one mutating worker per root, option generation,
+quota harvesting, and preference compounding.
 
 ## Authoritative Sources
 
@@ -37,8 +37,9 @@ Root docs are the source of truth. Read the relevant one before changing that ar
   `Execute`-as-mode, "Move Card", `lane`=single-run. Hard cutover, no aliases.
 - **Run model + execution safety (read before team/run changes):**
   `docs/phases/Unified_Run_Model.md` — a run = message + optional preset + worker,
-  in the repo root. Answer teams are read-only (parallel); execution teams are one
-  worker (mutating) under the per-root write lock. Historical source-gate proof:
+  in the repo root. Research Teams are parallel and observational; execution
+  Teams are one worker (mutating) under the per-root write lock. No mirror,
+  clone, or blanket read-only layer. Historical source-gate proof:
   `docs/archive/phases/Execution_Team_Source_Gate.md`.
 - **Built MVP foundation:** `docs/mvp/README.md` — historical team-run substrate
   (originally called Council: one prompt → parallel CLIs → plan), plus
@@ -63,7 +64,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 
 | Task type | Read first |
 | --- | --- |
-| **CODE RED: core execution broken, resident/mirror repair, Team research or execution does not work in the real repo** | `docs/phases/CODE_RED_Core_Infrastructure_Repair.md` — supersedes the mechanical read-only/mirror direction until its Works Test is green |
+| **CODE RED: core execution broken, resident/mirror repair, Team research or execution does not work in the real repo** | `docs/phases/CODE_RED_Core_Infrastructure_Repair.md` — binding implementation packet; alternate repository and mechanical read-only directions are retired |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
 | Run model: chat/run = agent in repo root, Default Team, presets, write lock | `docs/phases/Unified_Run_Model.md` |
@@ -84,7 +85,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
 | Shared models, worker drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `02`/`04` as scoped |
-| Forward Mac app shell, Dock app, background coordinator, resident mode | `docs/phases/Resident_Execution_Broker.md` + archived `docs/archive/phases/Mac_Standalone_App_And_Background_Coordinator.md` |
+| Forward Mac app shell, Dock app, background coordinator, resident mode | During Code Red: `docs/phases/CODE_RED_Core_Infrastructure_Repair.md`; use `docs/phases/Resident_Execution_Broker.md` only as frozen incident inventory |
 | Historical MVP Mac app shell, run loop, what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
 | Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |

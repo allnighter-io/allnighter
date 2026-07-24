@@ -1,25 +1,28 @@
 # Unified Run Model — Chat, Execute, and Teams as One
 
-> **CODE RED AMENDMENT (2026-07-24):**
-> `CODE_RED_Core_Infrastructure_Repair.md` supersedes this document's
-> mechanical read-only, mirror, snapshot, and protected-project-byte direction
-> until the Code Red Works Test is green. Research Teams and execution Teams
-> both use the real registered repository. Research intent is prompt guidance
-> plus visible pre/post git status; execution is one mutating worker and must
-> change the real repository.
+> **CODE RED CORRECTION (2026-07-24):**
+> `CODE_RED_Core_Infrastructure_Repair.md` is the binding implementation packet.
+> Mechanical read-only Teams, mirrors, clones, snapshots, and protected-project
+> byte transfer are retired, not temporarily paused. Research Teams and
+> execution Teams both use the registered repository. Research is an
+> observational multi-worker task; execution is one mutating worker and must
+> change the real repository when the request requires a change.
 
-Status: **In progress — core + CLI/MCP shipped; GUI proof pending; Default Team override packet routed**
-surface, the work-order/proposal loop, the three-mode composer, and the user-facing
-execution lane. This is not a refinement of those; it replaces them.
-Owner: AllnighterCore + Mac app + CLI/MCP
-Updated: 2026-06-21
+Status: **In progress — Code Red core repair is blocking**
+
+This model replaces the old Project Manager surface, work-order/proposal loop,
+three-mode composer, and user-facing execution lane. It is not a refinement of
+those systems.
+
+Owner: AllnighterCore + Mac app + CLI
+Updated: 2026-07-24
 
 ## Why this doc
 
 First dogfood on the Allnighter repo failed and exposed that we over-built:
 
 1. We invented a **"Project Manager"** as a separate surface (its own view, sidebar
-   row, composer, service, cards, stores, CLI/MCP verbs). It is not a thing. "Where
+   row, composer, service, cards, stores, and verbs). It is not a thing. "Where
    are we / what's next" is just **chat**, answered by an agent that can see the repo.
 2. Chat/PM ran in a **scratch dir with a hand-built ~10-line context packet** — no
    filesystem access. The model was blind and answered "I don't have ground truth."
@@ -55,7 +58,7 @@ RunRecord
   message                     (the user's prompt)
   presetId?                   (nil ⇒ the Default Team)
   shape                       (answer | execution — derived from the preset)
-  writePolicy                 (readOnly | mutating)
+  mutating                   (false = research/input; true = execution)
   workers[]                   (execution = exactly 1; answer = N)
     driverId, modelId, effort, spawn/invocation, status, output, transcriptRef
   artifacts[]                 (diff refs, proof output, files touched)
@@ -74,7 +77,7 @@ instance is `RunRecord`. "Team" is the UI word. Two shapes, by intent:
 
 | Shape | Workers | Direction | Writes repo | Use |
 | --- | --- | --- | --- | --- |
-| **Answer team** | many | parallel | **no — mechanically read-only** | breadth: N models answer the same prompt → a board to compare & pick. |
+| **Answer team** | many | parallel | **not requested; observed through Git** | breadth: N models answer the same prompt → a board to compare & pick. |
 | **Execution team** | exactly one | single agent | yes (mutating) | depth/discipline: one prompt + one model runs in the repo and makes the change. |
 
 When a preset's shape is **execution** (the existing **Mutating team** flag), the
@@ -105,7 +108,7 @@ appears in the same picker as every other team.
 Default Team editing has one special catalog rule: the bundled `default_chat`
 team is an immutable seed, and the user's active Default Team is an optional
 same-id override on disk. There is still only one effective `default_chat` in
-lists, pickers, CLI, MCP, and run resolution. Restore deletes the override and
+lists, pickers, CLI, and run resolution. Restore deletes the override and
 reveals the seed. The implementation packet is `Default_Team_Override.md`.
 
 ### Repo-root execution — kill the blind paths
@@ -119,24 +122,14 @@ ignore; the agent reads the real files.
 
 ## Safety — the honest version
 
-The simplification does **not** make safety free. Two real guarantees must hold
-mechanically, and neither is user-facing ceremony.
+Allnighter does not create a second permission or filesystem system.
 
-1. **Answer runs are read-only by mechanism, not by prompt.** Telling a model "don't
-   write" is not safety. An answer team must be unable to mutate the tree. Candidate
-   mechanisms, decided per driver: a driver's own read-only/sandbox flag where it
-   exists; otherwise run answer workers in an **ephemeral git worktree or copy** so any
-   write is discarded; otherwise exclude drivers that cannot be made non-mutating from
-   answer teams. **Open implementation decision — until it ships, we do not claim
-   answer teams are safe.**
-
-   Confirmed headless read-only mechanisms (2026-07-16): `claude_code`
-   `--permission-mode plan`; `codex` `--sandbox read-only --ask-for-approval never`.
-   `cursor_agent` headless documents full write+shell access (no plan enforcement);
-   `grok`/`antigravity`/`opencode` expose no read-only/plan flag. (Salvaged from the
-   removed relay `--pm-read-only` toggle — see `Relay_ReadOnly_Removal.md`; that
-   mechanism was the wrong home since the relay is sequential-by-construction, not
-   concurrent answer-team fan-out.)
+1. **Answer runs are observational research.** They run in the registered
+   repository and ask the selected workers for input. Allnighter records a
+   bounded pre/post Git observation and surfaces an unexpected change as a run
+   violation. It never copies the repository, injects blanket vendor read-only
+   flags, claims filesystem immutability, or silently resets the user's files.
+   Git and the selected CLI retain their ordinary diff/undo behavior.
 2. **At most one mutating run per repo root.** Default chat can mutate, so two chats in
    one repo = two writers = corruption. A minimal internal **`RunWriteLock` keyed by the
    canonical repo root**: read/answer runs never take it; a mutating run takes it.
@@ -148,9 +141,10 @@ mechanically, and neither is user-facing ceremony.
    RLR-S00–S06 is the P0 implementation/proof owner and supersedes the older
    fail-fast/no-queue wording.
 
-No approval gates. No second permission layer — Allnighter inherits each CLI's own
-permission/diff/undo model and adds none of its own. If the message implies a write, the
-one agent writes.
+No approval gates. No second permission layer — Allnighter inherits each CLI's
+own permission/diff/undo model and adds none of its own. A Team marked
+`mutating` resolves to one worker and executes; it is never silently converted
+to research or dry-run output.
 
 ## The Execution Playbook as a built-in preset
 
@@ -172,11 +166,11 @@ They survive — if at all — as **preset tags / filters** for organizing answe
 presets. The Default/execution path never forces a craft choice. Remove `TeamPosture`
 and lane-driven codepaths from the product surface (internal/derived only, or gone).
 
-## CLI / MCP — collapse brutally
+## CLI — collapse brutally
 
 One run entrypoint. Replace `project chat`, `project propose`, `project approve`,
 `project edit`, `project postpone`, `project handoff`, `project dispatch`,
-`project verify` with **one** verb (`alln run` / MCP `team.run`): message + optional
+`project verify` with **one** verb (`alln run`): message + optional
 preset + worker, against a project root; answer shape returns the board, execution shape
 returns the run + diff/proof. No deprecated commands, no compatibility readers, no hidden
 aliases. `project add/list/show/archive/threads/pending/context/workers/recheck-workers`
@@ -209,9 +203,9 @@ No stubs, no shims, no "for compatibility," no aliases. Target end-state:
   `PROPOSAL_*` / `DISPATCH_*` / `BASE_HEAD_CHANGED` / `DIRTY_*` error codes that only
   served the ceremony. Keep the minimal `Project` (repo root binding) and `TeamRun` →
   `RunRecord`.
-- **CLI/MCP:** delete `runPropose/runApprove/runEdit/runPostpone/runHandoff/runDispatch/
-  runVerify` in `ProjectCLI.swift` and the matching `MCPProjectHandlers` paths +
-  `MCPToolSpec`s; remove their `OutputSchema` cases and command specs.
+- **CLI:** delete `runPropose/runApprove/runEdit/runPostpone/runHandoff/runDispatch/
+  runVerify` in `ProjectCLI.swift`; remove their output-schema cases and command
+  specs. MCP is retired and must not return as a parallel agent surface.
 - **Pending:** delete the execution-lane / mutating-serialization special cases; mutating
   pending kinds collapse to ordinary pending (or are removed).
 - **Tests/fixtures:** delete `ProjectManagerServiceTests`, `ProjectDispatchServiceTests`,
@@ -223,7 +217,7 @@ No stubs, no shims, no "for compatibility," no aliases. Target end-state:
 
 Each slice leaves the product building and runnable, with no dead paths:
 
-1. **Remove the PM surface + stores + CLI/MCP project ceremony verbs + their tests.**
+1. **Remove the PM surface + stores + CLI project ceremony verbs + their tests.**
 2. **Introduce `RunRecord`** (trim `TeamRun`), force **repo-root cwd** for every run,
    add the **`RunWriteLock`**.
 3. **Collapse the composer + send paths** to message + (optional team) + worker; delete
@@ -259,7 +253,7 @@ dogfood state; write no migration readers.
 | No gate between intent and action. | If the user asks an in-repo agent to change something, it changes it. We never insert an approval step for what was already asked. |
 | No second permission layer. | Allnighter inherits each CLI's own permission/diff/undo. It adds none. |
 | No agent runs blind. | Every run's cwd is the repo root; the agent reads real files, not a summary. |
-| No parallel writers; answer teams never write. | Read-only is mechanical; at most one mutating run per root (the write lock). |
+| No parallel writers; research Teams are expected not to write. | Research runs are observed through Git; at most one Allnighter mutating run per root holds the write lock. |
 | No "Project Manager" as a surface. | It was chat answering a planning question. |
 | No Chat/Execute mode, no execution-lane ceremony, no propose→dispatch→verify clicks. | Friction that sends users back to Cursor. |
 | No aliases / shims / dual paths. | One model, fully replaced. |
@@ -278,10 +272,10 @@ dogfood state; write no migration readers.
 
 ## Done when
 
-- No "Project Manager" surface, service, stores, CLI/MCP verbs, or tests remain.
+- No "Project Manager" surface, service, stores, CLI ceremony verbs, or tests remain.
 - A run is `message + optional preset + worker`, executed in the repo root, recorded as
   one `RunRecord` (`TeamRunJSON`).
-- "Teams" are presets: **answer** (many, parallel, mechanically read-only, → board) or
+- "Teams" are presets: **answer** (many, parallel, observational research, → board) or
   **execution** (one worker, may write, under the write lock).
 - The Default Team carries the user's go-to worker + an optional editable preset; default
   chat runs it with no special-case code.
