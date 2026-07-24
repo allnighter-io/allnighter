@@ -48,8 +48,10 @@ enum PanelCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
 
+        let mirrorId = captureProtectedProjectMirror(request.config)
         let receipt = await residentPanelRequest(.panelStart(.init(
             projectRoot: request.config.projectRoot,
+            projectMirrorId: mirrorId,
             projectId: request.config.projectId,
             targetPath: request.config.targetPath,
             teamId: request.teamId,
@@ -62,6 +64,19 @@ enum PanelCLI {
             AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel start response")
         }
         emitStartPayload(payload, json: opts.flag("json"))
+    }
+
+    private static func captureProtectedProjectMirror(_ config: PanelCoordinator.Config) -> String? {
+        guard ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: config.projectRoot) != nil else { return nil }
+        do {
+            let rendezvous = ResidentExecutionRendezvous()
+            let mirror = try ProjectMirrorCapture(materializer: ProjectMirrorMaterializer(
+                store: ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
+            )).capture(projectRoot: config.projectRoot, projectId: config.projectId)
+            return mirror.id
+        } catch {
+            AllnighterCLI.fail(code: "PROJECT_MIRROR_CAPTURE_FAILED", message: "could not create the safe project mirror required for resident Panel execution: \(error)")
+        }
     }
 
     static func parseStartConfig(

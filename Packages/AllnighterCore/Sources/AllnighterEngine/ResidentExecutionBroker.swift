@@ -215,8 +215,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             }
             await startForegroundRun(request, claim: claim)
         case .panelStart(let request):
-            if let message = ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: request.projectRoot) {
-                try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: message)
+            guard let request = residentSafe(request: request, claim: claim) else {
                 return
             }
             startPanel(request, claim: claim)
@@ -382,6 +381,29 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 code: "RESIDENT_REQUEST_REJECTED",
                 message: "operation \(claim.request.operation.kind.rawValue) is not enabled by this broker slice"
             )
+        }
+    }
+
+    private func residentSafe(
+        request: ResidentExecutionOperation.PanelStart,
+        claim: ResidentExecutionRendezvous.Claim
+    ) -> ResidentExecutionOperation.PanelStart? {
+        guard ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: request.projectRoot) != nil else { return request }
+        guard let mirrorId = request.projectMirrorId else {
+            try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: "protected Panel execution needs a verified project mirror")
+            return nil
+        }
+        do {
+            let store = ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
+            _ = try ProjectMirrorMaterializer(store: store).verify(id: mirrorId)
+            var resolved = request
+            let original = URL(fileURLWithPath: request.projectRoot).standardizedFileURL.path + "/"
+            if request.targetPath.hasPrefix(original) { resolved.targetPath = String(request.targetPath.dropFirst(original.count)) }
+            resolved.projectRoot = try store.workspaceDirectory(id: mirrorId).path
+            return resolved
+        } catch {
+            try? rendezvous.reject(claim, code: "PROJECT_MIRROR_INVALID", message: "project mirror is unavailable or changed: \(error)")
+            return nil
         }
     }
 

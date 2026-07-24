@@ -31,6 +31,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
 
     public struct PanelStart: Codable, Equatable, Sendable {
         public var projectRoot: String
+        public var projectMirrorId: String?
         public var projectId: String
         public var targetPath: String
         public var teamId: String?
@@ -41,6 +42,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
 
         public init(
             projectRoot: String,
+            projectMirrorId: String? = nil,
             projectId: String,
             targetPath: String,
             teamId: String? = nil,
@@ -50,6 +52,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
             laneDefault: Bool = false
         ) {
             self.projectRoot = projectRoot
+            self.projectMirrorId = projectMirrorId
             self.projectId = projectId
             self.targetPath = targetPath
             self.teamId = teamId
