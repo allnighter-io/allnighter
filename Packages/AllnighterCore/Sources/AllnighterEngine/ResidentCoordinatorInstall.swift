@@ -18,12 +18,34 @@ public enum ResidentCoordinatorInstall {
         public var plistPath: String
         public var binaryPath: String
         public var enabled: Bool
+        public var coordinatorId: String?
+        public var pid: Int32?
+
+        public init(
+            action: String,
+            label: String,
+            plistPath: String,
+            binaryPath: String,
+            enabled: Bool,
+            coordinatorId: String? = nil,
+            pid: Int32? = nil
+        ) {
+            self.action = action
+            self.label = label
+            self.plistPath = plistPath
+            self.binaryPath = binaryPath
+            self.enabled = enabled
+            self.coordinatorId = coordinatorId
+            self.pid = pid
+        }
     }
 
     public enum InstallError: Error, Equatable, Sendable {
         case binaryUnresolved
         case plistWrite(String)
         case launchctl(String)
+        case activeWork(Int)
+        case activationTimeout
 
         public var message: String {
             switch self {
@@ -31,6 +53,10 @@ public enum ResidentCoordinatorInstall {
                 return "could not resolve the running alln binary; invoke it by absolute path, then retry"
             case .plistWrite(let detail): return "could not write the resident coordinator LaunchAgent: \(detail)"
             case .launchctl(let detail): return "could not enable the resident coordinator: \(detail)"
+            case .activeWork(let count):
+                return "the resident coordinator has \(count) active work item\(count == 1 ? "" : "s"); it was not restarted"
+            case .activationTimeout:
+                return "launchd accepted the coordinator but it did not publish the current binary identity before the activation deadline"
             }
         }
     }
@@ -75,7 +101,10 @@ public enum ResidentCoordinatorInstall {
         pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"],
         home: URL = FileManager.default.homeDirectoryForCurrentUser,
         fileManager: FileManager = .default,
-        launchctl: (@Sendable (_ arguments: [String]) -> LaunchctlOutcome)? = nil
+        launchctl: (@Sendable (_ arguments: [String]) -> LaunchctlOutcome)? = nil,
+        currentHealth: (@Sendable () -> CoordinatorHealth)? = nil,
+        pause: @escaping @Sendable (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) },
+        activationAttempts: Int = 50
     ) -> Swift.Result<Result, InstallError> {
         guard let binary = stableRunningBinary(
             argv0: argv0, pathEnvironment: pathEnvironment, fileManager: fileManager
@@ -90,13 +119,43 @@ public enum ResidentCoordinatorInstall {
             return .failure(.plistWrite(error.localizedDescription))
         }
 
+        let health = currentHealth ?? {
+            ResidentCoordinatorProbe().health(
+                binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                contractVersion: ContractRegistry.contractVersion
+            )
+        }
+        let beforeRestart = health()
+        if beforeRestart.state == .available, beforeRestart.activeObligationCount > 0 {
+            return .failure(.activeWork(beforeRestart.activeObligationCount))
+        }
+
         let domain = "gui/\(getuid())"
         // A reinstall replaces a previous registration of this exact label. The
         // best-effort bootout is intentionally scoped to our own plist only.
         _ = launchctl(["bootout", domain, plist.path])
         switch launchctl(["bootstrap", domain, plist.path]) {
         case .success:
-            return .success(.init(action: "installed", label: label, plistPath: plist.path, binaryPath: binary, enabled: true))
+            for attempt in 0..<max(1, activationAttempts) {
+                let activated = health()
+                if activated.state == .available,
+                   activated.binaryVersion == AllnighterVersionIdentity.binaryVersion,
+                   activated.contractVersion == ContractRegistry.contractVersion,
+                   let coordinatorId = activated.coordinatorId,
+                   let pid = activated.pid {
+                    return .success(.init(
+                        action: "installed",
+                        label: label,
+                        plistPath: plist.path,
+                        binaryPath: binary,
+                        enabled: true,
+                        coordinatorId: coordinatorId,
+                        pid: pid
+                    ))
+                }
+                if attempt + 1 < max(1, activationAttempts) { pause(0.1) }
+            }
+            return .failure(.activationTimeout)
         case .failure(let detail):
             return .failure(.launchctl(detail))
         }

@@ -48,10 +48,21 @@ final class ResidentCoordinatorInstallTests: XCTestCase {
         let result = ResidentCoordinatorInstall.install(
             argv0: binary.path,
             home: root,
-            launchctl: { args in calls.append(args); return .success }
+            launchctl: { args in calls.append(args); return .success },
+            currentHealth: { .init(
+                state: .available,
+                coordinatorId: "coord-test",
+                pid: 123,
+                contractVersion: ContractRegistry.contractVersion,
+                binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                journal: .init(incrementalDurable: true, orphanRecovery: true, runsDirWritable: true),
+                loopback: .init(listening: true)
+            ) }
         )
         let installed = try XCTUnwrap(try? result.get())
         XCTAssertTrue(installed.enabled)
+        XCTAssertEqual(installed.coordinatorId, "coord-test")
+        XCTAssertEqual(installed.pid, 123)
         XCTAssertTrue(FileManager.default.fileExists(atPath: installed.plistPath))
         XCTAssertEqual(calls.all.count, 2)
         XCTAssertEqual(calls.all.last?.first, "bootstrap")
@@ -73,5 +84,64 @@ final class ResidentCoordinatorInstallTests: XCTestCase {
             ResidentCoordinatorInstall.stableRunningBinary(argv0: link.path, pathEnvironment: nil),
             link.path
         )
+    }
+
+    func testInstallRefusesToRestartActiveCoordinator() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("resident-install-active-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let binary = root.appendingPathComponent("alln")
+        try Data().write(to: binary)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binary.path)
+        let calls = CallLog()
+
+        let result = ResidentCoordinatorInstall.install(
+            argv0: binary.path,
+            home: root,
+            launchctl: { args in calls.append(args); return .success },
+            currentHealth: { .init(
+                state: .available,
+                coordinatorId: "coord-test",
+                pid: 123,
+                contractVersion: ContractRegistry.contractVersion,
+                binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                journal: .init(incrementalDurable: true, orphanRecovery: true, runsDirWritable: true),
+                loopback: .init(listening: true),
+                activeObligationCount: 2
+            ) }
+        )
+
+        XCTAssertEqual(try? result.get(), nil)
+        XCTAssertEqual(calls.all.count, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: ResidentCoordinatorInstall.plistURL(home: root).path))
+    }
+
+    func testInstallFailsWhenLaunchdDoesNotPublishCurrentIdentity() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("resident-install-timeout-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let binary = root.appendingPathComponent("alln")
+        try Data().write(to: binary)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binary.path)
+
+        let result = ResidentCoordinatorInstall.install(
+            argv0: binary.path,
+            home: root,
+            launchctl: { _ in .success },
+            currentHealth: { .init(
+                state: .foregroundOnly,
+                contractVersion: ContractRegistry.contractVersion,
+                binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                journal: .init(incrementalDurable: true, orphanRecovery: true, runsDirWritable: true),
+                loopback: .init(listening: false)
+            ) },
+            activationAttempts: 1
+        )
+
+        XCTAssertThrowsError(try result.get()) { error in
+            XCTAssertEqual(error as? ResidentCoordinatorInstall.InstallError, .activationTimeout)
+        }
     }
 }
