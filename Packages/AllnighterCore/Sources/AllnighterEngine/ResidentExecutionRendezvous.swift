@@ -190,6 +190,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         }
         let receipt = ResidentExecutionReceipt(
             requestId: claim.request.requestId,
+            idempotencyKey: claim.request.idempotencyKey,
             canonicalId: canonicalId,
             state: .accepted,
             acceptedAt: date,
@@ -213,6 +214,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     public func reject(_ claim: Claim, code: String, message: String, at date: Date = Date()) throws {
         try recordReceipt(.init(
             requestId: claim.request.requestId,
+            idempotencyKey: claim.request.idempotencyKey,
             state: .rejected,
             acceptedAt: date,
             rejection: .init(code: code, message: message)
@@ -442,6 +444,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     private func replay(_ accepted: ResidentExecutionReceipt, for requestId: String) throws -> ResidentExecutionReceipt {
         let receipt = ResidentExecutionReceipt(
             requestId: requestId,
+            idempotencyKey: accepted.idempotencyKey,
             canonicalId: accepted.canonicalId,
             state: accepted.state,
             acceptedAt: accepted.acceptedAt,

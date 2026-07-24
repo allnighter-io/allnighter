@@ -246,6 +246,7 @@ enum RunCLI {
         opts: Options,
         runtime: ToolRuntime
     ) async {
+        let idempotencyKey = opts.value("idempotency-key") ?? UUID().uuidString.lowercased()
         let request = AsyncTeamStartRequest(
             question: message,
             lane: lane,
@@ -258,19 +259,19 @@ enum RunCLI {
             originAgent: opts.value("agent"),
             originConversationId: opts.value("conversation-id"),
             originMessageId: opts.value("message-id"),
-            idempotencyKey: opts.value("idempotency-key"),
+            idempotencyKey: idempotencyKey,
             repoRoot: project.normalizedRootPath
         )
         let rendezvous = ResidentExecutionRendezvous()
         do {
             let submitted = try rendezvous.submit(
                 operation: .teamRun(request),
-                idempotencyKey: request.idempotencyKey ?? UUID().uuidString.lowercased()
+                idempotencyKey: idempotencyKey
             )
             guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
                 AllnighterCLI.emitFailure(
                     code: "RESIDENT_ACCEPT_TIMEOUT",
-                    message: "resident coordinator did not accept the Team request before timeout"
+                    message: "resident coordinator did not answer the Team request before timeout; retry only with --idempotency-key \(idempotencyKey)"
                 )
                 exit(1)
             }

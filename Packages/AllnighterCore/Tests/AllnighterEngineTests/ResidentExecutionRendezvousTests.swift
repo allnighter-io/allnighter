@@ -37,10 +37,12 @@ final class ResidentExecutionRendezvousTests: XCTestCase {
         let receipt = try rendezvous.accept(claim, canonicalId: "run-1")
         XCTAssertEqual(receipt.state, .accepted)
         XCTAssertEqual(receipt.canonicalId, "run-1")
+        XCTAssertEqual(receipt.idempotencyKey, "same-work")
         let stored = try XCTUnwrap(rendezvous.receipt(requestId: "request-a"))
         XCTAssertEqual(stored.requestId, receipt.requestId)
         XCTAssertEqual(stored.canonicalId, receipt.canonicalId)
         XCTAssertEqual(stored.state, receipt.state)
+        XCTAssertEqual(stored.idempotencyKey, "same-work")
     }
 
     func testReadinessRequiresExactBuildIdentity() throws {
@@ -91,6 +93,7 @@ final class ResidentExecutionRendezvousTests: XCTestCase {
         let replayReceipt = try rendezvous.accept(replay, canonicalId: "ignored")
         XCTAssertEqual(replayReceipt.canonicalId, "run-1")
         XCTAssertEqual(replayReceipt.requestId, "request-b")
+        XCTAssertEqual(replayReceipt.idempotencyKey, "same-work")
         let storedReplay = try XCTUnwrap(rendezvous.receipt(requestId: "request-b"))
         XCTAssertEqual(storedReplay.requestId, replayReceipt.requestId)
         XCTAssertEqual(storedReplay.canonicalId, replayReceipt.canonicalId)

@@ -380,6 +380,10 @@ public struct ResidentExecutionReceipt: Codable, Equatable, Sendable {
 
     public var schemaVersion: Int
     public var requestId: String
+    /// The submission key that created this receipt. Clients must retain this
+    /// value and use it for a retry; a receipt or timeout without the key makes
+    /// an exactly-once retry impossible.
+    public var idempotencyKey: String?
     public var canonicalId: String?
     public var state: State
     public var acceptedAt: Date
@@ -389,6 +393,7 @@ public struct ResidentExecutionReceipt: Codable, Equatable, Sendable {
     public init(
         schemaVersion: Int = 1,
         requestId: String,
+        idempotencyKey: String? = nil,
         canonicalId: String? = nil,
         state: State,
         acceptedAt: Date,
@@ -397,6 +402,7 @@ public struct ResidentExecutionReceipt: Codable, Equatable, Sendable {
     ) {
         self.schemaVersion = schemaVersion
         self.requestId = requestId
+        self.idempotencyKey = idempotencyKey
         self.canonicalId = canonicalId
         self.state = state
         self.acceptedAt = acceptedAt
