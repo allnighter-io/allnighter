@@ -93,8 +93,12 @@ final class RunLifecycleReliabilityWorksTest: XCTestCase {
         try FileManager.default.createDirectory(at: runDir, withIntermediateDirectories: true)
         try Data("{ not-json".utf8).write(to: runDir.appendingPathComponent("run.json"))
 
+        // 88860049 routed bare `team status` to a live resident query; the
+        // durable-journal classification (JOURNAL_CORRUPT / RUN_NOT_FOUND) moved to
+        // the explicit `--persisted` read (12fcd8a2). Journal corruption is a
+        // persisted-read concern, so exercise that path.
         let status = try Self.runAlln(
-            alln, ["team", "status", runId, "--json"],
+            alln, ["team", "status", runId, "--json", "--persisted"],
             cwd: fixture.repo, env: fixture.env, timeout: 30)
         XCTAssertNotEqual(status.status, 0, "corrupt journal must fail status")
         let blob = status.stdout + status.stderr
