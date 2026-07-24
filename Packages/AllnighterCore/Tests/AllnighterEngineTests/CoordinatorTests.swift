@@ -202,10 +202,14 @@ final class CoordinatorRunTests: XCTestCase {
     func testResidentCoordinatorClearsStateOnShutdown() async throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-run-\(UUID().uuidString)")
         let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
+        // Scope the rendezvous to this temp root; the default is the machine-wide
+        // coordinator lease, which races with sibling tests / an installed resident
+        // (coordinatorAlreadyRunning + "couldn't be removed" on shutdown).
+        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
         defer { try? FileManager.default.removeItem(at: root) }
 
         let box = BoolBox()
-        try await ResidentCoordinator(binaryVersion: "0.1.0", store: store).run(untilShutdown: {
+        try await ResidentCoordinator(binaryVersion: "0.1.0", store: store, rendezvous: rendezvous).run(untilShutdown: {
             box.value = store.load() != nil
         })
         XCTAssertTrue(box.value)
@@ -237,12 +241,14 @@ final class CoordinatorRunTests: XCTestCase {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-restart-\(UUID().uuidString)")
         let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
         let restartStore = ResidentCoordinatorRestartStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
+        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
         defer { try? FileManager.default.removeItem(at: root) }
         try restartStore.request(.init(binaryVersion: "0.1.0", contractVersion: "1.0.0"))
 
         try await ResidentCoordinator(
             binaryVersion: "0.1.0",
             store: store,
+            rendezvous: rendezvous,
             restartStore: restartStore
         ).run(untilShutdown: {
             while restartStore.load() != nil {
@@ -258,11 +264,13 @@ final class CoordinatorRunTests: XCTestCase {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-remote-\(UUID().uuidString)")
         let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
         let remote = RecordingRemoteCoordinator()
+        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
         defer { try? FileManager.default.removeItem(at: root) }
 
         try await ResidentCoordinator(
             binaryVersion: "0.1.0",
             store: store,
+            rendezvous: rendezvous,
             remoteDependencies: .init(coordinator: remote)
         ).run(untilShutdown: {
             while !remote.started {
