@@ -540,7 +540,7 @@ Output schema: `ownershipGarbageCollectionJSON`.
 
 ### `alln run`
 
-Unified run: message + optional team + worker in a project repo root. `--lane` tags the run for context and filtering; `--team` routes. `--detach` returns a durable run id (async). TeamRunJSON includes a mechanical `outcome` block (worker terminal states + repo delta) — never a correctness verdict.
+Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. `--detach` is temporarily unsupported during Code Red. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.
 
 Arguments:
 - `message` (required) — The user's prompt.
@@ -570,9 +570,9 @@ Flags:
 - `--thread-id <id>` — Owning work thread id (detach path).
 - `--conversation-id <id>` — Origin conversation id (detach path).
 - `--message-id <id>` — Origin message id (detach path).
-- `--detach` — Start asynchronously; return the durable run id and exit (async twin of foreground run).
-- `--dry-run` — Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Free twin of both foreground and --detach. effects.repoWrite is permission (may write), not a prompt prediction — pick an answer team for mechanical read-only; terminal repoDelta reports whether a mutating run wrote.
-- `--json` — Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects; TeamStartResponse with --detach).
+- `--detach` — Temporarily unsupported during Code Red; run in the foreground instead.
+- `--dry-run` — Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Research Teams are observational in the canonical repository; terminal repoDelta reports whether a mutating run wrote.
+- `--json` — Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects).
 - `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run / --detach.
 
 Mutually exclusive: `--json`, `--stream`.
@@ -1429,7 +1429,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |
 | `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
-| `COORDINATOR_UNAVAILABLE` | yes | no | `operational` | Run `alln serve install --json` once from the normal macOS Terminal app, then retry; a sandboxed agent host cannot install the background coordinator and foreground spawning is not a fallback. |
+| `CODE_RED_UNSUPPORTED` | no | no | `operational` | Run `alln run` without the unsupported flag in the registered repository. |
 | `COORDINATOR_VERSION_MISMATCH` | yes | no | `operational` | Refresh with `alln serve install --json` only when the binary or contract version differs; same-version, same-contract Git-SHA drift is compatible and does not require a refresh. |
 | `RESIDENT_REQUEST_REJECTED` | no | no | `operational` | Inspect the returned typed rejection and correct the request; do not retry by spawning a source directly. |
 | `RESIDENT_REQUEST_CONFLICT` | no | no | `operational` | Reuse the original payload for this idempotency key, or submit a new key for new work. |
@@ -1482,7 +1482,6 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
-| `PANEL_SEAT_NOT_ISOLATED` | no | yes | `operational` | Retry the panel round. If it persists, free disk space and confirm the project root is readable — clone isolation failed to materialize for a non-RO-enforcing seat. |
 | `PANEL_NOT_FOUND` | yes | no | `operational` | Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`. |
 | `PANEL_ROUND_IN_FLIGHT` | no | yes | `operational` | Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`. |
 | `PANEL_TARGET_MISSING` | yes | no | `operational` | Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one. |
@@ -1580,7 +1579,7 @@ the selected CLI.
 - `teams_new_json` — Create novel team from manifest: `alln teams new custom_code_novel --file ./TeamPreset.json --json`
 - `skills_code_json` — List Code skills: `alln skills --lane code --json`
 - `skills_show_json` — Show a Code skill: `alln skills show bug_reproducer --json`
-- `run_detach_json` — Start async run: `alln run --detach --json --lane code --team code_bug_hunt --effort low "tiny async sanity"`
+- `run_detach_json` — Run in foreground: `alln run --json --lane code --team code_bug_hunt --effort low "tiny foreground sanity"`
 - `try_fix_bug` — Auto Fix: Bug Hunt then one bounded fix: `alln run "The history view loses finished runs after restart." --project <id> --team code_bug_hunt --try-fix --executor build_slice --json`
 - `show_latest_json` — Show the latest run: `alln show latest --json`
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
@@ -1602,7 +1601,7 @@ the selected CLI.
 
 - `effects.repoWrite` is **permission** after selectors resolve — the invocation *may* write and therefore uses write safety. It is not a prediction from prompt prose, and it is not an observed git delta.
 - Terminal `TeamRunJSON.repoDelta` reports whether a mutating run *did* write.
-- Callers that need a mechanical read-only guarantee select an **answer team** (`--team <answer-team-id>`); Default Team and explicit `--worker` are mutating-allowed and say so.
+- Research Teams are observational in the registered repository; they do not use copied files or vendor permission flags. Default Team and explicit `--worker` may be mutating.
 - Dry-run itself starts no worker and spends no quota; `effects.workerStart` / `effects.quotaSpend` describe the spend twin `nextAction` would run.
 
 ## Observed run timing

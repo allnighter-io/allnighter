@@ -48,10 +48,8 @@ enum PanelCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
 
-        let mirrorId = captureProtectedProjectMirror(request.config)
         let receipt = await residentPanelRequest(.panelStart(.init(
             projectRoot: request.config.projectRoot,
-            projectMirrorId: mirrorId,
             projectId: request.config.projectId,
             targetPath: request.config.targetPath,
             teamId: request.teamId,
@@ -64,19 +62,6 @@ enum PanelCLI {
             AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel start response")
         }
         emitStartPayload(payload, json: opts.flag("json"))
-    }
-
-    private static func captureProtectedProjectMirror(_ config: PanelCoordinator.Config) -> String? {
-        guard ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: config.projectRoot) != nil else { return nil }
-        do {
-            let rendezvous = ResidentExecutionRendezvous()
-            let mirror = try ProjectMirrorCapture(materializer: ProjectMirrorMaterializer(
-                store: ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
-            )).capture(projectRoot: config.projectRoot, projectId: config.projectId)
-            return mirror.id
-        } catch {
-            AllnighterCLI.fail(code: "PROJECT_MIRROR_CAPTURE_FAILED", message: "could not create the safe project mirror required for resident Panel execution: \(error)")
-        }
     }
 
     static func parseStartConfig(
@@ -450,81 +435,6 @@ enum PanelCLI {
                 if !seat.report.isEmpty { print(seat.report) }
                 else if let reason = seat.reason { print(reason) }
             }
-        }
-    }
-
-    private static func emitStartResult(
-        _ state: PanelState,
-        targetHash: String,
-        dirtyAdvisory: String?,
-        scaffoldPath: String,
-        rememberedTeam: Bool,
-        laneDefault: Bool,
-        isolation: [PanelSeatIsolation.SeatPlan],
-        json: Bool
-    ) {
-        let modeBySeat = Dictionary(uniqueKeysWithValues: isolation.map { ($0.workerId, $0) })
-        let isolationModes = Dictionary(uniqueKeysWithValues: isolation.map {
-            ($0.workerId, $0.mode.rawValue)
-        })
-        let rosterJSON = state.seats.map {
-            PanelSeatJSON($0, isolation: isolationModes[$0.workerId])
-        }
-        let panelJSON = PanelJSON.project(
-            state,
-            contractVersion: ContractRegistry.contractVersion,
-            targetHash: targetHash,
-            isolationBySeat: isolationModes
-        )
-        let next = "alln panel round --panel \(state.id)"
-        let isolationJSON = isolation.map {
-            PanelSeatIsolationJSON(
-                workerId: $0.workerId,
-                mode: $0.mode.rawValue,
-                driverId: $0.driverId,
-                advisory: $0.advisory
-            )
-        }
-        if json {
-            print(AllnighterCLI.jsonString(PanelStartJSON(
-                contractVersion: ContractRegistry.contractVersion,
-                panel: panelJSON,
-                roster: rosterJSON,
-                targetHash: targetHash,
-                dirtyTargetAdvisory: dirtyAdvisory,
-                scaffoldPath: scaffoldPath,
-                nextCommand: next,
-                teamId: state.teamId,
-                rememberedTeam: rememberedTeam ? true : (laneDefault ? false : nil),
-                isolation: isolationJSON
-            )))
-        } else {
-            print("panel \(state.id)")
-            print("status: \(state.status.rawValue)")
-            if let teamId = state.teamId {
-                let source: String
-                if rememberedTeam { source = " (remembered)" }
-                else if laneDefault { source = " (lane default)" }
-                else { source = "" }
-                print("team: \(teamId)\(source)")
-            }
-            print("roster:")
-            for seat in state.seats {
-                let mode = modeBySeat[seat.workerId]?.mode.rawValue ?? "unknown"
-                print("  - \(seat.workerId) lens=\(seat.lens) isolation=\(mode)")
-            }
-            print("target: \(state.targetPath)")
-            print("targetHash: \(targetHash)")
-            if let dirtyAdvisory {
-                print("advisory: \(dirtyAdvisory)")
-            }
-            for plan in isolation where plan.mode == .clone {
-                if let advisory = plan.advisory {
-                    print("advisory: \(advisory)")
-                }
-            }
-            print("scaffold: \(scaffoldPath)")
-            print("next: \(next)")
         }
     }
 

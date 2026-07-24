@@ -28,8 +28,7 @@ public struct PanelCoordinator: Sendable {
     public typealias EventSink = @Sendable (PanelEvent) -> Void
 
     /// Injectable seat dispatch for tests. Production path builds a
-    /// `CatalogRunCoordinator` run over the PN-S02 answer path with per-seat prompts,
-    /// RO-enforced manifests (real root) or clone-isolated cwd (PN-S06).
+    /// `CatalogRunCoordinator` run over the answer path in the canonical project root.
     public typealias SeatDispatch = @Sendable (
         _ seats: [PanelSeat],
         _ brief: String,
@@ -106,8 +105,6 @@ public struct PanelCoordinator: Sendable {
     private let threadProjector: PanelThreadProjector?
     private let now: @Sendable () -> Date
     private let idFactory: @Sendable () -> String
-    /// Injected panels root for clone isolation (tests); nil → `AllnighterPaths.panels`.
-    private let panelsRoot: URL?
 
     public init(
         stateStore: PanelStateStore = PanelStateStore(),
@@ -117,23 +114,18 @@ public struct PanelCoordinator: Sendable {
         idFactory: @escaping @Sendable () -> String = { PanelState.makeId() },
         workerRunner: (any WorkerInvoking)? = nil,
         models: [Model] = [],
-        registry: DriverRegistry = DriverRegistry(),
-        panelsRoot: URL? = nil,
-        cloneCopier: PanelSeatIsolation.Copier? = nil
+        registry: DriverRegistry = DriverRegistry()
     ) {
         self.stateStore = stateStore
         self.threadProjector = threadProjector
         self.now = now
         self.idFactory = idFactory
-        self.panelsRoot = panelsRoot
         if let seatDispatch {
             self.seatDispatch = seatDispatch
         } else {
             let runner = workerRunner
             let models = models
             let registry = registry
-            let panelsRoot = panelsRoot
-            let copier = cloneCopier
             let stateStore = stateStore
             let projector = threadProjector
             let now = now
@@ -147,8 +139,6 @@ public struct PanelCoordinator: Sendable {
                     workerRunner: runner,
                     models: models,
                     registry: registry,
-                    panelsRoot: panelsRoot,
-                    cloneCopier: copier,
                     progress: { run in
                         PanelCoordinator.persistDispatchProgress(
                             run: run,
@@ -168,7 +158,6 @@ public struct PanelCoordinator: Sendable {
     // MARK: - start
 
     /// Creates a parked panel at `awaitingPM` with zero rounds. Does not dispatch.
-    /// Isolation is planned (driver RO vs clone) but never refuses a seat — PN-S06.
     public func start(
         config: Config,
         models: [Model] = [],
@@ -195,15 +184,6 @@ public struct PanelCoordinator: Sendable {
         threadProjector?.started(state: state, projectId: config.projectId)
         persist(state)
         return .success(state)
-    }
-
-    /// Isolation plan for a roster (driver RO vs clone). Pure; no materialization.
-    public static func isolationPlan(
-        seats: [PanelSeat],
-        models: [Model],
-        registry: DriverRegistry
-    ) -> [PanelSeatIsolation.SeatPlan] {
-        PanelSeatIsolation.plan(seats: seats, models: models, registry: registry)
     }
 
     // MARK: - runRound
@@ -375,7 +355,7 @@ public struct PanelCoordinator: Sendable {
     // MARK: - done
 
     /// Declares the panel finished. Only `awaitingPM` → `done` (never invents
-    /// convergence). In-flight rounds refuse. Sweeps any leaked seat clones.
+    /// convergence). In-flight rounds refuse.
     public func done(panelId: String, note: String? = nil) -> Result<PanelState, DoneError> {
         guard var state = stateStore.load(id: panelId) else { return .failure(.panelNotFound) }
         if state.status == .running { return .failure(.roundInFlight) }
@@ -386,7 +366,6 @@ public struct PanelCoordinator: Sendable {
             state.note = note
         }
         persist(state)
-        PanelSeatIsolation.sweepPanelClones(panelId: panelId, panelsRoot: panelsRoot ?? stateStore.rootDirectory)
         return .success(state)
     }
 
@@ -409,9 +388,8 @@ public struct PanelCoordinator: Sendable {
     }
 
     /// Production seat dispatch: answer-path only (no plan writer), per-seat prompts,
-    /// RO-enforced manifests on the real root, clone-isolated cwd for every other seat
-    /// (PN-S06 — "no seat is ever refused"). Falls back to failed seats when no runner
-    /// is wired (tests should inject `seatDispatch`).
+    /// and the canonical project root. Falls back to failed seats when no runner is
+    /// wired (tests should inject `seatDispatch`).
     private static func defaultDispatch(
         seats: [PanelSeat],
         brief: String,
@@ -421,8 +399,6 @@ public struct PanelCoordinator: Sendable {
         workerRunner: (any WorkerInvoking)?,
         models: [Model],
         registry: DriverRegistry,
-        panelsRoot: URL?,
-        cloneCopier: PanelSeatIsolation.Copier?,
         progress: @escaping @Sendable (TeamRun) -> Void
     ) async -> [SeatResult] {
         guard let workerRunner else {
@@ -434,19 +410,9 @@ public struct PanelCoordinator: Sendable {
             }
         }
 
-        var enforced = registry
         var earlyFailures: [SeatResult] = []
         var runnableSeats: [PanelSeat] = []
         var workerWorkingDirectories: [String: String] = [:]
-        var cloneURLs: [URL] = []
-        let copier = cloneCopier ?? .system
-        let root = panelsRoot
-
-        defer {
-            for url in cloneURLs {
-                PanelSeatIsolation.removeClone(at: url)
-            }
-        }
 
         for seat in seats {
             let modelId = PanelTeamResolver.modelId(for: seat.workerId)
@@ -460,7 +426,7 @@ public struct PanelCoordinator: Sendable {
                 ))
                 continue
             }
-            guard let manifest = registry.manifest(for: model) else {
+            guard registry.manifest(for: model) != nil else {
                 earlyFailures.append(SeatResult(
                     workerId: seat.workerId, lens: seat.lens, status: .failed,
                     reason: "Panel seat '\(seat.workerId)' has no registered driver manifest", report: ""
@@ -468,33 +434,7 @@ public struct PanelCoordinator: Sendable {
                 continue
             }
 
-            if let ro = PanelReadOnlyArgs.enforce(on: manifest) {
-                // Confirmed RO mode — keep real project root.
-                enforced = enforced.replacing(ro)
-                workerWorkingDirectories[seat.workerId] = projectRoot
-            } else {
-                // Clone isolation for non-enforcing drivers.
-                do {
-                    let cloneURL = try PanelSeatIsolation.materializeClone(
-                        projectRoot: projectRoot,
-                        panelId: panelId,
-                        seatId: seat.workerId,
-                        panelsRoot: root,
-                        copier: copier
-                    )
-                    cloneURLs.append(cloneURL)
-                    workerWorkingDirectories[seat.workerId] = cloneURL.path
-                } catch {
-                    earlyFailures.append(SeatResult(
-                        workerId: seat.workerId, lens: seat.lens, status: .failed,
-                        reason: PanelSeatIsolation.cloneFailureMessage(
-                            workerId: seat.workerId, detail: "\(error)"
-                        ),
-                        report: ""
-                    ))
-                    continue
-                }
-            }
+            workerWorkingDirectories[seat.workerId] = projectRoot
             runnableSeats.append(seat)
         }
 
@@ -525,7 +465,7 @@ public struct PanelCoordinator: Sendable {
             seats: runnableSeats, brief: brief, targetPath: targetPath
         )
         let coordinator = CatalogRunCoordinator(
-            workerRunner: workerRunner, registry: enforced
+            workerRunner: workerRunner, registry: registry
         )
         let run = await coordinator.run(
             resolved: resolved,
@@ -601,19 +541,5 @@ public struct PanelCoordinator: Sendable {
             dispatchReason: answer?.result.errorReason
                 ?? (answer == nil ? "seat produced no worker result" : nil)
         )
-    }
-}
-
-// MARK: - DriverRegistry replace helper
-
-private extension DriverRegistry {
-    /// Returns a new registry with `manifest` replacing any existing entry for the same id.
-    func replacing(_ manifest: DriverManifest) -> DriverRegistry {
-        var byId: [String: DriverManifest] = [:]
-        for m in all {
-            byId[m.id] = m
-        }
-        byId[manifest.id] = manifest
-        return DriverRegistry(Array(byId.values))
     }
 }

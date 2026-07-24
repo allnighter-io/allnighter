@@ -113,7 +113,7 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "tool_selection", title: "Command Selection", audience: .agent,
-            summary: "When unsure, start with `alln menu --json`. Then pick `run` (add `--detach` for async), `thread send`, or pending by intent.",
+            summary: "When unsure, start with `alln menu --json`. Then pick foreground `run`, `thread send`, or pending by intent.",
             bodyMarkdown: """
             When unsure which command to use, call `alln menu --json` \
             first — choose from useWhen/dontUseWhen and pass canonical ids only. Do not invent flags.
@@ -122,9 +122,8 @@ public enum HelpTopicRegistry {
             - `alln run` — single worker / chat / named-model ask in the project root \
             (Default Team). One message; optional `--worker` or `--team`.
             - `alln run --team <id>` — multi-seat team in the project root.
-            - `alln run --detach` — async multi-seat team run. Always `alln run --dry-run` \
-            before a real start; poll `alln team status` / `alln team result` with \
-            `nextPollAfterMs`, then `alln show`.
+            - `alln run` — foreground Team run in the registered repository. `--detach` is \
+            temporarily unsupported during Code Red.
             - `alln thread send` — continue an existing work thread (not a fresh one-shot).
             - Pending — defer work with `alln pending add`; run later with `alln pending run`.
 
@@ -141,7 +140,7 @@ public enum HelpTopicRegistry {
             sections: [
                 .init("when-unsure", "When unsure", "Call `alln menu --json` before picking a verb."),
                 .init("run", "alln run", "Single worker / chat / named-model ask in the project root."),
-                .init("run-team", "alln run --team / --detach", "Multi-seat: foreground `alln run --team …`, or async `alln run --detach` after dry-run."),
+                .init("run-team", "alln run --team", "Run the selected Team in the registered repository."),
                 .init("thread", "alln thread send", "Continue a work thread with `alln thread send`."),
                 .init("pending", "Pending", "Defer with `alln pending add`; execute later with `alln pending run`."),
             ],
@@ -153,17 +152,16 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "team_run_loop", title: "Running a Team", audience: .both,
-            summary: "Send work to a team: dry-run, run (or --detach), poll status/result, cancel if needed.",
+            summary: "Send work to a Team in its registered repository: dry-run, then foreground run.",
             bodyMarkdown: """
-            Sending work to a team is dry-run → run/detach → status/result. `alln run --dry-run` \
-            validates the lineup before spending quota; `alln run --detach` begins an async run; \
-            `alln team status` and `alln team result` report progress or the settled packet \
-            (poll with `nextPollAfterMs`); `alln team cancel` stops a run. Inspect a finished \
-            run with `alln show`, `alln spec`, or `alln floor show`.
+            Sending work to a Team is dry-run → foreground run. `alln run --dry-run` validates \
+            the lineup before spending quota. Research Teams are observational in the real repository; \
+            execution Teams resolve to one selected mutating worker. Inspect a finished run with \
+            `alln show`, `alln spec`, or `alln floor show`.
 
             Dry-run `writePolicy` / `effects.repoWrite` report write *permission*, not prompt \
-            intent. For mechanical read-only, pick an answer team; Default Team and `--worker` \
-            are mutating-allowed. Observed writes appear only as terminal `repoDelta`.
+            intent. Research Teams use the canonical repository without permission flags or copied \
+            bytes. Observed writes appear only as terminal `repoDelta`.
 
             Observed timing on the settled packet: per-worker `queueMs` (request→spawn), \
             `ttftMs` (spawn→first token), `durationMs` (spawn→exit), plus terminal \
@@ -186,8 +184,8 @@ public enum HelpTopicRegistry {
                       "stream", "ndjson", "temperature", "max tokens", "max-tokens",
                       "answer field", "canonical answer"],
             sections: [
-                .init("preflight", "Dry-run first", "Always call `alln run --dry-run` before a real `alln run --detach` so a bad lineup fails before quota is spent."),
-                .init("write-policy", "Permission vs outcome", "`effects.repoWrite` means the resolved invocation may write. Answer teams are mechanical read-only; terminal `repoDelta` reports whether a mutating run did write."),
+                .init("preflight", "Dry-run first", "Call `alln run --dry-run` before a foreground run so a bad lineup fails before quota is spent."),
+                .init("write-policy", "Observation vs outcome", "`effects.repoWrite` means the resolved invocation may write. Research Teams are observational; terminal `repoDelta` reports whether a mutating run did write."),
                 .init("timing", "Observed timing", "`queueMs` / `ttftMs` / `durationMs` / `outcome.timing.wallMs` are recorded clocks. Null means unreported. Do not invent an orchestration tax by subtracting duration from wall."),
                 .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` / `--detach` on `run`."),
                 .init("vendor-controls", "Vendor CLI controls", "No `--temperature` / `--max-tokens` on `alln run`. Use `--effort`, `--worker`, and the selected subscription CLI's own supported flags."),
@@ -254,7 +252,7 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "panel", title: "Panel (blind jury)", audience: .both,
-            summary: "Session-led blind jury on any target: Allnighter fans out read-only seats, stores structured findings, you synthesize and edit. Run Spec Review on specs, then chain into Pilot to build.",
+            summary: "Session-led blind jury on any target: Allnighter runs the selected seats in the project root, stores structured findings, and you synthesize and edit.",
             bodyMarkdown: """
             Panel is "I am always the lead; the seats are always a blind jury" — for any \
             target a session judges (a spec, a PR, an architecture call). Spec Review \
@@ -266,19 +264,17 @@ public enum HelpTopicRegistry {
             Round 1 uses a built-in brief; round 2+ needs `--brief` with a rejection-carry \
             line. You refute and edit the target with your own hands. `--seats a,b` reruns \
             replace those seats on the SAME round (new attempt). `panel done` is declaration \
-            only. Then chain: `alln pair pilot start --doc <same>`. Every seat is \
-            isolated: claude/codex keep confirmed RO args on the real root; every other \
-            driver runs against an ephemeral APFS clone (copy, not a worktree). No seat \
-            is refused for lacking a RO mode.
+            only. Then chain: `alln pair pilot start --doc <same>`. Panel is frozen during \
+            Code Red; it has no clone or permission-flag isolation path.
             """,
             aliases: [
                 "panel this", "blind jury", "spec review", "panel round", "panel start",
                 "spec hardening", "jury", "alln panel",
             ],
             sections: [
-                .init("roster", "Team catalog is the roster", "`--team <alias>` fuzzy-resolves a TeamPreset (unique→echoed, ambiguous→candidates with seat count). Zero-config uses remembered-else-lane-default. `--seat <alias>:<lens>` resolves the alias via PilotSeatResolver at start (real model id stored; never a raw alias) and echoes `isolation` per seat (`driverReadOnly` | `clone`)."),
+                .init("roster", "Team catalog is the roster", "`--team <alias>` fuzzy-resolves a TeamPreset (unique→echoed, ambiguous→candidates with seat count). Zero-config uses remembered-else-lane-default. `--seat <alias>:<lens>` resolves the alias via PilotSeatResolver at start (real model id stored; never a raw alias)."),
                 .init("rounds", "Blocking rounds + NDJSON", "`panel round` blocks; seats stream as they settle. Partial failures still settle. Built-in brief on round 1; focus brief required later."),
-                .init("safety", "Read-only by mechanism", "Panels never take the mutating write lock. RO-enforcing drivers keep plan/sandbox args on the real root; other seats get an ephemeral clone under panels/<id>/clones/. PANEL_SEAT_NOT_ISOLATED means clone materialization failed, not “driver banned”."),
+                .init("safety", "Frozen during Code Red", "Panel is not a supported Code Red execution surface. It has no clone or read-only permission path."),
                 .init("chain", "Harden then build", "After `panel done`, `alln pair pilot start --doc <same>` continues in the same cockpit."),
             ],
             relatedCommandNames: [
@@ -287,7 +283,7 @@ public enum HelpTopicRegistry {
             ],
             schemaRefs: ["panelJSON", "panelRoundJSON"],
             errorRefs: [
-                "PANEL_NOT_FOUND", "PANEL_ROUND_IN_FLIGHT", "PANEL_SEAT_NOT_ISOLATED",
+                "PANEL_NOT_FOUND", "PANEL_ROUND_IN_FLIGHT",
                 "PANEL_TARGET_MISSING", "PANEL_NOT_AWAITING", "PROJECT_NOT_FOUND", "TEAM_NOT_FOUND",
             ],
             needsLiveCheck: true),

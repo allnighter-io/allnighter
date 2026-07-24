@@ -69,6 +69,10 @@ RunRecord
 A default-chat turn is just a one-worker `RunRecord`. The answer board is an N-worker
 `RunRecord`. One representation, everywhere (`TeamRunJSON` covers both).
 
+`RunService.run` is the one owner of run resolution, canonical-root selection,
+worker roster, write-lock acquisition, lifecycle settlement, and result projection.
+The Terminal `alln run` adapter calls it directly.
+
 ### One recipe noun: `TeamPreset` (UI: "Team")
 
 A worker is a prompt + a worker selection. A **`TeamPreset`** is the saved recipe for a

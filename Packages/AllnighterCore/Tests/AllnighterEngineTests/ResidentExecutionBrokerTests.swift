@@ -104,44 +104,6 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         XCTAssertEqual(healthSnapshot.state, .available)
         XCTAssertTrue(healthSnapshot.broker.ready)
 
-        // Project execution may not make the resident dereference a raw path
-        // under Documents while CPH-3's authorized byte bridge is absent. The
-        // refusal happens before team validation or a vendor launch, so it is
-        // safe even for a caller that cannot answer a TCC dialog.
-        let protectedRoot = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/repo", isDirectory: true).path
-        let protectedTeam = try rendezvous.submit(
-            operation: .teamRun(.init(question: "review", repoRoot: protectedRoot)),
-            idempotencyKey: "protected-project",
-            requestId: "protected-project-request"
-        )
-        let protectedMaybeReceipt = try await rendezvous.waitForReceipt(requestId: protectedTeam.requestId)
-        let protectedReceipt = try XCTUnwrap(protectedMaybeReceipt)
-        XCTAssertEqual(protectedReceipt.state, .rejected)
-        XCTAssertEqual(protectedReceipt.rejection?.code, ResidentProjectAccessBoundary.refusalCode)
-
-        // A verified mirror is the only way a protected source root crosses
-        // the resident boundary. The request proceeds to normal Team
-        // validation (this fixture has no runnable Team) rather than failing
-        // at the project-access boundary.
-        let mirror = try ProjectMirrorMaterializer(
-            store: ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
-        ).materialize(.init(
-            id: "safe-mirror", dirtyFingerprint: "fixture",
-            entries: [.init(path: "README.md", data: Data("safe".utf8))]
-        ))
-        let mirroredTeam = try rendezvous.submit(
-            operation: .teamRun(.init(
-                question: "review", repoRoot: protectedRoot, projectMirrorId: mirror.id
-            )),
-            idempotencyKey: "mirrored-project",
-            requestId: "mirrored-project-request"
-        )
-        let mirroredMaybeReceipt = try await rendezvous.waitForReceipt(requestId: mirroredTeam.requestId)
-        let mirroredReceipt = try XCTUnwrap(mirroredMaybeReceipt)
-        XCTAssertEqual(mirroredReceipt.state, .rejected)
-        XCTAssertNotEqual(mirroredReceipt.rejection?.code, ResidentProjectAccessBoundary.refusalCode)
-
         // A source probe is coordinator-scoped. Letting a restricted caller
         // attach its repo path reintroduces the Documents-TCC prompt the broker
         // exists to prevent, even though no worker has been dispatched.
@@ -239,15 +201,6 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         }
         XCTAssertEqual(probe.reservationCount, 1)
         XCTAssertEqual(probe.vendorStarts, 0)
-
-        let foreground = try rendezvous.submit(
-            operation: .foregroundTeamRun(.init(message: "hello", repoRoot: root.path)),
-            idempotencyKey: "foreground", requestId: "foreground-request"
-        )
-        let foregroundMaybeReceipt = try await rendezvous.waitForReceipt(requestId: foreground.requestId)
-        let foregroundReceipt = try XCTUnwrap(foregroundMaybeReceipt)
-        XCTAssertEqual(foregroundReceipt.state, .rejected)
-        XCTAssertEqual(foregroundReceipt.rejection?.code, "DEFAULT_TEAM_INVALID")
 
         let boost = try rendezvous.submit(
             operation: .boostSeed(.init(sourceId: "missing-source")),

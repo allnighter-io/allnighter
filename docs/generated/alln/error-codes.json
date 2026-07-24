@@ -315,13 +315,13 @@
     "ruleId" : "run.journal.corrupt"
   },
   {
-    "agentAction" : "Run `alln serve install --json` once from the normal macOS Terminal app, then retry; a sandboxed agent host cannot install the background coordinator and foreground spawning is not a fallback.",
-    "code" : "COORDINATOR_UNAVAILABLE",
+    "agentAction" : "Run `alln run` without the unsupported flag in the registered repository.",
+    "code" : "CODE_RED_UNSUPPORTED",
     "exitClass" : "operational",
-    "explain" : "The resident coordinator is not reachable. Allnighter never falls back to a caller-owned vendor process because that would reintroduce sandbox and privacy-prompt failures.",
-    "requiresManual" : true,
+    "explain" : "This surface is temporarily unavailable during Code Red; Allnighter does not route it through a resident fallback.",
+    "requiresManual" : false,
     "retryable" : false,
-    "ruleId" : "coordinator.unavailable"
+    "ruleId" : "code_red.unsupported"
   },
   {
     "agentAction" : "Refresh with `alln serve install --json` only when the binary or contract version differs; same-version, same-contract Git-SHA drift is compatible and does not require a refresh.",
@@ -790,15 +790,6 @@
     "requiresManual" : true,
     "retryable" : true,
     "ruleId" : "relay.verdict.unparseable"
-  },
-  {
-    "agentAction" : "Retry the panel round. If it persists, free disk space and confirm the project root is readable — clone isolation failed to materialize for a non-RO-enforcing seat.",
-    "code" : "PANEL_SEAT_NOT_ISOLATED",
-    "exitClass" : "operational",
-    "explain" : "A panel seat needed ephemeral clone isolation (driver has no confirmed RO mode) but the clone could not be materialised (copy failed, source unreadable, or disk full). Seats are never refused for lacking a RO mode — this code is only for clone materialization failure.",
-    "requiresManual" : false,
-    "retryable" : true,
-    "ruleId" : "panel.seat.not_isolated"
   },
   {
     "agentAction" : "Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`.",

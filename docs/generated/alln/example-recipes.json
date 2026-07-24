@@ -65,9 +65,9 @@
     "title" : "Show a Code skill"
   },
   {
-    "command" : "alln run --detach --json --lane code --team code_bug_hunt --effort low \"tiny async sanity\"",
+    "command" : "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\"",
     "id" : "run_detach_json",
-    "title" : "Start async run"
+    "title" : "Run in foreground"
   },
   {
     "command" : "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json",

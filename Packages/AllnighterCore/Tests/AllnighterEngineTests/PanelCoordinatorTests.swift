@@ -243,8 +243,7 @@ final class PanelCoordinatorTests: XCTestCase {
             stateStore: store,
             workerRunner: StaggeredFailingPanelRunner(),
             models: models,
-            registry: registry,
-            panelsRoot: tmp.appendingPathComponent("panels")
+            registry: registry
         )
         try store.save(PanelState(
             id: "panel_incremental", projectRoot: root.path, projectId: "p",

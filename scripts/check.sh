@@ -5,6 +5,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 ran_any=false
 
+echo "==> check Code Red architecture policy"
+bash "$ROOT/scripts/check_architecture_policy.sh"
+ran_any=true
+
 # Launch Authority TCC hotfix (H4/H6): the dev build/launch output must stay
 # OUTSIDE the repo. The checkout lives under ~/Documents and macOS attributes a
 # child's TCC prompts to the .app's location, so building/launching from the

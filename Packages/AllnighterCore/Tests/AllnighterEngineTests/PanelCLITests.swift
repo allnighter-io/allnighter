@@ -278,10 +278,9 @@ final class PanelCLITests: XCTestCase {
         XCTAssertEqual(request.teamId, "code_plan")
     }
 
-    func testParseStartNonROSeatAcceptedPlansClone() throws {
+    func testParseStartNonROSeatIsAccepted() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
-        // PN-S06: cursor is not RO-enforcing but is no longer refused — clone isolation.
         let request = try PanelCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id, "--seat", "model_cursor_composer_25:x"],
             projectStore: store,
@@ -290,11 +289,6 @@ final class PanelCLITests: XCTestCase {
             teams: sampleTeams()
         )
         XCTAssertEqual(request.seats.map(\.workerId), ["model_cursor_composer_25"])
-        let plan = PanelCoordinator.isolationPlan(
-            seats: request.seats, models: roModels(), registry: roRegistry()
-        )
-        XCTAssertEqual(plan.first?.mode, .clone)
-        XCTAssertTrue(plan.first?.advisory?.contains("isolation: clone") == true)
     }
 
     func testParseStartInvalidMaxRounds() throws {
@@ -336,13 +330,6 @@ final class PanelCLITests: XCTestCase {
         for seat in request.seats {
             XCTAssertTrue(seat.workerId.hasPrefix("model_"))
         }
-        let plan = PanelCoordinator.isolationPlan(
-            seats: request.seats, models: roModels(), registry: roRegistry()
-        )
-        let byId = Dictionary(uniqueKeysWithValues: plan.map { ($0.workerId, $0.mode) })
-        XCTAssertEqual(byId["model_sonnet"], .driverReadOnly)
-        XCTAssertEqual(byId["model_grok"], .clone)
-        XCTAssertEqual(byId["model_cursor_grok_45"], .clone)
     }
 
     func testParseStartSeatFuzzyAliasRejected() throws {
@@ -454,19 +441,16 @@ final class PanelCLITests: XCTestCase {
         XCTAssertNil(advisory)
     }
 
-    func testPanelStartRosterEchoesIsolationPerSeat() throws {
+    func testPanelStartRosterContainsSeatIdentity() throws {
         let seats = [
             PanelSeat(workerId: "model_sonnet", lens: "failure-modes"),
             PanelSeat(workerId: "model_grok", lens: "simplify"),
         ]
-        let isolationModes = ["model_sonnet": "driverReadOnly", "model_grok": "clone"]
-        let roster = seats.map { PanelSeatJSON($0, isolation: isolationModes[$0.workerId]) }
-        XCTAssertEqual(roster[0].isolation, "driverReadOnly")
-        XCTAssertEqual(roster[1].isolation, "clone")
+        let roster = seats.map(PanelSeatJSON.init)
         let data = try CoreJSON.encode(roster)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
-        XCTAssertEqual(json[0]["isolation"] as? String, "driverReadOnly")
-        XCTAssertNil(json[0]["isolationMode"])
-        XCTAssertEqual(json[1]["isolation"] as? String, "clone")
+        XCTAssertEqual(json[0]["workerId"] as? String, "model_sonnet")
+        XCTAssertEqual(json[1]["workerId"] as? String, "model_grok")
+        XCTAssertNil(json[0]["isolation"])
     }
 }

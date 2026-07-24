@@ -24,8 +24,8 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
     public var nextAction: AgentNextAction
     /// ADP-S02 — additive OPTIONAL teaching field. When the resolution is a bare
     /// prompt ask (no `--team`) that lands mutating-allowed, this carries the ready
-    /// answer-team invocation the caller can run instead for a mechanical read-only
-    /// guarantee (Menu-Not-Router: alln discloses, caller chooses — no auto-routing,
+    /// research-team invocation the caller can run for observational input. This is
+    /// advisory (Menu-Not-Router: alln discloses, caller chooses — no auto-routing,
     /// no write-policy change). Omitted (nil) whenever there is nothing to teach, so
     /// the field is additive and does not change the shape for existing callers.
     public var alternatives: [Alternative]?

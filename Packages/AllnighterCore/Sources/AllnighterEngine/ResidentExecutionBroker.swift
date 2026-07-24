@@ -1,28 +1,6 @@
 import Foundation
 import AllnighterCore
 
-private actor ForegroundRunCompletion {
-    private var result: Result<TeamRun, RunServiceError>?
-
-    func finish(_ result: Result<TeamRun, RunServiceError>) { self.result = result }
-    func current() -> Result<TeamRun, RunServiceError>? { result }
-}
-
-private final class ForegroundRunTaskRegistry: @unchecked Sendable {
-    private let lock = NSLock()
-    private var tasks: [String: Task<Void, Never>] = [:]
-
-    func insert(_ task: Task<Void, Never>, runId: String) {
-        lock.lock(); defer { lock.unlock() }
-        tasks[runId] = task
-    }
-
-    func remove(runId: String) {
-        lock.lock(); defer { lock.unlock() }
-        tasks.removeValue(forKey: runId)
-    }
-}
-
 /// Records whether a detached Team receipt was written at the durable
 /// pre-spawn boundary. Replays still need a request-specific receipt, so the
 /// dispatcher only skips its legacy post-start acceptance for a new admission.
@@ -54,7 +32,7 @@ private final class PanelRoundTaskRegistry: @unchecked Sendable {
 
 /// Coordinator-owned dispatcher for the closed resident operation union. This
 /// is the only component that turns an accepted local request into a Team
-/// runner; foreground clients only write/read the rendezvous files.
+/// runner.
 public final class ResidentExecutionBroker: @unchecked Sendable {
     public struct Dependencies: Sendable {
         public var asyncTeam: AsyncTeamService
@@ -104,7 +82,6 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
 
     private let rendezvous: ResidentExecutionRendezvous
     private let dependencies: Dependencies
-    private let foregroundTasks = ForegroundRunTaskRegistry()
     private let panelTasks = PanelRoundTaskRegistry()
 
     public init(rendezvous: ResidentExecutionRendezvous, dependencies: Dependencies) {
@@ -171,9 +148,6 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         }
         switch claim.request.operation {
         case .teamRun(let request):
-            guard let request = residentSafe(request: request, claim: claim) else {
-                return
-            }
             guard let executable = dependencies.executablePath() else {
                 try? rendezvous.reject(
                     claim,
@@ -211,15 +185,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             case .failure(let refusal):
                 try? rendezvous.reject(claim, code: refusal.code, message: refusal.message)
             }
-        case .foregroundTeamRun(let request):
-            guard let request = residentSafe(request: request, claim: claim) else {
-                return
-            }
-            await startForegroundRun(request, claim: claim)
         case .panelStart(let request):
-            guard let request = residentSafe(request: request, claim: claim) else {
-                return
-            }
             startPanel(request, claim: claim)
         case .panelRound(let request):
             await startPanelRound(request, claim: claim)
@@ -270,10 +236,6 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         case .pendingRun(let request):
             await runPending(request, claim: claim)
         case .projectRecheck(let request):
-            if let message = ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: request.rootPath) {
-                try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: message)
-                return
-            }
             await recheckProject(request, claim: claim)
         case .query(let query) where query.kind == .health:
             let health = dependencies.coordinatorHealth()
@@ -383,74 +345,6 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 code: "RESIDENT_REQUEST_REJECTED",
                 message: "operation \(claim.request.operation.kind.rawValue) is not enabled by this broker slice"
             )
-        }
-    }
-
-    private func residentSafe(
-        request: ResidentExecutionOperation.PanelStart,
-        claim: ResidentExecutionRendezvous.Claim
-    ) -> ResidentExecutionOperation.PanelStart? {
-        guard ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: request.projectRoot) != nil else { return request }
-        guard let mirrorId = request.projectMirrorId else {
-            try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: "protected Panel execution needs a verified project mirror")
-            return nil
-        }
-        do {
-            let store = ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
-            _ = try ProjectMirrorMaterializer(store: store).verify(id: mirrorId)
-            var resolved = request
-            let original = URL(fileURLWithPath: request.projectRoot).standardizedFileURL.path + "/"
-            if request.targetPath.hasPrefix(original) { resolved.targetPath = String(request.targetPath.dropFirst(original.count)) }
-            resolved.projectRoot = try store.workspaceDirectory(id: mirrorId).path
-            return resolved
-        } catch {
-            try? rendezvous.reject(claim, code: "PROJECT_MIRROR_INVALID", message: "project mirror is unavailable or changed: \(error)")
-            return nil
-        }
-    }
-
-    private func residentSafe(
-        request: AsyncTeamStartRequest,
-        claim: ResidentExecutionRendezvous.Claim
-    ) -> AsyncTeamStartRequest? {
-        guard let root = request.repoRoot,
-              ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: root) != nil else { return request }
-        guard let mirrorId = request.projectMirrorId else {
-            try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode,
-                                   message: "protected project execution needs a verified project mirror")
-            return nil
-        }
-        do {
-            let store = ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
-            _ = try ProjectMirrorMaterializer(store: store).verify(id: mirrorId)
-            var resolved = request
-            resolved.repoRoot = try store.workspaceDirectory(id: mirrorId).path
-            return resolved
-        } catch {
-            try? rendezvous.reject(claim, code: "PROJECT_MIRROR_INVALID", message: "project mirror is unavailable or changed: \(error)")
-            return nil
-        }
-    }
-
-    private func residentSafe(
-        request: ResidentExecutionOperation.ForegroundTeamRunRequest,
-        claim: ResidentExecutionRendezvous.Claim
-    ) -> ResidentExecutionOperation.ForegroundTeamRunRequest? {
-        guard ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: request.repoRoot) != nil else { return request }
-        guard let mirrorId = request.projectMirrorId else {
-            try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode,
-                                   message: "protected project execution needs a verified project mirror")
-            return nil
-        }
-        do {
-            let store = ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
-            _ = try ProjectMirrorMaterializer(store: store).verify(id: mirrorId)
-            var resolved = request
-            resolved.repoRoot = try store.workspaceDirectory(id: mirrorId).path
-            return resolved
-        } catch {
-            try? rendezvous.reject(claim, code: "PROJECT_MIRROR_INVALID", message: "project mirror is unavailable or changed: \(error)")
-            return nil
         }
     }
 
@@ -566,22 +460,15 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             if let teamId = request.teamId { try? PanelTeamStore().save(projectId: request.projectId, teamId: teamId) }
             let target = PanelCoordinator.resolveTargetPath(state.targetPath, projectRoot: state.projectRoot)
             let targetHash = PanelState.contentHash(ofFileAt: target) ?? ""
-            let isolation = PanelCoordinator.isolationPlan(
-                seats: state.seats, models: dependencies.models, registry: dependencies.registry
-            )
-            let modes = Dictionary(uniqueKeysWithValues: isolation.map { ($0.workerId, $0.mode.rawValue) })
             let payload = PanelStartJSON(
                 contractVersion: ContractRegistry.contractVersion,
-                panel: PanelJSON.project(state, contractVersion: ContractRegistry.contractVersion, targetHash: targetHash, isolationBySeat: modes),
-                roster: state.seats.map { PanelSeatJSON($0, isolation: modes[$0.workerId]) },
+                panel: PanelJSON.project(state, contractVersion: ContractRegistry.contractVersion, targetHash: targetHash),
+                roster: state.seats.map(PanelSeatJSON.init),
                 targetHash: targetHash,
                 scaffoldPath: scaffoldPath,
                 nextCommand: "alln panel round --panel \(state.id)",
                 teamId: state.teamId,
-                rememberedTeam: request.rememberedTeam ? true : (request.laneDefault ? false : nil),
-                isolation: isolation.map {
-                    PanelSeatIsolationJSON(workerId: $0.workerId, mode: $0.mode.rawValue, driverId: $0.driverId, advisory: $0.advisory)
-                }
+                rememberedTeam: request.rememberedTeam ? true : (request.laneDefault ? false : nil)
             )
             try? rendezvous.accept(claim, canonicalId: state.id, result: .panelStart(payload))
         }
@@ -592,11 +479,6 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         claim: ResidentExecutionRendezvous.Claim
     ) async {
         let store = PanelStateStore()
-        if let state = store.load(id: request.panelId),
-           let message = ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: state.projectRoot) {
-            try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: message)
-            return
-        }
         let coordinator = panelCoordinator(stateStore: store)
         let completion = PanelRoundCompletion()
         let tasks = panelTasks
@@ -696,101 +578,4 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
 
     private func panelErrorMessage(_ error: PanelCoordinator.RoundError) -> String { "panel round refused: \(error)" }
 
-    /// Begins a full foreground run in the coordinator process and accepts only
-    /// after its canonical journal exists. That makes the receipt's run id
-    /// immediately queryable while leaving no caller-owned worker path behind.
-    private func startForegroundRun(
-        _ request: ResidentExecutionOperation.ForegroundTeamRunRequest,
-        claim: ResidentExecutionRendezvous.Claim
-    ) async {
-        let runId = UUID().uuidString.lowercased()
-        let completion = ForegroundRunCompletion()
-        let requestId = claim.request.requestId
-        let runRequest = RunRequest(
-            message: request.message,
-            repoRoot: request.repoRoot,
-            projectId: request.projectId,
-            presetId: request.presetId,
-            workerId: request.workerId,
-            effort: request.effort,
-            lane: request.lane,
-            type: request.type,
-            context: request.context,
-            workerTimeoutSeconds: request.workerTimeoutSeconds,
-            handshakeTimeoutSeconds: request.handshakeTimeoutSeconds,
-            firstActivityTimeoutSeconds: request.firstActivityTimeoutSeconds,
-            wallTimeoutSeconds: request.wallTimeoutSeconds,
-            commitMessage: request.commitMessage,
-            noCommit: request.noCommit,
-            proofCommand: request.proofCommand,
-            idempotencyKey: request.idempotencyKey,
-            retryOf: request.retryOf,
-            acceptSurvivors: request.acceptSurvivors
-        )
-        let service = dependencies.runService
-        let tasks = foregroundTasks
-        var continuation: AsyncStream<RunEvent>.Continuation?
-        let eventStream = AsyncStream<RunEvent> { continuation = $0 }
-        let rendezvous = rendezvous
-        let eventPump = Task {
-            for await event in eventStream {
-                try? rendezvous.appendEvent(requestId: requestId, runEvent: event)
-            }
-        }
-        let task = Task {
-            let result = await service.run(
-                runRequest, origin: .cli, originAgent: request.originAgent, runId: runId, events: continuation
-            )
-            await completion.finish(result)
-            tasks.remove(runId: runId)
-            _ = eventPump
-        }
-        foregroundTasks.insert(task, runId: runId)
-
-        let deadline = Date().addingTimeInterval(5)
-        while Date() < deadline {
-            if let run = dependencies.runStore.loadRaw(runId: runId)
-                ?? dependencies.runStore.load(runId: runId) {
-                let status = AsyncTeamStatusMapper.statusResponse(for: run)
-                let response = TeamStartResponse(
-                    runId: run.id,
-                    status: status.status,
-                    lane: run.lane?.rawValue,
-                    teamPresetId: run.presetId,
-                    teamDisplayName: run.teamDisplayName,
-                    effort: run.effort?.rawValue,
-                    acceptedAt: Date(),
-                    nextPollAfterMs: status.nextPollAfterMs,
-                    nextActions: [.pollStatus(runId: run.id)]
-                )
-                try? rendezvous.accept(claim, canonicalId: run.id, result: .teamStart(response))
-                return
-            }
-            if let result = await completion.current() {
-                switch result {
-                case .success(let run):
-                    let status = AsyncTeamStatusMapper.statusResponse(for: run)
-                    let response = TeamStartResponse(
-                        runId: run.id, status: status.status, lane: run.lane?.rawValue,
-                        teamPresetId: run.presetId, teamDisplayName: run.teamDisplayName,
-                        effort: run.effort?.rawValue, acceptedAt: Date(),
-                        nextPollAfterMs: status.nextPollAfterMs,
-                        nextActions: [.fetchResult(runId: run.id)]
-                    )
-                    try? rendezvous.accept(claim, canonicalId: run.id, result: .teamStart(response))
-                case .failure(let error):
-                    try? rendezvous.reject(claim, code: error.code, message: error.description)
-                }
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(25))
-        }
-        task.cancel()
-        foregroundTasks.remove(runId: runId)
-        try? rendezvous.reject(
-            claim,
-            code: "RESIDENT_ACCEPT_TIMEOUT",
-            message: "resident run did not create a durable journal before acceptance"
-        )
-    }
 }

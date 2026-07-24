@@ -115,8 +115,6 @@ public struct PanelStateStore: Sendable {
         reconciled.status = .awaitingPM
         reconciled.note = PanelState.orphanReconciledNote
         try? save(reconciled)
-        // Best-effort: drop any leaked seat clones from a mid-round death (PN-S06).
-        PanelSeatIsolation.sweepPanelClones(panelId: state.id, panelsRoot: rootDirectory)
         return reconciled
     }
 
@@ -155,7 +153,6 @@ public struct PanelStateStore: Sendable {
         reconciled.status = .awaitingPM
         reconciled.note = Self.terminalSeatReconciledNote
         try? save(reconciled)
-        PanelSeatIsolation.sweepPanelClones(panelId: state.id, panelsRoot: rootDirectory)
         return reconciled
     }
 }

@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "productionPaths": [
+    "Packages/AllnighterCore/Sources",
+    "scripts"
+  ],
+  "livingTeachingPaths": [
+    "AGENTS.md",
+    "docs/phases",
+    "docs/operations",
+    "Packages/AllnighterCore/Sources/AllnighterCore/HelpTopicRegistry.swift",
+    "Packages/AllnighterCore/Sources/AllnighterCore/ContractRegistry+Milestone1.swift"
+  ],
+  "excludedPaths": [
+    "docs/archive",
+    "docs/operations/debugger",
+    "docs/phases/CODE_RED_Core_Infrastructure_Repair.md",
+    "config/architecture-policy.json",
+    "scripts/check_architecture_policy.sh"
+  ],
+  "forbiddenConcepts": [
+    "ProjectMirror",
+    "ProjectMirrorPayload",
+    "ProjectMirrorStore",
+    "ProjectMirrorMaterializer",
+    "ProjectMirrorCapture",
+    "projectMirrorId",
+    "ResidentProjectAccessBoundary",
+    "residentSafe",
+    "project-mirrors",
+    "cli-compatible-resident",
+    "PanelSeatIsolation",
+    "PanelReadOnlyArgs",
+    "--sandbox read-only",
+    "--permission-mode plan"
+  ],
+  "forbiddenAlternateRootFields": [
+    "projectMirrorRoot",
+    "alternateRepositoryRoot",
+    "isolatedProjectRoot",
+    "projectCloneRoot"
+  ],
+  "allowedResidentOperations": [],
+  "runSemanticsOwner": "RunService.run",
+  "canonicalRootField": "repoRoot",
+  "residentProductionLineBudget": 800,
+  "founderOwnedPaths": [
+    "config/architecture-policy.json",
+    "scripts/check_architecture_policy.sh",
+    "docs/phases/CODE_RED_Core_Infrastructure_Repair.md"
+  ]
+}

@@ -496,6 +496,10 @@ and Code Owner review when those paths change. Enabling or changing remote
 branch protection is a founder action, not implicitly authorized by this
 packet.
 
+**CR-S01 external owner blocker:** this repository has no `CODEOWNERS` file
+and no reviewed identity to assign. The policy and gate are checked in here;
+the founder must add the protected-branch Code Owner assignment during CR-S07.
+
 ## Quantitative tripwires
 
 CR-S01 checks in `scripts/code_red_metrics.sh` and records the exact committed

@@ -15,7 +15,6 @@ public enum ResidentExecutionWaitBudget {
 /// environment, executable path, or arbitrary process arguments.
 public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     case teamRun(AsyncTeamStartRequest)
-    case foregroundTeamRun(ForegroundTeamRunRequest)
     case panelStart(PanelStart)
     case panelRound(PanelRound)
     case panelDone(PanelDone)
@@ -31,7 +30,6 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
 
     public struct PanelStart: Codable, Equatable, Sendable {
         public var projectRoot: String
-        public var projectMirrorId: String?
         public var projectId: String
         public var targetPath: String
         public var teamId: String?
@@ -42,7 +40,6 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
 
         public init(
             projectRoot: String,
-            projectMirrorId: String? = nil,
             projectId: String,
             targetPath: String,
             teamId: String? = nil,
@@ -52,7 +49,6 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
             laneDefault: Bool = false
         ) {
             self.projectRoot = projectRoot
-            self.projectMirrorId = projectMirrorId
             self.projectId = projectId
             self.targetPath = targetPath
             self.teamId = teamId
@@ -60,80 +56,6 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
             self.maxRounds = maxRounds
             self.rememberedTeam = rememberedTeam
             self.laneDefault = laneDefault
-        }
-    }
-
-    /// Full non-stream `alln run` input. This intentionally carries every
-    /// production flag the foreground run path currently honors; a restricted
-    /// client must never lose timeout, commit, proof, or retry semantics merely
-    /// because execution crossed into the resident process.
-    public struct ForegroundTeamRunRequest: Codable, Equatable, Sendable {
-        public var message: String
-        public var repoRoot: String
-        public var projectMirrorId: String?
-        public var projectId: String?
-        public var presetId: String?
-        public var workerId: String?
-        public var effort: EffortLevel?
-        public var lane: WorkLane?
-        public var type: String?
-        public var context: String?
-        public var originAgent: String?
-        public var workerTimeoutSeconds: Int?
-        public var handshakeTimeoutSeconds: Int?
-        public var firstActivityTimeoutSeconds: Int?
-        public var wallTimeoutSeconds: Int?
-        public var commitMessage: String?
-        public var noCommit: Bool
-        public var proofCommand: String?
-        public var idempotencyKey: String?
-        public var retryOf: String?
-        public var acceptSurvivors: Bool
-
-        public init(
-            message: String,
-            repoRoot: String,
-            projectMirrorId: String? = nil,
-            projectId: String? = nil,
-            presetId: String? = nil,
-            workerId: String? = nil,
-            effort: EffortLevel? = nil,
-            lane: WorkLane? = nil,
-            type: String? = nil,
-            context: String? = nil,
-            originAgent: String? = nil,
-            workerTimeoutSeconds: Int? = nil,
-            handshakeTimeoutSeconds: Int? = nil,
-            firstActivityTimeoutSeconds: Int? = nil,
-            wallTimeoutSeconds: Int? = nil,
-            commitMessage: String? = nil,
-            noCommit: Bool = false,
-            proofCommand: String? = nil,
-            idempotencyKey: String? = nil,
-            retryOf: String? = nil,
-            acceptSurvivors: Bool = false
-        ) {
-            self.message = message
-            self.repoRoot = repoRoot
-            self.projectMirrorId = projectMirrorId
-            self.projectId = projectId
-            self.presetId = presetId
-            self.workerId = workerId
-            self.effort = effort
-            self.lane = lane
-            self.type = type
-            self.context = context
-            self.originAgent = originAgent
-            self.workerTimeoutSeconds = workerTimeoutSeconds
-            self.handshakeTimeoutSeconds = handshakeTimeoutSeconds
-            self.firstActivityTimeoutSeconds = firstActivityTimeoutSeconds
-            self.wallTimeoutSeconds = wallTimeoutSeconds
-            self.commitMessage = commitMessage
-            self.noCommit = noCommit
-            self.proofCommand = proofCommand
-            self.idempotencyKey = idempotencyKey
-            self.retryOf = retryOf
-            self.acceptSurvivors = acceptSurvivors
         }
     }
 
@@ -278,7 +200,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     }
 
     public enum Kind: String, Codable, Sendable {
-        case teamRun, foregroundTeamRun, panelStart, panelRound, panelDone, sourceProbe, boostSeed, pendingRun, projectRecheck, query, cancel, teamCancel, teamReconcile, admissionProbe
+        case teamRun, panelStart, panelRound, panelDone, sourceProbe, boostSeed, pendingRun, projectRecheck, query, cancel, teamCancel, teamReconcile, admissionProbe
     }
 
     private enum CodingKeys: String, CodingKey { case type, payload }
@@ -286,7 +208,6 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     public var kind: Kind {
         switch self {
         case .teamRun: return .teamRun
-        case .foregroundTeamRun: return .foregroundTeamRun
         case .panelStart: return .panelStart
         case .panelRound: return .panelRound
         case .panelDone: return .panelDone
@@ -306,7 +227,6 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .type) {
         case .teamRun: self = .teamRun(try container.decode(AsyncTeamStartRequest.self, forKey: .payload))
-        case .foregroundTeamRun: self = .foregroundTeamRun(try container.decode(ForegroundTeamRunRequest.self, forKey: .payload))
         case .panelStart: self = .panelStart(try container.decode(PanelStart.self, forKey: .payload))
         case .panelRound: self = .panelRound(try container.decode(PanelRound.self, forKey: .payload))
         case .panelDone: self = .panelDone(try container.decode(PanelDone.self, forKey: .payload))
@@ -327,7 +247,6 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         try container.encode(kind, forKey: .type)
         switch self {
         case let .teamRun(value): try container.encode(value, forKey: .payload)
-        case let .foregroundTeamRun(value): try container.encode(value, forKey: .payload)
         case let .panelStart(value): try container.encode(value, forKey: .payload)
         case let .panelRound(value): try container.encode(value, forKey: .payload)
         case let .panelDone(value): try container.encode(value, forKey: .payload)
