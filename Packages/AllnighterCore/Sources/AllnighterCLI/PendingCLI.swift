@@ -212,17 +212,27 @@ enum PendingCLI {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--json and --stream are mutually exclusive")
         }
         guard let id = opts.positional.first else { usageError("usage: alln pending run <pending-id> [--json]") }
-        let executor = makeExecutor(runtime)
+        let service = makeService(runtime)
         do {
-            let item = try await executor.run(id: id)
-            emit(item, service: executor.service, json: opts.flag("json"))
-        } catch let error as PendingServiceError {
-            if case .unsupportedKind(let kind) = error {
-                AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "pending kind \(kind) is not runnable in this milestone; only workerChat is supported")
+            let rendezvous = ResidentExecutionRendezvous()
+            let submitted = try rendezvous.submit(
+                operation: .pendingRun(.init(pendingItemId: id)),
+                idempotencyKey: "pending-run-\(id)-\(UUID().uuidString.lowercased())"
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: 1_800) else {
+                AllnighterCLI.fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not settle pending item before timeout")
             }
-            emitPendingError(error)
+            if let rejection = receipt.rejection {
+                AllnighterCLI.fail(code: rejection.code, message: rejection.message)
+            }
+            guard case let .pendingItem(item) = receipt.result else {
+                AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid pending result")
+            }
+            emit(item, service: service, json: opts.flag("json"))
+        } catch ResidentExecutionRendezvous.Error.unavailable {
+            AllnighterCLI.fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
         } catch {
-            emitPendingError(error)
+            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident pending request failed: \(error)")
         }
     }
 
@@ -230,16 +240,6 @@ enum PendingCLI {
 
     private static func makeService(_ runtime: ToolRuntime) -> PendingService {
         PendingService(store: PendingStore(), models: runtime.models)
-    }
-
-    private static func makeExecutor(_ runtime: ToolRuntime) -> PendingRunExecutor {
-        let service = makeService(runtime)
-        return PendingRunExecutor(
-            service: service,
-            registry: runtime.registry,
-            commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
-            invocations: runtime.invocations
-        )
     }
 
     private static func loadPrompt(_ opts: Options) -> String {

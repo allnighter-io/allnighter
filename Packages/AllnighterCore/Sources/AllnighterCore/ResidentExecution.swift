@@ -11,6 +11,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     case panelDone(PanelDone)
     case sourceProbe(SourceProbe)
     case boostSeed(BoostSeed)
+    case pendingRun(PendingRun)
     case query(Query)
     case cancel(Cancel)
 
@@ -169,6 +170,17 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         }
     }
 
+    /// Runs a previously persisted Pending item. The client may create and
+    /// manage the item, but worker invocation and settlement belong to the
+    /// resident coordinator.
+    public struct PendingRun: Codable, Equatable, Sendable {
+        public var pendingItemId: String
+
+        public init(pendingItemId: String) {
+            self.pendingItemId = pendingItemId
+        }
+    }
+
     public struct Query: Codable, Equatable, Sendable {
         public enum Kind: String, Codable, Sendable {
             case health
@@ -200,7 +212,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     }
 
     public enum Kind: String, Codable, Sendable {
-        case teamRun, foregroundTeamRun, panelStart, panelRound, panelDone, sourceProbe, boostSeed, query, cancel
+        case teamRun, foregroundTeamRun, panelStart, panelRound, panelDone, sourceProbe, boostSeed, pendingRun, query, cancel
     }
 
     private enum CodingKeys: String, CodingKey { case type, payload }
@@ -214,6 +226,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         case .panelDone: return .panelDone
         case .sourceProbe: return .sourceProbe
         case .boostSeed: return .boostSeed
+        case .pendingRun: return .pendingRun
         case .query: return .query
         case .cancel: return .cancel
         }
@@ -229,6 +242,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         case .panelDone: self = .panelDone(try container.decode(PanelDone.self, forKey: .payload))
         case .sourceProbe: self = .sourceProbe(try container.decode(SourceProbe.self, forKey: .payload))
         case .boostSeed: self = .boostSeed(try container.decode(BoostSeed.self, forKey: .payload))
+        case .pendingRun: self = .pendingRun(try container.decode(PendingRun.self, forKey: .payload))
         case .query: self = .query(try container.decode(Query.self, forKey: .payload))
         case .cancel: self = .cancel(try container.decode(Cancel.self, forKey: .payload))
         }
@@ -245,6 +259,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         case let .panelDone(value): try container.encode(value, forKey: .payload)
         case let .sourceProbe(value): try container.encode(value, forKey: .payload)
         case let .boostSeed(value): try container.encode(value, forKey: .payload)
+        case let .pendingRun(value): try container.encode(value, forKey: .payload)
         case let .query(value): try container.encode(value, forKey: .payload)
         case let .cancel(value): try container.encode(value, forKey: .payload)
         }
@@ -371,10 +386,11 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
     case ownership(OwnershipPsJSON)
     case ownershipKill(OwnershipKillJSON)
     case utilizationSeed(UtilizationSeedEvent)
+    case pendingItem(PendingItem)
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum Kind: String, Codable {
-        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor, detection, ownership, ownershipKill, utilizationSeed
+        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor, detection, ownership, ownershipKill, utilizationSeed, pendingItem
     }
 
     public init(from decoder: Decoder) throws {
@@ -392,6 +408,7 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
         case .ownership: self = .ownership(try container.decode(OwnershipPsJSON.self, forKey: .payload))
         case .ownershipKill: self = .ownershipKill(try container.decode(OwnershipKillJSON.self, forKey: .payload))
         case .utilizationSeed: self = .utilizationSeed(try container.decode(UtilizationSeedEvent.self, forKey: .payload))
+        case .pendingItem: self = .pendingItem(try container.decode(PendingItem.self, forKey: .payload))
         }
     }
 
@@ -433,6 +450,9 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
             try container.encode(value, forKey: .payload)
         case let .utilizationSeed(value):
             try container.encode(Kind.utilizationSeed, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .pendingItem(value):
+            try container.encode(Kind.pendingItem, forKey: .type)
             try container.encode(value, forKey: .payload)
         }
     }

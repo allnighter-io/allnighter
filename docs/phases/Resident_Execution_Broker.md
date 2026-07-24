@@ -634,6 +634,10 @@ After cutover:
 - **Landed:** `alln kill` submits a typed cancel to the coordinator, including
   its existing scoped `--all` semantics; only the coordinator signals an owned
   process tree and writes its terminal truth.
+- **Landed:** `alln pending run` submits the persisted item ID to the resident;
+  the coordinator alone creates the worker invoker, settles the item, and
+  returns the existing Pending projection. The client remains responsible only
+  for local item management and presentation.
 - Remove readiness self-fusion containment.
 - Add queued/running truth and per-seat process ownership.
 - Fix answer snapshots to exclude ignored/untracked secrets.

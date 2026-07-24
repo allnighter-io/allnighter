@@ -207,6 +207,8 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 invocations: dependencies.invocations
             ).execute(sourceId: request.sourceId, settings: settings, force: true)
             try? rendezvous.accept(claim, canonicalId: request.sourceId, result: .utilizationSeed(result))
+        case .pendingRun(let request):
+            await runPending(request, claim: claim)
         case .query(let query) where query.kind == .health:
             try? rendezvous.accept(claim, canonicalId: claim.request.coordinatorId)
         case .query(let query) where query.kind == .runStatus:
@@ -288,6 +290,47 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 claim,
                 code: "RESIDENT_REQUEST_REJECTED",
                 message: "operation \(claim.request.operation.kind.rawValue) is not enabled by this broker slice"
+            )
+        }
+    }
+
+    private func runPending(
+        _ request: ResidentExecutionOperation.PendingRun,
+        claim: ResidentExecutionRendezvous.Claim
+    ) async {
+        let executor = PendingRunExecutor(
+            service: PendingService(store: PendingStore(), models: dependencies.models),
+            registry: dependencies.registry,
+            commandRunner: dependencies.commandRunner,
+            invocations: dependencies.invocations,
+            teams: TeamCatalog.all,
+            runStore: dependencies.runStore
+        )
+        do {
+            let item = try await executor.run(id: request.pendingItemId)
+            try? rendezvous.accept(claim, canonicalId: item.id, result: .pendingItem(item))
+        } catch let error as PendingServiceError {
+            let rejection: (String, String)
+            switch error {
+            case .notFound:
+                rejection = ("RUN_NOT_FOUND", "pending item not found: \(request.pendingItemId)")
+            case .invalidWorker(let detail):
+                rejection = ("MODEL_UNAVAILABLE", detail)
+            case .invalidState(let detail), .unsupportedKind(let detail):
+                rejection = ("CLI_USAGE_ERROR", detail)
+            case .reorderInvalid(let detail):
+                rejection = ("PENDING_REORDER_INVALID", detail)
+            case .mutationDeferred:
+                rejection = ("PENDING_MUTATION_DEFERRED", "mutating runs are outside Pending M1")
+            case .sourceGateBlocked(let blocker):
+                rejection = (blocker.code, blocker.message)
+            }
+            try? rendezvous.reject(claim, code: rejection.0, message: rejection.1)
+        } catch {
+            try? rendezvous.reject(
+                claim,
+                code: "RESIDENT_REQUEST_REJECTED",
+                message: "resident pending run failed: \(error.localizedDescription)"
             )
         }
     }
