@@ -122,7 +122,12 @@ public struct ResidentCoordinatorProbe: Sendable {
     }
 
     private static func countActiveObligations(runsDirectory: URL, panelsDirectory: URL) -> Int {
-        let activeRuns = RunStore(rootDirectory: runsDirectory).list().count { !$0.status.isTerminal }
+        // A vendor-backoff run is durable but unowned: it deliberately holds no
+        // worker, write lock, or coordinator process obligation. Counting it
+        // here strands every new install behind a vendor's usage window.
+        let activeRuns = RunStore(rootDirectory: runsDirectory).list().count {
+            !$0.status.isTerminal && $0.blocker?.resource != .vendorBackoff
+        }
         let activePanels = PanelStateStore(rootDirectory: panelsDirectory).list().count { $0.status == .running }
         return activeRuns + activePanels
     }
