@@ -21,6 +21,9 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
     public var idempotencyKey: String?
     /// Repo root for worker subprocess cwd. nil ⇒ ProbeScratch (chat-without-project).
     public var repoRoot: String?
+    /// Identifier of a verified host-supplied project mirror. When present, the
+    /// resident substitutes its owned workspace for `repoRoot` before launch.
+    public var projectMirrorId: String?
 
     public init(
         question: String,
@@ -35,7 +38,8 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
         originConversationId: String? = nil,
         originMessageId: String? = nil,
         idempotencyKey: String? = nil,
-        repoRoot: String? = nil
+        repoRoot: String? = nil,
+        projectMirrorId: String? = nil
     ) {
         self.question = question
         self.lane = lane
@@ -50,6 +54,7 @@ public struct AsyncTeamStartRequest: Codable, Sendable, Equatable {
         self.originMessageId = originMessageId
         self.idempotencyKey = idempotencyKey
         self.repoRoot = repoRoot
+        self.projectMirrorId = projectMirrorId
     }
 
     public var teamRequest: TeamRequest {

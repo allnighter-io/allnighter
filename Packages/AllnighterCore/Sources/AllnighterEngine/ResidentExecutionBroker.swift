@@ -169,9 +169,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         }
         switch claim.request.operation {
         case .teamRun(let request):
-            if let root = request.repoRoot,
-               let message = ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: root) {
-                try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: message)
+            guard let request = residentSafe(request: request, claim: claim) else {
                 return
             }
             guard let executable = dependencies.executablePath() else {
@@ -212,8 +210,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 try? rendezvous.reject(claim, code: refusal.code, message: refusal.message)
             }
         case .foregroundTeamRun(let request):
-            if let message = ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: request.repoRoot) {
-                try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: message)
+            guard let request = residentSafe(request: request, claim: claim) else {
                 return
             }
             await startForegroundRun(request, claim: claim)
@@ -385,6 +382,51 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 code: "RESIDENT_REQUEST_REJECTED",
                 message: "operation \(claim.request.operation.kind.rawValue) is not enabled by this broker slice"
             )
+        }
+    }
+
+    private func residentSafe(
+        request: AsyncTeamStartRequest,
+        claim: ResidentExecutionRendezvous.Claim
+    ) -> AsyncTeamStartRequest? {
+        guard let root = request.repoRoot,
+              ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: root) != nil else { return request }
+        guard let mirrorId = request.projectMirrorId else {
+            try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode,
+                                   message: "protected project execution needs a verified project mirror")
+            return nil
+        }
+        do {
+            let store = ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
+            _ = try ProjectMirrorMaterializer(store: store).verify(id: mirrorId)
+            var resolved = request
+            resolved.repoRoot = try store.workspaceDirectory(id: mirrorId).path
+            return resolved
+        } catch {
+            try? rendezvous.reject(claim, code: "PROJECT_MIRROR_INVALID", message: "project mirror is unavailable or changed: \(error)")
+            return nil
+        }
+    }
+
+    private func residentSafe(
+        request: ResidentExecutionOperation.ForegroundTeamRunRequest,
+        claim: ResidentExecutionRendezvous.Claim
+    ) -> ResidentExecutionOperation.ForegroundTeamRunRequest? {
+        guard ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: request.repoRoot) != nil else { return request }
+        guard let mirrorId = request.projectMirrorId else {
+            try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode,
+                                   message: "protected project execution needs a verified project mirror")
+            return nil
+        }
+        do {
+            let store = ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
+            _ = try ProjectMirrorMaterializer(store: store).verify(id: mirrorId)
+            var resolved = request
+            resolved.repoRoot = try store.workspaceDirectory(id: mirrorId).path
+            return resolved
+        } catch {
+            try? rendezvous.reject(claim, code: "PROJECT_MIRROR_INVALID", message: "project mirror is unavailable or changed: \(error)")
+            return nil
         }
     }
 

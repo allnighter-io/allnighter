@@ -120,6 +120,28 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         XCTAssertEqual(protectedReceipt.state, .rejected)
         XCTAssertEqual(protectedReceipt.rejection?.code, ResidentProjectAccessBoundary.refusalCode)
 
+        // A verified mirror is the only way a protected source root crosses
+        // the resident boundary. The request proceeds to normal Team
+        // validation (this fixture has no runnable Team) rather than failing
+        // at the project-access boundary.
+        let mirror = try ProjectMirrorMaterializer(
+            store: ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
+        ).materialize(.init(
+            id: "safe-mirror", dirtyFingerprint: "fixture",
+            entries: [.init(path: "README.md", data: Data("safe".utf8))]
+        ))
+        let mirroredTeam = try rendezvous.submit(
+            operation: .teamRun(.init(
+                question: "review", repoRoot: protectedRoot, projectMirrorId: mirror.id
+            )),
+            idempotencyKey: "mirrored-project",
+            requestId: "mirrored-project-request"
+        )
+        let mirroredMaybeReceipt = try await rendezvous.waitForReceipt(requestId: mirroredTeam.requestId)
+        let mirroredReceipt = try XCTUnwrap(mirroredMaybeReceipt)
+        XCTAssertEqual(mirroredReceipt.state, .rejected)
+        XCTAssertNotEqual(mirroredReceipt.rejection?.code, ResidentProjectAccessBoundary.refusalCode)
+
         // A source probe is coordinator-scoped. Letting a restricted caller
         // attach its repo path reintroduces the Documents-TCC prompt the broker
         // exists to prevent, even though no worker has been dispatched.

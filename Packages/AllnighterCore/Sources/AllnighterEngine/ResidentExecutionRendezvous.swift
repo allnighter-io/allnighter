@@ -65,6 +65,9 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     public var receipts: URL { root.appendingPathComponent("receipts", isDirectory: true) }
     public var events: URL { root.appendingPathComponent("events", isDirectory: true) }
     public var acceptance: URL { root.appendingPathComponent("acceptance", isDirectory: true) }
+    /// Client-writable, resident-validated project-byte handoff. It shares the
+    /// same canonical same-user rendezvous root, never Application Support.
+    public var projectMirrors: URL { root.appendingPathComponent("project-mirrors", isDirectory: true) }
     private var coordinatorLockFile: URL { root.appendingPathComponent("coordinator.lock") }
     private var identityFile: URL { root.appendingPathComponent("identity.json") }
     private var secretFile: URL { root.appendingPathComponent("client-proof.key") }
@@ -93,6 +96,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         try ensureDirectory(receipts)
         try ensureDirectory(events)
         try ensureDirectory(acceptance)
+        try ensureDirectory(projectMirrors)
         _ = try loadOrCreateSecret()
         let identity = Identity(
             coordinatorId: coordinatorId,

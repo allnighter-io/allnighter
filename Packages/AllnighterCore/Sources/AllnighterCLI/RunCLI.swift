@@ -131,9 +131,11 @@ enum RunCLI {
             )
         }
 
+        let mirrorId = captureProtectedProjectMirror(project)
         let request = ResidentExecutionOperation.ForegroundTeamRunRequest(
             message: message,
             repoRoot: project.normalizedRootPath,
+            projectMirrorId: mirrorId,
             projectId: project.id,
             presetId: opts.value("team"),
             workerId: opts.value("worker"),
@@ -247,6 +249,7 @@ enum RunCLI {
         runtime: ToolRuntime
     ) async {
         let idempotencyKey = opts.value("idempotency-key") ?? UUID().uuidString.lowercased()
+        let mirrorId = captureProtectedProjectMirror(project)
         let request = AsyncTeamStartRequest(
             question: message,
             lane: lane,
@@ -260,7 +263,8 @@ enum RunCLI {
             originConversationId: opts.value("conversation-id"),
             originMessageId: opts.value("message-id"),
             idempotencyKey: idempotencyKey,
-            repoRoot: project.normalizedRootPath
+            repoRoot: project.normalizedRootPath,
+            projectMirrorId: mirrorId
         )
         let rendezvous = ResidentExecutionRendezvous()
         do {
@@ -300,6 +304,28 @@ enum RunCLI {
         } catch {
             AllnighterCLI.emitFailure(code: "RESIDENT_REQUEST_REJECTED", message: "resident request failed: \(error)")
             exit(1)
+        }
+    }
+
+    /// Capture only when the resident would otherwise be forbidden from
+    /// opening the registered project. This happens in the caller's existing
+    /// project authority, then the resident receives an owned mirror id.
+    private static func captureProtectedProjectMirror(_ project: Project) -> String? {
+        guard ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: project.normalizedRootPath) != nil else {
+            return nil
+        }
+        let rendezvous = ResidentExecutionRendezvous()
+        do {
+            let store = ProjectMirrorStore(rootDirectory: rendezvous.projectMirrors)
+            let mirror = try ProjectMirrorCapture(
+                materializer: ProjectMirrorMaterializer(store: store)
+            ).capture(projectRoot: project.normalizedRootPath, projectId: project.id)
+            return mirror.id
+        } catch {
+            AllnighterCLI.fail(
+                code: "PROJECT_MIRROR_CAPTURE_FAILED",
+                message: "could not create the safe project mirror required for resident execution: \(error)"
+            )
         }
     }
 

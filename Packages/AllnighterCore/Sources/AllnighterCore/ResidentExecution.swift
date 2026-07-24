@@ -67,6 +67,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     public struct ForegroundTeamRunRequest: Codable, Equatable, Sendable {
         public var message: String
         public var repoRoot: String
+        public var projectMirrorId: String?
         public var projectId: String?
         public var presetId: String?
         public var workerId: String?
@@ -89,6 +90,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         public init(
             message: String,
             repoRoot: String,
+            projectMirrorId: String? = nil,
             projectId: String? = nil,
             presetId: String? = nil,
             workerId: String? = nil,
@@ -110,6 +112,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         ) {
             self.message = message
             self.repoRoot = repoRoot
+            self.projectMirrorId = projectMirrorId
             self.projectId = projectId
             self.presetId = presetId
             self.workerId = workerId
