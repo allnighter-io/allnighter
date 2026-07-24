@@ -54,6 +54,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         public var runStore: RunStore
         public var invocations: [String: ToolInvocation]
         public var readyModels: @Sendable () -> [Model]
+        public var commandRunner: CommandRunner
         public var executablePath: @Sendable () -> String?
         public var doctor: ResidentDoctorService
 
@@ -65,6 +66,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             runStore: RunStore = RunStore(),
             invocations: [String: ToolInvocation] = [:],
             readyModels: @escaping @Sendable () -> [Model],
+            commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
             executablePath: @escaping @Sendable () -> String? = ProcessOwnership.currentExecutablePath,
             doctor: ResidentDoctorService? = nil
         ) {
@@ -75,6 +77,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             self.runStore = runStore
             self.invocations = invocations
             self.readyModels = readyModels
+            self.commandRunner = commandRunner
             self.executablePath = executablePath
             self.doctor = doctor ?? ResidentDoctorService(models: models, registry: registry, binaryVersion: AllnighterVersionIdentity.binaryVersion)
         }
@@ -186,6 +189,23 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 let result = await dependencies.doctor.detect()
                 try? rendezvous.accept(claim, canonicalId: "setup-detect", result: .detection(result))
             }
+        case .boostSeed(let request):
+            guard dependencies.registry.manifest(id: request.sourceId) != nil else {
+                try? rendezvous.reject(claim, code: "UTILIZATION_SOURCE_NOT_FOUND", message: "unknown source: \(request.sourceId)")
+                return
+            }
+            let settings = BoostWindowSettingsPersistence().load()
+            guard settings.appliesToSet.contains(request.sourceId) else {
+                try? rendezvous.reject(claim, code: "UTILIZATION_SOURCE_UNCONFIGURED", message: "\(request.sourceId) is not in appliesTo")
+                return
+            }
+            let result = await UtilizationSeedExecutor(
+                models: dependencies.models,
+                registry: dependencies.registry,
+                commandRunner: dependencies.commandRunner,
+                invocations: dependencies.invocations
+            ).execute(sourceId: request.sourceId, settings: settings, force: true)
+            try? rendezvous.accept(claim, canonicalId: request.sourceId, result: .utilizationSeed(result))
         case .query(let query) where query.kind == .health:
             try? rendezvous.accept(claim, canonicalId: claim.request.coordinatorId)
         case .query(let query) where query.kind == .runStatus:

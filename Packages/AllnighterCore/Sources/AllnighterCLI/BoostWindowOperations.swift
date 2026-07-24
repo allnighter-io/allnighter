@@ -39,17 +39,39 @@ enum BoostWindowOperations {
         guard runtime.registry.manifest(id: sourceId) != nil else {
             throw Failure.envelope(utilizationError("UTILIZATION_SOURCE_NOT_FOUND", "unknown source: \(sourceId)"))
         }
-        let settings = persistence().load()
-        guard settings.appliesToSet.contains(sourceId) else {
-            throw Failure.envelope(utilizationError("UTILIZATION_SOURCE_UNCONFIGURED", "\(sourceId) is not in appliesTo"))
+        let rendezvous = ResidentExecutionRendezvous()
+        let event: UtilizationSeedEvent
+        do {
+            let submitted = try rendezvous.submit(
+                operation: .boostSeed(.init(sourceId: sourceId)),
+                idempotencyKey: "boost-seed-\(sourceId)-\(UUID().uuidString.lowercased())"
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(
+                requestId: submitted.requestId,
+                timeout: 130
+            ) else {
+                throw Failure.envelope(utilizationError(
+                    "RESIDENT_ACCEPT_TIMEOUT", "resident coordinator did not finish the Boost seed before timeout"
+                ))
+            }
+            if let rejection = receipt.rejection {
+                throw Failure.envelope(utilizationError(rejection.code, rejection.message))
+            }
+            guard case let .utilizationSeed(payload) = receipt.result else {
+                throw Failure.envelope(utilizationError(
+                    "RESIDENT_REQUEST_REJECTED", "resident coordinator returned an invalid Boost seed response"
+                ))
+            }
+            event = payload
+        } catch let error as Failure {
+            throw error
+        } catch ResidentExecutionRendezvous.Error.unavailable {
+            throw Failure.envelope(utilizationError(
+                "COORDINATOR_UNAVAILABLE", "resident coordinator is unavailable; enable it with `alln serve install`"
+            ))
+        } catch {
+            throw Failure.envelope(utilizationError("RESIDENT_REQUEST_REJECTED", "resident Boost seed request failed: \(error)"))
         }
-        let executor = UtilizationSeedExecutor(
-            models: runtime.models,
-            registry: runtime.registry,
-            commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
-            invocations: runtime.invocations
-        )
-        let event = await executor.execute(sourceId: sourceId, settings: settings, force: true)
         switch event.outcome {
         case .authRequired:
             throw Failure.envelope(utilizationError("UTILIZATION_AUTH_REQUIRED", event.rawSnippet ?? "auth required"))

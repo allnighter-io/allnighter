@@ -76,6 +76,15 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         XCTAssertEqual(foregroundReceipt.state, .rejected)
         XCTAssertEqual(foregroundReceipt.rejection?.code, "DEFAULT_TEAM_INVALID")
 
+        let boost = try rendezvous.submit(
+            operation: .boostSeed(.init(sourceId: "missing-source")),
+            idempotencyKey: "boost", requestId: "boost-request"
+        )
+        let boostMaybeReceipt = try await rendezvous.waitForReceipt(requestId: boost.requestId)
+        let boostReceipt = try XCTUnwrap(boostMaybeReceipt)
+        XCTAssertEqual(boostReceipt.state, .rejected)
+        XCTAssertEqual(boostReceipt.rejection?.code, "UTILIZATION_SOURCE_NOT_FOUND")
+
         let team = try rendezvous.submit(
             operation: .teamRun(.init(question: "hello", repoRoot: root.path)),
             idempotencyKey: "team", requestId: "team-request"
