@@ -718,7 +718,9 @@ public actor AsyncTeamService {
         // runner process serves exactly one run, then exits — no clear needed.
         ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: directory)
         ProcessOwnership.clearStageLease(in: directory)
-        try? ProcessOwnership.recordProgress(in: directory, phase: "runner_starting", now: now())
+        // Do not seed `heartbeat.json` for a runner handoff. That retired
+        // artifact records progress only; a process handoff is ownership, not
+        // worker output/transition. Durable phase/status truth is `run.json`.
 
         guard let resolvedRequest = resolveRequest(request) else {
             try? ProcessOwnership.writeRunnerReady(
@@ -775,7 +777,6 @@ public actor AsyncTeamService {
             .accepted(runId: runId, at: acceptedAt),
             in: directory
         )
-        try? ProcessOwnership.recordProgress(in: directory, phase: "accepted", now: acceptedAt)
 
         let (prompt, _) = assemblePrompt(request)
         launchInProcess(
