@@ -292,11 +292,20 @@ final class CoordinatorRunTests: XCTestCase {
 
 /// Deletes a temp root only when it is actually there.
 ///
-/// A bare `try? FileManager.removeItem(...)` in a `defer` is not inert: when the
-/// test body is already unwinding with an error, the failed remove replaces the
-/// real error with `NSCocoaErrorDomain 4 "couldn't be removed"`. That mask cost a
-/// full misdiagnosis (a "teardown race" that never existed) — the coordinator's
-/// actual `unsafePath` failure was invisible. Never reintroduce the bare form.
+/// A `try? FileManager.removeItem(...)` in a `defer` is not inert when it FAILS:
+/// if the test method is already unwinding with an error, the failed remove
+/// replaces the error XCTest reports with `NSCocoaErrorDomain 4 "couldn't be
+/// removed"`. Verified both ways in a standalone XCTest target: a remove that
+/// succeeds masks nothing, and an in-function `do/catch` still sees the original
+/// error — it is XCTest's *reported* error that gets replaced. That mask cost a
+/// full misdiagnosis here (a "teardown race" that never existed) while the real
+/// failure was the coordinator's `unsafePath`, thrown because the scoped
+/// rendezvous parent did not exist. Never reintroduce the unguarded form.
+///
+/// Cleanup itself is deliberately best-effort: a temp root that survives under
+/// `NSTemporaryDirectory()` is not a test failure, so the guarded remove still
+/// discards a genuine removal error. If that ever needs to be visible, report it
+/// from `addTeardownBlock`, which runs outside the error-propagation window.
 private func removeIfPresent(_ url: URL) {
     guard FileManager.default.fileExists(atPath: url.path) else { return }
     try? FileManager.default.removeItem(at: url)

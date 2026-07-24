@@ -138,13 +138,25 @@ final class ExecutionProofTests: XCTestCase {
 
     // MARK: - Exactly one worker
 
+    /// The law is one WORKER, not one vendor turn: live, the same single worker
+    /// also produces the plan stage, so `usage.cliCalls` is 2 with one seat. Assert
+    /// the roster and the ownership of every turn, never the turn count.
+    ///
+    /// Divergence worth knowing: `CatalogRunCoordinator` re-reads the preset from
+    /// the global `TeamCatalog`, which cannot see this injected team, so the plan
+    /// stage does not run here. The live gesture in
+    /// `scripts/code_red_works_test.sh` is what proves the stage-owner half.
     func testMutatingTeamResolvesToExactlyOneWorker() async throws {
         let repo = try makeGitRepo()
         let runner = ExecutingRunner(edits: false)
         let run = try await execute(service(runner: runner), repo: repo, id: "cr-s04-single-worker")
 
-        XCTAssertEqual(runner.spawns, 1,
-                       "a mutating Team dispatches exactly one worker, whatever its declared seat count")
+        XCTAssertEqual(run.workers.count, 1,
+                       "a mutating Team resolves to exactly one worker, whatever its declared seat count")
+        XCTAssertEqual(run.workerAnswers.count, 1, "one answer from the one executor")
+        let owners = Set(run.stages.compactMap(\.producedByWorkerId))
+        XCTAssertTrue(owners.isSubset(of: Set(run.workers.map(\.id))),
+                      "every stage belongs to the single selected worker; got \(owners)")
         XCTAssertTrue(run.mutating, "the run must keep its mutating shape")
         XCTAssertEqual(run.executionSourceId, "claude_code",
                        "the single CLI that owns execution is recorded on the run")

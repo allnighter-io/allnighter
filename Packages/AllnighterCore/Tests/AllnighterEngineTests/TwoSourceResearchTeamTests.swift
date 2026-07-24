@@ -86,17 +86,22 @@ final class TwoSourceResearchTeamTests: XCTestCase {
                               driverId: "codex", role: .both)
 
     /// crew seat -> codex, lead seat -> claude_code. Exactly two seats, two
-    /// distinct vendor CLIs, research (`mutating == false`).
+    /// distinct vendor CLIs, research (`mutating == false`). Mirrors the roster
+    /// `scripts/code_red_works_test.sh` registers for the live gesture — same
+    /// skills, same outputKind, same pinned models — so the two proofs describe
+    /// one team rather than two lookalikes.
     private func twoSourceTeam(id: String = "code_red_two_source",
                                crewSpecs: [TeamWorkerSpec]? = nil) -> TeamPreset {
         TeamPreset(
-            id: id, displayName: "Code Red Two Source", lane: .code, outputKind: .plan,
+            id: id, displayName: "Code Red Two Source", lane: .code, outputKind: .bugPacket,
             mutating: false,
             workerSpecs: crewSpecs ?? [
-                TeamWorkerSpec(id: "crew_codex", skillId: "bug_reproducer",
-                               purpose: .answer, preferredModelId: "model_chatgpt"),
+                TeamWorkerSpec(id: "bug_reproducer", skillId: "bug_reproducer",
+                               purpose: .answer, preferredModelId: "model_chatgpt",
+                               allowedModelIds: ["model_chatgpt"], fallbackPolicy: .exactOnly),
             ],
-            lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_opus"))
+            lead: TeamLeadSpec(skillId: "bug_packet_writer", preferredModelId: "model_opus",
+                               fallbackPolicy: .exactOnly))
     }
 
     private func service(
@@ -230,25 +235,70 @@ final class TwoSourceResearchTeamTests: XCTestCase {
         XCTAssertFalse(run.warnings.contains { $0.contains("research-write violation") })
     }
 
-    // MARK: - No substitution under pressure
+    // MARK: - An explicit roster ignores the rest of the bench
 
-    func testSelectedRosterSurvivesAStrongerReadyBenchMate() async throws {
+    /// Named for what it proves. An explicitly selected preset resolves each seat
+    /// from its own declaration, so a third ready model — even one placed first in
+    /// the default tier — is never consulted. It does NOT prove the auto-selection
+    /// substitution policy: `SubstitutionResolver` is reached only for the default
+    /// team route and for an explicit `--worker`, never for a `presetId` run, so
+    /// `allowHealthySubstitutions` is inert on this path by construction.
+    /// Reseat-on-failure is covered by `BenchReadinessAndSeatReseatTests`.
+    func testExplicitlySelectedRosterIgnoresOtherReadyBenchModels() async throws {
         let repo = try makeGitRepo()
         let recorder = SpawnRecorder()
-        // A third, perfectly healthy CLI sits on the bench and is first in the
-        // default tier. An explicitly selected roster must ignore it entirely.
         let grok = Model(id: "model_grok", displayName: "Grok", modelLabel: "grok",
                          driverId: "grok", role: .both)
         let svc = service(team: twoSourceTeam(), runner: recorder,
                           bench: [grok, claude, codex],
                           tiers: ["model_grok", "model_opus", "model_chatgpt"])
 
-        let run = try await research(svc, repo: repo, id: "cr-s03-no-substitution")
+        let run = try await research(svc, repo: repo, id: "cr-s03-explicit-roster")
 
         XCTAssertFalse(recorder.vendorNames().contains("grok"),
-                       "a healthy bench mate must never be substituted into a selected roster")
+                       "a ready bench mate must never appear in an explicitly selected roster")
         XCTAssertEqual(recorder.vendorNames().sorted(), ["claude", "codex"])
         XCTAssertEqual(Set(run.workers.map(\.modelId)), ["model_chatgpt", "model_opus"])
+        XCTAssertEqual(run.status, .complete, "the run reaches one terminal state")
+    }
+
+    /// The seat that goes DOWN is the one the packet cares about: a declared model
+    /// that is disabled must not be quietly re-seated onto another ready model.
+    /// `exactOnly` is what the live works-test roster pins, so prove it here.
+    func testDisabledDeclaredSeatIsNotReseatedOntoAnotherReadyModel() async throws {
+        let repo = try makeGitRepo()
+        let recorder = SpawnRecorder()
+        // The declared crew model is disabled; a same-vendor sibling and a
+        // different vendor are both ready and would be tempting substitutes.
+        let downCodex = Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+                              driverId: "codex", role: .both, enabled: false)
+        let siblingCodex = Model(id: "model_chatgpt_54", displayName: "ChatGPT 5.4",
+                                 modelLabel: "gpt-54", driverId: "codex", role: .both)
+        var team = twoSourceTeam(id: "code_red_two_source_exact")
+        team.workerSpecs[0].fallbackPolicy = .exactOnly
+        team.workerSpecs[0].allowedModelIds = ["model_chatgpt"]
+        team.lead.fallbackPolicy = .exactOnly
+
+        let svc = service(team: team, runner: recorder,
+                          bench: [downCodex, siblingCodex, claude],
+                          tiers: ["model_chatgpt_54", "model_opus"])
+        let result = await svc.run(
+            RunRequest(message: "research only", repoRoot: repo.path,
+                       presetId: "code_red_two_source_exact"),
+            origin: .cli, runId: "cr-s03-no-reseat")
+
+        // The run must fail CLOSED, naming the seat and the unavailable model —
+        // not quietly reseat and return a plausible answer from the wrong mind.
+        guard case .failure(let reason) = result else {
+            return XCTFail("a down exactOnly seat must fail closed, got: \(result)")
+        }
+        let text = String(describing: reason)
+        XCTAssertTrue(text.contains("exactOnly") && text.contains("model_chatgpt"),
+                      "the failure must name the policy and the unavailable model, got: \(text)")
+        XCTAssertTrue(recorder.vendorNames().isEmpty,
+                      "nothing may spawn once a required seat cannot resolve: \(recorder.vendorNames())")
+        XCTAssertFalse(text.contains("model_chatgpt_54"),
+                       "the sibling model must not appear anywhere in the outcome")
     }
 
     // MARK: - No roster collapse

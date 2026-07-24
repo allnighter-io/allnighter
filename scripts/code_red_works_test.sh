@@ -75,7 +75,7 @@ write_team_preset() {
       "requiredCapabilityTags" : [ ],
       "preferredCapabilityTags" : [ ],
       "count" : 1,
-      "fallbackPolicy" : "anyReady",
+      "fallbackPolicy" : "exactOnly",
       "required" : true,
       "triangulate" : false,
       "triangulatePreferenceIds" : [ ]
@@ -86,7 +86,7 @@ write_team_preset() {
     "preferredModelId" : "$CODE_RED_LEAD_MODEL",
     "fallbackModelIds" : [ ],
     "requiredCapabilityTags" : [ ],
-    "fallbackPolicy" : "anyReady",
+    "fallbackPolicy" : "exactOnly",
     "dissentPolicy" : "preserveDissent"
   }
 }
@@ -123,7 +123,7 @@ write_execution_preset() {
       "requiredCapabilityTags" : [ ],
       "preferredCapabilityTags" : [ ],
       "count" : 1,
-      "fallbackPolicy" : "anyReady",
+      "fallbackPolicy" : "exactOnly",
       "required" : true,
       "triangulate" : false,
       "triangulatePreferenceIds" : [ ]
@@ -134,7 +134,7 @@ write_execution_preset() {
     "preferredModelId" : "$CODE_RED_EXEC_MODEL",
     "fallbackModelIds" : [ ],
     "requiredCapabilityTags" : [ ],
-    "fallbackPolicy" : "anyReady",
+    "fallbackPolicy" : "exactOnly",
     "dissentPolicy" : "preserveDissent"
   }
 }
@@ -254,10 +254,12 @@ sys.exit(0 if ok else 1)
     AFTER_HEAD="$(git -C "$FIXTURE" rev-parse HEAD)"
     AFTER_PORCELAIN="$(git -C "$FIXTURE" status --porcelain)"
 
-    python3 - "$RUN_JSON" "$RUN_EXIT" "$FIXTURE_HEAD" "$AFTER_HEAD" "$FIXTURE" "$OBSERVED" <<'PY'
+    python3 - "$RUN_JSON" "$RUN_EXIT" "$FIXTURE_HEAD" "$AFTER_HEAD" "$FIXTURE" "$OBSERVED" \
+      "$SENTINEL" "$CODE_RED_CREW_MODEL" "$CODE_RED_LEAD_MODEL" <<'PY'
 import json, os, sys
 
-run_json, run_exit, before_head, after_head, fixture, observed = sys.argv[1:7]
+(run_json, run_exit, before_head, after_head, fixture, observed,
+ sentinel, crew_model, lead_model) = sys.argv[1:10]
 missing = []
 
 def check(ok, why):
@@ -286,22 +288,47 @@ sources = sorted(w.get("sourceId", "") for w in workers)
 check(len(workers) == 2, f"expected 2 workers, got {len(workers)}: {sources}")
 check(len(set(sources)) == 2, f"expected 2 DISTINCT sources, got {sources}")
 check(d.get("usage", {}).get("cliCalls") == 2, f"cliCalls {d.get('usage', {}).get('cliCalls')}")
-subs = [w.get("message", "") for w in d.get("warnings", []) if "substitut" in w.get("message", "").lower()]
+
+# Identity, not just vendor: a within-vendor reseat (e.g. opus -> sonnet on
+# claude_code) keeps `sourceId` and would pass every check above, so assert the
+# exact configured model ids. The seats are `exactOnly`, so any reseat is a bug.
+model_ids = sorted(w.get("modelId", "") for w in workers)
+check(model_ids == sorted([crew_model, lead_model]),
+      f"roster was reseated: expected {sorted([crew_model, lead_model])}, ran {model_ids}")
+# The real resolver wording, not a guessed substring (TeamResolver emits
+# "<skill>: preferred <X> unavailable; resolved to <Y>.").
+subs = [w.get("message", "") for w in d.get("warnings", [])
+        if "unavailable; resolved to" in w.get("message", "")
+        or "substitut" in w.get("message", "").lower()]
 check(not subs, f"substitution warning(s): {subs}")
 
 # Separately attributed, non-empty answers: the crew seat as its own answer, the
 # Lead as the run's answer. Each must be real text from its own source.
 crew_workers = [w for w in workers if w.get("purpose") == "answer"]
 check(len(crew_workers) >= 1, "no crew answer seat in the roster")
+
+# "Both read .git, HEAD, and the committed sentinel" is an assertion, not a
+# human reading the transcript: each seat's text must cite the fixture's own
+# root, its exact HEAD, and its unique sentinel. A seat that never opened the
+# repository — or hallucinated — cannot produce these three strings.
+def cites_the_fixture(text, who):
+    check(fixture in text or os.path.realpath(fixture) in text,
+          f"{who} never cites the canonical root {fixture}")
+    check(before_head[:12] in text, f"{who} never cites the fixture HEAD {before_head[:12]}")
+    check(sentinel in text, f"{who} never cites the committed sentinel {sentinel}")
+
 for w in crew_workers:
     mine = [a for a in answers if a.get("workerId") == w.get("id")]
     check(bool(mine), f"no answer attributed to {w.get('id')} ({w.get('sourceId')})")
     for a in mine:
         check(a.get("status") == "done", f"{w.get('sourceId')} answer status {a.get('status')}")
-        check(bool((a.get("markdown") or "").strip()), f"{w.get('sourceId')} returned an empty answer")
+        text = (a.get("markdown") or "").strip()
+        check(bool(text), f"{w.get('sourceId')} returned an empty answer")
+        cites_the_fixture(text, w.get("sourceId"))
 
 lead_text = ((d.get("answer") or {}).get("markdown") or "")
 check(bool(lead_text.strip()), "the Lead seat returned no output")
+cites_the_fixture(lead_text, "the Lead seat")
 
 # The two seats must be the two distinct CLIs the team selected.
 by_purpose = {w.get("purpose"): w.get("sourceId") for w in workers}
@@ -324,12 +351,16 @@ if journal and os.path.exists(journal):
     check(os.path.realpath(jd.get("repoRoot") or "") == os.path.realpath(fixture),
           f"journal repoRoot {jd.get('repoRoot')} != fixture {fixture}")
 
-# Live process evidence for BOTH selected vendors.
-seen = open(observed).read()
+# Live process evidence for BOTH selected vendors. Match the command column
+# exactly — a substring sweep over the whole ps dump would accept any unrelated
+# descendant whose path merely contains the vendor name.
+commands = {line.split("\t")[-1].strip().lstrip("(").rstrip(")").rsplit("/", 1)[-1]
+            for line in open(observed) if line.strip()}
 for source in set(sources):
     vendor = {"claude_code": "claude", "codex": "codex", "cursor_agent": "cursor",
               "grok": "grok", "antigravity": "agy"}.get(source, source)
-    check(vendor in seen, f"no live process observed for {source} (expected '{vendor}')")
+    check(vendor in commands,
+          f"no live process observed for {source} (expected command '{vendor}'; saw {sorted(commands)})")
 
 print(json.dumps({
     "status": "GREEN" if not missing else "RED",
@@ -426,12 +457,22 @@ check(team_run.get("writePolicy") == "mutating", f"writePolicy {team_run.get('wr
 check(d.get("researchGitObservation") is None,
       "an execution run must report repoDelta, not the research observation")
 
-# Exactly one selected worker.
+# Exactly one selected worker. The packet's law is one WORKER, not one vendor
+# turn: `usage.cliCalls` counts answer turns plus the plan stage, and that plan
+# stage is a second turn BY THE SAME worker. So assert the roster is one seat and
+# that every turn belongs to it — which is what "one CLI owns execution" means.
 check(len(workers) == 1, f"expected exactly 1 worker, got {[w.get('sourceId') for w in workers]}")
-check(d.get("usage", {}).get("cliCalls") == 1, f"cliCalls {d.get('usage', {}).get('cliCalls')}")
 if workers:
-    check(workers[0].get("sourceId") == exec_source,
-          f"execution ran on {workers[0].get('sourceId')}, not the selected {exec_source}")
+    only = workers[0]
+    check(only.get("sourceId") == exec_source,
+          f"execution ran on {only.get('sourceId')}, not the selected {exec_source}")
+    check(len(d.get("workerAnswers", [])) == 1,
+          f"expected one answer from the single executor, got {len(d.get('workerAnswers', []))}")
+    stage_owners = {s.get("producedByWorkerId") for s in d.get("stages", []) if s.get("producedByWorkerId")}
+    check(stage_owners <= {only.get("id")},
+          f"a stage was produced by someone other than the single executor: {stage_owners}")
+    check(d.get("usage", {}).get("cliCalls", 0) <= 2,
+          f"cliCalls {d.get('usage', {}).get('cliCalls')} — one executor turn plus at most its own plan stage")
 
 # The change exists exactly once, in the fixture's real working tree, and nowhere else.
 check(int(sentinel_hits) == 1, f"sentinel.txt contains the proof line {sentinel_hits} times, expected exactly 1")
@@ -449,10 +490,14 @@ if delta is not None:
     files = delta.get("files") or []
     check(files in ([], ["sentinel.txt"]), f"repoDelta files {files}")
 
-# Live process evidence for the one selected vendor.
+# Live process evidence for the one selected vendor, matched on the command
+# column rather than anywhere in the ps dump.
+commands = {line.split("\t")[-1].strip().lstrip("(").rstrip(")").rsplit("/", 1)[-1]
+            for line in open(observed) if line.strip()}
 vendor = {"claude_code": "claude", "codex": "codex", "cursor_agent": "cursor",
           "grok": "grok", "antigravity": "agy"}.get(exec_source, exec_source)
-check(vendor in open(observed).read(), f"no live process observed for {exec_source} (expected '{vendor}')")
+check(vendor in commands,
+      f"no live process observed for {exec_source} (expected command '{vendor}'; saw {sorted(commands)})")
 
 print(json.dumps({
     "status": "GREEN" if not missing else "RED",
@@ -472,6 +517,13 @@ if missing:
     print("code-red: EXECUTION PROOF RED — " + "; ".join(missing), file=sys.stderr)
     sys.exit(1)
 PY
+
+    # The fixture is disposable, so its project registration must not accumulate
+    # in the founder's real catalog run after run. Archive (never delete) the one
+    # this run created; the two works-test teams are reused, not recreated.
+    "$ALLN" project archive "$PROJECT_ID" --json > "$WORK/project-archive.json" 2>/dev/null \
+      && echo "code-red: archived fixture project $PROJECT_ID" \
+      || echo "code-red: NOTE — could not archive fixture project $PROJECT_ID; archive it by hand" >&2
 
     echo "code-red live-direct: GREEN — two distinct authenticated CLIs answered from the canonical"
     echo "  fixture unchanged, then one selected CLI made exactly the requested real edit there"
