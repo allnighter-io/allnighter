@@ -263,6 +263,10 @@ public enum MenuSelectionCopy {
             useWhen: "ChatGPT 5.6 Sol via Codex (default Sol)",
             dontUseWhen: "Not Cursor Sol — that is model_chatgpt_sol"
         ),
+        "model_chatgpt_terra": Pair(
+            useWhen: "ChatGPT 5.6 Terra via Codex (medium seat)",
+            dontUseWhen: "Not Sol — prefer model_chatgpt for Sol"
+        ),
         "model_chatgpt_54": Pair(
             useWhen: "ChatGPT 5.4 via Codex (non-Sol)",
             dontUseWhen: "Not Sol — prefer model_chatgpt for Sol"

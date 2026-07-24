@@ -32,10 +32,12 @@ final class ModelCatalogTests: XCTestCase {
     func testBuiltInsDefaultEnabledOnFreshInstall() {
         let registry = testRegistry()
         let models = ModelCatalog.resolvedModels(registry: registry)
-        // Fable, Opus, Sonnet 5, ChatGPT 5.6 (Codex), Grok 4.5, Kimi K3, Cursor Auto,
-        // Composer 2.5, Cursor Grok 4.5, Gemini Flash.
+        // Fable, Opus, Sonnet 5, ChatGPT 5.6 Sol (Codex), ChatGPT 5.6 Terra (Codex),
+        // Grok 4.5, Kimi K3, Cursor Auto, Composer 2.5, Cursor Grok 4.5, Gemini Flash.
         // Cursor Sol + Antigravity Opus stay default-off.
-        XCTAssertEqual(models.filter(\.enabled).count, 10)
+        // Terra medium seat was added default-on in eff7d44e (models: add Codex Terra
+        // medium seat), taking the fresh-install count 10 → 11.
+        XCTAssertEqual(models.filter(\.enabled).count, 11)
         XCTAssertFalse(models.first { $0.id == "model_agy_opus" }?.enabled ?? true)
         XCTAssertTrue(models.first { $0.id == "model_fable" }?.enabled ?? false)
         XCTAssertFalse(models.first { $0.id == "model_chatgpt_sol" }?.enabled ?? true,
