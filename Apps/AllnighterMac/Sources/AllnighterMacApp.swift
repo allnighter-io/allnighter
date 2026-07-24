@@ -116,6 +116,10 @@ struct AllnighterMacApp: App {
                 .frame(minWidth: 1100, minHeight: 720)
                 .task {
                     await remoteAccount.bootstrap()
+                    // Lets Allnighter work from inside a sandboxed terminal: that
+                    // caller can't start your AI tools, so it leaves the request
+                    // here and the app runs it. See SandboxHandoffHost.
+                    SandboxHandoffHost.shared.start()
                 }
         }
         .windowResizability(.contentMinSize)

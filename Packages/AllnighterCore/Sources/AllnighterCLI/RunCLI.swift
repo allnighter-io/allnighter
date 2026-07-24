@@ -228,7 +228,15 @@ enum RunCLI {
             return
         }
 
-        let result = await service.run(request, origin: .cli, originAgent: opts.value("agent"))
+        var result = await service.run(request, origin: .cli, originAgent: opts.value("agent"))
+        // Inside a sandboxed terminal the vendor CLIs cannot sign in, so the run
+        // comes back with every seat failed. Hand it to the Allnighter app, which
+        // is not sandboxed, and wait for the answer here. Same run id, same
+        // journal — the caller never leaves this terminal.
+        if case .success(let run) = result,
+           let handed = await SandboxHandoff.runInApp(failedRun: run, request: request) {
+            result = .success(handed)
+        }
         switch result {
         case .failure(let error):
             AllnighterCLI.emitFailure(code: error.code, message: error.description)
