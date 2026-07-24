@@ -1147,6 +1147,46 @@ Missing assertion: the CR-S05 works test cannot pass from Codex until fork A or 
 Next deletion: on fork A, delete resident run routing outright and proceed to CR-S06
 ```
 
+### CR-S06 execution plan — 2026-07-24 (measured, not estimated)
+
+CR-S05 closed with **no transport**, so this is a total deletion, not a
+reduction to one operation. Measured scope from `scripts/code_red_metrics.sh`
+and a reference sweep at tip `9559f198`:
+
+```text
+resident production LOC        2,143   across 5 files
+resident operation cases          13
+source files referencing them    ~25   (ResidentCoordinator 11, Rendezvous 9, Probe 7, Operation 6, Broker 2)
+test files referencing them        7
+```
+
+Ordered so the tree compiles and the suite stays green after every step — each
+step is its own commit:
+
+1. `ResidentExecutionBroker` (only 2 referencing files — the most isolated).
+2. `ResidentExecution.swift` and the 13 `ResidentExecutionOperation` cases,
+   plus the `~25 try?` swallowed broker replies that live with them.
+3. `ResidentExecutionRendezvous` and its tests.
+4. `ResidentCoordinator`, `ResidentCoordinatorProbe`, `alln serve` and its
+   install/status/drain surfaces, and the Mac app's coordinator-health readouts.
+5. Regenerate contracts via `alln dev export-contracts` (never by hand) and
+   remove the retired help topics; add them to the living-doc deny-list.
+6. Re-run the metrics script and assert the tripwires: resident LOC 0,
+   operation cases 0, forbidden concepts 0.
+
+**Open founder question this slice must answer first.** The seven skipped
+two-process tests exercise `alln run --detach`, and detached execution was a
+resident capability. With resident deleted there is nothing for them to test,
+so "un-skip them" is not achievable as written. The honest choices are (a)
+delete those seven tests along with the feature they describe, or (b) keep
+`--detach` as a non-resident capability and reimplement it, which is new work
+outside this packet. The CR-S06 closeout cannot claim green until one is chosen.
+
+**Note on sequencing.** This deletion is mechanical but wide, and the incident
+this packet exists to repair was itself produced by wide changes made under
+time pressure. It should be executed in one focused pass with the wall run
+between steps — not squeezed into the tail of a long session.
+
 ### CR-S06 — Delete the abandoned control plane
 
 - delete all resident operations except the proven foreground `run` operation,
