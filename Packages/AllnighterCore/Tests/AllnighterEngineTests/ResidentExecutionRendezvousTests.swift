@@ -43,6 +43,21 @@ final class ResidentExecutionRendezvousTests: XCTestCase {
         XCTAssertEqual(stored.state, receipt.state)
     }
 
+    func testCoordinatorEventIsAvailableToRestrictedClientByCursor() throws {
+        let (root, rendezvous) = makeRendezvous()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try prepare(rendezvous)
+        try rendezvous.appendEvent(
+            requestId: "request-a",
+            runEvent: .init(id: "event-a", seq: 1, ts: Date(), kind: RunEventKind.workerAnswerDelta)
+        )
+        let events = try rendezvous.eventsAfter(requestId: "request-a")
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events.first?.sequence, 1)
+        XCTAssertEqual(events.first?.runEvent?.id, "event-a")
+        XCTAssertTrue(try rendezvous.eventsAfter(requestId: "request-a", sequence: 1).isEmpty)
+    }
+
     func testSameIdempotencyKeyReplaysCanonicalIdAndDifferentPayloadConflicts() throws {
         let (root, rendezvous) = makeRendezvous()
         defer { try? FileManager.default.removeItem(at: root) }

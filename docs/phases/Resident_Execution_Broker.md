@@ -1,6 +1,6 @@
 # Resident Execution Broker — One Spawn Path for Every CLI
 
-Status: **Implementation in progress — REB-S01 landed; REB-S02 routes non-stream `alln run`, `alln run --detach`, and `alln team status/result` through the resident authority. REB-S03 routes the complete Panel lifecycle (start/round/status/watch/done) and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, including a scoped LaunchAgent and preserved CLI PATH. Live event routing (`--stream`/`--try-fix`), restart/drain compatibility, and the host matrix remain.**
+Status: **Implementation in progress — REB-S01 landed; REB-S02 routes `alln run`, `alln run --detach`, streamed run events, and `alln team status/result` through the resident authority. REB-S03 routes the complete Panel lifecycle (start/round/status/watch/done) and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, including a scoped LaunchAgent and preserved CLI PATH. Try Fix follow-up routing, restart/drain compatibility, and the host matrix remain.**
 Owner: AllnighterCore + `alln serve` + CLI
 Updated: 2026-07-23 (REB-S04 installation path landed; activation requires explicit user consent)
 Supersedes: the resident execution boundary in archived
@@ -604,6 +604,9 @@ After cutover:
 
 - Move production Team worker execution behind resident acceptance.
 - Make `alln run` submit, stream, and render the existing TeamRunJSON.
+  **Landed:** the resident projects `RunEvent` values into a cursor-ordered,
+  client-readable rendezvous channel; `alln run --stream` renders those NDJSON
+  events and the terminal TeamRunJSON without client-owned source execution.
 - Make coordinator process ownership and per-source queues authoritative.
 - Delete the direct-spawn path **for the Team-run surface only**, gated on the
   REB-S01 restricted-client writability proof. Panel rounds and doctor/setup

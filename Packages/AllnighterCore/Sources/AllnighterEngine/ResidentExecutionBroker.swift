@@ -434,6 +434,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
     ) async {
         let runId = UUID().uuidString.lowercased()
         let completion = ForegroundRunCompletion()
+        let requestId = claim.request.requestId
         let runRequest = RunRequest(
             message: request.message,
             repoRoot: request.repoRoot,
@@ -457,12 +458,21 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         )
         let service = dependencies.runService
         let tasks = foregroundTasks
+        var continuation: AsyncStream<RunEvent>.Continuation?
+        let eventStream = AsyncStream<RunEvent> { continuation = $0 }
+        let rendezvous = rendezvous
+        let eventPump = Task {
+            for await event in eventStream {
+                try? rendezvous.appendEvent(requestId: requestId, runEvent: event)
+            }
+        }
         let task = Task {
             let result = await service.run(
-                runRequest, origin: .cli, originAgent: request.originAgent, runId: runId
+                runRequest, origin: .cli, originAgent: request.originAgent, runId: runId, events: continuation
             )
             await completion.finish(result)
             tasks.remove(runId: runId)
+            _ = eventPump
         }
         foregroundTasks.insert(task, runId: runId)
 

@@ -124,10 +124,10 @@ enum RunCLI {
         // These chains have no resident event/reply contract yet. Failing closed
         // is intentional: falling back to a caller-owned vendor spawn would
         // recreate the sandbox bug this broker exists to remove.
-        if opts.flag("try-fix") || opts.flag("stream") {
+        if opts.flag("try-fix") {
             AllnighterCLI.fail(
                 code: "RESIDENT_REQUEST_REJECTED",
-                message: "--try-fix and --stream are awaiting resident event routing; direct foreground execution is disabled"
+                message: "--try-fix is awaiting resident follow-up routing; direct foreground execution is disabled"
             )
         }
 
@@ -153,20 +153,23 @@ enum RunCLI {
             retryOf: opts.value("retry-of"),
             acceptSurvivors: opts.flag("accept-survivors")
         )
-        await runForegroundThroughResident(request, json: opts.flag("json"))
+        await runForegroundThroughResident(request, json: opts.flag("json"), stream: opts.flag("stream"))
     }
 
     private static func runForegroundThroughResident(
         _ request: ResidentExecutionOperation.ForegroundTeamRunRequest,
-        json: Bool
+        json: Bool,
+        stream: Bool = false
     ) async {
         let rendezvous = ResidentExecutionRendezvous()
         let runId: String
+        let requestId: String
         do {
             let submitted = try rendezvous.submit(
                 operation: .foregroundTeamRun(request),
                 idempotencyKey: request.idempotencyKey ?? UUID().uuidString.lowercased()
             )
+            requestId = submitted.requestId
             guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
                 AllnighterCLI.fail(
                     code: "RESIDENT_ACCEPT_TIMEOUT",
@@ -192,7 +195,14 @@ enum RunCLI {
             AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident run request failed: \(error)")
         }
 
+        var eventCursor = 0
         while true {
+            if stream, let events = try? rendezvous.eventsAfter(requestId: requestId, sequence: eventCursor) {
+                for event in events {
+                    print(AllnighterCLI.jsonLine(event))
+                    eventCursor = max(eventCursor, event.sequence)
+                }
+            }
             let receipt = await AllnighterCLI.residentTeamQuery(.runStatus, runId: runId)
             guard case let .teamStatus(status) = receipt.result else {
                 AllnighterCLI.fail(
@@ -211,7 +221,12 @@ enum RunCLI {
                 message: "resident coordinator did not return a terminal foreground result"
             )
         }
-        if json {
+        if stream {
+            if let events = try? rendezvous.eventsAfter(requestId: requestId, sequence: eventCursor) {
+                for event in events { print(AllnighterCLI.jsonLine(event)) }
+            }
+            print(AllnighterCLI.jsonLine(result))
+        } else if json {
             print(AllnighterCLI.jsonString(result))
         } else {
             print(result.answer?.markdown ?? "(run \(result.teamRun.status.rawValue))")

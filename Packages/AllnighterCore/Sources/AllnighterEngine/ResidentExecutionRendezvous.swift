@@ -50,6 +50,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     public var inbox: URL { root.appendingPathComponent("inbox", isDirectory: true) }
     public var claimed: URL { root.appendingPathComponent("claimed", isDirectory: true) }
     public var receipts: URL { root.appendingPathComponent("receipts", isDirectory: true) }
+    public var events: URL { root.appendingPathComponent("events", isDirectory: true) }
     public var acceptance: URL { root.appendingPathComponent("acceptance", isDirectory: true) }
     private var identityFile: URL { root.appendingPathComponent("identity.json") }
     private var secretFile: URL { root.appendingPathComponent("client-proof.key") }
@@ -67,6 +68,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         try ensureDirectory(inbox)
         try ensureDirectory(claimed)
         try ensureDirectory(receipts)
+        try ensureDirectory(events)
         try ensureDirectory(acceptance)
         _ = try loadOrCreateSecret()
         let identity = Identity(
@@ -224,6 +226,44 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         return try receipt(requestId: requestId)
     }
 
+    /// Appends one coordinator-owned progress event. One accepted foreground run
+    /// has one producer, so an ordered file cursor is sufficient and remains
+    /// readable to a restricted client without journal access.
+    public func appendEvent(requestId: String, runEvent: RunEvent, at date: Date = Date()) throws {
+        try validateCoordinatorSurface()
+        let prefix = "\(safeIdentifier(requestId))-"
+        let existing = try fileManager.contentsOfDirectory(at: events, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix(prefix) && $0.pathExtension == "json" }
+        let sequence = existing.count + 1
+        let event = ResidentExecutionEvent(
+            requestId: requestId,
+            sequence: sequence,
+            state: .running,
+            emittedAt: date,
+            message: runEvent.kind,
+            runEvent: runEvent
+        )
+        try atomicCreate(
+            CoreJSON.encode(event),
+            at: events.appendingPathComponent("\(prefix)\(String(format: "%08d", sequence)).json"),
+            mode: 0o600
+        )
+    }
+
+    public func eventsAfter(requestId: String, sequence: Int = 0) throws -> [ResidentExecutionEvent] {
+        try validateClientSurface()
+        try validateDirectory(events)
+        let prefix = "\(safeIdentifier(requestId))-"
+        return try fileManager.contentsOfDirectory(at: events, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix(prefix) && $0.pathExtension == "json" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            .compactMap { url in
+                try validateExistingFile(url, mode: 0o600)
+                return try CoreJSON.decode(ResidentExecutionEvent.self, from: Data(contentsOf: url))
+            }
+            .filter { $0.sequence > sequence }
+    }
+
     public func verify(_ request: ResidentExecutionRequest) throws {
         let identity = try currentIdentity()
         guard request.schemaVersion == 1 else { throw Error.unsupportedSchema(request.schemaVersion) }
@@ -299,6 +339,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         try validateDirectory(root)
         try validateDirectory(inbox)
         try validateDirectory(receipts)
+        try validateDirectory(events)
     }
 
     private func validateCoordinatorSurface() throws {

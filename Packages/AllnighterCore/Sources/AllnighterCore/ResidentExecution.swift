@@ -444,12 +444,23 @@ public struct ResidentExecutionEvent: Codable, Equatable, Sendable {
     public var state: State
     public var emittedAt: Date
     public var message: String?
+    /// Existing run event projected through the sandbox-safe rendezvous. Nil
+    /// for non-run broker lifecycle notices.
+    public var runEvent: RunEvent?
 
-    public init(requestId: String, sequence: Int, state: State, emittedAt: Date, message: String? = nil) {
+    public init(
+        requestId: String,
+        sequence: Int,
+        state: State,
+        emittedAt: Date,
+        message: String? = nil,
+        runEvent: RunEvent? = nil
+    ) {
         self.requestId = requestId
         self.sequence = sequence
         self.state = state
         self.emittedAt = emittedAt
         self.message = message
+        self.runEvent = runEvent
     }
 }
