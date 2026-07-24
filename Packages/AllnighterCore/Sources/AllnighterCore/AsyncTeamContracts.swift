@@ -232,6 +232,35 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     }
 }
 
+/// Explicit, read-only projection of a durable Team journal. This is never a
+/// substitute for the resident's live lifecycle answer: callers must opt in
+/// with `team status --persisted`, and the envelope makes the observation's
+/// source and possible staleness machine-visible.
+public struct PersistedTeamStatusResponse: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var source: String
+    public var live: Bool
+    public var eventSequence: Int64
+    public var observedAt: Date
+    public var status: TeamStatusResponse
+
+    public init(
+        schemaVersion: Int = 1,
+        source: String = "journal",
+        live: Bool = false,
+        eventSequence: Int64,
+        observedAt: Date = Date(),
+        status: TeamStatusResponse
+    ) {
+        self.schemaVersion = schemaVersion
+        self.source = source
+        self.live = live
+        self.eventSequence = eventSequence
+        self.observedAt = observedAt
+        self.status = status
+    }
+}
+
 /// Target for `team status --wait-for` (PO-F3 / RLR-L3). Lifecycle states only
 /// (`queued|running|done|failed|timedOut|cancelled`) plus the aggregate
 /// `terminal` alias (any `RunLifecycle.isTerminal`).

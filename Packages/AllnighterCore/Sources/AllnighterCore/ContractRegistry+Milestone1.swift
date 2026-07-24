@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "3.3.0"
+    static let contractVersion = "3.4.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -314,13 +314,15 @@ public extension ContractRegistry {
             exampleIds: ["skills_delete_json"]
         ),
         CommandSpec(
-            "team status", summary: "Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).", milestone: .m1,
+            "team status", summary: "Poll resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).", milestone: .m1,
             args: [ArgSpec("run-id", required: true, summary: "The run id from `alln run --detach`.")],
             flags: [
                 FlagSpec("json", summary: "Structured TeamStatusResponse."),
+                FlagSpec("persisted", summary: "Read the durable journal only. Returns PersistedTeamStatusResponse with source=journal, live=false, eventSequence, and observedAt; cannot establish worker liveness."),
                 FlagSpec("wait-for", takesValue: true, valueType: "state", summary: "Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`."),
                 FlagSpec("timeout", takesValue: true, valueType: "seconds", summary: "Max seconds to wait when --wait-for is set (required with --wait-for). Exit 3 (timeout) if the target is not reached."),
             ],
+            mutuallyExclusiveFlags: [["persisted", "wait-for"], ["persisted", "timeout"]],
             outputSchema: .teamStatusResponse
         ),
         CommandSpec(

@@ -1265,14 +1265,42 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln team status <run-id> --json [--wait-for <state> --timeout <seconds>]`
+    /// `alln team status <run-id> --json [--persisted | --wait-for <state> --timeout <seconds>]`
     /// Plain status is a single snapshot. With `--wait-for`, blocks in-process
     /// until the target (or a non-matching terminal) or timeout (PO-F3).
     static func runTeamStatus(_ args: [String]) async {
         let opts = Options(args)
         guard opts.flag("json"), let runId = opts.positional.first else {
-            FileHandle.standardError.write(Data("usage: alln team status <run-id> --json [--wait-for <state> --timeout <seconds>]\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln team status <run-id> --json [--persisted | --wait-for <state> --timeout <seconds>]\n".utf8))
             exit(ExitCode.usageError)
+        }
+
+        if opts.flag("persisted") {
+            let store = RunStore()
+            let run: TeamRun
+            switch store.loadRawResult(runId: runId) {
+            case .success(.some(let value)):
+                run = value
+            case .success(.none), .failure:
+                // Explicitly requested journal access still distinguishes a
+                // missing/corrupt journal through the standard typed error.
+                failRunNotFound(runId, "no persisted run matches \(runId)", in: store)
+            }
+            let sequence: Int64
+            do {
+                sequence = try RemoteRunEventJournal().events(forRunId: runId).last?.seq ?? 0
+            } catch {
+                fail(
+                    code: "JOURNAL_CORRUPT",
+                    message: "persisted event journal for \(runId) could not be read: \(error)",
+                    supportDir: effectiveSupportDir()
+                )
+            }
+            print(jsonString(PersistedTeamStatusResponse(
+                eventSequence: sequence,
+                status: AsyncTeamStatusMapper.statusResponse(for: run)
+            )))
+            return
         }
 
         let waitRaw = opts.value("wait-for")

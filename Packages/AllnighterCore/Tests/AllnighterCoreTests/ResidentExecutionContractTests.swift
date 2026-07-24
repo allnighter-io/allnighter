@@ -66,4 +66,22 @@ final class ResidentExecutionContractTests: XCTestCase {
             XCTAssertEqual(decoded, operation)
         }
     }
+
+    func testPersistedStatusIsExplicitlyNonLive() {
+        let status = TeamStatusResponse(
+            runId: "run_123", status: .running, lane: nil, teamPresetId: nil,
+            effort: nil, currentStage: nil, workers: [], workersDone: 0,
+            workersTotal: 0, warnings: [], resultAvailable: false,
+            nextPollAfterMs: 5_000, traceId: "trace_run_123"
+        )
+        let response = PersistedTeamStatusResponse(
+            eventSequence: 42,
+            observedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            status: status
+        )
+        XCTAssertEqual(response.source, "journal")
+        XCTAssertFalse(response.live)
+        XCTAssertEqual(response.eventSequence, 42)
+        XCTAssertEqual(response.status.runId, "run_123")
+    }
 }

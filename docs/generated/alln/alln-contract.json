@@ -1605,6 +1605,11 @@
           "takesValue" : false
         },
         {
+          "name" : "persisted",
+          "summary" : "Read the durable journal only. Returns PersistedTeamStatusResponse with source=journal, live=false, eventSequence, and observedAt; cannot establish worker liveness.",
+          "takesValue" : false
+        },
+        {
           "allowedValues" : [
             "queued",
             "running",
@@ -1629,12 +1634,19 @@
       "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
-
+        [
+          "persisted",
+          "wait-for"
+        ],
+        [
+          "persisted",
+          "timeout"
+        ]
       ],
       "name" : "team status",
       "outputSchema" : "teamStatusResponse",
       "spendsQuota" : false,
-      "summary" : "Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).",
+      "summary" : "Poll resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).",
       "visibility" : "public"
     },
     {
@@ -5066,7 +5078,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "3.3.0",
+  "contractVersion" : "3.4.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

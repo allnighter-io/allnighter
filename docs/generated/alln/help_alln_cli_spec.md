@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 3.3.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 3.4.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -452,15 +452,20 @@ Examples: `skills_delete_json`.
 
 ### `alln team status`
 
-Poll live state for an async team run. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).
+Poll resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).
 
 Arguments:
 - `run-id` (required) — The run id from `alln run --detach`.
 
 Flags:
 - `--json` — Structured TeamStatusResponse.
+- `--persisted` — Read the durable journal only. Returns PersistedTeamStatusResponse with source=journal, live=false, eventSequence, and observedAt; cannot establish worker liveness.
 - `--wait-for <queued|running|done|failed|timedOut|cancelled|terminal>` — Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`.
 - `--timeout <seconds>` — Max seconds to wait when --wait-for is set (required with --wait-for). Exit 3 (timeout) if the target is not reached.
+
+Mutually exclusive: `--persisted`, `--wait-for`.
+
+Mutually exclusive: `--persisted`, `--timeout`.
 
 Output schema: `teamStatusResponse`.
 
