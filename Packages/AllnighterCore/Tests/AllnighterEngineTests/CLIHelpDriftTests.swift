@@ -49,6 +49,19 @@ final class CLIHelpDriftTests: XCTestCase {
         }
     }
 
+    /// A recovery instruction must be directly discoverable from its parent command.
+    /// Otherwise a version mismatch can strand an agent before it can repair the resident.
+    func testServeHelpExposesInstallRefreshRecovery() {
+        let help = CLIUsage.helpText(rootCommand: "serve", args: ["--help"])
+        XCTAssertNotNil(help)
+        XCTAssertTrue(help?.contains("serve install") == true)
+        XCTAssertTrue(help?.contains("Install or safely refresh") == true)
+
+        let installHelp = CLIUsage.helpText(rootCommand: "serve", args: ["install", "--help"])
+        XCTAssertTrue(installHelp?.hasPrefix("usage: alln serve install") == true)
+        XCTAssertTrue(installHelp?.contains("--json") == true)
+    }
+
     /// Finding 12: `--help` must not invent usage for a command the registry cannot resolve.
     func testUnknownCommandHelpDoesNotInventUsage() {
         let text = CLIUsage.helpText(rootCommand: "config", args: ["--help"])

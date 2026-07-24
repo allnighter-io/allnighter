@@ -897,7 +897,7 @@ Examples: `export_contracts_check`.
 
 ### `alln serve`
 
-Resident Mac coordinator (foreground skeleton).
+Resident Mac coordinator. Use `alln serve install` to enable or safely refresh the background coordinator.
 
 Flags:
 - `--health` — Read-only coordinator health; does not start serve.
@@ -905,7 +905,16 @@ Flags:
 
 Output schema: `coordinatorHealth`.
 
-Examples: `serve_health_json`.
+Examples: `serve_health_json`, `serve_install_json`.
+
+### `alln serve install`
+
+Install or safely refresh the background resident coordinator.
+
+Flags:
+- `--json` — Structured install result.
+
+Examples: `serve_install_json`.
 
 ### `alln pending add`
 
@@ -1580,6 +1589,7 @@ the selected CLI.
 - `thread_send_json` — Send message with image and file reference to thread: `alln thread send latest "describe this" --image ./shot.png --ref Sources/App.swift:10-80 --json`
 - `thread_rename_json` — Rename a work thread: `alln thread rename latest "Paste-image bug" --json`
 - `serve_health_json` — Coordinator health: `alln serve --health --json`
+- `serve_install_json` — Install or refresh coordinator: `alln serve install --json`
 - `pending_add_json` — Create a Draft Pending item: `alln pending add --worker model_opus --when ready --json "Review this patch when Claude is available."`
 - `pending_list_json` — List Pending items: `alln pending list --json`
 - `boost_window_show_json` — Show Boost window settings: `alln boost-window show --json`

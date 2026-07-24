@@ -234,6 +234,18 @@ public enum CLIUsage {
         }
         var lines = ["usage: \(syn)", spec.summary]
         lines.append(contentsOf: CommandProjection.constraintLines(for: spec, style: .plain))
+        let childCommands = registry.commands
+            .filter { $0.milestone == .m1 && $0.name.hasPrefix(spec.name + " ") }
+            .map { child in
+                return (child.name, child.summary)
+            }
+            .sorted { $0.0 < $1.0 }
+        if !childCommands.isEmpty {
+            lines.append("Subcommands:")
+            for child in childCommands {
+                lines.append("  \(child.0)  \(child.1)")
+            }
+        }
         return lines.joined(separator: "\n")
     }
 

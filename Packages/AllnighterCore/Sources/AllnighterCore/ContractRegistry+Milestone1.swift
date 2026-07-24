@@ -643,13 +643,18 @@ public extension ContractRegistry {
             exampleIds: ["export_contracts_check"]
         ),
         CommandSpec(
-            "serve", summary: "Resident Mac coordinator (foreground skeleton).", milestone: .m1,
+            "serve", summary: "Resident Mac coordinator. Use `alln serve install` to enable or safely refresh the background coordinator.", milestone: .m1,
             flags: [
                 FlagSpec("health", summary: "Read-only coordinator health; does not start serve."),
                 FlagSpec("json", summary: "Structured CoordinatorHealth output."),
             ],
             outputSchema: .coordinatorHealth,
-            exampleIds: ["serve_health_json"]
+            exampleIds: ["serve_health_json", "serve_install_json"]
+        ),
+        CommandSpec(
+            "serve install", summary: "Install or safely refresh the background resident coordinator.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Structured install result.")],
+            exampleIds: ["serve_install_json"]
         ),
         CommandSpec(
             "pending add", summary: "Create a Draft Pending item.", milestone: .m1,
@@ -1236,6 +1241,7 @@ public extension ContractRegistry {
         ExampleRecipe("thread_send_json", title: "Send message with image and file reference to thread", command: "alln thread send latest \"describe this\" --image ./shot.png --ref Sources/App.swift:10-80 --json"),
         ExampleRecipe("thread_rename_json", title: "Rename a work thread", command: "alln thread rename latest \"Paste-image bug\" --json"),
         ExampleRecipe("serve_health_json", title: "Coordinator health", command: "alln serve --health --json"),
+        ExampleRecipe("serve_install_json", title: "Install or refresh coordinator", command: "alln serve install --json"),
         ExampleRecipe("pending_add_json", title: "Create a Draft Pending item", command: "alln pending add --worker model_opus --when ready --json \"Review this patch when Claude is available.\""),
         ExampleRecipe("pending_list_json", title: "List Pending items", command: "alln pending list --json"),
         ExampleRecipe("boost_window_show_json", title: "Show Boost window settings", command: "alln boost-window show --json"),

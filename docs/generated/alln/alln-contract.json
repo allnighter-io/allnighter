@@ -3366,7 +3366,8 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
-        "serve_health_json"
+        "serve_health_json",
+        "serve_install_json"
       ],
       "flagConstraints" : [
 
@@ -3391,7 +3392,42 @@
       "name" : "serve",
       "outputSchema" : "coordinatorHealth",
       "spendsQuota" : false,
-      "summary" : "Resident Mac coordinator (foreground skeleton).",
+      "summary" : "Resident Mac coordinator. Use `alln serve install` to enable or safely refresh the background coordinator.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+        "serve_install_json"
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured install result.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "serve install",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Install or safely refresh the background resident coordinator.",
       "visibility" : "public"
     },
     {
@@ -6505,6 +6541,11 @@
       "command" : "alln serve --health --json",
       "id" : "serve_health_json",
       "title" : "Coordinator health"
+    },
+    {
+      "command" : "alln serve install --json",
+      "id" : "serve_install_json",
+      "title" : "Install or refresh coordinator"
     },
     {
       "command" : "alln pending add --worker model_opus --when ready --json \"Review this patch when Claude is available.\"",
