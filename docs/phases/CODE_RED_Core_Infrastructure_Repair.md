@@ -1,8 +1,9 @@
 # CODE RED — Core Infrastructure Repair
 
 Status: **IMPLEMENTATION IN PROGRESS — Code Red remains active. CR-S00 through
-CR-S04 are COMPLETE (each with an independent audit and a live authenticated
-Works Test receipt below). CR-S05–CR-S07 have not begun. All forward
+CR-S05 are COMPLETE (each with an independent audit and a live authenticated
+Works Test receipt below); CR-S05 closed with NO transport. CR-S06–CR-S07 have
+not begun. All forward
 execution-path feature work remains blocked until this document is green.**
 Owner: AllnighterCore + CLI execution path
 Updated: 2026-07-24
@@ -897,7 +898,7 @@ Missing assertion: one live pass, not the three consecutive the trust-reset thre
 Next deletion: CR-S05 runs the restricted-host harness and either deletes resident run routing outright or proves the one thin hop; CR-S06 deletes the abandoned control plane and un-skips the seven detach tests
 ```
 
-### CR-S05 — Prove and, only if necessary, add restricted-host transport — EVIDENCE COMPLETE, FOUNDER DECISION OPEN
+### CR-S05 — Prove and, only if necessary, add restricted-host transport — COMPLETE (no transport needed)
 
 The harness step is done, and it did not need the launchd harness: the disputed
 primitive was measured directly from a live Codex session against the real
@@ -1077,6 +1078,58 @@ not an implementation detail:
 Broadening per-vendor credential or Keychain access inside the sandbox is a
 third path and is an explicit founder stop in this packet; it is not
 recommended and was not attempted.
+
+### CR-S05 resolution — 2026-07-24 — no transport needed
+
+Neither fork was taken, because the barrier turned out to be **per-session, not
+architectural.**
+
+Measured: with `codex --sandbox danger-full-access` (a per-invocation flag, not
+a config change), **the full works test passes originated from inside Codex** —
+both gestures, GREEN, zero missing assertions. Run
+`741B53AE-E1A5-46E9-860C-791B3E6D25A1` made the real edit and commit
+`9ac87018` in the fixture, with the live `claude` process (pid 67167) observed
+from inside the sandbox.
+
+Root cause of the block, measured precisely: Codex's `workspace-write` sandbox
+denies Keychain access (`SecKeychainCopySearchList: A Module Directory Service
+error`). Vendor CLIs keep their credentials there, so they report themselves
+logged out. It was never about the repository, and never about files — which is
+why `writable_roots` could not fix it and why no mirror ever could have.
+
+**Founder rulings 2026-07-24:**
+
+1. A global `sandbox_mode = "danger-full-access"` in the user's config is
+   **forbidden** — it would disable Codex's sandbox for everything the user
+   ever does, and doing it silently at install would be the same "a permission
+   wall is a bug to route around" move that caused this incident.
+2. A **per-session** flag chosen by the user is fine, and Allnighter's job is to
+   explain it in plain language when it is needed.
+
+Shipped in `eb1c5f67`: a run whose seats fail to start inside a sandboxing host
+carries one `HOST_SANDBOX_BLOCKS_WORKERS` warning stating what happened, that
+nothing is misconfigured, and the two ways forward — the per-session flag, or
+the reconstructed command to paste into the Mac app. Detection keys off the
+observed failure, never the environment, because a full-access Codex session
+carries the same variables and runs perfectly. Verified live from a sandboxed
+session.
+
+**Therefore CR-S05 closes with no replacement**, exactly as this packet's rule
+requires: direct execution from Codex works, so resident run routing is deleted
+rather than replaced. CR-S06 owns that deletion.
+
+Follow-ups recorded, neither of them a transport:
+
+- ship the `writable_roots` entry for the state root from `alln install-cli` /
+  `bootstrap` so a *sandboxed* Codex session still gets full read, query, and
+  dry-run against the real product (proven working; currently applied by hand on
+  the founder's machine only);
+- after Code Red lifts the freeze on Pending and the Mac app, upgrade option 2
+  from copy-paste to one click: alln writes the request into the shared support
+  directory, the app (outside the sandbox) executes it, and the sandboxed
+  session reads the results back from the run journal. This needs no escalation
+  and no new protocol — both writes and reads are already proven — but it is a
+  hop in principle and must not grow a control plane.
 
 ```text
 Status: PARTIAL — state root repaired and shipped; vendor-spawn primitive newly named; CR-S05 fork A/B open
