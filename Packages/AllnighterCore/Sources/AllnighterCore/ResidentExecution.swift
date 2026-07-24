@@ -134,9 +134,21 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     public struct SourceProbe: Codable, Equatable, Sendable {
         public var sourceId: String?
         public var full: Bool
-        public init(sourceId: String? = nil, full: Bool) {
+        public var pilot: Bool
+        public var projectToken: String?
+        public var workingDirectory: String?
+        public init(
+            sourceId: String? = nil,
+            full: Bool,
+            pilot: Bool = false,
+            projectToken: String? = nil,
+            workingDirectory: String? = nil
+        ) {
             self.sourceId = sourceId
             self.full = full
+            self.pilot = pilot
+            self.projectToken = projectToken
+            self.workingDirectory = workingDirectory
         }
     }
 
@@ -293,10 +305,11 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
     case panelStart(PanelStartJSON)
     case panelRound(PanelRoundJSON)
     case panelStatus(PanelJSON)
+    case doctor(DoctorResult)
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum Kind: String, Codable {
-        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus
+        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor
     }
 
     public init(from decoder: Decoder) throws {
@@ -309,6 +322,7 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
         case .panelStart: self = .panelStart(try container.decode(PanelStartJSON.self, forKey: .payload))
         case .panelRound: self = .panelRound(try container.decode(PanelRoundJSON.self, forKey: .payload))
         case .panelStatus: self = .panelStatus(try container.decode(PanelJSON.self, forKey: .payload))
+        case .doctor: self = .doctor(try container.decode(DoctorResult.self, forKey: .payload))
         }
     }
 
@@ -335,6 +349,9 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
             try container.encode(value, forKey: .payload)
         case let .panelStatus(value):
             try container.encode(Kind.panelStatus, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .doctor(value):
+            try container.encode(Kind.doctor, forKey: .type)
             try container.encode(value, forKey: .payload)
         }
     }

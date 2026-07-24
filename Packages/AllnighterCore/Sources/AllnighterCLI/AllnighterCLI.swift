@@ -330,13 +330,32 @@ struct AllnighterCLI {
         if let sourceId, runtime.registry.manifest(id: sourceId) == nil {
             fail(code: "SOURCE_NOT_FOUND", message: "no source manifest '\(sourceId)'")
         }
-        let result = await doctorResult(
-            runtime,
-            full: full,
-            sourceId: sourceId,
-            pilot: pilot,
-            projectToken: opts.value("project")
-        )
+        let rendezvous = ResidentExecutionRendezvous()
+        let result: DoctorResult
+        do {
+            let submitted = try rendezvous.submit(
+                operation: .sourceProbe(.init(
+                    sourceId: sourceId,
+                    full: full,
+                    pilot: pilot,
+                    projectToken: opts.value("project"),
+                    workingDirectory: FileManager.default.currentDirectoryPath
+                )),
+                idempotencyKey: UUID().uuidString.lowercased()
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+                fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the doctor request before timeout")
+            }
+            if let rejection = receipt.rejection { fail(code: rejection.code, message: rejection.message) }
+            guard case let .doctor(payload) = receipt.result else {
+                fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid doctor response")
+            }
+            result = payload
+        } catch ResidentExecutionRendezvous.Error.unavailable {
+            fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
+        } catch {
+            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident doctor request failed: \(error)")
+        }
         if opts.flag("json") {
             print(jsonString(result))   // exactly one JSON object, no prose
         } else {
@@ -511,43 +530,13 @@ struct AllnighterCLI {
         setupStore: SetupStore = SetupStore(),
         commandRunner: CommandRunner? = nil
     ) async -> [ToolProbeRecord] {
-        // Doctor is a recovery surface: its children must honor the detector's
-        // per-command deadlines even when a vendor CLI ignores SIGTERM.
-        let runner = commandRunner ?? ProcessGroupCommandRunner(
-            environmentPolicy: AllnighterSpawnEnvironmentPolicy(),
-            spawnKind: .doctorProbe
+        await ResidentDoctorService.probeRecords(
+            manifests: manifests,
+            labels: labels,
+            full: full,
+            setupStore: setupStore,
+            commandRunner: commandRunner
         )
-        if full {
-            let records = await CLIDetector(
-                commandRunner: runner,
-                detectTimeout: .seconds(8),
-                smokeTimeout: .seconds(60),
-                interactive: true
-            ).probeAll(manifests, models: labels, now: Date(), smoke: true)
-            let previous = setupStore.load()
-            let refreshedDriverIds = Set(records.map(\.driverId))
-            let merged = previous.records.filter {
-                !refreshedDriverIds.contains($0.driverId)
-            } + records
-            _ = try? setupStore.save(.init(
-                records: merged.sorted { $0.driverId < $1.driverId },
-                setupCompletedAt: previous.setupCompletedAt,
-                assembledTeam: previous.assembledTeam
-            ))
-            return records
-        }
-        let headlessIds = Set(manifests.filter { $0.kind == .headlessCLI }.map(\.id))
-        let cached = setupStore.load().records.filter { headlessIds.contains($0.driverId) }
-        if cached.count == headlessIds.count, !cached.isEmpty {
-            return cached.sorted { $0.driverId < $1.driverId }
-        }
-        return await CLIDetector(
-            commandRunner: runner,
-            resolver: ShellResolver(commandRunner: runner, timeout: .seconds(2), interactive: false),
-            detectTimeout: .seconds(2),
-            smokeTimeout: .seconds(2),
-            interactive: false
-        ).probeAll(manifests, models: labels, now: Date(), smoke: false)
     }
 
     private static func doctorPilotContext(

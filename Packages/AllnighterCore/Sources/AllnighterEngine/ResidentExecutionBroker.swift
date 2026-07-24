@@ -55,6 +55,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         public var invocations: [String: ToolInvocation]
         public var readyModels: @Sendable () -> [Model]
         public var executablePath: @Sendable () -> String?
+        public var doctor: ResidentDoctorService
 
         public init(
             asyncTeam: AsyncTeamService,
@@ -64,7 +65,8 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             runStore: RunStore = RunStore(),
             invocations: [String: ToolInvocation] = [:],
             readyModels: @escaping @Sendable () -> [Model],
-            executablePath: @escaping @Sendable () -> String? = ProcessOwnership.currentExecutablePath
+            executablePath: @escaping @Sendable () -> String? = ProcessOwnership.currentExecutablePath,
+            doctor: ResidentDoctorService? = nil
         ) {
             self.asyncTeam = asyncTeam
             self.runService = runService ?? RunService(models: models, registry: registry, runStore: runStore)
@@ -74,6 +76,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             self.invocations = invocations
             self.readyModels = readyModels
             self.executablePath = executablePath
+            self.doctor = doctor ?? ResidentDoctorService(models: models, registry: registry, binaryVersion: AllnighterVersionIdentity.binaryVersion)
         }
     }
 
@@ -137,6 +140,13 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             startPanel(request, claim: claim)
         case .panelRound(let request):
             await startPanelRound(request, claim: claim)
+        case .sourceProbe(let request):
+            if let sourceId = request.sourceId, dependencies.registry.manifest(id: sourceId) == nil {
+                try? rendezvous.reject(claim, code: "SOURCE_NOT_FOUND", message: "no source manifest '\(sourceId)'")
+                return
+            }
+            let result = await dependencies.doctor.probe(request)
+            try? rendezvous.accept(claim, canonicalId: request.sourceId ?? "all", result: .doctor(result))
         case .query(let query) where query.kind == .health:
             try? rendezvous.accept(claim, canonicalId: claim.request.coordinatorId)
         case .query(let query) where query.kind == .runStatus:

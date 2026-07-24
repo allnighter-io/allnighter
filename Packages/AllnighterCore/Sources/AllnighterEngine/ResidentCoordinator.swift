@@ -142,7 +142,12 @@ public final class ResidentCoordinator: @unchecked Sendable {
                             registry: wake.registry,
                             runStore: wake.runStore,
                             invocations: wake.invocations,
-                            readyModels: wake.readyModels
+                            readyModels: wake.readyModels,
+                            doctor: ResidentDoctorService(
+                                models: wake.models,
+                                registry: wake.registry,
+                                binaryVersion: self.binaryVersion
+                            )
                         )
                     )
                     await broker.run(isCancelled: { shutdown.isCancelled })
