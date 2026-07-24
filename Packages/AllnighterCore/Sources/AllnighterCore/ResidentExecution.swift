@@ -27,6 +27,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     case cancel(Cancel)
     case teamCancel(TeamCancel)
     case teamReconcile(TeamReconcile)
+    case admissionProbe(AdmissionProbe)
 
     public struct PanelStart: Codable, Equatable, Sendable {
         public var projectRoot: String
@@ -262,8 +263,16 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         }
     }
 
+    /// Free control-plane probe. It reserves no worker and starts no vendor
+    /// process, but deliberately travels through the exact durable acceptance
+    /// and idempotency gate used by a paid Team start.
+    public struct AdmissionProbe: Codable, Equatable, Sendable {
+        public var scope: String
+        public init(scope: String = "doctor") { self.scope = scope }
+    }
+
     public enum Kind: String, Codable, Sendable {
-        case teamRun, foregroundTeamRun, panelStart, panelRound, panelDone, sourceProbe, boostSeed, pendingRun, projectRecheck, query, cancel, teamCancel, teamReconcile
+        case teamRun, foregroundTeamRun, panelStart, panelRound, panelDone, sourceProbe, boostSeed, pendingRun, projectRecheck, query, cancel, teamCancel, teamReconcile, admissionProbe
     }
 
     private enum CodingKeys: String, CodingKey { case type, payload }
@@ -283,6 +292,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         case .cancel: return .cancel
         case .teamCancel: return .teamCancel
         case .teamReconcile: return .teamReconcile
+        case .admissionProbe: return .admissionProbe
         }
     }
 
@@ -302,6 +312,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         case .cancel: self = .cancel(try container.decode(Cancel.self, forKey: .payload))
         case .teamCancel: self = .teamCancel(try container.decode(TeamCancel.self, forKey: .payload))
         case .teamReconcile: self = .teamReconcile(try container.decode(TeamReconcile.self, forKey: .payload))
+        case .admissionProbe: self = .admissionProbe(try container.decode(AdmissionProbe.self, forKey: .payload))
         }
     }
 
@@ -322,6 +333,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         case let .cancel(value): try container.encode(value, forKey: .payload)
         case let .teamCancel(value): try container.encode(value, forKey: .payload)
         case let .teamReconcile(value): try container.encode(value, forKey: .payload)
+        case let .admissionProbe(value): try container.encode(value, forKey: .payload)
         }
     }
 }
@@ -447,6 +459,7 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
     case teamResultNotReady(TeamResultNotReady)
     case teamCancel(TeamCancelResponse)
     case teamReconcile(TeamReconcileResponse)
+    case admissionProbe(AdmissionProbeResult)
     case panelStart(PanelStartJSON)
     case panelRound(PanelRoundJSON)
     case panelStatus(PanelJSON)
@@ -460,7 +473,7 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum Kind: String, Codable {
-        case coordinatorHealth, teamStart, teamStatus, teamResult, teamResultNotReady, teamCancel, teamReconcile, panelStart, panelRound, panelStatus, doctor, detection, ownership, ownershipKill, utilizationSeed, pendingItem, projectWorkerReadiness
+        case coordinatorHealth, teamStart, teamStatus, teamResult, teamResultNotReady, teamCancel, teamReconcile, admissionProbe, panelStart, panelRound, panelStatus, doctor, detection, ownership, ownershipKill, utilizationSeed, pendingItem, projectWorkerReadiness
     }
 
     public init(from decoder: Decoder) throws {
@@ -473,6 +486,7 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
         case .teamResultNotReady: self = .teamResultNotReady(try container.decode(TeamResultNotReady.self, forKey: .payload))
         case .teamCancel: self = .teamCancel(try container.decode(TeamCancelResponse.self, forKey: .payload))
         case .teamReconcile: self = .teamReconcile(try container.decode(TeamReconcileResponse.self, forKey: .payload))
+        case .admissionProbe: self = .admissionProbe(try container.decode(AdmissionProbeResult.self, forKey: .payload))
         case .panelStart: self = .panelStart(try container.decode(PanelStartJSON.self, forKey: .payload))
         case .panelRound: self = .panelRound(try container.decode(PanelRoundJSON.self, forKey: .payload))
         case .panelStatus: self = .panelStatus(try container.decode(PanelJSON.self, forKey: .payload))
@@ -509,6 +523,9 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
             try container.encode(value, forKey: .payload)
         case let .teamReconcile(value):
             try container.encode(Kind.teamReconcile, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .admissionProbe(value):
+            try container.encode(Kind.admissionProbe, forKey: .type)
             try container.encode(value, forKey: .payload)
         case let .panelStart(value):
             try container.encode(Kind.panelStart, forKey: .type)

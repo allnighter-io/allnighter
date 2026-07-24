@@ -54,7 +54,8 @@ final class ResidentExecutionContractTests: XCTestCase {
     func testTeamLifecycleOperationsRoundTripThroughBrokerContract() throws {
         let operations: [ResidentExecutionOperation] = [
             .teamCancel(.init(runId: "run_123")),
-            .teamReconcile(.init(runId: nil, scopeRoot: "/tmp/project"))
+            .teamReconcile(.init(runId: nil, scopeRoot: "/tmp/project")),
+            .admissionProbe(.init())
         ]
 
         for operation in operations {

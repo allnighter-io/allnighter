@@ -347,6 +347,22 @@ public struct TeamReconcileResponse: Codable, Equatable, Sendable {
     }
 }
 
+/// Result of the free resident admission probe used by `doctor --full`.
+/// `reservationCount` must remain one when the same idempotency key is
+/// delivered twice. It is deliberately separate from a TeamRun: no vendor
+/// worker, journal run, or quota-bearing action exists for this probe.
+public struct AdmissionProbeResult: Codable, Equatable, Sendable {
+    public var schemaVersion: Int
+    public var reservationCount: Int
+    public var vendorStarts: Int
+
+    public init(schemaVersion: Int = 1, reservationCount: Int = 1, vendorStarts: Int = 0) {
+        self.schemaVersion = schemaVersion
+        self.reservationCount = reservationCount
+        self.vendorStarts = vendorStarts
+    }
+}
+
 /// Canonical payload hashed for `team start` / `alln run` idempotency (24h
 /// retention, RLR-L9). The generalized field list (attachments, thread,
 /// resolved team/worker, the four timeouts, proof command, commit policy,

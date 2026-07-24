@@ -334,6 +334,15 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 .init(runId: $0.id, status: $0.status.rawValue, endReason: $0.endReason?.rawValue)
             })
             try? rendezvous.accept(claim, canonicalId: request.runId ?? "all", result: .teamReconcile(response))
+        case .admissionProbe:
+            // Same durable `accept` gate as a Team start, intentionally with
+            // no runner spawn. A repeated key therefore must replay one
+            // reservation and report zero vendor starts.
+            try? rendezvous.accept(
+                claim,
+                canonicalId: "admission-probe",
+                result: .admissionProbe(.init())
+            )
         case .cancel(let request):
             let surface = ProcessOwnershipSurface(runStore: dependencies.runStore)
             if request.all {

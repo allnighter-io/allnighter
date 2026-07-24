@@ -182,6 +182,26 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         XCTAssertEqual(cancelReceipt.state, .rejected)
         XCTAssertEqual(cancelReceipt.rejection?.code, "RUN_NOT_FOUND")
 
+        let firstAdmission = try rendezvous.submit(
+            operation: .admissionProbe(.init()),
+            idempotencyKey: "same-admission-key", requestId: "admission-one"
+        )
+        let firstAdmissionMaybe = try await rendezvous.waitForReceipt(requestId: firstAdmission.requestId)
+        let firstAdmissionReceipt = try XCTUnwrap(firstAdmissionMaybe)
+        let secondAdmission = try rendezvous.submit(
+            operation: .admissionProbe(.init()),
+            idempotencyKey: "same-admission-key", requestId: "admission-two"
+        )
+        let secondAdmissionMaybe = try await rendezvous.waitForReceipt(requestId: secondAdmission.requestId)
+        let secondAdmissionReceipt = try XCTUnwrap(secondAdmissionMaybe)
+        XCTAssertEqual(firstAdmissionReceipt.canonicalId, secondAdmissionReceipt.canonicalId)
+        XCTAssertEqual(firstAdmissionReceipt.acceptedAt, secondAdmissionReceipt.acceptedAt)
+        guard case let .admissionProbe(probe)? = secondAdmissionReceipt.result else {
+            return XCTFail("expected idempotent admission probe")
+        }
+        XCTAssertEqual(probe.reservationCount, 1)
+        XCTAssertEqual(probe.vendorStarts, 0)
+
         let foreground = try rendezvous.submit(
             operation: .foregroundTeamRun(.init(message: "hello", repoRoot: root.path)),
             idempotencyKey: "foreground", requestId: "foreground-request"

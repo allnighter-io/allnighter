@@ -345,6 +345,9 @@ struct AllnighterCLI {
         let rendezvous = ResidentExecutionRendezvous()
         let result: DoctorResult
         do {
+            if full {
+                try await verifyResidentAdmission(rendezvous)
+            }
             let submitted = try rendezvous.submit(
                 operation: .sourceProbe(.init(
                     sourceId: sourceId,
@@ -374,6 +377,39 @@ struct AllnighterCLI {
             print(jsonString(result))   // exactly one JSON object, no prose
         } else {
             printDoctorHuman(result, full: full)
+        }
+    }
+
+    /// Proves the money invariant without spending quota: two deliveries with
+    /// one idempotency key must yield the exact same durable acceptance and no
+    /// vendor start. Kept in `doctor --full` so routine health stays read-only
+    /// apart from its ordinary coordinator request.
+    private static func verifyResidentAdmission(_ rendezvous: ResidentExecutionRendezvous) async throws {
+        let day = ISO8601DateFormatter().string(from: Date()).prefix(10)
+        let key = "doctor-admission-probe-\(day)"
+        var receipts: [ResidentExecutionReceipt] = []
+        for _ in 0..<2 {
+            let submitted = try rendezvous.submit(
+                operation: .admissionProbe(.init()),
+                idempotencyKey: key
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: 15) else {
+                throw ResidentExecutionRendezvous.Error.unavailable
+            }
+            guard receipt.state == .accepted,
+                  receipt.idempotencyKey == key,
+                  receipt.canonicalId == "admission-probe",
+                  case let .admissionProbe(result)? = receipt.result,
+                  result.reservationCount == 1,
+                  result.vendorStarts == 0 else {
+                throw ResidentExecutionRendezvous.Error.idempotencyConflict
+            }
+            receipts.append(receipt)
+        }
+        guard receipts.count == 2,
+              receipts[0].canonicalId == receipts[1].canonicalId,
+              receipts[0].acceptedAt == receipts[1].acceptedAt else {
+            throw ResidentExecutionRendezvous.Error.idempotencyConflict
         }
     }
 
