@@ -180,8 +180,14 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     }
 
     public struct Cancel: Codable, Equatable, Sendable {
-        public var canonicalId: String
-        public init(canonicalId: String) { self.canonicalId = canonicalId }
+        public var canonicalId: String?
+        public var all: Bool
+        public var scopeRoot: String?
+        public init(canonicalId: String? = nil, all: Bool = false, scopeRoot: String? = nil) {
+            self.canonicalId = canonicalId
+            self.all = all
+            self.scopeRoot = scopeRoot
+        }
     }
 
     public enum Kind: String, Codable, Sendable {
@@ -345,10 +351,11 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
     case doctor(DoctorResult)
     case detection(ResidentDetectionResult)
     case ownership(OwnershipPsJSON)
+    case ownershipKill(OwnershipKillJSON)
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum Kind: String, Codable {
-        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor, detection, ownership
+        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor, detection, ownership, ownershipKill
     }
 
     public init(from decoder: Decoder) throws {
@@ -364,6 +371,7 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
         case .doctor: self = .doctor(try container.decode(DoctorResult.self, forKey: .payload))
         case .detection: self = .detection(try container.decode(ResidentDetectionResult.self, forKey: .payload))
         case .ownership: self = .ownership(try container.decode(OwnershipPsJSON.self, forKey: .payload))
+        case .ownershipKill: self = .ownershipKill(try container.decode(OwnershipKillJSON.self, forKey: .payload))
         }
     }
 
@@ -399,6 +407,9 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
             try container.encode(value, forKey: .payload)
         case let .ownership(value):
             try container.encode(Kind.ownership, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .ownershipKill(value):
+            try container.encode(Kind.ownershipKill, forKey: .type)
             try container.encode(value, forKey: .payload)
         }
     }

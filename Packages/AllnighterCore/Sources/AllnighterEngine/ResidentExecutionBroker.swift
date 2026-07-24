@@ -236,6 +236,25 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         case .query(let query) where query.kind == .processSnapshot:
             let snapshot = ProcessOwnershipSurface(runStore: dependencies.runStore).list(scopeRoot: query.scopeRoot)
             try? rendezvous.accept(claim, canonicalId: "process-snapshot", result: .ownership(snapshot))
+        case .cancel(let request):
+            let surface = ProcessOwnershipSurface(runStore: dependencies.runStore)
+            if request.all {
+                let result = surface.killAll(scopeRoot: request.scopeRoot)
+                try? rendezvous.accept(claim, canonicalId: "ownership-kill-all", result: .ownershipKill(result))
+            } else if let id = request.canonicalId {
+                switch surface.kill(id: id) {
+                case .success(let row):
+                    try? rendezvous.accept(claim, canonicalId: id, result: .ownershipKill(.init(killed: [row])))
+                case .failure(.notFound):
+                    try? rendezvous.reject(claim, code: "OWNERSHIP_NOT_FOUND", message: "no owned process tree matches \(id)")
+                case .failure(.alreadyTerminal(_, let end)):
+                    try? rendezvous.reject(claim, code: "OWNERSHIP_ALREADY_TERMINAL", message: "\(id) is already terminal\(end.map { " (endReason=\($0))" } ?? "")")
+                case .failure(.identityMismatch):
+                    try? rendezvous.reject(claim, code: "OWNERSHIP_IDENTITY_MISMATCH", message: "refusing to signal \(id): recorded identity does not match the live process")
+                }
+            } else {
+                try? rendezvous.reject(claim, code: "CLI_USAGE_ERROR", message: "cancel requires an object id or --all")
+            }
         default:
             try? rendezvous.reject(
                 claim,

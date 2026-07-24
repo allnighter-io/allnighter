@@ -88,7 +88,7 @@ struct AllnighterCLI {
         case "install-cli": runInstallCLI(args)
         case "version": runVersion(args)
         case "ps": await runOwnershipPs(args)
-        case "kill": runOwnershipKill(args)
+        case "kill": await runOwnershipKill(args)
         case "gc": runOwnershipGC(args)
         case "--help", "-h": printHelp()   // "help" is handled above via HelpCLI
         default:
@@ -1434,60 +1434,47 @@ struct AllnighterCLI {
     /// identity mismatch. `--all` is scoped to the caller's project root
     /// (Concurrent Invocation Isolation F1); `--all-projects` makes it the
     /// explicit machine-wide fleet kill. An exact id may target any project.
-    static func runOwnershipKill(_ args: [String]) {
+    static func runOwnershipKill(_ args: [String]) async {
         let opts = Options(args)
-        let surface = ProcessOwnershipSurface()
         let asJSON = opts.flag("json")
+        let request: ResidentExecutionOperation.Cancel
 
         if opts.flag("all") {
             let allProjects = opts.flag("all-projects")
             let scopeRoot = allProjects ? nil : FileManager.default.currentDirectoryPath
-            let result = surface.killAll(scopeRoot: scopeRoot)
-            if asJSON {
-                print(jsonString(result))
-            } else {
-                print("killed \(result.killedCount) process tree(s)")
-                for row in result.killed {
-                    print("  \(row.id) (\(row.kind)) endReason=\(row.endReason ?? "-") killOutcome=\(row.killOutcome ?? "-") signalled=\(row.signalled)")
-                }
-                for skip in result.skipped {
-                    print("  skip \(skip.id): \(skip.reason)")
-                }
-                if !allProjects {
-                    print("(project scope: \(FileManager.default.currentDirectoryPath) — `--all-projects` for machine-wide)")
-                }
-            }
-            return
-        }
-
-        guard let id = opts.positional.first else {
+            request = .init(all: true, scopeRoot: scopeRoot)
+        } else if let id = opts.positional.first {
+            request = .init(canonicalId: id)
+        } else {
             FileHandle.standardError.write(Data("usage: alln kill <id> | --all [--all-projects] [--json]\n".utf8))
             exit(2)
         }
-        switch surface.kill(id: id) {
-        case .success(let row):
-            // RLR-S04b: `alln kill` exits 0 having honestly reported the settlement
-            // verdict — a non-verified stop is `killOutcome: partial/refused/…` in the
-            // envelope (the KILL_* error codes are its catalog projection), not a
-            // command failure. The single JSON object carries the outcome to the caller.
-            if asJSON {
-                print(jsonString(OwnershipKillJSON(killed: [row])))
-            } else {
-                let outcome = row.killOutcome.map { " killOutcome=\($0)" } ?? ""
-                print("kill \(row.id) (\(row.kind)) endReason=\(row.endReason ?? "-")\(outcome) signalled=\(row.signalled)")
+
+        let rendezvous = ResidentExecutionRendezvous()
+        let result: OwnershipKillJSON
+        do {
+            let submitted = try rendezvous.submit(operation: .cancel(request), idempotencyKey: UUID().uuidString.lowercased())
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+                fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the kill request before timeout")
             }
-        case .failure(.notFound(let missing)):
-            fail(code: "OWNERSHIP_NOT_FOUND", message: "no owned process tree matches \(missing)")
-        case .failure(.alreadyTerminal(let tid, let end)):
-            fail(
-                code: "OWNERSHIP_ALREADY_TERMINAL",
-                message: "\(tid) is already terminal\(end.map { " (endReason=\($0))" } ?? "")"
-            )
-        case .failure(.identityMismatch(let mid)):
-            fail(
-                code: "OWNERSHIP_IDENTITY_MISMATCH",
-                message: "refusing to signal \(mid): recorded identity does not match the live process (pid reuse)"
-            )
+            if let rejection = receipt.rejection { fail(code: rejection.code, message: rejection.message) }
+            guard case let .ownershipKill(payload) = receipt.result else {
+                fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid kill response")
+            }
+            result = payload
+        } catch ResidentExecutionRendezvous.Error.unavailable {
+            fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
+        } catch {
+            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident kill request failed: \(error)")
+        }
+        if asJSON { print(jsonString(result)); return }
+        if request.all {
+            print("killed \(result.killedCount) process tree(s)")
+            for row in result.killed { print("  \(row.id) (\(row.kind)) endReason=\(row.endReason ?? "-") killOutcome=\(row.killOutcome ?? "-") signalled=\(row.signalled)") }
+            for skip in result.skipped { print("  skip \(skip.id): \(skip.reason)") }
+        } else if let row = result.killed.first {
+            let outcome = row.killOutcome.map { " killOutcome=\($0)" } ?? ""
+            print("kill \(row.id) (\(row.kind)) endReason=\(row.endReason ?? "-")\(outcome) signalled=\(row.signalled)")
         }
     }
 
