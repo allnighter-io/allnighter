@@ -13,11 +13,16 @@ PACKAGE="$ROOT/Packages/AllnighterCore"
 SCRATCH="${ALLNIGHTER_CLI_SCRATCH:-$HOME/Library/Developer/Allnighter/CLI}"
 INSTALL_DIR="${ALLNIGHTER_CLI_INSTALL_DIR:-$HOME/.local/bin}"
 
+swift build \
+  --disable-sandbox \
+  --package-path "$PACKAGE" \
+  --scratch-path "$SCRATCH" \
+  --product alln
+
 BIN_DIR="$(swift build \
   --disable-sandbox \
   --package-path "$PACKAGE" \
   --scratch-path "$SCRATCH" \
-  --product alln \
   --show-bin-path)"
 ALLN_BIN="$BIN_DIR/alln"
 
