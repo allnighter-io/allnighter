@@ -39,7 +39,12 @@ public struct ResidentDoctorService: Sendable {
             allLabels.filter { $0.key == sourceId }
         } ?? allLabels
         let records = await Self.probeRecords(manifests: manifests, labels: labels, full: request.full)
-        let cwd = request.workingDirectory ?? FileManager.default.currentDirectoryPath
+        // A source probe has no project-scoped work.  In particular, never
+        // inherit the foreground client's Documents-repo CWD just to calculate
+        // a diagnostic Git SHA: that is enough to make the launchd-owned broker
+        // ask macOS for Documents access.  Project inspection belongs to a
+        // separately declared project operation.
+        let cwd = AllnighterPaths.probeScratch.path
         let inputs = DoctorReport.Inputs(
             binaryVersion: binaryVersion,
             contractVersion: ContractRegistry.contractVersion,
@@ -52,7 +57,7 @@ public struct ResidentDoctorService: Sendable {
             coordinator: ResidentCoordinatorProbe().doctorCoordinator(),
             full: request.full,
             cursorCLIConfigURL: CursorShellAllowlist.defaultConfigURL,
-            cursorProjectOverrideURL: CursorShellAllowlist.projectOverrideURL(near: URL(fileURLWithPath: cwd, isDirectory: true)),
+            cursorProjectOverrideURL: nil,
             runningBinaryPath: runningBinaryPath,
             pathEnvironment: pathEnvironment,
             pilot: request.pilot ? Self.pilotContext(projectToken: request.projectToken, records: records, models: models, full: request.full) : nil,
@@ -99,8 +104,11 @@ public struct ResidentDoctorService: Sendable {
             environmentPolicy: AllnighterSpawnEnvironmentPolicy(), spawnKind: .doctorProbe
         )
         if full {
+            // Full means a real model smoke (and can spend quota), never an
+            // interactive shell or setup flow.  A routine health request must
+            // report a blocked source; it must not create TCC/Automation prompts.
             let records = await CLIDetector(
-                commandRunner: runner, detectTimeout: .seconds(8), smokeTimeout: .seconds(60), interactive: true
+                commandRunner: runner, detectTimeout: .seconds(8), smokeTimeout: .seconds(60), interactive: false
             ).probeAll(manifests, models: labels, now: Date(), smoke: true)
             let previous = setupStore.load()
             let refreshed = Set(records.map(\.driverId))

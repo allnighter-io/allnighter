@@ -2,6 +2,11 @@ import XCTest
 @testable import AllnighterCore
 
 final class ResidentExecutionContractTests: XCTestCase {
+    func testLongResidentOperationsHaveExplicitWaitBudgets() {
+        XCTAssertEqual(ResidentExecutionWaitBudget.sourceProbe, 130)
+        XCTAssertEqual(ResidentExecutionWaitBudget.panelRound, 1_800)
+    }
+
     func testPendingRunOperationRoundTripsThroughBrokerContract() throws {
         let operation = ResidentExecutionOperation.pendingRun(.init(pendingItemId: "pending_123"))
 

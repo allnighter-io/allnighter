@@ -33,7 +33,22 @@ struct AllnighterCLI {
             }
         }
 
-        let runtime = ToolRuntime()
+        switch command {
+        // These surfaces are intentionally reachable without constructing a
+        // foreground ToolRuntime.  A sandboxed host may call them from a
+        // protected repo; only the resident coordinator may own diagnostics or
+        // source processes.
+        case "doctor" where args.first == "explain": runDoctorExplain(Array(args.dropFirst()))
+        case "doctor": await runDoctor(args)
+        case "detect": await runDetect()
+        case "serve": await runServe(args)
+        default:
+            let runtime = ToolRuntime()
+            await run(command: command, args: args, runtime: runtime)
+        }
+    }
+
+    private static func run(command: String, args: [String], runtime: ToolRuntime) async {
         switch command {
         case "teams" where args.first == "show": runTeamsShow(Array(args.dropFirst()), runtime)
         case "teams" where args.first == "definition": runTeamsDefinition(Array(args.dropFirst()), runtime)
@@ -74,11 +89,7 @@ struct AllnighterCLI {
         case "floor" where args.first == "show": runFloorShow(Array(args.dropFirst()), runtime)
         case "spec": runSpec(args, runtime)
         case "export": runExport(args, runtime)
-        case "doctor" where args.first == "explain": runDoctorExplain(Array(args.dropFirst()))
-        case "doctor": await runDoctor(args, runtime)
-        case "detect": await runDetect(runtime)
         case "dev": runDev(args)
-        case "serve": await runServe(args)
         case "pair": await PairCLI.run(args, runtime: runtime)
         case "panel": await PanelCLI.run(args, runtime: runtime)
         case "pending": await PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
@@ -322,14 +333,11 @@ struct AllnighterCLI {
     /// `notChecked`). `--full` runs smoke probes (spends quota) to confirm
     /// auth/readiness. Emits `DoctorResult` (docs/phases/CLI_Implementation_Contract.md
     /// §Doctor Contract).
-    static func runDoctor(_ args: [String], _ runtime: ToolRuntime) async {
+    static func runDoctor(_ args: [String]) async {
         let opts = Options(args)
         let full = opts.flag("full")
         let pilot = opts.flag("pilot")
         let sourceId = opts.value("agent")
-        if let sourceId, runtime.registry.manifest(id: sourceId) == nil {
-            fail(code: "SOURCE_NOT_FOUND", message: "no source manifest '\(sourceId)'")
-        }
         let rendezvous = ResidentExecutionRendezvous()
         let result: DoctorResult
         do {
@@ -339,11 +347,12 @@ struct AllnighterCLI {
                     full: full,
                     pilot: pilot,
                     projectToken: opts.value("project"),
-                    workingDirectory: FileManager.default.currentDirectoryPath
+                    workingDirectory: nil
                 )),
                 idempotencyKey: UUID().uuidString.lowercased()
             )
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+            let timeout = full ? ResidentExecutionWaitBudget.sourceProbe : 30
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: timeout) else {
                 fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the doctor request before timeout")
             }
             if let rejection = receipt.rejection { fail(code: rejection.code, message: rejection.message) }
@@ -594,7 +603,7 @@ struct AllnighterCLI {
     /// probes. Note: the CLI uses `DefaultConfig` (no `setup` blocks yet), so bins
     /// fall back to `invoke.command` and loginFlow guidance comes from the app's
     /// bundle registry, not here.
-    static func runDetect(_ runtime: ToolRuntime) async {
+    static func runDetect() async {
         let rendezvous = ResidentExecutionRendezvous()
         let result: ResidentDetectionResult
         do {
@@ -602,7 +611,10 @@ struct AllnighterCLI {
                 operation: .sourceProbe(.init(full: true, intent: .detect)),
                 idempotencyKey: UUID().uuidString.lowercased()
             )
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+            guard let receipt = try await rendezvous.waitForReceipt(
+                requestId: submitted.requestId,
+                timeout: ResidentExecutionWaitBudget.sourceProbe
+            ) else {
                 fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the detect request before timeout")
             }
             if let rejection = receipt.rejection { fail(code: rejection.code, message: rejection.message) }

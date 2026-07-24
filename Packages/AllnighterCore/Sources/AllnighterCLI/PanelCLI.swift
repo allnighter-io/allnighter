@@ -292,7 +292,14 @@ enum PanelCLI {
                 operation: operation,
                 idempotencyKey: UUID().uuidString.lowercased()
             )
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+            let timeout: TimeInterval
+            switch operation {
+            case .panelRound:
+                timeout = ResidentExecutionWaitBudget.panelRound
+            default:
+                timeout = 30
+            }
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: timeout) else {
                 AllnighterCLI.fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the panel request before timeout")
             }
             if let rejection = receipt.rejection {

@@ -96,6 +96,11 @@ public struct CLIDetector: Sendable {
     /// Shared install dirs scanned (in addition to a manifest's own knownPaths)
     /// when the shell can't resolve a bin — the free net before Spotlight/agent.
     private let commonBinDirs: [String]
+    /// A probe that has not been explicitly designated as interactive must never
+    /// re-enter an interactive shell later for an ambiguous invocation.  Keeping
+    /// this bit with the detector (rather than only with `ShellResolver`) closes
+    /// the alias/function escape hatch in `runResolved`.
+    private let interactive: Bool
 
     /// Common CLI install locations across managers, `~` expands against `home`.
     public static let defaultCommonBinDirs: [String] = [
@@ -127,6 +132,7 @@ public struct CLIDetector: Sendable {
         self.smokeTimeout = smokeTimeout
         self.workingDirectory = workingDirectory
         self.commonBinDirs = commonBinDirs
+        self.interactive = interactive
     }
 
     /// Probe every headless-CLI tool (one resolve batch, then per-tool detect+smoke).
@@ -382,7 +388,9 @@ public struct CLIDetector: Sendable {
 
     /// Runs an author-controlled command string through the resolved invocation.
     /// `direct`/`shim` swap the bare bin for the absolute path (argv preserved);
-    /// `loginShell` re-runs it under `$SHELL -lic` so an alias/function resolves.
+    /// `loginShell` re-runs it through the detector's approved shell mode. A
+    /// background/resident probe is always `-lc`; only an explicitly interactive
+    /// setup operation may use `-lic`.
     private func runResolved(_ raw: String, invocation: ToolInvocation, timeout: Duration) async -> CommandResult {
         let tokens = ShellWords.split(raw)
         guard let bin = tokens.first else { return CommandResult(launchError: "empty command") }
@@ -392,7 +400,8 @@ public struct CLIDetector: Sendable {
             return await commandRunner.run(command: path, args: args, stdin: nil, env: [:], workingDirectory: workingDirectory, timeout: timeout)
         case .loginShell:
             _ = bin
-            return await commandRunner.run(command: shellPath, args: ["-lic", raw], stdin: nil, env: [:], workingDirectory: workingDirectory, timeout: timeout)
+            let loginFlag = interactive ? "-lic" : "-lc"
+            return await commandRunner.run(command: shellPath, args: [loginFlag, raw], stdin: nil, env: [:], workingDirectory: workingDirectory, timeout: timeout)
         }
     }
 }

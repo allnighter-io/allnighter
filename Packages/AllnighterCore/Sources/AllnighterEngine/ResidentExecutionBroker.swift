@@ -178,6 +178,14 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 try? rendezvous.reject(claim, code: "SOURCE_NOT_FOUND", message: "no source manifest '\(sourceId)'")
                 return
             }
+            if request.workingDirectory != nil {
+                try? rendezvous.reject(
+                    claim,
+                    code: "RESIDENT_REQUEST_REJECTED",
+                    message: "source probes are coordinator-scoped and may not inspect a caller workspace"
+                )
+                return
+            }
             switch request.intent {
             case .doctor:
                 let result = await dependencies.doctor.probe(request)

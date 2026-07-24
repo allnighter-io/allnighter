@@ -1,8 +1,8 @@
 # Resident Execution Broker — One Spawn Path for Every CLI
 
-Status: **Implementation in progress — REB-S01 landed; REB-S02 routes `alln run`, `alln run --detach`, streamed run events, and `alln team status/result` through the resident authority. REB-S03 routes the complete Panel lifecycle (start/round/status/watch/done) and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, identity-verified activation, and durable drain/restart on update; `scripts/rebuild_cli.sh` rebuilds outside a protected checkout and refreshes the service in one command. Try Fix follow-up routing and the host matrix remain.**
+Status: **Implementation in progress — REB-S01 landed; REB-S02 routes `alln run`, `alln run --detach`, streamed run events, and `alln team status/result` through the resident authority. REB-S03 routes the complete Panel lifecycle (start/round/status/watch/done) and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, identity-verified activation, and durable drain/restart on update; `scripts/rebuild_cli.sh` rebuilds outside a protected checkout and refreshes the service in one command. The P0 TCC follow-up makes coordinator source probes noninteractive, scratch-CWD-only, and unable to receive a caller workspace path. The Codex no-prompt host proof and remaining REB-S05 matrix remain.**
 Owner: AllnighterCore + `alln serve` + CLI
-Updated: 2026-07-23 (REB-S04 installation path landed; activation requires explicit user consent)
+Updated: 2026-07-24 (P0 source-probe TCC containment landed; host proof pending)
 Supersedes: the resident execution boundary in archived
 `Mac_Standalone_App_And_Background_Coordinator.md`; its Mac app shell history
 remains historical.
@@ -55,6 +55,31 @@ This is not a proposal to weaken Codex security or ask users for Full Access.
 The coordinator is a normal user-level Allnighter process. It receives typed
 Allnighter operations, never arbitrary remote shell, and it uses only the
 permissions the user's logged-in CLIs already use.
+
+### Permission-prompt containment
+
+The resident boundary is only useful if a restricted client cannot make the
+resident touch the caller's protected workspace or re-enter an interactive
+shell. The 2026-07-24 Codex incident exposed both holes in the first routing
+implementation: `doctor --full` passed the caller's Documents CWD to a
+diagnostic Git check, and an alias/function invocation could silently turn a
+background smoke probe into `$SHELL -lic`. Both can produce macOS TCC or
+Automation prompts despite no requested Panel work.
+
+The durable rule is generic, not per driver:
+
+- source probes are coordinator-scoped and use Allnighter's neutral scratch
+  directory; the typed source-probe request rejects any caller workspace path;
+- normal doctor/detect and resident probe shells are noninteractive (`-lc`),
+  including the alias/function fallback; only a future explicitly named,
+  user-present setup flow may opt into an interactive shell;
+- a routine health/readiness operation reports a source failure or an
+  interaction-required condition. It never asks macOS for Documents or
+  Automation access on behalf of a sandboxed caller.
+
+This does not promise that an intentionally launched vendor worker can never
+need its own permission; it bans Allnighter's *diagnostic and handoff paths*
+from creating surprise prompts.
 
 ## Founder intent
 
@@ -482,6 +507,9 @@ Teaching rules:
 - The calling agent receives results and progress, never the coordinator's
   environment or credential material.
 - The coordinator uses normal user permissions only.
+- Routine source diagnostics may not receive a caller workspace CWD or invoke
+  an interactive shell. They run from Allnighter-owned scratch and return a
+  classified result rather than requesting Documents or Automation access.
 - Answer-team isolation materializes a tracked, secret-safe source snapshot.
   Untracked/ignored files and `.env*` are excluded unless a future explicit,
   typed attachment contract names a safe file.
@@ -572,6 +600,7 @@ After cutover:
 | Accepted request -> duplicate run | Idempotency store | Client timeout permits resubmit as new work | Same key + payload returns same canonical ID | Drop first receipt; retry creates no second run |
 | Concurrency wait -> running | Process ownership | Task exists, therefore worker runs | `running` requires spawned owned identity | One-slot source with three workers shows one running, two queued |
 | Coordinator -> shell | Typed operation registry | Local caller may pass executable/env | Broker accepts only registered typed operations | Arbitrary command/env fields fail schema validation |
+| Restricted client -> source diagnostic | Resident probe contract | Client workspace path or alias fallback is harmless diagnostic context | Source probes reject client workspaces and never use an interactive shell unless a future explicit setup contract permits it | Documents path is rejected; alias-resolved full probe records only `-lc` spawns |
 | Isolation copy -> safe snapshot | Answer snapshot owner | Repo copy is safe because workers are read-only | Ignored/untracked secrets never enter answer snapshots | Fixture `.env.local` is absent from every seat snapshot |
 | Client death -> run death | Resident coordinator | Foreground process lifetime owns work | Accepted work survives client death | Kill submitting CLI; run reaches terminal journal state |
 | Client auto-start -> clean environment | Coordinator launch origin | Client may start a missing coordinator | A client-spawned coordinator is never trusted; start is owned by launchd/login-item registration and launch origin is recorded | Coordinator started from a restricted client refuses dispatch; client reports `COORDINATOR_UNAVAILABLE` with the enablement action |
@@ -623,6 +652,9 @@ After cutover:
 - Route full doctor/setup probes through the coordinator. **Landed:** `alln doctor`
   submits a typed source-probe request; only the resident Engine service can
   resolve or smoke vendor CLIs and persist the resulting readiness record.
+- **Landed (P0):** doctor/detect are dispatched before foreground runtime
+  construction; source probes reject client workspaces, use neutral scratch,
+  and preserve noninteractive shell posture through alias/function fallbacks.
 - **Landed:** `alln detect` is the same typed resident source-probe path. The
   coordinator persists the detection cache and assembled Team before returning
   the legacy command's presentation records to the client.
@@ -680,6 +712,9 @@ After cutover:
 - Include a CLI-only arm: enable and run the coordinator on a machine with no
   Mac app installed.
 - Prove no host requires Full Access for Allnighter source execution.
+- Prove Codex `doctor --full` and an alias-resolved source smoke produce no
+  Documents or Automation prompt; a prompt is a release blocker, not a setup
+  instruction for the user.
 - Prove distinct sources stay distinct.
 - Update help, generated contracts, doctor, setup, and GUI presentation.
 - Remove obsolete foreground execution and incident containment code.
@@ -713,6 +748,7 @@ Assertions:
 - round and status JSON return to the sandboxed client without reading the
   user's application-support directories;
 - no vendor credential or state directory is copied or remapped;
+- no routine doctor/detect/Panel handoff prompts for Documents or Automation;
 - no `.env*` or ignored/untracked secret enters a seat snapshot;
 - the same commands still work from Claude, Cursor, Grok, terminal, and app;
 - Phase target remains unmodified by answer workers.

@@ -1,5 +1,15 @@
 import Foundation
 
+/// Client wait budgets for resident operations. A request is durable once the
+/// broker claims it, so the foreground wait must reflect the operation's real
+/// bounded work rather than a one-size-fits-all rendezvous poll default.
+public enum ResidentExecutionWaitBudget {
+    /// Full driver smoke probes have a 60-second per-driver timeout.
+    public static let sourceProbe: TimeInterval = 130
+    /// A Panel round may wait for several real source CLIs to return.
+    public static let panelRound: TimeInterval = 1_800
+}
+
 /// Typed work accepted by the resident execution authority.  This is a closed
 /// union: a foreground client can request product operations, never a shell,
 /// environment, executable path, or arbitrary process arguments.

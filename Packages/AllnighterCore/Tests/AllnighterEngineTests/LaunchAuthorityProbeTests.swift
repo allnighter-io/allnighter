@@ -157,4 +157,27 @@ final class LaunchAuthorityProbeTests: XCTestCase {
         XCTAssertEqual(safe, "-lc", "default must be non-interactive (TCC-safe)")
         XCTAssertEqual(setup, "-lic", "explicit setup resolves through the interactive shell")
     }
+
+    /// A shell alias/function can only be re-run through a shell.  That fallback
+    /// must preserve the detector's TCC posture instead of silently escalating a
+    /// safe resident probe to `-lic`.
+    func testLoginShellInvocationPreservesNonInteractiveProbePosture() async {
+        let runner = RecordingRunner { command, args in
+            if command == kShell, args.count == 2, args[1].contains("claude") {
+                if args[1].contains("command -v") { return kResolved("claude --quiet") }
+                return args[1].contains("--version")
+                    ? CommandResult(stdout: "claude 1.0", exitCode: 0)
+                    : CommandResult(stdout: "ALLNIGHTER_READY", exitCode: 0)
+            }
+            return CommandResult(launchError: "unexpected \(command)")
+        }
+        let detector = CLIDetector(commandRunner: runner, shellPath: kShell, home: "/tmp/home", interactive: false)
+        _ = await detector.probe(kManifest(), model: "opus", now: .init(timeIntervalSince1970: 0), smoke: true)
+
+        let flags = await runner.recorded()
+            .filter { $0.command == kShell }
+            .map { $0.args.first }
+        XCTAssertFalse(flags.isEmpty)
+        XCTAssertTrue(flags.allSatisfy { $0 == "-lc" }, "resident probes must never re-enter an interactive shell")
+    }
 }

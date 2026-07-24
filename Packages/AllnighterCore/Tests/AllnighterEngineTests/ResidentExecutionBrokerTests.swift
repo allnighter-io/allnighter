@@ -36,6 +36,23 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         XCTAssertEqual(healthReceipt.state, .accepted)
         XCTAssertEqual(healthReceipt.canonicalId, "coord")
 
+        // A source probe is coordinator-scoped. Letting a restricted caller
+        // attach its repo path reintroduces the Documents-TCC prompt the broker
+        // exists to prevent, even though no worker has been dispatched.
+        let workspaceProbe = try rendezvous.submit(
+            operation: .sourceProbe(.init(
+                sourceId: "codex",
+                full: false,
+                workingDirectory: "/Users/example/Documents/repo"
+            )),
+            idempotencyKey: "workspace-probe",
+            requestId: "workspace-probe-request"
+        )
+        let workspaceProbeMaybeReceipt = try await rendezvous.waitForReceipt(requestId: workspaceProbe.requestId)
+        let workspaceProbeReceipt = try XCTUnwrap(workspaceProbeMaybeReceipt)
+        XCTAssertEqual(workspaceProbeReceipt.state, .rejected)
+        XCTAssertEqual(workspaceProbeReceipt.rejection?.code, "RESIDENT_REQUEST_REJECTED")
+
         let mismatched = try rendezvous.submit(
             operation: .query(.init(kind: .health)),
             idempotencyKey: "mismatched-build",
