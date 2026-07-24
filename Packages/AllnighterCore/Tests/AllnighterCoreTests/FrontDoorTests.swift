@@ -38,7 +38,12 @@ final class FrontDoorTests: XCTestCase {
         XCTAssertNotNil(ModelRosterPersistence(fileURL: rosterURL).load())
     }
 
-    func testCodexSandboxUsesStableThreadTempSupportRoot() {
+    /// Replaces `testCodexSandboxUsesStableThreadTempSupportRoot`, which locked in
+    /// the deleted per-thread temp redirect. Founder ruling 2026-07-24 (CR-S05):
+    /// there is ONE durable state root for every host. A restricted host that
+    /// cannot write it fails honestly; it is never handed a parallel, empty
+    /// product. See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+    func testCodexSandboxResolvesTheOneCanonicalSupportRoot() {
         let previousSandbox = ProcessInfo.processInfo.environment["CODEX_SANDBOX"]
         let previousThreadID = ProcessInfo.processInfo.environment["CODEX_THREAD_ID"]
         unsetenv("ALLNIGHTER_SUPPORT_DIR")
@@ -53,8 +58,10 @@ final class FrontDoorTests: XCTestCase {
         }
 
         let root = AllnighterSupportRoot.support
-        XCTAssertTrue(root.path.hasPrefix(FileManager.default.temporaryDirectory.path))
-        XCTAssertTrue(root.path.hasSuffix("Allnighter-Codex/thread_with_spaces"))
+        XCTAssertFalse(root.path.hasPrefix(FileManager.default.temporaryDirectory.path),
+                       "a sandboxed host must not get a temp state tree: \(root.path)")
+        XCTAssertFalse(root.path.contains("Allnighter-Codex"), root.path)
+        XCTAssertTrue(root.path.hasSuffix("/Allnighter"), root.path)
     }
 
     func testEmptyBenchModelsJSONIncludesCounselNotBareArray() throws {

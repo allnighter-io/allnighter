@@ -34,7 +34,9 @@
     "PanelSeatIsolation",
     "PanelReadOnlyArgs",
     "--sandbox read-only",
-    "--permission-mode plan"
+    "--permission-mode plan",
+    "Allnighter-Codex",
+    "CODEX_THREAD_ID"
   ],
   "forbiddenAlternateRootFields": [
     "projectMirrorRoot",

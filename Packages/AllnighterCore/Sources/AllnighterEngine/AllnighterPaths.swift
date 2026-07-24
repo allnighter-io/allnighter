@@ -10,21 +10,11 @@ public enum AllnighterPaths {
             return URL(fileURLWithPath: (override as NSString).expandingTildeInPath, isDirectory: true)
         }
 
-        // Keep this target-local mirror of AllnighterSupportRoot: Engine cannot
-        // depend on the Core target, but both stores must select the same Codex
-        // sandbox fallback.
-        if let threadID = ProcessInfo.processInfo.environment["CODEX_THREAD_ID"], !threadID.isEmpty,
-           ProcessInfo.processInfo.environment["CODEX_SANDBOX"] != nil {
-            let safeThreadID = threadID.unicodeScalars.map { scalar -> Character in
-                switch scalar.value {
-                case 45, 48...57, 65...90, 97...122: return Character(String(scalar))
-                default: return "_"
-                }
-            }
-            return FileManager.default.temporaryDirectory
-                .appendingPathComponent("Allnighter-Codex", isDirectory: true)
-                .appendingPathComponent(String(safeThreadID), isDirectory: true)
-        }
+        // ONE durable state root, for every host. The Codex per-thread temp
+        // fallback that used to live here is deleted: it handed a restricted host
+        // a parallel, empty product instead of failing honestly. This mirrors
+        // AllnighterSupportRoot (Engine cannot depend on Core) — keep them
+        // identical. See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
         return base.appendingPathComponent("Allnighter", isDirectory: true)

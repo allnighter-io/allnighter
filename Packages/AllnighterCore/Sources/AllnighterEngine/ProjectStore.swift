@@ -70,12 +70,17 @@ public final class ProjectStore: @unchecked Sendable {
     // MARK: - Listing
 
     /// All Projects in index order (active and archived). Use `.archived` to filter.
+    ///
+    /// A record that is present on disk but cannot be read is an error, not an
+    /// absence. Swallowing it with `try?` is what let a restricted host be told
+    /// "you have no projects" when the truth was "I could not read them" — the
+    /// misreport that seeded the Code Red incident. Unreadable records now throw.
     public func list() throws -> [Project] {
         var index = try loadIndex()
         let onDisk = try listProjectIdsOnDisk()
         for id in onDisk where !index.projectOrder.contains(id) { index.projectOrder.append(id) }
         index.projectOrder.removeAll { !onDisk.contains($0) }
-        return index.projectOrder.compactMap { try? load(id: $0) }
+        return try index.projectOrder.compactMap { try load(id: $0) }
     }
 
     public func activeProjects() throws -> [Project] {
