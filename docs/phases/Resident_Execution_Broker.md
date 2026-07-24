@@ -1,6 +1,6 @@
 # Resident Execution Broker — One Spawn Path for Every CLI
 
-Status: **Implementation in progress — REB-S01 landed; REB-S02 routes `alln run`, `alln run --detach`, streamed run events, and `alln team status/result` through the resident authority. REB-S03 routes the complete Panel lifecycle (start/round/status/watch/done) and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, identity-verified activation, and durable drain/restart on update; `scripts/rebuild_cli.sh` rebuilds outside a protected checkout and refreshes the service in one command. The P0 TCC follow-up makes coordinator source probes noninteractive, scratch-CWD-only, unable to receive a caller workspace path, and able to compare an optional client-computed commit ID without inspecting that workspace. Codex-side health and quota-free doctor rendezvous proofs passed, but a real detached review under `~/Documents` raised a Documents prompt; REB-S05 is red pending the resident-run TCC isolation harness and a project-access decision.**
+Status: **Implementation in progress — REB-S01 landed; REB-S02 routes `alln run`, `alln run --detach`, streamed run events, and the complete public Team lifecycle (`status/result/cancel/reconcile`) through the resident authority. REB-S03 routes the complete Panel lifecycle (start/round/status/watch/done) and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, identity-verified activation, and durable drain/restart on update; `scripts/rebuild_cli.sh` rebuilds outside a protected checkout and refreshes the service in one command. The 2026-07-24 CPH slices now provide returned retry keys, pre-spawn durable admission, expired-handoff `startFailed` settlement, an exclusive canonicalized rendezvous endpoint, a free full-doctor admission probe, and explicit `team status --persisted` recovery reads. Codex-side health and quota-free doctor rendezvous proofs passed, but a real detached review under `~/Documents` raised a Documents prompt; REB-S05 and CPH-3 remain red until a no-prompt project-byte boundary is proven.**
 Owner: AllnighterCore + `alln serve` + CLI
 Updated: 2026-07-24 (P0 source-probe TCC containment landed; host proof pending)
 Supersedes: the resident execution boundary in archived
@@ -769,6 +769,12 @@ Works test: delay or kill the coordinator between reservation and runner spawn,
 restart it, retry the same key, and prove one canonical run and zero duplicate
 worker starts.
 
+**Progress (2026-07-24):** implemented returned/generated retry keys, durable
+pre-spawn receipts, and bounded `startFailed` settlement for a handoff that
+never gains runner ownership. The focused crash-window reconciliation and
+idempotency seams pass. The full kill/restart/retry chaos fixture remains a
+release gate.
+
 ### CPH-1 — One canonical resident transport and owner
 
 Truth owner: the resident transport endpoint plus its coordinator-generation
@@ -786,6 +792,12 @@ protocol identity.
 Works test: two coordinators race for one endpoint; exactly one runs, and an
 old shutdown cannot invalidate the live coordinator's client query.
 
+**Progress (2026-07-24):** the file compatibility transport now has a
+lifetime-held exclusive lock, generation-owned identity cleanup, and a
+canonical default temporary path (eliminating `/var` versus `/private/var`
+split endpoints). The socket transport remains deliberately unclaimed until
+the hostile-host harness proves it can connect.
+
 ### CPH-2 — One lifecycle API, explicit degraded observation
 
 Truth owner: the resident coordinator for live state; run journals for durable
@@ -800,6 +812,11 @@ history only.
 - Doctor performs a client-path transport round trip and a free, rate-limited
   admission-idempotency probe through the same ledger as paid work. A broken
   control plane is critical, not an ambient readiness warning.
+
+**Progress (2026-07-24):** `status/result/cancel/reconcile` now share the
+resident lifecycle service; `team status --persisted` is labelled journal-only
+and non-live; `doctor --full` submits the same free admission probe twice and
+requires one reservation with zero vendor starts.
 
 ### CPH-3 — Project bytes are an explicit no-prompt boundary
 
