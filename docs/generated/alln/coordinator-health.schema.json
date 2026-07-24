@@ -96,6 +96,12 @@
         "null"
       ]
     },
+    "recoveryAction" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
     "schemaVersion" : {
       "type" : "integer"
     },
@@ -123,7 +129,8 @@
     "journal",
     "loopback",
     "broker",
-    "activeObligationCount"
+    "activeObligationCount",
+    "recoveryAction"
   ],
   "title" : "CoordinatorHealth",
   "type" : "object"

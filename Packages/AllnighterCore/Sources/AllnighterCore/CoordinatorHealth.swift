@@ -21,6 +21,9 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
     /// File-rendezvous execution endpoint, distinct from loopback health.
     public var broker: Broker
     public var activeObligationCount: Int
+    /// Explicit recovery, when the client can observe a broker identity but
+    /// cannot prove a live resident process from its private coordinator state.
+    public var recoveryAction: String?
 
     public init(
         schemaVersion: Int = 1,
@@ -34,7 +37,8 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
         journal: Journal,
         loopback: Loopback,
         broker: Broker = .init(ready: false),
-        activeObligationCount: Int = 0
+        activeObligationCount: Int = 0,
+        recoveryAction: String? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.state = state
@@ -48,6 +52,7 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
         self.loopback = loopback
         self.broker = broker
         self.activeObligationCount = activeObligationCount
+        self.recoveryAction = recoveryAction
     }
 
     public enum State: String, Codable, Sendable {

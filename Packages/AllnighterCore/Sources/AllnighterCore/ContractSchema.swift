@@ -280,9 +280,10 @@ public enum ContractSchema {
             "loopback": ref("Loopback"),
             "broker": ref("Broker"),
             "activeObligationCount": int,
+            "recoveryAction": nullable("string"),
         ], required: [
             "schemaVersion", "state", "contractVersion", "binaryVersion", "binaryGitSha",
-            "journal", "loopback", "broker", "activeObligationCount",
+            "journal", "loopback", "broker", "activeObligationCount", "recoveryAction",
         ])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [

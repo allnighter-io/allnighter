@@ -43,6 +43,7 @@ public enum ResidentCoordinatorInstall {
     public enum InstallError: Error, Equatable, Sendable {
         case binaryUnresolved
         case plistWrite(String)
+        case hostPermissionDenied(String)
         case launchctl(String)
         case activationTimeout
 
@@ -51,6 +52,8 @@ public enum ResidentCoordinatorInstall {
             case .binaryUnresolved:
                 return "could not resolve the running alln binary; invoke it by absolute path, then retry"
             case .plistWrite(let detail): return "could not write the resident coordinator LaunchAgent: \(detail)"
+            case .hostPermissionDenied(let plistPath):
+                return "this agent host is not allowed to install the background coordinator at \(plistPath). Open the normal macOS Terminal app and run `alln serve install --json` once, then retry the original command."
             case .launchctl(let detail): return "could not enable the resident coordinator: \(detail)"
             case .activationTimeout:
                 return "launchd accepted the coordinator but it did not publish the current binary identity before the activation deadline"
@@ -114,7 +117,7 @@ public enum ResidentCoordinatorInstall {
             try plistData(binaryPath: binary, pathEnvironment: pathEnvironment).write(to: plist, options: .atomic)
             try fileManager.setAttributes([.posixPermissions: 0o644], ofItemAtPath: plist.path)
         } catch {
-            return .failure(.plistWrite(error.localizedDescription))
+            return .failure(plistWriteFailure(error, plistPath: plist.path))
         }
 
         let health = currentHealth ?? {
@@ -180,6 +183,20 @@ public enum ResidentCoordinatorInstall {
         case .failure(let detail):
             return .failure(.launchctl(detail))
         }
+    }
+
+    static func plistWriteFailure(_ error: Error, plistPath: String) -> InstallError {
+        let nsError = error as NSError
+        let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError
+        let codes = [nsError.code, underlying?.code].compactMap { $0 }
+        // EPERM/EACCES and Cocoa's file-write-no-permission are the signatures
+        // of a sandboxed host. The remedy is intentionally not "Allow" in a
+        // privacy dialog: the resident must be provisioned once by the normal
+        // unsandboxed host that owns the user's Mac session.
+        if codes.contains(1) || codes.contains(13) || codes.contains(513) {
+            return .hostPermissionDenied(plistPath)
+        }
+        return .plistWrite(error.localizedDescription)
     }
 
     /// Use the non-resolved installed command path when available. A LaunchAgent

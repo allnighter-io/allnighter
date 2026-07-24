@@ -5514,19 +5514,19 @@
       "ruleId" : "run.journal.corrupt"
     },
     {
-      "agentAction" : "Enable the resident coordinator with `alln serve install`, then retry; foreground spawning is not a fallback.",
+      "agentAction" : "Run `alln serve install --json` once from the normal macOS Terminal app, then retry; a sandboxed agent host cannot install the background coordinator and foreground spawning is not a fallback.",
       "code" : "COORDINATOR_UNAVAILABLE",
       "exitClass" : "operational",
-      "explain" : "The resident coordinator is not reachable. Enable it with `alln serve install`; Allnighter never falls back to a caller-owned vendor process.",
+      "explain" : "The resident coordinator is not reachable. Allnighter never falls back to a caller-owned vendor process because that would reintroduce sandbox and privacy-prompt failures.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "coordinator.unavailable"
     },
     {
-      "agentAction" : "Refresh the installed coordinator with `alln serve install`, then retry.",
+      "agentAction" : "Refresh with `alln serve install --json` only when the binary or contract version differs; same-version, same-contract Git-SHA drift is compatible and does not require a refresh.",
       "code" : "COORDINATOR_VERSION_MISMATCH",
       "exitClass" : "operational",
-      "explain" : "The coordinator binary or contract version does not exactly match this client, so dispatch was refused.",
+      "explain" : "The coordinator protocol differs from this client, so dispatch was refused. Git SHA is diagnostic provenance, not a compatibility boundary when binary and contract versions match.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "coordinator.version_mismatch"

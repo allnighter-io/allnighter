@@ -54,6 +54,25 @@ public struct ResidentCoordinatorProbe: Sendable {
         )
         let activeObligations = activeObligationCount()
         guard let record = store.load() else {
+            // A restricted client may be able to read the broker rendezvous in
+            // the per-user temporary directory while macOS denies access to the
+            // coordinator's Application Support record. Never call that
+            // "foreground only": surface the actual stale/unknown identity and
+            // the safe repair instead of making routed commands look mysterious.
+            if let identity = try? rendezvous.currentIdentity() {
+                return CoordinatorHealth(
+                    state: .unavailable,
+                    coordinatorId: identity.coordinatorId,
+                    contractVersion: identity.contractVersion,
+                    binaryVersion: identity.binaryVersion,
+                    binaryGitSha: identity.binaryGitSha,
+                    journal: journal,
+                    loopback: .init(listening: false),
+                    broker: .init(ready: false),
+                    activeObligationCount: activeObligations,
+                    recoveryAction: "A resident broker identity is present but this host cannot verify its live coordinator. Run `alln serve install` once from a normal macOS Terminal, then retry."
+                )
+            }
             return CoordinatorHealth(
                 state: .foregroundOnly,
                 contractVersion: contractVersion,

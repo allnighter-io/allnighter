@@ -118,6 +118,10 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         return try CoreJSON.decode(Identity.self, from: Data(contentsOf: identityFile))
     }
 
+    /// Whether the published endpoint can speak this client's protocol. Git SHA
+    /// remains useful diagnostic provenance, but it is not a transport boundary:
+    /// a released coordinator may be safely draining work from an adjacent build
+    /// with the same binary and contract versions.
     public func isReady(
         coordinatorId: String,
         binaryVersion: String,
@@ -127,7 +131,6 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         guard let identity = try? currentIdentity() else { return false }
         return identity.coordinatorId == coordinatorId
             && identity.binaryVersion == binaryVersion
-            && identity.binaryGitSha == binaryGitSha
             && identity.contractVersion == contractVersion
     }
 
@@ -158,18 +161,39 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     ) throws -> ResidentExecutionRequest {
         try validateClientSurface()
         let identity = try currentIdentity()
+        // Coordinators built before the contract-only compatibility gate checked
+        // the client SHA as well. When the semantic protocol is unchanged, send
+        // their published SHA on the wire so a restricted, newly rebuilt client
+        // can keep using the already-running resident rather than being stranded
+        // behind a LaunchAgent install it is not permitted to perform. An explicit
+        // caller-supplied client is never rewritten.
+        let compatibleClient: ResidentExecutionRequest.Client
+        if let client {
+            compatibleClient = client
+        } else if identity.binaryVersion == AllnighterVersionIdentity.binaryVersion,
+                  identity.contractVersion == ContractRegistry.contractVersion {
+            compatibleClient = .init(
+                binaryVersion: identity.binaryVersion,
+                binaryGitSha: identity.binaryGitSha,
+                contractVersion: identity.contractVersion,
+                pid: ProcessInfo.processInfo.processIdentifier,
+                origin: "cli-compatible-resident"
+            )
+        } else {
+            compatibleClient = .init(
+                binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                binaryGitSha: AllnighterBuildInfo.gitSha,
+                contractVersion: ContractRegistry.contractVersion,
+                pid: ProcessInfo.processInfo.processIdentifier
+            )
+        }
         let unsigned = ResidentExecutionRequest(
             requestId: requestId,
             idempotencyKey: idempotencyKey,
             submittedAt: submittedAt,
             coordinatorId: identity.coordinatorId,
             coordinatorNonce: identity.nonce,
-            client: client ?? .init(
-                binaryVersion: AllnighterVersionIdentity.binaryVersion,
-                binaryGitSha: AllnighterBuildInfo.gitSha,
-                contractVersion: ContractRegistry.contractVersion,
-                pid: ProcessInfo.processInfo.processIdentifier
-            ),
+            client: compatibleClient,
             operation: operation,
             clientProof: ResidentClientProof(signature: "")
         )

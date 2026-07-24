@@ -12,8 +12,10 @@ final class CoordinatorHealthTests: XCTestCase {
         let runsDir = root.appendingPathComponent("Runs", isDirectory: true)
         let panelsDir = root.appendingPathComponent("Panels", isDirectory: true)
         let store = ResidentCoordinatorStore(directory: coordDir)
+        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
         let probe = ResidentCoordinatorProbe(
             store: store,
+            rendezvous: rendezvous,
             runsDirectory: runsDir,
             panelsDirectory: panelsDir
         )
@@ -31,6 +33,33 @@ final class CoordinatorHealthTests: XCTestCase {
         XCTAssertFalse(health.loopback.listening)
         XCTAssertTrue(health.journal.incrementalDurable)
         XCTAssertTrue(health.journal.orphanRecovery)
+    }
+
+    func testHealthSurfacesBrokerIdentityWhenPrivateCoordinatorRecordIsUnavailable() throws {
+        let (root, store, _) = tempDirs()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
+        _ = try rendezvous.prepareCoordinator(
+            coordinatorId: "broker-only",
+            binaryVersion: "0.1.0-old",
+            binaryGitSha: "old-sha",
+            contractVersion: "1.0.0"
+        )
+        let probe = ResidentCoordinatorProbe(
+            store: store,
+            rendezvous: rendezvous,
+            runsDirectory: root.appendingPathComponent("Runs", isDirectory: true),
+            panelsDirectory: root.appendingPathComponent("Panels", isDirectory: true)
+        )
+
+        let health = probe.health(binaryVersion: "0.1.0")
+        XCTAssertEqual(health.state, .unavailable)
+        XCTAssertEqual(health.coordinatorId, "broker-only")
+        XCTAssertEqual(health.binaryGitSha, "old-sha")
+        XCTAssertFalse(health.broker.ready)
+        XCTAssertNotNil(health.recoveryAction)
+        rendezvous.deactivateCoordinator()
     }
 
     func testHealthAvailableWhenLivePidMatches() throws {

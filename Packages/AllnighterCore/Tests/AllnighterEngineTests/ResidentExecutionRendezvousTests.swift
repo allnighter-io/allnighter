@@ -54,7 +54,7 @@ final class ResidentExecutionRendezvousTests: XCTestCase {
         XCTAssertEqual(stored.idempotencyKey, "same-work")
     }
 
-    func testReadinessRequiresExactBuildIdentity() throws {
+    func testReadinessRequiresCompatibleBinaryAndContractNotExactBuildIdentity() throws {
         let (root, rendezvous) = makeRendezvous()
         defer { try? FileManager.default.removeItem(at: root) }
         try prepare(rendezvous)
@@ -65,12 +65,27 @@ final class ResidentExecutionRendezvousTests: XCTestCase {
             binaryGitSha: AllnighterBuildInfo.gitSha,
             contractVersion: "1.0.0"
         ))
-        XCTAssertFalse(rendezvous.isReady(
+        XCTAssertTrue(rendezvous.isReady(
             coordinatorId: "coord-test",
             binaryVersion: "1.2.3",
             binaryGitSha: "stale-build-sha",
             contractVersion: "1.0.0"
         ))
+    }
+
+    func testDefaultSubmissionUsesPublishedSHAForSameContractLegacyCoordinator() throws {
+        let (root, rendezvous) = makeRendezvous()
+        defer { try? FileManager.default.removeItem(at: root) }
+        _ = try rendezvous.prepareCoordinator(
+            coordinatorId: "coord-test",
+            binaryVersion: AllnighterVersionIdentity.binaryVersion,
+            binaryGitSha: "legacy-strict-sha",
+            contractVersion: ContractRegistry.contractVersion
+        )
+
+        let submitted = try rendezvous.submit(operation: health, idempotencyKey: "legacy-compatible")
+        XCTAssertEqual(submitted.client.binaryGitSha, "legacy-strict-sha")
+        XCTAssertEqual(submitted.client.origin, "cli-compatible-resident")
     }
 
     func testCoordinatorEventIsAvailableToRestrictedClientByCursor() throws {

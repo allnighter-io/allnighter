@@ -35,6 +35,13 @@ final class ResidentCoordinatorInstallTests: XCTestCase {
         )
     }
 
+    func testPermissionDeniedInstallExplainsNormalTerminalRecovery() {
+        let error = NSError(domain: NSCocoaErrorDomain, code: 513)
+        let failure = ResidentCoordinatorInstall.plistWriteFailure(error, plistPath: "/Users/me/Library/LaunchAgents/alln.plist")
+        XCTAssertEqual(failure, .hostPermissionDenied("/Users/me/Library/LaunchAgents/alln.plist"))
+        XCTAssertTrue(failure.message.contains("normal macOS Terminal"))
+    }
+
     func testInstallWritesPlistAndBootstrapsOnlyItsLabel() throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("resident-install-\(UUID().uuidString)", isDirectory: true)
