@@ -924,6 +924,97 @@ public actor RunService {
         return result
     }
 
+    /// SH-S01 / CR-S02 — read-only resolution preview for `alln run --dry-run`.
+    /// `RunService` is the sole owner of team/worker/Auto selection, canonical-root
+    /// normalization, and write-lock reasoning; the CLI only parses flags, looks up the
+    /// registered project, and prints this projection. Resolution runs through the SAME
+    /// `RunInvocationResolver` as `run()`; no worker is started (dry-run never dispatches).
+    ///
+    /// `readyModels` and the governor verdict are live runtime facts the caller observes
+    /// (bench probe/cooling state, concurrency capacity). The CLI supplies those facts but
+    /// owns no resolution — team shape, write policy, and the live write-lock probe are all
+    /// resolved here, not in the CLI.
+    public func dryRun(
+        _ request: RunRequest,
+        readyModels: [Model],
+        agent: String? = nil,
+        conversationId: String? = nil,
+        messageId: String? = nil,
+        governorAvailable: Bool = true,
+        governorBlockedReason: String? = nil
+    ) async -> RunDryRunJSON {
+        let root = RunWriteLock.normalize(request.repoRoot) ?? request.repoRoot
+        let teamsForResolution = teams.isEmpty ? TeamCatalog.all : teams
+        // Only a mutating run needs the live write-lock probe. Resolve the provisional
+        // write policy from the same team catalog the resolver uses so the probe input
+        // matches the resolved plan — write-lock REASONING lives here, never in the CLI.
+        let provisionalMutating = teamsForResolution.first(where: { $0.id == (request.presetId ?? "") })?.mutating
+            ?? (request.presetId == nil ? TeamCatalog.defaultRunTeam()?.mutating : nil)
+            ?? false
+        var writeLockHeld: Bool?
+        if provisionalMutating {
+            writeLockHeld = await writeLock.isHeld(RunWriteLock.key(repoRoot: root))
+        }
+        let input = RunInvocationInput(
+            message: request.message,
+            projectRoot: root,
+            flagMode: .dryRun,
+            flags: RunInvocationNormalizedFlags(
+                projectId: request.projectId,
+                teamId: request.presetId,
+                workerId: request.workerId,
+                effort: request.effort,
+                lane: request.lane,
+                type: request.type,
+                context: request.context,
+                json: true,
+                noCommit: request.noCommit,
+                acceptSurvivors: request.acceptSurvivors,
+                commitMessage: request.commitMessage,
+                proofCommand: request.proofCommand,
+                executorTeamId: request.executorTeamId,
+                idleTimeoutSeconds: request.workerTimeoutSeconds,
+                handshakeTimeoutSeconds: request.handshakeTimeoutSeconds,
+                firstActivityTimeoutSeconds: request.firstActivityTimeoutSeconds,
+                wallTimeoutSeconds: request.wallTimeoutSeconds,
+                idempotencyKey: request.idempotencyKey,
+                retryOf: request.retryOf,
+                threadId: request.threadId,
+                conversationId: conversationId,
+                messageId: messageId,
+                agent: agent
+            )
+        )
+        let resolved = RunInvocationResolver.resolve(
+            input,
+            context: RunInvocationResolveContext(
+                models: models,
+                teams: teamsForResolution,
+                readyModels: readyModels,
+                readyModelIds: Set(readyModels.map(\.id)),
+                defaultSettings: loadDefaultSettings(),
+                writeLockHeld: writeLockHeld,
+                governorAvailable: governorAvailable,
+                governorBlockedReason: governorBlockedReason
+            )
+        )
+        var payload = resolved.makeDryRunJSON()
+        // MR-S04: an explicit worker that resolved not-runnable teaches `alln models`.
+        if !resolved.canStart, resolved.explicitWorkerChosen {
+            let reason = resolved.blockedReason ?? ""
+            if reason.localizedCaseInsensitiveContains("notReady")
+                || reason.localizedCaseInsensitiveContains("disabled")
+                || reason.localizedCaseInsensitiveContains("unknown")
+                || reason.localizedCaseInsensitiveContains("not a runnable") {
+                payload.nextAction = AgentNextAction(
+                    kind: "listModels",
+                    label: "List models",
+                    command: "alln models --json")
+            }
+        }
+        return payload
+    }
+
     // MARK: - Execution (one worker, mutating)
 
     private func runExecution(

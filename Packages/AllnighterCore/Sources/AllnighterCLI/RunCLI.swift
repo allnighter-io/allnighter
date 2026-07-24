@@ -143,16 +143,7 @@ enum RunCLI {
         )
 
         if opts.flag("dry-run") {
-            await emitDryRun(
-                project: project,
-                teamId: opts.value("team"),
-                workerId: opts.value("worker"),
-                effort: effort,
-                lane: lane,
-                type: opts.value("type"),
-                opts: opts,
-                runtime: runtime
-            )
+            await emitDryRun(project: project, opts: opts, runtime: runtime)
             return
         }
 
@@ -261,28 +252,16 @@ enum RunCLI {
         }
     }
 
-    /// Project `RunDryRunJSON` v2 from one `ResolvedRunInvocation`.
-    /// Never re-resolves team/worker/seats independently of foreground/detach.
+    /// CR-S02 — parse flags + look up runtime facts, then hand the whole resolution to
+    /// the single owner (`RunService.dryRun`). The CLI computes NO team/root/write-lock
+    /// semantics here; it observes the governor verdict + ready bench (runtime facts) and
+    /// renders `RunService`'s `RunDryRunJSON` projection. Dry-run always exits 0 —
+    /// `canStart` carries the verdict (AE-S04).
     private static func emitDryRun(
         project: Project,
-        teamId: String?,
-        workerId: String?,
-        effort: EffortLevel?,
-        lane: WorkLane?,
-        type: String?,
         opts: Options,
         runtime: ToolRuntime
     ) async {
-        let root = project.normalizedRootPath
-        let provisionalMutating = TeamCatalog.get(teamId ?? "")?.mutating
-            ?? (teamId == nil ? TeamCatalog.defaultRunTeam()?.mutating : nil)
-            ?? false
-        var writeLockHeld: Bool?
-        if provisionalMutating {
-            let key = ExecutionLane.key(repoRoot: root)
-            writeLockHeld = await RunWriteLockRegistry.shared.isHeld(key)
-        }
-
         var governorAvailable = true
         var governorBlockedReason: String?
         switch runtime.governor.availability() {
@@ -296,69 +275,49 @@ enum RunCLI {
             governorBlockedReason = reason
         }
 
-        let readyIds = Set(runtime.readyModels.map(\.id))
-        let input = RunInvocationInput(
+        let request = RunRequest(
             message: opts.positional.first ?? opts.value("message") ?? "",
-            projectRoot: root,
-            flagMode: .dryRun,
-            flags: RunInvocationNormalizedFlags(
-                projectId: project.id,
-                teamId: teamId,
-                workerId: workerId,
-                effort: effort,
-                lane: lane,
-                type: type,
-                context: opts.value("context"),
-                json: true,
-                noCommit: opts.flag("no-commit"),
-                acceptSurvivors: opts.flag("accept-survivors"),
-                commitMessage: opts.value("commit-message"),
-                proofCommand: opts.value("proof"),
-                executorTeamId: opts.value("executor"),
-                idleTimeoutSeconds: RunCLI.parsePositiveTimeoutSeconds(
-                    opts.value("idle-timeout"), flag: "--idle-timeout").value,
-                handshakeTimeoutSeconds: RunCLI.parsePositiveTimeoutSeconds(
-                    opts.value("handshake-timeout"), flag: "--handshake-timeout").value,
-                firstActivityTimeoutSeconds: RunCLI.parsePositiveTimeoutSeconds(
-                    opts.value("first-activity-timeout"), flag: "--first-activity-timeout").value,
-                wallTimeoutSeconds: RunCLI.parsePositiveTimeoutSeconds(
-                    opts.value("wall-timeout"), flag: "--wall-timeout").value,
-                idempotencyKey: opts.value("idempotency-key"),
-                retryOf: opts.value("retry-of"),
-                threadId: opts.value("thread-id"),
-                conversationId: opts.value("conversation-id"),
-                messageId: opts.value("message-id"),
-                agent: opts.value("agent")
-            )
+            repoRoot: project.normalizedRootPath,
+            threadId: opts.value("thread-id"),
+            projectId: project.id,
+            presetId: opts.value("team"),
+            workerId: opts.value("worker"),
+            effort: opts.value("effort").flatMap(EffortLevel.init(rawValue:)),
+            lane: opts.value("lane").flatMap(WorkLane.init(rawValue:)),
+            type: opts.value("type"),
+            context: opts.value("context"),
+            executorTeamId: opts.value("executor"),
+            workerTimeoutSeconds: parsePositiveTimeoutSeconds(
+                opts.value("idle-timeout"), flag: "--idle-timeout").value,
+            handshakeTimeoutSeconds: parsePositiveTimeoutSeconds(
+                opts.value("handshake-timeout"), flag: "--handshake-timeout").value,
+            firstActivityTimeoutSeconds: parsePositiveTimeoutSeconds(
+                opts.value("first-activity-timeout"), flag: "--first-activity-timeout").value,
+            wallTimeoutSeconds: parsePositiveTimeoutSeconds(
+                opts.value("wall-timeout"), flag: "--wall-timeout").value,
+            commitMessage: opts.value("commit-message"),
+            noCommit: opts.flag("no-commit"),
+            proofCommand: opts.value("proof"),
+            idempotencyKey: opts.value("idempotency-key"),
+            retryOf: opts.value("retry-of"),
+            acceptSurvivors: opts.flag("accept-survivors")
         )
-        let resolved = RunInvocationResolver.resolve(
-            input,
-            context: RunInvocationResolveContext(
-                models: runtime.models,
-                teams: runtime.teams,
-                readyModels: runtime.readyModels,
-                readyModelIds: readyIds,
-                defaultSettings: DefaultModelSettingsPersistence().load(),
-                writeLockHeld: writeLockHeld,
-                governorAvailable: governorAvailable,
-                governorBlockedReason: governorBlockedReason
-            )
+        let service = RunService(
+            models: runtime.models,
+            registry: runtime.registry,
+            teams: runtime.teams,
+            invocations: runtime.invocations
         )
-        var payload = resolved.makeDryRunJSON()
-        if !resolved.canStart, resolved.explicitWorkerChosen {
-            let reason = resolved.blockedReason ?? ""
-            if reason.localizedCaseInsensitiveContains("notReady")
-                || reason.localizedCaseInsensitiveContains("disabled")
-                || reason.localizedCaseInsensitiveContains("unknown")
-                || reason.localizedCaseInsensitiveContains("not a runnable") {
-                payload.nextAction = AgentNextAction(
-                    kind: "listModels",
-                    label: "List models",
-                    command: "alln models --json")
-            }
-        }
+        let payload = await service.dryRun(
+            request,
+            readyModels: runtime.readyModels,
+            agent: opts.value("agent"),
+            conversationId: opts.value("conversation-id"),
+            messageId: opts.value("message-id"),
+            governorAvailable: governorAvailable,
+            governorBlockedReason: governorBlockedReason
+        )
         print(AllnighterCLI.jsonString(payload))
-        // Dry-run always exits 0 — canStart carries the verdict (AE-S04).
     }
 
     /// `alln run resume <runId>` — claim a parked vendor wait and resume the
