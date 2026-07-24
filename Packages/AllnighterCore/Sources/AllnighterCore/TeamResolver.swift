@@ -359,10 +359,26 @@ public enum TeamResolver {
             guard !allowedModelIds.isEmpty else { return nil }
             return strongest(pool.filter(hasTags).filter(autoOK))
         }
+        // Home-driver affinity: when the row named a preferred model, automatic
+        // fills stay on that CLI (Claude→Claude, Codex→Codex, Cursor→Cursor,
+        // Gemini→Antigravity…). Ready ≠ automatic cross-driver substitute.
+        // Resolve driver from the ready bench first, then the catalog (preferred
+        // may be down but still declares the home CLI).
+        let homeDriver = preferredModelId.flatMap { id in
+            byId[id]?.driverId ?? ModelCatalog.get(id)?.driverId
+        }
+        func homeOK(_ m: Model) -> Bool {
+            guard let homeDriver else { return true }
+            return m.driverId == homeDriver
+        }
         // Reserve the Lead's model for synthesis — workers take cheaper alternatives
-        // when the bench has depth (one-model benches still run).
+        // when the bench has depth (one-model benches still run). Only give up the
+        // reserved model when a *home-driver-eligible* substitute exists for this
+        // row: stripping it in favor of a cross-driver model the home-affinity
+        // filter below would then reject only strands a required worker (d8da81c2
+        // added homeOK to the fallback branches but not here).
         if let reserved = reserveModelId,
-           pool.contains(where: { $0.id != reserved && hasTags($0) && autoOK($0) }) {
+           pool.contains(where: { $0.id != reserved && hasTags($0) && autoOK($0) && homeOK($0) }) {
             pool.removeAll { $0.id == reserved }
         }
         // Cross-row diversity: skip models already claimed (and their paid
@@ -385,18 +401,6 @@ public enum TeamResolver {
             if let model = pool.first(where: { $0.id == id && hasTags($0) }) {
                 return model
             }
-        }
-        // Home-driver affinity: when the row named a preferred model, automatic
-        // fills stay on that CLI (Claude→Claude, Codex→Codex, Cursor→Cursor,
-        // Gemini→Antigravity…). Ready ≠ automatic cross-driver substitute.
-        // Resolve driver from the ready bench first, then the catalog (preferred
-        // may be down but still declares the home CLI).
-        let homeDriver = preferredModelId.flatMap { id in
-            byId[id]?.driverId ?? ModelCatalog.get(id)?.driverId
-        }
-        func homeOK(_ m: Model) -> Bool {
-            guard let homeDriver else { return true }
-            return m.driverId == homeDriver
         }
         let autoPool = pool.filter(hasTags).filter(autoOK)
         switch fallback {
