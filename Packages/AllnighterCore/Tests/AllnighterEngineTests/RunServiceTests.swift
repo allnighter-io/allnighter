@@ -364,6 +364,73 @@ final class RunServiceTests: XCTestCase {
         XCTAssertEqual(run.status, .complete)
     }
 
+    /// Regression for the silent skill substitution bug: a pinned worker's `skillId`
+    /// used to be read from `resolved.answerWorkers.first`, which only contains rows
+    /// that found a READY model. When `build_slice`'s declared answer-row model
+    /// (Cursor Composer) is disabled, `resolved.answerWorkers` resolves empty even
+    /// though a *different* worker is explicitly pinned via `--worker` — so the old
+    /// code silently fell back to `first_principles_builder` instead of the team's
+    /// declared `execution_playbook` skill. The skill must come from the preset's
+    /// durable declaration, never from bench readiness.
+    func testPinnedWorkerKeepsDeclaredSkillWhenDeclaredAnswerModelIsDisabled() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        guard let buildSlice = TeamCatalog.get("build_slice"),
+              let declaredAnswerRow = buildSlice.workerSpecs.first(where: { $0.purpose == .answer }) else {
+            return XCTFail("build_slice must declare exactly one answer row for this gate")
+        }
+        XCTAssertEqual(declaredAnswerRow.skillId, "execution_playbook")
+
+        // The declared answer-row model, disabled — `resolved.answerWorkers` will
+        // resolve empty because neither it nor any same-driver substitute is ready.
+        let composer = Model(
+            id: declaredAnswerRow.preferredModelId ?? "model_cursor_composer_25",
+            displayName: "Cursor Composer", modelLabel: "composer-2.5",
+            driverId: "cursor_agent", role: .both, enabled: false
+        )
+        // A different, ready model pinned explicitly via `--worker`.
+        let gpt = Model(
+            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            driverId: "codex", role: .both, enabled: true
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .flagship, allowHealthySubstitutions: true,
+            tiers: TierMembership(flagship: ["model_chatgpt"]))
+        let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
+        let service = RunService(
+            models: [composer, gpt],
+            registry: DriverRegistry([
+                TestSupport.headlessManifest(id: "cursor_agent", command: "cursor"),
+                TestSupport.headlessManifest(id: "codex", command: "codex"),
+            ]),
+            commandRunner: MockCommandRunner(scripts: [
+                "codex": .init(stdout: "Sliced.", exitCode: 0),
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] }
+        )
+
+        let result = await service.run(
+            RunRequest(
+                message: "do the thing", repoRoot: repo.path,
+                presetId: "build_slice", workerId: "model_chatgpt"
+            ),
+            origin: .cli
+        )
+        guard case .success(let run) = result else {
+            return XCTFail("run failed: \(result)")
+        }
+        XCTAssertEqual(run.workers.first?.modelId, "model_chatgpt")
+        XCTAssertEqual(
+            run.workers.first?.skillId, "execution_playbook",
+            "pinned worker must keep the preset's declared answer skill, never the generic fallback"
+        )
+    }
+
     /// AE-S03: answer-path (non-mutating team) must fail closed on a bogus `--worker`,
     /// never accept-and-drop.
     func testAnswerPathBogusWorkerFailsWithWorkerNotAvailable() async throws {

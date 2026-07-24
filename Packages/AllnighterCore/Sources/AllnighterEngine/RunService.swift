@@ -1083,6 +1083,13 @@ public actor RunService {
 
         let worker: Worker
         var model: Model
+        // A pinned worker (workerOverride) still needs the TEAM's intended skill, but
+        // `resolved.answerWorkers` only contains rows that found a READY model — a
+        // disabled/not-benched declared answer model would silently drop the skill
+        // to the generic fallback. Read it from the preset's durable declaration
+        // instead, so skill identity never depends on bench readiness.
+        let declaredAnswerSkillId = preset.workerSpecs.first(where: { $0.purpose == .answer })?.skillId
+            ?? "first_principles_builder"
         if let override = workerOverride {
             if existingRun != nil {
                 // A due same-source wake is the readiness probe. It must bypass
@@ -1098,7 +1105,7 @@ public actor RunService {
                     id: Worker.makeID(modelId: m.id, instanceIndex: 0),
                     modelId: m.id,
                     instanceIndex: 0,
-                    skillId: resolved.answerWorkers.first?.skillId ?? "first_principles_builder",
+                    skillId: declaredAnswerSkillId,
                     purpose: .answer
                 )
                 model = m
@@ -1119,7 +1126,7 @@ public actor RunService {
                         id: Worker.makeID(modelId: m.id, instanceIndex: 0),
                         modelId: m.id,
                         instanceIndex: 0,
-                        skillId: resolved.answerWorkers.first?.skillId ?? "first_principles_builder",
+                        skillId: declaredAnswerSkillId,
                         purpose: .answer
                     )
                     model = m
