@@ -1141,7 +1141,7 @@ struct AllnighterCLI {
     /// clients must not read the support journal themselves: a restricted host
     /// may not have access to it, and the coordinator is the only owner allowed
     /// to reconcile live process truth before answering.
-    private static func residentTeamQuery(
+    static func residentTeamQuery(
         _ kind: ResidentExecutionOperation.Query.Kind,
         runId: String
     ) async -> ResidentExecutionReceipt {

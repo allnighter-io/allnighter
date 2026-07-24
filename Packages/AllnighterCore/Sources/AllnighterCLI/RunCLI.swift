@@ -121,8 +121,17 @@ enum RunCLI {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: message)
         }
 
-        let tryFix = opts.flag("try-fix")
-        let request = RunRequest(
+        // These chains have no resident event/reply contract yet. Failing closed
+        // is intentional: falling back to a caller-owned vendor spawn would
+        // recreate the sandbox bug this broker exists to remove.
+        if opts.flag("try-fix") || opts.flag("stream") {
+            AllnighterCLI.fail(
+                code: "RESIDENT_REQUEST_REJECTED",
+                message: "--try-fix and --stream are awaiting resident event routing; direct foreground execution is disabled"
+            )
+        }
+
+        let request = ResidentExecutionOperation.ForegroundTeamRunRequest(
             message: message,
             repoRoot: project.normalizedRootPath,
             projectId: project.id,
@@ -132,7 +141,7 @@ enum RunCLI {
             lane: lane,
             type: opts.value("type"),
             context: opts.value("context"),
-            executorTeamId: opts.value("executor"),
+            originAgent: opts.value("agent"),
             workerTimeoutSeconds: idleParsed.value,
             handshakeTimeoutSeconds: handshakeParsed.value,
             firstActivityTimeoutSeconds: firstActivityParsed.value,
@@ -144,64 +153,69 @@ enum RunCLI {
             retryOf: opts.value("retry-of"),
             acceptSurvivors: opts.flag("accept-survivors")
         )
+        await runForegroundThroughResident(request, json: opts.flag("json"))
+    }
 
-        let service = RunService(
-            models: runtime.models,
-            registry: runtime.registry,
-            teams: runtime.teams,
-            invocations: runtime.invocations
-        )
-
-        if tryFix {
-            await runTryFix(request, service: service, runtime: runtime, project: project, json: opts.flag("json"))
-            return
-        }
-
-        if opts.flag("stream") {
-            // RLR-S03b: route the live stream through the durable RemoteRunEventJournal
-            // so each line carries its monotonic per-Mac `seq` (survives coordinator
-            // restart + reattach), and enforce exactly-one-terminal per attachment.
-            let journal = RemoteRunEventJournal()
-            let attachment = NDJSONStreamProjector.NDJSONAttachment()
-            let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
-            let runTask = Task {
-                _ = await service.run(request, origin: .cli, originAgent: opts.value("agent"), events: continuation)
-            }
-            for await event in stream {
-                // Allocate the durable seq at append; fall back to the un-stamped event
-                // if the journal cannot record it (e.g. missing runId) so the stream
-                // never stalls.
-                let stamped = (try? journal.append(event)) ?? event
-                if let line = attachment.liveLine(for: stamped) { print(line) }
-            }
-            _ = await runTask.value
-            // RLR-L7: an attachment always ends in exactly one terminal — synthesize
-            // one if the stream closed without a terminal status event.
-            if let closing = attachment.closingLine() { print(closing) }
-            return
-        }
-
-        let result = await service.run(request, origin: .cli, originAgent: opts.value("agent"))
-        switch result {
-        case .failure(let error):
-            AllnighterCLI.emitFailure(code: error.code, message: error.description)
-            exit(1)
-        case .success(let run):
-            if opts.flag("json") {
-                let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?
-                    .appendingPathComponent("run.json").path ?? ""
-                let context = TeamRunJSONMapper.Context(
-                    promptSource: .init(kind: .positional, path: nil),
-                    runJournalPath: journalPath,
-                    reproduceCommand: reproduceCommand(run, project: project)
+    private static func runForegroundThroughResident(
+        _ request: ResidentExecutionOperation.ForegroundTeamRunRequest,
+        json: Bool
+    ) async {
+        let rendezvous = ResidentExecutionRendezvous()
+        let runId: String
+        do {
+            let submitted = try rendezvous.submit(
+                operation: .foregroundTeamRun(request),
+                idempotencyKey: request.idempotencyKey ?? UUID().uuidString.lowercased()
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+                AllnighterCLI.fail(
+                    code: "RESIDENT_ACCEPT_TIMEOUT",
+                    message: "resident coordinator did not accept the foreground run before timeout"
                 )
-                let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
-                print(AllnighterCLI.jsonString(trj))
-            } else {
-                print(AllnighterCLI.humanAnswer(for: run, models: runtime.models, manifests: runtime.registry.all)
-                      ?? "(run \(run.status.rawValue))")
-                FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
             }
+            if let rejection = receipt.rejection {
+                AllnighterCLI.fail(code: rejection.code, message: rejection.message)
+            }
+            guard case let .teamStart(response) = receipt.result else {
+                AllnighterCLI.fail(
+                    code: "RESIDENT_REQUEST_REJECTED",
+                    message: "resident coordinator accepted an invalid foreground run response"
+                )
+            }
+            runId = response.runId
+        } catch ResidentExecutionRendezvous.Error.unavailable {
+            AllnighterCLI.fail(
+                code: "COORDINATOR_UNAVAILABLE",
+                message: "resident coordinator is unavailable; enable it with `alln serve install`"
+            )
+        } catch {
+            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident run request failed: \(error)")
+        }
+
+        while true {
+            let receipt = await AllnighterCLI.residentTeamQuery(.runStatus, runId: runId)
+            guard case let .teamStatus(status) = receipt.result else {
+                AllnighterCLI.fail(
+                    code: "RESIDENT_REQUEST_REJECTED",
+                    message: "resident coordinator returned an invalid foreground status response"
+                )
+            }
+            if status.status.isTerminal { break }
+            try? await Task.sleep(for: .milliseconds(min(max(status.nextPollAfterMs, 50), 5_000)))
+        }
+
+        let receipt = await AllnighterCLI.residentTeamQuery(.runResult, runId: runId)
+        guard case let .teamResult(result) = receipt.result else {
+            AllnighterCLI.fail(
+                code: "RESIDENT_REQUEST_REJECTED",
+                message: "resident coordinator did not return a terminal foreground result"
+            )
+        }
+        if json {
+            print(AllnighterCLI.jsonString(result))
+        } else {
+            print(result.answer?.markdown ?? "(run \(result.teamRun.status.rawValue))")
+            FileHandle.standardError.write(Data("\n[run \(runId)]\n".utf8))
         }
     }
 

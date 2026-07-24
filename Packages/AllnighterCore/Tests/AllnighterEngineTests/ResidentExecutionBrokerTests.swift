@@ -45,6 +45,15 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         XCTAssertEqual(missingStatusReceipt.state, .rejected)
         XCTAssertEqual(missingStatusReceipt.rejection?.code, "RUN_NOT_FOUND")
 
+        let foreground = try rendezvous.submit(
+            operation: .foregroundTeamRun(.init(message: "hello", repoRoot: root.path)),
+            idempotencyKey: "foreground", requestId: "foreground-request"
+        )
+        let foregroundMaybeReceipt = try await rendezvous.waitForReceipt(requestId: foreground.requestId)
+        let foregroundReceipt = try XCTUnwrap(foregroundMaybeReceipt)
+        XCTAssertEqual(foregroundReceipt.state, .rejected)
+        XCTAssertEqual(foregroundReceipt.rejection?.code, "DEFAULT_TEAM_INVALID")
+
         let team = try rendezvous.submit(
             operation: .teamRun(.init(question: "hello", repoRoot: root.path)),
             idempotencyKey: "team", requestId: "team-request"

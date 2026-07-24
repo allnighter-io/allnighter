@@ -128,6 +128,16 @@ public final class ResidentCoordinator: @unchecked Sendable {
                         rendezvous: rendezvous,
                         dependencies: .init(
                             asyncTeam: wake.asyncTeam,
+                            runService: RunService(
+                                models: wake.models,
+                                registry: wake.registry,
+                                teams: wake.teams,
+                                runStore: wake.runStore,
+                                commandRunner: wake.commandRunner,
+                                writeLock: wake.writeLock,
+                                invocations: wake.invocations,
+                                sessionStore: wake.sessionStore
+                            ),
                             models: wake.models,
                             registry: wake.registry,
                             runStore: wake.runStore,
