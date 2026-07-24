@@ -1,10 +1,10 @@
 # CODE RED — Core Infrastructure Repair
 
-Status: **IMPLEMENTATION IN PROGRESS — Code Red remains active. CR-S00 and
-CR-S01 are COMPLETE (final independent audit CLEAN; live authenticated
-normal-Terminal Works Test GREEN; receipts below). CR-S02–CR-S07 have not
-begun. All forward execution-path feature work remains blocked until this
-document is green.**
+Status: **IMPLEMENTATION IN PROGRESS — Code Red remains active. CR-S00,
+CR-S01, and CR-S02 are COMPLETE (each with an independent CLEAN audit and a
+live authenticated Works Test receipt below). CR-S03–CR-S07 have not begun.
+All forward execution-path feature work remains blocked until this document
+is green.**
 Owner: AllnighterCore + CLI execution path
 Updated: 2026-07-24
 
@@ -741,7 +741,10 @@ normal Terminal -> alln run -> one real authenticated CLI
 The worker reports canonical `pwd`, reads `.git`/HEAD, returns a sourced answer,
 and no resident request or alternate repository is created.
 
-### CR-S02 — Establish the single run owner
+### CR-S02 — Establish the single run owner — COMPLETE
+
+Implemented in `66e2c0c7`, `936c00f8`, `c90b2ac5`, `6aa975c9`. Independent
+audit CLEAN; live Works Test GREEN. See "CR-S02 closure — 2026-07-24" below.
 
 - make `RunService.run` the only resolution/execution semantic owner;
 - make `RunCLI` a parser/project lookup/output adapter only;
@@ -753,6 +756,44 @@ and no resident request or alternate repository is created.
 
 Works Test: the CR-S01 command still passes and its canonical `TeamRunJSON`
 identities/statuses match the actual process.
+
+### CR-S02 closure — 2026-07-24
+
+Independent audit of `66e2c0c7`, `936c00f8`, `c90b2ac5`, `6aa975c9`: **CLEAN.**
+Verified in code: `RunCLI` is parse/lookup/render only (source-invariant plus
+functional proof); `RunService.dryRun` and `run` resolve through the same
+`RunInvocationResolver` with test-proven write-policy agreement; both
+authoritative terminal journal writes fail visibly as
+`RUN_JOURNAL_UNAVAILABLE`; research Git observation stays observation-only
+and never runs for mutating teams; the five packet observation scenarios and
+the >256 KB concurrent stdout/stderr drain are proven against production
+code; contracts/help regenerated via export only. P3 follow-ups tracked: add
+the symmetric mutating-team journal-failure test; the CLI source-text scan is
+a proxy backed by functional tests. Recorded residual risk: the single-owner
+metric counts only `public func run(` and would not catch a future diverging
+preview method; recover the +208 net production lines when CR-S06 deletes
+the resident control plane.
+
+```text
+Status: GREEN
+Commit: 66e2c0c7, 936c00f8, c90b2ac5, 6aa975c9
+Production lines added / deleted: 301 / 93 (Sources; net +208 — sanctioned research Git observation added while the superseded duplicate CLI dry-run resolution is deleted in-slice; resident ceiling untouched at 2,143; phase aggregate remains net-negative after CR-S01's −1,531)
+Concepts deleted / added: duplicate CLI dry-run resolution (team/root/write-lock) deleted / RunService.dryRun single-owner projection + ResearchGitObservation added
+Client binary SHA: alln 0.9.17, git 6aa975c910c6, contract hash 021fcd388209
+Execution-owner binary SHA: none — direct path only; no resident involvement
+Exact command: alln run "Research only, do not modify any files. Report exactly: (1) the output of pwd, (2) the output of git rev-parse HEAD, (3) the first line of sentinel.txt, (4) the output of git status --porcelain. Cite each as evidence." --project prj_06537ab4 --team code_red_single --json
+Canonical repo root: /private/tmp/…/scratchpad/code-red-fixture (registered prj_06537ab4; disposable clean Git fixture, fixture HEAD 956401c9)
+Selected source IDs: claude_code × 2 (crew seat model_opus#0, lead seat model_fable#0; no substitution)
+Observed source process IDs: lead claude pid 68786 sampled live mid-run as a child of `alln run` pid 68689; crew completed before the sample window — attribution via run journal
+Run ID: CCDDB556-34C6-4580-9660-BC68B3437A16 (origin: cli; writePolicy: readOnly; status done/completed)
+Git observation before: HEAD 956401c9…, porcelain empty
+Git observation after: HEAD 956401c9…, porcelain empty (TeamRunJSON.researchGitObservation changed=false, baselineHead==head==956401c9…)
+Real changed paths: none
+Proof command/result: worker answer cites pwd = canonical fixture root, git HEAD = 956401c9…, sentinel line CODE_RED_SENTINEL_7f3a91, clean porcelain; run done/completed; warnings empty
+Architecture policy result: passed; full suite zero new failures vs the 31-case pre-existing baseline; contract drift check clean
+Missing assertion: crew seat pid not sampled live; `code_red_works_test.sh live-direct` remains a stub — live gesture performed manually (script live mode lands with CR-S03/S04); mutating-team journal-failure test tracked as P3 follow-up
+Next deletion: CR-S03 proves the two-CLI research Team; resident control-plane deletion stays CR-S05/CR-S06
+```
 
 ### CR-S03 — Prove the two-CLI research Team
 
