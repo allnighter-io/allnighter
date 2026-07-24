@@ -71,17 +71,27 @@ as no-prompt.
 
 ## Isolation harness (required)
 
-Create a disposable, signed macOS harness outside protected folders with only:
+The disposable launchd-CWD harness is at
+`tools/TCCProjectAccessHarness/`. It is intentionally product-free and can be
+invoked only from a normal terminal:
+
+```text
+bash tools/TCCProjectAccessHarness/run.sh --mode scratch
+bash tools/TCCProjectAccessHarness/run.sh --mode project --project <absolute-root>
+bash tools/TCCProjectAccessHarness/run.sh --mode snapshot --project <absolute-root>
+```
+
+It contains only:
 
 1. a launchd-like detached helper with owned scratch CWD;
 2. the same helper launched with a selected project root under `~/Documents`;
 3. a read-only worker launched against a secret-safe snapshot under
    Allnighter-owned storage.
 
-For each variant, record executable, parent/responsible process, effective CWD,
-project path touched, and timestamp. Run one variant per TCC reset only with
-explicit founder consent; join a visible dialog to its timestamp. The harness
-must not import Allnighter execution code.
+For each variant, record executable, effective CWD, project path touched, and
+timestamp. Run one variant per TCC reset only with explicit founder consent;
+join a visible dialog to its timestamp. The harness must not import Allnighter
+execution code.
 
 Success criterion: prove which paths are prompt-free and whether an
 Allnighter-owned read-only snapshot lets a real review complete without granting
