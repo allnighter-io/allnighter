@@ -159,7 +159,7 @@ final class PanelCLITests: XCTestCase {
         })
     }
 
-    func testParseStartUsesOnlyReadinessProvenModelWhenDoctorCacheExists() throws {
+    func testParseStartPreservesRosterWhenCallerDoctorCacheIsDegraded() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
         let team = try XCTUnwrap(BuiltInTeams.team("code_spec_review"))
@@ -189,9 +189,9 @@ final class PanelCLITests: XCTestCase {
         )
 
         XCTAssertEqual(request.seats.count, 5, "all review lenses remain represented")
-        XCTAssertTrue(request.seats.allSatisfy {
-            PanelTeamResolver.modelId(for: $0.workerId) == "model_chatgpt"
-        }, "one ready model should self-fuse the review instead of launching blocked CLIs")
+        XCTAssertTrue(request.seats.contains {
+            PanelTeamResolver.modelId(for: $0.workerId) != "model_chatgpt"
+        }, "the caller cache must not self-fuse a selected multi-source roster")
     }
 
     func testParseStartFuzzyTeamRejected() throws {

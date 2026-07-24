@@ -1,6 +1,6 @@
 # Resident Execution Broker — One Spawn Path for Every CLI
 
-Status: **Implementation in progress — REB-S01 landed; REB-S02 routes non-stream `alln run`, `alln run --detach`, and `alln team status/result` through the resident authority. Live event routing (`--stream`/`--try-fix`), Panel, and doctor are not broker-routed yet.**
+Status: **Implementation in progress — REB-S01 landed; REB-S02 routes non-stream `alln run`, `alln run --detach`, and `alln team status/result` through the resident authority. REB-S03 now routes Panel start/round dispatch through it and removes caller-cache self-fusion. Live event routing (`--stream`/`--try-fix`), Panel status/watch/done, and doctor are not broker-routed yet.**
 Owner: AllnighterCore + `alln serve` + CLI
 Updated: 2026-07-23 (implementation review and REB-S01 started)
 Supersedes: the resident execution boundary in archived

@@ -15,13 +15,32 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
 
     public struct PanelStart: Codable, Equatable, Sendable {
         public var projectRoot: String
+        public var projectId: String
         public var targetPath: String
-        public var juryId: String?
+        public var teamId: String?
+        public var seats: [PanelSeat]
+        public var maxRounds: Int
+        public var rememberedTeam: Bool
+        public var laneDefault: Bool
 
-        public init(projectRoot: String, targetPath: String, juryId: String? = nil) {
+        public init(
+            projectRoot: String,
+            projectId: String,
+            targetPath: String,
+            teamId: String? = nil,
+            seats: [PanelSeat],
+            maxRounds: Int,
+            rememberedTeam: Bool = false,
+            laneDefault: Bool = false
+        ) {
             self.projectRoot = projectRoot
+            self.projectId = projectId
             self.targetPath = targetPath
-            self.juryId = juryId
+            self.teamId = teamId
+            self.seats = seats
+            self.maxRounds = maxRounds
+            self.rememberedTeam = rememberedTeam
+            self.laneDefault = laneDefault
         }
     }
 
@@ -98,7 +117,13 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
 
     public struct PanelRound: Codable, Equatable, Sendable {
         public var panelId: String
-        public init(panelId: String) { self.panelId = panelId }
+        public var brief: String?
+        public var seatFilter: [String]?
+        public init(panelId: String, brief: String? = nil, seatFilter: [String]? = nil) {
+            self.panelId = panelId
+            self.brief = brief
+            self.seatFilter = seatFilter
+        }
     }
 
     public struct PanelDone: Codable, Equatable, Sendable {
@@ -121,6 +146,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
             case runStatus
             case runResult
             case panelStatus
+            case panelResult
         }
         public var kind: Kind
         public var canonicalId: String?
@@ -264,9 +290,14 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
     case teamStatus(TeamStatusResponse)
     case teamResult(TeamRunJSON)
     case teamResultNotReady(TeamResultNotReady)
+    case panelStart(PanelStartJSON)
+    case panelRound(PanelRoundJSON)
+    case panelStatus(PanelJSON)
 
     private enum CodingKeys: String, CodingKey { case type, payload }
-    private enum Kind: String, Codable { case teamStart, teamStatus, teamResult, teamResultNotReady }
+    private enum Kind: String, Codable {
+        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus
+    }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -275,6 +306,9 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
         case .teamStatus: self = .teamStatus(try container.decode(TeamStatusResponse.self, forKey: .payload))
         case .teamResult: self = .teamResult(try container.decode(TeamRunJSON.self, forKey: .payload))
         case .teamResultNotReady: self = .teamResultNotReady(try container.decode(TeamResultNotReady.self, forKey: .payload))
+        case .panelStart: self = .panelStart(try container.decode(PanelStartJSON.self, forKey: .payload))
+        case .panelRound: self = .panelRound(try container.decode(PanelRoundJSON.self, forKey: .payload))
+        case .panelStatus: self = .panelStatus(try container.decode(PanelJSON.self, forKey: .payload))
         }
     }
 
@@ -292,6 +326,15 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
             try container.encode(value, forKey: .payload)
         case let .teamResultNotReady(value):
             try container.encode(Kind.teamResultNotReady, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .panelStart(value):
+            try container.encode(Kind.panelStart, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .panelRound(value):
+            try container.encode(Kind.panelRound, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .panelStatus(value):
+            try container.encode(Kind.panelStatus, forKey: .type)
             try container.encode(value, forKey: .payload)
         }
     }

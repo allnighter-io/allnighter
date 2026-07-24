@@ -23,6 +23,25 @@ private final class ForegroundRunTaskRegistry: @unchecked Sendable {
     }
 }
 
+private actor PanelRoundCompletion {
+    private var result: Result<PanelCoordinator.RoundResult, PanelCoordinator.RoundError>?
+    func finish(_ result: Result<PanelCoordinator.RoundResult, PanelCoordinator.RoundError>) { self.result = result }
+    func current() -> Result<PanelCoordinator.RoundResult, PanelCoordinator.RoundError>? { result }
+}
+
+private final class PanelRoundTaskRegistry: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tasks: [String: Task<Void, Never>] = [:]
+    func insert(_ task: Task<Void, Never>, panelId: String) {
+        lock.lock(); defer { lock.unlock() }
+        tasks[panelId] = task
+    }
+    func remove(panelId: String) {
+        lock.lock(); defer { lock.unlock() }
+        tasks.removeValue(forKey: panelId)
+    }
+}
+
 /// Coordinator-owned dispatcher for the closed resident operation union. This
 /// is the only component that turns an accepted local request into a Team
 /// runner; foreground clients only write/read the rendezvous files.
@@ -33,6 +52,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         public var models: [Model]
         public var registry: DriverRegistry
         public var runStore: RunStore
+        public var invocations: [String: ToolInvocation]
         public var readyModels: @Sendable () -> [Model]
         public var executablePath: @Sendable () -> String?
 
@@ -42,6 +62,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             models: [Model] = [],
             registry: DriverRegistry = DefaultConfig.registry,
             runStore: RunStore = RunStore(),
+            invocations: [String: ToolInvocation] = [:],
             readyModels: @escaping @Sendable () -> [Model],
             executablePath: @escaping @Sendable () -> String? = ProcessOwnership.currentExecutablePath
         ) {
@@ -50,6 +71,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             self.models = models
             self.registry = registry
             self.runStore = runStore
+            self.invocations = invocations
             self.readyModels = readyModels
             self.executablePath = executablePath
         }
@@ -58,6 +80,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
     private let rendezvous: ResidentExecutionRendezvous
     private let dependencies: Dependencies
     private let foregroundTasks = ForegroundRunTaskRegistry()
+    private let panelTasks = PanelRoundTaskRegistry()
 
     public init(rendezvous: ResidentExecutionRendezvous, dependencies: Dependencies) {
         self.rendezvous = rendezvous
@@ -110,6 +133,10 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             }
         case .foregroundTeamRun(let request):
             await startForegroundRun(request, claim: claim)
+        case .panelStart(let request):
+            startPanel(request, claim: claim)
+        case .panelRound(let request):
+            await startPanelRound(request, claim: claim)
         case .query(let query) where query.kind == .health:
             try? rendezvous.accept(claim, canonicalId: claim.request.coordinatorId)
         case .query(let query) where query.kind == .runStatus:
@@ -142,6 +169,28 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 )
                 try? rendezvous.accept(claim, canonicalId: runId, result: .teamResult(result))
             }
+        case .query(let query) where query.kind == .panelStatus:
+            guard let panelId = query.canonicalId,
+                  let state = resolvedPanelState(panelId: panelId) else {
+                try? rendezvous.reject(claim, code: "PANEL_NOT_FOUND", message: "no panel matches \(query.canonicalId ?? "")")
+                return
+            }
+            try? rendezvous.accept(
+                claim, canonicalId: panelId,
+                result: .panelStatus(PanelJSON.project(state, contractVersion: ContractRegistry.contractVersion))
+            )
+        case .query(let query) where query.kind == .panelResult:
+            guard let panelId = query.canonicalId,
+                  let state = resolvedPanelState(panelId: panelId),
+                  let round = state.rounds.last,
+                  let attempt = round.attempts.last else {
+                try? rendezvous.reject(claim, code: "PANEL_NOT_FOUND", message: "no settled panel round matches \(query.canonicalId ?? "")")
+                return
+            }
+            try? rendezvous.accept(
+                claim, canonicalId: panelId,
+                result: .panelRound(panelRoundJSON(state: state, round: round, attempt: attempt))
+            )
         default:
             try? rendezvous.reject(
                 claim,
@@ -150,6 +199,148 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             )
         }
     }
+
+    private func panelCoordinator(stateStore: PanelStateStore = PanelStateStore()) -> PanelCoordinator {
+        PanelCoordinator(
+            stateStore: stateStore,
+            threadProjector: PanelThreadProjector(),
+            workerRunner: WorkerInvokerFactory.makeWorkerInvoker(invocations: dependencies.invocations),
+            models: dependencies.models,
+            registry: dependencies.registry
+        )
+    }
+
+    private func startPanel(
+        _ request: ResidentExecutionOperation.PanelStart,
+        claim: ResidentExecutionRendezvous.Claim
+    ) {
+        let store = PanelStateStore()
+        let coordinator = panelCoordinator(stateStore: store)
+        let config = PanelCoordinator.Config(
+            projectRoot: request.projectRoot,
+            projectId: request.projectId,
+            targetPath: request.targetPath,
+            teamId: request.teamId,
+            seats: request.seats,
+            maxRounds: request.maxRounds
+        )
+        switch coordinator.start(config: config, models: dependencies.models, registry: dependencies.registry) {
+        case .failure(.emptyRoster):
+            try? rendezvous.reject(claim, code: "CLI_USAGE_ERROR", message: "panel roster is empty — pass --team or --seat")
+        case .failure(.targetMissing(let path)):
+            try? rendezvous.reject(claim, code: "PANEL_TARGET_MISSING", message: "target not found or unreadable: \(path)")
+        case .success(let state):
+            guard let scaffoldPath = try? PanelBriefScaffold.writeRoundFile(
+                panelId: state.id, round: 1, stateStore: store
+            ) else {
+                try? rendezvous.reject(claim, code: "INTERNAL_ERROR", message: "could not write panel brief scaffold")
+                return
+            }
+            if let teamId = request.teamId { try? PanelTeamStore().save(projectId: request.projectId, teamId: teamId) }
+            let target = PanelCoordinator.resolveTargetPath(state.targetPath, projectRoot: state.projectRoot)
+            let targetHash = PanelState.contentHash(ofFileAt: target) ?? ""
+            let isolation = PanelCoordinator.isolationPlan(
+                seats: state.seats, models: dependencies.models, registry: dependencies.registry
+            )
+            let modes = Dictionary(uniqueKeysWithValues: isolation.map { ($0.workerId, $0.mode.rawValue) })
+            let payload = PanelStartJSON(
+                contractVersion: ContractRegistry.contractVersion,
+                panel: PanelJSON.project(state, contractVersion: ContractRegistry.contractVersion, targetHash: targetHash, isolationBySeat: modes),
+                roster: state.seats.map { PanelSeatJSON($0, isolation: modes[$0.workerId]) },
+                targetHash: targetHash,
+                scaffoldPath: scaffoldPath,
+                nextCommand: "alln panel round --panel \(state.id)",
+                teamId: state.teamId,
+                rememberedTeam: request.rememberedTeam ? true : (request.laneDefault ? false : nil),
+                isolation: isolation.map {
+                    PanelSeatIsolationJSON(workerId: $0.workerId, mode: $0.mode.rawValue, driverId: $0.driverId, advisory: $0.advisory)
+                }
+            )
+            try? rendezvous.accept(claim, canonicalId: state.id, result: .panelStart(payload))
+        }
+    }
+
+    private func startPanelRound(
+        _ request: ResidentExecutionOperation.PanelRound,
+        claim: ResidentExecutionRendezvous.Claim
+    ) async {
+        let store = PanelStateStore()
+        let coordinator = panelCoordinator(stateStore: store)
+        let completion = PanelRoundCompletion()
+        let tasks = panelTasks
+        let task = Task {
+            let result = await coordinator.runRound(
+                panelId: request.panelId, brief: request.brief, seatFilter: request.seatFilter
+            )
+            await completion.finish(result)
+            tasks.remove(panelId: request.panelId)
+        }
+        panelTasks.insert(task, panelId: request.panelId)
+
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline {
+            if let state = store.load(id: request.panelId), state.status == .running {
+                try? rendezvous.accept(
+                    claim, canonicalId: request.panelId,
+                    result: .panelStatus(PanelJSON.project(state, contractVersion: ContractRegistry.contractVersion))
+                )
+                return
+            }
+            if let result = await completion.current() {
+                switch result {
+                case .success(let payload):
+                    try? rendezvous.accept(
+                        claim, canonicalId: request.panelId,
+                        result: .panelRound(panelRoundJSON(state: payload.state, round: payload.round, attempt: payload.attempt))
+                    )
+                case .failure(let error):
+                    try? rendezvous.reject(claim, code: panelErrorCode(error), message: panelErrorMessage(error))
+                }
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+        task.cancel()
+        panelTasks.remove(panelId: request.panelId)
+        try? rendezvous.reject(claim, code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident panel did not persist round acceptance")
+    }
+
+    private func resolvedPanelState(panelId: String) -> PanelState? {
+        let store = PanelStateStore()
+        guard var state = store.load(id: panelId) else { return nil }
+        if state.status == .running && store.isOwnerDead(id: panelId) {
+            state = store.reconcileIfOrphaned(state)
+            PanelThreadProjector().sync(state: state, now: Date())
+        }
+        return state
+    }
+
+    private func panelRoundJSON(state: PanelState, round: PanelRound, attempt: PanelRoundAttempt) -> PanelRoundJSON {
+        PanelRoundJSON(
+            contractVersion: ContractRegistry.contractVersion,
+            panel: PanelJSON.project(state, contractVersion: ContractRegistry.contractVersion),
+            round: round.roundNumber,
+            attempt: attempt.attemptNumber,
+            outcome: PanelRoundOutcome.project(from: round),
+            targetHash: round.targetHash,
+            briefSource: round.briefSource.rawValue,
+            seatResults: round.seatResults.map(SeatResultJSON.init),
+            unstructuredSeats: PanelUnstructuredSeats.project(from: round.seatResults),
+            convergence: PanelConvergence.project(from: round.seatResults)
+        )
+    }
+
+    private func panelErrorCode(_ error: PanelCoordinator.RoundError) -> String {
+        switch error {
+        case .panelNotFound: return "PANEL_NOT_FOUND"
+        case .roundInFlight: return "PANEL_ROUND_IN_FLIGHT"
+        case .notAwaitingPM: return "PANEL_NOT_AWAITING"
+        case .targetMissing: return "PANEL_TARGET_MISSING"
+        case .briefRequired, .maxRoundsReached, .unknownSeats, .emptySeatFilter: return "CLI_USAGE_ERROR"
+        }
+    }
+
+    private func panelErrorMessage(_ error: PanelCoordinator.RoundError) -> String { "panel round refused: \(error)" }
 
     /// Begins a full foreground run in the coordinator process and accepts only
     /// after its canonical journal exists. That makes the receipt's run id

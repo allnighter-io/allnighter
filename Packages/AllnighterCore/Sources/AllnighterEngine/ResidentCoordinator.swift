@@ -141,6 +141,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
                             models: wake.models,
                             registry: wake.registry,
                             runStore: wake.runStore,
+                            invocations: wake.invocations,
                             readyModels: wake.readyModels
                         )
                     )

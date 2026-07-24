@@ -48,64 +48,20 @@ enum PanelCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
 
-        let store = PanelStateStore()
-        let coordinator = PanelCoordinator(
-            stateStore: store,
-            threadProjector: PanelThreadProjector(),
-            workerRunner: WorkerInvokerFactory.makeWorkerInvoker(invocations: runtime.invocations),
-            models: runtime.models,
-            registry: runtime.registry
-        )
-        switch coordinator.start(
-            config: request.config,
-            models: runtime.models,
-            registry: runtime.registry
-        ) {
-        case .success(let state):
-            let scaffoldPath: String
-            do {
-                scaffoldPath = try PanelBriefScaffold.writeRoundFile(panelId: state.id, round: 1, stateStore: store)
-            } catch {
-                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not write brief scaffold: \(error)")
-            }
-            if let teamId = request.teamId {
-                do {
-                    try PanelTeamStore().save(projectId: request.config.projectId, teamId: teamId)
-                } catch {
-                    AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not remember panel team: \(error)")
-                }
-            }
-            let resolvedTarget = PanelCoordinator.resolveTargetPath(
-                state.targetPath, projectRoot: state.projectRoot
-            )
-            let targetHash = PanelState.contentHash(ofFileAt: resolvedTarget) ?? ""
-            let advisory = dirtyTargetAdvisory(
-                projectRoot: state.projectRoot,
-                targetPath: state.targetPath
-            )
-            let isolation = PanelCoordinator.isolationPlan(
-                seats: state.seats,
-                models: runtime.models,
-                registry: runtime.registry
-            )
-            emitStartResult(
-                state,
-                targetHash: targetHash,
-                dirtyAdvisory: advisory,
-                scaffoldPath: scaffoldPath,
-                rememberedTeam: request.rememberedTeam,
-                laneDefault: request.laneDefault,
-                isolation: isolation,
-                json: opts.flag("json")
-            )
-        case .failure(.emptyRoster):
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "panel roster is empty — pass --team or --seat")
-        case .failure(.targetMissing(let path)):
-            AllnighterCLI.fail(
-                code: "PANEL_TARGET_MISSING",
-                message: "target not found or unreadable: \(path) — pass an existing --doc path"
-            )
+        let receipt = await residentPanelRequest(.panelStart(.init(
+            projectRoot: request.config.projectRoot,
+            projectId: request.config.projectId,
+            targetPath: request.config.targetPath,
+            teamId: request.teamId,
+            seats: request.seats,
+            maxRounds: request.config.maxRounds,
+            rememberedTeam: request.rememberedTeam,
+            laneDefault: request.laneDefault
+        )))
+        guard case let .panelStart(payload) = receipt.result else {
+            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel start response")
         }
+        emitStartPayload(payload, json: opts.flag("json"))
     }
 
     static func parseStartConfig(
@@ -132,13 +88,10 @@ enum PanelCLI {
         let catalogModels = models.isEmpty
             ? ModelCatalog.resolvedModels(registry: registryForValidation)
             : models
-        let readyModels = PilotSeatResolver.readySeats(
-            from: catalogModels,
-            probeRecords: probeRecords
-        )
-        // No cache keeps the historical first-use path. Once readiness has been
-        // observed, Panel must resolve only from the proven-ready bench.
-        let dispatchableModels = probeRecords.isEmpty ? catalogModels : readyModels
+        // A caller's cached readiness is not execution truth. The resident
+        // coordinator owns spawn-time readiness and will preserve this selected
+        // roster (or report its per-seat failure) without self-fusing it.
+        let dispatchableModels = catalogModels
         var baseSeats: [PanelSeat] = []
         var teamId: String?
         var remembered = false
@@ -285,34 +238,33 @@ enum PanelCLI {
             seatFilter = nil
         }
 
-        if opts.flag("no-wait") {
-            dispatchRoundInBackground(
-                panelId: panelId, opts: opts, brief: brief, seatFilter: seatFilter, json: opts.flag("json")
-            )
+        let receipt = await residentPanelRequest(.panelRound(.init(
+            panelId: panelId, brief: brief, seatFilter: seatFilter
+        )))
+        if case let .panelRound(payload) = receipt.result {
+            emitRoundPayload(payload, json: opts.flag("json"))
             return
         }
-
-        let store = PanelStateStore()
-        guard store.load(id: panelId) != nil else { fail(.panelNotFound(panelId)) }
-
-        let coordinator = PanelCoordinator(
-            stateStore: store,
-            threadProjector: PanelThreadProjector(),
-            workerRunner: WorkerInvokerFactory.makeWorkerInvoker(invocations: runtime.invocations),
-            models: runtime.models,
-            registry: runtime.registry
-        )
-        let result = await coordinator.runRound(
-            panelId: panelId, brief: brief, seatFilter: seatFilter
-        ) { event in
-            emitProgress(event, json: opts.flag("json"))
+        guard case .panelStatus = receipt.result else {
+            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel round response")
         }
-        switch result {
-        case .success(let payload):
-            emitRoundResult(payload, json: opts.flag("json"))
-        case .failure(let error):
-            failRound(error)
+        if opts.flag("no-wait") {
+            print("dispatched — poll with `alln panel status --panel \(panelId) --json`")
+            return
         }
+        while true {
+            let statusReceipt = await residentPanelQuery(.panelStatus, panelId: panelId)
+            guard case let .panelStatus(panel) = statusReceipt.result else {
+                AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel status response")
+            }
+            if panel.status != "running" { break }
+            try? await Task.sleep(for: .seconds(1))
+        }
+        let resultReceipt = await residentPanelQuery(.panelResult, panelId: panelId)
+        guard case let .panelRound(payload) = resultReceipt.result else {
+            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator did not return a settled panel round")
+        }
+        emitRoundPayload(payload, json: opts.flag("json"))
     }
 
     static func parseBrief(_ opts: Options) throws -> String? {
@@ -329,6 +281,36 @@ enum PanelCLI {
             throw PanelCLIError.fileUnreadable(raw)
         }
         return contents
+    }
+
+    private static func residentPanelRequest(
+        _ operation: ResidentExecutionOperation
+    ) async -> ResidentExecutionReceipt {
+        let rendezvous = ResidentExecutionRendezvous()
+        do {
+            let submitted = try rendezvous.submit(
+                operation: operation,
+                idempotencyKey: UUID().uuidString.lowercased()
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+                AllnighterCLI.fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the panel request before timeout")
+            }
+            if let rejection = receipt.rejection {
+                AllnighterCLI.fail(code: rejection.code, message: rejection.message)
+            }
+            return receipt
+        } catch ResidentExecutionRendezvous.Error.unavailable {
+            AllnighterCLI.fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
+        } catch {
+            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident panel request failed: \(error)")
+        }
+    }
+
+    private static func residentPanelQuery(
+        _ kind: ResidentExecutionOperation.Query.Kind,
+        panelId: String
+    ) async -> ResidentExecutionReceipt {
+        await residentPanelRequest(.query(.init(kind: kind, canonicalId: panelId)))
     }
 
     // MARK: - status / watch / done / scaffold-brief
@@ -476,6 +458,32 @@ enum PanelCLI {
     }
 
     // MARK: - emit
+
+    private static func emitStartPayload(_ payload: PanelStartJSON, json: Bool) {
+        if json {
+            print(AllnighterCLI.jsonString(payload))
+        } else {
+            print("panel \(payload.panel.panelId)")
+            print("status: \(payload.panel.status)")
+            print("target: \(payload.panel.targetPath)")
+            print("scaffold: \(payload.scaffoldPath)")
+            print("next: \(payload.nextCommand)")
+        }
+    }
+
+    private static func emitRoundPayload(_ payload: PanelRoundJSON, json: Bool) {
+        if json {
+            print(AllnighterCLI.jsonLine(payload))
+        } else {
+            print("panel \(payload.panel.panelId) round \(payload.round) attempt \(payload.attempt)")
+            print("status: \(payload.panel.status)")
+            for seat in payload.seatResults {
+                print("\n----- seat \(seat.workerId) (\(seat.lens)) [\(seat.status)] -----")
+                if !seat.report.isEmpty { print(seat.report) }
+                else if let reason = seat.reason { print(reason) }
+            }
+        }
+    }
 
     private static func emitStartResult(
         _ state: PanelState,
