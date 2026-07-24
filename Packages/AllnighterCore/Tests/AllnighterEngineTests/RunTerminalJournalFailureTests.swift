@@ -61,4 +61,45 @@ final class RunTerminalJournalFailureTests: XCTestCase {
         }
         XCTAssertEqual(error.code, "RUN_JOURNAL_UNAVAILABLE")
     }
+
+    /// Symmetric mutating-team coverage for the authoritative terminal write in
+    /// `RunService.runExecution` (RunService.swift:1809-1813). A `mutating == true`
+    /// team resolves to one worker, executes, and reaches the terminal
+    /// `try runStore.save(run, ...)`; when that save cannot be written the run must
+    /// fail visibly with RUN_JOURNAL_UNAVAILABLE — it must not report success over a
+    /// lost journal, exactly like the research path above (CR-S02 audit follow-up).
+    func testTerminalExecutionJournalFailureSurfacesRunJournalUnavailable() async throws {
+        let repo = tmp.appendingPathComponent("exec-repo", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        let team = TeamPreset(
+            id: "execution_journal", displayName: "Execution", lane: .code, outputKind: .plan,
+            mutating: true, executionSourceId: "claude_code",
+            workerSpecs: [TeamWorkerSpec(id: "e1", skillId: "first_principles_builder",
+                                         purpose: .answer, preferredModelId: "model_opus")],
+            lead: TeamLeadSpec(skillId: "plan_writer_build"))
+        let service = RunService(
+            models: [Model(id: "model_opus", displayName: "Opus", modelLabel: "opus",
+                           driverId: "claude_code", role: .both)],
+            registry: DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")]),
+            teams: [team],
+            runStore: try unwritableRunStore(),
+            commandRunner: MockCommandRunner(scripts: ["claude": .init(stdout: "# Done\nedited", exitCode: 0)]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: {
+                DefaultModelSettings(defaultTier: .flagship, allowHealthySubstitutions: true,
+                                     tiers: TierMembership(flagship: ["model_opus"]))
+            },
+            probeRecords: {
+                [ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1"), lastProbeAt: .distantPast)]
+            })
+
+        let result = await service.run(
+            RunRequest(message: "make the edit", repoRoot: repo.path, presetId: "execution_journal"),
+            origin: .cli, runId: "exec-journal-fail")
+
+        guard case .failure(let error) = result else {
+            return XCTFail("a lost terminal journal must surface as failure on the execution path, got: \(result)")
+        }
+        XCTAssertEqual(error.code, "RUN_JOURNAL_UNAVAILABLE")
+    }
 }
