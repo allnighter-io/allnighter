@@ -57,4 +57,21 @@ final class ResidentCoordinatorInstallTests: XCTestCase {
         XCTAssertEqual(calls.all.last?.first, "bootstrap")
         XCTAssertEqual(calls.all.last?.last, installed.plistPath)
     }
+
+    func testStableRunningBinaryPreservesInstalledSymlinkForFutureRebuilds() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("resident-stable-bin-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let target = root.appendingPathComponent("built-alln")
+        let link = root.appendingPathComponent("alln")
+        try Data().write(to: target)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: target.path)
+        try FileManager.default.createSymbolicLink(atPath: link.path, withDestinationPath: target.path)
+
+        XCTAssertEqual(
+            ResidentCoordinatorInstall.stableRunningBinary(argv0: link.path, pathEnvironment: nil),
+            link.path
+        )
+    }
 }

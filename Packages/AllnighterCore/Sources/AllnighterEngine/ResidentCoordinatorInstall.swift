@@ -44,6 +44,13 @@ public enum ResidentCoordinatorInstall {
         home.appendingPathComponent("Library/LaunchAgents/\(label).plist")
     }
 
+    public static func isInstalled(
+        home: URL = FileManager.default.homeDirectoryForCurrentUser,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        fileManager.fileExists(atPath: plistURL(home: home).path)
+    }
+
     public static func plistData(binaryPath: String, pathEnvironment: String? = nil) throws -> Data {
         var payload: [String: Any] = [
             "Label": label,
@@ -70,7 +77,7 @@ public enum ResidentCoordinatorInstall {
         fileManager: FileManager = .default,
         launchctl: (@Sendable (_ arguments: [String]) -> LaunchctlOutcome)? = nil
     ) -> Swift.Result<Result, InstallError> {
-        guard let binary = InstallCLI.resolvedRunningBinary(
+        guard let binary = stableRunningBinary(
             argv0: argv0, pathEnvironment: pathEnvironment, fileManager: fileManager
         ) else { return .failure(.binaryUnresolved) }
         let launchctl = launchctl ?? runLaunchctl
@@ -93,6 +100,35 @@ public enum ResidentCoordinatorInstall {
         case .failure(let detail):
             return .failure(.launchctl(detail))
         }
+    }
+
+    /// Use the non-resolved installed command path when available. A LaunchAgent
+    /// that runs the `alln` symlink picks up the next `alln install-cli` rebuild
+    /// instead of pinning an old `.build/.../alln` image forever.
+    public static func stableRunningBinary(
+        argv0: String?,
+        pathEnvironment: String?,
+        fileManager: FileManager = .default
+    ) -> String? {
+        guard let raw = argv0, !raw.isEmpty else { return nil }
+        let expanded = (raw as NSString).expandingTildeInPath
+        if expanded.hasPrefix("/") {
+            return fileManager.fileExists(atPath: expanded)
+                ? URL(fileURLWithPath: expanded).standardizedFileURL.path
+                : nil
+        }
+        if expanded.contains("/") {
+            let candidate = URL(fileURLWithPath: fileManager.currentDirectoryPath)
+                .appendingPathComponent(expanded).standardizedFileURL.path
+            return fileManager.fileExists(atPath: candidate) ? candidate : nil
+        }
+        guard let pathEnvironment else { return nil }
+        for component in pathEnvironment.split(separator: ":", omittingEmptySubsequences: false) {
+            guard !component.isEmpty else { continue }
+            let candidate = URL(fileURLWithPath: String(component)).appendingPathComponent(expanded).path
+            if fileManager.fileExists(atPath: candidate), fileManager.isExecutableFile(atPath: candidate) { return candidate }
+        }
+        return nil
     }
 
     private static func runLaunchctl(arguments: [String]) -> LaunchctlOutcome {
