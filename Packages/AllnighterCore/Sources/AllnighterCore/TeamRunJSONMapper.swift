@@ -154,6 +154,21 @@ public enum TeamRunJSONMapper {
             endReason: run.endReason?.rawValue, blocker: blockerInfo, attempts: attempts
         )
 
+        var runWarnings = run.warnings.map { TeamRunJSON.Warning(message: $0) }
+        // A run whose seats all failed to start inside a sandboxing host must say
+        // why, in plain language, instead of returning an unexplained empty run.
+        // Keyed off the observed failure, never the environment alone.
+        if let advice = HostSandboxAdvice.detect(
+            workerFailureText: run.workerAnswers.compactMap { $0.result.errorReason },
+            prompt: run.prompt,
+            projectReference: run.repoRoot,
+            teamId: run.presetId
+        ) {
+            runWarnings.insert(
+                TeamRunJSON.Warning(code: HostSandboxAdvice.code, message: advice.warningMessage),
+                at: 0)
+        }
+
         var workerAnswers = answers
         let answer = deriveAnswer(
             runStatus: runStatus,
@@ -173,7 +188,7 @@ public enum TeamRunJSONMapper {
             researchGitObservation: run.mutating ? nil : run.researchGitObservation,
             outcome: run.status.isTerminal ? mapOutcome(run) : nil,
             stages: stages, plan: plan, usage: usage,
-            warnings: run.warnings.map { TeamRunJSON.Warning(message: $0) }, errors: [],
+            warnings: runWarnings, errors: [],
             nextActions: [
                 .init(kind: .showRun, command: "alln show \(run.id)", label: "Show run"),
                 .init(kind: .export, command: "alln export \(run.id) --format md", label: "Export markdown"),
