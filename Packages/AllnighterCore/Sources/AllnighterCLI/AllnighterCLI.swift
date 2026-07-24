@@ -1137,6 +1137,42 @@ struct AllnighterCLI {
         }
     }
 
+    /// Submit a read-only Team query to the resident authority. Status/result
+    /// clients must not read the support journal themselves: a restricted host
+    /// may not have access to it, and the coordinator is the only owner allowed
+    /// to reconcile live process truth before answering.
+    private static func residentTeamQuery(
+        _ kind: ResidentExecutionOperation.Query.Kind,
+        runId: String
+    ) async -> ResidentExecutionReceipt {
+        let rendezvous = ResidentExecutionRendezvous()
+        do {
+            let submitted = try rendezvous.submit(
+                operation: .query(.init(kind: kind, canonicalId: runId)),
+                // A status/result query is a fresh observation, never a replay
+                // of a previous snapshot.
+                idempotencyKey: UUID().uuidString.lowercased()
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+                fail(
+                    code: "RESIDENT_ACCEPT_TIMEOUT",
+                    message: "resident coordinator did not answer the Team query before timeout"
+                )
+            }
+            if let rejection = receipt.rejection {
+                fail(code: rejection.code, message: rejection.message)
+            }
+            return receipt
+        } catch ResidentExecutionRendezvous.Error.unavailable {
+            fail(
+                code: "COORDINATOR_UNAVAILABLE",
+                message: "resident coordinator is unavailable; enable it with `alln serve install`"
+            )
+        } catch {
+            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident Team query failed: \(error)")
+        }
+    }
+
     /// `alln team status <run-id> --json [--wait-for <state> --timeout <seconds>]`
     /// Plain status is a single snapshot. With `--wait-for`, blocks in-process
     /// until the target (or a non-matching terminal) or timeout (PO-F3).
@@ -1150,8 +1186,12 @@ struct AllnighterCLI {
         let waitRaw = opts.value("wait-for")
         let timeoutRaw = opts.value("timeout")
         if waitRaw == nil && timeoutRaw == nil {
-            guard let status = await runtime.asyncTeamService().status(runId: runId) else {
-                failRunNotFound(runId, "no run matches \(runId)", in: await runtime.asyncTeamService().runStore)
+            let receipt = await residentTeamQuery(.runStatus, runId: runId)
+            guard case let .teamStatus(status) = receipt.result else {
+                fail(
+                    code: "RESIDENT_REQUEST_REJECTED",
+                    message: "resident coordinator returned an invalid Team status response"
+                )
             }
             print(jsonString(status))
             return
@@ -1172,13 +1212,36 @@ struct AllnighterCLI {
             fail(code: "CLI_USAGE_ERROR", message: "--timeout must be a non-negative number of seconds")
         }
 
-        // Duration.seconds takes Integer; keep sub-second precision via ms.
+        // The coordinator owns each snapshot/reconcile; the restricted client
+        // only supplies the bounded wait loop between those snapshots.
         let timeoutMs = max(0, Int((timeoutSeconds * 1_000.0).rounded()))
-        let timeout = Duration.milliseconds(timeoutMs)
-        guard let outcome = await runtime.asyncTeamService().waitForStatus(
-            runId: runId, target: target, timeout: timeout
-        ) else {
-            failRunNotFound(runId, "no run matches \(runId)", in: await runtime.asyncTeamService().runStore)
+        let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1_000.0)
+        var outcome: TeamStatusWaitOutcome
+        while true {
+            let receipt = await residentTeamQuery(.runStatus, runId: runId)
+            guard let result = receipt.result, case let .teamStatus(response) = result else {
+                fail(
+                    code: "RESIDENT_REQUEST_REJECTED",
+                    message: "resident coordinator returned an invalid Team status response"
+                )
+            }
+            if target.matches(response.status) {
+                var matched = response
+                matched.waitHintSeconds = 0
+                matched.nextAction = AsyncTeamStatusMapper.nextAction(for: response.status, runId: runId)
+                outcome = .init(response: matched, timedOut: false, terminalMismatch: false)
+                break
+            }
+            if response.status.isTerminal {
+                outcome = .init(response: response, timedOut: false, terminalMismatch: true)
+                break
+            }
+            if Date() >= deadline {
+                outcome = .init(response: response, timedOut: true, terminalMismatch: false)
+                break
+            }
+            let delay = min(max(50, response.nextPollAfterMs), 5_000)
+            try? await Task.sleep(for: .milliseconds(delay))
         }
 
         print(jsonString(outcome.response))
@@ -1217,16 +1280,17 @@ struct AllnighterCLI {
             FileHandle.standardError.write(Data("usage: alln team result <run-id> --json\n".utf8))
             exit(2)
         }
-        switch await runtime.asyncTeamService().result(runId: runId) {
-        case .notFound:
-            emitRunNotFound(runId, "no run matches \(runId)", in: await runtime.asyncTeamService().runStore)
-            exit(1)
-        case .notReady(let nr):
+        let receipt = await residentTeamQuery(.runResult, runId: runId)
+        switch receipt.result {
+        case .teamResultNotReady(let nr):
             print(jsonString(nr))
-        case .ready(let run):
-            let context = defaultRunContext(run)
-            let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
+        case .teamResult(let trj):
             print(jsonString(trj))
+        default:
+            fail(
+                code: "RESIDENT_REQUEST_REJECTED",
+                message: "resident coordinator returned an invalid Team result response"
+            )
         }
     }
 

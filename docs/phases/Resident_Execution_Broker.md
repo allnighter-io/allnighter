@@ -1,6 +1,6 @@
 # Resident Execution Broker — One Spawn Path for Every CLI
 
-Status: **Implementation in progress — REB-S01 landed; REB-S02 now routes `alln run --detach` through the resident authority. Foreground run/result, Panel, and doctor are not broker-routed yet.**
+Status: **Implementation in progress — REB-S01 landed; REB-S02 routes `alln run --detach` and `alln team status/result` through the resident authority. Foreground `alln run` execution, Panel, and doctor are not broker-routed yet.**
 Owner: AllnighterCore + `alln serve` + CLI
 Updated: 2026-07-23 (implementation review and REB-S01 started)
 Supersedes: the resident execution boundary in archived
