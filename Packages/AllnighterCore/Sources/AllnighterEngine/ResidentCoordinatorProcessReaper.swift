@@ -26,10 +26,15 @@ enum ResidentCoordinatorProcessReaper {
         let task = Foundation.Process()
         task.executableURL = URL(fileURLWithPath: "/bin/ps")
         task.arguments = ["-axo", "pid=,command="]
-        let pipe = Pipe(); task.standardOutput = pipe; task.standardError = Pipe()
+        let pipe = Pipe(); task.standardOutput = pipe; task.standardError = FileHandle.nullDevice
         guard (try? task.run()) != nil else { return }
-        task.waitUntilExit()
+        // Drain stdout BEFORE waitUntilExit(): `ps -ax` output on a busy machine can
+        // exceed the pipe's 64KB kernel buffer, so `ps` blocks writing while we'd
+        // block waiting for it to exit — a permanent deadlock (hung `alln serve
+        // install` + hung test wall). Read to EOF first, same order as the other
+        // `Process`/`Pipe` call sites (`GitObserver.runGitRaw`/`runGit`).
         let text = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        task.waitUntilExit()
         for process in candidates(lines: text, preserving: pid) { _ = kill(process.pid, SIGTERM) }
     }
 }
