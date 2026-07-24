@@ -209,6 +209,8 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             try? rendezvous.accept(claim, canonicalId: request.sourceId, result: .utilizationSeed(result))
         case .pendingRun(let request):
             await runPending(request, claim: claim)
+        case .projectRecheck(let request):
+            await recheckProject(request, claim: claim)
         case .query(let query) where query.kind == .health:
             try? rendezvous.accept(claim, canonicalId: claim.request.coordinatorId)
         case .query(let query) where query.kind == .runStatus:
@@ -331,6 +333,38 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 claim,
                 code: "RESIDENT_REQUEST_REJECTED",
                 message: "resident pending run failed: \(error.localizedDescription)"
+            )
+        }
+    }
+
+    private func recheckProject(
+        _ request: ResidentExecutionOperation.ProjectRecheck,
+        claim: ResidentExecutionRendezvous.Claim
+    ) async {
+        let detector = ProjectWorkerReadinessDetector(runner: dependencies.commandRunner)
+        let now = Date()
+        var results: [ProjectWorkerReadiness] = []
+        for manifest in dependencies.registry.all.sorted(by: { $0.id < $1.id }) {
+            results.append(await detector.detect(
+                projectId: request.projectId,
+                rootPath: request.rootPath,
+                manifest: manifest,
+                probeKind: .explicitRecheck,
+                now: now
+            ))
+        }
+        do {
+            try ProjectWorkerReadinessStore().save(projectId: request.projectId, results)
+            try? rendezvous.accept(
+                claim,
+                canonicalId: request.projectId,
+                result: .projectWorkerReadiness(results)
+            )
+        } catch {
+            try? rendezvous.reject(
+                claim,
+                code: "RESIDENT_REQUEST_REJECTED",
+                message: "resident project recheck could not save readiness: \(error.localizedDescription)"
             )
         }
     }

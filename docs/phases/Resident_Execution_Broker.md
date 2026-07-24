@@ -638,6 +638,9 @@ After cutover:
   the coordinator alone creates the worker invoker, settles the item, and
   returns the existing Pending projection. The client remains responsible only
   for local item management and presentation.
+- **Landed:** `alln project recheck-workers` submits the resolved project root
+  to the resident. Only the coordinator runs driver-declared safe probes and
+  writes the project readiness cache; the client renders the returned facts.
 - Remove readiness self-fusion containment.
 - Add queued/running truth and per-seat process ownership.
 - Fix answer snapshots to exclude ignored/untracked secrets.

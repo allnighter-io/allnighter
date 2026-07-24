@@ -12,4 +12,17 @@ final class ResidentExecutionContractTests: XCTestCase {
 
         XCTAssertEqual(decoded, operation)
     }
+
+    func testProjectRecheckOperationRoundTripsThroughBrokerContract() throws {
+        let operation = ResidentExecutionOperation.projectRecheck(
+            .init(projectId: "project_123", rootPath: "/tmp/project")
+        )
+
+        let decoded = try CoreJSON.decode(
+            ResidentExecutionOperation.self,
+            from: CoreJSON.encode(operation)
+        )
+
+        XCTAssertEqual(decoded, operation)
+    }
 }
