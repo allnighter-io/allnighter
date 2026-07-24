@@ -570,6 +570,7 @@ public struct PanelCoordinator: Sendable {
         }
         state.rounds[roundIndex].seatResults = state.seats.compactMap { byId[$0.workerId] }
         _ = try? stateStore.save(state)
+        _ = stateStore.settleIfAllSeatsTerminal(state)
     }
 
     private static func seatResult(

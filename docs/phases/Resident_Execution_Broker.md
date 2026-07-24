@@ -664,6 +664,10 @@ After cutover:
 - **Landed:** Panel start, round, status, watch, and done submit/query the
   resident authority. Client hosts no longer read or reconcile the panel
   journal, and `panel done` cannot mutate PanelState outside its owner.
+- **Landed (P0):** a running panel with durable terminal seat rows is settled
+  even while its coordinator PID is live. Empty reports are promoted to
+  actionable seat failures, the round projects `failed`/`partial`, and status
+  never returns `roundAlive` without a running seat.
 - **Landed:** `alln ps` reads the coordinator-owned process snapshot over the
   typed query channel, including the caller's existing project scope.
 - **Landed:** `alln kill` submits a typed cancel to the coordinator, including
@@ -747,6 +751,8 @@ Assertions:
 - queued workers are queued and only owned processes are running;
 - every source child appears in `alln ps`;
 - each seat persists progress and a terminal report/reason;
+- a round whose every seat ends empty/failed settles rather than waiting for a
+  live coordinator PID; each empty seat reports an actionable failure reason;
 - client termination after acceptance does not terminate the Panel;
 - round and status JSON return to the sandboxed client without reading the
   user's application-support directories;

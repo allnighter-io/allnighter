@@ -485,10 +485,13 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
     private func resolvedPanelState(panelId: String) -> PanelState? {
         let store = PanelStateStore()
         guard var state = store.load(id: panelId) else { return nil }
+        if state.status == .running {
+            state = store.settleIfAllSeatsTerminal(state)
+        }
         if state.status == .running && store.isOwnerDead(id: panelId) {
             state = store.reconcileIfOrphaned(state)
-            PanelThreadProjector().sync(state: state, now: Date())
         }
+        PanelThreadProjector().sync(state: state, now: Date())
         return state
     }
 

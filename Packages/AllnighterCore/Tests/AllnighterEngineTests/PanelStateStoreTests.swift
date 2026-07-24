@@ -237,6 +237,37 @@ final class PanelStateStoreTests: XCTestCase {
         XCTAssertNil(after.note)
     }
 
+    func testAllEmptySeatsSettleEvenWhenOwnerIsStillLive() throws {
+        let root = try tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = PanelStateStore(rootDirectory: root)
+        let openRound = PanelRound(
+            roundNumber: 1,
+            targetHash: "abc",
+            brief: "Spec review",
+            briefSource: .builtin,
+            seatResults: [
+                SeatResult(workerId: "model_opus", lens: "adversary", status: .empty, report: ""),
+                SeatResult(workerId: "model_sonnet", lens: "simplicity", status: .empty, report: ""),
+            ],
+            startedAt: Date(timeIntervalSince1970: 1_700_000_100)
+        )
+        let running = samplePanel(id: "panel_empty", status: .running, rounds: [openRound])
+        try store.save(running) // owner.pid names this live test process
+        XCTAssertFalse(store.isOwnerDead(id: running.id))
+
+        let fixedNow = Date(timeIntervalSince1970: 1_700_000_999)
+        let settled = store.settleIfAllSeatsTerminal(running, now: { fixedNow })
+
+        XCTAssertEqual(settled.status, .awaitingPM)
+        XCTAssertEqual(settled.note, PanelStateStore.terminalSeatReconciledNote)
+        XCTAssertEqual(settled.rounds[0].finishedAt, fixedNow)
+        XCTAssertTrue(settled.rounds[0].seatResults.allSatisfy { $0.status == .failed })
+        XCTAssertTrue(settled.rounds[0].seatResults.allSatisfy {
+            $0.reason == "worker exited without a report; check source readiness and rerun this seat"
+        })
+    }
+
     func testMakeIdPrefix() {
         let id = PanelState.makeId()
         XCTAssertTrue(id.hasPrefix("panel_"))

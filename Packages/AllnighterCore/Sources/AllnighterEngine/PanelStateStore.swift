@@ -60,6 +60,12 @@ public struct PanelStateStore: Sendable {
 
     private static var currentPID: Int32 { ProcessInfo.processInfo.processIdentifier }
 
+    /// Stable note for the narrow case where durable per-seat truth says every
+    /// seat is terminal but the coordinator never wrote the round's terminal
+    /// transition. This is not an owner-death inference: a live coordinator PID
+    /// cannot make an all-terminal round "alive".
+    public static let terminalSeatReconciledNote = "all seats reached a terminal state without round completion (reconciled)"
+
     /// All panels, newest first. Skips folders whose `panel.json` fails to decode.
     public func list() -> [PanelState] {
         guard let entries = try? FileManager.default.contentsOfDirectory(
@@ -110,6 +116,45 @@ public struct PanelStateStore: Sendable {
         reconciled.note = PanelState.orphanReconciledNote
         try? save(reconciled)
         // Best-effort: drop any leaked seat clones from a mid-round death (PN-S06).
+        PanelSeatIsolation.sweepPanelClones(panelId: state.id, panelsRoot: rootDirectory)
+        return reconciled
+    }
+
+    /// Settles an open round once its durable seat rows are all terminal, even
+    /// if the coordinator process is still alive. This closes the failure mode
+    /// where a worker collector records empty/failed rows then stalls before
+    /// parking the panel, leaving `panel status` to claim `roundAlive` forever.
+    ///
+    /// An empty report is not a valid review result. It is promoted to a
+    /// per-seat failure with a retryable, actionable reason. Valid `.done`
+    /// reports and already classified failures remain untouched.
+    @discardableResult
+    public func settleIfAllSeatsTerminal(
+        _ state: PanelState,
+        now: @escaping @Sendable () -> Date = Date.init
+    ) -> PanelState {
+        guard state.status == .running,
+              let lastIndex = state.rounds.indices.last,
+              state.rounds[lastIndex].finishedAt == nil,
+              !state.rounds[lastIndex].seatResults.isEmpty,
+              !state.rounds[lastIndex].seatResults.contains(where: { $0.status == .running }) else {
+            return state
+        }
+
+        var reconciled = state
+        for index in reconciled.rounds[lastIndex].seatResults.indices {
+            guard reconciled.rounds[lastIndex].seatResults[index].status == .empty else { continue }
+            reconciled.rounds[lastIndex].seatResults[index].status = .failed
+            let existing = reconciled.rounds[lastIndex].seatResults[index].reason
+            if existing == nil || existing == "empty seat report" {
+                reconciled.rounds[lastIndex].seatResults[index].reason =
+                    "worker exited without a report; check source readiness and rerun this seat"
+            }
+        }
+        reconciled.rounds[lastIndex].finishedAt = now()
+        reconciled.status = .awaitingPM
+        reconciled.note = Self.terminalSeatReconciledNote
+        try? save(reconciled)
         PanelSeatIsolation.sweepPanelClones(panelId: state.id, panelsRoot: rootDirectory)
         return reconciled
     }
