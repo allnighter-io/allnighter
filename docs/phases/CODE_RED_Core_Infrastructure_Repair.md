@@ -1,10 +1,10 @@
 # CODE RED — Core Infrastructure Repair
 
-Status: **IMPLEMENTATION IN PROGRESS — Code Red remains active. CR-S00,
-CR-S01, and CR-S02 are COMPLETE (each with an independent CLEAN audit and a
-live authenticated Works Test receipt below). CR-S03–CR-S07 have not begun.
-All forward execution-path feature work remains blocked until this document
-is green.**
+Status: **IMPLEMENTATION IN PROGRESS — Code Red remains active. CR-S00 through
+CR-S03 are COMPLETE (each with an independent CLEAN audit and a live
+authenticated Works Test receipt below). CR-S04–CR-S07 have not begun. All
+forward execution-path feature work remains blocked until this document is
+green.**
 Owner: AllnighterCore + CLI execution path
 Updated: 2026-07-24
 
@@ -795,7 +795,10 @@ Missing assertion: crew seat pid not sampled live; `code_red_works_test.sh live-
 Next deletion: CR-S03 proves the two-CLI research Team; resident control-plane deletion stays CR-S05/CR-S06
 ```
 
-### CR-S03 — Prove the two-CLI research Team
+### CR-S03 — Prove the two-CLI research Team — COMPLETE
+
+Proven in `4f3eb84d` (deterministic proof wall) and `7d06c729` (live-direct
+works test). See "CR-S03 closure — 2026-07-24" below.
 
 - run exactly two explicitly configured, distinct authenticated CLIs;
 - preserve the selected roster with no substitution or collapse;
@@ -805,6 +808,37 @@ Next deletion: CR-S03 proves the two-CLI research Team; resident control-plane d
 
 Works Test: the founder’s exact research gesture returns two real answers and
 the clean fixture remains unchanged.
+
+### CR-S03 closure — 2026-07-24
+
+CR-S03 needed no production change: `RunService.run` already owned two-source
+resolution after CR-S02, so this slice is proof, not repair. What was missing
+was the proof — and the live harness itself. `scripts/code_red_works_test.sh
+live-direct` had been a stub since CR-S01, which is why both earlier receipts
+had to record their gesture as manually performed. It is now implemented and
+green, and it samples the live vendor process tree, closing the "crew pid not
+sampled live" assertion both CR-S01 and CR-S02 had to declare missing.
+
+```text
+Status: GREEN
+Commit: 4f3eb84d, 7d06c729 (harness/proof only; live proof ran from HEAD e96cf8b0)
+Production lines added / deleted: 0 / 0 (Sources and Apps untouched — proof slice; phase aggregate stays net-negative from CR-S01's −1,531)
+Concepts deleted / added: none / none (the live-direct stub is replaced by the real harness; no new runtime concept)
+Client binary SHA: alln 0.9.17, contract 3.4.0, hash 48b4f031747a, git e96cf8b0d311, sha256 2c5142488d4eecf7…
+Execution-owner binary SHA: none — direct path only; no resident involvement
+Exact command: bash scripts/code_red_works_test.sh live-direct → alln run "Research only, do not modify any files. Independently name this repository's most important infrastructure risk, and cite as evidence: (1) the output of pwd, (2) the output of git rev-parse HEAD, (3) the first line of sentinel.txt." --project prj_22c2a84a --team code_red_two_source --json
+Canonical repo root: /var/folders/…/T/code-red-fixture.CWR3UP (registered prj_22c2a84a; disposable clean Git fixture, HEAD 7f1972868c8b)
+Selected source IDs: codex (crew seat model_chatgpt#0) + claude_code (lead seat model_opus#0) — two DISTINCT vendors; usage.cliCalls = 2; zero substitution warnings
+Observed source process IDs: BOTH seats sampled live as descendants of `alln` pid 34220 during the run window — codex pid 34229, claude pid 35086
+Run ID: 3ADDB29F-F7B8-42EE-8FC9-32CADD04DD3F (origin: cli; writePolicy: readOnly; status done)
+Git observation before: HEAD 7f1972868c8b…, porcelain empty
+Git observation after: HEAD 7f1972868c8b… (researchGitObservation changed=false, baselineHead==head, changedPaths [])
+Real changed paths: none — `git status --porcelain` empty in the fixture after settlement
+Proof command/result: both sources cite the canonical fixture pwd, HEAD 7f1972868c8b, and sentinel CODE_RED_SENTINEL_1784921748; separately attributed and materially different (crew 1,559 chars, Lead 13,890 chars, Lead explicitly adopts rather than averages the crew seat); run journal run_3ADDB29F…/run.json carries repoRoot == the registered fixture
+Architecture policy result: passed; full suite 2,260 tests / 13 skipped / 0 failures; Mac arm green under the founder-ruled waivers
+Missing assertion: one live pass, not the three consecutive passes the trust-reset threshold requires — that threshold covers the full research+execution proof and is a CR-S06 obligation, not a per-slice one; the execution gesture itself is CR-S04; the live team's second source is its Lead seat, so a two-CREW-seat live roster is proven only deterministically; the run left `code_red_two_source` and project prj_22c2a84a in the user catalog, alongside the earlier dangling prj_06537ab4 (both fixture roots still exist; neither deleted — user state removal is a founder stop)
+Next deletion: CR-S04 proves execution; resident control-plane deletion stays CR-S05/CR-S06
+```
 
 ### CR-S04 — Prove execution
 
@@ -920,6 +954,13 @@ closed against recurrence.
 CR-S01 creates `scripts/code_red_works_test.sh`. Structural fixture mode runs
 in the wall. Live mode is manual because CI does not possess the founder’s
 authenticated vendor sessions.
+
+CR-S03 implemented `live-direct` (it was a stub through CR-S01 and CR-S02, so
+both of those gestures had to be performed by hand). It now performs the
+research gesture end to end and additionally samples the live vendor process
+tree, so both selected seats are observed evidence rather than journal
+inference. `live-resident` stays unimplemented on purpose: resident transport
+is unproven and unused before CR-S05, so there is nothing honest to run.
 
 Required modes:
 
