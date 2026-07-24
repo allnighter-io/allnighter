@@ -170,6 +170,7 @@ public enum TeamRunJSONMapper {
             answer: answer,
             designBoard: designBoard,
             repoDelta: run.mutating ? run.repoDelta : nil,
+            researchGitObservation: run.mutating ? nil : run.researchGitObservation,
             outcome: run.status.isTerminal ? mapOutcome(run) : nil,
             stages: stages, plan: plan, usage: usage,
             warnings: run.warnings.map { TeamRunJSON.Warning(message: $0) }, errors: [],

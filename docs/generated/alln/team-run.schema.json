@@ -848,6 +848,41 @@
       ],
       "type" : "object"
     },
+    "ResearchGitObservation" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "baselineHead" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "changed" : {
+          "type" : "boolean"
+        },
+        "changedPaths" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "head" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "truncated" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "changed",
+        "changedPaths",
+        "truncated"
+      ],
+      "type" : "object"
+    },
     "RunAttempt" : {
       "additionalProperties" : false,
       "properties" : {
@@ -1315,6 +1350,16 @@
       "oneOf" : [
         {
           "$ref" : "#\/$defs\/RepoDelta"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
+    "researchGitObservation" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/ResearchGitObservation"
         },
         {
           "type" : "null"

@@ -161,7 +161,10 @@ public enum HelpTopicRegistry {
 
             Dry-run `writePolicy` / `effects.repoWrite` report write *permission*, not prompt \
             intent. Research Teams use the canonical repository without permission flags or copied \
-            bytes. Observed writes appear only as terminal `repoDelta`.
+            bytes. A mutating run's observed writes appear as terminal `repoDelta`; a research \
+            (read-only) run carries a bounded `researchGitObservation` — if it changed the repo's \
+            Git state, `changed` is true (a surfaced research-write violation). Allnighter observes \
+            only; it never resets or repairs your files.
 
             Observed timing on the settled packet: per-worker `queueMs` (request→spawn), \
             `ttftMs` (spawn→first token), `durationMs` (spawn→exit), plus terminal \
@@ -185,7 +188,7 @@ public enum HelpTopicRegistry {
                       "answer field", "canonical answer"],
             sections: [
                 .init("preflight", "Dry-run first", "Call `alln run --dry-run` before a foreground run so a bad lineup fails before quota is spent."),
-                .init("write-policy", "Observation vs outcome", "`effects.repoWrite` means the resolved invocation may write. Research Teams are observational; terminal `repoDelta` reports whether a mutating run did write."),
+                .init("write-policy", "Observation vs outcome", "`effects.repoWrite` means the resolved invocation may write. Research Teams are observational; terminal `repoDelta` reports whether a mutating run did write, and `researchGitObservation.changed` flags a read-only run that unexpectedly changed Git state (files are never reset)."),
                 .init("timing", "Observed timing", "`queueMs` / `ttftMs` / `durationMs` / `outcome.timing.wallMs` are recorded clocks. Null means unreported. Do not invent an orchestration tax by subtracting duration from wall."),
                 .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` / `--detach` on `run`."),
                 .init("vendor-controls", "Vendor CLI controls", "No `--temperature` / `--max-tokens` on `alln run`. Use `--effort`, `--worker`, and the selected subscription CLI's own supported flags."),

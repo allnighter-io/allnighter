@@ -130,6 +130,10 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var timing: RunTimingReport?
     /// Observed git delta for mutating runs (Field_Reports_1.md §FR3). `nil` for read-only runs.
     public var repoDelta: RepoDelta? = nil
+    /// CR-S02 — bounded pre/post Git observation for a research (read-only) run. `nil`
+    /// for mutating runs (they carry `repoDelta`) and for runs recorded before CR-S02.
+    /// `changed == true` is a surfaced research-write violation; files are never reset.
+    public var researchGitObservation: ResearchGitObservation? = nil
     /// True when `--lane` was passed alongside an explicit `--worker` — lane is context
     /// metadata on the run identity, not the router (`Field_Reports_3.md` FR7).
     public var laneContextOnly: Bool? = nil

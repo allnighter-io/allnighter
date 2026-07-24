@@ -131,6 +131,79 @@ public struct GitObserver: Sendable {
         )
     }
 
+    // MARK: - CR-S02 research observation
+
+    /// A bounded snapshot of the canonical repo's Git state for a research
+    /// (read-only) run: exact HEAD, `status --porcelain -uall`, and the tracked
+    /// diff against HEAD. Held in memory across the run window (never persisted
+    /// raw); only the compared verdict (`ResearchGitObservation`) is stored.
+    public struct ResearchSnapshot: Equatable, Sendable {
+        public var head: String?
+        /// `status --porcelain -uall` output; `""` when clean.
+        public var porcelain: String
+        /// `git diff HEAD` (tracked, staged + unstaged); `""` when no tracked changes.
+        public var trackedDiff: String
+        public init(head: String? = nil, porcelain: String = "", trackedDiff: String = "") {
+            self.head = head
+            self.porcelain = porcelain
+            self.trackedDiff = trackedDiff
+        }
+    }
+
+    /// Capture the bounded research snapshot (HEAD + porcelain + tracked diff digest
+    /// content) before dispatch. Pure local reads; no mutation, no network.
+    public func researchSnapshot(rootPath: String) -> ResearchSnapshot {
+        ResearchSnapshot(
+            head: runGit(["rev-parse", "HEAD"], cwd: rootPath),
+            porcelain: runGitRaw(["status", "--porcelain", "-uall"], cwd: rootPath) ?? "",
+            trackedDiff: runGitRaw(["diff", "HEAD"], cwd: rootPath) ?? ""
+        )
+    }
+
+    /// Capture the post-run snapshot and compare it to the pre-dispatch `baseline`.
+    /// Compares against the PRE-EXISTING state — a repo already dirty before the run
+    /// is not a violation. `changed == true` only when HEAD, porcelain status, or the
+    /// tracked diff differs across the window. Observation only: never resets/repairs.
+    public func researchObservation(
+        rootPath: String, baseline: ResearchSnapshot, fileCap: Int = 50
+    ) -> ResearchGitObservation {
+        let after = researchSnapshot(rootPath: rootPath)
+        let changed = baseline.head != after.head
+            || baseline.porcelain != after.porcelain
+            || baseline.trackedDiff != after.trackedDiff
+        guard changed else {
+            return ResearchGitObservation(
+                changed: false, baselineHead: baseline.head, head: after.head)
+        }
+        let cap = max(1, fileCap)
+        let before = Set(Self.porcelainPaths(baseline.porcelain))
+        let now = Set(Self.porcelainPaths(after.porcelain))
+        let deltaPaths = before.symmetricDifference(now).sorted()
+        return ResearchGitObservation(
+            changed: true,
+            baselineHead: baseline.head,
+            head: after.head,
+            changedPaths: Array(deltaPaths.prefix(cap)),
+            truncated: deltaPaths.count > cap
+        )
+    }
+
+    /// Root-relative paths from `status --porcelain` output (renames report the
+    /// destination; quoted paths are unquoted). Shared by the research observation.
+    static func porcelainPaths(_ porcelain: String) -> [String] {
+        porcelain.split(separator: "\n").compactMap { line in
+            let entry = String(line)
+            guard entry.count > 3 else { return nil }
+            var path = String(entry.dropFirst(3))
+            if let arrow = path.range(of: " -> ") { path = String(path[arrow.upperBound...]) }
+            if path.hasPrefix("\"") && path.hasSuffix("\"") && path.count >= 2 {
+                path = String(path.dropFirst().dropLast())
+            }
+            let trimmed = path.trimmingCharacters(in: .whitespaces)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+    }
+
     /// Run a read-only git command, returning raw stdout with only the trailing
     /// newline removed (leading whitespace preserved — porcelain status columns
     /// depend on it). `nil` on launch failure / non-zero exit.

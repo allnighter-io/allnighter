@@ -1900,6 +1900,11 @@ public actor RunService {
         }
         let persist: @Sendable (TeamRun) -> Void = { try? store.save(stamped($0), models: allModels) }
 
+        // CR-S02: research Teams are observational, not mechanically read-only. Capture
+        // the canonical repo's exact Git state before dispatch so an unexpected write by a
+        // "read-only" worker is surfaced (never reset) after settlement.
+        let researchBaseline = gitObserver.researchSnapshot(rootPath: repoRoot)
+
         var run = await coordinator.run(
             resolved: resolved, prompt: prompt, models: models,
             origin: origin, originAgent: originAgent, runId: runId,
@@ -1907,6 +1912,18 @@ public actor RunService {
         )
         await forwarder?.value
         run = stamped(run)
+        // CR-S02: compare post-settlement Git state against the pre-existing baseline.
+        // `changed == true` is a research-write violation — surface it visibly; files are
+        // never reset or repaired (Git remains the owner of the working tree).
+        let researchObservation = gitObserver.researchObservation(
+            rootPath: repoRoot, baseline: researchBaseline)
+        run.researchGitObservation = researchObservation
+        if researchObservation.changed {
+            let pathList = researchObservation.changedPaths.isEmpty
+                ? "" : " (\(researchObservation.changedPaths.joined(separator: ", "))\(researchObservation.truncated ? ", …" : ""))"
+            run.warnings.append(
+                "research-write violation: this read-only research run changed the repository's Git state\(pathList) — Allnighter left the changes in place; review and reset them yourself if unintended.")
+        }
         timing.stamp(RunTimingKey.runOutcomePersisted)
         timing.count(RunTimingKey.runStoreSaveCount, by: 1)
         run.timing = timing

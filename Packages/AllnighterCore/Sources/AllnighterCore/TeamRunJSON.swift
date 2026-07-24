@@ -21,6 +21,10 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var answer: Answer?
     public var designBoard: DesignBoard?
     public var repoDelta: RepoDelta?
+    /// CR-S02 — bounded pre/post Git observation for a research (read-only) run.
+    /// Present only on research runs (mutating runs carry `repoDelta`). `changed == true`
+    /// surfaces a research-write violation; Allnighter never resets the tree.
+    public var researchGitObservation: ResearchGitObservation?
     /// Mechanical run verdict from worker terminal states + repo delta — never a correctness claim.
     public var outcome: Outcome?
     public var stages: [StageInfo]
@@ -40,6 +44,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         answer: Answer? = nil,
         designBoard: DesignBoard? = nil,
         repoDelta: RepoDelta? = nil,
+        researchGitObservation: ResearchGitObservation? = nil,
         outcome: Outcome? = nil,
         stages: [StageInfo],
         plan: Plan?,
@@ -57,6 +62,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.answer = answer
         self.designBoard = designBoard
         self.repoDelta = repoDelta
+        self.researchGitObservation = researchGitObservation
         self.outcome = outcome
         self.stages = stages
         self.plan = plan
@@ -69,7 +75,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, teamRun, workers, workerAnswers, answer
-        case designBoard, repoDelta, outcome, stages, plan, usage, warnings, errors
+        case designBoard, repoDelta, researchGitObservation, outcome, stages, plan, usage, warnings, errors
         case nextActions, audit
     }
 
@@ -84,6 +90,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         answer = try c.decode(Answer?.self, forKey: .answer)
         designBoard = try c.decodeIfPresent(DesignBoard.self, forKey: .designBoard)
         repoDelta = try c.decodeIfPresent(RepoDelta.self, forKey: .repoDelta)
+        researchGitObservation = try c.decodeIfPresent(ResearchGitObservation.self, forKey: .researchGitObservation)
         outcome = try c.decodeIfPresent(Outcome.self, forKey: .outcome)
         stages = try c.decode([StageInfo].self, forKey: .stages)
         // Required on the wire (null when no plan stage produced).
@@ -106,6 +113,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         try c.encode(answer, forKey: .answer)
         try c.encodeIfPresent(designBoard, forKey: .designBoard)
         try c.encodeIfPresent(repoDelta, forKey: .repoDelta)
+        try c.encodeIfPresent(researchGitObservation, forKey: .researchGitObservation)
         try c.encodeIfPresent(outcome, forKey: .outcome)
         try c.encode(stages, forKey: .stages)
         try c.encode(plan, forKey: .plan)
