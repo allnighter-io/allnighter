@@ -227,7 +227,7 @@ public enum DoctorReport {
         guard let binary = inputs.binaryGitSha, !binary.isEmpty, binary != "unknown",
               let head = inputs.workspaceHeadSha, !head.isEmpty else {
             return .init(name: "BINARY_STALE", status: .notChecked,
-                         detail: "workspace HEAD unavailable — run doctor from a git checkout to compare")
+                         detail: "no checkout identity was supplied — coordinator identity is checked independently")
         }
         let binShort = String(binary.prefix(12))
         let headShort = String(head.prefix(12))
