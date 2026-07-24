@@ -1,11 +1,10 @@
 # CODE RED — Core Infrastructure Repair
 
-Status: **IMPLEMENTATION IN PROGRESS — Code Red remains active. CR-S00 is
-complete. CR-S01 code is implemented and committed, but remains PARTIAL until
-its interrupted final independent audit and required authenticated
-normal-Terminal Works Test are green. CR-S02–CR-S07 have not begun. All
-forward execution-path feature work remains blocked until this document is
-green.**
+Status: **IMPLEMENTATION IN PROGRESS — Code Red remains active. CR-S00 and
+CR-S01 are COMPLETE (final independent audit CLEAN; live authenticated
+normal-Terminal Works Test GREEN; receipts below). CR-S02–CR-S07 have not
+begun. All forward execution-path feature work remains blocked until this
+document is green.**
 Owner: AllnighterCore + CLI execution path
 Updated: 2026-07-24
 
@@ -72,6 +71,60 @@ Required resume order:
    canonical root, source/process/run IDs, `.git`/HEAD evidence, result, and
    proof that no resident request or alternate repository was created.
 3. Only after both gates are green, mark CR-S01 complete and begin CR-S02.
+
+## CR-S01 closure — 2026-07-24
+
+Both open gates from the handoff above are closed.
+
+**Gate 1 — final independent audit: CLEAN.** An independent audit of
+`1c04876e`, `21aa461e`, and `43f0b7fe` against `docs/operations/Code_Audit.md`
+confirmed every prior rejection resolved (terminal stream/journal failures,
+fail-closed Panel/detach, exact-SHA rejection, real-validator fixtures, actual
+`RunCLI` stream-branch coverage). Two P2 findings were fixed in `0f0c1461`:
+the negative policy self-test and structural works test are now invoked from
+`scripts/check.sh`, and the direct-adapter and alternate-root-field validator
+branches gained violating fixtures (self-test now proves 10 red fixture
+categories). Two P3 notes are deferred honestly: the fixture proof lives in
+the shell self-test rather than an XCTest named `ArchitecturePolicyTests`,
+and the unreachable resident/Panel dead code (13 operation cases, 2,143 LOC,
+~25 `try?` replies) remains until CR-S06 deletes it.
+
+**Wall repairs found while closing the gates** (pre-existing, unrelated to
+the CR-S01 diff): `f1bc264f` — `RelayCLI.parseStartConfig` hard-`exit()`ed
+the test process via `failExactId` on unresolvable worker ids, killing every
+suite after RelayCLITests; it now throws the typed failure and the relay
+tests use an injected hermetic catalog. `23a1e0d9` —
+`ResidentCoordinatorProcessReaper.reapExtras` called `waitUntilExit` before
+draining the `ps` pipe, deadlocking the wall and live `alln serve install`
+once `ps` output exceeded the pipe buffer; it now drains before waiting.
+With the process no longer dying mid-suite, the full suite reveals **31
+stable pre-existing failures** (opencode model-catalog drift, menu byte
+budget, two-process flakiness, token-usage formatting, contract drift). They
+predate Code Red, are outside CR-S01's charter, and are tracked for repair;
+`bash scripts/check.sh` is red on exactly that set and nothing else.
+
+**Gate 2 — live authenticated direct Works Test: GREEN.**
+
+```text
+Status: GREEN
+Commit: 1c04876e, 21aa461e, 43f0b7fe (+ gates: 0f0c1461, f1bc264f, 23a1e0d9)
+Production lines added / deleted: 210 / 1,741 (net −1,531; impl range 10c8aee6..43f0b7fe)
+Concepts deleted / added: mirrors, resident boundary, Panel isolation, alternate-root schema deleted / architecture policy + metrics + works-test entry points added
+Client binary SHA: alln 0.9.17, git 23a1e0d933c4, contract hash f10f6255df4f, sha256 118886e64b893e83…
+Execution-owner binary SHA: none — direct path only; no resident involvement
+Exact command: alln run "Research only, do not modify any files. Report exactly: (1) the output of pwd, (2) the output of git rev-parse HEAD, (3) the first line of sentinel.txt, (4) the output of git status --porcelain. Cite each as evidence." --project prj_06537ab4 --team code_red_single --json
+Canonical repo root: /private/tmp/…/scratchpad/code-red-fixture (registered prj_06537ab4; disposable clean Git fixture)
+Selected source IDs: claude_code × 2 (crew seat model_opus#0, lead seat model_fable#0; usage.cliCalls = 2, no substitution)
+Observed source process IDs: lead claude pid 46833 sampled live mid-run (`claude -p … --model fable`); crew completed before the sample window — attribution via run journal and its embedded, separately attributed answer
+Run ID: E809DE5B-1339-4B0E-ADEA-99172983CE53 (origin: cli; writePolicy: readOnly; status done/completed; journal run_E809DE5B…/run.json)
+Git observation before: HEAD 956401c9…, porcelain empty
+Git observation after: HEAD 956401c9…, porcelain empty (unchanged)
+Real changed paths: none
+Proof command/result: worker answer cites pwd = canonical fixture root, .git HEAD = 956401c9…, sentinel line CODE_RED_SENTINEL_7f3a91, clean porcelain; exit 0; warnings/errors empty
+Architecture policy result: passed (positive gate + 10-fixture self-test red-proof)
+Missing assertion: crew pid not sampled live; `code_red_works_test.sh live-direct` remains a stub, so this gesture was performed manually per the handoff — script live mode lands with CR-S03/S04; coordinator spool untouched during the run window (last coordinator.json heartbeat predates dispatch)
+Next deletion: CR-S02 removes duplicate foreground resolution from RunCLI; resident control plane deletion stays CR-S05/CR-S06
+```
 
 Prepared but unimplemented CR-S02 boundary:
 
@@ -656,11 +709,11 @@ surface runnable.
 
 Proof: active routing reaches this packet first.
 
-### CR-S01 — Remove alternate repositories and restore direct ownership — PARTIAL
+### CR-S01 — Remove alternate repositories and restore direct ownership — COMPLETE
 
-Implementation is committed through `43f0b7fe`. Deterministic proof is green.
-The final independent audit and authenticated normal-Terminal Works Test remain
-open; see the implementation handoff above.
+Implementation is committed through `43f0b7fe`; audit-gate fixes through
+`23a1e0d9`. The final independent audit is CLEAN and the live authenticated
+direct Works Test is GREEN; see "CR-S01 closure — 2026-07-24" above.
 
 Do these in one slice so deletion cannot leave the mirror path as the only
 working path:
