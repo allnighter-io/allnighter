@@ -144,6 +144,12 @@ public enum ResidentCoordinatorInstall {
             ))
         }
 
+        // Older binaries predate the coordinator lock, so an explicit install
+        // safely drains only extra `alln serve` processes before replacing the
+        // LaunchAgent. Never touch the healthy coordinator identity; bootout
+        // below owns its lifecycle. Active work returned above untouched.
+        ResidentCoordinatorProcessReaper.reapExtras(preserving: beforeRestart.pid)
+
         let domain = "gui/\(getuid())"
         // A reinstall replaces a previous registration of this exact label. The
         // best-effort bootout is intentionally scoped to our own plist only.
