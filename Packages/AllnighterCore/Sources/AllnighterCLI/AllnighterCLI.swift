@@ -1785,17 +1785,6 @@ struct AllnighterCLI {
                 print(InstallCLI.printInstructions(target: target, installDir: installDir))
             }
         case .installed(let json):
-            // Rebuilding/reinstalling the CLI must refresh an already-enabled
-            // resident automatically. The LaunchAgent executes this stable
-            // symlink, so its next start observes the newly linked binary.
-            if let stablePath = json.path, ResidentCoordinatorInstall.isInstalled() {
-                switch ResidentCoordinatorInstall.install(argv0: stablePath) {
-                case .success:
-                    break
-                case .failure(let error):
-                    fail(code: "COORDINATOR_RESTART_FAILED", message: "CLI installed, but the resident coordinator could not refresh: \(error.message)")
-                }
-            }
             if opts.flag("json") {
                 print(jsonString(json))
             } else {

@@ -635,10 +635,11 @@ After cutover:
   path; the Mac setup path calls the same mechanism. **Landed:** it writes and
   bootstraps only `com.allnighter.resident-coordinator`, invokes the installed
   `alln serve` binary, preserves the installer's PATH for vendor CLI discovery,
-  and performs no implicit registration from any other command. A subsequent
-  `alln install-cli` refreshes an already-enabled coordinator through the
-  stable installed `alln` link, so rebuilding the CLI does not leave a
-  resident process pinned to an old build.
+  and performs no implicit registration from any other command. It launches
+  through the stable installed `alln` link, so a later `alln install-cli`
+  rebuild is picked up by the coordinator's next safe restart. Automatic
+  drain-and-restart remains an explicit REB-S04 requirement; it must not
+  terminate active work merely to refresh code.
 - Add launchd restart and client/coordinator compatibility handshake.
 - Add drain/restart behavior for binary updates, including re-adoption of
   in-flight accepted work.
