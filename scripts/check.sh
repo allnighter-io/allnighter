@@ -150,10 +150,19 @@ if [[ -f "$MAC_APP/project.yml" ]] && command -v xcodegen >/dev/null 2>&1; then
   echo "==> xcodegen generate (AllnighterMac)"
   ( cd "$MAC_APP" && xcodegen generate >/dev/null )
   echo "==> xcodebuild test AllnighterMac"
+  # Founder ruling 2026-07-24 (Code Red): these three Mac tests fail identically
+  # at 10c8aee6, the commit BEFORE Code Red began — they are pre-existing and
+  # outside this phase's charter, and the Mac app is frozen so they cannot be
+  # repaired here. They are named and skipped, not tolerated silently: every
+  # other Mac test still fails this wall. CR-S07 owns un-skipping them.
+  # See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
   xcodebuild test \
     -project "$MAC_APP/AllnighterMac.xcodeproj" \
     -scheme AllnighterMac \
     -destination 'platform=macOS' \
+    -skip-testing:AllnighterMacTests/RelayLaunchViewModelTests/testStartSeedsThreadImmediatelyAndReachesDone \
+    -skip-testing:AllnighterMacTests/RelayResumeControllerTests/testResumeRoutesThroughCoordinatorAndReachesDone \
+    -skip-testing:AllnighterMacTests/TeamDraftTests/testSeedFromBuiltInKeepsRealNameUntilSaved \
     CODE_SIGNING_ALLOWED=NO | tail -3
   ran_any=true
 elif [[ -f "$MAC_APP/project.yml" ]]; then

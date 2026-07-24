@@ -882,8 +882,34 @@ three consecutive times from unchanged committed HEAD.
 - confirm `scripts/check.sh` starts with the architecture gate;
 - confirm the required CI job is green;
 - founder enables/confirms protected-branch and Code Owner enforcement;
+- restore the two waived Mac wall arms (ruling below);
 - archive the superseded resident plan and this packet’s incident-only detail;
 - route active docs to the simplified Unified Run Model.
+
+> **Founder ruling 2026-07-24 — the two Mac wall arms are waived, and must be
+> restored here.**
+> The Mac app is frozen during Code Red, and both red Mac arms were proven
+> pre-existing, not caused by this phase. They are waived by name with a
+> restore obligation, never silently dropped.
+>
+> 1. **GUI visual proof gate.** `52654c06` renamed the Claude Opus seat's
+>    display string (Opus 4.8 → Opus 5), which invalidated the content-hash-bound
+>    proofs for `ReadinessView`, `RoutingComposer`, `SetupViews`, and
+>    `TeamControlView`. Resealing requires rendering fixtures — GUI work on a
+>    frozen app. Waived via `scripts/gui_proof_waive.sh` with that reason
+>    recorded in `docs/qa/gui/WAIVERS.manifest`. The waiver is bound to each
+>    file's current hash, so any later visible edit re-requires real proof.
+>    CR-S07 renders and reseals these four surfaces.
+> 2. **`xcodebuild test AllnighterMac`.** The Mac app *builds* clean (the
+>    handoff's "Swift 6 Sendable errors in vendored AllnighterMarkdown" claim was
+>    verified false — `** BUILD SUCCEEDED **`). Three tests fail:
+>    `RelayLaunchViewModelTests.testStartSeedsThreadImmediatelyAndReachesDone`,
+>    `RelayResumeControllerTests.testResumeRoutesThroughCoordinatorAndReachesDone`,
+>    and `TeamDraftTests.testSeedFromBuiltInKeepsRealNameUntilSaved`. Evidence
+>    they predate Code Red: the same three fail with the same five assertions at
+>    `10c8aee6`, the commit before `1c04876e` began the repair. They are listed
+>    as explicit `-skip-testing:` ids in `scripts/check.sh`; the remaining 162
+>    Mac tests still fail the wall. CR-S07 un-skips and repairs them.
 
 This is the only remote governance action in the phase and requires the
 founder. Until it is confirmed, Code Red may be functionally green but is not
