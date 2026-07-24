@@ -73,6 +73,9 @@ The durable rule is generic, not per driver:
 - normal doctor/detect and resident probe shells are noninteractive (`-lc`),
   including the alias/function fallback; only a future explicitly named,
   user-present setup flow may opt into an interactive shell;
+- foreground CLI runtime construction is process-quiet: it never spawns a
+  login shell to rewrite `PATH`. The installed coordinator receives its PATH at
+  explicit installation time and owns all source resolution;
 - a routine health/readiness operation reports a source failure or an
   interaction-required condition. It never asks macOS for Documents or
   Automation access on behalf of a sandboxed caller.

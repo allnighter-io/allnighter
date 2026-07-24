@@ -29,6 +29,9 @@ ordinary direct invocations but missed two escape paths:
   `interactive: true`; and `CLIDetector.runResolved` independently forced
   `ToolInvocation.loginShell` through `-lic`. An alias/function could therefore
   source interactive shell configuration during a background probe.
+- Every foreground `ToolRuntime` also spawned `$SHELL -lc` to rewrite `PATH`.
+  That made even a broker-routed Panel client a source of sandbox-owned child
+  processes before it submitted a typed request.
 
 ## Fix boundary
 
@@ -40,6 +43,10 @@ ordinary direct invocations but missed two escape paths:
 - Full resident probes remain real, quota-spending smokes, but are always
   noninteractive. Alias/function fallback preserves `-lc` unless a separately
   named future setup flow explicitly opts in.
+- Foreground runtime construction no longer bootstraps `PATH` with a login
+  shell. Coordinator installation captures the normal-terminal PATH for vendor
+  discovery; foreground clients are process-quiet until the broker accepts
+  typed work.
 - Extend the client wait to the bounded source-probe budget so a full probe does
   not look failed while it is still executing.
 
