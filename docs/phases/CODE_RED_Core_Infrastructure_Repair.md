@@ -1185,6 +1185,57 @@ again it is new work with its own packet — and it is not obviously wanted,
 since the sandbox hand-off already covers "start it here, get the answer here"
 without a background run.
 
+### CR-S06 scope ruling — 2026-07-24 — what `alln serve` is, and what survives
+
+Step 4 above names "`alln serve` and its install/status/drain surfaces." Read
+literally that retires four features the incident never touched. A dated sweep
+of the actual code settles it: **the control plane and the daemon are two
+different things that happen to share a process.**
+
+Everything this packet indicts was written inside the incident window:
+
+| Incident-born (2026-07-23/24) | LOC |
+| --- | ---: |
+| `ResidentExecutionRendezvous.swift` | 594 |
+| `ResidentExecutionBroker.swift` | 581 |
+| `ResidentExecution.swift` (13 operations) | 536 |
+| `ResidentCoordinatorInstall.swift` | 247 |
+| `ResidentCoordinatorProbe.swift` | 153 |
+| `ResidentCoordinatorRestart.swift` (drain) | 44 |
+| `ResidentDoctorService.swift` (probe routing) | 151 |
+
+…together with every CLI client hop added in the same window: `doctor`,
+`detect`, `ps`, `kill`, `team status/result/cancel/reconcile`, `pending run`,
+`project recheck`, and `boost-window seed`. All of it is deleted. The broker is
+a pure dispatcher — every one of its cases forwards to a local service that
+still exists (`AsyncTeamService`, `ProcessOwnershipSurface`, `PendingRunExecutor`,
+`ProjectWorkerReadinessDetector`, `UtilizationSeedExecutor`) — so restoring each
+command is a revert to its pre-incident in-process form, not new construction.
+
+The daemon underneath predates the incident by a month (`fa157739`,
+2026-06-16) and is the sole host for four shipped features with their own
+packets: `PendingWakeScheduler` (2026-06-19), `BoostSeedScheduler` (2026-06-22),
+`RemoteMacAgentCoordinator` / iOS relay spine (2026-06-22), and
+`VendorBackoffReconciler` / RLC S02 park-wake (2026-07-19). None of them speak
+the resident protocol. They call `RunService`/`AsyncTeamService` directly,
+in-process — which is precisely the architecture this packet mandates, not the
+one it indicts.
+
+**Ruling (implementer's call; the founder has delegated technical decisions —
+"this project is 100% run and maintained by AI").** Delete the control plane
+entirely. Keep the daemon, renamed `ServeDaemon.swift`, reduced to the health
+server plus those four schedulers, owning no run semantics and exposing no
+request/response surface. Deleting it instead would silently retire four
+features Code Red never indicted — scope expansion under repair pressure, which
+is the exact failure mode this packet exists to prevent.
+
+This requires one amendment to the founder-owned `config/architecture-policy.json`,
+made deliberately and recorded here rather than incidentally:
+`residentProductionFiles` drops to the deleted set, `allowedResidentOperations`
+becomes empty, and the tripwire reads **0 resident operation cases, 0 transport
+LOC**. The surviving daemon carries no `Resident*` execution vocabulary, so the
+forbidden-concept sweep still means what it says.
+
 **Note on sequencing.** This deletion is mechanical but wide, and the incident
 this packet exists to repair was itself produced by wide changes made under
 time pressure. It should be executed in one focused pass with the wall run
