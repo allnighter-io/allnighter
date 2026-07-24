@@ -24,7 +24,7 @@ final class CoordinatorHealthTests: XCTestCase {
 
     func testHealthForegroundOnlyWhenNoState() {
         let (root, _, probe) = tempDirs()
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { removeIfPresent(root) }
 
         let health = probe.health(binaryVersion: "0.1.0")
         XCTAssertEqual(health.state, .foregroundOnly)
@@ -37,7 +37,7 @@ final class CoordinatorHealthTests: XCTestCase {
 
     func testHealthSurfacesBrokerIdentityWhenPrivateCoordinatorRecordIsUnavailable() throws {
         let (root, store, _) = tempDirs()
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { removeIfPresent(root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
         _ = try rendezvous.prepareCoordinator(
@@ -64,7 +64,7 @@ final class CoordinatorHealthTests: XCTestCase {
 
     func testHealthAvailableWhenLivePidMatches() throws {
         let (root, store, probe) = tempDirs()
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { removeIfPresent(root) }
 
         let pid = ProcessInfo.processInfo.processIdentifier
         try store.save(.init(
@@ -88,7 +88,7 @@ final class CoordinatorHealthTests: XCTestCase {
 
     func testHealthCountsNonTerminalRunsAndRunningPanelsAsObligations() throws {
         let (root, store, probe) = tempDirs()
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { removeIfPresent(root) }
         let runs = RunStore(rootDirectory: root.appendingPathComponent("Runs", isDirectory: true))
         try runs.save(TeamRun(id: "active", prompt: "work", status: .running, createdAt: Date()), models: [])
         try runs.save(TeamRun(id: "finished", prompt: "done", status: .complete, createdAt: Date()), models: [])
@@ -116,7 +116,7 @@ final class CoordinatorHealthTests: XCTestCase {
 
     func testHealthUnavailableWhenPidIsDead() throws {
         let (root, store, probe) = tempDirs()
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { removeIfPresent(root) }
 
         try store.save(.init(
             coordinatorId: "stale",
@@ -136,7 +136,7 @@ final class CoordinatorHealthTests: XCTestCase {
 
     func testDoctorCoordinatorMapsStates() throws {
         let (root, store, probe) = tempDirs()
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { removeIfPresent(root) }
 
         XCTAssertEqual(probe.doctorCoordinator().state, .foregroundOnly)
 
@@ -206,7 +206,11 @@ final class CoordinatorRunTests: XCTestCase {
         // coordinator lease, which races with sibling tests / an installed resident
         // (coordinatorAlreadyRunning + "couldn't be removed" on shutdown).
         let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { removeIfPresent(root) }
+        // `prepareCoordinator` creates its own root with a single hardened,
+        // non-recursive mkdir(0o700); the scoped parent must already exist or the
+        // coordinator fails closed with `unsafePath` before it ever starts.
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 
         let box = BoolBox()
         try await ResidentCoordinator(binaryVersion: "0.1.0", store: store, rendezvous: rendezvous).run(untilShutdown: {
@@ -221,7 +225,7 @@ final class CoordinatorRunTests: XCTestCase {
         let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
         let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
         let probe = ResidentCoordinatorProbe(store: store, rendezvous: rendezvous)
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { removeIfPresent(root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 
         let brokerWasReady = BoolBox()
@@ -242,7 +246,7 @@ final class CoordinatorRunTests: XCTestCase {
         let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
         let restartStore = ResidentCoordinatorRestartStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
         let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { removeIfPresent(root) }
         try restartStore.request(.init(binaryVersion: "0.1.0", contractVersion: "1.0.0"))
 
         try await ResidentCoordinator(
@@ -265,7 +269,9 @@ final class CoordinatorRunTests: XCTestCase {
         let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
         let remote = RecordingRemoteCoordinator()
         let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
-        defer { try? FileManager.default.removeItem(at: root) }
+        defer { removeIfPresent(root) }
+        // See the note above: the hardened rendezvous mkdir is not recursive.
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 
         try await ResidentCoordinator(
             binaryVersion: "0.1.0",
@@ -282,6 +288,18 @@ final class CoordinatorRunTests: XCTestCase {
         XCTAssertTrue(remote.sawCancellation)
         XCTAssertNil(store.load(), "clean shutdown clears durable coordinator state")
     }
+}
+
+/// Deletes a temp root only when it is actually there.
+///
+/// A bare `try? FileManager.removeItem(...)` in a `defer` is not inert: when the
+/// test body is already unwinding with an error, the failed remove replaces the
+/// real error with `NSCocoaErrorDomain 4 "couldn't be removed"`. That mask cost a
+/// full misdiagnosis (a "teardown race" that never existed) — the coordinator's
+/// actual `unsafePath` failure was invisible. Never reintroduce the bare form.
+private func removeIfPresent(_ url: URL) {
+    guard FileManager.default.fileExists(atPath: url.path) else { return }
+    try? FileManager.default.removeItem(at: url)
 }
 
 private final class StringBox: @unchecked Sendable {
