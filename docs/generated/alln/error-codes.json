@@ -342,6 +342,15 @@
     "ruleId" : "coordinator.version_mismatch"
   },
   {
+    "agentAction" : "Enable the resident coordinator with `alln serve install`, then retry.",
+    "code" : "COORDINATOR_UNAVAILABLE",
+    "exitClass" : "operational",
+    "explain" : "A resident-routed request (doctor\/detect\/ownership\/boost) found no reachable coordinator. Install\/start the coordinator, or run the equivalent direct foreground command.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "coordinator.unavailable"
+  },
+  {
     "agentAction" : "Inspect the returned typed rejection and correct the request; do not retry by spawning a source directly.",
     "code" : "RESIDENT_REQUEST_REJECTED",
     "exitClass" : "operational",
