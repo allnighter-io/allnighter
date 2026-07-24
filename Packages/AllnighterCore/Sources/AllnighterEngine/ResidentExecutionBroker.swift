@@ -108,6 +108,26 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
     }
 
     private func dispatch(_ claim: ResidentExecutionRendezvous.Claim) async {
+        let identity: ResidentExecutionRendezvous.Identity
+        do {
+            identity = try rendezvous.currentIdentity()
+        } catch {
+            try? rendezvous.reject(
+                claim,
+                code: "COORDINATOR_UNAVAILABLE",
+                message: "resident coordinator identity is unavailable; enable it with `alln serve install`"
+            )
+            return
+        }
+        guard claim.request.client.binaryVersion == identity.binaryVersion,
+              claim.request.client.contractVersion == identity.contractVersion else {
+            try? rendezvous.reject(
+                claim,
+                code: "COORDINATOR_VERSION_MISMATCH",
+                message: "client \(claim.request.client.binaryVersion)/\(claim.request.client.contractVersion) does not match coordinator \(identity.binaryVersion)/\(identity.contractVersion); run `alln serve install`"
+            )
+            return
+        }
         switch claim.request.operation {
         case .teamRun(let request):
             guard let executable = dependencies.executablePath() else {

@@ -109,7 +109,8 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         operation: ResidentExecutionOperation,
         idempotencyKey: String,
         requestId: String = UUID().uuidString.lowercased(),
-        submittedAt: Date = Date()
+        submittedAt: Date = Date(),
+        client: ResidentExecutionRequest.Client? = nil
     ) throws -> ResidentExecutionRequest {
         try validateClientSurface()
         let identity = try currentIdentity()
@@ -119,6 +120,11 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
             submittedAt: submittedAt,
             coordinatorId: identity.coordinatorId,
             coordinatorNonce: identity.nonce,
+            client: client ?? .init(
+                binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                contractVersion: ContractRegistry.contractVersion,
+                pid: ProcessInfo.processInfo.processIdentifier
+            ),
             operation: operation,
             clientProof: ResidentClientProof(signature: "")
         )
@@ -248,6 +254,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         var submittedAt: Date
         var coordinatorId: String
         var coordinatorNonce: String
+        var client: ResidentExecutionRequest.Client
         var operation: ResidentExecutionOperation
 
         init(_ request: ResidentExecutionRequest) {
@@ -257,6 +264,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
             submittedAt = request.submittedAt
             coordinatorId = request.coordinatorId
             coordinatorNonce = request.coordinatorNonce
+            client = request.client
             operation = request.operation
         }
     }

@@ -641,6 +641,9 @@ After cutover:
   drain-and-restart remains an explicit REB-S04 requirement; it must not
   terminate active work merely to refresh code.
 - Add launchd restart and client/coordinator compatibility handshake.
+- **Landed:** every signed request carries its client binary and contract
+  identity. The resident rejects any mismatch before dispatch with the existing
+  `COORDINATOR_VERSION_MISMATCH` contract error and one repair action.
 - Add drain/restart behavior for binary updates, including re-adoption of
   in-flight accepted work.
 - Make unavailable/mismatch recovery one action and agent-readable.

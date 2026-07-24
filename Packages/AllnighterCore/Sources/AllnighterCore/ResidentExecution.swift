@@ -228,12 +228,32 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
 
 /// A signed request placed into the resident coordinator's local inbox.
 public struct ResidentExecutionRequest: Codable, Equatable, Sendable {
+    public struct Client: Codable, Equatable, Sendable {
+        public var binaryVersion: String
+        public var contractVersion: String
+        public var pid: Int32
+        public var origin: String
+
+        public init(
+            binaryVersion: String,
+            contractVersion: String,
+            pid: Int32,
+            origin: String = "cli"
+        ) {
+            self.binaryVersion = binaryVersion
+            self.contractVersion = contractVersion
+            self.pid = pid
+            self.origin = origin
+        }
+    }
+
     public var schemaVersion: Int
     public var requestId: String
     public var idempotencyKey: String
     public var submittedAt: Date
     public var coordinatorId: String
     public var coordinatorNonce: String
+    public var client: Client
     public var operation: ResidentExecutionOperation
     public var clientProof: ResidentClientProof
 
@@ -244,6 +264,11 @@ public struct ResidentExecutionRequest: Codable, Equatable, Sendable {
         submittedAt: Date,
         coordinatorId: String,
         coordinatorNonce: String,
+        client: Client = .init(
+            binaryVersion: AllnighterVersionIdentity.binaryVersion,
+            contractVersion: ContractRegistry.contractVersion,
+            pid: ProcessInfo.processInfo.processIdentifier
+        ),
         operation: ResidentExecutionOperation,
         clientProof: ResidentClientProof
     ) {
@@ -253,6 +278,7 @@ public struct ResidentExecutionRequest: Codable, Equatable, Sendable {
         self.submittedAt = submittedAt
         self.coordinatorId = coordinatorId
         self.coordinatorNonce = coordinatorNonce
+        self.client = client
         self.operation = operation
         self.clientProof = clientProof
     }

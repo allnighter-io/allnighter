@@ -11,7 +11,7 @@ final class ResidentExecutionBrokerTests: XCTestCase {
 
         let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("rendezvous", isDirectory: true))
         _ = try rendezvous.prepareCoordinator(
-            coordinatorId: "coord", binaryVersion: "1", contractVersion: ContractRegistry.contractVersion
+            coordinatorId: "coord", binaryVersion: AllnighterVersionIdentity.binaryVersion, contractVersion: ContractRegistry.contractVersion
         )
         let service = AsyncTeamService(
             models: [], registry: DefaultConfig.registry,
@@ -35,6 +35,17 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         let healthReceipt = try XCTUnwrap(healthMaybeReceipt)
         XCTAssertEqual(healthReceipt.state, .accepted)
         XCTAssertEqual(healthReceipt.canonicalId, "coord")
+
+        let mismatched = try rendezvous.submit(
+            operation: .query(.init(kind: .health)),
+            idempotencyKey: "mismatched-version",
+            requestId: "mismatched-version-request",
+            client: .init(binaryVersion: "old-client", contractVersion: ContractRegistry.contractVersion, pid: 1)
+        )
+        let mismatchedMaybeReceipt = try await rendezvous.waitForReceipt(requestId: mismatched.requestId)
+        let mismatchedReceipt = try XCTUnwrap(mismatchedMaybeReceipt)
+        XCTAssertEqual(mismatchedReceipt.state, .rejected)
+        XCTAssertEqual(mismatchedReceipt.rejection?.code, "COORDINATOR_VERSION_MISMATCH")
 
         let missingStatus = try rendezvous.submit(
             operation: .query(.init(kind: .runStatus, canonicalId: "missing")),
