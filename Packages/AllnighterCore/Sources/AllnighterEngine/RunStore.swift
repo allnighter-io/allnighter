@@ -404,11 +404,20 @@ public struct RunStore: Sendable {
                 return ReconcileResult(run: run, reaped: false)
             }
 
+            let startupNeverClaimed = run.phase == .spawningWorker
+                && run.lastActivityAt == nil
+                && ProcessOwnership.readStageLease(in: directory) != nil
+                && ProcessOwnership.livenessVerdict(in: directory, runCreatedAt: run.createdAt) == .unownedReclaimable
+
             // PG-kill recorded pgid only when identity rules allow (never in-process).
             _ = ProcessOwnership.terminateRecordedOwnerIfSafe(in: directory)
 
-            run.status = .interrupted
-            run.endReason = .reconciledOrphan
+            // CPH-0: an accepted pre-spawn reservation that never gained a
+            // runner is not an opaque orphan. Settle it as an actionable start
+            // failure so a client can safely inspect/retry the same canonical
+            // run without believing vendor work is still alive.
+            run.status = startupNeverClaimed ? .failed : .interrupted
+            run.endReason = startupNeverClaimed ? .startFailed : .reconciledOrphan
             // Single atomic terminal write via save (clears markers).
             _ = try? save(run, models: models)
             return ReconcileResult(run: run, reaped: true)

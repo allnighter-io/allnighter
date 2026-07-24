@@ -83,6 +83,9 @@ public enum RunEndReason: String, Codable, Sendable, CaseIterable {
     case cancelled
     /// Explicit reconcile: identity-verified dead owner.
     case reconciledOrphan
+    /// The broker durably accepted the run but no detached runner ever claimed
+    /// its bounded startup lease. No vendor process was started by this run.
+    case startFailed
     case killed
     /// A named run clock fired (RLR-L8 / S05). Distinct from operator `killed`:
     /// the deadline itself is the terminal truth (operator-vs-clock asymmetry).

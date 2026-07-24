@@ -135,6 +135,23 @@ final class ProcessOwnershipStageLeaseTests: XCTestCase {
         XCTAssertTrue(signals.isEmpty, "no recorded owner → nothing to signal")
     }
 
+    func testExpiredPreSpawnLeaseSettlesAsStartFailed() throws {
+        let (store, root) = tempStore()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let runDir = try store.runDirectory(forRunId: "expired-starting")
+        var run = nonTerminalRun(id: "expired-starting")
+        run.status = .queued
+        run.phase = .spawningWorker
+        try writeJournal(run, in: runDir)
+        try writeLease(runId: "expired-starting", in: runDir, expired: true)
+
+        let detail = try XCTUnwrap(store.reconcileRunDetailed(runId: "expired-starting"))
+        XCTAssertTrue(detail.reaped)
+        XCTAssertEqual(detail.run.status, .failed)
+        XCTAssertEqual(detail.run.endReason, .startFailed)
+    }
+
     func testExpiredLeaseWithLiveOwnerIsNeverReaped() throws {
         let (store, root) = tempStore()
         defer { try? FileManager.default.removeItem(at: root) }

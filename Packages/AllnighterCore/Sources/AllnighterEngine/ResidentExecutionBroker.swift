@@ -116,7 +116,16 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         isCancelled: @escaping @Sendable () -> Bool,
         isDraining: @escaping @Sendable () -> Bool = { false }
     ) async {
+        var nextReconcileAt = Date.distantPast
         while !isCancelled() && !Task.isCancelled {
+            // A receipt can survive a coordinator crash before runner spawn.
+            // The startup lease protects the legitimate handoff; once expired,
+            // periodic resident reconciliation settles it rather than waiting
+            // for an unrelated client to remember `team reconcile`.
+            if Date() >= nextReconcileAt {
+                _ = dependencies.runStore.reconcileAll(models: dependencies.models)
+                nextReconcileAt = Date().addingTimeInterval(1)
+            }
             if isDraining() {
                 try? await Task.sleep(nanoseconds: 100_000_000)
                 continue
