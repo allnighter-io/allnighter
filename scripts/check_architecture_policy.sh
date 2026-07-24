@@ -36,11 +36,6 @@ write("docs/phases/CODE_RED_Core_Infrastructure_Repair.md", "Code Red\n")
 write("AGENTS.md", "routing\n")
 write("docs/phases/guide.md", "living teaching\n")
 write("docs/operations/guide.md", "operations\n")
-operations = "\n".join(f"    case {name}(String)" for name in policy["allowedResidentOperations"])
-write(
-    "Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift",
-    f"public enum ResidentExecutionOperation {{\n{operations}\n}}\npublic struct PanelStart {{}}\n",
-)
 write(
     policy["runSemanticsOwnerFile"],
     "public final class RunService { public func run() {} }\n"
@@ -71,11 +66,22 @@ assert_fails() {
   write_fixture "$fixture"
   case "$name" in
     forbidden-production)
-      printf 'ProjectMirror\n' >> "$fixture/Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift" ;;
+      printf 'ProjectMirror\n' >> "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift" ;;
     forbidden-living)
       printf 'ProjectMirror\n' >> "$fixture/docs/phases/guide.md" ;;
     resident-operation)
-      sed -i '' 's/public struct PanelStart/    case rogue(String)\npublic struct PanelStart/' "$fixture/Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift" ;;
+      # CR-S06 deleted the control plane, so this rule inverts: declaring the
+      # operation union at its old path must be red.
+      printf 'public enum ResidentExecutionOperation {\n    case rogue(String)\n}\n' \
+        > "$fixture/Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift" ;;
+    resident-operation-renamed)
+      # …and so must declaring it anywhere else, under any prefix. A rename is
+      # how this would actually come back.
+      printf 'public enum SneakyResidentExecutionOperation {\n    case rogue(String)\n}\n' \
+        > "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/Sneaky.swift" ;;
+    resident-file-returned)
+      printf 'let probe = 1\n' \
+        > "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinatorProbe.swift" ;;
     run-owner-count)
       printf 'public func run() {}\n' >> "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift" ;;
     canonical-root)
@@ -83,9 +89,18 @@ assert_fails() {
     founder-path)
       rm "$fixture/docs/phases/CODE_RED_Core_Infrastructure_Repair.md" ;;
     phase-loc)
-      python3 - "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinator.swift" <<'PY'
-import pathlib, sys
-pathlib.Path(sys.argv[1]).write_text("resident\n" * 2200)
+      # The declared resident file set is now empty, so the ceiling can only be
+      # violated by a policy that readmits a file. Prove the LOC rule still
+      # bites on the policy the validator actually reads.
+      python3 - "$fixture" <<'PY'
+import json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+name = "Packages/AllnighterCore/Sources/AllnighterEngine/StillResident.swift"
+(root / name).write_text("resident\n" * 2200)
+policy_path = root / "config/architecture-policy.json"
+policy = json.loads(policy_path.read_text())
+policy["residentProductionFiles"] = [name]
+policy_path.write_text(json.dumps(policy))
 PY
       ;;
     adapter-missing-direct-run)
@@ -103,7 +118,7 @@ PY
 valid="$tmp/valid"
 write_fixture "$valid"
 python3 "$VALIDATOR" --root "$valid" --policy "$valid/config/architecture-policy.json" >/dev/null
-for category in forbidden-production forbidden-living resident-operation run-owner-count canonical-root founder-path phase-loc adapter-missing-direct-run adapter-resident-operation alternate-root-field; do
+for category in forbidden-production forbidden-living resident-operation resident-operation-renamed resident-file-returned run-owner-count canonical-root founder-path phase-loc adapter-missing-direct-run adapter-resident-operation alternate-root-field; do
   assert_fails "$category"
 done
 

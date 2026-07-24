@@ -18,6 +18,7 @@ REQUIRED_KEYS = {
     "allowedResidentOperations", "runSemanticsOwner", "runSemanticsOwnerFile",
     "directAdapterFile", "canonicalRootField", "residentProductionFiles",
     "residentProductionLineCeiling", "residentCloseoutLineBudget", "founderOwnedPaths",
+    "forbiddenProductionFiles",
 }
 
 
@@ -82,14 +83,29 @@ def validate(root: pathlib.Path, policy_path: pathlib.Path) -> None:
             if term in path.read_text(errors="ignore"):
                 fail(f"forbidden term {term!r} found in {path.relative_to(root)}")
 
-    resident_text = read_required(root, "Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift")
-    try:
-        enum_text = resident_text.split("public enum ResidentExecutionOperation", 1)[1].split("public struct PanelStart", 1)[0]
-    except IndexError:
-        fail("cannot parse ResidentExecutionOperation")
-    operations = re.findall(r"^\s*case\s+(\w+)\(", enum_text, re.M)
-    if operations != policy["allowedResidentOperations"]:
-        fail(f"resident operation set differs from policy: actual={operations}")
+    # CR-S06 deleted the resident execution control plane outright, so the
+    # operation rule inverts: instead of pinning an allowed set, the gate now
+    # proves the whole surface is absent. Each deleted file is named, so a
+    # future agent cannot quietly reintroduce one and call it a bug fix.
+    returned = [name for name in policy["forbiddenProductionFiles"] if (root / name).is_file()]
+    if returned:
+        fail(f"deleted resident control-plane file has returned: {', '.join(returned)}")
+
+    if policy["allowedResidentOperations"]:
+        # Retained for a future policy that deliberately re-allows a bounded
+        # operation set; it must then name the file that declares it.
+        resident_text = read_required(root, "Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift")
+        try:
+            enum_text = resident_text.split("public enum ResidentExecutionOperation", 1)[1].split("public struct PanelStart", 1)[0]
+        except IndexError:
+            fail("cannot parse ResidentExecutionOperation")
+        operations = re.findall(r"^\s*case\s+(\w+)\(", enum_text, re.M)
+        if operations != policy["allowedResidentOperations"]:
+            fail(f"resident operation set differs from policy: actual={operations}")
+    else:
+        for path in scan_files:
+            if re.search(r"enum\s+\w*ResidentExecutionOperation", path.read_text(errors="ignore")):
+                fail(f"resident operation union redeclared in {path.relative_to(root)}")
 
     owner_text = read_required(root, policy["runSemanticsOwnerFile"])
     owner_name, _, owner_method = policy["runSemanticsOwner"].partition(".")

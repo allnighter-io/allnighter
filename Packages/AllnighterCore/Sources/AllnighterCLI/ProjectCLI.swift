@@ -192,27 +192,27 @@ enum ProjectCLI {
         guard let idOrName = opts.positional.first else { usageError("usage: alln project recheck-workers <project-id-or-name> [--json]") }
         let store = ProjectStore()
         let project = resolve(idOrName, store)
-        let rendezvous = ResidentExecutionRendezvous()
-        do {
-            let submitted = try rendezvous.submit(
-                operation: .projectRecheck(.init(projectId: project.id, rootPath: project.normalizedRootPath)),
-                idempotencyKey: "project-recheck-\(project.id)-\(UUID().uuidString.lowercased())"
-            )
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: 130) else {
-                AllnighterCLI.fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not complete project readiness recheck")
-            }
-            if let rejection = receipt.rejection {
-                AllnighterCLI.fail(code: rejection.code, message: rejection.message)
-            }
-            guard case let .projectWorkerReadiness(results) = receipt.result else {
-                AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid project readiness result")
-            }
-            emitWorkers(project: project, workers: results, cached: false, json: opts.flag("json"))
-        } catch ResidentExecutionRendezvous.Error.unavailable {
-            AllnighterCLI.fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
-        } catch {
-            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident project recheck request failed: \(error)")
+        let detector = ProjectWorkerReadinessDetector(runner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
+        let now = Date()
+        var results: [ProjectWorkerReadiness] = []
+        for manifest in runtime.registry.all.sorted(by: { $0.id < $1.id }) {
+            results.append(await detector.detect(
+                projectId: project.id,
+                rootPath: project.normalizedRootPath,
+                manifest: manifest,
+                probeKind: ProbeKind.explicitRecheck,
+                now: now
+            ))
         }
+        do {
+            try ProjectWorkerReadinessStore().save(projectId: project.id, results)
+        } catch {
+            AllnighterCLI.fail(
+                code: "INTERNAL_ERROR",
+                message: "project recheck could not save readiness: \(error.localizedDescription)"
+            )
+        }
+        emitWorkers(project: project, workers: results, cached: false, json: opts.flag("json"))
     }
 
     // MARK: - Helpers

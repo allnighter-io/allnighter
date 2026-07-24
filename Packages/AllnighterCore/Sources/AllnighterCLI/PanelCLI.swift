@@ -23,40 +23,6 @@ enum PanelCLI {
 
     // MARK: - start
 
-    static func runStart(_ args: [String], runtime: ToolRuntime) async {
-        guard !args.isEmpty else {
-            usage("panel start --doc <path> --project <id|path> [--team <alias>] [--seat <alias>:<lens> …] [--max-rounds N] [--json]")
-        }
-        let opts = Options(args)
-        let request: StartRequest
-        do {
-            request = try parseStartConfig(
-                args,
-                models: runtime.models,
-                registry: runtime.registry,
-                probeRecords: SetupStore().load().records
-            )
-        } catch let error as PanelCLIError {
-            fail(error)
-        } catch {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
-        }
-
-        let receipt = await residentPanelRequest(.panelStart(.init(
-            projectRoot: request.config.projectRoot,
-            projectId: request.config.projectId,
-            targetPath: request.config.targetPath,
-            teamId: request.teamId,
-            seats: request.seats,
-            maxRounds: request.config.maxRounds,
-            rememberedTeam: request.rememberedTeam,
-            laneDefault: request.laneDefault
-        )))
-        guard case let .panelStart(payload) = receipt.result else {
-            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel start response")
-        }
-        emitStartPayload(payload, json: opts.flag("json"))
-    }
 
     static func parseStartConfig(
         _ args: [String],
@@ -207,58 +173,6 @@ enum PanelCLI {
 
     // MARK: - round
 
-    static func runRound(_ args: [String], runtime: ToolRuntime) async {
-        guard !args.isEmpty else {
-            usage("panel round --panel <id> [--brief <md>|-] [--seats a,b] [--no-wait] [--json]")
-        }
-        let opts = Options(args)
-        guard let panelId = opts.value("panel") else { fail(.missingRequired("--panel <id>")) }
-
-        let brief: String?
-        do {
-            brief = try parseBrief(opts)
-        } catch let error as PanelCLIError {
-            fail(error)
-        } catch {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
-        }
-
-        let seatFilter: [String]?
-        if let raw = opts.value("seats") {
-            let parts = raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-            seatFilter = parts.isEmpty ? nil : parts
-        } else {
-            seatFilter = nil
-        }
-
-        let receipt = await residentPanelRequest(.panelRound(.init(
-            panelId: panelId, brief: brief, seatFilter: seatFilter
-        )))
-        if case let .panelRound(payload) = receipt.result {
-            emitRoundPayload(payload, json: opts.flag("json"))
-            return
-        }
-        guard case .panelStatus = receipt.result else {
-            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel round response")
-        }
-        if opts.flag("no-wait") {
-            print("dispatched — poll with `alln panel status --panel \(panelId) --json`")
-            return
-        }
-        while true {
-            let statusReceipt = await residentPanelQuery(.panelStatus, panelId: panelId)
-            guard case let .panelStatus(panel) = statusReceipt.result else {
-                AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel status response")
-            }
-            if panel.status != "running" { break }
-            try? await Task.sleep(for: .seconds(1))
-        }
-        let resultReceipt = await residentPanelQuery(.panelResult, panelId: panelId)
-        guard case let .panelRound(payload) = resultReceipt.result else {
-            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator did not return a settled panel round")
-        }
-        emitRoundPayload(payload, json: opts.flag("json"))
-    }
 
     static func parseBrief(_ opts: Options) throws -> String? {
         guard let raw = opts.value("brief") else { return nil }
@@ -276,42 +190,7 @@ enum PanelCLI {
         return contents
     }
 
-    private static func residentPanelRequest(
-        _ operation: ResidentExecutionOperation
-    ) async -> ResidentExecutionReceipt {
-        let rendezvous = ResidentExecutionRendezvous()
-        do {
-            let submitted = try rendezvous.submit(
-                operation: operation,
-                idempotencyKey: UUID().uuidString.lowercased()
-            )
-            let timeout: TimeInterval
-            switch operation {
-            case .panelRound:
-                timeout = ResidentExecutionWaitBudget.panelRound
-            default:
-                timeout = 30
-            }
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: timeout) else {
-                AllnighterCLI.fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the panel request before timeout")
-            }
-            if let rejection = receipt.rejection {
-                AllnighterCLI.fail(code: rejection.code, message: rejection.message)
-            }
-            return receipt
-        } catch ResidentExecutionRendezvous.Error.unavailable {
-            AllnighterCLI.fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
-        } catch {
-            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident panel request failed: \(error)")
-        }
-    }
 
-    private static func residentPanelQuery(
-        _ kind: ResidentExecutionOperation.Query.Kind,
-        panelId: String
-    ) async -> ResidentExecutionReceipt {
-        await residentPanelRequest(.query(.init(kind: kind, canonicalId: panelId)))
-    }
 
     // MARK: - status / watch / done / scaffold-brief
 
@@ -340,44 +219,8 @@ enum PanelCLI {
         return (state, .roundAlive)
     }
 
-    static func runStatus(_ args: [String]) async {
-        guard !args.isEmpty else { usage("panel status --panel <id> [--json]") }
-        let opts = Options(args)
-        guard let panelId = opts.value("panel") else { fail(.missingRequired("--panel <id>")) }
-        let receipt = await residentPanelQuery(.panelStatus, panelId: panelId)
-        guard case let .panelStatus(panel) = receipt.result else {
-            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel status response")
-        }
-        emitStatusPayload(panel, json: opts.flag("json"))
-    }
 
-    static func runWatch(_ args: [String]) async {
-        guard !args.isEmpty else { usage("panel watch --panel <id> [--json]") }
-        let opts = Options(args)
-        guard let panelId = opts.value("panel") else { fail(.missingRequired("--panel <id>")) }
-        while true {
-            let receipt = await residentPanelQuery(.panelStatus, panelId: panelId)
-            guard case let .panelStatus(panel) = receipt.result else {
-                AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel watch response")
-            }
-            if panel.status != "running" {
-                emitWatchPayload(panel, note: panel.status == "done" ? "nothing in flight" : nil, json: opts.flag("json"))
-                return
-            }
-            try? await Task.sleep(for: .seconds(1))
-        }
-    }
 
-    static func runDone(_ args: [String]) async {
-        guard !args.isEmpty else { usage("panel done --panel <id> [--note …] [--json]") }
-        let opts = Options(args)
-        guard let panelId = opts.value("panel") else { fail(.missingRequired("--panel <id>")) }
-        let receipt = await residentPanelRequest(.panelDone(.init(panelId: panelId, note: opts.value("note"))))
-        guard case let .panelStatus(panel) = receipt.result else {
-            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel done response")
-        }
-        emitDonePayload(panel, json: opts.flag("json"))
-    }
 
     static func runScaffoldBrief(
         _ args: [String],
@@ -405,230 +248,19 @@ enum PanelCLI {
 
     // MARK: - emit
 
-    private static func emitStartPayload(_ payload: PanelStartJSON, json: Bool) {
-        if json {
-            print(AllnighterCLI.jsonString(payload))
-        } else {
-            print("panel \(payload.panel.panelId)")
-            print("status: \(payload.panel.status)")
-            print("target: \(payload.panel.targetPath)")
-            print("scaffold: \(payload.scaffoldPath)")
-            print("next: \(payload.nextCommand)")
-        }
-    }
 
-    private static func emitRoundPayload(_ payload: PanelRoundJSON, json: Bool) {
-        if json {
-            print(AllnighterCLI.jsonLine(payload))
-        } else {
-            print("panel \(payload.panel.panelId) round \(payload.round) attempt \(payload.attempt)")
-            print("status: \(payload.panel.status)")
-            for seat in payload.seatResults {
-                print("\n----- seat \(seat.workerId) (\(seat.lens)) [\(seat.status)] -----")
-                if !seat.report.isEmpty { print(seat.report) }
-                else if let reason = seat.reason { print(reason) }
-            }
-        }
-    }
 
-    private static func emitProgress(_ event: PanelCoordinator.PanelEvent, json: Bool) {
-        // NDJSON progress while blocking (even without --json, seats stream as they settle).
-        let line: PanelProgressJSON
-        switch event {
-        case .seatStarted(let seat, let round, let attempt):
-            line = PanelProgressJSON(event: "seatStarted", seat: seat, round: round, attempt: attempt)
-        case .seatSettled(let seat, let round, let attempt, let status):
-            line = PanelProgressJSON(event: "seatSettled", seat: seat, round: round, attempt: attempt, status: status)
-        case .roundSettled(let round, let attempt):
-            line = PanelProgressJSON(event: "roundSettled", round: round, attempt: attempt)
-        }
-        // Always NDJSON for progress (transport for early reading).
-        print(AllnighterCLI.jsonLine(line))
-        fflush(stdout)
-        _ = json
-    }
 
-    private static func emitRoundResult(
-        _ payload: PanelCoordinator.RoundResult,
-        json: Bool
-    ) {
-        let panelJSON = PanelJSON.project(payload.state, contractVersion: ContractRegistry.contractVersion)
-        let unstructuredSeats = PanelUnstructuredSeats.project(from: payload.round.seatResults)
-        let convergence = PanelConvergence.project(from: payload.round.seatResults)
-        if json {
-            print(AllnighterCLI.jsonLine(PanelRoundJSON(
-                contractVersion: ContractRegistry.contractVersion,
-                panel: panelJSON,
-                round: payload.round.roundNumber,
-                attempt: payload.attempt.attemptNumber,
-                outcome: PanelRoundOutcome.project(from: payload.round),
-                targetHash: payload.round.targetHash,
-                briefSource: payload.round.briefSource.rawValue,
-                seatResults: payload.round.seatResults.map(SeatResultJSON.init),
-                unstructuredSeats: unstructuredSeats,
-                convergence: convergence
-            )))
-        } else {
-            print("panel \(payload.state.id) round \(payload.round.roundNumber) attempt \(payload.attempt.attemptNumber)")
-            print("status: \(payload.state.status.rawValue)")
-            print("outcome: \(PanelRoundOutcome.project(from: payload.round))")
-            print("targetHash: \(payload.round.targetHash)")
-            for workerId in unstructuredSeats {
-                print("⚠ unstructured seat: \(workerId) — no parseable findings block; read its verbatim report (content may be real)")
-            }
-            for entry in convergence {
-                print("◎ convergence: \(entry.anchor) — seats: \(entry.seats.joined(separator: ", "))")
-            }
-            for seat in payload.round.seatResults {
-                print("\n----- seat \(seat.workerId) (\(seat.lens)) [\(seat.status.rawValue)] -----")
-                if !seat.report.isEmpty {
-                    print(seat.report)
-                } else if let reason = seat.reason {
-                    print(reason)
-                }
-            }
-            print("\nnext: alln panel round --panel \(payload.state.id) --brief <focus.md>")
-            print("  or: alln panel done --panel \(payload.state.id) --note \"…\"")
-        }
-    }
 
     /// Resident-projected lifecycle payloads. The client deliberately never
     /// reloads PanelState: a restricted host may not be able to inspect the
     /// coordinator's journal, and only the coordinator can reconcile a dead
     /// round owner before reporting status.
-    private static func emitStatusPayload(_ panel: PanelJSON, json: Bool) {
-        if json {
-            print(AllnighterCLI.jsonString(PanelStatusJSON(panel: panel, recovery: nil, nextActions: [])))
-        } else {
-            print("panel \(panel.panelId)")
-            print("status: \(panel.status)")
-            print("target: \(panel.targetPath)")
-            print("rounds: \(panel.rounds)/\(panel.maxRounds)")
-            if let last = panel.roundLog.last {
-                print("last targetHash: \(last.targetHash)")
-                for seat in last.seatResults {
-                    let detail = seat.reason.map { " — \($0)" } ?? ""
-                    print("seat \(seat.workerId): \(seat.status)\(detail)")
-                }
-            }
-            if let note = panel.note { print("note: \(note)") }
-        }
-    }
 
-    private static func emitWatchPayload(_ panel: PanelJSON, note: String?, json: Bool) {
-        if json {
-            print(AllnighterCLI.jsonString(PanelWatchJSON(panel: panel, note: note)))
-        } else {
-            print("panel \(panel.panelId)")
-            print("status: \(panel.status)")
-            if let last = panel.roundLog.last {
-                for seat in last.seatResults {
-                    print("\n----- seat \(seat.workerId) (\(seat.lens)) [\(seat.status)] -----")
-                    if !seat.report.isEmpty { print(seat.report) }
-                    else if let reason = seat.reason { print(reason) }
-                }
-            }
-            if let note { print("\nnote: \(note)") }
-        }
-    }
 
-    private static func emitDonePayload(_ panel: PanelJSON, json: Bool) {
-        if json {
-            print(AllnighterCLI.jsonString(panel))
-        } else {
-            print("panel \(panel.panelId) done")
-            if let note = panel.note { print("note: \(note)") }
-            print("chain: alln pair pilot start --doc \(panel.targetPath)")
-        }
-    }
 
-    private static func emitStatusResult(
-        _ state: PanelState,
-        recovery: InFlightRecovery,
-        json: Bool
-    ) {
-        let panelJSON = PanelJSON.project(state, contractVersion: ContractRegistry.contractVersion)
-        if json {
-            var recoveryStr: String?
-            var nextActions: [AgentSurfaceNextAction] = []
-            switch recovery {
-            case .none: break
-            case .roundAlive:
-                recoveryStr = "roundAlive"
-                nextActions = [
-                    AgentSurfaceNextAction(
-                        kind: "wait",
-                        label: "Watch panel round",
-                        command: "alln panel watch --panel \(state.id)"
-                    )
-                ]
-            case .orphanReconciled:
-                recoveryStr = "orphanReconciled"
-                nextActions = [
-                    AgentSurfaceNextAction(
-                        kind: "recover",
-                        label: "Re-watch after orphan reconcile",
-                        command: "alln panel watch --panel \(state.id)"
-                    )
-                ]
-            }
-            print(AllnighterCLI.jsonString(PanelStatusJSON(
-                panel: panelJSON, recovery: recoveryStr, nextActions: nextActions
-            )))
-        } else {
-            print("panel \(state.id)")
-            print("status: \(state.status.rawValue)")
-            print("target: \(state.targetPath)")
-            print("rounds: \(state.rounds.count)/\(state.maxRounds)")
-            if let last = state.rounds.last {
-                print("last targetHash: \(last.targetHash)")
-                for seat in last.seatResults {
-                    let detail = seat.reason.map { " — \($0)" } ?? ""
-                    print("seat \(seat.workerId): \(seat.status.rawValue)\(detail)")
-                }
-            }
-            switch recovery {
-            case .none: break
-            case .roundAlive:
-                print("recovery: round in flight — run `alln panel watch --panel \(state.id)`")
-            case .orphanReconciled:
-                print("recovery: owner died mid-round (reconciled) — run `alln panel watch --panel \(state.id)`")
-            }
-            if let note = state.note { print("note: \(note)") }
-        }
-    }
 
-    private static func emitWatchResult(_ state: PanelState, note: String?, json: Bool) {
-        let panelJSON = PanelJSON.project(state, contractVersion: ContractRegistry.contractVersion)
-        if json {
-            print(AllnighterCLI.jsonString(PanelWatchJSON(panel: panelJSON, note: note)))
-        } else {
-            print("panel \(state.id)")
-            print("status: \(state.status.rawValue)")
-            if let last = state.rounds.last {
-                for seat in last.seatResults {
-                    print("\n----- seat \(seat.workerId) (\(seat.lens)) [\(seat.status.rawValue)] -----")
-                    if !seat.report.isEmpty {
-                        print(seat.report)
-                    } else if let reason = seat.reason {
-                        print(reason)
-                    }
-                }
-            }
-            if let note { print("\nnote: \(note)") }
-        }
-    }
 
-    private static func emitDoneResult(_ state: PanelState, json: Bool) {
-        let panelJSON = PanelJSON.project(state, contractVersion: ContractRegistry.contractVersion)
-        if json {
-            print(AllnighterCLI.jsonString(panelJSON))
-        } else {
-            print("panel \(state.id) done")
-            if let note = state.note { print("note: \(note)") }
-            print("chain: alln pair pilot start --doc \(state.targetPath) --project \(state.projectId)")
-        }
-    }
 
     // MARK: - dirty advisory
 
@@ -650,41 +282,6 @@ enum PanelCLI {
 
     // MARK: - background round
 
-    private static func dispatchRoundInBackground(
-        panelId: String,
-        opts: Options,
-        brief: String?,
-        seatFilter: [String]?,
-        json: Bool
-    ) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
-        var childArgs = ["panel", "round", "--panel", panelId]
-        if let brief {
-            let tempURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("alln-panel-brief-\(panelId)-\(UUID().uuidString).md")
-            do {
-                try brief.write(to: tempURL, atomically: true, encoding: .utf8)
-            } catch {
-                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not stage brief: \(error)")
-            }
-            childArgs += ["--brief", tempURL.path]
-        }
-        if let seatFilter {
-            childArgs += ["--seats", seatFilter.joined(separator: ",")]
-        }
-        if json { childArgs.append("--json") }
-        process.arguments = childArgs
-        process.standardInput = FileHandle.nullDevice
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-        } catch {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background round: \(error)")
-        }
-        print("dispatched (pid \(process.processIdentifier)) — poll with `alln panel status --panel \(panelId) --json` or `alln panel watch --panel \(panelId)`")
-    }
 
     // MARK: - helpers
 

@@ -24,7 +24,7 @@ the foundation contracts in `00`, `01`, and `01a`.
 | Area | State |
 | --- | --- |
 | CLI spine | `alln` M1 is built; async team, Pending, Project core pieces, and MCP pieces exist. |
-| Coordinator | `alln serve` exists as a resident coordinator with health/wake behavior. Headless remote Mac-agent, command-router, event-sync, snapshot-publisher, cloud-relay adapter, and Direct Mode carrier code exists in Core/Engine; app/launchd runtime wiring and the carrier Works Test remain. |
+| Coordinator | `alln serve` exists as a background scheduler with health/wake behavior. Headless remote Mac-agent, command-router, event-sync, snapshot-publisher, cloud-relay adapter, and Direct Mode carrier code exists in Core/Engine; app/launchd runtime wiring and the carrier Works Test remain. |
 | Run durability | `RunStore` writes non-terminal `run.json` snapshots + `owner.pid` and reads dead owners as `interrupted`. `RemoteRunEventJournal` writes append-only per-run `events.jsonl` plus a persisted global monotonic `seq`, and `AsyncTeamService` records async team coordinator events there. Carrier-level restart/resume proof remains. |
 | Event vocabulary | Remote output is frozen to public `run.*`, `worker.*`, and `stage.*` kinds. `RunEventKind` no longer exposes `synthesis.*`; remote signing rejects private `synthesis.*` inputs. |
 | iOS scaffold | `Apps/AllnighteriOS/` is still the SwiftData starter scaffold with `Item.swift`, `ModelContainer`, and a hand-managed `.xcodeproj`. It is quarantined; no foundation work should depend on it. |

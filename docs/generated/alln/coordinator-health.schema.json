@@ -1,21 +1,5 @@
 {
   "$defs" : {
-    "Broker" : {
-      "additionalProperties" : false,
-      "properties" : {
-        "ready" : {
-          "type" : "boolean"
-        },
-        "transport" : {
-          "type" : "string"
-        }
-      },
-      "required" : [
-        "ready",
-        "transport"
-      ],
-      "type" : "object"
-    },
     "Journal" : {
       "additionalProperties" : false,
       "properties" : {
@@ -72,13 +56,10 @@
     "binaryVersion" : {
       "type" : "string"
     },
-    "broker" : {
-      "$ref" : "#\/$defs\/Broker"
-    },
     "contractVersion" : {
       "type" : "string"
     },
-    "coordinatorId" : {
+    "daemonId" : {
       "type" : [
         "string",
         "null"
@@ -93,12 +74,6 @@
     "pid" : {
       "type" : [
         "integer",
-        "null"
-      ]
-    },
-    "recoveryAction" : {
-      "type" : [
-        "string",
         "null"
       ]
     },
@@ -128,9 +103,7 @@
     "binaryGitSha",
     "journal",
     "loopback",
-    "broker",
-    "activeObligationCount",
-    "recoveryAction"
+    "activeObligationCount"
   ],
   "title" : "CoordinatorHealth",
   "type" : "object"

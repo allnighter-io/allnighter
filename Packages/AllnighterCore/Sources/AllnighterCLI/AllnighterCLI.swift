@@ -34,22 +34,8 @@ struct AllnighterCLI {
         }
 
         switch command {
-        // These surfaces are intentionally reachable without constructing a
-        // foreground ToolRuntime.  A sandboxed host may call them from a
-        // protected repo; only the resident coordinator may own diagnostics or
-        // source processes.
         case "doctor" where args.first == "explain": runDoctorExplain(Array(args.dropFirst()))
-        case "doctor": await runDoctor(args)
-        case "detect": await runDetect()
         case "serve": await runServe(args)
-        // Team lifecycle is resident-owned. Keep all four public operations on
-        // this early route so a protected client never constructs a competing
-        // local RunStore/process view. `__runner` remains below: it is the
-        // resident-spawned child, not a public client operation.
-        case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()))
-        case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()))
-        case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()))
-        case "team" where args.first == "reconcile": await runTeamReconcile(Array(args.dropFirst()))
         default:
             let runtime = ToolRuntime()
             await run(command: command, args: args, runtime: runtime)
@@ -81,6 +67,12 @@ struct AllnighterCLI {
         case "run": await RunCLI.run(args, runtime: runtime)
         case "continuity": runContinuity(args)
         case "team" where args.first == "__runner": await runTeamRunner(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
+        case "team" where args.first == "reconcile": await runTeamReconcile(Array(args.dropFirst()), runtime)
+        case "doctor": await runDoctor(args, runtime)
+        case "detect": await runDetect(runtime)
         case "models": await ModelsCLI.run(args, runtime: runtime)
         case "defaults": await DefaultsCLI.run(args, runtime: runtime)
         case "boost-window": await BoostWindowCLI.run(args, runtime: runtime)
@@ -337,42 +329,25 @@ struct AllnighterCLI {
     /// `notChecked`). `--full` runs smoke probes (spends quota) to confirm
     /// auth/readiness. Emits `DoctorResult` (docs/phases/CLI_Implementation_Contract.md
     /// §Doctor Contract).
-    static func runDoctor(_ args: [String]) async {
+    static func runDoctor(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         let full = opts.flag("full")
         let pilot = opts.flag("pilot")
         let sourceId = opts.value("agent")
-        let rendezvous = ResidentExecutionRendezvous()
-        let result: DoctorResult
-        do {
-            if full {
-                try await verifyResidentAdmission(rendezvous)
-            }
-            let submitted = try rendezvous.submit(
-                operation: .sourceProbe(.init(
-                    sourceId: sourceId,
-                    full: full,
-                    pilot: pilot,
-                    projectToken: opts.value("project"),
-                    workingDirectory: nil,
-                    workspaceHeadSha: workspaceHeadGitSha()
-                )),
-                idempotencyKey: UUID().uuidString.lowercased()
-            )
-            let timeout = full ? ResidentExecutionWaitBudget.sourceProbe : 30
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: timeout) else {
-                fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the doctor request before timeout")
-            }
-            if let rejection = receipt.rejection { fail(code: rejection.code, message: rejection.message) }
-            guard case let .doctor(payload) = receipt.result else {
-                fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid doctor response")
-            }
-            result = payload
-        } catch ResidentExecutionRendezvous.Error.unavailable {
-            fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
-        } catch {
-            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident doctor request failed: \(error)")
+        if let sourceId, runtime.registry.manifest(id: sourceId) == nil {
+            fail(code: "SOURCE_NOT_FOUND", message: "no source manifest '\(sourceId)'")
         }
+        let result = await SourceProbeService(
+            models: runtime.models,
+            registry: runtime.registry,
+            binaryVersion: binaryVersion
+        ).probe(.init(
+            sourceId: sourceId,
+            full: full,
+            pilot: pilot,
+            projectToken: opts.value("project"),
+            workspaceHeadSha: workspaceHeadGitSha()
+        ))
         if opts.flag("json") {
             print(jsonString(result))   // exactly one JSON object, no prose
         } else {
@@ -380,78 +355,31 @@ struct AllnighterCLI {
         }
     }
 
-    /// Proves the money invariant without spending quota: two deliveries with
-    /// one idempotency key must yield the exact same durable acceptance and no
-    /// vendor start. Kept in `doctor --full` so routine health stays read-only
-    /// apart from its ordinary coordinator request.
-    private static func verifyResidentAdmission(_ rendezvous: ResidentExecutionRendezvous) async throws {
-        let day = ISO8601DateFormatter().string(from: Date()).prefix(10)
-        let key = "doctor-admission-probe-\(day)"
-        var receipts: [ResidentExecutionReceipt] = []
-        for _ in 0..<2 {
-            let submitted = try rendezvous.submit(
-                operation: .admissionProbe(.init()),
-                idempotencyKey: key
-            )
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: 15) else {
-                throw ResidentExecutionRendezvous.Error.unavailable
-            }
-            guard receipt.state == .accepted,
-                  receipt.idempotencyKey == key,
-                  receipt.canonicalId == "admission-probe",
-                  case let .admissionProbe(result)? = receipt.result,
-                  result.reservationCount == 1,
-                  result.vendorStarts == 0 else {
-                throw ResidentExecutionRendezvous.Error.idempotencyConflict
-            }
-            receipts.append(receipt)
-        }
-        guard receipts.count == 2,
-              receipts[0].canonicalId == receipts[1].canonicalId,
-              receipts[0].acceptedAt == receipts[1].acceptedAt else {
-            throw ResidentExecutionRendezvous.Error.idempotencyConflict
-        }
-    }
-
-    /// `alln serve [--health --json]` — resident coordinator skeleton. `--health`
-    /// is read-only and never starts the coordinator.
+    /// `alln serve [--health --json]` — the optional background scheduler
+    /// (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay).
+    /// It owns no run semantics: `alln run` never needs it. `--health` is
+    /// read-only and never starts it.
     static func runServe(_ args: [String]) async {
         let opts = Options(args)
-        if args.first == "install" {
-            guard opts.positional.count == 1, !opts.flag("health") else {
-                FileHandle.standardError.write(Data("usage: alln serve install [--json]\n".utf8)); exit(2)
-            }
-            switch ResidentCoordinatorInstall.install(argv0: CommandLine.arguments.first) {
-            case .success(let result):
-                if opts.flag("json") { print(jsonString(result)) }
-                else { print("Allnighter is ready in the background.") }
-            case .failure(let error):
-                fail(code: "COORDINATOR_UNAVAILABLE", message: error.message)
-            }
-            return
-        }
         if opts.flag("health") {
-            let probe = ResidentCoordinatorProbe()
-            let direct = probe.health(binaryVersion: binaryVersion)
-            let health = await residentHealthFallback(direct)
+            let health = ServeDaemonProbe().health(binaryVersion: binaryVersion)
             if opts.flag("json") {
                 print(jsonString(health))
             } else {
-                print("coordinator \(health.state.rawValue)")
+                print("serve \(health.state.rawValue)")
                 if let pid = health.pid { print("pid \(pid)") }
                 if let port = health.loopback.port { print("loopback \(health.loopback.host):\(port)") }
-                print("broker \(health.broker.ready ? "ready" : "unavailable")")
                 print("obligations \(health.activeObligationCount)")
             }
             return
         }
         if !opts.positional.isEmpty || !opts.values.isEmpty {
-            FileHandle.standardError.write(Data("usage: alln serve [--health --json] | alln serve install [--json]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln serve [--health --json]\n".utf8)); exit(2)
         }
-        FileHandle.standardError.write(Data("alln serve — resident coordinator (Ctrl+C to stop)\n".utf8))
+        FileHandle.standardError.write(Data("alln serve — background scheduler (Ctrl+C to stop)\n".utf8))
         do {
             let runtime = ToolRuntime()
-            let wake = ResidentCoordinator.WakeDependencies(
+            let wake = ServeDaemon.WakeDependencies(
                 models: runtime.models,
                 registry: runtime.registry,
                 teams: runtime.teams,
@@ -459,7 +387,7 @@ struct AllnighterCLI {
                 asyncTeam: runtime.asyncTeamService(),
                 readyModels: { runtime.readyModels }
             )
-            var remoteDependencies: ResidentCoordinator.RemoteDependencies?
+            var remoteDependencies: ServeDaemon.RemoteDependencies?
             if let environment = RemoteSupabaseEnvironment.load(), environment.hasMacAgentCredentials {
                 do {
                     let runStore = RunStore()
@@ -500,39 +428,13 @@ struct AllnighterCLI {
                     )
                 }
             }
-            try await ResidentCoordinator(
+            try await ServeDaemon(
                 binaryVersion: binaryVersion,
                 wakeDependencies: wake,
                 remoteDependencies: remoteDependencies
             ).runUntilSignal()
         } catch {
-            FileHandle.standardError.write(Data("coordinator failed: \(error)\n".utf8)); exit(1)
-        }
-    }
-
-    /// Health is a real client-path round trip, not a PID/identity-file guess.
-    /// A live process with a stale or broken rendezvous must be unavailable: it
-    /// cannot accept, observe, or settle a Team run. Restricted clients that
-    /// cannot read private coordinator state use this same path as execution.
-    private static func residentHealthFallback(_ direct: CoordinatorHealth) async -> CoordinatorHealth {
-        let rendezvous = ResidentExecutionRendezvous()
-        do {
-            let submitted = try rendezvous.submit(
-                operation: .query(.init(kind: .health)),
-                idempotencyKey: UUID().uuidString.lowercased()
-            )
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: 5),
-                  receipt.rejection == nil,
-                  case let .coordinatorHealth(health) = receipt.result else {
-                return direct
-            }
-            return health
-        } catch {
-            guard direct.state == .available else { return direct }
-            var unavailable = direct
-            unavailable.state = .unavailable
-            unavailable.broker.ready = false
-            return unavailable
+            FileHandle.standardError.write(Data("serve failed: \(error)\n".utf8)); exit(1)
         }
     }
 
@@ -564,7 +466,7 @@ struct AllnighterCLI {
             configDirWritable: ensureWritable(AllnighterPaths.config),
             runsDirWritable: ensureWritable(AllnighterPaths.runs),
             pendingDirWritable: ensureWritable(AllnighterPaths.pending),
-            coordinator: ResidentCoordinatorProbe().doctorCoordinator(),
+            coordinator: ServeDaemonProbe().doctorCoordinator(),
             full: full,
             cursorCLIConfigURL: CursorShellAllowlist.defaultConfigURL,
             cursorProjectOverrideURL: CursorShellAllowlist.projectOverrideURL(
@@ -607,7 +509,7 @@ struct AllnighterCLI {
         setupStore: SetupStore = SetupStore(),
         commandRunner: CommandRunner? = nil
     ) async -> [ToolProbeRecord] {
-        await ResidentDoctorService.probeRecords(
+        await SourceProbeService.probeRecords(
             manifests: manifests,
             labels: labels,
             full: full,
@@ -671,30 +573,12 @@ struct AllnighterCLI {
     /// probes. Note: the CLI uses `DefaultConfig` (no `setup` blocks yet), so bins
     /// fall back to `invoke.command` and loginFlow guidance comes from the app's
     /// bundle registry, not here.
-    static func runDetect() async {
-        let rendezvous = ResidentExecutionRendezvous()
-        let result: ResidentDetectionResult
-        do {
-            let submitted = try rendezvous.submit(
-                operation: .sourceProbe(.init(full: true, intent: .detect)),
-                idempotencyKey: UUID().uuidString.lowercased()
-            )
-            guard let receipt = try await rendezvous.waitForReceipt(
-                requestId: submitted.requestId,
-                timeout: ResidentExecutionWaitBudget.sourceProbe
-            ) else {
-                fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the detect request before timeout")
-            }
-            if let rejection = receipt.rejection { fail(code: rejection.code, message: rejection.message) }
-            guard case let .detection(payload) = receipt.result else {
-                fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid detect response")
-            }
-            result = payload
-        } catch ResidentExecutionRendezvous.Error.unavailable {
-            fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
-        } catch {
-            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident detect request failed: \(error)")
-        }
+    static func runDetect(_ runtime: ToolRuntime) async {
+        let result = await SourceProbeService(
+            models: runtime.models,
+            registry: runtime.registry,
+            binaryVersion: binaryVersion
+        ).detect()
 
         for r in result.records.sorted(by: { $0.driverId < $1.driverId }) {
             let path = r.invocation?.resolvedPath ?? "—"
@@ -1280,54 +1164,20 @@ struct AllnighterCLI {
         }
     }
 
-    /// Submit a read-only Team query to the resident authority. Status/result
-    /// clients must not read the support journal themselves: a restricted host
-    /// may not have access to it, and the coordinator is the only owner allowed
-    /// to reconcile live process truth before answering.
-    static func residentTeamQuery(
-        _ kind: ResidentExecutionOperation.Query.Kind,
-        runId: String
-    ) async -> ResidentExecutionReceipt {
-        await residentTeamOperation(.query(.init(kind: kind, canonicalId: runId)))
-    }
-
-    /// Submit one Team lifecycle operation to the resident. This deliberately
-    /// has no local RunStore fallback: normal operations fail closed when the
-    /// live authority cannot be reached. A future persisted-read command is
-    /// explicit so scripts cannot mistake journal history for liveness.
-    static func residentTeamOperation(_ operation: ResidentExecutionOperation) async -> ResidentExecutionReceipt {
-        let rendezvous = ResidentExecutionRendezvous()
-        do {
-            let submitted = try rendezvous.submit(
-                operation: operation,
-                // Lifecycle observations/actions are fresh deliveries, never
-                // replays of a previous snapshot.
-                idempotencyKey: UUID().uuidString.lowercased()
-            )
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
-                fail(
-                    code: "RESIDENT_ACCEPT_TIMEOUT",
-                    message: "resident coordinator did not answer the Team lifecycle operation before timeout"
-                )
-            }
-            if let rejection = receipt.rejection {
-                fail(code: rejection.code, message: rejection.message)
-            }
-            return receipt
-        } catch ResidentExecutionRendezvous.Error.unavailable {
-            fail(
-                code: "COORDINATOR_UNAVAILABLE",
-                message: "resident coordinator is unavailable; enable it with `alln serve install`"
-            )
-        } catch {
-            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident Team lifecycle operation failed: \(error)")
+    /// One live Team status snapshot. `AsyncTeamService` reconciles process
+    /// truth against the journal before answering, which is the reconciliation
+    /// the deleted resident hop used to be credited with.
+    static func teamStatusSnapshot(runId: String, _ runtime: ToolRuntime) async -> TeamStatusResponse {
+        guard let status = await runtime.asyncTeamService().status(runId: runId) else {
+            failRunNotFound(runId, "no run matches \(runId)", in: await runtime.asyncTeamService().runStore)
         }
+        return status
     }
 
     /// `alln team status <run-id> --json [--persisted | --wait-for <state> --timeout <seconds>]`
     /// Plain status is a single snapshot. With `--wait-for`, blocks in-process
     /// until the target (or a non-matching terminal) or timeout (PO-F3).
-    static func runTeamStatus(_ args: [String]) async {
+    static func runTeamStatus(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard opts.flag("json"), let runId = opts.positional.first else {
             FileHandle.standardError.write(Data("usage: alln team status <run-id> --json [--persisted | --wait-for <state> --timeout <seconds>]\n".utf8))
@@ -1365,14 +1215,7 @@ struct AllnighterCLI {
         let waitRaw = opts.value("wait-for")
         let timeoutRaw = opts.value("timeout")
         if waitRaw == nil && timeoutRaw == nil {
-            let receipt = await residentTeamQuery(.runStatus, runId: runId)
-            guard case let .teamStatus(status) = receipt.result else {
-                fail(
-                    code: "RESIDENT_REQUEST_REJECTED",
-                    message: "resident coordinator returned an invalid Team status response"
-                )
-            }
-            print(jsonString(status))
+            print(jsonString(await teamStatusSnapshot(runId: runId, runtime)))
             return
         }
         guard let waitRaw else {
@@ -1391,19 +1234,11 @@ struct AllnighterCLI {
             fail(code: "CLI_USAGE_ERROR", message: "--timeout must be a non-negative number of seconds")
         }
 
-        // The coordinator owns each snapshot/reconcile; the restricted client
-        // only supplies the bounded wait loop between those snapshots.
         let timeoutMs = max(0, Int((timeoutSeconds * 1_000.0).rounded()))
         let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1_000.0)
         var outcome: TeamStatusWaitOutcome
         while true {
-            let receipt = await residentTeamQuery(.runStatus, runId: runId)
-            guard let result = receipt.result, case let .teamStatus(response) = result else {
-                fail(
-                    code: "RESIDENT_REQUEST_REJECTED",
-                    message: "resident coordinator returned an invalid Team status response"
-                )
-            }
+            let response = await teamStatusSnapshot(runId: runId, runtime)
             if target.matches(response.status) {
                 var matched = response
                 matched.waitHintSeconds = 0
@@ -1453,39 +1288,43 @@ struct AllnighterCLI {
     }
 
     /// `alln team result <run-id> --json`
-    static func runTeamResult(_ args: [String]) async {
+    static func runTeamResult(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard opts.flag("json"), let runId = opts.positional.first else {
             FileHandle.standardError.write(Data("usage: alln team result <run-id> --json\n".utf8))
             exit(2)
         }
-        let receipt = await residentTeamQuery(.runResult, runId: runId)
-        switch receipt.result {
-        case .teamResultNotReady(let nr):
-            print(jsonString(nr))
-        case .teamResult(let trj):
-            print(jsonString(trj))
-        default:
-            fail(
-                code: "RESIDENT_REQUEST_REJECTED",
-                message: "resident coordinator returned an invalid Team result response"
-            )
+        let service = runtime.asyncTeamService()
+        let runStore = await service.runStore
+        switch await service.result(runId: runId) {
+        case .notFound:
+            failRunNotFound(runId, "no run matches \(runId)", in: runStore)
+        case .notReady(let notReady):
+            print(jsonString(notReady))
+        case .ready(let run):
+            let directory = try? runStore.runDirectory(forRunId: run.id)
+            print(jsonString(TeamRunJSONMapper.map(
+                run,
+                models: runtime.models,
+                manifests: runtime.registry.all,
+                context: .init(
+                    runJournalPath: directory?.appendingPathComponent("run.json").path ?? "",
+                    runDirectory: directory
+                )
+            )))
         }
     }
 
     /// `alln team cancel <run-id> --json`
-    static func runTeamCancel(_ args: [String]) async {
+    static func runTeamCancel(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard opts.flag("json"), let runId = opts.positional.first else {
             FileHandle.standardError.write(Data("usage: alln team cancel <run-id> --json\n".utf8))
             exit(2)
         }
-        let receipt = await residentTeamOperation(.teamCancel(.init(runId: runId)))
-        guard case let .teamCancel(response) = receipt.result else {
-            fail(
-                code: "RESIDENT_REQUEST_REJECTED",
-                message: "resident coordinator returned an invalid Team cancel response"
-            )
+        guard let response = await runtime.asyncTeamService().cancel(runId: runId) else {
+            emitRunNotFound(runId, "no run matches \(runId)", in: await runtime.asyncTeamService().runStore)
+            exit(1)
         }
         print(jsonString(response))
     }
@@ -1496,7 +1335,7 @@ struct AllnighterCLI {
     /// run-id may target any project; the bare sweep is scoped to the caller's
     /// canonical project root (Concurrent Invocation Isolation F1) — machine-wide
     /// only via the explicit `--all-projects`.
-    static func runTeamReconcile(_ args: [String]) async {
+    static func runTeamReconcile(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
         guard opts.flag("json") else {
             FileHandle.standardError.write(Data("usage: alln team reconcile [run-id] [--all-projects] --json\n".utf8))
@@ -1504,14 +1343,10 @@ struct AllnighterCLI {
         }
         let runId = opts.positional.first
         let scopeRoot = opts.flag("all-projects") ? nil : FileManager.default.currentDirectoryPath
-        let receipt = await residentTeamOperation(.teamReconcile(.init(runId: runId, scopeRoot: scopeRoot)))
-        guard case let .teamReconcile(response) = receipt.result else {
-            fail(
-                code: "RESIDENT_REQUEST_REJECTED",
-                message: "resident coordinator returned an invalid Team reconcile response"
-            )
-        }
-        print(jsonString(response))
+        let reaped = await runtime.asyncTeamService().reconcile(runId: runId, scopeRoot: scopeRoot)
+        print(jsonString(TeamReconcileResponse(reaped: reaped.map {
+            .init(runId: $0.id, status: $0.status.rawValue, endReason: $0.endReason?.rawValue)
+        })))
     }
 
     /// `alln continuity receipt [--json]` — local observed-facts summary of
@@ -1539,26 +1374,7 @@ struct AllnighterCLI {
         let opts = Options(args)
         let allProjects = opts.flag("all-projects")
         let scopeRoot = allProjects ? nil : FileManager.default.currentDirectoryPath
-        let rendezvous = ResidentExecutionRendezvous()
-        let envelope: OwnershipPsJSON
-        do {
-            let submitted = try rendezvous.submit(
-                operation: .query(.init(kind: .processSnapshot, scopeRoot: scopeRoot)),
-                idempotencyKey: UUID().uuidString.lowercased()
-            )
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
-                fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the ownership request before timeout")
-            }
-            if let rejection = receipt.rejection { fail(code: rejection.code, message: rejection.message) }
-            guard case let .ownership(snapshot) = receipt.result else {
-                fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid ownership response")
-            }
-            envelope = snapshot
-        } catch ResidentExecutionRendezvous.Error.unavailable {
-            fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
-        } catch {
-            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident ownership request failed: \(error)")
-        }
+        let envelope = ProcessOwnershipSurface(runStore: RunStore()).list(scopeRoot: scopeRoot)
         if opts.flag("json") {
             print(jsonString(envelope))
         } else {
@@ -1597,38 +1413,31 @@ struct AllnighterCLI {
     static func runOwnershipKill(_ args: [String]) async {
         let opts = Options(args)
         let asJSON = opts.flag("json")
-        let request: ResidentExecutionOperation.Cancel
+        let surface = ProcessOwnershipSurface(runStore: RunStore())
+        let killAll = opts.flag("all")
+        let result: OwnershipKillJSON
 
-        if opts.flag("all") {
-            let allProjects = opts.flag("all-projects")
-            let scopeRoot = allProjects ? nil : FileManager.default.currentDirectoryPath
-            request = .init(all: true, scopeRoot: scopeRoot)
+        if killAll {
+            let scopeRoot = opts.flag("all-projects") ? nil : FileManager.default.currentDirectoryPath
+            result = surface.killAll(scopeRoot: scopeRoot)
         } else if let id = opts.positional.first {
-            request = .init(canonicalId: id)
+            switch surface.kill(id: id) {
+            case .success(let row):
+                result = .init(killed: [row])
+            case .failure(.notFound):
+                fail(code: "OWNERSHIP_NOT_FOUND", message: "no owned process tree matches \(id)")
+            case .failure(.alreadyTerminal(_, let end)):
+                fail(code: "OWNERSHIP_ALREADY_TERMINAL", message: "\(id) is already terminal\(end.map { " (endReason=\($0))" } ?? "")")
+            case .failure(.identityMismatch):
+                fail(code: "OWNERSHIP_IDENTITY_MISMATCH", message: "refusing to signal \(id): recorded identity does not match the live process")
+            }
         } else {
             FileHandle.standardError.write(Data("usage: alln kill <id> | --all [--all-projects] [--json]\n".utf8))
             exit(2)
         }
 
-        let rendezvous = ResidentExecutionRendezvous()
-        let result: OwnershipKillJSON
-        do {
-            let submitted = try rendezvous.submit(operation: .cancel(request), idempotencyKey: UUID().uuidString.lowercased())
-            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
-                fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the kill request before timeout")
-            }
-            if let rejection = receipt.rejection { fail(code: rejection.code, message: rejection.message) }
-            guard case let .ownershipKill(payload) = receipt.result else {
-                fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid kill response")
-            }
-            result = payload
-        } catch ResidentExecutionRendezvous.Error.unavailable {
-            fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
-        } catch {
-            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident kill request failed: \(error)")
-        }
         if asJSON { print(jsonString(result)); return }
-        if request.all {
+        if killAll {
             print("killed \(result.killedCount) process tree(s)")
             for row in result.killed { print("  \(row.id) (\(row.kind)) endReason=\(row.endReason ?? "-") killOutcome=\(row.killOutcome ?? "-") signalled=\(row.signalled)") }
             for skip in result.skipped { print("  skip \(skip.id): \(skip.reason)") }

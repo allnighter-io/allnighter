@@ -2,20 +2,19 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-/// Serve0: resident coordinator health seam — foregroundOnly when off, available
-/// when a live pid is observed, unavailable for stale state.
+/// `alln serve` daemon health seam — foregroundOnly when off, available when a
+/// live pid is observed, unavailable for stale state. There is no transport to
+/// report on: Code Red deleted it, so health is the record plus pid liveness.
 final class CoordinatorHealthTests: XCTestCase {
 
-    private func tempDirs() -> (URL, ResidentCoordinatorStore, ResidentCoordinatorProbe) {
+    private func tempDirs() -> (URL, ServeDaemonStore, ServeDaemonProbe) {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-\(UUID().uuidString)")
         let coordDir = root.appendingPathComponent("Coordinator", isDirectory: true)
         let runsDir = root.appendingPathComponent("Runs", isDirectory: true)
         let panelsDir = root.appendingPathComponent("Panels", isDirectory: true)
-        let store = ResidentCoordinatorStore(directory: coordDir)
-        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
-        let probe = ResidentCoordinatorProbe(
+        let store = ServeDaemonStore(directory: coordDir)
+        let probe = ServeDaemonProbe(
             store: store,
-            rendezvous: rendezvous,
             runsDirectory: runsDir,
             panelsDirectory: panelsDir
         )
@@ -35,32 +34,6 @@ final class CoordinatorHealthTests: XCTestCase {
         XCTAssertTrue(health.journal.orphanRecovery)
     }
 
-    func testHealthSurfacesBrokerIdentityWhenPrivateCoordinatorRecordIsUnavailable() throws {
-        let (root, store, _) = tempDirs()
-        defer { removeIfPresent(root) }
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
-        _ = try rendezvous.prepareCoordinator(
-            coordinatorId: "broker-only",
-            binaryVersion: "0.1.0-old",
-            binaryGitSha: "old-sha",
-            contractVersion: "1.0.0"
-        )
-        let probe = ResidentCoordinatorProbe(
-            store: store,
-            rendezvous: rendezvous,
-            runsDirectory: root.appendingPathComponent("Runs", isDirectory: true),
-            panelsDirectory: root.appendingPathComponent("Panels", isDirectory: true)
-        )
-
-        let health = probe.health(binaryVersion: "0.1.0")
-        XCTAssertEqual(health.state, .unavailable)
-        XCTAssertEqual(health.coordinatorId, "broker-only")
-        XCTAssertEqual(health.binaryGitSha, "old-sha")
-        XCTAssertFalse(health.broker.ready)
-        XCTAssertNotNil(health.recoveryAction)
-        rendezvous.deactivateCoordinator()
-    }
 
     func testHealthAvailableWhenLivePidMatches() throws {
         let (root, store, probe) = tempDirs()
@@ -68,7 +41,7 @@ final class CoordinatorHealthTests: XCTestCase {
 
         let pid = ProcessInfo.processInfo.processIdentifier
         try store.save(.init(
-            coordinatorId: "coord-test",
+            daemonId: "coord-test",
             pid: pid,
             startedAt: Date(timeIntervalSince1970: 1_700_000_000),
             loopbackHost: "127.0.0.1",
@@ -79,7 +52,7 @@ final class CoordinatorHealthTests: XCTestCase {
 
         let health = probe.health(binaryVersion: "0.1.0")
         XCTAssertEqual(health.state, .available)
-        XCTAssertEqual(health.coordinatorId, "coord-test")
+        XCTAssertEqual(health.daemonId, "coord-test")
         XCTAssertEqual(health.pid, pid)
         XCTAssertTrue(health.loopback.listening)
         XCTAssertEqual(health.loopback.port, 18743)
@@ -102,7 +75,7 @@ final class CoordinatorHealthTests: XCTestCase {
             targetPath: "/tmp/project/spec.md", seats: [], status: .awaitingPM, createdAt: Date()
         ))
         try store.save(.init(
-            coordinatorId: "coord-test",
+            daemonId: "coord-test",
             pid: ProcessInfo.processInfo.processIdentifier,
             startedAt: Date(),
             loopbackHost: "127.0.0.1",
@@ -119,7 +92,7 @@ final class CoordinatorHealthTests: XCTestCase {
         defer { removeIfPresent(root) }
 
         try store.save(.init(
-            coordinatorId: "stale",
+            daemonId: "stale",
             pid: 2_000_000,
             startedAt: Date(timeIntervalSince1970: 1_700_000_000),
             loopbackHost: "127.0.0.1",
@@ -141,7 +114,7 @@ final class CoordinatorHealthTests: XCTestCase {
         XCTAssertEqual(probe.doctorCoordinator().state, .foregroundOnly)
 
         try store.save(.init(
-            coordinatorId: "live",
+            daemonId: "live",
             pid: ProcessInfo.processInfo.processIdentifier,
             startedAt: Date(),
             loopbackHost: "127.0.0.1",
@@ -199,84 +172,32 @@ final class CoordinatorRunTests: XCTestCase {
         server.stop()
     }
 
-    func testResidentCoordinatorClearsStateOnShutdown() async throws {
+    func testServeDaemonClearsStateOnShutdown() async throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-run-\(UUID().uuidString)")
-        let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
-        // Scope the rendezvous to this temp root; the default is the machine-wide
-        // coordinator lease, which races with sibling tests / an installed resident
-        // (coordinatorAlreadyRunning + "couldn't be removed" on shutdown).
-        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
+        let store = ServeDaemonStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
         defer { removeIfPresent(root) }
-        // `prepareCoordinator` creates its own root with a single hardened,
-        // non-recursive mkdir(0o700); the scoped parent must already exist or the
-        // coordinator fails closed with `unsafePath` before it ever starts.
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 
         let box = BoolBox()
-        try await ResidentCoordinator(binaryVersion: "0.1.0", store: store, rendezvous: rendezvous).run(untilShutdown: {
+        try await ServeDaemon(binaryVersion: "0.1.0", store: store).run(untilShutdown: {
             box.value = store.load() != nil
         })
         XCTAssertTrue(box.value)
-        XCTAssertNil(store.load(), "clean shutdown clears durable coordinator state")
+        XCTAssertNil(store.load(), "clean shutdown clears durable daemon state")
     }
 
-    func testResidentCoordinatorBootstrapsAndDeactivatesBrokerRendezvous() async throws {
-        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-broker-\(UUID().uuidString)")
-        let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
-        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
-        let probe = ResidentCoordinatorProbe(store: store, rendezvous: rendezvous)
-        defer { removeIfPresent(root) }
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 
-        let brokerWasReady = BoolBox()
-        try await ResidentCoordinator(
-            binaryVersion: "0.1.0",
-            store: store,
-            rendezvous: rendezvous
-        ).run(untilShutdown: {
-            brokerWasReady.value = probe.health(binaryVersion: "0.1.0").broker.ready
-        })
 
-        XCTAssertTrue(brokerWasReady.value)
-        XCTAssertThrowsError(try rendezvous.currentIdentity(), "shutdown removes the live endpoint identity")
-    }
-
-    func testResidentCoordinatorDrainsAndExitsForRequestedRestartWhenIdle() async throws {
-        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-restart-\(UUID().uuidString)")
-        let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
-        let restartStore = ResidentCoordinatorRestartStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
-        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
-        defer { removeIfPresent(root) }
-        try restartStore.request(.init(binaryVersion: "0.1.0", contractVersion: "1.0.0"))
-
-        try await ResidentCoordinator(
-            binaryVersion: "0.1.0",
-            store: store,
-            rendezvous: rendezvous,
-            restartStore: restartStore
-        ).run(untilShutdown: {
-            while restartStore.load() != nil {
-                try? await Task.sleep(for: .milliseconds(10))
-            }
-        })
-
-        XCTAssertNil(restartStore.load())
-        XCTAssertNil(store.load())
-    }
-
-    func testResidentCoordinatorRunsRemoteDependencyUntilShutdown() async throws {
+    func testServeDaemonRunsRemoteDependencyUntilShutdown() async throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-remote-\(UUID().uuidString)")
-        let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
+        let store = ServeDaemonStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
         let remote = RecordingRemoteCoordinator()
-        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("Rendezvous", isDirectory: true))
         defer { removeIfPresent(root) }
-        // See the note above: the hardened rendezvous mkdir is not recursive.
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 
-        try await ResidentCoordinator(
+        try await ServeDaemon(
             binaryVersion: "0.1.0",
             store: store,
-            rendezvous: rendezvous,
             remoteDependencies: .init(coordinator: remote)
         ).run(untilShutdown: {
             while !remote.started {
@@ -286,7 +207,7 @@ final class CoordinatorRunTests: XCTestCase {
 
         XCTAssertTrue(remote.started)
         XCTAssertTrue(remote.sawCancellation)
-        XCTAssertNil(store.load(), "clean shutdown clears durable coordinator state")
+        XCTAssertNil(store.load(), "clean shutdown clears durable daemon state")
     }
 }
 

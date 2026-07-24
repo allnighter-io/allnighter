@@ -61,7 +61,7 @@ public enum RemoteMacAgentServeAssembly {
 
     public static func remoteDependencies(
         inputs: Inputs
-    ) throws -> ResidentCoordinator.RemoteDependencies {
+    ) throws -> ServeDaemon.RemoteDependencies {
         guard inputs.environment.hasMacAgentCredentials else {
             throw RemoteMacAgentServeAssemblyError.missingAccessToken
         }
@@ -109,7 +109,7 @@ public enum RemoteMacAgentServeAssembly {
         )
 
         let runtime = bootstrap.makeRuntime()
-        return ResidentCoordinator.RemoteDependencies(coordinator: runtime.coordinator)
+        return ServeDaemon.RemoteDependencies(coordinator: runtime.coordinator)
     }
 
     private static func loadOrCreateMacCredentials(

@@ -20,7 +20,7 @@ public enum DoctorReport {
         public var configDirWritable: Bool
         public var runsDirWritable: Bool
         public var pendingDirWritable: Bool
-        /// Observed resident coordinator state from `ResidentCoordinatorProbe` when set.
+        /// Observed `alln serve` daemon state from `ServeDaemonProbe` when set.
         public var coordinator: DoctorResult.Coordinator?
         /// True when smoke probes ran (`--full`); false for the quota-free path.
         public var full: Bool
@@ -176,7 +176,7 @@ public enum DoctorReport {
         checks.append(pendingWritableCheck(inputs.pendingDirWritable))
         let coordinator = inputs.coordinator ?? DoctorResult.Coordinator(
             state: .foregroundOnly,
-            detail: "foreground CLI only; resident coordinator not running"
+            detail: "foreground CLI only; background scheduler not running"
         )
         checks.append(coordinatorCheck(coordinator))
         if let pilot = inputs.pilot {
@@ -325,7 +325,7 @@ public enum DoctorReport {
         switch coordinator.state {
         case .available:
             let pid = coordinator.pid.map { " (pid \($0))" } ?? ""
-            return .init(name: "coordinator", status: .ok, detail: "resident coordinator running\(pid)")
+            return .init(name: "coordinator", status: .ok, detail: "background scheduler running\(pid)")
         case .foregroundOnly:
             return .init(name: "coordinator", status: .ok, detail: coordinator.detail)
         case .unavailable:

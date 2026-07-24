@@ -17,6 +17,7 @@
     "docs/phases/CODE_RED_Core_Infrastructure_Repair.md",
     "config/architecture-policy.json",
     "scripts/check_architecture_policy.sh",
+    "scripts/validate_architecture_policy.py",
     "scripts/code_red_metrics.sh",
     "scripts/code_red_works_test.sh"
   ],
@@ -37,7 +38,15 @@
     "--permission-mode plan",
     "Allnighter-Codex",
     "CODEX_THREAD_ID",
-    "ResidentExecutionBroker"
+    "ResidentExecutionBroker",
+    "ResidentExecutionOperation",
+    "ResidentExecutionRendezvous",
+    "ResidentExecutionRequest",
+    "ResidentExecutionReceipt",
+    "ResidentExecutionResult",
+    "ResidentCoordinator",
+    "ResidentDoctorService",
+    "alln serve install"
   ],
   "forbiddenAlternateRootFields": [
     "projectMirrorRoot",
@@ -45,36 +54,27 @@
     "isolatedProjectRoot",
     "projectCloneRoot"
   ],
-  "allowedResidentOperations": [
-    "teamRun",
-    "panelStart",
-    "panelRound",
-    "panelDone",
-    "sourceProbe",
-    "boostSeed",
-    "pendingRun",
-    "projectRecheck",
-    "query",
-    "cancel",
-    "teamCancel",
-    "teamReconcile",
-    "admissionProbe"
-  ],
+  "allowedResidentOperations": [],
   "runSemanticsOwner": "RunService.run",
   "runSemanticsOwnerFile": "Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift",
   "directAdapterFile": "Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift",
   "canonicalRootField": "repoRoot",
-  "residentProductionFiles": [
-    "Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift",
-    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentExecutionRendezvous.swift",
-    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinator.swift",
-    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinatorProbe.swift"
-  ],
-  "residentProductionLineCeiling": 1529,
-  "residentCloseoutLineBudget": 800,
+  "residentProductionFiles": [],
+  "residentProductionLineCeiling": 0,
+  "residentCloseoutLineBudget": 0,
   "founderOwnedPaths": [
     "config/architecture-policy.json",
     "scripts/check_architecture_policy.sh",
     "docs/phases/CODE_RED_Core_Infrastructure_Repair.md"
+  ],
+  "forbiddenProductionFiles": [
+    "Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentExecutionRendezvous.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentExecutionBroker.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinator.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinatorProbe.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinatorInstall.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinatorRestart.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentDoctorService.swift"
   ]
 }

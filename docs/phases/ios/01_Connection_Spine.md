@@ -35,7 +35,7 @@ Mac agent ──dials OUT──►  command inbox + events + auth ───┘
 
 - **CLI/Core foundation exists.** `alln` is the product CLI, `TeamRunJSON` is the
   shared machine contract, async team status/result/cancel exists, Pending/Project
-  Core pieces exist, and `alln serve` exists as a resident coordinator health/wake
+  Core pieces exist, and `alln serve` exists as a background scheduler health/wake
   skeleton.
 - **The remote foundation is headless.** `RemoteMacAgent`, the poll coordinator,
   bootstrap wiring, command router, event sync, snapshot publisher, Supabase relay

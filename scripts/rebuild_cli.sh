@@ -32,5 +32,3 @@ if [[ ! -x "$ALLN_BIN" ]]; then
 fi
 
 "$ALLN_BIN" install-cli --path "$INSTALL_DIR"
-"$INSTALL_DIR/alln" serve install --json
-"$INSTALL_DIR/alln" serve --health --json

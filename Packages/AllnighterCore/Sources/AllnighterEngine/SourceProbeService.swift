@@ -1,11 +1,50 @@
 import Foundation
 import AllnighterCore
 
-/// Coordinator-owned doctor composition and vendor smoke probing. Keeping this
-/// service in Engine prevents a short-lived host client from becoming the
-/// process owner of a source probe (and from mistaking its sandbox limits for
-/// a source failure).
-public struct ResidentDoctorService: Sendable {
+/// What `alln doctor` and `alln detect` ask of the source bench. This is a
+/// plain in-process request: there is no wire format, no transport, and no
+/// second process, so it carries only what the probe itself needs.
+public struct SourceProbeRequest: Equatable, Sendable {
+    public var sourceId: String?
+    public var full: Bool
+    public var pilot: Bool
+    public var projectToken: String?
+    /// Already-computed commit identity for the checkout `doctor` was invoked
+    /// from. Deliberately a value rather than a path, so a diagnostic can never
+    /// turn into an arbitrary filesystem read.
+    public var workspaceHeadSha: String?
+
+    public init(
+        sourceId: String? = nil,
+        full: Bool,
+        pilot: Bool = false,
+        projectToken: String? = nil,
+        workspaceHeadSha: String? = nil
+    ) {
+        self.sourceId = sourceId
+        self.full = full
+        self.pilot = pilot
+        self.projectToken = projectToken
+        self.workspaceHeadSha = workspaceHeadSha
+    }
+}
+
+/// First-run detection projection: the probe records plus the team they
+/// assemble into.
+public struct SourceDetectionResult: Codable, Equatable, Sendable {
+    public var records: [ToolProbeRecord]
+    public var assembledTeam: TeamAssembler.Assembled
+
+    public init(records: [ToolProbeRecord], assembledTeam: TeamAssembler.Assembled) {
+        self.records = records
+        self.assembledTeam = assembledTeam
+    }
+}
+
+/// Doctor composition and vendor smoke probing, owned by the process that asked
+/// for it. Code Red deleted the resident hop this used to travel through; the
+/// probe was never the reason for that hop, so it simply runs here now.
+public struct SourceProbeService: Sendable {
     public var models: [Model]
     public var registry: DriverRegistry
     public var binaryVersion: String
@@ -29,7 +68,7 @@ public struct ResidentDoctorService: Sendable {
         self.pathEnvironment = pathEnvironment
     }
 
-    public func probe(_ request: ResidentExecutionOperation.SourceProbe) async -> DoctorResult {
+    public func probe(_ request: SourceProbeRequest) async -> DoctorResult {
         _ = ExecutionLaneFlock.garbageCollectStaleLanes()
         _ = ProcessOwnershipGarbageCollector().collect()
 
@@ -39,9 +78,6 @@ public struct ResidentDoctorService: Sendable {
             allLabels.filter { $0.key == sourceId }
         } ?? allLabels
         let records = await Self.probeRecords(manifests: manifests, labels: labels, full: request.full)
-        // A source probe has no project-scoped work. The caller may contribute
-        // only an already-computed commit identity; the resident never inherits
-        // or inspects its Documents-repo CWD for this diagnostic.
         let inputs = DoctorReport.Inputs(
             binaryVersion: binaryVersion,
             contractVersion: ContractRegistry.contractVersion,
@@ -51,7 +87,7 @@ public struct ResidentDoctorService: Sendable {
             configDirWritable: Self.ensureWritable(AllnighterPaths.config),
             runsDirWritable: Self.ensureWritable(AllnighterPaths.runs),
             pendingDirWritable: Self.ensureWritable(AllnighterPaths.pending),
-            coordinator: ResidentCoordinatorProbe().doctorCoordinator(),
+            coordinator: ServeDaemonProbe().doctorCoordinator(),
             full: request.full,
             cursorCLIConfigURL: CursorShellAllowlist.defaultConfigURL,
             cursorProjectOverrideURL: nil,
@@ -70,7 +106,7 @@ public struct ResidentDoctorService: Sendable {
         return result
     }
 
-    public func detect() async -> ResidentDetectionResult {
+    public func detect() async -> SourceDetectionResult {
         let labels = ModelCatalog.probeModelLabels(registry: registry)
         let records = await Self.probeRecords(manifests: registry.all, labels: labels, full: true)
         let store = SetupStore()
@@ -88,8 +124,6 @@ public struct ResidentDoctorService: Sendable {
         return .init(records: records, assembledTeam: assembled)
     }
 
-    /// Shared by legacy timing tests. Production callers reach it only through
-    /// the resident broker.
     public static func probeRecords(
         manifests: [DriverManifest],
         labels: [String: String],

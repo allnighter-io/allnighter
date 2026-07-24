@@ -2,9 +2,9 @@ import Foundation
 import AllnighterCore
 
 /// Durable on-disk record for a running `alln serve` process. Removed on clean
-/// shutdown; a stale file with a dead pid reads as coordinator `unavailable`.
-public struct ResidentCoordinatorRecord: Codable, Equatable, Sendable {
-    public var coordinatorId: String
+/// shutdown; a stale file with a dead pid reads as daemon `unavailable`.
+public struct ServeDaemonRecord: Codable, Equatable, Sendable {
+    public var daemonId: String
     public var pid: Int32
     public var startedAt: Date
     public var loopbackHost: String
@@ -14,7 +14,7 @@ public struct ResidentCoordinatorRecord: Codable, Equatable, Sendable {
     public var contractVersion: String
 
     public init(
-        coordinatorId: String,
+        daemonId: String,
         pid: Int32,
         startedAt: Date,
         loopbackHost: String,
@@ -23,7 +23,7 @@ public struct ResidentCoordinatorRecord: Codable, Equatable, Sendable {
         binaryGitSha: String = AllnighterBuildInfo.gitSha,
         contractVersion: String
     ) {
-        self.coordinatorId = coordinatorId
+        self.daemonId = daemonId
         self.pid = pid
         self.startedAt = startedAt
         self.loopbackHost = loopbackHost
@@ -34,8 +34,8 @@ public struct ResidentCoordinatorRecord: Codable, Equatable, Sendable {
     }
 }
 
-/// Reads/writes resident coordinator state under `AllnighterPaths.coordinator`.
-public struct ResidentCoordinatorStore: Sendable {
+/// Reads/writes `alln serve` daemon state under `AllnighterPaths.coordinator`.
+public struct ServeDaemonStore: Sendable {
     public let directory: URL
     public var stateFile: URL { directory.appendingPathComponent("coordinator.json") }
 
@@ -43,14 +43,14 @@ public struct ResidentCoordinatorStore: Sendable {
         self.directory = directory ?? AllnighterPaths.coordinator
     }
 
-    public func load() -> ResidentCoordinatorRecord? {
+    public func load() -> ServeDaemonRecord? {
         guard let data = try? Data(contentsOf: stateFile),
-              let record = try? CoreJSON.decode(ResidentCoordinatorRecord.self, from: data) else { return nil }
+              let record = try? CoreJSON.decode(ServeDaemonRecord.self, from: data) else { return nil }
         return record
     }
 
     @discardableResult
-    public func save(_ record: ResidentCoordinatorRecord) throws -> URL {
+    public func save(_ record: ServeDaemonRecord) throws -> URL {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try CoreJSON.encode(record).write(to: stateFile)
         return stateFile

@@ -104,7 +104,8 @@ path.
 4. **Makes proof easier.** CLI commands produce deterministic output, fixtures,
    schemas, and Works Tests before polished UI exists.
 5. **Clarifies background mode.** Foreground CLI commands can be ephemeral; long
-   runs, iOS, and overnight work can opt into a resident coordinator.
+   runs, iOS, and unattended work can opt into the `alln serve` background
+   scheduler. It owns no run semantics.
 6. **Creates distribution.** A world-class CLI plus agent-ready docs spreads
    through workflows, skills, MCP clients, READMEs, and copy-paste commands.
 
@@ -205,7 +206,7 @@ alln show latest                   # show one run
 alln export latest --format md     # export result bundle
 alln dispatch latest --to codex    # send a work order/spec to an execution target
 alln pair approve <device-id>      # approve iOS/Mac pairing
-alln serve                         # resident coordinator for async/remote/long work; not a scheduler
+alln serve                         # optional background scheduler (Pending wake, Boost, backoff continuation, relay)
 ```
 
 Agent activation (live):
@@ -766,7 +767,7 @@ Prerequisites:
 
 1. Incremental run journal hardening: long/resident work must survive process
    death as `interrupted`, never disappear or falsely remain `running`.
-2. `alln serve`: resident coordinator from
+2. `alln serve`: background scheduler from
    `Mac_Standalone_App_And_Background_Coordinator.md`.
 3. `alln doctor --json`: reports coordinator state, journal health, source auth,
    and admission parser fixture status.

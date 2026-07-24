@@ -6,9 +6,15 @@ import Darwin
 import Glibc
 #endif
 
-/// Foreground resident coordinator for `alln serve`. Owns process lifetime,
-/// health, and the one-shot Wake Ticket loop.
-public final class ResidentCoordinator: @unchecked Sendable {
+/// Background daemon for `alln serve`. Owns process lifetime, loopback health,
+/// and the scheduler loops (Pending wake, Boost seeding, vendor-backoff
+/// continuation, and the optional cloud relay).
+///
+/// It owns NO run semantics and exposes no request/response surface. Code Red
+/// deleted the resident execution control plane that used to be hosted here;
+/// every scheduler below calls `RunService`/`AsyncTeamService` directly,
+/// in-process, exactly as a foreground `alln run` does.
+public final class ServeDaemon: @unchecked Sendable {
     public struct WakeDependencies: Sendable {
         public var models: [Model]
         public var registry: DriverRegistry
@@ -57,24 +63,20 @@ public final class ResidentCoordinator: @unchecked Sendable {
     public let binaryVersion: String
     public let binaryGitSha: String
     public let contractVersion: String
-    private let store: ResidentCoordinatorStore
-    private let probe: ResidentCoordinatorProbe
+    private let store: ServeDaemonStore
+    private let probe: ServeDaemonProbe
     private let server: LoopbackHealthServer
-    private let rendezvous: ResidentExecutionRendezvous
-    private let restartStore: ResidentCoordinatorRestartStore
     private let wakeDependencies: WakeDependencies?
     private let remoteDependencies: RemoteDependencies?
-    private let coordinatorId: String
+    private let daemonId: String
     private let startedAt: Date
 
     public init(
         binaryVersion: String,
         binaryGitSha: String = AllnighterBuildInfo.gitSha,
         contractVersion: String = ContractRegistry.contractVersion,
-        store: ResidentCoordinatorStore = ResidentCoordinatorStore(),
+        store: ServeDaemonStore = ServeDaemonStore(),
         server: LoopbackHealthServer = LoopbackHealthServer(),
-        rendezvous: ResidentExecutionRendezvous = ResidentExecutionRendezvous(),
-        restartStore: ResidentCoordinatorRestartStore = ResidentCoordinatorRestartStore(),
         wakeDependencies: WakeDependencies? = nil,
         remoteDependencies: RemoteDependencies? = nil
     ) {
@@ -83,32 +85,24 @@ public final class ResidentCoordinator: @unchecked Sendable {
         self.contractVersion = contractVersion
         self.store = store
         self.server = server
-        self.rendezvous = rendezvous
-        self.restartStore = restartStore
-        self.probe = ResidentCoordinatorProbe(store: store, rendezvous: rendezvous)
+        self.probe = ServeDaemonProbe(store: store)
         self.wakeDependencies = wakeDependencies
         self.remoteDependencies = remoteDependencies
-        self.coordinatorId = UUID().uuidString.lowercased()
+        self.daemonId = UUID().uuidString.lowercased()
         self.startedAt = Date()
     }
 
-    /// Starts loopback health, writes durable state, runs wake loop until shutdown.
-    /// Always clears durable state on exit.
+    /// Starts loopback health, writes durable state, runs the scheduler loops
+    /// until shutdown. Always clears durable state on exit.
     public func run(untilShutdown: @escaping @Sendable () async -> Void) async throws {
-        _ = try rendezvous.prepareCoordinator(
-            coordinatorId: coordinatorId,
-            binaryVersion: binaryVersion,
-            binaryGitSha: binaryGitSha,
-            contractVersion: contractVersion
-        )
         let healthProvider: @Sendable () -> String = { [probe, binaryVersion, binaryGitSha, contractVersion] in
             let health = probe.health(binaryVersion: binaryVersion, binaryGitSha: binaryGitSha, contractVersion: contractVersion)
             guard let data = try? CoreJSON.encode(health) else { return "{}" }
             return String(decoding: data, as: UTF8.self)
         }
         let port = try server.start(healthBody: healthProvider)
-        let record = ResidentCoordinatorRecord(
-            coordinatorId: coordinatorId,
+        let record = ServeDaemonRecord(
+            daemonId: daemonId,
             pid: ProcessInfo.processInfo.processIdentifier,
             startedAt: startedAt,
             loopbackHost: "127.0.0.1",
@@ -121,7 +115,6 @@ public final class ResidentCoordinator: @unchecked Sendable {
         defer {
             server.stop()
             store.clear()
-            rendezvous.deactivateCoordinator()
         }
 
         let shutdown = ShutdownFlag()
@@ -149,7 +142,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
                     )
                     await boost.run { shutdown.isCancelled }
                 }
-                group.addTask { [coordinatorId] in
+                group.addTask { [daemonId] in
                     let service = RunService(
                         models: wake.models,
                         registry: wake.registry,
@@ -163,18 +156,9 @@ public final class ResidentCoordinator: @unchecked Sendable {
                     let reconciler = VendorBackoffReconciler(
                         runStore: wake.runStore,
                         runService: service,
-                        coordinatorId: coordinatorId
+                        coordinatorId: daemonId
                     )
                     await reconciler.run { shutdown.isCancelled }
-                }
-            }
-            group.addTask { [probe, restartStore] in
-                while !shutdown.isCancelled && !Task.isCancelled {
-                    if restartStore.load() != nil, probe.activeObligationCount() == 0 {
-                        restartStore.clear()
-                        return
-                    }
-                    try? await Task.sleep(for: .milliseconds(100))
                 }
             }
             if let remote = remoteDependencies {

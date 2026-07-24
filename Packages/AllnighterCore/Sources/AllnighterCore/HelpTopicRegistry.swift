@@ -257,9 +257,9 @@ public enum HelpTopicRegistry {
             id: "panel", title: "Panel (temporarily unsupported)", audience: .both,
             summary: "Panel is frozen during Code Red and does not start, route, watch, or recover work.",
             bodyMarkdown: """
-            Panel is frozen during Code Red. Every public Panel entrypoint fails closed \
-            before resident routing, including status and watch. Use `alln run` with a \
-            research Team for input in the registered repository instead.
+            Panel is frozen during Code Red. Every public Panel entrypoint fails closed, \
+            including status and watch. Use `alln run` with a research Team for input in \
+            the registered repository instead.
             """,
             aliases: [
                 "panel this", "blind jury", "spec review", "panel round", "panel start",

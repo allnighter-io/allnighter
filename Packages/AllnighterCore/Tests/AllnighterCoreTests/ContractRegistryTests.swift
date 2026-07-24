@@ -38,7 +38,7 @@ final class ContractRegistryTests: XCTestCase {
             "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
             // Panel family (landed with Pilot_Panel; expectation lagged the registry — fixed with PO-S05)
             "panel start", "panel round", "panel status", "panel watch", "panel scaffold-brief", "panel done",
-            "show", "floor show", "spec", "history", "export", "dev export-contracts", "serve", "serve install",
+            "show", "floor show", "spec", "history", "export", "dev export-contracts", "serve",
             "pending add", "pending list", "pending queue", "pending show", "pending submit", "pending edit",
             "pending reorder", "pending cancel", "pending run",
             "project list", "project add", "project show", "project archive", "project unarchive",

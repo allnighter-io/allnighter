@@ -864,7 +864,7 @@ Depends on:
 
 - Utilization0.
 - `alln pending` public command contract.
-- `alln serve` resident coordinator with single-writer journal behavior.
+- `alln serve` background scheduler with single-writer journal behavior.
 - Pending item leases that recover after coordinator restart.
 
 Scope:

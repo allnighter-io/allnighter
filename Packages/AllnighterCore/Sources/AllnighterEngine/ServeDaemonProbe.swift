@@ -1,11 +1,13 @@
 import Foundation
 import AllnighterCore
 
-/// Builds read-only coordinator health for `alln serve --health --json` and
-/// `alln doctor --json`. Never fakes liveness.
-public struct ResidentCoordinatorProbe: Sendable {
-    public let store: ResidentCoordinatorStore
-    public let rendezvous: ResidentExecutionRendezvous
+/// Builds read-only daemon health for `alln serve --health --json` and
+/// `alln doctor --json`. Never fakes liveness: health is the durable record
+/// plus a live pid check, and nothing else. Code Red deleted the request
+/// transport this used to also report on, so there is no longer a second
+/// readiness question to answer.
+public struct ServeDaemonProbe: Sendable {
+    public let store: ServeDaemonStore
     public let runsDirectory: URL
     public let panelsDirectory: URL
     public let processAlive: @Sendable (Int32) -> Bool
@@ -13,8 +15,7 @@ public struct ResidentCoordinatorProbe: Sendable {
     public let activeObligationCount: @Sendable () -> Int
 
     public init(
-        store: ResidentCoordinatorStore = ResidentCoordinatorStore(),
-        rendezvous: ResidentExecutionRendezvous = ResidentExecutionRendezvous(),
+        store: ServeDaemonStore = ServeDaemonStore(),
         runsDirectory: URL? = nil,
         panelsDirectory: URL? = nil,
         processAlive: @escaping @Sendable (Int32) -> Bool = { RunStore.processAlive($0) },
@@ -22,7 +23,6 @@ public struct ResidentCoordinatorProbe: Sendable {
         activeObligationCount: (@Sendable () -> Int)? = nil
     ) {
         self.store = store
-        self.rendezvous = rendezvous
         let resolvedRunsDirectory = runsDirectory ?? AllnighterPaths.runs
         let resolvedPanelsDirectory = panelsDirectory ?? AllnighterPaths.panels
         self.runsDirectory = resolvedRunsDirectory
@@ -54,25 +54,6 @@ public struct ResidentCoordinatorProbe: Sendable {
         )
         let activeObligations = activeObligationCount()
         guard let record = store.load() else {
-            // A restricted client may be able to read the broker rendezvous in
-            // the per-user temporary directory while macOS denies access to the
-            // coordinator's Application Support record. Never call that
-            // "foreground only": surface the actual stale/unknown identity and
-            // the safe repair instead of making routed commands look mysterious.
-            if let identity = try? rendezvous.currentIdentity() {
-                return CoordinatorHealth(
-                    state: .unavailable,
-                    coordinatorId: identity.coordinatorId,
-                    contractVersion: identity.contractVersion,
-                    binaryVersion: identity.binaryVersion,
-                    binaryGitSha: identity.binaryGitSha,
-                    journal: journal,
-                    loopback: .init(listening: false),
-                    broker: .init(ready: false),
-                    activeObligationCount: activeObligations,
-                    recoveryAction: "A resident broker identity is present but this host cannot verify its live coordinator. Run `alln serve install` once from a normal macOS Terminal, then retry."
-                )
-            }
             return CoordinatorHealth(
                 state: .foregroundOnly,
                 contractVersion: contractVersion,
@@ -80,14 +61,13 @@ public struct ResidentCoordinatorProbe: Sendable {
                 binaryGitSha: binaryGitSha,
                 journal: journal,
                 loopback: .init(listening: false),
-                broker: .init(ready: false),
                 activeObligationCount: activeObligations
             )
         }
         guard processAlive(record.pid) else {
             return CoordinatorHealth(
                 state: .unavailable,
-                coordinatorId: record.coordinatorId,
+                daemonId: record.daemonId,
                 pid: record.pid,
                 startedAt: record.startedAt,
                 contractVersion: record.contractVersion,
@@ -95,13 +75,12 @@ public struct ResidentCoordinatorProbe: Sendable {
                 binaryGitSha: record.binaryGitSha,
                 journal: journal,
                 loopback: .init(listening: false, host: record.loopbackHost, port: Int(record.loopbackPort)),
-                broker: .init(ready: false),
                 activeObligationCount: activeObligations
             )
         }
         return CoordinatorHealth(
             state: .available,
-            coordinatorId: record.coordinatorId,
+            daemonId: record.daemonId,
             pid: record.pid,
             startedAt: record.startedAt,
             contractVersion: record.contractVersion,
@@ -109,12 +88,6 @@ public struct ResidentCoordinatorProbe: Sendable {
             binaryGitSha: record.binaryGitSha,
             journal: journal,
             loopback: .init(listening: true, host: record.loopbackHost, port: Int(record.loopbackPort)),
-            broker: .init(ready: rendezvous.isReady(
-                coordinatorId: record.coordinatorId,
-                binaryVersion: record.binaryVersion,
-                binaryGitSha: record.binaryGitSha,
-                contractVersion: record.contractVersion
-            )),
             activeObligationCount: activeObligations
         )
     }
@@ -123,15 +96,15 @@ public struct ResidentCoordinatorProbe: Sendable {
         let h = health(binaryVersion: "", binaryGitSha: AllnighterBuildInfo.gitSha, contractVersion: ContractRegistry.contractVersion)
         switch h.state {
         case .foregroundOnly:
-            return .init(state: .foregroundOnly, detail: "foreground CLI only; resident coordinator not running")
+            return .init(state: .foregroundOnly, detail: "foreground CLI only; background scheduler not running")
         case .available:
             let pid = h.pid.map { "pid \($0)" } ?? "running"
-            return .init(state: .available, detail: "resident coordinator running (\(pid))",
-                         coordinatorId: h.coordinatorId, pid: h.pid, startedAt: h.startedAt)
+            return .init(state: .available, detail: "background scheduler running (\(pid))",
+                         coordinatorId: h.daemonId, pid: h.pid, startedAt: h.startedAt)
         case .unavailable:
             return .init(state: .unavailable,
-                         detail: "stale coordinator state; prior resident process is gone",
-                         coordinatorId: h.coordinatorId, pid: h.pid, startedAt: h.startedAt)
+                         detail: "stale serve state; prior background scheduler is gone",
+                         coordinatorId: h.daemonId, pid: h.pid, startedAt: h.startedAt)
         }
     }
 
@@ -142,8 +115,8 @@ public struct ResidentCoordinatorProbe: Sendable {
 
     private static func countActiveObligations(runsDirectory: URL, panelsDirectory: URL) -> Int {
         // A vendor-backoff run is durable but unowned: it deliberately holds no
-        // worker, write lock, or coordinator process obligation. Counting it
-        // here strands every new install behind a vendor's usage window.
+        // worker, write lock, or daemon process obligation. Counting it here
+        // strands every new install behind a vendor's usage window.
         let activeRuns = RunStore(rootDirectory: runsDirectory).list().count {
             !$0.status.isTerminal && $0.blocker?.resource != .vendorBackoff
         }

@@ -559,7 +559,7 @@ public extension ContractRegistry {
             outputSchema: .panelRoundJSON
         ),
         CommandSpec(
-            "panel status", summary: "Temporarily unsupported during Code Red; it does not route to a resident coordinator.", milestone: .m1,
+            "panel status", summary: "Temporarily unsupported during Code Red.", milestone: .m1,
             flags: [],
             outputSchema: .panelJSON
         ),
@@ -616,18 +616,13 @@ public extension ContractRegistry {
             exampleIds: ["export_contracts_check"]
         ),
         CommandSpec(
-            "serve", summary: "Resident Mac coordinator. Use `alln serve install` to enable or safely refresh the background coordinator.", milestone: .m1,
+            "serve", summary: "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay). It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it.", milestone: .m1,
             flags: [
-                FlagSpec("health", summary: "Read-only coordinator health; does not start serve."),
+                FlagSpec("health", summary: "Read-only serve health; does not start serve."),
                 FlagSpec("json", summary: "Structured CoordinatorHealth output."),
             ],
             outputSchema: .coordinatorHealth,
-            exampleIds: ["serve_health_json", "serve_install_json"]
-        ),
-        CommandSpec(
-            "serve install", summary: "Install or safely refresh the background resident coordinator.", milestone: .m1,
-            flags: [FlagSpec("json", summary: "Structured install result.")],
-            exampleIds: ["serve_install_json"]
+            exampleIds: ["serve_health_json"]
         ),
         CommandSpec(
             "pending add", summary: "Create a Draft Pending item.", milestone: .m1,
@@ -1008,9 +1003,7 @@ public extension ContractRegistry {
         ),
         ErrorSpec("CODE_RED_UNSUPPORTED", ruleId: "code_red.unsupported", agentAction: "Run `alln run` without the unsupported flag in the registered repository.", requiresManual: false, retryable: false, explain: "This surface is temporarily unavailable during Code Red; Allnighter does not route it through a resident fallback."),
         ErrorSpec("STREAM_JOURNAL_FAILED", ruleId: "stream.journal.failed", agentAction: "Fix the local run journal/storage failure, then rerun the foreground command.", requiresManual: true, retryable: true, explain: "A stream event could not be durably stamped, so Allnighter stopped the stream rather than emitting an unjournaled event."),
-        ErrorSpec("COORDINATOR_VERSION_MISMATCH", ruleId: "coordinator.version_mismatch", agentAction: "Refresh with `alln serve install --json` when the binary Git SHA, binary version, or contract version differs.", requiresManual: true, retryable: false, explain: "The coordinator protocol differs from this client, so dispatch was refused before source execution. Exact binary Git SHA is required."),
-        ErrorSpec("COORDINATOR_UNAVAILABLE", ruleId: "coordinator.unavailable", agentAction: "Enable the resident coordinator with `alln serve install`, then retry.", requiresManual: true, retryable: true, explain: "A resident-routed request (doctor/detect/ownership/boost) found no reachable coordinator. Install/start the coordinator, or run the equivalent direct foreground command."),
-        ErrorSpec("RESIDENT_REQUEST_REJECTED", ruleId: "resident.request.rejected", agentAction: "Inspect the returned typed rejection and correct the request; do not retry by spawning a source directly.", requiresManual: false, retryable: false, explain: "The resident coordinator rejected the typed request before source execution."),
+        ErrorSpec("RESIDENT_REQUEST_REJECTED", ruleId: "resident.request.rejected", agentAction: "Inspect the returned typed rejection and correct the request.", requiresManual: false, retryable: false, explain: "A detached run could not be durably admitted before spawn. Retained until CR-S06 deletes detached execution."),
         ErrorSpec("RESIDENT_REQUEST_CONFLICT", ruleId: "resident.request.conflict", agentAction: "Reuse the original payload for this idempotency key, or submit a new key for new work.", requiresManual: false, retryable: false, explain: "A request reused an idempotency key with a different semantic payload."),
         ErrorSpec("RESIDENT_ACCEPT_TIMEOUT", ruleId: "resident.accept.timeout", agentAction: "Retry the same idempotency key and payload; do not create a second direct run.", requiresManual: false, retryable: true, explain: "The client did not observe a durable resident acceptance receipt before its timeout."),
         ErrorSpec("SKILL_NOT_FOUND", ruleId: "skill.not_found", agentAction: "Run `alln skills --lane <lane> --json` and pick a valid skill id.", requiresManual: true, retryable: false, explain: "No skill matches the given id. List skills for the lane and retry with a valid SkillID."),
@@ -1215,7 +1208,6 @@ public extension ContractRegistry {
         ExampleRecipe("thread_send_json", title: "Send message with image and file reference to thread", command: "alln thread send latest \"describe this\" --image ./shot.png --ref Sources/App.swift:10-80 --json"),
         ExampleRecipe("thread_rename_json", title: "Rename a work thread", command: "alln thread rename latest \"Paste-image bug\" --json"),
         ExampleRecipe("serve_health_json", title: "Coordinator health", command: "alln serve --health --json"),
-        ExampleRecipe("serve_install_json", title: "Install or refresh coordinator", command: "alln serve install --json"),
         ExampleRecipe("pending_add_json", title: "Create a Draft Pending item", command: "alln pending add --worker model_opus --when ready --json \"Review this patch when Claude is available.\""),
         ExampleRecipe("pending_list_json", title: "List Pending items", command: "alln pending list --json"),
         ExampleRecipe("boost_window_show_json", title: "Show Boost window settings", command: "alln boost-window show --json"),

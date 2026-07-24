@@ -275,7 +275,7 @@ public enum ContractSchema {
         let top = obj([
             "schemaVersion": int,
             "state": enumStr(["foregroundOnly", "available", "unavailable"]),
-            "coordinatorId": nullable("string"),
+            "daemonId": nullable("string"),
             "pid": nullable("integer"),
             "startedAt": nullable("string"),
             "contractVersion": str,
@@ -283,12 +283,10 @@ public enum ContractSchema {
             "binaryGitSha": str,
             "journal": ref("Journal"),
             "loopback": ref("Loopback"),
-            "broker": ref("Broker"),
             "activeObligationCount": int,
-            "recoveryAction": nullable("string"),
         ], required: [
             "schemaVersion", "state", "contractVersion", "binaryVersion", "binaryGitSha",
-            "journal", "loopback", "broker", "activeObligationCount", "recoveryAction",
+            "journal", "loopback", "activeObligationCount",
         ])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
@@ -298,9 +296,6 @@ public enum ContractSchema {
             "Loopback": obj([
                 "listening": bool, "host": str, "port": nullable("integer"),
             ], required: ["listening", "host"]),
-            "Broker": obj([
-                "ready": bool, "transport": str,
-            ], required: ["ready", "transport"]),
         ]
         return schema
     }

@@ -763,7 +763,7 @@ Output schema: `panelRoundJSON`.
 
 ### `alln panel status`
 
-Temporarily unsupported during Code Red; it does not route to a resident coordinator.
+Temporarily unsupported during Code Red.
 
 Output schema: `panelJSON`.
 
@@ -864,24 +864,15 @@ Examples: `export_contracts_check`.
 
 ### `alln serve`
 
-Resident Mac coordinator. Use `alln serve install` to enable or safely refresh the background coordinator.
+Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay). It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it.
 
 Flags:
-- `--health` — Read-only coordinator health; does not start serve.
+- `--health` — Read-only serve health; does not start serve.
 - `--json` — Structured CoordinatorHealth output.
 
 Output schema: `coordinatorHealth`.
 
-Examples: `serve_health_json`, `serve_install_json`.
-
-### `alln serve install`
-
-Install or safely refresh the background resident coordinator.
-
-Flags:
-- `--json` — Structured install result.
-
-Examples: `serve_install_json`.
+Examples: `serve_health_json`.
 
 ### `alln pending add`
 
@@ -1398,9 +1389,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
 | `CODE_RED_UNSUPPORTED` | no | no | `operational` | Run `alln run` without the unsupported flag in the registered repository. |
 | `STREAM_JOURNAL_FAILED` | yes | yes | `operational` | Fix the local run journal/storage failure, then rerun the foreground command. |
-| `COORDINATOR_VERSION_MISMATCH` | yes | no | `operational` | Refresh with `alln serve install --json` when the binary Git SHA, binary version, or contract version differs. |
-| `COORDINATOR_UNAVAILABLE` | yes | yes | `operational` | Enable the resident coordinator with `alln serve install`, then retry. |
-| `RESIDENT_REQUEST_REJECTED` | no | no | `operational` | Inspect the returned typed rejection and correct the request; do not retry by spawning a source directly. |
+| `RESIDENT_REQUEST_REJECTED` | no | no | `operational` | Inspect the returned typed rejection and correct the request. |
 | `RESIDENT_REQUEST_CONFLICT` | no | no | `operational` | Reuse the original payload for this idempotency key, or submit a new key for new work. |
 | `RESIDENT_ACCEPT_TIMEOUT` | no | yes | `operational` | Retry the same idempotency key and payload; do not create a second direct run. |
 | `SKILL_NOT_FOUND` | yes | no | `operational` | Run `alln skills --lane <lane> --json` and pick a valid skill id. |
@@ -1557,7 +1546,6 @@ the selected CLI.
 - `thread_send_json` — Send message with image and file reference to thread: `alln thread send latest "describe this" --image ./shot.png --ref Sources/App.swift:10-80 --json`
 - `thread_rename_json` — Rename a work thread: `alln thread rename latest "Paste-image bug" --json`
 - `serve_health_json` — Coordinator health: `alln serve --health --json`
-- `serve_install_json` — Install or refresh coordinator: `alln serve install --json`
 - `pending_add_json` — Create a Draft Pending item: `alln pending add --worker model_opus --when ready --json "Review this patch when Claude is available."`
 - `pending_list_json` — List Pending items: `alln pending list --json`
 - `boost_window_show_json` — Show Boost window settings: `alln boost-window show --json`

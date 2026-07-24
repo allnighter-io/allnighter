@@ -2893,7 +2893,7 @@
       "name" : "panel status",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Temporarily unsupported during Code Red; it does not route to a resident coordinator.",
+      "summary" : "Temporarily unsupported during Code Red.",
       "visibility" : "public"
     },
     {
@@ -3253,8 +3253,7 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
-        "serve_health_json",
-        "serve_install_json"
+        "serve_health_json"
       ],
       "flagConstraints" : [
 
@@ -3262,7 +3261,7 @@
       "flags" : [
         {
           "name" : "health",
-          "summary" : "Read-only coordinator health; does not start serve.",
+          "summary" : "Read-only serve health; does not start serve.",
           "takesValue" : false
         },
         {
@@ -3279,42 +3278,7 @@
       "name" : "serve",
       "outputSchema" : "coordinatorHealth",
       "spendsQuota" : false,
-      "summary" : "Resident Mac coordinator. Use `alln serve install` to enable or safely refresh the background coordinator.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
-        "serve_install_json"
-      ],
-      "flagConstraints" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "json",
-          "summary" : "Structured install result.",
-          "takesValue" : false
-        }
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "serve install",
-      "outputSchema" : "none",
-      "spendsQuota" : false,
-      "summary" : "Install or safely refresh the background resident coordinator.",
+      "summary" : "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay). It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it.",
       "visibility" : "public"
     },
     {
@@ -5419,28 +5383,10 @@
       "ruleId" : "stream.journal.failed"
     },
     {
-      "agentAction" : "Refresh with `alln serve install --json` when the binary Git SHA, binary version, or contract version differs.",
-      "code" : "COORDINATOR_VERSION_MISMATCH",
-      "exitClass" : "operational",
-      "explain" : "The coordinator protocol differs from this client, so dispatch was refused before source execution. Exact binary Git SHA is required.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "coordinator.version_mismatch"
-    },
-    {
-      "agentAction" : "Enable the resident coordinator with `alln serve install`, then retry.",
-      "code" : "COORDINATOR_UNAVAILABLE",
-      "exitClass" : "operational",
-      "explain" : "A resident-routed request (doctor\/detect\/ownership\/boost) found no reachable coordinator. Install\/start the coordinator, or run the equivalent direct foreground command.",
-      "requiresManual" : true,
-      "retryable" : true,
-      "ruleId" : "coordinator.unavailable"
-    },
-    {
-      "agentAction" : "Inspect the returned typed rejection and correct the request; do not retry by spawning a source directly.",
+      "agentAction" : "Inspect the returned typed rejection and correct the request.",
       "code" : "RESIDENT_REQUEST_REJECTED",
       "exitClass" : "operational",
-      "explain" : "The resident coordinator rejected the typed request before source execution.",
+      "explain" : "A detached run could not be durably admitted before spawn. Retained until CR-S06 deletes detached execution.",
       "requiresManual" : false,
       "retryable" : false,
       "ruleId" : "resident.request.rejected"
@@ -6437,11 +6383,6 @@
       "command" : "alln serve --health --json",
       "id" : "serve_health_json",
       "title" : "Coordinator health"
-    },
-    {
-      "command" : "alln serve install --json",
-      "id" : "serve_install_json",
-      "title" : "Install or refresh coordinator"
     },
     {
       "command" : "alln pending add --worker model_opus --when ready --json \"Review this patch when Claude is available.\"",
