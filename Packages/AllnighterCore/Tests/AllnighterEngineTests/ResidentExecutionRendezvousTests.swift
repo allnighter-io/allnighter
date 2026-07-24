@@ -121,6 +121,29 @@ final class ResidentExecutionRendezvousTests: XCTestCase {
         XCTAssertEqual(try restarted.claimNext()?.request.requestId, "request-a")
     }
 
+    func testCoordinatorLeaseRejectsSecondOwnerAndOldShutdownCannotRemoveNewIdentity() throws {
+        let (root, first) = makeRendezvous()
+        defer { try? FileManager.default.removeItem(at: root) }
+        _ = try first.prepareCoordinator(
+            coordinatorId: "first", binaryVersion: "1.2.3", contractVersion: "1.0.0"
+        )
+
+        let second = ResidentExecutionRendezvous(root: root)
+        XCTAssertThrowsError(try second.prepareCoordinator(
+            coordinatorId: "second", binaryVersion: "1.2.3", contractVersion: "1.0.0"
+        )) {
+            XCTAssertEqual($0 as? ResidentExecutionRendezvous.Error, .coordinatorAlreadyRunning)
+        }
+
+        first.deactivateCoordinator()
+        _ = try second.prepareCoordinator(
+            coordinatorId: "second", binaryVersion: "1.2.3", contractVersion: "1.0.0"
+        )
+        first.deactivateCoordinator() // stale shutdown is now a no-op
+        XCTAssertEqual(try second.currentIdentity().coordinatorId, "second")
+        second.deactivateCoordinator()
+    }
+
     func testInvalidProofIsRejectedBeforeAcceptance() throws {
         let (root, rendezvous) = makeRendezvous()
         defer { try? FileManager.default.removeItem(at: root) }

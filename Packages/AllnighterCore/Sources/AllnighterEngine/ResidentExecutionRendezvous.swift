@@ -62,8 +62,12 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     public var receipts: URL { root.appendingPathComponent("receipts", isDirectory: true) }
     public var events: URL { root.appendingPathComponent("events", isDirectory: true) }
     public var acceptance: URL { root.appendingPathComponent("acceptance", isDirectory: true) }
+    private var coordinatorLockFile: URL { root.appendingPathComponent("coordinator.lock") }
     private var identityFile: URL { root.appendingPathComponent("identity.json") }
     private var secretFile: URL { root.appendingPathComponent("client-proof.key") }
+    private let coordinatorLeaseLock = NSLock()
+    private var coordinatorLeaseFD: Int32 = -1
+    private var activeCoordinatorId: String?
 
     /// Coordinator-only bootstrap. Existing hostile, symlinked, wrong-owner, or
     /// group/world-readable paths fail closed rather than being adopted.
@@ -76,6 +80,11 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         nonce: String = UUID().uuidString.lowercased()
     ) throws -> Identity {
         try ensureDirectory(root)
+        try acquireCoordinatorLease()
+        var prepared = false
+        defer {
+            if !prepared { releaseCoordinatorLease() }
+        }
         try ensureDirectory(inbox)
         try ensureDirectory(claimed)
         try ensureDirectory(receipts)
@@ -90,6 +99,10 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
             contractVersion: contractVersion
         )
         try secureWrite(CoreJSON.encode(identity), to: identityFile, mode: 0o600, replace: true)
+        coordinatorLeaseLock.lock()
+        activeCoordinatorId = coordinatorId
+        coordinatorLeaseLock.unlock()
+        prepared = true
         return identity
     }
 
@@ -112,10 +125,18 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     }
 
     /// Coordinator shutdown makes the endpoint unavailable without deleting the
-    /// per-install secret. The next legitimate coordinator bootstrap reuses the
-    /// secret and rotates the signed nonce.
+    /// per-install secret. Only the coordinator generation that owns the
+    /// lifetime lease may remove its identity; an old process must never erase
+    /// a newer coordinator's endpoint.
     public func deactivateCoordinator() {
-        try? fileManager.removeItem(at: identityFile)
+        coordinatorLeaseLock.lock()
+        let owner = activeCoordinatorId
+        activeCoordinatorId = nil
+        coordinatorLeaseLock.unlock()
+        if let owner, (try? currentIdentity())?.coordinatorId == owner {
+            try? fileManager.removeItem(at: identityFile)
+        }
+        releaseCoordinatorLease()
     }
 
     /// Creates and atomically deposits one signed typed request. The return is
@@ -302,6 +323,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         case claimFailed(Int32)
         case destinationExists
         case idempotencyConflict
+        case coordinatorAlreadyRunning
     }
 
     private struct SigningPayload: Codable {
@@ -368,6 +390,44 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     private func ensureDirectory(_ url: URL) throws {
         if mkdir(url.path, 0o700) != 0 && errno != EEXIST { throw Error.unsafePath(url.path) }
         try validateDirectory(url)
+    }
+
+    /// An advisory file lock is held for the entire coordinator lifetime. The
+    /// kernel releases it on crash, which gives a replacement coordinator a
+    /// safe stale-owner recovery path without PID-name heuristics.
+    private func acquireCoordinatorLease() throws {
+        coordinatorLeaseLock.lock()
+        if coordinatorLeaseFD >= 0 {
+            coordinatorLeaseLock.unlock()
+            return
+        }
+        coordinatorLeaseLock.unlock()
+
+        let fd = open(coordinatorLockFile.path, O_CREAT | O_RDWR, 0o600)
+        guard fd >= 0 else { throw Error.unsafePath(coordinatorLockFile.path) }
+        do {
+            try validateExistingFile(coordinatorLockFile, mode: 0o600)
+        } catch {
+            _ = close(fd)
+            throw error
+        }
+        guard flock(fd, LOCK_EX | LOCK_NB) == 0 else {
+            _ = close(fd)
+            throw Error.coordinatorAlreadyRunning
+        }
+        coordinatorLeaseLock.lock()
+        coordinatorLeaseFD = fd
+        coordinatorLeaseLock.unlock()
+    }
+
+    private func releaseCoordinatorLease() {
+        coordinatorLeaseLock.lock()
+        let fd = coordinatorLeaseFD
+        coordinatorLeaseFD = -1
+        coordinatorLeaseLock.unlock()
+        guard fd >= 0 else { return }
+        _ = flock(fd, LOCK_UN)
+        _ = close(fd)
     }
 
     private func validateDirectory(_ url: URL) throws {
