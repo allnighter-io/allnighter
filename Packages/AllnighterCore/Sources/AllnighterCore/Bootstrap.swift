@@ -47,6 +47,7 @@ public enum Bootstrap {
         if !onPath {
             lines.append("- Run `\(binaryPath) install-cli` once so plain `alln` works everywhere.")
         }
+        lines.append("- From the Allnighter checkout, rebuild/refresh with `bash scripts/rebuild_cli.sh`; do not hand-run a multi-step CLI refresh.")
         lines.append(TeachingSnippet.wrap())
         return lines.joined(separator: "\n")
     }
