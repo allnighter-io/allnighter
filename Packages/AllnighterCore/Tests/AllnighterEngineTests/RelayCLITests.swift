@@ -35,6 +35,15 @@ final class RelayCLITests: XCTestCase {
         return try store.add(path: dir.path, name: nil)
     }
 
+    /// Hermetic worker catalog fixture (mirrors `PilotCLITests`) — `parseStartConfig`
+    /// resolves `--pm-worker`/`--dev-worker` before it resolves the project, so every
+    /// call that reaches that far needs a catalog; this keeps tests off live user
+    /// config (founder's real enabled models are unrelated ids like model_opus).
+    private let testModels: [Model] = [
+        Model(id: "model_pm", displayName: "PM", modelLabel: "pm", driverId: "claude_code", role: .both),
+        Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both),
+    ]
+
     // MARK: - parseStartConfig
 
     func testParseStartConfigMissingDocThrows() {
@@ -64,8 +73,9 @@ final class RelayCLITests: XCTestCase {
     func testParseStartConfigUnknownProjectThrowsProjectNotFound() throws {
         let store = makeProjectStore()
         XCTAssertThrowsError(try RelayCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", "does_not_exist", "--pm-worker", "a", "--dev-worker", "b"],
-            projectStore: store
+            ["--doc", "docs/spec.md", "--project", "does_not_exist", "--pm-worker", "model_pm", "--dev-worker", "model_dev"],
+            projectStore: store,
+            models: testModels
         )) { error in
             XCTAssertEqual(error as? RelayCLI.RelayCLIError, .projectNotFound("does_not_exist"))
         }
@@ -75,14 +85,16 @@ final class RelayCLITests: XCTestCase {
         let store = makeProjectStore()
         try addProject(store)
         XCTAssertThrowsError(try RelayCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", "repo", "--pm-worker", "a", "--dev-worker", "b", "--max-rounds", "0"],
-            projectStore: store
+            ["--doc", "docs/spec.md", "--project", "repo", "--pm-worker", "model_pm", "--dev-worker", "model_dev", "--max-rounds", "0"],
+            projectStore: store,
+            models: testModels
         )) { error in
             XCTAssertEqual(error as? RelayCLI.RelayCLIError, .invalidMaxRounds("0"))
         }
         XCTAssertThrowsError(try RelayCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", "repo", "--pm-worker", "a", "--dev-worker", "b", "--max-rounds", "nope"],
-            projectStore: store
+            ["--doc", "docs/spec.md", "--project", "repo", "--pm-worker", "model_pm", "--dev-worker", "model_dev", "--max-rounds", "nope"],
+            projectStore: store,
+            models: testModels
         ))
     }
 
@@ -91,7 +103,8 @@ final class RelayCLITests: XCTestCase {
         let project = try addProject(store)
         let config = try RelayCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id, "--pm-worker", "model_pm", "--dev-worker", "model_dev"],
-            projectStore: store
+            projectStore: store,
+            models: testModels
         )
         XCTAssertEqual(config.projectRoot, project.normalizedRootPath)
         XCTAssertEqual(config.projectId, project.id)
@@ -109,7 +122,8 @@ final class RelayCLITests: XCTestCase {
         let config = try RelayCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id, "--pm-worker", "model_pm", "--dev-worker", "model_dev",
              "--max-rounds", "7", "--until", "23:59"],
-            projectStore: store
+            projectStore: store,
+            models: testModels
         )
         XCTAssertEqual(config.maxRounds, 7)
         XCTAssertNotNil(config.until)
@@ -122,8 +136,9 @@ final class RelayCLITests: XCTestCase {
         let project = try addProject(store)
         for bad in ["7am", "25:00", "12:99", "noon"] {
             XCTAssertThrowsError(try RelayCLI.parseStartConfig(
-                ["--doc", "docs/spec.md", "--project", project.id, "--pm-worker", "a", "--dev-worker", "b", "--until", bad],
-                projectStore: store
+                ["--doc", "docs/spec.md", "--project", project.id, "--pm-worker", "model_pm", "--dev-worker", "model_dev", "--until", bad],
+                projectStore: store,
+                models: testModels
             )) { error in
                 XCTAssertEqual(error as? RelayCLI.RelayCLIError, .invalidUntil(bad), "bad=\(bad)")
             }
@@ -137,7 +152,8 @@ final class RelayCLITests: XCTestCase {
         let config = try RelayCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id, "--pm-worker", "model_pm", "--dev-worker", "model_dev",
              "--idle-timeout", "900"],
-            projectStore: store
+            projectStore: store,
+            models: testModels
         )
         XCTAssertEqual(config.devTurnIdleTimeoutSeconds, 900)
     }
@@ -146,13 +162,52 @@ final class RelayCLITests: XCTestCase {
         let store = makeProjectStore()
         try addProject(store)
         XCTAssertThrowsError(try RelayCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", "repo", "--pm-worker", "a", "--dev-worker", "b", "--idle-timeout", "0"],
-            projectStore: store
+            ["--doc", "docs/spec.md", "--project", "repo", "--pm-worker", "model_pm", "--dev-worker", "model_dev", "--idle-timeout", "0"],
+            projectStore: store,
+            models: testModels
         )) { error in
             guard case .invalidIdleTimeout(let message) = error as? RelayCLI.RelayCLIError else {
                 return XCTFail("expected invalidIdleTimeout, got \(error)")
             }
             XCTAssertTrue(message.contains("--idle-timeout"), message)
+        }
+    }
+
+    /// The regression this whole file exists to prevent: an unresolvable
+    /// `--pm-worker`/`--dev-worker` must THROW (not `exit()` the process) — this is
+    /// a `throws` parse helper called in-process by unit tests, not a `run*` entry
+    /// point, and the file's own header comment says only entry points touch `exit()`.
+    func testParseStartConfigUnknownPmWorkerThrowsWorkerNotAvailable() throws {
+        let store = makeProjectStore()
+        try addProject(store)
+        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", "repo", "--pm-worker", "model_ghost", "--dev-worker", "model_dev"],
+            projectStore: store,
+            models: testModels
+        )) { error in
+            guard case .workerNotAvailable(let failure) = error as? RelayCLI.RelayCLIError else {
+                return XCTFail("expected workerNotAvailable, got \(error)")
+            }
+            XCTAssertEqual(failure.code, "WORKER_NOT_AVAILABLE")
+            XCTAssertEqual(failure.flag, "--pm-worker")
+            XCTAssertEqual(failure.provided, "model_ghost")
+        }
+    }
+
+    func testParseStartConfigUnknownDevWorkerThrowsWorkerNotAvailable() throws {
+        let store = makeProjectStore()
+        try addProject(store)
+        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", "repo", "--pm-worker", "model_pm", "--dev-worker", "model_ghost"],
+            projectStore: store,
+            models: testModels
+        )) { error in
+            guard case .workerNotAvailable(let failure) = error as? RelayCLI.RelayCLIError else {
+                return XCTFail("expected workerNotAvailable, got \(error)")
+            }
+            XCTAssertEqual(failure.code, "WORKER_NOT_AVAILABLE")
+            XCTAssertEqual(failure.flag, "--dev-worker")
+            XCTAssertEqual(failure.provided, "model_ghost")
         }
     }
 
@@ -263,6 +318,10 @@ final class RelayCLITests: XCTestCase {
             .projectNotFound("x"),
             .relayNotFound("relay_1"),
             .relayNotEscalated(status: "running"),
+            .workerNotAvailable(ExactIdResolver.Failure(
+                code: "WORKER_NOT_AVAILABLE", kind: .worker, flag: "--pm-worker", provided: "model_ghost",
+                message: "unknown worker id 'model_ghost'", candidates: [], discoveryCommand: "alln menu --json"
+            )),
         ]
         for c in cases {
             let (code, message) = RelayCLI.errorEnvelope(c)

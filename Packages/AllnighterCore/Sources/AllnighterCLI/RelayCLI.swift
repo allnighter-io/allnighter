@@ -23,7 +23,7 @@ enum RelayCLI {
         guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-worker <modelId> --dev-worker <modelId> [--until HH:MM] [--max-rounds N] [--idle-timeout <seconds>] [--json]") }
         let config: RelayCoordinator.Config
         do {
-            config = try parseStartConfig(args)
+            config = try parseStartConfig(args, models: runtime.models)
         } catch let error as RelayCLIError {
             fail(error)
         } catch {
@@ -134,20 +134,33 @@ enum RelayCLI {
         case projectNotFound(String)
         case relayNotFound(String)
         case relayNotEscalated(status: String)
+        /// Structured exact-id failure (`--pm-worker` / `--dev-worker`) — carries the
+        /// same envelope `AllnighterCLI.failExactId` renders (candidates/suggestions/
+        /// nextAction), so the entry point can render it byte-for-byte unchanged
+        /// instead of losing that detail through the generic `errorEnvelope` mapping
+        /// (mirrors `PilotSeatResolver.Error.exactId`).
+        case workerNotAvailable(ExactIdResolver.Failure)
     }
 
-    static func parseStartConfig(_ args: [String], projectStore: ProjectStore = ProjectStore()) throws -> RelayCoordinator.Config {
+    static func parseStartConfig(
+        _ args: [String],
+        projectStore: ProjectStore = ProjectStore(),
+        models: [Model] = []
+    ) throws -> RelayCoordinator.Config {
         let opts = Options(args)
         guard let docPath = opts.value("doc") else { throw RelayCLIError.missingRequired("--doc <path>") }
         guard let projectToken = opts.value("project") else { throw RelayCLIError.missingRequired("--project <id|path>") }
         guard let pmWorkerId = opts.value("pm-worker") else { throw RelayCLIError.missingRequired("--pm-worker <modelId>") }
         guard let devWorkerId = opts.value("dev-worker") else { throw RelayCLIError.missingRequired("--dev-worker <modelId>") }
-        let models = ModelCatalog.resolvedModels(registry: DefaultConfig.registry)
-        if case .failure(let failure) = ExactIdResolver.resolveWorker(pmWorkerId, flag: "--pm-worker", models: models) {
-            AllnighterCLI.failExactId(failure)
+        // Empty `models` (the default) falls back to the live catalog for real
+        // invocations; tests inject a hermetic fixture instead (mirrors PilotCLI's
+        // `parseStartConfig(models:)` seam) — never reads live user config in tests.
+        let catalogModels = models.isEmpty ? ModelCatalog.resolvedModels(registry: DefaultConfig.registry) : models
+        if case .failure(let failure) = ExactIdResolver.resolveWorker(pmWorkerId, flag: "--pm-worker", models: catalogModels) {
+            throw RelayCLIError.workerNotAvailable(failure)
         }
-        if case .failure(let failure) = ExactIdResolver.resolveWorker(devWorkerId, flag: "--dev-worker", models: models) {
-            AllnighterCLI.failExactId(failure)
+        if case .failure(let failure) = ExactIdResolver.resolveWorker(devWorkerId, flag: "--dev-worker", models: catalogModels) {
+            throw RelayCLIError.workerNotAvailable(failure)
         }
         guard let project = AllnighterCLI.resolveProject(projectToken, store: projectStore) else {
             throw RelayCLIError.projectNotFound(projectToken)
@@ -249,12 +262,20 @@ enum RelayCLI {
     // MARK: - Exit funnel
 
     private static func fail(_ error: RelayCLIError) -> Never {
+        // `.workerNotAvailable` renders through the same `failExactId` funnel the old
+        // in-parse `exit()` call used — candidates/suggestions/nextAction included —
+        // so real invocations see byte-for-byte the same envelope as before.
+        if case .workerNotAvailable(let failure) = error {
+            AllnighterCLI.failExactId(failure)
+        }
         let (code, message) = errorEnvelope(error)
         AllnighterCLI.fail(code: code, message: message)
     }
 
     static func errorEnvelope(_ error: RelayCLIError) -> (code: String, message: String) {
         switch error {
+        case .workerNotAvailable(let failure):
+            return (failure.code, failure.message)
         case .missingRequired(let flag):
             return ("CLI_USAGE_ERROR", "\(flag) required")
         case .invalidMaxRounds(let raw):
