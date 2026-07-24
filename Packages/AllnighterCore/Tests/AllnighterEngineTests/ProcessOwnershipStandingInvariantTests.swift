@@ -201,8 +201,12 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         defer { unsetenv("ALLNIGHTER_SUPPORT_DIR") }
 
         let repo = try makeGitRepo(in: tmp)
+        // The dev-turn execution-lane run clears this per-root scratch, so a fake
+        // alln planted up front is gone by the time the standing check runs. In
+        // production the standing check's real `swift build` re-creates alln on the
+        // scratch; the mock proof runner below simulates that by planting on the
+        // build step (plantAllnOnBuild), so the post-build findAllnProduct resolves it.
         let scratch = ExecutionLaneFlock.ensuredScratchPath(repoRoot: repo.path)
-        try plantFakeAlln(scratchPath: scratch)
 
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
@@ -219,7 +223,9 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         let (service, _) = makeService(
             pmScripts: pmScripts, devScripts: devScripts, runStore: runStore, writeLock: lane
         )
-        let proofRunner = StandingProofScriptRunner(checkExitCode: 0, checkTail: "fresh")
+        let proofRunner = StandingProofScriptRunner(
+            checkExitCode: 0, checkTail: "fresh",
+            plantAllnOnBuild: true, plantScratchPath: scratch)
         let coordinator = RelayCoordinator(
             runService: service,
             stateStore: stateStore,
