@@ -9,6 +9,14 @@ echo "==> check Code Red architecture policy"
 bash "$ROOT/scripts/check_architecture_policy.sh"
 ran_any=true
 
+# The negative self-test proves the validator actually rejects each violation
+# category (fixtures), not just that the repo happens to pass today. Cheap
+# shell+python, so it belongs next to the positive check, before any Swift
+# build. See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+echo "==> check Code Red architecture policy (negative self-test)"
+bash "$ROOT/scripts/check_architecture_policy.sh" --self-test
+ran_any=true
+
 # Launch Authority TCC hotfix (H4/H6): the dev build/launch output must stay
 # OUTSIDE the repo. The checkout lives under ~/Documents and macOS attributes a
 # child's TCC prompts to the .app's location, so building/launching from the
@@ -106,6 +114,14 @@ ran_any=true
 if [[ -f "$ROOT/Packages/AllnighterCore/Package.swift" ]]; then
   echo "==> swift test AllnighterCore"
   swift test --package-path "$ROOT/Packages/AllnighterCore"
+  ran_any=true
+
+  # Structural fixture mode runs in the wall (see docs/phases/CODE_RED_Core_Infrastructure_Repair.md):
+  # re-runs the architecture-policy self-test, the positive check, and a
+  # filtered swift test proving the direct CLI adapter and alternate-root
+  # deletion. Builds/runs tests, so it sits after the cheap early gates above.
+  echo "==> code red structural works test"
+  bash "$ROOT/scripts/code_red_works_test.sh" structural
   ran_any=true
 
   # ASF-S08: contract drift gate (same check StandingInvariants runs opportunistically).

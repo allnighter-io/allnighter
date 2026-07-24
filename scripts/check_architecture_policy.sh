@@ -88,6 +88,12 @@ import pathlib, sys
 pathlib.Path(sys.argv[1]).write_text("resident\n" * 2200)
 PY
       ;;
+    adapter-missing-direct-run)
+      printf 'public func run() {}\n' > "$fixture/Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift" ;;
+    adapter-resident-operation)
+      printf 'let service = RunService(\n)\nawait service.run(request)\nResidentExecutionOperation\n' > "$fixture/Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift" ;;
+    alternate-root-field)
+      sed -i '' 's/public struct RunRequest { var repoRoot: String }/public struct RunRequest { var repoRoot: String; var projectMirrorRoot: String }/' "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift" ;;
   esac
   if python3 "$VALIDATOR" --root "$fixture" --policy "$fixture/config/architecture-policy.json" >/dev/null 2>&1; then
     fail "self-test accepted violating fixture: $name"
@@ -97,7 +103,7 @@ PY
 valid="$tmp/valid"
 write_fixture "$valid"
 python3 "$VALIDATOR" --root "$valid" --policy "$valid/config/architecture-policy.json" >/dev/null
-for category in forbidden-production forbidden-living resident-operation run-owner-count canonical-root founder-path phase-loc; do
+for category in forbidden-production forbidden-living resident-operation run-owner-count canonical-root founder-path phase-loc adapter-missing-direct-run adapter-resident-operation alternate-root-field; do
   assert_fails "$category"
 done
 
