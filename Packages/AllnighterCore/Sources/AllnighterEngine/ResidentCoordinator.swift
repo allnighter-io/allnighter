@@ -55,6 +55,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
     }
 
     public let binaryVersion: String
+    public let binaryGitSha: String
     public let contractVersion: String
     private let store: ResidentCoordinatorStore
     private let probe: ResidentCoordinatorProbe
@@ -68,6 +69,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
 
     public init(
         binaryVersion: String,
+        binaryGitSha: String = AllnighterBuildInfo.gitSha,
         contractVersion: String = ContractRegistry.contractVersion,
         store: ResidentCoordinatorStore = ResidentCoordinatorStore(),
         server: LoopbackHealthServer = LoopbackHealthServer(),
@@ -77,6 +79,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
         remoteDependencies: RemoteDependencies? = nil
     ) {
         self.binaryVersion = binaryVersion
+        self.binaryGitSha = binaryGitSha
         self.contractVersion = contractVersion
         self.store = store
         self.server = server
@@ -95,10 +98,11 @@ public final class ResidentCoordinator: @unchecked Sendable {
         _ = try rendezvous.prepareCoordinator(
             coordinatorId: coordinatorId,
             binaryVersion: binaryVersion,
+            binaryGitSha: binaryGitSha,
             contractVersion: contractVersion
         )
-        let healthProvider: @Sendable () -> String = { [probe, binaryVersion, contractVersion] in
-            let health = probe.health(binaryVersion: binaryVersion, contractVersion: contractVersion)
+        let healthProvider: @Sendable () -> String = { [probe, binaryVersion, binaryGitSha, contractVersion] in
+            let health = probe.health(binaryVersion: binaryVersion, binaryGitSha: binaryGitSha, contractVersion: contractVersion)
             guard let data = try? CoreJSON.encode(health) else { return "{}" }
             return String(decoding: data, as: UTF8.self)
         }
@@ -110,6 +114,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
             loopbackHost: "127.0.0.1",
             loopbackPort: port,
             binaryVersion: binaryVersion,
+            binaryGitSha: binaryGitSha,
             contractVersion: contractVersion
         )
         try store.save(record)

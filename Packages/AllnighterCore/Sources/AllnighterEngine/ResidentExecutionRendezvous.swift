@@ -24,12 +24,20 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         public var coordinatorId: String
         public var nonce: String
         public var binaryVersion: String
+        public var binaryGitSha: String
         public var contractVersion: String
 
-        public init(coordinatorId: String, nonce: String, binaryVersion: String, contractVersion: String) {
+        public init(
+            coordinatorId: String,
+            nonce: String,
+            binaryVersion: String,
+            binaryGitSha: String = AllnighterBuildInfo.gitSha,
+            contractVersion: String
+        ) {
             self.coordinatorId = coordinatorId
             self.nonce = nonce
             self.binaryVersion = binaryVersion
+            self.binaryGitSha = binaryGitSha
             self.contractVersion = contractVersion
         }
     }
@@ -61,6 +69,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     public func prepareCoordinator(
         coordinatorId: String,
         binaryVersion: String,
+        binaryGitSha: String = AllnighterBuildInfo.gitSha,
         contractVersion: String,
         nonce: String = UUID().uuidString.lowercased()
     ) throws -> Identity {
@@ -75,6 +84,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
             coordinatorId: coordinatorId,
             nonce: nonce,
             binaryVersion: binaryVersion,
+            binaryGitSha: binaryGitSha,
             contractVersion: contractVersion
         )
         try secureWrite(CoreJSON.encode(identity), to: identityFile, mode: 0o600, replace: true)
@@ -89,11 +99,13 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     public func isReady(
         coordinatorId: String,
         binaryVersion: String,
+        binaryGitSha: String = AllnighterBuildInfo.gitSha,
         contractVersion: String
     ) -> Bool {
         guard let identity = try? currentIdentity() else { return false }
         return identity.coordinatorId == coordinatorId
             && identity.binaryVersion == binaryVersion
+            && identity.binaryGitSha == binaryGitSha
             && identity.contractVersion == contractVersion
     }
 
@@ -124,6 +136,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
             coordinatorNonce: identity.nonce,
             client: client ?? .init(
                 binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                binaryGitSha: AllnighterBuildInfo.gitSha,
                 contractVersion: ContractRegistry.contractVersion,
                 pid: ProcessInfo.processInfo.processIdentifier
             ),

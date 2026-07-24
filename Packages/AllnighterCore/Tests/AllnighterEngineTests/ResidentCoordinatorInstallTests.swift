@@ -148,4 +148,35 @@ final class ResidentCoordinatorInstallTests: XCTestCase {
             XCTAssertEqual(error as? ResidentCoordinatorInstall.InstallError, .activationTimeout)
         }
     }
+
+    func testInstallFailsWhenLiveCoordinatorHasSameVersionButStaleBuild() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("resident-install-stale-build-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let binary = root.appendingPathComponent("alln")
+        try Data().write(to: binary)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binary.path)
+
+        let result = ResidentCoordinatorInstall.install(
+            argv0: binary.path,
+            home: root,
+            launchctl: { _ in .success },
+            currentHealth: { .init(
+                state: .available,
+                coordinatorId: "stale-build",
+                pid: 123,
+                contractVersion: ContractRegistry.contractVersion,
+                binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                binaryGitSha: "stale-build-sha",
+                journal: .init(incrementalDurable: true, orphanRecovery: true, runsDirWritable: true),
+                loopback: .init(listening: true)
+            ) },
+            activationAttempts: 1
+        )
+
+        XCTAssertThrowsError(try result.get()) { error in
+            XCTAssertEqual(error as? ResidentCoordinatorInstall.InstallError, .activationTimeout)
+        }
+    }
 }

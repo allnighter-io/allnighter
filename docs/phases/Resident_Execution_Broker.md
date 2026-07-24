@@ -647,8 +647,8 @@ After cutover:
   bootstraps only `com.allnighter.resident-coordinator`, invokes the installed
   `alln serve` binary, preserves the installer's PATH for vendor CLI discovery,
   and performs no implicit registration from any other command. It returns
-  success only after the live coordinator reports the matching binary and
-  contract identity. When durable work is active it writes a drain request,
+  success only after the live coordinator reports the matching binary release,
+  exact build Git SHA, and contract identity. When durable work is active it writes a drain request,
   stops new broker dispatch, waits for terminal journals, then exits for
   launchd to load the refreshed installed image. It never terminates active
   work merely to refresh code. `scripts/rebuild_cli.sh` is the one normal
@@ -657,8 +657,9 @@ After cutover:
   coordinator, and reports health without leaving the resident executable in a
   checkout under `~/Documents`.
 - Add launchd restart and client/coordinator compatibility handshake.
-- **Landed:** every signed request carries its client binary and contract
-  identity. The resident rejects any mismatch before dispatch with the existing
+- **Landed:** every signed request carries its client binary release, exact
+  build Git SHA, and contract identity. The resident rejects any mismatch
+  before dispatch with the existing
   `COORDINATOR_VERSION_MISMATCH` contract error and one repair action.
 - **Landed:** drain/restart behavior for binary updates. Accepted work remains
   represented by its durable run or Panel journal until terminal; not-yet-
@@ -772,8 +773,10 @@ with a Works Test that preserves these boundaries.
 2. **Enablement:** background readiness requires the one explicit
    `alln serve install` action (or the Mac app action that calls the exact same
    implementation). Clients never auto-start a coordinator.
-3. **Compatibility:** the initial shipped range is exact binary and contract
-   version equality. A mismatch rejects dispatch with a typed error and one
+3. **Compatibility:** the initial shipped range is exact binary release, build
+   Git SHA, and contract equality. The build SHA matters because several source
+   commits can legitimately share a human release label. A mismatch rejects
+   dispatch with a typed error and one
    recovery action. Automatic drain/restart is deferred until it has a
    re-adoption Works Test; it is not silently attempted in the first broker
    release.

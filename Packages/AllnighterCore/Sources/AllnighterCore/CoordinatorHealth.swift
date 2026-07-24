@@ -14,6 +14,8 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
     public var startedAt: Date?
     public var contractVersion: String
     public var binaryVersion: String
+    /// Exact source-build identity of the resident process.
+    public var binaryGitSha: String
     public var journal: Journal
     public var loopback: Loopback
     /// File-rendezvous execution endpoint, distinct from loopback health.
@@ -28,6 +30,7 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
         startedAt: Date? = nil,
         contractVersion: String,
         binaryVersion: String,
+        binaryGitSha: String = AllnighterBuildInfo.gitSha,
         journal: Journal,
         loopback: Loopback,
         broker: Broker = .init(ready: false),
@@ -40,6 +43,7 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
         self.startedAt = startedAt
         self.contractVersion = contractVersion
         self.binaryVersion = binaryVersion
+        self.binaryGitSha = binaryGitSha
         self.journal = journal
         self.loopback = loopback
         self.broker = broker

@@ -32,7 +32,8 @@ let package = Package(
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
-            ]
+            ],
+            plugins: ["BuildInfoPlugin"]
         ),
         .testTarget(
             name: "AllnighterCoreTests",
@@ -70,8 +71,7 @@ let package = Package(
             dependencies: ["AllnighterEngine", "AllnighterCore"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
-            ],
-            plugins: ["BuildInfoPlugin"]
+            ]
         ),
         .plugin(
             name: "BuildInfoPlugin",

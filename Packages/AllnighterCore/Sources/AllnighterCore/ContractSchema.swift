@@ -275,12 +275,13 @@ public enum ContractSchema {
             "startedAt": nullable("string"),
             "contractVersion": str,
             "binaryVersion": str,
+            "binaryGitSha": str,
             "journal": ref("Journal"),
             "loopback": ref("Loopback"),
             "broker": ref("Broker"),
             "activeObligationCount": int,
         ], required: [
-            "schemaVersion", "state", "contractVersion", "binaryVersion",
+            "schemaVersion", "state", "contractVersion", "binaryVersion", "binaryGitSha",
             "journal", "loopback", "broker", "activeObligationCount",
         ])
         schema.merge(top) { _, new in new }

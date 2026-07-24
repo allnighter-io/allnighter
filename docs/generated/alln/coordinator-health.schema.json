@@ -66,6 +66,9 @@
     "activeObligationCount" : {
       "type" : "integer"
     },
+    "binaryGitSha" : {
+      "type" : "string"
+    },
     "binaryVersion" : {
       "type" : "string"
     },
@@ -116,6 +119,7 @@
     "state",
     "contractVersion",
     "binaryVersion",
+    "binaryGitSha",
     "journal",
     "loopback",
     "broker",

@@ -10,6 +10,7 @@ public struct ResidentCoordinatorRecord: Codable, Equatable, Sendable {
     public var loopbackHost: String
     public var loopbackPort: UInt16
     public var binaryVersion: String
+    public var binaryGitSha: String
     public var contractVersion: String
 
     public init(
@@ -19,6 +20,7 @@ public struct ResidentCoordinatorRecord: Codable, Equatable, Sendable {
         loopbackHost: String,
         loopbackPort: UInt16,
         binaryVersion: String,
+        binaryGitSha: String = AllnighterBuildInfo.gitSha,
         contractVersion: String
     ) {
         self.coordinatorId = coordinatorId
@@ -27,6 +29,7 @@ public struct ResidentCoordinatorRecord: Codable, Equatable, Sendable {
         self.loopbackHost = loopbackHost
         self.loopbackPort = loopbackPort
         self.binaryVersion = binaryVersion
+        self.binaryGitSha = binaryGitSha
         self.contractVersion = contractVersion
     }
 }

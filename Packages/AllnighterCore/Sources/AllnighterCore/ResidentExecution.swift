@@ -255,17 +255,22 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
 public struct ResidentExecutionRequest: Codable, Equatable, Sendable {
     public struct Client: Codable, Equatable, Sendable {
         public var binaryVersion: String
+        /// Exact source-build identity. The human release label can be shared
+        /// by several commits, so it is not safe on its own for broker routing.
+        public var binaryGitSha: String
         public var contractVersion: String
         public var pid: Int32
         public var origin: String
 
         public init(
             binaryVersion: String,
+            binaryGitSha: String = AllnighterBuildInfo.gitSha,
             contractVersion: String,
             pid: Int32,
             origin: String = "cli"
         ) {
             self.binaryVersion = binaryVersion
+            self.binaryGitSha = binaryGitSha
             self.contractVersion = contractVersion
             self.pid = pid
             self.origin = origin
@@ -291,6 +296,7 @@ public struct ResidentExecutionRequest: Codable, Equatable, Sendable {
         coordinatorNonce: String,
         client: Client = .init(
             binaryVersion: AllnighterVersionIdentity.binaryVersion,
+            binaryGitSha: AllnighterBuildInfo.gitSha,
             contractVersion: ContractRegistry.contractVersion,
             pid: ProcessInfo.processInfo.processIdentifier
         ),

@@ -43,6 +43,25 @@ final class ResidentExecutionRendezvousTests: XCTestCase {
         XCTAssertEqual(stored.state, receipt.state)
     }
 
+    func testReadinessRequiresExactBuildIdentity() throws {
+        let (root, rendezvous) = makeRendezvous()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try prepare(rendezvous)
+
+        XCTAssertTrue(rendezvous.isReady(
+            coordinatorId: "coord-test",
+            binaryVersion: "1.2.3",
+            binaryGitSha: AllnighterBuildInfo.gitSha,
+            contractVersion: "1.0.0"
+        ))
+        XCTAssertFalse(rendezvous.isReady(
+            coordinatorId: "coord-test",
+            binaryVersion: "1.2.3",
+            binaryGitSha: "stale-build-sha",
+            contractVersion: "1.0.0"
+        ))
+    }
+
     func testCoordinatorEventIsAvailableToRestrictedClientByCursor() throws {
         let (root, rendezvous) = makeRendezvous()
         defer { try? FileManager.default.removeItem(at: root) }

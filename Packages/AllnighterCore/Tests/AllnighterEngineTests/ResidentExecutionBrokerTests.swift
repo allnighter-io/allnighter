@@ -38,9 +38,14 @@ final class ResidentExecutionBrokerTests: XCTestCase {
 
         let mismatched = try rendezvous.submit(
             operation: .query(.init(kind: .health)),
-            idempotencyKey: "mismatched-version",
-            requestId: "mismatched-version-request",
-            client: .init(binaryVersion: "old-client", contractVersion: ContractRegistry.contractVersion, pid: 1)
+            idempotencyKey: "mismatched-build",
+            requestId: "mismatched-build-request",
+            client: .init(
+                binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                binaryGitSha: "stale-build-sha",
+                contractVersion: ContractRegistry.contractVersion,
+                pid: 1
+            )
         )
         let mismatchedMaybeReceipt = try await rendezvous.waitForReceipt(requestId: mismatched.requestId)
         let mismatchedReceipt = try XCTUnwrap(mismatchedMaybeReceipt)

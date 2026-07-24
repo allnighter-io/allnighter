@@ -482,7 +482,7 @@ struct AllnighterCLI {
             binaryVersion: binaryVersion,
             contractVersion: ContractRegistry.contractVersion,
             docsVersionMatchesBinary: true,
-            binaryGitSha: BuildInfo.gitSha,
+            binaryGitSha: AllnighterBuildInfo.gitSha,
             workspaceHeadSha: workspaceHeadGitSha(),
             configDirWritable: ensureWritable(AllnighterPaths.config),
             runsDirWritable: ensureWritable(AllnighterPaths.runs),
@@ -1742,8 +1742,8 @@ struct AllnighterCLI {
         let opts = Options(args)
         let payload = VersionJSON(
             binaryVersion: binaryVersion,
-            gitSha: BuildInfo.gitSha,
-            buildTime: BuildInfo.buildTime,
+            gitSha: AllnighterBuildInfo.gitSha,
+            buildTime: AllnighterBuildInfo.buildTime,
             binaryPath: ProcessOwnership.currentExecutablePath()
                 ?? CommandLine.arguments.first
         )

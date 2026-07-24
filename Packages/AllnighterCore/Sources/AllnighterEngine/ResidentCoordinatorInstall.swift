@@ -120,6 +120,7 @@ public enum ResidentCoordinatorInstall {
         let health = currentHealth ?? {
             ResidentCoordinatorProbe().health(
                 binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                binaryGitSha: AllnighterBuildInfo.gitSha,
                 contractVersion: ContractRegistry.contractVersion
             )
         }
@@ -153,6 +154,7 @@ public enum ResidentCoordinatorInstall {
                 let activated = health()
                 if activated.state == .available,
                    activated.binaryVersion == AllnighterVersionIdentity.binaryVersion,
+                   activated.binaryGitSha == AllnighterBuildInfo.gitSha,
                    activated.contractVersion == ContractRegistry.contractVersion,
                    let coordinatorId = activated.coordinatorId,
                    let pid = activated.pid {

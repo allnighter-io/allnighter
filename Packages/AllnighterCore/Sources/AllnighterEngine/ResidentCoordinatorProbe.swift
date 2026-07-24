@@ -41,7 +41,11 @@ public struct ResidentCoordinatorProbe: Sendable {
         }
     }
 
-    public func health(binaryVersion: String, contractVersion: String = ContractRegistry.contractVersion) -> CoordinatorHealth {
+    public func health(
+        binaryVersion: String,
+        binaryGitSha: String = AllnighterBuildInfo.gitSha,
+        contractVersion: String = ContractRegistry.contractVersion
+    ) -> CoordinatorHealth {
         let runsWritable = Self.directoryWritable(runsDirectory)
         let journal = CoordinatorHealth.Journal(
             incrementalDurable: runsWritable,
@@ -54,6 +58,7 @@ public struct ResidentCoordinatorProbe: Sendable {
                 state: .foregroundOnly,
                 contractVersion: contractVersion,
                 binaryVersion: binaryVersion,
+                binaryGitSha: binaryGitSha,
                 journal: journal,
                 loopback: .init(listening: false),
                 broker: .init(ready: false),
@@ -68,6 +73,7 @@ public struct ResidentCoordinatorProbe: Sendable {
                 startedAt: record.startedAt,
                 contractVersion: record.contractVersion,
                 binaryVersion: record.binaryVersion,
+                binaryGitSha: record.binaryGitSha,
                 journal: journal,
                 loopback: .init(listening: false, host: record.loopbackHost, port: Int(record.loopbackPort)),
                 broker: .init(ready: false),
@@ -81,11 +87,13 @@ public struct ResidentCoordinatorProbe: Sendable {
             startedAt: record.startedAt,
             contractVersion: record.contractVersion,
             binaryVersion: record.binaryVersion,
+            binaryGitSha: record.binaryGitSha,
             journal: journal,
             loopback: .init(listening: true, host: record.loopbackHost, port: Int(record.loopbackPort)),
             broker: .init(ready: rendezvous.isReady(
                 coordinatorId: record.coordinatorId,
                 binaryVersion: record.binaryVersion,
+                binaryGitSha: record.binaryGitSha,
                 contractVersion: record.contractVersion
             )),
             activeObligationCount: activeObligations
@@ -93,7 +101,7 @@ public struct ResidentCoordinatorProbe: Sendable {
     }
 
     public func doctorCoordinator() -> DoctorResult.Coordinator {
-        let h = health(binaryVersion: "", contractVersion: ContractRegistry.contractVersion)
+        let h = health(binaryVersion: "", binaryGitSha: AllnighterBuildInfo.gitSha, contractVersion: ContractRegistry.contractVersion)
         switch h.state {
         case .foregroundOnly:
             return .init(state: .foregroundOnly, detail: "foreground CLI only; resident coordinator not running")
