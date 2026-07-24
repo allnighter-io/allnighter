@@ -37,8 +37,8 @@ final class TeamRunJSONPresenterTests: XCTestCase {
             teamRun: .init(id: "run_x", status: .done, origin: .cli, prompt: "p",
                            promptSource: .init(kind: .positional), createdAt: "2026-06-15T00:00:00Z"),
             workers: [
-                .init(id: "w_ok", modelId: "m", modelName: "Opus 4.8", sourceId: "claude_code", purpose: .answer, instanceIndex: 0),
-                .init(id: "w_bad", modelId: "m", modelName: "Opus 4.8", sourceId: "claude_code", purpose: .answer, instanceIndex: 1),
+                .init(id: "w_ok", modelId: "m", modelName: "Opus 5", sourceId: "claude_code", purpose: .answer, instanceIndex: 0),
+                .init(id: "w_bad", modelId: "m", modelName: "Opus 5", sourceId: "claude_code", purpose: .answer, instanceIndex: 1),
             ],
             workerAnswers: [
                 .init(workerId: "w_ok", status: .done, markdown: "ok"),

@@ -316,7 +316,7 @@ struct BenchRepairPanel: View {
     @ViewBuilder private var addModelControl: some View {
         if addingModel {
             VStack(alignment: .leading, spacing: 6) {
-                addField("Model name", text: $newModelName)        // e.g. "Opus 4.8"
+                addField("Model name", text: $newModelName)        // e.g. "Opus 5"
                 addField("CLI model label", text: $newModelLabel)  // e.g. "opus" — what the CLI expects
                 HStack(spacing: 8) {
                     Spacer(minLength: 0)

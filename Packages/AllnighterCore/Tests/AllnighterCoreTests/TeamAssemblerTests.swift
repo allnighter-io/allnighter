@@ -26,7 +26,7 @@ final class TeamAssemblerTests: XCTestCase {
         let mixed = [
             Model(id: "model_agy_opus", displayName: "Claude Opus 4.6",
                   modelLabel: "Claude Opus 4.6 (Thinking)", driverId: "antigravity", role: .both),
-            Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus",
+            Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus",
                   driverId: "claude_code", role: .both),
         ]
         let a = TeamAssembler.assemble(

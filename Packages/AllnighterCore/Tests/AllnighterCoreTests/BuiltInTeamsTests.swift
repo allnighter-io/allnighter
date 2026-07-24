@@ -8,7 +8,7 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     private func opus() -> Model {
-        Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both)
+        Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code", role: .both)
     }
 
     // MARK: - Catalog integrity

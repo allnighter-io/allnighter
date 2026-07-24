@@ -9,7 +9,7 @@
   },
   {
     "id": "model_opus",
-    "displayName": "Opus 4.8",
+    "displayName": "Opus 5",
     "modelLabel": "claude-opus-4.8",
     "driverId": "claude_code",
     "role": "both",

@@ -311,7 +311,7 @@ public actor RunService {
 
     /// Model ids that are a runnable substitute *right now*: ON the Bench AND their
     /// source CLI is installed + probe-ready. Mirrors the readiness the `defaults` /
-    /// `models` projections show, so Auto's "→ Opus 4.8" preview equals what actually
+    /// `models` projections show, so Auto's "→ Opus 5" preview equals what actually
     /// runs and a down CLI is genuinely routed around (source-health, not just enabled).
     private func sourceReadyModelIds() -> Set<ModelID> {
         let records = loadProbeRecords()

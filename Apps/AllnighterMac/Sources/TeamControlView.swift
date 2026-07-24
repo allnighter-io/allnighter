@@ -183,7 +183,7 @@ struct BenchDropdownPanel: View {
     private var availableModels: [Model] { appModel.availableModels }
 
     /// Auto's resolved default model name — the same resolution the composer chip
-    /// shows ("Auto · Opus 4.8"). Cached on open (it reads persisted settings).
+    /// shows ("Auto · Opus 5"). Cached on open (it reads persisted settings).
     @State private var autoModelName: String?
 
     private func resolveAutoModelName() {

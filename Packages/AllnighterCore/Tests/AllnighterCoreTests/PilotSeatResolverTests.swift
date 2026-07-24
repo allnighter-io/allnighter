@@ -11,25 +11,25 @@ final class PilotSeatResolverTests: XCTestCase {
     func testExactModelIdHonored() {
         let models = [
             model("model_sonnet", name: "Sonnet 4.6"),
-            model("model_opus", name: "Opus 4.8"),
+            model("model_opus", name: "Opus 5"),
         ]
         XCTAssertEqual(try PilotSeatResolver.resolve(alias: "model_opus", models: models).get(), "model_opus")
     }
 
     func testDisplayNameRejected() {
-        let models = [model("model_opus", name: "Opus 4.8")]
-        let result = PilotSeatResolver.resolve(alias: "Opus 4.8", models: models)
+        let models = [model("model_opus", name: "Opus 5")]
+        let result = PilotSeatResolver.resolve(alias: "Opus 5", models: models)
         guard case .failure(.exactId(let failure)) = result else {
             return XCTFail("expected exactId failure, got \(result)")
         }
-        XCTAssertEqual(failure.provided, "Opus 4.8")
+        XCTAssertEqual(failure.provided, "Opus 5")
         XCTAssertTrue(failure.suggestionIds.contains("model_opus"))
     }
 
     func testFuzzyAliasRejected() {
         let models = [
             model("model_sonnet", name: "Sonnet 4.6"),
-            model("model_opus", name: "Opus 4.8"),
+            model("model_opus", name: "Opus 5"),
         ]
         XCTAssertThrowsError(try PilotSeatResolver.resolve(alias: "opus", models: models).get())
     }

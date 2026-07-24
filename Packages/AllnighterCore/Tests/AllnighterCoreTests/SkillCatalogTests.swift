@@ -56,7 +56,7 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt_terra").strengthRank, 86)
         XCTAssertEqual(ModelCatalog.capabilities("model_opus").strengthRank, 90)
         XCTAssertEqual(ModelCatalog.capabilities("model_agy_opus").strengthRank, 75,
-                       "AGY Opus is fallback-only; never outranks Claude Opus 4.8")
+                       "AGY Opus is fallback-only; never outranks Claude Opus 5")
         XCTAssertLessThan(ModelCatalog.capabilities("model_agy_opus").strengthRank,
                           ModelCatalog.capabilities("model_opus").strengthRank)
         XCTAssertTrue(ModelCatalog.capabilities("model_opus").capabilityTags.contains(.planner))

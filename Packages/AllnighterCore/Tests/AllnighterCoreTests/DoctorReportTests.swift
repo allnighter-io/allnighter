@@ -7,7 +7,7 @@ import XCTest
 final class DoctorReportTests: XCTestCase {
     private let t = Date(timeIntervalSince1970: 0)
     private let models = [
-        Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both),
+        Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code", role: .both),
         Model(id: "model_codex", displayName: "GPT-5 Codex", modelLabel: "gpt", driverId: "codex", role: .answerer),
     ]
     private let manifests = [

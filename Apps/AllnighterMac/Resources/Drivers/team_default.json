@@ -1,6 +1,6 @@
 [
   { "id": "model_fable", "displayName": "Fable 5", "modelLabel": "fable", "driverId": "claude_code", "role": "both", "enabled": true },
-  { "id": "model_opus", "displayName": "Opus 4.8", "modelLabel": "opus", "driverId": "claude_code", "role": "both", "enabled": true },
+  { "id": "model_opus", "displayName": "Opus 5", "modelLabel": "opus", "driverId": "claude_code", "role": "both", "enabled": true },
   { "id": "model_sonnet", "displayName": "Sonnet 5", "modelLabel": "claude-sonnet-5", "driverId": "claude_code", "role": "answerer", "enabled": true },
   { "id": "model_chatgpt", "displayName": "ChatGPT 5.6 Sol (Codex)", "modelLabel": "gpt-5.6-sol", "driverId": "codex", "role": "both", "enabled": true },
   { "id": "model_chatgpt_terra", "displayName": "ChatGPT 5.6 Terra (Codex)", "modelLabel": "gpt-5.6-terra", "driverId": "codex", "role": "both", "enabled": true },

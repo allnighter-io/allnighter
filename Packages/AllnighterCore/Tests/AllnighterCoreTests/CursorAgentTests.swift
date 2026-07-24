@@ -93,7 +93,7 @@ final class CursorAgentTests: XCTestCase {
                   driverId: "cursor_agent", role: .answerer),
             Model(id: "model_cursor_composer_25", displayName: "Composer 2.5", modelLabel: "composer-2.5",
                   driverId: "cursor_agent", role: .answerer),
-            Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both),
+            Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code", role: .both),
             Model(id: "model_chatgpt", displayName: "ChatGPT 5.6 Sol", modelLabel: "gpt-5.6-sol", driverId: "codex", role: .both),
         ]
         let resolved = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .med, readyModels: ready)

@@ -151,9 +151,9 @@ public enum ModelCatalog {
         return [
             // Claude Code — effort via the `--effort` flag (see DefaultConfig manifest).
             // Fable 5 is the Claude-side flagship; Sonnet 5 is the default Claude seat;
-            // Opus 4.8 remains a high judgment seat (not flagship-only).
+            // Opus 5 is the high judgment seat (`opus` → Opus 5; not flagship-only).
             def("model_fable", "Fable 5", "fable", "claude_code", .both, defaultEnabled: true),
-            def("model_opus", "Opus 4.8", "opus", "claude_code", .both, defaultEnabled: true),
+            def("model_opus", "Opus 5", "opus", "claude_code", .both, defaultEnabled: true),
             def("model_sonnet", "Sonnet 5", "claude-sonnet-5", "claude_code", .answerer, defaultEnabled: true),
             // Codex — ChatGPT 5.6 Sol. Verified callable on codex-cli 0.144.5 (2026-07-18):
             // `codex exec -m gpt-5.6-sol` + reasoning effort via the manifest's `-c

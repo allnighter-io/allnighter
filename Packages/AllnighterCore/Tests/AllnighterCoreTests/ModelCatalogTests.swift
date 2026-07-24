@@ -44,6 +44,8 @@ final class ModelCatalogTests: XCTestCase {
                        "Cursor Sol is never on-Bench by default")
         XCTAssertTrue(models.first { $0.id == "model_chatgpt" }?.enabled ?? false)
         XCTAssertEqual(models.first { $0.id == "model_sonnet" }?.modelLabel, "claude-sonnet-5")
+        XCTAssertEqual(models.first { $0.id == "model_opus" }?.displayName, "Opus 5")
+        XCTAssertEqual(models.first { $0.id == "model_opus" }?.modelLabel, "opus")
         XCTAssertEqual(models.first { $0.id == "model_chatgpt" }?.displayName, "ChatGPT 5.6 Sol (Codex)")
     }
 

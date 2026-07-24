@@ -30,7 +30,7 @@ public enum TeamAssembler {
     public static func assemble(models: [Model], readyDriverIds: Set<String>, now: Date) -> Assembled {
         let ready = models.filter { $0.enabled && readyDriverIds.contains($0.driverId) }
         // Plan writer: strongest eligible model (role planWriter/both) by catalog
-        // strengthRank so Claude Opus 4.8 beats Antigravity Opus 4.6 even when the
+        // strengthRank so Claude Opus 5 beats Antigravity Opus 4.6 even when the
         // array lists agy first. Fall back to the first ready model truthfully.
         let planWriter = strongestPlanWriter(in: ready) ?? ready.first
         return Assembled(

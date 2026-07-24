@@ -50,7 +50,7 @@
   "models": [
     {
       "id": "model_opus",
-      "displayName": "Opus 4.8",
+      "displayName": "Opus 5",
       "sourceId": "claude_code",
       "sourceName": "Claude Code",
       "status": "ready"

@@ -67,13 +67,13 @@ final class EffortRoutingTests: XCTestCase {
     }
 
     func testConstantLabelWhenModelHasNoVariants() {
-        let opus = Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code")
+        let opus = Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code")
         XCTAssertEqual(opus.resolvedLabel(at: .high), "opus")
         XCTAssertEqual(opus.resolvedLabel(at: .low), "opus")
     }
 
     func testSupportsEffortFlagBasedDrivers() {
-        let opus = Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code")
+        let opus = Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code")
         XCTAssertTrue(opus.supportsEffort(manifest: manifest("claude_code")))
         let chatgpt = Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex")
         XCTAssertTrue(chatgpt.supportsEffort(manifest: manifest("codex")))

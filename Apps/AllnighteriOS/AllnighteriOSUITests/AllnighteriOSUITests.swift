@@ -51,7 +51,7 @@ final class AllnighteriOSUITests: XCTestCase {
 
         XCTAssertTrue(element(matching: "model-picker-sheet", in: app).waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Auto"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Opus 4.8"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Opus 5"].waitForExistence(timeout: 5))
 
         let agentPrefix = app.staticTexts.matching(
             NSPredicate(format: "label BEGINSWITH %@", "Agent (")

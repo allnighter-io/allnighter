@@ -26,7 +26,7 @@ import AppKit
                               .init(id: "members", label: "Worker answers", count: 6)],
                       selection: .constant("plan"))
         VStack(spacing: 8) {
-            WorkerChip(name: "Opus 4.8", model: "via claude-code", driverId: "claude_code",
+            WorkerChip(name: "Opus 5", model: "via claude-code", driverId: "claude_code",
                        status: .running, meta: "00:04",
                        selectable: true, selected: true)
             WorkerChip(name: "Grok Build", model: "via grok-cli", driverId: "grok",

@@ -3,7 +3,7 @@ import XCTest
 
 final class AgentBootstrapTests: XCTestCase {
 
-    private func opus() -> Model { Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both) }
+    private func opus() -> Model { Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code", role: .both) }
     private let teams = BuiltInTeams.all
 
     // MARK: - readiness

@@ -403,7 +403,7 @@ public enum DoctorReport {
     }
 
     private static func planWriterCheck(models: [Model], recByDriver: [String: ToolProbeRecord], full: Bool) -> DoctorResult.Check {
-        // Strongest plan-writer (Claude Opus 4.8 over Antigravity Opus 4.6 fallback).
+        // Strongest plan-writer (Claude Opus 5 over Antigravity Opus 4.6 fallback).
         guard let writer = TeamAssembler.strongestPlanWriter(in: models)
                 ?? models.first(where: { $0.role == .planWriter || $0.role == .both }) else {
             return .init(name: "planWriterReady", status: .degraded, detail: "no plan-writer model configured", requiresManual: true)

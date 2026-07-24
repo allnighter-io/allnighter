@@ -31,7 +31,7 @@ public enum DefaultConfig {
     /// The tiered built-in panel presets (Fast / Quality / Diverse Team /
     /// Self-Double / Full + Founder's Six). Used by the legacy workflow engine.
     public static func tieredPresets(models: [Model]) -> [PanelPreset] {
-        // Prefer strongest plan-writer (Claude Opus 4.8 over Antigravity Opus 4.6).
+        // Prefer strongest plan-writer (Claude Opus 5 over Antigravity Opus 4.6).
         let strongest = TeamAssembler.strongestPlanWriter(in: models) ?? models.first
         let planWriter = strongest?.id
         let analysisID = SynthesisInstructions.analysisID

@@ -22,7 +22,7 @@ final class SynthesisTests: XCTestCase {
 
     private func models() -> [Model] {
         [
-            Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both),
+            Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code", role: .both),
             Model(id: "model_grok", displayName: "Grok Build", modelLabel: "Grok Build", driverId: "grok"),
             Model(id: "model_gemini", displayName: "Gemini Flash", modelLabel: "gemini", driverId: "gemini")
         ]
@@ -45,7 +45,7 @@ final class SynthesisTests: XCTestCase {
         let prompt = SynthesisPromptBuilder.analysisPrompt(
             run: sampleRun(), models: models(), instructions: SynthesisInstructions.analysisText
         )
-        XCTAssertTrue(prompt.contains("Opus 4.8"))
+        XCTAssertTrue(prompt.contains("Opus 5"))
         XCTAssertTrue(prompt.contains("Team accounts first."))
         XCTAssertTrue(prompt.contains("[model model_opus]"))
         XCTAssertTrue(prompt.contains("Team completeness"))
@@ -128,7 +128,7 @@ final class SynthesisTests: XCTestCase {
         XCTAssertTrue(bundle.contains("Team accounts or analytics first?"))
         XCTAssertTrue(bundle.contains("Team Analysis"))
         XCTAssertTrue(bundle.contains("Plan"))
-        XCTAssertTrue(bundle.contains("Opus 4.8"))
+        XCTAssertTrue(bundle.contains("Opus 5"))
         XCTAssertTrue(bundle.contains("timed_out"))
     }
 

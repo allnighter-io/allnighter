@@ -24,7 +24,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
                   ready: ready.contains("model_chatgpt_sol")),
             entry("model_chatgpt", "ChatGPT 5.6", driver: "codex", ready: ready.contains("model_chatgpt")),
             entry("model_chatgpt_terra", "ChatGPT 5.6 Terra", driver: "codex", ready: ready.contains("model_chatgpt_terra")),
-            entry("model_opus", "Opus 4.8", ready: ready.contains("model_opus")),
+            entry("model_opus", "Opus 5", ready: ready.contains("model_opus")),
             entry("model_sonnet", "Sonnet 5", ready: ready.contains("model_sonnet")),
             entry("model_kimi_k3", "Kimi K3", driver: "kimi", ready: ready.contains("model_kimi_k3")),
             entry("model_cursor_grok_45", "Cursor Grok 4.5", driver: "cursor_agent",

@@ -908,7 +908,7 @@ enum SetupActions {
                        headlessTrust: nil)
     }
     let claude = m("claude_code", "Claude Code", .ready, version: "claude 1.2.4", workers: [
-        .init(id: "o", name: "Opus 4.8", modelLabel: "opus-4.8", isPlanWriter: true),
+        .init(id: "o", name: "Opus 5", modelLabel: "opus", isPlanWriter: true),
         .init(id: "s", name: "Sonnet 4.6", modelLabel: "sonnet-4.6", isPlanWriter: false)])
     return ScrollView {
         VStack(spacing: 14) {

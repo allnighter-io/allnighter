@@ -252,7 +252,7 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not a team — pass --worker model_fable"
         ),
         "model_opus": Pair(
-            useWhen: "Claude Opus 4.8 deep judgment seat",
+            useWhen: "Claude Opus 5 deep judgment seat",
             dontUseWhen: "Not a team — pass --worker model_opus"
         ),
         "model_sonnet": Pair(

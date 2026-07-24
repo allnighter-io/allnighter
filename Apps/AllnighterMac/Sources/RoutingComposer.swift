@@ -1195,7 +1195,7 @@ struct RoutingComposer: View {
     }
 
 
-    /// One-line row label: bold name + a quiet parenthetical — `Opus 4.8 (Claude)`,
+    /// One-line row label: bold name + a quiet parenthetical — `Opus 5 (Claude)`,
     /// `Plan (7 workers)`. Collapses the old two-line name/subtitle rows.
     private func rowLabel(_ name: String, _ detail: String, primary: Bool) -> some View {
         HStack(spacing: 5) {

@@ -4,7 +4,7 @@ import XCTest
 final class TeamResolverTests: XCTestCase {
 
     // Real built-in model ids so ModelCatalog capabilities apply.
-    private func opus() -> Model { Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus", driverId: "claude_code", role: .both) }
+    private func opus() -> Model { Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code", role: .both) }
     private func codex() -> Model { Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex", role: .answerer) }
     private func gemini() -> Model { Model(id: "model_gemini", displayName: "Gemini", modelLabel: "g", driverId: "antigravity", role: .answerer) }
 
@@ -75,7 +75,7 @@ final class TeamResolverTests: XCTestCase {
                   driverId: "codex", role: .both),
             Model(id: "model_chatgpt_sol", displayName: "ChatGPT 5.6 Sol (Cursor)", modelLabel: "gpt-5.6-sol-high",
                   driverId: "cursor_agent", role: .both),
-            Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus",
+            Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus",
                   driverId: "claude_code", role: .both),
             Model(id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-code/k3",
                   driverId: "kimi", role: .both),

@@ -8,7 +8,7 @@ final class ExactIdResolverTests: XCTestCase {
         [
             Model(id: "model_sonnet", displayName: "Sonnet 5", modelLabel: "sonnet",
                   driverId: "claude_code", role: .both, enabled: true),
-            Model(id: "model_opus", displayName: "Opus 4.8", modelLabel: "opus",
+            Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus",
                   driverId: "claude_code", role: .both, enabled: true),
             Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
                   driverId: "codex", role: .both, enabled: false),
@@ -101,7 +101,7 @@ final class ExactIdResolverTests: XCTestCase {
     }
 
     func testDevWorkerRejectsDisplayNameAndFuzzy() {
-        XCTAssertThrowsError(try PilotSeatResolver.resolve(alias: "Opus 4.8", models: models()).get())
+        XCTAssertThrowsError(try PilotSeatResolver.resolve(alias: "Opus 5", models: models()).get())
         XCTAssertThrowsError(try PilotSeatResolver.resolve(alias: "opus", models: models()).get())
     }
 
