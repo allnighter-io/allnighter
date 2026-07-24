@@ -118,7 +118,8 @@ public actor AsyncTeamService {
         _ request: AsyncTeamStartRequest,
         origin: RunOrigin,
         readyModels: [Model],
-        ownership: AsyncTeamStartOwnership = .inProcess
+        ownership: AsyncTeamStartOwnership = .inProcess,
+        beforeDetachedSpawn: ((TeamStartResponse) throws -> Void)? = nil
     ) async -> Result<TeamStartResponse, AsyncTeamStartRefusal> {
         let flagMode: RunInvocationFlagMode = {
             if case .detachedRunner = ownership { return .detach }
@@ -236,7 +237,8 @@ public actor AsyncTeamService {
             return startDetached(
                 request: request, origin: origin,
                 resolvedRequest: resolvedRequest, resolved: resolved,
-                canonical: canonical, executablePath: executablePath
+                canonical: canonical, executablePath: executablePath,
+                beforeDetachedSpawn: beforeDetachedSpawn
             )
         }
     }
@@ -300,7 +302,8 @@ public actor AsyncTeamService {
         resolvedRequest: TeamRequestResolver.Resolved,
         resolved: ResolvedTeamRun,
         canonical: AsyncTeamCanonicalPayload,
-        executablePath: String
+        executablePath: String,
+        beforeDetachedSpawn: ((TeamStartResponse) throws -> Void)?
     ) -> Result<TeamStartResponse, AsyncTeamStartRefusal> {
         // Fast-path refuse when clearly full — no run dir, no runner (TOCTOU test).
         // Truthful accept still happens in the runner when we do spawn.
@@ -385,6 +388,24 @@ public actor AsyncTeamService {
             return .failure(.init(code: "INTERNAL_ERROR", message: "could not stage runner request: \(error)"))
         }
 
+        // CPH-0: the resident may tell its client that this request is accepted
+        // only after a durable run + runner packet exist, but before a runner
+        // (and therefore any vendor process) can start. A coordinator crash in
+        // the following gap leaves one staged, idempotent run for reconcile —
+        // never an ambiguous timeout that can safely be retried as new work.
+        let stagedResponse = startResponse(for: run, acceptedAt: stagedAt)
+        if let beforeDetachedSpawn {
+            do {
+                try beforeDetachedSpawn(stagedResponse)
+            } catch {
+                return .failure(.init(
+                    code: "RESIDENT_REQUEST_REJECTED",
+                    message: "resident could not durably admit detached run: \(error)",
+                    preset: resolvedRequest.team.id
+                ))
+            }
+        }
+
         var extraEnv: [String: String] = ["ALLN_TEAM_RUNNER": "1"]
         if let support = environment["ALLNIGHTER_SUPPORT_DIR"] ?? ProcessInfo.processInfo.environment["ALLNIGHTER_SUPPORT_DIR"] {
             extraEnv["ALLNIGHTER_SUPPORT_DIR"] = support
@@ -402,6 +423,14 @@ public actor AsyncTeamService {
         } catch {
             removeRunDirectory(runId: runId)
             return .failure(.init(code: "INTERNAL_ERROR", message: "could not spawn runner: \(error)"))
+        }
+
+        // The broker already persisted and returned the receipt above. It must
+        // not wait for a 60-second runner handshake after its client has a
+        // canonical run id; the runner/journal recovery path owns that later
+        // startup truth. Legacy direct callers retain the handshake behavior.
+        if beforeDetachedSpawn != nil {
+            return .success(stagedResponse)
         }
 
         // Block until the runner holds the slot and writes the handshake.

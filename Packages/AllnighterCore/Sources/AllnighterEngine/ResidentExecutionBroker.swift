@@ -23,6 +23,16 @@ private final class ForegroundRunTaskRegistry: @unchecked Sendable {
     }
 }
 
+/// Records whether a detached Team receipt was written at the durable
+/// pre-spawn boundary. Replays still need a request-specific receipt, so the
+/// dispatcher only skips its legacy post-start acceptance for a new admission.
+private final class DetachedAdmissionMarker: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored = false
+    func mark() { lock.withLock { stored = true } }
+    var didAdmit: Bool { lock.withLock { stored } }
+}
+
 private actor PanelRoundCompletion {
     private var result: Result<PanelCoordinator.RoundResult, PanelCoordinator.RoundError>?
     func finish(_ result: Result<PanelCoordinator.RoundResult, PanelCoordinator.RoundError>) { self.result = result }
@@ -158,19 +168,32 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 )
                 return
             }
+            let admission = DetachedAdmissionMarker()
             let outcome = await dependencies.asyncTeam.start(
                 request,
                 origin: .cli,
                 readyModels: dependencies.readyModels(),
-                ownership: .detachedRunner(executablePath: executable)
+                ownership: .detachedRunner(executablePath: executable),
+                beforeDetachedSpawn: { response in
+                    _ = try self.rendezvous.accept(
+                        claim,
+                        canonicalId: response.runId,
+                        result: .teamStart(response)
+                    )
+                    admission.mark()
+                }
             )
             switch outcome {
             case .success(let response):
-                try? rendezvous.accept(
-                    claim,
-                    canonicalId: response.runId,
-                    result: .teamStart(response)
-                )
+                if !admission.didAdmit {
+                    // Existing idempotency replay: produce a receipt for this
+                    // delivery without creating another runner.
+                    try? rendezvous.accept(
+                        claim,
+                        canonicalId: response.runId,
+                        result: .teamStart(response)
+                    )
+                }
             case .failure(let refusal):
                 try? rendezvous.reject(claim, code: refusal.code, message: refusal.message)
             }

@@ -79,6 +79,32 @@ private enum AsyncTeamTestHarness {
 // MARK: - TeamStartTests
 
 final class TeamStartTests: XCTestCase {
+    func testDetachedAdmissionRunsBeforeRunnerHandshake() async throws {
+        try await asyncTeamLifecycleGate.run {
+            let root = AsyncTeamTestHarness.tempRoot()
+            defer { try? FileManager.default.removeItem(at: root) }
+            let mock = MockCommandRunner(scripts: ["claude": .init(stdout: AsyncTeamTestHarness.planMarkdown)])
+            let service = AsyncTeamTestHarness.makeService(root: root, mock: mock, runId: "run-pre-spawn-admission")
+            let admission = LockedBox<TeamStartResponse?>(nil)
+
+            let result = await service.start(
+                AsyncTeamTestHarness.startRequest(key: "pre-spawn-key"),
+                origin: .cli,
+                readyModels: [AsyncTeamTestHarness.opus()],
+                ownership: .detachedRunner(executablePath: "/usr/bin/false"),
+                beforeDetachedSpawn: { response in admission.value = response }
+            )
+
+            guard case let .success(response) = result else {
+                return XCTFail("expected durable pre-spawn admission")
+            }
+            XCTAssertEqual(admission.value?.runId, response.runId)
+            let directory = root.appendingPathComponent("Runs/run_\(response.runId)")
+            XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent(ProcessOwnership.runnerRequestFileName).path))
+            XCTAssertNotNil(ProcessOwnership.readStageLease(in: directory), "runner did not claim ownership before the client receipt")
+        }
+    }
+
     func testInvalidTeamFailsPreflightWithoutRunId() async {
         await asyncTeamLifecycleGate.run {
             let root = AsyncTeamTestHarness.tempRoot()

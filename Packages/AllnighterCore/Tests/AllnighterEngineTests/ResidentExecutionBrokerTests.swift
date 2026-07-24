@@ -3,6 +3,53 @@ import AllnighterCore
 @testable import AllnighterEngine
 
 final class ResidentExecutionBrokerTests: XCTestCase {
+    func testBrokerReceiptsDetachedTeamBeforeRunnerHandshake() async throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("resident-broker-admission-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let rendezvous = ResidentExecutionRendezvous(root: root.appendingPathComponent("rendezvous", isDirectory: true))
+        _ = try rendezvous.prepareCoordinator(
+            coordinatorId: "coord", binaryVersion: AllnighterVersionIdentity.binaryVersion, contractVersion: ContractRegistry.contractVersion
+        )
+        let model = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
+        let team = TeamPreset(
+            id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
+            isDefaultForLane: true,
+            workerSpecs: [.init(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
+            lead: .init(skillId: "plan_writer_build"), builtIn: true
+        )
+        let runStore = RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
+        let service = AsyncTeamService(
+            models: [model], registry: DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")]),
+            teams: [team], runStore: runStore,
+            governor: TeamGovernor(directory: root.appendingPathComponent("gov"), capacity: 1),
+            idempotency: IdempotencyStore(fileURL: root.appendingPathComponent("idempotency.json")),
+            environment: [:], idFactory: { "run-pre-spawn" }
+        )
+        let cancelled = BrokerCancellation()
+        let broker = ResidentExecutionBroker(
+            rendezvous: rendezvous,
+            dependencies: .init(
+                asyncTeam: service, models: [model], readyModels: { [model] }, executablePath: { "/usr/bin/false" }
+            )
+        )
+        let task = Task { await broker.run(isCancelled: { cancelled.value }) }
+        defer { cancelled.value = true; task.cancel() }
+
+        let submitted = try rendezvous.submit(
+            operation: .teamRun(.init(question: "hello", lane: .code, teamPresetId: "code_test", effort: .low, idempotencyKey: "same-key")),
+            idempotencyKey: "same-key", requestId: "detached-admission"
+        )
+        let maybeReceipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: 2)
+        let receipt = try XCTUnwrap(maybeReceipt)
+        XCTAssertEqual(receipt.state, .accepted)
+        XCTAssertEqual(receipt.idempotencyKey, "same-key")
+        guard case let .teamStart(response) = receipt.result else { return XCTFail("expected Team acceptance") }
+        let directory = try runStore.runDirectory(forRunId: response.runId)
+        XCTAssertNotNil(ProcessOwnership.readStageLease(in: directory), "receipt must precede runner ownership handshake")
+    }
+
     func testBrokerAcceptsHealthAndRejectsUnrunnableTeamWithoutForegroundFallback() async throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("resident-broker-\(UUID().uuidString)", isDirectory: true)
