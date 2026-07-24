@@ -1,10 +1,9 @@
 # CODE RED — Core Infrastructure Repair
 
 Status: **IMPLEMENTATION IN PROGRESS — Code Red remains active. CR-S00 through
-CR-S03 are COMPLETE (each with an independent CLEAN audit and a live
-authenticated Works Test receipt below). CR-S04–CR-S07 have not begun. All
-forward execution-path feature work remains blocked until this document is
-green.**
+CR-S04 are COMPLETE (each with an independent audit and a live authenticated
+Works Test receipt below). CR-S05–CR-S07 have not begun. All forward
+execution-path feature work remains blocked until this document is green.**
 Owner: AllnighterCore + CLI execution path
 Updated: 2026-07-24
 
@@ -819,28 +818,41 @@ had to record their gesture as manually performed. It is now implemented and
 green, and it samples the live vendor process tree, closing the "crew pid not
 sampled live" assertion both CR-S01 and CR-S02 had to declare missing.
 
+**Receipt corrected after the independent audit.** The first version of this
+receipt was recorded GREEN against a harness the audit then showed would ALSO
+have gone green on a within-vendor reseated roster (it checked `sourceId`, not
+model identity, and its no-substitution check matched a substring no production
+warning contains), and on answers that never opened the fixture (the "cites
+pwd/HEAD/sentinel" claim rested on a human reading the output — the exact
+"prose → proof" inference this packet bans). Both holes are closed in
+`660aaa23`, and the receipt below is the re-run from that hardened harness. The
+earlier run is superseded, not deleted: it is why the audit discipline exists.
+
 ```text
 Status: GREEN
-Commit: 4f3eb84d, 7d06c729 (harness/proof only; live proof ran from HEAD e96cf8b0)
+Commit: 4f3eb84d, 7d06c729, 660aaa23 (harness/proof only; live proof re-run from HEAD 660aaa23)
 Production lines added / deleted: 0 / 0 (Sources and Apps untouched — proof slice; phase aggregate stays net-negative from CR-S01's −1,531)
 Concepts deleted / added: none / none (the live-direct stub is replaced by the real harness; no new runtime concept)
-Client binary SHA: alln 0.9.17, contract 3.4.0, hash 48b4f031747a, git e96cf8b0d311, sha256 2c5142488d4eecf7…
+Client binary SHA: alln 0.9.17, contract 3.4.0, hash 48b4f031747a, sha256 a278a227d8590 40a…; checkout HEAD 660aaa234f69
 Execution-owner binary SHA: none — direct path only; no resident involvement
-Exact command: bash scripts/code_red_works_test.sh live-direct → alln run "Research only, do not modify any files. Independently name this repository's most important infrastructure risk, and cite as evidence: (1) the output of pwd, (2) the output of git rev-parse HEAD, (3) the first line of sentinel.txt." --project prj_22c2a84a --team code_red_two_source --json
-Canonical repo root: /var/folders/…/T/code-red-fixture.CWR3UP (registered prj_22c2a84a; disposable clean Git fixture, HEAD 7f1972868c8b)
-Selected source IDs: codex (crew seat model_chatgpt#0) + claude_code (lead seat model_opus#0) — two DISTINCT vendors; usage.cliCalls = 2; zero substitution warnings
-Observed source process IDs: BOTH seats sampled live as descendants of `alln` pid 34220 during the run window — codex pid 34229, claude pid 35086
-Run ID: 3ADDB29F-F7B8-42EE-8FC9-32CADD04DD3F (origin: cli; writePolicy: readOnly; status done)
-Git observation before: HEAD 7f1972868c8b…, porcelain empty
-Git observation after: HEAD 7f1972868c8b… (researchGitObservation changed=false, baselineHead==head, changedPaths [])
+Exact command: bash scripts/code_red_works_test.sh live-direct → alln run "Research only, do not modify any files. Independently name this repository's most important infrastructure risk, and cite as evidence: (1) the output of pwd, (2) the output of git rev-parse HEAD, (3) the first line of sentinel.txt." --project prj_c7a6a140 --team code_red_two_source --json
+Canonical repo root: /var/folders/…/T/code-red-fixture.e98u4f (registered prj_c7a6a140; disposable clean Git fixture, HEAD a8188b958f33)
+Selected source IDs: codex (crew seat, model_chatgpt) + claude_code (Lead seat, model_opus) — two DISTINCT vendors, both seats pinned `exactOnly`; model ids asserted exactly, so a within-vendor reseat fails the gate; usage.cliCalls = 2; zero substitution warnings
+Observed source process IDs: BOTH seats sampled live as descendants of `alln` pid 46116 — codex pid 46125, claude pid 46921 (matched on the ps command column, not a substring sweep)
+Run ID: 5EFF0DBB-6325-4215-A736-375E60F4BB79 (origin: cli; writePolicy: readOnly; status done; 140s wall)
+Git observation before: HEAD a8188b958f33…, porcelain empty
+Git observation after: HEAD a8188b958f33… (researchGitObservation changed=false, baselineHead==head, changedPaths [])
 Real changed paths: none — `git status --porcelain` empty in the fixture after settlement
-Proof command/result: both sources cite the canonical fixture pwd, HEAD 7f1972868c8b, and sentinel CODE_RED_SENTINEL_1784921748; separately attributed and materially different (crew 1,559 chars, Lead 13,890 chars, Lead explicitly adopts rather than averages the crew seat); run journal run_3ADDB29F…/run.json carries repoRoot == the registered fixture
-Architecture policy result: passed; full suite 2,260 tests / 13 skipped / 0 failures; Mac arm green under the founder-ruled waivers
-Missing assertion: one live pass, not the three consecutive passes the trust-reset threshold requires — that threshold covers the full research+execution proof and is a CR-S06 obligation, not a per-slice one; the execution gesture itself is CR-S04; the live team's second source is its Lead seat, so a two-CREW-seat live roster is proven only deterministically; the run left `code_red_two_source` and project prj_22c2a84a in the user catalog, alongside the earlier dangling prj_06537ab4 (both fixture roots still exist; neither deleted — user state removal is a founder stop)
+Proof command/result: the harness REQUIRES each seat's own text to contain the canonical fixture root, the fixture HEAD a8188b958f33, and the unique sentinel CODE_RED_SENTINEL_1784923001 — a seat that never opened the repository cannot pass; answers separately attributed and materially different (crew 1,377 chars, Lead 14,068 chars); run journal run_5EFF0DBB…/run.json carries repoRoot == the registered fixture
+Architecture policy result: passed; full suite 2,269 tests / 13 skipped / 0 failures; Mac arm green under the founder-ruled waivers
+Missing assertion: one live pass, not the three consecutive passes the trust-reset threshold requires — that threshold covers the full research+execution proof and is a CR-S06 obligation, not a per-slice one; the live team's second source is its Lead seat, so a two-CREW-seat live roster is proven only deterministically; `SeatReseat` is never exercised end-to-end through `RunService.run` because `CatalogRunCoordinator` re-reads the preset from the global `TeamCatalog`, which cannot see an injected test team (recorded as residual risk, not repaired in this slice); the works-test teams persist in the user catalog by design (reused, never recreated), and the earlier dangling projects prj_06537ab4 / prj_22c2a84a remain registered — user-state removal is a founder stop
 Next deletion: CR-S04 proves execution; resident control-plane deletion stays CR-S05/CR-S06
 ```
 
-### CR-S04 — Prove execution
+### CR-S04 — Prove execution — COMPLETE
+
+Proven in `6bc68c3d` (deterministic proof wall), `7d8efbac` (live execution
+gesture), and `660aaa23` (audit fixes). See "CR-S04 closure — 2026-07-24".
 
 - resolve a `mutating` Team to exactly one selected worker;
 - acquire the existing canonical-root write lock;
@@ -851,6 +863,39 @@ Next deletion: CR-S04 proves execution; resident control-plane deletion stays CR
 
 Works Test: the sentinel change exists exactly once in the fixture’s real
 working tree. A change anywhere else fails.
+
+### CR-S04 closure — 2026-07-24
+
+Like CR-S03, this slice needed no production change: `RunService.run` already
+owned single-worker mutating dispatch. What it needed was proof, and the live
+gesture immediately taught a correction. The harness first demanded
+`usage.cliCalls == 1`, and the live run returned 2 with a single worker. The
+run journal settled it: `cliCalls` counts *turns* (`workerAnswers` + the plan
+stage), and the plan stage was produced by `model_opus#0` — the same and only
+worker. The packet's law is one WORKER, not one vendor turn, so the assertion
+was wrong, not the product. It now asserts one worker, one answer, and that
+every stage belongs to that worker.
+
+```text
+Status: GREEN
+Commit: 6bc68c3d, 7d8efbac, 660aaa23 (proof/harness only; live proof ran from HEAD 660aaa23)
+Production lines added / deleted: 0 / 0 (Sources and Apps untouched — proof slice; phase aggregate stays net-negative from CR-S01's −1,531)
+Concepts deleted / added: none / none
+Client binary SHA: alln 0.9.17, contract 3.4.0, hash 48b4f031747a, sha256 a278a227d859040a…; checkout HEAD 660aaa234f69
+Execution-owner binary SHA: none — direct path only; no resident involvement
+Exact command: bash scripts/code_red_works_test.sh live-direct → alln run "Append the exact line CODE_RED_EXECUTION_PROOF to sentinel.txt, then show the git diff. Change nothing else." --project prj_c7a6a140 --team code_red_execution --json
+Canonical repo root: /var/folders/…/T/code-red-fixture.e98u4f (registered prj_c7a6a140; the same fixture the research gesture left clean, baseline a8188b958f33)
+Selected source IDs: claude_code only (seat model_opus#0, `exactOnly`, executionSourceId claude_code); exactly one worker, one answer, and the plan stage owned by that same worker
+Observed source process IDs: claude pid 48015, sampled live as a descendant of `alln` pid 48004
+Run ID: D93F3117-44B0-442E-A688-6A781BA612F7 (origin: cli; writePolicy: mutating; status done; 28s wall)
+Git observation before: baseline a8188b958f33 (clean)
+Git observation after: HEAD dcd26a832f9b — commit "sentinel: append CODE_RED_EXECUTION_PROOF line", filesChanged 1
+Real changed paths: exactly ["sentinel.txt"] — computed as the union of working-tree porcelain and the committed diff, so a change anywhere else fails; the proof line appears exactly once in the file
+Proof command/result: repoDelta cross-checked against the fixture's own Git — baseline, HEAD, and file list all match; run reports repoDelta and NO researchGitObservation, so a downgrade to research would fail the gate
+Architecture policy result: passed; full suite 2,269 tests / 13 skipped / 0 failures
+Missing assertion: one live pass, not the three consecutive the trust-reset threshold requires (CR-S06 obligation); the write-lock invariant is proven deterministically in ExecutionWriteLockTests rather than observed live (a live second writer was not raced against this run); `--dry-run`'s no-spawn guarantee is proven deterministically, not live; the deterministic single-worker test cannot see the plan stage at all, because the injected preset is invisible to the global TeamCatalog — the live gesture is what covers that half
+Next deletion: CR-S05 runs the restricted-host harness and either deletes resident run routing outright or proves the one thin hop; CR-S06 deletes the abandoned control plane and un-skips the seven detach tests
+```
 
 ### CR-S05 — Prove and, only if necessary, add restricted-host transport
 
