@@ -1,6 +1,6 @@
 # Resident Execution Broker — One Spawn Path for Every CLI
 
-Status: **Implementation in progress — REB-S01 landed; REB-S02 routes `alln run`, `alln run --detach`, streamed run events, and `alln team status/result` through the resident authority. REB-S03 routes the complete Panel lifecycle (start/round/status/watch/done) and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, including a scoped LaunchAgent and preserved CLI PATH. Try Fix follow-up routing, restart/drain compatibility, and the host matrix remain.**
+Status: **Implementation in progress — REB-S01 landed; REB-S02 routes `alln run`, `alln run --detach`, streamed run events, and `alln team status/result` through the resident authority. REB-S03 routes the complete Panel lifecycle (start/round/status/watch/done) and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, identity-verified activation, and durable drain/restart on update; `scripts/rebuild_cli.sh` rebuilds outside a protected checkout and refreshes the service in one command. Try Fix follow-up routing and the host matrix remain.**
 Owner: AllnighterCore + `alln serve` + CLI
 Updated: 2026-07-23 (REB-S04 installation path landed; activation requires explicit user consent)
 Supersedes: the resident execution boundary in archived
@@ -646,17 +646,23 @@ After cutover:
   path; the Mac setup path calls the same mechanism. **Landed:** it writes and
   bootstraps only `com.allnighter.resident-coordinator`, invokes the installed
   `alln serve` binary, preserves the installer's PATH for vendor CLI discovery,
-  and performs no implicit registration from any other command. It launches
-  through the stable installed `alln` link, so a later `alln install-cli`
-  rebuild is picked up by the coordinator's next safe restart. Automatic
-  drain-and-restart remains an explicit REB-S04 requirement; it must not
-  terminate active work merely to refresh code.
+  and performs no implicit registration from any other command. It returns
+  success only after the live coordinator reports the matching binary and
+  contract identity. When durable work is active it writes a drain request,
+  stops new broker dispatch, waits for terminal journals, then exits for
+  launchd to load the refreshed installed image. It never terminates active
+  work merely to refresh code. `scripts/rebuild_cli.sh` is the one normal
+  development refresh command: it builds under
+  `~/Library/Developer/Allnighter/CLI`, updates the PATH install, refreshes the
+  coordinator, and reports health without leaving the resident executable in a
+  checkout under `~/Documents`.
 - Add launchd restart and client/coordinator compatibility handshake.
 - **Landed:** every signed request carries its client binary and contract
   identity. The resident rejects any mismatch before dispatch with the existing
   `COORDINATOR_VERSION_MISMATCH` contract error and one repair action.
-- Add drain/restart behavior for binary updates, including re-adoption of
-  in-flight accepted work.
+- **Landed:** drain/restart behavior for binary updates. Accepted work remains
+  represented by its durable run or Panel journal until terminal; not-yet-
+  accepted inbox work stays recoverable for the replacement coordinator.
 - Make unavailable/mismatch recovery one action and agent-readable.
 
 ### REB-S05 — Host matrix and closeout
