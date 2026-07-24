@@ -25,6 +25,9 @@ public struct HostSandboxAdvice: Equatable, Sendable {
     ]
 
     public var message: String
+    /// Lifts the restriction for THIS session only, and resumes it rather than
+    /// restarting — a restart would cost the user everything they were working on,
+    /// which made this option look far cheaper than it was.
     public var retryCommand: String
     public var appCommand: String
 
@@ -53,7 +56,7 @@ public struct HostSandboxAdvice: Equatable, Sendable {
             Allnighter needs your AI tools to sign in before they can do any work, so this run \
             could not start here. Nothing is wrong with your setup, and nothing was changed.
             """,
-            retryCommand: "codex --sandbox danger-full-access",
+            retryCommand: "codex resume --last -c sandbox_mode=\"danger-full-access\"",
             appCommand: command
         )
     }
@@ -68,16 +71,18 @@ public struct HostSandboxAdvice: Equatable, Sendable {
 
         Two ways to continue:
 
-          1. Give Codex permission to use your AI tools
-             Start a new Codex session with this:
-                 \(retryCommand)
-             This affects only that one session. It changes no settings, and Codex
-             is back to normal the next time you open it.
-
-          2. Run it in the Allnighter app instead
+          1. Let the Allnighter app run it for you
              Open Allnighter and paste this in:
                  \(appCommand)
-             It runs there with no extra steps, and you'll see the results in the app.
+             You stay right here in Codex — the app just does the part Codex
+             can't, and the results come back to you.
+
+          2. Or run it here, in this same session
+             Paste this in your terminal:
+                 \(retryCommand)
+             You pick up exactly where you left off — nothing is lost. It gives
+             this one session permission to use your AI tools, changes no
+             settings, and Codex is back to normal next time you open it.
         """
     }
 }

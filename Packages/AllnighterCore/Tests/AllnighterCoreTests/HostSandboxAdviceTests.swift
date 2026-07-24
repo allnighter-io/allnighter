@@ -20,7 +20,11 @@ final class HostSandboxAdviceTests: XCTestCase {
             teamId: "code_bug_hunt",
             environment: sandboxed))
 
-        XCTAssertEqual(advice.retryCommand, "codex --sandbox danger-full-access")
+        // Resume, never restart: a restart would cost the user the session they
+        // were working in, which is what made this option look cheap.
+        XCTAssertEqual(advice.retryCommand,
+                       "codex resume --last -c sandbox_mode=\"danger-full-access\"")
+        XCTAssertFalse(advice.warningMessage.contains("Start a new Codex session"))
         XCTAssertEqual(
             advice.appCommand,
             "alln run \"find the riskiest thing in this repo\" --project /Users/me/Code/thing --team code_bug_hunt")
@@ -31,8 +35,14 @@ final class HostSandboxAdviceTests: XCTestCase {
             XCTAssertFalse(body.contains(jargon), "message must avoid '\(jargon)': \(body)")
         }
         XCTAssertTrue(body.contains("Nothing is wrong with your setup"))
-        XCTAssertTrue(body.contains("affects only that one session"))
+        XCTAssertTrue(body.contains("nothing is lost"))
         XCTAssertTrue(body.contains(advice.appCommand))
+
+        // The app hand-off leads, because it needs no permission change at all.
+        let appFirst = try XCTUnwrap(body.range(of: "1. Let the Allnighter app run it"))
+        let flagSecond = try XCTUnwrap(body.range(of: "2. Or run it here"))
+        XCTAssertTrue(appFirst.lowerBound < flagSecond.lowerBound,
+                      "the option that changes no permissions must be offered first")
     }
 
     /// The claude signature only counts alongside a restricted host: in a normal
