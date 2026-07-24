@@ -3,6 +3,21 @@ import AllnighterCore
 @testable import AllnighterEngine
 
 final class RunServiceTests: XCTestCase {
+    // Several cases build RunService without an explicit runStore, whose default is
+    // the real ~/Library/Application Support/Allnighter/Runs. Redirect the support
+    // root to a temp dir so runs never leak into real user state.
+    private var supportDir: URL!
+    override func setUpWithError() throws {
+        supportDir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("runservice-support-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
+        setenv("ALLNIGHTER_SUPPORT_DIR", supportDir.path, 1)
+    }
+    override func tearDownWithError() throws {
+        unsetenv("ALLNIGHTER_SUPPORT_DIR")
+        try? FileManager.default.removeItem(at: supportDir)
+    }
+
     func testExecutionRunStreamFinishesAndEmitsTerminalEvents() async throws {
         let repo = FileManager.default.temporaryDirectory
             .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)

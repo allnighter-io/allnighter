@@ -45,8 +45,15 @@ final class RunIdentityTests: XCTestCase {
         let service = RunService(
             models: [model],
             registry: DriverRegistry([TestSupport.headlessManifest(id: "grok", command: "grok")]),
+            // Hermetic: a temp run journal (never the real ~/Library Runs) and a
+            // seeded probe so the explicit-worker readiness gate does not depend on
+            // this machine's grok probe state.
+            runStore: RunStore(rootDirectory: repo.appendingPathComponent("runs", isDirectory: true)),
             commandRunner: MockCommandRunner(scripts: ["grok": .init(stdout: "Done.", exitCode: 0)]),
-            writeLock: RunWriteLockRegistry()
+            writeLock: RunWriteLockRegistry(),
+            probeRecords: {
+                [ToolProbeRecord(driverId: "grok", status: .ready(version: "1"), lastProbeAt: .distantPast)]
+            }
         )
 
         let result = await service.run(
@@ -71,8 +78,15 @@ final class RunIdentityTests: XCTestCase {
         XCTAssertEqual(trj.teamRun.writePolicy, "mutating")
         XCTAssertEqual(trj.teamRun.identitySummary, "worker model_grok · lane code (context — --team routes) · mutating")
 
-        XCTAssertEqual(
-            RunIdentity.cliFooter(run),
-            "run identity-run · worker model_grok · lane code (context — --team routes) · mutating · no repo change · Default Team · preset default_chat")
+        // SH-S08 (a8fddec1) inserts measured single-seat timing (queue/duration/…)
+        // into the outcome headline; this run executes live, so bracket the variable
+        // timing with the stable identity prefix and the team/preset suffix.
+        let footer = RunIdentity.cliFooter(run)
+        XCTAssertTrue(
+            footer.hasPrefix("run identity-run · worker model_grok · lane code (context — --team routes) · mutating · no repo change"),
+            "footer identity prefix; got: \(footer)")
+        XCTAssertTrue(
+            footer.hasSuffix("· Default Team · preset default_chat"),
+            "footer team/preset suffix; got: \(footer)")
     }
 }

@@ -12,6 +12,21 @@ import AllnighterCore
 /// contract for the run path and prove the CLI override reaches the runner.
 final class RunIdleTimeoutTests: XCTestCase {
 
+    // The RunService cases below build without an explicit runStore (default = the
+    // real ~/Library Runs). Redirect the support root to a temp dir so "hi" probe
+    // runs never leak into real user state.
+    private var supportDir: URL!
+    override func setUpWithError() throws {
+        supportDir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("runidle-support-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
+        setenv("ALLNIGHTER_SUPPORT_DIR", supportDir.path, 1)
+    }
+    override func tearDownWithError() throws {
+        unsetenv("ALLNIGHTER_SUPPORT_DIR")
+        try? FileManager.default.removeItem(at: supportDir)
+    }
+
     // MARK: - CLI parse (typed CLI_USAGE_ERROR)
 
     func testParseIdleTimeoutSecondsAcceptsPositiveInteger() {
