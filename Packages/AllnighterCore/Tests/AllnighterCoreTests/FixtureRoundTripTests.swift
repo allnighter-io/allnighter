@@ -109,7 +109,10 @@ final class FixtureRoundTripTests: XCTestCase {
 
         let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
         XCTAssertEqual(trj.schemaVersion, 2)
-        XCTAssertEqual(trj.contractVersion, "3.0.0")
+        // Contract bumped 3.0.0 → 3.4.0 in 12fcd8a2 (fix(team): make persisted
+        // status explicit); the SSOT (ContractRegistry.contractVersion) and the
+        // bundled team_run.json fixture both carry 3.4.0 — only this golden lagged.
+        XCTAssertEqual(trj.contractVersion, "3.4.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.workers.count, 1)
