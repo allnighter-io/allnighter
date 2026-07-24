@@ -34,7 +34,7 @@ final class DoctorTimingTests: XCTestCase {
         try! CoreJSON.encode(SetupStore.State(records: cached)).write(to: setupURL)
 
         let slow = SlowMockCommandRunner(blockSeconds: 30)
-        let records = await AllnighterCLI.doctorProbeRecords(
+        let records = await SourceProbeService.probeRecords(
             manifests: manifests,
             labels: ["claude_code": "opus"],
             full: false,
@@ -70,7 +70,7 @@ final class DoctorTimingTests: XCTestCase {
         let setupStore = SetupStore(fileURL: tmp.appendingPathComponent("empty_setup.json"))
 
         let start = ContinuousClock.now
-        let records = await AllnighterCLI.doctorProbeRecords(
+        let records = await SourceProbeService.probeRecords(
             manifests: manifests,
             labels: ["hung_probe": "m"],
             full: false,
@@ -108,7 +108,7 @@ final class DoctorTimingTests: XCTestCase {
             ),
         ]
 
-        let records = await AllnighterCLI.doctorProbeRecords(
+        let records = await SourceProbeService.probeRecords(
             manifests: manifests,
             labels: ["codex": "gpt-5.6-sol"],
             full: true,
