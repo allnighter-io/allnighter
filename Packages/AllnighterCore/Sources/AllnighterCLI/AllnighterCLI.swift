@@ -87,7 +87,7 @@ struct AllnighterCLI {
         case "bootstrap": runBootstrap(args)
         case "install-cli": runInstallCLI(args)
         case "version": runVersion(args)
-        case "ps": runOwnershipPs(args)
+        case "ps": await runOwnershipPs(args)
         case "kill": runOwnershipKill(args)
         case "gc": runOwnershipGC(args)
         case "--help", "-h": printHelp()   // "help" is handled above via HelpCLI
@@ -1375,12 +1375,30 @@ struct AllnighterCLI {
     /// (PO-S05). Reports what reconcile WOULD reap; kills nothing. Defaults to
     /// the caller's project scope (Concurrent Invocation Isolation F1);
     /// `--all-projects` is the explicit machine-wide fleet view.
-    static func runOwnershipPs(_ args: [String]) {
+    static func runOwnershipPs(_ args: [String]) async {
         let opts = Options(args)
-        let surface = ProcessOwnershipSurface()
         let allProjects = opts.flag("all-projects")
         let scopeRoot = allProjects ? nil : FileManager.default.currentDirectoryPath
-        let envelope = surface.list(scopeRoot: scopeRoot)
+        let rendezvous = ResidentExecutionRendezvous()
+        let envelope: OwnershipPsJSON
+        do {
+            let submitted = try rendezvous.submit(
+                operation: .query(.init(kind: .processSnapshot, scopeRoot: scopeRoot)),
+                idempotencyKey: UUID().uuidString.lowercased()
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+                fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the ownership request before timeout")
+            }
+            if let rejection = receipt.rejection { fail(code: rejection.code, message: rejection.message) }
+            guard case let .ownership(snapshot) = receipt.result else {
+                fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid ownership response")
+            }
+            envelope = snapshot
+        } catch ResidentExecutionRendezvous.Error.unavailable {
+            fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
+        } catch {
+            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident ownership request failed: \(error)")
+        }
         if opts.flag("json") {
             print(jsonString(envelope))
         } else {

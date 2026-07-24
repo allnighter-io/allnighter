@@ -167,12 +167,15 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
             case runResult
             case panelStatus
             case panelResult
+            case processSnapshot
         }
         public var kind: Kind
         public var canonicalId: String?
-        public init(kind: Kind, canonicalId: String? = nil) {
+        public var scopeRoot: String?
+        public init(kind: Kind, canonicalId: String? = nil, scopeRoot: String? = nil) {
             self.kind = kind
             self.canonicalId = canonicalId
+            self.scopeRoot = scopeRoot
         }
     }
 
@@ -341,10 +344,11 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
     case panelStatus(PanelJSON)
     case doctor(DoctorResult)
     case detection(ResidentDetectionResult)
+    case ownership(OwnershipPsJSON)
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum Kind: String, Codable {
-        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor, detection
+        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor, detection, ownership
     }
 
     public init(from decoder: Decoder) throws {
@@ -359,6 +363,7 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
         case .panelStatus: self = .panelStatus(try container.decode(PanelJSON.self, forKey: .payload))
         case .doctor: self = .doctor(try container.decode(DoctorResult.self, forKey: .payload))
         case .detection: self = .detection(try container.decode(ResidentDetectionResult.self, forKey: .payload))
+        case .ownership: self = .ownership(try container.decode(OwnershipPsJSON.self, forKey: .payload))
         }
     }
 
@@ -391,6 +396,9 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
             try container.encode(value, forKey: .payload)
         case let .detection(value):
             try container.encode(Kind.detection, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .ownership(value):
+            try container.encode(Kind.ownership, forKey: .type)
             try container.encode(value, forKey: .payload)
         }
     }

@@ -626,6 +626,8 @@ After cutover:
 - **Landed:** Panel start, round, status, watch, and done submit/query the
   resident authority. Client hosts no longer read or reconcile the panel
   journal, and `panel done` cannot mutate PanelState outside its owner.
+- **Landed:** `alln ps` reads the coordinator-owned process snapshot over the
+  typed query channel, including the caller's existing project scope.
 - Remove readiness self-fusion containment.
 - Add queued/running truth and per-seat process ownership.
 - Fix answer snapshots to exclude ignored/untracked secrets.

@@ -47,6 +47,17 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         XCTAssertEqual(mismatchedReceipt.state, .rejected)
         XCTAssertEqual(mismatchedReceipt.rejection?.code, "COORDINATOR_VERSION_MISMATCH")
 
+        let ownership = try rendezvous.submit(
+            operation: .query(.init(kind: .processSnapshot, scopeRoot: root.path)),
+            idempotencyKey: "ownership", requestId: "ownership-request"
+        )
+        let ownershipMaybeReceipt = try await rendezvous.waitForReceipt(requestId: ownership.requestId)
+        let ownershipReceipt = try XCTUnwrap(ownershipMaybeReceipt)
+        guard case let .ownership(snapshot) = ownershipReceipt.result else {
+            return XCTFail("expected resident ownership snapshot")
+        }
+        XCTAssertTrue(snapshot.processes.isEmpty)
+
         let missingStatus = try rendezvous.submit(
             operation: .query(.init(kind: .runStatus, canonicalId: "missing")),
             idempotencyKey: "missing-status", requestId: "missing-status-request"

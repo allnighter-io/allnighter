@@ -233,6 +233,9 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 claim, canonicalId: panelId,
                 result: .panelRound(panelRoundJSON(state: state, round: round, attempt: attempt))
             )
+        case .query(let query) where query.kind == .processSnapshot:
+            let snapshot = ProcessOwnershipSurface(runStore: dependencies.runStore).list(scopeRoot: query.scopeRoot)
+            try? rendezvous.accept(claim, canonicalId: "process-snapshot", result: .ownership(snapshot))
         default:
             try? rendezvous.reject(
                 claim,
