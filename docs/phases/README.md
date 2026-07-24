@@ -79,6 +79,8 @@ one's truth now lives.
 | [`Folder_Native_Memory.md`](Folder_Native_Memory.md) | **Pointer only shipped** — consolidation engine unbuilt | Only the memory pointer line ships (referenced by relay/pilot scaffolds); the consolidation round, seat-line loop, and second-run works-test are unbuilt. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **Draft — ⚠ FOUNDER DECISION** | Signal foundations exist (`SignalInsight.swift` struct + parser only); the whole Scout → Triangulation → Graph backend is unbuilt. Decide: build it out, or archive the deep-build spec and keep only the shipped foundations. |
 | [`Chat_Module_Extraction.md`](Chat_Module_Extraction.md) | **Plan — not started** | Consolidate Allnighter's two chat substrates and extract into the shared AgentOS `AgentOSChatCore`/`AgentOSChatUI` packages. |
+| [`Menu_Relations.md`](Menu_Relations.md) | **Draft — NOT AUTHORIZED**; queued behind Code Red (taken up first of the two) | Typed `relations` side table on `alln menu --json` (`family`, `supersedes`, then `consumes`/`produces`) so a cold agent composes correctly first try. ⚠️ Records a live gate risk: the menu measured **32,418 / 32,768 bytes — 350 bytes headroom**; one more built-in team turns `MenuCatalogTests` red. MRL-S00 (reclaim headroom) is worth doing even if the phase is killed. |
+| [`Contradiction_Pass.md`](Contradiction_Pass.md) | **Draft — NOT AUTHORIZED**; queued behind Code Red + Menu Relations | Give Max a structural difference instead of more bodies: mechanical contradiction/co-attribution detection from anchored findings (all tiers, zero model cost), false/factual/judgment classification, and one bounded Max-only resolution seat. Default escalates via `escalationRecommended`, never silently spends. Extends `Spec_Review.md`. |
 
 ### Subdirectories
 
@@ -199,6 +201,8 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Team naming, depth tiers (Min/Default/Max), family names | `Team_Depth_Naming.md` (applied by `Team_Catalog_Normalization.md`) |
 | Team lab — benchmarking, seat economics, roster ablation, calibration | `Team_Lab_Run_Factory.md` + `Team_Lab_Composition_And_Seat_Economics.md` + `Team_Lab_Slice_1_Full_Package.md` |
 | Spec Review hero loop, review lenses, positioning | `Spec_Review.md` |
+| Menu byte budget, typed relations/edges between menu rows, cold-agent *composition* (as opposed to selection) | `Menu_Relations.md` (extends archived `Menu_Not_Router.md` — that phase is not reopened) |
+| Panel disagreement, contradiction detection, what Max does beyond more seats, anchored findings | `Contradiction_Pass.md` (extends `Spec_Review.md`) |
 | Composer `@` file references, file chips, prompt file-read blocks | `Composer_File_References.md` |
 | Persistent chat, routable turns, thread backend | `Persistent_Work_Threads.md` → `threads/04_Observed_Usage.md`, `threads/09_Thread_Forking.md` |
 | Keyboard shortcuts, quick-switcher, list nav | `Keyboard_Shortcuts.md` |
