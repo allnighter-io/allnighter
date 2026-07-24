@@ -169,6 +169,11 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         }
         switch claim.request.operation {
         case .teamRun(let request):
+            if let root = request.repoRoot,
+               let message = ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: root) {
+                try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: message)
+                return
+            }
             guard let executable = dependencies.executablePath() else {
                 try? rendezvous.reject(
                     claim,
@@ -207,8 +212,16 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 try? rendezvous.reject(claim, code: refusal.code, message: refusal.message)
             }
         case .foregroundTeamRun(let request):
+            if let message = ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: request.repoRoot) {
+                try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: message)
+                return
+            }
             await startForegroundRun(request, claim: claim)
         case .panelStart(let request):
+            if let message = ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: request.projectRoot) {
+                try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: message)
+                return
+            }
             startPanel(request, claim: claim)
         case .panelRound(let request):
             await startPanelRound(request, claim: claim)
@@ -259,6 +272,10 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         case .pendingRun(let request):
             await runPending(request, claim: claim)
         case .projectRecheck(let request):
+            if let message = ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: request.rootPath) {
+                try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: message)
+                return
+            }
             await recheckProject(request, claim: claim)
         case .query(let query) where query.kind == .health:
             let health = dependencies.coordinatorHealth()
@@ -509,6 +526,11 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         claim: ResidentExecutionRendezvous.Claim
     ) async {
         let store = PanelStateStore()
+        if let state = store.load(id: request.panelId),
+           let message = ResidentProjectAccessBoundary.refusalMessage(forRawProjectPath: state.projectRoot) {
+            try? rendezvous.reject(claim, code: ResidentProjectAccessBoundary.refusalCode, message: message)
+            return
+        }
         let coordinator = panelCoordinator(stateStore: store)
         let completion = PanelRoundCompletion()
         let tasks = panelTasks

@@ -104,6 +104,22 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         XCTAssertEqual(healthSnapshot.state, .available)
         XCTAssertTrue(healthSnapshot.broker.ready)
 
+        // Project execution may not make the resident dereference a raw path
+        // under Documents while CPH-3's authorized byte bridge is absent. The
+        // refusal happens before team validation or a vendor launch, so it is
+        // safe even for a caller that cannot answer a TCC dialog.
+        let protectedRoot = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/repo", isDirectory: true).path
+        let protectedTeam = try rendezvous.submit(
+            operation: .teamRun(.init(question: "review", repoRoot: protectedRoot)),
+            idempotencyKey: "protected-project",
+            requestId: "protected-project-request"
+        )
+        let protectedMaybeReceipt = try await rendezvous.waitForReceipt(requestId: protectedTeam.requestId)
+        let protectedReceipt = try XCTUnwrap(protectedMaybeReceipt)
+        XCTAssertEqual(protectedReceipt.state, .rejected)
+        XCTAssertEqual(protectedReceipt.rejection?.code, ResidentProjectAccessBoundary.refusalCode)
+
         // A source probe is coordinator-scoped. Letting a restricted caller
         // attach its repo path reintroduces the Documents-TCC prompt the broker
         // exists to prevent, even though no worker has been dispatched.

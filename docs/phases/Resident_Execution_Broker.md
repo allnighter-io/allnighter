@@ -831,6 +831,13 @@ hash. Mutating work stays fail-closed until a separately proven bridge exists.
 a macOS privacy or Automation dialog. No denial/allow prompt is an acceptable
 test result.
 
+**Containment (2026-07-24):** until that bridge exists, the resident refuses a
+raw project path under the user's privacy-protected home folders (including
+Documents) with `PROJECT_ACCESS_BRIDGE_REQUIRED`, before team validation or a
+vendor launch. This lexical admission check performs no filesystem access, so
+it cannot cause the prompt it prevents. It is intentionally a temporary
+fail-closed boundary, not a claim that protected project execution now works.
+
 ## Works Test
 
 Setup:
