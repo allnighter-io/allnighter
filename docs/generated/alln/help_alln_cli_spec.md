@@ -455,7 +455,7 @@ Examples: `skills_delete_json`.
 Poll resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).
 
 Arguments:
-- `run-id` (required) — The run id from `alln run --detach`.
+- `run-id` (required) — The run id of an accepted async run.
 
 Flags:
 - `--json` — Structured TeamStatusResponse.
@@ -474,7 +474,7 @@ Output schema: `teamStatusResponse`.
 Fetch TeamRunJSON when an async run is terminal.
 
 Arguments:
-- `run-id` (required) — The run id from `alln run --detach`.
+- `run-id` (required) — The run id of an accepted async run.
 
 Flags:
 - `--json` — TeamRunJSON or not-ready envelope.
@@ -486,7 +486,7 @@ Output schema: `teamRunJSON`.
 Cancel an active async team run.
 
 Arguments:
-- `run-id` (required) — The run id from `alln run --detach`.
+- `run-id` (required) — The run id of an accepted async run.
 
 Flags:
 - `--json` — Structured TeamCancelResponse.
@@ -540,7 +540,7 @@ Output schema: `ownershipGarbageCollectionJSON`.
 
 ### `alln run`
 
-Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. `--detach` is temporarily unsupported during Code Red. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.
+Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.
 
 Arguments:
 - `message` (required) — The user's prompt.
@@ -567,13 +567,12 @@ Flags:
 - `--try-fix` — Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.
 - `--executor <id>` — Mutating executor team id (default build_slice).
 - `--agent <id>` — Origin agent id for attribution (does not select the worker).
-- `--thread-id <id>` — Owning work thread id (detach path).
-- `--conversation-id <id>` — Origin conversation id (detach path).
-- `--message-id <id>` — Origin message id (detach path).
-- `--detach` — Temporarily unsupported during Code Red; run in the foreground instead.
+- `--thread-id <id>` — Owning work thread id.
+- `--conversation-id <id>` — Origin conversation id.
+- `--message-id <id>` — Origin message id.
 - `--dry-run` — Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Research Teams are observational in the canonical repository; terminal repoDelta reports whether a mutating run wrote.
 - `--json` — Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects).
-- `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run / --detach.
+- `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run.
 
 Mutually exclusive: `--json`, `--stream`.
 
@@ -583,23 +582,13 @@ Mutually exclusive: `--dry-run`, `--stream`.
 
 Mutually exclusive: `--dry-run`, `--try-fix`.
 
-Mutually exclusive: `--detach`, `--stream`.
-
-Mutually exclusive: `--detach`, `--try-fix`.
-
-Only with: `--thread-id` only with `--detach`.
-
-Only with: `--conversation-id` only with `--detach`.
-
-Only with: `--message-id` only with `--detach`.
-
 Only with: `--executor` only with `--try-fix`.
 
 Requires: `--accept-survivors` requires `--retry-of`.
 
 Output schema: `teamRunJSON`.
 
-Examples: `run_detach_json`.
+Examples: `run_foreground_json`.
 
 ### `alln run resume`
 
@@ -1389,7 +1378,6 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
 | `CODE_RED_UNSUPPORTED` | no | no | `operational` | Run `alln run` without the unsupported flag in the registered repository. |
 | `STREAM_JOURNAL_FAILED` | yes | yes | `operational` | Fix the local run journal/storage failure, then rerun the foreground command. |
-| `RESIDENT_REQUEST_REJECTED` | no | no | `operational` | Inspect the returned typed rejection and correct the request. |
 | `RESIDENT_REQUEST_CONFLICT` | no | no | `operational` | Reuse the original payload for this idempotency key, or submit a new key for new work. |
 | `RESIDENT_ACCEPT_TIMEOUT` | no | yes | `operational` | Retry the same idempotency key and payload; do not create a second direct run. |
 | `SKILL_NOT_FOUND` | yes | no | `operational` | Run `alln skills --lane <lane> --json` and pick a valid skill id. |
@@ -1537,7 +1525,7 @@ the selected CLI.
 - `teams_new_json` — Create novel team from manifest: `alln teams new custom_code_novel --file ./TeamPreset.json --json`
 - `skills_code_json` — List Code skills: `alln skills --lane code --json`
 - `skills_show_json` — Show a Code skill: `alln skills show bug_reproducer --json`
-- `run_detach_json` — Run in foreground: `alln run --json --lane code --team code_bug_hunt --effort low "tiny foreground sanity"`
+- `run_foreground_json` — Run in foreground: `alln run --json --lane code --team code_bug_hunt --effort low "tiny foreground sanity"`
 - `try_fix_bug` — Auto Fix: Bug Hunt then one bounded fix: `alln run "The history view loses finished runs after restart." --project <id> --team code_bug_hunt --try-fix --executor build_slice --json`
 - `show_latest_json` — Show the latest run: `alln show latest --json`
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`

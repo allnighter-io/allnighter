@@ -147,13 +147,6 @@ enum RunCLI {
             return
         }
 
-        if opts.flag("detach") {
-            AllnighterCLI.fail(
-                code: "CODE_RED_UNSUPPORTED",
-                message: "--detach is temporarily unsupported during Code Red; run without --detach in the registered repository"
-            )
-        }
-
         let idleParsed = parsePositiveTimeoutSeconds(opts.value("idle-timeout"), flag: "--idle-timeout")
         if let message = idleParsed.error {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: message)

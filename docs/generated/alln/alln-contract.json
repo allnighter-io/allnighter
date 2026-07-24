@@ -1582,7 +1582,7 @@
         {
           "name" : "run-id",
           "required" : true,
-          "summary" : "The run id from `alln run --detach`."
+          "summary" : "The run id of an accepted async run."
         }
       ],
       "effects" : {
@@ -1654,7 +1654,7 @@
         {
           "name" : "run-id",
           "required" : true,
-          "summary" : "The run id from `alln run --detach`."
+          "summary" : "The run id of an accepted async run."
         }
       ],
       "effects" : {
@@ -1693,7 +1693,7 @@
         {
           "name" : "run-id",
           "required" : true,
-          "summary" : "The run id from `alln run --detach`."
+          "summary" : "The run id of an accepted async run."
         }
       ],
       "effects" : {
@@ -1918,30 +1918,9 @@
       },
       "example" : "alln run \"summarize AGENTS.md\" --project . --json",
       "exampleIds" : [
-        "run_detach_json"
+        "run_foreground_json"
       ],
       "flagConstraints" : [
-        {
-          "kind" : "onlyWith",
-          "peers" : [
-            "detach"
-          ],
-          "subject" : "thread-id"
-        },
-        {
-          "kind" : "onlyWith",
-          "peers" : [
-            "detach"
-          ],
-          "subject" : "conversation-id"
-        },
-        {
-          "kind" : "onlyWith",
-          "peers" : [
-            "detach"
-          ],
-          "subject" : "message-id"
-        },
         {
           "kind" : "onlyWith",
           "peers" : [
@@ -2094,26 +2073,21 @@
         },
         {
           "name" : "thread-id",
-          "summary" : "Owning work thread id (detach path).",
+          "summary" : "Owning work thread id.",
           "takesValue" : true,
           "valueType" : "id"
         },
         {
           "name" : "conversation-id",
-          "summary" : "Origin conversation id (detach path).",
+          "summary" : "Origin conversation id.",
           "takesValue" : true,
           "valueType" : "id"
         },
         {
           "name" : "message-id",
-          "summary" : "Origin message id (detach path).",
+          "summary" : "Origin message id.",
           "takesValue" : true,
           "valueType" : "id"
-        },
-        {
-          "name" : "detach",
-          "summary" : "Temporarily unsupported during Code Red; run in the foreground instead.",
-          "takesValue" : false
         },
         {
           "name" : "dry-run",
@@ -2127,7 +2101,7 @@
         },
         {
           "name" : "stream",
-          "summary" : "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json \/ --dry-run \/ --detach.",
+          "summary" : "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json \/ --dry-run.",
           "takesValue" : false
         }
       ],
@@ -2150,20 +2124,12 @@
         [
           "dry-run",
           "try-fix"
-        ],
-        [
-          "detach",
-          "stream"
-        ],
-        [
-          "detach",
-          "try-fix"
         ]
       ],
       "name" : "run",
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : true,
-      "summary" : "Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. `--detach` is temporarily unsupported during Code Red. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.",
+      "summary" : "Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.",
       "trigger" : "Use when the user wants one worker or team to answer or act in a project repo root (chat \/ named-model ask \/ Default Team \/ async overnight).",
       "visibility" : "public"
     },
@@ -5383,15 +5349,6 @@
       "ruleId" : "stream.journal.failed"
     },
     {
-      "agentAction" : "Inspect the returned typed rejection and correct the request.",
-      "code" : "RESIDENT_REQUEST_REJECTED",
-      "exitClass" : "operational",
-      "explain" : "A detached run could not be durably admitted before spawn. Retained until CR-S06 deletes detached execution.",
-      "requiresManual" : false,
-      "retryable" : false,
-      "ruleId" : "resident.request.rejected"
-    },
-    {
       "agentAction" : "Reuse the original payload for this idempotency key, or submit a new key for new work.",
       "code" : "RESIDENT_REQUEST_CONFLICT",
       "exitClass" : "operational",
@@ -6341,7 +6298,7 @@
     },
     {
       "command" : "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\"",
-      "id" : "run_detach_json",
+      "id" : "run_foreground_json",
       "title" : "Run in foreground"
     },
     {

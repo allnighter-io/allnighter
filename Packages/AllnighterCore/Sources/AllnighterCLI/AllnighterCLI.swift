@@ -66,7 +66,6 @@ struct AllnighterCLI {
         case "thread" where args.first == "rename": await ThreadRenameCLI.runRename(Array(args.dropFirst()), runtime: runtime)
         case "run": await RunCLI.run(args, runtime: runtime)
         case "continuity": runContinuity(args)
-        case "team" where args.first == "__runner": await runTeamRunner(Array(args.dropFirst()), runtime)
         case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()), runtime)
         case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()), runtime)
         case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
@@ -1141,28 +1140,6 @@ struct AllnighterCLI {
         return result
     }
 
-    /// Internal: detached runner body for `alln run --detach` (PO-S01). Becomes a
-    /// session leader, claims ownership of the accepted run, and executes it.
-    /// Not part of the public agent surface.
-    static func runTeamRunner(_ args: [String], _ runtime: ToolRuntime) async {
-        _ = ProcessOwnership.becomeSessionLeader()
-        let opts = Options(args)
-        guard let runId = opts.value("run-id") ?? opts.positional.first, !runId.isEmpty else {
-            FileHandle.standardError.write(Data("usage: alln team __runner --run-id <id>\n".utf8))
-            exit(2)
-        }
-        let outcome = await runtime.asyncTeamService().executeRunner(
-            runId: runId,
-            readyModels: runtime.readyModels
-        )
-        switch outcome {
-        case .success:
-            exit(0)
-        case .failure(let refusal):
-            FileHandle.standardError.write(Data("\(refusal.code): \(refusal.message)\n".utf8))
-            exit(1)
-        }
-    }
 
     /// One live Team status snapshot. `AsyncTeamService` reconciles process
     /// truth against the journal before answering, which is the reconciliation

@@ -66,7 +66,7 @@
   },
   {
     "command" : "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\"",
-    "id" : "run_detach_json",
+    "id" : "run_foreground_json",
     "title" : "Run in foreground"
   },
   {

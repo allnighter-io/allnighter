@@ -40,7 +40,7 @@ final class CommandProjectionTests: XCTestCase {
         let text = try XCTUnwrap(CLIUsage.usageText(for: "run", registry: reg))
         XCTAssertTrue(text.contains("[--effort <low|med|high>]"), text)
         XCTAssertTrue(text.contains("Mutually exclusive: --json, --stream."), text)
-        XCTAssertTrue(text.contains("Only with: --thread-id only with --detach."), text)
+        XCTAssertTrue(text.contains("Only with: --executor only with --try-fix."), text)
         XCTAssertTrue(text.contains("Requires: --accept-survivors requires --retry-of."), text)
     }
 

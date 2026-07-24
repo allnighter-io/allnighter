@@ -84,10 +84,13 @@ final class ContractRegistryTests: XCTestCase {
                 }
             }
         }
-        // The contract's M1 mutual exclusion on run: --json | --stream (plus dry-run / detach pairs).
+        // The contract's M1 mutual exclusion on run: --json | --stream (plus dry-run pairs).
+        // CR-S06 deleted --detach, so no exclusion may name it.
         let run = reg.commands.first { $0.name == "run" }
         XCTAssertTrue(run?.mutuallyExclusiveFlags.contains(["json", "stream"]) == true)
-        XCTAssertTrue(run?.mutuallyExclusiveFlags.contains(["detach", "stream"]) == true)
+        XCTAssertTrue(run?.mutuallyExclusiveFlags.contains(["dry-run", "stream"]) == true)
+        XCTAssertFalse(run?.flags.contains { $0.name == "detach" } == true)
+        XCTAssertFalse(run?.mutuallyExclusiveFlags.contains { $0.contains("detach") } == true)
         XCTAssertTrue(run?.flagConstraints.contains(where: {
             $0.subject == "executor" && $0.kind == .onlyWith && $0.peers == ["try-fix"]
         }) == true)

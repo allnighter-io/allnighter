@@ -333,15 +333,6 @@
     "ruleId" : "stream.journal.failed"
   },
   {
-    "agentAction" : "Inspect the returned typed rejection and correct the request.",
-    "code" : "RESIDENT_REQUEST_REJECTED",
-    "exitClass" : "operational",
-    "explain" : "A detached run could not be durably admitted before spawn. Retained until CR-S06 deletes detached execution.",
-    "requiresManual" : false,
-    "retryable" : false,
-    "ruleId" : "resident.request.rejected"
-  },
-  {
     "agentAction" : "Reuse the original payload for this idempotency key, or submit a new key for new work.",
     "code" : "RESIDENT_REQUEST_CONFLICT",
     "exitClass" : "operational",

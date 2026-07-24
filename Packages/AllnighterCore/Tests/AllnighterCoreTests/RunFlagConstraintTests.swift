@@ -18,12 +18,11 @@ final class RunFlagConstraintTests: XCTestCase {
 
     func testRunDeclaresRequiredModeConstraints() {
         let kinds = Dictionary(uniqueKeysWithValues: run.flagConstraints.map { ($0.subject, $0) })
-        XCTAssertEqual(kinds["thread-id"]?.kind, .onlyWith)
-        XCTAssertEqual(kinds["thread-id"]?.peers, ["detach"])
-        XCTAssertEqual(kinds["conversation-id"]?.kind, .onlyWith)
-        XCTAssertEqual(kinds["conversation-id"]?.peers, ["detach"])
-        XCTAssertEqual(kinds["message-id"]?.kind, .onlyWith)
-        XCTAssertEqual(kinds["message-id"]?.peers, ["detach"])
+        // CR-S06 deleted --detach. The three provenance ids were scoped to it and
+        // are now plain foreground flags, so they must carry NO onlyWith peer.
+        XCTAssertNil(kinds["thread-id"])
+        XCTAssertNil(kinds["conversation-id"])
+        XCTAssertNil(kinds["message-id"])
         XCTAssertEqual(kinds["executor"]?.kind, .onlyWith)
         XCTAssertEqual(kinds["executor"]?.peers, ["try-fix"])
         XCTAssertEqual(kinds["accept-survivors"]?.kind, .requires)
@@ -36,8 +35,7 @@ final class RunFlagConstraintTests: XCTestCase {
         XCTAssertTrue(groups.contains(["no-commit", "commit-message"]))
         XCTAssertTrue(groups.contains(["dry-run", "stream"]))
         XCTAssertTrue(groups.contains(["dry-run", "try-fix"]))
-        XCTAssertTrue(groups.contains(["detach", "stream"]))
-        XCTAssertTrue(groups.contains(["detach", "try-fix"]))
+        XCTAssertFalse(groups.contains { $0.contains("detach") })
     }
 
     func testConstraintSubjectsAndPeersAreDeclaredFlags() {
@@ -58,19 +56,11 @@ final class RunFlagConstraintTests: XCTestCase {
 
     // MARK: - Invalid combinations (exit-2 gate; no dispatch)
 
-    func testDetachOnlyIdsRejectedOutsideDetach() {
+    /// The provenance ids outlived `--detach`: they describe the originating
+    /// thread for a foreground run, so they must now be accepted on their own.
+    func testProvenanceIdsAcceptedOnTheForegroundPath() {
         for flag in ["thread-id", "conversation-id", "message-id"] {
-            let err = constraintError(for: ["probe", "--\(flag)", "x"])
-            XCTAssertNotNil(err, flag)
-            XCTAssertEqual(err?.subject, flag)
-            XCTAssertTrue(err?.message.contains("--detach") == true, err?.message ?? "")
-            XCTAssertTrue(err?.message.contains("only valid with") == true, err?.message ?? "")
-        }
-    }
-
-    func testDetachOnlyIdsAcceptedWithDetach() {
-        for flag in ["thread-id", "conversation-id", "message-id"] {
-            XCTAssertNil(constraintError(for: ["probe", "--detach", "--\(flag)", "x", "--json"]), flag)
+            XCTAssertNil(constraintError(for: ["probe", "--\(flag)", "x"]), flag)
         }
     }
 
@@ -100,9 +90,10 @@ final class RunFlagConstraintTests: XCTestCase {
         XCTAssertTrue(tryFix?.message.contains("mutually exclusive") == true)
     }
 
-    func testDetachStreamTryFixExclusions() {
-        XCTAssertNotNil(constraintError(for: ["probe", "--detach", "--stream"]))
-        XCTAssertNotNil(constraintError(for: ["probe", "--detach", "--try-fix"]))
+    /// `--detach` is gone, so argv naming it must fail as an unknown flag rather
+    /// than being silently tolerated.
+    func testDetachIsNoLongerADeclaredRunFlag() {
+        XCTAssertFalse(run.flags.contains { $0.name == "detach" })
     }
 
     func testCommitFlagsExclusive() {
@@ -134,20 +125,13 @@ final class RunFlagConstraintTests: XCTestCase {
     /// Invalid mode-scoped combinations never clear the registry gate (no run/provider).
     func testInvalidModeMatrixNeverClearsGate() {
         let invalid: [[String]] = [
-            ["probe", "--thread-id", "t"],
-            ["probe", "--conversation-id", "c"],
-            ["probe", "--message-id", "m"],
             ["probe", "--executor", "build_slice"],
             ["probe", "--accept-survivors"],
             ["probe", "--dry-run", "--stream"],
             ["probe", "--dry-run", "--try-fix"],
-            ["probe", "--detach", "--stream"],
-            ["probe", "--detach", "--try-fix"],
             ["probe", "--no-commit", "--commit-message", "x"],
             ["probe", "--json", "--stream"],
             ["probe", "--dry-run", "--executor", "build_slice"],
-            ["probe", "--dry-run", "--thread-id", "t"],
-            ["probe", "--try-fix", "--thread-id", "t"],
             ["probe", "--stream", "--accept-survivors"],
         ]
         for args in invalid {
@@ -161,11 +145,10 @@ final class RunFlagConstraintTests: XCTestCase {
         let valid: [[String]] = [
             ["probe", "--json"],
             ["probe", "--dry-run", "--json"],
-            ["probe", "--detach", "--json"],
             ["probe", "--stream"],
             ["probe", "--try-fix"],
             ["probe", "--try-fix", "--executor", "build_slice"],
-            ["probe", "--detach", "--thread-id", "t", "--conversation-id", "c", "--message-id", "m", "--json"],
+            ["probe", "--thread-id", "t", "--conversation-id", "c", "--message-id", "m", "--json"],
             ["probe", "--retry-of", "run_x", "--accept-survivors"],
             ["probe", "--no-commit"],
             ["probe", "--commit-message", "ship"],
@@ -183,14 +166,14 @@ final class RunFlagConstraintTests: XCTestCase {
 
     private func validArgv(for flag: ContractRegistry.FlagSpec) -> [String] {
         switch flag.name {
-        case "stream", "try-fix", "dry-run", "detach", "json", "no-commit":
+        case "stream", "try-fix", "dry-run", "json", "no-commit":
             return ["probe", "--\(flag.name)"]
         case "commit-message":
             return ["probe", "--commit-message", "msg"]
         case "accept-survivors":
             return ["probe", "--retry-of", "run_x", "--accept-survivors"]
         case "thread-id", "conversation-id", "message-id":
-            return ["probe", "--detach", "--\(flag.name)", "id"]
+            return ["probe", "--\(flag.name)", "id"]
         case "executor":
             return ["probe", "--try-fix", "--executor", "build_slice"]
         default:

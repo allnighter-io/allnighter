@@ -14,11 +14,13 @@ public struct AsyncTeamStartRefusal: Error, Sendable, Equatable {
 }
 
 /// How `AsyncTeamService.start` owns the work after accepting (PO-S01).
+///
+/// CR-S06 deleted detached execution with `--detach`, so there is exactly one
+/// ownership mode left: the caller's own process. Reintroducing a forked runner
+/// is new work with its own packet.
 public enum AsyncTeamStartOwnership: Sendable {
-    /// Coordinator + heartbeat run in this process (unit tests + detached runner child).
+    /// Coordinator + heartbeat run in this process.
     case inProcess
-    /// Fork a session-leader runner; this process waits for the runner_ready handshake.
-    case detachedRunner(executablePath: String)
 }
 
 /// Serializes a run's persists against its cancellation so cancel is always the
@@ -118,13 +120,9 @@ public actor AsyncTeamService {
         _ request: AsyncTeamStartRequest,
         origin: RunOrigin,
         readyModels: [Model],
-        ownership: AsyncTeamStartOwnership = .inProcess,
-        beforeDetachedSpawn: ((TeamStartResponse) throws -> Void)? = nil
+        ownership: AsyncTeamStartOwnership = .inProcess
     ) async -> Result<TeamStartResponse, AsyncTeamStartRefusal> {
-        let flagMode: RunInvocationFlagMode = {
-            if case .detachedRunner = ownership { return .detach }
-            return .foreground
-        }()
+        let flagMode: RunInvocationFlagMode = .foreground
         let readyIds = Set(readyModels.map(\.id))
         let invocation = RunInvocationResolver.resolve(
             RunInvocationInput(request: request, flagMode: flagMode),
@@ -233,13 +231,6 @@ public actor AsyncTeamService {
                 request: request, origin: origin,
                 resolvedRequest: resolvedRequest, resolved: resolved, canonical: canonical
             )
-        case .detachedRunner(let executablePath):
-            return startDetached(
-                request: request, origin: origin,
-                resolvedRequest: resolvedRequest, resolved: resolved,
-                canonical: canonical, executablePath: executablePath,
-                beforeDetachedSpawn: beforeDetachedSpawn
-            )
         }
     }
 
@@ -296,177 +287,6 @@ public actor AsyncTeamService {
 
     /// Detached path: truthful accept via runner_ready handshake (PO-S01 v2).
     /// Parent never prints accepted until the runner holds the governor slot.
-    private func startDetached(
-        request: AsyncTeamStartRequest,
-        origin: RunOrigin,
-        resolvedRequest: TeamRequestResolver.Resolved,
-        resolved: ResolvedTeamRun,
-        canonical: AsyncTeamCanonicalPayload,
-        executablePath: String,
-        beforeDetachedSpawn: ((TeamStartResponse) throws -> Void)?
-    ) -> Result<TeamStartResponse, AsyncTeamStartRefusal> {
-        // Fast-path refuse when clearly full — no run dir, no runner (TOCTOU test).
-        // Truthful accept still happens in the runner when we do spawn.
-        switch governor.availability() {
-        case .available:
-            break
-        case .busy:
-            return .failure(.init(code: "TEAM_GOVERNOR_BUSY", message: "busy: \(config.maxConcurrentTeamRuns) team runs already running",
-                                  preset: resolvedRequest.team.id))
-        case .unavailable(let reason):
-            return .failure(.init(code: "TEAM_GOVERNOR_UNAVAILABLE", message: reason,
-                                  preset: resolvedRequest.team.id))
-        }
-
-        let (prompt, _) = assemblePrompt(request)
-        let runId = idFactory()
-        let stagedAt = now()
-
-        // F5b: claim before staging so concurrent same-key starts share one runner.
-        if let key = request.idempotencyKey, !key.isEmpty {
-            switch claimIdempotency(key: key, canonical: canonical, runId: runId, at: stagedAt) {
-            case .failure(let refusal):
-                return .failure(refusal)
-            case .success(.replay(let response)):
-                return .success(response)
-            case .success(.proceed):
-                break
-            }
-        }
-
-        let run = mintRun(
-            runId: runId, prompt: prompt, request: request, origin: origin,
-            resolved: resolved, resolvedRequest: resolvedRequest, acceptedAt: stagedAt
-        )
-
-        // Stage journal + request BEFORE spawn so the runner can claim them.
-        // Not yet "accepted" to the caller — only after runner_ready.
-        persist(run, endReasonIfTerminal: nil)
-
-        // F2 staging lease: until the runner claims ownership (or this lease
-        // expires), reconcile must never reap this run — the ownership handoff
-        // is in flight and the staged owner record is only the launcher's.
-        let stagedDirectory = runStore.rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
-        try? ProcessOwnership.writeStageLease(
-            ProcessOwnership.StageLease(
-                runId: runId, stagedAt: stagedAt,
-                expiresAt: stagedAt.addingTimeInterval(ProcessOwnership.stageLeaseSeconds)
-            ),
-            in: stagedDirectory
-        )
-
-        let directory: URL
-        do {
-            directory = try runStore.runDirectory(forRunId: runId)
-        } catch {
-            return .failure(.init(code: "INTERNAL_ERROR", message: "run directory unavailable: \(error)"))
-        }
-
-        let stdoutPath = directory.appendingPathComponent(ProcessOwnership.runnerStdoutFileName).path
-        let stderrPath = directory.appendingPathComponent(ProcessOwnership.runnerStderrFileName).path
-        let workingDir = request.repoRoot ?? FileManager.default.currentDirectoryPath
-
-        // F4: immutable context provenance — resolved absolute root + content
-        // hash + thread/run id. The runner refuses any packet that is not this
-        // run's own request (wrong-document delivery dies at the gate).
-        let provenance = RunContextProvenance.make(
-            runId: runId,
-            question: request.question,
-            context: request.context,
-            threadId: request.threadId,
-            resolvedRepoRoot: RunWriteLock.normalize(workingDir)
-        )
-        let payload = AsyncTeamRunnerRequest(
-            request: request, origin: origin, acceptedAt: stagedAt, provenance: provenance)
-        do {
-            try CoreJSON.encode(payload).write(
-                to: directory.appendingPathComponent(ProcessOwnership.runnerRequestFileName),
-                options: .atomic
-            )
-        } catch {
-            removeRunDirectory(runId: runId)
-            return .failure(.init(code: "INTERNAL_ERROR", message: "could not stage runner request: \(error)"))
-        }
-
-        // CPH-0: the resident may tell its client that this request is accepted
-        // only after a durable run + runner packet exist, but before a runner
-        // (and therefore any vendor process) can start. A coordinator crash in
-        // the following gap leaves one staged, idempotent run for reconcile —
-        // never an ambiguous timeout that can safely be retried as new work.
-        let stagedResponse = startResponse(for: run, acceptedAt: stagedAt)
-        if let beforeDetachedSpawn {
-            do {
-                try beforeDetachedSpawn(stagedResponse)
-            } catch {
-                return .failure(.init(
-                    code: "RESIDENT_REQUEST_REJECTED",
-                    message: "resident could not durably admit detached run: \(error)",
-                    preset: resolvedRequest.team.id
-                ))
-            }
-        }
-
-        var extraEnv: [String: String] = ["ALLN_TEAM_RUNNER": "1"]
-        if let support = environment["ALLNIGHTER_SUPPORT_DIR"] ?? ProcessInfo.processInfo.environment["ALLNIGHTER_SUPPORT_DIR"] {
-            extraEnv["ALLNIGHTER_SUPPORT_DIR"] = support
-        }
-
-        do {
-            _ = try ProcessOwnership.spawnDetachedRunner(
-                executablePath: executablePath,
-                arguments: ["team", "__runner", "--run-id", runId],
-                workingDirectory: workingDir,
-                stdoutPath: stdoutPath,
-                stderrPath: stderrPath,
-                extraEnvironment: extraEnv
-            )
-        } catch {
-            removeRunDirectory(runId: runId)
-            return .failure(.init(code: "INTERNAL_ERROR", message: "could not spawn runner: \(error)"))
-        }
-
-        // The broker already persisted and returned the receipt above. It must
-        // not wait for a 60-second runner handshake after its client has a
-        // canonical run id; the runner/journal recovery path owns that later
-        // startup truth. Legacy direct callers retain the handshake behavior.
-        if beforeDetachedSpawn != nil {
-            return .success(stagedResponse)
-        }
-
-        // Block until the runner holds the slot and writes the handshake.
-        // RLR-L8: use the named product default (CLI override on async start is S06).
-        guard let handshake = ProcessOwnership.waitForRunnerReady(
-            in: directory,
-            timeout: RunClockDefaults.handshakeTimeoutSeconds
-        ) else {
-            _ = ProcessOwnership.terminateRecordedOwnerIfSafe(in: directory)
-            removeRunDirectory(runId: runId)
-            return .failure(.init(code: "INTERNAL_ERROR", message: "runner did not report ready in time",
-                                  preset: resolvedRequest.team.id))
-        }
-
-        switch handshake.outcome {
-        case .accepted:
-            let acceptedAt = handshake.acceptedAt ?? stagedAt
-            // Refresh acceptedAt on the reserved key once the slot is truly held.
-            if let key = request.idempotencyKey, !key.isEmpty {
-                _ = try? idempotency.record(key: key, payload: canonical, runId: runId, now: acceptedAt)
-            }
-            let acceptedRun = runStore.loadRaw(runId: runId) ?? run
-            return .success(startResponse(for: acceptedRun, acceptedAt: acceptedAt))
-        case .refused:
-            // No accepted envelope; drop the staged run so nothing stays "accepted".
-            // Idempotency lookup falls through when the journal is gone, so a same-key
-            // retry after a typed refuse can mint a new attempt.
-            removeRunDirectory(runId: runId)
-            return .failure(.init(
-                code: handshake.refusalCode ?? "TEAM_GOVERNOR_BUSY",
-                message: handshake.refusalMessage ?? "runner refused start",
-                preset: handshake.refusalPreset ?? resolvedRequest.team.id
-            ))
-        }
-    }
-
     private func mintRun(
         runId: String,
         prompt: String,
@@ -629,167 +449,6 @@ public actor AsyncTeamService {
         let directory = runStore.rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
         try? FileManager.default.removeItem(at: directory)
     }
-
-    /// Detached runner entry: claim ownership, acquire governor, write handshake,
-    /// then execute. Called from `alln team __runner`.
-    public func executeRunner(runId: String, readyModels: [Model]) async -> Result<Void, AsyncTeamStartRefusal> {
-        let directory: URL
-        do {
-            directory = try runStore.runDirectory(forRunId: runId)
-        } catch {
-            return .failure(.init(code: "INTERNAL_ERROR", message: "run directory unavailable: \(error)"))
-        }
-
-        let requestURL = directory.appendingPathComponent(ProcessOwnership.runnerRequestFileName)
-        guard let data = try? Data(contentsOf: requestURL),
-              let payload = try? CoreJSON.decode(AsyncTeamRunnerRequest.self, from: data) else {
-            try? ProcessOwnership.writeRunnerReady(
-                .refused(runId: runId, code: "INTERNAL_ERROR", message: "missing runner request for \(runId)"),
-                in: directory
-            )
-            return .failure(.init(code: "INTERNAL_ERROR", message: "missing runner request for \(runId)"))
-        }
-
-        // F4 context-provenance gate: the staged packet must be THIS run's own
-        // context — run-id match, content-hash recompute, then the durable
-        // journal cross-check below. A cross-delivered packet (wrong-document
-        // delivery) is refused before any claim or execution.
-        let provenance = payload.provenance
-        let request = payload.request
-        func refuseProvenance(_ reason: String) -> Result<Void, AsyncTeamStartRefusal> {
-            try? ProcessOwnership.writeRunnerReady(
-                .refused(runId: runId, code: "CONTEXT_PROVENANCE_MISMATCH", message: reason),
-                in: directory
-            )
-            return .failure(.init(code: "CONTEXT_PROVENANCE_MISMATCH", message: reason))
-        }
-        guard provenance.runId == runId else {
-            return refuseProvenance("staged packet belongs to run \(provenance.runId), not \(runId)")
-        }
-        guard provenance.authenticates(
-            question: request.question, context: request.context, threadId: request.threadId
-        ) else {
-            return refuseProvenance("staged packet content does not match its stamped hash")
-        }
-
-        // Read raw journal (skip projection).
-        guard let run = runStore.loadRaw(runId: runId) else {
-            // RLR-L1: name the effective support root so a runner reading the
-            // wrong/isolated config home can be diagnosed (RCA class 5).
-            let notFound = "no journal for \(runId) (support dir: \(AllnighterPaths.support.path))"
-            try? ProcessOwnership.writeRunnerReady(
-                .refused(runId: runId, code: "RUN_NOT_FOUND", message: notFound),
-                in: directory
-            )
-            return .failure(.init(code: "RUN_NOT_FOUND", message: notFound))
-        }
-        if run.status.isTerminal {
-            try? ProcessOwnership.writeRunnerReady(
-                .accepted(runId: runId, at: payload.acceptedAt),
-                in: directory
-            )
-            return .success(())
-        }
-
-        // Journal cross-check: an internally-consistent packet that belongs to
-        // a DIFFERENT run still fails — the minted journal is the run's truth.
-        let runnerCWD = FileManager.default.currentDirectoryPath
-        let (deliveredPrompt, _) = assemblePrompt(request)
-        guard run.prompt == deliveredPrompt else {
-            return refuseProvenance("delivered context does not match the run's minted prompt")
-        }
-        guard run.threadId == request.threadId else {
-            return refuseProvenance("delivered thread id does not match the run's")
-        }
-        guard RunWriteLock.normalize(request.repoRoot ?? runnerCWD) == provenance.repoRoot,
-              RunWriteLock.normalize(run.repoRoot ?? runnerCWD) == provenance.repoRoot else {
-            return refuseProvenance("delivered repo root does not match the run's resolved root")
-        }
-
-        // Claim identity as detached runner (pgid recorded; may be PG-killed).
-        // Ownership handoff complete → drop the F2 staging lease: from here on
-        // the written owner identity is the liveness truth.
-        if let identity = ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner) {
-            try? ProcessOwnership.writeOwnerIdentity(identity, in: directory)
-        }
-        // RLR-S04a: worker process-group spawns under this run record their
-        // `runtimeOwnership` (workers/<id>.owner.json) into THIS run dir. The
-        // coordinator (owner.json, written above) stays a separate owner. This
-        // runner process serves exactly one run, then exits — no clear needed.
-        ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: directory)
-        ProcessOwnership.clearStageLease(in: directory)
-        // Do not seed `heartbeat.json` for a runner handoff. That retired
-        // artifact records progress only; a process handoff is ownership, not
-        // worker output/transition. Durable phase/status truth is `run.json`.
-
-        guard let resolvedRequest = resolveRequest(request) else {
-            try? ProcessOwnership.writeRunnerReady(
-                .refused(runId: runId, code: "CLI_USAGE_ERROR", message: "invalid lane/team/effort combination"),
-                in: directory
-            )
-            return .failure(.init(code: "CLI_USAGE_ERROR", message: "invalid lane/team/effort combination"))
-        }
-        var resolved = TeamResolver.resolve(
-            team: resolvedRequest.team, requestLane: resolvedRequest.lane,
-            requestEffort: resolvedRequest.effort, readyModels: readyModels
-        )
-        guard resolved.isRunnable else {
-            let reason = resolved.blockReason ?? "team cannot run"
-            try? ProcessOwnership.writeRunnerReady(
-                .refused(runId: runId, code: "DEFAULT_TEAM_INVALID", message: reason, preset: resolvedRequest.team.id),
-                in: directory
-            )
-            return .failure(.init(code: "DEFAULT_TEAM_INVALID", message: reason, preset: resolvedRequest.team.id))
-        }
-        if let modelId = Self.normalizedModelId(request.modelId),
-           let pinned = Self.applyModelPin(modelId, to: resolved, readyModels: readyModels) {
-            resolved = pinned
-        }
-
-        // Acquire governor BEFORE accepted handshake — truthful accept.
-        let slot: TeamGovernor.Slot
-        switch governor.acquireDetailed() {
-        case .acquired(let acquired):
-            slot = acquired
-        case .busy:
-            try? ProcessOwnership.writeRunnerReady(
-                .refused(
-                    runId: runId,
-                    code: "TEAM_GOVERNOR_BUSY",
-                    message: "busy: \(config.maxConcurrentTeamRuns) team runs already running",
-                    preset: resolvedRequest.team.id
-                ),
-                in: directory
-            )
-            return .failure(.init(code: "TEAM_GOVERNOR_BUSY", message: "busy: \(config.maxConcurrentTeamRuns) team runs already running",
-                                  preset: resolvedRequest.team.id))
-        case .unavailable(let reason):
-            try? ProcessOwnership.writeRunnerReady(
-                .refused(runId: runId, code: "TEAM_GOVERNOR_UNAVAILABLE", message: reason, preset: resolvedRequest.team.id),
-                in: directory
-            )
-            return .failure(.init(code: "TEAM_GOVERNOR_UNAVAILABLE", message: reason,
-                                  preset: resolvedRequest.team.id))
-        }
-
-        let acceptedAt = now()
-        try? ProcessOwnership.writeRunnerReady(
-            .accepted(runId: runId, at: acceptedAt),
-            in: directory
-        )
-
-        let (prompt, _) = assemblePrompt(request)
-        launchInProcess(
-            run: run, resolved: resolved, request: request, origin: payload.origin,
-            prompt: prompt, slot: slot
-        )
-        if let active = activeRuns[runId] {
-            await active.task.value
-        }
-        return .success(())
-    }
-
-    // MARK: - launch helpers
 
     private func launchInProcess(
         run: TeamRun,

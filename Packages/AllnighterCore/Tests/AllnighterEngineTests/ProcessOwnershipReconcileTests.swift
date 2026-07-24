@@ -374,13 +374,11 @@ final class ProcessOwnershipStartSeamTests: XCTestCase {
             idFactory: { "should-not-exist" }
         )
 
-        // Detached path still consults availability first.
-        let executable = ProcessOwnership.currentExecutablePath() ?? "/usr/bin/false"
+        // Start still consults availability before minting anything.
         let outcome = await service.start(
             AsyncTeamStartRequest(question: "x", lane: .code, teamPresetId: "code_test", effort: .low),
             origin: .cli,
-            readyModels: [opus],
-            ownership: .detachedRunner(executablePath: executable)
+            readyModels: [opus]
         )
         guard case .failure(let refusal) = outcome else {
             return XCTFail("expected TEAM_GOVERNOR_BUSY, got success")

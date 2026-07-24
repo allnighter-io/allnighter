@@ -315,7 +315,7 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "team status", summary: "Poll resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).", milestone: .m1,
-            args: [ArgSpec("run-id", required: true, summary: "The run id from `alln run --detach`.")],
+            args: [ArgSpec("run-id", required: true, summary: "The run id of an accepted async run.")],
             flags: [
                 FlagSpec("json", summary: "Structured TeamStatusResponse."),
                 FlagSpec("persisted", summary: "Read the durable journal only. Returns PersistedTeamStatusResponse with source=journal, live=false, eventSequence, and observedAt; cannot establish worker liveness."),
@@ -327,13 +327,13 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "team result", summary: "Fetch TeamRunJSON when an async run is terminal.", milestone: .m1,
-            args: [ArgSpec("run-id", required: true, summary: "The run id from `alln run --detach`.")],
+            args: [ArgSpec("run-id", required: true, summary: "The run id of an accepted async run.")],
             flags: [FlagSpec("json", summary: "TeamRunJSON or not-ready envelope.")],
             outputSchema: .teamRunJSON
         ),
         CommandSpec(
             "team cancel", summary: "Cancel an active async team run.", milestone: .m1,
-            args: [ArgSpec("run-id", required: true, summary: "The run id from `alln run --detach`.")],
+            args: [ArgSpec("run-id", required: true, summary: "The run id of an accepted async run.")],
             flags: [FlagSpec("json", summary: "Structured TeamCancelResponse.")],
             outputSchema: .teamCancelResponse
         ),
@@ -374,7 +374,7 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "run",
-            summary: "Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. `--detach` is temporarily unsupported during Code Red. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.",
+            summary: "Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.",
             milestone: .m1,
             trigger: "Use when the user wants one worker or team to answer or act in a project repo root (chat / named-model ask / Default Team / async overnight).",
             example: "alln run \"summarize AGENTS.md\" --project . --json",
@@ -402,32 +402,25 @@ public extension ContractRegistry {
                 FlagSpec("try-fix", summary: "Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt."),
                 FlagSpec("executor", takesValue: true, valueType: "id", summary: "Mutating executor team id (default build_slice)."),
                 FlagSpec("agent", takesValue: true, valueType: "id", summary: "Origin agent id for attribution (does not select the worker)."),
-                FlagSpec("thread-id", takesValue: true, valueType: "id", summary: "Owning work thread id (detach path)."),
-                FlagSpec("conversation-id", takesValue: true, valueType: "id", summary: "Origin conversation id (detach path)."),
-                FlagSpec("message-id", takesValue: true, valueType: "id", summary: "Origin message id (detach path)."),
-                FlagSpec("detach", summary: "Temporarily unsupported during Code Red; run in the foreground instead."),
+                FlagSpec("thread-id", takesValue: true, valueType: "id", summary: "Owning work thread id."),
+                FlagSpec("conversation-id", takesValue: true, valueType: "id", summary: "Origin conversation id."),
+                FlagSpec("message-id", takesValue: true, valueType: "id", summary: "Origin message id."),
                 FlagSpec("dry-run", summary: "Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Research Teams are observational in the canonical repository; terminal repoDelta reports whether a mutating run wrote."),
                 FlagSpec("json", summary: "Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects)."),
-                FlagSpec("stream", summary: "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run / --detach."),
+                FlagSpec("stream", summary: "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run."),
             ],
             mutuallyExclusiveFlags: [
                 ["json", "stream"],
                 ["no-commit", "commit-message"],
                 ["dry-run", "stream"],
                 ["dry-run", "try-fix"],
-                ["detach", "stream"],
-                ["detach", "try-fix"],
             ],
             flagConstraints: [
-                // Detach-only provenance ids.
-                FlagConstraint(.onlyWith, "thread-id", "detach"),
-                FlagConstraint(.onlyWith, "conversation-id", "detach"),
-                FlagConstraint(.onlyWith, "message-id", "detach"),
                 FlagConstraint(.onlyWith, "executor", "try-fix"),
                 FlagConstraint(.requires, "accept-survivors", "retry-of"),
             ],
             outputSchema: .teamRunJSON,
-            exampleIds: ["run_detach_json"],
+            exampleIds: ["run_foreground_json"],
             spendsQuota: true,
             freeTwinCommand: "alln run --dry-run",
             menuAction: true
@@ -1003,7 +996,6 @@ public extension ContractRegistry {
         ),
         ErrorSpec("CODE_RED_UNSUPPORTED", ruleId: "code_red.unsupported", agentAction: "Run `alln run` without the unsupported flag in the registered repository.", requiresManual: false, retryable: false, explain: "This surface is temporarily unavailable during Code Red; Allnighter does not route it through a resident fallback."),
         ErrorSpec("STREAM_JOURNAL_FAILED", ruleId: "stream.journal.failed", agentAction: "Fix the local run journal/storage failure, then rerun the foreground command.", requiresManual: true, retryable: true, explain: "A stream event could not be durably stamped, so Allnighter stopped the stream rather than emitting an unjournaled event."),
-        ErrorSpec("RESIDENT_REQUEST_REJECTED", ruleId: "resident.request.rejected", agentAction: "Inspect the returned typed rejection and correct the request.", requiresManual: false, retryable: false, explain: "A detached run could not be durably admitted before spawn. Retained until CR-S06 deletes detached execution."),
         ErrorSpec("RESIDENT_REQUEST_CONFLICT", ruleId: "resident.request.conflict", agentAction: "Reuse the original payload for this idempotency key, or submit a new key for new work.", requiresManual: false, retryable: false, explain: "A request reused an idempotency key with a different semantic payload."),
         ErrorSpec("RESIDENT_ACCEPT_TIMEOUT", ruleId: "resident.accept.timeout", agentAction: "Retry the same idempotency key and payload; do not create a second direct run.", requiresManual: false, retryable: true, explain: "The client did not observe a durable resident acceptance receipt before its timeout."),
         ErrorSpec("SKILL_NOT_FOUND", ruleId: "skill.not_found", agentAction: "Run `alln skills --lane <lane> --json` and pick a valid skill id.", requiresManual: true, retryable: false, explain: "No skill matches the given id. List skills for the lane and retry with a valid SkillID."),
@@ -1199,7 +1191,7 @@ public extension ContractRegistry {
         ExampleRecipe("teams_new_json", title: "Create novel team from manifest", command: "alln teams new custom_code_novel --file ./TeamPreset.json --json"),
         ExampleRecipe("skills_code_json", title: "List Code skills", command: "alln skills --lane code --json"),
         ExampleRecipe("skills_show_json", title: "Show a Code skill", command: "alln skills show bug_reproducer --json"),
-        ExampleRecipe("run_detach_json", title: "Run in foreground", command: "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\""),
+        ExampleRecipe("run_foreground_json", title: "Run in foreground", command: "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\""),
         ExampleRecipe("try_fix_bug", title: "Auto Fix: Bug Hunt then one bounded fix", command: "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json"),
         ExampleRecipe("show_latest_json", title: "Show the latest run", command: "alln show latest --json"),
         ExampleRecipe("spec_full", title: "Retrieve the full result packet", command: "alln spec latest --detail full --json"),

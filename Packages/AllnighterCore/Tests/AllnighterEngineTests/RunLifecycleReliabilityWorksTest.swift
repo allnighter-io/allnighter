@@ -114,53 +114,6 @@ final class RunLifecycleReliabilityWorksTest: XCTestCase {
 
     // MARK: - Item 12: morning zero identity-alive harness orphans
 
-    func testItem12PsAllProjectsShowsZeroHarnessOrphansAfterClose() throws {
-        try XCTSkipIf(true, codeRedDetachSkipReason)
-        let alln = try Self.locateAllnBinary()
-        var fixture = try Fixture.make(name: "rlr-s06-orphans")
-        defer { fixture.tearDown(alln: alln, markerSleeps: ["4941"]) }
-
-        try fixture.installFakeWorker(extraEnv: [
-            "RLR_FAKE_SLEEP_SECONDS": "4941",
-            "RLR_FAKE_HANG": "1",
-        ])
-        try fixture.seedReadyClaude()
-        try fixture.seedSingleWorkerTeam(id: "custom_rlr_s06_orphans")
-
-        let start = try Self.startTeam(
-            alln, prompt: "orphan brief", cwd: fixture.repo, env: fixture.env,
-            teamId: "custom_rlr_s06_orphans")
-        let runId = try XCTUnwrap(start["runId"] as? String)
-        _ = fixture.waitForWorkerLog(needles: ["orphan brief"], test: self)
-        XCTAssertFalse(Self.waitForAlive(matching: "sleep 4941", timeout: 15).isEmpty)
-
-        let kill = try Self.runAlln(
-            alln, ["kill", runId, "--json"], cwd: fixture.repo, env: fixture.env, timeout: 30)
-        XCTAssertEqual(kill.status, 0, "kill failed: \(kill.stderr)")
-
-        // Fixture-local SIGKILL of marker sleeps (same as tearDown) then assert
-        // `ps --all-projects` shows no identity-alive harness rows.
-        Self.pkill(fixture.temp.path)
-        Self.pkill("sleep 4941")
-        Thread.sleep(forTimeInterval: 0.3)
-
-        let ps = try Self.runAlln(
-            alln, ["ps", "--all-projects", "--json"],
-            cwd: fixture.repo, env: fixture.env, timeout: 30)
-        XCTAssertEqual(ps.status, 0, "ps failed: \(ps.stderr)")
-        let json = try Self.jsonObject(ps.stdout)
-        let processes = (json["processes"] as? [[String: Any]]) ?? []
-        let aliveHarness = processes.filter { row in
-            (row["identityAlive"] as? Bool) == true
-                && ((row["id"] as? String) == runId
-                    || (row["projectRoot"] as? String)?.contains(fixture.temp.path) == true)
-        }
-        XCTAssertTrue(
-            aliveHarness.isEmpty,
-            "Works Test 12: identity-alive harness orphans remain: \(aliveHarness)"
-        )
-    }
-
     // MARK: - Item 13: governor over-limit → typed refusal, no run id, no journal
 
     func testItem13GovernorBusyRefusesWithNoRunIdAndNoJournal() async throws {
@@ -203,12 +156,10 @@ final class RunLifecycleReliabilityWorksTest: XCTestCase {
             idFactory: { "should-not-exist" }
         )
 
-        let executable = ProcessOwnership.currentExecutablePath() ?? "/usr/bin/false"
         let outcome = await service.start(
             AsyncTeamStartRequest(question: "x", lane: .code, teamPresetId: "code_test", effort: .low),
             origin: .cli,
-            readyModels: [opus],
-            ownership: .detachedRunner(executablePath: executable)
+            readyModels: [opus]
         )
         guard case .failure(let refusal) = outcome else {
             return XCTFail("expected TEAM_GOVERNOR_BUSY, got success")
