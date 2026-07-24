@@ -1,10 +1,89 @@
 # CODE RED — Core Infrastructure Repair
 
-Status: **READY FOR IMPLEMENTATION — Code Red remains active; CR-S00 is
-complete and CR-S01 is next. All forward execution-path feature work is
-blocked until this document is green.**
+Status: **IMPLEMENTATION IN PROGRESS — Code Red remains active. CR-S00 is
+complete. CR-S01 code is implemented and committed, but remains PARTIAL until
+its interrupted final independent audit and required authenticated
+normal-Terminal Works Test are green. CR-S02–CR-S07 have not begun. All
+forward execution-path feature work remains blocked until this document is
+green.**
 Owner: AllnighterCore + CLI execution path
 Updated: 2026-07-24
+
+## Implementation handoff — 2026-07-24
+
+Work stopped at the founder's request with the repository clean before this
+handoff update. Do not restart implementation by re-diagnosing or replacing
+the committed repair. Resume at the two unclosed CR-S01 gates below.
+
+Committed implementation:
+
+1. `1c04876e code-red: restore direct run and delete mirrors`
+   - routes foreground `alln run` directly to `RunService.run`;
+   - fails detached/resident foreground and Panel execution closed;
+   - deletes the project-mirror, resident project-access boundary, Panel clone
+     isolation, alternate-root schema/wiring, and their dedicated tests;
+   - adds the architecture policy, metrics, and structural Works Test entry
+     points.
+2. `21aa461e code-red: enforce the repair boundary`
+   - makes stream result and journal failures terminal and nonzero;
+   - freezes every public Panel entry point with `CODE_RED_UNSUPPORTED`;
+   - rejects resident Git SHA mismatch exactly;
+   - makes the policy and metrics report the still-existing resident surface
+     honestly and regenerates contracts/help.
+3. `43f0b7fe code-red: prove the repair boundary`
+   - adds one fixture-testable validator used by both the production gate and
+     its negative self-tests;
+   - makes policy-declared scan paths and exclusions executable;
+   - exercises the actual `RunCLI` stream branch through an injected seam for
+     typed service failure and authoritative journal failure.
+
+Proof completed:
+
+- full `swift test --disable-sandbox --package-path Packages/AllnighterCore`
+  passed after the final implementation commit;
+- architecture-policy self-test and production check passed;
+- structural Code Red Works Test passed;
+- generated contract export/check and `git diff --check` passed;
+- executable Panel probes for bare/start/round/status/watch/scaffold-brief/done
+  each failed closed with `CODE_RED_UNSUPPORTED`;
+- current metrics truthfully report zero forbidden production concepts, one
+  public `RunService.run`, one canonical `repoRoot` field, **13** still-live
+  resident operation cases, and **2,143** resident production lines against
+  the CR-S01 ceiling of 2,143 and closeout target of 800.
+
+Audit state:
+
+- the first independent Code Audit rejected swallowed stream failures, live
+  Panel routes, stale-SHA compatibility, and decorative policy/metrics;
+- the second independent audit confirmed those behavior fixes, then rejected
+  policy fixtures that did not invoke the real validator and tests that did
+  not exercise the actual CLI stream branch;
+- `43f0b7fe` addresses those two remaining findings;
+- the final independent re-audit was deliberately interrupted when work was
+  stopped. **Its verdict is unknown. CR-S01 must not be called CLEAN or GREEN
+  until that audit is rerun.**
+
+Required resume order:
+
+1. Independently re-audit commits `1c04876e`, `21aa461e`, and `43f0b7fe`
+   against `docs/operations/Code_Audit.md`. Fix only concrete findings.
+2. From a normal Terminal, build `alln` from the same clean committed HEAD and
+   run CR-S01's real authenticated direct Works Test. Record binary SHA,
+   canonical root, source/process/run IDs, `.git`/HEAD evidence, result, and
+   proof that no resident request or alternate repository was created.
+3. Only after both gates are green, mark CR-S01 complete and begin CR-S02.
+
+Prepared but unimplemented CR-S02 boundary:
+
+- resolve the run plan once in `RunService.run` and pass that plan down;
+- make `RunCLI` only parse, look up the registered project, and render output;
+- replace swallowed authoritative direct-path persistence with one visible
+  `RUN_JOURNAL_UNAVAILABLE` path;
+- add bounded pre/post Git observation for research without resetting files;
+- prove canonical root, single owner, write-lock behavior, process-group
+  ownership, and concurrent stdout/stderr above 256 KB;
+- do not mix resident/async control-plane deletion into CR-S02; that remains
+  CR-S05/CR-S06 after the restricted-host A/B proof.
 
 ## Authority and precedence
 
@@ -577,7 +656,11 @@ surface runnable.
 
 Proof: active routing reaches this packet first.
 
-### CR-S01 — Remove alternate repositories and restore direct ownership
+### CR-S01 — Remove alternate repositories and restore direct ownership — PARTIAL
+
+Implementation is committed through `43f0b7fe`. Deterministic proof is green.
+The final independent audit and authenticated normal-Terminal Works Test remain
+open; see the implementation handoff above.
 
 Do these in one slice so deletion cannot leave the mirror path as the only
 working path:
