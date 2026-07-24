@@ -102,6 +102,70 @@ final class CatalogCLITests: XCTestCase {
         }
     }
 
+    /// A team definition JSON missing the required `lead` key must surface as
+    /// `TEAM_INVALID` naming the missing field — not `INTERNAL_ERROR` with raw
+    /// `DecodingError` internals (agents were told to "retry once", which loops
+    /// forever on a file that will never parse differently).
+    func testTeamsNewMissingLeadFieldIsTeamInvalid() throws {
+        let seed = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
+        let team = seed.duplicated(newId: "custom_code_missing_lead", newName: "Missing Lead")
+        let data = try CoreJSON.encode(team)
+        var obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        obj.removeValue(forKey: "lead")
+        let mutated = try JSONSerialization.data(withJSONObject: obj)
+
+        let dir = teamsRoot.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("missing-lead.json")
+        try mutated.write(to: url)
+
+        XCTAssertThrowsError(
+            try AllnighterCLI.loadTeamDefinition(from: url.path, expectedId: team.id, verb: "new")
+        ) { error in
+            guard case CatalogError.teamInvalid(let detail) = error else {
+                return XCTFail("expected teamInvalid, got \(error)")
+            }
+            XCTAssertTrue(detail.contains("lead"), detail)
+            XCTAssertFalse(detail.contains("keyNotFound"), "raw DecodingError internals must not leak: \(detail)")
+            XCTAssertFalse(detail.contains("CodingKeys"), "raw DecodingError internals must not leak: \(detail)")
+            let envelope = AllnighterCLI.catalogErrorEnvelope(.teamInvalid(detail))
+            XCTAssertEqual(envelope.code, "TEAM_INVALID")
+        }
+    }
+
+    /// A team definition JSON with a `null` `workerSpecs[0].skillId` must surface
+    /// as `TEAM_INVALID` naming the exact field path — not `INTERNAL_ERROR` with
+    /// raw `DecodingError` internals.
+    func testTeamsNewNullWorkerSkillIdIsTeamInvalid() throws {
+        let seed = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
+        let team = seed.duplicated(newId: "custom_code_null_skill", newName: "Null Skill")
+        XCTAssertFalse(team.workerSpecs.isEmpty, "fixture must have at least one worker row to null out")
+        let data = try CoreJSON.encode(team)
+        var obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var workerSpecs = try XCTUnwrap(obj["workerSpecs"] as? [[String: Any]])
+        workerSpecs[0]["skillId"] = NSNull()
+        obj["workerSpecs"] = workerSpecs
+        let mutated = try JSONSerialization.data(withJSONObject: obj)
+
+        let dir = teamsRoot.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("null-skill.json")
+        try mutated.write(to: url)
+
+        XCTAssertThrowsError(
+            try AllnighterCLI.loadTeamDefinition(from: url.path, expectedId: team.id, verb: "new")
+        ) { error in
+            guard case CatalogError.teamInvalid(let detail) = error else {
+                return XCTFail("expected teamInvalid, got \(error)")
+            }
+            XCTAssertTrue(detail.contains("workerSpecs[0].skillId"), detail)
+            XCTAssertFalse(detail.contains("valueNotFound"), "raw DecodingError internals must not leak: \(detail)")
+            XCTAssertFalse(detail.contains("codingPath"), "raw DecodingError internals must not leak: \(detail)")
+            let envelope = AllnighterCLI.catalogErrorEnvelope(.teamInvalid(detail))
+            XCTAssertEqual(envelope.code, "TEAM_INVALID")
+        }
+    }
+
     func testSkillsNewCreatesCustomSkill() throws {
         let skill = try SkillCatalog.createCustom(
             lane: .code, name: "Fresh Skill", purpose: .answer, template: "Be precise."

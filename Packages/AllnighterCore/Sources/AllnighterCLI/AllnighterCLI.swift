@@ -1083,11 +1083,66 @@ struct AllnighterCLI {
             }
             return envelope.definition
         }
-        let team = try CoreJSON.decode(TeamPreset.self, from: data)
+        let team: TeamPreset
+        do {
+            team = try CoreJSON.decode(TeamPreset.self, from: data)
+        } catch let error as DecodingError {
+            // Surface as TEAM_INVALID (agent fixes the file) rather than
+            // INTERNAL_ERROR (agent retries verbatim and loops forever).
+            throw CatalogError.teamInvalid(describeTeamDecodingError(error))
+        }
         guard team.id == expectedId else {
             throw CatalogError.teamInvalid("file team id \(team.id) does not match \(expectedId)")
         }
         return team
+    }
+
+    /// Translates a `TeamPreset` JSON `DecodingError` into an agent-actionable
+    /// message naming the exact JSON field path, instead of letting the raw
+    /// Swift `DecodingError` description (internal type names, `CodingKeys`
+    /// noise) leak into the CLI's error envelope.
+    static func describeTeamDecodingError(_ error: DecodingError) -> String {
+        func path(_ codingPath: [CodingKey]) -> String {
+            var result = ""
+            for key in codingPath {
+                if let index = key.intValue {
+                    result += "[\(index)]"
+                } else if result.isEmpty {
+                    result = key.stringValue
+                } else {
+                    result += ".\(key.stringValue)"
+                }
+            }
+            return result
+        }
+        func describe(_ type: Any.Type) -> String {
+            switch type {
+            case is String.Type: return "string"
+            case is Bool.Type: return "boolean"
+            case is Int.Type, is Int8.Type, is Int16.Type, is Int32.Type, is Int64.Type,
+                 is UInt.Type, is UInt8.Type, is UInt16.Type, is UInt32.Type, is UInt64.Type,
+                 is Double.Type, is Float.Type:
+                return "number"
+            default: return "\(type)"
+            }
+        }
+        switch error {
+        case .keyNotFound(let key, let context):
+            let base = path(context.codingPath)
+            let field = base.isEmpty ? key.stringValue : "\(base).\(key.stringValue)"
+            return "team definition missing required field '\(field)'"
+        case .valueNotFound(let type, let context):
+            return "team definition field '\(path(context.codingPath))' must be a \(describe(type)), found null"
+        case .typeMismatch(let type, let context):
+            return "team definition field '\(path(context.codingPath))' must be a \(describe(type))"
+        case .dataCorrupted(let context):
+            let base = path(context.codingPath)
+            return base.isEmpty
+                ? "team definition is not valid JSON: \(context.debugDescription)"
+                : "team definition field '\(base)' is invalid: \(context.debugDescription)"
+        @unknown default:
+            return "team definition could not be decoded: \(error)"
+        }
     }
 
     // MARK: - Catalog mutation (skills)
