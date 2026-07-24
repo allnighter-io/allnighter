@@ -751,70 +751,37 @@ Output schema: `relayJSON`.
 
 ### `alln panel start`
 
-Start a Panel session: session-led blind jury on any target. Parks awaitingPM with a resolved roster.
-
-Flags:
-- `--doc <path>` — Target path to judge (required) — re-read fresh each round; not hard-coded to docs/phases/.
-- `--project <id>` — Project id, name, or repo path (required).
-- `--team <alias>` — Team alias (fuzzy); unique match is echoed. Zero-config uses remembered-else-lane-default.
-- `--seat <alias:lens>` — Power mode: override/extend a seat as <alias>:<lens>. Alias resolves via PilotSeatResolver at start (real model id stored). Repeatable.
-- `--max-rounds <integer>` — Ceiling on new rounds (default 10). Seat reruns are exempt.
-- `--json` — Emit PanelStartJSON.
+Temporarily unsupported during Code Red; no Panel session is started.
 
 Output schema: `panelJSON`.
 
 ### `alln panel round`
 
-Dispatch one panel round (or a --seats subset rerun). Blocks; reports complete/partial/failed outcome plus per-seat findings, statuses, and reasons; NDJSON progress while running.
-
-Flags:
-- `--panel <id>` — Panel id (required).
-- `--brief <path>` — Focus brief markdown path, or `-` for stdin. Built-in on round 1 when omitted; required on round 2+.
-- `--seats <list>` — Comma-separated worker ids to rerun on the SAME round (new attempt; replaces those seats only).
-- `--no-wait` — Dispatch in the background; poll with panel status/watch.
-- `--json` — Emit NDJSON progress events, then a final PanelRoundJSON envelope (single-line).
+Temporarily unsupported during Code Red; no Panel work is dispatched.
 
 Output schema: `panelRoundJSON`.
 
 ### `alln panel status`
 
-Read a Panel session's durable state — roster, rounds, target hash, recovery nextActions when in flight.
-
-Flags:
-- `--panel <id>` — Panel id (required).
-- `--json` — Emit PanelJSON (+ recovery when in flight).
+Temporarily unsupported during Code Red; it does not route to a resident coordinator.
 
 Output schema: `panelJSON`.
 
 ### `alln panel watch`
 
-Poll a Panel until its in-flight round settles back to awaitingPM (or a terminal status). Dead-owner → run panel watch (DX5).
-
-Flags:
-- `--panel <id>` — Panel id (required).
-- `--json` — Emit PanelJSON + optional note.
+Temporarily unsupported during Code Red; it does not poll or recover Panel work.
 
 Output schema: `panelJSON`.
 
 ### `alln panel scaffold-brief`
 
-Write or re-emit a suggested focus-brief template (rejection-carry + stance lines) for a panel round.
-
-Flags:
-- `--panel <id>` — Panel id (required).
-- `--round <integer>` — Round number for the template (default 1).
-- `--json` — Emit JSON with the template text.
+Temporarily unsupported during Code Red.
 
 Output schema: `panelJSON`.
 
 ### `alln panel done`
 
-Declare a Panel session done (session judgment only — never auto-converges). Optional survivors note.
-
-Flags:
-- `--panel <id>` — Panel id (required).
-- `--note <string>` — Optional done note (survivors / MEMORY fodder).
-- `--json` — Emit PanelJSON.
+Temporarily unsupported during Code Red; it does not change Panel state.
 
 Output schema: `panelJSON`.
 
@@ -1430,7 +1397,8 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |
 | `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
 | `CODE_RED_UNSUPPORTED` | no | no | `operational` | Run `alln run` without the unsupported flag in the registered repository. |
-| `COORDINATOR_VERSION_MISMATCH` | yes | no | `operational` | Refresh with `alln serve install --json` only when the binary or contract version differs; same-version, same-contract Git-SHA drift is compatible and does not require a refresh. |
+| `STREAM_JOURNAL_FAILED` | yes | yes | `operational` | Fix the local run journal/storage failure, then rerun the foreground command. |
+| `COORDINATOR_VERSION_MISMATCH` | yes | no | `operational` | Refresh with `alln serve install --json` when the binary Git SHA, binary version, or contract version differs. |
 | `RESIDENT_REQUEST_REJECTED` | no | no | `operational` | Inspect the returned typed rejection and correct the request; do not retry by spawning a source directly. |
 | `RESIDENT_REQUEST_CONFLICT` | no | no | `operational` | Reuse the original payload for this idempotency key, or submit a new key for new work. |
 | `RESIDENT_ACCEPT_TIMEOUT` | no | yes | `operational` | Retry the same idempotency key and payload; do not create a second direct run. |
@@ -1482,10 +1450,10 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
-| `PANEL_NOT_FOUND` | yes | no | `operational` | Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`. |
-| `PANEL_ROUND_IN_FLIGHT` | no | yes | `operational` | Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`. |
-| `PANEL_TARGET_MISSING` | yes | no | `operational` | Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one. |
-| `PANEL_NOT_AWAITING` | yes | no | `operational` | Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to scrutinize). |
+| `PANEL_NOT_FOUND` | yes | no | `operational` | Panel is temporarily unsupported during Code Red; use `alln run` instead. |
+| `PANEL_ROUND_IN_FLIGHT` | no | no | `operational` | Panel is temporarily unsupported during Code Red; use `alln run` instead. |
+| `PANEL_TARGET_MISSING` | yes | no | `operational` | Panel is temporarily unsupported during Code Red; use `alln run` instead. |
+| `PANEL_NOT_AWAITING` | yes | no | `operational` | Panel is temporarily unsupported during Code Red; use `alln run` instead. |
 | `OWNERSHIP_NOT_FOUND` | no | no | `operational` | Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree. |
 | `OWNERSHIP_ALREADY_TERMINAL` | no | no | `operational` | No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`. |
 | `OWNERSHIP_IDENTITY_MISMATCH` | yes | no | `operational` | Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead. |

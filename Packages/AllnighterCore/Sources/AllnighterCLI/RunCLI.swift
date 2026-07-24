@@ -4,6 +4,27 @@ import AllnighterEngine
 
 /// `alln run` — the unified run entrypoint (Unified Run Model).
 enum RunCLI {
+    struct StreamOutcome: Equatable {
+        var exitCode: Int
+        var errorCode: String?
+        var message: String?
+
+        static let success = StreamOutcome(exitCode: 0, errorCode: nil, message: nil)
+    }
+
+    static func streamOutcome(for error: RunServiceError?) -> StreamOutcome {
+        guard let error else { return .success }
+        return StreamOutcome(exitCode: 1, errorCode: error.code, message: error.description)
+    }
+
+    static func streamJournalFailure(_ error: Error) -> StreamOutcome {
+        StreamOutcome(
+            exitCode: 1,
+            errorCode: "STREAM_JOURNAL_FAILED",
+            message: "could not persist a stream event: \(error)"
+        )
+    }
+
     /// PO-F5 / RLR-L8: parse a positive integer seconds flag (`--idle-timeout`,
     /// `--handshake-timeout`, `--first-activity-timeout`, `--wall-timeout`).
     /// `nil` raw → ok(nil) (use product/manifest default). Non-numeric / non-positive → error.
@@ -153,13 +174,42 @@ enum RunCLI {
             let attachment = NDJSONStreamProjector.NDJSONAttachment()
             let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
             let runTask = Task {
-                _ = await service.run(request, origin: .cli, originAgent: opts.value("agent"), events: continuation)
+                await service.run(request, origin: .cli, originAgent: opts.value("agent"), events: continuation)
             }
+            var journalFailure: StreamOutcome?
             for await event in stream {
-                let stamped = (try? journal.append(event)) ?? event
+                let stamped: RunEvent
+                do {
+                    stamped = try journal.append(event)
+                } catch {
+                    journalFailure = streamJournalFailure(error)
+                    continuation.finish()
+                    break
+                }
                 if let line = attachment.liveLine(for: stamped) { print(line) }
             }
-            _ = await runTask.value
+            let result = await runTask.value
+            if let journalFailure {
+                AllnighterCLI.emitFailure(
+                    code: journalFailure.errorCode ?? "STREAM_JOURNAL_FAILED",
+                    message: journalFailure.message ?? "could not persist a stream event"
+                )
+                exit(Int32(journalFailure.exitCode))
+            }
+            let outcome: StreamOutcome
+            switch result {
+            case .success:
+                outcome = .success
+            case .failure(let error):
+                outcome = streamOutcome(for: error)
+            }
+            if outcome.exitCode != 0 {
+                AllnighterCLI.emitFailure(
+                    code: outcome.errorCode ?? "INTERNAL_ERROR",
+                    message: outcome.message ?? "stream run failed"
+                )
+                exit(Int32(outcome.exitCode))
+            }
             if let closing = attachment.closingLine() { print(closing) }
             return
         }

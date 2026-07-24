@@ -40,10 +40,34 @@
     "isolatedProjectRoot",
     "projectCloneRoot"
   ],
-  "allowedResidentOperations": [],
+  "allowedResidentOperations": [
+    "teamRun",
+    "panelStart",
+    "panelRound",
+    "panelDone",
+    "sourceProbe",
+    "boostSeed",
+    "pendingRun",
+    "projectRecheck",
+    "query",
+    "cancel",
+    "teamCancel",
+    "teamReconcile",
+    "admissionProbe"
+  ],
   "runSemanticsOwner": "RunService.run",
+  "runSemanticsOwnerFile": "Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift",
+  "directAdapterFile": "Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift",
   "canonicalRootField": "repoRoot",
-  "residentProductionLineBudget": 800,
+  "residentProductionFiles": [
+    "Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentExecutionRendezvous.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentExecutionBroker.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinator.swift",
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinatorProbe.swift"
+  ],
+  "residentProductionLineCeiling": 2143,
+  "residentCloseoutLineBudget": 800,
   "founderOwnedPaths": [
     "config/architecture-policy.json",
     "scripts/check_architecture_policy.sh",

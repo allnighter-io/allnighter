@@ -2821,41 +2821,7 @@
 
       ],
       "flags" : [
-        {
-          "name" : "doc",
-          "summary" : "Target path to judge (required) — re-read fresh each round; not hard-coded to docs\/phases\/.",
-          "takesValue" : true,
-          "valueType" : "path"
-        },
-        {
-          "name" : "project",
-          "summary" : "Project id, name, or repo path (required).",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "team",
-          "summary" : "Team alias (fuzzy); unique match is echoed. Zero-config uses remembered-else-lane-default.",
-          "takesValue" : true,
-          "valueType" : "alias"
-        },
-        {
-          "name" : "seat",
-          "summary" : "Power mode: override\/extend a seat as <alias>:<lens>. Alias resolves via PilotSeatResolver at start (real model id stored). Repeatable.",
-          "takesValue" : true,
-          "valueType" : "alias:lens"
-        },
-        {
-          "name" : "max-rounds",
-          "summary" : "Ceiling on new rounds (default 10). Seat reruns are exempt.",
-          "takesValue" : true,
-          "valueType" : "integer"
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit PanelStartJSON.",
-          "takesValue" : false
-        }
+
       ],
       "menuAction" : false,
       "milestone" : "m1",
@@ -2865,7 +2831,7 @@
       "name" : "panel start",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Start a Panel session: session-led blind jury on any target. Parks awaitingPM with a resolved roster.",
+      "summary" : "Temporarily unsupported during Code Red; no Panel session is started.",
       "visibility" : "public"
     },
     {
@@ -2886,34 +2852,7 @@
 
       ],
       "flags" : [
-        {
-          "name" : "panel",
-          "summary" : "Panel id (required).",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "brief",
-          "summary" : "Focus brief markdown path, or `-` for stdin. Built-in on round 1 when omitted; required on round 2+.",
-          "takesValue" : true,
-          "valueType" : "path"
-        },
-        {
-          "name" : "seats",
-          "summary" : "Comma-separated worker ids to rerun on the SAME round (new attempt; replaces those seats only).",
-          "takesValue" : true,
-          "valueType" : "list"
-        },
-        {
-          "name" : "no-wait",
-          "summary" : "Dispatch in the background; poll with panel status\/watch.",
-          "takesValue" : false
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit NDJSON progress events, then a final PanelRoundJSON envelope (single-line).",
-          "takesValue" : false
-        }
+
       ],
       "menuAction" : false,
       "milestone" : "m1",
@@ -2923,7 +2862,7 @@
       "name" : "panel round",
       "outputSchema" : "panelRoundJSON",
       "spendsQuota" : false,
-      "summary" : "Dispatch one panel round (or a --seats subset rerun). Blocks; reports complete\/partial\/failed outcome plus per-seat findings, statuses, and reasons; NDJSON progress while running.",
+      "summary" : "Temporarily unsupported during Code Red; no Panel work is dispatched.",
       "visibility" : "public"
     },
     {
@@ -2944,17 +2883,7 @@
 
       ],
       "flags" : [
-        {
-          "name" : "panel",
-          "summary" : "Panel id (required).",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit PanelJSON (+ recovery when in flight).",
-          "takesValue" : false
-        }
+
       ],
       "menuAction" : false,
       "milestone" : "m1",
@@ -2964,7 +2893,7 @@
       "name" : "panel status",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Read a Panel session's durable state — roster, rounds, target hash, recovery nextActions when in flight.",
+      "summary" : "Temporarily unsupported during Code Red; it does not route to a resident coordinator.",
       "visibility" : "public"
     },
     {
@@ -2985,17 +2914,7 @@
 
       ],
       "flags" : [
-        {
-          "name" : "panel",
-          "summary" : "Panel id (required).",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit PanelJSON + optional note.",
-          "takesValue" : false
-        }
+
       ],
       "menuAction" : false,
       "milestone" : "m1",
@@ -3005,7 +2924,7 @@
       "name" : "panel watch",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Poll a Panel until its in-flight round settles back to awaitingPM (or a terminal status). Dead-owner → run panel watch (DX5).",
+      "summary" : "Temporarily unsupported during Code Red; it does not poll or recover Panel work.",
       "visibility" : "public"
     },
     {
@@ -3026,23 +2945,7 @@
 
       ],
       "flags" : [
-        {
-          "name" : "panel",
-          "summary" : "Panel id (required).",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "round",
-          "summary" : "Round number for the template (default 1).",
-          "takesValue" : true,
-          "valueType" : "integer"
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit JSON with the template text.",
-          "takesValue" : false
-        }
+
       ],
       "menuAction" : false,
       "milestone" : "m1",
@@ -3052,7 +2955,7 @@
       "name" : "panel scaffold-brief",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Write or re-emit a suggested focus-brief template (rejection-carry + stance lines) for a panel round.",
+      "summary" : "Temporarily unsupported during Code Red.",
       "visibility" : "public"
     },
     {
@@ -3073,23 +2976,7 @@
 
       ],
       "flags" : [
-        {
-          "name" : "panel",
-          "summary" : "Panel id (required).",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
-          "name" : "note",
-          "summary" : "Optional done note (survivors \/ MEMORY fodder).",
-          "takesValue" : true,
-          "valueType" : "string"
-        },
-        {
-          "name" : "json",
-          "summary" : "Emit PanelJSON.",
-          "takesValue" : false
-        }
+
       ],
       "menuAction" : false,
       "milestone" : "m1",
@@ -3099,7 +2986,7 @@
       "name" : "panel done",
       "outputSchema" : "panelJSON",
       "spendsQuota" : false,
-      "summary" : "Declare a Panel session done (session judgment only — never auto-converges). Optional survivors note.",
+      "summary" : "Temporarily unsupported during Code Red; it does not change Panel state.",
       "visibility" : "public"
     },
     {
@@ -5523,10 +5410,19 @@
       "ruleId" : "code_red.unsupported"
     },
     {
-      "agentAction" : "Refresh with `alln serve install --json` only when the binary or contract version differs; same-version, same-contract Git-SHA drift is compatible and does not require a refresh.",
+      "agentAction" : "Fix the local run journal\/storage failure, then rerun the foreground command.",
+      "code" : "STREAM_JOURNAL_FAILED",
+      "exitClass" : "operational",
+      "explain" : "A stream event could not be durably stamped, so Allnighter stopped the stream rather than emitting an unjournaled event.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "stream.journal.failed"
+    },
+    {
+      "agentAction" : "Refresh with `alln serve install --json` when the binary Git SHA, binary version, or contract version differs.",
       "code" : "COORDINATOR_VERSION_MISMATCH",
       "exitClass" : "operational",
-      "explain" : "The coordinator protocol differs from this client, so dispatch was refused. Git SHA is diagnostic provenance, not a compatibility boundary when binary and contract versions match.",
+      "explain" : "The coordinator protocol differs from this client, so dispatch was refused before source execution. Exact binary Git SHA is required.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "coordinator.version_mismatch"
@@ -5991,37 +5887,37 @@
       "ruleId" : "relay.verdict.unparseable"
     },
     {
-      "agentAction" : "Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`.",
+      "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
       "code" : "PANEL_NOT_FOUND",
       "exitClass" : "operational",
-      "explain" : "No Panel session matches the given id.",
+      "explain" : "No active Panel recovery path is available during Code Red.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "panel.not_found"
     },
     {
-      "agentAction" : "Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`.",
+      "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
       "code" : "PANEL_ROUND_IN_FLIGHT",
       "exitClass" : "operational",
-      "explain" : "A panel round is already dispatching (status == running). A concurrent `panel round` on the same panel is refused rather than racing a second dispatch.",
+      "explain" : "Panel has no active dispatch or polling path during Code Red.",
       "requiresManual" : false,
-      "retryable" : true,
+      "retryable" : false,
       "ruleId" : "panel.round.in_flight"
     },
     {
-      "agentAction" : "Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one.",
+      "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
       "code" : "PANEL_TARGET_MISSING",
       "exitClass" : "operational",
-      "explain" : "The panel target file is missing or unreadable at dispatch time — no hash can be pinned.",
+      "explain" : "Panel has no active target dispatch path during Code Red.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "panel.target.missing"
     },
     {
-      "agentAction" : "Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to scrutinize).",
+      "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
       "code" : "PANEL_NOT_AWAITING",
       "exitClass" : "operational",
-      "explain" : "`panel round` was called against a panel that isn't parked at `awaitingPM` — it already reached done, or is otherwise not ready for a new dispatch.",
+      "explain" : "Panel has no active recovery or state-change path during Code Red.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "panel.not_awaiting"

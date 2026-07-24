@@ -547,62 +547,35 @@ public extension ContractRegistry {
             ],
             outputSchema: .relayJSON
         ),
-        // Panel — top-level blind jury (docs/phases/Pilot_Panel.md decision 11 / PN-S04)
+        // Panel is retained only as a discoverable, temporarily unsupported surface.
         CommandSpec(
-            "panel start", summary: "Start a Panel session: session-led blind jury on any target. Parks awaitingPM with a resolved roster.", milestone: .m1,
-            flags: [
-                FlagSpec("doc", takesValue: true, valueType: "path", summary: "Target path to judge (required) — re-read fresh each round; not hard-coded to docs/phases/."),
-                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
-                FlagSpec("team", takesValue: true, valueType: "alias", summary: "Team alias (fuzzy); unique match is echoed. Zero-config uses remembered-else-lane-default."),
-                FlagSpec("seat", takesValue: true, valueType: "alias:lens", summary: "Power mode: override/extend a seat as <alias>:<lens>. Alias resolves via PilotSeatResolver at start (real model id stored). Repeatable."),
-                FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Ceiling on new rounds (default 10). Seat reruns are exempt."),
-                FlagSpec("json", summary: "Emit PanelStartJSON."),
-            ],
+            "panel start", summary: "Temporarily unsupported during Code Red; no Panel session is started.", milestone: .m1,
+            flags: [],
             outputSchema: .panelJSON
         ),
         CommandSpec(
-            "panel round", summary: "Dispatch one panel round (or a --seats subset rerun). Blocks; reports complete/partial/failed outcome plus per-seat findings, statuses, and reasons; NDJSON progress while running.", milestone: .m1,
-            flags: [
-                FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
-                FlagSpec("brief", takesValue: true, valueType: "path", summary: "Focus brief markdown path, or `-` for stdin. Built-in on round 1 when omitted; required on round 2+."),
-                FlagSpec("seats", takesValue: true, valueType: "list", summary: "Comma-separated worker ids to rerun on the SAME round (new attempt; replaces those seats only)."),
-                FlagSpec("no-wait", summary: "Dispatch in the background; poll with panel status/watch."),
-                FlagSpec("json", summary: "Emit NDJSON progress events, then a final PanelRoundJSON envelope (single-line)."),
-            ],
+            "panel round", summary: "Temporarily unsupported during Code Red; no Panel work is dispatched.", milestone: .m1,
+            flags: [],
             outputSchema: .panelRoundJSON
         ),
         CommandSpec(
-            "panel status", summary: "Read a Panel session's durable state — roster, rounds, target hash, recovery nextActions when in flight.", milestone: .m1,
-            flags: [
-                FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
-                FlagSpec("json", summary: "Emit PanelJSON (+ recovery when in flight)."),
-            ],
+            "panel status", summary: "Temporarily unsupported during Code Red; it does not route to a resident coordinator.", milestone: .m1,
+            flags: [],
             outputSchema: .panelJSON
         ),
         CommandSpec(
-            "panel watch", summary: "Poll a Panel until its in-flight round settles back to awaitingPM (or a terminal status). Dead-owner → run panel watch (DX5).", milestone: .m1,
-            flags: [
-                FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
-                FlagSpec("json", summary: "Emit PanelJSON + optional note."),
-            ],
+            "panel watch", summary: "Temporarily unsupported during Code Red; it does not poll or recover Panel work.", milestone: .m1,
+            flags: [],
             outputSchema: .panelJSON
         ),
         CommandSpec(
-            "panel scaffold-brief", summary: "Write or re-emit a suggested focus-brief template (rejection-carry + stance lines) for a panel round.", milestone: .m1,
-            flags: [
-                FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
-                FlagSpec("round", takesValue: true, valueType: "integer", summary: "Round number for the template (default 1)."),
-                FlagSpec("json", summary: "Emit JSON with the template text."),
-            ],
+            "panel scaffold-brief", summary: "Temporarily unsupported during Code Red.", milestone: .m1,
+            flags: [],
             outputSchema: .panelJSON
         ),
         CommandSpec(
-            "panel done", summary: "Declare a Panel session done (session judgment only — never auto-converges). Optional survivors note.", milestone: .m1,
-            flags: [
-                FlagSpec("panel", takesValue: true, valueType: "id", summary: "Panel id (required)."),
-                FlagSpec("note", takesValue: true, valueType: "string", summary: "Optional done note (survivors / MEMORY fodder)."),
-                FlagSpec("json", summary: "Emit PanelJSON."),
-            ],
+            "panel done", summary: "Temporarily unsupported during Code Red; it does not change Panel state.", milestone: .m1,
+            flags: [],
             outputSchema: .panelJSON
         ),
         CommandSpec(
@@ -1034,7 +1007,8 @@ public extension ContractRegistry {
             explain: "A run.json exists on disk but failed to decode (e.g. an unknown/legacy status raw value). Distinct from RUN_NOT_FOUND, which means no journal was ever found at all (RLR-L8)."
         ),
         ErrorSpec("CODE_RED_UNSUPPORTED", ruleId: "code_red.unsupported", agentAction: "Run `alln run` without the unsupported flag in the registered repository.", requiresManual: false, retryable: false, explain: "This surface is temporarily unavailable during Code Red; Allnighter does not route it through a resident fallback."),
-        ErrorSpec("COORDINATOR_VERSION_MISMATCH", ruleId: "coordinator.version_mismatch", agentAction: "Refresh with `alln serve install --json` only when the binary or contract version differs; same-version, same-contract Git-SHA drift is compatible and does not require a refresh.", requiresManual: true, retryable: false, explain: "The coordinator protocol differs from this client, so dispatch was refused. Git SHA is diagnostic provenance, not a compatibility boundary when binary and contract versions match."),
+        ErrorSpec("STREAM_JOURNAL_FAILED", ruleId: "stream.journal.failed", agentAction: "Fix the local run journal/storage failure, then rerun the foreground command.", requiresManual: true, retryable: true, explain: "A stream event could not be durably stamped, so Allnighter stopped the stream rather than emitting an unjournaled event."),
+        ErrorSpec("COORDINATOR_VERSION_MISMATCH", ruleId: "coordinator.version_mismatch", agentAction: "Refresh with `alln serve install --json` when the binary Git SHA, binary version, or contract version differs.", requiresManual: true, retryable: false, explain: "The coordinator protocol differs from this client, so dispatch was refused before source execution. Exact binary Git SHA is required."),
         ErrorSpec("RESIDENT_REQUEST_REJECTED", ruleId: "resident.request.rejected", agentAction: "Inspect the returned typed rejection and correct the request; do not retry by spawning a source directly.", requiresManual: false, retryable: false, explain: "The resident coordinator rejected the typed request before source execution."),
         ErrorSpec("RESIDENT_REQUEST_CONFLICT", ruleId: "resident.request.conflict", agentAction: "Reuse the original payload for this idempotency key, or submit a new key for new work.", requiresManual: false, retryable: false, explain: "A request reused an idempotency key with a different semantic payload."),
         ErrorSpec("RESIDENT_ACCEPT_TIMEOUT", ruleId: "resident.accept.timeout", agentAction: "Retry the same idempotency key and payload; do not create a second direct run.", requiresManual: false, retryable: true, explain: "The client did not observe a durable resident acceptance receipt before its timeout."),
@@ -1086,10 +1060,10 @@ public extension ContractRegistry {
         ErrorSpec("RELAY_ROUND_IN_FLIGHT", ruleId: "relay.round.in_flight", agentAction: "Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`.", requiresManual: false, retryable: true, explain: "A pilot relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent `pilot handoff` on the same relay is refused rather than racing a second dev turn onto one repo root."),
         ErrorSpec("RELAY_NOT_AWAITING_PM", ruleId: "relay.not_awaiting_pm", agentAction: "Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to).", requiresManual: true, retryable: false, explain: "`pilot handoff` was called against a relay that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a Pilot relay's normal between-rounds state."),
         ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "Pilot's `pilot handoff` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the piloting session is live and just resubmits."),
-        ErrorSpec("PANEL_NOT_FOUND", ruleId: "panel.not_found", agentAction: "Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`.", requiresManual: true, retryable: false, explain: "No Panel session matches the given id."),
-        ErrorSpec("PANEL_ROUND_IN_FLIGHT", ruleId: "panel.round.in_flight", agentAction: "Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`.", requiresManual: false, retryable: true, explain: "A panel round is already dispatching (status == running). A concurrent `panel round` on the same panel is refused rather than racing a second dispatch."),
-        ErrorSpec("PANEL_TARGET_MISSING", ruleId: "panel.target.missing", agentAction: "Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one.", requiresManual: true, retryable: false, explain: "The panel target file is missing or unreadable at dispatch time — no hash can be pinned."),
-        ErrorSpec("PANEL_NOT_AWAITING", ruleId: "panel.not_awaiting", agentAction: "Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to scrutinize).", requiresManual: true, retryable: false, explain: "`panel round` was called against a panel that isn't parked at `awaitingPM` — it already reached done, or is otherwise not ready for a new dispatch."),
+        ErrorSpec("PANEL_NOT_FOUND", ruleId: "panel.not_found", agentAction: "Panel is temporarily unsupported during Code Red; use `alln run` instead.", requiresManual: true, retryable: false, explain: "No active Panel recovery path is available during Code Red."),
+        ErrorSpec("PANEL_ROUND_IN_FLIGHT", ruleId: "panel.round.in_flight", agentAction: "Panel is temporarily unsupported during Code Red; use `alln run` instead.", requiresManual: false, retryable: false, explain: "Panel has no active dispatch or polling path during Code Red."),
+        ErrorSpec("PANEL_TARGET_MISSING", ruleId: "panel.target.missing", agentAction: "Panel is temporarily unsupported during Code Red; use `alln run` instead.", requiresManual: true, retryable: false, explain: "Panel has no active target dispatch path during Code Red."),
+        ErrorSpec("PANEL_NOT_AWAITING", ruleId: "panel.not_awaiting", agentAction: "Panel is temporarily unsupported during Code Red; use `alln run` instead.", requiresManual: true, retryable: false, explain: "Panel has no active recovery or state-change path during Code Red."),
         ErrorSpec("OWNERSHIP_NOT_FOUND", ruleId: "ownership.not_found", agentAction: "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.", requiresManual: false, retryable: false, explain: "No owned process tree matches the given id in durable state (run dirs, relay dirs, lane holders)."),
         ErrorSpec("OWNERSHIP_ALREADY_TERMINAL", ruleId: "ownership.already_terminal", agentAction: "No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`.", requiresManual: false, retryable: false, explain: "`alln kill` refused because the named work is already terminal — kill never clobbers an existing terminal endReason."),
         ErrorSpec("OWNERSHIP_IDENTITY_MISMATCH", ruleId: "ownership.identity.mismatch", agentAction: "Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead.", requiresManual: true, retryable: false, explain: "Kill refused: the recorded owner identity has a live pid whose start time does not match (recycled pid). Signalling would hit the wrong process."),

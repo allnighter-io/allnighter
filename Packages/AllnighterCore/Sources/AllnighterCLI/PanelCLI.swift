@@ -2,9 +2,7 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// `alln panel start|round|status|watch|scaffold-brief|done` — top-level Panel
-/// surface (`docs/phases/Pilot_Panel.md` decision 11 / PN-S04). Session-led blind
-/// jury; NOT under `pair` (a jury is not a pair). Thin CLI over `PanelCoordinator`.
+/// Frozen Code Red Panel surface. It stays parse-compatible but may not route work.
 enum PanelCLI {
     struct StartRequest {
         var config: PanelCoordinator.Config
@@ -15,16 +13,12 @@ enum PanelCLI {
     }
 
     static func run(_ args: [String], runtime: ToolRuntime) async {
-        guard let sub = args.first else { usage() }
-        switch sub {
-        case "start": await runStart(Array(args.dropFirst()), runtime: runtime)
-        case "round": await runRound(Array(args.dropFirst()), runtime: runtime)
-        case "status": await runStatus(Array(args.dropFirst()))
-        case "watch": await runWatch(Array(args.dropFirst()))
-        case "scaffold-brief": runScaffoldBrief(Array(args.dropFirst()))
-        case "done": await runDone(Array(args.dropFirst()))
-        default: usage()
-        }
+        _ = args
+        _ = runtime
+        AllnighterCLI.fail(
+            code: "CODE_RED_UNSUPPORTED",
+            message: "Panel is temporarily unsupported during Code Red; use `alln run` in the registered repository"
+        )
     }
 
     // MARK: - start
@@ -182,8 +176,7 @@ enum PanelCLI {
             )
         }
 
-        // End-to-end roster preflight: model exists + driver manifest present so
-        // isolation mode is determinable. Fail at start (exit 2), never mid-round.
+        // End-to-end roster preflight: model exists + driver manifest present.
         switch PanelTeamResolver.validateRoster(
             seats: seats, models: catalogModels, registry: registryForValidation
         ) {

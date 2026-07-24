@@ -442,13 +442,10 @@ broad machine access.
 - The coordinator may remain idle with a tiny footprint; eliminating the
   foreground spawn path is more important than demand-start cleverness.
 - Client/coordinator version handshake is mandatory.
-- On compatible patch drift, the coordinator drains and restarts on the current
-  installed binary. Drain means: accepted work either runs to its terminal
-  journal state before restart or is re-adopted by the new coordinator from
-  the durable broker store and journals; in-flight source processes are never
-  silently orphaned or killed by a version restart.
-- On incompatible contract drift, no dispatch occurs; the client reports
-  `COORDINATOR_VERSION_MISMATCH` with one repair action.
+- During Code Red, the client and coordinator must have the exact same source
+  build identity (version, Git SHA, and contract). Any mismatch, including a
+  stale Git SHA with matching version and contract, rejects dispatch with
+  `COORDINATOR_VERSION_MISMATCH`; there is no compatible-drift bridge.
 - An accepted run survives client exit, terminal closure, or host-agent
   cancellation.
 
@@ -459,7 +456,8 @@ The app presents this as "Keep Allnighter ready," not as daemon administration.
 Existing user commands remain the product surface:
 
 - `alln run ...`
-- `alln panel start|round|status|watch|done ...`
+- `alln panel ...` (temporarily unavailable during Code Red; every public
+  entrypoint fails closed before resident routing)
 - `alln doctor [--full] [--json]`
 - setup/detect commands that touch a source
 - `alln ps|kill ...`

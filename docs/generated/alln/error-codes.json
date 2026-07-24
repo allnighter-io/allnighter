@@ -324,10 +324,19 @@
     "ruleId" : "code_red.unsupported"
   },
   {
-    "agentAction" : "Refresh with `alln serve install --json` only when the binary or contract version differs; same-version, same-contract Git-SHA drift is compatible and does not require a refresh.",
+    "agentAction" : "Fix the local run journal\/storage failure, then rerun the foreground command.",
+    "code" : "STREAM_JOURNAL_FAILED",
+    "exitClass" : "operational",
+    "explain" : "A stream event could not be durably stamped, so Allnighter stopped the stream rather than emitting an unjournaled event.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "stream.journal.failed"
+  },
+  {
+    "agentAction" : "Refresh with `alln serve install --json` when the binary Git SHA, binary version, or contract version differs.",
     "code" : "COORDINATOR_VERSION_MISMATCH",
     "exitClass" : "operational",
-    "explain" : "The coordinator protocol differs from this client, so dispatch was refused. Git SHA is diagnostic provenance, not a compatibility boundary when binary and contract versions match.",
+    "explain" : "The coordinator protocol differs from this client, so dispatch was refused before source execution. Exact binary Git SHA is required.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "coordinator.version_mismatch"
@@ -792,37 +801,37 @@
     "ruleId" : "relay.verdict.unparseable"
   },
   {
-    "agentAction" : "Run `alln panel status --panel <id> --json` with a valid panel id, or start a new panel with `alln panel start`.",
+    "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
     "code" : "PANEL_NOT_FOUND",
     "exitClass" : "operational",
-    "explain" : "No Panel session matches the given id.",
+    "explain" : "No active Panel recovery path is available during Code Red.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "panel.not_found"
   },
   {
-    "agentAction" : "Wait for the in-flight round to settle, then run `alln panel status --panel <id> --json` and retry once status is `awaitingPM`. Or poll with `alln panel watch --panel <id>`.",
+    "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
     "code" : "PANEL_ROUND_IN_FLIGHT",
     "exitClass" : "operational",
-    "explain" : "A panel round is already dispatching (status == running). A concurrent `panel round` on the same panel is refused rather than racing a second dispatch.",
+    "explain" : "Panel has no active dispatch or polling path during Code Red.",
     "requiresManual" : false,
-    "retryable" : true,
+    "retryable" : false,
     "ruleId" : "panel.round.in_flight"
   },
   {
-    "agentAction" : "Pass `--doc` an existing readable path; the panel pins the target's content hash at dispatch and cannot invent one.",
+    "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
     "code" : "PANEL_TARGET_MISSING",
     "exitClass" : "operational",
-    "explain" : "The panel target file is missing or unreadable at dispatch time — no hash can be pinned.",
+    "explain" : "Panel has no active target dispatch path during Code Red.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "panel.target.missing"
   },
   {
-    "agentAction" : "Run `alln panel status --panel <id> --json`; a panel only accepts `panel round` while its status is `awaitingPM` (done has nothing left to scrutinize).",
+    "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
     "code" : "PANEL_NOT_AWAITING",
     "exitClass" : "operational",
-    "explain" : "`panel round` was called against a panel that isn't parked at `awaitingPM` — it already reached done, or is otherwise not ready for a new dispatch.",
+    "explain" : "Panel has no active recovery or state-change path during Code Red.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "panel.not_awaiting"

@@ -251,39 +251,27 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
-            id: "panel", title: "Panel (blind jury)", audience: .both,
-            summary: "Session-led blind jury on any target: Allnighter runs the selected seats in the project root, stores structured findings, and you synthesize and edit.",
+            id: "panel", title: "Panel (temporarily unsupported)", audience: .both,
+            summary: "Panel is frozen during Code Red and does not start, route, watch, or recover work.",
             bodyMarkdown: """
-            Panel is "I am always the lead; the seats are always a blind jury" — for any \
-            target a session judges (a spec, a PR, an architecture call). Spec Review \
-            is the hero recipe, not the product's name. \
-            `alln panel start --doc <path> --project .` resolves a team roster (or \
-            remembered/lane-default), pins a target content hash, scaffolds a focus brief, \
-            and parks `awaitingPM`. `alln panel round --panel <id>` blocks through N blind \
-            seats and returns structured findings verbatim (no material findings is valid). \
-            Round 1 uses a built-in brief; round 2+ needs `--brief` with a rejection-carry \
-            line. You refute and edit the target with your own hands. `--seats a,b` reruns \
-            replace those seats on the SAME round (new attempt). `panel done` is declaration \
-            only. Then chain: `alln pair pilot start --doc <same>`. Panel is frozen during \
-            Code Red; it has no clone or permission-flag isolation path.
+            Panel is frozen during Code Red. Every public Panel entrypoint fails closed \
+            before resident routing, including status and watch. Use `alln run` with a \
+            research Team for input in the registered repository instead.
             """,
             aliases: [
                 "panel this", "blind jury", "spec review", "panel round", "panel start",
                 "spec hardening", "jury", "alln panel",
             ],
             sections: [
-                .init("roster", "Team catalog is the roster", "`--team <alias>` fuzzy-resolves a TeamPreset (unique→echoed, ambiguous→candidates with seat count). Zero-config uses remembered-else-lane-default. `--seat <alias>:<lens>` resolves the alias via PilotSeatResolver at start (real model id stored; never a raw alias)."),
-                .init("rounds", "Blocking rounds + NDJSON", "`panel round` blocks; seats stream as they settle. Partial failures still settle. Built-in brief on round 1; focus brief required later."),
-                .init("safety", "Frozen during Code Red", "Panel is not a supported Code Red execution surface. It has no clone or read-only permission path."),
-                .init("chain", "Harden then build", "After `panel done`, `alln pair pilot start --doc <same>` continues in the same cockpit."),
+                .init("availability", "Frozen during Code Red", "Panel has no active execution, polling, or recovery path during Code Red."),
+                .init("alternative", "Use Team research", "Use `alln run --team <id>` for research in the registered repository."),
             ],
             relatedCommandNames: [
-                "panel start", "panel round", "panel status", "panel watch", "panel scaffold-brief", "panel done",
-                "pair pilot start",
+                "run", "teams", "menu",
             ],
             schemaRefs: ["panelJSON", "panelRoundJSON"],
             errorRefs: [
-                "PANEL_NOT_FOUND", "PANEL_ROUND_IN_FLIGHT",
+                "CODE_RED_UNSUPPORTED",
                 "PANEL_TARGET_MISSING", "PANEL_NOT_AWAITING", "PROJECT_NOT_FOUND", "TEAM_NOT_FOUND",
             ],
             needsLiveCheck: true),

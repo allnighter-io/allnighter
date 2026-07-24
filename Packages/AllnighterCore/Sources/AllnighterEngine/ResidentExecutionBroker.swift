@@ -134,15 +134,15 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             )
             return
         }
-        // The contract is the compatibility boundary. A Git-SHA skew is
-        // surfaced by doctor/health, but it must not strand every compatible
-        // client while an older coordinator safely drains real work.
+        // Code Red admits only an exact source build. A different build must
+        // restart the coordinator rather than bridge work across binaries.
         guard claim.request.client.binaryVersion == identity.binaryVersion,
+              claim.request.client.binaryGitSha == identity.binaryGitSha,
               claim.request.client.contractVersion == identity.contractVersion else {
             try? rendezvous.reject(
                 claim,
                 code: "COORDINATOR_VERSION_MISMATCH",
-                message: "client \(claim.request.client.binaryVersion)/\(claim.request.client.contractVersion) does not match coordinator \(identity.binaryVersion)/\(identity.contractVersion); run `alln serve install`"
+                message: "client build \(claim.request.client.binaryGitSha) does not exactly match coordinator build \(identity.binaryGitSha); run `alln serve install`"
             )
             return
         }

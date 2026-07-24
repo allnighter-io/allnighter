@@ -114,10 +114,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         return try CoreJSON.decode(Identity.self, from: Data(contentsOf: identityFile))
     }
 
-    /// Whether the published endpoint can speak this client's protocol. Git SHA
-    /// remains useful diagnostic provenance, but it is not a transport boundary:
-    /// a released coordinator may be safely draining work from an adjacent build
-    /// with the same binary and contract versions.
+    /// Whether the published endpoint exactly matches this client's source build.
     public func isReady(
         coordinatorId: String,
         binaryVersion: String,
@@ -127,6 +124,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         guard let identity = try? currentIdentity() else { return false }
         return identity.coordinatorId == coordinatorId
             && identity.binaryVersion == binaryVersion
+            && identity.binaryGitSha == binaryGitSha
             && identity.contractVersion == contractVersion
     }
 
@@ -157,7 +155,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
     ) throws -> ResidentExecutionRequest {
         try validateClientSurface()
         let identity = try currentIdentity()
-        let compatibleClient = client ?? .init(
+        let clientIdentity = client ?? .init(
             binaryVersion: AllnighterVersionIdentity.binaryVersion,
             binaryGitSha: AllnighterBuildInfo.gitSha,
             contractVersion: ContractRegistry.contractVersion,
@@ -169,7 +167,7 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
             submittedAt: submittedAt,
             coordinatorId: identity.coordinatorId,
             coordinatorNonce: identity.nonce,
-            client: compatibleClient,
+            client: clientIdentity,
             operation: operation,
             clientProof: ResidentClientProof(signature: "")
         )

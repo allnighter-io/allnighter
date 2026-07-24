@@ -128,7 +128,7 @@ final class ResidentExecutionBrokerTests: XCTestCase {
             client: .init(
                 binaryVersion: AllnighterVersionIdentity.binaryVersion,
                 binaryGitSha: "stale-build-sha",
-                contractVersion: "incompatible-contract",
+                contractVersion: ContractRegistry.contractVersion,
                 pid: 1
             )
         )

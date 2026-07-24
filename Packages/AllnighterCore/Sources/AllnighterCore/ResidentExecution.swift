@@ -267,9 +267,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
 public struct ResidentExecutionRequest: Codable, Equatable, Sendable {
     public struct Client: Codable, Equatable, Sendable {
         public var binaryVersion: String
-        /// Source-build provenance for diagnostics. The wire value may match a
-        /// same-contract resident SHA when talking to an older coordinator that
-        /// predates contract-only compatibility; it is not the routing boundary.
+        /// Exact source-build identity. Resident work is rejected on a mismatch.
         public var binaryGitSha: String
         public var contractVersion: String
         public var pid: Int32
