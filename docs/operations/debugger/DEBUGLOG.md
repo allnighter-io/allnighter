@@ -1,5 +1,51 @@
 # Debug Log
 
+## 2026-07-24 — resident control plane accepted a paid request after its client timed out
+
+Tier: T3 Critical (duplicate quota risk, resident ownership outage, repeated
+permission regression)
+
+Symptom / repro: A real detached `code_spec_review_min` run returned
+`RESIDENT_ACCEPT_TIMEOUT`, but its Team runner was alive. Retrying with a new
+key created a second paid run. Later status/result failed with an unsafe
+resident identity path while cancel still worked; three coordinators shared one
+temporary rendezvous root. The run journal itself remained healthy.
+
+Bug fingerprint: `RunCLI.runDetached -> ResidentExecutionBroker ->
+AsyncTeamService.startDetached` acceptance receipt / runner-ready handoff +
+shared mutable rendezvous identity.
+
+Truth owner: Resident admission ledger owns accepted idempotency; the resident
+coordinator owns live lifecycle; the run journal owns persisted history; macOS
+TCC owns protected-project authorization.
+
+Lie-prone layer: a receipt is presented as “acceptance” but is currently held
+until a detached runner handshake; health checks observe a coordinator record,
+not the actual client request/receipt path; client-local cancel/reconcile may
+appear healthy while resident status is unavailable.
+
+RCA: the foreground receipt wait is shorter than the detached runner handshake,
+so timeout can occur after the broker has begun a request but before it replies.
+The file rendezvous has no lifetime singleton and `deactivateCoordinator()`
+blindly removes shared `identity.json`; multiple processes can therefore erase
+the live endpoint. The current project-root execution contract also permits a
+resident process to touch a Documents checkout, which is a privacy-dialog
+release blocker.
+
+Fix boundary: CPH-0..CPH-3 in `Resident_Execution_Broker.md`: durable
+pre-spawn admission plus crash reconciliation; one canonical singleton
+transport; one resident lifecycle API and explicit persisted reads; then a
+proven no-prompt project-byte mirror. Do not add vendor-specific state paths,
+automatic direct fallbacks, payload-hash merging, or permission instructions.
+
+Proof: focused broker/rendezvous tests currently prove file claim/replay only;
+they do **not** prove the delayed-handoff crash window, singleton ownership,
+or macOS TCC behavior. Those kill tests are mandatory before closeout.
+
+What was the agent allowed to do that must never be allowed again: Return a
+retryable timeout after a request may have started vendor work, or call a
+resident healthy without proving the exact client transport and admission path.
+
 ## 2026-07-24 — resident detached Team + protected project root + Documents prompt
 
 Tier: T3 Critical (repeated macOS permission regression)

@@ -733,6 +733,87 @@ After cutover:
 - Update help, generated contracts, doctor, setup, and GUI presentation.
 - Remove obsolete foreground execution and incident containment code.
 
+## Control-plane hardening — 2026-07-24 incident response
+
+Status: **Active.** The first live detached Team run after REB-S04 exposed a
+control-plane outage: a client timed out while the resident later started the
+same paid work; concurrent coordinators could share and remove one mutable
+rendezvous identity; and live status/result became unavailable even though the
+durable run journal was healthy. This is one reliability boundary, not a set of
+driver-specific defects.
+
+### Founder intent
+
+- A timeout must never leave an agent guessing whether it spent quota.
+- A normal run must have exactly one resident owner and one authoritative live
+  lifecycle path.
+- A Documents or Automation dialog is a release failure, irrespective of the
+  button pressed. No resident-backed project run may be described as shipped
+  until its no-prompt project-byte boundary is proven.
+
+### CPH-0 — Admission is durable before any vendor side effect
+
+Truth owner: the resident admission ledger and run journal.
+
+- Every submission has an explicit, returned `idempotencyKey`; generated keys
+  are included in success *and* timeout/error envelopes.
+- Validation and durable reservation create a `starting` run and a receipt
+  before runner spawn or a vendor side effect.
+- A coordinator restart reconciles every `starting` run: adopt a recorded live
+  runner; otherwise settle `startFailed` after its bounded start lease. It may
+  never start a second runner for the same reservation.
+- An exact payload fingerprint is diagnostic only. It must not silently merge
+  two intentionally identical user requests.
+
+Works test: delay or kill the coordinator between reservation and runner spawn,
+restart it, retry the same key, and prove one canonical run and zero duplicate
+worker starts.
+
+### CPH-1 — One canonical resident transport and owner
+
+Truth owner: the resident transport endpoint plus its coordinator-generation
+protocol identity.
+
+- Prefer one canonical Unix-domain socket on hosts where the restricted-client
+  harness proves it usable. Binding it is exclusive ownership and connection is
+  liveness; protocol hello carries generation, process identity, and release.
+- File rendezvous remains only a compatibility transport behind the same typed
+  contract. It must use one canonicalized path, an exclusive lifetime lock, and
+  generation-owned cleanup; an old process must never delete a new endpoint.
+- Every test process has an isolated endpoint. Production service installation
+  and developer foreground serve contend for the same owner primitive.
+
+Works test: two coordinators race for one endpoint; exactly one runs, and an
+old shutdown cannot invalidate the live coordinator's client query.
+
+### CPH-2 — One lifecycle API, explicit degraded observation
+
+Truth owner: the resident coordinator for live state; run journals for durable
+history only.
+
+- Start/status/result/cancel/reconcile all use the same resident lifecycle
+  service. No client-local service may mutate or claim live truth.
+- `alln team status --persisted` is the sole journal projection escape hatch.
+  It labels `source: journal`, `live: false`, `eventSequence`, and
+  `observedAt`; it cannot cancel or reconcile. Ordinary status fails closed on
+  transport loss.
+- Doctor performs a client-path transport round trip and a free, rate-limited
+  admission-idempotency probe through the same ledger as paid work. A broken
+  control plane is critical, not an ambient readiness warning.
+
+### CPH-3 — Project bytes are an explicit no-prompt boundary
+
+Read-only project work must arrive as a provenance-recorded, secret-safe
+workspace mirror outside protected user folders. A host-authorized FD or
+security-scoped capability may be the macOS acquisition transport, but it does
+not replace materialization: vendor CLIs require ordinary paths and can spawn
+children. Each mirror records commit, dirty fingerprint, manifest, and content
+hash. Mutating work stays fail-closed until a separately proven bridge exists.
+
+**Release gate:** a real read-only Documents project run must complete without
+a macOS privacy or Automation dialog. No denial/allow prompt is an acceptable
+test result.
+
 ## Works Test
 
 Setup:
