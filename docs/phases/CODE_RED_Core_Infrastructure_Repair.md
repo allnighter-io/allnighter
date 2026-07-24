@@ -1019,6 +1019,81 @@ Whichever is chosen, the silent redirect and the swallowed per-record read in
 never be told "you have no projects" when what happened is "I looked somewhere
 else."
 
+### CR-S05 evidence, round 2 — 2026-07-24 (after the ruling)
+
+The founder ruled for option 1 **on the condition that it ship for every user,
+not as a personal workaround**. That condition is satisfiable: the mechanism is
+Codex's own documented `[sandbox_workspace_write] writable_roots`, the same
+list a user already populates with project roots, so `alln install-cli` /
+`bootstrap` can add the state root idempotently for anyone.
+
+Applied and measured (config backed up first):
+
+1. `touch` under `~/Library/Application Support/Allnighter` from Codex → **exit 0**
+   (was `Operation not permitted`).
+2. With the redirect deleted and `alln` rebuilt, from Codex:
+   `alln project list --json` → the **real** catalog;
+   `alln run --project prj_8ded5a42 --team code_red_two_source --dry-run --json`
+   → `canStart: true`, 2 ready workers, resolving the real protected root.
+
+So `alln` itself now works from inside Codex for everything that does not spawn
+a vendor: discovery, catalogs, status, and dry-run resolution against the real
+registered project.
+
+**Then the CR-S05 works test — both gestures ORIGINATED from Codex — went RED,
+and named the real remaining primitive.** The run reached the canonical root and
+wrote its durable journal to the real support root (the state fix working), but
+every seat failed to start:
+
+```text
+codex seat  : "could not create PATH aliases: Operation not permitted (os error 1)"
+              "failed to initialize in-process app-server client: Operation not permitted"
+              exit 1 after 80ms, zero stdout
+claude probe: "Not logged in · Please run /login"   (credentials unreadable in-sandbox)
+```
+
+**Vendor CLIs cannot run nested inside the Codex sandbox.** Codex-in-Codex
+cannot create its PATH aliases or app-server; Claude cannot read its
+credentials and therefore believes it is logged out. This is not an Allnighter
+architecture problem and no mirror, snapshot, or byte transfer would ever have
+fixed it — which is further evidence the original detour was aimed at the wrong
+target.
+
+**Where that leaves the slice.** Direct execution from Codex works up to, but
+not including, spawning a vendor. So CR-S05's "if direct execution works,
+delete resident routing with no replacement" is *nearly* satisfied and cannot
+be declared satisfied honestly. The two ways forward are a founder decision,
+not an implementation detail:
+
+- **A. Runs originate from a normal Terminal** (what actually happens today).
+  Codex keeps full read/query/dry-run access to the real product, resident run
+  routing is deleted outright, and CR-S06 proceeds. Codex-originated runs that
+  spawn vendors remain unsupported and fail honestly.
+- **B. Build the one foreground hop** so an owner outside the sandbox spawns the
+  vendors. This is the only way Codex-originated *runs* can work, and it is the
+  only argument for the resident transport that has survived contact with
+  evidence. It re-grows the control plane CR-S06 wants to delete.
+
+Broadening per-vendor credential or Keychain access inside the sandbox is a
+third path and is an explicit founder stop in this packet; it is not
+recommended and was not attempted.
+
+```text
+Status: PARTIAL — state root repaired and shipped; vendor-spawn primitive newly named; CR-S05 fork A/B open
+Commit: 68318038 (deletion + gate + tests); config change is machine-local and backed up at ~/.codex/config.toml.pre-allnighter-20260724-133151
+Exact command: CODE_RED_ALLN=<built alln> bash scripts/code_red_works_test.sh live-direct, run from inside `codex exec`
+Canonical repo root: /var/folders/…/T/code-red-fixture.7jJOaO (registered; journal repoRoot matches)
+Selected source IDs: codex crew seat attempted and failed to initialize; claude Lead never reached (cliCalls 1)
+Observed source process IDs: none — no vendor process ever started
+Run ID: 9DEE42DB-E7B6-4F53-97D1-76B8F5CEECC4 (status done, writePolicy readOnly, journal written to the REAL support root)
+Git observation before/after: HEAD 1975820fd2b6 unchanged, changed=false
+Real changed paths: none
+Proof command/result: RED with 12 named missing assertions — the harness refused to call a run with zero vendor output a pass
+Architecture policy result: passed (now forbids the alternate state root by name); full suite 2,273 tests / 0 failures
+Missing assertion: the CR-S05 works test cannot pass from Codex until fork A or B is chosen
+Next deletion: on fork A, delete resident run routing outright and proceed to CR-S06
+```
+
 ### CR-S06 — Delete the abandoned control plane
 
 - delete all resident operations except the proven foreground `run` operation,
