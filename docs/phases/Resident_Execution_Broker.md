@@ -1,6 +1,6 @@
 # Resident Execution Broker — One Spawn Path for Every CLI
 
-Status: **Implementation in progress — REB-S01 landed; REB-S02 routes non-stream `alln run`, `alln run --detach`, and `alln team status/result` through the resident authority. REB-S03 routes Panel start/round and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, including a scoped LaunchAgent and preserved CLI PATH. Live event routing (`--stream`/`--try-fix`), Panel status/watch/done, restart/drain compatibility, and the host matrix remain.**
+Status: **Implementation in progress — REB-S01 landed; REB-S02 routes non-stream `alln run`, `alln run --detach`, and `alln team status/result` through the resident authority. REB-S03 routes the complete Panel lifecycle (start/round/status/watch/done) and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, including a scoped LaunchAgent and preserved CLI PATH. Live event routing (`--stream`/`--try-fix`), restart/drain compatibility, and the host matrix remain.**
 Owner: AllnighterCore + `alln serve` + CLI
 Updated: 2026-07-23 (REB-S04 installation path landed; activation requires explicit user consent)
 Supersedes: the resident execution boundary in archived
@@ -620,6 +620,9 @@ After cutover:
 - Route full doctor/setup probes through the coordinator. **Landed:** `alln doctor`
   submits a typed source-probe request; only the resident Engine service can
   resolve or smoke vendor CLIs and persist the resulting readiness record.
+- **Landed:** Panel start, round, status, watch, and done submit/query the
+  resident authority. Client hosts no longer read or reconcile the panel
+  journal, and `panel done` cannot mutate PanelState outside its owner.
 - Remove readiness self-fusion containment.
 - Add queued/running truth and per-seat process ownership.
 - Fix answer snapshots to exclude ignored/untracked secrets.

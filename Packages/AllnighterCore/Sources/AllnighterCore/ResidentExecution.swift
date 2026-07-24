@@ -128,7 +128,11 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
 
     public struct PanelDone: Codable, Equatable, Sendable {
         public var panelId: String
-        public init(panelId: String) { self.panelId = panelId }
+        public var note: String?
+        public init(panelId: String, note: String? = nil) {
+            self.panelId = panelId
+            self.note = note
+        }
     }
 
     public struct SourceProbe: Codable, Equatable, Sendable {

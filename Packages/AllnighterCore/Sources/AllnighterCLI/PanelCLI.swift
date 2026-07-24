@@ -19,10 +19,10 @@ enum PanelCLI {
         switch sub {
         case "start": await runStart(Array(args.dropFirst()), runtime: runtime)
         case "round": await runRound(Array(args.dropFirst()), runtime: runtime)
-        case "status": runStatus(Array(args.dropFirst()))
-        case "watch": runWatch(Array(args.dropFirst()))
+        case "status": await runStatus(Array(args.dropFirst()))
+        case "watch": await runWatch(Array(args.dropFirst()))
         case "scaffold-brief": runScaffoldBrief(Array(args.dropFirst()))
-        case "done": runDone(Array(args.dropFirst()))
+        case "done": await runDone(Array(args.dropFirst()))
         default: usage()
         }
     }
@@ -340,97 +340,43 @@ enum PanelCLI {
         return (state, .roundAlive)
     }
 
-    static func runStatus(
-        _ args: [String],
-        stateStore: PanelStateStore = PanelStateStore()
-    ) {
+    static func runStatus(_ args: [String]) async {
         guard !args.isEmpty else { usage("panel status --panel <id> [--json]") }
         let opts = Options(args)
         guard let panelId = opts.value("panel") else { fail(.missingRequired("--panel <id>")) }
-        guard let loaded = loadPanelState(
-            panelId: panelId, stateStore: stateStore, reconcileOrphans: true
-        ) else { fail(.panelNotFound(panelId)) }
-        emitStatusResult(loaded.state, recovery: loaded.recovery, json: opts.flag("json"))
+        let receipt = await residentPanelQuery(.panelStatus, panelId: panelId)
+        guard case let .panelStatus(panel) = receipt.result else {
+            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel status response")
+        }
+        emitStatusPayload(panel, json: opts.flag("json"))
     }
 
-    static func runWatch(
-        _ args: [String],
-        stateStore: PanelStateStore = PanelStateStore(),
-        pollInterval: TimeInterval = 1.0,
-        sleep: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
-    ) {
+    static func runWatch(_ args: [String]) async {
         guard !args.isEmpty else { usage("panel watch --panel <id> [--json]") }
         let opts = Options(args)
         guard let panelId = opts.value("panel") else { fail(.missingRequired("--panel <id>")) }
-
-        guard var loaded = loadPanelState(
-            panelId: panelId, stateStore: stateStore, reconcileOrphans: false
-        ) else { fail(.panelNotFound(panelId)) }
-
-        if loaded.state.status != .running {
-            emitWatchResult(loaded.state, note: "nothing in flight", json: opts.flag("json"))
-            return
-        }
-
-        // Dead owner → tell the user to re-run watch after reconcile (DX5).
-        if stateStore.isOwnerDead(id: panelId) {
-            loaded = loadPanelState(panelId: panelId, stateStore: stateStore, reconcileOrphans: true)
-                ?? loaded
-            emitWatchResult(
-                loaded.state,
-                note: "owner process died mid-round — reconciled; re-run `alln panel watch --panel \(panelId)` if needed",
-                json: opts.flag("json")
-            )
-            return
-        }
-
         while true {
-            guard let current = loadPanelState(
-                panelId: panelId, stateStore: stateStore, reconcileOrphans: true
-            ) else { fail(.panelNotFound(panelId)) }
-            if current.state.status != .running {
-                emitWatchResult(current.state, note: nil, json: opts.flag("json"))
+            let receipt = await residentPanelQuery(.panelStatus, panelId: panelId)
+            guard case let .panelStatus(panel) = receipt.result else {
+                AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel watch response")
+            }
+            if panel.status != "running" {
+                emitWatchPayload(panel, note: panel.status == "done" ? "nothing in flight" : nil, json: opts.flag("json"))
                 return
             }
-            if stateStore.isOwnerDead(id: panelId) {
-                let reconciled = loadPanelState(
-                    panelId: panelId, stateStore: stateStore, reconcileOrphans: true
-                )
-                emitWatchResult(
-                    reconciled?.state ?? current.state,
-                    note: "owner process died mid-round — reconciled; run `alln panel watch --panel \(panelId)`",
-                    json: opts.flag("json")
-                )
-                return
-            }
-            sleep(pollInterval)
+            try? await Task.sleep(for: .seconds(1))
         }
     }
 
-    static func runDone(
-        _ args: [String],
-        stateStore: PanelStateStore = PanelStateStore()
-    ) {
+    static func runDone(_ args: [String]) async {
         guard !args.isEmpty else { usage("panel done --panel <id> [--note …] [--json]") }
         let opts = Options(args)
         guard let panelId = opts.value("panel") else { fail(.missingRequired("--panel <id>")) }
-        let coordinator = PanelCoordinator(
-            stateStore: stateStore,
-            threadProjector: PanelThreadProjector()
-        )
-        switch coordinator.done(panelId: panelId, note: opts.value("note")) {
-        case .success(let state):
-            emitDoneResult(state, json: opts.flag("json"))
-        case .failure(.panelNotFound):
-            fail(.panelNotFound(panelId))
-        case .failure(.roundInFlight):
-            AllnighterCLI.fail(
-                code: "PANEL_ROUND_IN_FLIGHT",
-                message: "a round is already dispatching — wait for it to settle, or poll with `panel status`/`panel watch`"
-            )
-        case .failure(.alreadyDone):
-            AllnighterCLI.fail(code: "PANEL_NOT_AWAITING", message: "panel is already done")
+        let receipt = await residentPanelRequest(.panelDone(.init(panelId: panelId, note: opts.value("note"))))
+        guard case let .panelStatus(panel) = receipt.result else {
+            AllnighterCLI.fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid panel done response")
         }
+        emitDonePayload(panel, json: opts.flag("json"))
     }
 
     static func runScaffoldBrief(
@@ -618,6 +564,56 @@ enum PanelCLI {
             }
             print("\nnext: alln panel round --panel \(payload.state.id) --brief <focus.md>")
             print("  or: alln panel done --panel \(payload.state.id) --note \"…\"")
+        }
+    }
+
+    /// Resident-projected lifecycle payloads. The client deliberately never
+    /// reloads PanelState: a restricted host may not be able to inspect the
+    /// coordinator's journal, and only the coordinator can reconcile a dead
+    /// round owner before reporting status.
+    private static func emitStatusPayload(_ panel: PanelJSON, json: Bool) {
+        if json {
+            print(AllnighterCLI.jsonString(PanelStatusJSON(panel: panel, recovery: nil, nextActions: [])))
+        } else {
+            print("panel \(panel.panelId)")
+            print("status: \(panel.status)")
+            print("target: \(panel.targetPath)")
+            print("rounds: \(panel.rounds)/\(panel.maxRounds)")
+            if let last = panel.roundLog.last {
+                print("last targetHash: \(last.targetHash)")
+                for seat in last.seatResults {
+                    let detail = seat.reason.map { " — \($0)" } ?? ""
+                    print("seat \(seat.workerId): \(seat.status)\(detail)")
+                }
+            }
+            if let note = panel.note { print("note: \(note)") }
+        }
+    }
+
+    private static func emitWatchPayload(_ panel: PanelJSON, note: String?, json: Bool) {
+        if json {
+            print(AllnighterCLI.jsonString(PanelWatchJSON(panel: panel, note: note)))
+        } else {
+            print("panel \(panel.panelId)")
+            print("status: \(panel.status)")
+            if let last = panel.roundLog.last {
+                for seat in last.seatResults {
+                    print("\n----- seat \(seat.workerId) (\(seat.lens)) [\(seat.status)] -----")
+                    if !seat.report.isEmpty { print(seat.report) }
+                    else if let reason = seat.reason { print(reason) }
+                }
+            }
+            if let note { print("\nnote: \(note)") }
+        }
+    }
+
+    private static func emitDonePayload(_ panel: PanelJSON, json: Bool) {
+        if json {
+            print(AllnighterCLI.jsonString(panel))
+        } else {
+            print("panel \(panel.panelId) done")
+            if let note = panel.note { print("note: \(note)") }
+            print("chain: alln pair pilot start --doc \(panel.targetPath)")
         }
     }
 

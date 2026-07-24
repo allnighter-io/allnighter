@@ -140,6 +140,8 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             startPanel(request, claim: claim)
         case .panelRound(let request):
             await startPanelRound(request, claim: claim)
+        case .panelDone(let request):
+            finishPanel(request, claim: claim)
         case .sourceProbe(let request):
             if let sourceId = request.sourceId, dependencies.registry.manifest(id: sourceId) == nil {
                 try? rendezvous.reject(claim, code: "SOURCE_NOT_FOUND", message: "no source manifest '\(sourceId)'")
@@ -323,6 +325,25 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             PanelThreadProjector().sync(state: state, now: Date())
         }
         return state
+    }
+
+    private func finishPanel(
+        _ request: ResidentExecutionOperation.PanelDone,
+        claim: ResidentExecutionRendezvous.Claim
+    ) {
+        switch panelCoordinator().done(panelId: request.panelId, note: request.note) {
+        case .success(let state):
+            try? rendezvous.accept(
+                claim, canonicalId: state.id,
+                result: .panelStatus(PanelJSON.project(state, contractVersion: ContractRegistry.contractVersion))
+            )
+        case .failure(.panelNotFound):
+            try? rendezvous.reject(claim, code: "PANEL_NOT_FOUND", message: "no panel matches \(request.panelId)")
+        case .failure(.roundInFlight):
+            try? rendezvous.reject(claim, code: "PANEL_ROUND_IN_FLIGHT", message: "a round is already dispatching")
+        case .failure(.alreadyDone):
+            try? rendezvous.reject(claim, code: "PANEL_NOT_AWAITING", message: "panel is already done")
+        }
     }
 
     private func panelRoundJSON(state: PanelState, round: PanelRound, attempt: PanelRoundAttempt) -> PanelRoundJSON {
