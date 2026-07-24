@@ -7,21 +7,38 @@ public struct ResidentCoordinatorProbe: Sendable {
     public let store: ResidentCoordinatorStore
     public let rendezvous: ResidentExecutionRendezvous
     public let runsDirectory: URL
+    public let panelsDirectory: URL
     public let processAlive: @Sendable (Int32) -> Bool
     public let currentPID: @Sendable () -> Int32
+    public let activeObligationCount: @Sendable () -> Int
 
     public init(
         store: ResidentCoordinatorStore = ResidentCoordinatorStore(),
         rendezvous: ResidentExecutionRendezvous = ResidentExecutionRendezvous(),
         runsDirectory: URL? = nil,
+        panelsDirectory: URL? = nil,
         processAlive: @escaping @Sendable (Int32) -> Bool = { RunStore.processAlive($0) },
-        currentPID: @escaping @Sendable () -> Int32 = { ProcessInfo.processInfo.processIdentifier }
+        currentPID: @escaping @Sendable () -> Int32 = { ProcessInfo.processInfo.processIdentifier },
+        activeObligationCount: (@Sendable () -> Int)? = nil
     ) {
         self.store = store
         self.rendezvous = rendezvous
-        self.runsDirectory = runsDirectory ?? AllnighterPaths.runs
+        let resolvedRunsDirectory = runsDirectory ?? AllnighterPaths.runs
+        let resolvedPanelsDirectory = panelsDirectory ?? AllnighterPaths.panels
+        self.runsDirectory = resolvedRunsDirectory
+        self.panelsDirectory = resolvedPanelsDirectory
         self.processAlive = processAlive
         self.currentPID = currentPID
+        if let activeObligationCount {
+            self.activeObligationCount = activeObligationCount
+        } else {
+            self.activeObligationCount = { @Sendable in
+                Self.countActiveObligations(
+                    runsDirectory: resolvedRunsDirectory,
+                    panelsDirectory: resolvedPanelsDirectory
+                )
+            }
+        }
     }
 
     public func health(binaryVersion: String, contractVersion: String = ContractRegistry.contractVersion) -> CoordinatorHealth {
@@ -31,6 +48,7 @@ public struct ResidentCoordinatorProbe: Sendable {
             orphanRecovery: runsWritable,
             runsDirWritable: runsWritable
         )
+        let activeObligations = activeObligationCount()
         guard let record = store.load() else {
             return CoordinatorHealth(
                 state: .foregroundOnly,
@@ -39,7 +57,7 @@ public struct ResidentCoordinatorProbe: Sendable {
                 journal: journal,
                 loopback: .init(listening: false),
                 broker: .init(ready: false),
-                activeObligationCount: 0
+                activeObligationCount: activeObligations
             )
         }
         guard processAlive(record.pid) else {
@@ -53,7 +71,7 @@ public struct ResidentCoordinatorProbe: Sendable {
                 journal: journal,
                 loopback: .init(listening: false, host: record.loopbackHost, port: Int(record.loopbackPort)),
                 broker: .init(ready: false),
-                activeObligationCount: 0
+                activeObligationCount: activeObligations
             )
         }
         return CoordinatorHealth(
@@ -70,7 +88,7 @@ public struct ResidentCoordinatorProbe: Sendable {
                 binaryVersion: record.binaryVersion,
                 contractVersion: record.contractVersion
             )),
-            activeObligationCount: 0
+            activeObligationCount: activeObligations
         )
     }
 
@@ -93,5 +111,11 @@ public struct ResidentCoordinatorProbe: Sendable {
     private static func directoryWritable(_ url: URL) -> Bool {
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return FileManager.default.isWritableFile(atPath: url.path)
+    }
+
+    private static func countActiveObligations(runsDirectory: URL, panelsDirectory: URL) -> Int {
+        let activeRuns = RunStore(rootDirectory: runsDirectory).list().count { !$0.status.isTerminal }
+        let activePanels = PanelStateStore(rootDirectory: panelsDirectory).list().count { $0.status == .running }
+        return activeRuns + activePanels
     }
 }

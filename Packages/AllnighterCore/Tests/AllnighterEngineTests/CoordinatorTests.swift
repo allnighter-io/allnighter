@@ -10,8 +10,13 @@ final class CoordinatorHealthTests: XCTestCase {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-\(UUID().uuidString)")
         let coordDir = root.appendingPathComponent("Coordinator", isDirectory: true)
         let runsDir = root.appendingPathComponent("Runs", isDirectory: true)
+        let panelsDir = root.appendingPathComponent("Panels", isDirectory: true)
         let store = ResidentCoordinatorStore(directory: coordDir)
-        let probe = ResidentCoordinatorProbe(store: store, runsDirectory: runsDir)
+        let probe = ResidentCoordinatorProbe(
+            store: store,
+            runsDirectory: runsDir,
+            panelsDirectory: panelsDir
+        )
         return (root, store, probe)
     }
 
@@ -50,6 +55,34 @@ final class CoordinatorHealthTests: XCTestCase {
         XCTAssertTrue(health.loopback.listening)
         XCTAssertEqual(health.loopback.port, 18743)
         XCTAssertEqual(health.activeObligationCount, 0)
+    }
+
+    func testHealthCountsNonTerminalRunsAndRunningPanelsAsObligations() throws {
+        let (root, store, probe) = tempDirs()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let runs = RunStore(rootDirectory: root.appendingPathComponent("Runs", isDirectory: true))
+        try runs.save(TeamRun(id: "active", prompt: "work", status: .running, createdAt: Date()), models: [])
+        try runs.save(TeamRun(id: "finished", prompt: "done", status: .complete, createdAt: Date()), models: [])
+        let panels = PanelStateStore(rootDirectory: root.appendingPathComponent("Panels", isDirectory: true))
+        try panels.save(PanelState(
+            id: "active-panel", projectRoot: "/tmp/project", projectId: "project",
+            targetPath: "/tmp/project/spec.md", seats: [], status: .running, createdAt: Date()
+        ))
+        try panels.save(PanelState(
+            id: "parked-panel", projectRoot: "/tmp/project", projectId: "project",
+            targetPath: "/tmp/project/spec.md", seats: [], status: .awaitingPM, createdAt: Date()
+        ))
+        try store.save(.init(
+            coordinatorId: "coord-test",
+            pid: ProcessInfo.processInfo.processIdentifier,
+            startedAt: Date(),
+            loopbackHost: "127.0.0.1",
+            loopbackPort: 18743,
+            binaryVersion: "0.1.0",
+            contractVersion: "1.0.0"
+        ))
+
+        XCTAssertEqual(probe.health(binaryVersion: "0.1.0").activeObligationCount, 2)
     }
 
     func testHealthUnavailableWhenPidIsDead() throws {
