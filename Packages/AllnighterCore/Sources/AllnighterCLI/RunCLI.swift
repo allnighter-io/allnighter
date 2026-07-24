@@ -12,6 +12,17 @@ enum RunCLI {
         static let success = StreamOutcome(exitCode: 0, errorCode: nil, message: nil)
     }
 
+    /// The stream branch's side effects are injected so its terminal behavior is
+    /// executable without spawning a source CLI or writing the real journal.
+    struct StreamDependencies {
+        var run: @Sendable (AsyncStream<RunEvent>.Continuation) async -> Result<TeamRun, RunServiceError>
+        var append: (RunEvent) throws -> RunEvent
+        var liveLine: (RunEvent) -> String?
+        var closingLine: () -> String?
+        var writeLine: (String) -> Void
+        var emitFailure: (String, String) -> Void
+    }
+
     static func streamOutcome(for error: RunServiceError?) -> StreamOutcome {
         guard let error else { return .success }
         return StreamOutcome(exitCode: 1, errorCode: error.code, message: error.description)
@@ -23,6 +34,43 @@ enum RunCLI {
             errorCode: "STREAM_JOURNAL_FAILED",
             message: "could not persist a stream event: \(error)"
         )
+    }
+
+    /// The common implementation for `alln run --stream`. It returns the exact
+    /// exit outcome after emitting any terminal typed error; the command entry
+    /// point owns the actual process exit.
+    static func runStream(_ dependencies: StreamDependencies) async -> StreamOutcome {
+        let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
+        let run = dependencies.run
+        let runTask = Task { await run(continuation) }
+        var journalFailure: StreamOutcome?
+        for await event in stream {
+            let stamped: RunEvent
+            do {
+                stamped = try dependencies.append(event)
+            } catch {
+                journalFailure = streamJournalFailure(error)
+                continuation.finish()
+                break
+            }
+            if let line = dependencies.liveLine(stamped) { dependencies.writeLine(line) }
+        }
+
+        let result = await runTask.value
+        let outcome: StreamOutcome
+        if let journalFailure {
+            outcome = journalFailure
+        } else if case let .failure(error) = result {
+            outcome = streamOutcome(for: error)
+        } else {
+            outcome = .success
+        }
+        if let code = outcome.errorCode {
+            dependencies.emitFailure(code, outcome.message ?? "stream run failed")
+        } else if let closing = dependencies.closingLine() {
+            dependencies.writeLine(closing)
+        }
+        return outcome
     }
 
     /// PO-F5 / RLR-L8: parse a positive integer seconds flag (`--idle-timeout`,
@@ -172,45 +220,20 @@ enum RunCLI {
         if opts.flag("stream") {
             let journal = RemoteRunEventJournal()
             let attachment = NDJSONStreamProjector.NDJSONAttachment()
-            let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
-            let runTask = Task {
-                await service.run(request, origin: .cli, originAgent: opts.value("agent"), events: continuation)
-            }
-            var journalFailure: StreamOutcome?
-            for await event in stream {
-                let stamped: RunEvent
-                do {
-                    stamped = try journal.append(event)
-                } catch {
-                    journalFailure = streamJournalFailure(error)
-                    continuation.finish()
-                    break
-                }
-                if let line = attachment.liveLine(for: stamped) { print(line) }
-            }
-            let result = await runTask.value
-            if let journalFailure {
-                AllnighterCLI.emitFailure(
-                    code: journalFailure.errorCode ?? "STREAM_JOURNAL_FAILED",
-                    message: journalFailure.message ?? "could not persist a stream event"
-                )
-                exit(Int32(journalFailure.exitCode))
-            }
-            let outcome: StreamOutcome
-            switch result {
-            case .success:
-                outcome = .success
-            case .failure(let error):
-                outcome = streamOutcome(for: error)
-            }
+            let originAgent = opts.value("agent")
+            let outcome = await runStream(.init(
+                run: { continuation in
+                    await service.run(request, origin: .cli, originAgent: originAgent, events: continuation)
+                },
+                append: { try journal.append($0) },
+                liveLine: { attachment.liveLine(for: $0) },
+                closingLine: { attachment.closingLine() },
+                writeLine: { print($0) },
+                emitFailure: { AllnighterCLI.emitFailure(code: $0, message: $1) }
+            ))
             if outcome.exitCode != 0 {
-                AllnighterCLI.emitFailure(
-                    code: outcome.errorCode ?? "INTERNAL_ERROR",
-                    message: outcome.message ?? "stream run failed"
-                )
                 exit(Int32(outcome.exitCode))
             }
-            if let closing = attachment.closingLine() { print(closing) }
             return
         }
 

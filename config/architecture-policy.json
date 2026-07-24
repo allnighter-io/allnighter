@@ -16,7 +16,9 @@
     "docs/operations/debugger",
     "docs/phases/CODE_RED_Core_Infrastructure_Repair.md",
     "config/architecture-policy.json",
-    "scripts/check_architecture_policy.sh"
+    "scripts/check_architecture_policy.sh",
+    "scripts/code_red_metrics.sh",
+    "scripts/code_red_works_test.sh"
   ],
   "forbiddenConcepts": [
     "ProjectMirror",
