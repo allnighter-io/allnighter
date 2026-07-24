@@ -510,11 +510,11 @@ struct AllnighterCLI {
         }
     }
 
-    /// A restricted client may not read the coordinator's private state record
-    /// or reach loopback. In that case health must come from the same typed
-    /// rendezvous used for execution, not from a guessed `foregroundOnly` state.
+    /// Health is a real client-path round trip, not a PID/identity-file guess.
+    /// A live process with a stale or broken rendezvous must be unavailable: it
+    /// cannot accept, observe, or settle a Team run. Restricted clients that
+    /// cannot read private coordinator state use this same path as execution.
     private static func residentHealthFallback(_ direct: CoordinatorHealth) async -> CoordinatorHealth {
-        guard direct.state != .available || !direct.broker.ready else { return direct }
         let rendezvous = ResidentExecutionRendezvous()
         do {
             let submitted = try rendezvous.submit(
@@ -528,7 +528,11 @@ struct AllnighterCLI {
             }
             return health
         } catch {
-            return direct
+            guard direct.state == .available else { return direct }
+            var unavailable = direct
+            unavailable.state = .unavailable
+            unavailable.broker.ready = false
+            return unavailable
         }
     }
 
