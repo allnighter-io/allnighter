@@ -32,7 +32,28 @@ enum SandboxHandoff {
             projectReference: run.repoRoot,
             teamId: run.presetId
         ) != nil else { return nil }
+        return await handOff(request: request, spool: spool, runStore: runStore, clock: clock)
+    }
 
+    /// Same hand-off, for callers that already hold the failed run (the
+    /// `--stream` branch, whose result does not flow through `runInApp`).
+    static func runInAppAfterStream(
+        failedRun run: TeamRun,
+        request: RunRequest,
+        spool: SandboxHandoffSpool = SandboxHandoffSpool(),
+        runStore: RunStore = RunStore(),
+        clock: @Sendable () -> Date = Date.init
+    ) async -> TeamRun? {
+        await runInApp(failedRun: run, request: request, spool: spool,
+                       runStore: runStore, clock: clock)
+    }
+
+    private static func handOff(
+        request: RunRequest,
+        spool: SandboxHandoffSpool,
+        runStore: RunStore,
+        clock: @Sendable () -> Date
+    ) async -> TeamRun? {
         let handoffRunId = "handoff-\(UUID().uuidString)"
         do {
             try spool.enqueue(.init(
@@ -60,4 +81,10 @@ enum SandboxHandoff {
             "[Allnighter isn't open, so nothing picked this up. Open Allnighter and run it again.]\n".utf8))
         return nil
     }
+}
+
+/// Carries the streamed run out of the stream closure so the sandbox hand-off can
+/// see it. `@unchecked` is safe here: exactly one write, before any read.
+final class StreamedRunBox: @unchecked Sendable {
+    var value: TeamRun?
 }

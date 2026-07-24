@@ -212,9 +212,15 @@ enum RunCLI {
             let journal = RemoteRunEventJournal()
             let attachment = NDJSONStreamProjector.NDJSONAttachment()
             let originAgent = opts.value("agent")
+            // The streamed run is captured so a sandboxed host can hand it off
+            // after the fact — the stream branch never reaches the hand-off below.
+            let streamed = StreamedRunBox()
             let outcome = await runStream(.init(
                 run: { continuation in
-                    await service.run(request, origin: .cli, originAgent: originAgent, events: continuation)
+                    let result = await service.run(
+                        request, origin: .cli, originAgent: originAgent, events: continuation)
+                    if case .success(let run) = result { streamed.value = run }
+                    return result
                 },
                 append: { try journal.append($0) },
                 liveLine: { attachment.liveLine(for: $0) },
@@ -222,6 +228,14 @@ enum RunCLI {
                 writeLine: { print($0) },
                 emitFailure: { AllnighterCLI.emitFailure(code: $0, message: $1) }
             ))
+            // Every seat failed because this terminal is sandboxed: hand the same
+            // request to the app and print the answer, instead of leaving the user
+            // with an empty stream.
+            if let run = streamed.value,
+               let handed = await SandboxHandoff.runInAppAfterStream(failedRun: run, request: request) {
+                renderRun(handed, runtime: runtime, project: project, json: opts.flag("json"))
+                return
+            }
             if outcome.exitCode != 0 {
                 exit(Int32(outcome.exitCode))
             }
@@ -242,21 +256,29 @@ enum RunCLI {
             AllnighterCLI.emitFailure(code: error.code, message: error.description)
             exit(1)
         case .success(let run):
-            if opts.flag("json") {
-                let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?
-                    .appendingPathComponent("run.json").path ?? ""
-                let context = TeamRunJSONMapper.Context(
-                    promptSource: .init(kind: .positional, path: nil),
-                    runJournalPath: journalPath,
-                    reproduceCommand: reproduceCommand(run, project: project)
-                )
-                let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
-                print(AllnighterCLI.jsonString(trj))
-            } else {
-                print(AllnighterCLI.humanAnswer(for: run, models: runtime.models, manifests: runtime.registry.all)
-                      ?? "(run \(run.status.rawValue))")
-                FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
-            }
+            renderRun(run, runtime: runtime, project: project, json: opts.flag("json"))
+        }
+    }
+
+    /// One renderer for a finished run, so a locally executed run and one the app
+    /// executed on our behalf are reported identically.
+    private static func renderRun(
+        _ run: TeamRun, runtime: ToolRuntime, project: Project, json: Bool
+    ) {
+        if json {
+            let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?
+                .appendingPathComponent("run.json").path ?? ""
+            let context = TeamRunJSONMapper.Context(
+                promptSource: .init(kind: .positional, path: nil),
+                runJournalPath: journalPath,
+                reproduceCommand: reproduceCommand(run, project: project)
+            )
+            let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
+            print(AllnighterCLI.jsonString(trj))
+        } else {
+            print(AllnighterCLI.humanAnswer(for: run, models: runtime.models, manifests: runtime.registry.all)
+                  ?? "(run \(run.status.rawValue))")
+            FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
         }
     }
 
