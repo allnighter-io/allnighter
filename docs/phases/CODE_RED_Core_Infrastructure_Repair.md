@@ -289,7 +289,7 @@ Execution uses one selected CLI to do the requested work there.”
 - Detached execution, automatic resident installation/update, drain/restart,
   parked/wake behavior, Panel routing, Pending routing, or doctor routing.
 - A general local RPC framework.
-- Mac or iOS presentation work.
+- iOS presentation work.
 - Compatibility with stale coordinator builds.
 - Automatic cleanup or reset of unexpected Git changes.
 - New lifecycle, process, Git, or permission frameworks.
@@ -556,7 +556,7 @@ Required teaching changes ship with CR-S01 and CR-S02:
 | CLI | Make `RunCLI` a thin adapter to `RunService.run`; unsupported surfaces fail closed. |
 | Generated contracts | Regenerate from `ContractRegistry` after source changes; no hand edits. |
 | Help | Update `team_run_loop` and error recovery; deny-list retired grammar. |
-| Mac app | Frozen. No GUI work or new app-owned run semantics during Code Red. |
+| Mac app | UNFROZEN by founder ruling 2026-07-24. The app hosts the sandbox hand-off (`SandboxHandoffHost`), which is what makes Allnighter usable from inside a sandboxed terminal. It still owns no run semantics — it drains the mailbox through `RunService.run`. |
 | iOS app | No impact. Remote control remains parked. |
 | Resident protocol | Delete or reduce to one foreground `run` handoff after CR-S05 evidence. |
 | Agent drivers | No new per-driver permission flags, filesystem rules, or fallback. Existing invocation manifests remain the owner. |
