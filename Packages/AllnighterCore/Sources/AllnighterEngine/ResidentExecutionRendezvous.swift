@@ -4,7 +4,9 @@ import CryptoKit
 import Crypto
 #endif
 import Foundation
+#if canImport(Security)
 import Security
+#endif
 import AllnighterCore
 #if canImport(Darwin)
 import Darwin
@@ -385,10 +387,17 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
 
     private func loadOrCreateSecret() throws -> Data {
         if fileManager.fileExists(atPath: secretFile.path) { return try loadSecret() }
-        var bytes = [UInt8](repeating: 0, count: 32)
-        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+        let bytes: [UInt8]
+        #if canImport(Security)
+        var securityRandomBytes = [UInt8](repeating: 0, count: 32)
+        guard SecRandomCopyBytes(kSecRandomDefault, securityRandomBytes.count, &securityRandomBytes) == errSecSuccess else {
             throw Error.unavailable
         }
+        bytes = securityRandomBytes
+        #else
+        var generator = SystemRandomNumberGenerator()
+        bytes = (0..<32).map { _ in UInt8.random(in: .min ... .max, using: &generator) }
+        #endif
         do {
             try atomicCreate(Data(bytes), at: secretFile, mode: 0o600)
         } catch Error.destinationExists {
