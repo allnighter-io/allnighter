@@ -897,7 +897,13 @@ Missing assertion: one live pass, not the three consecutive the trust-reset thre
 Next deletion: CR-S05 runs the restricted-host harness and either deletes resident run routing outright or proves the one thin hop; CR-S06 deletes the abandoned control plane and un-skips the seven detach tests
 ```
 
-### CR-S05 — Prove and, only if necessary, add restricted-host transport
+### CR-S05 — Prove and, only if necessary, add restricted-host transport — EVIDENCE COMPLETE, FOUNDER DECISION OPEN
+
+The harness step is done, and it did not need the launchd harness: the disputed
+primitive was measured directly from a live Codex session against the real
+protected root. **The result overturns the premise the mirror/resident detour
+was built on.** See "CR-S05 evidence — 2026-07-24" below. No transport has been
+built, and none may be until the founder rules.
 
 First run the existing isolated host/sandbox harness. Record the exact
 primitive that fails and the smallest transport that crosses it.
@@ -925,6 +931,93 @@ If the normally launched owner cannot access the registered protected root,
 stop. The choices are a future explicit macOS permission design or a founder
 decision about supported project locations. No agent chooses either during
 Code Red.
+
+### CR-S05 evidence — 2026-07-24
+
+Measured from a live `codex exec` session (the restricted host itself), against
+the founder's real machine state. Every command below was run from inside
+Codex and its exit code recorded.
+
+**What works from Codex — the barrier that was assumed, and is not there:**
+
+| Probe from inside Codex | Result |
+| --- | --- |
+| `ls /Users/mike/Documents/GitHub/Allnighter` | exit 0, real contents, **no TCC prompt** |
+| `git -C <protected root> rev-parse HEAD` | exit 0, real HEAD |
+| `alln --version` | exit 0 |
+| `ls`/`cat` of `~/Library/Application Support/Allnighter/Projects/*.json` | exit 0, real records |
+
+The registered protected root under `~/Documents` is **readable** from the
+restricted host, including `.git`. Project mirrors, byte transfer, and
+protected-root capture were built to cross a barrier that does not exist for
+reads.
+
+**What actually fails — one primitive, and only one:**
+
+```text
+touch '/Users/mike/Library/Application Support/Allnighter/.codex-write-probe'
+  -> Operation not permitted            (CODEX_SANDBOX present)
+```
+
+Durable **writes** under Application Support are denied by the Codex sandbox.
+Reads are not.
+
+**What the product currently does about it — the finding.**
+`AllnighterPaths.support` (`AllnighterEngine/AllnighterPaths.swift:16-27`)
+silently redirects the entire durable tree to
+`$TMPDIR/Allnighter-Codex/<CODEX_THREAD_ID>` whenever `CODEX_THREAD_ID` and
+`CODEX_SANDBOX` are set. Proven live: from Codex, `alln project list --json`
+returns an **empty** catalog; the identical binary with
+`ALLNIGHTER_SUPPORT_DIR` pointed at the real root returns the founder's real
+projects. `ProjectStore.list()` then hides the divergence, because
+`compactMap { try? load(id:) }` turns an unreadable record into a missing one.
+
+This is an alternate root for durable state — the same forbidden shape as a
+project mirror, one layer down, and it is selected silently. It is also the
+most plausible root of the incident this packet exists to repair: an agent
+working inside Codex sees **no projects and no teams**, concludes the real
+repository is unreachable, and starts building byte transfer to "fix" it. The
+architecture-policy gate does not catch it, because the policy scans for
+alternate *repository* roots, not an alternate *state* root.
+
+```text
+Status: PARTIAL — evidence complete, no code changed, founder decision open
+Commit: (evidence only; no production change)
+Exact command: codex exec "<probe list>"  → see table above
+Canonical repo root: /Users/mike/Documents/GitHub/Allnighter (readable from Codex, no prompt)
+Selected source IDs: none — no vendor run was dispatched for these probes
+Observed source process IDs: n/a
+Real changed paths: none
+Proof command/result: `alln project list --json` empty from Codex; identical binary + ALLNIGHTER_SUPPORT_DIR=<real root> returns the real catalog
+Missing assertion: no live CR-S03/CR-S04 gesture has yet been ORIGINATED from Codex — that is the CR-S05 works test and it cannot pass until the state-root question is ruled on
+Next deletion: blocked on the founder ruling below
+```
+
+**The fork, stated plainly.** Code Red's own rule is: if direct execution from
+Codex works, delete resident run routing with no replacement. Reads work; only
+durable writes fail. So the question is no longer "do we need a resident
+transport" but "where does a restricted host's durable state go" — and that is
+a permission-posture and supported-location decision, which this packet makes
+an explicit Founder Architecture Stop. **No agent may choose it.** The options
+recorded for that ruling:
+
+1. **Widen the Codex sandbox** to make `~/Library/Application Support/Allnighter`
+   a writable root (the repo already ships
+   `scripts/install_codex_workspace_permissions.sh` for the equivalent `.git`
+   case). Direct execution from Codex then works with zero new product
+   concepts, and CR-S05 closes by deleting resident run routing outright.
+2. **Fail closed instead of forking state.** Delete the silent fallback; when
+   the real support root is not writable, refuse with a typed error and one
+   recovery action. Deletes an alternate root, adds no transport, and costs
+   Codex-originated runs entirely.
+3. **Build the one foreground resident hop** this packet already scoped, purely
+   so a normal-Terminal owner performs the writes. The most code, and it
+   re-grows the control plane CR-S06 is meant to delete.
+
+Whichever is chosen, the silent redirect and the swallowed per-record read in
+`ProjectStore.list()` are repaired in the same slice: a restricted host must
+never be told "you have no projects" when what happened is "I looked somewhere
+else."
 
 ### CR-S06 — Delete the abandoned control plane
 
