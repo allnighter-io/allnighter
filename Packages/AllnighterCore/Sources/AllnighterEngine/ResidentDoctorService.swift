@@ -39,18 +39,15 @@ public struct ResidentDoctorService: Sendable {
             allLabels.filter { $0.key == sourceId }
         } ?? allLabels
         let records = await Self.probeRecords(manifests: manifests, labels: labels, full: request.full)
-        // A source probe has no project-scoped work.  In particular, never
-        // inherit the foreground client's Documents-repo CWD just to calculate
-        // a diagnostic Git SHA: that is enough to make the launchd-owned broker
-        // ask macOS for Documents access.  Project inspection belongs to a
-        // separately declared project operation.
-        let cwd = AllnighterPaths.probeScratch.path
+        // A source probe has no project-scoped work. The caller may contribute
+        // only an already-computed commit identity; the resident never inherits
+        // or inspects its Documents-repo CWD for this diagnostic.
         let inputs = DoctorReport.Inputs(
             binaryVersion: binaryVersion,
             contractVersion: ContractRegistry.contractVersion,
             docsVersionMatchesBinary: true,
             binaryGitSha: binaryGitSha,
-            workspaceHeadSha: Self.workspaceHeadGitSha(cwd: cwd),
+            workspaceHeadSha: Self.validatedWorkspaceHeadSha(request.workspaceHeadSha),
             configDirWritable: Self.ensureWritable(AllnighterPaths.config),
             runsDirWritable: Self.ensureWritable(AllnighterPaths.runs),
             pendingDirWritable: Self.ensureWritable(AllnighterPaths.pending),
@@ -140,18 +137,15 @@ public struct ResidentDoctorService: Sendable {
         return FileManager.default.isWritableFile(atPath: url.path)
     }
 
-    private static func workspaceHeadGitSha(cwd: String) -> String? {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        task.arguments = ["-C", cwd, "rev-parse", "HEAD"]
-        let output = Pipe()
-        task.standardOutput = output
-        task.standardError = Pipe()
-        do {
-            try task.run(); task.waitUntilExit()
-            guard task.terminationStatus == 0 else { return nil }
-            let value = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            return value?.isEmpty == false ? value : nil
-        } catch { return nil }
+    /// A doctor client may provide only an already-computed commit identity.
+    /// Keep the validation strict so a probe request cannot turn this diagnostic
+    /// field into an arbitrary path, command, or opaque workspace payload.
+    private static func validatedWorkspaceHeadSha(_ value: String?) -> String? {
+        guard let value,
+              value.count == 40,
+              value.allSatisfy({ $0.isHexDigit }) else {
+            return nil
+        }
+        return value.lowercased()
     }
 }

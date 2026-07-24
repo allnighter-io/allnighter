@@ -156,13 +156,19 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         public var pilot: Bool
         public var projectToken: String?
         public var workingDirectory: String?
+        /// Optional, client-computed Git commit identity for the checkout from
+        /// which `doctor` was invoked. This is deliberately a value rather
+        /// than a path: the resident must never inspect a restricted caller's
+        /// workspace merely to diagnose binary freshness.
+        public var workspaceHeadSha: String?
         public init(
             sourceId: String? = nil,
             full: Bool,
             intent: Intent = .doctor,
             pilot: Bool = false,
             projectToken: String? = nil,
-            workingDirectory: String? = nil
+            workingDirectory: String? = nil,
+            workspaceHeadSha: String? = nil
         ) {
             self.sourceId = sourceId
             self.full = full
@@ -170,6 +176,7 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
             self.pilot = pilot
             self.projectToken = projectToken
             self.workingDirectory = workingDirectory
+            self.workspaceHeadSha = workspaceHeadSha
         }
     }
 

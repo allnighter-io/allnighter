@@ -347,7 +347,8 @@ struct AllnighterCLI {
                     full: full,
                     pilot: pilot,
                     projectToken: opts.value("project"),
-                    workingDirectory: nil
+                    workingDirectory: nil,
+                    workspaceHeadSha: workspaceHeadGitSha()
                 )),
                 idempotencyKey: UUID().uuidString.lowercased()
             )
