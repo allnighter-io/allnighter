@@ -17,6 +17,11 @@ if grep -E '^DERIVED=' "$ROOT/scripts/dev.sh" | grep -qE '\$ROOT|\.build/'; then
   echo "       ~/Library (see docs/archive/phases/Launch_Authority_TCC_Hotfix.md, slice H4)." >&2
   exit 1
 fi
+if [[ ! -f "$ROOT/scripts/rebuild_cli.sh" ]] \
+  || ! grep -q 'ALLNIGHTER_CLI_SCRATCH:-\$HOME/Library/Developer/Allnighter/CLI' "$ROOT/scripts/rebuild_cli.sh"; then
+  echo "check: rebuild_cli.sh must build alln outside the protected checkout" >&2
+  exit 1
+fi
 ran_any=true
 
 # GUI Visual Proof Gate (S05): a visible SwiftUI surface cannot land without a

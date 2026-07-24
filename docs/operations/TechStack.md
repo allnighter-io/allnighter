@@ -45,6 +45,11 @@ bash scripts/check_swiftui_state.sh
 # Shared package
 swift test --package-path Packages/AllnighterCore
 
+# Rebuild the agent-facing CLI and refresh its resident coordinator.
+# This is the only normal development refresh command; it keeps the executable
+# outside a checkout under ~/Documents, avoiding macOS TCC attribution prompts.
+bash scripts/rebuild_cli.sh
+
 # Green wall
 bash scripts/check.sh
 
