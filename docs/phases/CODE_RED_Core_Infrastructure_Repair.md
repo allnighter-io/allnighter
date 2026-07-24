@@ -1174,13 +1174,16 @@ step is its own commit:
 6. Re-run the metrics script and assert the tripwires: resident LOC 0,
    operation cases 0, forbidden concepts 0.
 
-**Open founder question this slice must answer first.** The seven skipped
-two-process tests exercise `alln run --detach`, and detached execution was a
-resident capability. With resident deleted there is nothing for them to test,
-so "un-skip them" is not achievable as written. The honest choices are (a)
-delete those seven tests along with the feature they describe, or (b) keep
-`--detach` as a non-resident capability and reimplement it, which is new work
-outside this packet. The CR-S06 closeout cannot claim green until one is chosen.
+**Detach — decided 2026-07-24 (implementer's call, founder delegated).** The
+seven skipped two-process tests are **deleted along with `--detach` itself**.
+Detached execution was a resident capability; CR-S05 proved no resident hop is
+needed, and CR-S06 deletes the control plane it lived on. Tests for a feature
+that no longer exists are debt that reads as coverage. The CR-S06 restore
+obligation recorded under the founder's 2026-07-24 skip ruling is discharged
+by this deletion, not by un-skipping. If detached execution is ever wanted
+again it is new work with its own packet — and it is not obviously wanted,
+since the sandbox hand-off already covers "start it here, get the answer here"
+without a background run.
 
 **Note on sequencing.** This deletion is mechanical but wide, and the incident
 this packet exists to repair was itself produced by wide changes made under
