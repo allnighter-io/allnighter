@@ -17,8 +17,11 @@ import Glibc
 /// Hardened, same-user file rendezvous between a restricted foreground client
 /// and the unsandboxed resident coordinator. The directory is intentionally in
 /// the per-user temporary area, not Application Support: Codex may write the
-/// former but not the latter. It carries only typed, HMAC-authenticated broker
-/// messages; vendor credentials never enter this transport.
+/// former but not the latter. Its default path is canonicalized before either
+/// party touches it: macOS aliases `/var` to `/private/var`, and treating those
+/// spellings as different endpoints split one coordinator into two. It carries
+/// only typed, HMAC-authenticated broker messages; vendor credentials never
+/// enter this transport.
 public final class ResidentExecutionRendezvous: @unchecked Sendable {
     public static let maximumRequestBytes = 1_048_576
 
@@ -365,12 +368,18 @@ public final class ResidentExecutionRendezvous: @unchecked Sendable {
         }
     }
 
-    private static func defaultRoot() -> URL {
+    /// One canonical default endpoint for every process in this user session.
+    /// Do this before the security checks below; canonicalizing *after* files
+    /// exist would make a hostile explicit override look acceptable. Explicit
+    /// overrides remain literal and must pass the no-symlink owner/mode checks.
+    static func defaultRoot() -> URL {
         if let override = ProcessInfo.processInfo.environment["ALLNIGHTER_RENDEZVOUS_DIR"], !override.isEmpty {
             return URL(fileURLWithPath: (override as NSString).expandingTildeInPath, isDirectory: true)
         }
         return FileManager.default.temporaryDirectory
             .appendingPathComponent("allnighter-resident-\(getuid())", isDirectory: true)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
     }
 
     private func validateClientSurface() throws {

@@ -21,6 +21,15 @@ final class ResidentExecutionRendezvousTests: XCTestCase {
         )
     }
 
+    func testDefaultRootCanonicalizesMacOSTemporaryPathAliases() {
+        let root = ResidentExecutionRendezvous.defaultRoot()
+        let expected = FileManager.default.temporaryDirectory
+            .appendingPathComponent("allnighter-resident-\(getuid())", isDirectory: true)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        XCTAssertEqual(root.path, expected.path)
+    }
+
     private var health: ResidentExecutionOperation {
         .query(.init(kind: .health))
     }
