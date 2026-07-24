@@ -2,7 +2,7 @@ import Foundation
 
 /// Programmatic help-search index derived from live catalogs (ASF-S03).
 /// Feeds `HelpTopicRegistry.aliasRedirects` and boosts `HelpService.search` so
-/// product terms like `opencode` / `glm` resolve to the teams/workers topic —
+/// product terms like `kimi` / `grok` resolve to the teams/workers topic —
 /// never hand-maintained one-off aliases alone.
 public enum HelpDiscoveryIndex {
     /// Topic that documents models, teams, and workers.

@@ -44,8 +44,18 @@ final class DefaultConfigDriftTests: XCTestCase {
     }
 
     func testEveryHeadlessDriverHasBuiltInModelAndProbeLabel() {
+        // opencode ships NO built-in models — it is a BYOK/custom-only driver (founder
+        // ruling 2026-07-24 removed the two opencode defaults; the driver stays registered
+        // so users can add their own models). Every OTHER headless driver ships defaults.
+        let byokOnlyDrivers: Set<String> = ["opencode"]
         let registry = DefaultConfig.registry
         for manifest in registry.all where manifest.kind == .headlessCLI {
+            guard !byokOnlyDrivers.contains(manifest.id) else {
+                XCTAssertTrue(
+                    ModelCatalog.list(driverId: manifest.id).isEmpty,
+                    "BYOK-only driver \(manifest.id) unexpectedly ships built-in models")
+                continue
+            }
             let models = ModelCatalog.list(driverId: manifest.id)
             XCTAssertFalse(models.isEmpty, "driver \(manifest.id) missing built-in models")
             XCTAssertNotNil(

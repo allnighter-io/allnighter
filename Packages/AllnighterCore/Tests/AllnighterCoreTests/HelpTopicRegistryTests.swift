@@ -175,18 +175,20 @@ final class HelpTopicRegistryTests: XCTestCase {
     }
 
     func testSearchFindsCatalogTermsViaDiscoveryIndex() {
-        let opencode = HelpService.search("opencode")
-        XCTAssertFalse(opencode.isMiss)
-        XCTAssertEqual(opencode.results.first?.topicId, "teams_and_workers")
-        XCTAssertFalse(opencode.discoveryModelIds.isEmpty)
+        // Retargeted from opencode/glm to surviving catalog terms (founder ruling
+        // 2026-07-24 removed the two opencode built-in models).
+        let kimi = HelpService.search("kimi")
+        XCTAssertFalse(kimi.isMiss)
+        XCTAssertEqual(kimi.results.first?.topicId, "teams_and_workers")
+        XCTAssertFalse(kimi.discoveryModelIds.isEmpty)
 
-        let glm = HelpService.search("glm")
-        XCTAssertFalse(glm.isMiss)
-        XCTAssertEqual(glm.results.first?.topicId, "teams_and_workers")
-        XCTAssertTrue(glm.discoveryModelIds.contains("model_opencode_glm_5_2"))
+        let grok = HelpService.search("grok")
+        XCTAssertFalse(grok.isMiss)
+        XCTAssertEqual(grok.results.first?.topicId, "teams_and_workers")
+        XCTAssertTrue(grok.discoveryModelIds.contains("model_grok"))
 
-        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "opencode"), "teams_and_workers")
-        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "glm"), "teams_and_workers")
+        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "kimi"), "teams_and_workers")
+        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "grok"), "teams_and_workers")
     }
 
     func testSearchTreatsWeakFuzzyNoiseAsMiss() {

@@ -3,13 +3,15 @@ import XCTest
 
 final class MenuSearchTests: XCTestCase {
     func testSearchReturnsMenuCardsWithoutRecommendationFields() throws {
+        // Retargeted from opencode to kimi (founder ruling 2026-07-24 removed the two
+        // opencode built-in models; kimi still ships built-in).
         let menu = MenuCatalog.project()
-        let r = MenuCatalog.search("opencode", limit: 8, menu: menu)
-        XCTAssertFalse(r.results.isEmpty, "opencode must hit a menu model/command card")
+        let r = MenuCatalog.search("kimi", limit: 8, menu: menu)
+        XCTAssertFalse(r.results.isEmpty, "kimi must hit a menu model/command card")
         XCTAssertEqual(r.catalogRevision, menu.catalogRevision)
-        XCTAssertTrue(r.results.contains { $0.kind == "model" && $0.id.contains("opencode") })
+        XCTAssertTrue(r.results.contains { $0.kind == "model" && $0.id.contains("kimi") })
 
-        let envelope = HelpProjector.search("opencode", limit: 8, contractVersion: "2.1.0", menu: menu)
+        let envelope = HelpProjector.search("kimi", limit: 8, contractVersion: "2.1.0", menu: menu)
         let data = try CoreJSON.encode(envelope)
         let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         for banned in ["recommended", "confidence", "selected", "suggestedAnswerMarkdown",

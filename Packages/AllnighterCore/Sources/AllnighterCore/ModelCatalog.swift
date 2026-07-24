@@ -130,15 +130,7 @@ public enum ModelCatalog {
         "model_cursor_composer_25_fast": ModelCapabilities(
             laneTags: [.code],
             capabilityTags: [.code, .fast],
-            strengthRank: 50),
-        "model_opencode_qwen3_coder_next": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review],
-            strengthRank: 70),
-        "model_opencode_glm_5_2": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review],
-            strengthRank: 75)
+            strengthRank: 50)
     ]
 
     public static var builtIns: [ModelDefinition] {
@@ -196,9 +188,10 @@ public enum ModelCatalog {
             def("model_agy_sonnet", "Claude Sonnet 4.6", "Claude Sonnet 4.6 (Thinking)", "antigravity", .answerer, defaultEnabled: false, effortVariants: fixed("Claude Sonnet 4.6 (Thinking)")),
             def("model_agy_opus", "Claude Opus 4.6", "Claude Opus 4.6 (Thinking)", "antigravity", .both, defaultEnabled: false, effortVariants: fixed("Claude Opus 4.6 (Thinking)")),
             def("model_agy_gptoss", "GPT-OSS 120B", "GPT-OSS 120B (Medium)", "antigravity", .answerer, defaultEnabled: false, effortVariants: fixed("GPT-OSS 120B (Medium)")),
-            // OpenCode — BYOK provider/model routing (off-Bench by default).
-            def("model_opencode_qwen3_coder_next", "Qwen3 Coder Next", "featherless/Qwen/Qwen3-Coder-Next", "opencode", .answerer, defaultEnabled: false),
-            def("model_opencode_glm_5_2", "GLM 5.2", "featherless/zai-org/GLM-5.2", "opencode", .answerer, defaultEnabled: false),
+            // OpenCode ships NO built-in models (founder ruling 2026-07-24: <1% of users
+            // run opencode with these models, so they were removed from the defaults). The
+            // opencode DRIVER stays registered so users can add their own models via
+            // `alln model add` (BYOK provider/model routing).
         ]
     }
 

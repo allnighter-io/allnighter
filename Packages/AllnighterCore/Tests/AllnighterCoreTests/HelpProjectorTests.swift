@@ -82,16 +82,18 @@ final class HelpProjectorTests: XCTestCase {
         }
     }
 
-    func testSearchOpencodeReturnsModelCards() {
-        let j = HelpProjector.search("opencode", limit: 8, contractVersion: "2.1.0")
-        XCTAssertFalse(j.results.isEmpty, "opencode must hit menu cards")
-        XCTAssertTrue(j.results.contains { $0.kind == "model" && $0.id.contains("opencode") })
+    // Retargeted from opencode/glm to a surviving catalog term (founder ruling
+    // 2026-07-24 removed the two opencode built-in models). kimi still ships built-in.
+    func testSearchKimiReturnsModelCards() {
+        let j = HelpProjector.search("kimi", limit: 8, contractVersion: "2.1.0")
+        XCTAssertFalse(j.results.isEmpty, "kimi must hit menu cards")
+        XCTAssertTrue(j.results.contains { $0.kind == "model" && $0.id.contains("kimi") })
     }
 
-    func testSearchGlmReturnsModelCards() {
-        let j = HelpProjector.search("glm", limit: 8, contractVersion: "2.1.0")
+    func testSearchGrokReturnsModelCards() {
+        let j = HelpProjector.search("grok", limit: 8, contractVersion: "2.1.0")
         XCTAssertFalse(j.results.isEmpty)
-        XCTAssertTrue(j.results.contains { $0.id == "model_opencode_glm_5_2" || $0.title.lowercased().contains("glm") })
+        XCTAssertTrue(j.results.contains { $0.id.contains("grok") || $0.title.lowercased().contains("grok") })
     }
 
     func testNonsenseSearchReturnsZeroCards() {

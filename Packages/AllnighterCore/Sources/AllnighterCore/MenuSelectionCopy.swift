@@ -331,14 +331,6 @@ public enum MenuSelectionCopy {
             useWhen: "GPT-OSS 120B via Antigravity",
             dontUseWhen: "Not a ChatGPT Sol seat — model_chatgpt"
         ),
-        "model_opencode_qwen3_coder_next": Pair(
-            useWhen: "Qwen3 Coder Next via OpenCode BYOK",
-            dontUseWhen: "Needs OpenCode/BYOK ready — check doctor"
-        ),
-        "model_opencode_glm_5_2": Pair(
-            useWhen: "GLM 5.2 via OpenCode BYOK",
-            dontUseWhen: "Needs OpenCode/BYOK ready — check doctor"
-        ),
     ]
 
     private static let recipes: [String: Pair] = [
