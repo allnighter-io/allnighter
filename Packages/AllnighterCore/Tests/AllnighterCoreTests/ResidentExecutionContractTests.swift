@@ -50,4 +50,19 @@ final class ResidentExecutionContractTests: XCTestCase {
         XCTAssertNil(payload.workingDirectory)
         XCTAssertEqual(payload.workspaceHeadSha, "0123456789abcdef0123456789abcdef01234567")
     }
+
+    func testTeamLifecycleOperationsRoundTripThroughBrokerContract() throws {
+        let operations: [ResidentExecutionOperation] = [
+            .teamCancel(.init(runId: "run_123")),
+            .teamReconcile(.init(runId: nil, scopeRoot: "/tmp/project"))
+        ]
+
+        for operation in operations {
+            let decoded = try CoreJSON.decode(
+                ResidentExecutionOperation.self,
+                from: CoreJSON.encode(operation)
+            )
+            XCTAssertEqual(decoded, operation)
+        }
+    }
 }

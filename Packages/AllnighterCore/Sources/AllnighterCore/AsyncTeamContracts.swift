@@ -319,6 +319,34 @@ public struct TeamCancelResponse: Codable, Equatable, Sendable {
     }
 }
 
+/// Coordinator-owned result of an explicit Team lifecycle reconciliation. This
+/// is intentionally a public contract rather than a CLI-local envelope: the
+/// resident is the one authority allowed to decide whether an owned run was
+/// reclaimed, so every client must receive the same projection.
+public struct TeamReconcileResponse: Codable, Equatable, Sendable {
+    public struct ReapedRun: Codable, Equatable, Sendable {
+        public var runId: String
+        public var status: String
+        public var endReason: String?
+
+        public init(runId: String, status: String, endReason: String?) {
+            self.runId = runId
+            self.status = status
+            self.endReason = endReason
+        }
+    }
+
+    public var schemaVersion: Int
+    public var reapedCount: Int
+    public var reaped: [ReapedRun]
+
+    public init(schemaVersion: Int = 1, reaped: [ReapedRun]) {
+        self.schemaVersion = schemaVersion
+        self.reapedCount = reaped.count
+        self.reaped = reaped
+    }
+}
+
 /// Canonical payload hashed for `team start` / `alln run` idempotency (24h
 /// retention, RLR-L9). The generalized field list (attachments, thread,
 /// resolved team/worker, the four timeouts, proof command, commit policy,

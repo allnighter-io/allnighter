@@ -42,6 +42,14 @@ struct AllnighterCLI {
         case "doctor": await runDoctor(args)
         case "detect": await runDetect()
         case "serve": await runServe(args)
+        // Team lifecycle is resident-owned. Keep all four public operations on
+        // this early route so a protected client never constructs a competing
+        // local RunStore/process view. `__runner` remains below: it is the
+        // resident-spawned child, not a public client operation.
+        case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()))
+        case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()))
+        case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()))
+        case "team" where args.first == "reconcile": await runTeamReconcile(Array(args.dropFirst()))
         default:
             let runtime = ToolRuntime()
             await run(command: command, args: args, runtime: runtime)
@@ -73,10 +81,6 @@ struct AllnighterCLI {
         case "run": await RunCLI.run(args, runtime: runtime)
         case "continuity": runContinuity(args)
         case "team" where args.first == "__runner": await runTeamRunner(Array(args.dropFirst()), runtime)
-        case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()), runtime)
-        case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()), runtime)
-        case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
-        case "team" where args.first == "reconcile": await runTeamReconcile(Array(args.dropFirst()), runtime)
         case "models": await ModelsCLI.run(args, runtime: runtime)
         case "defaults": await DefaultsCLI.run(args, runtime: runtime)
         case "boost-window": await BoostWindowCLI.run(args, runtime: runtime)
@@ -1189,18 +1193,26 @@ struct AllnighterCLI {
         _ kind: ResidentExecutionOperation.Query.Kind,
         runId: String
     ) async -> ResidentExecutionReceipt {
+        await residentTeamOperation(.query(.init(kind: kind, canonicalId: runId)))
+    }
+
+    /// Submit one Team lifecycle operation to the resident. This deliberately
+    /// has no local RunStore fallback: normal operations fail closed when the
+    /// live authority cannot be reached. A future persisted-read command is
+    /// explicit so scripts cannot mistake journal history for liveness.
+    static func residentTeamOperation(_ operation: ResidentExecutionOperation) async -> ResidentExecutionReceipt {
         let rendezvous = ResidentExecutionRendezvous()
         do {
             let submitted = try rendezvous.submit(
-                operation: .query(.init(kind: kind, canonicalId: runId)),
-                // A status/result query is a fresh observation, never a replay
-                // of a previous snapshot.
+                operation: operation,
+                // Lifecycle observations/actions are fresh deliveries, never
+                // replays of a previous snapshot.
                 idempotencyKey: UUID().uuidString.lowercased()
             )
             guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
                 fail(
                     code: "RESIDENT_ACCEPT_TIMEOUT",
-                    message: "resident coordinator did not answer the Team query before timeout"
+                    message: "resident coordinator did not answer the Team lifecycle operation before timeout"
                 )
             }
             if let rejection = receipt.rejection {
@@ -1213,14 +1225,14 @@ struct AllnighterCLI {
                 message: "resident coordinator is unavailable; enable it with `alln serve install`"
             )
         } catch {
-            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident Team query failed: \(error)")
+            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident Team lifecycle operation failed: \(error)")
         }
     }
 
     /// `alln team status <run-id> --json [--wait-for <state> --timeout <seconds>]`
     /// Plain status is a single snapshot. With `--wait-for`, blocks in-process
     /// until the target (or a non-matching terminal) or timeout (PO-F3).
-    static func runTeamStatus(_ args: [String], _ runtime: ToolRuntime) async {
+    static func runTeamStatus(_ args: [String]) async {
         let opts = Options(args)
         guard opts.flag("json"), let runId = opts.positional.first else {
             FileHandle.standardError.write(Data("usage: alln team status <run-id> --json [--wait-for <state> --timeout <seconds>]\n".utf8))
@@ -1318,7 +1330,7 @@ struct AllnighterCLI {
     }
 
     /// `alln team result <run-id> --json`
-    static func runTeamResult(_ args: [String], _ runtime: ToolRuntime) async {
+    static func runTeamResult(_ args: [String]) async {
         let opts = Options(args)
         guard opts.flag("json"), let runId = opts.positional.first else {
             FileHandle.standardError.write(Data("usage: alln team result <run-id> --json\n".utf8))
@@ -1339,15 +1351,18 @@ struct AllnighterCLI {
     }
 
     /// `alln team cancel <run-id> --json`
-    static func runTeamCancel(_ args: [String], _ runtime: ToolRuntime) async {
+    static func runTeamCancel(_ args: [String]) async {
         let opts = Options(args)
         guard opts.flag("json"), let runId = opts.positional.first else {
             FileHandle.standardError.write(Data("usage: alln team cancel <run-id> --json\n".utf8))
             exit(2)
         }
-        guard let response = await runtime.asyncTeamService().cancel(runId: runId) else {
-            emitRunNotFound(runId, "no run matches \(runId)", in: await runtime.asyncTeamService().runStore)
-            exit(1)
+        let receipt = await residentTeamOperation(.teamCancel(.init(runId: runId)))
+        guard case let .teamCancel(response) = receipt.result else {
+            fail(
+                code: "RESIDENT_REQUEST_REJECTED",
+                message: "resident coordinator returned an invalid Team cancel response"
+            )
         }
         print(jsonString(response))
     }
@@ -1358,7 +1373,7 @@ struct AllnighterCLI {
     /// run-id may target any project; the bare sweep is scoped to the caller's
     /// canonical project root (Concurrent Invocation Isolation F1) — machine-wide
     /// only via the explicit `--all-projects`.
-    static func runTeamReconcile(_ args: [String], _ runtime: ToolRuntime) async {
+    static func runTeamReconcile(_ args: [String]) async {
         let opts = Options(args)
         guard opts.flag("json") else {
             FileHandle.standardError.write(Data("usage: alln team reconcile [run-id] [--all-projects] --json\n".utf8))
@@ -1366,28 +1381,14 @@ struct AllnighterCLI {
         }
         let runId = opts.positional.first
         let scopeRoot = opts.flag("all-projects") ? nil : FileManager.default.currentDirectoryPath
-        let reaped = await runtime.asyncTeamService().reconcile(runId: runId, scopeRoot: scopeRoot)
-        struct ReconcileEnvelope: Encodable {
-            var schemaVersion = 1
-            var reapedCount: Int
-            var reaped: [ReconcileRow]
+        let receipt = await residentTeamOperation(.teamReconcile(.init(runId: runId, scopeRoot: scopeRoot)))
+        guard case let .teamReconcile(response) = receipt.result else {
+            fail(
+                code: "RESIDENT_REQUEST_REJECTED",
+                message: "resident coordinator returned an invalid Team reconcile response"
+            )
         }
-        struct ReconcileRow: Encodable {
-            var runId: String
-            var status: String
-            var endReason: String?
-        }
-        let envelope = ReconcileEnvelope(
-            reapedCount: reaped.count,
-            reaped: reaped.map {
-                ReconcileRow(
-                    runId: $0.id,
-                    status: $0.status.rawValue,
-                    endReason: $0.endReason?.rawValue
-                )
-            }
-        )
-        print(jsonString(envelope))
+        print(jsonString(response))
     }
 
     /// `alln continuity receipt [--json]` — local observed-facts summary of

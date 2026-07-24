@@ -322,6 +322,18 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         case .query(let query) where query.kind == .processSnapshot:
             let snapshot = ProcessOwnershipSurface(runStore: dependencies.runStore).list(scopeRoot: query.scopeRoot)
             try? rendezvous.accept(claim, canonicalId: "process-snapshot", result: .ownership(snapshot))
+        case .teamCancel(let request):
+            guard let response = await dependencies.asyncTeam.cancel(runId: request.runId) else {
+                try? rendezvous.reject(claim, code: "RUN_NOT_FOUND", message: "no run matches \(request.runId)")
+                return
+            }
+            try? rendezvous.accept(claim, canonicalId: request.runId, result: .teamCancel(response))
+        case .teamReconcile(let request):
+            let reaped = await dependencies.asyncTeam.reconcile(runId: request.runId, scopeRoot: request.scopeRoot)
+            let response = TeamReconcileResponse(reaped: reaped.map {
+                .init(runId: $0.id, status: $0.status.rawValue, endReason: $0.endReason?.rawValue)
+            })
+            try? rendezvous.accept(claim, canonicalId: request.runId ?? "all", result: .teamReconcile(response))
         case .cancel(let request):
             let surface = ProcessOwnershipSurface(runStore: dependencies.runStore)
             if request.all {

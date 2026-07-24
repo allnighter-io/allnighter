@@ -157,6 +157,31 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         XCTAssertEqual(missingStatusReceipt.state, .rejected)
         XCTAssertEqual(missingStatusReceipt.rejection?.code, "RUN_NOT_FOUND")
 
+        // The remaining public Team lifecycle verbs use this same resident
+        // authority. A reconcile may legitimately find nothing, while cancel
+        // reports a normal typed not-found receipt instead of consulting a
+        // client-local RunStore.
+        let reconcile = try rendezvous.submit(
+            operation: .teamReconcile(.init(scopeRoot: root.path)),
+            idempotencyKey: "reconcile", requestId: "reconcile-request"
+        )
+        let reconcileMaybeReceipt = try await rendezvous.waitForReceipt(requestId: reconcile.requestId)
+        let reconcileReceipt = try XCTUnwrap(reconcileMaybeReceipt)
+        XCTAssertEqual(reconcileReceipt.state, .accepted)
+        guard case let .teamReconcile(reconcileResponse) = reconcileReceipt.result else {
+            return XCTFail("expected resident Team reconcile response")
+        }
+        XCTAssertEqual(reconcileResponse.reapedCount, 0)
+
+        let cancel = try rendezvous.submit(
+            operation: .teamCancel(.init(runId: "missing")),
+            idempotencyKey: "cancel", requestId: "cancel-request"
+        )
+        let cancelMaybeReceipt = try await rendezvous.waitForReceipt(requestId: cancel.requestId)
+        let cancelReceipt = try XCTUnwrap(cancelMaybeReceipt)
+        XCTAssertEqual(cancelReceipt.state, .rejected)
+        XCTAssertEqual(cancelReceipt.rejection?.code, "RUN_NOT_FOUND")
+
         let foreground = try rendezvous.submit(
             operation: .foregroundTeamRun(.init(message: "hello", repoRoot: root.path)),
             idempotencyKey: "foreground", requestId: "foreground-request"

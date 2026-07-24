@@ -25,6 +25,8 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     case projectRecheck(ProjectRecheck)
     case query(Query)
     case cancel(Cancel)
+    case teamCancel(TeamCancel)
+    case teamReconcile(TeamReconcile)
 
     public struct PanelStart: Codable, Equatable, Sendable {
         public var projectRoot: String
@@ -242,8 +244,26 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         }
     }
 
+    /// Lifecycle cancellation is distinct from the process-ownership surface.
+    /// The former settles Team journal truth; the latter only addresses an
+    /// explicitly owned process tree. Keeping them separate prevents a client
+    /// from accidentally bypassing resident lifecycle reconciliation.
+    public struct TeamCancel: Codable, Equatable, Sendable {
+        public var runId: String
+        public init(runId: String) { self.runId = runId }
+    }
+
+    public struct TeamReconcile: Codable, Equatable, Sendable {
+        public var runId: String?
+        public var scopeRoot: String?
+        public init(runId: String? = nil, scopeRoot: String? = nil) {
+            self.runId = runId
+            self.scopeRoot = scopeRoot
+        }
+    }
+
     public enum Kind: String, Codable, Sendable {
-        case teamRun, foregroundTeamRun, panelStart, panelRound, panelDone, sourceProbe, boostSeed, pendingRun, projectRecheck, query, cancel
+        case teamRun, foregroundTeamRun, panelStart, panelRound, panelDone, sourceProbe, boostSeed, pendingRun, projectRecheck, query, cancel, teamCancel, teamReconcile
     }
 
     private enum CodingKeys: String, CodingKey { case type, payload }
@@ -261,6 +281,8 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         case .projectRecheck: return .projectRecheck
         case .query: return .query
         case .cancel: return .cancel
+        case .teamCancel: return .teamCancel
+        case .teamReconcile: return .teamReconcile
         }
     }
 
@@ -278,6 +300,8 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         case .projectRecheck: self = .projectRecheck(try container.decode(ProjectRecheck.self, forKey: .payload))
         case .query: self = .query(try container.decode(Query.self, forKey: .payload))
         case .cancel: self = .cancel(try container.decode(Cancel.self, forKey: .payload))
+        case .teamCancel: self = .teamCancel(try container.decode(TeamCancel.self, forKey: .payload))
+        case .teamReconcile: self = .teamReconcile(try container.decode(TeamReconcile.self, forKey: .payload))
         }
     }
 
@@ -296,6 +320,8 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
         case let .projectRecheck(value): try container.encode(value, forKey: .payload)
         case let .query(value): try container.encode(value, forKey: .payload)
         case let .cancel(value): try container.encode(value, forKey: .payload)
+        case let .teamCancel(value): try container.encode(value, forKey: .payload)
+        case let .teamReconcile(value): try container.encode(value, forKey: .payload)
         }
     }
 }
@@ -419,6 +445,8 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
     case teamStatus(TeamStatusResponse)
     case teamResult(TeamRunJSON)
     case teamResultNotReady(TeamResultNotReady)
+    case teamCancel(TeamCancelResponse)
+    case teamReconcile(TeamReconcileResponse)
     case panelStart(PanelStartJSON)
     case panelRound(PanelRoundJSON)
     case panelStatus(PanelJSON)
@@ -432,7 +460,7 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum Kind: String, Codable {
-        case coordinatorHealth, teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor, detection, ownership, ownershipKill, utilizationSeed, pendingItem, projectWorkerReadiness
+        case coordinatorHealth, teamStart, teamStatus, teamResult, teamResultNotReady, teamCancel, teamReconcile, panelStart, panelRound, panelStatus, doctor, detection, ownership, ownershipKill, utilizationSeed, pendingItem, projectWorkerReadiness
     }
 
     public init(from decoder: Decoder) throws {
@@ -443,6 +471,8 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
         case .teamStatus: self = .teamStatus(try container.decode(TeamStatusResponse.self, forKey: .payload))
         case .teamResult: self = .teamResult(try container.decode(TeamRunJSON.self, forKey: .payload))
         case .teamResultNotReady: self = .teamResultNotReady(try container.decode(TeamResultNotReady.self, forKey: .payload))
+        case .teamCancel: self = .teamCancel(try container.decode(TeamCancelResponse.self, forKey: .payload))
+        case .teamReconcile: self = .teamReconcile(try container.decode(TeamReconcileResponse.self, forKey: .payload))
         case .panelStart: self = .panelStart(try container.decode(PanelStartJSON.self, forKey: .payload))
         case .panelRound: self = .panelRound(try container.decode(PanelRoundJSON.self, forKey: .payload))
         case .panelStatus: self = .panelStatus(try container.decode(PanelJSON.self, forKey: .payload))
@@ -473,6 +503,12 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
             try container.encode(value, forKey: .payload)
         case let .teamResultNotReady(value):
             try container.encode(Kind.teamResultNotReady, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .teamCancel(value):
+            try container.encode(Kind.teamCancel, forKey: .type)
+            try container.encode(value, forKey: .payload)
+        case let .teamReconcile(value):
+            try container.encode(Kind.teamReconcile, forKey: .type)
             try container.encode(value, forKey: .payload)
         case let .panelStart(value):
             try container.encode(Kind.panelStart, forKey: .type)
