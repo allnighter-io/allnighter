@@ -60,20 +60,24 @@ final class HelpTopicRegistryTests: XCTestCase {
         }
     }
 
-    /// ASF-S05: first-contact decision tree covers run / detach / thread / pending / menu.
+    /// ASF-S05: first-contact decision tree covers run / thread / pending / menu.
+    /// `--detach` was demoted from a taught verb to a temporarily-unsupported
+    /// surface in 1c04876e (code-red: restore direct run and delete mirrors); the
+    /// topic must now disclose that status rather than teach it as a usable command.
     func testToolSelectionDecisionTreeMentionsCoreVerbs() throws {
         let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "tool_selection"))
         let prose = ([topic.summary, topic.bodyMarkdown]
                      + topic.sections.map(\.bodyMarkdown)).joined(separator: "\n")
         for needle in [
             "alln run",
-            "alln run --detach",
             "alln thread send",
             "alln pending add",
             "alln menu --json",
         ] {
             XCTAssertTrue(prose.contains(needle), "tool_selection must mention '\(needle)'")
         }
+        XCTAssertTrue(prose.contains("--detach") && prose.contains("unsupported"),
+                      "tool_selection must disclose that --detach is temporarily unsupported (Code Red)")
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "which command"), "tool_selection")
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "run vs team"), "tool_selection")
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "thread send"), "tool_selection")
@@ -95,10 +99,15 @@ final class HelpTopicRegistryTests: XCTestCase {
         let md = HelpService.topicMarkdown(topic)
         let docs = try XCTUnwrap(HelpService.docsMarkdown(topic: "team_run_loop"))
 
+        // `--detach` was demoted to a temporarily-unsupported surface in 1c04876e
+        // (code-red: restore direct run and delete mirrors), so the supported loop
+        // this topic teaches is dry-run → foreground run — no `alln run --detach`.
         for surface in [("topicMarkdown", md), ("docsMarkdown", docs)] {
             let (label, text) = surface
             XCTAssertTrue(text.contains("alln run --dry-run"), "\(label) must teach alln run --dry-run")
-            XCTAssertTrue(text.contains("alln run --detach"), "\(label) must teach alln run --detach")
+            XCTAssertTrue(text.contains("foreground run"), "\(label) must teach the foreground run loop")
+            XCTAssertFalse(text.contains("alln run --detach"),
+                           "\(label) must not teach --detach as a usable verb (Code Red: unsupported)")
             for banned in ["dryRun", "team_start(", "team_run", "team_ask", "run_get"] {
                 XCTAssertFalse(text.contains(banned), "\(label) must not contain '\(banned)'")
             }
