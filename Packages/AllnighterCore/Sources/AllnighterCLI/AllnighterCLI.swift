@@ -348,6 +348,19 @@ struct AllnighterCLI {
     /// is read-only and never starts the coordinator.
     static func runServe(_ args: [String]) async {
         let opts = Options(args)
+        if args.first == "install" {
+            guard opts.positional.count == 1, !opts.flag("health") else {
+                FileHandle.standardError.write(Data("usage: alln serve install [--json]\n".utf8)); exit(2)
+            }
+            switch ResidentCoordinatorInstall.install(argv0: CommandLine.arguments.first) {
+            case .success(let result):
+                if opts.flag("json") { print(jsonString(result)) }
+                else { print("Allnighter is ready in the background.") }
+            case .failure(let error):
+                fail(code: "COORDINATOR_UNAVAILABLE", message: error.message)
+            }
+            return
+        }
         if opts.flag("health") {
             let probe = ResidentCoordinatorProbe()
             let health = probe.health(binaryVersion: binaryVersion)
@@ -363,7 +376,7 @@ struct AllnighterCLI {
             return
         }
         if !opts.positional.isEmpty || !opts.values.isEmpty {
-            FileHandle.standardError.write(Data("usage: alln serve [--health --json]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln serve [--health --json] | alln serve install [--json]\n".utf8)); exit(2)
         }
         FileHandle.standardError.write(Data("alln serve — resident coordinator (Ctrl+C to stop)\n".utf8))
         do {

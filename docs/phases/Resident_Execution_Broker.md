@@ -1,8 +1,8 @@
 # Resident Execution Broker — One Spawn Path for Every CLI
 
-Status: **Implementation in progress — REB-S01 landed; REB-S02 routes non-stream `alln run`, `alln run --detach`, and `alln team status/result` through the resident authority. REB-S03 now routes Panel start/round dispatch through it and removes caller-cache self-fusion. Live event routing (`--stream`/`--try-fix`), Panel status/watch/done, and doctor are not broker-routed yet.**
+Status: **Implementation in progress — REB-S01 landed; REB-S02 routes non-stream `alln run`, `alln run --detach`, and `alln team status/result` through the resident authority. REB-S03 now routes Panel start/round dispatch through it and removes caller-cache self-fusion. REB-S04 now provides explicit user-consented `alln serve install`, including a scoped LaunchAgent and preserved CLI PATH. Live event routing (`--stream`/`--try-fix`), Panel status/watch/done, doctor, restart/drain compatibility, and the host matrix remain.**
 Owner: AllnighterCore + `alln serve` + CLI
-Updated: 2026-07-23 (implementation review and REB-S01 started)
+Updated: 2026-07-23 (REB-S04 installation path landed; activation requires explicit user consent)
 Supersedes: the resident execution boundary in archived
 `Mac_Standalone_App_And_Background_Coordinator.md`; its Mac app shell history
 remains historical.
@@ -627,7 +627,10 @@ After cutover:
 ### REB-S04 — Installation and version lifecycle
 
 - Finalize and ship `alln serve install` as the app-independent enablement
-  path; the Mac setup path calls the same mechanism.
+  path; the Mac setup path calls the same mechanism. **Landed:** it writes and
+  bootstraps only `com.allnighter.resident-coordinator`, invokes the installed
+  `alln serve` binary, preserves the installer's PATH for vendor CLI discovery,
+  and performs no implicit registration from any other command.
 - Add launchd restart and client/coordinator compatibility handshake.
 - Add drain/restart behavior for binary updates, including re-adoption of
   in-flight accepted work.
