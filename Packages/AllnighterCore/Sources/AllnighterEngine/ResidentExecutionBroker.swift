@@ -57,6 +57,7 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         public var commandRunner: CommandRunner
         public var executablePath: @Sendable () -> String?
         public var doctor: ResidentDoctorService
+        public var coordinatorHealth: @Sendable () -> CoordinatorHealth
 
         public init(
             asyncTeam: AsyncTeamService,
@@ -68,7 +69,8 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             readyModels: @escaping @Sendable () -> [Model],
             commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
             executablePath: @escaping @Sendable () -> String? = ProcessOwnership.currentExecutablePath,
-            doctor: ResidentDoctorService? = nil
+            doctor: ResidentDoctorService? = nil,
+            coordinatorHealth: (@Sendable () -> CoordinatorHealth)? = nil
         ) {
             self.asyncTeam = asyncTeam
             self.runService = runService ?? RunService(models: models, registry: registry, runStore: runStore)
@@ -80,6 +82,13 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
             self.commandRunner = commandRunner
             self.executablePath = executablePath
             self.doctor = doctor ?? ResidentDoctorService(models: models, registry: registry, binaryVersion: AllnighterVersionIdentity.binaryVersion)
+            self.coordinatorHealth = coordinatorHealth ?? {
+                ResidentCoordinatorProbe().health(
+                    binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                    binaryGitSha: AllnighterBuildInfo.gitSha,
+                    contractVersion: ContractRegistry.contractVersion
+                )
+            }
         }
     }
 
@@ -220,7 +229,12 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         case .projectRecheck(let request):
             await recheckProject(request, claim: claim)
         case .query(let query) where query.kind == .health:
-            try? rendezvous.accept(claim, canonicalId: claim.request.coordinatorId)
+            let health = dependencies.coordinatorHealth()
+            try? rendezvous.accept(
+                claim,
+                canonicalId: health.coordinatorId ?? claim.request.coordinatorId,
+                result: .coordinatorHealth(health)
+            )
         case .query(let query) where query.kind == .runStatus:
             guard let runId = query.canonicalId, let status = await dependencies.asyncTeam.status(runId: runId) else {
                 try? rendezvous.reject(claim, code: "RUN_NOT_FOUND", message: "no run matches \(query.canonicalId ?? "")")

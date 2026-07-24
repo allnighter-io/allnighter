@@ -20,7 +20,23 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         let cancelled = BrokerCancellation()
         let broker = ResidentExecutionBroker(
             rendezvous: rendezvous,
-            dependencies: .init(asyncTeam: service, readyModels: { [] }, executablePath: { "/usr/bin/false" })
+            dependencies: .init(
+                asyncTeam: service,
+                readyModels: { [] },
+                executablePath: { "/usr/bin/false" },
+                coordinatorHealth: {
+                    CoordinatorHealth(
+                        state: .available,
+                        coordinatorId: "coord",
+                        pid: 42,
+                        contractVersion: ContractRegistry.contractVersion,
+                        binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                        journal: .init(incrementalDurable: true, orphanRecovery: true, runsDirWritable: true),
+                        loopback: .init(listening: true),
+                        broker: .init(ready: true)
+                    )
+                }
+            )
         )
         let task = Task { await broker.run(isCancelled: { cancelled.value }) }
         defer {
@@ -35,6 +51,11 @@ final class ResidentExecutionBrokerTests: XCTestCase {
         let healthReceipt = try XCTUnwrap(healthMaybeReceipt)
         XCTAssertEqual(healthReceipt.state, .accepted)
         XCTAssertEqual(healthReceipt.canonicalId, "coord")
+        guard case let .coordinatorHealth(healthSnapshot) = healthReceipt.result else {
+            return XCTFail("expected coordinator health over rendezvous")
+        }
+        XCTAssertEqual(healthSnapshot.state, .available)
+        XCTAssertTrue(healthSnapshot.broker.ready)
 
         // A source probe is coordinator-scoped. Letting a restricted caller
         // attach its repo path reintroduces the Documents-TCC prompt the broker

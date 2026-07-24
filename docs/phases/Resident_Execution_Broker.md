@@ -374,6 +374,10 @@ permission-restricted temporary rendezvous directory:
   ping request answered through `replies/`. Doctor and
   `COORDINATOR_UNAVAILABLE` classification use this path when loopback is
   blocked, so a blocked loopback is never reported as a missing coordinator.
+- **Landed:** `alln serve --health` also requests the coordinator's typed health
+  snapshot over the rendezvous whenever its direct state-file/loopback probe is
+  unavailable. A restricted client therefore reports the resident's real
+  journal and broker facts rather than inventing `foregroundOnly`.
 
 The concrete rendezvous root is resolved, not hardcoded: a per-uid directory
 derived from the platform temporary-directory convention (honoring a

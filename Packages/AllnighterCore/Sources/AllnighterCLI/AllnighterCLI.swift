@@ -391,7 +391,8 @@ struct AllnighterCLI {
         }
         if opts.flag("health") {
             let probe = ResidentCoordinatorProbe()
-            let health = probe.health(binaryVersion: binaryVersion)
+            let direct = probe.health(binaryVersion: binaryVersion)
+            let health = await residentHealthFallback(direct)
             if opts.flag("json") {
                 print(jsonString(health))
             } else {
@@ -465,6 +466,28 @@ struct AllnighterCLI {
             ).runUntilSignal()
         } catch {
             FileHandle.standardError.write(Data("coordinator failed: \(error)\n".utf8)); exit(1)
+        }
+    }
+
+    /// A restricted client may not read the coordinator's private state record
+    /// or reach loopback. In that case health must come from the same typed
+    /// rendezvous used for execution, not from a guessed `foregroundOnly` state.
+    private static func residentHealthFallback(_ direct: CoordinatorHealth) async -> CoordinatorHealth {
+        guard direct.state != .available || !direct.broker.ready else { return direct }
+        let rendezvous = ResidentExecutionRendezvous()
+        do {
+            let submitted = try rendezvous.submit(
+                operation: .query(.init(kind: .health)),
+                idempotencyKey: UUID().uuidString.lowercased()
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId, timeout: 5),
+                  receipt.rejection == nil,
+                  case let .coordinatorHealth(health) = receipt.result else {
+                return direct
+            }
+            return health
+        } catch {
+            return direct
         }
     }
 

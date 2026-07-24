@@ -401,6 +401,7 @@ public struct ResidentExecutionReceipt: Codable, Equatable, Sendable {
 /// Typed acceptance payload. Result-bearing commands reuse their existing
 /// public contracts rather than inventing broker-only JSON.
 public enum ResidentExecutionResult: Codable, Equatable, Sendable {
+    case coordinatorHealth(CoordinatorHealth)
     case teamStart(TeamStartResponse)
     case teamStatus(TeamStatusResponse)
     case teamResult(TeamRunJSON)
@@ -418,12 +419,13 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum Kind: String, Codable {
-        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor, detection, ownership, ownershipKill, utilizationSeed, pendingItem, projectWorkerReadiness
+        case coordinatorHealth, teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor, detection, ownership, ownershipKill, utilizationSeed, pendingItem, projectWorkerReadiness
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(Kind.self, forKey: .type) {
+        case .coordinatorHealth: self = .coordinatorHealth(try container.decode(CoordinatorHealth.self, forKey: .payload))
         case .teamStart: self = .teamStart(try container.decode(TeamStartResponse.self, forKey: .payload))
         case .teamStatus: self = .teamStatus(try container.decode(TeamStatusResponse.self, forKey: .payload))
         case .teamResult: self = .teamResult(try container.decode(TeamRunJSON.self, forKey: .payload))
@@ -444,6 +446,9 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case let .coordinatorHealth(value):
+            try container.encode(Kind.coordinatorHealth, forKey: .type)
+            try container.encode(value, forKey: .payload)
         case let .teamStart(value):
             try container.encode(Kind.teamStart, forKey: .type)
             try container.encode(value, forKey: .payload)
