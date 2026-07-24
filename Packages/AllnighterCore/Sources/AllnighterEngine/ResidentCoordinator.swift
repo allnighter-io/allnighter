@@ -131,39 +131,6 @@ public final class ResidentCoordinator: @unchecked Sendable {
                 shutdown.fire()
             }
             if let wake = wakeDependencies {
-                group.addTask { [rendezvous] in
-                    let broker = ResidentExecutionBroker(
-                        rendezvous: rendezvous,
-                        dependencies: .init(
-                            asyncTeam: wake.asyncTeam,
-                            runService: RunService(
-                                models: wake.models,
-                                registry: wake.registry,
-                                teams: wake.teams,
-                                runStore: wake.runStore,
-                                commandRunner: wake.commandRunner,
-                                writeLock: wake.writeLock,
-                                invocations: wake.invocations,
-                                sessionStore: wake.sessionStore
-                            ),
-                            models: wake.models,
-                            registry: wake.registry,
-                            runStore: wake.runStore,
-                            invocations: wake.invocations,
-                            readyModels: wake.readyModels,
-                            commandRunner: wake.commandRunner,
-                            doctor: ResidentDoctorService(
-                                models: wake.models,
-                                registry: wake.registry,
-                                binaryVersion: self.binaryVersion
-                            )
-                        )
-                    )
-                    await broker.run(
-                        isCancelled: { shutdown.isCancelled },
-                        isDraining: { self.restartStore.load() != nil }
-                    )
-                }
                 group.addTask {
                     let scheduler = PendingWakeScheduler(
                         models: wake.models,

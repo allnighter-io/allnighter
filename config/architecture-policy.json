@@ -36,7 +36,8 @@
     "--sandbox read-only",
     "--permission-mode plan",
     "Allnighter-Codex",
-    "CODEX_THREAD_ID"
+    "CODEX_THREAD_ID",
+    "ResidentExecutionBroker"
   ],
   "forbiddenAlternateRootFields": [
     "projectMirrorRoot",
@@ -66,11 +67,10 @@
   "residentProductionFiles": [
     "Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift",
     "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentExecutionRendezvous.swift",
-    "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentExecutionBroker.swift",
     "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinator.swift",
     "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinatorProbe.swift"
   ],
-  "residentProductionLineCeiling": 2143,
+  "residentProductionLineCeiling": 1529,
   "residentCloseoutLineBudget": 800,
   "founderOwnedPaths": [
     "config/architecture-policy.json",
