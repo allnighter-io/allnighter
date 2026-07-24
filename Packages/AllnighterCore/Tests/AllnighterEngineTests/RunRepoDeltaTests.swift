@@ -94,10 +94,20 @@ final class RunRepoDeltaTests: XCTestCase {
         let outcome = try XCTUnwrap(trj.outcome)
         XCTAssertEqual(outcome.status, .completed)
         XCTAssertTrue(outcome.committed)
-        XCTAssertEqual(
-            outcome.headline,
-            "worker model_grok · lane code (context — --team routes) · mutating · committed \(String(delta.head!.prefix(7))): 1 file")
-        XCTAssertTrue(RunIdentity.cliFooter(run).contains(outcome.headline))
+        // SH-S08 (a8fddec1) appends observed single-seat timing (queue/duration/wall)
+        // to the headline. This run is executed live, so those clocks are measured and
+        // non-deterministic — assert the identity prefix exactly, then that the timing
+        // summary is appended, rather than freezing measured milliseconds into a golden.
+        let identityPrefix =
+            "worker model_grok · lane code (context — --team routes) · mutating · committed \(String(delta.head!.prefix(7))): 1 file"
+        XCTAssertTrue(outcome.headline.hasPrefix(identityPrefix),
+                      "headline must start with the run identity; got: \(outcome.headline)")
+        XCTAssertTrue(outcome.headline.contains("wall") && outcome.headline.contains("ms"),
+                      "SH-S08 observed timing must be appended to the headline; got: \(outcome.headline)")
+        // The human footer recomputes its own headline (with its own measured timing
+        // clocks), so it need not be byte-identical to the JSON outcome headline —
+        // assert it carries the same run identity.
+        XCTAssertTrue(RunIdentity.cliFooter(run).contains(identityPrefix))
     }
 
     func testMutatingRunReportsNoChangeHonestly() async throws {
