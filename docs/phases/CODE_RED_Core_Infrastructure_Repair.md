@@ -860,6 +860,22 @@ Code Red.
 Works Test: all deterministic checks pass and the full live proof succeeds
 three consecutive times from unchanged committed HEAD.
 
+> **Founder ruling 2026-07-24 — detach-dependent tests skipped, must be restored here.**
+> Seven two-process reproductions depend on `alln run --detach`, which 1c04876e
+> deliberately fails closed (`CODE_RED_UNSUPPORTED`). Per founder ruling they are
+> skipped (via `try XCTSkipIf(true, codeRedDetachSkipReason)`, not weakened) until
+> the resident/detach question settles: `RunLifecycleTwoProcessTests`
+> (`testStatusPolledFromSecondProcessDisagreesWithDurableJournalDuringHang`,
+> `testKillStampsTerminalKilledWhileLiveWorkerSurvives`,
+> `testKillOfBlockedRunWithdrawsFifoTicketFromSecondProcess`,
+> `testAsyncWorkerRuntimeOwnershipRecordedAsGroupLeader`),
+> `ConcurrentInvocationTwoProcessTests`
+> (`testTwoRealProcessesMutationAndContextIsolation`,
+> `testTwoRealProcessesSameKeyIdempotencySingleFlight`), and
+> `RunLifecycleReliabilityWorksTest.testItem12PsAllProjectsShowsZeroHarnessOrphansAfterClose`.
+> **CR-S06 cannot close until it un-skips this set** — CR-S06's works test re-runs
+> these reproductions once detach is settled/restored.
+
 ### CR-S07 — Lock the gate and close Code Red
 
 - commit the live proof packet;

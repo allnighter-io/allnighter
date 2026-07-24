@@ -21,6 +21,7 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
     // MARK: - The gate
 
     func testTwoRealProcessesMutationAndContextIsolation() throws {
+        try XCTSkipIf(true, codeRedDetachSkipReason)
         let alln = try Self.locateAllnBinary()
         let fm = FileManager.default
 
@@ -194,6 +195,7 @@ final class ConcurrentInvocationTwoProcessTests: XCTestCase {
     /// payload, one support root — both responses share one run id, one run
     /// directory, and one worker invocation; same-key/different-payload refuses.
     func testTwoRealProcessesSameKeyIdempotencySingleFlight() throws {
+        try XCTSkipIf(true, codeRedDetachSkipReason)
         let alln = try Self.locateAllnBinary()
         let fm = FileManager.default
         let temp = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)

@@ -2,6 +2,20 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
+/// Founder ruling 2026-07-24 (CODE_RED_Core_Infrastructure_Repair): the seven
+/// two-process detach reproductions across this file,
+/// `ConcurrentInvocationTwoProcessTests`, and
+/// `RunLifecycleReliabilityWorksTest.testItem12` all depend on `alln run
+/// --detach`, which 1c04876e deliberately fails closed (CODE_RED_UNSUPPORTED).
+/// They are skipped — not weakened — until CR-S05/CR-S06 settle the
+/// resident/detach question; CR-S06's works test re-runs these.
+let codeRedDetachSkipReason = """
+Skipped under Code Red (CODE_RED_Core_Infrastructure_Repair): `alln run --detach` \
+fails closed (CODE_RED_UNSUPPORTED, 1c04876e). Founder ruling 2026-07-24. Must be \
+un-skipped when CR-S05/CR-S06 settle the resident/detach question — CR-S06's works \
+test re-runs these.
+"""
+
 /// RLR-S00 **two-process** reproductions (`docs/phases/Run_Lifecycle_Reliability.md`
 /// § Trusted workflow slice / Works Test). Extends the
 /// `ConcurrentInvocationTwoProcessTests` fixture shape: two real `alln`
@@ -29,6 +43,7 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
     // MARK: - Signature (a): status ≠ journal during the hang
 
     func testStatusPolledFromSecondProcessDisagreesWithDurableJournalDuringHang() throws {
+        try XCTSkipIf(true, codeRedDetachSkipReason)
         let alln = try Self.locateAllnBinary()
 
         var fixture = try Fixture.make(name: "rlr-status2proc")
@@ -93,6 +108,7 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
     // MARK: - Signature (b): terminal `killed` lie over a live worker
 
     func testKillStampsTerminalKilledWhileLiveWorkerSurvives() throws {
+        try XCTSkipIf(true, codeRedDetachSkipReason)
         let alln = try Self.locateAllnBinary()
 
         var fixture = try Fixture.make(name: "rlr-kill2proc")
@@ -193,6 +209,7 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
     /// a live foreign holder to B's separate process, deterministic and independent of the
     /// mutating execution path (B never reaches execution; it blocks at the lock).
     func testKillOfBlockedRunWithdrawsFifoTicketFromSecondProcess() throws {
+        try XCTSkipIf(true, codeRedDetachSkipReason)
         let alln = try Self.locateAllnBinary()
 
         var fixture = try Fixture.make(name: "rlr-blockedkill")
@@ -299,6 +316,7 @@ final class RunLifecycleTwoProcessTests: XCTestCase {
     /// `SubprocessCommandRunner` setpgid detachment (site C, unrecorded own group)
     /// is gone. No kill is exercised (that flips green in S04b).
     func testAsyncWorkerRuntimeOwnershipRecordedAsGroupLeader() throws {
+        try XCTSkipIf(true, codeRedDetachSkipReason)
         let alln = try Self.locateAllnBinary()
 
         var fixture = try Fixture.make(name: "rlr-s04a-async")

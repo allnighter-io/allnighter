@@ -115,6 +115,7 @@ final class RunLifecycleReliabilityWorksTest: XCTestCase {
     // MARK: - Item 12: morning zero identity-alive harness orphans
 
     func testItem12PsAllProjectsShowsZeroHarnessOrphansAfterClose() throws {
+        try XCTSkipIf(true, codeRedDetachSkipReason)
         let alln = try Self.locateAllnBinary()
         var fixture = try Fixture.make(name: "rlr-s06-orphans")
         defer { fixture.tearDown(alln: alln, markerSleeps: ["4941"]) }
