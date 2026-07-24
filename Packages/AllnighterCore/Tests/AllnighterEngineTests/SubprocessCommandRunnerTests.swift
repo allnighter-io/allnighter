@@ -188,6 +188,36 @@ final class SubprocessCommandRunnerTests: XCTestCase {
         }
     }
 
+    // MARK: - CR-S02: large concurrent stdout + stderr must not deadlock
+
+    /// A child that writes well over one pipe buffer (64 KB) to stdout AND stderr
+    /// concurrently. If the runner drained the pipes sequentially (read all stdout,
+    /// then stderr), the child would block filling the unread pipe and the parent
+    /// would block waiting on the other — a classic deadlock. Both streams are
+    /// drained concurrently before wait, so both arrive whole and nothing hangs.
+    func testConcurrentLargeStdoutAndStderrDrainWithoutDeadlock() async {
+        let perStream = 300_000   // > 256 KB, and > 4× the 64 KB pipe buffer
+        // Write both streams concurrently, then `wait` for both writers.
+        let script = "( head -c \(perStream) /dev/zero | tr '\\0' 'x' ) & "
+            + "( head -c \(perStream) /dev/zero | tr '\\0' 'y' 1>&2 ) & wait"
+        let start = Date()
+        let result = await runner.run(
+            command: "/bin/sh",
+            args: ["-c", script],
+            stdin: nil,
+            env: [:],
+            workingDirectory: nil,
+            timeout: .seconds(20)
+        )
+        XCTAssertFalse(result.timedOut, "concurrent large stdout+stderr must not deadlock into a timeout")
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.stdout.utf8.count, perStream, "stdout must be captured whole, not truncated")
+        XCTAssertEqual(result.stderr.utf8.count, perStream, "stderr must be captured whole, not truncated")
+        XCTAssertGreaterThan(result.stdout.utf8.count, 256 * 1024)
+        XCTAssertGreaterThan(result.stderr.utf8.count, 256 * 1024)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 20, "must finish well under the timeout")
+    }
+
     func testStreamingCancelKillsProcessGroup() async {
         let runner = SubprocessCommandRunner()
         let start = Date()
