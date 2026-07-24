@@ -204,6 +204,27 @@ final class CoordinatorRunTests: XCTestCase {
         XCTAssertThrowsError(try rendezvous.currentIdentity(), "shutdown removes the live endpoint identity")
     }
 
+    func testResidentCoordinatorDrainsAndExitsForRequestedRestartWhenIdle() async throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-restart-\(UUID().uuidString)")
+        let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
+        let restartStore = ResidentCoordinatorRestartStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))
+        defer { try? FileManager.default.removeItem(at: root) }
+        try restartStore.request(.init(binaryVersion: "0.1.0", contractVersion: "1.0.0"))
+
+        try await ResidentCoordinator(
+            binaryVersion: "0.1.0",
+            store: store,
+            restartStore: restartStore
+        ).run(untilShutdown: {
+            while restartStore.load() != nil {
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+        })
+
+        XCTAssertNil(restartStore.load())
+        XCTAssertNil(store.load())
+    }
+
     func testResidentCoordinatorRunsRemoteDependencyUntilShutdown() async throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-remote-\(UUID().uuidString)")
         let store = ResidentCoordinatorStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true))

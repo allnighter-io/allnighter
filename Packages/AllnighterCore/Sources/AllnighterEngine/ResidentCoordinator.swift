@@ -60,6 +60,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
     private let probe: ResidentCoordinatorProbe
     private let server: LoopbackHealthServer
     private let rendezvous: ResidentExecutionRendezvous
+    private let restartStore: ResidentCoordinatorRestartStore
     private let wakeDependencies: WakeDependencies?
     private let remoteDependencies: RemoteDependencies?
     private let coordinatorId: String
@@ -71,6 +72,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
         store: ResidentCoordinatorStore = ResidentCoordinatorStore(),
         server: LoopbackHealthServer = LoopbackHealthServer(),
         rendezvous: ResidentExecutionRendezvous = ResidentExecutionRendezvous(),
+        restartStore: ResidentCoordinatorRestartStore = ResidentCoordinatorRestartStore(),
         wakeDependencies: WakeDependencies? = nil,
         remoteDependencies: RemoteDependencies? = nil
     ) {
@@ -79,6 +81,7 @@ public final class ResidentCoordinator: @unchecked Sendable {
         self.store = store
         self.server = server
         self.rendezvous = rendezvous
+        self.restartStore = restartStore
         self.probe = ResidentCoordinatorProbe(store: store, rendezvous: rendezvous)
         self.wakeDependencies = wakeDependencies
         self.remoteDependencies = remoteDependencies
@@ -150,7 +153,10 @@ public final class ResidentCoordinator: @unchecked Sendable {
                             )
                         )
                     )
-                    await broker.run(isCancelled: { shutdown.isCancelled })
+                    await broker.run(
+                        isCancelled: { shutdown.isCancelled },
+                        isDraining: { self.restartStore.load() != nil }
+                    )
                 }
                 group.addTask {
                     let scheduler = PendingWakeScheduler(
@@ -187,6 +193,15 @@ public final class ResidentCoordinator: @unchecked Sendable {
                         coordinatorId: coordinatorId
                     )
                     await reconciler.run { shutdown.isCancelled }
+                }
+            }
+            group.addTask { [probe, restartStore] in
+                while !shutdown.isCancelled && !Task.isCancelled {
+                    if restartStore.load() != nil, probe.activeObligationCount() == 0 {
+                        restartStore.clear()
+                        return
+                    }
+                    try? await Task.sleep(for: .milliseconds(100))
                 }
             }
             if let remote = remoteDependencies {

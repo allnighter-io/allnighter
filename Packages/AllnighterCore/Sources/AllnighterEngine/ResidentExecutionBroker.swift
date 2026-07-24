@@ -90,8 +90,15 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
         self.dependencies = dependencies
     }
 
-    public func run(isCancelled: @escaping @Sendable () -> Bool) async {
+    public func run(
+        isCancelled: @escaping @Sendable () -> Bool,
+        isDraining: @escaping @Sendable () -> Bool = { false }
+    ) async {
         while !isCancelled() && !Task.isCancelled {
+            if isDraining() {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                continue
+            }
             do {
                 if let claim = try rendezvous.claimNext() {
                     await dispatch(claim)

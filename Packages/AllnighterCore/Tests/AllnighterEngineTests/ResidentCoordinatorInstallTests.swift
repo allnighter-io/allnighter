@@ -95,6 +95,7 @@ final class ResidentCoordinatorInstallTests: XCTestCase {
         try Data().write(to: binary)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binary.path)
         let calls = CallLog()
+        let restartStore = ResidentCoordinatorRestartStore(directory: root.appendingPathComponent("Coordinator"))
 
         let result = ResidentCoordinatorInstall.install(
             argv0: binary.path,
@@ -109,12 +110,15 @@ final class ResidentCoordinatorInstallTests: XCTestCase {
                 journal: .init(incrementalDurable: true, orphanRecovery: true, runsDirWritable: true),
                 loopback: .init(listening: true),
                 activeObligationCount: 2
-            ) }
+            ) },
+            restartStore: restartStore
         )
 
-        XCTAssertEqual(try? result.get(), nil)
+        let draining = try XCTUnwrap(try? result.get())
+        XCTAssertEqual(draining.action, "draining")
         XCTAssertEqual(calls.all.count, 0)
         XCTAssertTrue(FileManager.default.fileExists(atPath: ResidentCoordinatorInstall.plistURL(home: root).path))
+        XCTAssertEqual(restartStore.load()?.binaryVersion, AllnighterVersionIdentity.binaryVersion)
     }
 
     func testInstallFailsWhenLaunchdDoesNotPublishCurrentIdentity() throws {

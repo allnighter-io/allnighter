@@ -44,7 +44,6 @@ public enum ResidentCoordinatorInstall {
         case binaryUnresolved
         case plistWrite(String)
         case launchctl(String)
-        case activeWork(Int)
         case activationTimeout
 
         public var message: String {
@@ -53,8 +52,6 @@ public enum ResidentCoordinatorInstall {
                 return "could not resolve the running alln binary; invoke it by absolute path, then retry"
             case .plistWrite(let detail): return "could not write the resident coordinator LaunchAgent: \(detail)"
             case .launchctl(let detail): return "could not enable the resident coordinator: \(detail)"
-            case .activeWork(let count):
-                return "the resident coordinator has \(count) active work item\(count == 1 ? "" : "s"); it was not restarted"
             case .activationTimeout:
                 return "launchd accepted the coordinator but it did not publish the current binary identity before the activation deadline"
             }
@@ -103,6 +100,7 @@ public enum ResidentCoordinatorInstall {
         fileManager: FileManager = .default,
         launchctl: (@Sendable (_ arguments: [String]) -> LaunchctlOutcome)? = nil,
         currentHealth: (@Sendable () -> CoordinatorHealth)? = nil,
+        restartStore: ResidentCoordinatorRestartStore? = nil,
         pause: @escaping @Sendable (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) },
         activationAttempts: Int = 50
     ) -> Swift.Result<Result, InstallError> {
@@ -127,7 +125,22 @@ public enum ResidentCoordinatorInstall {
         }
         let beforeRestart = health()
         if beforeRestart.state == .available, beforeRestart.activeObligationCount > 0 {
-            return .failure(.activeWork(beforeRestart.activeObligationCount))
+            let restartStore = restartStore ?? ResidentCoordinatorRestartStore()
+            do {
+                try restartStore.request(.init(
+                    binaryVersion: AllnighterVersionIdentity.binaryVersion,
+                    contractVersion: ContractRegistry.contractVersion
+                ))
+            } catch {
+                return .failure(.plistWrite("could not request a safe restart: \(error.localizedDescription)"))
+            }
+            return .success(.init(
+                action: "draining",
+                label: label,
+                plistPath: plist.path,
+                binaryPath: binary,
+                enabled: true
+            ))
         }
 
         let domain = "gui/\(getuid())"
