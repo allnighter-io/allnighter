@@ -1,5 +1,13 @@
 # Unified Run Model — Chat, Execute, and Teams as One
 
+> **CODE RED AMENDMENT (2026-07-24):**
+> `CODE_RED_Core_Infrastructure_Repair.md` supersedes this document's
+> mechanical read-only, mirror, snapshot, and protected-project-byte direction
+> until the Code Red Works Test is green. Research Teams and execution Teams
+> both use the real registered repository. Research intent is prompt guidance
+> plus visible pre/post git status; execution is one mutating worker and must
+> change the real repository.
+
 Status: **In progress — core + CLI/MCP shipped; GUI proof pending; Default Team override packet routed**
 surface, the work-order/proposal loop, the three-mode composer, and the user-facing
 execution lane. This is not a refinement of those; it replaces them.

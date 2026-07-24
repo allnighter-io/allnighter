@@ -1,5 +1,12 @@
 # Resident Execution Broker — One Spawn Path for Every CLI
 
+> **CODE RED FREEZE (2026-07-24):**
+> This phase is frozen and superseded by
+> `CODE_RED_Core_Infrastructure_Repair.md`. Do not continue the project-mirror,
+> mechanical read-only, stale-build compatibility, lifecycle-expansion, or
+> permission-workaround direction. This document is incident history and
+> current-state inventory until the Code Red Works Test is green.
+
 Status: **Implementation in progress — REB-S01 landed; REB-S02 routes `alln run`, `alln run --detach`, streamed run events, and the complete public Team lifecycle (`status/result/cancel/reconcile`) through the resident authority. REB-S03 routes the complete Panel lifecycle (start/round/status/watch/done) and all `alln doctor` probes through it, removing caller-cache self-fusion and restricted-host vendor spawning. REB-S04 provides explicit user-consented `alln serve install`, identity-verified activation, and durable drain/restart on update; `scripts/rebuild_cli.sh` rebuilds outside a protected checkout and refreshes the service in one command. The 2026-07-24 CPH slices now provide returned retry keys, pre-spawn durable admission, expired-handoff `startFailed` settlement, an exclusive canonicalized rendezvous endpoint, a free full-doctor admission probe, and explicit `team status --persisted` recovery reads. Codex-side health and quota-free doctor rendezvous proofs passed, but a real detached review under `~/Documents` raised a Documents prompt; REB-S05 and CPH-3 remain red until a no-prompt project-byte boundary is proven.**
 Owner: AllnighterCore + `alln serve` + CLI
 Updated: 2026-07-24 (P0 source-probe TCC containment landed; host proof pending)

@@ -63,11 +63,12 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 
 | Task type | Read first |
 | --- | --- |
+| **CODE RED: core execution broken, resident/mirror repair, Team research or execution does not work in the real repo** | `docs/phases/CODE_RED_Core_Infrastructure_Repair.md` — supersedes the mechanical read-only/mirror direction until its Works Test is green |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
 | Run model: chat/run = agent in repo root, Default Team, presets, write lock | `docs/phases/Unified_Run_Model.md` |
 | Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | `docs/archive/phases/Run_Lifecycle_Reliability.md` (Complete; code SSOT) |
-| Codex/host sandbox blocks child CLIs, resident execution, `alln serve` broker, source processes missing from `alln ps` | `docs/phases/Resident_Execution_Broker.md` |
+| Codex/host sandbox blocks child CLIs, resident execution, `alln serve` broker, source processes missing from `alln ps` | **During Code Red:** `docs/phases/CODE_RED_Core_Infrastructure_Repair.md` first, then `docs/phases/Resident_Execution_Broker.md` only as incident history/current-state inventory |
 | Vendor usage limit / parked run / wake-resume / authorized substitute | archived `docs/archive/phases/Rate_Limit_Continuity.md` (code SSOT) |
 | Composer `@` file references, Project file search, file chips | `docs/phases/Composer_File_References.md` |
 | Model/skill/worker/team vocabulary | `docs/phases/Work_Order_Team_Model.md` |
