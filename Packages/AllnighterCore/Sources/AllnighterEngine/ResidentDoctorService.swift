@@ -68,6 +68,24 @@ public struct ResidentDoctorService: Sendable {
         return result
     }
 
+    public func detect() async -> ResidentDetectionResult {
+        let labels = ModelCatalog.probeModelLabels(registry: registry)
+        let records = await Self.probeRecords(manifests: registry.all, labels: labels, full: true)
+        let store = SetupStore()
+        let assembled = TeamAssembler.assemble(
+            models: models,
+            readyDriverIds: TeamAssembler.readyDriverIds(from: records),
+            now: Date()
+        )
+        let previous = store.load()
+        _ = try? store.save(.init(
+            records: records,
+            setupCompletedAt: previous.setupCompletedAt,
+            assembledTeam: assembled
+        ))
+        return .init(records: records, assembledTeam: assembled)
+    }
+
     /// Shared by legacy timing tests. Production callers reach it only through
     /// the resident broker.
     public static func probeRecords(

@@ -167,8 +167,18 @@ public final class ResidentExecutionBroker: @unchecked Sendable {
                 try? rendezvous.reject(claim, code: "SOURCE_NOT_FOUND", message: "no source manifest '\(sourceId)'")
                 return
             }
-            let result = await dependencies.doctor.probe(request)
-            try? rendezvous.accept(claim, canonicalId: request.sourceId ?? "all", result: .doctor(result))
+            switch request.intent {
+            case .doctor:
+                let result = await dependencies.doctor.probe(request)
+                try? rendezvous.accept(claim, canonicalId: request.sourceId ?? "all", result: .doctor(result))
+            case .detect:
+                guard request.sourceId == nil else {
+                    try? rendezvous.reject(claim, code: "CLI_USAGE_ERROR", message: "source-specific detect is not supported")
+                    return
+                }
+                let result = await dependencies.doctor.detect()
+                try? rendezvous.accept(claim, canonicalId: "setup-detect", result: .detection(result))
+            }
         case .query(let query) where query.kind == .health:
             try? rendezvous.accept(claim, canonicalId: claim.request.coordinatorId)
         case .query(let query) where query.kind == .runStatus:

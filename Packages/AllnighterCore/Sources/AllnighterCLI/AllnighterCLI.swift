@@ -595,22 +595,28 @@ struct AllnighterCLI {
     /// fall back to `invoke.command` and loginFlow guidance comes from the app's
     /// bundle registry, not here.
     static func runDetect(_ runtime: ToolRuntime) async {
-        let models = ModelCatalog.probeModelLabels(registry: runtime.registry)
-        let records = await CLIDetector(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), interactive: true)
-            .probeAll(runtime.registry.all, models: models, now: Date())
+        let rendezvous = ResidentExecutionRendezvous()
+        let result: ResidentDetectionResult
+        do {
+            let submitted = try rendezvous.submit(
+                operation: .sourceProbe(.init(full: true, intent: .detect)),
+                idempotencyKey: UUID().uuidString.lowercased()
+            )
+            guard let receipt = try await rendezvous.waitForReceipt(requestId: submitted.requestId) else {
+                fail(code: "RESIDENT_ACCEPT_TIMEOUT", message: "resident coordinator did not answer the detect request before timeout")
+            }
+            if let rejection = receipt.rejection { fail(code: rejection.code, message: rejection.message) }
+            guard case let .detection(payload) = receipt.result else {
+                fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident coordinator returned an invalid detect response")
+            }
+            result = payload
+        } catch ResidentExecutionRendezvous.Error.unavailable {
+            fail(code: "COORDINATOR_UNAVAILABLE", message: "resident coordinator is unavailable; enable it with `alln serve install`")
+        } catch {
+            fail(code: "RESIDENT_REQUEST_REJECTED", message: "resident detect request failed: \(error)")
+        }
 
-        // Persist detection + assemble/persist the Bench/default team (the truth
-        // layer for first-run; docs/phases/setup/01 §8–§9). Runs cache the resolved
-        // invocation so health == runs.
-        let store = SetupStore()
-        let assembled = TeamAssembler.assemble(
-            models: runtime.models,
-            readyDriverIds: TeamAssembler.readyDriverIds(from: records),
-            now: Date()
-        )
-        try? store.save(.init(records: records, setupCompletedAt: store.load().setupCompletedAt, assembledTeam: assembled))
-
-        for r in records.sorted(by: { $0.driverId < $1.driverId }) {
+        for r in result.records.sorted(by: { $0.driverId < $1.driverId }) {
             let path = r.invocation?.resolvedPath ?? "—"
             switch r.status {
             case .ready(let v):
@@ -627,7 +633,7 @@ struct AllnighterCLI {
                 print("\(r.driverId)\tNOT INSTALLED\t(no binary on PATH or known paths)")
             }
         }
-        print("\nAssembled team: \(assembled.benchModelIds.count) ready model(s); plan writer: \(assembled.planWriterModelId ?? "—") · saved")
+        print("\nAssembled team: \(result.assembledTeam.benchModelIds.count) ready model(s); plan writer: \(result.assembledTeam.planWriterModelId ?? "—") · saved")
     }
 
     /// `alln dev export-contracts [--check]` — regenerate or verify the

@@ -28,10 +28,10 @@ final class VersionIdentityTests: XCTestCase {
     }
 
     /// Bump rule (Agent_Dogfood_Papercuts.md §Version rule): this batch bumps
-    /// 0.9.12 → 0.9.13. Pin the value so an accidental revert is caught here,
+    /// 0.9.13 → 0.9.14. Pin the value so an accidental revert is caught here,
     /// not discovered downstream.
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.9.13")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.9.14")
     }
 
     /// Drift gate: no OTHER hardcoded `"0.9.0"` string literal survives in the

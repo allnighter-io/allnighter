@@ -620,6 +620,9 @@ After cutover:
 - Route full doctor/setup probes through the coordinator. **Landed:** `alln doctor`
   submits a typed source-probe request; only the resident Engine service can
   resolve or smoke vendor CLIs and persist the resulting readiness record.
+- **Landed:** `alln detect` is the same typed resident source-probe path. The
+  coordinator persists the detection cache and assembled Team before returning
+  the legacy command's presentation records to the client.
 - **Landed:** Panel start, round, status, watch, and done submit/query the
   resident authority. Client hosts no longer read or reconcile the panel
   journal, and `panel done` cannot mutate PanelState outside its owner.

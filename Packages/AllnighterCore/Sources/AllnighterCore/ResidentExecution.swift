@@ -136,20 +136,24 @@ public enum ResidentExecutionOperation: Codable, Equatable, Sendable {
     }
 
     public struct SourceProbe: Codable, Equatable, Sendable {
+        public enum Intent: String, Codable, Sendable { case doctor, detect }
         public var sourceId: String?
         public var full: Bool
+        public var intent: Intent
         public var pilot: Bool
         public var projectToken: String?
         public var workingDirectory: String?
         public init(
             sourceId: String? = nil,
             full: Bool,
+            intent: Intent = .doctor,
             pilot: Bool = false,
             projectToken: String? = nil,
             workingDirectory: String? = nil
         ) {
             self.sourceId = sourceId
             self.full = full
+            self.intent = intent
             self.pilot = pilot
             self.projectToken = projectToken
             self.workingDirectory = workingDirectory
@@ -336,10 +340,11 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
     case panelRound(PanelRoundJSON)
     case panelStatus(PanelJSON)
     case doctor(DoctorResult)
+    case detection(ResidentDetectionResult)
 
     private enum CodingKeys: String, CodingKey { case type, payload }
     private enum Kind: String, Codable {
-        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor
+        case teamStart, teamStatus, teamResult, teamResultNotReady, panelStart, panelRound, panelStatus, doctor, detection
     }
 
     public init(from decoder: Decoder) throws {
@@ -353,6 +358,7 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
         case .panelRound: self = .panelRound(try container.decode(PanelRoundJSON.self, forKey: .payload))
         case .panelStatus: self = .panelStatus(try container.decode(PanelJSON.self, forKey: .payload))
         case .doctor: self = .doctor(try container.decode(DoctorResult.self, forKey: .payload))
+        case .detection: self = .detection(try container.decode(ResidentDetectionResult.self, forKey: .payload))
         }
     }
 
@@ -383,7 +389,23 @@ public enum ResidentExecutionResult: Codable, Equatable, Sendable {
         case let .doctor(value):
             try container.encode(Kind.doctor, forKey: .type)
             try container.encode(value, forKey: .payload)
+        case let .detection(value):
+            try container.encode(Kind.detection, forKey: .type)
+            try container.encode(value, forKey: .payload)
         }
+    }
+}
+
+/// Coordinator-owned setup detection projection. The returned records are
+/// presentation data; the resident's persisted setup cache remains execution
+/// truth for future dispatch.
+public struct ResidentDetectionResult: Codable, Equatable, Sendable {
+    public var records: [ToolProbeRecord]
+    public var assembledTeam: TeamAssembler.Assembled
+
+    public init(records: [ToolProbeRecord], assembledTeam: TeamAssembler.Assembled) {
+        self.records = records
+        self.assembledTeam = assembledTeam
     }
 }
 
