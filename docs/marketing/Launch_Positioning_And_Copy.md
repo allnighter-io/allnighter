@@ -317,6 +317,203 @@ Everyone is scaling agent count. The research says count was never the lever.
   against the primary DeepMind paper (arXiv:2512.08296).
 ```
 
+## The Different-Labs Angle (independence + heterogeneity proof points)
+
+Added 2026-07-24. This is the third leg. Fusion proves fan-out has value.
+DeepMind proves shape beats count and the merge owner is required. This leg
+proves the two things the category gets wrong: **agents that talk to each other
+mostly lose, and a model checking its own work is not a check.**
+
+Every figure below was read from the primary source abstract on 2026-07-24.
+
+### Proof point 1 — agent debate mostly loses; different labs is the fix
+
+Source: "Stop Overvaluing Multi-Agent Debate — We Must Rethink Evaluation and
+Embrace Model Heterogeneity", arXiv:2502.08788
+
+```text
+- Systematic evaluation: 5 representative multi-agent-debate methods,
+  9 benchmarks, 4 foundational models.
+- Finding: debate "often fail[s] to outperform simple single-agent baselines
+  such as Chain-of-Thought and Self-Consistency, even when consuming
+  significantly more inference-time computation."
+- The one thing that worked: model heterogeneity — the authors' word is
+  "a universal antidote to consistently improve current MAD frameworks."
+```
+
+Why this is the best ammunition we have:
+
+```text
+The category is racing to build agents that debate each other. This paper says
+that mostly loses to one model thinking carefully, while costing far more.
+
+The single intervention that consistently helped was using models from
+DIFFERENT labs.
+
+That is not a feature we bolted on. It is the entire premise of the product.
+```
+
+⚠️ Precision that makes or breaks this claim: the paper studied agents that
+**see each other's answers and debate**. Allnighter's team workers are blind to
+each other by design — they never read another worker's output. So this paper is
+evidence *against discussion rounds* and *for cross-vendor spread*. Say "agents
+that debate each other," never "teams." Getting this wrong turns our proof point
+into an argument against us.
+
+Ready-to-use copy:
+
+```text
+Everyone is building agents that argue with each other.
+Independent evaluation across 5 debate methods, 9 benchmarks and 4 models found
+that mostly loses to a single model — at much higher cost.
+
+One thing consistently helped: models from different labs.
+
+Allnighter's workers never talk to each other. They answer independently, from
+different vendors, and one lead reads all of it. That's the shape the research
+kept landing on.
+```
+
+### Proof point 2 — a model checking its own work is not a check
+
+Sources: "Large Language Models Cannot Self-Correct Reasoning Yet" (Huang et al.,
+ICLR 2024, arXiv:2310.01798) and "Self-Preference Bias in LLM-as-a-Judge"
+(Wataoka, Takahashi, Ri — arXiv:2410.21819)
+
+```text
+- Intrinsic self-correction = a model revising its own answer "based solely on
+  its inherent capabilities, without the crutch of external feedback."
+- Finding: on reasoning, models "struggle to self-correct their responses
+  without external feedback, and at times, their performance even degrades
+  after self-correction."
+- Separately: GPT-4 "exhibits a significant degree of self-preference bias" —
+  and the cause appears to be familiarity: LLMs rate low-perplexity text far
+  higher than humans do, whether or not they wrote it.
+```
+
+Ready-to-use copy:
+
+```text
+Ask the model that wrote your plan to review your plan, and you have run the
+exact configuration the research says can make it worse.
+
+Reviewing is not re-reading. It takes a different model, from a different lab,
+that has no stake in the answer.
+
+That is what a Spec Review run is.
+```
+
+```text
+Models don't just fail to catch their own mistakes.
+They actively prefer text that sounds like their own.
+
+Allnighter's reviewer is never the author.
+```
+
+This is also why Allnighter never rates itself — same principle, applied to us.
+
+### Proof point 3 — more answers is not more decisions
+
+Source: "Large Language Monkeys: Scaling Inference Compute with Repeated
+Sampling", arXiv:2407.21787
+
+```text
+- Coverage — the share of problems solved by ANY generated sample — scales with
+  sample count over four orders of magnitude, often log-linearly.
+- On SWE-bench Lite, DeepSeek-Coder-V2-Instruct goes from 15.9% with one sample
+  to 56% with 250 samples, beating the 43% single-sample state of the art.
+- But without automatic verification, "common methods for picking from a sample
+  collection (majority voting and reward models) plateau beyond several hundred
+  samples and fail to fully scale with the sample budget."
+```
+
+Ready-to-use copy:
+
+```text
+Running the same question more times reliably produces more right answers.
+It does not produce more right decisions — unless something picks.
+
+Generating is the cheap half. Selecting is the product.
+```
+
+This is a second, independent route to the same conclusion as DeepMind's merge
+owner: the synthesizer is the thing, not the headcount. Two unrelated research
+groups, same answer.
+
+### Proof point 4 — when your reviewers disagree, your spec is ambiguous
+
+Source: the human-label-variation / perspectivist line of NLP research on
+annotator disagreement.
+
+```text
+Decades of annotation research reached a conclusion the field resisted for
+years: when careful readers disagree, the usual cause is not a bad reader. It
+is an ambiguous document. Disagreement is signal about the artifact.
+```
+
+Ready-to-use copy:
+
+```text
+Most review tools try to give you one confident answer.
+
+When Allnighter's reviewers disagree about your spec, that disagreement IS the
+finding: you wrote something two competent readers can read two ways. Your
+executor is about to read it a third way.
+
+We surface the disagreement instead of averaging it away.
+```
+
+⚠️ This one is an **analogy, not a result**. That literature is about human
+annotators labelling datasets, not about models reviewing specs. Present it as
+"the same principle that annotation research established," never as a finding
+about AI spec review. It is a positioning idea with intellectual backing, not a
+benchmark.
+
+### What the skeptic will cite back (know it before they say it)
+
+```text
+- "Rethinking Mixture-of-Agents" (arXiv:2502.00674): Self-MoA — aggregating
+  from a single strong model — beat mixed-model MoA by 6.6% on AlpacaEval 2.0.
+  Mixing vendors is not automatically better.
+- "Self-Consistency Is Losing Its Edge" (arXiv:2511.00751): gains from more
+  samples plateau early while token cost scales close to linearly.
+```
+
+Our honest answer, which is stronger than pretending these don't exist:
+
+```text
+Mixing models is not automatically better — it is better on the work where
+independent perspectives actually differ: architecture calls, specs, risk,
+product decisions. That is precisely the work we point Team runs at, and it is
+why our depth tiers are curated rosters rather than a "more agents" dial.
+```
+
+### Honesty guardrails (same discipline as the Fusion and DeepMind numbers)
+
+```text
+- Every figure above was read from the primary source abstract on 2026-07-24:
+  arXiv 2502.08788, 2310.01798, 2410.21819, 2407.21787. Quote them as written.
+- Cite as external validation of a PRINCIPLE. Never "Allnighter scores 56%."
+  Borrowing a benchmark and implying it is ours is the sin we already named.
+- Proof point 1 is about agents that DEBATE, not teams. Blur that and the
+  citation argues against us.
+- Proof point 4 is an analogy from human-annotation research, not a result
+  about models reviewing specs. Label it as such.
+- Do NOT cite the widely quoted "-38% to +90% self-preference bias" range
+  against arXiv:2410.21819 — those numbers are from a different paper
+  (arXiv:2604.22891) and that misattribution is already circulating.
+- Directional, not gospel. These are studies, not laws.
+- Live and attended. None of this is a "while you sleep" story.
+```
+
+### Where this shows up in the product roadmap
+
+Not just copy — these are the same sources cited in
+`docs/phases/Contradiction_Pass.md`, which turns proof points 1–4 into the
+mechanism: blind fan-out, cross-vendor spread, a reviewer that never authored
+the claim, and disagreement surfaced rather than averaged. Marketing and spec
+citing the same evidence is the cheapest credibility we will ever get.
+
 ## Homepage Draft
 
 ```text
