@@ -46,7 +46,12 @@ enum ArtifactFloorOpener {
 
   /// Floor callers may omit models; fall back to catalog so seat labels/glyphs stay resolved (S01b).
   private static func resolveModels(_ models: [Model]) -> [Model] {
-    models.isEmpty ? ModelCatalog.list() : models
+    guard models.isEmpty else { return models }
+    return ModelCatalog.list().map {
+      Model(
+        id: $0.id, displayName: $0.displayName, modelLabel: $0.modelLabel,
+        driverId: $0.driverId, role: $0.role, enabled: true)
+    }
   }
 
   private static func message(for error: Error) -> String {

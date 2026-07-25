@@ -307,6 +307,7 @@ enum GUIFixture {
         ("thread-streaming-build", "Thread — live streaming build run"),
         ("thread-thinking-history", "Thread — thinking collapse on prior turns"),
         ("thread-team-board", "Thread — team board"),
+        ("thread-live-artifact", "Thread — live team artifact seats (TRR)"),
         ("thread-user-image-attachment", "Thread — user message with image chip"),
         ("thread-worker-image-reply", "Thread — worker reply with image thumbnail"),
         ("thread-agent-image-reply", "Thread — agent run reply with image thumbnail"),
