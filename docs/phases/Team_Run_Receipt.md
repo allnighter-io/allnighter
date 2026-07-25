@@ -11,6 +11,9 @@ Companions:
 - Mac deep reader: `FactoryFloorView` / `docs/phases/Live_Team_Board.md`
   (Factory Floor = full team result; thread keeps a compact cockpit receipt →
   Open Floor; **decision card is a third surface** — see §Surface ownership)
+- **Lead Call** (universal Lead / `.planWriter` envelope + `lead-call` fenced
+  JSON — card headline/leans/status): `SkillCatalog.leadCallEnvelope`;
+  Spec Review closeout: `docs/phases/Spec_Review.md` §1
 - Design authority for beauty-first HTML: `docs/design-system/production.md`
   + `docs/design-system/tokens/*.css` (CSS tokens are canonical; see
   §Design authority) + `docs/gui/GUI_Workflow.md`
@@ -202,10 +205,13 @@ the card in S01.
 | Seat status | `workerAnswers[].status` | Closed enum only |
 | Seat timing | `workerAnswers[].durationMs` (optional queue/ttft) | Null → blank, never estimate |
 | Seat one-liner | First non-empty line of `workerAnswers[].markdown`, hard-truncated + `…` | **Never** invent a “verdict” label. **Single-seat Law 2:** when the winning seat’s markdown is hoisted into `answer` and nulled on the worker row, the chip must read from `answer.markdown`, not show blank |
-| Team call / headline | First ~2 lines of `answer.markdown` when present | **Not** `outcome.headline` (mechanical; never a correctness verdict). **Not** `plan.markdown` fallback — Law 2 already hoists plan markdown into `answer` and nils the plan body (`TeamRunJSONMapper`). If no canonical answer: house style `"(no synthesized output — status …)"` (`SpecRetrieval.swift`) |
-| Dodged bullet / disagreement bang | **S00 annotation only** until a sourced field exists | Do not ship auto “we disagreed” chrome from heuristics. `PlanAnalysis` / `Contradiction_Pass` are **not** near-term owners (unauthorized / not on `TeamRunJSON`) |
+| Team call / headline | Prefer fenced `lead-call` JSON `call` when present; else first ~2 lines of `answer.markdown` | **Not** `outcome.headline`. Lead Call envelope is the contract owner for the call (`SkillCatalog.leadCallEnvelope`). Law-2: no dead `plan.markdown` fallback |
+| Status chip | `lead-call.status` Ready\|Partial | Omit if block absent |
+| Recommendation bullets | Top leans from `lead-call.recommendations` (cap display at 3) | Must be substrings of Lead markdown |
+| Bang / changed | `lead-call.changed` and/or declared `flags` (not inferred disagreement) | No auto drama without a declared Lead field; `Contradiction_Pass` still unauthorized |
+| Dodged bullet / disagreement bang | **S00 annotation only** unless present in `lead-call` | Do not ship heuristic “we disagreed” chrome |
 | Honesty string | Constant copy | Exact string locked in S01 Works Test |
-| Reproduce line | `teamRun.reproduceCommand` | Apply §Privacy law 6 elision; blank/omit marked if null — do not invent |
+| Reproduce line | `teamRun.reproduceCommand` | Apply §Privacy law 6 elision; blank/omit marked if null — do not invent. **Not** authored by the Lead (Lead owns Proof of the call only) |
 | Run id | `teamRun.id` | Footer micro-type OK |
 
 **Hero chrome keying:** prefer `teamRun.outputKind` (and lane) over an exact

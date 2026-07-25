@@ -317,7 +317,7 @@ public enum BuiltInTeams {
     static let buildSpecReviewMin = make(
         id: "code_spec_review_min", name: "Spec Review Min", lane: .code,
         output: .specReview, defaultEffort: .high,
-        description: "A lean spec check with first-principles, proof, and scope coverage. Built to stay useful without Claude or ChatGPT.",
+        description: "A lean Spec Review: first-principles, proof, and scope. Lead emits Lead Call (Ready|Partial) then craft body — not a founder checklist.",
         rows: needRows([
             ("spec_first_principles_reviewer", .answer),
             ("spec_proof_planner", .answer),
@@ -326,7 +326,7 @@ public enum BuiltInTeams {
         writer: "spec_review_writer", dissent: .compareOptions,
         typeTags: ["spec-review-min"],
         starters: [
-            "Run a lean Spec Review: challenge the premise, cut scope, and make the proof concrete. Review only — do not edit the doc."]
+            "Run a lean Spec Review on the named spec. Workers critique only (do not edit repo files). Lead emits Lead Call (Ready|Partial + locked leans + contrarian flags) then craft body — never Not ready / founder homework."]
     )
 
     /// Spec Review — the everyday default. Five independent lenses; declaration
@@ -335,7 +335,7 @@ public enum BuiltInTeams {
     static let buildSpecReview = make(
         id: "code_spec_review", name: "Spec Review", lane: .code,
         output: .specReview, defaultEffort: .high,
-        description: "Harden a feature or phase spec before you build: challenge the premise, audit the contract, make proof concrete, and reject noise — review only.",
+        description: "Harden a feature or phase spec before you build. Lead emits Lead Call (Ready|Partial + locked leans) then Spec Review craft body.",
         rows: needRows([
             ("spec_first_principles_reviewer", .answer),
             ("spec_doc_hygiene_reviewer", .answer),
@@ -346,8 +346,8 @@ public enum BuiltInTeams {
         writer: "spec_review_writer", dissent: .compareOptions,
         typeTags: ["spec-review", "spec", "review", "harden", "critique", "premise"],
         starters: [
-            "Review this spec. Be brief. Find the highest-leverage changes, concrete contract gaps, and explicit rejects. Review only — do not edit the doc.",
-            "Harden docs/phases/<Spec>.md: premise, agent routing, contract, proof, and what to cut."]
+            "Harden the named spec. Workers critique only (do not edit repo files). Lead emits Lead Call Ready|Partial with locked leans and contrarian flags — no Not ready, no founder checklist.",
+            "Harden docs/phases/<Spec>.md: premise, contract, proof, cuts. Exit = Lead Call + craft body, not a rewritten phase doc dump."]
     )
 
     /// Spec Review Max — the full launch/hard-case panel: seven blind lenses spanning
@@ -355,7 +355,7 @@ public enum BuiltInTeams {
     static let buildSpecReviewMax = make(
         id: "code_spec_review_max", name: "Spec Review Max", lane: .code,
         output: .specReview, defaultEffort: .high,
-        description: "Full-depth review for launch and hard specs: outside research plus seven blind lenses spanning premise, operations, contract, proof, scope, simplicity, and a rival approach.",
+        description: "Full-depth Spec Review for launch and hard specs. Lead emits Lead Call (Ready|Partial) then craft body.",
         scout: row("spec_outside_scout", .answer, preferred: grok,
                    fallbacks: [cursorGrok], fallback: .laneCapable),
         rows: needRows([
@@ -370,8 +370,8 @@ public enum BuiltInTeams {
         writer: "spec_review_writer", dissent: .compareOptions,
         typeTags: ["spec-review-max", "launch"],
         starters: [
-            "Run Spec Review Max on this launch or hard-case spec. Find ranked gems and explicit rejects; review only — do not edit the doc.",
-            "Harden docs/phases/<Spec>.md at full depth: outside signal, premise, contract, proof, scope, simplicity, and a rival approach."]
+            "Run Spec Review Max on the named spec. Workers critique only (do not edit repo files). Lead emits Lead Call Ready|Partial with locked leans — never Not ready / founder homework.",
+            "Harden docs/phases/<Spec>.md at full depth. Exit = Lead Call + craft body, not a full doc rewrite."]
     )
 
     static let buildReleaseProof = make(

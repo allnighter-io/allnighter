@@ -35,12 +35,22 @@ intent/draft ──▶ [draft pass] ──▶ lens fan-out (blind) ──▶ syn
 - **Lens fan-out:** N workers, each assigned ONE lens (§3). Every worker gets the same spec +
   the same repo context packet — and nothing from any other worker (§5). Structured findings
   out, never walls of text.
-- **Synthesis:** the plan writer merges findings into a revised spec and emits the impact
-  ledger (§2). It is a gatekeeper, not a stenographer — it accepts, rejects, or escalates,
-  and big findings must survive the refutation gate (§4) before acceptance.
-- **Converge:** repeat with fresh lens passes until dry (§4). Exit artifact is the hardened
-  spec **plus a proof plan** (the proof commands / visible behaviors that will verify the
-  build) — the spec's last section, written during hardening, consumed by verification later.
+- **Synthesis:** the plan writer emits the universal **Lead Call** envelope
+  (Status Ready|Partial, the call, what changed, locked recommendations with
+  lean+why, contrarian flags, next move, proof, basis, worker credit, plus a
+  fenced `lead-call` JSON block for the decision card), then the Spec Review
+  **craft body** (impact ledger, rejects, apply-to-doc pointers, proof plan) —
+  not a full rewritten phase doc and not a founder homework checklist.
+  **Closeout law:** never "not ready." **Ready** = recommended something for
+  every fork; work can start without a human answering first. **Partial** =
+  only true human/law/missing-fact forks remain, each with Options +
+  Recommendation + Why. Lockable engineering leans left open = failed Lead.
+  Workers critique; they do not edit repo files. Code SSOT:
+  `SkillCatalog.leadCallEnvelope` injected for every `.planWriter` via
+  `assemblePrompt`.
+- **Converge:** repeat with fresh lens passes until dry (§4). Exit artifact is
+  Lead Call + craft body **plus proof** — consumed by verification / the
+  decision card later.
 
 Non-mutating end to end. The loop touches no code; its hardened spec can become
 the work order for a later execution run.
@@ -214,9 +224,12 @@ gate, §4).
 
 ## 7. Metrics and the flywheel
 
-**North star: one-pass execution success rate** — the share of hardened specs an executor
-completes in a single pass with proof green and no clarifying questions. This is the entire
-point of the feature; everything else is diagnostic.
+**North star: one-pass execution success rate** — the share of Lead Calls an
+executor can act on in a single pass with proof green and no clarifying
+questions. This is the entire point of the feature; everything else is
+diagnostic. Exiting "Not ready" with a founder checklist is a failed Lead run
+against this north star — banned by the Lead Call closeout law (§1 /
+`SkillCatalog.leadCallEnvelope`).
 
 Diagnostics: passes-to-convergence, accepted findings per pass by severity, (lens, model)
 hit rates under rotation, refutation-gate kill rate, spec length trajectory, human

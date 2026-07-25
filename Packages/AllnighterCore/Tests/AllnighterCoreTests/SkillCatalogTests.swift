@@ -40,6 +40,36 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertTrue(SkillCatalog.skills(in: .copy).contains { $0.id == "objection_hunter" })
     }
 
+    func testLeadCallEnvelopeInjectedForEveryPlanWriter() throws {
+        let planWriters = SkillCatalog.builtIns.filter { $0.purpose == .planWriter }
+        XCTAssertFalse(planWriters.isEmpty)
+        for skill in planWriters {
+            let assembled = SkillCatalog.assemblePrompt(skillId: skill.id, founderPrompt: "FOUNDER")
+            XCTAssertTrue(assembled.contains("Lead Call envelope"), skill.id)
+            XCTAssertTrue(assembled.contains("```lead-call"), skill.id)
+            XCTAssertTrue(assembled.hasSuffix("FOUNDER"), skill.id)
+            // Ban the old Spec Review failure mode in the injected law.
+            XCTAssertTrue(assembled.contains("Never say \"not ready to build.\""), skill.id)
+        }
+        // Answer seats do not get the envelope.
+        let answerAssembled = SkillCatalog.assemblePrompt(
+            skillId: "spec_first_principles_reviewer", founderPrompt: "X")
+        XCTAssertFalse(answerAssembled.contains("Lead Call envelope"))
+    }
+
+    func testSpecReviewWriterIsCraftBodyNotFullDocRewrite() throws {
+        let template = try XCTUnwrap(SkillCatalog.skill("spec_review_writer")?.template)
+        XCTAssertTrue(template.contains("Craft body"), template)
+        XCTAssertTrue(template.contains("not a full rewritten phase doc"), template)
+        XCTAssertFalse(template.contains("edits the founder should make"), template)
+        XCTAssertFalse(template.contains("What is the single biggest gap?"), template)
+        let assembled = SkillCatalog.assemblePrompt(
+            skillId: "spec_review_writer", founderPrompt: "harden me")
+        XCTAssertTrue(assembled.contains("Lead Call envelope"), assembled)
+        XCTAssertTrue(assembled.contains("Partial"), assembled)
+        XCTAssertTrue(assembled.contains("Never say \"not ready to build.\""), assembled)
+    }
+
     func testAssemblePromptPrefixesTemplate() {
         let assembled = SkillCatalog.assemblePrompt(skillId: "correct_fix_planner", founderPrompt: "FIX THE BUG")
         XCTAssertTrue(assembled.hasSuffix("FIX THE BUG"))
