@@ -60,10 +60,8 @@ public enum RunJournalSilenceTelemetry {
     /// Scan every `run_*` journal under `runStore` and classify idle timeouts.
     public static func mine(
         runStore: RunStore,
-        models: [Model] = [],
         now: Date = Date()
     ) -> Report {
-        _ = models
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: runStore.rootDirectory,
             includingPropertiesForKeys: nil

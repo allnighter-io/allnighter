@@ -330,7 +330,7 @@ public struct ProcessOwnershipSurface: Sendable {
             let would = relay.status == .running && relayStore.isOwnerDead(id: relay.id)
             let last = ProcessOwnership.lastProgressAt(in: dir)
             let age = last.map { now.timeIntervalSince($0) }
-            let stale = (terminal || relay.status != .running)
+            let stale = terminal
                 ? nil
                 : ProcessOwnership.isProgressStale(in: dir, now: now)
             let endReason: String?
