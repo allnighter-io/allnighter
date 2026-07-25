@@ -270,14 +270,20 @@ final class ProcessOwnershipProgressStallTests: XCTestCase {
 
         let hb = try XCTUnwrap(ProcessOwnership.readProgressHeartbeat(in: dir))
         XCTAssertEqual(hb.phase, "pgid_activity", "CPU under recorded pgid must reset progress")
+        // Watchdog uses memory + mtime (sub-second); encoded lastProgressAt is
+        // whole-second ISO-8601 and is only a coarse status signal.
+        let hbURL = ProcessOwnership.heartbeatURL(in: dir)
+        let mtime = try XCTUnwrap(
+            FileManager.default.attributesOfItem(atPath: hbURL.path)[.modificationDate] as? Date
+        )
         XCTAssertLessThan(
-            Date().timeIntervalSince(hb.lastProgressAt), 0.75,
+            Date().timeIntervalSince(mtime), 0.75,
             "pgid activity must keep progress fresh past the idle stall budget"
         )
         XCTAssertEqual(
             ProcessOwnership.classifyProgressStall(
                 identityAlive: true,
-                lastProgressAt: hb.lastProgressAt,
+                lastProgressAt: mtime,
                 stallBudgetSeconds: 1
             ),
             .progressing
@@ -306,6 +312,15 @@ final class ProcessOwnershipProgressStallTests: XCTestCase {
 
         ProcessOwnership.TurnOwnerDirectory.shared.set(dir)
         defer { ProcessOwnership.TurnOwnerDirectory.shared.set(nil) }
+
+        // Freeze pgid sampling so brief spawn CPU cannot sticky-label the heartbeat
+        // `pgid_activity`. This isolates the real guard: there is no repo/cwd fs watch.
+        let frozen = ProcessOwnership.ProcessGroupActivitySnapshot(
+            memberPids: [42],
+            cpuMicrosecondsByPid: [42: 1_000]
+        )
+        ProcessOwnership.processGroupActivitySampleHook = { _ in frozen }
+        defer { ProcessOwnership.processGroupActivitySampleHook = nil }
 
         let stallBudget: Duration = .seconds(1)
         let runner = ProcessGroupCommandRunner(
@@ -336,6 +351,15 @@ final class ProcessOwnershipProgressStallTests: XCTestCase {
             return terminal
         }
 
+        // Let the spawn heartbeat land, then capture a baseline before cwd noise.
+        try await Task.sleep(for: .milliseconds(300))
+        let baseline = try XCTUnwrap(ProcessOwnership.readProgressHeartbeat(in: dir))
+        XCTAssertNotEqual(baseline.phase, "pgid_activity")
+        let hbURL = ProcessOwnership.heartbeatURL(in: dir)
+        let baselineMtime = try XCTUnwrap(
+            FileManager.default.attributesOfItem(atPath: hbURL.path)[.modificationDate] as? Date
+        )
+
         // Parallel repo writes must NOT count as attributable progress — only pgid/stream/recordProgress do.
         let noiseUntil = Date().addingTimeInterval(2.2)
         while Date() < noiseUntil {
@@ -347,10 +371,19 @@ final class ProcessOwnershipProgressStallTests: XCTestCase {
         let owner = try XCTUnwrap(ProcessOwnership.readTurnOwner(in: dir))
         let hb = try XCTUnwrap(ProcessOwnership.readProgressHeartbeat(in: dir))
         XCTAssertNotEqual(hb.phase, "pgid_activity", "cwd noise must not masquerade as pgid progress")
+        let afterMtime = try XCTUnwrap(
+            FileManager.default.attributesOfItem(atPath: hbURL.path)[.modificationDate] as? Date
+        )
+        XCTAssertEqual(
+            afterMtime.timeIntervalSince1970,
+            baselineMtime.timeIntervalSince1970,
+            accuracy: 0.05,
+            "cwd writes must not refresh progress heartbeat"
+        )
         XCTAssertEqual(
             ProcessOwnership.classifyProgressStall(
                 identityAlive: ProcessOwnership.isIdentityAlive(owner),
-                lastProgressAt: hb.lastProgressAt,
+                lastProgressAt: afterMtime,
                 stallBudgetSeconds: 1
             ),
             .stalled,
