@@ -1,12 +1,13 @@
 # Team Run Receipt — gorgeous private report, deliberate share
 
-Status: **Ready for Implementation** (entire authorized phase — TRR-S00,
-S00b✓, S01, S01b, S01c, S03). Cut/unscheduled: S02 / S04 / S05.
+Status: **Product shipped** — S01 / S01b / S01c / S03 **Done**; S00b **Done**;
+S00 **awaiting founder disposition** (growth packaging only). Cut/unscheduled:
+S02 / S04 / S05.
 Primary job = scannable, readable polished team **artifact** (like a great AI
 chat response, with phosphor status). Not a viral poster.
 Owner: AllnighterCore (artifact projector) + CLI first; Mac Factory Floor as
 existing deep reader (not the artifact owner).
-Updated: 2026-07-25 (full packet Ready — all authorized slices specified)
+Updated: 2026-07-25 (closeout sync after orchestrated delivery)
 Companions:
 - Mac deep reader: `FactoryFloorView` / `docs/phases/Live_Team_Board.md`
   (Factory Floor = full team result; thread keeps a compact cockpit receipt →
@@ -144,13 +145,28 @@ terminal-only forever under this packet.
 | Seat timings / model ids | Built — `workers[]` + `workerAnswers[]` |
 | Gorgeous Mac Factory Floor | Built — deep reader (`FactoryFloorView`) |
 | Inspectable Floor CLI | Built — `alln floor show` (different surface) |
-| Polished team artifact HTML | **Missing — TRR-S01** (spec Ready) |
-| CLI `artifact show` / `export` | **Missing — S01 / S03** (spec Ready) |
+| Polished team artifact HTML | **Done — TRR-S01** (2026-07-25) |
+| CLI `artifact show` / `export` | **Done — S01 / S03** (2026-07-25) |
 | Field ownership ledger | **Locked** — §Card field ledger + §Must-specify |
-| Measured “do real runs have a story?” | **Missing — TRR-S00** (spec Ready; growth only) |
+| Measured “do real runs have a story?” | **Scaffolded — TRR-S00** (awaiting founder disposition; growth only) |
 | Floor “Open artifact” | **Done — TRR-S01b** (2026-07-25) |
 | Live progressive paint | **Done — TRR-S01c** (2026-07-25; Mac live preview) |
 | Signed crypto verify / hosted share | Cut / unscheduled |
+
+## Delivery log
+
+Orchestrated delivery 2026-07-25 (product path). GUI proof for Mac live preview
+owned separately — do not treat this log as Mac visual seal.
+
+| Slice | Commits |
+| --- | --- |
+| Packet Ready / verb lock | `5c4d8f7e` `461fa0b9` `cedb9d95` |
+| Sprint WOs | `b4bfe31a` `dcdaa45a` |
+| **TRR-S01** artifact CLI + projector | `546f2c5f` `22789c09` |
+| **TRR-S01b** Floor Open artifact | `14dc69a4` `83a9dc37` |
+| **TRR-S03** `artifact export` | `c7388bbc` `224a2318` |
+| **TRR-S01c** Mac live preview | `218ea4fc` `96891f4a` |
+| **TRR-S00** scorecard scaffold | `2e312af4` (disposition still open) |
 
 ## Privacy laws (still bind)
 
@@ -227,18 +243,16 @@ not two content truths.
 teams. Typed per-seat verdict / decision-delta fields are a **v2** path gated
 on a real contract slice — not S01. LLM-summarized one-liners are rejected
 (violates truth-owner law).
-## Authorized slices (Ready for Implementation)
+## Authorized slices
 
-Execution order (do not reorder without founder):
+Execution order was fixed; product slices shipped 2026-07-25. Remaining:
 
-1. **TRR-S01** — core product (CLI artifact). May start immediately.
-2. **TRR-S00** — growth measure. Does **not** block S01; run before claiming
-   growth packaging / founder series success.
-3. **TRR-S01b** — after S01 Works Test green.
-4. **TRR-S01c** — after S01 Works Test green (and Live Team Board events already
-   emit `workerAnswerDelta` / status — they do; see Live_Team_Board).
-5. **TRR-S03** — after S01; ship when local demand counter ≥1 ask **or** founder
-   requests (whichever first). Spec is Ready so implementers do not invent.
+1. ~~**TRR-S01**~~ — **Done** (CLI artifact).
+2. **TRR-S00** — growth measure scaffold Done; **awaiting founder disposition**.
+   Does **not** block product path.
+3. ~~**TRR-S01b**~~ — **Done** (Floor Open artifact).
+4. ~~**TRR-S01c**~~ — **Done** (Mac live preview).
+5. ~~**TRR-S03**~~ — **Done** (`artifact export`).
 6. ~~S02 / S04 / S05~~ — cut / unscheduled (no work orders).
 
 ### Slice-order risks (named)
@@ -292,12 +306,13 @@ bump land **inside** the S01 PR (budgeted work, not open design).
 
 | Field | Spec |
 | --- | --- |
-| **Status** | Ready for Implementation (growth thesis only — does not block S01) |
+| **Status** | **Awaiting founder disposition** (scaffold Done 2026-07-25 — growth thesis only; does not block product) |
 | **Truth owner** | Founder scorecard doc/notes (not product runtime). Hand HTML is throwaway; must not become the projector. |
 | **Purpose** | Decide whether founder **growth series / packaging** is worth effort — **not** whether the product artifact ships. |
 | **Method** | 1. Collect fixed **N = 20** recent multi-seat terminal hero-ish runs (`outputKind` plan/review preferred). 2. Score each against rubric classes (a) disagreement-with-a-call (b) consensus-with-a-call (c) lead-vs-seat reversal — count how many would make a stranger-worthy screenshot **for a growth series**. 3. Hand-build **3** HTML artifacts using design tokens (no projector code required) from the best stories. 4. Founder pass/fail: “would I post or show this.” |
 | **Kill condition** | If fewer than **3**/20 score as stranger-worthy **for series** → kill growth packaging / series ambition; **keep S01 product path**. |
 | **CLI / Mac / contract** | None. |
+| **Scaffold** | `docs/phases/sprint/team-run-receipt/TRR-S00-scorecard.md` + `hand-renders/` (commit `2e312af4`). |
 | **Works Test** | Scorecard exists with N=20 rows + 3 hand files linked; founder written disposition (kill growth packaging \| proceed with optional series). |
 | **Done when** | Disposition recorded in this packet’s review log or a one-line addendum under this slice. |
 
@@ -553,17 +568,18 @@ alln artifact export <run-id> --out /tmp/team-artifact.html   # S03
 ## Done when (phase)
 
 - ~~S00b~~ — **done.**
-- **S01** — CLI-first users open a private team artifact for any terminal team
-  run; privacy + honesty + reproduce elision; teaching distinguishes surfaces.
-- **S00** — growth disposition recorded (kill packaging or proceed).
-- **S01b** — Floor opens the same projector artifact.
-- **S01c** — optional live Mac preview without weakening CLI terminal gate. **Done 2026-07-25.**
-- **S03** — styled HTML export on demand, same projector.
+- ~~**S01**~~ — **done** — CLI-first private team artifact; privacy + honesty +
+  reproduce elision; teaching distinguishes surfaces.
+- **S00** — growth disposition recorded (kill packaging or proceed) — **open**.
+- ~~**S01b**~~ — **done** — Floor opens the same projector artifact.
+- ~~**S01c**~~ — **done** — Mac live preview; CLI terminal gate intact.
+- ~~**S03**~~ — **done** — styled HTML export, same projector.
 - Buzz/Nostr/hosted / “certified” remain optional non-blockers (no slices).
 
 ## Open questions
 
-**None.** Entire authorized phase is Ready for Implementation.
+**One:** TRR-S00 founder disposition — kill growth packaging / series ambition,
+or proceed with optional series? Product path does not wait on this.
 
 ## Relationship to Buzz
 

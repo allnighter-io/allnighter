@@ -53,7 +53,7 @@ SSOT: archived [`Menu_Not_Router.md`](../../archive/phases/Menu_Not_Router.md).
 | 2 | [TRR-S01b — Floor open](team-run-receipt/TRR-S01b-floor-open.md) | **done** |
 | 3 | [TRR-S03 — artifact export](team-run-receipt/TRR-S03-artifact-export.md) | **done** |
 | 4 | [TRR-S01c — live paint](team-run-receipt/TRR-S01c-live-paint.md) | **done** |
-| 5 | [TRR-S00 — growth scorecard](team-run-receipt/TRR-S00-scorecard-wo.md) | **ready** |
+| 5 | [TRR-S00 — growth scorecard](team-run-receipt/TRR-S00-scorecard-wo.md) | **awaiting founder disposition** |
 
 SSOT: `docs/phases/Team_Run_Receipt.md`. Audit: [TRR-S01-audit.md](team-run-receipt/TRR-S01-audit.md).
 
