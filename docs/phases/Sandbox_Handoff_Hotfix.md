@@ -15,8 +15,31 @@ Codex was built and proven.
 It was not proven. The claim rested on mock tests plus **one** live pass on a
 freshly launched app, from an unsandboxed shell. The loop that matters — Codex
 sandbox → an app that has been open all day → an authenticated provider → an
-answer back in Codex's terminal — has never been run end to end, and no agent in
+answer back in Codex's terminal — had never been run end to end, and no agent in
 this repo can run it. Only the founder can.
+
+## PROVEN END TO END — 2026-07-24, founder-run
+
+`alln run --team code_red_two_source "Reply with exactly: CODEX_S1_TAKE2"`, typed
+inside a sandboxed Codex session in **`websitemd.studio`** — the same repository
+where this failed the day before — returned `CODEX_S1_TAKE2` to that terminal.
+
+```text
+04:54:35  claimed  run=handoff-B9FF0FB0…  team=code_red_two_source
+                   root=/Users/mike/Documents/GitHub/websitemd.studio  by=mac-app
+04:54:42  settled  run=handoff-B9FF0FB0…  status=complete
+```
+
+`status: complete`, seat `model_chatgpt` `done`, `durationMs 3614`, whole round
+trip ~7s. This is the first time the loop has been closed by anyone.
+
+A **stale-binary** false negative preceded it and is worth recording, because it
+cost a founder round: `alln` on PATH was a symlink into
+`~/Library/Developer/Allnighter/CLI/`, still at `0.9.17 / contract 3.4.0`, while
+every build in this packet went to `Packages/AllnighterCore/.build/`. The founder's
+first test therefore exercised none of S1 — diagnosed from the message it printed,
+which S1 had already deleted. **Before asking for a founder test, verify
+`alln version` on PATH matches the build under test.**
 
 ## Evidence
 
@@ -321,13 +344,20 @@ commands and must be rewritten or deleted with them.
 
 Split by what the founder actually runs, because averaging them hides the point.
 
+Revised on evidence after the founder-run proof above.
+
 | Scenario | Confidence |
 | --- | --- |
-| Small probe (`alln handoff doctor`, one seat) after S1 + S5 | 50–60% it works |
-| **A real six-seat spec review** after S1 + S5, without S2 | **near 0%** — the 180s bound reports failure by design while the app is still running |
-| A real spec review after S1–S5 | 55–65% |
-| Failure is *legible* after S1 + S2 + S3 | 75–85% — residues are the dead-claimant and never-started-host cases, which S4/S6 close |
-| Panel (S9) | unscoped — no number until the dispatch path is audited |
+| A short single-seat run from Codex | **PROVEN** — no longer a probability |
+| **A real six-seat spec review**, without S2 | **near 0%** — unchanged. The 180s bound reports failure by design while the app is still working, and a six-seat review takes minutes against the ~7s that just worked |
+| A real spec review after S2 | 70–80% — the remaining risk is queueing/starvation (C10) and the caller's own host timing out, not the transport |
+| Failure is *legible* | S1 shipped; residues are the dead-claimant (C9) and never-started-host (C11) cases, which S4/S6 close |
+
+**What the proof does and does not cover.** It covers the transport, the claim,
+execution under real credentials, and the return leg into the calling terminal.
+It does **not** cover: a run longer than 180s (S2), a stale long-lived app (S5 —
+the app under test was freshly launched), two concurrent callers (C9/C10), or any
+request needing a field the mailbox drops (C7).
 
 The honest framing: **the primary deliverable of S1 is not "it works", it is
 "the next failure names itself".** S1 alone guarantees the next founder test is
