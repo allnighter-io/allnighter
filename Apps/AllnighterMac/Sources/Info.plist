@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>ALLNIGHTER_SUPABASE_URL</key>
-	<string>https://kfqwpozmntqpxiveafld.supabase.co</string>
 	<key>ALLNIGHTER_SUPABASE_PUBLISHABLE_KEY</key>
 	<string>sb_publishable__rOinn0t1JKtj2-MI2-pew_ZhIUp9QV</string>
+	<key>ALLNIGHTER_SUPABASE_URL</key>
+	<string>https://kfqwpozmntqpxiveafld.supabase.co</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -21,7 +21,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.9.0</string>
+	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSUIElement</key>

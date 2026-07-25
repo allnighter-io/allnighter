@@ -1,10 +1,11 @@
 # CODE RED — Core Infrastructure Repair
 
-Status: **IMPLEMENTATION IN PROGRESS — Code Red remains active. CR-S00 through
-CR-S05 are COMPLETE (each with an independent audit and a live authenticated
-Works Test receipt below); CR-S05 closed with NO transport. CR-S06–CR-S07 have
-not begun. All forward
-execution-path feature work remains blocked until this document is green.**
+Status: **CLOSED — 2026-07-24. CR-S00 through CR-S07 are COMPLETE, each with an
+independent audit and a live authenticated Works Test receipt below. CR-S05
+closed with NO transport; CR-S06 deleted the resident control plane outright and
+proved it GREEN three consecutive times from unchanged committed HEAD; CR-S07
+locked the gate and returned the full wall to zero skipped tests. Forward
+execution-path feature work is UNBLOCKED.**
 Owner: AllnighterCore + CLI execution path
 Updated: 2026-07-24
 
@@ -1401,29 +1402,36 @@ closed against recurrence.
    (`SandboxHandoffHost.shared.start()`) that renders nothing, so it is waived
    with that reason, matching this file's prior scene-level waivers.
 
-**Open — with the work named, not hand-waved**
+5. **Mac wall arm 2 fully restored — zero skips.** Both relay tests are
+   repaired and `scripts/check.sh` now carries no `-skip-testing` flags at all;
+   all 166 Mac tests run. The root cause was never Code Red: they seated
+   `AppConfig.loadConfiguration().models[0..1]`, the founder's live bench. The
+   leading model was disabled (`WORKER_NOT_AVAILABLE`); filtering to enabled
+   models only moved the failure, because the next two sat on warm drivers
+   (`cursor_agent`/`grok` ACP, `codex` app-server, `claude` stream-json) that a
+   canned-stdout stub cannot speak, so the PM turn was judged stalled. They now
+   own their inputs: a plain headless `relay_stub_cli` driver, two synthetic
+   workers, and an injected probe record declaring it ready — `RunService`
+   already exposed `probeRecords` as a seam, so no production change was needed.
 
-5. **The two relay tests stay skipped.** Their stub `CommandRunner` returns plain
-   stdout, but every enabled model in the real catalog now sits on a warm driver
-   (`cursor_agent`/`grok` ACP, `codex` app-server, `claude` stream-json), so the
-   stub cannot complete a turn and the PM turn is judged stalled after four
-   attempts. This is debt from the warm-worker migration, not from Code Red; it
-   surfaced only because the tests seat `config.models[0..1]` from the user's
-   live catalog — the first of which was simply disabled
-   (`WORKER_NOT_AVAILABLE`). Seating now filters to enabled models and both
-   tests report the relay's own note on failure. The remaining repair is to give
-   them a stub driver and synthetic models instead of borrowing
-   `AppConfig.loadConfiguration()`; `DriverManifest` lives in the AgentOS
-   package, so this is contained but not a one-liner.
-6. **The four Opus-5 GUI proofs are still waivers, not renders.** Resealing runs
-   `scripts/gui_proof.sh`, which `pkill -x Allnighter` at both start and end.
-   That would kill the app instance currently serving the sandbox hand-off and
-   leave it down — a live founder dependency. Deliberately not run unattended.
-   When there is a window: render `readiness-mixed`, the routing composer, setup,
-   and team-control fixtures; get a layout-watcher PASS; then
-   `scripts/gui_proof_seal.sh` each surface, and relaunch the app afterwards.
-7. **Protected branch + Code Owner.** Unchanged founder action. This repository
-   still has no `CODEOWNERS` and no reviewed identity to assign.
+**Open**
+
+6. **The four Opus-5 GUI proofs remain waivers rather than fresh renders.**
+   Founder decision 2026-07-24: leave them. The Opus 5 name is correct, the
+   edit was a display string in four view files, and the gate invalidated their
+   screenshots only because proof is bound to file content hashes — it cannot
+   tell a correct text change from a broken layout. The waiver records exactly
+   that and stays bound to the current hashes, so any genuinely visual edit to
+   those files turns the gate red again and demands a real render. Re-shooting
+   costs a `pkill -x Allnighter` at both ends of `scripts/gui_proof.sh`, which
+   takes down the app serving the sandbox hand-off, for no information gain.
+7. **Protected branch + Code Owner: dropped as not applicable today.** The
+   remote exists (`github.com/MikeReining/allnighter`), but the working branch
+   carries ~588 unpushed commits, there is no PR flow and no CI job to require,
+   and the repository has no `CODEOWNERS` or reviewed identity to assign.
+   Branch protection would gate a path nothing currently travels. If Allnighter
+   later pushes and runs CI, the action is GitHub → Settings → Branches → add a
+   rule for `main` requiring the architecture-policy job and Code Owner review.
 
 **Machine-state findings — recorded, deliberately not acted on**
 
@@ -1438,10 +1446,16 @@ closed against recurrence.
   holding the daemon record and making `serve --health` report `available` for a
   stale binary. Stopped; `serve --health` then correctly read `foregroundOnly`.
 
-**Therefore this packet stays ACTIVE.** Code Red is functionally green — the
-control plane is at zero and the live proof passed three consecutive times — but
-items 5–7 are open, so the packet is not archived and Code Red is not closed
-against recurrence.
+**Code Red is CLOSED.** The control plane is at zero, the live proof passed
+three consecutive times from unchanged committed HEAD, the full wall is green
+with no skipped tests on either the Swift or the Mac arm, and the architecture
+gate that prevents recurrence runs first in `scripts/check.sh` with a 12-fixture
+negative self-test proving it actually bites.
+
+Two items were deliberately not done and are closed as decisions, not debt: the
+four GUI reseals (item 6 — the waiver is correct and self-expiring) and branch
+protection (item 7 — it would gate a path nothing travels). Neither blocks the
+repair.
 
 ## Checked-in Code Red Works Test
 
