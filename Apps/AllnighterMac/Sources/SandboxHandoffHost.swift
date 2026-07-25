@@ -23,18 +23,22 @@ final class SandboxHandoffHost {
     func start() {
         guard task == nil else { return }
         task = Task.detached(priority: .utility) {
-            let configuration = AppConfig.loadConfiguration()
-            let invocations = AppSetupModel.invocations(from: SetupStore().load().records)
-            HandoffLog.event(
-                "host started pid=\(ProcessInfo.processInfo.processIdentifier) "
-                + "models=\(configuration.models.count) invocations=\(invocations.count)")
+            HandoffLog.event("host started pid=\(ProcessInfo.processInfo.processIdentifier)")
             let runner = SandboxHandoffRunner(
-                runService: RunService(
-                    models: configuration.models,
-                    registry: configuration.registry,
-                    teams: TeamCatalog.all,
-                    invocations: invocations
-                ),
+                // Reloaded per claimed request, never snapshotted at launch. An app
+                // open all day used to keep the roster and invocation map it read at
+                // startup, then refuse work once either changed on disk — with no
+                // journal and no log, which is what made the original failure
+                // undiagnosable. Idle cost is zero: this runs only when there is work.
+                makeRunService: {
+                    let configuration = AppConfig.loadConfiguration()
+                    return RunService(
+                        models: configuration.models,
+                        registry: configuration.registry,
+                        teams: TeamCatalog.all,
+                        invocations: AppSetupModel.invocations(from: SetupStore().load().records)
+                    )
+                },
                 owner: "mac-app"
             )
             await runner.run { Task.isCancelled }

@@ -292,13 +292,32 @@ Two mailbox fixes rode along, both found by writing the tests:
   mailbox when this shipped still decodes (as `.run`) instead of silently never
   running.
 
-### S5 — the host must not hold a stale snapshot *(C13)*
+### S5 — the host must not hold a stale snapshot *(C13)* — **SHIPPED**
 
 Build the `RunService` per drain, or invalidate on config change. Start the host
 independently of `remoteAccount.bootstrap()` (C11).
 
 *Accept:* an app whose roster/setup changed after launch runs a hand-off
 successfully — the probe-B-vs-G split, as a test.
+
+**Done 2026-07-25.** `SandboxHandoffRunner` now takes a `makeRunService` factory
+instead of a held service, and the Mac host reloads `AppConfig` + `SetupStore` for
+**each claimed request**. Rebuilding per request rather than per poll keeps the
+idle cost at exactly zero — asserted by its own test, because a naive "rebuild
+every tick" would reload config files every two seconds forever.
+
+`SandboxHandoffHost.start()` also moved **ahead of** `await remoteAccount
+.bootstrap()` (C11): a hung network bootstrap used to leave an open, visible app
+that never drained the mailbox, which from the caller's side is indistinguishable
+from Allnighter not being open.
+
+Two tests pin the rule so a future change cannot quietly reintroduce a snapshot:
+one asserts a fresh service per request, the other that an idle host builds none.
+
+**Still an inference.** C13 was never proven — S1 destroyed the evidence before it
+could be. This makes the staleness class impossible rather than proving it was
+the cause; if the original failure was something else, S1's journal will now say
+so plainly the next time it happens.
 
 ### S6 — claim safety *(C9, C10)*
 

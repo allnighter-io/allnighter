@@ -23,6 +23,7 @@ private final class TickingClock: @unchecked Sendable {
 private final class PollCounter: @unchecked Sendable {
     private var count = 0
     func next() -> Int { count += 1; return count }
+    var value: Int { count }
 }
 
 /// Collects the caller-facing notes so a test can assert what the user was told.
@@ -49,7 +50,7 @@ final class SandboxHandoffTests: XCTestCase {
         SandboxHandoffSpool(directory: tmp.appendingPathComponent("Handoff", isDirectory: true))
     }
 
-    private func makeService(runStore: RunStore) -> RunService {
+    private static func makeService(runStore: RunStore) -> RunService {
         RunService(
             models: [Model(id: "model_opus", displayName: "Opus", modelLabel: "opus",
                            driverId: "claude_code", role: .both)],
@@ -80,7 +81,7 @@ final class SandboxHandoffTests: XCTestCase {
 
         // Outside the sandbox: run it.
         let started = await SandboxHandoffRunner(
-            spool: box, runService: makeService(runStore: runStore), owner: "test").drainOnce()
+            spool: box, runService: Self.makeService(runStore: runStore), owner: "test").drainOnce()
 
         XCTAssertEqual(started, [runId])
         XCTAssertTrue(try box.unclaimed().isEmpty, "a finished request leaves the mailbox")
@@ -110,7 +111,7 @@ final class SandboxHandoffTests: XCTestCase {
                               workerId: "model_does_not_exist"))
 
         let settled = await SandboxHandoffRunner(
-            spool: box, runService: makeService(runStore: runStore),
+            spool: box, runService: Self.makeService(runStore: runStore),
             runStore: runStore, owner: "test").drainOnce()
 
         XCTAssertEqual(settled, [runId], "a refusal is still a settled request")
@@ -146,7 +147,7 @@ final class SandboxHandoffTests: XCTestCase {
                               repoRoot: "/tmp/x", kind: .ping))
 
         let settled = await SandboxHandoffRunner(
-            spool: box, runService: makeService(runStore: runStore),
+            spool: box, runService: Self.makeService(runStore: runStore),
             runStore: runStore, owner: "test").drainOnce()
 
         XCTAssertEqual(settled, [runId])
@@ -176,7 +177,7 @@ final class SandboxHandoffTests: XCTestCase {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
         let box = spool()
         let runner = SandboxHandoffRunner(
-            spool: box, runService: makeService(runStore: runStore),
+            spool: box, runService: Self.makeService(runStore: runStore),
             runStore: runStore, owner: "test-host", pollSeconds: 0.05)
 
         let draining = Task.detached { await runner.run { Task.isCancelled } }
@@ -268,6 +269,53 @@ final class SandboxHandoffTests: XCTestCase {
                        "a claimed request was picked up — say so")
     }
 
+    // MARK: - Staleness (S5)
+
+    /// The inferred cause of the original incident: the host built its RunService
+    /// once at launch and held it forever, so an app open all day kept the roster it
+    /// read at startup and refused work after the roster changed on disk. The
+    /// service must be rebuilt per claimed request, not snapshotted.
+    func testTheHostBuildsAFreshRunServiceForEveryRequest() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        let builds = PollCounter()
+        let runner = SandboxHandoffRunner(
+            spool: box,
+            makeRunService: {
+                _ = builds.next()
+                return Self.makeService(runStore: runStore)
+            },
+            runStore: runStore, owner: "test")
+
+        try box.enqueue(.init(runId: "handoff-a", message: "m", repoRoot: "/tmp/x",
+                              workerId: "model_opus"))
+        await runner.drainOnce()
+        try box.enqueue(.init(runId: "handoff-b", message: "m", repoRoot: "/tmp/x",
+                              workerId: "model_opus"))
+        await runner.drainOnce()
+
+        XCTAssertEqual(builds.value, 2,
+                       "a held service goes stale — build one per request, not per host")
+    }
+
+    /// …and idle polling must not pay for it.
+    func testAnIdleHostBuildsNoRunServiceAtAll() async {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let builds = PollCounter()
+        let runner = SandboxHandoffRunner(
+            spool: spool(),
+            makeRunService: {
+                _ = builds.next()
+                return Self.makeService(runStore: runStore)
+            },
+            runStore: runStore, owner: "test")
+
+        await runner.drainOnce()
+        await runner.drainOnce()
+
+        XCTAssertEqual(builds.value, 0, "an empty mailbox must cost nothing")
+    }
+
     // MARK: - Mailbox robustness
 
     /// A request written before `kind` existed must still run, as ordinary work.
@@ -312,7 +360,7 @@ final class SandboxHandoffTests: XCTestCase {
     func testEmptyMailboxIsANoOp() async {
         let started = await SandboxHandoffRunner(
             spool: spool(),
-            runService: makeService(runStore: RunStore(rootDirectory: tmp.appendingPathComponent("r2"))),
+            runService: Self.makeService(runStore: RunStore(rootDirectory: tmp.appendingPathComponent("r2"))),
             owner: "test").drainOnce()
         XCTAssertTrue(started.isEmpty)
     }

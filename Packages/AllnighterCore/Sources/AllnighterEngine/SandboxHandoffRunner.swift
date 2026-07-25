@@ -9,11 +9,32 @@ import AllnighterCore
 /// so the result lands in the ordinary run journal the caller is already polling.
 public struct SandboxHandoffRunner: Sendable {
     public var spool: SandboxHandoffSpool
-    public var runService: RunService
+    /// Built fresh for each claimed request rather than held for the app's
+    /// lifetime. A host open all day would otherwise keep the roster, registry and
+    /// invocation map it loaded at launch, and refuse work the moment any of them
+    /// changed on disk — the failure that started this packet. Costs nothing while
+    /// the mailbox is empty, because it is only called when there is work.
+    public var makeRunService: @Sendable () -> RunService
     public var runStore: RunStore
     public var owner: String
     public var pollSeconds: TimeInterval
 
+    public init(
+        spool: SandboxHandoffSpool = SandboxHandoffSpool(),
+        makeRunService: @escaping @Sendable () -> RunService,
+        runStore: RunStore = RunStore(),
+        owner: String = "mac-app",
+        pollSeconds: TimeInterval = 2
+    ) {
+        self.spool = spool
+        self.makeRunService = makeRunService
+        self.runStore = runStore
+        self.owner = owner
+        self.pollSeconds = pollSeconds
+    }
+
+    /// Convenience for callers holding a service already — tests, mostly. Real
+    /// hosts should pass the factory so a long-lived process never goes stale.
     public init(
         spool: SandboxHandoffSpool = SandboxHandoffSpool(),
         runService: RunService,
@@ -21,11 +42,8 @@ public struct SandboxHandoffRunner: Sendable {
         owner: String = "mac-app",
         pollSeconds: TimeInterval = 2
     ) {
-        self.spool = spool
-        self.runService = runService
-        self.runStore = runStore
-        self.owner = owner
-        self.pollSeconds = pollSeconds
+        self.init(spool: spool, makeRunService: { runService }, runStore: runStore,
+                  owner: owner, pollSeconds: pollSeconds)
     }
 
     /// Claims and runs everything currently waiting. Returns the run ids that now
@@ -52,7 +70,8 @@ public struct SandboxHandoffRunner: Sendable {
                 continue
             }
 
-            let result = await runService.run(
+            // Fresh per request: see `makeRunService`.
+            let result = await makeRunService().run(
                 RunRequest(
                     message: request.message,
                     repoRoot: request.repoRoot,

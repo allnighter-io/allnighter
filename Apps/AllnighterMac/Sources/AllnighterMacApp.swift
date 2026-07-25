@@ -115,11 +115,15 @@ struct AllnighterMacApp: App {
                 .environment(floorStatus)
                 .frame(minWidth: 1100, minHeight: 720)
                 .task {
-                    await remoteAccount.bootstrap()
+                    // Started BEFORE the network bootstrap, and never behind it: a
+                    // hung or slow `bootstrap()` used to leave an open, visible app
+                    // that never drained the mailbox — indistinguishable, from the
+                    // caller's side, from Allnighter not being open at all.
                     // Lets Allnighter work from inside a sandboxed terminal: that
                     // caller can't start your AI tools, so it leaves the request
                     // here and the app runs it. See SandboxHandoffHost.
                     SandboxHandoffHost.shared.start()
+                    await remoteAccount.bootstrap()
                 }
         }
         .windowResizability(.contentMinSize)
