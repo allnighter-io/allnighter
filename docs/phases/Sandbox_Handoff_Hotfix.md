@@ -235,7 +235,7 @@ unified log and `Logs/`.
 *Accept:* `log show --predicate 'process == "Allnighter"'` shows the full
 lifecycle of a hand-off request.
 
-### S4 — `alln handoff doctor` *(new; cuts founder-test cost)*
+### S4 — `alln doctor handoff` *(new; cuts founder-test cost)* — **SHIPPED**
 
 A five-second self-check callable from inside Codex. It needs a `kind: ping`
 request that `drainOnce` answers directly with a terminal journal and **no**
@@ -245,6 +245,26 @@ only probe immune to C8's signature drift.
 
 *Accept:* from a Codex sandbox, a typed verdict in under ten seconds
 distinguishing app-not-open / host-never-started / claimed-but-failed / healthy.
+
+**Done 2026-07-24.** Named `alln doctor handoff`, not `alln handoff doctor` — the
+`doctor` family already exists (`doctor explain`), so this adds a subcommand
+rather than a new top-level family. It is deliberately NOT folded into `alln
+doctor` itself, which must stay a read-only report: this one enqueues something.
+
+Three verdicts, all observed rather than inferred: `healthy`, `hostNotRunning`
+(nothing claimed it), `claimedButSilent` (something claimed it and never
+answered), plus `mailboxUnwritable`. All three verified live: **767ms healthy**
+with the app open, `hostNotRunning` with it closed, and `claimedButSilent`
+against a host too old to understand pings — which is exactly the orphaned-claim
+shape C9 describes.
+
+Two mailbox fixes rode along, both found by writing the tests:
+- `unclaimed()` decoded the whole directory with `try` inside a `map`, so ONE
+  corrupt or half-written file threw and made the entire mailbox look empty —
+  starving every valid request behind it. It now skips unreadable entries.
+- `Request` gained `kind` with a hand-written decoder, so a request already in the
+  mailbox when this shipped still decodes (as `.run`) instead of silently never
+  running.
 
 ### S5 — the host must not hold a stale snapshot *(C13)*
 

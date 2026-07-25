@@ -247,6 +247,41 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured HandoffDoctorJSON verdict.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "doctor handoff",
+      "outputSchema" : "handoffDoctorJSON",
+      "spendsQuota" : false,
+      "summary" : "Check whether work handed off from this terminal will actually be run by the Allnighter app. Drops one liveness ping in the hand-off mailbox; starts no worker and spends no quota. Distinguishes nothing-claimed-it from claimed-and-went-silent — never guesses.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
         "bootstrap_json"
       ],
       "flagConstraints" : [

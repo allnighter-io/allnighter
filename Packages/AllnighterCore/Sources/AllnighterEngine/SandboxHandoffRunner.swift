@@ -38,7 +38,20 @@ public struct SandboxHandoffRunner: Sendable {
         for request in waiting {
             guard let claimed = try? spool.claim(id: request.id, by: owner), claimed != nil else { continue }
             HandoffLog.event(
-                "claimed run=\(request.runId) team=\(request.presetId ?? "-") root=\(request.repoRoot) by=\(owner)")
+                "claimed run=\(request.runId) kind=\(request.kind.rawValue) "
+                + "team=\(request.presetId ?? "-") root=\(request.repoRoot) by=\(owner)")
+
+            // A ping asks one question — is anything out there claiming requests and
+            // writing journals? — and answering it must not start a worker. Settling
+            // it here keeps `alln doctor handoff` free and fast, and makes it the one
+            // check immune to detection drift, since it bypasses HostSandboxAdvice.
+            if request.kind == .ping {
+                answerPing(for: request)
+                settled.append(request.runId)
+                spool.remove(id: request.id)
+                continue
+            }
+
             let result = await runService.run(
                 RunRequest(
                     message: request.message,
@@ -62,6 +75,33 @@ public struct SandboxHandoffRunner: Sendable {
             spool.remove(id: request.id)
         }
         return settled
+    }
+
+    /// Settles a liveness check: a terminal run in the ordinary journal, naming the
+    /// host that answered. No `RunService`, no worker, no quota.
+    private func answerPing(for request: SandboxHandoffSpool.Request) {
+        let run = TeamRun(
+            id: request.runId,
+            prompt: request.message,
+            status: .complete,
+            origin: .cli,
+            // Which host answered, on a typed field rather than parsed back out of
+            // prose: the request is removed from the mailbox the moment it settles,
+            // so the run itself is the only place the caller can still learn this.
+            originAgent: owner,
+            createdAt: Date(),
+            warnings: ["HANDOFF_HOST_ALIVE: claimed and answered by \(owner)"],
+            repoRoot: request.repoRoot,
+            endReason: .completed
+        )
+        do {
+            _ = try runStore.save(run, models: [])
+            HandoffLog.event("pong run=\(request.runId) by=\(owner)")
+        } catch let writeError {
+            // The host is alive but cannot write the journal — which is itself the
+            // answer the caller needs, and the only place left to say it.
+            HandoffLog.event("pong run=\(request.runId) BUT the journal write failed: \(writeError)")
+        }
     }
 
     /// Writes the refusal into the ordinary run journal under the id the caller is

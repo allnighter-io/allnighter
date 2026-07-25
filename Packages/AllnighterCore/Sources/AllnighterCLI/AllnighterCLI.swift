@@ -35,6 +35,7 @@ struct AllnighterCLI {
 
         switch command {
         case "doctor" where args.first == "explain": runDoctorExplain(Array(args.dropFirst()))
+        case "doctor" where args.first == "handoff": await runDoctorHandoff(Array(args.dropFirst()))
         case "serve": await runServe(args)
         default:
             let runtime = ToolRuntime()
@@ -1557,6 +1558,28 @@ struct AllnighterCLI {
     }
 
     /// `alln doctor explain <code> [--json]` — explain one registry error code.
+    /// `alln doctor handoff [--json]` — can this terminal get work run by the app?
+    ///
+    /// Costs no quota and starts no worker: it drops one `ping` in the mailbox and
+    /// reports what was observed. Deliberately separate from `alln doctor`, which
+    /// must stay a read-only report — this one enqueues something.
+    static func runDoctorHandoff(_ args: [String]) async {
+        let opts = Options(args)
+        let store = ProjectStore()
+        let repoRoot = resolveProjectFromCwd(store: store)?.localRootPath
+            ?? FileManager.default.currentDirectoryPath
+        let report = await HandoffDoctor().check(
+            contractVersion: ContractRegistry.contractVersion, repoRoot: repoRoot)
+        if opts.flag("json") {
+            print(jsonString(report))
+        } else {
+            print("hand-off: \(report.verdict.rawValue) (\(report.waitedMs)ms)")
+            print(report.detail)
+            print("check id: \(report.runId)")
+        }
+        if !report.isHealthy { exit(1) }
+    }
+
     static func runDoctorExplain(_ args: [String]) {
         let opts = Options(args)
         guard let code = opts.positional.first else {

@@ -73,6 +73,15 @@ Output schema: `errorExplainJSON`.
 
 Examples: `doctor_explain`.
 
+### `alln doctor handoff`
+
+Check whether work handed off from this terminal will actually be run by the Allnighter app. Drops one liveness ping in the hand-off mailbox; starts no worker and spends no quota. Distinguishes nothing-claimed-it from claimed-and-went-silent — never guesses.
+
+Flags:
+- `--json` — Structured HandoffDoctorJSON verdict.
+
+Output schema: `handoffDoctorJSON`.
+
 ### `alln bootstrap`
 
 Print a paste-ready agent-activation snippet for a host's context file (never edits files).

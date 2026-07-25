@@ -13,6 +13,17 @@ import Foundation
 /// request runs it through the same `RunService.run` as everyone else.
 public struct SandboxHandoffSpool: Sendable {
     public struct Request: Codable, Equatable, Sendable {
+        /// What the host should do with this request.
+        public enum Kind: String, Codable, Sendable {
+            /// Ordinary work: run it through `RunService`.
+            case run
+            /// A liveness check. The host settles it immediately without touching
+            /// `RunService`, so `alln doctor handoff` costs no quota and no seat —
+            /// it answers the one question that matters (is anything out there
+            /// claiming and journaling my requests?) in seconds.
+            case ping
+        }
+
         public var id: String
         public var runId: String
         public var message: String
@@ -20,6 +31,8 @@ public struct SandboxHandoffSpool: Sendable {
         public var presetId: String?
         public var workerId: String?
         public var createdAt: Date
+        /// Absent in requests written before pings existed — decoded as `.run`.
+        public var kind: Kind
         /// Set when a host outside the sandbox takes ownership. A request is
         /// claimed exactly once; a second claimer must skip it.
         public var claimedAt: Date?
@@ -33,6 +46,7 @@ public struct SandboxHandoffSpool: Sendable {
             presetId: String? = nil,
             workerId: String? = nil,
             createdAt: Date = Date(),
+            kind: Kind = .run,
             claimedAt: Date? = nil,
             claimedBy: String? = nil
         ) {
@@ -43,8 +57,26 @@ public struct SandboxHandoffSpool: Sendable {
             self.presetId = presetId
             self.workerId = workerId
             self.createdAt = createdAt
+            self.kind = kind
             self.claimedAt = claimedAt
             self.claimedBy = claimedBy
+        }
+
+        /// Hand-written so a request already sitting in the mailbox when this
+        /// shipped — which has no `kind` key — still decodes, as `.run`. A
+        /// request that fails to decode is a request that silently never runs.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(String.self, forKey: .id)
+            runId = try c.decode(String.self, forKey: .runId)
+            message = try c.decode(String.self, forKey: .message)
+            repoRoot = try c.decode(String.self, forKey: .repoRoot)
+            presetId = try c.decodeIfPresent(String.self, forKey: .presetId)
+            workerId = try c.decodeIfPresent(String.self, forKey: .workerId)
+            createdAt = try c.decode(Date.self, forKey: .createdAt)
+            kind = try c.decodeIfPresent(Kind.self, forKey: .kind) ?? .run
+            claimedAt = try c.decodeIfPresent(Date.self, forKey: .claimedAt)
+            claimedBy = try c.decodeIfPresent(String.self, forKey: .claimedBy)
         }
     }
 
@@ -70,14 +102,33 @@ public struct SandboxHandoffSpool: Sendable {
     }
 
     /// Every request still waiting for someone to run it, oldest first.
+    ///
+    /// One unreadable file must not hide the rest: this used to decode the whole
+    /// directory with `try` inside a `map`, so a single corrupt or half-written
+    /// entry threw and made the entire mailbox look empty — every other caller
+    /// waiting behind it would be told nothing had picked their request up.
     public func unclaimed() throws -> [Request] {
         guard fileManager.fileExists(atPath: directory.path) else { return [] }
         let files = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "json" }
-        return try files
-            .map { try CoreJSON.decode(Request.self, from: Data(contentsOf: $0)) }
+        return files
+            .compactMap { url -> Request? in
+                guard let data = try? Data(contentsOf: url),
+                      let request = try? CoreJSON.decode(Request.self, from: data)
+                else { return nil }
+                return request
+            }
             .filter { $0.claimedAt == nil }
             .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    /// One request by id, claimed or not — the difference between "nothing is
+    /// listening" and "something took this and went quiet", which a caller must
+    /// never guess at.
+    public func request(id: String) -> Request? {
+        let file = url(for: id)
+        guard let data = try? Data(contentsOf: file) else { return nil }
+        return try? CoreJSON.decode(Request.self, from: data)
     }
 
     /// Takes ownership. Returns nil when someone else already claimed it, so two

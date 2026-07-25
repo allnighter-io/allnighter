@@ -103,6 +103,98 @@ final class SandboxHandoffTests: XCTestCase {
         XCTAssertTrue(log.contains("refused run=\(runId)"), "the host must record the refusal")
     }
 
+    // MARK: - Liveness check (`alln doctor handoff`)
+
+    /// A ping must never reach `RunService`: the whole point is a verdict that costs
+    /// no seat and no quota. The mock here would answer "Handed off." if a worker ran,
+    /// so an empty answer set is the proof that none did.
+    func testAPingIsSettledWithoutStartingAnyWorker() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        HandoffLog.fileURL = tmp.appendingPathComponent("handoff.log", isDirectory: false)
+        defer { HandoffLog.fileURL = nil }
+
+        let runId = "handoff-ping-1"
+        try box.enqueue(.init(runId: runId, message: "handoff liveness check",
+                              repoRoot: "/tmp/x", kind: .ping))
+
+        let settled = await SandboxHandoffRunner(
+            spool: box, runService: makeService(runStore: runStore),
+            runStore: runStore, owner: "test").drainOnce()
+
+        XCTAssertEqual(settled, [runId])
+        let run: TeamRun = try XCTUnwrap(runStore.load(runId: runId))
+        XCTAssertEqual(run.status, .complete)
+        XCTAssertTrue(run.workerAnswers.isEmpty, "a ping must not start a worker")
+        XCTAssertTrue(run.warnings.contains { $0.contains("HANDOFF_HOST_ALIVE") })
+
+        let log = try String(contentsOf: XCTUnwrap(HandoffLog.fileURL), encoding: .utf8)
+        XCTAssertTrue(log.contains("kind=ping"), "the log must distinguish a ping from real work")
+    }
+
+    func testDoctorReportsHostNotRunningWhenNothingDrainsTheMailbox() async {
+        let doctor = HandoffDoctor(
+            spool: spool(),
+            runStore: RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true)),
+            waitSeconds: 0.3, pollSeconds: 0.05)
+
+        let report = await doctor.check(contractVersion: "test", repoRoot: "/tmp/x")
+
+        XCTAssertEqual(report.verdict, .hostNotRunning)
+        XCTAssertFalse(report.isHealthy)
+        XCTAssertNil(report.claimedBy)
+    }
+
+    func testDoctorReportsHealthyWhenAHostAnswersThePing() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        let runner = SandboxHandoffRunner(
+            spool: box, runService: makeService(runStore: runStore),
+            runStore: runStore, owner: "test-host", pollSeconds: 0.05)
+
+        let draining = Task.detached { await runner.run { Task.isCancelled } }
+        defer { draining.cancel() }
+
+        let report = await HandoffDoctor(
+            spool: box, runStore: runStore, waitSeconds: 5, pollSeconds: 0.05
+        ).check(contractVersion: "test", repoRoot: "/tmp/x")
+
+        XCTAssertEqual(report.verdict, .healthy, "detail was: \(report.detail)")
+        XCTAssertTrue(report.isHealthy)
+        XCTAssertEqual(report.claimedBy, "test-host", "a healthy verdict must name who answered")
+    }
+
+    // MARK: - Mailbox robustness
+
+    /// A request written before `kind` existed must still run, as ordinary work.
+    func testARequestWithNoKindDecodesAsRun() throws {
+        let box = spool()
+        try FileManager.default.createDirectory(at: box.directory, withIntermediateDirectories: true)
+        let legacy = """
+        {"id":"legacy-1","runId":"handoff-legacy","message":"m","repoRoot":"/tmp/x",\
+        "createdAt":"2026-07-24T00:00:00Z"}
+        """
+        try Data(legacy.utf8).write(to: box.directory.appendingPathComponent("legacy-1.json"))
+
+        let waiting = try box.unclaimed()
+        XCTAssertEqual(waiting.count, 1)
+        XCTAssertEqual(waiting.first?.kind, .run, "a kind-less request is ordinary work, not a ping")
+    }
+
+    /// One unreadable file used to throw out of `unclaimed()` and make the whole
+    /// mailbox look empty — starving every valid request behind it.
+    func testOneCorruptRequestDoesNotHideTheRest() throws {
+        let box = spool()
+        try box.enqueue(.init(runId: "handoff-good", message: "m", repoRoot: "/tmp/x"))
+        try Data("{ this is not json".utf8)
+            .write(to: box.directory.appendingPathComponent("corrupt.json"))
+
+        let waiting = try box.unclaimed()
+
+        XCTAssertEqual(waiting.map(\.runId), ["handoff-good"],
+                       "a poison file must not hide a valid request")
+    }
+
     func testARequestIsClaimedExactlyOnce() throws {
         let box = spool()
         let request = try box.enqueue(.init(runId: "r1", message: "m", repoRoot: "/tmp/x"))

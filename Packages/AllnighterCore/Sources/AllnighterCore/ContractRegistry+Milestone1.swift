@@ -80,6 +80,13 @@ public extension ContractRegistry {
             exampleIds: ["doctor_explain"]
         ),
         CommandSpec(
+            "doctor handoff",
+            summary: "Check whether work handed off from this terminal will actually be run by the Allnighter app. Drops one liveness ping in the hand-off mailbox; starts no worker and spends no quota. Distinguishes nothing-claimed-it from claimed-and-went-silent — never guesses.",
+            milestone: .m1,
+            flags: [FlagSpec("json", summary: "Structured HandoffDoctorJSON verdict.")],
+            outputSchema: .handoffDoctorJSON
+        ),
+        CommandSpec(
             "bootstrap", summary: "Print a paste-ready agent-activation snippet for a host's context file (never edits files).", milestone: .m1,
             flags: [
                 FlagSpec("host", takesValue: true, valueType: "host", summary: "claude | cursor | codex | generic (default generic)."),
