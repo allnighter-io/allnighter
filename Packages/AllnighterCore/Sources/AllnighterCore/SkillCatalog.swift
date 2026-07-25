@@ -974,13 +974,7 @@ public enum SkillCatalog {
         — never invent freshness. Public sources only; do not claim private or \
         authenticated access.
 
-        If the link is a VIDEO (YouTube or similar), get the transcript with the \
-        user's own `vvx` CLI rather than guessing from the title: run \
-        `vvx <url>` (its default `sense` extracts metadata + transcript as JSON and \
-        downloads no media), then read that transcript as the source. If `vvx` is not \
-        installed, do not invent the contents and do not try another downloader — \
-        stop and tell the user exactly this: install it with \
-        `brew install videovortex-app/tap/vvx`, or paste the transcript directly.
+        \(SignalSourceRouter.scoutInstructions)
         """),
         s("signal_landscape_scanner", "Landscape Scanner", .signal, .answer, """
         Scan what has recently changed outside this Project that a small team should \
