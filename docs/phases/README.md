@@ -25,11 +25,13 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Idle_Stall_False_Kill_Hotfix.md`](Idle_Stall_False_Kill_Hotfix.md) | **S02 shipped** — S03 posture floors deferred | Idle false-kill: S01 1800 floors + drift guard; S04 stall demotion + silence telemetry; S02 pgid activity progress. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
 
 > Recently completed and archived — code is the SSOT, do not reopen:
+> [`Idle_Stall_False_Kill_Hotfix.md`](../archive/phases/Idle_Stall_False_Kill_Hotfix.md)
+> (Complete 2026-07-25 — S01 1800 idle floors + drift guard; S04 stall demotion +
+> silence telemetry; S02 pgid child/CPU/IO progress; S03 deferred),
 > [`Capacity_False_Auth_Mislabel_Hotfix.md`](../archive/phases/Capacity_False_Auth_Mislabel_Hotfix.md)
 > (Complete 2026-07-25 — AgentOS `bec4f9e` stderr-only auth blockers + idle kill-reason
 > priority; Allnighter mirror `CapacityClassifierTests`; dry-run steer verified),
