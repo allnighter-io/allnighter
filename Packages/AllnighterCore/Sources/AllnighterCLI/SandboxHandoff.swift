@@ -123,6 +123,20 @@ enum SandboxHandoff {
 
         while true {
             if let finished = runStore.load(runId: runId), finished.status.isTerminal {
+                // `load` PROJECTS a run whose owner process is gone as interrupted,
+                // but says nothing — so an app killed mid-review returned a run the
+                // caller printed as a bare status with no explanation of why the
+                // work stopped. Name it, and make the projection durable so the
+                // next reader sees the same thing.
+                if finished.status == .interrupted {
+                    note("""
+                    [The Allnighter app stopped before finishing this run, so it is \
+                    recorded as interrupted. Anything already written was kept.
+                     Run id: \(runId)]
+
+                    """)
+                    _ = runStore.reconcileRun(runId: runId)
+                }
                 return finished
             }
 

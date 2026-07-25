@@ -250,6 +250,8 @@ enum RunCLI {
             exit(1)
         case .success(let run):
             renderRun(run, runtime: runtime, project: project, json: opts.flag("json"))
+            let code = exitCode(for: run)
+            if code != 0 { exit(code) }
         }
     }
 
@@ -375,6 +377,8 @@ enum RunCLI {
                 printRunWithoutProject(
                     parked, runtime: runtime,
                     reproduceCommand: "alln run resume \(runId)", json: opts.flag("json"), store: store)
+                let code = exitCode(for: parked)
+                if code != 0 { exit(code) }
                 return
             }
             guard let finished = await SandboxHandoff.waitForHandoff(
@@ -389,6 +393,8 @@ enum RunCLI {
             printRunWithoutProject(
                 finished, runtime: runtime,
                 reproduceCommand: "alln run resume \(runId)", json: opts.flag("json"), store: store)
+            let code = exitCode(for: finished)
+            if code != 0 { exit(code) }
             return
         }
         let coordinatorId = "cli:\(ProcessInfo.processInfo.processIdentifier)"
@@ -445,6 +451,21 @@ enum RunCLI {
                     run, runtime: runtime,
                     reproduceCommand: "alln run resume \(run.id)", json: false, store: store)
             }
+        }
+    }
+
+    /// Process exit for a finished run, on the frozen public lifecycle axis.
+    ///
+    /// A run that failed, timed out, was cancelled or was interrupted used to exit
+    /// **0**, identical to success. An agent host has no other signal — that is how
+    /// an interrupted six-seat review looked, from inside Codex, like a command that
+    /// simply produced nothing. `partial` stays 0: some seats answered, and their
+    /// answers are real.
+    static func exitCode(for run: TeamRun) -> Int32 {
+        switch run.status.lifecycle {
+        case .done: return 0
+        case .failed, .timedOut, .cancelled: return 1
+        case .queued, .running: return 0   // not terminal; the caller is still waiting
         }
     }
 

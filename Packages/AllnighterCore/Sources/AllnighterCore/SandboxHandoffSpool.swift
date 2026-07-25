@@ -37,6 +37,13 @@ public struct SandboxHandoffSpool: Sendable {
         /// claimed exactly once; a second claimer must skip it.
         public var claimedAt: Date?
         public var claimedBy: String?
+        /// Identity of the claiming process, so a claim held by a host that has
+        /// since died is detectable rather than permanent. `claimedBy` alone was
+        /// the literal string "mac-app", which cannot be checked for liveness —
+        /// a host that quit mid-request stranded its request forever.
+        /// Opaque here: `AllnighterEngine` owns the liveness rule.
+        public var claimantPid: Int32?
+        public var claimantStartTimeTicks: Int64?
 
         public init(
             id: String = UUID().uuidString,
@@ -48,7 +55,9 @@ public struct SandboxHandoffSpool: Sendable {
             createdAt: Date = Date(),
             kind: Kind = .run,
             claimedAt: Date? = nil,
-            claimedBy: String? = nil
+            claimedBy: String? = nil,
+            claimantPid: Int32? = nil,
+            claimantStartTimeTicks: Int64? = nil
         ) {
             self.id = id
             self.runId = runId
@@ -60,6 +69,8 @@ public struct SandboxHandoffSpool: Sendable {
             self.kind = kind
             self.claimedAt = claimedAt
             self.claimedBy = claimedBy
+            self.claimantPid = claimantPid
+            self.claimantStartTimeTicks = claimantStartTimeTicks
         }
 
         /// Hand-written so a request already sitting in the mailbox when this
@@ -77,6 +88,8 @@ public struct SandboxHandoffSpool: Sendable {
             kind = try c.decodeIfPresent(Kind.self, forKey: .kind) ?? .run
             claimedAt = try c.decodeIfPresent(Date.self, forKey: .claimedAt)
             claimedBy = try c.decodeIfPresent(String.self, forKey: .claimedBy)
+            claimantPid = try c.decodeIfPresent(Int32.self, forKey: .claimantPid)
+            claimantStartTimeTicks = try c.decodeIfPresent(Int64.self, forKey: .claimantStartTimeTicks)
         }
     }
 
@@ -133,15 +146,59 @@ public struct SandboxHandoffSpool: Sendable {
 
     /// Takes ownership. Returns nil when someone else already claimed it, so two
     /// hosts can watch the same mailbox without double-running a request.
-    public func claim(id: String, by owner: String, now: Date = Date()) throws -> Request? {
+    public func claim(
+        id: String,
+        by owner: String,
+        pid: Int32? = nil,
+        startTimeTicks: Int64? = nil,
+        now: Date = Date()
+    ) throws -> Request? {
         let file = url(for: id)
         guard fileManager.fileExists(atPath: file.path) else { return nil }
         var request = try CoreJSON.decode(Request.self, from: Data(contentsOf: file))
         guard request.claimedAt == nil else { return nil }
         request.claimedAt = now
         request.claimedBy = owner
+        request.claimantPid = pid
+        request.claimantStartTimeTicks = startTimeTicks
         try CoreJSON.encode(request).write(to: file, options: .atomic)
         return request
+    }
+
+    /// Hands a request back to the mailbox. Used when the host that claimed it is
+    /// gone: without this, a claim made by a process that then died is permanent —
+    /// `unclaimed()` skips claimed entries forever and the waiting caller is told,
+    /// wrongly, that nothing ever picked its work up.
+    @discardableResult
+    public func release(id: String) -> Bool {
+        let file = url(for: id)
+        guard let data = try? Data(contentsOf: file),
+              var request = try? CoreJSON.decode(Request.self, from: data)
+        else { return false }
+        request.claimedAt = nil
+        request.claimedBy = nil
+        request.claimantPid = nil
+        request.claimantStartTimeTicks = nil
+        guard let encoded = try? CoreJSON.encode(request) else { return false }
+        try? encoded.write(to: file, options: .atomic)
+        return true
+    }
+
+    /// Every request currently claimed, so a host can check whether the claimant is
+    /// still alive.
+    public func claimed() throws -> [Request] {
+        guard fileManager.fileExists(atPath: directory.path) else { return [] }
+        let files = try fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "json" }
+        return files
+            .compactMap { url -> Request? in
+                guard let data = try? Data(contentsOf: url),
+                      let request = try? CoreJSON.decode(Request.self, from: data)
+                else { return nil }
+                return request
+            }
+            .filter { $0.claimedAt != nil }
+            .sorted { $0.createdAt < $1.createdAt }
     }
 
     /// Removes a finished request. The run journal is the durable record; this

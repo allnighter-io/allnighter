@@ -316,6 +316,161 @@ final class SandboxHandoffTests: XCTestCase {
         XCTAssertEqual(builds.value, 0, "an empty mailbox must cost nothing")
     }
 
+    // MARK: - Claim safety (S6)
+
+    private static func slowService(runStore: RunStore, seconds: Double) -> RunService {
+        RunService(
+            models: [Model(id: "model_opus", displayName: "Opus", modelLabel: "opus",
+                           driverId: "claude_code", role: .both)],
+            registry: DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")]),
+            runStore: runStore,
+            commandRunner: MockCommandRunner(scripts: [
+                "claude": .init(stdout: "Slow answer.", exitCode: 0,
+                                delay: .milliseconds(Int(seconds * 1000)))
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: {
+                DefaultModelSettings(defaultTier: .flagship, allowHealthySubstitutions: true,
+                                     tiers: TierMembership(flagship: ["model_opus"]))
+            },
+            probeRecords: {
+                [ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1"), lastProbeAt: .distantPast)]
+            })
+    }
+
+    /// A long run must not stop the host claiming later requests. When the drain
+    /// awaited its own work, a six-seat review blocked the liveness ping behind it,
+    /// so `alln doctor handoff` reported "nothing is listening" about a host that
+    /// was visibly busy — a diagnostic lying about the thing it exists to check.
+    func testALongRunDoesNotStarveALaterPing() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        let runner = SandboxHandoffRunner(
+            spool: box,
+            makeRunService: { Self.slowService(runStore: runStore, seconds: 3) },
+            runStore: runStore, owner: "test-host", pollSeconds: 0.05)
+
+        // A REAL directory: an unresolvable root makes RunService refuse instantly,
+        // which would make this test pass without ever exercising a slow run.
+        let repo = tmp.appendingPathComponent("slow-repo", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        try box.enqueue(.init(runId: "handoff-slow-work", message: "m", repoRoot: repo.path,
+                              workerId: "model_opus"))
+        let loop = Task.detached { await runner.run { Task.isCancelled } }
+        defer { loop.cancel() }
+
+        // Arrives while the slow run is still in flight.
+        try await Task.sleep(for: .milliseconds(300))
+        try box.enqueue(.init(runId: "handoff-late-ping", message: "ping",
+                              repoRoot: "/tmp/x", kind: .ping))
+
+        var pinged = false
+        for _ in 0..<40 where !pinged {
+            if runStore.load(runId: "handoff-late-ping")?.status.isTerminal == true { pinged = true; break }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+
+        XCTAssertTrue(pinged, "the ping must be answered while the slow run is still going")
+        // Not merely "not complete": a run that FAILED fast would satisfy that
+        // vacuously and the test would prove nothing about starvation.
+        let slow = runStore.load(runId: "handoff-slow-work")
+        XCTAssertNotNil(slow, "the slow run must have been claimed and started")
+        XCTAssertFalse(slow?.status.isTerminal ?? true,
+                       "the slow run must still be IN FLIGHT when the ping is answered, "
+                       + "otherwise this test proves nothing; got \(String(describing: slow?.status))")
+    }
+
+    /// A claim held by a process that has since died is not a claim. Nothing else
+    /// releases these, so without reclaim the request is stranded forever and its
+    /// caller is told, wrongly, that nothing ever picked the work up.
+    func testAClaimHeldByADeadHostIsReclaimed() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        let request = try box.enqueue(.init(runId: "handoff-orphaned", message: "m",
+                                            repoRoot: "/tmp/x", workerId: "model_opus"))
+        // A pid that cannot be alive, with a start time that cannot match.
+        _ = try box.claim(id: request.id, by: "dead-host", pid: 2_000_000, startTimeTicks: 1)
+        XCTAssertTrue(try box.unclaimed().isEmpty, "precondition: it is claimed")
+
+        let settled = await SandboxHandoffRunner(
+            spool: box, runService: Self.makeService(runStore: runStore),
+            runStore: runStore, owner: "live-host").drainOnce()
+
+        XCTAssertEqual(settled, ["handoff-orphaned"], "a dead host's claim must be taken over")
+        XCTAssertNotNil(runStore.load(runId: "handoff-orphaned"))
+    }
+
+    /// …but a claim held by a LIVE host must never be stolen.
+    func testAClaimHeldByALiveHostIsLeftAlone() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        let request = try box.enqueue(.init(runId: "handoff-held", message: "m", repoRoot: "/tmp/x"))
+        let me = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+        _ = try box.claim(id: request.id, by: "other-live-host",
+                          pid: me.pid, startTimeTicks: me.startTimeTicks)
+
+        let settled = await SandboxHandoffRunner(
+            spool: box, runService: Self.makeService(runStore: runStore),
+            runStore: runStore, owner: "live-host").drainOnce()
+
+        XCTAssertTrue(settled.isEmpty, "a live host's work must not be double-run")
+        XCTAssertEqual(box.request(id: request.id)?.claimedBy, "other-live-host")
+    }
+
+    func testAClaimRecordsTheClaimingProcessIdentity() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        let request = try box.enqueue(.init(runId: "handoff-identity", message: "m",
+                                            repoRoot: "/tmp/x", kind: .ping))
+        // Claim without executing, by running a drain that only claims.
+        let runner = SandboxHandoffRunner(
+            spool: box, runService: Self.makeService(runStore: runStore),
+            runStore: runStore, owner: "identity-host")
+        _ = await runner.drainOnce()
+        _ = request
+
+        // The request is gone once settled, so identity is asserted on a fresh claim.
+        let second = try box.enqueue(.init(runId: "handoff-identity-2", message: "m",
+                                           repoRoot: "/tmp/x"))
+        let me = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess))
+        let claimed = try XCTUnwrap(try box.claim(
+            id: second.id, by: "identity-host", pid: me.pid, startTimeTicks: me.startTimeTicks))
+        XCTAssertEqual(claimed.claimantPid, me.pid)
+        XCTAssertEqual(claimed.claimantStartTimeTicks, me.startTimeTicks)
+    }
+
+    /// The founder-facing failure: the app was killed mid-review. The run stayed at
+    /// `fanning_out` forever, the caller waited with no notification, and the answer
+    /// never came. A run whose owner is gone must settle, and the waiter must say so.
+    func testAWaiterSettlesARunWhoseOwnerDied() async throws {
+        let runsRoot = tmp.appendingPathComponent("runs", isDirectory: true)
+        let runStore = RunStore(rootDirectory: runsRoot)
+        let box = spool()
+        let runId = "handoff-owner-died"
+
+        // A non-terminal run owned by a pid that cannot be alive — what the app
+        // leaves behind when it is killed part-way through a team run.
+        _ = try runStore.save(
+            TeamRun(id: runId, prompt: "review", status: .fanningOut, createdAt: Date()),
+            models: [])
+        let directory = runsRoot.appendingPathComponent("run_\(runId)", isDirectory: true)
+        try Data("""
+        {"kind":"inProcess","pid":2000000,"startTimeTicks":1}
+        """.utf8).write(to: directory.appendingPathComponent("owner.json"))
+
+        let ticks = TickingClock(base: Date(), step: 1)
+        let noted = NoteSink()
+        let finished = await SandboxHandoff.waitForHandoff(
+            runId: runId, requestId: nil, spool: box, runStore: runStore,
+            clock: { ticks.now() }, note: { noted.append($0) })
+
+        XCTAssertEqual(finished?.status, .interrupted,
+                       "a run whose owner is gone must settle, not hang the caller")
+        XCTAssertEqual(finished?.endReason, .reconciledOrphan)
+        XCTAssertTrue(noted.text.contains("stopped before finishing this run"),
+                      "the caller must be TOLD, not just left waiting")
+    }
+
     // MARK: - Mailbox robustness
 
     /// A request written before `kind` existed must still run, as ordinary work.

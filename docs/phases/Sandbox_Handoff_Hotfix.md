@@ -319,7 +319,7 @@ could be. This makes the staleness class impossible rather than proving it was
 the cause; if the original failure was something else, S1's journal will now say
 so plainly the next time it happens.
 
-### S6 — claim safety *(C9, C10)*
+### S6 — claim safety *(C9, C10)* — **SHIPPED**
 
 **Claim by atomic rename**, not read-modify-write: move `<id>.json` into
 `claimed/` (or to `<runId>.claimed-<pid>.json`). `FileManager.moveItem` is atomic
@@ -333,6 +333,37 @@ in the evidence table above had to correlate the two.
 
 *Accept:* two hosts racing the same mailbox run a request exactly once; killing
 the app mid-run leaves a request that the next app instance reclaims.
+
+**Done 2026-07-25, and driven by a live founder failure.** The app was killed
+mid-review (by this agent, during an unrelated relaunch). What that exposed:
+
+- **The drain was serial**, so a six-seat review blocked every later request —
+  including the liveness ping, which made `alln doctor handoff` answer "nothing
+  is listening" about a host that was visibly busy. The poll tick now never waits
+  for work it started; claiming stays serial (exactly-once), execution is
+  concurrent.
+- **A claim carried no identity** — `claimedBy` was the literal string
+  `"mac-app"` — so a claim held by a dead process was permanent. Claims now carry
+  pid + start-time and are reclaimed via the existing `isIdentityAlive` rule. A
+  claim whose run is already terminal is swept, which also cleans up hosts older
+  than this repair.
+- **Nothing on the waiting path settled a dead-owner run.** `RunStore.load`
+  already PROJECTS one as `interrupted`, but silently, so the caller printed a
+  bare status and never learned the app had stopped. The waiter now names it and
+  makes the projection durable.
+- **A failed run exited 0.** This is the one that made the failure invisible from
+  inside Codex: an interrupted six-seat review was indistinguishable, to the
+  host, from a command that produced nothing. Exit now follows the frozen
+  `RunStatus.lifecycle` axis — `done` (including `partial`) → 0; `failed`,
+  `timedOut`, `cancelled` → 1. **This changes `alln run` exit codes for every
+  failed run, not just hand-offs.**
+
+Nothing was lost: the killed review's completed seat kept its full 6117-byte
+answer, retrievable with `alln run resume <id>`.
+
+*Deferred to a follow-up:* claim-by-atomic-rename and a TTL. The rename closes a
+two-host TOCTOU race that needs a second host to exist; identity + reclaim covers
+the failure actually observed.
 
 ### S7 — payload fidelity *(C7)*
 

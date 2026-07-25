@@ -46,54 +46,100 @@ public struct SandboxHandoffRunner: Sendable {
                   owner: owner, pollSeconds: pollSeconds)
     }
 
-    /// Claims and runs everything currently waiting. Returns the run ids that now
+    /// Claims everything currently waiting and runs it. Returns the run ids that now
     /// have a TERMINAL journal the waiting caller can read — successes and
     /// refusals alike, because a caller cannot tell those apart from silence.
     @discardableResult
     public func drainOnce() async -> [String] {
+        let claimed = reclaimOrphansAndClaimWaiting()
+        guard !claimed.isEmpty else { return [] }
+        return await withTaskGroup(of: String.self) { group in
+            for request in claimed {
+                group.addTask { await execute(request) }
+            }
+            var settled: [String] = []
+            for await runId in group { settled.append(runId) }
+            return settled.sorted()
+        }
+    }
+
+    /// Claiming is serial and cheap; only execution is concurrent. Keeping the claim
+    /// step in one place preserves exactly-once while letting a six-seat review and a
+    /// liveness ping proceed at the same time — a serial drain made `alln doctor
+    /// handoff` report "nothing is listening" while the host was demonstrably busy.
+    private func reclaimOrphansAndClaimWaiting() -> [SandboxHandoffSpool.Request] {
+        // A claim whose host died is not a claim. Nothing else ever releases these,
+        // so without this pass the request is stranded and its caller is told,
+        // wrongly, that nothing picked the work up.
+        for stale in (try? spool.claimed()) ?? [] {
+            // Finished work whose claimant never got to clean up — including hosts
+            // older than this repair, which recorded no identity to check.
+            if runStore.load(runId: stale.runId)?.status.isTerminal == true {
+                spool.remove(id: stale.id)
+                HandoffLog.event("swept run=\(stale.runId) — already terminal, claim left behind")
+                continue
+            }
+            guard let pid = stale.claimantPid, let ticks = stale.claimantStartTimeTicks else { continue }
+            let identity = ProcessOwnership.OwnerIdentity(
+                pid: pid, pgid: nil, startTimeTicks: ticks, kind: .inProcess)
+            guard !ProcessOwnership.isIdentityAlive(identity) else { continue }
+            if spool.release(id: stale.id) {
+                HandoffLog.event(
+                    "reclaimed run=\(stale.runId) from dead host pid=\(pid) (\(stale.claimedBy ?? "?"))")
+            }
+        }
+
         guard let waiting = try? spool.unclaimed(), !waiting.isEmpty else { return [] }
-        var settled: [String] = []
+        let identity = ProcessOwnership.OwnerIdentity.current(kind: .inProcess)
+        var claimed: [SandboxHandoffSpool.Request] = []
         for request in waiting {
-            guard let claimed = try? spool.claim(id: request.id, by: owner), claimed != nil else { continue }
+            guard let taken = try? spool.claim(
+                id: request.id, by: owner,
+                pid: identity?.pid, startTimeTicks: identity?.startTimeTicks),
+                taken != nil
+            else { continue }
             HandoffLog.event(
                 "claimed run=\(request.runId) kind=\(request.kind.rawValue) "
                 + "team=\(request.presetId ?? "-") root=\(request.repoRoot) by=\(owner)")
-
-            // A ping asks one question — is anything out there claiming requests and
-            // writing journals? — and answering it must not start a worker. Settling
-            // it here keeps `alln doctor handoff` free and fast, and makes it the one
-            // check immune to detection drift, since it bypasses HostSandboxAdvice.
-            if request.kind == .ping {
-                answerPing(for: request)
-                settled.append(request.runId)
-                spool.remove(id: request.id)
-                continue
-            }
-
-            // Fresh per request: see `makeRunService`.
-            let result = await makeRunService().run(
-                RunRequest(
-                    message: request.message,
-                    repoRoot: request.repoRoot,
-                    presetId: request.presetId,
-                    workerId: request.workerId
-                ),
-                origin: .cli,
-                runId: request.runId
-            )
-            switch result {
-            case .success(let run):
-                HandoffLog.event("settled run=\(request.runId) status=\(run.status.rawValue)")
-            case .failure(let error):
-                // A run that never started still owes the waiting caller an answer.
-                // Without this the request evaporates: no journal, no error, and a
-                // caller that cannot distinguish "refused" from "nobody listening".
-                record(refusal: error, for: request)
-            }
-            settled.append(request.runId)
-            spool.remove(id: request.id)
+            claimed.append(request)
         }
-        return settled
+        return claimed
+    }
+
+    /// Runs one already-claimed request to a terminal journal.
+    private func execute(_ request: SandboxHandoffSpool.Request) async -> String {
+        defer { spool.remove(id: request.id) }
+
+        // A ping asks one question — is anything out there claiming requests and
+        // writing journals? — and answering it must not start a worker. Settling
+        // it here keeps `alln doctor handoff` free and fast, and makes it the one
+        // check immune to detection drift, since it bypasses HostSandboxAdvice.
+        if request.kind == .ping {
+            answerPing(for: request)
+            return request.runId
+        }
+
+        // Fresh per request: see `makeRunService`.
+        let result = await makeRunService().run(
+            RunRequest(
+                message: request.message,
+                repoRoot: request.repoRoot,
+                presetId: request.presetId,
+                workerId: request.workerId
+            ),
+            origin: .cli,
+            runId: request.runId
+        )
+        switch result {
+        case .success(let run):
+            HandoffLog.event("settled run=\(request.runId) status=\(run.status.rawValue)")
+        case .failure(let error):
+            // A run that never started still owes the waiting caller an answer.
+            // Without this the request evaporates: no journal, no error, and a
+            // caller that cannot distinguish "refused" from "nobody listening".
+            record(refusal: error, for: request)
+        }
+        return request.runId
     }
 
     /// Settles a liveness check: a terminal run in the ordinary journal, naming the
@@ -151,10 +197,20 @@ public struct SandboxHandoffRunner: Sendable {
     }
 
     /// Watches the mailbox until cancelled. Cheap: a directory listing per tick.
+    ///
+    /// The tick NEVER waits for work it started. A drain that awaited its own runs
+    /// stopped claiming for as long as the longest one took, so a six-seat review
+    /// blocked every later request — including the liveness ping, which then made
+    /// `alln doctor handoff` answer "nothing is listening" about a host that was
+    /// visibly busy running a review.
     public func run(isCancelled: @escaping @Sendable () -> Bool) async {
-        while !isCancelled() {
-            await drainOnce()
-            try? await Task.sleep(for: .seconds(pollSeconds))
+        await withTaskGroup(of: Void.self) { group in
+            while !isCancelled() {
+                for request in reclaimOrphansAndClaimWaiting() {
+                    group.addTask { _ = await execute(request) }
+                }
+                try? await Task.sleep(for: .seconds(pollSeconds))
+            }
         }
     }
 }
