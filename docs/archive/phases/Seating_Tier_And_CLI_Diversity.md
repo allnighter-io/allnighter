@@ -1,12 +1,14 @@
 # Seating — Tier + CLI Diversity
 
-Status: **Ready for implementation — authorized end-to-end.**
-Spec Review sealed the law (`927B8CD4…`). Live panels clear (2026-07-25).
-Implement S1 → S2 → S3 in order, prove W1–W8, archive this phase.
-Owner: `ModelCatalog.swift` + `TeamResolver.swift` (+ `RunDryRunJSON` in S3).
-Updated: 2026-07-25 (execution-grade closeout)
+Status: **Complete — archived 2026-07-25.**
+Spec Review sealed the law (`927B8CD4…`). S1–S3 shipped end-to-end.
+Successor owner: `ModelCatalog.swift` + `TeamResolver.swift` + `RunDryRunJSON`.
+Updated: 2026-07-25 (archived)
 Evidence: `3B00A1A7` (max), `DCE9AE48` (min), Spec Review `927B8CD4…`
 (Cursor panel: Opus / Cursor Sol / Cursor Grok + Fable lead).
+
+Shipped: `6c3dff3d` (S1), `dd319f72` (S2), `70e045c4` (S3), deslop `569a0f13`,
+reason honesty `405f586d`.
 
 ## Founder intent
 
@@ -338,12 +340,12 @@ Deslop + Code Audit at phase closeout per Execution Playbook.
 
 - [x] Spec Review sealed law (`927B8CD4…`)
 - [x] S00 local Haiku disabled
-- [ ] S1 shipped + committed
-- [ ] S2 shipped + committed
-- [ ] S3 shipped + committed; contract 4.0.2; export-contracts `--check` green
-- [ ] W1–W8 green
-- [ ] Deslop CLEAN; Code Audit CLEAN
-- [ ] Doc moved to `docs/archive/phases/`; board + routing updated; successor owner = code SSOT above
+- [x] S1 shipped + committed (`6c3dff3d`)
+- [x] S2 shipped + committed (`dd319f72`)
+- [x] S3 shipped + committed; contract 4.0.2; export-contracts `--check` green (`70e045c4`)
+- [x] W1–W8 green
+- [x] Deslop FIXED (`569a0f13`); Code Audit CLEAN
+- [x] Doc moved to `docs/archive/phases/`; board + routing updated; successor owner = code SSOT above
 
 ## Proof commands (phase wall)
 

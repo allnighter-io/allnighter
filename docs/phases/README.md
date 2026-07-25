@@ -25,11 +25,13 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Seating_Tier_And_CLI_Diversity.md`](Seating_Tier_And_CLI_Diversity.md) | **Ready — authorized E2E** (S1→S2→S3 then archive) | Catalog unrated@40 + resolver family/CLI diversity + dry-run `seats[]`. Spec Review `927B8CD4…`. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
 
 > Recently completed and archived — code is the SSOT, do not reopen:
+> [`Seating_Tier_And_CLI_Diversity.md`](../archive/phases/Seating_Tier_And_CLI_Diversity.md)
+> (Complete 2026-07-25 — S1–S3 `6c3dff3d`/`dd319f72`/`70e045c4`, contract 4.0.2;
+> unrated customs@40 + family/CLI diversity + dry-run `seats[]`),
 > [`Model_Catalog_Quick_Fixes.md`](../archive/phases/Model_Catalog_Quick_Fixes.md)
 > (Complete 2026-07-25 — MCV-S03 shipped `a26a264d` / contract 4.0.1; remaining
 > ledger items unauthorized — do not resume without a new founder ruling),
@@ -223,7 +225,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Team naming, depth tiers (Min/Default/Max), family names | `Team_Depth_Naming.md` (applied by `Team_Catalog_Normalization.md`) |
 | Team lab — benchmarking, seat economics, roster ablation, calibration | Team Lab is SHUT DOWN (founder, 2026-07-24) — do not resume; archived `Team_Lab_Run_Factory.md` + `Team_Lab_Composition_And_Seat_Economics.md` + `Team_Lab_Slice_1_Full_Package.md` (un-rebased) |
 | Spec Review hero loop, review lenses, positioning | `Spec_Review.md` |
-| Team seating, Haiku/custom rank inheritance, CLI/family diversity | `Seating_Tier_And_CLI_Diversity.md` — **Ready E2E** (S1→S2→S3); Spec Review `927B8CD4…` |
+| Team seating, Haiku/custom rank inheritance, CLI/family diversity | archived [`Seating_Tier_And_CLI_Diversity.md`](../archive/phases/Seating_Tier_And_CLI_Diversity.md) — Complete 2026-07-25 (S1–S3, contract 4.0.2); code SSOT `ModelCatalog` + `TeamResolver` + `RunDryRunJSON.seats` |
 | Menu byte budget, cold-agent selection and composition | Code SSOT: `MenuCatalog.swift`, `MenuSelectionCopy.swift`; gate `scripts/verify_menu_contract.py`; matrix `scripts/agent_eval.sh --suite menu-not-router`. The relations phase was killed by its own measurement — do not reopen. |
 | Panel disagreement, contradiction detection, what Max does beyond more seats, anchored findings | `Contradiction_Pass.md` (extends `Spec_Review.md`) |
 | Share a link from the phone into a Research run, iOS share sheet intake | `Share_To_Research.md` (reuses `RemoteCommandRouter` `startRun` + `SignalSourceRouter`; no new protocol operation) |
