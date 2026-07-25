@@ -1,17 +1,14 @@
 # Model Catalog & Team Schema — Quick Fixes (Reviewed)
 
-Status: **Backlog — reviewed and hardened. MCV-S03 ratified for
-implementation (founder, 2026-07-25); everything else still unauthorized.**
-**Unblocked 2026-07-25:** `Sandbox_Handoff_Hotfix.md` closed and archived
-(`docs/archive/phases/Sandbox_Handoff_Hotfix.md`). MCV-S03 is first up.
+Status: **Active — MCV-S03 SHIPPED (2026-07-25, `a26a264d`, contract
+4.0.1). Everything else still unauthorized.**
 Owner: AllnighterCore (`ModelCatalog.swift`, `TeamCatalog.swift`) +
 AgentOS (`BundledDefaults.swift`) — cross-repo, MCV-S04b additionally touches
 XTerminal.
-Updated: 2026-07-25 (v3.1 — S03 ratified after founder pressure-test, then
-extended from `duplicate` alone to all three authoring printers
-(`duplicate`/`new`/`edit`) after a fourth review pass; `set-default`
-explicitly ruled out of the sweep. See "What changed in this revision").
-Companion: XTerminal `docs/phases/Your_AI_Model_Picker.md` §5 (the founder
+Updated: 2026-07-25 (v3.2 — MCV-S03 implemented: all three authoring printers
+return `TeamPreset`; show-projection refusal names the expected shape;
+`set-default` stays on show; registry `teamPreset`/`teamShowJSON` + contract
+bump). Companion: XTerminal `docs/phases/Your_AI_Model_Picker.md` §5 (the founder
 ruling MCV-S04b tracks — do not restate or fork that decision here, only cite it).
 
 ## Origin
@@ -58,9 +55,8 @@ Net result:
 
 ## Priority order (once authorized)
 
-1. **MCV-S03** — swap the three team-authoring printers (`duplicate`, `new`,
-   `edit`) to the editable `TeamPreset` shape (founder-ratified 2026-07-25).
-   Highest confidence, broadest value.
+1. ~~**MCV-S03** — swap the three team-authoring printers~~ **SHIPPED**
+   2026-07-25 (`a26a264d`, contract 4.0.1).
 2. **MCV-S00** — two-repo Haiku patch. Still gated on founder go-ahead.
 3. **MCV-S04a** — stamp hand-typed models as unverified.
 4. **MCV-S01** — no code action; optional documentation note only.
@@ -290,8 +286,12 @@ sweep).
 **Effort:** small — three one-line printer swaps, one batched registry schema
 update, round-trip gates.
 
-**Status:** **ratified for implementation** (founder, 2026-07-25). The hot fix
-packet it was queued behind closed and archived on 2026-07-25, so this is first up.
+**Status:** **SHIPPED** 2026-07-25 (`a26a264d`). Contract `4.0.1`. Code SSOT:
+`AllnighterCLI.runTeamsDuplicate` / `runTeamsNew` / `runTeamsEdit` print
+`teamDefinitionJSONString`; `loadTeamDefinition` refuses show projections by
+name; `OutputSchema.teamPreset` / `.teamShowJSON`; gates in
+`CatalogCLITests.testTeamsAuthoringReceiptsRoundTripThroughEdit`. Remaining
+items in this doc are still unauthorized.
 
 ## MCV-S04a — stamp hand-typed models as unverified (new, Allnighter-only)
 
@@ -352,11 +352,9 @@ it changes, this section should be updated to match, not re-argued.
 
 ## Ordering
 
-The hot fix packet this was queued behind closed and archived on 2026-07-25.
-Within this doc: MCV-S03 is ratified and first up; MCV-S00 and MCV-S04a
-still need founder authorization; MCV-S04b is additionally gated on
-XTerminal's `YM7` seal; MCV-S01 requires no implementation; MCV-S02 is
-rejected.
+MCV-S03 shipped 2026-07-25. Within this doc: MCV-S00 and MCV-S04a still need
+founder authorization; MCV-S04b is additionally gated on XTerminal's `YM7`
+seal; MCV-S01 requires no implementation; MCV-S02 is rejected.
 
 ## Rejection / deferral ledger
 
