@@ -25,6 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Idle_Stall_False_Kill_Hotfix.md`](Idle_Stall_False_Kill_Hotfix.md) | **AUTHORIZED hot fix** — S01 bleed stop first | Idle watchdog kills healthy silent work (Opus design Write, K3 reviews) when no stream bytes land; raise driver idle floors, then fs/child progress + posture floors. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
 
