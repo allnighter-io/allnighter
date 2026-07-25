@@ -149,7 +149,7 @@ terminal-only forever under this packet.
 | Field ownership ledger | **Locked** — §Card field ledger + §Must-specify |
 | Measured “do real runs have a story?” | **Missing — TRR-S00** (spec Ready; growth only) |
 | Floor “Open artifact” | **Done — TRR-S01b** (2026-07-25) |
-| Live progressive paint | **Missing — TRR-S01c** (spec Ready; Mac only) |
+| Live progressive paint | **Done — TRR-S01c** (2026-07-25; Mac live preview) |
 | Signed crypto verify / hosted share | Cut / unscheduled |
 
 ## Privacy laws (still bind)
@@ -322,7 +322,7 @@ bump land **inside** the S01 PR (budgeted work, not open design).
 
 | Field | Spec |
 | --- | --- |
-| **Status** | Ready for Implementation (after S01 green) |
+| **Status** | Done 2026-07-25 |
 | **Truth owner** | Live: `RunEvent` stream (`workerStatusChanged`, `workerAnswerDelta`) — same owners as Live_Team_Board. Settled: still `TeamRunJSON` via ArtifactProjector. |
 | **Product** | While a team run is **running**, a live artifact preview may update seat chips (status + duration) and one-liner from answer deltas. **Settled card rules (G5 zero glow) do not apply to the live preview** — live may use board motion; on terminalization, rewrite via S01 projector (zero glow). |
 | **CLI** | `alln artifact show` on non-terminal remains **fail closed** (`RUN_NOT_TERMINAL`). Live paint is **Mac-only** (or a future `artifact watch` — **not** authorized in this slice). Do not weaken the CLI terminal precondition. |
@@ -557,7 +557,7 @@ alln artifact export <run-id> --out /tmp/team-artifact.html   # S03
   run; privacy + honesty + reproduce elision; teaching distinguishes surfaces.
 - **S00** — growth disposition recorded (kill packaging or proceed).
 - **S01b** — Floor opens the same projector artifact.
-- **S01c** — optional live Mac preview without weakening CLI terminal gate.
+- **S01c** — optional live Mac preview without weakening CLI terminal gate. **Done 2026-07-25.**
 - **S03** — styled HTML export on demand, same projector.
 - Buzz/Nostr/hosted / “certified” remain optional non-blockers (no slices).
 

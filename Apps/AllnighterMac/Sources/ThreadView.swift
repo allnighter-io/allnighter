@@ -879,9 +879,20 @@ private struct ThreadBoardRow: View {
     @ViewBuilder private var content: some View {
         switch turn.status {
         case .running, .queued, .draft:
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.small)
-                RunningStatusLabel(verb: "Fanning out", start: turn.createdAt)
+            if turn.kind == .teamRun, let runId = turn.runId,
+               let live = threads.liveArtifact(forRunId: runId), !live.seatList.isEmpty {
+                LiveArtifactPreviewView(state: live, isLive: true)
+            } else if turn.kind == .teamRun, let runId = turn.runId,
+                      let run = threads.teamRun(forRunId: runId) {
+                LiveArtifactPreviewView(
+                    state: LiveArtifactProjector.seed(
+                        run: run, context: .init(models: appModel.models)),
+                    isLive: true)
+            } else {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    RunningStatusLabel(verb: "Fanning out", start: turn.createdAt)
+                }
             }
         case .cancelled:
             Text("Cancelled.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
@@ -929,19 +940,38 @@ private struct ThreadBoardRow: View {
                     .foregroundStyle(ALColor.textMuted)
             }
             if let run, run.status.isTerminal, turn.kind != .designBoard {
-                Button { openFloor(run) } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "rectangle.split.3x1.fill").font(.system(size: 10))
-                        Text("Open Factory Floor").font(.system(size: 12, weight: .medium))
-                        Image(systemName: "arrow.up.right").font(.system(size: 9))
+                HStack(spacing: 8) {
+                    Button { openFloor(run) } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "rectangle.split.3x1.fill").font(.system(size: 10))
+                            Text("Open Factory Floor").font(.system(size: 12, weight: .medium))
+                            Image(systemName: "arrow.up.right").font(.system(size: 9))
+                        }
+                        .foregroundStyle(ALColor.accentText)
+                        .padding(.horizontal, 10).frame(height: 26)
+                        .background(ALColor.active, in: Capsule())
+                        .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
                     }
-                    .foregroundStyle(ALColor.accentText)
-                    .padding(.horizontal, 10).frame(height: 26)
-                    .background(ALColor.active, in: Capsule())
-                    .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                    .buttonStyle(.plain)
+                    .help("Open the full reader: every worker answer, synthesis, and receipts")
+                    if turn.kind == .teamRun {
+                        Button {
+                            ArtifactFloorOpener.openArtifact(for: run, models: appModel.models)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "doc.richtext").font(.system(size: 10))
+                                Text("Open artifact").font(.system(size: 12, weight: .medium))
+                                Image(systemName: "arrow.up.right").font(.system(size: 9))
+                            }
+                            .foregroundStyle(ALColor.textSecondary)
+                            .padding(.horizontal, 10).frame(height: 26)
+                            .background(ALColor.raised, in: Capsule())
+                            .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+                        }
+                        .buttonStyle(.plain)
+                        .help("Regenerate and open the polished HTML team artifact in your browser")
+                    }
                 }
-                .buttonStyle(.plain)
-                .help("Open the full reader: every worker answer, synthesis, and receipts")
             }
             if let synthesis, turn.kind != .designBoard {
                 VStack(alignment: .leading, spacing: 4) {

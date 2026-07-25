@@ -1,6 +1,6 @@
 # TRR-S01c — Mac live artifact preview
 
-Status: **ready** (requires TRR-S01 done)
+Status: **done** (2026-07-25)
 SSOT: `docs/phases/Team_Run_Receipt.md` §TRR-S01c + `docs/phases/Live_Team_Board.md` (events)
 
 ## Goal
@@ -34,6 +34,6 @@ Commit; mark S01c Done.
 
 ## Done when
 
-- [ ] live preview uses board events only
-- [ ] CLI terminal gate unchanged
-- [ ] committed
+- [x] live preview uses board events only
+- [x] CLI terminal gate unchanged
+- [x] committed

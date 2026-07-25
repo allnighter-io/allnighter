@@ -94,6 +94,8 @@ final class ThreadsViewModel {
     /// token (crash-resume continuity without write amplification).
     private var liveCheckpointAt: [String: Date] = [:]
     private static let liveCheckpointInterval: TimeInterval = 1.5
+    /// TRR-S01c — live artifact seat snapshots keyed by run id (cleared on terminal).
+    private(set) var liveArtifactByRunId: [String: LiveArtifactProjector.State] = [:]
 
     private static let readClearDebounceNs: UInt64 = 200_000_000
 
@@ -766,6 +768,9 @@ final class ThreadsViewModel {
         let service = makeRunService()
         let threadStore = store
         let turnId = turn.id
+        let artifactContext = ArtifactProjector.Context(models: models)
+        let teamQuestion = request.message
+        let teamLabel = preset.displayName
 
         Task { @MainActor in
             let uiTiming = RunTimingAccumulator()
@@ -774,6 +779,11 @@ final class ThreadsViewModel {
             let (events, continuation) = AsyncStream<RunEvent>.makeStream()
             let consumer = Task { @MainActor in
                 for await event in events {
+                    if turnKind == .teamRun {
+                        self.applyLiveArtifactEvent(
+                            event, runId: runId, question: teamQuestion, teamLabel: teamLabel,
+                            context: artifactContext)
+                    }
                     let isAnswer = event.kind == RunEventKind.workerAnswerDelta
                     let isReasoning = event.kind == RunEventKind.workerReasoningDelta
                     guard isAnswer || isReasoning,
@@ -792,6 +802,7 @@ final class ThreadsViewModel {
             let result = await service.run(request, origin: .gui, runId: runId, events: continuation)
             await consumer.value
             liveCheckpointAt[turnId] = nil
+            liveArtifactByRunId.removeValue(forKey: runId)
 
             // Seed settlement from the in-memory turn (freshest live text — the last delta
             // may post-date the last durable checkpoint), else the store, else the seed.
@@ -851,8 +862,45 @@ final class ThreadsViewModel {
                 finalTiming.count(RunTimingKey.runStoreSaveCount, by: 1)
                 run.timing = finalTiming
                 try? runStore.save(run, models: models)
+                if turnKind == .teamRun, run.status.isTerminal {
+                    ArtifactFloorOpener.regenerateArtifact(for: run, models: models)
+                }
             }
             reload()
+        }
+    }
+
+    /// TRR-S01c — map board `RunEvent`s into the live artifact preview (Mac-only).
+    private func applyLiveArtifactEvent(
+        _ event: RunEvent,
+        runId: String,
+        question: String,
+        teamLabel: String,
+        context: ArtifactProjector.Context
+    ) {
+        guard event.kind == RunEventKind.workerStatusChanged
+            || event.kind == RunEventKind.workerAnswerDelta else { return }
+        ensureLiveArtifactSeed(
+            runId: runId, question: question, teamLabel: teamLabel, context: context)
+        guard var state = liveArtifactByRunId[runId] else { return }
+        if LiveArtifactProjector.apply(event, to: &state, context: context) {
+            liveArtifactByRunId[runId] = state
+            _ = bumpPublishGeneration()
+        }
+    }
+
+    private func ensureLiveArtifactSeed(
+        runId: String,
+        question: String,
+        teamLabel: String,
+        context: ArtifactProjector.Context
+    ) {
+        if let state = liveArtifactByRunId[runId], !state.seatList.isEmpty { return }
+        if let run = runStore.load(runId: runId) {
+            liveArtifactByRunId[runId] = LiveArtifactProjector.seed(run: run, context: context)
+        } else if liveArtifactByRunId[runId] == nil {
+            liveArtifactByRunId[runId] = LiveArtifactProjector.bootstrap(
+                runId: runId, question: question, teamLabel: teamLabel)
         }
     }
 
@@ -894,6 +942,10 @@ final class ThreadsViewModel {
     /// times per draw → a 5–10s stall on a big run) into a dict lookup. Not @Observable —
     /// writes here must never trigger a re-render during body evaluation.
     private let runCache = RunDecodeCache()
+
+    func liveArtifact(forRunId runId: String) -> LiveArtifactProjector.State? {
+        liveArtifactByRunId[runId]
+    }
 
     func teamRun(forRunId runId: String) -> TeamRun? {
         if let cached = runCache.get(runId) { return cached }
