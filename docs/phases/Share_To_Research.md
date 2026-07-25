@@ -38,7 +38,7 @@ iOS share sheet (X post / YouTube / article)
   -> the insight lands in the thread, readable on the phone
 ```
 
-## What already exists — this is mostly wiring
+## What already exists — one piece is missing, not many
 
 Verified in code, not assumed:
 
@@ -48,12 +48,19 @@ Verified in code, not assumed:
 | iOS run execution | `AsyncTeamRemoteCommandExecutor.startRun` → `AsyncTeamService.start(origin: .ios)` → `RunService.run` | Built |
 | Cloud relay drain loop | `RemoteMacAgentCoordinator`, hosted by `ServeDaemon` (`alln serve`) | Built |
 | Thread mirroring for iOS | `RemoteIOSThreadMirrorExecutor` | Built |
+| iOS app sending a run with a chosen team | `WorkRequestSender.send(draft)` — `WorkRequestDraft.teamPresetId` → `.startRun` | Built |
+| iOS app receiving + displaying results | `ConversationHomeStore` (loads the Mac-owned thread snapshot) → `ConversationThreadView` | Built |
 | The Research team | `signal_outside` (display "Research"), scout + 3 triangulating interpreters + skeptic + writer | Built, proven live |
 | URL routing (X vs video vs pasted text) | `SignalSourceRouter` | Built, 8 tests |
 
-**New work is therefore small and mostly iOS-side:** a Share Extension target, a
-one-tap confirm sheet, and the mapping from a shared URL to an
-`AsyncTeamStartRequest` carrying `teamPresetId: "signal_outside"`.
+**Exactly one thing is missing: the Share Extension.** The iOS app already sends
+a run with a chosen team and already displays the result. What does not exist is
+an iOS Share Extension target — the thing that makes "Allnighter" appear in the
+share sheet — plus a one-tap confirm sheet that builds
+`WorkRequestDraft(teamPresetId: "signal_outside", message: <shared URL>)` and
+hands it to the existing `WorkRequestSender`.
+
+Nothing else in the chain is new.
 
 ## New/changed semantic rules
 
@@ -98,8 +105,8 @@ record; the phone reads a projection, never a second truth.
 
 | Surface | Impact |
 | --- | --- |
-| Core | Map a shared URL → `AsyncTeamStartRequest` (team `signal_outside`). Reuse `SignalSourceRouter`. No new run semantics. |
-| iOS app | New Share Extension target; one-tap confirm sheet; result view reads the existing thread projection. |
+| Core | None expected. `WorkRequestSender` already carries `teamPresetId`; `SignalSourceRouter` already routes. |
+| iOS app | The whole slice: a new Share Extension target + a one-tap confirm sheet that builds a `WorkRequestDraft`. Results need no new view — the existing thread surface shows them. |
 | Mac app / `alln serve` | None beyond running: the relay drain loop already exists. |
 | Driver/protocol | None. Reuses `startRun`. |
 | Auth/privacy | No new credentials. No X login on the phone. The relay stays blind — it carries a URL and a team id, not the user's work. |
@@ -139,11 +146,15 @@ real device against a real Mac.
 - An unreachable Mac fails visibly and queues nothing.
 - No new run owner, protocol operation, or second copy of the routing rule.
 
-## Open questions
+## Settled — do not re-open as questions
 
-1. **Result delivery.** Does the phone poll the thread projection, or does the
-   relay push a completion? Polling is simpler and already possible; a push is
-   nicer and may already fall out of the event-sync spine.
-2. **Which team.** v1 hard-codes Research. Worth deciding whether the confirm
-   sheet later offers a team picker, or whether that reintroduces the selection
-   ceremony this product deliberately deleted.
+**Result delivery is not a special problem.** A Research run returns exactly like
+any other run: the Mac writes the run journal, the thread snapshot mirrors, and
+`ConversationHomeStore` → `ConversationThreadView` already loads and shows it.
+There is nothing to design here — an earlier draft of this packet raised it as an
+open question, which was wrong.
+
+**The team is always Research.** A shared link is a Research request by
+definition; the confirm sheet does not offer a team picker. Founder ruling
+2026-07-24. A picker would reintroduce exactly the selection ceremony this
+product deleted, in the one place where the intent is already unambiguous.
