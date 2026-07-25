@@ -110,7 +110,11 @@ final class RelayLaunchViewModelTests: XCTestCase {
 
     func testStartSeedsThreadImmediatelyAndReachesDone() async throws {
         let config = AppConfig.loadConfiguration()
-        try XCTSkipIf(config.models.count < 2, "need two distinct worker ids to seat PM + dev")
+        // Seat only ENABLED workers. A disabled model can never dispatch
+        // (WORKER_NOT_AVAILABLE), so seating one proves nothing about the relay —
+        // it just re-tests the readiness gate through an escalation.
+        let seatable = config.models.filter { ModelCatalog.isEnabled($0.id) }
+        try XCTSkipIf(seatable.count < 2, "need two distinct ENABLED worker ids to seat PM + dev")
         let root = tempRoot("start")
         let factory = stubbedFactory(root: root, models: config.models, registry: config.registry)
         let vm = RelayLaunchViewModel(
@@ -120,8 +124,8 @@ final class RelayLaunchViewModelTests: XCTestCase {
             makeThreadProjector: factory.threadProjector
         )
         vm.docPath = "docs/spec.md"
-        vm.pmWorkerId = config.models[0].id
-        vm.devWorkerId = config.models[1].id
+        vm.pmWorkerId = seatable[0].id
+        vm.devWorkerId = seatable[1].id
 
         guard let relayId = vm.start() else {
             return XCTFail("valid config must start")
@@ -141,11 +145,16 @@ final class RelayLaunchViewModelTests: XCTestCase {
             }
             try await Task.sleep(nanoseconds: 15_000_000)
         }
-        XCTAssertEqual(settled?.status, .done, "the stubbed PM turn always returns verdict: done")
+        // Report the relay's own note on failure — an escalation carries the
+        // reason, and asserting on status alone throws that away.
+        XCTAssertEqual(settled?.status, .done,
+                       "the stubbed PM turn always returns verdict: done — note: \(settled?.note ?? "nil")")
 
         // The thread must project the PM turn's settled text.
         let thread = store.get(relayId)
-        XCTAssertTrue(thread?.turns.contains { $0.text?.contains("Reviewed") == true } ?? false)
+        let texts = (thread?.turns ?? []).map { $0.text ?? "<nil>" }
+        XCTAssertTrue(texts.contains { $0.contains("Reviewed") },
+                      "thread must project the PM turn's settled prose; got turns: \(texts)")
     }
 
     func testStartReturnsNilWhenInvalid() {

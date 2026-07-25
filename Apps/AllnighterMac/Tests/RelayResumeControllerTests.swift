@@ -126,12 +126,14 @@ final class RelayResumeControllerTests: XCTestCase {
     /// chat path in this test's stores at all).
     func testResumeRoutesThroughCoordinatorAndReachesDone() async throws {
         let config = AppConfig.loadConfiguration()
-        try XCTSkipIf(config.models.count < 2, "need two distinct worker ids to seat PM + dev")
+        // Seat only ENABLED workers — see RelayLaunchViewModelTests.
+        let seatable = config.models.filter { ModelCatalog.isEnabled($0.id) }
+        try XCTSkipIf(seatable.count < 2, "need two distinct ENABLED worker ids to seat PM + dev")
         let root = tempRoot("full")
         let relayId = "relay_full_\(UUID().uuidString)"
         let stateStore = seedEscalated(
             id: relayId, root: root, projectRoot: repoRoot(),
-            pmWorkerId: config.models[0].id, devWorkerId: config.models[1].id)
+            pmWorkerId: seatable[0].id, devWorkerId: seatable[1].id)
         let controller = RelayResumeController(
             makeCoordinator: stubbedFactory(root: root, models: config.models, registry: config.registry),
             stateStore: stateStore

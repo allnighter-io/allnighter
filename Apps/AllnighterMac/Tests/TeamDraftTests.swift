@@ -35,8 +35,31 @@ final class TeamDraftTests: XCTestCase {
                        "selecting a built-in must NOT preemptively rename it to (custom)")
         XCTAssertFalse(d.name.contains("(custom)"))
         XCTAssertFalse(d.rows.isEmpty)
-        XCTAssertTrue(d.rows.allSatisfy { $0.modelId != nil }, "rows pre-fill a concrete model")
-        XCTAssertTrue(d.isSavable)
+        // The draft mirrors the seed's specs exactly — it must not invent a model
+        // the preset deliberately left open. Built-ins like `code_plan` declare
+        // seats by SKILL and let the resolver pick by caliber at run time
+        // ("declaration order + caliber, not a pinned identity" — BuiltInTeams
+        // Law 3), so an unpinned seat must arrive unpinned.
+        XCTAssertEqual(d.rows.map(\.modelId), buildBase.workerSpecs.map(\.preferredModelId))
+    }
+
+    /// The savable gate is about row COMPLETENESS, not about the editor filling
+    /// in models on the user's behalf: a seed whose seats pin models is savable
+    /// as-is, and the same seed with one model cleared is not.
+    func testSavableRequiresEveryRowToCarryAModel() throws {
+        let pinned = try XCTUnwrap(
+            TeamCatalog.list(lane: .code).first {
+                $0.builtIn && !$0.workerSpecs.isEmpty
+                    && $0.workerSpecs.allSatisfy { $0.preferredModelId != nil }
+                    && $0.lead.preferredModelId != nil
+            },
+            "expected at least one built-in code team that pins every seat's model"
+        )
+        var d = TeamDraft(base: pinned)
+        XCTAssertTrue(d.isSavable, "a fully pinned seed is savable without further editing")
+
+        d.rows[0].modelId = nil
+        XCTAssertFalse(d.isSavable, "a row without a model must block save")
     }
 
     func testSavingABuiltInKeepsItsNameAndId() throws {
