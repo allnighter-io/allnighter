@@ -1,8 +1,7 @@
 # Capacity False Auth Mislabel — Hotfix
 
-Status: **Complete** — CAP-HF-S01+S02 shipped in AgentOS `bec4f9e`; CAP-HF-S03
-verified (existing dry-run steer + tests; keyword warning waived). Archived
-2026-07-25.
+Status: **Complete** — CAP-HF-S01+S02 shipped in AgentOS `bec4f9e`. **CAP-HF-S03
+dropped** (scope creep — see below). Archived 2026-07-25.
 Owner: AgentOSCLI (`CapacityClassifier`, `DefaultWorkerRunner`) + Allnighter mirror tests
 Updated: 2026-07-25 (CAP-HF-S01+S02 closeout)
 Incident date: 2026-07-25
@@ -30,8 +29,12 @@ Operator impact:
 - Bench readiness / seat reseat paths may bench healthy Claude seats.
 - `HostSandboxAdvice` can fire on typed `authRequired` inside a restricted host —
   even when the real failure was idle timeout + classifier noise.
-- Parallel research sweeps launched with bare `--worker` serialized on the write
-  lock (separate teaching gap — see **Not a bug** below).
+
+(Initial triage also mentioned premise sweeps “serializing on the write lock.”
+That was a red herring: the manager ran sweeps **one after another** on purpose.
+Bare `--worker` → mutating is Law 7, not a bug; parallel read-only work is
+already available by launching **multiple answer/research teams** — they do not
+contend for the write lock.)
 
 ## Product lie
 
@@ -100,7 +103,7 @@ do not borrow auth from stdout archaeology."
 
 | Item | Verdict |
 | --- | --- |
-| Bare `--worker` → `writePolicy: mutating` | **Not a bug** — Law 7. Parallel read-only research = `--team code_plan` (dry-run teaches this). |
+| Bare `--worker` → `writePolicy: mutating` | **Not a bug** — Law 7. Answer/research teams are read-only; run several teams in parallel when you want parallel research. Dry-run already steers bare `--worker` asks via `alternatives`. |
 | Codex sandbox `SecItemCopyMatching` / `EPERM` | Real restricted-host failures — `HostSandboxAdvice` path; do not regress. |
 | Raising idle floors 300→1800 | **Sibling doc** — `Idle_Stall_False_Kill_Hotfix.md` S01 (shipped). Reduces how often exit-1 idle kills happen; does not fix mislabeling. |
 
@@ -115,9 +118,9 @@ do not borrow auth from stdout archaeology."
 ## Ship order (locked)
 
 ```text
-CAP-HF-S01  classifier hygiene (auth channel + snippet truth)     ← implement now
-CAP-HF-S02  kill-reason priority (idle/timeout ≠ auth)            ← same PR or immediate follow-on
-CAP-HF-S03  teaching / dry-run steer audit (optional, small)      ← if gaps remain after S01–S02
+CAP-HF-S01  classifier hygiene (auth channel + snippet truth)     ← shipped (AgentOS bec4f9e)
+CAP-HF-S02  kill-reason priority (idle/timeout ≠ auth)            ← shipped (same)
+CAP-HF-S03  teaching / dry-run steer audit                        ← DROPPED (scope creep)
 ```
 
 ---
@@ -213,26 +216,26 @@ reason; `capacityObservation` is absent or demoted for that shape.
 
 ---
 
-### CAP-HF-S03 — Teaching audit (optional)
+### CAP-HF-S03 — Teaching audit — **DROPPED**
 
-**Only if agents still launch parallel research with bare `--worker`.**
+**Not authorized. Do not resume without a new founder ruling.**
 
-#### Touch
+**What it was:** Extra warnings so agents pick `--team code_plan` instead of bare
+`--worker` for “research-looking” prompts.
 
-- `Packages/AllnighterCore/Sources/AllnighterEngine/ResolvedRunInvocation.swift`
-  (`readOnlyAnswerTeamSteer` — already exists)
-- `ContractRegistry+Milestone1.swift` / generated help if the steer is easy to miss
+**Why dropped:**
 
-#### Steps
-
-1. Verify `alln run --dry-run --json` with `--worker` + read-only-looking prompt
-   surfaces `alternatives` → `--team code_plan` preserving the worker pin.
-2. If field evidence shows agents ignore `alternatives`, add one explicit
-   `warnings[]` line when `writePolicy: mutating` and prompt contains research
-   keywords — **teach only**, no auto-routing.
-
-**Done when:** operator docs and dry-run steer are sufficient; no product law
-change to `--worker` semantics.
+1. **Scope creep.** The incident was false `authRequired` and idle kills — not
+   agents failing to discover a flag.
+2. **Wrong story.** The premise sweeps were run **sequentially by a manager**, not
+   blocked by ignorance of `--team`. Serialization was operational, not a product gap.
+3. **Already solved for parallelism.** Answer and research teams are read-only by
+   construction. You can run **multiple teams at once**; they do not fight over the
+   write lock. That is the normal way to fan out parallel research — not a special
+   `--worker` teaching path.
+4. **Existing steer is enough.** `alln run --dry-run --json` already prints
+   `alternatives` with a ready `--team code_plan --worker …` when a bare mutating
+   ask would be wrong. No keyword heuristics or new product law required.
 
 ---
 
@@ -245,6 +248,7 @@ change to `--worker` semantics.
 | Drop `authRequired` entirely | Real sign-in failures must still block and bench seats |
 | Fix only in Allnighter by post-filtering observations | Classifier is AgentOS SSOT; post-filter duplicates truth |
 | Fold into IDLE-HF-S01 idle-floor raise | Orthogonal; raising 300→1800 reduces kills, not mislabels |
+| CAP-HF-S03 teaching audit / keyword warnings | Scope creep; sweeps were sequential by choice; multiple read-only teams already run in parallel |
 
 ## Related
 
@@ -266,11 +270,8 @@ emits `authRequired`.
 and S04 (stall demotion) can ship in parallel — they reduce false kills; this fix
 stops mislabeling whatever kill reason remains.
 
-**CAP-HF-S03 (2026-07-25):** verified — `ResolvedRunInvocation.readOnlyAnswerTeamSteer()`
-and `ResolvedRunInvocationTests.testExplicitWorkerBareAskTeachesSteerPreservingWorker`
-already teach `--team code_plan` with `--worker` preserved. Keyword-based warning
-waived (would be brittle); dry-run `alternatives` is the teaching surface.
+**CAP-HF-S03 (2026-07-25):** **dropped** — see §CAP-HF-S03 above. No further work.
 
 **Code SSOT:** `AgentOS/Sources/AgentOSCLI/CapacityClassifier.swift`,
 `AgentOS/Sources/AgentOSCLI/DefaultWorkerRunner.swift`; Allnighter mirror tests
-`CapacityClassifierTests.swift`; read-only research steer `ResolvedRunInvocation.swift`.
+`CapacityClassifierTests.swift`.

@@ -34,7 +34,7 @@ one's truth now lives.
 > silence telemetry; S02 pgid child/CPU progress; S03 deferred),
 > [`Capacity_False_Auth_Mislabel_Hotfix.md`](../archive/phases/Capacity_False_Auth_Mislabel_Hotfix.md)
 > (Complete 2026-07-25 — AgentOS `bec4f9e` stderr-only auth blockers + idle kill-reason
-> priority; Allnighter mirror `CapacityClassifierTests`; dry-run steer verified),
+> priority; CAP-HF-S03 dropped; Allnighter mirror `CapacityClassifierTests`),
 > [`Seating_Tier_And_CLI_Diversity.md`](../archive/phases/Seating_Tier_And_CLI_Diversity.md)
 > (Complete 2026-07-25 — S1–S3 `6c3dff3d`/`dd319f72`/`70e045c4`, contract 4.0.2;
 > unrated customs@40 + family/CLI diversity + dry-run `seats[]`),
