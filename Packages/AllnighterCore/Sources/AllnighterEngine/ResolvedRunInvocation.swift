@@ -17,19 +17,22 @@ public struct ResolvedRunSeat: Sendable, Equatable {
     public var skillId: String?
     public var purpose: String
     public var sourceId: String?
+    public var seatingReason: String?
 
     public init(
         workerId: String,
         modelId: String,
         skillId: String? = nil,
         purpose: String,
-        sourceId: String? = nil
+        sourceId: String? = nil,
+        seatingReason: String? = nil
     ) {
         self.workerId = workerId
         self.modelId = modelId
         self.skillId = skillId
         self.purpose = purpose
         self.sourceId = sourceId
+        self.seatingReason = seatingReason
     }
 }
 
@@ -278,6 +281,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
     /// Project public dry-run envelope (schema v2 — writePolicy + effects; no top-level `mutating`).
     public func makeDryRunJSON() -> RunDryRunJSON {
         let readOnlySteer = readOnlyAnswerTeamSteer()
+        let dryRunSeats = dryRunSeatProjection()
         return RunDryRunJSON(
             canStart: canStart,
             blockedReason: blockedReason,
@@ -306,8 +310,27 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
                     kind: "runDoctor",
                     label: "Check setup and sources",
                     command: blockedReason == nil ? "alln doctor --json" : teachingCommand),
-            alternatives: readOnlySteer.map { [$0.alternative] }
+            alternatives: readOnlySteer.map { [$0.alternative] },
+            seats: dryRunSeats
         )
+    }
+
+    /// SEAT-S3 — project crew seats for answer/research teams (not bare default-chat execution).
+    func dryRunSeatProjection() -> [RunDryRunJSON.Seat]? {
+        guard !seats.isEmpty else { return nil }
+        let projectsCrew = preset.runShape != .execution || explicitTeamChosen
+        guard projectsCrew else { return nil }
+        return seats.map { seat in
+            let driverId = seat.sourceId ?? ""
+            return RunDryRunJSON.Seat(
+                modelId: seat.modelId,
+                family: ModelCatalog.modelFamily(seat.modelId, driverId: driverId.isEmpty ? nil : driverId),
+                driverId: driverId,
+                skillId: seat.skillId,
+                stage: seat.purpose,
+                reason: seat.seatingReason ?? "band+rank"
+            )
+        }
     }
 
     /// Canonical read-only ask team the docs already reference (the Code lane
@@ -571,12 +594,14 @@ public enum RunInvocationResolver {
             })
         } else {
             seats = teamResolved.allWorkers.map { w in
-                ResolvedRunSeat(
+                let driverId = context.models.first { $0.id == w.modelId }?.driverId
+                return ResolvedRunSeat(
                     workerId: w.id,
                     modelId: w.modelId,
                     skillId: w.skillId,
                     purpose: (w.purpose ?? .answer).rawValue,
-                    sourceId: context.models.first { $0.id == w.modelId }?.driverId
+                    sourceId: driverId,
+                    seatingReason: w.seatingReason
                 )
             }
             warnings.append(contentsOf: teamResolved.warnings)

@@ -143,6 +143,9 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// can't distinguish from default-team resolution. Optional so legacy `run.json`
     /// (no key) decodes to `nil`; `nil`/empty means no explicit `--worker` was given.
     public var explicitWorkerIds: [String]? = nil
+    /// SEAT-S3 — ready bench model ids the team was resolved against at acceptance.
+    /// Additive audit field; legacy journals decode to `nil`.
+    public var resolvedBenchModelIds: [String]? = nil
     /// FR12 — requested verbatim commit message (verification only).
     public var requestedCommitMessage: String? = nil
     /// FR12 — worker was instructed to leave work uncommitted.
@@ -212,6 +215,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         repoDelta: RepoDelta? = nil,
         laneContextOnly: Bool? = nil,
         explicitWorkerIds: [String]? = nil,
+        resolvedBenchModelIds: [String]? = nil,
         requestedCommitMessage: String? = nil,
         noCommitOrdered: Bool? = nil,
         uncommittedFileCount: Int? = nil,
@@ -252,6 +256,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.repoDelta = repoDelta
         self.laneContextOnly = laneContextOnly
         self.explicitWorkerIds = explicitWorkerIds
+        self.resolvedBenchModelIds = resolvedBenchModelIds
         self.requestedCommitMessage = requestedCommitMessage
         self.noCommitOrdered = noCommitOrdered
         self.uncommittedFileCount = uncommittedFileCount

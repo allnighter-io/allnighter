@@ -109,7 +109,7 @@ public enum TeamResolver {
             fallbackModelIds: lead.fallbackModelIds ?? [], allowedModelIds: [],
             requiredTags: lead.requiredCapabilityTags, fallback: lead.fallbackPolicy,
             lane: team.lane, ready: readyModels, capabilities: capabilities
-        )?.id
+        )?.model.id
         let reservedWorkerModelId = resolvedLeadModelId
 
         // Family + driver diversity (Seating Law): seeded by Lead, grown by every
@@ -135,7 +135,10 @@ public enum TeamResolver {
         // when a best-band alternative remains (band-aware filter in selectModel).
         var diversityUsed: Set<String> = []
 
-        func makeWorker(_ model: Model, row: TeamWorkerSpec, skillName: String, stage: WorkerStage) -> Worker {
+        func makeWorker(
+            _ model: Model, row: TeamWorkerSpec, skillName: String, stage: WorkerStage,
+            seatingReason: String? = nil
+        ) -> Worker {
             let index = nextIndex[model.id, default: 0]
             nextIndex[model.id] = index + 1
             let substitutedFrom = row.preferredModelId.flatMap { $0 != model.id ? $0 : nil }
@@ -143,7 +146,8 @@ public enum TeamResolver {
                 id: Worker.makeID(modelId: model.id, instanceIndex: index),
                 modelId: model.id, instanceIndex: index,
                 skillId: row.skillId, skillName: skillName, purpose: stage,
-                substitutedFromModelId: substitutedFrom)
+                substitutedFromModelId: substitutedFrom,
+                seatingReason: seatingReason)
         }
 
         func disable(_ row: TeamWorkerSpec, _ skillName: String, _ reason: String) {
@@ -181,11 +185,13 @@ public enum TeamResolver {
                 lane: team.lane, ready: readyModels, capabilities: capabilities,
                 avoidFamilies: familyUsed, avoidDrivers: driversUsed
             ) {
-                if let pref = scoutSpec.preferredModelId, pref != model.id {
-                    warnings.append("\(scoutSkillName): preferred scout \(pref) unavailable; resolved to \(model.displayName).")
+                if let pref = scoutSpec.preferredModelId, pref != model.model.id {
+                    warnings.append("\(scoutSkillName): preferred scout \(pref) unavailable; resolved to \(model.model.displayName).")
                 }
-                scoutWorker = makeWorker(model, row: scoutSpec, skillName: scoutSkillName, stage: .scout)
-                claim(model, capabilityOnly: scoutSpec.preferredModelId == nil)
+                scoutWorker = makeWorker(
+                    model.model, row: scoutSpec, skillName: scoutSkillName, stage: .scout,
+                    seatingReason: model.reason)
+                claim(model.model, capabilityOnly: scoutSpec.preferredModelId == nil)
             } else {
                 disable(scoutSpec, scoutSkillName, "no ready model for scout in lane \(team.lane.rawValue)")
             }
@@ -233,14 +239,18 @@ public enum TeamResolver {
                     disable(row, skillName, reason)
                     continue
                 }
-                if let preferred = row.preferredModelId, preferred != model.id {
-                    warnings.append("\(skillName): preferred \(preferred) unavailable; resolved to \(model.displayName).")
+                if let preferred = row.preferredModelId, preferred != model.model.id {
+                    warnings.append("\(skillName): preferred \(preferred) unavailable; resolved to \(model.model.displayName).")
                 }
                 if row.preferredModelId == nil {
-                    noteReuse(model, skillName: skillName)
+                    noteReuse(model.model, skillName: skillName)
                 }
-                claim(model, capabilityOnly: row.preferredModelId == nil)
-                for _ in 0..<want { workers.append(makeWorker(model, row: row, skillName: skillName, stage: stage)) }
+                claim(model.model, capabilityOnly: row.preferredModelId == nil)
+                for _ in 0..<want {
+                    workers.append(makeWorker(
+                        model.model, row: row, skillName: skillName, stage: stage,
+                        seatingReason: model.reason))
+                }
             }
             return workers
         }
@@ -252,7 +262,7 @@ public enum TeamResolver {
         // `team.lead` (effort-independent). Resolves its model by name like a row.
         result.dissentPolicy = lead.dissentPolicy
         var planWriter: Worker?
-        if let model = selectModel(
+        if let pick = selectModel(
             preferredModelId: lead.preferredModelId,
             fallbackModelIds: lead.fallbackModelIds ?? [],
             allowedModelIds: [],
@@ -261,14 +271,15 @@ public enum TeamResolver {
             lane: team.lane, ready: readyModels, capabilities: capabilities
         ) {
             let leadSkill = skill(lead.skillId)
-            let index = nextIndex[model.id, default: 0]
-            nextIndex[model.id] = index + 1
+            let index = nextIndex[pick.model.id, default: 0]
+            nextIndex[pick.model.id] = index + 1
             planWriter = Worker(
-                id: Worker.makeID(modelId: model.id, instanceIndex: index),
-                modelId: model.id, instanceIndex: index,
+                id: Worker.makeID(modelId: pick.model.id, instanceIndex: index),
+                modelId: pick.model.id, instanceIndex: index,
                 skillId: lead.skillId,
                 skillName: leadSkill?.displayName ?? lead.skillId,
-                purpose: .plan
+                purpose: .plan,
+                seatingReason: pick.reason
             )
         }
 
@@ -303,6 +314,31 @@ public enum TeamResolver {
 
     // MARK: - Model selection
 
+    /// Resolved model plus seating audit reason (SEAT-S3 dry-run visibility).
+    struct SeatingPick: Sendable, Equatable {
+        var model: Model
+        var reason: String
+    }
+
+    /// Derive the seating reason before `claim` updates diversity sets.
+    static func seatingReason(
+        for model: Model,
+        pickedViaPreferred: Bool,
+        reserveSkipped: Bool,
+        avoidFamilies: Set<String>,
+        avoidDrivers: Set<String>,
+        capabilities: (String) -> ModelCapabilities
+    ) -> String {
+        if pickedViaPreferred { return "preferred" }
+        if reserveSkipped { return "reserveSkipped" }
+        let family = ModelCatalog.modelFamily(model.id, driverId: model.driverId)
+        if avoidFamilies.contains(family) { return "reuseFamily" }
+        if capabilities(model.id).strengthRank == ModelCatalog.unratedModelRank { return "unratedFloor" }
+        if !avoidFamilies.contains(family) { return "band+unusedFamily" }
+        if !avoidDrivers.contains(model.driverId) { return "band+unusedDriver" }
+        return "band+rank"
+    }
+
     /// Choose a model for one row: try the preferred, then the declared ordered
     /// cross-source substitutes, then the broad fallback policy. Rank is the final
     /// catch-all for custom models and benches outside the built-in chain.
@@ -330,7 +366,7 @@ public enum TeamResolver {
         preferredTags: [ModelCapabilityTag] = [],
         avoidFamilies: Set<String> = [],
         avoidDrivers: Set<String> = []
-    ) -> Model? {
+    ) -> SeatingPick? {
         // Snapshot once — no CatalogFileIO inside the sort comparator.
         var capsCache: [String: ModelCapabilities] = [:]
         func caps(_ id: String) -> ModelCapabilities {
@@ -371,14 +407,33 @@ public enum TeamResolver {
             }.first
         }
 
+        func wrap(
+            _ model: Model,
+            pickedViaPreferred: Bool,
+            reserveSkipped: Bool
+        ) -> SeatingPick {
+            SeatingPick(
+                model: model,
+                reason: seatingReason(
+                    for: model,
+                    pickedViaPreferred: pickedViaPreferred,
+                    reserveSkipped: reserveSkipped,
+                    avoidFamilies: avoidFamilies,
+                    avoidDrivers: avoidDrivers,
+                    capabilities: capabilities
+                )
+            )
+        }
+
         var pool = ready.filter(allowed)
         if fallback == .exactOnly {
             if let preferredModelId,
                let model = pool.first(where: { $0.id == preferredModelId }) {
-                return model
+                return wrap(model, pickedViaPreferred: true, reserveSkipped: false)
             }
             guard !allowedModelIds.isEmpty else { return nil }
-            return strongest(pool.filter(hasTags).filter(autoOK))
+            guard let model = strongest(pool.filter(hasTags).filter(autoOK)) else { return nil }
+            return wrap(model, pickedViaPreferred: false, reserveSkipped: false)
         }
         let homeDriver = preferredModelId.flatMap { id in
             byId[id]?.driverId ?? ModelCatalog.get(id)?.driverId
@@ -387,9 +442,11 @@ public enum TeamResolver {
             guard let homeDriver else { return true }
             return m.driverId == homeDriver
         }
+        var reserveSkipped = false
         if let reserved = reserveModelId,
            pool.contains(where: { $0.id != reserved && hasTags($0) && autoOK($0) && homeOK($0) }) {
             pool.removeAll { $0.id == reserved }
+            reserveSkipped = true
         }
         // Band-aware exclusion: bestBand is the best caliber still available among
         // *unclaimed* candidates. If every capable model is already claimed, fall
@@ -414,30 +471,35 @@ public enum TeamResolver {
         }
         if let pref = preferredModelId,
            let model = pool.first(where: { $0.id == pref }) {
-            return model
+            return wrap(model, pickedViaPreferred: true, reserveSkipped: reserveSkipped)
         }
         for id in fallbackModelIds {
             if let model = pool.first(where: { $0.id == id && hasTags($0) }) {
-                return model
+                return wrap(model, pickedViaPreferred: false, reserveSkipped: reserveSkipped)
             }
         }
         let autoPool = pool.filter(hasTags).filter(autoOK)
+        let picked: Model?
         switch fallback {
         case .exactOnly:
-            return nil
+            picked = nil
         case .sameSource:
-            return strongest(autoPool.filter(homeOK))
+            picked = strongest(autoPool.filter(homeOK))
         case .laneCapable:
             if homeDriver != nil {
-                return strongest(autoPool.filter(laneOK).filter(homeOK))
+                picked = strongest(autoPool.filter(laneOK).filter(homeOK))
+            } else {
+                picked = strongest(autoPool.filter(laneOK))
             }
-            return strongest(autoPool.filter(laneOK))
         case .anyReady, .strongestReady:
             if homeDriver != nil {
-                return strongest(autoPool.filter(homeOK))
+                picked = strongest(autoPool.filter(homeOK))
+            } else {
+                picked = strongest(autoPool)
             }
-            return strongest(autoPool)
         }
+        guard let picked else { return nil }
+        return wrap(picked, pickedViaPreferred: false, reserveSkipped: reserveSkipped)
     }
 
     /// Pick up to `count` ready models on **distinct CLI drivers** for triangulation.

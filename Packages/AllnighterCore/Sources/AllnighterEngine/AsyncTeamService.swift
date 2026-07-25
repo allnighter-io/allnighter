@@ -229,7 +229,8 @@ public actor AsyncTeamService {
         case .inProcess:
             return startInProcess(
                 request: request, origin: origin,
-                resolvedRequest: resolvedRequest, resolved: resolved, canonical: canonical
+                resolvedRequest: resolvedRequest, resolved: resolved, canonical: canonical,
+                readyModels: readyModels
             )
         }
     }
@@ -239,7 +240,8 @@ public actor AsyncTeamService {
         origin: RunOrigin,
         resolvedRequest: TeamRequestResolver.Resolved,
         resolved: ResolvedTeamRun,
-        canonical: AsyncTeamCanonicalPayload
+        canonical: AsyncTeamCanonicalPayload,
+        readyModels: [Model]
     ) -> Result<TeamStartResponse, AsyncTeamStartRefusal> {
         let slot: TeamGovernor.Slot
         switch governor.acquireDetailed() {
@@ -274,7 +276,8 @@ public actor AsyncTeamService {
 
         let run = mintRun(
             runId: runId, prompt: prompt, request: request, origin: origin,
-            resolved: resolved, resolvedRequest: resolvedRequest, acceptedAt: acceptedAt
+            resolved: resolved, resolvedRequest: resolvedRequest, acceptedAt: acceptedAt,
+            readyModels: readyModels
         )
         persist(run, endReasonIfTerminal: nil)
 
@@ -294,7 +297,8 @@ public actor AsyncTeamService {
         origin: RunOrigin,
         resolved: ResolvedTeamRun,
         resolvedRequest: TeamRequestResolver.Resolved,
-        acceptedAt: Date
+        acceptedAt: Date,
+        readyModels: [Model]
     ) -> TeamRun {
         let answerAndReview = resolved.answerWorkers + resolved.reviewWorkers
         // RLR-L3: accept as `queued`/`spawningWorker`. The coordinator picks the
@@ -325,7 +329,8 @@ public actor AsyncTeamService {
             threadId: request.threadId,
             originConversationId: request.originConversationId,
             originMessageId: request.originMessageId,
-            repoRoot: request.repoRoot
+            repoRoot: request.repoRoot,
+            resolvedBenchModelIds: readyModels.map(\.id).sorted()
         )
     }
 

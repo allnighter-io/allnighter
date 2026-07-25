@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.0.1, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.0.2, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -157,7 +157,7 @@ Output schema: `modelListJSON`.
 
 ### `alln models add`
 
-Add a custom model for a source.
+Add a custom model (saved unverified; run `alln models verify` before enable).
 
 Flags:
 - `--driver <driverId>` — Source driver id.
@@ -168,6 +168,16 @@ Flags:
 - `--json` — Return refreshed ModelListJSON.
 
 Output schema: `modelListJSON`.
+
+### `alln models verify`
+
+Smoke-verify a custom model label via AgentOS (AGENTOS_MODEL_OK).
+
+Arguments:
+- `model-id` (required) — Custom model id to verify.
+
+Flags:
+- `--json` — Structured { id, status, detail, driverId, label }.
 
 ### `alln models update`
 

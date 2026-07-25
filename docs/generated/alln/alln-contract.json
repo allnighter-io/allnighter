@@ -588,7 +588,46 @@
       "name" : "models add",
       "outputSchema" : "modelListJSON",
       "spendsQuota" : false,
-      "summary" : "Add a custom model for a source.",
+      "summary" : "Add a custom model (saved unverified; run `alln models verify` before enable).",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "model-id",
+          "required" : true,
+          "summary" : "Custom model id to verify."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured { id, status, detail, driverId, label }.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "models verify",
+      "outputSchema" : "none",
+      "spendsQuota" : true,
+      "summary" : "Smoke-verify a custom model label via AgentOS (AGENTOS_MODEL_OK).",
       "visibility" : "public"
     },
     {
@@ -4780,7 +4819,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.0.1",
+  "contractVersion" : "4.0.2",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

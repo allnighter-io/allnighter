@@ -59,7 +59,7 @@ public enum SeatReseat {
             ready: pool,
             capabilities: ModelCatalog.capabilities,
             preferredTags: preferredTags
-        )
+        )?.model
     }
 
     /// Resolve preferred / fallback chain for a worker (or Lead) from the team preset.

@@ -612,5 +612,36 @@ final class TeamResolverTests: XCTestCase {
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .med, readyModels: ready)
         XCTAssertTrue(r.isRunnable)
         XCTAssertEqual(r.answerWorkers.first { $0.skillId == "seat_b" }?.modelId, "model_opus")
+        XCTAssertEqual(r.answerWorkers.first { $0.skillId == "seat_b" }?.seatingReason, "preferred")
+    }
+
+    func testSeatingReasonBandUnusedFamilyWhenFamilyIsNew() {
+        let model = Model(
+            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            driverId: "codex", role: .both)
+        let reason = TeamResolver.seatingReason(
+            for: model,
+            pickedViaPreferred: false,
+            reserveSkipped: false,
+            avoidFamilies: ["claude"],
+            avoidDrivers: ["claude_code"],
+            capabilities: ModelCatalog.capabilities
+        )
+        XCTAssertEqual(reason, "band+unusedFamily")
+    }
+
+    func testSeatingReasonReserveSkippedWhenLeadReserved() {
+        let ready: [Model] = [
+            Model(id: "model_fable", displayName: "Fable", modelLabel: "fable",
+                  driverId: "claude_code", role: .both),
+            Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+                  driverId: "codex", role: .both),
+        ]
+        let t = team(
+            rows: [TeamWorkerSpec(id: "r1", skillId: "seat_a")],
+            lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_fable",
+                               fallbackPolicy: .strongestReady))
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .med, readyModels: ready)
+        XCTAssertEqual(r.answerWorkers.first?.seatingReason, "reserveSkipped")
     }
 }

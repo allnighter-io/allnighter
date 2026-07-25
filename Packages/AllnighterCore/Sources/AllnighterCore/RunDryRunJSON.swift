@@ -29,6 +29,37 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
     /// no write-policy change). Omitted (nil) whenever there is nothing to teach, so
     /// the field is additive and does not change the shape for existing callers.
     public var alternatives: [Alternative]?
+    /// SEAT-S3 — resolved seats for team runs (capability-only + lead + scout).
+    /// Omitted when empty or for bare execution/default-chat single-seat previews
+    /// that do not project crew seating.
+    public var seats: [Seat]?
+
+    /// One resolved seat after team staffing (dry-run visibility only).
+    public struct Seat: Codable, Sendable, Equatable {
+        public var modelId: String
+        public var family: String
+        public var driverId: String
+        public var skillId: String?
+        public var stage: String
+        /// Why this model won the seat, e.g. `preferred`, `band+unusedFamily`.
+        public var reason: String
+
+        public init(
+            modelId: String,
+            family: String,
+            driverId: String,
+            skillId: String? = nil,
+            stage: String,
+            reason: String
+        ) {
+            self.modelId = modelId
+            self.family = family
+            self.driverId = driverId
+            self.skillId = skillId
+            self.stage = stage
+            self.reason = reason
+        }
+    }
 
     /// One ready-to-run alternative invocation. Same tokenized-argv teaching shape
     /// as `ResolvedRunInvocation` (`argvTemplate` + `templateVariables`), plus the
@@ -113,7 +144,8 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
         writeLockHeld: Bool? = nil,
         warnings: [String] = [],
         nextAction: AgentNextAction,
-        alternatives: [Alternative]? = nil
+        alternatives: [Alternative]? = nil,
+        seats: [Seat]? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.canStart = canStart
@@ -131,6 +163,7 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
         self.warnings = warnings
         self.nextAction = nextAction
         self.alternatives = alternatives
+        self.seats = seats
     }
 }
 

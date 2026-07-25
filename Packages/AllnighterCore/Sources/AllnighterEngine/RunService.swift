@@ -809,6 +809,7 @@ public actor RunService {
                 outputKind: preset.outputKind, mutating: true, repoRoot: root,
                 laneContextOnly: laneContextOnly ? true : nil,
                 explicitWorkerIds: explicitWorkerIds,
+                resolvedBenchModelIds: readyModels().map(\.id).sorted(),
                 blocker: RunBlocker(resource: .repoWriteLock, scopeRoot: root),
                 clockBudgets: clockBudgets,
                 links: retryLinks)
@@ -1305,6 +1306,7 @@ public actor RunService {
                 threadId: threadId, repoRoot: repoRoot,
                 laneContextOnly: laneContextOnly ? true : nil,
                 explicitWorkerIds: explicitWorkerIds,
+                resolvedBenchModelIds: bench.map(\.id).sorted(),
                 attempts: [RunAttempt(
                     attemptNumber: 1,
                     requestedSourceId: model.driverId,
@@ -1948,6 +1950,7 @@ public actor RunService {
             r.lane = lane; r.effort = effort
             r.laneContextOnly = laneContextOnly ? true : nil
             r.explicitWorkerIds = explicitWorkerIds
+            r.resolvedBenchModelIds = bench.map(\.id).sorted()
             r.teamDisplayName = RunIdentity.teamDisplayName(
                 presetId: preset.id, catalogDisplayName: resolved.teamDisplayName,
                 explicitTeamChosen: explicitTeamChosen)
