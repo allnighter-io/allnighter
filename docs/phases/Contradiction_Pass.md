@@ -247,5 +247,5 @@ works, not that disagreement is worth surfacing.
 | --- | --- |
 | Hero-loop positioning, lenses, impact ledger, blind fan-out law, refutation gate | `Spec_Review.md` |
 | Depth tiers, escalation law, what Min/Default/Max mean | `Team_Depth_Naming.md` |
-| Seat economics, roster ablation, necessity suites | `Team_Lab_Composition_And_Seat_Economics.md` |
+| Seat economics, roster ablation, necessity suites | Team Lab is SHUT DOWN (founder, 2026-07-24); archived `Team_Lab_Composition_And_Seat_Economics.md` has the historical spec |
 | Menu disclosure of tiers and families | `Menu_Relations.md` |

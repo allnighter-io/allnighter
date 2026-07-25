@@ -1,7 +1,7 @@
 # PENDING-S01 — Settle Pending run before transcript write
 
 Status: **done**
-Source: [`code_review/triage/CR-23-findings.md`](../../code_review/triage/CR-23-findings.md) (P1, planner upheld)
+Source: [`code_review/triage/CR-23-findings.md`](../../../archive/phases/code_review/triage/CR-23-findings.md) (P1, planner upheld)
 
 ## Goal
 
@@ -57,4 +57,4 @@ swift test --package-path Packages/AllnighterCore --filter Pending
 
 ## SSOT
 
-`docs/phases/Unified_Run_Model.md` (Pending substrate)
+Code SSOT `RunService.swift` (Pending substrate)

@@ -1,8 +1,9 @@
 import Foundation
 
 /// `ProjectJSON` family — the public machine contract for the `alln project`
-/// commands (docs/phases/Project_Spine_And_Project_Manager.md §CLI Contract,
-/// PRJ-S07). Every envelope carries `schemaVersion`, `contractVersion`, and a
+/// commands (docs/phases/CLI_Implementation_Contract.md §CLI Contract). Run
+/// resolution/execution truth lives in `RunService.swift`, not here. Every
+/// envelope carries `schemaVersion`, `contractVersion`, and a
 /// `projectId` where one applies, plus typed `nextActions` so an agent can chain
 /// the next call without parsing prose. Dates serialize as ISO-8601 strings via
 /// `CoreJSON` (the durable `Project`/`ProjectContextPacket` types are embedded

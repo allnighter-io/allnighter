@@ -1,12 +1,20 @@
 # Team Lab Run Factory
 
+> **SHUT DOWN — archived un-rebased 2026-07-24.** Founder ruling: the lab is
+> shut down; "we have all the teams we want/need for now." Archived as-is,
+> not re-based, because its scripts (`scripts/team_lab/`) still reference the
+> dead `code_bug_hunt_lite` team (see PRE-S0 gate 1 below) — fixing that
+> would be doing forward Team Lab work the founder just cancelled. Do not
+> resume without a new founder ruling. Built-in Teams ship as-is via
+> `TeamCatalog`/`BuiltInTeams.swift`.
+
 ## Premise re-base (2026-07-16)
 
 MCP was retired (`MCP_Retirement.md`); this doc was renamed from
 `MCP_Run_Factory_Team_Lab.md`. The harness is CLI-native: it drives Teams through
 the `alln` CLI only.
 
-Status: Draft feature packet
+Status: Draft feature packet — SHUT DOWN, archived un-rebased (see banner above)
 Owner: Founder + Shared Core + CLI + Team Quality
 Updated: 2026-07-16
 

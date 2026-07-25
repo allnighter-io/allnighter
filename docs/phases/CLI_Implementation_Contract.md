@@ -960,7 +960,7 @@ duplicate work, and orphan recovery from the incremental journal.
 Status note (2026-06-19): `Journal0`, `Serve0`, `A0`, **Pending0/Pending1**, and
 WTK-S02a workerChat `pending run` execution/settlement are built. **A1/WTK-S02c**
 Pending list/show/run over MCP is built. WTK-S03/S02b/S04 and SWW-S00-S03 are
-built. Next is SWW-S04/S05 product attention: deterministic Project Manager wait
+built. Next is SWW-S04/S05 product attention: deterministic default-chat wait
 nudges, typed actions, resident periodic stalled scans, and notification/menu
 integration. **Pending2** broad drain/native scheduling is parked; do not promise
 app-closed broad Pending execution until that work is explicitly revived.
@@ -1058,7 +1058,7 @@ Required `pendingItem` fields:
 | `projectId` | string | Owning Project. Required for drainable items. |
 | `status` | enum | `draft`, `pending`, `running`, `done`, `failed`, or `cancelled`. |
 | `title` | string | User-visible row title. |
-| `kind` | enum | `workerChat`, `teamRun`, `workOrder`, `dispatch`, `returnReview`, or `followUp`. |
+| `kind` | enum | `workerChat`, `teamRun`, `followUp` (built; code SSOT `PendingItemKind`), plus forward `returnReview` (SWW-S04/S05, not yet shipped). `workOrder`/`dispatch` are retired ceremony kinds — do not reintroduce. |
 | `origin` | enum | `cli`, `gui`, `ios`, `mcp`, `localApi`, `system`, or `preset`. |
 | `threadId` | string/null | Owning thread, if linked. |
 | `promptExcerpt` | string | Redacted/excerpted prompt for lists. |

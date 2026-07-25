@@ -65,8 +65,9 @@ Run copy board
 - `docs/phases/Work_Order_Team_Model.md` defines team selection as the owner of
   worker count/review/research shape. Model reasoning effort is provider config,
   not a Copy-depth toggle.
-- `Packages/AllnighterCore/Sources/AllnighterCore/WorkOrder.swift` already has a
-  prediction-free work-order summary helper for team-run and design shapes.
+- There is no dedicated `WorkOrder` summary type (that ceremony type is
+  deleted). A prediction-free run summary for team-run/design/copy shapes, if
+  needed, derives from `RunRecord`/`TeamRunJSON` (`RunService.swift`).
 - `ThreadTurnKind` has `design_board`, but not yet `copy_board`.
 
 ## Truth Owner

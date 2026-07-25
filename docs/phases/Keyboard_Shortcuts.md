@@ -1,9 +1,16 @@
 # Keyboard Shortcuts
 
+> **KBD-S05's "PM / pending loop" row below (Dispatch/Verify, approve-and-send)
+> describes the retired propose→approve→dispatch→verify ceremony.** Current law
+> (code SSOT `RunService.swift`, `Unified_Run_Model.md`): a mutating send runs
+> directly, no approval keystroke. Re-base KBD-S05 to plain Pending
+> accept/run/reject/reorder actions before building it.
+
 Status: SPEC (2026-06-21). Owner surface: `AllnighterMac`.
-Sister docs: [Composer_Model_Popup_Update.md](Composer_Model_Popup_Update.md)
-(the routing picker this binds), [Pending_Work_And_Drain.md](Pending_Work_And_Drain.md)
-(the PM/pending loop keys).
+Sister docs: [Composer_Model_Popup_Update.md](../archive/phases/Composer_Model_Popup_Update.md)
+(the routing picker this binds), archived
+[`Pending_Work_And_Drain.md`](../archive/phases/Pending_Work_And_Drain.md)
+(historical PM/pending loop keys context; code SSOT `PendingCLI.swift`).
 
 ## Why now, and the law
 

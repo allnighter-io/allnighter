@@ -2,18 +2,19 @@
 
 Status: Draft backend/product spec — the next big upgrade to the Signal craft
 Owner: Signal lane (Core team-run substrate + TeamResolver + a new Signal Graph store + source adapters)
-Updated: 2026-06-19
+Updated: 2026-07-24 (banned-term sweep: dead `Project_Spine_And_Project_Manager.md`
+  reference and stale propose/approve/dispatch/verify "Current State" claims removed)
 
 ## Authority
 
 Read with:
 
 - `docs/strategy/Allnighter_Public_Signal_Wedge.md` (why Signal is the wedge; the Grok/X premise)
-- `docs/phases/Unified_Run_Model.md` (Signal is a preset/tag/output shape over the ONE run primitive, not a separate mode)
+- Code SSOT `RunService.swift` (Signal is a preset/tag/output shape over the ONE run primitive, not a separate mode)
 - `docs/phases/Team_Run_Floor.md` (owns the `SignalInsight` / `SignalReceipt` contract and the Floor projection)
 - `docs/phases/Team_Delegation_Surface.md` (owns Signal as a team family)
 - `docs/phases/Model_Catalog_And_Bench_Roster.md` (owns model lane tags + driver manifests)
-- `docs/phases/Project_Spine_And_Project_Manager.md` (owns the dispatch→verify→receipt spine the provenance reuses)
+- Code SSOT `RunService.swift` / `RunRecord` owns the run+receipt trail the provenance reuses (there is no propose→approve→dispatch→verify spine — that ceremony's deletion manifest is in archived `Unified_Run_Model.md`)
 - `docs/phases/Language_Cutover.md` (Signal is the 4th craft; `WorkLane.signal`, `TeamOutputKind.insight`)
 
 This doc owns: (1) a **source-agnostic** Scout → triangulation run shape, (2)
@@ -88,8 +89,9 @@ Kept (pure observation/provenance — true regardless of cause):
 
 So a receipt records **that a move was made and its observed context/outcome**,
 for provenance and dedup — never to score the signal. The unfair advantage stays
-real but narrower: Allnighter **already owns the dispatch spine** (proposal →
-approve → dispatch → verify → receipt), so capturing that provenance is free.
+real but narrower: Allnighter **already owns a durable run record** (`RunRecord`
+— message, worker(s), result, timestamps; no propose/approve/dispatch/verify
+ceremony), so capturing that provenance is free.
 
 **The seam where the loop genuinely closes:** a controlled experiment. Where a
 move targets an A/B-testable surface (Ikiro / websitemd.studio), randomized
@@ -187,8 +189,9 @@ Useful substrate:
   surfaced via `FloorReturn.kind = .insight`.
 - Run substrate `CatalogRunCoordinator.run()`: answer (blind parallel) → review
   → plan (Lead synthesizes).
-- The dispatch→verify→receipt spine exists (`ProjectDispatchService`,
-  `WorkReturnStore`, `ProjectVerificationService`) — Law 2 reuses it.
+- The durable run record exists (`RunRecord`/`RunService.swift`) — Law 2 reuses
+  it for provenance. `ProjectDispatchService` and `WorkReturnStore` were the old
+  propose/approve ceremony types; both are deleted, not a substrate to reuse.
 
 Current gaps (the reason for this doc):
 

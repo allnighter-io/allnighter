@@ -28,7 +28,6 @@ one's truth now lives.
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
 | [`Menu_Relations.md`](Menu_Relations.md) | **Draft — NOT AUTHORIZED** | ⚠️ Carries a live gate risk regardless of whether the phase runs: the menu measured **32,418 / 32,768 bytes**. MRL-S00 (reclaim headroom) is worth doing on its own. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
-| [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md) | **Draft — re-base next** | Scripts still reference the dead `code_bug_hunt_lite` team; the re-base is the next code slice. |
 
 > Recently completed and archived — code is the SSOT, do not reopen:
 > [`CODE_RED_Core_Infrastructure_Repair.md`](../archive/phases/CODE_RED_Core_Infrastructure_Repair.md)
@@ -38,9 +37,17 @@ one's truth now lives.
 > [`CLI_Agent_Surface_Fidelity.md`](../archive/phases/CLI_Agent_Surface_Fidelity.md),
 > [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md),
 > [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md),
-> [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md).
-> `CLI_Agent_Ergonomics.md` is complete (AE-S00–S15) and still sits in
-> `docs/phases/` — it is a candidate for the next archive sweep.
+> [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md),
+> [`Unified_Run_Model.md`](../archive/phases/Unified_Run_Model.md) (root run-model
+> law, CLOSED 2026-07-24 — code SSOT `RunService.swift`, `TeamPreset`/
+> `TeamCatalog`, `RunWriteLockRegistry`; enforcement `config/architecture-policy.json`
+> + `scripts/check_architecture_policy.sh`),
+> [`CLI_Agent_Ergonomics.md`](../archive/phases/CLI_Agent_Ergonomics.md)
+> (Complete, AE-S00–S15). Team Lab is **SHUT DOWN** (founder ruling
+> 2026-07-24 — we have all the teams we want/need for now) and its specs
+> archived un-rebased: [`Team_Lab_Run_Factory.md`](../archive/phases/Team_Lab_Run_Factory.md),
+> [`Team_Lab_Composition_And_Seat_Economics.md`](../archive/phases/Team_Lab_Composition_And_Seat_Economics.md),
+> [`Team_Lab_Slice_1_Full_Package.md`](../archive/phases/Team_Lab_Slice_1_Full_Package.md).
 
 ### Agent front door (V1 Complete — gates 1–3 archived)
 
@@ -58,22 +65,24 @@ one's truth now lives.
 | --- | --- | --- |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **Living spine SSOT** (M1 built) | `alln` as the first-class agent contract; owns forward naming/agent-first laws. Run-journal foundation work (`RunStore.swift`) currently in flight. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Living implementation SSOT** (M1 built) | Generated docs/doctor/errors/events + proof gates. Forward CLI work: SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
-| [`Unified_Run_Model.md`](Unified_Run_Model.md) | **Root run-model law** (Code Red closed; enforcement now in `config/architecture-policy.json`) | A run = message + optional preset + worker, in the real repo root. Research Teams are observational and execution Teams use one mutating worker. Alternate repository and mechanical read-only infrastructure is retired. |
-| [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | **Living vocabulary contract** | Source/bench/model/skill/worker/team/lane/type/effort/preset word list for new phase docs and GUI briefs. |
+| [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | **Living vocabulary contract** | Source/bench/model/skill/worker/team/lane/type/effort/preset word list for new phase docs and GUI briefs. Run-model vocabulary is code SSOT `RunService.swift` (archived `Unified_Run_Model.md` has the closed design record). |
 | [`Language_Cutover.md`](Language_Cutover.md) | **DONE** (CUT-S00–S06) — kept as canonical word list | The locked vocabulary is codebase reality. Retained as the word-list SSOT other docs cite. |
 | [`Team_Depth_Naming.md`](Team_Depth_Naming.md) | **DECIDED — convention SSOT** (partially applied) | Family = the job; depth = universal Min / (bare) / Max; bare = default send, never Min; no numbers. Stays until `Team_Catalog_Normalization` lands catalog-wide. |
 | [`Spec_Review.md`](Spec_Review.md) | **Living hero-loop SSOT** (team built) | The multi-model spec-hardening hero loop: positioning, review-lens rubric, impact ledger. Backend team exists; this doc governs positioning/rubric. |
 | [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ENFORCED STANDING POLICY** (S00–S05 built) | Stops blind GUI "fixed" claims: render → separate layout-watcher looks at pixels → content-bound proof packet wall-enforced by `scripts/check_gui_proof.sh`. |
 
-### Team catalog, delegation & lab (forward)
+### Team catalog & delegation (forward)
+
+Team Lab is **SHUT DOWN** (founder ruling 2026-07-24 — we have all the teams we
+want/need for now). Its three specs are archived un-rebased (their scripts still
+reference the dead `code_bug_hunt_lite` team); see
+[`docs/archive/phases/README.md`](../archive/phases/README.md). Do not resume
+without a new founder ruling.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | **Draft** — Core routing built; GUI browse surface unbuilt | Send-to-team as the discoverable delegation surface: Team Card projection, family map, direct team send, Execute approval for mutating work. |
+| [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | **Draft — needs re-base** against `Unified_Run_Model.md` (its Execute-approval mutating gate is retired ceremony); Core routing built, GUI browse surface unbuilt | Send-to-team as the discoverable delegation surface: Team Card projection, family map, direct team send. |
 | [`Live_Team_Board.md`](Live_Team_Board.md) | **Draft feature packet** — no-theater contract | In-thread live board for running answer-team runs: sourced per-worker states + real deltas only when emitted. Forbids fake activity/progress. |
-| [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md) | **Draft** — CLI-native; harness re-base next | Run factory for making default Teams excellent: benchmark suites, per-worker/writer scoring, run-contract scoring. Scripts still reference dead `code_bug_hunt_lite` — re-base is the next code slice. |
-| [`Team_Lab_Composition_And_Seat_Economics.md`](Team_Lab_Composition_And_Seat_Economics.md) | **Active spec** — forward LAB-C slices | Post–Slice 1 macro loop: seat economics, VNRC, forward selection, necessity suite. |
-| [`Team_Lab_Slice_1_Full_Package.md`](Team_Lab_Slice_1_Full_Package.md) | **Active spec** — dependency of the two Lab docs | PRE-S0 + LAB-S00–S05 + Judge Loop v2 for Bug Hunt calibration. (MCP wire framing is dead — MCP retired.) |
 
 ### Forward feature packets
 
@@ -192,7 +201,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 
 | Work | Read first |
 | --- | --- |
-| Core execution is broken, Team research does not return real answers, execution does not change the real repo, or any “fixed again” incident | `Unified_Run_Model.md`; enforcement is code — `config/architecture-policy.json` + `scripts/check_architecture_policy.sh` |
+| Core execution is broken, Team research does not return real answers, execution does not change the real repo, or any “fixed again” incident | Code SSOT: `RunService.swift` (the one run owner), `TeamPreset`/`TeamCatalog`, `RunWriteLockRegistry`; enforcement — `config/architecture-policy.json` + `scripts/check_architecture_policy.sh` |
 | Codex/host sandbox blocks child CLIs, source processes absent from ownership | The sandbox blocks the Keychain, not the repo. Code SSOT: `SandboxHandoffSpool.swift`, `SandboxHandoffRunner.swift`, `HostSandboxAdvice.swift` |
 | `alln serve`, background scheduler scope | A scheduler only (Pending wake, Boost seed, vendor-backoff continuation, cloud relay). Owns no run semantics; `alln run` never needs it. Code SSOT: `ServeDaemon.swift` |
 | Foreground/async run stuck, journal/status mismatch, opaque blocker, orphan worker, kill/retry failure, missing lifecycle stream | archived `Run_Lifecycle_Reliability.md` (Complete; extends archived Process Ownership + Concurrent Invocation Isolation) |
@@ -203,12 +212,12 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Agent front door — findable/suggested/selection, catalog normalization | Front door V1 Complete — archived `Agent_Front_Door.md` (gate 1) → archived `Agent_Onboarding.md` (gate 2) → archived `Menu_Not_Router.md` (selection; gate 3 router tombstone: `Agent_Intent_Router.md`); catalog: archived `Team_Catalog_Normalization.md` |
 | Stale MCP/help language, empty help search, invented flags, dead `pair slice` in living docs, version freshness | archived `CLI_Agent_Surface_Fidelity.md` (Complete; code SSOT `RetiredVocabulary` + HelpTopicRegistry) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
-| Run model, answer vs execution teams, dispatch/source safety | `Unified_Run_Model.md` + `Work_Order_Team_Model.md` |
+| Run model, answer vs execution teams, dispatch/source safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` + `Work_Order_Team_Model.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` + `Language_Cutover.md` |
 | Send to team, delegation surface, Team Cards | `Team_Delegation_Surface.md` + `docs/gui/surfaces/send-to-team/brief.md` |
 | Live in-thread team run progress, honest streaming excerpts | `Live_Team_Board.md` |
 | Team naming, depth tiers (Min/Default/Max), family names | `Team_Depth_Naming.md` (applied by `Team_Catalog_Normalization.md`) |
-| Team lab — benchmarking, seat economics, roster ablation, calibration | `Team_Lab_Run_Factory.md` + `Team_Lab_Composition_And_Seat_Economics.md` + `Team_Lab_Slice_1_Full_Package.md` |
+| Team lab — benchmarking, seat economics, roster ablation, calibration | Team Lab is SHUT DOWN (founder, 2026-07-24) — do not resume; archived `Team_Lab_Run_Factory.md` + `Team_Lab_Composition_And_Seat_Economics.md` + `Team_Lab_Slice_1_Full_Package.md` (un-rebased) |
 | Spec Review hero loop, review lenses, positioning | `Spec_Review.md` |
 | Menu byte budget, typed relations/edges between menu rows, cold-agent *composition* (as opposed to selection) | `Menu_Relations.md` (extends archived `Menu_Not_Router.md` — that phase is not reopened) |
 | Panel disagreement, contradiction detection, what Max does beyond more seats, anchored findings | `Contradiction_Pass.md` (extends `Spec_Review.md`) |

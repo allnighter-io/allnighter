@@ -6,9 +6,9 @@ Created: 2026-06-19
 Updated: 2026-06-20
 Process: `docs/workflows/SSOT_Founder_Input_Workflow.md` ->
 `docs/workflows/SSOT_Feature_Workflow.md`
-Depends on: [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md),
+Depends on: code SSOT `RunService.swift` (run resolution/execution),
 [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md),
-[`Composer_Image_Attachments.md`](Composer_Image_Attachments.md),
+[`Composer_Image_Attachments.md`](../archive/phases/Composer_Image_Attachments.md),
 [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md)
 
 ## Founder Intent
@@ -751,7 +751,7 @@ FR-S04 through FR-S07 are the Mac v1 product finish. iOS presentation is deferre
 | Ref -> delivery | `ThreadContextBuilder` + packet | Path-only mention is enough | V1 delivers bounded file text and records the receipt | Fake worker receives only `@foo.swift`; test fails |
 | Picker -> retrieval | `ProjectFileCatalog` | File picker should infer related files | Catalog is path/recency only; no semantic retrieval | Referencing `UserStore.swift` does not auto-add `UserStoreTests.swift` |
 | File size -> usage | Context policy | Show token/cost impact | Show observed bytes/lines only; no token estimates | UI fixture containing "+1.2k tokens" fails copy check |
-| Delayed dispatch -> current file | Work Order revalidation | Same path means same approved input | Hash must match or refresh approval | Change file after approval; dispatch blocks |
+| Delayed mutating run -> current file | File-reference revalidation | Same path means same referenced input | Hash must match or the reference refreshes before send | Change file after the reference was taken; delayed send blocks |
 | Search result -> safe file | `ProjectFileCatalog` + resolver | Catalogued means sendable | Resolver is final authority at send | Catalog stale with deleted file; send fails before turn commit |
 
 ## Open Questions

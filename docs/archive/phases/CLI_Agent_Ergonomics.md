@@ -2,13 +2,14 @@
 
 > **Note (2026-07-20, MR-S05):** Intent-router teaching (`team hello --for`,
 > `route --for`, `resolve --for`) is retired. Selection SSOT is
-> [`Menu_Not_Router.md`](../archive/phases/Menu_Not_Router.md). Historical Mentor-3 narratives below
+> [`Menu_Not_Router.md`](Menu_Not_Router.md). Historical Mentor-3 narratives below
 > describe the pre-menu front door and must not be re-implemented.
 
-Status: **Implementation Complete (2026-07-20) — pending deslop / code audit / archive.**
+Status: **Complete — archived 2026-07-24.**
 All slices AE-S00…S15 shipped on `feat/design-chain` (contractVersion `1.6.0`).
-Parent owns deslop, Code Audit, and archive; do not archive from this closeout.
-Hardened by three passes: code verification of all 11 original claims (7 refuted),
+Code SSOT: `AllnighterCLI.helpText`/`ContractRegistry` (generated help),
+`RetiredVocabulary`, `TeamCatalog.isLabTeam`, `RunService` explicit-worker
+choke point. Hardened by three passes: code verification of all 11 original claims (7 refuted),
 a six-vendor harness study (AE-S00, executed), and founder rulings on catalog
 purge + SSOT-generated help. Every finding below is verified against code or a
 live binary; refuted claims are kept visible so they are not "fixed" later.

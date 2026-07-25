@@ -9,7 +9,7 @@ Updated: 2026-06-20
 Read with:
 
 - `docs/phases/Language_Cutover.md`
-- `docs/phases/Unified_Run_Model.md`
+- Code SSOT `RunService.swift` (the run model)
 - `docs/phases/Team_Run_Floor.md`
 - `docs/phases/CLI_Implementation_Contract.md`
 - `docs/phases/threads/03_Mac_Streaming.md`

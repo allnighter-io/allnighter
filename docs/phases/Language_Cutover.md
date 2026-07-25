@@ -2,7 +2,9 @@
 
 Status: **DONE** (CUT-S00–S06, 2026-06-18) — cutover complete; the locked vocabulary is now the SSOT everywhere. Kept as the canonical word-list reference (no longer blocks work).
 Owner: AllnighterCore + CLI/MCP + Mac app + docs
-Updated: 2026-06-18
+Updated: 2026-07-24 (banned-term sweep: struck the never-shipped `propose|review|
+  execute|scout` posture enum and "approval gates mutating" line — superseded
+  by `Unified_Run_Model.md`'s no-approval-gate law)
 
 ## Why now, and the law
 
@@ -34,8 +36,14 @@ HUMAN LAYER (product / GUI / docs)
 
 MACHINE LAYER (CLI / MCP / Core)
   one primitive: run a team   (a solo agent is a team of one)
-  a team carries:  craft (code|design|copy|signal) · posture (propose|review|execute|scout) · mutating:bool
-  approval gates mutating runs   ← this IS the human "Execute"; not a separate verb
+  a team carries:  craft (code|design|copy|signal) · mutating:bool
+  no approval gate on mutating runs — code SSOT `RunService.swift` executes a
+  mutating team directly once it resolves to one worker; "Execute" is a send
+  label, not a review/approve step. (Superseded 2026-07-24 by
+  `Unified_Run_Model.md`'s deletion manifest — the `propose|review|execute|
+  scout` posture enum and the approval-gate line below were never shipped;
+  code ships `WorkerStage: scout|answer|review|plan` instead, with no
+  approval concept.)
   implement = what worker agents do inside a run (internal word; never user-facing)
 
 RESERVED
@@ -184,7 +192,8 @@ Docs:
   type, forward doc) uses `Fan out`, `Build`-as-craft, `Execute`-as-mode,
   `Move Card`, `Proof`-as-lane, or `lane`=single-run. `rg` proves it.
 - `WorkLane` is `code | design | copy`; generated contracts + fixtures regenerated.
-- One run primitive (`team.run`) with posture + `mutating`; approval gates mutating;
-  no `team_deploy`/`fanout` parallel entrypoints remain.
+- One run primitive (`RunService.run`) carrying craft + `mutating`; no approval
+  gate on mutating runs (superseded by `Unified_Run_Model.md`); no
+  `team_deploy`/`fanout` parallel entrypoints remain.
 - The effort Open Decision is resolved and applied; the GUI tooltip matches it.
 - The green wall passes after every slice; zero aliases or back-compat shims exist.

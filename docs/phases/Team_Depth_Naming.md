@@ -2,8 +2,9 @@
 
 **Status: DECIDED (founder, 2026-07-16).** Naming-convention SSOT for built-in
 team families and depth tiers. Supersedes the Lite / Forensics naming in
-`Team_Lab_Composition_And_Seat_Economics.md` §Named Team Variants (rosters,
-seat economics, and routing mechanics there are unchanged — names only).
+archived `Team_Lab_Composition_And_Seat_Economics.md` §Named Team Variants
+(names only — Team Lab itself is SHUT DOWN, founder 2026-07-24, so the
+roster/seat-economics content there is historical, not forward work).
 
 ## The problem
 
@@ -104,10 +105,10 @@ never silently orphaned.
    calibrating against IDs that are about to be hard-renamed would mint dead
    names on day one. Rename first so every lab artifact is born with final
    names.
-2. **Then Team Lab** (`Team_Lab_Slice_1_Full_Package.md` +
-   `Team_Lab_Composition_And_Seat_Economics.md` + `Team_Lab_Run_Factory.md`),
-   re-based on the final names. `Team_Lab_Run_Factory.md` is the CLI-native
-   factory thesis (re-based 2026-07-16 after `MCP_Retirement.md`).
+2. ~~Then Team Lab~~ **Moot (2026-07-24): Team Lab is SHUT DOWN** (founder
+   ruling — we have all the teams we want/need for now). The three Team Lab
+   docs are archived un-rebased; this step does not resume without a new
+   founder ruling.
 3. **Spec Review tiers shipped (2026-07-18, founder decision):** the former
    full panel became Max; the bare team is the curated five-worker default; Min
    is a three-worker cross-CLI panel. Team Lab now validates and tunes these

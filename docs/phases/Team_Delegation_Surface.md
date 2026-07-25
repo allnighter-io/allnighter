@@ -1,6 +1,18 @@
 # Team Delegation Surface
 
-Status: Draft product/implementation spec
+> **Pre-dates `Unified_Run_Model.md` (2026-07-24, code-enforced).** This doc's
+> "Execute = the approval that green-lights a mutating run after a proposal ...
+> is in front of the user" framing, its many "Execute approval" mutating-gate
+> mentions, and its "Project Manager" surface language describe the retired
+> propose→approve→dispatch→verify ceremony. Current law (code SSOT
+> `RunService.swift`): a mutating team resolves to one worker and runs
+> directly off the send — no second approval step, no dedicated Project
+> Manager identity (default chat is just the Default Team). Re-base this doc's
+> mutating-safety framing before resuming implementation; do not build the
+> Execute-approval gate as specified below.
+
+Status: Draft product/implementation spec — mutating-safety framing needs
+  re-base against `Unified_Run_Model.md` (see banner above)
 Owner: Founder + AllnighterCore + CLI/MCP + Mac app
 Updated: 2026-06-18
 
@@ -9,12 +21,12 @@ Updated: 2026-06-18
 Read with:
 
 - `docs/phases/Language_Cutover.md`
-- `docs/phases/Project_Spine_And_Project_Manager.md`
 - `docs/phases/Team_And_Skill_Catalogs.md`
 - `docs/phases/CLI_Product_Spine.md`
 - `docs/phases/CLI_Implementation_Contract.md`
 - `docs/strategy/Allnighter_Deploy_Teams_Wedge.md`
 - `docs/strategy/Allnighter_Public_Signal_Wedge.md`
+- Code SSOT `RunService.swift` for current run/mutating-safety truth
 
 `Language_Cutover.md` owns the vocabulary. This doc owns the product surface
 that makes "Send to team" discoverable and useful.

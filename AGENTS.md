@@ -16,7 +16,7 @@ Allnighter turns the user's Mac into an overnight **AI-agent factory** and the
 app/iPhone into one bench to run them from. It coordinates the coding agents
 the user already pays for (Claude Code, Codex, Grok, Gemini CLI, Aider, Cursor)
 plus local models — chat with one in your repo, fan out to many for options, all
-on one screen. See `docs/phases/Unified_Run_Model.md` for the run model.
+on one screen. Run model code SSOT: `RunService.swift` (the one run owner).
 
 > You already pay for the team. Allnighter makes it show up to work.
 
@@ -35,12 +35,13 @@ Root docs are the source of truth. Read the relevant one before changing that ar
   **Code · Design · Copy** (+ **Signal** scout); machine layer is one `team.run`
   primitive (posture + `mutating`). Retired: `Fan out`, `Build`-as-craft,
   `Execute`-as-mode, "Move Card", `lane`=single-run. Hard cutover, no aliases.
-- **Run model + execution safety (read before team/run changes):**
-  `docs/phases/Unified_Run_Model.md` — a run = message + optional preset + worker,
-  in the repo root. Research Teams are parallel and observational; execution
-  Teams are one worker (mutating) under the per-root write lock. No mirror,
-  clone, or blanket read-only layer. Enforced in code by
-  `config/architecture-policy.json` + `scripts/check_architecture_policy.sh`.
+- **Run model + execution safety (read before team/run changes):** a run =
+  message + optional preset + worker, in the repo root. Research Teams are
+  parallel and observational; execution Teams are one worker (mutating) under
+  the per-root write lock. No mirror, clone, or blanket read-only layer. Code
+  SSOT: `RunService.swift` (the one run owner), `TeamPreset`/`TeamCatalog`,
+  `RunWriteLockRegistry`. Enforced by `config/architecture-policy.json` +
+  `scripts/check_architecture_policy.sh`.
 - **Built MVP foundation:** `docs/mvp/README.md` — historical team-run substrate
   (originally called Council: one prompt → parallel CLIs → plan), plus
   `docs/mvp/00_MVP_Architecture.md`.
@@ -64,16 +65,16 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 
 | Task type | Read first |
 | --- | --- |
-| Core execution broken, Team research or execution does not work in the real repo | `docs/phases/Unified_Run_Model.md`. One run owner: `RunService.run`. Mirrors, clones, mechanical read-only Teams, and resident execution do not exist — `config/architecture-policy.json` + `scripts/check_architecture_policy.sh` fail the build if they return. |
+| Core execution broken, Team research or execution does not work in the real repo | One run owner: `RunService.run`. Mirrors, clones, mechanical read-only Teams, and resident execution do not exist — `config/architecture-policy.json` + `scripts/check_architecture_policy.sh` fail the build if they return. |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
-| Run model: chat/run = agent in repo root, Default Team, presets, write lock | `docs/phases/Unified_Run_Model.md` |
+| Run model: chat/run = agent in repo root, Default Team, presets, write lock | Code SSOT: `RunService.swift`, `TeamPreset`/`TeamCatalog`, `RunWriteLockRegistry` |
 | Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | Code SSOT: `KillSettlement.swift`, `RunClockEnforcer.swift`, `IdempotencyStore.swift`, `ProcessOwnership.swift` |
 | Codex/host sandbox blocks child CLIs, source processes missing from `alln ps` | The sandbox blocks the Keychain, not the repo — vendor CLIs then believe they are logged out. `alln run` hands off to the open Mac app; a per-session `codex --sandbox danger-full-access` also works. Never a global `sandbox_mode` change. Code SSOT: `SandboxHandoffSpool.swift`, `SandboxHandoffRunner.swift`, `HostSandboxAdvice.swift` |
 | Vendor usage limit / parked run / wake-resume / authorized substitute | Code SSOT: `VendorBackoffReconciler.swift`, `VendorSubstitutionPolicy.swift` |
 | Composer `@` file references, Project file search, file chips | `docs/phases/Composer_File_References.md` |
 | Model/skill/worker/team vocabulary | `docs/phases/Work_Order_Team_Model.md` |
-| Execution/answer teams, mutating runs, source/write safety | `docs/phases/Unified_Run_Model.md` + `docs/phases/CLI_Implementation_Contract.md` |
+| Execution/answer teams, mutating runs, source/write safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` + `docs/phases/CLI_Implementation_Contract.md` |
 | CLI product surface, `alln`, TeamRunJSON | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | Agent surface, `alln bootstrap` activation, help/menu routing (MCP retired 2026-07-16) | Live `alln menu --json` is the selection front door; `alln bootstrap` prints the paste-ready host context; CLI is the only agent surface. Code SSOT: `MenuCatalog.swift`, `Bootstrap.swift`, `HelpTopicRegistry.swift` |
 | Agent front door: `install-cli`, `bootstrap`, live menu selection | Front door V1 complete; there is no intent router — the caller chooses from the live menu. Code SSOT: `InstallCLI.swift`, `Bootstrap.swift`, `TeachingSnippet.swift`, `MenuCatalog.swift` |
@@ -89,7 +90,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Historical MVP Mac app shell, run loop, what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
 | Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |
-| Team lab seat economics, roster ablation, named variants, necessity suite | `docs/phases/Team_Lab_Composition_And_Seat_Economics.md` |
+| Team lab seat economics, roster ablation, named variants, necessity suite | Team Lab is SHUT DOWN (founder, 2026-07-24) — do not resume; built-in Teams ship as-is via `TeamCatalog`/`BuiltInTeams.swift` |
 | Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
 | **Implement one bounded slice (32K agents)** | `docs/phases/sprint/README.md` — one work order only |
 | PM↔dev unattended loop (mechanized copy-paste relay) | `docs/phases/PM_Relay.md` (supersedes the old slice-queue pair team, deleted R-S09) |
@@ -131,7 +132,7 @@ rules: `docs/operations/Execution-Playbook.md` § Commits.
 
 - Founder/user input is intent, not final authority.
 - Projects own repo/folder scope for new work; regular chat in a project is an
-  agent running in the repo root (the Default Team) — `docs/phases/Unified_Run_Model.md`.
+  agent running in the repo root (the Default Team) — code SSOT `RunService.swift`.
 - SwiftUI may render truth; it must not invent durable product truth.
 - Owned SwiftUI state uses Observation; no `ObservableObject`/`@Published` era
   state in app-facing code.

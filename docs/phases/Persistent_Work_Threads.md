@@ -3,7 +3,9 @@
 Status: Parent/router — core thread MLP + CR4 conversation send paths delivered;
 remaining work deferred to routed child docs
 Owner: AllnighterCore + AllnighterEngine + Mac app backend
-Updated: 2026-06-22
+Updated: 2026-07-24 (banned-term sweep: dropped dead `Project_Spine_And_
+  Project_Manager.md` link + retired Project Manager/work-order/dispatch
+  ceremony language, aligned to `Unified_Run_Model.md`)
 
 > **Parent doc:** this page is the router for the work-thread product lane. It
 > records what shipped and which child doc owns the next work. Do not use this
@@ -22,9 +24,10 @@ Updated: 2026-06-22
 > and fast follows 03–04.
 >
 > **Project spine dependency:** threads are no longer the top-level floor for
-> new forward work. [`Project_Spine_And_Project_Manager.md`](Project_Spine_And_Project_Manager.md)
-> owns the durable Project root, `projectId` binding, and Project Manager chat.
-> This doc owns thread/turn behavior inside a Project.
+> new forward work. `Project` (code SSOT `ProjectSpine.swift`) owns the durable
+> root/`projectId` binding, and `RunService.swift` owns the default chat run —
+> there is no separate Project Manager surface (`Unified_Run_Model.md`). This
+> doc owns thread/turn behavior inside a Project.
 
 ## Product Promise
 
@@ -35,9 +38,9 @@ leaving Allnighter or re-explaining yourself.
 
 This phase fixed the missing conversation unit. Allnighter is not just a
 team-run launcher and not a generic chat aggregator. It owns **local work
-threads** that can route each turn to one worker, escalate to the team, turn an
-answer into a work order, dispatch a builder, and review the return. New
-forward work must attach those threads to a Project.
+threads** that can route each turn to one worker, escalate to the team, and
+run a mutating worker directly on the message. New forward work must attach
+those threads to a Project.
 
 ## Decision
 
@@ -52,7 +55,7 @@ see it saved immediately
 see the selected worker running
 leave or continue elsewhere
 get the reply in the same thread
-escalate to team run / work order / dispatch when ready
+escalate to team run / a mutating run when ready
 ```
 
 Mac notifications, token streaming, and observed usage metadata are fast
@@ -63,7 +66,7 @@ core thread primitive.
 
 Build in this order:
 
-1. [`threads/01_Work_Threads_MLP.md`](threads/01_Work_Threads_MLP.md) — **core
+1. [`threads/01_Work_Threads_MLP.md`](../archive/phases/threads/01_Work_Threads_MLP.md) — **core
    MLP built; remaining core-loop gaps still owned here**
    - [x] Persistent thread + turn models.
    - [x] One-worker async chat.
@@ -91,7 +94,7 @@ Build in this order:
      context-packet reference integrity, and the no-raw-save caller gate.
    - Unread and rail controls can now build on this archived gate.
 
-3. [`threads/06_Unread_Message_Light.md`](threads/06_Unread_Message_Light.md)
+3. [`threads/06_Unread_Message_Light.md`](../archive/phases/threads/06_Unread_Message_Light.md)
    — **UNR-S01–S06 + S07 BUILT** (2026-06-17); S08 remains
    - Durable read cursors, Core derivation, store `markRead*`, presenter unread
      buckets, Mac rail indication light, viewport clear, and GUI matrix proof
@@ -109,7 +112,7 @@ Build in this order:
      disabled until explicit unarchive.
    - GUI proof: `docs/qa/gui/home/2026-06-17-th2-rail/`.
 
-5. [`threads/08_Worker_Image_Output_In_Chat.md`](threads/08_Worker_Image_Output_In_Chat.md)
+5. [`threads/08_Worker_Image_Output_In_Chat.md`](../archive/phases/threads/08_Worker_Image_Output_In_Chat.md)
    — **Backend BUILT** (WIO-S00–S03, S05, 2026-06-17); WIO-S04 GUI deferred
    - Chat replies from workers declaring `imageGen` capture the generated
      image via the shared `WorkerImageCapture` contract and commit it as a
@@ -121,7 +124,7 @@ Build in this order:
    - Mac timeline thumbnails for worker bubbles (WIO-S04); CLI/MCP JSON parity
      (`workerAttachmentIds`) shipped in WIO-S05.
 
-6. [`Message_Image_Rendering.md`](Message_Image_Rendering.md) — **Ready for
+6. [`Message_Image_Rendering.md`](../archive/phases/Message_Image_Rendering.md) — **Ready for
    implementation packet** (2026-06-22)
    - Umbrella handoff for image rendering across user attachments, worker image
      replies, Design fan-out boards, and Factory Floor design readers.
@@ -131,7 +134,7 @@ Build in this order:
    - GUI slices render shared timeline attachment chips, worker/user bubble
      images, Design board tile strips, and Floor design mockups.
 
-7. [`threads/02_Notifications.md`](threads/02_Notifications.md) — **BUILT**
+7. [`threads/02_Notifications.md`](../archive/phases/threads/02_Notifications.md) — **BUILT**
    (NOTIF-S01–S05 + UNR-S06, 2026-06-17)
    - Mac local notifications when work lands or needs attention; menu-bar
      live/needs-attention indicator; per-thread mute; debounce and quiet hours
@@ -140,7 +143,7 @@ Build in this order:
    - Mobile push is deferred to
      [`ios/03_iOS_Thread_Read_State_And_Push.md`](ios/03_iOS_Thread_Read_State_And_Push.md).
 
-8. [`threads/03_Mac_Streaming.md`](threads/03_Mac_Streaming.md) — **not started**
+8. [`threads/03_Mac_Streaming.md`](../archive/phases/threads/03_Mac_Streaming.md) — **not started**
    **defer here**
    - Fast follow for live output where the driver/CLI can expose it.
    - May ship Mac-only first.
@@ -164,15 +167,18 @@ Build in this order:
 ## Non-Negotiable Product Rules
 
 - **Chat is the default turn.** The user can brainstorm with one worker before
-  any team run, work order, or dispatch. That worker is still `model + skill`:
-  usually a selected model wearing the default Chat skill.
-- **Project Manager is the default project chat.** Once the Project spine lands,
-  ordinary chat starts as a Project Manager turn inside the selected Project.
-  It can answer without creating a work order.
+  any team run. That worker is still `model + skill`: usually a selected model
+  wearing the default Chat skill.
+- **Default chat is just the Default Team.** Once the Project spine lands,
+  ordinary chat runs the Default Team (one worker + its optional preset) inside
+  the selected Project. There is no separate Project Manager surface or
+  propose/approve step — it can answer or act as the message implies
+  (`Unified_Run_Model.md`, code SSOT `RunService.swift`).
 - **Routing is per turn.** A thread may use Grok, then Claude, then the team,
   then Codex as builder.
-- **Enter never builds.** Hitting Enter sends a chat turn to the resolved default
-  worker. Dispatch is always a named action from an editable work-order preview.
+- **Enter never builds a confirmation step.** Hitting Enter sends a chat turn
+  to the resolved default worker and, if it is mutating, that worker runs —
+  there is no separate dispatch/approval click.
 - **Allnighter thread record is truth.** `thread.json`/`run.json` own durable
   product truth. Derived Markdown transcripts are exports/views. Vendor-native
   sessions may be used later as an optimization, never as durable product truth.

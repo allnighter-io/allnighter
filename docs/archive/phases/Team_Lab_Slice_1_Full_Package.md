@@ -1,18 +1,23 @@
 # Team Lab Slice 1 — Full Package
 
+> **SHUT DOWN — archived un-rebased 2026-07-24.** Founder ruling: the lab is
+> shut down; "we have all the teams we want/need for now." Already superseded
+> for wire format before the shutdown (see below); now archived historical
+> only. Do not resume without a new founder ruling.
+
 > **SUPERSEDED FOR WIRE FORMAT (2026-07-16).** MCP is retired — the MCP wire
 > described in this packet is dead. **`Team_Lab_Run_Factory.md` owns the wire**
 > (CLI-native `alln` only). Any works-test step that requires
 > `alln mcp serve --stdio` is **void**. Keep this packet for historical slice
 > scope, fixtures, and micro-loop intent; do not re-implement MCP transport.
 
-Status: **Active implementation spec** — authoritative execution packet for v1
+Status: **Active implementation spec** — SHUT DOWN, archived historical only (see banner above)
 Owner: Founder + CLI/MCP + Team Quality
 Created: 2026-06-21
 Updated: 2026-06-21
 Depends on: [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md),
-[`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md),
-[`CLI_Product_Spine.md`](CLI_Product_Spine.md),
+[`CLI_Implementation_Contract.md`](../../phases/CLI_Implementation_Contract.md),
+[`CLI_Product_Spine.md`](../../phases/CLI_Product_Spine.md),
 [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md)
 
 Parent packet: [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md) owns the
@@ -740,6 +745,6 @@ nine-seat prompt wins as proof every seat is necessary.
 | --- | --- |
 | Product thesis, inference bans, rubric guidance | [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md) |
 | Execute Slice 1 | **This doc** |
-| CLI contracts / envelopes | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) |
+| CLI contracts / envelopes | [`CLI_Implementation_Contract.md`](../../phases/CLI_Implementation_Contract.md) |
 | Team/skill source truth | [`Team_And_Skill_Catalogs.md`](Team_And_Skill_Catalogs.md) |
 | Bug Hunt → Try Fix chain | [`Try_Fix_Auto_Implement.md`](Try_Fix_Auto_Implement.md) |

@@ -2,8 +2,8 @@ import Foundation
 
 // MARK: - Project Spine contract (PRJ-S00)
 //
-// The durable Core models for Projects (repo binding + readiness), per
-// `docs/phases/Unified_Run_Model.md`. Ceremony types (proposals, gated run plans,
+// The durable Core models for Projects (repo binding + readiness); run truth
+// lives in `RunService.swift`. Ceremony types (proposals, gated run plans,
 // verification) are deleted — runs are `TeamRun` / RunRecord.
 // (PRJ-S01), no engine (PRJ-S08+), no GUI. Public JSON projection (string dates,
 // schemaVersion) lands with the CLI in PRJ-S07. Durable models use `Date` and the

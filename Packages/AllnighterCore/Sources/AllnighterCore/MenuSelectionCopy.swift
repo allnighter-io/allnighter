@@ -126,241 +126,241 @@ public enum MenuSelectionCopy {
 
     private static let actions: [String: Pair] = [
         "run": Pair(
-            useWhen: "Ask one worker or Send-to-team (starts work)",
-            dontUseWhen: "Not for catalog write — teams duplicate/new/edit"
+            useWhen: "Ask a worker or team (starts work)",
+            dontUseWhen: "Not catalog write; teams duplicate/new/edit"
         ),
         "teams duplicate": Pair(
-            useWhen: "Copy shipped team before definition→edit",
-            dontUseWhen: "Not for run; novel manifest → teams new"
+            useWhen: "Copy a shipped team, edit it",
+            dontUseWhen: "Not run; novel manifest, teams new"
         ),
         "teams new": Pair(
             useWhen: "Create novel team from TeamPreset JSON",
             dontUseWhen: "Not for run; shipped variants → teams duplicate"
         ),
         "teams edit": Pair(
-            useWhen: "Replace custom team JSON after dup/new",
-            dontUseWhen: "Not for run; copy → duplicate; first create → new"
+            useWhen: "Replace a custom team's JSON",
+            dontUseWhen: "Not run; copy=duplicate, create=new"
         ),
         "models": Pair(
-            useWhen: "List Bench models (domain catalog view)",
-            dontUseWhen: "Not for selection — prefer `menu`; not for spend — use `run`"
+            useWhen: "List Bench models (catalog view)",
+            dontUseWhen: "Not selection (`menu`) or spend (`run`)"
         ),
     ]
 
     private static let teams: [String: Pair] = [
         "default_chat": Pair(
-            useWhen: "Default chat/build agent in the repo root",
-            dontUseWhen: "Not multi-seat judgment — pick an answer team id"
+            useWhen: "Default repo chat/build agent",
+            dontUseWhen: "Not multi-seat; pick a team"
         ),
         "build_slice": Pair(
-            useWhen: "Mutating slice: edit → proof → deslop → commit",
-            dontUseWhen: "Not for parallel judgment — use an answer team"
+            useWhen: "Edit → proof → deslop → commit",
+            dontUseWhen: "Not judgment; pick an answer team"
         ),
         "code_plan": Pair(
-            useWhen: "Turn a rough idea into an implementable plan",
-            dontUseWhen: "Not for writing code — use team build_slice"
+            useWhen: "A rough idea into a plan",
+            dontUseWhen: "Not code; use build_slice"
         ),
         "code_bug_hunt_min": Pair(
-            useWhen: "Lean bug cause hunt + smallest fix plan",
-            dontUseWhen: "Not for mutating fix — use build_slice after plan"
+            useWhen: "Fastest cause hunt + smallest fix",
+            dontUseWhen: "Not mutating; build_slice"
         ),
         "code_bug_hunt": Pair(
-            useWhen: "Full bug cause hunt: reproduce, owner, fix plan",
-            dontUseWhen: "Not for mutating fix — use build_slice after plan"
+            useWhen: "Cause hunt: reproduce, owner, fix",
+            dontUseWhen: "Not mutating; build_slice"
         ),
         "code_bug_hunt_max": Pair(
-            useWhen: "Escalation bug hunt for seam/state failures",
-            dontUseWhen: "Not for mutating fix — use build_slice after plan"
+            useWhen: "Deep hunt: seam-crossing, hidden state",
+            dontUseWhen: "Not mutating; build_slice"
         ),
         "code_gui_bug_hunt": Pair(
-            useWhen: "Native GUI breakage with rendered proof",
-            dontUseWhen: "Not for non-UI bugs — use code_bug_hunt"
+            useWhen: "GUI breakage with rendered proof",
+            dontUseWhen: "Not non-UI; use code_bug_hunt"
         ),
         "code_security_review": Pair(
-            useWhen: "Privacy/credentials/permissions risk review",
-            dontUseWhen: "Not for implementing fixes — answer team only"
+            useWhen: "Privacy/credentials/permissions",
+            dontUseWhen: "Not implementing; review only"
         ),
         "code_growth_min": Pair(
-            useWhen: "Lean growth read: find the simple wedge",
-            dontUseWhen: "Not for writing code — judgment only"
+            useWhen: "Fast growth: the simple wedge",
+            dontUseWhen: "Judgment, not code"
         ),
         "code_growth": Pair(
-            useWhen: "Multi-model growth: wedge builders will love",
-            dontUseWhen: "Not for writing code — judgment only"
+            useWhen: "Multi-model growth: loved wedge",
+            dontUseWhen: "Judgment, not code"
         ),
         "code_growth_max": Pair(
-            useWhen: "Deep growth + outside signal on what spreads",
-            dontUseWhen: "Not for writing code — judgment only"
+            useWhen: "Deep growth + live trend signal",
+            dontUseWhen: "Judgment, not code"
         ),
         "code_spec_review_min": Pair(
             useWhen: "Lean spec check before you build",
-            dontUseWhen: "Not for implementing — review only"
+            dontUseWhen: "Review only, no edits"
         ),
         "code_spec_review": Pair(
-            useWhen: "Harden a feature/phase spec before build",
-            dontUseWhen: "Not for implementing — review only"
+            useWhen: "Harden a spec before you build",
+            dontUseWhen: "Review only, no edits"
         ),
         "code_spec_review_max": Pair(
-            useWhen: "Full-depth launch/hard-spec blind review",
-            dontUseWhen: "Not for implementing — review only"
+            useWhen: "Deep review: launch/hard specs",
+            dontUseWhen: "Review only, no edits"
         ),
         "code_release_proof": Pair(
-            useWhen: "Prove the owner-visible claim before close",
-            dontUseWhen: "Not for new feature work — proof packet only"
+            useWhen: "Prove the owner-visible claim",
+            dontUseWhen: "Not new work; proof only"
         ),
         "design_design_min": Pair(
-            useWhen: "Quick design take + one mockup direction",
-            dontUseWhen: "Not for shipping code — design craft only"
+            useWhen: "Quick design take, one mockup",
+            dontUseWhen: "Design craft only, no code"
         ),
         "design_design": Pair(
-            useWhen: "Design/redesign a screen with option tradeoffs",
-            dontUseWhen: "Not for shipping code — design craft only"
+            useWhen: "Design a screen; tradeoffs shown",
+            dontUseWhen: "Design craft only, no code"
         ),
         "design_design_max": Pair(
-            useWhen: "Wide design divergence before converging",
-            dontUseWhen: "Not for shipping code — design craft only"
+            useWhen: "Wide divergence before converging",
+            dontUseWhen: "Design craft only, no code"
         ),
         "design_polish": Pair(
-            useWhen: "Polish an existing surface; no semantic change",
-            dontUseWhen: "Not for redesign from scratch — use design_design"
+            useWhen: "Polish a surface, same semantics",
+            dontUseWhen: "Not redesign; design_design"
         ),
         "design_usability_review": Pair(
-            useWhen: "Diagnose confusing/slow/risky UI friction",
-            dontUseWhen: "Not for visual polish alone — use design_polish"
+            useWhen: "Diagnose confusing/slow friction",
+            dontUseWhen: "Not visual polish; design_polish"
         ),
         "copy_core": Pair(
-            useWhen: "Clear persuasive copy options for an offer",
-            dontUseWhen: "Not for landing pages — use copy_landing"
+            useWhen: "Persuasive copy for an offer",
+            dontUseWhen: "Not landing pages; copy_landing"
         ),
         "copy_landing": Pair(
-            useWhen: "Rewrite a landing page so the offer converts",
-            dontUseWhen: "Not for short UI microcopy — use copy_core"
+            useWhen: "Rewrite a landing page to convert",
+            dontUseWhen: "Not short UI copy; copy_core"
         ),
         "signal_outside": Pair(
-            useWhen: "Distill a public post/link into project insight",
-            dontUseWhen: "Not for repo code changes — signal craft only"
+            useWhen: "Distill a link into project insight",
+            dontUseWhen: "Not repo changes; signal only"
         ),
         "signal_what_to_build_next": Pair(
-            useWhen: "Outside scan → next build direction for project",
-            dontUseWhen: "Not for implementing the idea — signal only"
+            useWhen: "Outside scan; next direction",
+            dontUseWhen: "Not implementing; signal only"
         ),
     ]
 
     private static let models: [String: Pair] = [
         "model_fable": Pair(
-            useWhen: "Claude Fable 5 flagship judgment/code seat",
-            dontUseWhen: "Not a team — pass --worker model_fable"
+            useWhen: "Claude Fable 5, flagship judgment seat",
+            dontUseWhen: "No team; --worker model_fable"
         ),
         "model_opus": Pair(
             useWhen: "Claude Opus 5 deep judgment seat",
-            dontUseWhen: "Not a team — pass --worker model_opus"
+            dontUseWhen: "No team; --worker model_opus"
         ),
         "model_sonnet": Pair(
             useWhen: "Claude Sonnet 5 fast review/code seat",
-            dontUseWhen: "Not a team — pass --worker model_sonnet"
+            dontUseWhen: "No team; --worker model_sonnet"
         ),
         "model_chatgpt": Pair(
-            useWhen: "ChatGPT 5.6 Sol via Codex (default Sol)",
-            dontUseWhen: "Not Cursor Sol — that is model_chatgpt_sol"
+            useWhen: "ChatGPT 5.6 Sol, Codex (default)",
+            dontUseWhen: "Not Cursor Sol; model_chatgpt_sol"
         ),
         "model_chatgpt_terra": Pair(
-            useWhen: "ChatGPT 5.6 Terra via Codex (medium seat)",
-            dontUseWhen: "Not Sol — prefer model_chatgpt for Sol"
+            useWhen: "ChatGPT 5.6 Terra, Codex (medium)",
+            dontUseWhen: "Not Sol; use model_chatgpt"
         ),
         "model_chatgpt_54": Pair(
-            useWhen: "ChatGPT 5.4 via Codex (non-Sol)",
-            dontUseWhen: "Not Sol — prefer model_chatgpt for Sol"
+            useWhen: "ChatGPT 5.4, Codex (non-Sol)",
+            dontUseWhen: "Not Sol; use model_chatgpt"
         ),
         "model_chatgpt_54_mini": Pair(
-            useWhen: "ChatGPT 5.4 mini via Codex (lighter)",
-            dontUseWhen: "Not Sol — prefer model_chatgpt for Sol"
+            useWhen: "ChatGPT 5.4 mini, Codex (lighter)",
+            dontUseWhen: "Not Sol; use model_chatgpt"
         ),
         "model_codex_spark": Pair(
-            useWhen: "Codex Spark fast Codex-family seat",
-            dontUseWhen: "Not Sol — prefer model_chatgpt for Sol"
+            useWhen: "Codex Spark, fast Codex seat",
+            dontUseWhen: "Not Sol; use model_chatgpt"
         ),
         "model_grok": Pair(
-            useWhen: "Grok 4.5 web-aware / image-capable seat",
-            dontUseWhen: "Not Cursor Grok — that is model_cursor_grok_45"
+            useWhen: "Grok 4.5, web-aware, images",
+            dontUseWhen: "Not Cursor Grok; model_cursor_grok_45"
         ),
         "model_kimi_k3": Pair(
-            useWhen: "Kimi K3 strong design/code judgment seat",
-            dontUseWhen: "Not a team — pass --worker model_kimi_k3"
+            useWhen: "Kimi K3, strong design/code judgment",
+            dontUseWhen: "No team; --worker model_kimi_k3"
         ),
         "model_composer": Pair(
-            useWhen: "Grok Composer 2.5 Fast (Grok driver)",
-            dontUseWhen: "Not Cursor Composer — model_cursor_composer_25"
+            useWhen: "Grok Composer 2.5 Fast (Grok)",
+            dontUseWhen: "Not Cursor; model_cursor_composer_25"
         ),
         "model_cursor_auto": Pair(
-            useWhen: "Cursor Auto default Cursor Agent seat",
-            dontUseWhen: "Not for pinned model — pick an explicit id"
+            useWhen: "Cursor Auto, default agent",
+            dontUseWhen: "Not pinned; pick an explicit id"
         ),
         "model_cursor_composer_25": Pair(
-            useWhen: "Cursor Composer 2.5 implementation seat",
-            dontUseWhen: "Not Grok Composer — that is model_composer"
+            useWhen: "Cursor Composer 2.5 impl seat",
+            dontUseWhen: "Not Grok Composer; model_composer"
         ),
         "model_cursor_grok_45": Pair(
             useWhen: "Cursor-hosted Grok 4.5 seat",
-            dontUseWhen: "Not native Grok CLI — that is model_grok"
+            dontUseWhen: "Not native Grok CLI; model_grok"
         ),
         "model_chatgpt_sol": Pair(
-            useWhen: "ChatGPT 5.6 Sol via Cursor (paid quota)",
-            dontUseWhen: "Burns Cursor quota — prefer model_chatgpt"
+            useWhen: "ChatGPT 5.6 Sol, Cursor (paid)",
+            dontUseWhen: "Burns Cursor quota; model_chatgpt"
         ),
         "model_cursor_composer_25_fast": Pair(
-            useWhen: "Cursor Composer 2.5 Fast lighter seat",
-            dontUseWhen: "Not full Composer — model_cursor_composer_25"
+            useWhen: "Cursor Composer 2.5 Fast, lighter",
+            dontUseWhen: "Not full; model_cursor_composer_25"
         ),
         "model_gemini": Pair(
-            useWhen: "Gemini 3.6 Flash via Antigravity",
-            dontUseWhen: "Not Pro — that is model_gemini_pro"
+            useWhen: "Gemini 3.6 Flash, Antigravity",
+            dontUseWhen: "Not Pro; model_gemini_pro"
         ),
         "model_gemini_pro": Pair(
-            useWhen: "Gemini 3.1 Pro via Antigravity",
-            dontUseWhen: "Not Flash — that is model_gemini"
+            useWhen: "Gemini 3.1 Pro, Antigravity",
+            dontUseWhen: "Not Flash; model_gemini"
         ),
         "model_agy_sonnet": Pair(
-            useWhen: "Claude Sonnet 4.6 via Antigravity",
-            dontUseWhen: "Not Claude Code Sonnet — model_sonnet"
+            useWhen: "Claude Sonnet 4.6, Antigravity",
+            dontUseWhen: "Not Code Sonnet; model_sonnet"
         ),
         "model_agy_opus": Pair(
-            useWhen: "Claude Opus 4.6 via Antigravity",
-            dontUseWhen: "Not Claude Code Opus — model_opus"
+            useWhen: "Claude Opus 4.6, Antigravity",
+            dontUseWhen: "Not Code Opus; model_opus"
         ),
         "model_agy_gptoss": Pair(
-            useWhen: "GPT-OSS 120B via Antigravity",
-            dontUseWhen: "Not a ChatGPT Sol seat — model_chatgpt"
+            useWhen: "GPT-OSS 120B, Antigravity",
+            dontUseWhen: "Not Sol; model_chatgpt"
         ),
     ]
 
     private static let recipes: [String: Pair] = [
         "ask-several-models-and-compare": Pair(
-            useWhen: "Want parallel options from a multi-seat team",
-            dontUseWhen: "Not one worker — use run --worker for a single ask"
+            useWhen: "Parallel options, multi-seat team",
+            dontUseWhen: "Not one worker; run --worker"
         ),
         "challenge-this-decision-before-i-commit": Pair(
-            useWhen: "Blind-jury a decision/spec before committing",
-            dontUseWhen: "Not for implementing — Spec Review / Panel only"
+            useWhen: "Blind-jury a decision pre-commit",
+            dontUseWhen: "Not implementing; Spec Review"
         ),
         "get-another-model-to-implement-this": Pair(
-            useWhen: "You PM; another model builds under Pilot",
-            dontUseWhen: "Not a single chat ask — that is run --worker"
+            useWhen: "You PM; a model builds (Pilot)",
+            dontUseWhen: "Not single ask; run --worker"
         ),
         "get-sols-take-without-changing-files": Pair(
             useWhen: "Read-only Sol ask; no file changes",
-            dontUseWhen: "Not multi-seat — use run --worker model_chatgpt"
+            dontUseWhen: "Not multi-seat; --worker model_chatgpt"
         ),
         "keep-working-while-im-away": Pair(
-            useWhen: "Unattended PM↔dev relay overnight loop",
-            dontUseWhen: "Not a one-shot run — use pair relay"
+            useWhen: "Unattended PM↔dev relay loop",
+            dontUseWhen: "Not one-shot; use pair relay"
         ),
         "recover-a-run-that-lost-its-terminal": Pair(
-            useWhen: "Monitor/cancel a run after shell is gone",
-            dontUseWhen: "Not for starting new work — use run"
+            useWhen: "Monitor/cancel a run, shell is gone",
+            dontUseWhen: "Not new work; use run"
         ),
         "use-a-specific-model-without-silent-substitution": Pair(
             useWhen: "Pin an exact worker id; no silent swap",
-            dontUseWhen: "Not display-name dispatch — pass canonical id"
+            dontUseWhen: "Not display-name; canonical id"
         ),
     ]
 

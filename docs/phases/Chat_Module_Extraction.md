@@ -15,8 +15,8 @@
 Allnighter's two chat substrates into one warm path along the way.
 **Scope:** the Allnighter chat send path + UI. Team/fan-out is handled separately as `AgentOSTeam`
 (see the AgentOS roadmap), not amputated.
-**Companions:** [`Warm_Single_Lane_Chat.md`](./Warm_Single_Lane_Chat.md) (the warm-worker physics),
-[`Unified_Run_Model.md`](./Unified_Run_Model.md) (the run substrate we are deliberately *not* taking),
+**Companions:** [`Warm_Single_Lane_Chat.md`](../archive/phases/Warm_Single_Lane_Chat.md) (the warm-worker physics),
+code SSOT `RunService.swift` (the run substrate we are deliberately *not* taking),
 [`Persistent_Work_Threads.md`](./Persistent_Work_Threads.md) (the thread model).
 
 ---

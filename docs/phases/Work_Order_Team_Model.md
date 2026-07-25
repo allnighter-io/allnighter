@@ -1,8 +1,14 @@
 # Work Order Team Model
 
+> **Doc title is legacy naming.** "Work Order" as a product ceremony (propose →
+> approve → dispatch → verify, a separate Project Manager identity) was retired
+> by `Unified_Run_Model.md` (code SSOT `RunService.swift`, `RunRecord`); this doc
+> was swept 2026-07-24 to drop that vocabulary from its body. The Source/Bench/
+> Model/Skill/Worker/Team/Lane/Type word list below is still current.
+
 Status: Active language contract for post-MVP specs
 Owner: Founder + Shared Core + Mac
-Updated: 2026-06-19
+Updated: 2026-07-24
 
 ## Purpose
 
@@ -20,7 +26,8 @@ rather than alias it.
 
 ```text
 Project = the local repo/folder floor where work happens
-Project Manager = the default chat/proposal/verification agent inside a Project
+Chat = the default turn inside a Project — a run of the Default Team, no
+        separate propose/approve identity (code SSOT `RunService.swift`)
 Source = how Allnighter reaches a model (internal / setup detail)
 Execution source = one source/driver that owns a mutating execution run
 Bench  = the models the user has available
@@ -38,8 +45,8 @@ TeamPreset = saved lane team definition
 
 | Term | Meaning |
 | --- | --- |
-| **Project** | The durable local repo/folder context where work happens. Projects own the selected root, thread grouping, run/pending/proposal scope, and default Project Manager chat. |
-| **Project Manager** | The default chat identity inside a Project. It can answer, propose, verify, and route approved work, but it is not a separate lane and it does not auto-execute unapproved work. |
+| **Project** | The durable local repo/folder context where work happens. Projects own the selected root, thread grouping, run/pending scope, and the default chat. |
+| **Default chat** | The default turn inside a Project: a run of the Default Team (one worker + its optional preset) in the repo root. It is not a separate surface, service, or identity — colloquially "the chat that knows the repo." There is no propose/approve/verify step; the agent reads and writes as the message implies (code SSOT `RunService.swift`). |
 | **Source** | How Allnighter reaches a model: Claude Code, Codex CLI, Gemini CLI, Grok, a local runtime. Mostly setup/internal language. |
 | **Execution source** | The single source/driver that owns a mutating or `execute` posture run. Judgment teams may mix sources; execution teams must resolve to one execution source before any worker spawns. |
 | **Bench** | The user's available models. |
@@ -83,18 +90,18 @@ readiness contract, working directory, and mutating execution owner.
 Rules:
 
 - Mixed-source judgment teams may return plans, options, review findings,
-  Insights, work-order drafts, and proof recommendations.
+  Insights, and proof recommendations.
 - Mixed-source judgment teams must not write Project files, change external
-  state, or dispatch mutating subprocess work.
+  state, or start mutating subprocess work.
 - Mutating/`execute` teams are rejected before spawn when resolved workers cross
   sources.
 - Allnighter must not silently pick the first ready source, flip the team to
-  non-mutating, create hidden isolated workspaces, or dispatch multiple CLIs and
+  non-mutating, create hidden isolated workspaces, or start multiple CLIs and
   call that one execution team.
 - Built-in execution teams are source-scoped variants; custom execution teams
   cannot save when worker rows resolve across multiple sources.
-- Work Orders that mutate name one execution owner (`targetSourceId`,
-  `targetAgent`, `targetWorkerId`, and/or `executionTeamId` as applicable).
+- Mutating runs name one execution owner (`targetSourceId`, `targetAgent`,
+  `targetWorkerId`, and/or `executionTeamId` as applicable).
 - The shared blocker is `EXECUTION_TEAM_MIXED_SOURCES`.
 
 The historical implementation phase and proof are archived at
@@ -166,17 +173,22 @@ language. The chip can display `Opus / Chat` or a friendlier equivalent. The
 implementation may keep legacy `WorkerChatCoordinator` until the rename slice,
 but the durable product truth is still model + skill -> worker.
 
-## Send Modes
+## Send
 
-The product primitive is send. Chat, Ask Team, Work Order, Dispatch, and Execute
-are send modes with different payloads and workers.
+There is one send primitive: a run is a message + optional preset + worker
+selection, executed in the repo root (code SSOT `RunService.run`; see
+`RunRecord`/`TeamRunJSON`). There is no separate "Chat mode" or "Execute mode",
+and no propose/approve/dispatch/verify ceremony between the message and the
+run — read vs write is the agent's call, not a user toggle.
 
 Rules:
 
-- Enter sends chat to the resolved worker. Enter never builds.
-- Dispatch/Execute is explicit because the user chooses that send mode from an
-  editable work order. Do not add a second confirmation ceremony.
-- Reveal-only is another send mode: write/show the exact handoff without
+- Enter sends the message to the resolved worker. Enter never builds a
+  separate confirmation step.
+- A mutating (execute) team resolves to one worker and runs; it is never
+  silently converted to research/dry-run output, and it is never gated behind
+  a second confirmation ceremony.
+- Reveal-only is another send shape: write/show the exact handoff without
   invoking the worker.
 - Safety belongs in prerequisites and honest labels: trusted device/client,
   working directory, Doctor/admission state, permission posture, and visible
@@ -345,8 +357,9 @@ Copy lane.
 - Public JSON and CLI output must follow the same model. Use `models`, `workers`,
   `teamRun`, `workerAnswers`, `stages`, and `plan`; do not leak legacy run words
   into new machine-readable contracts.
-- Work-order CLI commands (`alln work`, later `alln work from latest`) create or
-  link thread turns. They must not introduce a parallel work-order store.
+- The CLI has one run entrypoint, `alln run` (message + optional preset +
+  worker, against a project root). There is no parallel work-order store or
+  ceremony verb set.
 
 ## Designer Handoff
 

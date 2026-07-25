@@ -1,6 +1,12 @@
 # Team Lab — Composition, Seat Economics, and Named Teams
 
-Status: **Active implementation spec** — mentor review incorporated; ready for LAB-C00+
+> **SHUT DOWN — archived un-rebased 2026-07-24.** Founder ruling: the lab is
+> shut down; "we have all the teams we want/need for now." Archived as-is
+> (dependency of `Team_Lab_Run_Factory.md`, whose scripts still reference the
+> dead `code_bug_hunt_lite` team). Do not resume without a new founder ruling.
+> The naming-only rename record survives in `Team_Depth_Naming.md`.
+
+Status: **Active implementation spec** — SHUT DOWN, archived un-rebased (see banner above)
 Owner: Founder + Team Quality + CLI/MCP
 Updated: 2026-06-23
 Depends on: [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md),
@@ -287,7 +293,7 @@ No **REMOVE** from prompt-tuning suite evidence.
 ## Named Team Variants
 
 > **Naming superseded (2026-07-16):** body vocabulary below follows
-> [`Team_Depth_Naming.md`](Team_Depth_Naming.md) — **Min / (bare name) / Max**.
+> [`Team_Depth_Naming.md`](../../phases/Team_Depth_Naming.md) — **Min / (bare name) / Max**.
 > Historical rename record only: old Lite roster → bare default "Bug Hunt"
 > (`code_bug_hunt`); old Forensics roster → "Bug Hunt Max" (`code_bug_hunt_max`).
 > Nothing may ship "default → Min." **Min is always an explicit user choice.**
@@ -553,8 +559,8 @@ python3 scripts/team_lab/compose.py ... --compare-genesis
 - [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md) — factory thesis; micro deliverable audit rule preserved.
 - [`Team_Lab_Slice_1_Full_Package.md`](Team_Lab_Slice_1_Full_Package.md) — Slice 10 = LAB-C*.
 - [`Try_Fix_Auto_Implement.md`](Try_Fix_Auto_Implement.md) — Max escalation after failed auto-fix.
-- [`docs/archive/phases/Team_Catalog.md`](../archive/phases/Team_Catalog.md) — historical Lite/Med/High seat gating (rename-record only); lab uses named overlays instead.
-- [`Team_Depth_Naming.md`](Team_Depth_Naming.md) — Min / bare / Max law; no default → Min.
+- [`Team_Catalog.md`](Team_Catalog.md) — historical Lite/Med/High seat gating (rename-record only); lab uses named overlays instead.
+- [`Team_Depth_Naming.md`](../../phases/Team_Depth_Naming.md) — Min / bare / Max law; no default → Min.
 
 ## Routing
 

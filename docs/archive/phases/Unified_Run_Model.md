@@ -8,8 +8,14 @@
 > `scripts/check_architecture_policy.sh` — the gate, not this banner, is the
 > source of truth.
 
-Status: **In progress — unblocked 2026-07-24.** Remaining work is this document's
-own "Done when" list.
+Status: **CLOSED — archived 2026-07-24.** The deletion manifest is executed
+(`WorkOrder`/`ProjectProposal`/`VerificationRecord`/`ProjectManagerTurn`/
+`TeamPosture` confirmed gone from code) and the banned-term sweep over active
+code+docs came back clean. Code is SSOT: `RunService.swift` (the one run
+owner), `TeamPreset`/`TeamCatalog`, `RunWriteLockRegistry`; enforcement stays
+live in `config/architecture-policy.json` + `scripts/check_architecture_policy.sh`.
+This doc is the historical design record — do not reopen without a new
+founder ruling.
 
 This model replaces the old Project Manager surface, work-order/proposal loop,
 three-mode composer, and user-facing execution lane. It is not a refinement of

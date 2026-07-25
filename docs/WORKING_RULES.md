@@ -2,11 +2,14 @@
 
 ## Positioning
 
-Allnighter is a **local-first agent factory and Project Manager** for
-terminal-based AI coding tools. Projects are the floor: local repo/folder scope
-plus threads, runs, approvals, and proof. Lead with parallel safe lanes,
-team-driven planning, and native Mac + iOS delight — not with model/provider
-choice.
+Allnighter is a **local-first agent factory** for terminal-based AI coding
+tools. There is no separate "Project Manager" surface — "where are we / what's
+next" is just chat, an agent running with full repo access
+(`docs/phases/Unified_Run_Model.md`). Projects are the floor: local repo/folder
+scope plus threads, runs, approvals, and proof. Lead with parallel safe lanes,
+team-driven planning, and native Mac delight — not with model/provider choice.
+iOS is a parked future remote surface, not current scope
+(`docs/phases/ios/README.md`).
 
 ## Product Boundary
 
@@ -16,9 +19,14 @@ does **not** own the agents themselves, model APIs, or agent reasoning.
 In scope:
 
 - spawn/manage CLI agent sessions and team runs;
-- lane/worktree isolation for parallel work;
-- Mac command center + iOS remote over Tailscale;
-- BYOK key storage on Mac;
+- one mutating worker per project root under a write lock; answer-team
+  workers run in parallel, observationally, in that same registered repo.
+  Worktree/mirror/clone isolation is retired, not an alternate mode
+  (`docs/phases/Unified_Run_Model.md`, enforced by
+  `config/architecture-policy.json`);
+- Mac command center (iOS remote is a parked future surface, not current
+  scope — `docs/phases/ios/README.md`);
+- the user's existing CLI subscriptions/logins only — never API keys/BYOK;
 - pairing, run persistence, review and kill-switch controls.
 
 Out of product core (v1):
@@ -42,8 +50,9 @@ Must ship for first testers (Team slice — see `docs/mvp/README.md`):
 
 Deferred from v1 (documented in `docs/phases/`):
 
-- full lane factory and worktree automation;
-- iOS remote Project Manager (`docs/phases/ios/`);
+- worktree/mirror automation for parallel lanes — retired, not deferred
+  (`docs/phases/Unified_Run_Model.md`, `config/architecture-policy.json`);
+- iOS remote surface (`docs/phases/ios/README.md`) — parked, foundation-only;
 - push notifications and Live Activities;
 - preference ledger and taste memory;
 - local model workers.
@@ -52,16 +61,19 @@ Deferred from v1 (documented in `docs/phases/`):
 
 **macOS app**
 
-- Unsandboxed by design for process control and git/worktree operations.
+- Unsandboxed by design for process control and git operations.
 - Distributed via notarized DMG/PKG (Developer ID).
 - Menu-bar / status-item first; dashboard window optional.
-- Local HTTP/WebSocket server is the API truth surface for iOS.
 
-**iOS app**
+**iOS app — parked, not current scope (`docs/phases/ios/README.md`)**
 
-- Sandbox App Store app.
-- Connects only to user's Mac app over Tailscale.
-- No durable run truth on device; Mac is source of record.
+- Foundation prep may start; product UI is deferred and must not block macOS
+  delivery.
+- When built: cloud-first by default (Mac dials out to a blind relay), with
+  Tailscale "Direct Mode" as an optional opt-in P2P path — not the other way
+  around.
+- No durable run truth on device; Mac is source of record and final
+  authorizer.
 
 **Shared package**
 
@@ -82,9 +94,12 @@ lives in the orchestration layer.
 
 ## Security Boundary
 
-- API keys never leave the Mac Keychain for iOS use; iOS sends commands, Mac executes.
-- Pairing tokens are short-lived; device identity is explicit.
-- Tailscale private tailnet is the preferred transport; document fallback behavior.
+- Allnighter never stores or requests API keys; it uses the user's existing
+  CLI subscriptions/logins only, never BYOK (`docs/phases/README.md`
+  Post-MVP Product Laws). Each vendor CLI keeps its own login in the macOS
+  Keychain; Allnighter never reads or copies those credentials.
+- iOS (parked) sends typed commands only; Mac executes and is the final
+  authorizer. Pairing tokens are short-lived; device identity is explicit.
 - Full Disk Access and other permissions require first-run wizard copy explaining why.
 
 ## Validation Boundary
@@ -101,8 +116,9 @@ During bootstrap, explicitly name missing validation before accepting risk.
 
 SwiftUI and the CLI render work shape from `AllnighterCore` types. Core types
 **do not** compute pre-run cost, time, token, or quota forecasts. If a line of
-code implies we know the future before a run completes, delete it. See
-`docs/archive/phases/Estimate_Cleanup_And_Effort_Dial.md`.
+code implies we know the future before a run completes, delete it (Post-MVP
+Product Law, `docs/phases/README.md`; see `CapacityClassifierTests` and
+`TeamRunJSON`'s observed-only usage fields for the enforced shape).
 
 ## Communication Rule
 
