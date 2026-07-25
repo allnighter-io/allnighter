@@ -860,7 +860,7 @@ public enum ProcessOwnership {
     /// Test hook: when set, `sampleProcessGroupActivity` delegates here.
     nonisolated(unsafe) public static var processGroupActivitySampleHook: ((Int32) -> ProcessGroupActivitySnapshot)?
 
-    /// Enumerate live members and CPU/IO counters under the recorded `pgid`.
+    /// Enumerate live members and CPU counters under the recorded `pgid`.
     public static func sampleProcessGroupActivity(pgid: Int32) -> ProcessGroupActivitySnapshot {
         if let hook = processGroupActivitySampleHook {
             return hook(pgid)
@@ -878,7 +878,7 @@ public enum ProcessOwnership {
         )
     }
 
-    /// True when `current` shows new children or increased CPU/IO vs `previous`.
+    /// True when `current` shows new children or increased CPU vs `previous`.
     /// The first sample (`previous == nil`) never counts as activity.
     public static func processGroupActivityDetected(
         since previous: ProcessGroupActivitySnapshot?,

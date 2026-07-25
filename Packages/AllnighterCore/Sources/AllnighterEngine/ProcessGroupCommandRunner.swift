@@ -19,7 +19,7 @@ import AllnighterCore
 /// `lastProgressAt` (spawn / stdout·stderr bytes / exit, plus any external
 /// `recordProgress` into the turn directory), not output silence. **IDLE-HF-S02:**
 /// while the owned worker runs, the stall loop also samples the recorded pgid for
-/// attributable child spawn / CPU / IO — never repo/cwd filesystem mtimes (parallel
+/// attributable child spawn / CPU — never repo/cwd filesystem mtimes (parallel
 /// Teams share the repo root). Stall budget is still the `timeout` argument (same
 /// configurable knob as before; default still comes from the caller / manifest —
 /// this runner does not change it).
