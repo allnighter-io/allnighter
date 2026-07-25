@@ -65,6 +65,44 @@ final class SandboxHandoffTests: XCTestCase {
     }
 
     /// Two hosts may watch the same mailbox; a request must run exactly once.
+    /// The bug this packet exists for: a request the host claims but cannot start
+    /// used to vanish — no journal, no error — leaving the caller to time out and
+    /// be told, falsely, that nothing had picked it up. A refusal is an answer.
+    func testARefusedRequestStillLeavesAReadableTerminalRun() async throws {
+        let repo = tmp.appendingPathComponent("repo", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        HandoffLog.fileURL = tmp.appendingPathComponent("handoff.log", isDirectory: false)
+        defer { HandoffLog.fileURL = nil }
+
+        // A worker id no bench can resolve: RunService refuses BEFORE minting a run,
+        // which is the exact class that used to evaporate.
+        let runId = "handoff-refused-1"
+        try box.enqueue(.init(runId: runId, message: "do the thing", repoRoot: repo.path,
+                              workerId: "model_does_not_exist"))
+
+        let settled = await SandboxHandoffRunner(
+            spool: box, runService: makeService(runStore: runStore),
+            runStore: runStore, owner: "test").drainOnce()
+
+        XCTAssertEqual(settled, [runId], "a refusal is still a settled request")
+        XCTAssertTrue(try box.unclaimed().isEmpty, "a refused request leaves the mailbox")
+
+        let run: TeamRun = try XCTUnwrap(
+            runStore.load(runId: runId), "the caller polls this id — it must exist")
+        XCTAssertEqual(run.status, .failed)
+        XCTAssertTrue(run.status.isTerminal, "a waiting caller only stops on a terminal status")
+        XCTAssertFalse(run.warnings.isEmpty, "the refusal must carry its reason, not just a status")
+        XCTAssertTrue(
+            run.warnings.contains { $0.contains("model_does_not_exist") },
+            "the reason must name the actual problem, got: \(run.warnings)")
+
+        let log = try String(contentsOf: XCTUnwrap(HandoffLog.fileURL), encoding: .utf8)
+        XCTAssertTrue(log.contains("claimed run=\(runId)"), "the host must record the claim")
+        XCTAssertTrue(log.contains("refused run=\(runId)"), "the host must record the refusal")
+    }
+
     func testARequestIsClaimedExactlyOnce() throws {
         let box = spool()
         let request = try box.enqueue(.init(runId: "r1", message: "m", repoRoot: "/tmp/x"))

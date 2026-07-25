@@ -269,8 +269,17 @@ enum RunCLI {
             let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
             print(AllnighterCLI.jsonString(trj))
         } else {
-            print(AllnighterCLI.humanAnswer(for: run, models: runtime.models, manifests: runtime.registry.all)
-                  ?? "(run \(run.status.rawValue))")
+            // A run that never produced an answer still has something to say — a
+            // refused hand-off carries its reason in `warnings`. Printing only
+            // "(run failed)" here is how a real, specific error became silence.
+            let answer = AllnighterCLI.humanAnswer(for: run, models: runtime.models, manifests: runtime.registry.all)
+            if let answer, !answer.isEmpty {
+                print(answer)
+            } else if !run.warnings.isEmpty {
+                print(run.warnings.joined(separator: "\n"))
+            } else {
+                print("(run \(run.status.rawValue))")
+            }
             FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
         }
     }

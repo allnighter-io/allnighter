@@ -158,7 +158,7 @@ trail.** That is the argument for S1 before everything else.
 
 Resequenced on review. Each slice makes the next debuggable.
 
-### S1 — never discard a failed start, and print the id *(C1, C6)*
+### S1 — never discard a failed start, and print the id *(C1, C6)* — **SHIPPED**
 
 On `.failure`, write a terminal failed `TeamRun` under `request.runId` carrying
 the real `RunServiceError`, then remove the request. Print `handoffRunId` to
@@ -174,6 +174,17 @@ for free by naming the blocked reason.
 
 *Accept:* a request whose team cannot resolve produces a readable failed run with
 the error text, within one poll interval. The run id is printed before the wait.
+
+**Done 2026-07-24.** `drainOnce` writes a terminal failed `TeamRun` under
+`request.runId` carrying the real `RunServiceError`; the caller prints the id at
+enqueue and points at `alln show <id> --json`; `alln show` and `alln run` both
+surface `warnings` when a run has no answer (they printed `(run failed)` before,
+which is how a specific error became silence). Enqueue failure is no longer
+silent either. Live proof: the probe-F case — an unresolvable team, which used to
+vanish entirely — now returns
+`DEFAULT_TEAM_INVALID: unknown team 'zzz_no_such_team' …` through the ordinary
+journal. The new test was confirmed to FAIL against the old discard before being
+accepted.
 
 ### S2 — an honest, unbounded wait *(C2, and the old H2+H6 merged)*
 

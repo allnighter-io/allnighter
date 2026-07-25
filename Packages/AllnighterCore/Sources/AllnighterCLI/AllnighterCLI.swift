@@ -1498,6 +1498,11 @@ struct AllnighterCLI {
                 for: run, models: runtime.models, manifests: runtime.registry.all
             ) {
                 print("\n\(answer)")
+            } else if !run.warnings.isEmpty {
+                // A run with no answer is not a run with nothing to say: a refused
+                // hand-off carries its reason here, and this is the command the
+                // hand-off tells the caller to come back to.
+                print("\n\(run.warnings.joined(separator: "\n"))")
             }
         }
     }

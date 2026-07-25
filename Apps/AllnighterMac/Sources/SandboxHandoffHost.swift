@@ -25,6 +25,9 @@ final class SandboxHandoffHost {
         task = Task.detached(priority: .utility) {
             let configuration = AppConfig.loadConfiguration()
             let invocations = AppSetupModel.invocations(from: SetupStore().load().records)
+            HandoffLog.event(
+                "host started pid=\(ProcessInfo.processInfo.processIdentifier) "
+                + "models=\(configuration.models.count) invocations=\(invocations.count)")
             let runner = SandboxHandoffRunner(
                 runService: RunService(
                     models: configuration.models,
@@ -35,6 +38,7 @@ final class SandboxHandoffHost {
                 owner: "mac-app"
             )
             await runner.run { Task.isCancelled }
+            HandoffLog.event("host stopped pid=\(ProcessInfo.processInfo.processIdentifier)")
         }
     }
 

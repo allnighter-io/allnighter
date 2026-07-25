@@ -10,29 +10,35 @@ import AllnighterCore
 public struct SandboxHandoffRunner: Sendable {
     public var spool: SandboxHandoffSpool
     public var runService: RunService
+    public var runStore: RunStore
     public var owner: String
     public var pollSeconds: TimeInterval
 
     public init(
         spool: SandboxHandoffSpool = SandboxHandoffSpool(),
         runService: RunService,
+        runStore: RunStore = RunStore(),
         owner: String = "mac-app",
         pollSeconds: TimeInterval = 2
     ) {
         self.spool = spool
         self.runService = runService
+        self.runStore = runStore
         self.owner = owner
         self.pollSeconds = pollSeconds
     }
 
-    /// Claims and runs everything currently waiting. Returns the run ids it
-    /// started, so a caller (or a test) can assert what happened.
+    /// Claims and runs everything currently waiting. Returns the run ids that now
+    /// have a TERMINAL journal the waiting caller can read — successes and
+    /// refusals alike, because a caller cannot tell those apart from silence.
     @discardableResult
     public func drainOnce() async -> [String] {
         guard let waiting = try? spool.unclaimed(), !waiting.isEmpty else { return [] }
-        var started: [String] = []
+        var settled: [String] = []
         for request in waiting {
             guard let claimed = try? spool.claim(id: request.id, by: owner), claimed != nil else { continue }
+            HandoffLog.event(
+                "claimed run=\(request.runId) team=\(request.presetId ?? "-") root=\(request.repoRoot) by=\(owner)")
             let result = await runService.run(
                 RunRequest(
                     message: request.message,
@@ -43,12 +49,46 @@ public struct SandboxHandoffRunner: Sendable {
                 origin: .cli,
                 runId: request.runId
             )
-            // The journal is the record either way — a failed run is still an
-            // answer the waiting caller must be able to read.
-            if case .success = result { started.append(request.runId) }
+            switch result {
+            case .success(let run):
+                HandoffLog.event("settled run=\(request.runId) status=\(run.status.rawValue)")
+            case .failure(let error):
+                // A run that never started still owes the waiting caller an answer.
+                // Without this the request evaporates: no journal, no error, and a
+                // caller that cannot distinguish "refused" from "nobody listening".
+                record(refusal: error, for: request)
+            }
+            settled.append(request.runId)
             spool.remove(id: request.id)
         }
-        return started
+        return settled
+    }
+
+    /// Writes the refusal into the ordinary run journal under the id the caller is
+    /// already polling, so it comes back through the same renderer as any other
+    /// finished run. The failure text is the `RunServiceError`'s own words — this
+    /// layer invents no diagnosis of its own.
+    private func record(refusal error: RunServiceError, for request: SandboxHandoffSpool.Request) {
+        let run = TeamRun(
+            id: request.runId,
+            prompt: request.message,
+            status: .failed,
+            origin: .cli,
+            presetId: request.presetId,
+            createdAt: Date(),
+            warnings: ["\(error.code): \(error.description)"],
+            repoRoot: request.repoRoot,
+            endReason: .failed
+        )
+        do {
+            _ = try runStore.save(run, models: [])
+            HandoffLog.event("refused run=\(request.runId) code=\(error.code) reason=\(error.description)")
+        } catch let writeError {
+            // Nothing left to tell the caller with; say so where it can still be read.
+            HandoffLog.event(
+                "refused run=\(request.runId) code=\(error.code) "
+                + "AND the journal write failed: \(writeError)")
+        }
     }
 
     /// Watches the mailbox until cancelled. Cheap: a directory listing per tick.

@@ -63,11 +63,23 @@ enum SandboxHandoff {
                 presetId: request.presetId,
                 workerId: request.workerId))
         } catch {
-            return nil   // Cannot reach the mailbox — fall through to the advice.
+            // Falling through to the advice is right, but doing it silently made a
+            // broken mailbox look identical to "this was never a sandbox failure".
+            FileHandle.standardError.write(Data(
+                "[Allnighter could not reach its hand-off mailbox: \(error.localizedDescription)]\n".utf8))
+            return nil
         }
 
-        FileHandle.standardError.write(Data(
-            "[Allnighter is running this in the app — your terminal can't sign in to your AI tools]\n".utf8))
+        // Say only what has actually happened: the request is in the mailbox. Whether
+        // anything picks it up is not known yet, and claiming otherwise here is what
+        // put "Allnighter is running this in the app" in front of a founder while
+        // nothing was running it at all.
+        FileHandle.standardError.write(Data("""
+        [Your terminal can't sign in to your AI tools, so Allnighter handed this to the app.
+         Run id: \(handoffRunId) — if this terminal goes away, read it later with:
+             alln show \(handoffRunId) --json]
+
+        """.utf8))
 
         let deadline = clock().addingTimeInterval(waitSeconds)
         while clock() < deadline {

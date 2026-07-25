@@ -88,6 +88,12 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Lanes", isDirectory: true)
     }
 
+    /// `…/Allnighter/Logs/` — plain-text operational logs a founder can read
+    /// without Console (today: the sandbox hand-off lifecycle).
+    public static var logs: URL {
+        support.appendingPathComponent("Logs", isDirectory: true)
+    }
+
     /// `…/Allnighter/Catalogs/` — custom team and skill definitions.
     public static var catalogs: URL {
         support.appendingPathComponent("Catalogs", isDirectory: true)
