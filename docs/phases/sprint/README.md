@@ -45,6 +45,14 @@ Sprint work orders moved to
 SSOT: archived [`Menu_Not_Router.md`](../../archive/phases/Menu_Not_Router.md).
 
 
+### Team Run Receipt (TRR)
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| 1 | [TRR-S01 — artifact CLI](team-run-receipt/TRR-S01-artifact-cli.md) | **ready** |
+
+SSOT: `docs/phases/Team_Run_Receipt.md`. Follow-on WOs (S01b/S01c/S03/S00) authored after S01 lands.
+
 ### OpenCode driver (OC-S01)
 
 | Order | Doc | Status |
