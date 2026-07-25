@@ -1,22 +1,27 @@
 # Team Run Receipt — gorgeous private report, deliberate share
 
-Status: **Draft feature packet — reshaped 2026-07-25 after Growth Min
-(Cursor+K3).** Not started. Not a pivot; presentation of truth alln already
-produces. Near-term scope is ~¼ of the first draft: a screenshot-native
+Status: **Draft feature packet — Spec-Review hardened 2026-07-25
+(EC1DCCAF…).** Not Ready for Implementation until §Blockers before TRR-S01
+are closed. Near-term scope is ~¼ of the first draft: a screenshot-native
 **decision card** first; signing/hosted-link/Buzz slices cut or unscheduled.
 Owner: AllnighterCore (receipt projector) + CLI first; Mac Factory Floor as
-existing reader to reuse/project from.
-Updated: 2026-07-25 (post Growth Min E900A4BC…)
+existing deep reader (not the card owner).
+Updated: 2026-07-25 (post Spec Review Min EC1DCCAF…)
 Companions:
-- Mac reader already exists: `FactoryFloorView` / `docs/phases/Live_Team_Board.md`
-  (Factory Floor = full team result; thread keeps a compact receipt)
+- Mac deep reader: `FactoryFloorView` / `docs/phases/Live_Team_Board.md`
+  (Factory Floor = full team result; thread keeps a compact cockpit receipt →
+  Open Floor; **decision card is a third surface** — see §Surface ownership)
+- Design authority for beauty-first HTML: `docs/design-system/production.md`
+  + `docs/design-system/tokens/*.css` (CSS tokens are canonical; see
+  §Design authority) + `docs/gui/GUI_Workflow.md`
 - Growth note: `docs/marketing/Growth_Playbook.md` §Shareable run receipts +
   §2 receipt series
 - Adjacent Buzz spike (optional room test **after** card exists; firm/plural-
   member framing retired):  
   `docs/phases/Buzz_Harness_Spike.md` +  
   `docs/strategy/Buzz_And_The_Judgment_Layer.md`
-
+- Disagreement / co-attribution fields (NOT AUTHORIZED): `Contradiction_Pass.md`
+  — do not treat as a near-term card schema source
 ## Founder intent (unchanged core)
 
 CLI-first users finish a team run and never see the gorgeous multi-seat result
@@ -39,40 +44,73 @@ Framing that can spread: **“Show the decision your AI team changed,”** not
 | **Verification = `reproduceCommand`, not cryptography** | Already on `TeamRunJSON`; “run this yourself” beats “trust my signature” for builders; deletes key-management slice |
 | **Attestation = honesty string, not TRR-S02** | “alln-attested multi-seat receipt” as copy; no verify UI in v1 |
 | **Pre-launch customer = founder’s receipt series** | Growth Playbook §2; user share loop inherits the same artifact later |
-| **Measure before renderer (TRR-S00)** | If real runs lack disagreement / dodged-bullet stories, kill the growth thesis before a sprint |
+| **Measure before renderer (TRR-S00)** | If real runs lack disagreement / dodged-bullet stories, **kill the growth thesis** before a sprint — not the product card (see §Two theses) |
 | **Cut S02 / S04 / S05 as numbered slices** | Signing infra, hosted ACL links, Buzz/Slack — gravitational pull without near-term pull |
 | **Defer file export (old S03)** | Build when an outsider asks for the file; founder screenshots locally until then |
 | **Hero-optimize Spec Review + Growth cards first** | “One report family” stays as one projector; equal visual priority across every team kills the post |
 
+## Two theses (do not conflate)
+
+| Thesis | Claim | Kill condition |
+| --- | --- | --- |
+| **Growth** | Timeline posts of disagreement / changed-decision cards drive awareness | S00 finds fewer than 1 stranger-worthy story in last N multi-seat hero runs → **kill growth series / share ambition**, keep measuring later |
+| **Product** | CLI users deserve a local felt-finish poster after a team run, even when seats agree | Only kill if hand-cards feel worthless as finish (not “no drama”) |
+
+**Ruling (Spec Review):** TRR-S00’s “kill if 4-of-4 agree” overclaims when read as
+killing the feature. Seats agreeing is still a legitimate team outcome; a lean
+local card remains product-valuable. S00 may kill **growth packaging and
+sprint priority**, not the private decision-card product path.
+
 ## Product value (revised)
 
-- **Felt finish for team runs.** Card at `alln team open` — recognition, not
+- **Felt finish for team runs.** Card via CLI open path — recognition, not
   novelty (“this is what I’ve been screenshotting tmux for”).
 - **Founder content engine now.** Hand-then-auto cards for the X receipt
-  series; compounds before launch.
+  series; compounds before launch — **only if S00 growth gate is green**.
 - **Later: user share without privacy foot-guns.** Deliberate only; private
   default; card is structurally lean (no full prompts/bodies above the fold).
-- **Install path in the proof line.** Footer prints `reproduceCommand`.
+- **Replay path in the proof line.** Footer prints `reproduceCommand` (replays
+  a run for someone who already has alln + vendor CLIs — it does **not**
+  install Allnighter).
 
-Expected lift (revised): large on “this feels finished” **if** cards have a
-story (disagreement / changed decision); **binary** on share/retention
-depending on whether the artifact is timeline-native; ~zero on the judgment
-engine. “Medium on retention/share” from the first draft was overstated.
+Expected lift (revised): large on “this feels finished” **if** cards are legible;
+**binary** on share/retention depending on timeline-native story artifacts;
+~zero on the judgment engine. “Medium on retention/share” from the first draft
+was overstated.
 
-## Trusted workflow slice (v1)
+## Surface ownership (resolves Floor / thread collision)
+
+Three surfaces; one run truth. Do not call all three “the receipt” in teaching
+copy without a qualifier.
+
+| Surface | Owns | Does not own |
+| --- | --- | --- |
+| **Run truth** | `TeamRun` / `TeamRunJSON` | Presentation |
+| **Factory Floor** (`FactoryFloorView`, `alln floor show`) | Full inspectable result — cast rail, full seat bodies, synthesis | Screenshot poster; viral above-the-fold |
+| **Thread compact card** (Live Team Board terminal) | Live cockpit + counts + **Open Floor** | Full bodies; decision-card layout |
+| **Decision card** (this packet) | Lean poster projection for OS screenshot / founder series | New run facts; Floor replacement |
+| **`alln team result`** | Terminal structured truth dump | Gorgeous poster |
+| **`alln export <id> --format md`** | Shipped portable markdown (already in run `nextActions`) | Branded/styled decision-card export (old S03 → re-scoped) |
+| **`alln spec …` summary paths** | Spec-oriented projections where they exist | Decision-card layout |
+
+Companions stay authoritative: Live_Team_Board §Done When — terminal thread
+keeps compact receipt → Floor. This packet adds a **CLI-first poster**, not a
+second Floor and not a richer thread dump.
+## Trusted workflow slice (v1 — terminal only)
 
 ```text
-alln run … completes
-  -> Team Run Receipt card available locally (private; no network)
-  -> CLI prints path / hints `alln team open <run-id>`
-  -> card shows: question one-liner, seat chips + one-line verdicts + timings,
-     team call / dodged bullet as headline, honesty string, reproduceCommand
+alln run … completes (terminal TeamRunJSON exists)
+  -> DecisionCard projector derives lean fields from TeamRunJSON only
+  -> CLI open verb writes/opens local card (private; no network)
+  -> card shows: question line, seat chips + sourced one-liners + timings,
+     team call line, honesty string, reproduceCommand
   -> user screenshots with the OS (founder series; later anyone)
   -> (later, only if asked) deliberate file export or private hosted link
 ```
 
-Full Factory Floor (cast rail, full seat bodies) remains the deep reader; the
-card is the above-the-fold poster, not a replacement for the floor.
+**Out of v1:** progressive “gorgeous at early paint” while seats fill — that
+needs live events and is a separate slice (deferred). Dry-run `seats[]` is not
+on `TeamRunJSON`; do not invent a live card from dry-run alone.
 
 ## Non-goals
 
@@ -89,17 +127,24 @@ card is the above-the-fold poster, not a replacement for the floor.
 - **Not PDF.**
 - **Not hosted ACL/expiry (old S04) or Buzz/Slack slice (old S05) until
   evidence demands them.**
+- **Not auto-detecting “dodged bullet” / disagreement as card schema fields**
+  unless a sourced contract field exists — S00 may *annotate* hand cards;
+  S01 must not paraphrase theater.
+- **Not replacing `alln floor show` / Factory Floor** with the decision card.
+- **Not Mac Floor above-the-fold embed in the first code slice.**
 
 ## Current state
 
 | Piece | Today |
 | --- | --- |
 | Multi-seat run truth | Built — `TeamRun` / `TeamRunJSON`, `alln team result` |
-| `reproduceCommand` on runs | Built — print on the card |
-| Seat timings / model ids | Built — card inputs |
-| Gorgeous Mac Factory Floor | Built — deep reader |
+| `reproduceCommand` on runs | Built — `teamRun.reproduceCommand` |
+| Seat timings / model ids | Built — `workers[]` + `workerAnswers[]` |
+| Gorgeous Mac Factory Floor | Built — deep reader (`FactoryFloorView`) |
+| Inspectable Floor CLI | Built — `alln floor show` (different surface) |
 | Screenshot-native decision card | **Missing** |
-| CLI `team open` card path | **Missing** |
+| CLI decision-card open path | **Missing** (verb still open — §Must-specify) |
+| Field ownership ledger for card | **Missing until §Card field ledger sticks** |
 | Measured “do real runs have a story?” | **Missing — TRR-S00** |
 | Signed crypto verify / hosted share | Deferred / cut for now |
 
@@ -113,16 +158,23 @@ card is the above-the-fold poster, not a replacement for the floor.
    export / hosted link only later and deliberate.
 4. **Honesty string on every card:** alln-attested multi-seat receipt — not
    “Claude cryptographically signed this.”
-5. **Card content is lean by construction** — question, verdicts, timings,
+5. **Card content is lean by construction** — question, one-liners, timings,
    call — so casual screenshots don’t dump full prompts/seat bodies. Full
-   bodies stay on Factory Floor / `team result`.
-
+   bodies stay on Factory Floor / `team result` / `floor show`.
+6. **Reproduce-line elision.** `reproduceCommand` embeds the full prompt
+   verbatim — printing it raw in the footer can violate lean-card privacy on
+   every screenshot. Elide past N chars with a marked ellipsis, or show an
+   id-based replay pointer (`alln run … --run-id …` shape TBD in S00b). Hard
+   cap the **question line** separately; when `promptSource` is file/stdin or
+   bodies were inlined via `@`, never dump the file into the card.
 ## Truth owner
 
 - **Run truth:** existing `TeamRun` / `TeamRunJSON` (unchanged).
 - **Card / receipt document:** deterministic projection from run truth. Must
-  not invent seat text the run did not store.
+  not invent seat text the run did not store. Truncation must be marked.
 - **Share/ACL (if ever):** explicit share store — never inferred.
+- **Not owners:** SwiftUI, prompt prose, hand-edited HTML without regenerating
+  from the projector.
 
 ## Lie-prone layers
 
@@ -132,61 +184,233 @@ card is the above-the-fold poster, not a replacement for the floor.
 - Mac-only open path that blocks CLI users from the card.
 - Requiring Allnighter install to *read* an exported artifact (when export
   exists).
+- Calling `outcome.headline` a “team call” — it is mechanical timing/status,
+  never a correctness or judgment claim (`TeamRunJSON.Outcome` docs).
+- Teaching `team open` / “receipt” as if it were `floor show`.
 
+## Card field ledger (must stick before S01 code)
+
+Every card field needs a `TeamRunJSON` (or constant) owner. No owner → not on
+the card in S01.
+
+| Card field | Owner | Rule |
+| --- | --- | --- |
+| Question line | `teamRun.prompt` | Hard cap + mark; file/stdin/`@` bodies never inlined; do not LLM-summarize in v1 |
+| Team label | `teamRun.teamDisplayName` / `teamPresetId` | No inference from prompt |
+| Seat set (who gets a chip) | `workers[]` filtered by purpose `answer\|plan\|review`; lead included; disambiguate `instanceIndex` | **Share helper with `FloorProjector`**; anti-drift test required so Floor and card never disagree on who was on the team |
+| Seat chip identity | `workers[].modelName` (+ `sourceId` glyph if present) | Stable worker id for join |
+| Seat status | `workerAnswers[].status` | Closed enum only |
+| Seat timing | `workerAnswers[].durationMs` (optional queue/ttft) | Null → blank, never estimate |
+| Seat one-liner | First non-empty line of `workerAnswers[].markdown`, hard-truncated + `…` | **Never** invent a “verdict” label. **Single-seat Law 2:** when the winning seat’s markdown is hoisted into `answer` and nulled on the worker row, the chip must read from `answer.markdown`, not show blank |
+| Team call / headline | First ~2 lines of `answer.markdown` when present | **Not** `outcome.headline` (mechanical; never a correctness verdict). **Not** `plan.markdown` fallback — Law 2 already hoists plan markdown into `answer` and nils the plan body (`TeamRunJSONMapper`). If no canonical answer: house style `"(no synthesized output — status …)"` (`SpecRetrieval.swift`) |
+| Dodged bullet / disagreement bang | **S00 annotation only** until a sourced field exists | Do not ship auto “we disagreed” chrome from heuristics. `PlanAnalysis` / `Contradiction_Pass` are **not** near-term owners (unauthorized / not on `TeamRunJSON`) |
+| Honesty string | Constant copy | Exact string locked in S01 Works Test |
+| Reproduce line | `teamRun.reproduceCommand` | Apply §Privacy law 6 elision; blank/omit marked if null — do not invent |
+| Run id | `teamRun.id` | Footer micro-type OK |
+
+**Hero chrome keying:** prefer `teamRun.outputKind` (and lane) over an exact
+`teamPresetId` allowlist — custom presets (e.g. `custom_growth_min_cursor_k3`)
+must still get hero treatment. Verify during S00b that `teams duplicate`
+preserves `outputKind`. One projector family; optional presentation hints —
+not two content truths.
+
+**v1 hero-field policy (Decision 2A):** marked mechanical truncation for all
+teams. Typed per-seat verdict / decision-delta fields are a **v2** path gated
+on a real contract slice — not S01. LLM-summarized one-liners are rejected
+(violates truth-owner law).
 ## Suggested slices (authorized shape; schedule separately)
 
 | ID | Slice | Done when |
 | --- | --- | --- |
-| **TRR-S00** | Measure + hand-render | Pull last N multi-seat runs; count material disagreement / dodged bullets; hand-build ~3 cards from real JSON; post or show founder. **Kill or proceed gate.** |
-| **TRR-S01** | Screenshot-native decision card + `alln team open` | Card from `TeamRunJSON`: question, seat chips, one-liners, timings, team call, honesty string, `reproduceCommand`. Gorgeous at early paint (seats from dry-run/`seats[]`, fill as answers land). ~2-day budget after S00 green. |
-| **TRR-S03** | (later) File export | Only if an outsider asks for a portable file; browser-openable; still private-as-file. |
+| **TRR-S00** | Measure + hand-render | Fixed N (~20) multi-seat **hero** runs; written rubric counts **(a)** disagreement stories, **(b)** consensus-with-a-call, **(c)** lead-vs-seat reversals (the Growth Min packet itself was (c) — lead overruling seats). Named judge; raw counts recorded; per-team-type base rates appended to this packet. Hand-build ~3 cards from real JSON. **Growth-axis gate only.** Note: Growth Playbook §2 is also overnight-relay-shaped — record which artifact class S00 measured so a red result isn’t over-read. Product path continues even if growth kills. |
+| **TRR-S00b** | Lock open specs (doc-only) | Close §Must-specify **including a drafted `ContractRegistry` entry** (so S01 doesn’t discover the version cascade mid-flight). **No renderer code.** |
+| **TRR-S01** | Terminal decision card + CLI open | Projector + open verb from terminal `TeamRunJSON` only; fields per ledger; substring truth test + negative fixtures land **with** the projector; visual proof route decided (gate extension or recorded waiver). OS-screenshotable; private; reproduce elision + honesty present. **No early-paint / live fill.** |
+| **TRR-S01b** | (later) Mac Floor optional above-fold | Same projector embedded or linked from Floor — only after S01 CLI WOW; shared projector mandatory. |
+| **TRR-S01c** | (later) Progressive paint | Seats appear as answers land — needs live/status contract; not S01. |
+| **TRR-S03** | (later) **Branded/styled** export | Markdown export already ships (`alln export --format md`). S03 = branded decision-card file/HTML export — only if demand (local journal counters or outsider ask). |
 | ~~TRR-S02~~ | **Cut** — crypto sign/verify | Replaced by honesty string + reproduce line. |
 | ~~TRR-S04~~ | **Unscheduled** — hosted private link | |
 | ~~TRR-S05~~ | **Unscheduled** — Buzz/Slack post helper | One line under Relationship to Buzz is enough. |
 
+### Slice-order risks (named)
+
+1. **S01 before S00b** → invents paraphrase fields and a second JSON shape.
+2. **S01 bundles live paint** → couples to Live Team Board streaming gaps.
+3. **Mac embed in S01** → GUI/design drag before CLI Works Test.
+4. **Growth kill misread as product kill** → orphan CLI finish forever.
+5. **`team open` without teaching sweep** → collisions with `floor show` /
+   `team result` (Feature Workflow teaching-surface rule).
+
+## Blockers before TRR-S01 code
+
+1. TRR-S00 executed with written rubric + evidence (growth gate recorded).
+2. TRR-S00b closes every §Must-specify row (or explicitly waives with owner).
+3. Card field ledger has no blank “Must-specify” rows left for shipped fields.
+4. CLI verb + ContractRegistry args/exit codes/errors drafted (CLI-first rule)
+   — including expected `contractVersion` bump off pinned `4.0.2` and regen of
+   `docs/generated/alln/*`.
+5. Teaching surface plan: help topic + search terms; distinguish card vs
+   `floor show` vs `team result` vs `export`.
+6. **No new *run* schema** — projection only. A new CLI verb **is** a contract
+   slice (registry, version bump, generated artifacts); budget it — do not deny
+   it under “projection only.”
+7. Design authority route named (§Design authority); visual proof route named
+   (§Proof design).
+8. Run-status precondition defined (running / failed / cancelled / parked →
+   error code; `RUN_NOT_TERMINAL` prior art).
+
+## Must-specify (S00b checklist)
+
+| Item | Options / default lean | Status |
+| --- | --- | --- |
+| CLI verb | Prefer **`alln card show <run-id\|latest>`**. **Strike `receipt show`** — collides with shipped `alln continuity receipt`. Avoid `team open` (Floor/`team result` teaching collision) | Open — lean `card show` |
+| Render medium | **HTML consuming design-system CSS tokens as source** (screenshot) vs ANSI/TTY | Open — lean HTML; see §Design authority |
+| On-disk path | Derived cache under support/run journal vs beside journal | Open — must be private, deterministic, regenerable |
+| Seat one-liner | First line truncate + mark; Law-2 single-seat hoist rule | Lean locked in ledger |
+| Team call | First ~2 lines of `answer.markdown`; no-canonical-result house line | Lean locked in ledger |
+| Honesty string exact text | e.g. `alln-attested multi-seat receipt · not vendor-signed` | Open — lock string |
+| Hero keying | `teamRun.outputKind` (+ lane), not exact preset-id allowlist | Open — verify duplicate preserves `outputKind` |
+| Seat-set rule | Shared with `FloorProjector`; anti-drift test | Open — write the filter |
+| Prompt / reproduce caps | Question hard cap; reproduce elision rule (§Privacy 6) | Open — pick N |
+| Run-status errors | Behavior + error code when non-terminal | Open |
+| ContractRegistry draft | Flags, exit codes, errors, version bump plan | Open — draft in S00b |
+| Non-hero teams | Same projector, simpler chrome; no equal visual spend | Locked intent |
+| Mac Floor embed | Deferred to S01b | Locked |
+
+## Design authority
+
+This packet’s entire product value is visual. Route card styling — including
+TRR-S00 hand-renders — through `docs/design-system/production.md`. The HTML
+card should **consume `docs/design-system/tokens/*.css` as source** (CSS tokens
+canonical; Swift mirrors). That is the load-bearing argument for HTML as the
+v1 medium. GUI engineering process: `docs/gui/GUI_Workflow.md`. Do not invent
+a parallel amber palette in the projector.
+
+## Proof design
+
+- **Substring truth test:** after render, every non-allowlisted visible string
+  on the card is a substring of source `TeamRunJSON` (mechanizes §Truth owner).
+- **Negative fixtures:** failed seat; single-seat Law-2 hoist; no-answer
+  partial; null timings; hostile 8KB prompt / `</div><script>` HTML escape;
+  duplicate model ids; `designBoard` seat markdown with image paths (never
+  print a file path as a verdict).
+- **Run-status precondition:** non-terminal invocations fail closed with a
+  named error code.
+- **Visual proof:** `scripts/check_gui_proof.sh` today scopes Mac SwiftUI —
+  an HTML card from Core is invisible to that wall. Extend the gate to the
+  card artifact **or** record a waiver in `docs/qa/gui/WAIVERS.manifest` and
+  name a `layout-watcher` PASS at timeline-crop dimensions before first ship.
+- **Named blocked proofs (honest):** growth lift unfalsifiable pre-launch;
+  “gorgeous” has no automated oracle; no CI end-to-end multi-seat run
+  (Keychain/sandbox); screenshot fidelity across OS versions.
 ## Works Test
 
-**S00:** At least one hand-rendered card from a real run has a story a stranger
-would ask “wait, what is that?” about — or explicit kill of the growth thesis
-with evidence.
+**S00:** Fixed-N counts for disagreement / consensus-with-a-call /
+lead-vs-seat + ≥1 hand-rendered card shown to founder — **or** explicit
+growth-thesis kill with evidence. Product path not auto-killed. Append base
+rates to this packet.
 
-**S01:** CLI team run → `alln team open` shows the card without Mac app; OS
-screenshot is postable; no public URL created; reproduce line present;
-honesty string present.
+**S00b:** Every Must-specify row closed or waived in this packet (commit),
+including ContractRegistry draft.
 
-**S03+:** waived until scheduled.
+**S01:** Terminal CLI team run → `card show` opens the card without Mac app;
+OS screenshot is postable; no public URL; reproduce line present (elided);
+honesty string exact; every visible field maps to ledger / substring truth
+test; truncation marked; failed seats stay visible as failed; visual proof
+route satisfied or waived.
 
+**S01b+ / S03+:** waived until scheduled.
 ## Proof command
 
 ```text
 alln team result <run-id> --json   # existing truth
-alln team open <run-id>            # local decision card (S01)
+alln floor show <run-id>           # existing deep Floor (not the card)
+alln card show <run-id>            # decision card (S01) — verb pending S00b lock
 ```
 
 ## Done when (near-term)
 
-- S00 gate passed or thesis explicitly killed with evidence.
+- S00 growth gate recorded (proceed or kill growth packaging).
+- S00b must-specify closed (including contract draft).
 - CLI-first users can open a private decision card for hero team runs
-  (Spec Review + Growth first).
-- Privacy default holds; no crypto-verify theater in v1.
-- Factory Floor and card projector do not drift into two content truths.
+  (Spec Review + Growth first visually via `outputKind` hints).
+- Privacy default holds; reproduce elision holds; no crypto-verify theater.
+- Factory Floor, thread compact card, and decision card do not drift into
+  three content truths — one projector family over `TeamRunJSON` + shared
+  seat-set helper with Floor.
+- **Local demand signal:** journal counters for card-open / export-request
+  (privacy forbids network analytics, not local counts) schedule S01b/S03.
 - Buzz/Nostr/hosted link remain optional non-blockers.
 
-## Open questions (surviving)
+## Open questions (surviving — owned by S00b)
 
-1. Exact CLI verb (`team open` vs `receipt open` vs `team report`).
-2. Card HTML in run journal vs derived cache path.
-3. Whether Mac Factory Floor embeds the same card above the fold or stays
-   native with a shared projector.
+1. Exact CLI verb — lean `card show` (**not** `receipt show`).
+2. Card HTML on-disk path (journal vs derived cache).
+3. Whether Mac Factory Floor embeds the same card above the fold (S01b).
 4. ~~Key management~~ — **retired with S02.**
-5. Redaction for **export** (when S03 exists); card itself stays lean.
-
+5. Branded export redaction (when S03 exists); card itself stays lean.
+6. Exact honesty string + `outputKind` hero mapping table.
+7. Reproduce elision N / replay-pointer shape.
+8. Visual proof: gate extension vs waiver id.
 ## Relationship to Buzz
 
 Buzz is **not** required. Optional later room to *show* a card/receipt in an
 attended thread. Do not marry privacy or signing to a private auth relay. No
 numbered Buzz slice until the card exists and S00/S01 earned it.
 
+## Impact ledger (Spec Review 2026-07-25)
+
+### Keep
+
+- Hero = screenshot-native decision card (§Growth reshaping).
+- Verification = `reproduceCommand`; cut crypto S02.
+- Private by default; OS screenshot as v1 share.
+- S00 measure-before-renderer for **growth**.
+- Cut/unschedule S02 / S04 / S05; defer S03 until asked.
+- One projector family; hero-optimize Spec Review + Growth visuals first.
+- Non-goals: no Buzz marriage, no RunService grammar change, no PDF.
+- Buzz spike deferred behind card (`Buzz_Harness_Spike.md`).
+
+### Change
+
+- **S00 kill scope** → growth thesis / series priority only; not the product
+  card when seats agree (§Two theses). Rubric also counts consensus-with-a-call
+  and lead-vs-seat reversals — not disagreement-only.
+- **S01 shrink** → terminal-only; drop early-paint / dry-run `seats[]` fill
+  from S01 (§Trusted workflow; TRR-S01c deferred).
+- **Add TRR-S00b** → close Must-specify + ContractRegistry draft before any
+  renderer code.
+- **Surface ownership** → name Floor / thread / decision card / export /
+  `team result` as distinct surfaces (`Live_Team_Board.md` §Done When).
+- **CLI verb lean** → `card show`; **reject `receipt show`** (collides with
+  `alln continuity receipt`).
+- **Team call** → `answer.markdown` only; no `outcome.headline`; no dead
+  `plan.markdown` fallback (Law 2).
+- **Hero keying** → `outputKind`, not exact preset-id allowlist.
+- **Reproduce line** → elision rule (Privacy law 6); “replay path” not
+  “install path.”
+- **S03** → branded/styled export; plain md export already ships.
+- **phases/README** router copy updated in this harden (was “signed receipt”).
+
+### Cut
+
+- Progressive “gorgeous at early paint” from S01 scope.
+- Auto “dodged bullet” / disagreement as first-class card fields without a
+  contract owner (`Contradiction_Pass` / `PlanAnalysis` not near-term).
+- Implicit kill of the whole feature when S00 finds consensus runs.
+- Bundling Mac Floor embed into first code slice.
+- ~2-day budget claim until S00b closes.
+- `receipt show` as verb candidate.
+- LLM-written one-liners/headlines in v1.
+
+### Must-specify (blocking)
+
+- CLI verb `card show` + ContractRegistry + teaching surface + version bump.
+- Render medium (HTML + tokens) + on-disk path.
+- Seat-set rule shared with Floor; one-liner + team-call rules (ledger).
+- Exact honesty string; reproduce elision N.
+- `outputKind` hero mapping; run-status precondition.
+- S00 measurement rubric (three story classes) + visual proof route.
 ## Growth Min review (done)
 
 | | |
@@ -195,7 +419,7 @@ numbered Buzz slice until the card exists and S00/S01 earned it.
 | **Run** | `E900A4BC-9D7A-41CE-93F0-37F5206FACEC` |
 | **Team** | `custom_growth_min_cursor_k3` — Kimi K3, Cursor Grok 4.5, Opus 5 (Cursor), ChatGPT 5.6 Sol (Cursor); lead Fable 5 (Cursor) |
 | **Pre-commit** | `08ff41d7` (pending marker) |
-| **Post-commit** | this revision |
+| **Post-commit** | Growth reshape revision |
 
 **Verdict (Fabel synthesis):** Packet is the right near-term bet at roughly a
 quarter of written scope. Hero = screenshot-native decision card; verification
@@ -210,18 +434,30 @@ disagreement-data gap + measure-before-build (Opus); “show the decision your
 team changed” + S00 shape (Sol). Lead disagreed with all four on optimizing a
 *user* share loop pre-launch — founder series first; export when someone asks.
 
-## Spec Review Min (pending)
+## Spec Review Min (done)
 
-**Requested:** 2026-07-25 — bracket commits so the diff is this review’s input.
+| | |
+| --- | --- |
+| **When** | 2026-07-25 · wall ~11m8s · readOnly |
+| **Run** | `EC1DCCAF-BBFC-40DE-96C5-9467B8C333D1` |
+| **Team** | `custom_spec_review_min_cursor_k3` — Kimi K3 (First Principles), Opus 5 Cursor (Proof Planner), Cursor Grok 4.5 (Scope Steward); lead Fable 5 Cursor (Spec Review Writer) |
+| **Pre-commit** | `0451daa0` (pending marker) |
+| **Post-commit** | this revision |
 
-**Team:** `custom_spec_review_min_cursor_k3` (Spec Review Min · Cursor CLI seats
-+ one Kimi K3 · Fabel lead). Read-only.
+**Process note:** Scope Steward edited the packet during the review (rubric is
+review-only). Founder disposition per lead: **keep the patch**, apply synthesis
+fixes on top, commit once — pair with this conduct note so it doesn’t repeat.
 
-**Ask:** Harden `docs/phases/Team_Run_Receipt.md` as a buildable packet —
-ambiguities, missing acceptance criteria, slice order risks, contradictions
-with companions (Factory Floor / Live Team Board / Buzz spike), and what must
-be true before TRR-S01 code starts. Pressure-test TRR-S00 kill gate vs product
-value of a local card even when seats agree.
+**Verdict (Fabel synthesis):** Not ready for TRR-S01 code; ready to run
+TRR-S00 today. Two-theses split sticks: S00 may kill growth packaging, not the
+product card when seats agree. Biggest remaining gaps were mapper-honest field
+owners (no dead `plan.markdown` fallback; Law-2 single-seat hoist; reproduce
+elision), `outputKind` hero keying, contract-slice honesty (new verb bumps
+`4.0.2`), design-authority route for HTML tokens, and proof design (substring
+truth test + visual gate/waiver). Decision 2A: mechanical truncation in v1;
+typed verdict fields are v2.
 
-**Outcome:** fold the verdict into this section after the run; patch the packet
-where the review sticks.
+**Gems retained:** substring truth test; two kill axes; Blocker 6 rewrite;
+`outputKind` hero chrome; CSS tokens as HTML source; no-canonical-result house
+line; Floor seat-set anti-drift; reproduce elision; negative fixtures; local
+demand counters for S03.
