@@ -2107,7 +2107,7 @@
         },
         {
           "name" : "idle-timeout",
-          "summary" : "Override the worker idle-stall budget in seconds (default = driver manifest invoke.timeoutSeconds, commonly 1800s for agent CLIs). Resets on streaming stdout\/stderr bytes and durable recordProgress heartbeats; wall is the hard ceiling (--wall-timeout, default 3600).",
+          "summary" : "Override the worker idle-stall budget in seconds (default = driver manifest invoke.timeoutSeconds, commonly 1800s for agent CLIs). Resets on streaming stdout\/stderr bytes, attributable process-group activity (child spawn, CPU under the recorded pgid), and durable recordProgress heartbeats; wall is the hard ceiling (--wall-timeout, default 3600).",
           "takesValue" : true,
           "valueType" : "integer"
         },
@@ -4854,7 +4854,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.0.2",
+  "contractVersion" : "4.0.3",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

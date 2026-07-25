@@ -10,6 +10,7 @@ final class ProcessOwnershipProgressStallTests: XCTestCase {
     override func tearDown() {
         ProcessOwnership.TurnOwnerDirectory.shared.set(nil)
         ProcessOwnership.terminateSignalHook = nil
+        ProcessOwnership.processGroupActivitySampleHook = nil
         super.tearDown()
     }
 
@@ -91,6 +92,48 @@ final class ProcessOwnershipProgressStallTests: XCTestCase {
         XCTAssertEqual(ProcessGroupCommandRunner.stallBudgetSeconds(from: .seconds(1)), 1)
         // Sub-second Durations still floor to 1s (prior idle-timeout math unchanged).
         XCTAssertEqual(ProcessGroupCommandRunner.stallBudgetSeconds(from: .milliseconds(400)), 1)
+    }
+
+    // MARK: - Process-group activity sampler (IDLE-HF-S02)
+
+    func testProcessGroupActivityDetectedOnNewChildPid() {
+        let previous = ProcessOwnership.ProcessGroupActivitySnapshot(
+            memberPids: [100],
+            cpuMicrosecondsByPid: [100: 5_000]
+        )
+        let current = ProcessOwnership.ProcessGroupActivitySnapshot(
+            memberPids: [100, 101],
+            cpuMicrosecondsByPid: [100: 5_000, 101: 0]
+        )
+        XCTAssertTrue(ProcessOwnership.processGroupActivityDetected(since: previous, current: current))
+    }
+
+    func testProcessGroupActivityDetectedOnCPUGrowth() {
+        let previous = ProcessOwnership.ProcessGroupActivitySnapshot(
+            memberPids: [100],
+            cpuMicrosecondsByPid: [100: 5_000]
+        )
+        let current = ProcessOwnership.ProcessGroupActivitySnapshot(
+            memberPids: [100],
+            cpuMicrosecondsByPid: [100: 9_000]
+        )
+        XCTAssertTrue(ProcessOwnership.processGroupActivityDetected(since: previous, current: current))
+    }
+
+    func testProcessGroupActivityNotDetectedOnFirstSample() {
+        let current = ProcessOwnership.ProcessGroupActivitySnapshot(
+            memberPids: [100],
+            cpuMicrosecondsByPid: [100: 9_000]
+        )
+        XCTAssertFalse(ProcessOwnership.processGroupActivityDetected(since: nil, current: current))
+    }
+
+    func testProcessGroupActivityNotDetectedWhenFrozen() {
+        let snap = ProcessOwnership.ProcessGroupActivitySnapshot(
+            memberPids: [100],
+            cpuMicrosecondsByPid: [100: 5_000]
+        )
+        XCTAssertFalse(ProcessOwnership.processGroupActivityDetected(since: snap, current: snap))
     }
 
     // MARK: - Works test: silent stdout + touching progress → never reaped
@@ -177,6 +220,148 @@ final class ProcessOwnershipProgressStallTests: XCTestCase {
         if case .timedOut? = terminal {
             XCTFail("must not emit timedOut while progress was being touched; got \(String(describing: terminal))")
         }
+    }
+
+    // MARK: - Works test: pgid CPU/child activity without stdout → progress fresh
+
+    func testSilentWorkerWithPgidActivityIsNotStalledPastIdleBudget() async throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("idle-hf-s02-pgid-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        ProcessOwnership.TurnOwnerDirectory.shared.set(dir)
+        defer { ProcessOwnership.TurnOwnerDirectory.shared.set(nil) }
+
+        let stallBudget: Duration = .seconds(1)
+        let runner = ProcessGroupCommandRunner(
+            budget: SubprocessBudget(totalDuration: .seconds(30), maxBufferedBytes: 1_000_000)
+        )
+
+        let streamTask = Task {
+            var terminal: CommandEvent?
+            do {
+                for try await event in runner.runStreaming(
+                    command: "/bin/sh",
+                    args: ["-c", "sleep 30 & while true; do :; done"],
+                    stdin: nil,
+                    env: [:],
+                    workingDirectory: nil,
+                    timeout: stallBudget
+                ) {
+                    switch event {
+                    case .completed, .timedOut, .cancelled, .failed, .bufferOverflow:
+                        terminal = event
+                    default:
+                        break
+                    }
+                }
+            } catch {
+                // Cancellation from cleanup is fine.
+            }
+            return terminal
+        }
+
+        try await Task.sleep(for: .seconds(2.2))
+
+        let owner = try XCTUnwrap(ProcessOwnership.readTurnOwner(in: dir))
+        XCTAssertTrue(ProcessOwnership.processAlive(owner.pid))
+        XCTAssertTrue(ProcessOwnership.isIdentityAlive(owner))
+
+        let hb = try XCTUnwrap(ProcessOwnership.readProgressHeartbeat(in: dir))
+        XCTAssertEqual(hb.phase, "pgid_activity", "CPU under recorded pgid must reset progress")
+        XCTAssertLessThan(
+            Date().timeIntervalSince(hb.lastProgressAt), 0.75,
+            "pgid activity must keep progress fresh past the idle stall budget"
+        )
+        XCTAssertEqual(
+            ProcessOwnership.classifyProgressStall(
+                identityAlive: true,
+                lastProgressAt: hb.lastProgressAt,
+                stallBudgetSeconds: 1
+            ),
+            .progressing
+        )
+
+        streamTask.cancel()
+        _ = ProcessOwnership.terminateOwnerIdentityIfSafe(owner)
+        var status: Int32 = 0
+        _ = waitpid(owner.pid, &status, 0)
+        let terminal = await streamTask.value
+        if case .timedOut? = terminal {
+            XCTFail("pgid-busy silent worker must not idle-reap; got \(String(describing: terminal))")
+        }
+    }
+
+    // MARK: - Works test: repo cwd writes are NOT progress (IDLE-HF-S02 guard)
+
+    func testRepoCwdWritesDoNotResetIdleProgress() async throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("idle-hf-s02-cwd-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let repo = dir.appendingPathComponent("repo", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+
+        ProcessOwnership.TurnOwnerDirectory.shared.set(dir)
+        defer { ProcessOwnership.TurnOwnerDirectory.shared.set(nil) }
+
+        let stallBudget: Duration = .seconds(1)
+        let runner = ProcessGroupCommandRunner(
+            budget: SubprocessBudget(totalDuration: .seconds(20), maxBufferedBytes: 1_000_000)
+        )
+
+        let streamTask = Task {
+            var terminal: CommandEvent?
+            do {
+                for try await event in runner.runStreaming(
+                    command: "/bin/sleep",
+                    args: ["20"],
+                    stdin: nil,
+                    env: [:],
+                    workingDirectory: repo.path,
+                    timeout: stallBudget
+                ) {
+                    switch event {
+                    case .completed, .timedOut, .cancelled, .failed, .bufferOverflow:
+                        terminal = event
+                    default:
+                        break
+                    }
+                }
+            } catch {
+                // Cancellation from cleanup is fine.
+            }
+            return terminal
+        }
+
+        // Parallel repo writes must NOT count as attributable progress — only pgid/stream/recordProgress do.
+        let noiseUntil = Date().addingTimeInterval(2.2)
+        while Date() < noiseUntil {
+            let noise = repo.appendingPathComponent("noise-\(UUID().uuidString).txt")
+            try "unattributable".write(to: noise, atomically: true, encoding: .utf8)
+            try await Task.sleep(for: .milliseconds(100))
+        }
+
+        let owner = try XCTUnwrap(ProcessOwnership.readTurnOwner(in: dir))
+        let hb = try XCTUnwrap(ProcessOwnership.readProgressHeartbeat(in: dir))
+        XCTAssertNotEqual(hb.phase, "pgid_activity", "cwd noise must not masquerade as pgid progress")
+        XCTAssertEqual(
+            ProcessOwnership.classifyProgressStall(
+                identityAlive: ProcessOwnership.isIdentityAlive(owner),
+                lastProgressAt: hb.lastProgressAt,
+                stallBudgetSeconds: 1
+            ),
+            .stalled,
+            "frozen owner + cwd writes only → still stalled past idle budget"
+        )
+
+        streamTask.cancel()
+        _ = ProcessOwnership.terminateOwnerIdentityIfSafe(owner)
+        var status: Int32 = 0
+        _ = waitpid(owner.pid, &status, 0)
+        _ = await streamTask.value
     }
 
     // MARK: - Works test: progress frozen → reaped (timeout → stall endReason path)

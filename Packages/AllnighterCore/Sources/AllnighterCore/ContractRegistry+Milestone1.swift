@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "4.0.2"
+    static let contractVersion = "4.0.3"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -415,7 +415,7 @@ public extension ContractRegistry {
                 FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Lane tags the run for context and filtering; `--team` routes."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy routing sugar."),
                 FlagSpec("context", takesValue: true, valueType: "string", summary: "Bounded context snippet."),
-                FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the worker idle-stall budget in seconds (default = driver manifest invoke.timeoutSeconds, commonly 1800s for agent CLIs). Resets on streaming stdout/stderr bytes and durable recordProgress heartbeats; wall is the hard ceiling (--wall-timeout, default 3600)."),
+                FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the worker idle-stall budget in seconds (default = driver manifest invoke.timeoutSeconds, commonly 1800s for agent CLIs). Resets on streaming stdout/stderr bytes, attributable process-group activity (child spawn, CPU under the recorded pgid), and durable recordProgress heartbeats; wall is the hard ceiling (--wall-timeout, default 3600)."),
                 FlagSpec("handshake-timeout", takesValue: true, valueType: "integer", summary: "Runner-ready handshake bound in seconds (default 60; RLR-L8). Finite positive required."),
                 FlagSpec("first-activity-timeout", takesValue: true, valueType: "integer", summary: "First post-spawn activity bound in seconds (default 120; RLR-L8). Finite positive required."),
                 FlagSpec("wall-timeout", takesValue: true, valueType: "integer", summary: "Total wall-clock ceiling in seconds (default 3600; RLR-L8). Finite positive required."),

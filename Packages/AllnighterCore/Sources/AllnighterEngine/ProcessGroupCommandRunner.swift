@@ -17,9 +17,12 @@ import AllnighterCore
 ///
 /// **PO-F1 progress-truth:** the streaming stall watchdog consumes
 /// `lastProgressAt` (spawn / stdout·stderr bytes / exit, plus any external
-/// `recordProgress` into the turn directory), not output silence. Stall budget
-/// is still the `timeout` argument (same configurable knob as before; default
-/// still comes from the caller / manifest — this runner does not change it).
+/// `recordProgress` into the turn directory), not output silence. **IDLE-HF-S02:**
+/// while the owned worker runs, the stall loop also samples the recorded pgid for
+/// attributable child spawn / CPU / IO — never repo/cwd filesystem mtimes (parallel
+/// Teams share the repo root). Stall budget is still the `timeout` argument (same
+/// configurable knob as before; default still comes from the caller / manifest —
+/// this runner does not change it).
 ///
 /// Mirrors `SubprocessCommandRunner`'s contracts (timeouts, buffer caps, streaming)
 /// so `RunService` / `WorkerInvokerFactory` can use it as a drop-in.
@@ -278,8 +281,19 @@ public struct ProcessGroupCommandRunner: CommandRunner, StreamingCommandRunner {
             // PO-F1: progress-truth stall watchdog (replaces output-silence).
             // Budget is still `timeout` — same configurable knob as the old idle timer.
             let stallBudget = Self.stallBudgetSeconds(from: timeout)
+            let samplePgid = identity.pgid
             Task {
+                var pgSnapshot: ProcessOwnership.ProcessGroupActivitySnapshot?
                 while ProcessOwnership.processAlive(spawned.pid) {
+                    if let pgid = samplePgid, pgid > 1 {
+                        let current = ProcessOwnership.sampleProcessGroupActivity(pgid: pgid)
+                        if ProcessOwnership.processGroupActivityDetected(
+                            since: pgSnapshot, current: current
+                        ) {
+                            progress.note(phase: "pgid_activity")
+                        }
+                        pgSnapshot = current
+                    }
                     let last = progress.effectiveLastProgressAt()
                     let alive = ProcessOwnership.isIdentityAlive(identity)
                     switch ProcessOwnership.classifyProgressStall(

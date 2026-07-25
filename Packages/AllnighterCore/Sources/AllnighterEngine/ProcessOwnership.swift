@@ -842,6 +842,70 @@ public enum ProcessOwnership {
         }
     }
 
+    // MARK: - Process-group activity sampling (IDLE-HF-S02)
+
+    /// Snapshot of attributable process-group signals for idle progress reset.
+    /// Repo/cwd filesystem mtimes are intentionally excluded — parallel Teams
+    /// share the repo root and unattributable cwd writes must not reset stall.
+    public struct ProcessGroupActivitySnapshot: Sendable, Equatable {
+        public var memberPids: Set<Int32>
+        public var cpuMicrosecondsByPid: [Int32: Int64]
+
+        public init(memberPids: Set<Int32>, cpuMicrosecondsByPid: [Int32: Int64]) {
+            self.memberPids = memberPids
+            self.cpuMicrosecondsByPid = cpuMicrosecondsByPid
+        }
+    }
+
+    /// Test hook: when set, `sampleProcessGroupActivity` delegates here.
+    nonisolated(unsafe) public static var processGroupActivitySampleHook: ((Int32) -> ProcessGroupActivitySnapshot)?
+
+    /// Enumerate live members and CPU/IO counters under the recorded `pgid`.
+    public static func sampleProcessGroupActivity(pgid: Int32) -> ProcessGroupActivitySnapshot {
+        if let hook = processGroupActivitySampleHook {
+            return hook(pgid)
+        }
+        let pids = processGroupMemberPids(pgid)
+        var cpu: [Int32: Int64] = [:]
+        for pid in pids {
+            if let usec = processCPUMicroseconds(pid) {
+                cpu[pid] = usec
+            }
+        }
+        return ProcessGroupActivitySnapshot(
+            memberPids: Set(pids),
+            cpuMicrosecondsByPid: cpu
+        )
+    }
+
+    /// True when `current` shows new children or increased CPU/IO vs `previous`.
+    /// The first sample (`previous == nil`) never counts as activity.
+    public static func processGroupActivityDetected(
+        since previous: ProcessGroupActivitySnapshot?,
+        current: ProcessGroupActivitySnapshot
+    ) -> Bool {
+        guard let previous else { return false }
+        if !current.memberPids.subtracting(previous.memberPids).isEmpty { return true }
+        for (pid, cpu) in current.cpuMicrosecondsByPid {
+            if let prev = previous.cpuMicrosecondsByPid[pid], cpu > prev { return true }
+        }
+        return false
+    }
+
+    /// User+system CPU time for `pid` (macOS: `proc_taskinfo`; unattributed elsewhere).
+    static func processCPUMicroseconds(_ pid: Int32) -> Int64? {
+        #if os(macOS)
+        guard pid > 0 else { return nil }
+        var info = proc_taskinfo()
+        let bytes = proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, Int32(MemoryLayout<proc_taskinfo>.size))
+        guard bytes == MemoryLayout<proc_taskinfo>.size else { return nil }
+        let totalNanoseconds = info.pti_total_user + info.pti_total_system
+        return Int64(totalNanoseconds / 1000)
+        #else
+        return nil
+        #endif
+    }
+
     /// Per-run flock for explicit reconcile / cancel terminal writes.
     public static func withRunLock<T>(in directory: URL, _ body: () throws -> T) rethrows -> T {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

@@ -1,8 +1,9 @@
 # Idle Stall False Kill — Hotfix
 
-Status: **S04 shipped** — identity-alive idle demotion + silence surface + `alln doctor silence` telemetry. Next: S02 (gated).
+Status: **S02 shipped** — attributable process-group progress (pgid child/CPU/IO)
+resets idle stall; repo cwd fs watch forbidden. S03 posture floors deferred.
 Owner: AllnighterEngine + driver manifests + CLI teaching
-Updated: 2026-07-25 (IDLE-HF-S04 closeout)
+Updated: 2026-07-25 (IDLE-HF-S02 closeout)
 Incident date: 2026-07-25
 
 ## Origin
@@ -287,6 +288,9 @@ incident journal shows; leave manifests + drift test as SSOT for defaults.
 likely `timeoutKind: idle` per founder report (600s claude_code invoke budget).
 **S04 closeout (2026-07-25):** Identity-alive owners are not idle-reaped in
 `ProcessGroupCommandRunner`; silence surfaces via `silenceStatus` on `alln ps --json`
-and team status; field histograms via `alln doctor silence`. When S02 ships (if authorized):
+and team status; field histograms via `alln doctor silence`. **S02 closeout
+(2026-07-25):** Streaming stall watchdog samples the recorded pgid for child
+spawn / CPU / IO and resets progress via `pgid_activity`; repo cwd mtimes are
+explicitly excluded. When S02 ships (if authorized):
 archive this doc and leave code as SSOT. S03 stays deferred until data says
 otherwise.
