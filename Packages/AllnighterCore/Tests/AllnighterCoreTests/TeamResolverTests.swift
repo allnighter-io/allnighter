@@ -622,14 +622,13 @@ final class TeamResolverTests: XCTestCase {
         let reason = TeamResolver.seatingReason(
             for: model,
             pickedViaPreferred: false,
-            reserveSkipped: false,
             avoidFamilies: ["claude"],
             capabilities: ModelCatalog.capabilities
         )
         XCTAssertEqual(reason, "band+unusedFamily")
     }
 
-    func testSeatingReasonReserveSkippedWhenLeadReserved() {
+    func testSeatingReasonUnusedFamilyWhenLeadReserved() {
         let ready: [Model] = [
             Model(id: "model_fable", displayName: "Fable", modelLabel: "fable",
                   driverId: "claude_code", role: .both),
@@ -641,6 +640,7 @@ final class TeamResolverTests: XCTestCase {
             lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_fable",
                                fallbackPolicy: .strongestReady))
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .med, readyModels: ready)
-        XCTAssertEqual(r.answerWorkers.first?.seatingReason, "reserveSkipped")
+        XCTAssertEqual(r.answerWorkers.first?.modelId, "model_chatgpt")
+        XCTAssertEqual(r.answerWorkers.first?.seatingReason, "band+unusedFamily")
     }
 }

@@ -321,15 +321,17 @@ public enum TeamResolver {
     }
 
     /// Derive the seating reason before `claim` updates diversity sets.
+    /// Do not emit `reserveSkipped` just because the Lead model was held out —
+    /// a Flagship Lead would win every later seat if re-added, so that label
+    /// lies on multi-seat teams. Keep the token in the doc for a future
+    /// precise counterfactual; capability fills use family / floor reasons.
     static func seatingReason(
         for model: Model,
         pickedViaPreferred: Bool,
-        reserveSkipped: Bool,
         avoidFamilies: Set<String>,
         capabilities: (String) -> ModelCapabilities
     ) -> String {
         if pickedViaPreferred { return "preferred" }
-        if reserveSkipped { return "reserveSkipped" }
         let family = ModelCatalog.modelFamily(model.id, driverId: model.driverId)
         if avoidFamilies.contains(family) { return "reuseFamily" }
         if capabilities(model.id).strengthRank == ModelCatalog.unratedModelRank { return "unratedFloor" }
@@ -404,17 +406,12 @@ public enum TeamResolver {
             }.first
         }
 
-        func wrap(
-            _ model: Model,
-            pickedViaPreferred: Bool,
-            reserveSkipped: Bool
-        ) -> SeatingPick {
+        func wrap(_ model: Model, pickedViaPreferred: Bool) -> SeatingPick {
             SeatingPick(
                 model: model,
                 reason: seatingReason(
                     for: model,
                     pickedViaPreferred: pickedViaPreferred,
-                    reserveSkipped: reserveSkipped,
                     avoidFamilies: avoidFamilies,
                     capabilities: capabilities
                 )
@@ -425,11 +422,11 @@ public enum TeamResolver {
         if fallback == .exactOnly {
             if let preferredModelId,
                let model = pool.first(where: { $0.id == preferredModelId }) {
-                return wrap(model, pickedViaPreferred: true, reserveSkipped: false)
+                return wrap(model, pickedViaPreferred: true)
             }
             guard !allowedModelIds.isEmpty else { return nil }
             guard let model = strongest(pool.filter(hasTags).filter(autoOK)) else { return nil }
-            return wrap(model, pickedViaPreferred: false, reserveSkipped: false)
+            return wrap(model, pickedViaPreferred: false)
         }
         let homeDriver = preferredModelId.flatMap { id in
             byId[id]?.driverId ?? ModelCatalog.get(id)?.driverId
@@ -438,11 +435,9 @@ public enum TeamResolver {
             guard let homeDriver else { return true }
             return m.driverId == homeDriver
         }
-        var reserveSkipped = false
         if let reserved = reserveModelId,
            pool.contains(where: { $0.id != reserved && hasTags($0) && autoOK($0) && homeOK($0) }) {
             pool.removeAll { $0.id == reserved }
-            reserveSkipped = true
         }
         // Band-aware exclusion: bestBand is the best caliber still available among
         // *unclaimed* candidates. If every capable model is already claimed, fall
@@ -467,11 +462,11 @@ public enum TeamResolver {
         }
         if let pref = preferredModelId,
            let model = pool.first(where: { $0.id == pref }) {
-            return wrap(model, pickedViaPreferred: true, reserveSkipped: reserveSkipped)
+            return wrap(model, pickedViaPreferred: true)
         }
         for id in fallbackModelIds {
             if let model = pool.first(where: { $0.id == id && hasTags($0) }) {
-                return wrap(model, pickedViaPreferred: false, reserveSkipped: reserveSkipped)
+                return wrap(model, pickedViaPreferred: false)
             }
         }
         let autoPool = pool.filter(hasTags).filter(autoOK)
@@ -495,7 +490,7 @@ public enum TeamResolver {
             }
         }
         guard let picked else { return nil }
-        return wrap(picked, pickedViaPreferred: false, reserveSkipped: reserveSkipped)
+        return wrap(picked, pickedViaPreferred: false)
     }
 
     /// Pick up to `count` ready models on **distinct CLI drivers** for triangulation.
