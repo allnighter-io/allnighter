@@ -87,7 +87,9 @@ final class ModelCatalogTests: XCTestCase {
             driverId: "claude_code", displayName: "Fabel", modelLabel: "fabel",
             role: .answerer, enabled: true, registry: registry)
         XCTAssertTrue(created.id.hasPrefix("custom_claude_code_"))
-        XCTAssertTrue(ModelCatalog.resolvedModels(registry: registry).contains { $0.id == created.id && $0.enabled })
+        XCTAssertEqual(created.modelSmokeStatus, "unverified")
+        // enabled=true is ignored until smoke-verified — stays off the Bench.
+        XCTAssertFalse(ModelCatalog.resolvedModels(registry: registry).contains { $0.id == created.id && $0.enabled })
 
         var updated = created
         updated.displayName = "Fabel 2"
@@ -106,6 +108,65 @@ final class ModelCatalogTests: XCTestCase {
             role: .answerer, enabled: false, registry: registry)
         let model = ModelCatalog.resolvedModels(registry: registry).first { $0.id == created.id }
         XCTAssertFalse(model?.enabled ?? true)
+    }
+
+    func testCustomModelStaysOffBenchUntilSmokeRecognized() throws {
+        let registry = testRegistry()
+        let created = try ModelCatalog.createCustom(
+            driverId: "claude_code", displayName: "Fabel", modelLabel: "fabel",
+            role: .answerer, enabled: true, registry: registry)
+        XCTAssertEqual(created.modelSmokeStatus, "unverified")
+        XCTAssertFalse(ModelCatalog.isEnabled(created.id))
+
+        XCTAssertThrowsError(try ModelCatalog.setEnabled(created.id, true)) { error in
+            guard case .invalid(let detail) = error as? ModelCatalogError else {
+                return XCTFail("expected invalid")
+            }
+            XCTAssertTrue(detail.contains("alln models verify \(created.id)"))
+        }
+
+        var recognized = created
+        recognized.modelSmokeStatus = ModelSmokeStatus.recognized.rawValue
+        try ModelCatalog.updateCustom(recognized)
+        try ModelCatalog.setEnabled(created.id, true)
+        XCTAssertTrue(ModelCatalog.isEnabled(created.id))
+    }
+
+    func testVerifyModelSmokePersistsRecognized() async throws {
+        let registry = DriverRegistry([
+            DriverManifest(
+                id: "claude_code",
+                displayName: "Claude",
+                kind: .headlessCLI,
+                invoke: .init(
+                    command: "claude",
+                    args: ["-p", "{{prompt}}", "--model", "{{model}}"]
+                )
+            )
+        ])
+        let created = try ModelCatalog.createCustom(
+            driverId: "claude_code", displayName: "Fabel", modelLabel: "fabel",
+            role: .answerer, enabled: true, registry: registry)
+        let records = [
+            ToolProbeRecord(
+                driverId: "claude_code",
+                status: .ready(version: "1"),
+                invocation: .direct(path: "/usr/bin/true"),
+                lastProbeAt: Date()
+            )
+        ]
+        let invoker = MockWorkerInvoking.answering([ModelSmokeVerifier.verificationToken])
+        let smoke = try await ModelCatalog.verifyModelSmoke(
+            id: created.id,
+            registry: registry,
+            invoker: invoker,
+            probeRecords: records
+        )
+        XCTAssertEqual(smoke.status, .recognized)
+        XCTAssertEqual(ModelCatalog.get(created.id)?.modelSmokeStatus, "recognized")
+        XCTAssertNil(ModelCatalog.get(created.id)?.modelSmokeDetail)
+        // Verify does not auto-enable.
+        XCTAssertFalse(ModelCatalog.isEnabled(created.id))
     }
 
     func testBuiltInDeleteFails() {

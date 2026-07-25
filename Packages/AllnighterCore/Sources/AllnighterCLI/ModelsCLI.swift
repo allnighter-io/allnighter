@@ -14,6 +14,7 @@ enum ModelsCLI {
         case "add": runAdd(Array(args.dropFirst()), runtime)
         case "update": runUpdate(Array(args.dropFirst()), runtime)
         case "delete": runDelete(Array(args.dropFirst()), runtime)
+        case "verify": await runVerify(Array(args.dropFirst()), runtime)
         default: await runList(args, runtime)
         }
     }
@@ -61,7 +62,12 @@ enum ModelsCLI {
         for m in list.models {
             let benchMark = m.enabled ? "onBench" : "available"
             let readyMark = m.ready ? "ready" : m.status
-            print("\(m.id)\t\(m.displayName)\t\(m.driverId)\t\(benchMark)\t\(readyMark)")
+            var line = "\(m.id)\t\(m.displayName)\t\(m.driverId)\t\(benchMark)\t\(readyMark)"
+            if let def = ModelCatalog.get(m.id), def.origin == .custom,
+               let smoke = def.modelSmokeStatus {
+                line += "\t\(smoke)"
+            }
+            print(line)
         }
     }
 
@@ -100,16 +106,19 @@ enum ModelsCLI {
         guard let driver = opts.value("driver"),
               let name = opts.value("name"),
               let label = opts.value("model-label") else {
-            usage("add --driver <driverId> --name <display-name> --model-label <label> [--role answerer|planWriter|both] [--disabled] [--json]")
+            usage("add --driver <driverId> --name <display-name> --model-label <label> [--role answerer|planWriter|both] [--disabled] [--json] (then: alln models verify <id>)")
             return
         }
         let role = opts.value("role").flatMap(ModelRole.init(rawValue:)) ?? .answerer
         let enabled = !opts.flag("disabled")
         do {
-            _ = try ModelCatalog.createCustom(
+            let created = try ModelCatalog.createCustom(
                 driverId: driver, displayName: name, modelLabel: label,
                 role: role, enabled: enabled, registry: runtime.registry)
             emitList(opts, runtime)
+            if !opts.flag("json") {
+                print("saved as unverified — run: alln models verify \(created.id)")
+            }
         } catch let error as ModelCatalogError {
             emitModelError(error)
         } catch {
@@ -150,6 +159,44 @@ enum ModelsCLI {
         do {
             try ModelCatalog.deleteCustom(id)
             emitList(opts, runtime)
+        } catch let error as ModelCatalogError {
+            emitModelError(error)
+        } catch {
+            emitFailure("MODEL_INVALID", error.localizedDescription)
+        }
+    }
+
+    private static func runVerify(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            usage("verify <custom-model-id>"); return
+        }
+        do {
+            let smoke = try await ModelCatalog.verifyModelSmoke(
+                id: id,
+                registry: runtime.registry,
+                probeRecords: SetupStore().load().records
+            )
+            if opts.flag("json") {
+                struct Payload: Encodable {
+                    var id: String
+                    var status: String
+                    var detail: String?
+                    var driverId: String
+                    var label: String
+                }
+                print(AllnighterCLI.jsonString(Payload(
+                    id: id,
+                    status: smoke.status.rawValue,
+                    detail: smoke.detail,
+                    driverId: smoke.driverId,
+                    label: smoke.label
+                )))
+            } else {
+                var line = "\(id)\t\(smoke.status.rawValue)"
+                if let detail = smoke.detail { line += "\t\(detail)" }
+                print(line)
+            }
         } catch let error as ModelCatalogError {
             emitModelError(error)
         } catch {

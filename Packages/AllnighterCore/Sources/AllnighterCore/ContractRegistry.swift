@@ -208,6 +208,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
                 || name.hasPrefix("models delete")
                 || name.hasPrefix("models enable")
                 || name.hasPrefix("models disable")
+                || name.hasPrefix("models verify")
                 || name.hasPrefix("project add")
                 || name.hasPrefix("project archive")
                 || name.hasPrefix("defaults ")

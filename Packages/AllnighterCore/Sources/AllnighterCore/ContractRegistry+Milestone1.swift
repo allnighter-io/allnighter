@@ -131,7 +131,7 @@ public extension ContractRegistry {
             outputSchema: .modelListJSON
         ),
         CommandSpec(
-            "models add", summary: "Add a custom model for a source.", milestone: .m1,
+            "models add", summary: "Add a custom model (saved unverified; run `alln models verify` before enable).", milestone: .m1,
             flags: [
                 FlagSpec("driver", takesValue: true, valueType: "driverId", summary: "Source driver id."),
                 FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name."),
@@ -141,6 +141,12 @@ public extension ContractRegistry {
                 FlagSpec("json", summary: "Return refreshed ModelListJSON."),
             ],
             outputSchema: .modelListJSON
+        ),
+        CommandSpec(
+            "models verify", summary: "Smoke-verify a custom model label via AgentOS (AGENTOS_MODEL_OK).", milestone: .m1,
+            args: [ArgSpec("model-id", required: true, summary: "Custom model id to verify.")],
+            flags: [FlagSpec("json", summary: "Structured { id, status, detail, driverId, label }.")],
+            spendsQuota: true
         ),
         CommandSpec(
             "models update", summary: "Update a custom model definition.", milestone: .m1,

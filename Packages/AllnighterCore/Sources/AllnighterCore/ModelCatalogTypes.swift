@@ -24,6 +24,9 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
     public var effortVariants: [EffortLevel: String]?
     public var createdAt: Date?
     public var updatedAt: Date?
+    /// AgentOS ModelSmokeStatus raw value for custom models. nil = built-in / legacy (treated as trusted).
+    public var modelSmokeStatus: String?  // "recognized"|"unrecognized"|"unsupported"|"inconclusive"|"unverified"
+    public var modelSmokeDetail: String?
 
     public init(
         id: ModelID,
@@ -36,7 +39,9 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
         capabilities: ModelCapabilities,
         effortVariants: [EffortLevel: String]? = nil,
         createdAt: Date? = nil,
-        updatedAt: Date? = nil
+        updatedAt: Date? = nil,
+        modelSmokeStatus: String? = nil,
+        modelSmokeDetail: String? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -49,6 +54,8 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
         self.effortVariants = effortVariants
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.modelSmokeStatus = modelSmokeStatus
+        self.modelSmokeDetail = modelSmokeDetail
     }
 }
 

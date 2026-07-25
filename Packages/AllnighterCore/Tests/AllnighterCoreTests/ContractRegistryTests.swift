@@ -26,7 +26,7 @@ final class ContractRegistryTests: XCTestCase {
         let m1 = Set(reg.commands.filter { $0.milestone == .m1 }.map(\.name))
         let expected: Set<String> = [
             "docs", "menu", "menu show", "doctor", "doctor explain", "doctor handoff", "bootstrap", "install-cli", "version",
-            "models", "models enable", "models disable", "models add", "models update", "models delete",
+            "models", "models enable", "models disable", "models add", "models verify", "models update", "models delete",
             "teams", "teams show", "teams definition", "teams duplicate", "teams new", "teams edit", "teams set-default", "teams delete", "teams restore",
             "skills", "skills show", "skills duplicate", "skills new", "skills edit", "skills delete",
             "team status", "team result", "team cancel", "team reconcile",

@@ -84,7 +84,9 @@ final class ModelCatalogCLITests: XCTestCase {
             role: .answerer, enabled: true, registry: registry)
         let list = ModelsCLI.modelListJSON(runtime: runtime(), driverId: "claude_code")
         let fabel = list.models.first { $0.displayName == "Fabel" }
-        XCTAssertEqual(fabel?.state, "onBench")
-        XCTAssertTrue(fabel?.enabled ?? false)
+        // Custom models stay off-Bench until smoke-verified + enable.
+        XCTAssertEqual(fabel?.state, "available")
+        XCTAssertFalse(fabel?.enabled ?? true)
+        XCTAssertEqual(ModelCatalog.get(fabel!.id)?.modelSmokeStatus, "unverified")
     }
 }

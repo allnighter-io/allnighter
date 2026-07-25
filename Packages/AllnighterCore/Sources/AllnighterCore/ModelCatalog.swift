@@ -328,7 +328,12 @@ public enum ModelCatalog {
     }
 
     public static func setEnabled(_ id: ModelID, _ enabled: Bool) throws {
-        guard get(id) != nil else { throw ModelCatalogError.notFound(id) }
+        guard let def = get(id) else { throw ModelCatalogError.notFound(id) }
+        if enabled, def.origin == .custom,
+           let status = def.modelSmokeStatus, status != ModelSmokeStatus.recognized.rawValue {
+            throw ModelCatalogError.invalid(
+                "custom model is not smoke-verified; run: alln models verify \(id)")
+        }
         var roster = rosterPersistence().load() ?? defaultRosterState(definitions: mergedDefinitions())
         if enabled {
             if !roster.enabledModelIds.contains(id) { roster.enabledModelIds.append(id) }
@@ -372,12 +377,62 @@ public enum ModelCatalog {
             defaultEnabled: enabled,
             capabilities: fallbackCapabilities(driverId: driverId),
             createdAt: now,
-            updatedAt: now
+            updatedAt: now,
+            modelSmokeStatus: "unverified"
         )
         try saveCustom(def)
-        if enabled { try setEnabled(newId, true) }
-        else { try ensureRosterExists(); try setEnabled(newId, false) }
+        // Custom models stay off the Bench until smoke-verified (`alln models verify`); do not setEnabled(true) here.
+        try ensureRosterExists()
+        try setEnabled(newId, false)
         return def
+    }
+
+    /// Runs AgentOS model smoke for a custom catalog entry and persists status/detail.
+    /// Does not auto-enable — caller runs `alln models enable` after `.recognized`.
+    ///
+    /// `probeRecords` comes from `SetupStore().load().records` (Engine); Core cannot
+    /// depend on SetupStore. nil loads the default `cli_setup.json` under the support root.
+    @discardableResult
+    public static func verifyModelSmoke(
+        id: ModelID,
+        registry: DriverRegistry,
+        invoker: (any WorkerInvoking)? = nil,
+        probeRecords: [ToolProbeRecord]? = nil
+    ) async throws -> ModelSmokeResult {
+        guard let def = get(id) else { throw ModelCatalogError.notFound(id) }
+        guard def.origin == .custom else {
+            throw ModelCatalogError.invalid("only custom models can be smoke-verified")
+        }
+        guard var manifest = registry.manifest(id: def.driverId) else {
+            throw ModelCatalogError.driverMissing(def.driverId)
+        }
+        guard manifest.invoke != nil else {
+            throw ModelCatalogError.invalid("driver '\(def.driverId)' has no invoke path")
+        }
+        let records = probeRecords ?? loadDefaultProbeRecords()
+        guard let absolutePath = resolvedBinaryPath(driverId: def.driverId, records: records) else {
+            throw ModelCatalogError.invalid("CLI not detected/ready")
+        }
+        var invoke = manifest.invoke!
+        invoke.command = absolutePath
+        manifest.invoke = invoke
+
+        #if os(macOS) || os(Linux)
+        let runner: any WorkerInvoking = invoker ?? DefaultWorkerRunner()
+        #else
+        guard let invoker else {
+            throw ModelCatalogError.invalid("No worker invoker.")
+        }
+        let runner = invoker
+        #endif
+
+        let smoke = await ModelSmokeVerifier(invoker: runner).verify(
+            manifest: manifest, label: def.modelLabel)
+        var updated = def
+        updated.modelSmokeStatus = smoke.status.rawValue
+        updated.modelSmokeDetail = smoke.detail
+        try updateCustom(updated)
+        return smoke
     }
 
     public static func updateCustom(_ model: ModelDefinition) throws {
@@ -544,6 +599,30 @@ public enum ModelCatalog {
             .filter { $0.origin == .builtIn }
             .max { $0.capabilities.capabilityTags.count < $1.capabilities.capabilityTags.count }?
             .capabilities ?? ModelCapabilities()
+    }
+
+    /// Absolute binary for `ready` / `installedNotProbed` probe rows (direct/shim).
+    private static func resolvedBinaryPath(
+        driverId: String, records: [ToolProbeRecord]
+    ) -> String? {
+        guard let record = records.first(where: { $0.driverId == driverId }) else { return nil }
+        switch record.status {
+        case .ready, .installedNotProbed:
+            return record.invocation?.resolvedPath
+        default:
+            return nil
+        }
+    }
+
+    /// Mirrors `SetupStore.State.records` without importing AllnighterEngine.
+    private static func loadDefaultProbeRecords() -> [ToolProbeRecord] {
+        struct SetupState: Codable { var records: [ToolProbeRecord] }
+        let url = AllnighterSupportRoot.config.appendingPathComponent("cli_setup.json")
+        guard let data = try? Data(contentsOf: url),
+              let state = try? CoreJSON.decode(SetupState.self, from: data) else {
+            return []
+        }
+        return state.records
     }
 }
 
