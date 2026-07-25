@@ -7,8 +7,10 @@ implementation (founder, 2026-07-25); everything else still unauthorized.**
 Owner: AllnighterCore (`ModelCatalog.swift`, `TeamCatalog.swift`) +
 AgentOS (`BundledDefaults.swift`) — cross-repo, MCV-S04b additionally touches
 XTerminal.
-Updated: 2026-07-25 (v3 — S03 fix ratified by founder after pressure-test; see
-"What changed in this revision" below).
+Updated: 2026-07-25 (v3.1 — S03 ratified after founder pressure-test, then
+extended from `duplicate` alone to all three authoring printers
+(`duplicate`/`new`/`edit`) after a fourth review pass; `set-default`
+explicitly ruled out of the sweep. See "What changed in this revision").
 Companion: XTerminal `docs/phases/Your_AI_Model_Picker.md` §5 (the founder
 ruling MCV-S04b tracks — do not restate or fork that decision here, only cite it).
 
@@ -44,16 +46,21 @@ Net result:
   DTO-shape-swap aside on a re-litigation worry; **v3 reverses that.** The
   founder pressure-tested v2's caution (2026-07-25), a third independent
   review reached the same conclusion, and a careful re-read of the archived
-  ruling shows it never protected the return shape. The swap is now the
-  ratified fix — see the section for the full record.
+  ruling shows it never protected the return shape. **v3.1 then extended the
+  swap** from `duplicate` alone to all three authoring printers — a fourth
+  review pass caught that `new` and `edit` print the same wrong shape, which
+  would have left the stated DTO rule half-applied — while explicitly ruling
+  `set-default` out of the sweep (it mutates catalog state, not the
+  definition). See the section for the full record.
 - **MCV-S04** — split into **S04a** (new: a small, local, Allnighter-only
   disclosure fix both reviewers proposed independently) and **S04b** (the
   original cross-repo item, unchanged, still deferred behind XTerminal).
 
 ## Priority order (once authorized)
 
-1. **MCV-S03** — swap `teams duplicate`'s output to the editable `TeamPreset`
-   shape (founder-ratified 2026-07-25). Highest confidence, broadest value.
+1. **MCV-S03** — swap the three team-authoring printers (`duplicate`, `new`,
+   `edit`) to the editable `TeamPreset` shape (founder-ratified 2026-07-25).
+   Highest confidence, broadest value.
 2. **MCV-S00** — two-repo Haiku patch. Still gated on founder go-ahead.
 3. **MCV-S04a** — stamp hand-typed models as unverified.
 4. **MCV-S01** — no code action; optional documentation note only.
@@ -180,21 +187,30 @@ justify new grammar.
 
 **Status:** rejected. See ledger D4.
 
-## MCV-S03 — `teams duplicate` returns the wrong shape; swap it to `TeamPreset` (RATIFIED)
+## MCV-S03 — team-authoring commands return the wrong shape; swap all three to `TeamPreset` (RATIFIED)
 
-**Files:** `AllnighterCLI.swift` — `runTeamsDuplicate` (line 770) prints
+**Files:** `AllnighterCLI.swift` — three authoring commands print
 `teamShowJSONString` = `TeamShowJSON.project(...)` (`CatalogJSON.swift:265`,
-struct at line 151: `crew`/`scout`/`seatCount`/`contractVersion`, `lead: LeadSeat`).
-`runTeamsDefinition` (line 673) prints the editable `TeamPreset` shape
+struct at line 151: `crew`/`scout`/`seatCount`/`contractVersion`, `lead: LeadSeat`):
+- `runTeamsDuplicate` — line 778
+- `runTeamsNew` — line 795
+- `runTeamsEdit` — line 813
+
+`runTeamsDefinition` (line 681) prints the editable `TeamPreset` shape
 (`workerSpecs`, `lead: TeamLeadSpec`, no `seatCount`) — the only shape
-`teams edit` accepts.
+`teams edit` accepts. (v3 scoped this to `duplicate` alone; a fourth review
+pass caught that `new` and `edit` sit on the same wrong side, which would have
+left the rule below half-applied — and left `edit` returning something you
+can't feed back to `edit`. Verified live this session: `teams edit --json`
+output was the show projection.)
 
 **Effect observed:** creating any custom team is `duplicate` → `definition` →
 hand-build JSON → `edit`, four calls minimum, because `duplicate`'s output
-can't be fed straight back into `edit`. This is the most durable, most broadly
-applicable finding of the five — it hits every future custom-team creation by
-any caller, and this CLI's callers are predominantly cold agents assembling
-JSON (agent-first-schemas law).
+can't be fed straight back into `edit`. The same defect one command over:
+`edit`'s own output can't seed the next `edit` in an iterate loop. This is
+the most durable, most broadly applicable finding of the five — it hits every
+future custom-team creation by any caller, and this CLI's callers are
+predominantly cold agents assembling JSON (agent-first-schemas law).
 
 **Ruling record (founder, 2026-07-25) — supersedes v2's caution.** v2 held
 back the shape swap because the archived `Agent_Dogfood_Papercuts.md`
@@ -211,11 +227,19 @@ intermediate `definition` call exists only to re-fetch the same object in a
 different serialization, and carries nothing the editing caller needs.
 
 **The fix (final):**
-1. `teams duplicate` returns the round-trippable `TeamPreset` shape — byte-
-   compatible with what `teams definition` returns and what `teams edit`
-   consumes. The authoring path becomes `duplicate → edit`. Two calls, no
-   hand-conversion, no new grammar — D1's actual substance (manifest-based
-   authoring, no inline seat flags) is fully preserved.
+1. All three authoring printers swap to the round-trippable `TeamPreset`
+   shape — byte-compatible with what `teams definition` returns and what
+   `teams edit` consumes: `duplicate` (:778), `new` (:795), `edit` (:813).
+   One-line change per site. The creation path becomes `duplicate → edit` —
+   two calls, no hand-conversion — and the iterate path becomes
+   `edit → tweak → edit`, seeded by `edit`'s own output. No new grammar —
+   D1's actual substance (manifest-based authoring, no inline seat flags) is
+   fully preserved. The justifications differ and both are recorded:
+   `duplicate`'s swap removes a forced extra call; `new`/`edit`'s swaps
+   change no call counts but make the rule below true rather than
+   aspirational, and make every mutation receipt diff-verifiable (the caller
+   can compare what persisted against what they submitted — a projection
+   receipt can't do that).
 2. Clean cut, no compatibility machinery: no dual-shape readers, no aliases,
    no migration shims — there are zero users (standing foundation-first
    directive). `teams edit` keeps accepting exactly one shape; if handed a
@@ -227,14 +251,26 @@ different serialization, and carries nothing the editing caller needs.
    compensating for a wrong shape.
 4. `teams definition` survives unchanged as the read-for-edit of any
    *existing* team.
-5. **DTO rule, stated so this class can't recur:** mutation/duplication
-   commands speak the editable spec; inspection commands (`show`, `teams`,
-   `menu`) speak display projections. `duplicate` was the one command on the
-   wrong side of its own rule.
-6. Contract surface: this changes a public command's output schema — update
-   the registry's `teams duplicate` output schema
-   (`teamShowJSON` → `teamPreset`), regenerate exported contracts, and
-   version per the existing schema-governance law.
+5. **DTO rule, stated precisely so this class can't recur:** any command that
+   **accepts or produces a team definition** speaks `TeamPreset`
+   (`definition`, `duplicate`, `new`, `edit`); inspection commands (`show`,
+   `teams`, `menu`) speak display projections; commands that mutate **catalog
+   state about** a team rather than its definition return the state receipt,
+   not a team payload. Three authoring commands were on the wrong side of
+   this rule, not one.
+6. **`set-default` (:827) stays on the projection side — ruled here so the
+   next reviewer doesn't reopen it.** It also prints `teamShowJSONString`,
+   but it mutates catalog state (which team is a lane's default), not the
+   team definition; nobody edits after it, and the fact it changed
+   (`isDefaultForRun`) lives in the projection, not in `TeamPreset`. The
+   codebase already treats this class differently — `teams restore` returns a
+   minimal `RestoreAck` (:760-766), not a team payload. Blanket-swapping all
+   four for uniformity's sake would be the same overreach in the opposite
+   direction.
+7. Contract surface: three public commands' output schemas change — update
+   the registry's `teams duplicate`/`new`/`edit` output schemas
+   (`teamShowJSON` → `teamPreset`) in one batch, regenerate exported
+   contracts, and version once per the existing schema-governance law.
 
 **Rejected from mentor feedback:** a lenient `edit` reader accepting both
 shapes (one reviewer's belt-and-braces suggestion). Feeding the show
@@ -242,13 +278,17 @@ projection to `edit` has never worked, so there is no flow to keep working —
 a second accepted schema is permanent complexity buying zero coverage, and
 with zero users there is nothing to migrate anyway.
 
-**Gate (when implemented):** round-trip test — `duplicate` output fed to
-`edit` unmodified succeeds; a modified round-trip persists and `show` reflects
-it; the cold-agent creation flow is ≤2 calls; `edit` given a show-projection
-payload refuses with an error naming the expected shape.
+**Gate (when implemented):** round-trip tests across all three —
+`duplicate` output fed to `edit` unmodified succeeds; `new`'s output fed to
+`edit` unmodified succeeds; `edit`'s output fed back to `edit` unmodified
+succeeds (idempotent); a modified round-trip persists and `show` reflects it;
+the cold-agent creation flow is ≤2 calls; `edit` given a show-projection
+payload refuses with an error naming the expected shape; `set-default` still
+returns the show projection (guarding rule #6 against a future blanket
+sweep).
 
-**Effort:** small — swap one printer call, registry schema update, round-trip
-gate.
+**Effort:** small — three one-line printer swaps, one batched registry schema
+update, round-trip gates.
 
 **Status:** **ratified for implementation** (founder, 2026-07-25). The hot fix
 packet it was queued behind closed and archived on 2026-07-25, so this is first up.
