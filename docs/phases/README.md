@@ -25,11 +25,13 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Model_Catalog_Quick_Fixes.md`](Model_Catalog_Quick_Fixes.md) | **MCV-S03 SHIPPED** (`a26a264d`, contract 4.0.1); S00/S04a still unauthorized; S02 rejected; S04b deferred | Team-authoring printers return editable `TeamPreset`. Remaining: Haiku catalog patch, unverified-model stamp. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
 
 > Recently completed and archived — code is the SSOT, do not reopen:
+> [`Model_Catalog_Quick_Fixes.md`](../archive/phases/Model_Catalog_Quick_Fixes.md)
+> (Complete 2026-07-25 — MCV-S03 shipped `a26a264d` / contract 4.0.1; remaining
+> ledger items unauthorized — do not resume without a new founder ruling),
 > [`CODE_RED_Core_Infrastructure_Repair.md`](../archive/phases/CODE_RED_Core_Infrastructure_Repair.md)
 > (CLOSED 2026-07-24, CR-S00–S07, live proof GREEN ×3; resident control plane
 > deleted to zero; `Resident_Execution_Broker.md` archived with it),
@@ -212,7 +214,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Agent front door — findable/suggested/selection, catalog normalization | Front door V1 Complete — archived `Agent_Front_Door.md` (gate 1) → archived `Agent_Onboarding.md` (gate 2) → archived `Menu_Not_Router.md` (selection; gate 3 router tombstone: `Agent_Intent_Router.md`); catalog: archived `Team_Catalog_Normalization.md` |
 | Stale MCP/help language, empty help search, invented flags, dead `pair slice` in living docs, version freshness | archived `CLI_Agent_Surface_Fidelity.md` (Complete; code SSOT `RetiredVocabulary` + HelpTopicRegistry) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
-| Team authoring shape (`teams duplicate`/`new`/`edit` JSON), model-catalog quick fixes | `Model_Catalog_Quick_Fixes.md` — MCV-S03 shipped (code SSOT: `AllnighterCLI` authoring printers + `ContractRegistry` `teamPreset`/`teamShowJSON`); remaining items unauthorized |
+| Team authoring shape (`teams duplicate`/`new`/`edit` JSON), model-catalog quick fixes | archived [`Model_Catalog_Quick_Fixes.md`](../archive/phases/Model_Catalog_Quick_Fixes.md) — MCV-S03 shipped (code SSOT: `AllnighterCLI` authoring printers + `ContractRegistry` `teamPreset`/`teamShowJSON`); remaining ledger items unauthorized |
 | Run model, answer vs execution teams, dispatch/source safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` + `Work_Order_Team_Model.md` |
 | Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` + `Language_Cutover.md` |
 | Send to team, delegation surface, Team Cards | `Team_Delegation_Surface.md` + `docs/gui/surfaces/send-to-team/brief.md` |

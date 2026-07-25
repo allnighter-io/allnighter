@@ -1,15 +1,14 @@
 # Model Catalog & Team Schema — Quick Fixes (Reviewed)
 
-Status: **Active — MCV-S03 SHIPPED (2026-07-25, `a26a264d`, contract
-4.0.1). Everything else still unauthorized.**
-Owner: AllnighterCore (`ModelCatalog.swift`, `TeamCatalog.swift`) +
-AgentOS (`BundledDefaults.swift`) — cross-repo, MCV-S04b additionally touches
-XTerminal.
-Updated: 2026-07-25 (v3.2 — MCV-S03 implemented: all three authoring printers
-return `TeamPreset`; show-projection refusal names the expected shape;
-`set-default` stays on show; registry `teamPreset`/`teamShowJSON` + contract
-bump). Companion: XTerminal `docs/phases/Your_AI_Model_Picker.md` §5 (the founder
-ruling MCV-S04b tracks — do not restate or fork that decision here, only cite it).
+Status: **Complete / Archived 2026-07-25** — MCV-S03 SHIPPED (`a26a264d`,
+contract 4.0.1). Remaining ledger items (S00 / S04a unauthorized; S01 closed;
+S02 rejected; S04b deferred behind XTerminal `YM7`) are history in this
+archive — do not resume without a new founder ruling.
+Owner (shipped): AllnighterCLI authoring printers + `ContractRegistry`
+(`teamPreset` / `teamShowJSON`). Cross-repo leftovers (Haiku, AgentOS catalog)
+were never authorized.
+Updated: 2026-07-25 (archived after S03 closeout). Companion: XTerminal
+`docs/phases/Your_AI_Model_Picker.md` §5 (MCV-S04b pointer only).
 
 ## Origin
 
