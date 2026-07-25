@@ -94,6 +94,7 @@ without a new founder ruling.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Team_Run_Receipt.md`](Team_Run_Receipt.md) | **Draft feature packet — not started** | Gorgeous private-by-default team run report (CLI-openable), deliberate share as signed file/link; reuses Factory Floor truth; no Mac-app-required viewer; Buzz optional later. |
+| [`Buzz_Harness_Spike.md`](Buzz_Harness_Spike.md) | **SPIKE — deferred behind Team Run Receipt**; throwaway-permitted | After receipts exist: does the same object feel valuable in an attended Buzz (or Slack) thread when an ordinary agent calls `alln`? Firm/plural-member framing retired 2026-07-25. Strategy companion: `docs/strategy/Buzz_And_The_Judgment_Layer.md`. |
 | [`Share_To_Research.md`](Share_To_Research.md) | **Draft feature packet — not started**; pre-launch, not urgent | Share an X post / video / article from the iOS share sheet, confirm once, and the Mac's Research team returns a project-aware read. Mostly wiring: typed `startRun`, the cloud relay drain loop, the Research team, and `SignalSourceRouter` all exist — new work is the iOS Share Extension + confirm sheet. The iOS app's first defensible feature (needs the user's own multi-CLI bench; no vendor can copy it). |
 | [`Composer_File_References.md`](Composer_File_References.md) | **Backend built** (FR-S00–S03 + picker); FR-S04 `@`-palette + FR-S05/06/07 forward | `@` file references. Remaining: Mac `@` palette (ranking/highlight/paste/DnD/persistence), pending/work-order revalidation, context reveal, GUI proof seal. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | **Parent/router** — MLP core delivered | Work-thread lane router; index for still-open children below. |
@@ -230,6 +231,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Menu byte budget, cold-agent selection and composition | Code SSOT: `MenuCatalog.swift`, `MenuSelectionCopy.swift`; gate `scripts/verify_menu_contract.py`; matrix `scripts/agent_eval.sh --suite menu-not-router`. The relations phase was killed by its own measurement — do not reopen. |
 | Panel disagreement, contradiction detection, what Max does beyond more seats, anchored findings | `Contradiction_Pass.md` (extends `Spec_Review.md`) |
 | Gorgeous private team run report, signed receipt, deliberate share (not Mac-only) | `Team_Run_Receipt.md` (projects existing `TeamRun`/`TeamRunJSON`; Factory Floor is the in-app reader) |
+| Buzz / attended agent-chat rooms as a call site for alln (after receipts) | `Buzz_Harness_Spike.md` + `docs/strategy/Buzz_And_The_Judgment_Layer.md` (firm-member mythology retired; receipt-first) |
 | Share a link from the phone into a Research run, iOS share sheet intake | `Share_To_Research.md` (reuses `RemoteCommandRouter` `startRun` + `SignalSourceRouter`; no new protocol operation) |
 | Composer `@` file references, file chips, prompt file-read blocks | `Composer_File_References.md` |
 | Persistent chat, routable turns, thread backend | `Persistent_Work_Threads.md` → `threads/04_Observed_Usage.md`, `threads/09_Thread_Forking.md` |

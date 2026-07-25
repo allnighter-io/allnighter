@@ -1,13 +1,14 @@
 # Buzz and the Judgment Layer — a thought experiment
 
-Status: **EXPLORATORY MEMO — a first-principles exercise, not a plan and not
-a decision.** For this document only, all Allnighter laws (pricing,
-no-API-keys, closed source, everything) are deliberately suspended so the
-full option space is visible. Nothing here changes any law; only a founder
-ruling can do that. Implementing agents: this memo authorizes no work except
-the spike in `docs/phases/Buzz_Harness_Spike.md`.
+Status: **EXPLORATORY MEMO — revised 2026-07-25.** Still not a plan and not a
+decision for marrying Buzz. For the original suspend-laws exercise only,
+Allnighter laws were deliberately opened so the option space was visible;
+nothing here changes any law. Implementing agents: this memo authorizes **no
+core work**. Near-term product path is `docs/phases/Team_Run_Receipt.md`.
+Buzz remains an optional attended surface — see
+`docs/phases/Buzz_Harness_Spike.md` (reframed).
 Audience: founder + outside mentors. Written to stand alone.
-Updated: 2026-07-23 (drafted)
+Updated: 2026-07-25 (founder correction after first Growth Min run inside Buzz)
 
 ## The prompt
 
@@ -26,6 +27,33 @@ no laws, no pricing, even open-sourcing on the table — what is the most
 disruptive and lucrative playbook that buzz (or the direction it represents)
 opens up?** And is the founder's instinct right that the alln CLI, not the
 macOS app, is where nearly all the value sits?
+
+## 2026-07-25 correction (read this first)
+
+Live Buzz UI + a real Growth Min run inside Buzz forced three corrections:
+
+1. **There is no ALLN agent / "firm member" / plural seat type.** Buzz has
+   humans and single-model agents (Opus, Fabel, Sonnet, …). Agent teams in
+   Buzz are groups of those agents. `alln` is a **tool any agent or human can
+   call**, not a peer identity that must appear in the Agents grid.
+2. **Drop "firm as a member" / "only plural harness on the rails" language
+   entirely.** Plural judgment is the *capability* alln provides when called;
+   one accountable voice / one receipt is the *mechanic*. Story ≠ membership.
+3. **The durable product wedge is not Buzz integration.** It is a
+   **gorgeous, private-by-default, deliberately shareable Team Run Receipt**
+   — signed alln attestation of what each seat said — openable from CLI and
+   Mac, reusable for every team. Spec: `docs/phases/Team_Run_Receipt.md`.
+   Signing ≠ public. Public Nostr / hosted links are never default.
+
+What Buzz still uniquely offers (optional, later): an **attended room** where
+humans + agents already talk, someone calls alln, and the same receipt lands
+**in the thread**. That legibility test survives; the membership mythology
+does not.
+
+Growth Min (run B64742…, Fabel lead) also sharpened the share framing: the
+interesting Buzz-adjacent object is a **permalinkable / signed receipt**, not
+plumbing. Same object must exist terminal-only so Buzz is distribution for the
+receipt, never its home.
 
 ## What Allnighter is (for outside readers)
 
@@ -66,9 +94,9 @@ and emit a verdict a team can trust? Block's own roadmap punts exactly this
 layer to the ecosystem — "workflows and agents on the open spec" and
 "web-of-trust reputation" are listed as future work, in their words strong
 opinions pending code. That is not a competitor shipping our category. That
-is a substrate publicly requesting that our category exist on top of it.
+is a substrate that can **host** a call into our category.
 
-## The structural argument
+## The structural argument (revised)
 
 **1. Substrates commoditize the workspace app.** Buzz's desktop client is
 free, open, and Block-backed. If signed-event workspaces win, every
@@ -85,20 +113,20 @@ of it is in the app. The founder's instinct is right, and the gap is not
 incremental — the app is replaceable in a quarter by any competent team; the
 CLI's machinery is years of hard-won contract design.
 
-**3. Alln is the only plural harness.** Every harness on buzz's list wraps
-one agent: one member, one mind. Alln joining such a network is one signed
-member that is secretly a *firm* — summon it in a channel and a multi-model
-panel convenes, deliberates, and returns a judgment. The employee versus the
-firm. Nobody else is positioned to be the firm, because nobody else built a
-conductor over heterogeneous vendor CLIs.
+**3. Alln is the multi-vendor judgment tool agents invoke.** Buzz (and Slack,
+and other agent chat surfaces) will fill with single-model agents. When those
+agents — or humans — need a plural second opinion, they call `alln`. Vendor
+labs are structurally unlikely to ship "judge our model against rivals using
+the user's other subscriptions"; that remains our niche. This is a **call
+site**, not a **membership category** on someone else's roster.
 
-**4. Signed substrates upgrade alln's weakest story.** Today a verdict's
-credibility rests on trusting our process description. On a substrate where
-every seat, finding, and verdict is a signed, permanent, attributable event
-in the same thread as the conversation that shaped the work, credibility
-becomes *inspectable*. Buzz made code review "a conversation with a
-permanent record"; alln makes **spec review** one — with five models instead
-of one.
+**4. Signed, shareable receipts upgrade alln's weakest story.** Today a
+verdict's credibility often dies in terminal scrollback or a Mac-only Factory
+Floor the CLI user never opens. A Team Run Receipt — local, private by
+default, alln-signed attestation of seats + outputs + verdict, deliberate
+share as file or (later) link — makes the judgment **keepable and showable**.
+Buzz/Nostr can be one publisher of that object; they are not required for
+signing, and public relays must never be the default (privacy).
 
 **5. Open source cannot cannibalize our unit economics, because we have
 none.** No-API-keys means users bring their own compute. We were never going
@@ -106,55 +134,53 @@ to sell tokens. The business was always going to be coordination and trust —
 and those are network businesses, which open source accelerates rather than
 undercuts.
 
-## The playbook (everything on the table)
+## The playbook (revised sequencing)
 
-**Move 1 — Become the fourth harness, and the only plural one.** Ship a buzz
-harness where an alln team joins as one signed member. `@alln panel this
-spec` in a feature-branch channel; seats, impact ledger, and verdict land as
-signed events in the thread. Cheap (the CLI is already portable and already
-speaks structured JSON), demoable, and the kind of thing Block themselves
-would amplify. The spike doc specs the weekend-scale version.
+**Move 0 — Ship the Team Run Receipt (authorized product path).** Gorgeous
+private-by-default report from existing `TeamRun` / `TeamRunJSON`; CLI open;
+deliberate signed file export; Mac Factory Floor stays the in-app reader of
+the same truth. No Buzz dependency. Spec:
+`docs/phases/Team_Run_Receipt.md`.
+
+**Move 1 — Optional: drop that receipt into attended rooms.** After Move 0,
+test whether the **same object** feels magic in a Buzz thread (and later
+Slack agents calling `alln`). Spike:
+`docs/phases/Buzz_Harness_Spike.md`. Success = in-thread legibility, not
+"alln appears as a Buzz agent."
 
 **Move 2 — Open the contract before (or instead of) the engine.** Alln's
-schemas, run grammar, and verdict format are already spec-shaped. Publishing
-the *contract* as an open spec is a bid to make alln's output the de facto
-standard for "what a multi-model verdict looks like" on these networks —
-while deferring the decision about the engine. If the engine is ever opened
-(Apache 2.0, matching the ecosystem), it must be to win the standard, not as
-a gesture: an open engine without the network play just donates the hero
-loop to Cursor and goose.
+schemas, run grammar, and verdict/receipt format are already spec-shaped.
+Publishing the *contract* as an open spec is a bid to make alln's output the
+de facto standard for "what a multi-model verdict looks like" — while
+deferring the decision about the engine. If the engine is ever opened, it
+must be to win the standard, not as a gesture.
 
-**Move 3 — Monetize the layer that can't be self-hosted: judgment with a
-track record.** This is the lucrative part. Block's stated next frontier is
-*agents that can transact* — and Block is a payments company. The missing
-piece in any agent-commerce loop is the **completion oracle**: was the work
-actually done, and done well? An alln verdict — structured, multi-model,
-adversarially verified, produced by a party that constitutionally never
-rates itself — is precisely the artifact an escrow release wants to key on.
-Endgame revenue is not $20/month tooling; it is attestation and take-rate on
-verified agent work: reputation-bearing team cards with signed track
-records, verified runs, cross-org panels convened between parties who don't
-trust each other but trust the record. The prosumer motion survives as the
-free on-ramp that seeds the network with track records.
+**Move 3 — Far-out: monetize judgment with a track record.** Block's stated
+next frontier is *agents that can transact*. A completion oracle keyed on
+multi-model, adversarially verified, never-rates-itself receipts is
+imaginable. **Do not build escrow/DocuSign-for-agents now.** File it. Near-
+term rent remains the prosumer motion; receipts seed the artifact shape.
 
-One line for the whole thesis: **buzz gives every agent a name; alln gives a
-group of agents a judgment. Names are becoming free. Judgment with a
-permanent track record is the business.**
+One line for the revised thesis: **rooms give agents somewhere to talk; alln
+gives them a plural judgment when called; the receipt is how that judgment
+travels — private by default, shareable on purpose.**
 
 ## What we would refuse to do even with no laws
 
-- **Marry buzz.** It is a week old. It is the first *instance* of a pattern
-  (agents as signed equal members on an open event log), not the pattern
-  itself. Anything we build should sit behind a thin "signed-event context
-  plane" adapter — buzz first because it's real and Block-backed, but the
-  bet is on the pattern. If buzz stalls, Slack and GitHub will grow a worse
-  version of the same shape, and we adapt to that instead.
-- **Port the macOS app onto any of this.** Every hour there competes with a
-  free Block product instead of owning the layer above it. Let the app
-  become a debug viewer.
-- **Open the trust layer.** Engine open, contract open — maybe. But the
-  reputation registry and attestation service is the moat, and it only works
-  run by a neutral party. That stays ours.
+- **Marry buzz.** It is days/weeks old. It is the first *instance* of a
+  pattern (agents as signed equal members on an open event log), not the
+  pattern itself. Thin adapter only. If buzz stalls, Slack and GitHub will
+  grow a worse version of the same shape — same receipt object, different
+  room.
+- **Invent an ALLN Buzz agent / firm-member identity as the product.** Wrong
+  model of the UI; wrong growth story.
+- **Public-by-default Nostr or hosted URLs.** Privacy. Share is deliberate.
+- **Private auth relays as v1.** Too much infra; not required for signed
+  local receipts or file share.
+- **Port the macOS app onto Buzz.** Let the app remain a projection/debug
+  viewer; invest in CLI + receipt.
+- **Open the trust layer** if we ever open engine/contract. Reputation /
+  attestation stay ours if that business appears.
 
 ## The laws test (why this isn't a pivot)
 
@@ -164,54 +190,38 @@ imaginable for teams without subscriptions). Nearly everything else —
 contract-first, agent-first schemas, alln-is-called-by-agents (menu not
 router), never-rates-itself, CLI decoupling, no-git-management (buzz owns
 git; alln sends orders) — turns out to be exactly the property set a
-network-native judgment engine needs. We have been building for this world
-without naming it. That convergence is the strongest internal evidence the
-thesis is real, and it means the downside case is mild: even if buzz and
-this whole direction evaporate, none of the preparation is wasted, because
-the preparation is just alln's existing roadmap.
+room-native judgment **tool** needs. Downside if buzz evaporates: mild —
+Move 0 (receipts) is just finishing the product we already built.
 
 ## Honest counterarguments
 
-- **Block builds it themselves.** Goose recipes could grow into
-  orchestration; "workflow ecosystem" is on their roadmap. Mitigation is
-  speed and specificity: multi-model deliberation over *vendor subscription
-  CLIs* is a strange, hard-won niche that a company standardizing on goose
-  has little reason to replicate. But the window is real and it is now.
-- **Buzz doesn't matter.** Week-old repo, nostr niche, self-hosting is a
-  big ask. Plausible. This is why Move 1 is a spike, not a bet — and why the
-  thesis is written against the pattern, not the product.
-- **Open-sourcing donates the hero loop.** True if done as a gesture. The
-  playbook only opens the engine in exchange for standard-setting, and never
-  opens the trust layer. The contract-first intermediate step exists
-  precisely to test the water without giving away the machinery.
-- **Attestation revenue is far away and depends on agent commerce
-  materializing.** Also true. The near-term business remains the prosumer
-  motion; the network play is where it compounds, not where rent is due
-  next quarter.
-- **We're small.** Standard-setting fights are usually won by distribution,
-  which Block has and we don't. Counter: standards for *judgment formats*
-  are won by whoever has the best artifact early. Nobody has one. The
-  window argument again.
+- **Block builds orchestration themselves.** Possible. Mitigation remains
+  specificity: multi-model deliberation over *vendor subscription CLIs*.
+- **Buzz doesn't matter.** Still plausible. Why Move 0 is the bet and Move 1
+  is a spike against the *pattern* (attended agent chat), not the brand.
+- **Open-sourcing donates the hero loop.** True if done as a gesture.
+- **Attestation / completion-oracle revenue is far away.** True. Do not
+  staff it.
+- **We're small.** Artifact quality can still set a judgment-format habit
+  before distribution wars; receipts are that artifact.
 
 ## Questions for mentors
 
 1. Does the "completion oracle" framing hold up against how you've seen
-   trust/escrow markets actually form? What did the analogous layer look
-   like in payments, and who captured it?
-2. Contract-open vs. engine-open vs. both-closed: given the size asymmetry
-   with Block, which sequencing has historically worked for a small team
-   trying to set a standard adjacent to a big player's platform?
-3. Is "the firm as a member" legible to buyers, or does it collapse in
-   people's heads into "another bot"? (The spike is designed to test
-   exactly this — recording will accompany this memo.)
-4. If you were Block, what would make you adopt an outside judgment layer
-   rather than grow your own — and what would make you acquire it?
-5. What would falsify this thesis fastest?
+   trust/escrow markets actually form? (Far-out only.)
+2. Contract-open vs. engine-open vs. both-closed given size asymmetry with
+   Block — sequencing?
+3. ~~Is "the firm as a member" legible?~~ **Retired.** Better question: does
+   a gorgeous private receipt, then the same object in an attended Buzz/Slack
+   thread, make "call alln for a plural judgment" obvious?
+4. If you were Block, what would make you adopt an outside judgment **tool**
+   (CLI + receipt) rather than grow your own?
+5. What would falsify the receipt-first thesis fastest?
 
-## Cheapest next step
+## Cheapest next steps (ordered)
 
-The spike in `docs/phases/Buzz_Harness_Spike.md`: a local buzz relay, an
-alln member with its own keys, one summoned panel, one signed verdict in a
-thread, one recording. Weekend-scale, throwaway-permitted, changes nothing
-in core. It converts the most speculative claim in this memo — that the
-moment *lands* — into something we can watch instead of argue about.
+1. **Build Team Run Receipt** — `docs/phases/Team_Run_Receipt.md` (CLI WOW +
+   private signed export).
+2. **Feel it in CLI and Mac** — founder taste pass.
+3. **Optional Buzz/Slack legibility** — drop the same receipt into a room;
+   spike doc reframed accordingly. Record whether the *room* moment lands.

@@ -10,7 +10,8 @@ Companions:
   (Factory Floor = full team result; thread keeps a compact receipt)
 - Growth note (aspirational): `docs/marketing/Growth_Playbook.md` §Shareable
   run receipts
-- Adjacent spike (optional distribution surface, not required):  
+- Adjacent Buzz spike (optional room test **after** this packet; firm/plural-
+  member framing retired 2026-07-25):  
   `docs/phases/Buzz_Harness_Spike.md` +  
   `docs/strategy/Buzz_And_The_Judgment_Layer.md`
 
