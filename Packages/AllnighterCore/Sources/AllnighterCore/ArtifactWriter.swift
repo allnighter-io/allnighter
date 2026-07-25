@@ -3,9 +3,19 @@ import AgentOSTeam
 
 /// Writes the regenerable team artifact HTML under a run journal directory (TRR-S01/S01b).
 public enum ArtifactWriter {
-  public enum WriteError: Error, Equatable {
+  public enum WriteError: Error, Equatable, CustomStringConvertible {
     case notTerminal
-    case writeFailed
+    /// Filesystem write failed; associated string is the underlying reason.
+    case writeFailed(String)
+
+    public var description: String {
+      switch self {
+      case .notTerminal:
+        return "run is not terminal"
+      case .writeFailed(let reason):
+        return "could not write artifact HTML: \(reason)"
+      }
+    }
   }
 
   /// Regenerates `artifact/index.html` for a terminal run using `ArtifactProjector`.
@@ -29,8 +39,10 @@ public enum ArtifactWriter {
       let htmlURL = artifactDir.appendingPathComponent("index.html")
       try Data(html.utf8).write(to: htmlURL, options: .atomic)
       return htmlURL
+    } catch let error as WriteError {
+      throw error
     } catch {
-      throw WriteError.writeFailed
+      throw WriteError.writeFailed(error.localizedDescription)
     }
   }
 }

@@ -2958,7 +2958,7 @@
       "name" : "floor show",
       "outputSchema" : "floorRun",
       "spendsQuota" : false,
-      "summary" : "Show the inspectable Floor for one team run (worker lanes, artifacts, typed return, timeline, Execute requirements).",
+      "summary" : "Show the inspectable Floor for one team run (worker lanes, artifacts, typed return, timeline, Execute requirements). For the polished HTML receipt, use `alln artifact show <id>`.",
       "visibility" : "public"
     },
     {
