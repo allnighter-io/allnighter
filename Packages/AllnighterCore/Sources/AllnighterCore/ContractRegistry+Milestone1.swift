@@ -153,7 +153,8 @@ public extension ContractRegistry {
             "models verify", summary: "Smoke-verify a custom model label via AgentOS (AGENTOS_MODEL_OK).", milestone: .m1,
             args: [ArgSpec("model-id", required: true, summary: "Custom model id to verify.")],
             flags: [FlagSpec("json", summary: "Structured { id, status, detail, driverId, label }.")],
-            spendsQuota: true
+            spendsQuota: true,
+            freeTwinCommand: "alln models"
         ),
         CommandSpec(
             "models update", summary: "Update a custom model definition.", milestone: .m1,

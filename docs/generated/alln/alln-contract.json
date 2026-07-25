@@ -654,6 +654,7 @@
           "takesValue" : false
         }
       ],
+      "freeTwinCommand" : "alln models",
       "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
