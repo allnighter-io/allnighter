@@ -597,13 +597,22 @@ serializes Allnighter's own build-class runs (`mutatingRun`, `relayDevTurn`,
 `pilotDevTurn`, `harnessProof`). Read-only runs — spec review, research, chat —
 never take the lane and never queue.
 
-**Open question raised by this ruling, not resolved by it:**
-`RunService.writeLockWaitTimeout` is 1800s, so a second mutating Allnighter run
-waits up to thirty minutes before failing. That is the "queue out of fear"
-behavior the founder objects to, and it exists today. Options are leave it, or
-refuse in seconds naming the holding run and let the human decide. Not changed
-here: "execution-lane FIFO + one-Running-per-lane" is a standing founder law and
-this needs a founder ruling of its own.
+**Resolved by the packet's own lesson, 2026-07-25.** The 30-minute silent wait was
+never the law — it was the write-lock version of "Allnighter isn't open": a
+knowable fact, withheld, while the tool guessed on the user's behalf. Every other
+fix in this packet was the same move, so this one is too.
+
+A blocked run now says, immediately: which run holds the lane, its kind and pid,
+how long it has held it, the caller's position in the queue, that Ctrl-C ends the
+wait, and that read-only runs never queue at all. Facts only — the notice is
+tested to contain no speculation ("probably", "should finish", "try again later").
+
+**One-Running-per-lane is untouched.** Exactly one mutating run still executes at
+a time, the FIFO ticket is unchanged, and the conservative key is unchanged. This
+weakens no invariant; it makes an existing one observable. The standing law was
+about concurrency safety, not about waiting in the dark — the facts were already
+being written to the journal by `recordBlockerTicket`, and nobody was reading them
+to the person actually waiting.
 
 ## What this does not fix
 

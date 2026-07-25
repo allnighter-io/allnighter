@@ -235,6 +235,10 @@ enum RunCLI {
             return
         }
 
+        // A blocked run must say so. Without this the caller sits in silence for up
+        // to writeLockWaitTimeout and then fails — the same "something knowable is
+        // true and nobody said it" defect the sandbox hand-off packet exists to kill.
+        await service.reportWaits { FileHandle.standardError.write(Data($0.utf8)) }
         var result = await service.run(request, origin: .cli, originAgent: opts.value("agent"))
         // Inside a sandboxed terminal the vendor CLIs cannot sign in, so the run
         // comes back with every seat failed. Hand it to the Allnighter app, which

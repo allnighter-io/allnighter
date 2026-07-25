@@ -194,6 +194,24 @@ public actor RunService {
     // Auto (Default model) inputs — injectable so resolution is deterministic in tests.
     private let loadDefaultSettings: @Sendable () -> DefaultModelSettings
     private let loadProbeRecords: @Sendable () -> [ToolProbeRecord]
+    /// Where to report a wait the caller cannot otherwise see.
+    ///
+    /// A run blocked on the per-root write lock used to wait up to 30 MINUTES in
+    /// total silence and then fail. The blocker facts — who holds the lane, since
+    /// when, our place in the queue — were already recorded in the journal by
+    /// `recordBlockerTicket`; nobody ever told the person waiting. That is the same
+    /// defect as every other one in the sandbox hand-off packet: something knowable
+    /// is true and the caller is left to guess.
+    ///
+    /// One-Running-per-lane is untouched by this: exactly one mutating run still
+    /// executes at a time. Only the silence goes.
+    private var noteWait: @Sendable (String) -> Void = { _ in }
+
+    /// Set by the CLI so a blocked run can say so on stderr. No-op elsewhere (the
+    /// GUI shows the blocker from the journal).
+    public func reportWaits(to sink: @escaping @Sendable (String) -> Void) {
+        noteWait = sink
+    }
     /// Worker_Session_Continuity: the durable per-(thread, source, model) vendor session map.
     private let sessionStore: ExternalWorkerSessionStore
     /// Warm_Single_Lane_Chat: process-global warm-worker registry (default = shared singleton so
@@ -310,6 +328,21 @@ public actor RunService {
     /// and re-saves in one revision. It never changes `phase` or clears `resource`/`scopeRoot`, so
     /// the RLR-L3 atomic phase/blocker rule is not intersected — the blocker is only enriched.
     /// A vanished run or an already-cleared blocker is a no-op (the wait moved on).
+    /// The one line a blocked caller was never shown. Facts only — who holds the
+    /// lane, for how long, and where we are in the queue — so the human can decide
+    /// whether to wait, stop the holder, or work somewhere else. It never guesses.
+    nonisolated static func blockedNotice(ticket: ExecutionLaneTicket, root: String) -> String {
+        let held = Int(ticket.heldSinceSeconds.rounded())
+        return """
+        [waiting: another Allnighter run is editing this repo.
+         holder: \(ticket.holder.id) (\(ticket.holder.kind), pid \(ticket.holder.identity.pid)), \
+        holding for \(held)s
+         you are #\(ticket.position) in line for \(root)
+         Ctrl-C to stop waiting — read-only runs never queue, and `alln ps` lists what is running.]
+
+        """
+    }
+
     nonisolated static func recordBlockerTicket(
         runId: String,
         ticket: ExecutionLaneTicket,
@@ -812,10 +845,11 @@ public actor RunService {
             let abandonStore = runStore
             guard let token = await writeLock.waitToAcquire(
                 lockKey, claim: claim, timeout: Self.writeLockWaitTimeout,
-                onTicket: { ticket in
+                onTicket: { [noteWait] ticket in
                     Self.recordBlockerTicket(
                         runId: id, ticket: ticket,
                         store: ticketStore, models: ticketModels, now: ticketClock)
+                    noteWait(Self.blockedNotice(ticket: ticket, root: root))
                 },
                 // RLR-S02c: a SECOND process can cancel/kill this blocked run (stamping the
                 // journal terminal + withdrawing our on-disk waiter) but cannot reach our
