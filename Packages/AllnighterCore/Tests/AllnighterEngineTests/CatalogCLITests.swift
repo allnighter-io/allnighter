@@ -49,36 +49,101 @@ final class CatalogCLITests: XCTestCase {
         XCTAssertTrue(json.contains("WT Code Contrarian"))
     }
 
-    func testTeamsDuplicateProducesCustomJSON() throws {
+    func testTeamsDuplicateProducesEditablePresetJSON() throws {
         let team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "WT Code Team")
-        let json = AllnighterCLI.teamShowJSONString(team)
+        let json = AllnighterCLI.teamDefinitionJSONString(team)
         XCTAssertTrue(json.contains(team.id))
         XCTAssertTrue(json.contains("WT Code Team"))
-        XCTAssertTrue(json.contains("\"seatCount\""))
+        XCTAssertTrue(json.contains("\"workerSpecs\""))
         XCTAssertTrue(json.contains("\"lead\""))
-        XCTAssertTrue(json.contains("\"crew\""))
-        XCTAssertFalse(json.contains("\"workerSpecs\""), "show is inspect projection, not definition")
+        XCTAssertFalse(json.contains("\"seatCount\""), "authoring receipt is TeamPreset, not show projection")
+        XCTAssertFalse(json.contains("\"crew\""), "authoring receipt is TeamPreset, not show projection")
         XCTAssertFalse(json.contains("\"workerCount\""), "public workerCount retired")
+        let decoded = try CoreJSON.decode(TeamPreset.self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.id, team.id)
+        XCTAssertEqual(decoded.displayName, "WT Code Team")
     }
 
-    func testTeamsNewAndDuplicateShareShowJSONShape() throws {
+    func testTeamsNewAndDuplicateShareEditablePresetJSONShape() throws {
         let seed = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
         let novel = seed.duplicated(newId: "custom_code_cli_novel", newName: "CLI Novel")
         let created = try TeamCatalog.createNew(novel)
         let duplicated = try TeamCatalog.duplicateBuiltIn(
             "code_bug_hunt", name: "CLI Dup", customId: "custom_code_cli_dup")
 
-        let createdJSON = AllnighterCLI.teamShowJSONString(created)
-        let duplicatedJSON = AllnighterCLI.teamShowJSONString(duplicated)
-        for json in [createdJSON, duplicatedJSON] {
-            XCTAssertTrue(json.contains("\"seatCount\""))
+        let createdJSON = AllnighterCLI.teamDefinitionJSONString(created)
+        let duplicatedJSON = AllnighterCLI.teamDefinitionJSONString(duplicated)
+        let definitionJSON = AllnighterCLI.teamDefinitionJSONString(
+            try XCTUnwrap(TeamCatalog.get(created.id)))
+        for json in [createdJSON, duplicatedJSON, definitionJSON] {
+            XCTAssertTrue(json.contains("\"workerSpecs\""))
             XCTAssertTrue(json.contains("\"lead\""))
-            XCTAssertTrue(json.contains("\"crew\""))
-            XCTAssertTrue(json.contains("\"origin\""))
-            XCTAssertFalse(json.contains("\"workerSpecs\""))
+            XCTAssertFalse(json.contains("\"seatCount\""))
+            XCTAssertFalse(json.contains("\"crew\""))
+            XCTAssertFalse(json.contains("\"origin\""), "origin lives on show projection only")
         }
         XCTAssertTrue(createdJSON.contains("custom_code_cli_novel"))
         XCTAssertTrue(duplicatedJSON.contains("custom_code_cli_dup"))
+    }
+
+    /// MCV-S03 gate: authoring receipts round-trip through `teams edit` unmodified;
+    /// show projection is refused by name; set-default stays on the show side.
+    func testTeamsAuthoringReceiptsRoundTripThroughEdit() throws {
+        let dir = teamsRoot.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let duplicated = try TeamCatalog.duplicateBuiltIn(
+            "code_bug_hunt", name: "RT Dup", customId: "custom_code_rt_dup")
+        let dupJSON = AllnighterCLI.teamDefinitionJSONString(duplicated)
+        let dupURL = dir.appendingPathComponent("dup.json")
+        try Data(dupJSON.utf8).write(to: dupURL)
+        let fromDup = try AllnighterCLI.loadTeamDefinition(
+            from: dupURL.path, expectedId: duplicated.id, verb: "edit")
+        XCTAssertEqual(fromDup.id, duplicated.id)
+        XCTAssertEqual(fromDup.workerSpecs.count, duplicated.workerSpecs.count)
+
+        let seed = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
+        let novel = seed.duplicated(newId: "custom_code_rt_new", newName: "RT New")
+        let created = try TeamCatalog.createNew(novel)
+        let newJSON = AllnighterCLI.teamDefinitionJSONString(created)
+        let newURL = dir.appendingPathComponent("new.json")
+        try Data(newJSON.utf8).write(to: newURL)
+        let fromNew = try AllnighterCLI.loadTeamDefinition(
+            from: newURL.path, expectedId: created.id, verb: "edit")
+        XCTAssertEqual(fromNew.id, created.id)
+
+        var edited = fromDup
+        edited.displayName = "RT Dup (edited)"
+        try TeamCatalog.saveCustom(edited)
+        let editJSON = AllnighterCLI.teamDefinitionJSONString(
+            try XCTUnwrap(TeamCatalog.get(edited.id)))
+        let editURL = dir.appendingPathComponent("edit.json")
+        try Data(editJSON.utf8).write(to: editURL)
+        let fromEdit = try AllnighterCLI.loadTeamDefinition(
+            from: editURL.path, expectedId: edited.id, verb: "edit")
+        XCTAssertEqual(fromEdit.displayName, "RT Dup (edited)")
+        try TeamCatalog.saveCustom(fromEdit) // idempotent edit ← edit
+        XCTAssertEqual(TeamCatalog.get(edited.id)?.displayName, "RT Dup (edited)")
+
+        let showJSON = AllnighterCLI.teamShowJSONString(edited)
+        let showURL = dir.appendingPathComponent("show.json")
+        try Data(showJSON.utf8).write(to: showURL)
+        XCTAssertThrowsError(
+            try AllnighterCLI.loadTeamDefinition(
+                from: showURL.path, expectedId: edited.id, verb: "edit")
+        ) { error in
+            guard case CatalogError.teamInvalid(let detail) = error else {
+                return XCTFail("expected teamInvalid, got \(error)")
+            }
+            XCTAssertTrue(detail.contains("TeamPreset"), detail)
+            XCTAssertTrue(detail.contains("show"), detail.lowercased())
+        }
+
+        let setDefaultJSON = AllnighterCLI.teamShowJSONString(
+            try XCTUnwrap(TeamCatalog.get("default_chat")))
+        XCTAssertTrue(setDefaultJSON.contains("\"seatCount\""))
+        XCTAssertTrue(setDefaultJSON.contains("\"crew\""))
+        XCTAssertFalse(setDefaultJSON.contains("\"workerSpecs\""))
     }
 
     func testTeamsNewFileIdMismatch() throws {

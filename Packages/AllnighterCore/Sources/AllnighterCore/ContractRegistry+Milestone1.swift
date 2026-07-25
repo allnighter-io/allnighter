@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "4.0.0"
+    static let contractVersion = "4.0.1"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -232,46 +232,52 @@ public extension ContractRegistry {
             "teams show", summary: "Show one team with crew, optional scout, lead, and seatCount (not the round-trip manifest — use teams definition).", milestone: .m1,
             args: [ArgSpec("team-id", required: true, summary: "Team id.")],
             flags: [FlagSpec("json", summary: "Structured team detail with crew/scout/lead and seatCount.")],
+            outputSchema: .teamShowJSON,
             exampleIds: ["teams_show_json"]
         ),
         CommandSpec(
             "teams definition", summary: "Full TeamPreset JSON round-trippable through teams edit/save.", milestone: .m1,
             args: [ArgSpec("team-id", required: true, summary: "Team id.")],
-            flags: [FlagSpec("json", summary: "Structured team definition.")],
+            flags: [FlagSpec("json", summary: "Structured team definition (TeamPreset).")],
+            outputSchema: .teamPreset,
             exampleIds: ["teams_definition_json"]
         ),
         CommandSpec(
-            "teams duplicate", summary: "Copy a shipped team (prefer Bug Hunt) into a custom variant; then definition → edit. Omit --id for a generated id.", milestone: .m1,
+            "teams duplicate", summary: "Copy a shipped team (prefer Bug Hunt) into a custom variant; then edit. Omit --id for a generated id. --json returns the editable TeamPreset (feed straight to teams edit).", milestone: .m1,
             args: [ArgSpec("team-id", required: true, summary: "Source built-in team id.")],
             flags: [
                 FlagSpec("id", takesValue: true, valueType: "string", summary: "Caller-chosen custom team id (deterministic; rejects collisions)."),
                 FlagSpec("name", takesValue: true, valueType: "string", summary: "Display name for the copy."),
-                FlagSpec("json", summary: "Structured team detail (same shape as teams show / teams new)."),
+                FlagSpec("json", summary: "Editable TeamPreset JSON (same shape as teams definition / teams edit)."),
             ],
+            outputSchema: .teamPreset,
             exampleIds: ["teams_duplicate_json"],
             menuAction: true
         ),
         CommandSpec(
-            "teams new", summary: "Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. To copy a shipped team instead, use teams duplicate.", milestone: .m1,
+            "teams new", summary: "Create a novel custom team from a TeamPreset file. Fails if id exists or file id ≠ positional id. To copy a shipped team instead, use teams duplicate. --json returns the editable TeamPreset.", milestone: .m1,
             args: [ArgSpec("team-id", required: true, summary: "New team id (must match file definition.id).")],
             flags: [
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "TeamPreset JSON file (or CatalogEnvelope)."),
-                FlagSpec("json", summary: "Structured team detail (same shape as teams show / teams duplicate)."),
+                FlagSpec("json", summary: "Editable TeamPreset JSON (same shape as teams definition / teams duplicate)."),
             ],
+            outputSchema: .teamPreset,
             exampleIds: ["teams_new_json"]
         ),
         CommandSpec(
-            "teams edit", summary: "Replace a custom (or overridden) team definition from JSON after duplicate or new.", milestone: .m1,
+            "teams edit", summary: "Replace a custom (or overridden) team definition from JSON after duplicate or new. --json returns the persisted TeamPreset (round-trippable).", milestone: .m1,
             args: [ArgSpec("team-id", required: true, summary: "Team id.")],
             flags: [FlagSpec("file", takesValue: true, valueType: "path", summary: "TeamPreset JSON file."),
-                    FlagSpec("json", summary: "Structured team detail.")],
+                    FlagSpec("json", summary: "Editable TeamPreset JSON that was saved.")],
+            outputSchema: .teamPreset,
             exampleIds: ["teams_edit_json"],
             menuAction: true
         ),
         CommandSpec(
             "teams set-default", summary: "Set the default team for a lane.", milestone: .m1,
             args: [ArgSpec("team-id", required: true, summary: "Team id.")],
-            flags: [FlagSpec("json", summary: "Structured team detail.")],
+            flags: [FlagSpec("json", summary: "Structured team detail (show projection — catalog-state receipt, not the edit manifest).")],
+            outputSchema: .teamShowJSON,
             exampleIds: ["teams_set_default_json"]
         ),
         CommandSpec(

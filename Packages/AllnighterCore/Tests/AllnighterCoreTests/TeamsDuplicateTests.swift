@@ -96,5 +96,20 @@ final class TeamsDuplicateTests: XCTestCase {
             ContractRegistry.milestone1.commands.first { $0.name == "teams duplicate" })
         XCTAssertTrue(dup.flags.contains { $0.name == "id" && $0.takesValue })
         XCTAssertTrue(dup.summary.lowercased().contains("bug hunt") || dup.summary.contains("--id"))
+        XCTAssertEqual(dup.outputSchema, .teamPreset)
+        XCTAssertTrue(dup.summary.lowercased().contains("edit"))
+        XCTAssertFalse(dup.summary.contains("definition → edit"))
+    }
+
+    func testTeamsAuthoringCommandsDeclareTeamPresetOutputSchema() {
+        let reg = ContractRegistry.milestone1
+        for name in ["teams definition", "teams duplicate", "teams new", "teams edit"] {
+            let cmd = try! XCTUnwrap(reg.commands.first { $0.name == name })
+            XCTAssertEqual(cmd.outputSchema, .teamPreset, name)
+        }
+        let show = try! XCTUnwrap(reg.commands.first { $0.name == "teams show" })
+        XCTAssertEqual(show.outputSchema, .teamShowJSON)
+        let setDefault = try! XCTUnwrap(reg.commands.first { $0.name == "teams set-default" })
+        XCTAssertEqual(setDefault.outputSchema, .teamShowJSON)
     }
 }

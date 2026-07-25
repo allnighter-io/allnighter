@@ -767,6 +767,7 @@ struct AllnighterCLI {
     }
 
     /// `alln teams duplicate <team-id> [--id <new-id>] [--name <displayName>] [--json]`
+    /// JSON is the editable `TeamPreset` (same shape as `teams definition` / `teams edit`).
     static func runTeamsDuplicate(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
@@ -775,14 +776,18 @@ struct AllnighterCLI {
         do {
             let team = try TeamCatalog.duplicateBuiltIn(
                 id, name: opts.value("name"), customId: opts.value("id"))
-            if opts.flag("json") { print(teamShowJSONString(team)) }
-            else { print("duplicated \(id) → \(team.id)") }
+            if opts.flag("json") { print(teamDefinitionJSONString(team)) }
+            else {
+                print("duplicated \(id) → \(team.id)")
+                print("→ alln teams edit \(team.id) --file <path> --json")
+            }
         } catch let error as CatalogError { emitCatalogError(error) }
         catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
     /// `alln teams new <team-id> --file <path> [--json]` — create a novel custom team
     /// from a supplied TeamPreset. Fails if the id exists or the file id ≠ positional id.
+    /// JSON receipt is the editable `TeamPreset` (same shape as `teams definition` / `teams edit`).
     /// No `teams create` alias.
     static func runTeamsNew(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
@@ -792,13 +797,14 @@ struct AllnighterCLI {
         do {
             let team = try loadTeamDefinition(from: opts.value("file"), expectedId: id, verb: "new")
             let created = try TeamCatalog.createNew(team)
-            if opts.flag("json") { print(teamShowJSONString(created)) }
+            if opts.flag("json") { print(teamDefinitionJSONString(created)) }
             else { print("created \(created.id)") }
         } catch let error as CatalogError { emitCatalogError(error) }
         catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
     /// `alln teams edit <team-id> [--file <path>] [--json]` — full replacement save.
+    /// JSON receipt is the editable `TeamPreset` that was persisted (round-trippable).
     static func runTeamsEdit(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
@@ -810,7 +816,7 @@ struct AllnighterCLI {
         do {
             let team = try loadTeamDefinition(from: opts.value("file"), expectedId: id, verb: "edit")
             try TeamCatalog.saveCustom(team)
-            if opts.flag("json") { print(teamShowJSONString(team)) }
+            if opts.flag("json") { print(teamDefinitionJSONString(team)) }
             else { print("saved \(team.id)") }
         } catch let error as CatalogError { emitCatalogError(error) }
         catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
@@ -856,6 +862,9 @@ struct AllnighterCLI {
             }
             return envelope.definition
         }
+        if let showShapeError = teamShowProjectionRefusal(data) {
+            throw CatalogError.teamInvalid(showShapeError)
+        }
         let team: TeamPreset
         do {
             team = try CoreJSON.decode(TeamPreset.self, from: data)
@@ -868,6 +877,19 @@ struct AllnighterCLI {
             throw CatalogError.teamInvalid("file team id \(team.id) does not match \(expectedId)")
         }
         return team
+    }
+
+    /// `teams show` / `set-default` project `crew`/`seatCount`; authoring accepts only
+    /// `TeamPreset` (`workerSpecs`). Refuse the show shape by name so agents don't
+    /// loop on a decode that can never succeed.
+    static func teamShowProjectionRefusal(_ data: Data) -> String? {
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        let hasShowMarkers = obj["crew"] != nil || obj["seatCount"] != nil
+        let hasEditableSpec = obj["workerSpecs"] != nil
+        guard hasShowMarkers, !hasEditableSpec else { return nil }
+        return "expected TeamPreset shape (workerSpecs + lead); got a teams show projection — use `alln teams definition <id> --json` or the JSON from teams duplicate/new/edit"
     }
 
     /// Translates a `TeamPreset` JSON `DecodingError` into an agent-actionable

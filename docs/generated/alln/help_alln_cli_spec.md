@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.0.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.0.1, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -317,6 +317,8 @@ Arguments:
 Flags:
 - `--json` — Structured team detail with crew/scout/lead and seatCount.
 
+Output schema: `teamShowJSON`.
+
 Examples: `teams_show_json`.
 
 ### `alln teams definition`
@@ -327,13 +329,15 @@ Arguments:
 - `team-id` (required) — Team id.
 
 Flags:
-- `--json` — Structured team definition.
+- `--json` — Structured team definition (TeamPreset).
+
+Output schema: `teamPreset`.
 
 Examples: `teams_definition_json`.
 
 ### `alln teams duplicate`
 
-Copy a shipped team (prefer Bug Hunt) into a custom variant; then definition → edit. Omit --id for a generated id.
+Copy a shipped team (prefer Bug Hunt) into a custom variant; then edit. Omit --id for a generated id. --json returns the editable TeamPreset (feed straight to teams edit).
 
 Arguments:
 - `team-id` (required) — Source built-in team id.
@@ -341,33 +345,39 @@ Arguments:
 Flags:
 - `--id <string>` — Caller-chosen custom team id (deterministic; rejects collisions).
 - `--name <string>` — Display name for the copy.
-- `--json` — Structured team detail (same shape as teams show / teams new).
+- `--json` — Editable TeamPreset JSON (same shape as teams definition / teams edit).
+
+Output schema: `teamPreset`.
 
 Examples: `teams_duplicate_json`.
 
 ### `alln teams new`
 
-Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. To copy a shipped team instead, use teams duplicate.
+Create a novel custom team from a TeamPreset file. Fails if id exists or file id ≠ positional id. To copy a shipped team instead, use teams duplicate. --json returns the editable TeamPreset.
 
 Arguments:
 - `team-id` (required) — New team id (must match file definition.id).
 
 Flags:
 - `--file <path>` — TeamPreset JSON file (or CatalogEnvelope).
-- `--json` — Structured team detail (same shape as teams show / teams duplicate).
+- `--json` — Editable TeamPreset JSON (same shape as teams definition / teams duplicate).
+
+Output schema: `teamPreset`.
 
 Examples: `teams_new_json`.
 
 ### `alln teams edit`
 
-Replace a custom (or overridden) team definition from JSON after duplicate or new.
+Replace a custom (or overridden) team definition from JSON after duplicate or new. --json returns the persisted TeamPreset (round-trippable).
 
 Arguments:
 - `team-id` (required) — Team id.
 
 Flags:
 - `--file <path>` — TeamPreset JSON file.
-- `--json` — Structured team detail.
+- `--json` — Editable TeamPreset JSON that was saved.
+
+Output schema: `teamPreset`.
 
 Examples: `teams_edit_json`.
 
@@ -379,7 +389,9 @@ Arguments:
 - `team-id` (required) — Team id.
 
 Flags:
-- `--json` — Structured team detail.
+- `--json` — Structured team detail (show projection — catalog-state receipt, not the edit manifest).
+
+Output schema: `teamShowJSON`.
 
 Examples: `teams_set_default_json`.
 

@@ -1105,7 +1105,7 @@
 
       ],
       "name" : "teams show",
-      "outputSchema" : "none",
+      "outputSchema" : "teamShowJSON",
       "spendsQuota" : false,
       "summary" : "Show one team with crew, optional scout, lead, and seatCount (not the round-trip manifest — use teams definition).",
       "visibility" : "public"
@@ -1134,7 +1134,7 @@
       "flags" : [
         {
           "name" : "json",
-          "summary" : "Structured team definition.",
+          "summary" : "Structured team definition (TeamPreset).",
           "takesValue" : false
         }
       ],
@@ -1144,7 +1144,7 @@
 
       ],
       "name" : "teams definition",
-      "outputSchema" : "none",
+      "outputSchema" : "teamPreset",
       "spendsQuota" : false,
       "summary" : "Full TeamPreset JSON round-trippable through teams edit\/save.",
       "visibility" : "public"
@@ -1185,7 +1185,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Structured team detail (same shape as teams show \/ teams new).",
+          "summary" : "Editable TeamPreset JSON (same shape as teams definition \/ teams edit).",
           "takesValue" : false
         }
       ],
@@ -1195,9 +1195,9 @@
 
       ],
       "name" : "teams duplicate",
-      "outputSchema" : "none",
+      "outputSchema" : "teamPreset",
       "spendsQuota" : false,
-      "summary" : "Copy a shipped team (prefer Bug Hunt) into a custom variant; then definition → edit. Omit --id for a generated id.",
+      "summary" : "Copy a shipped team (prefer Bug Hunt) into a custom variant; then edit. Omit --id for a generated id. --json returns the editable TeamPreset (feed straight to teams edit).",
       "visibility" : "public"
     },
     {
@@ -1230,7 +1230,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Structured team detail (same shape as teams show \/ teams duplicate).",
+          "summary" : "Editable TeamPreset JSON (same shape as teams definition \/ teams duplicate).",
           "takesValue" : false
         }
       ],
@@ -1240,9 +1240,9 @@
 
       ],
       "name" : "teams new",
-      "outputSchema" : "none",
+      "outputSchema" : "teamPreset",
       "spendsQuota" : false,
-      "summary" : "Create a novel custom team from a TeamPreset file (definition → new). Fails if id exists or file id ≠ positional id. To copy a shipped team instead, use teams duplicate.",
+      "summary" : "Create a novel custom team from a TeamPreset file. Fails if id exists or file id ≠ positional id. To copy a shipped team instead, use teams duplicate. --json returns the editable TeamPreset.",
       "visibility" : "public"
     },
     {
@@ -1275,7 +1275,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Structured team detail.",
+          "summary" : "Editable TeamPreset JSON that was saved.",
           "takesValue" : false
         }
       ],
@@ -1285,9 +1285,9 @@
 
       ],
       "name" : "teams edit",
-      "outputSchema" : "none",
+      "outputSchema" : "teamPreset",
       "spendsQuota" : false,
-      "summary" : "Replace a custom (or overridden) team definition from JSON after duplicate or new.",
+      "summary" : "Replace a custom (or overridden) team definition from JSON after duplicate or new. --json returns the persisted TeamPreset (round-trippable).",
       "visibility" : "public"
     },
     {
@@ -1314,7 +1314,7 @@
       "flags" : [
         {
           "name" : "json",
-          "summary" : "Structured team detail.",
+          "summary" : "Structured team detail (show projection — catalog-state receipt, not the edit manifest).",
           "takesValue" : false
         }
       ],
@@ -1324,7 +1324,7 @@
 
       ],
       "name" : "teams set-default",
-      "outputSchema" : "none",
+      "outputSchema" : "teamShowJSON",
       "spendsQuota" : false,
       "summary" : "Set the default team for a lane.",
       "visibility" : "public"
@@ -4780,7 +4780,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.0.0",
+  "contractVersion" : "4.0.1",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
