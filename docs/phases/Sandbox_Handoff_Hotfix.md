@@ -209,7 +209,7 @@ vanish entirely — now returns
 journal. The new test was confirmed to FAIL against the old discard before being
 accepted.
 
-### S2 — an honest, unbounded wait *(C2, and the old H2+H6 merged)*
+### S2 — an honest, unbounded wait *(C2, and the old H2+H6 merged)* — **SHIPPED**
 
 Both slices rewrote the same loop, so they are one. The caller: reports observed
 state only, distinguishing **never claimed** / **claimed, claimant alive** /
@@ -226,6 +226,32 @@ discards.
 *Accept:* a ten-minute hand-off returns its answer to the calling terminal; a
 caller killed mid-wait can re-attach and collect; with the app open and the run
 failing, the terminal never prints "Allnighter isn't open".
+
+**Done 2026-07-25.** The flat 180s deadline is gone. What replaced it:
+
+- **No work deadline.** Once something claims the request, the run owns its own
+  clocks. A 30-minute backstop remains for a host that claimed and died, which
+  cannot yet be detected directly — that needs owner identity on the claim (S6).
+- **A 30s claim grace**, separate from the work wait. Nothing alive takes longer
+  than a poll interval to claim, so a longer grace only makes a closed app look
+  like a slow one.
+- **A heartbeat every 15s**, so a long review is not mistaken for a hang.
+- **Three observed outcomes instead of one guess.** Never claimed → "nothing
+  picked this up" (the only case allowed to mention a closed app). Claimed then
+  silent → says so, and never blames the app. Claimed and settled with no journal
+  → names it as a host older than the S1 repair.
+- **Re-attach** converges on the existing `alln run resume <id>` rather than the
+  second colliding surface the draft invented. It now covers three cases: a
+  vendor park (unchanged), a terminal run (prints it), and a run another host is
+  still executing (waits, then prints). New typed error `RUN_NOT_TERMINAL`.
+- The caller now retains `Request.id`, without which claim state is unknowable.
+
+Asserted in simulated time (a ticking clock), so the tests state the policy
+instead of sleeping through it: a run settling past the retired 180s bound is
+still returned, and the two failure states produce different, non-blaming text.
+
+A third copy of the `(run failed)` swallow was found on the resume path and
+folded into one `printRunWithoutProject` helper shared by resume and attach.
 
 ### S3 — make the host observable *(C3)*
 

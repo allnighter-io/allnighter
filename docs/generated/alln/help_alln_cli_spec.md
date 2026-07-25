@@ -1345,6 +1345,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `IDEMPOTENCY_EXPIRED` | no | no | `operational` | Generate a new idempotency key. |
 | `RETRY_OF_SURVIVORS` | no | yes | `operational` | Wait for verified stop, or pass --accept-survivors. |
 | `RESULT_NOT_READY` | no | yes | `operational` | Poll team status using nextPollAfterMs, then call team result again. |
+| `RUN_NOT_TERMINAL` | yes | yes | `operational` | Re-run `alln run resume <runId>` once the host is running again, or read the partial record with `alln show <runId> --json`. |
 | `RUN_NOT_FOUND` | yes | no | `operational` | Run `alln history --json`. |
 | `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |

@@ -363,13 +363,33 @@ enum RunCLI {
         guard let parked = store.loadRaw(runId: runId) ?? store.load(runId: runId) else {
             AllnighterCLI.fail(code: "RUN_NOT_FOUND", message: "run not found: \(runId)")
         }
-        guard parked.status == .queued,
-              parked.phase == .waitingForVendor,
-              parked.blocker?.resource == .vendorBackoff else {
-            AllnighterCLI.fail(
-                code: "VENDOR_WAKE_NOT_CLAIMED",
-                message: "run \(runId) is not parked waiting for a vendor"
-            )
+        // A run someone else is executing — a hand-off the app took while this
+        // terminal was away — cannot be "resumed" here; it is already running. Wait
+        // for it and print it. Without this, a caller killed mid-wait had no way to
+        // collect an answer the app had already produced.
+        let isVendorPark = parked.status == .queued
+            && parked.phase == .waitingForVendor
+            && parked.blocker?.resource == .vendorBackoff
+        if !isVendorPark {
+            if parked.status.isTerminal {
+                printRunWithoutProject(
+                    parked, runtime: runtime,
+                    reproduceCommand: "alln run resume \(runId)", json: opts.flag("json"), store: store)
+                return
+            }
+            guard let finished = await SandboxHandoff.waitForHandoff(
+                runId: runId, requestId: nil,
+                spool: SandboxHandoffSpool(), runStore: store
+            ) else {
+                AllnighterCLI.fail(
+                    code: "RUN_NOT_TERMINAL",
+                    message: "run \(runId) is still not finished — see the note above"
+                )
+            }
+            printRunWithoutProject(
+                finished, runtime: runtime,
+                reproduceCommand: "alln run resume \(runId)", json: opts.flag("json"), store: store)
+            return
         }
         let coordinatorId = "cli:\(ProcessInfo.processInfo.processIdentifier)"
         guard store.claimVendorWake(
@@ -421,11 +441,44 @@ enum RunCLI {
                 ))
                 FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
             } else {
-                print(AllnighterCLI.humanAnswer(for: run, models: runtime.models, manifests: runtime.registry.all)
-                      ?? "(run \(run.status.rawValue))")
-                FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
+                printRunWithoutProject(
+                    run, runtime: runtime,
+                    reproduceCommand: "alln run resume \(run.id)", json: false, store: store)
             }
         }
+    }
+
+    /// Prints a finished run on the paths that hold no `Project` (resume / attach).
+    ///
+    /// Shares `renderRun`'s rule that a run with no answer still has something to
+    /// say: a refused hand-off carries its reason in `warnings`, and printing only
+    /// "(run failed)" is how a specific error became silence.
+    static func printRunWithoutProject(
+        _ run: TeamRun, runtime: ToolRuntime, reproduceCommand: String, json: Bool,
+        store: RunStore = RunStore()
+    ) {
+        if json {
+            let journalPath = (try? store.runDirectory(forRunId: run.id))?
+                .appendingPathComponent("run.json").path ?? ""
+            let context = TeamRunJSONMapper.Context(
+                promptSource: .init(kind: .positional, path: nil),
+                runJournalPath: journalPath,
+                reproduceCommand: reproduceCommand
+            )
+            print(AllnighterCLI.jsonString(TeamRunJSONMapper.map(
+                run, models: runtime.models, manifests: runtime.registry.all, context: context)))
+            return
+        }
+        let answer = AllnighterCLI.humanAnswer(
+            for: run, models: runtime.models, manifests: runtime.registry.all)
+        if let answer, !answer.isEmpty {
+            print(answer)
+        } else if !run.warnings.isEmpty {
+            print(run.warnings.joined(separator: "\n"))
+        } else {
+            print("(run \(run.status.rawValue))")
+        }
+        FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
     }
 
     /// `alln run --try-fix`: the elimination-loop chain — a read-only Bug Hunt diagnosis, the

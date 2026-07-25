@@ -1,10 +1,37 @@
 import XCTest
 import AllnighterCore
+@testable import AllnighterCLI
 @testable import AllnighterEngine
 
 /// The sandbox hand-off: a caller that cannot start vendor CLIs drops a request,
 /// a host outside the sandbox runs it through the SAME RunService, and the result
 /// lands in the ordinary run journal the caller polls.
+/// A clock that advances a fixed step per read, so wait policy is asserted in
+/// simulated time instead of real sleeping.
+private final class TickingClock: @unchecked Sendable {
+    private let base: Date
+    private let step: TimeInterval
+    private var reads = 0
+    init(base: Date, step: TimeInterval) { self.base = base; self.step = step }
+    func now() -> Date {
+        defer { reads += 1 }
+        return base.addingTimeInterval(step * Double(reads))
+    }
+}
+
+/// Counts polls across the concurrently-executing wait loop.
+private final class PollCounter: @unchecked Sendable {
+    private var count = 0
+    func next() -> Int { count += 1; return count }
+}
+
+/// Collects the caller-facing notes so a test can assert what the user was told.
+private final class NoteSink: @unchecked Sendable {
+    private var lines: [String] = []
+    func append(_ line: String) { lines.append(line) }
+    var text: String { lines.joined() }
+}
+
 final class SandboxHandoffTests: XCTestCase {
     private var tmp: URL!
 
@@ -162,6 +189,83 @@ final class SandboxHandoffTests: XCTestCase {
         XCTAssertEqual(report.verdict, .healthy, "detail was: \(report.detail)")
         XCTAssertTrue(report.isHealthy)
         XCTAssertEqual(report.claimedBy, "test-host", "a healthy verdict must name who answered")
+    }
+
+    // MARK: - The wait (S2): no work deadline, and no guessing
+
+    /// The bound this replaces gave up at 180s and then blamed a closed app. A run
+    /// that takes longer than any fixed deadline must still come back.
+    func testAWaitOutlivesTheOldOneHundredEightySecondDeadline() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        let request = try box.enqueue(.init(runId: "handoff-slow", message: "m", repoRoot: "/tmp/x"))
+        _ = try box.claim(id: request.id, by: "slow-host")
+
+        // A clock that has already run far past the retired deadline, so the test
+        // asserts the policy rather than sleeping through it.
+        let base = Date()
+        let ticks = TickingClock(base: base, step: 60)
+        let settleAfter = 5   // ≈300 simulated seconds — beyond the old 180s bound
+        let polls = PollCounter()
+        let store = runStore
+        let noted = NoteSink()
+
+        let finished = await SandboxHandoff.waitForHandoff(
+            runId: "handoff-slow", requestId: request.id, spool: box, runStore: runStore,
+            clock: {
+                if polls.next() == settleAfter {
+                    try? store.save(
+                        TeamRun(id: "handoff-slow", prompt: "m", status: .complete,
+                                createdAt: base, endReason: .completed),
+                        models: [])
+                }
+                return ticks.now()
+            },
+            note: { noted.append($0) })
+
+        XCTAssertEqual(finished?.id, "handoff-slow",
+                       "a run past the old deadline must still be returned")
+        XCTAssertTrue(noted.text.contains("still running"), "a long wait must report progress")
+        XCTAssertFalse(noted.text.contains("isn't open"), "never blame a host that claimed the work")
+    }
+
+    /// The specific lie: nothing had claimed the request, and the caller said the
+    /// app was closed without looking. Now it looks — and only then says so.
+    func testAnUnclaimedRequestIsReportedAsNothingListening() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        let request = try box.enqueue(.init(runId: "handoff-orphan", message: "m", repoRoot: "/tmp/x"))
+        let ticks = TickingClock(base: Date(), step: 10)
+        let noted = NoteSink()
+
+        let finished = await SandboxHandoff.waitForHandoff(
+            runId: "handoff-orphan", requestId: request.id, spool: box, runStore: runStore,
+            clock: { ticks.now() }, note: { noted.append($0) })
+
+        XCTAssertNil(finished)
+        XCTAssertTrue(noted.text.contains("Nothing picked this up"))
+        XCTAssertTrue(noted.text.contains("alln run resume handoff-orphan"),
+                      "the caller must be told how to collect it later")
+    }
+
+    /// Claimed and then silent is a different problem from nobody listening, and
+    /// must never be reported as "Allnighter isn't open".
+    func testAClaimedButStalledRequestIsNotBlamedOnAClosedApp() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        let request = try box.enqueue(.init(runId: "handoff-stalled", message: "m", repoRoot: "/tmp/x"))
+        _ = try box.claim(id: request.id, by: "stuck-host")
+        let ticks = TickingClock(base: Date(), step: 600)   // blow the stall backstop fast
+        let noted = NoteSink()
+
+        let finished = await SandboxHandoff.waitForHandoff(
+            runId: "handoff-stalled", requestId: request.id, spool: box, runStore: runStore,
+            clock: { ticks.now() }, note: { noted.append($0) })
+
+        XCTAssertNil(finished)
+        XCTAssertTrue(noted.text.contains("without finishing it"))
+        XCTAssertFalse(noted.text.contains("Nothing picked this up"),
+                       "a claimed request was picked up — say so")
     }
 
     // MARK: - Mailbox robustness

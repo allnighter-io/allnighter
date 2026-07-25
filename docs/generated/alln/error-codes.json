@@ -279,6 +279,15 @@
     "ruleId" : "result.not_ready"
   },
   {
+    "agentAction" : "Re-run `alln run resume <runId>` once the host is running again, or read the partial record with `alln show <runId> --json`.",
+    "code" : "RUN_NOT_TERMINAL",
+    "exitClass" : "operational",
+    "explain" : "The run has not finished and this process stopped waiting for it. Either nothing claimed the hand-off (open Allnighter) or the host that claimed it stopped without finishing. The run id stays valid; the answer is collectable if a host completes it.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "run.not_terminal"
+  },
+  {
     "agentAction" : "Run `alln history --json`.",
     "code" : "RUN_NOT_FOUND",
     "exitClass" : "operational",
