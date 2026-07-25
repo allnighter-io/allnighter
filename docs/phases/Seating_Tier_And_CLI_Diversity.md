@@ -1,195 +1,207 @@
-# Seating — Tier + CLI Diversity (simplify)
+# Seating — Tier + CLI Diversity (hardened)
 
-Status: **Draft — REVIEW ONLY. Not authorized to implement.** Live runs
-must not be disrupted; this packet is for founder read-before-build.
-Owner: `TeamResolver.swift` + `ModelCatalog.swift` (staffing law), not teams.
+Status: **Hardened — REVIEW ONLY for code slices. Not authorized to
+implement S1–S3 while live panels may still be running.** S00 (disable
+poisoned Haiku) is a roster-only mitigation and is allowed.
+Owner: `TeamResolver.swift` + `ModelCatalog.swift` (staffing law).
 Updated: 2026-07-25
-Evidence runs: `code_spec_review_max` `3B00A1A7` (Haiku on First Principles);
-`code_spec_review_min` `DCE9AE48` (3× Claude among 4 seats).
+Spec Review: run `927B8CD4-A99A-4B68-AE25-262BF52BB338` — Min panel pinned to
+Opus / Cursor Sol / Cursor Grok + Fable lead (`custom_code_spec_review_min_cursor`).
+Evidence bugs: `code_spec_review_max` `3B00A1A7`, `code_spec_review_min` `DCE9AE48`.
 
-## Founder intent
+## Founder intent (product sentence)
 
-Haiku must never take a hard judgment seat. Spec Review crews must not stack
-one CLI/family. The existing "diversity" machinery looks present and is
-mostly inert. Prefer a rule that works ~90% of the time over a clever sort.
+When you pay for a panel, you get **different minds** — and never a cheap mind
+on a hard seat. Three product words (premium / mid / low) map to the existing
+caliber bands; within a band, prefer a CLI/family the crew does not already
+have. Degrade, don't fail. Haiku is **floor**, not mid.
 
 ## Product value
 
-Blind multi-model review only works if seats are different minds. A crew of
-Claude×N + one token outsider is theater. Cheap models belong on easy work.
+Blind multi-model review only works if seats are different minds. A Claude×N
+crew is theater. Unevaluated customs must not inherit flagship rank.
 
 ## Trusted workflow slice
 
-Staffing only: how `TeamResolver` picks a model for a capability-only row
-(and what `models add` stamps onto a custom record). No team redesign, no
+Staffing only: how `TeamResolver` picks a model for a capability-only row, and
+what `models add` / `capabilities()` stamp for customs. No team redesign, no
 Spec Review prompt changes, no GUI.
 
 ## Non-goals
 
-- Re-ranking every built-in by taste in this packet (except Haiku placement).
-- Hard "never two Claudes" blocks that fail a run when the bench is thin.
-- New schemas, menus, or agent-facing contract bumps unless a slice needs them.
-- Touching binaries or catalog JSON while runs are in flight.
+- Wiring `SubstitutionTier` / `DefaultModelSettings` into the resolver (live
+  shelf has Fable Unassigned and Composer-60 in Flagship — would regress Leads).
+- Renaming caliber bands to Flagship/Balanced/Fast in code.
+- Light-name word lists (`haiku`/`flash`/`mini`/…).
+- New `tier:` / `minTier:` on `TeamWorkerSpec`.
+- Scout / triangulate diversity in the bugfix slices (deferred).
+- Shipping a binary or mutating catalog JSON while panels are live (except S00).
 
 ---
 
-## What broke (verified in code — do not re-litigate)
+## Bugs (verified)
 
-### Bug A — custom Haiku inherited Fable's rank 100
-
-`ModelCatalog.createCustom` persists `fallbackCapabilities(driverId:)`, which
-is the richest built-in on that driver. For `claude_code` that is Fable
-(`strengthRank: 100`). The on-disk custom Haiku record therefore sits in the
-Flagship band (≥95) and wins every capability-only first pick after Fable is
-reserved for Lead.
-
-`isLighterVariant` only knows `mini` / `spark`, and only on the tag-less read
-path — never at write time, and never for `haiku`.
-
-### Bug B — "family diversity" never fires on a real bench
-
-`strongest()` order today:
-
-1. caliber band (≥95 / 85–94 / 70–84 / floor)
-2. preferred capability tags
-3. **strengthRank**
-4. family not-yet-used ← dead on production data
-5. id alphabetical
-
-Built-in ranks are distinct integers, so step 3 always decides and step 4
-never runs. What *does* run is `diversityUsed` (distinct **model ids** only):
-Haiku + Opus + Sonnet + Fable = "diverse." Tests only cover exact rank ties.
-
-### Bug C — custom models have no family
-
-`modelFamily` is a hardcoded id switch; `default: return modelId`. Custom
-Haiku's "family" is its own id, not `claude`, even with `driverId:
-claude_code`.
-
-### Bug D — scout sits outside diversity
-
-Scout resolves after worker rows and neither contributes to nor consults
-`familyUsed` / `diversityUsed`.
-
----
-
-## Zoom out — delete complexity, keep two dials
-
-We already have the two concepts the product needs:
-
-| Dial | Existing owner | Meaning |
+| # | Bug | Evidence |
 | --- | --- | --- |
-| **Tier** | `SubstitutionTier`: Flagship / Balanced / Fast (founder: premium / mid / low) | How hard is this mind? |
-| **CLI / family** | `driverId` + `modelFamily` | Whose mind is this? |
+| **A** | `createCustom` persists donor flagship capabilities/rank. Custom Haiku sits at rank **100** with Fable's tags (incl. `.security` / `.design`) — wins every capability-only first pick after Lead reserves Fable. | On-disk record; `ModelCatalog.swift:373` |
+| **B** | Family diversity is priority 4 under `strengthRank` in `strongest()` — unreachable on a real bench (distinct ranks). Id-dedup claims "diverse" for Haiku+Opus+Sonnet+Fable. | `TeamResolver.swift:355-372`; tests only cover exact ties |
+| **C** | `modelFamily` defaults to `modelId` for customs — custom Haiku is its own "family," not `claude`. | `ModelCatalog.swift:51-72` |
+| **D** | Scout resolves after rows; neither contributes to nor consults diversity sets. | Deferred — preferred-identity scout; Spec Review unaffected |
+| **E** | Triangulate rows `continue` before diversity updates — invisible to family tracking. | `TeamResolver.swift:190`; Signal teams; deferred with D |
+| **F** | Five built-ins lack `builtInCapabilities` entries and inherit donor profiles (`agy_sonnet` enabled live). Same class as A. | Proof Planner, live bench |
 
-Today seating mostly ignores both dials as policy and races a 0–100
-`strengthRank` integer instead. That is the overcomplication.
+Also: `isLighterVariant` substring `"mini"` already misfires on **"ge*mini*"** (−15 on Gemini). Delete it with the unrated-model law.
 
-### Proposed law (simple — aim 90%)
-
-For every **capability-only** seat (no `preferredModelId`):
-
-1. **Stay in the right tier.** Need hard judgment → Flagship/High first;
-   easy work → Fast/low is eligible and preferred for that class of work.
-2. **Prefer a CLI the crew does not already have.** Same tier, unused CLI
-   beats same-CLI stronger rank.
-3. **Then** pick the strongest remaining match (tags + readiness).
-4. **Degrade, don't fail.** If every ready CLI is already on the crew, reuse
-   is allowed (warning ok). Never block a run for diversity alone.
-
-That is one reorder inside `strongest()` (CLI/family **above** raw rank
-*within* a tier/band) plus honest catalog data. Not a second resolver.
-
-Lead / exact preferred rows stay untouched. Triangulate rows already spread
-by driver — leave them.
-
-### Haiku placement (founder ruling for this packet)
-
-Haiku is **not** mid. Trust order: Gemini 3.6 Flash and Compose 2.5 ≫ Haiku.
-Haiku is **floor / Fast** — the weakest auto-eligible mind we staff, below
-Flash (~75) and Compose 2.5 (~80), and below Compose Fast (~50) if we keep
-that seat. Exact number is an implementation detail; the band is floor.
-
-Custom add must never stamp Flagship/High onto a light name
-(`haiku`, `flash`, `mini`, `spark`, `lite`, `nano`, `small`).
-
-### What we stop doing
-
-- Treating family diversity as an exact-rank tiebreak.
-- Letting `models add` copy a donor flagship's rank/tags wholesale.
-- Claiming id-dedup is "diversity."
-- Designing a multi-pass "roster economics" system for this bug.
+**Hard dependency:** diversity-without-rank leaves Haiku on seat #2 (still Flagship band). Rank fix **before or with** diversity fix — never diversity alone.
 
 ---
 
-## Truth owner / lie-prone layer
+## Premise correction (Spec Review gem)
+
+Do **not** treat `SubstitutionTier` as the seating dial. Live
+`default_model_settings.json` put Composer (rank 60) in Flagship and left
+`model_fable` Unassigned. Tier in *this* packet means **caliber band from
+`strengthRank`**. Founder vocabulary map (doc only):
+
+| Founder word | Band |
+| --- | --- |
+| Premium / high | ≥95 and 85–94 |
+| Mid | 70–84 |
+| Low / floor | <70 |
+
+*The resolver never reads `DefaultModelSettings`.* Reconciling shelf↔rank is
+follow-up **SEAT-F1**, not this bugfix.
+
+---
+
+## Seating law (working hypothesis — founder-revisable only)
+
+Applies only when `preferredModelId == nil` and `homeDriver == nil`
+(preferred / home-driver affinity unchanged).
+
+Candidates sort by:
+
+1. **caliber band** — ≥95 / 85–94 / 70–84 / floor *(never crossed)*
+2. **preferred capability tags** *(unchanged)*
+3. **family not yet on the crew** — `ModelCatalog.modelFamily`
+4. **driver not yet on the crew** — `driverId` (wall-clock: some drivers
+   `maxConcurrentSpawns: 1`)
+5. **strengthRank** descending
+6. **id** ascending
+
+Steps 3–4 never filter. When every family is used, fall through to rank.
+**Never block a run for diversity.**
+
+**Exclusion filter (half the fix):** today's id-exclusion shrinks the pool
+*before* `strongest()` with no band awareness — on a thin Flagship pool that
+can leave only Haiku visible. Filter may apply only when the filtered pool
+still retains a best-band candidate; otherwise keep the full best-band set.
+
+**Degrade precedence (D7):** unused-family Balanced+ → reuse any Balanced+ →
+floor with warning → never block.
+
+**Unrated-model law:** no `builtInCapabilities` entry → inherit driver's
+**tags** only, **rank 40** (floor), regardless of persisted record. Delete
+`isLighterVariant`. `createCustom` persists empty capabilities (not donor
+profile). Disk Haiku JSON becomes inert — no repair CLI / migration.
+
+**Custom family:** single-vendor drivers map via `hostFamily(driverId)`
+(`claude_code`→claude, `codex`→gpt, `grok`→grok, `kimi`→kimi); multi-vendor
+routers use `driver:<id>`. No name-sniffing.
+
+**Snapshot:** capabilities once per `resolve()` — no disk I/O inside the sort
+comparator.
+
+### Named consequences (not regressions)
+
+- Sonnet 5 often never seats on a full bench once Lead claimed `claude`.
+- Max can show grok twice + grok scout once every family is used.
+- Balanced-band novelty can seat rank-75 over rank-84.
+
+---
+
+## Truth owners
 
 | Truth | Owner |
 | --- | --- |
-| Who sits where on a run | `TeamResolver` (+ `TeamAssembler` for lead) |
-| How strong / what family a model is | `ModelCatalog` (`strengthRank`, `modelFamily`, custom create) |
-| User shelf labels (Flagship/Balanced/Fast) | `DefaultModelSettings` / `SubstitutionTier` — already exist; seating should stop fighting them |
-
-Lie-prone: custom model JSON on disk; any doc that says "we diversify by
-family" while sort priority still puts rank first; tests that only green on
-synthetic ties.
-
-## Duplicate truth to delete (when implementing)
-
-- Dead comment at `ModelCatalog.modelFamily` ("tiebreak only") once family is
-  a real within-tier preference.
-- Dual stories: "caliber bands for preference" vs "family only on exact tie."
+| Who sits where | `TeamResolver.selectModel` / `strongest()` |
+| Strength / band | `ModelCatalog.builtInCapabilities.strengthRank` + `caliberBand` (**move** thresholds from `TeamResolver.swift:352` into `ModelCatalog`) |
+| Family | `ModelCatalog.modelFamily` (+ driver fallback) |
+| User Auto shelf | `DefaultModelSettings` — **not read by seating** |
 
 ---
 
-## Impact (when authorized — not now)
+## Slice plan
 
-| Surface | Impact |
+| Slice | What | When |
+| --- | --- | --- |
+| **S00** | `alln models disable custom_claude_code_claude_haiku_45` — roster only, reversible | **Now** (zero code) |
+| **S1** | Catalog honesty: empty caps on `createCustom`; unrated law rank 40; delete `isLighterVariant`; fill Bug F built-in entries + drift gate `builtIns ⊆ builtInCapabilities.keys`; `models add` discloses Unrated | After panels drain |
+| **S2** | Resolver law: family+driver above rank within band; band-aware exclusion filter; degrade warnings; `modelFamily` fallback; snapshot caps; move `caliberBand` | After S1 (never alone) |
+| **S3** | Observability: optional `seats[]` `{modelId, family, driverId, skillId, stage, reason}` on `RunDryRunJSON`; persist resolved-against bench on the run snapshot | After bugfix |
+| **Follow-ups** | SEAT-F1 shelf reconcile; scout+triangulate diversity (D/E); `gemini_pro` vs Flash rank; capabilities-edit CLI for customs | Separate |
+
+## Works Test (golden — fuzzy predicates rejected)
+
+Fixture `FULL` = fresh built-ins + real custom-Haiku JSON (rank 100, 7 tags)
+registered as a test fixture. Hand-traced expected tuples — any mismatch at
+implementation is a **finding**, not a typo to paper over.
+
+| # | Case | Expect |
+| --- | --- | --- |
+| W1 | Min / FULL after fix | Lead `model_fable`; answers exactly `[model_chatgpt, model_cursor_grok_45, model_kimi_k3]`; custom Haiku **absent** |
+| W2 | Same fixture through **pre-fix** comparator | `[fable, custom_haiku, chatgpt, opus]` (reproduction of `DCE9AE48` class) — keep as comment |
+| W3 | Max / FULL | No family majority of answer+review; Haiku absent; scout `model_grok` (preferred) |
+| W4 | `createCustom(claude_code, …)` | Persisted tags empty; `capabilities(id).strengthRank == 40` |
+| W5 | Thin bench `[model_fable]` only | Runnable; warning ok; no block |
+| W6 | Row with `preferredModelId` on a used family | Still gets preferred — diversity does not override |
+| W7 | Drift gate: `BuiltInTeams` × `defaultFreshModels()` | Distinct-family floor per team; fails if production ranks make family dead again |
+
+Until S3, live observation = post-start `team status` workerIds (no dry-run
+seat list today).
+
+## Decided (was open questions)
+
+| Q | Ruling |
 | --- | --- |
-| Mac / iOS GUI | None required |
-| CLI contract | None unless help copy mentions staffing |
-| In-flight runs | **Do not ship while panels are live.** Resolver + catalog are on the hot path of `alln` / `alln serve`. |
-| Drivers | None |
+| Diversity unit | Family primary, driver secondary |
+| Scout | Deferred with Bug E |
+| Poisoned Haiku JSON | Read-path unrated law (inert); S00 disable now; no repair CLI |
+| Timing | S00 now; S1–S3 after panels drain |
 
-## Works Test (when authorized)
-
-1. Custom Haiku on bench → Spec Review Min First Principles is **not** Haiku;
-   Haiku only appears on easy/Fast-class fills if at all.
-2. Spec Review Min with Fable lead + ready Kimi/Grok/Gemini/Compose → among
-   the three answer seats, **≥2 distinct families/CLIs** (not Claude×3).
-3. Spec Review Max → no single family holds a majority of answer+review seats
-   when ≥4 families are ready.
-4. Thin bench (only Claude ready) → run still staffs; warning ok.
-
-Proof sketch: extend `TeamResolverTests` / `ModelCatalogTests` with a real
-rank-spread fixture (not an exact tie). Live: one Min + one Max dry seating
-dump before any mutating run.
-
-## Done when
-
-- [ ] Founder ratifies or rejects the simple law above (tier + prefer other CLI).
-- [ ] Founder confirms Haiku = floor (not weakest-mid).
-- [ ] Implementation authorized **after** in-flight Spec Review / work panels finish.
-- [ ] Bugs A–D closed or explicitly waived in one small slice.
-- [ ] Works Test green; no contract churn unless help needs a sentence.
-
-## Open questions for founder
-
-1. **Diversity unit:** CLI (`driverId`) or reasoning family (`claude` /
-   `gpt` / `grok` / …)? Cursor-hosted Grok vs xAI Grok — same family or two
-   CLIs? (Simple default: **family**, with `driverId` fallback for customs.)
-2. **Scout:** fold into the same prefer-other-CLI rule, or leave preferred
-   Grok scouts alone?
-3. **Repair existing custom Haiku JSON** as part of the slice, or a one-shot
-   `alln models` repair after binary land?
-4. Authorize implementation only when live panels are done — confirm.
-
-## Rejection ledger (keep out)
+## Rejection ledger
 
 | # | Rejected | Why |
 | --- | --- | --- |
-| R1 | Fixing catalog JSON or shipping a binary while panels run | Founder: no disruption guarantee |
-| R2 | Hard fail when diversity can't be met | Degrade > block |
-| R3 | New multi-objective seat optimizer / lab economics | Overcomplicates; 90% rule above |
-| R4 | Calling id-dedup "diversity" in product copy | Lie |
-| R5 | Putting Haiku in Mid | Founder: Flash/Compose trusted far more; Haiku = floor |
+| R1 | Fix binary/catalog mid-flight | Founder: no disruption |
+| R2 | Hard-fail when diversity unmet | Degrade > block |
+| R3 | Seat optimizer / lab economics | Overcomplicates |
+| R4 | Calling id-dedup "diversity" | Lie |
+| R5 | Haiku as Mid | Founder: Flash/Compose ≫ Haiku; Haiku = floor |
+| R6 | Wire `SubstitutionTier` into resolver | Live shelf would regress Leads / seat junk Flagship |
+| R7 | Light-name word list | Fails open/closed wrongly; Gemini mini misfire |
+| R8 | Collapse/rename 4 bands → 3 Flagship/Balanced/Fast in code | Rename theater |
+| R9 | `tier:` on `TeamWorkerSpec` | Schema churn |
+| R10 | `alln models repair` / disk migration | Read-path makes record inert |
+| R11 | Scout diversity this packet | Deferred |
+| R12 | Diversity slice without rank fix | Haiku still takes seat #2 |
+| R13 | Fuzzy Works Tests ("≥2 families") | Pass on Bug A alone — don't prove B |
+| R14 | `seats[]` inside S1/S2 | Right feature, wrong slice → S3 |
+| R15 | Non-light customs default rank 80 | Re-creates Bug A class |
+
+## Impact (when S1–S3 authorized)
+
+| Surface | Impact |
+| --- | --- |
+| Mac / iOS | None required |
+| CLI contract | None for S1/S2; S3 additive `seats[]` |
+| In-flight runs | S1–S3 wait for panels; S00 roster-only |
+
+## Done when
+
+- [x] Spec Review Min (Cursor panel) completed — `927B8CD4…`
+- [x] Doc hardened from synthesis (this revision)
+- [x] S00 Haiku disabled on this machine (`custom_claude_code_claude_haiku_45` enabled=false)
+- [ ] Founder OK on law + rejects (esp. R6 / unrated-40 / S1→S2 order)
+- [ ] S1–S3 authorized after panels drain
+- [ ] W1–W7 green; contract bump only if S3 ships

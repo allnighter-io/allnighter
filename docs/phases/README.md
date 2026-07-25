@@ -25,7 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Seating_Tier_And_CLI_Diversity.md`](Seating_Tier_And_CLI_Diversity.md) | **Draft — REVIEW ONLY** (not authorized) | Haiku@100 + dead family-diversity: simplify to tier + prefer other CLI. Read before any fix; do not ship while panels are live. |
+| [`Seating_Tier_And_CLI_Diversity.md`](Seating_Tier_And_CLI_Diversity.md) | **Hardened** (Spec Review `927B8CD4…`); S00 allowed; S1–S3 not authorized while panels live | Haiku@100 + dead family diversity. Law: bands + prefer other family/CLI; unrated customs rank 40. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
 
