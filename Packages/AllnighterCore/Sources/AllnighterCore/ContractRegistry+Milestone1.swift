@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "4.0.4"
+    static let contractVersion = "4.0.5"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -595,6 +595,21 @@ public extension ContractRegistry {
             spendsQuota: false
         ),
         CommandSpec(
+            "artifact export",
+            summary: "Export the styled HTML team artifact to a user-chosen path for offline reading.",
+            milestone: .m1,
+            trigger: "When you need the team receipt outside the run journal (archive, share, open offline).",
+            example: "alln artifact export latest --out ~/Desktop/team-receipt.html",
+            antiExample: "Do NOT use this for markdown export — use `alln export --format md`. Do NOT use while a run is still running.",
+            args: [ArgSpec("run-id|latest", required: false, summary: "A run id or `latest` (default latest).")],
+            flags: [
+                FlagSpec("out", takesValue: true, valueType: "path", summary: "Destination file path for the HTML export (required)."),
+                FlagSpec("json", summary: "Emit path, run id, and honesty string only (no HTML body)."),
+            ],
+            outputSchema: .markdown,
+            spendsQuota: false
+        ),
+        CommandSpec(
             "spec", summary: "Retrieve a run's spec/result packet (summary|full|artifactRefsOnly).", milestone: .m1,
             args: [ArgSpec("run-id|latest", required: false, summary: "A run id or `latest` (default latest).")],
             flags: [FlagSpec("detail", takesValue: true, valueType: "detail", defaultValue: "summary", summary: "summary | full | artifactRefsOnly."),
@@ -602,7 +617,7 @@ public extension ContractRegistry {
             outputSchema: .specResult, exampleIds: ["spec_full"]
         ),
         CommandSpec(
-            "export", summary: "Export a result bundle.", milestone: .m1,
+            "export", summary: "Export a run result as markdown (not the styled HTML artifact — use `alln artifact export` for that).", milestone: .m1,
             args: [ArgSpec("run-id|latest", required: true, summary: "A run id or `latest`.")],
             flags: [FlagSpec("format", takesValue: true, valueType: "format", defaultValue: "md", allowedValues: ["md"], summary: "Export format (md).")],
             outputSchema: .markdown, exampleIds: ["export_md"]

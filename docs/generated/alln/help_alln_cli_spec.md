@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.0.4, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.0.5, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -818,6 +818,19 @@ Flags:
 
 Output schema: `markdown`.
 
+### `alln artifact export`
+
+Export the styled HTML team artifact to a user-chosen path for offline reading.
+
+Arguments:
+- `run-id|latest` (optional) — A run id or `latest` (default latest).
+
+Flags:
+- `--out <path>` — Destination file path for the HTML export (required).
+- `--json` — Emit path, run id, and honesty string only (no HTML body).
+
+Output schema: `markdown`.
+
 ### `alln spec`
 
 Retrieve a run's spec/result packet (summary|full|artifactRefsOnly).
@@ -835,7 +848,7 @@ Examples: `spec_full`.
 
 ### `alln export`
 
-Export a result bundle.
+Export a run result as markdown (not the styled HTML artifact — use `alln artifact export` for that).
 
 Arguments:
 - `run-id|latest` (required) — A run id or `latest`.

@@ -3009,6 +3009,54 @@
       "visibility" : "public"
     },
     {
+      "antiExample" : "Do NOT use this for markdown export — use `alln export --format md`. Do NOT use while a run is still running.",
+      "args" : [
+        {
+          "name" : "run-id|latest",
+          "required" : false,
+          "summary" : "A run id or `latest` (default latest)."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "alln artifact export latest --out ~\/Desktop\/team-receipt.html",
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "out",
+          "summary" : "Destination file path for the HTML export (required).",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit path, run id, and honesty string only (no HTML body).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "artifact export",
+      "outputSchema" : "markdown",
+      "spendsQuota" : false,
+      "summary" : "Export the styled HTML team artifact to a user-chosen path for offline reading.",
+      "trigger" : "When you need the team receipt outside the run journal (archive, share, open offline).",
+      "visibility" : "public"
+    },
+    {
       "args" : [
         {
           "name" : "run-id|latest",
@@ -3100,7 +3148,7 @@
       "name" : "export",
       "outputSchema" : "markdown",
       "spendsQuota" : false,
-      "summary" : "Export a result bundle.",
+      "summary" : "Export a run result as markdown (not the styled HTML artifact — use `alln artifact export` for that).",
       "visibility" : "public"
     },
     {
@@ -4901,7 +4949,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.0.4",
+  "contractVersion" : "4.0.5",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

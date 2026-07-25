@@ -3,6 +3,42 @@ import AllnighterCore
 import AllnighterEngine
 
 enum ArtifactCLI {
+  /// `alln artifact export <run-id|latest> --out <path> [--json]`
+  static func runExport(_ args: [String], runtime: ToolRuntime) {
+    let opts = Options(args)
+    let ref = opts.positional.first ?? "latest"
+    guard let out = opts.value("out"), !out.isEmpty else {
+      AllnighterCLI.fail(
+        code: "CLI_USAGE_ERROR",
+        message: "usage: alln artifact export <run-id|latest> --out <path> [--json]"
+      )
+    }
+    guard let run = AllnighterCLI.resolveRun(ref) else {
+      AllnighterCLI.failRunNotFound(ref == "latest" ? nil : ref, "no run matches \(ref)")
+    }
+    guard ArtifactProjector.canProject(run) else {
+      AllnighterCLI.fail(
+        code: "RUN_NOT_TERMINAL",
+        message: "run \(run.id) is not terminal — artifact export requires a finished run"
+      )
+    }
+
+    let expanded = (out as NSString).expandingTildeInPath
+    let destination = URL(fileURLWithPath: expanded, isDirectory: false)
+    let context = ArtifactProjector.Context(models: runtime.models, manifests: runtime.registry.all)
+    do {
+      let htmlURL = try ArtifactWriter.exportHTML(
+        run: run,
+        destination: destination,
+        reproduceCommand: TeamRunReplayCommand.build(from: run),
+        context: context
+      )
+      emitResult(path: htmlURL.path, runId: run.id, json: opts.flag("json"), noOpen: true)
+    } catch {
+      AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "could not export artifact: \(error)")
+    }
+  }
+
   /// `alln artifact show <run-id|latest> [--no-open] [--json]`
   static func runShow(_ args: [String], runtime: ToolRuntime) {
     let opts = Options(args)

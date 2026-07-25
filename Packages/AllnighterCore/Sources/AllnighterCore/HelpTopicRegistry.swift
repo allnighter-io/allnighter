@@ -379,7 +379,7 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "artifact", title: "Team artifact (HTML receipt)", audience: .both,
-            summary: "After a terminal team run, `alln artifact show <run-id|latest>` regenerates the private HTML team artifact and opens it (or prints the path).",
+            summary: "After a terminal team run, `alln artifact show <run-id|latest>` regenerates the private HTML team artifact and opens it (or prints the path). Use `alln artifact export --out` to copy the same HTML elsewhere.",
             bodyMarkdown: """
             The team artifact is a polished, private HTML reading document for a **finished** \
             team run. `alln artifact show <run-id|latest>` writes `artifact/index.html` under \
@@ -387,14 +387,17 @@ public enum HelpTopicRegistry {
             unless you pass `--no-open`. `--json` returns only the path, run id, and honesty \
             string.
 
-            This is **not** the Factory Floor (`alln floor show`), not the markdown export \
-            (`alln export`), and not the continuity receipt (`alln continuity receipt`). \
-            There is no `receipt show` verb for this feature.
+            `alln artifact export <run-id|latest> --out <path>` writes the **same** styled HTML \
+            to a user-chosen file for offline reading. It does not replace the markdown export \
+            (`alln export --format md`).
+
+            This is **not** the Factory Floor (`alln floor show`) and not the continuity receipt \
+            (`alln continuity receipt`). There is no `receipt show` verb for this feature.
 
             Non-terminal runs fail closed with `RUN_NOT_TERMINAL`.
             """,
-            aliases: ["report", "card", "receipt", "team artifact", "team receipt", "team card", "artifact show"],
-            relatedCommandNames: ["artifact show", "show", "floor show", "export"],
+            aliases: ["report", "card", "receipt", "team artifact", "team receipt", "team card", "artifact show", "artifact export"],
+            relatedCommandNames: ["artifact show", "artifact export", "show", "floor show", "export"],
             errorRefs: ["RUN_NOT_TERMINAL", "RUN_NOT_FOUND"],
             needsLiveCheck: false),
 

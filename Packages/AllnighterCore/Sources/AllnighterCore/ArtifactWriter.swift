@@ -27,12 +27,7 @@ public enum ArtifactWriter {
     fileManager: FileManager = .default
   ) throws -> URL {
     guard ArtifactProjector.canProject(run) else { throw WriteError.notTerminal }
-    let card = ArtifactProjector.project(
-      run,
-      reproduceCommand: reproduceCommand,
-      context: context
-    )
-    let html = ArtifactProjector.renderHTML(card)
+    let html = renderedHTML(run: run, reproduceCommand: reproduceCommand, context: context)
     let artifactDir = runDirectory.appendingPathComponent("artifact", isDirectory: true)
     do {
       try fileManager.createDirectory(at: artifactDir, withIntermediateDirectories: true)
@@ -44,5 +39,42 @@ public enum ArtifactWriter {
     } catch {
       throw WriteError.writeFailed(error.localizedDescription)
     }
+  }
+
+  /// Writes the same self-contained HTML as `writeHTML` to a user-chosen path (TRR-S03).
+  public static func exportHTML(
+    run: TeamRun,
+    destination: URL,
+    reproduceCommand: String,
+    context: ArtifactProjector.Context = .init(),
+    fileManager: FileManager = .default
+  ) throws -> URL {
+    guard ArtifactProjector.canProject(run) else { throw WriteError.notTerminal }
+    let html = renderedHTML(run: run, reproduceCommand: reproduceCommand, context: context)
+    do {
+      let parent = destination.deletingLastPathComponent()
+      if !parent.path.isEmpty && parent.path != "/" {
+        try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
+      }
+      try Data(html.utf8).write(to: destination, options: .atomic)
+      return destination
+    } catch let error as WriteError {
+      throw error
+    } catch {
+      throw WriteError.writeFailed(error.localizedDescription)
+    }
+  }
+
+  private static func renderedHTML(
+    run: TeamRun,
+    reproduceCommand: String,
+    context: ArtifactProjector.Context
+  ) -> String {
+    let card = ArtifactProjector.project(
+      run,
+      reproduceCommand: reproduceCommand,
+      context: context
+    )
+    return ArtifactProjector.renderHTML(card)
   }
 }

@@ -1,6 +1,6 @@
 # TRR-S03 — `alln artifact export`
 
-Status: **ready** (requires TRR-S01 done; founder authorized end-to-end delivery)
+Status: **done** (2026-07-25)
 SSOT: `docs/phases/Team_Run_Receipt.md` §TRR-S03
 
 ## Goal
@@ -37,4 +37,4 @@ alln dev export-contracts --check
 
 ## Done when
 
-- [ ] command + teaching + tests + committed
+- [x] command + teaching + tests + committed

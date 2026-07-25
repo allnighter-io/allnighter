@@ -220,4 +220,60 @@ final class ArtifactProjectorTests: XCTestCase {
       XCTAssertEqual(error as? ArtifactWriter.WriteError, .notTerminal)
     }
   }
+
+  func testArtifactWriterExportHTML() throws {
+    let dir = FileManager.default.temporaryDirectory
+      .appendingPathComponent("artifact-export-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let run = multiSeatRun(leadMarkdown: leadCallMarkdown)
+    let reproduce = "alln run \"test prompt\" --team default"
+    let destination = dir.appendingPathComponent("receipt.html")
+    let url = try ArtifactWriter.exportHTML(
+      run: run,
+      destination: destination,
+      reproduceCommand: reproduce
+    )
+    XCTAssertEqual(url, destination)
+    let html = try String(contentsOf: url, encoding: .utf8)
+    XCTAssertTrue(html.contains(ArtifactProjector.honesty))
+    XCTAssertTrue(html.contains("<!DOCTYPE html>"))
+  }
+
+  func testArtifactExportMatchesShowBody() throws {
+    let dir = FileManager.default.temporaryDirectory
+      .appendingPathComponent("artifact-export-match-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let run = multiSeatRun(leadMarkdown: leadCallMarkdown)
+    let reproduce = "alln run \"test prompt\" --team default"
+    let showURL = try ArtifactWriter.writeHTML(
+      run: run,
+      runDirectory: dir,
+      reproduceCommand: reproduce
+    )
+    let exportURL = dir.appendingPathComponent("exported.html")
+    _ = try ArtifactWriter.exportHTML(
+      run: run,
+      destination: exportURL,
+      reproduceCommand: reproduce
+    )
+    let showHTML = try String(contentsOf: showURL, encoding: .utf8)
+    let exportHTML = try String(contentsOf: exportURL, encoding: .utf8)
+    XCTAssertEqual(showHTML, exportHTML)
+  }
+
+  func testArtifactWriterExportRejectsNonTerminal() {
+    var run = multiSeatRun(leadMarkdown: leadCallMarkdown)
+    run.status = .running
+    let destination = FileManager.default.temporaryDirectory
+      .appendingPathComponent("artifact-export-neg-\(UUID().uuidString).html")
+    XCTAssertThrowsError(
+      try ArtifactWriter.exportHTML(run: run, destination: destination, reproduceCommand: "alln run x")
+    ) { error in
+      XCTAssertEqual(error as? ArtifactWriter.WriteError, .notTerminal)
+    }
+  }
 }

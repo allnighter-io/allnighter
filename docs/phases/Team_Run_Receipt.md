@@ -337,7 +337,7 @@ bump land **inside** the S01 PR (budgeted work, not open design).
 
 | Field | Spec |
 | --- | --- |
-| **Status** | Ready for Implementation (after S01; ship on demand) |
+| **Status** | Done 2026-07-25 |
 | **Truth owner** | Same ArtifactProjector HTML. Export = copy/regenerate to a **user-chosen path**, not a second layout. |
 | **CLI** | `alln artifact export <run-id\|latest> --out <path>` — writes self-contained HTML (inline or sibling token CSS per implementer choice; must remain readable offline). Exit non-zero if run non-terminal. Does **not** replace `alln export --format md`. |
 | **Contract** | Register `artifact.export`; teaching distinguishes `artifact export` (styled HTML) vs `export` (md/json). |
