@@ -52,36 +52,6 @@ final class JSONStreamLawTests: XCTestCase {
         XCTAssertEqual(objs.last?["status"] as? String, "awaitingPM")
     }
 
-    func testPanelRoundStreamingLinesAllParse() throws {
-        var lines: [String] = [
-            AllnighterCLI.jsonLine(PanelProgressJSON(event: "seatStarted", seat: "model_a", round: 1, attempt: 1)),
-            AllnighterCLI.jsonLine(PanelProgressJSON(event: "seatSettled", seat: "model_a", round: 1, attempt: 1, status: "delivered")),
-            AllnighterCLI.jsonLine(PanelProgressJSON(event: "roundSettled", round: 1, attempt: 1)),
-        ]
-        let panelJSON = PanelJSON.project(
-            PanelState(
-                id: "panel_stream", projectRoot: "/repo", projectId: "proj",
-                targetPath: "docs/spec.md", seats: [],
-                status: .awaitingPM, createdAt: Date()
-            ),
-            contractVersion: ContractRegistry.contractVersion
-        )
-        lines.append(AllnighterCLI.jsonLine(PanelRoundJSON(
-            contractVersion: ContractRegistry.contractVersion,
-            panel: panelJSON,
-            round: 1,
-            attempt: 1,
-            targetHash: "abc",
-            briefSource: "builtin",
-            seatResults: [],
-            unstructuredSeats: []
-        )))
-        let objs = try parseLines(lines)
-        XCTAssertEqual(objs.count, 4)
-        XCTAssertEqual(objs.last?["contractVersion"] as? String, ContractRegistry.contractVersion)
-        XCTAssertNotNil(objs.last?["panel"])
-    }
-
     func testPilotHandoffStreamingLinesAllParse() throws {
         var lines: [String] = [
             RelayDispatch.progressJSONLine(.roundStarted(round: 1)),

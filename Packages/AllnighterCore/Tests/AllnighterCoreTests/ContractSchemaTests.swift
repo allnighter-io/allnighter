@@ -178,14 +178,13 @@ final class ContractSchemaTests: XCTestCase {
         for legacy in ["ask", "presets", "recall", "team teams", "team edit"] {
             XCTAssertFalse(names.contains(legacy), "registry still has legacy command: \(legacy)")
         }
-        // Public error codes use the new vocabulary, not council/masterplan.
-        // `PANEL_*` codes are current Pilot_Panel grammar (product noun), not the
-        // retired RB6 "panel seat" vocabulary.
+        // Public error codes use the new vocabulary, not council/masterplan — and
+        // no `panel` at all: `alln panel` was deleted outright, so the exemption
+        // that used to carve out `PANEL_*` codes is gone with them.
         for e in ContractRegistry.milestone1.errors {
             let blob = (e.code + e.ruleId + e.agentAction).lowercased()
             XCTAssertFalse(blob.contains("council") || blob.contains("masterplan"),
                            "error \(e.code) carries legacy vocabulary")
-            if e.code.hasPrefix("PANEL_") { continue }
             XCTAssertFalse(blob.contains("panel"),
                            "error \(e.code) carries legacy vocabulary")
         }

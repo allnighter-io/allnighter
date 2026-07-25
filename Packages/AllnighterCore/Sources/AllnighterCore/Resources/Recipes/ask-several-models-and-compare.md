@@ -25,23 +25,16 @@ Read the live menu first:
 alln menu --json
 ```
 
-List teams, then start an async multi-seat run (example: Plan):
+List teams, then run a multi-seat team (example: Plan). Runs are foreground —
+the answer comes back in this terminal:
 
 ```bash
 alln teams --lane code --json
-alln run --detach --team code_plan --json "<your prompt>"
+alln run --team code_plan --json "<your prompt>"
 ```
 
-Lifecycle if the terminal scrolled away (IR-S02):
+Read a settled run again by id:
 
 ```bash
-alln team status <run-id> --json
-alln team result <run-id> --json
-alln team cancel <run-id> --json
-```
-
-For a synchronous one-shot instead of async start:
-
-```bash
-alln team --json "<your prompt>"
+alln show <run-id> --json
 ```

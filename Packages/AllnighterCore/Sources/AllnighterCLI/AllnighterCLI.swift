@@ -86,7 +86,6 @@ struct AllnighterCLI {
         case "export": runExport(args, runtime)
         case "dev": runDev(args)
         case "pair": await PairCLI.run(args, runtime: runtime)
-        case "panel": await PanelCLI.run(args, runtime: runtime)
         case "pending": await PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "stalled": StalledCLI.run(args.first, Array(args.dropFirst()))
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)

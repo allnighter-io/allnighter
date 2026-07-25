@@ -290,7 +290,7 @@ public enum CLIUsage {
             "run", "team", "teams", "models", "doctor", "bootstrap", "help", "docs", "menu",
             "version", "install-cli", "project", "thread", "skills", "pending", "stalled",
             "show", "export", "history", "floor", "spec", "defaults", "boost-window",
-            "ps", "kill", "gc", "continuity", "serve", "pair", "panel", "dev",
+            "ps", "kill", "gc", "continuity", "serve", "pair", "dev",
         ]
         let remaining = families.keys.filter { !preferred.contains($0) }.sorted()
         let order = preferred.filter { families[$0] != nil } + remaining

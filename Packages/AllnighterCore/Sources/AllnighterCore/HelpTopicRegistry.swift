@@ -89,8 +89,7 @@ public enum HelpTopicRegistry {
             useWhen/dontUseWhen with canonical ids; run the validation template before \
             unfamiliar worker-starting actions; re-read the live menu in a new session \
             and never trust a pasted catalog. It does not embed models, teams, recipes, \
-            or command rows. Panel cockpit recipes stay in `help get panel`, not \
-            bootstrap. Marker-delimited with schema version + content hash so \
+            or command rows. Marker-delimited with schema version + content hash so \
             `alln doctor` can report teaching.installed. \
             `--json` returns `{ host, pasteTarget, snippet, binaryPath, onPath, recipes, recipesHelp }` \
             so an agent can install itself and discover intent-titled recipe cards \
@@ -182,6 +181,10 @@ public enum HelpTopicRegistry {
             subscription CLIs; use `--effort`, `--worker`, and each driver's supported controls.
             """,
             aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt",
+                      // Spec review is a Team run like any other. These phrases used to
+                      // resolve to the deleted `panel` surface; they must keep landing on
+                      // the one primitive that actually performs the work.
+                      "spec review", "spec hardening", "blind jury", "jury", "panel", "panel this",
                       "read only", "readonly", "write policy", "mutating",
                       "timing", "queueMs", "ttftMs", "durationMs", "wallMs", "latency",
                       "stream", "ndjson", "temperature", "max tokens", "max-tokens",
@@ -250,33 +253,6 @@ public enum HelpTopicRegistry {
                 "RELAY_NOT_FOUND", "RELAY_INVALID_STATE", "RELAY_HANDOVER_UNSAFE", "PROJECT_NOT_FOUND",
                 "RELAY_ROUND_IN_FLIGHT", "RELAY_NOT_AWAITING_PM", "RELAY_VERDICT_UNPARSEABLE",
                 "EXECUTION_LANE_BUSY", "WRITE_SCOPE_VIOLATION", "STANDING_INVARIANT_FAILED",
-            ],
-            needsLiveCheck: true),
-
-        HelpTopic(
-            id: "panel", title: "Panel (temporarily unsupported)", audience: .both,
-            summary: "Panel is frozen during Code Red and does not start, route, watch, or recover work.",
-            bodyMarkdown: """
-            Panel is frozen during Code Red. Every public Panel entrypoint fails closed, \
-            including status and watch. Use `alln run` with an observational (non-mutating) \
-            Team for input in \
-            the registered repository instead.
-            """,
-            aliases: [
-                "panel this", "blind jury", "spec review", "panel round", "panel start",
-                "spec hardening", "jury", "alln panel",
-            ],
-            sections: [
-                .init("availability", "Frozen during Code Red", "Panel has no active execution, polling, or recovery path during Code Red."),
-                .init("alternative", "Use Team research", "Use `alln run --team <id>` for research in the registered repository."),
-            ],
-            relatedCommandNames: [
-                "run", "teams", "menu",
-            ],
-            schemaRefs: ["panelJSON", "panelRoundJSON"],
-            errorRefs: [
-                "CODE_RED_UNSUPPORTED",
-                "PANEL_TARGET_MISSING", "PANEL_NOT_AWAITING", "PROJECT_NOT_FOUND", "TEAM_NOT_FOUND",
             ],
             needsLiveCheck: true),
 
@@ -507,7 +483,7 @@ public enum HelpTopicRegistry {
             sections: recipes.map { HelpTopic.Section($0.id, $0.title, $0.markdown) },
             relatedCommandNames: [
                 "bootstrap", "help get", "help search", "menu",
-                "pair pilot start", "panel start", "pair relay", "run",
+                "pair pilot start", "pair relay", "run",
                 "team status", "team result", "team cancel",
             ],
             needsLiveCheck: false

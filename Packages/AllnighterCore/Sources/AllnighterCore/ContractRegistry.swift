@@ -133,8 +133,6 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case stallEpisodeJSON
         case pendingQueueJSON
         case relayJSON
-        case panelJSON
-        case panelRoundJSON
         case bootstrapJSON
         case installCLIJSON
         case versionJSON
@@ -189,7 +187,6 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
                 spendsQuota
                 || name == "run"
                 || name.hasPrefix("pair ")
-                || name.hasPrefix("panel start")
                 || name.hasPrefix("thread send")
             let catalogWrite =
                 name.hasPrefix("teams edit")

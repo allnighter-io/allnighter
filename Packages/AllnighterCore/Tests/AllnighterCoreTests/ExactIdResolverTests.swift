@@ -105,21 +105,8 @@ final class ExactIdResolverTests: XCTestCase {
         XCTAssertThrowsError(try PilotSeatResolver.resolve(alias: "opus", models: models()).get())
     }
 
-    // MARK: panel --team
-
-    func testPanelTeamHonorsExactId() {
-        let result = PanelTeamResolver.resolveTeam(alias: "code_plan", teams: teams())
-        guard case .success(let team) = result else { return XCTFail("\(result)") }
-        XCTAssertEqual(team.id, "code_plan")
-    }
-
-    func testPanelTeamRejectsFuzzyAlias() {
-        let result = PanelTeamResolver.resolveTeam(alias: "plan", teams: teams())
-        guard case .failure(.exactId(let failure)) = result else {
-            return XCTFail("expected exactId failure, got \(result)")
-        }
-        XCTAssertEqual(failure.code, "TEAM_NOT_FOUND")
-    }
+    // The exact-id law for teams is covered by the `ExactIdResolver.resolveTeam`
+    // cases above; the panel-specific resolver was deleted with `alln panel`.
 
     // MARK: Candidate state
 

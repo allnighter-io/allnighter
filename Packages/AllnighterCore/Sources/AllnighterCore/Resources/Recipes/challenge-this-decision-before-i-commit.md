@@ -1,6 +1,6 @@
 # Challenge this decision before I commit
 
-Session-led blind jury (Panel). Spec Review is the common recipe — you synthesize; seats return structured findings only.
+Session-led blind jury (Spec Review team). Spec Review is the common recipe — you synthesize; seats return structured findings only.
 
 ## Example utterances
 
@@ -25,26 +25,20 @@ Ask the menu first:
 alln menu --json
 ```
 
-Start a Panel on the target (required `--doc` / `--project`):
+Run Spec Review on the target (fill `--project`; pass the doc path or its content
+in the prompt). Runs are foreground — the verdict comes back in this terminal:
 
 ```bash
-alln panel start --doc <path> --project <id|path> --json
+alln run --team code_spec_review --project <id|path> --json "<path to the doc, or its content>"
 ```
 
-Dispatch one blind round (built-in brief on round 1):
+Read a settled run again by id:
 
 ```bash
-alln panel round --panel <id> --json
+alln show <run-id> --json
 ```
 
-Check durable state / declare done when finished judging:
-
-```bash
-alln panel status --panel <id> --json
-alln panel done --panel <id> --json
-```
-
-Optional chain into Pilot on the same doc after `panel done`:
+Optional chain into Pilot on the same doc once the run settles:
 
 ```bash
 alln pair pilot start --doc <same-path> --project <id|path> --json

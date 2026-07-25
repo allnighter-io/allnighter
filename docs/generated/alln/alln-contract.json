@@ -2771,192 +2771,6 @@
     },
     {
       "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "dependsOnSelection",
-        "workerStart" : "dependsOnFlags"
-      },
-      "exampleIds" : [
-
-      ],
-      "flagConstraints" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "panel start",
-      "outputSchema" : "panelJSON",
-      "spendsQuota" : false,
-      "summary" : "Temporarily unsupported during Code Red; no Panel session is started.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
-
-      ],
-      "flagConstraints" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "panel round",
-      "outputSchema" : "panelRoundJSON",
-      "spendsQuota" : false,
-      "summary" : "Temporarily unsupported during Code Red; no Panel work is dispatched.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
-
-      ],
-      "flagConstraints" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "panel status",
-      "outputSchema" : "panelJSON",
-      "spendsQuota" : false,
-      "summary" : "Temporarily unsupported during Code Red.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
-
-      ],
-      "flagConstraints" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "panel watch",
-      "outputSchema" : "panelJSON",
-      "spendsQuota" : false,
-      "summary" : "Temporarily unsupported during Code Red; it does not poll or recover Panel work.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
-
-      ],
-      "flagConstraints" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "panel scaffold-brief",
-      "outputSchema" : "panelJSON",
-      "spendsQuota" : false,
-      "summary" : "Temporarily unsupported during Code Red.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
-
-      ],
-      "flagConstraints" : [
-
-      ],
-      "flags" : [
-
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "panel done",
-      "outputSchema" : "panelJSON",
-      "spendsQuota" : false,
-      "summary" : "Temporarily unsupported during Code Red; it does not change Panel state.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
         {
           "name" : "run-id|latest",
           "required" : true,
@@ -4931,7 +4745,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "3.4.0",
+  "contractVersion" : "4.0.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5329,15 +5143,6 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "run.journal.corrupt"
-    },
-    {
-      "agentAction" : "Run `alln run` without the unsupported flag in the registered repository.",
-      "code" : "CODE_RED_UNSUPPORTED",
-      "exitClass" : "operational",
-      "explain" : "This surface is temporarily unavailable during Code Red; Allnighter does not route it through a resident fallback.",
-      "requiresManual" : false,
-      "retryable" : false,
-      "ruleId" : "code_red.unsupported"
     },
     {
       "agentAction" : "Fix the local run journal\/storage failure, then rerun the foreground command.",
@@ -5797,42 +5602,6 @@
       "requiresManual" : true,
       "retryable" : true,
       "ruleId" : "relay.verdict.unparseable"
-    },
-    {
-      "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
-      "code" : "PANEL_NOT_FOUND",
-      "exitClass" : "operational",
-      "explain" : "No active Panel recovery path is available during Code Red.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "panel.not_found"
-    },
-    {
-      "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
-      "code" : "PANEL_ROUND_IN_FLIGHT",
-      "exitClass" : "operational",
-      "explain" : "Panel has no active dispatch or polling path during Code Red.",
-      "requiresManual" : false,
-      "retryable" : false,
-      "ruleId" : "panel.round.in_flight"
-    },
-    {
-      "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
-      "code" : "PANEL_TARGET_MISSING",
-      "exitClass" : "operational",
-      "explain" : "Panel has no active target dispatch path during Code Red.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "panel.target.missing"
-    },
-    {
-      "agentAction" : "Panel is temporarily unsupported during Code Red; use `alln run` instead.",
-      "code" : "PANEL_NOT_AWAITING",
-      "exitClass" : "operational",
-      "explain" : "Panel has no active recovery or state-change path during Code Red.",
-      "requiresManual" : true,
-      "retryable" : false,
-      "ruleId" : "panel.not_awaiting"
     },
     {
       "agentAction" : "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.",

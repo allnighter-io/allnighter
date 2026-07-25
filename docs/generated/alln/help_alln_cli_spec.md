@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 3.4.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.0.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -738,42 +738,6 @@ Flags:
 
 Output schema: `relayJSON`.
 
-### `alln panel start`
-
-Temporarily unsupported during Code Red; no Panel session is started.
-
-Output schema: `panelJSON`.
-
-### `alln panel round`
-
-Temporarily unsupported during Code Red; no Panel work is dispatched.
-
-Output schema: `panelRoundJSON`.
-
-### `alln panel status`
-
-Temporarily unsupported during Code Red.
-
-Output schema: `panelJSON`.
-
-### `alln panel watch`
-
-Temporarily unsupported during Code Red; it does not poll or recover Panel work.
-
-Output schema: `panelJSON`.
-
-### `alln panel scaffold-brief`
-
-Temporarily unsupported during Code Red.
-
-Output schema: `panelJSON`.
-
-### `alln panel done`
-
-Temporarily unsupported during Code Red; it does not change Panel state.
-
-Output schema: `panelJSON`.
-
 ### `alln show`
 
 Show one run.
@@ -1376,7 +1340,6 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |
 | `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
-| `CODE_RED_UNSUPPORTED` | no | no | `operational` | Run `alln run` without the unsupported flag in the registered repository. |
 | `STREAM_JOURNAL_FAILED` | yes | yes | `operational` | Fix the local run journal/storage failure, then rerun the foreground command. |
 | `RESIDENT_REQUEST_CONFLICT` | no | no | `operational` | Reuse the original payload for this idempotency key, or submit a new key for new work. |
 | `RESIDENT_ACCEPT_TIMEOUT` | no | yes | `operational` | Retry the same idempotency key and payload; do not create a second direct run. |
@@ -1428,10 +1391,6 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
-| `PANEL_NOT_FOUND` | yes | no | `operational` | Panel is temporarily unsupported during Code Red; use `alln run` instead. |
-| `PANEL_ROUND_IN_FLIGHT` | no | no | `operational` | Panel is temporarily unsupported during Code Red; use `alln run` instead. |
-| `PANEL_TARGET_MISSING` | yes | no | `operational` | Panel is temporarily unsupported during Code Red; use `alln run` instead. |
-| `PANEL_NOT_AWAITING` | yes | no | `operational` | Panel is temporarily unsupported during Code Red; use `alln run` instead. |
 | `OWNERSHIP_NOT_FOUND` | no | no | `operational` | Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree. |
 | `OWNERSHIP_ALREADY_TERMINAL` | no | no | `operational` | No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`. |
 | `OWNERSHIP_IDENTITY_MISMATCH` | yes | no | `operational` | Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead. |

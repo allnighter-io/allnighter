@@ -9,7 +9,6 @@ import AllnighterCore
 public struct ServeDaemonProbe: Sendable {
     public let store: ServeDaemonStore
     public let runsDirectory: URL
-    public let panelsDirectory: URL
     public let processAlive: @Sendable (Int32) -> Bool
     public let currentPID: @Sendable () -> Int32
     public let activeObligationCount: @Sendable () -> Int
@@ -17,26 +16,20 @@ public struct ServeDaemonProbe: Sendable {
     public init(
         store: ServeDaemonStore = ServeDaemonStore(),
         runsDirectory: URL? = nil,
-        panelsDirectory: URL? = nil,
         processAlive: @escaping @Sendable (Int32) -> Bool = { RunStore.processAlive($0) },
         currentPID: @escaping @Sendable () -> Int32 = { ProcessInfo.processInfo.processIdentifier },
         activeObligationCount: (@Sendable () -> Int)? = nil
     ) {
         self.store = store
         let resolvedRunsDirectory = runsDirectory ?? AllnighterPaths.runs
-        let resolvedPanelsDirectory = panelsDirectory ?? AllnighterPaths.panels
         self.runsDirectory = resolvedRunsDirectory
-        self.panelsDirectory = resolvedPanelsDirectory
         self.processAlive = processAlive
         self.currentPID = currentPID
         if let activeObligationCount {
             self.activeObligationCount = activeObligationCount
         } else {
             self.activeObligationCount = { @Sendable in
-                Self.countActiveObligations(
-                    runsDirectory: resolvedRunsDirectory,
-                    panelsDirectory: resolvedPanelsDirectory
-                )
+                Self.countActiveObligations(runsDirectory: resolvedRunsDirectory)
             }
         }
     }
@@ -113,14 +106,13 @@ public struct ServeDaemonProbe: Sendable {
         return FileManager.default.isWritableFile(atPath: url.path)
     }
 
-    private static func countActiveObligations(runsDirectory: URL, panelsDirectory: URL) -> Int {
+    private static func countActiveObligations(runsDirectory: URL) -> Int {
         // A vendor-backoff run is durable but unowned: it deliberately holds no
         // worker, write lock, or daemon process obligation. Counting it here
         // strands every new install behind a vendor's usage window.
         let activeRuns = RunStore(rootDirectory: runsDirectory).list().count {
             !$0.status.isTerminal && $0.blocker?.resource != .vendorBackoff
         }
-        let activePanels = PanelStateStore(rootDirectory: panelsDirectory).list().count { $0.status == .running }
-        return activeRuns + activePanels
+        return activeRuns
     }
 }

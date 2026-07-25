@@ -47,8 +47,6 @@ public enum ExecutionLaneSite: String, Codable, Sendable, CaseIterable {
     case harnessProof
     /// Ordinary mutating `RunService` run (repo write + possible in-turn builds).
     case mutatingRun
-    /// Panel seat — read-only by mechanism; **never** takes the lane.
-    case panelSeat
     /// Answer / judgment team run — read-only; never takes the lane.
     case answerRun
 }
@@ -67,7 +65,7 @@ public enum ExecutionLaneClassification {
         switch site {
         case .relayDevTurn, .pilotDevTurn, .harnessProof, .mutatingRun:
             return .build
-        case .panelSeat, .answerRun:
+        case .answerRun:
             return .nonBuild
         }
     }

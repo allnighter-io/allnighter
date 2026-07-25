@@ -11,13 +11,8 @@ final class CoordinatorHealthTests: XCTestCase {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("coord-\(UUID().uuidString)")
         let coordDir = root.appendingPathComponent("Coordinator", isDirectory: true)
         let runsDir = root.appendingPathComponent("Runs", isDirectory: true)
-        let panelsDir = root.appendingPathComponent("Panels", isDirectory: true)
         let store = ServeDaemonStore(directory: coordDir)
-        let probe = ServeDaemonProbe(
-            store: store,
-            runsDirectory: runsDir,
-            panelsDirectory: panelsDir
-        )
+        let probe = ServeDaemonProbe(store: store, runsDirectory: runsDir)
         return (root, store, probe)
     }
 
@@ -59,21 +54,12 @@ final class CoordinatorHealthTests: XCTestCase {
         XCTAssertEqual(health.activeObligationCount, 0)
     }
 
-    func testHealthCountsNonTerminalRunsAndRunningPanelsAsObligations() throws {
+    func testHealthCountsNonTerminalRunsAsObligations() throws {
         let (root, store, probe) = tempDirs()
         defer { removeIfPresent(root) }
         let runs = RunStore(rootDirectory: root.appendingPathComponent("Runs", isDirectory: true))
         try runs.save(TeamRun(id: "active", prompt: "work", status: .running, createdAt: Date()), models: [])
         try runs.save(TeamRun(id: "finished", prompt: "done", status: .complete, createdAt: Date()), models: [])
-        let panels = PanelStateStore(rootDirectory: root.appendingPathComponent("Panels", isDirectory: true))
-        try panels.save(PanelState(
-            id: "active-panel", projectRoot: "/tmp/project", projectId: "project",
-            targetPath: "/tmp/project/spec.md", seats: [], status: .running, createdAt: Date()
-        ))
-        try panels.save(PanelState(
-            id: "parked-panel", projectRoot: "/tmp/project", projectId: "project",
-            targetPath: "/tmp/project/spec.md", seats: [], status: .awaitingPM, createdAt: Date()
-        ))
         try store.save(.init(
             daemonId: "coord-test",
             pid: ProcessInfo.processInfo.processIdentifier,
@@ -84,7 +70,7 @@ final class CoordinatorHealthTests: XCTestCase {
             contractVersion: "1.0.0"
         ))
 
-        XCTAssertEqual(probe.health(binaryVersion: "0.1.0").activeObligationCount, 2)
+        XCTAssertEqual(probe.health(binaryVersion: "0.1.0").activeObligationCount, 1)
     }
 
     func testHealthUnavailableWhenPidIsDead() throws {

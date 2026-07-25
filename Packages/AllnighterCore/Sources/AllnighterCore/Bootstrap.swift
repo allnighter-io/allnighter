@@ -39,7 +39,7 @@ public enum Bootstrap {
     }
 
     /// Paste-ready snippet: binary fallback + optional install + marked teaching.
-    /// Does **not** include Panel/Pilot recipes (see `help get panel`).
+    /// Does **not** include Pilot recipes.
     public static func snippet(binaryPath: String, onPath: Bool) -> String {
         var lines = [
             "Allnighter is available via the `alln` CLI (fallback: `\(binaryPath)`).",

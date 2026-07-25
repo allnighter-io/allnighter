@@ -228,23 +228,22 @@ final class ExecutionLaneTests: XCTestCase {
         XCTAssertTrue(ExecutionLaneClassification.mustAcquire(.pilotDevTurn))
         XCTAssertTrue(ExecutionLaneClassification.mustAcquire(.harnessProof))
         XCTAssertTrue(ExecutionLaneClassification.mustAcquire(.mutatingRun))
-        XCTAssertFalse(ExecutionLaneClassification.mustAcquire(.panelSeat))
         XCTAssertFalse(ExecutionLaneClassification.mustAcquire(.answerRun))
-        XCTAssertEqual(ExecutionLaneClassification.scope(for: .panelSeat), .nonBuild)
+        XCTAssertEqual(ExecutionLaneClassification.scope(for: .answerRun), .nonBuild)
         XCTAssertEqual(ExecutionLaneClassification.scope(for: .relayDevTurn), .build)
     }
 
-    func testPanelPathTakesNoLane() async throws {
+    func testReadOnlyRunTakesNoLane() async throws {
         let reg = ExecutionLaneRegistry()
-        let key = ExecutionLane.key(repoRoot: "/tmp/panel-lane-\(UUID().uuidString)")
+        let key = ExecutionLane.key(repoRoot: "/tmp/answer-lane-\(UUID().uuidString)")
 
-        // Simulate a panel round: classification says non-build → never acquire.
-        XCTAssertFalse(ExecutionLaneClassification.mustAcquire(.panelSeat))
+        // A read-only answer run: classification says non-build → never acquire.
+        XCTAssertFalse(ExecutionLaneClassification.mustAcquire(.answerRun))
         let heldBefore = await reg.isHeld(key)
-        XCTAssertFalse(heldBefore, "panel must not hold the lane before work")
+        XCTAssertFalse(heldBefore, "a read-only run must not hold the lane before work")
 
-        // A concurrent build-class holder can still take the lane while a panel
-        // would be running — panels never contend for it.
+        // A concurrent build-class holder can still take the lane while a
+        // read-only run would be running — they never contend for it.
         let live = try XCTUnwrap(
             ExecutionLane.Claim.current(id: "build", kind: ExecutionLaneSite.relayDevTurn.rawValue)
         )
@@ -252,12 +251,12 @@ final class ExecutionLaneTests: XCTestCase {
         guard case .success(let t) = token else {
             return XCTFail("build claim should acquire")
         }
-        // Panel "path" still does not call acquire — lane state unchanged by panel.
+        // The read-only path still does not call acquire — lane state unchanged.
         let heldByBuild = await reg.isHeld(key)
         XCTAssertTrue(heldByBuild)
         XCTAssertFalse(
-            ExecutionLaneClassification.mustAcquire(.panelSeat),
-            "panel site remains non-build even while the lane is held by a build site"
+            ExecutionLaneClassification.mustAcquire(.answerRun),
+            "a read-only site remains non-build even while the lane is held by a build site"
         )
         await reg.release(key, token: t)
     }
