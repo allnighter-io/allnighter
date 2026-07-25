@@ -424,52 +424,42 @@ Grade as a **reading document**, not a feed thumbnail:
 
 ## Works Test
 
-**S00:** Fixed-N counts for disagreement / consensus-with-a-call /
-lead-vs-seat + ≥1 hand-rendered card shown to founder — **or** explicit
-growth-thesis kill with evidence. Product path not auto-killed. Append base
-rates to this packet.
+**S00:** Optional growth gate — Fixed-N story counts + hand-renders; does not
+block S01.
 
-**S00b:** Every Must-specify row closed or waived in this packet (commit),
-including ContractRegistry draft.
+**S00b:** **DONE** — Must-specify locked; verb = `artifact`.
 
-**S01:** Terminal CLI team run → `card show` opens the receipt without Mac app;
-private; reproduce elided; honesty exact; ledger/substring honesty; truncation
-marked; failed seats visible; **desktop + mobile scanability** (§Design
-authority) passes; **G13** checks pass. Long bodies allowed.
+**S01:** Terminal CLI team run → `alln artifact show` opens the artifact
+without Mac app; private; reproduce elided; honesty exact; ledger/substring
+honesty; truncation marked; failed seats visible; **desktop + mobile
+scanability** passes; **G13** checks pass. Long bodies allowed.
 
 **S01b+ / S03+:** waived until scheduled.
+
 ## Proof command
 
 ```text
 alln team result <run-id> --json   # existing truth
-alln floor show <run-id>           # existing deep Floor (not the card)
-alln card show <run-id>            # decision card (S01) — verb pending S00b lock
+alln floor show <run-id>           # existing deep Floor (not the artifact)
+alln artifact show <run-id>        # team artifact (S01)
+alln artifact show latest --no-open
 ```
 
 ## Done when (near-term)
 
-- S00 growth gate recorded (proceed or kill growth packaging).
-- S00b must-specify closed (including contract draft).
-- CLI-first users can open a private decision card for hero team runs
-  (Spec Review + Growth first visually via `outputKind` hints).
+- ~~S00b~~ — **done.**
+- CLI-first users can open a private team artifact for any terminal team run.
 - Privacy default holds; reproduce elision holds; no crypto-verify theater.
-- Factory Floor, thread compact card, and decision card do not drift into
-  three content truths — one projector family over `TeamRunJSON` + shared
-  seat-set helper with Floor.
-- **Local demand signal:** journal counters for card-open / export-request
-  (privacy forbids network analytics, not local counts) schedule S01b/S03.
-- Buzz/Nostr/hosted link remain optional non-blockers.
+- Factory Floor, thread compact card, and team artifact share one projector
+  family over `TeamRunJSON` + shared seat-set helper.
+- Teaching distinguishes artifact vs floor vs team result vs export.
+- Buzz/Nostr/hosted / “certified” remain optional non-blockers.
 
-## Open questions (surviving — owned by S00b)
+## Open questions
 
-1. Exact CLI verb — lean `card show` (**not** `receipt show`).
-2. Card HTML on-disk path (journal vs derived cache).
-3. Whether Mac Factory Floor embeds the same card above the fold (S01b).
-4. ~~Key management~~ — **retired with S02.**
-5. Branded export redaction (when S03 exists); card itself stays lean.
-6. Exact honesty string + `outputKind` hero mapping table.
-7. Reproduce elision N / replay-pointer shape.
-8. Visual proof: gate extension vs waiver id.
+**None blocking S01.** Optional later: TRR-S00 growth measure; S01b Floor
+embed; certified/signed property; branded export.
+
 ## Relationship to Buzz
 
 Buzz is **not** required. Optional later room to *show* a card/receipt in an
