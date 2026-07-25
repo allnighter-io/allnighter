@@ -585,7 +585,7 @@ Flags:
 - `--lane <code|design|copy|signal>` — Lane tags the run for context and filtering; `--team` routes.
 - `--type <type>` — Copy routing sugar.
 - `--context <string>` — Bounded context snippet.
-- `--idle-timeout <integer>` — Override the worker idle-stall budget in seconds (default = driver manifest timeout, typically 300). Resets on any streaming progress (tool-call/reasoning/stderr/child activity), not only answer tokens (PO-F5).
+- `--idle-timeout <integer>` — Override the worker idle-stall budget in seconds (default = driver manifest invoke.timeoutSeconds, commonly 1800s for agent CLIs). Resets on streaming stdout/stderr bytes and durable recordProgress heartbeats; wall is the hard ceiling (--wall-timeout, default 3600).
 - `--handshake-timeout <integer>` — Runner-ready handshake bound in seconds (default 60; RLR-L8). Finite positive required.
 - `--first-activity-timeout <integer>` — First post-spawn activity bound in seconds (default 120; RLR-L8). Finite positive required.
 - `--wall-timeout <integer>` — Total wall-clock ceiling in seconds (default 3600; RLR-L8). Finite positive required.

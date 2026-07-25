@@ -20,7 +20,7 @@
     "promptVia": "arg",
     "env": {},
     "workingDir": "{{workingDir}}",
-    "timeoutSeconds": 600
+    "timeoutSeconds": 1800
   },
   "output": {
     "capture": "stdout",

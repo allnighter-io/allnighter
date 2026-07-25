@@ -2072,7 +2072,7 @@
         },
         {
           "name" : "idle-timeout",
-          "summary" : "Override the worker idle-stall budget in seconds (default = driver manifest timeout, typically 300). Resets on any streaming progress (tool-call\/reasoning\/stderr\/child activity), not only answer tokens (PO-F5).",
+          "summary" : "Override the worker idle-stall budget in seconds (default = driver manifest invoke.timeoutSeconds, commonly 1800s for agent CLIs). Resets on streaming stdout\/stderr bytes and durable recordProgress heartbeats; wall is the hard ceiling (--wall-timeout, default 3600).",
           "takesValue" : true,
           "valueType" : "integer"
         },

@@ -408,7 +408,7 @@ public extension ContractRegistry {
                 FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Lane tags the run for context and filtering; `--team` routes."),
                 FlagSpec("type", takesValue: true, valueType: "type", summary: "Copy routing sugar."),
                 FlagSpec("context", takesValue: true, valueType: "string", summary: "Bounded context snippet."),
-                FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the worker idle-stall budget in seconds (default = driver manifest timeout, typically 300). Resets on any streaming progress (tool-call/reasoning/stderr/child activity), not only answer tokens (PO-F5)."),
+                FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the worker idle-stall budget in seconds (default = driver manifest invoke.timeoutSeconds, commonly 1800s for agent CLIs). Resets on streaming stdout/stderr bytes and durable recordProgress heartbeats; wall is the hard ceiling (--wall-timeout, default 3600)."),
                 FlagSpec("handshake-timeout", takesValue: true, valueType: "integer", summary: "Runner-ready handshake bound in seconds (default 60; RLR-L8). Finite positive required."),
                 FlagSpec("first-activity-timeout", takesValue: true, valueType: "integer", summary: "First post-spawn activity bound in seconds (default 120; RLR-L8). Finite positive required."),
                 FlagSpec("wall-timeout", takesValue: true, valueType: "integer", summary: "Total wall-clock ceiling in seconds (default 3600; RLR-L8). Finite positive required."),

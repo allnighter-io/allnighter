@@ -1,8 +1,8 @@
 # Idle Stall False Kill — Hotfix
 
-Status: **AUTHORIZED — Spec Review Min Ready** — implement S01 next
+Status: **S01 shipped** — bleed stop (1800 idle floors synced + drift guard + honest teaching). Next: S04.
 Owner: AllnighterEngine + driver manifests + CLI teaching
-Updated: 2026-07-25 (post Spec Review Min `902A3C9F`)
+Updated: 2026-07-25 (IDLE-HF-S01 closeout)
 Incident date: 2026-07-25
 
 ## Origin
@@ -283,6 +283,8 @@ Flags remain overrides. Do not implement S03 until S04 histograms exist.
 
 When S01 ships: update this status line + phases board; record which clock the
 incident journal shows; leave manifests + drift test as SSOT for defaults.
+**S01 closeout (2026-07-25):** Opus design incident journal not found in-repo;
+likely `timeoutKind: idle` per founder report (600s claude_code invoke budget).
 When S04 ships: note telemetry owner/command. When S02 ships (if authorized):
 archive this doc and leave code as SSOT. S03 stays deferred until data says
 otherwise.

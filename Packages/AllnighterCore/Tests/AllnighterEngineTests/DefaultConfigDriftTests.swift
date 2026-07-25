@@ -29,6 +29,9 @@ final class DefaultConfigDriftTests: XCTestCase {
             XCTAssertEqual(bundled.smokeTestExpect, embedded.smokeTestExpect)
             XCTAssertEqual(bundled.invoke?.command, embedded.invoke?.command)
             XCTAssertEqual(bundled.invoke?.args, embedded.invoke?.args)
+            XCTAssertEqual(
+                bundled.invoke?.timeoutSeconds, embedded.invoke?.timeoutSeconds,
+                "\(embedded.id) invoke.timeoutSeconds drift between App Drivers and DefaultConfig")
         }
     }
 

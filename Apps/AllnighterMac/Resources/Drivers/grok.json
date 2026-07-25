@@ -26,7 +26,7 @@
     "promptVia": "arg",
     "env": {},
     "workingDir": null,
-    "timeoutSeconds": 300,
+    "timeoutSeconds": 1800,
     "effortFlag": {
       "flag": "--reasoning-effort",
       "levels": {
