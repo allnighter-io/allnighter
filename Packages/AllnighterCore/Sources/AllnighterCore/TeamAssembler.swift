@@ -26,7 +26,7 @@ public enum TeamAssembler {
     }
 
     /// Assemble from the bench models and the set of driver ids whose source is
-    /// `ready` (derive `readyDriverIds` from `ToolProbeRecord`s that `.isReady`).
+    /// `ready` (derive `readyDriverIds` from `ToolProbeRecord`s that `.isSmokeReady`).
     public static func assemble(models: [Model], readyDriverIds: Set<String>, now: Date) -> Assembled {
         let ready = models.filter { $0.enabled && readyDriverIds.contains($0.driverId) }
         // Plan writer: strongest eligible model (role planWriter/both) by catalog
@@ -52,6 +52,6 @@ public enum TeamAssembler {
 
     /// Convenience: derive ready driver ids from probe records.
     public static func readyDriverIds(from records: [ToolProbeRecord]) -> Set<String> {
-        Set(records.filter { $0.status.isReady }.map(\.driverId))
+        Set(records.filter { $0.status.isSmokeReady }.map(\.driverId))
     }
 }

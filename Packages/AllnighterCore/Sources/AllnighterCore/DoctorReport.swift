@@ -156,7 +156,7 @@ public enum DoctorReport {
 
         // Bench-readiness aggregate.
         if inputs.full {
-            let ready = records.filter { $0.status.isReady }.count
+            let ready = records.filter { $0.status.isSmokeReady }.count
             checks.append(.init(name: "benchReadyCount",
                                 status: ready > 0 ? .ok : .critical,
                                 detail: "\(ready) model\(ready == 1 ? "" : "s") ready",
@@ -186,7 +186,7 @@ public enum DoctorReport {
         let modelInfos = models.map { m -> TeamRunJSON.ModelInfo in
             let status: TeamRunJSON.ModelStatus
             if inputs.full {
-                status = (recByDriver[m.driverId]?.status.isReady ?? false) ? .ready : .unavailable
+                status = (recByDriver[m.driverId]?.status.isSmokeReady ?? false) ? .ready : .unavailable
             } else {
                 status = .unknown
             }
@@ -411,7 +411,7 @@ public enum DoctorReport {
         guard full else {
             return .init(name: "planWriterReady", status: .notChecked, detail: "plan writer \(writer.displayName) configured; readiness not checked", fixCommand: fullFix)
         }
-        let ready = recByDriver[writer.driverId]?.status.isReady ?? false
+        let ready = recByDriver[writer.driverId]?.status.isSmokeReady ?? false
         return .init(name: "planWriterReady",
                      status: ready ? .ok : .degraded,
                      detail: ready ? "plan writer \(writer.displayName) ready" : "plan writer \(writer.displayName) not ready")
@@ -432,7 +432,7 @@ public enum DoctorReport {
         if !inputs.configDirWritable || !inputs.runsDirWritable || !inputs.pendingDirWritable || !sourcesLoaded || nothingInstalled {
             return .critical
         }
-        if inputs.full && records.allSatisfy({ !$0.status.isReady }) && !records.isEmpty {
+        if inputs.full && records.allSatisfy({ !$0.status.isSmokeReady }) && !records.isEmpty {
             return .critical   // probed and nothing is ready
         }
         let problem = !inputs.docsVersionMatchesBinary || shellAllowlistRestrictive || binaryOffPath || records.contains {

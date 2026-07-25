@@ -1,12 +1,10 @@
 import XCTest
 import AllnighterCore
+import AgentOSCLI
 @testable import AllnighterEngine
 
-/// C2: CLIDetector.ingestCensus verifies agent-discovered paths by running them
+/// C2: CensusIngest verifies agent-discovered paths by running them
 /// (health == runs) and prefers a stable launcher over an upgrade-fragile path.
-///
-/// Files are real (so `FileManager.isExecutableFile` passes), but the "run" is
-/// mocked — the runner records which path was invoked and returns a version.
 final class CensusIngestTests: XCTestCase {
 
     private actor PathRecorder: CommandRunner {
@@ -41,10 +39,18 @@ final class CensusIngestTests: XCTestCase {
                        setup: SetupBlock(bins: ["grok"], knownPaths: knownPaths))
     }
 
+    private func detector(runner: CommandRunner, home: String) -> CLIDetector {
+        CLIDetector(
+            commandRunner: runner,
+            home: home,
+            workingDirectory: AllnighterPaths.ensuredProbeScratchPath()
+        )
+    }
+
     func testPrefersStableLauncherOverEphemeralCensusPath() async throws {
         let root = try tmpRoot()
-        let ephemeral = "\(root)/.grok/downloads/grok-0.2.54-macos/grok"   // looksEphemeral
-        let stable = "\(root)/stablebin/grok"                              // the upgrade-safe launcher
+        let ephemeral = "\(root)/.grok/downloads/grok-0.2.54-macos/grok"
+        let stable = "\(root)/stablebin/grok"
         try makeExecutable(ephemeral)
         try makeExecutable(stable)
 
@@ -53,32 +59,37 @@ final class CensusIngestTests: XCTestCase {
         """)
         let manifest = grokManifest(knownPaths: ["\(root)/stablebin"])
         let runner = PathRecorder(stdout: "grok 0.2.54")
-        let det = CLIDetector(commandRunner: runner, home: root)
+        let det = detector(runner: runner, home: root)
 
-        let records = await det.ingestCensus(census, manifests: [manifest], models: [:],
-                                             now: .init(timeIntervalSince1970: 0), smoke: false)
+        let records = await CensusIngest.ingest(
+            census, manifests: [manifest], models: [:],
+            now: .init(timeIntervalSince1970: 0), smoke: false,
+            detector: det, home: root
+        )
 
         XCTAssertEqual(records.count, 1)
-        XCTAssertEqual(records.first?.invocation, .direct(path: stable),
-                       "ingest must cache the stable launcher, not the /downloads blob")
+        XCTAssertEqual(records.first?.invocation, .direct(path: stable))
         let invoked = await runner.recorded()
-        XCTAssertEqual(invoked.first, stable, "the stable path is the one we actually ran")
-        XCTAssertFalse(invoked.contains(ephemeral), "the ephemeral path should never be run when a stable one verifies")
+        XCTAssertEqual(invoked.first, stable)
+        XCTAssertFalse(invoked.contains(ephemeral))
     }
 
     func testVerifiesStableCensusPathDirectly() async throws {
         let root = try tmpRoot()
-        let path = "\(root)/.local/bin/grok"   // already stable → used as-is
+        let path = "\(root)/.local/bin/grok"
         try makeExecutable(path)
 
         let census = try ToolCensus.parse("""
         { "grok": { "absolute_path": "\(path)", "version": "grok 0.2.54" } }
         """)
         let runner = PathRecorder(stdout: "grok 0.2.54")
-        let det = CLIDetector(commandRunner: runner, home: root)
+        let det = detector(runner: runner, home: root)
 
-        let records = await det.ingestCensus(census, manifests: [grokManifest(knownPaths: [])],
-                                             models: [:], now: .init(timeIntervalSince1970: 0), smoke: false)
+        let records = await CensusIngest.ingest(
+            census, manifests: [grokManifest(knownPaths: [])],
+            models: [:], now: .init(timeIntervalSince1970: 0), smoke: false,
+            detector: det, home: root
+        )
 
         XCTAssertEqual(records.first?.invocation, .direct(path: path))
         XCTAssertEqual(records.first?.status.kind, .installedNotProbed)
@@ -90,13 +101,16 @@ final class CensusIngestTests: XCTestCase {
         { "grok": { "absolute_path": "\(root)/does/not/exist/grok", "version": "x" } }
         """)
         let runner = PathRecorder(stdout: "x")
-        let det = CLIDetector(commandRunner: runner, home: root)
+        let det = detector(runner: runner, home: root)
 
-        let records = await det.ingestCensus(census, manifests: [grokManifest(knownPaths: [])],
-                                             models: [:], now: .init(timeIntervalSince1970: 0), smoke: false)
+        let records = await CensusIngest.ingest(
+            census, manifests: [grokManifest(knownPaths: [])],
+            models: [:], now: .init(timeIntervalSince1970: 0), smoke: false,
+            detector: det, home: root
+        )
 
         XCTAssertEqual(records.first?.status, .notInstalled)
         let invoked = await runner.recorded()
-        XCTAssertTrue(invoked.isEmpty, "a non-existent path must never be executed")
+        XCTAssertTrue(invoked.isEmpty)
     }
 }

@@ -108,64 +108,9 @@ public struct Project: Codable, Sendable, Equatable, Identifiable {
 
 }
 
-// MARK: - Project worker readiness
-
-/// Whether a specific worker can safely run inside this Project root right now.
-/// Per-Project and driver-probed — global setup is not enough.
-public enum WorkerReadinessStatus: String, Codable, Sendable, CaseIterable {
-    case ready
-    case notInstalled
-    case authRequired
-    case needsProjectAuthorization
-    case interactiveRequired
-    case unsafeToProbe
-    case blocked
-    case unknown
-
-    /// Only `ready` authorizes a run with this worker in this Project.
-    public var canRunInProject: Bool { self == .ready }
-}
-
-/// How a readiness fact was observed.
-public enum ProbeKind: String, Codable, Sendable, CaseIterable {
-    case silent
-    case explicitRecheck
-    case userInitiatedRun
-}
-
-public struct ProjectWorkerReadiness: Codable, Sendable, Equatable {
-    public var projectId: ProjectID
-    public var sourceId: String
-    public var workerId: String?
-    public var status: WorkerReadinessStatus
-    public var checkedAt: Date
-    public var probeKind: ProbeKind
-    public var probeCommandLabel: String?
-    public var lastError: String?
-    public var setupHint: String?
-
-    public init(
-        projectId: ProjectID,
-        sourceId: String,
-        workerId: String? = nil,
-        status: WorkerReadinessStatus,
-        checkedAt: Date,
-        probeKind: ProbeKind,
-        probeCommandLabel: String? = nil,
-        lastError: String? = nil,
-        setupHint: String? = nil
-    ) {
-        self.projectId = projectId
-        self.sourceId = sourceId
-        self.workerId = workerId
-        self.status = status
-        self.checkedAt = checkedAt
-        self.probeKind = probeKind
-        self.probeCommandLabel = probeCommandLabel
-        self.lastError = lastError
-        self.setupHint = setupHint
-    }
-}
+// Worker readiness types (`WorkerReadinessStatus`, `ProbeKind`,
+// `ProjectWorkerReadiness`) and probe records live in AgentOSCLI — hard cut,
+// no local twins. See AgentOS `docs/phases/CLI_Detector_Promotion.md`.
 
 // MARK: - Project context packet (generated, not durable truth)
 

@@ -1,5 +1,6 @@
 import XCTest
 import AllnighterCore
+import AgentOSCLI
 @testable import AllnighterEngine
 
 private struct ClosureRunner: CommandRunner {
@@ -14,10 +15,10 @@ final class CursorAgentDetectorTests: XCTestCase {
 
     func testKeychainAuthClassifier() async throws {
         let manifest = try Fixtures.manifest(.manifestCursor)
-        let det = CLIDetector(
+        let det = AllnighterCLIDetector.make(
             commandRunner: ClosureRunner { command, args in
                 if args.first == "-lc" {
-                    return CommandResult(stdout: "<<<ALR:agent|/tmp/agent>>>\n", exitCode: 0)
+                    return CommandResult(stdout: "<<<AOS:agent|/tmp/agent>>>\n", exitCode: 0)
                 }
                 if command == "/tmp/agent" {
                     return args.contains("--version")
@@ -33,10 +34,10 @@ final class CursorAgentDetectorTests: XCTestCase {
 
     func testProbeFailedDoesNotFallBackToFastModel() async throws {
         let manifest = try Fixtures.manifest(.manifestCursor)
-        let det = CLIDetector(
+        let det = AllnighterCLIDetector.make(
             commandRunner: ClosureRunner { command, args in
                 if args.first == "-lc" {
-                    return CommandResult(stdout: "<<<ALR:agent|/tmp/agent>>>\n", exitCode: 0)
+                    return CommandResult(stdout: "<<<AOS:agent|/tmp/agent>>>\n", exitCode: 0)
                 }
                 if command == "/tmp/agent" {
                     return args.contains("--version")
@@ -69,10 +70,10 @@ final class CursorAgentDetectorTests: XCTestCase {
             smokeTestExpect: "ALLNIGHTER_READY",
             invoke: .init(command: "cursor-agent", args: ["-p", "{{prompt}}"]),
             setup: SetupBlock(bins: ["agent", "cursor-agent"], knownPaths: ["~/.local/bin"]))
-        let det = CLIDetector(
+        let det = AllnighterCLIDetector.make(
             commandRunner: ClosureRunner { command, args in
                 if args.first == "-lc" {
-                    return CommandResult(stdout: "<<<ALR:agent|\n<<<ALR:cursor-agent|\n", exitCode: 0)
+                    return CommandResult(stdout: "<<<AOS:agent|\n<<<AOS:cursor-agent|\n", exitCode: 0)
                 }
                 if command == agentPath {
                     return args.contains("--version")
@@ -84,7 +85,7 @@ final class CursorAgentDetectorTests: XCTestCase {
             shellPath: "/bin/zsh", home: root.path)
         let r = await det.probe(manifest, model: "composer-2.5", now: .init(timeIntervalSince1970: 0))
         XCTAssertEqual(r.invocation, .direct(path: agentPath))
-        XCTAssertTrue(r.status.isReady)
+        XCTAssertTrue(r.status.isSmokeReady)
         try? FileManager.default.removeItem(at: root)
     }
 }

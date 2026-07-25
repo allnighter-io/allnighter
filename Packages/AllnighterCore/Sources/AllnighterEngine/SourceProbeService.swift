@@ -138,21 +138,24 @@ public struct SourceProbeService: Sendable {
             // Full means a real model smoke (and can spend quota), never an
             // interactive shell or setup flow.  A routine health request must
             // report a blocked source; it must not create TCC/Automation prompts.
-            let records = await CLIDetector(
+            let records = await AllnighterCLIDetector.make(
                 commandRunner: runner, detectTimeout: .seconds(8), smokeTimeout: .seconds(60), interactive: false
             ).probeAll(manifests, models: labels, now: Date(), smoke: true)
             let previous = setupStore.load()
             let refreshed = Set(records.map(\.driverId))
-            let merged = previous.records.filter { !refreshed.contains($0.driverId) } + records
+            var merged = previous.records.filter { !refreshed.contains($0.driverId) }
+            for rec in records {
+                DriverProbeRecords.upsert(rec, into: &merged)
+            }
             _ = try? setupStore.save(.init(records: merged.sorted { $0.driverId < $1.driverId }, setupCompletedAt: previous.setupCompletedAt, assembledTeam: previous.assembledTeam))
             return records
         }
         let headlessIds = Set(manifests.filter { $0.kind == .headlessCLI }.map(\.id))
         let cached = setupStore.load().records.filter { headlessIds.contains($0.driverId) }
         if cached.count == headlessIds.count, !cached.isEmpty { return cached.sorted { $0.driverId < $1.driverId } }
-        return await CLIDetector(
+        return await AllnighterCLIDetector.make(
             commandRunner: runner,
-            resolver: ShellResolver(commandRunner: runner, timeout: .seconds(2), interactive: false),
+            resolver: ShellResolver(commandRunner: runner, timeout: .seconds(2), workingDirectory: AllnighterPaths.ensuredProbeScratchPath(), interactive: false),
             detectTimeout: .seconds(2), smokeTimeout: .seconds(2), interactive: false
         ).probeAll(manifests, models: labels, now: Date(), smoke: false)
     }
@@ -163,7 +166,7 @@ public struct SourceProbeService: Sendable {
         let model = devWorkerId.flatMap { id in models.first { $0.id == id } }
         let record = model.flatMap { model in records.first { $0.driverId == model.driverId } }
         let installed = record.map { if case .notInstalled = $0.status { return false }; return true } ?? false
-        return .init(projectLabel: project.map { "\($0.displayName) (\($0.id))" }, devWorkerId: devWorkerId, devWorkerLabel: model.map { "\($0.id) (\($0.displayName))" }, driverInstalled: installed, driverReady: full ? record?.status.isReady : nil)
+        return .init(projectLabel: project.map { "\($0.displayName) (\($0.id))" }, devWorkerId: devWorkerId, devWorkerLabel: model.map { "\($0.id) (\($0.displayName))" }, driverInstalled: installed, driverReady: full ? record?.status.isSmokeReady : nil)
     }
 
     private static func ensureWritable(_ url: URL) -> Bool {

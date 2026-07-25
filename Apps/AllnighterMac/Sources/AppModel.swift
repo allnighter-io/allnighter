@@ -432,7 +432,7 @@ final class AppModel {
 
     // MARK: - Detection (CLIDetector → canonical per-tool status)
 
-    var readyToolCount: Int { toolStatuses.filter { $0.status.isReady }.count }
+    var readyToolCount: Int { toolStatuses.filter { $0.status.isSmokeReady }.count }
     var totalToolCount: Int { registry.all.filter { $0.kind == .headlessCLI }.count }
     /// Every supported tool is ready — used to keep setup affordances quiet when
     /// there is nothing to fix (Track B). False on a cold, unprobed launch.
@@ -441,7 +441,7 @@ final class AppModel {
 
     /// Workers (model seats) on tools that are ready — for the "· N workers" tally.
     var readyWorkerCount: Int {
-        let readyDrivers = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+        let readyDrivers = Set(toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
         return models.filter { $0.enabled && readyDrivers.contains($0.driverId) }.count
     }
 
@@ -450,7 +450,7 @@ final class AppModel {
     /// ready. Sorted A→Z by display name. OFF or not-ready models never appear in the
     /// Models dropdown or the title bar — they live only on the CLI setup page.
     var availableModels: [Model] {
-        let readyDrivers = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+        let readyDrivers = Set(toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
         // A cooling source is not available right now — so Auto's preview and the run path
         // agree (the run already substitutes around it). Live filter; never stale on expiry.
         let cooling = coolingSources
@@ -523,7 +523,7 @@ final class AppModel {
         let cooling = coolingSources
         return models.filter(\.enabled).map { m in
             let rec = toolStatus(for: m.driverId)
-            let probeReady = rec?.status.isReady ?? false
+            let probeReady = rec?.status.isSmokeReady ?? false
             let isCooling = cooling.contains(m.driverId)
             let ready = probeReady && !isCooling
             let cliName = registry.manifest(for: m)?.displayName ?? m.driverId
@@ -711,7 +711,7 @@ final class AppModel {
         let storeCopy = setupStore
         let completedAt = cached.setupCompletedAt
         Task { @MainActor [weak self] in
-            let detector = CLIDetector(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), interactive: true)
+            let detector = AllnighterCLIDetector.make(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), interactive: true)
             let records: [ToolProbeRecord]
             if let onlyDriverId,
                let manifest = registryCopy.all.first(where: { $0.id == onlyDriverId }) {
@@ -726,11 +726,7 @@ final class AppModel {
             if onlyDriverId != nil {
                 var merged = self.toolStatuses
                 for rec in records {
-                    if let i = merged.firstIndex(where: { $0.driverId == rec.driverId }) {
-                        merged[i] = rec
-                    } else {
-                        merged.append(rec)
-                    }
+                    DriverProbeRecords.upsert(rec, into: &merged)
                 }
                 self.toolStatuses = merged
             } else {
@@ -749,7 +745,7 @@ final class AppModel {
     /// because the census needs a working agent to run it (no bootstrap from
     /// zero — the plain probe must light the first lamp first).
     var censusAgent: Model? {
-        let readyDriverIds = Set(toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+        let readyDriverIds = Set(toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
         return models.first { $0.enabled && readyDriverIds.contains($0.driverId) }
     }
 
@@ -795,12 +791,20 @@ final class AppModel {
                 self.isRunningCensus = false
                 return
             }
-            let discovered = await CLIDetector(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
-                .ingestCensus(census, manifests: registryCopy.all, models: modelLabels, now: Date(), smoke: true)
-            let before = Set(self.toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+            let discovered = await CensusIngest.ingest(
+                census,
+                manifests: registryCopy.all,
+                models: modelLabels,
+                now: Date(),
+                smoke: true,
+                detector: AllnighterCLIDetector.make(
+                    commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy())
+                )
+            )
+            let before = Set(self.toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
             self.toolStatuses = AppCensusModel.mergedToolStatuses(existing: self.toolStatuses, discovered: discovered)
             try? storeCopy.save(.init(records: self.toolStatuses, setupCompletedAt: completedAt))
-            let after = Set(self.toolStatuses.filter { $0.status.isReady }.map(\.driverId))
+            let after = Set(self.toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
             let newlyReady = after.subtracting(before).count
             self.lastCensusSummary = newlyReady > 0
                 ? "Found and verified \(newlyReady) more tool\(newlyReady == 1 ? "" : "s")."

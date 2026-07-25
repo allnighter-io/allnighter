@@ -32,7 +32,7 @@ public enum PilotSeatResolver {
             probeRecords.map { ($0.driverId, $0) },
             uniquingKeysWith: { _, latest in latest })
         return models.filter { m in
-            m.enabled && (recordsByDriver[m.driverId]?.status.isReady ?? false)
+            m.enabled && (recordsByDriver[m.driverId]?.status.isSmokeReady ?? false)
         }.sorted { $0.id < $1.id }
     }
 

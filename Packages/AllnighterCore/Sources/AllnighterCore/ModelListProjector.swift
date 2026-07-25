@@ -18,12 +18,12 @@ public enum ModelListProjector {
             let enabled = enabledMap[def.id] ?? def.defaultEnabled
             let driverMissing = !manifestIDs.contains(def.driverId)
             let record = recordsByDriver[def.driverId]
-            let ready = !driverMissing && (record?.status.isReady ?? false)
+            let ready = !driverMissing && (record?.status.isSmokeReady ?? false)
             let status: String
             if driverMissing {
                 status = "driverMissing"
             } else if let record {
-                status = record.status.isReady ? "ready" : "notReady"
+                status = record.status.isSmokeReady ? "ready" : "notReady"
             } else {
                 status = "notChecked"
             }

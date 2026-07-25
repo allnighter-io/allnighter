@@ -140,7 +140,7 @@ final class AppModelTests: XCTestCase {
         let existing = [record("claude_code", ready: true, path: "/x/claude")]
         let discovered = [record("claude_code", ready: false)]
         let merged = AppModel.mergedToolStatuses(existing: existing, discovered: discovered)
-        XCTAssertTrue(merged.first { $0.driverId == "claude_code" }?.status.isReady ?? false,
+        XCTAssertTrue(merged.first { $0.driverId == "claude_code" }?.status.isSmokeReady ?? false,
                       "a ready tool must never be downgraded by a later census")
     }
 
@@ -151,7 +151,7 @@ final class AppModelTests: XCTestCase {
                           record("codex", ready: true, path: "/x/codex")]      // brand-new
         let merged = AppModel.mergedToolStatuses(existing: existing, discovered: discovered)
         let byId = Dictionary(uniqueKeysWithValues: merged.map { ($0.driverId, $0) })
-        XCTAssertTrue(byId["grok"]?.status.isReady ?? false, "non-ready grok upgraded to ready")
+        XCTAssertTrue(byId["grok"]?.status.isSmokeReady ?? false, "non-ready grok upgraded to ready")
         XCTAssertEqual(byId["codex"]?.invocation, .direct(path: "/x/codex"), "new driver appended")
         XCTAssertEqual(merged.count, 3)
         XCTAssertEqual(merged.prefix(2).map(\.driverId), ["claude_code", "grok"], "existing order preserved")

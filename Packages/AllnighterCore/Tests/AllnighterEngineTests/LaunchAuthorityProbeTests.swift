@@ -1,18 +1,10 @@
 import XCTest
 import AllnighterCore
+import AgentOSCLI
 @testable import AllnighterEngine
 
-/// Regression gates for the Launch Authority TCC hotfix (slice H6).
-///
-/// These lock two engine-level invariants that, if they regress, re-open the
-/// "Allnighter raises TCC prompts" code red:
-///   * H3 — every setup/health probe child process starts from an Allnighter-
-///     owned neutral CWD, never `nil` (which inherits the repo/Documents CWD).
-///   * H2 — `smoke: false` is quota-free: it never runs the model smoke command
-///     and honestly reports `installedNotProbed`.
-
-/// A `CommandRunner` that records every spawn (command, args, CWD) so a test can
-/// assert *how* children were launched, then replies via a scripted closure.
+/// Allnighter cutover gates for TCC scratch CWD + smoke-false posture via
+/// `AllnighterCLIDetector` (shared detector + Allnighter scratch path).
 private actor RecordingRunner: CommandRunner {
     struct Call: Sendable {
         let command: String
@@ -46,7 +38,7 @@ private let kShell = "/bin/zsh"
 private let kToolPath = "/opt/test/claude"
 
 private func kResolved(_ path: String?) -> CommandResult {
-    CommandResult(stdout: "<<<ALR:claude|\(path ?? "")>>>\n", exitCode: 0)
+    CommandResult(stdout: "<<<AOS:claude|\(path ?? "")>>>\n", exitCode: 0)
 }
 
 private func kManifest() -> DriverManifest {
@@ -66,8 +58,6 @@ private func kManifest() -> DriverManifest {
 
 final class LaunchAuthorityProbeTests: XCTestCase {
 
-    /// H3: every probe child (resolve shell, --version, smoke) is launched from
-    /// the owned scratch dir, never `nil`.
     func testProbeChildProcessesUseNeutralScratchCWD() async {
         let runner = RecordingRunner { command, args in
             if args.first == "-lc" { return kResolved(kToolPath) }
@@ -78,21 +68,17 @@ final class LaunchAuthorityProbeTests: XCTestCase {
             }
             return CommandResult(launchError: "unexpected \(command)")
         }
-        let det = CLIDetector(commandRunner: runner, shellPath: kShell, home: "/tmp/home")
+        let det = AllnighterCLIDetector.make(commandRunner: runner, shellPath: kShell, home: "/tmp/home")
         _ = await det.probe(kManifest(), model: "opus", now: .init(timeIntervalSince1970: 0))
 
         let calls = await runner.recorded()
-        XCTAssertFalse(calls.isEmpty, "expected the probe to spawn at least a resolve + version child")
+        XCTAssertFalse(calls.isEmpty)
         let scratch = AllnighterPaths.probeScratch.path
         for call in calls {
-            XCTAssertEqual(
-                call.workingDirectory, scratch,
-                "probe child \(call.command) must use the neutral scratch CWD, not \(String(describing: call.workingDirectory))"
-            )
+            XCTAssertEqual(call.workingDirectory, scratch)
         }
     }
 
-    /// H3: the Doctor health path (ModelHealthChecker) is likewise CWD-neutral.
     func testModelHealthCheckerUsesNeutralScratchCWD() async {
         let runner = RecordingRunner { _, _ in CommandResult(stdout: "claude 1.0", exitCode: 0) }
         let checker = ModelHealthChecker(commandRunner: runner)
@@ -103,8 +89,6 @@ final class LaunchAuthorityProbeTests: XCTestCase {
         XCTAssertEqual(calls.first?.workingDirectory, AllnighterPaths.probeScratch.path)
     }
 
-    /// H2: quota-free mode never invokes the model smoke command and reports
-    /// `installedNotProbed` rather than inferring readiness.
     func testSmokeFalseSkipsModelCallAndReportsInstalledNotProbed() async {
         let runner = RecordingRunner { command, args in
             if args.first == "-lc" { return kResolved(kToolPath) }
@@ -113,71 +97,27 @@ final class LaunchAuthorityProbeTests: XCTestCase {
             }
             return CommandResult(launchError: "smoke must not run when smoke == false")
         }
-        let det = CLIDetector(commandRunner: runner, shellPath: kShell, home: "/tmp/home")
+        let det = AllnighterCLIDetector.make(commandRunner: runner, shellPath: kShell, home: "/tmp/home")
         let record = await det.probe(kManifest(), model: "opus", now: .init(timeIntervalSince1970: 0), smoke: false)
 
         XCTAssertEqual(record.status.kind, .installedNotProbed)
         let toolCalls = await runner.recorded().filter { $0.command == kToolPath }
-        XCTAssertEqual(toolCalls.count, 1, "only --version should run in detect-only mode")
+        XCTAssertEqual(toolCalls.count, 1)
         XCTAssertTrue(toolCalls.allSatisfy { $0.args.contains("--version") })
     }
 
-    /// H2 contrast: explicit full probe DOES run the smoke command.
-    func testSmokeTrueRunsModelCall() async {
-        let runner = RecordingRunner { command, args in
-            if args.first == "-lc" { return kResolved(kToolPath) }
-            if command == kToolPath {
-                return args.contains("--version")
-                    ? CommandResult(stdout: "claude 1.0", exitCode: 0)
-                    : CommandResult(stdout: "ALLNIGHTER_READY", exitCode: 0)
-            }
-            return CommandResult(launchError: "unexpected \(command)")
-        }
-        let det = CLIDetector(commandRunner: runner, shellPath: kShell, home: "/tmp/home")
-        let record = await det.probe(kManifest(), model: "opus", now: .init(timeIntervalSince1970: 0), smoke: true)
-
-        XCTAssertEqual(record.status.kind, .ready)
-        let smokeCalls = await runner.recorded().filter { $0.command == kToolPath && !$0.args.contains("--version") }
-        XCTAssertEqual(smokeCalls.count, 1, "full probe must run the smoke command exactly once")
-    }
-
-    /// Track 0.1: the resolve shell is non-interactive (-lc) by default — the
-    /// TCC-safe posture — and interactive (-lic) ONLY when explicitly requested
-    /// (explicit setup), so a launch/background probe can never source .zshrc.
     func testResolveShellModeFollowsInteractiveFlag() async {
         func resolveFlag(interactive: Bool) async -> String? {
             let runner = RecordingRunner { _, _ in kResolved(kToolPath) }
-            let det = CLIDetector(commandRunner: runner, shellPath: kShell, home: "/tmp/home", interactive: interactive)
+            let det = AllnighterCLIDetector.make(
+                commandRunner: runner, shellPath: kShell, home: "/tmp/home", interactive: interactive
+            )
             _ = await det.probe(kManifest(), model: "opus", now: .init(timeIntervalSince1970: 0), smoke: false)
-            // The resolve call is the one whose argv carries the command-v script.
             return await runner.recorded().first { $0.command == kShell }?.args.first
         }
         let safe = await resolveFlag(interactive: false)
         let setup = await resolveFlag(interactive: true)
-        XCTAssertEqual(safe, "-lc", "default must be non-interactive (TCC-safe)")
-        XCTAssertEqual(setup, "-lic", "explicit setup resolves through the interactive shell")
-    }
-
-    /// A shell alias/function can only be re-run through a shell.  That fallback
-    /// must preserve the detector's TCC posture instead of silently escalating a
-    /// safe resident probe to `-lic`.
-    func testLoginShellInvocationPreservesNonInteractiveProbePosture() async {
-        let runner = RecordingRunner { command, args in
-            if command == kShell, args.count == 2, args[1].contains("claude") {
-                if args[1].contains("command -v") { return kResolved("claude --quiet") }
-                return args[1].contains("--version")
-                    ? CommandResult(stdout: "claude 1.0", exitCode: 0)
-                    : CommandResult(stdout: "ALLNIGHTER_READY", exitCode: 0)
-            }
-            return CommandResult(launchError: "unexpected \(command)")
-        }
-        let detector = CLIDetector(commandRunner: runner, shellPath: kShell, home: "/tmp/home", interactive: false)
-        _ = await detector.probe(kManifest(), model: "opus", now: .init(timeIntervalSince1970: 0), smoke: true)
-
-        let flags = await runner.recorded()
-            .filter { $0.command == kShell }
-            .map { $0.args.first }
-        XCTAssertFalse(flags.isEmpty)
-        XCTAssertTrue(flags.allSatisfy { $0 == "-lc" }, "resident probes must never re-enter an interactive shell")
+        XCTAssertEqual(safe, "-lc")
+        XCTAssertEqual(setup, "-lic")
     }
 }

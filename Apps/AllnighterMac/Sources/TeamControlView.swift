@@ -425,7 +425,7 @@ extension AppModel {
     var benchDropdownRows: [BenchDropdownRow] {
         benchModels.map { model in
             let card = setupCards.first { $0.driverId == model.driverId }
-            let ready = toolStatus(for: model.driverId)?.status.isReady ?? false
+            let ready = toolStatus(for: model.driverId)?.status.isSmokeReady ?? false
             let (issue, tone) = card.map { issueBadge(for: $0.state) } ?? ("Not detected", Badge.Tone.warning)
             return BenchDropdownRow(
                 model: model,

@@ -51,7 +51,7 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
 
     private func readyExecutorId(_ ready: [ToolProbeRecord]) -> String? {
         let config = AppConfig.loadConfiguration()
-        let readyDrivers = Set(ready.filter { $0.status.isReady }.map(\.driverId))
+        let readyDrivers = Set(ready.filter { $0.status.isSmokeReady }.map(\.driverId))
         return config.models.first {
             $0.enabled && readyDrivers.contains($0.driverId)
             && config.registry.manifest(for: $0)?.kind == .headlessCLI

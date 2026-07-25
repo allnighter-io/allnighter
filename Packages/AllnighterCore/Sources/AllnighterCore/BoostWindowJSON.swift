@@ -119,7 +119,7 @@ public enum BoostWindowProviderBuilder {
             .filter { boostSourceIds.contains($0.id) }
             .map { manifest in
                 let rec = probeRecords.first { $0.driverId == manifest.id }
-                let signedIn = rec?.status.isReady == true
+                let signedIn = rec?.status.isSmokeReady == true
                 let needsAttention: Bool = {
                     if case .installedNotSignedIn = rec?.status { return true }
                     if let outcome = recentSeedOutcomes[manifest.id],

@@ -76,7 +76,7 @@ public enum ProjectWorkerReadinessProjector {
     ) -> [Row] {
         let recordsByDriver = Dictionary(uniqueKeysWithValues: probeRecords.map { ($0.driverId, $0) })
         return workers.map { worker in
-            let globalReady = recordsByDriver[worker.sourceId]?.status.isReady ?? false
+            let globalReady = recordsByDriver[worker.sourceId]?.status.isSmokeReady ?? false
             let detail = worker.status == .unsafeToProbe
                 ? unsafeToProbeDetail(globalSeatReady: globalReady)
                 : nil
