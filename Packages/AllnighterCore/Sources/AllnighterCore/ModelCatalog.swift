@@ -149,10 +149,23 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
             strengthRank: 75),
+        // Bug F — explicit entries (never inherit a donor flagship profile).
+        "model_gemini_pro": ModelCapabilities(
+            laneTags: [.design, .code, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .design, .image, .copy],
+            strengthRank: 76),
         "model_gemini": ModelCapabilities(
             laneTags: [.design, .code, .copy, .signal],
             capabilityTags: [.code, .design, .image, .copy, .fast],
             strengthRank: 75),
+        "model_agy_sonnet": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
+            strengthRank: 74),
+        "model_agy_gptoss": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .copy],
+            strengthRank: 70),
         "model_composer": ModelCapabilities(
             laneTags: [.code],
             capabilityTags: [.code, .fast],
@@ -160,8 +173,26 @@ public enum ModelCatalog {
         "model_cursor_composer_25_fast": ModelCapabilities(
             laneTags: [.code],
             capabilityTags: [.code, .fast],
-            strengthRank: 50)
+            strengthRank: 50),
+        "model_chatgpt_54_mini": ModelCapabilities(
+            laneTags: [.code, .copy, .signal],
+            capabilityTags: [.code, .fast],
+            strengthRank: 40),
+        "model_codex_spark": ModelCapabilities(
+            laneTags: [.code],
+            capabilityTags: [.code, .fast],
+            strengthRank: 40)
     ]
+
+    /// Floor rank for any model without a `builtInCapabilities` entry (customs /
+    /// unevaluated). Seating Law — unrated models never inherit a donor flagship rank.
+    public static let unratedModelRank = 40
+
+    /// Caliber band from strengthRank (Flagship ≥95 / High 85–94 / Mid 70–84 / floor).
+    /// Owned next to the rank table — never duplicated in the resolver.
+    public static func caliberBand(_ rank: Int) -> Int {
+        rank >= 95 ? 3 : rank >= 85 ? 2 : rank >= 70 ? 1 : 0
+    }
 
     public static var builtIns: [ModelDefinition] {
         // Antigravity encodes effort IN the model name, and variant availability is
@@ -375,7 +406,9 @@ public enum ModelCatalog {
             role: role,
             origin: .custom,
             defaultEnabled: enabled,
-            capabilities: fallbackCapabilities(driverId: driverId),
+            // Unrated law: never persist a donor flagship profile. Tags/rank come
+            // from `capabilities()` at read time (driver tags + unratedModelRank).
+            capabilities: ModelCapabilities(),
             createdAt: now,
             updatedAt: now,
             modelSmokeStatus: "unverified"
@@ -467,27 +500,17 @@ public enum ModelCatalog {
         }
     }
 
-    /// Capabilities for a model id — built-in table, then definition, then empty.
+    /// Capabilities for a model id. Built-ins use the table. Everything else is
+    /// **unrated**: driver tags only, `unratedModelRank` — persisted donor ranks
+    /// on custom JSON are ignored (Seating Law / Bug A).
     public static func capabilities(_ modelId: String) -> ModelCapabilities {
         if let caps = builtInCapabilities[modelId] { return caps }
-        if let def = get(modelId), !def.capabilities.capabilityTags.isEmpty { return def.capabilities }
         if let def = get(modelId) {
-            // A recognized/custom model with no explicit tags inherits its CLI's
-            // representative capabilities so it's usable in its lane out of the box.
             var caps = fallbackCapabilities(driverId: def.driverId)
-            // A lighter variant (mini / spark) ranks just below the flagship so
-            // `.strongestReady` still prefers the flagship when both are ready.
-            if isLighterVariant(def) { caps.strengthRank = max(0, caps.strengthRank - 15) }
+            caps.strengthRank = unratedModelRank
             return caps
         }
         return ModelCapabilities()
-    }
-
-    /// A faster/cheaper sibling (e.g. "mini", "spark") that should not outrank the
-    /// driver's flagship in strongest-ready selection.
-    private static func isLighterVariant(_ def: ModelDefinition) -> Bool {
-        let hay = (def.displayName + " " + def.modelLabel).lowercased()
-        return hay.contains("mini") || hay.contains("spark")
     }
 
     /// Default fresh-install Bench as runtime `[Model]` (all built-ins enabled).

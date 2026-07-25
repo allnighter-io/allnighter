@@ -117,6 +117,7 @@ enum ModelsCLI {
                 role: role, enabled: enabled, registry: runtime.registry)
             emitList(opts, runtime)
             if !opts.flag("json") {
+                print("Added as Unrated — seats last.")
                 print("saved as unverified — run: alln models verify \(created.id)")
             }
         } catch let error as ModelCatalogError {

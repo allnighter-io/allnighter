@@ -202,12 +202,42 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertTrue(caps.capabilityTags.contains(.code))
     }
 
-    func testLighterVariantRanksBelowFlagship() {
-        let flagship = ModelCatalog.capabilities("model_chatgpt").strengthRank
-        XCTAssertLessThan(ModelCatalog.capabilities("model_chatgpt_54_mini").strengthRank, flagship)
-        XCTAssertLessThan(ModelCatalog.capabilities("model_codex_spark").strengthRank, flagship)
-        // ChatGPT 5.4 is a capable non-Sol Codex seat — below Sol flagship rank.
-        XCTAssertLessThan(ModelCatalog.capabilities("model_chatgpt_54").strengthRank, flagship)
+    func testEveryBuiltInHasCapabilityEntry() {
+        let missing = ModelCatalog.builtIns.map(\.id).filter { ModelCatalog.builtInCapabilities[$0] == nil }
+        XCTAssertTrue(missing.isEmpty, "builtIns missing builtInCapabilities: \(missing)")
+    }
+
+    func testCreateCustomPersistsEmptyCapabilitiesAndReadsUnratedRank() throws {
+        let registry = testRegistry()
+        let created = try ModelCatalog.createCustom(
+            driverId: "claude_code", displayName: "Haiku Seat Test", modelLabel: "claude-haiku-test",
+            role: .answerer, enabled: false, registry: registry)
+        XCTAssertTrue(created.capabilities.capabilityTags.isEmpty)
+        XCTAssertEqual(created.capabilities.strengthRank, 0)
+        let caps = ModelCatalog.capabilities(created.id)
+        XCTAssertEqual(caps.strengthRank, ModelCatalog.unratedModelRank)
+        XCTAssertFalse(caps.capabilityTags.isEmpty, "unrated still inherits driver tags")
+        XCTAssertEqual(ModelCatalog.caliberBand(caps.strengthRank), 0)
+    }
+
+    func testPoisonedCustomRankIsIgnored() throws {
+        // Simulate Bug A disk record: donor flagship caps persisted on a custom id.
+        let registry = testRegistry()
+        let created = try ModelCatalog.createCustom(
+            driverId: "claude_code", displayName: "Poisoned", modelLabel: "poison",
+            role: .answerer, enabled: false, registry: registry)
+        var poisoned = created
+        poisoned.capabilities = ModelCatalog.builtInCapabilities["model_fable"]!
+        try ModelCatalog.updateCustom(poisoned)
+        XCTAssertEqual(ModelCatalog.get(created.id)?.capabilities.strengthRank, 100)
+        XCTAssertEqual(ModelCatalog.capabilities(created.id).strengthRank, ModelCatalog.unratedModelRank)
+    }
+
+    func testFloorBuiltInsSitAtUnratedBand() {
+        XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt_54_mini").strengthRank, 40)
+        XCTAssertEqual(ModelCatalog.capabilities("model_codex_spark").strengthRank, 40)
+        XCTAssertLessThan(ModelCatalog.capabilities("model_chatgpt_54").strengthRank,
+                          ModelCatalog.capabilities("model_chatgpt").strengthRank)
     }
 
     func testHighValueWorkerModelsOutrankSonnet() {
