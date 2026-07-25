@@ -145,6 +145,13 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(top("auto fix"), "auto_fix")
     }
 
+    func testSearchRoutesArtifactQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("team artifact"), "artifact")
+        XCTAssertEqual(top("receipt"), "artifact")
+        XCTAssertEqual(top("report"), "artifact")
+    }
+
     /// ADP-S04: task-verb team-authoring queries must resolve to the
     /// `teams_and_workers` topic (which teaches `teams duplicate` / `teams new`)
     /// rather than losing the ranking tie to `team_run_loop` (running a team) —

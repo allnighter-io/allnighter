@@ -1,6 +1,6 @@
 # TRR-S01 — Terminal HTML artifact + CLI
 
-Status: **ready**
+Status: **done**
 SSOT: `docs/phases/Team_Run_Receipt.md` §§TRR-S01, Must-specify, Card field ledger, Design authority G1–G13
 
 ## Goal

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.0.3, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.0.4, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -804,6 +804,19 @@ Flags:
 - `--json` — Emit the FloorRun projection.
 
 Output schema: `floorRun`.
+
+### `alln artifact show`
+
+Regenerate and open the private HTML team artifact for a terminal run.
+
+Arguments:
+- `run-id|latest` (optional) — A run id or `latest` (default latest).
+
+Flags:
+- `--no-open` — Print the absolute path only; do not open the default browser.
+- `--json` — Emit path, run id, and honesty string only (no HTML body).
+
+Output schema: `markdown`.
 
 ### `alln spec`
 

@@ -10,7 +10,7 @@ final class ContractRegistryTests: XCTestCase {
     func testContractVersionMatchesTeamRunFixture() throws {
         let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
         XCTAssertEqual(reg.contractVersion, trj.contractVersion)
-        XCTAssertEqual(reg.contractVersion, "4.0.3")
+        XCTAssertEqual(reg.contractVersion, "4.0.4")
     }
 
     /// Team-run and Pending next-action kinds must match the registry catalog.
@@ -36,7 +36,7 @@ final class ContractRegistryTests: XCTestCase {
             "continuity receipt",
             "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt",
             "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
-            "show", "floor show", "spec", "history", "export", "dev export-contracts", "serve",
+            "show", "floor show", "artifact show", "spec", "history", "export", "dev export-contracts", "serve",
             "pending add", "pending list", "pending queue", "pending show", "pending submit", "pending edit",
             "pending reorder", "pending cancel", "pending run",
             "project list", "project add", "project show", "project archive", "project unarchive",

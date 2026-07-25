@@ -271,7 +271,7 @@ bump land **inside** the S01 PR (budgeted work, not open design).
 
 | Field | Spec |
 | --- | --- |
-| **Status** | Ready for Implementation |
+| **Status** | Done 2026-07-25 |
 | **Truth owner** | `TeamRun` / `TeamRunJSON` (+ optional `lead-call` fence in Lead markdown). New code: `ArtifactProjector` (name may match repo convention) projecting to HTML under the run journal. |
 | **Lie-prone layers** | HTML that invents seats/call/status; CLI that opens non-terminal runs; teaching that conflates artifact with Floor / continuity receipt / export |
 | **CLI** | `alln artifact show <run-id\|latest> [--no-open] [--json]` — exit 0 + print absolute path to `artifact/index.html`; default open in OS browser; `--json` → path + run id + honesty string only (no HTML body). Fail closed `RUN_NOT_TERMINAL` for non-terminal. |

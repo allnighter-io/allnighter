@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "4.0.3"
+    static let contractVersion = "4.0.4"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -578,6 +578,21 @@ public extension ContractRegistry {
             args: [ArgSpec("run-id|latest", required: false, summary: "A run id or `latest` (default latest).")],
             flags: [FlagSpec("json", summary: "Emit the FloorRun projection.")],
             outputSchema: .floorRun
+        ),
+        CommandSpec(
+            "artifact show",
+            summary: "Regenerate and open the private HTML team artifact for a terminal run.",
+            milestone: .m1,
+            trigger: "After a terminal team run, open the polished private receipt (not the Factory Floor).",
+            example: "alln artifact show latest",
+            antiExample: "Do NOT use this while a run is still running — it fails closed with RUN_NOT_TERMINAL. Do NOT confuse with `alln floor show`, `alln export`, or `alln continuity receipt`.",
+            args: [ArgSpec("run-id|latest", required: false, summary: "A run id or `latest` (default latest).")],
+            flags: [
+                FlagSpec("no-open", summary: "Print the absolute path only; do not open the default browser."),
+                FlagSpec("json", summary: "Emit path, run id, and honesty string only (no HTML body)."),
+            ],
+            outputSchema: .markdown,
+            spendsQuota: false
         ),
         CommandSpec(
             "spec", summary: "Retrieve a run's spec/result packet (summary|full|artifactRefsOnly).", milestone: .m1,

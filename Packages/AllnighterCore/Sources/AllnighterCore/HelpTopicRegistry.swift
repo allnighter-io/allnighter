@@ -378,15 +378,37 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
+            id: "artifact", title: "Team artifact (HTML receipt)", audience: .both,
+            summary: "After a terminal team run, `alln artifact show <run-id|latest>` regenerates the private HTML team artifact and opens it (or prints the path).",
+            bodyMarkdown: """
+            The team artifact is a polished, private HTML reading document for a **finished** \
+            team run. `alln artifact show <run-id|latest>` writes `artifact/index.html` under \
+            the run journal, prints the absolute path, and opens it in your default browser \
+            unless you pass `--no-open`. `--json` returns only the path, run id, and honesty \
+            string.
+
+            This is **not** the Factory Floor (`alln floor show`), not the markdown export \
+            (`alln export`), and not the continuity receipt (`alln continuity receipt`). \
+            There is no `receipt show` verb for this feature.
+
+            Non-terminal runs fail closed with `RUN_NOT_TERMINAL`.
+            """,
+            aliases: ["report", "card", "receipt", "team artifact", "team receipt", "team card", "artifact show"],
+            relatedCommandNames: ["artifact show", "show", "floor show", "export"],
+            errorRefs: ["RUN_NOT_TERMINAL", "RUN_NOT_FOUND"],
+            needsLiveCheck: false),
+
+        HelpTopic(
             id: "results_and_history", title: "Results & History", audience: .both,
             summary: "Inspect what ran: `alln history` lists runs; `alln show` / `alln spec` / `alln floor show` inspect one run.",
             bodyMarkdown: """
             Runs are durable. `alln history` lists past runs; `alln show` returns the summary \
             packet, `alln spec` the full spec, and `alln floor show` the inspectable floor for \
-            one run. Results are runtime artifacts, not help docs.
+            one run. For a polished HTML team receipt on a terminal run, use `alln artifact show`. \
+            Results are runtime artifacts, not help docs.
             """,
             aliases: ["history", "results", "what ran", "floor", "packet"],
-            relatedCommandNames: ["history", "show", "spec", "floor show"],
+            relatedCommandNames: ["history", "show", "spec", "floor show", "artifact show"],
             schemaRefs: ["floorRun", "historyJSON", "specResult"],
             errorRefs: ["RUN_NOT_FOUND"],
             needsLiveCheck: false),

@@ -2962,6 +2962,53 @@
       "visibility" : "public"
     },
     {
+      "antiExample" : "Do NOT use this while a run is still running — it fails closed with RUN_NOT_TERMINAL. Do NOT confuse with `alln floor show`, `alln export`, or `alln continuity receipt`.",
+      "args" : [
+        {
+          "name" : "run-id|latest",
+          "required" : false,
+          "summary" : "A run id or `latest` (default latest)."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "alln artifact show latest",
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "no-open",
+          "summary" : "Print the absolute path only; do not open the default browser.",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit path, run id, and honesty string only (no HTML body).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "artifact show",
+      "outputSchema" : "markdown",
+      "spendsQuota" : false,
+      "summary" : "Regenerate and open the private HTML team artifact for a terminal run.",
+      "trigger" : "After a terminal team run, open the polished private receipt (not the Factory Floor).",
+      "visibility" : "public"
+    },
+    {
       "args" : [
         {
           "name" : "run-id|latest",
@@ -4854,7 +4901,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.0.3",
+  "contractVersion" : "4.0.4",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

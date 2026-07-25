@@ -84,6 +84,7 @@ struct AllnighterCLI {
         case "menu": MenuCLI.run(args, runtime: runtime)
         case "show": runShow(args, runtime)
         case "floor" where args.first == "show": runFloorShow(Array(args.dropFirst()), runtime)
+        case "artifact" where args.first == "show": ArtifactCLI.runShow(Array(args.dropFirst()), runtime: runtime)
         case "spec": runSpec(args, runtime)
         case "export": runExport(args, runtime)
         case "dev": runDev(args)
