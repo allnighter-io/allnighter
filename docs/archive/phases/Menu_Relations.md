@@ -1,4 +1,38 @@
-# Menu Relations — structure the caller cannot infer
+# Menu Relations
+
+Status: **KILLED 2026-07-24 by its own MRL-S01 kill gate — do not implement.**
+MRL-S00 (reclaim headroom) SHIPPED and is the only part that survives.
+
+> **The measurement.** MRL-S01 said: *"if a cold agent already passes these at the
+> MR-S06 bar, stop here and archive the doc."* It does. All four
+> composition-shaped asks pass mechanically from today's flat menu, alongside the
+> nine pre-existing MR-S06 cases — **13/13**. Harness:
+> `scripts/menu_not_router_eval.py` (`case_deeper_spec_review`,
+> `case_retired_id_recovery`, `case_spec_review_then_build`,
+> `case_design_needs_no_screenshot`); run with
+> `scripts/agent_eval.sh --suite menu-not-router`.
+>
+> - **(a) tier disambiguation** — only `code_spec_review_max`'s `useWhen` says
+>   "Deep review", so "the deeper version of the spec review" resolves uniquely.
+> - **(b) retired id recovery** — a stale `code_bug_hunt_lite` fails closed with
+>   no run created, and the error names `alln menu --json` plus edit-distance
+>   candidates that include the live successor.
+> - **(c) two-step chain** — spec-review then build resolves to two real ids, the
+>   second correctly `writePolicy: mutating`.
+> - **(d) design from a prompt alone** — the doc specified this case as "given
+>   only a screenshot → correct refusal", which **misstates the law**. The founder
+>   ruling is the opposite: *"Design lane needs NO screenshot… a mandatory
+>   screenshot/image input gate on Design is a BUG."* Accepting a screenshot is
+>   correct; refusing one would be the bug. Corrected to test the real law —
+>   design must run from a prompt with no attachment demanded — and it does
+>   (`canStart: true`, zero warnings on a ready bench).
+>
+> A `relations` side table would therefore add bytes to a menu that already
+> composes correctly. **This is a null result, and per the doc's own rule it does
+> not get a retry with a friendlier matrix.**
+>
+> MRL-S00 shipped separately: menu 31,976 → 30,634 bytes, headroom 792 → 2,134.
+
 
 Status: **DRAFT — NOT AUTHORIZED. Queued behind `CODE_RED_Core_Infrastructure_Repair.md`.**
 Founder sequencing (2026-07-24): Code Red delivers first; this doc is the next
@@ -7,7 +41,7 @@ Owner: AllnighterCore (`MenuCatalog`, `MenuJSON`, `ContractRegistry`,
 `RetiredVocabulary`) + AllnighterCLI (`menu`)
 Updated: 2026-07-24
 
-Extends archived [`Menu_Not_Router.md`](../archive/phases/Menu_Not_Router.md)
+Extends archived [`Menu_Not_Router.md`](Menu_Not_Router.md)
 (MR-S01–S06, Complete 2026-07-20). That phase is **not reopened**: every law
 there stands, especially Law 1 (the caller chooses) and the anti-goal list. This
 doc adds *disclosed structure* to rows the menu already emits. It never adds a

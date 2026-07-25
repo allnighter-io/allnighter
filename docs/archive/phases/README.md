@@ -121,4 +121,5 @@ source; remaining leftovers were pure GUI-polish unless noted. Live successors
 
 | Doc | Final status | Code SSOT / successor |
 | --- | --- | --- |
+| [`Menu_Relations.md`](Menu_Relations.md) | **KILLED 2026-07-24 by its own MRL-S01 kill gate** — 13/13 cold-agent cases pass from the flat menu, so a `relations` table would add bytes for no gain. MRL-S00 shipped (headroom 792 → 2,134). Code SSOT: `MenuCatalog.swift`, `MenuSelectionCopy.swift`; matrix `scripts/menu_not_router_eval.py`. |
 | [code_review/](code_review/) | Historical GLM review run logs, packets, findings, triage | Pair queue (`alln pair slice`) deleted at R-S09; superseded by `PM_Relay.md` |

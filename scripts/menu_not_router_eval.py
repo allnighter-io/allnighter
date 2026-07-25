@@ -372,7 +372,7 @@ class Harness:
             return CaseResult(
                 name, False, " ".join(args), discovery, error=f"teamPresetId={body.get('teamPresetId')}"
             )
-        if body.get("mutating") is True:
+        if body.get("writePolicy") == "mutating":
             return CaseResult(name, False, " ".join(args), discovery, error="expected answer team")
         return CaseResult(name, True, " ".join(["alln", *args]), discovery, attempts=[attempt])
 
@@ -454,9 +454,12 @@ class Harness:
         body = attempt.dry_run_json or {}
         if body.get("teamPresetId") != tid:
             return CaseResult(name, False, " ".join(args), discovery, error="wrong team")
-        # Phase matrix says repoWrite:true; RunDryRunJSON owns mutating + writeLockHeld.
-        if body.get("mutating") is not True:
-            return CaseResult(name, False, " ".join(args), discovery, error="mutating!=true")
+        # Phase matrix says repoWrite:true. RunDryRunJSON v2 renamed `mutating` to
+        # `writePolicy` ("readOnly"|"mutating"); the old key is absent, so checking it
+        # made this assertion permanently red (and its inverse silently vacuous).
+        if body.get("writePolicy") != "mutating":
+            return CaseResult(name, False, " ".join(args), discovery,
+                              error=f'writePolicy={body.get("writePolicy")!r} expected "mutating"')
         if "writeLockHeld" not in body:
             return CaseResult(name, False, " ".join(args), discovery, error="missing writeLockHeld")
         if not isinstance(body.get("writeLockHeld"), bool):
@@ -534,6 +537,197 @@ class Harness:
             notes=["menu + one menu show"],
         )
 
+    # MRL-S01 — composition-shaped asks the MR-S06 matrix above does not cover.
+    # Kill gate: if these already pass at the MR-S06 bar, the Menu_Relations.md
+    # phase gets archived. These are mechanical, not live-LLM — a case passes
+    # only when `alln menu --json` (plus the allowed hydrate budget) is enough
+    # to reach the correct canonical id / command / refusal without guessing.
+
+    def case_deeper_spec_review(self) -> CaseResult:
+        name = "MRL-S01a: run the deeper version of the spec review"
+        discovery = 1
+        family = [
+            t
+            for t in self.menu.get("teams") or []
+            if (t.get("displayName") or "").strip().startswith("Spec Review")
+        ]
+        if len(family) < 2:
+            return CaseResult(name, False, "", discovery, error="spec review tier family missing from menu")
+        deeper = [t for t in family if "deep" in (t.get("useWhen") or "").lower()]
+        if len(deeper) != 1:
+            return CaseResult(
+                name,
+                False,
+                "",
+                discovery,
+                notes=[f"family={[t.get('id') for t in family]}"],
+                error=f"useWhen does not uniquely disambiguate the deeper tier: {[t.get('id') for t in deeper]}",
+            )
+        team = deeper[0]
+        self.assert_no_hydration_in_templates(team, "team")
+        tid = team["id"]
+        if tid != "code_spec_review_max":
+            return CaseResult(name, False, "", discovery, error=f"expected code_spec_review_max got {tid}")
+        marker = f"MRL-S01-deeper-{uuid.uuid4().hex[:8]}"
+        args = self.expand_template(team["validateTemplate"], marker)
+        if "--dry-run" not in args or tid not in args:
+            return CaseResult(name, False, " ".join(args), discovery, error="bad validateTemplate shape")
+        attempt = self.run(args, expect_ok=True, parse_json=True, marker=marker)
+        body = attempt.dry_run_json or {}
+        if body.get("teamPresetId") != "code_spec_review_max":
+            return CaseResult(
+                name, False, " ".join(args), discovery, error=f"teamPresetId={body.get('teamPresetId')}"
+            )
+        return CaseResult(
+            name,
+            True,
+            " ".join(["alln", *args]),
+            discovery,
+            attempts=[attempt],
+            notes=["useWhen 'Deep review: launch/hard specs' uniquely disambiguated the _max tier"],
+        )
+
+    def case_retired_id_recovery(self) -> CaseResult:
+        name = "MRL-S01b: retired id carried in from a stale transcript"
+        discovery = 1
+        # code_bug_hunt_lite was the pre-rename id for today's code_bug_hunt
+        # (BuiltInTeams tier rename history); it does not exist in current source
+        # or the live menu, so it is a genuine retired id — not an invented one.
+        retired_id = "code_bug_hunt_lite"
+        live_ids = {t.get("id") for t in self.menu.get("teams") or []}
+        if retired_id in live_ids:
+            return CaseResult(
+                name, False, "", discovery, error=f"{retired_id} unexpectedly live; pick a genuinely retired id"
+            )
+        marker = f"MRL-S01-retired-{uuid.uuid4().hex[:8]}"
+        attempt = self.run(
+            ["run", marker, "--team", retired_id, "--json"],
+            expect_ok=False,
+            parse_json=True,
+            marker=marker,
+        )
+        if attempt.created_run:
+            return CaseResult(name, False, "", discovery, attempts=[attempt], error="run created for retired id")
+        body = attempt.dry_run_json or {}
+        error = body.get("error") or {}
+        message = str(error.get("message") or "")
+        next_action = error.get("nextAction") or {}
+        next_cmd = str(next_action.get("command") or "")
+        candidates = {c.get("id") for c in (error.get("candidates") or []) if isinstance(c, dict)}
+        points_at_menu = "menu" in message.lower() or "menu" in next_cmd.lower()
+        if not points_at_menu:
+            return CaseResult(
+                name,
+                False,
+                message,
+                discovery,
+                attempts=[attempt],
+                error="opaque failure: no menu/recovery path named — caller cannot recover",
+            )
+        return CaseResult(
+            name,
+            True,
+            f'alln run "{marker}" --team {retired_id} --json',
+            discovery,
+            attempts=[attempt],
+            notes=[
+                f"failure only (exit={attempt.exit_code}), no run created",
+                f"error names a discovery path: {next_cmd or message[:120]!r}",
+                f"candidates surfaced (includes live replacement code_bug_hunt: {'code_bug_hunt' in candidates}): {sorted(candidates)}",
+            ],
+        )
+
+    def case_spec_review_then_build(self) -> CaseResult:
+        name = "MRL-S01c: harden this spec then have someone build it"
+        discovery = 1
+        review = self.find_team_by_display("Spec Review")
+        build = self.find_execution_team()
+        self.assert_no_hydration_in_templates(review, "team")
+        self.assert_no_hydration_in_templates(build, "team")
+        if review["id"] != "code_spec_review":
+            return CaseResult(name, False, "", discovery, error=f"expected code_spec_review got {review['id']}")
+        if build["id"] != "build_slice" or build.get("mutating") is not True:
+            return CaseResult(
+                name,
+                False,
+                "",
+                discovery,
+                error=f"expected mutating build_slice, got {build.get('id')} mutating={build.get('mutating')}",
+            )
+        marker1 = f"MRL-S01-chain1-{uuid.uuid4().hex[:8]}"
+        args1 = self.expand_template(review["validateTemplate"], marker1)
+        attempt1 = self.run(args1, expect_ok=True, parse_json=True, marker=marker1)
+        body1 = attempt1.dry_run_json or {}
+        if body1.get("teamPresetId") != "code_spec_review" or body1.get("writePolicy") != "readOnly":
+            return CaseResult(name, False, " ".join(args1), discovery, error=f"step1 body={body1}")
+        marker2 = f"MRL-S01-chain2-{uuid.uuid4().hex[:8]}"
+        args2 = self.expand_template(build["validateTemplate"], marker2)
+        attempt2 = self.run(args2, expect_ok=True, parse_json=True, marker=marker2)
+        body2 = attempt2.dry_run_json or {}
+        if body2.get("teamPresetId") != "build_slice" or body2.get("writePolicy") != "mutating":
+            return CaseResult(name, False, " ".join(args2), discovery, error=f"step2 body={body2}")
+        final = " THEN ".join([" ".join(["alln", *args1]), " ".join(["alln", *args2])])
+        return CaseResult(
+            name,
+            True,
+            final,
+            discovery,
+            attempts=[attempt1, attempt2],
+            notes=[
+                "step1 useWhen 'Harden a spec before you build' matched the ask verbatim",
+                "step2 build_slice resolved mutating/writePolicy=mutating for the execution half",
+            ],
+        )
+
+    def case_design_needs_no_screenshot(self) -> CaseResult:
+        """MRL-S01d, corrected.
+
+        The phase doc specified this case as "given only a screenshot -> correct
+        refusal/clarify per the prompt-not-screenshot law". That misstates the law.
+        The founder ruling (2026-06-18) is the OPPOSITE of a refusal rule:
+
+            "Design lane needs NO screenshot. A Design team runs from a PROMPT alone
+             ... A mandatory screenshot/image input gate on Design is a BUG. The
+             optional image tile/row stays OPTIONAL."
+
+        So accepting a screenshot is correct, and refusing one would be the bug.
+        The real, testable law is that Design must never REQUIRE an attachment:
+        a plain text ask has to run with no image at all.
+        """
+        name = "MRL-S01d: design from a prompt alone, no attachment required"
+        discovery = 1
+        design_rows = [t for t in self.menu.get("teams") or [] if str(t.get("id") or "").startswith("design_")]
+        if not design_rows:
+            return CaseResult(name, False, "", discovery, error="no design_* teams in menu")
+        team = next((t for t in design_rows if t.get("id") == "design_design"), design_rows[0])
+        tid = team["id"]
+        marker = f"MRL-S01-design-{uuid.uuid4().hex[:8]}"
+        args = self.expand_template(team["validateTemplate"], marker)
+        attempt = self.run(args, expect_ok=True, parse_json=True, marker=marker)
+        body = attempt.dry_run_json or {}
+        if body.get("teamPresetId") != tid:
+            return CaseResult(name, False, " ".join(args), discovery, attempts=[attempt],
+                              error=f'teamPresetId={body.get("teamPresetId")!r} expected {tid!r}')
+        # The law is about USER INPUT, not model capability: nothing may demand an
+        # attachment. A worker carrying requiredCapabilityTags ["image"] is fine —
+        # that asks for an image-CAPABLE model (a design team emits visual
+        # directions), not for the user to paste a screenshot.
+        #
+        # A readiness block is environmental, not a law violation: an isolated
+        # support dir has no probe records, so every team blocks on "no ready
+        # model". Only an attachment demand fails this case.
+        haystack = " ".join([str(body.get("blockedReason") or ""), json.dumps(body.get("warnings") or [])]).lower()
+        demands_attachment = any(
+            kw in haystack for kw in ("screenshot", "attach", "upload", "provide an image", "image required")
+        )
+        if demands_attachment:
+            return CaseResult(name, False, " ".join(args), discovery, attempts=[attempt],
+                              error=f"attachment demanded for a prompt-only design ask: {haystack}")
+        notes = ["no attachment demanded; the optional image stays optional"]
+        if body.get("canStart") is False:
+            notes.append(f"blocked on readiness only (environmental): {body.get('blockedReason')!r}")
+        return CaseResult(name, True, " ".join(["alln", *args]), discovery, attempts=[attempt], notes=notes)
+
     def run_matrix(self) -> None:
         runners = [
             self.case_ask_sonnet,
@@ -545,6 +739,10 @@ class Harness:
             self.case_bare_sonnet,
             self.case_unknown,
             self.case_rare_admin,
+            self.case_deeper_spec_review,
+            self.case_retired_id_recovery,
+            self.case_spec_review_then_build,
+            self.case_design_needs_no_screenshot,
         ]
         for fn in runners:
             self.assert_binary_unchanged()
