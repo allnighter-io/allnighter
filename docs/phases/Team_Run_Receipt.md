@@ -1,12 +1,12 @@
 # Team Run Receipt — gorgeous private report, deliberate share
 
-Status: **Draft feature packet — Spec-Review hardened 2026-07-25
-(EC1DCCAF…).** Not Ready for Implementation until §Blockers before TRR-S01
-are closed. Near-term scope is ~¼ of the first draft: a screenshot-native
-**decision card** first; signing/hosted-link/Buzz slices cut or unscheduled.
+Status: **Draft feature packet — visual grammar locked 2026-07-25 (Opus
+design taste).** Not Ready for Implementation until §Blockers before TRR-S01
+are closed. Near-term: screenshot-native **decision card** (Lead Call + seat
+chips in phosphor status color); signing/hosted/Buzz cut or unscheduled.
 Owner: AllnighterCore (receipt projector) + CLI first; Mac Factory Floor as
 existing deep reader (not the card owner).
-Updated: 2026-07-25 (post Spec Review Min EC1DCCAF…)
+Updated: 2026-07-25 (visual grammar G1–G13 locked)
 Companions:
 - Mac deep reader: `FactoryFloorView` / `docs/phases/Live_Team_Board.md`
   (Factory Floor = full team result; thread keeps a compact cockpit receipt →
@@ -270,7 +270,7 @@ on a real contract slice — not S01. LLM-summarized one-liners are rejected
 | Item | Options / default lean | Status |
 | --- | --- | --- |
 | CLI verb | Prefer **`alln card show <run-id\|latest>`**. **Strike `receipt show`** — collides with shipped `alln continuity receipt`. Avoid `team open` (Floor/`team result` teaching collision) | Open — lean `card show` |
-| Render medium | **HTML consuming design-system CSS tokens as source** (screenshot) vs ANSI/TTY | Open — lean HTML; see §Design authority |
+| Render medium | **HTML** consuming design-system CSS tokens; 16:9 poster; G1–G13 | **Locked** — §Design authority |
 | On-disk path | Derived cache under support/run journal vs beside journal | Open — must be private, deterministic, regenerable |
 | Seat one-liner | First line truncate + mark; Law-2 single-seat hoist rule | Lean locked in ledger |
 | Team call | First ~2 lines of `answer.markdown`; no-canonical-result house line | Lean locked in ledger |
@@ -286,16 +286,112 @@ on a real contract slice — not S01. LLM-summarized one-liners are rejected
 ## Design authority
 
 This packet’s entire product value is visual. Route card styling — including
-TRR-S00 hand-renders — through `docs/design-system/production.md`. The HTML
-card should **consume `docs/design-system/tokens/*.css` as source** (CSS tokens
-canonical; Swift mirrors). That is the load-bearing argument for HTML as the
-v1 medium. GUI engineering process: `docs/gui/GUI_Workflow.md`. Do not invent
-a parallel amber palette in the projector.
+TRR-S00 hand-renders — through `docs/design-system/production.md` and
+`docs/design-system/readme.md`. The HTML card **consumes
+`docs/design-system/tokens/*.css` as source** (CSS tokens canonical; Swift
+mirrors). GUI engineering: `docs/gui/GUI_Workflow.md`. No new token or
+component variant may originate in the projector — it lands in `tokens/*.css`
+/ `components/product/` first (`production.md` §1).
+
+**Inspiration (borrowed, not copied):** OpenAI × Work Louder Agent Keys —
+“Your agents, in color” / ambient state before opening the chat. Steal
+**glance-first state** and **“needs you” as a first-class state**. Reject
+rainbow RGB, per-vendor hues, hardware fetish, glow-on-settled-poster, and
+any sixth status color.
+
+### Visual grammar (locked) — Opus 5 design taste 2026-07-25
+
+**G1 — Two axes, two components.** Seat status
+(`queued|running|done|failed|timed_out`) renders via `StatusPill` / dot inside
+`WorkerChip` (`production.md` §3, §5). Card verdict (`Ready|Partial` from
+`lead-call`) is **not** a seat status and **never** a `StatusPill`. A run may
+be Ready with a failed seat.
+
+**G2 — One amber content event per card.** Priority: Partial verdict >
+lead-call rule. Footer crescent (the mark) is exempt. **Never** amber on a
+seat chip. Amber points at the thing you are supposed to do.
+
+**G3 — Verdict grammar (card level).**
+
+| Verdict | Treatment |
+| --- | --- |
+| `Ready` | Word “Ready” in `--text-primary`, `--border-default` hairline, **no fill, no hue** |
+| `Partial` | Words “Partial · needs you”, `--accent-surface` / `--accent-border` / `--accent-text` |
+| no `lead-call` block | Omit the lockup — **never default to Ready** |
+
+Presence/absence of warm is the 1-bit glance read. The word is always present —
+color never carries meaning alone.
+
+**G4 — Seat chip grammar (one component, two modes).** Bind `production.md` §3:
+
+| Seat status | Live board | Settled card |
+| --- | --- | --- |
+| `queued` | `--status-queued` | rare on terminal; render as-is, never recolor |
+| `running` | `--status-running` (+ blink); see G6 for glow | **illegal** on card (`RUN_NOT_TERMINAL`) |
+| `done` | `--status-done` | `--status-done`, no motion |
+| `failed` | `--status-failed` | `--status-failed` — **must survive crop** |
+| `timed_out` | `--status-timeout` | `--status-timeout` |
+
+Chip zones fixed-width: `[glyph] [name + one-liner] [status dot + duration]`.
+Duration mono muted; null → blank, never estimated. Add
+`WorkerChip size="compact"` (+ dot-only pill) to the design system **before**
+S01 invents a one-off.
+
+**G5 — Glow is the live/settled bit.** Live board may glow; **the card carries
+zero glow and zero animation.** Same chips; one bit of difference. Screenshots
+freeze motion — animated grammar is worthless in the viral unit.
+
+**G6 — Amber alive glow is singular per live surface.** Exactly one mutating
+worker → glow on that worker; parallel research → glow on the board’s live
+mark, **not** every running chip (no amber wallpaper).
+
+**G7 — Vendor identity is monochrome.** Glyph → `--ink-100`; model id mono
+faint. **Glyph says who; color says state.** Never both. No Anthropic/OpenAI
+brand hues (collides with phosphor amber).
+
+**G8 — Fixed-aspect poster.** One **16:9** frame, no scroll, no fold. Overflow
+truncates into per-zone budgets with marked ellipsis; frame never grows.
+
+**G9 — Crop ladder (layout order is load-bearing).** Verdict + team line →
+the call → what changed → top leans (≤3) → seat chips → hairline → footer. A
+top-40% crop must still yield **verdict + call**.
+
+**G10 — Sentiment is not status.** “What changed” and leans are **ink only** —
+no red/green delta drama. Status hues reserved for status.
+
+**G11 — Deterministic seat order.** `workers[]` declaration order — identical
+to live board / `FloorProjector` seat-set helper. Never sort by finish time.
+Lead distinguished structurally (label + border), not by amber fill.
+
+**G12 — Surface.** Solid `--bg-base` field, body `--bg-raised`, `--radius-lg`,
+`--border-subtle`, `--shadow-sm`. No gradient wash. No light-mode share
+variant (midnight in a white timeline **is** recognition). No emoji. Static
+frame only (no GIF/MP4 export in v1).
+
+**G13 — Enforceable check (ship with projector).** Fail the gate if the
+rendered card contains `animation:` / `@keyframes` / `--glow-*`, any hex
+literal outside the token layer, or more than one amber content event.
+Deterministic — not agent judgment.
+
+### Screenshot-at-a-glance test (Works Test visual bar)
+
+Grade at ~1200×675 as a ~500px thumbnail, **and again in grayscale**. Must
+survive:
+
+1. Warm patch present or absent (needs-you vs not) before any word is read  
+2. **The call** — largest type (`--ink-50`)  
+3. Seat-row rhythm — N aligned glyphs as a team (never wrap)  
+4. A red seat if one exists  
+5. The mark (small amber crescent)
+
+Not required at glance: reproduce, run id, timings, honesty, Why column
+(footer micro-type for skeptics).
 
 ## Proof design
 
 - **Substring truth test:** after render, every non-allowlisted visible string
-  on the card is a substring of source `TeamRunJSON` (mechanizes §Truth owner).
+  on the card is a substring of source `TeamRunJSON` / Lead markdown
+  (mechanizes §Truth owner).
 - **Negative fixtures:** failed seat; single-seat Law-2 hoist; no-answer
   partial; null timings; hostile 8KB prompt / `</div><script>` HTML escape;
   duplicate model ids; `designBoard` seat markdown with image paths (never
@@ -305,10 +401,12 @@ a parallel amber palette in the projector.
 - **Visual proof:** `scripts/check_gui_proof.sh` today scopes Mac SwiftUI —
   an HTML card from Core is invisible to that wall. Extend the gate to the
   card artifact **or** record a waiver in `docs/qa/gui/WAIVERS.manifest` and
-  name a `layout-watcher` PASS at timeline-crop dimensions before first ship.
+  name a `layout-watcher` PASS at **16:9 timeline-crop** dimensions before
+  first ship — plus G13 deterministic checks.
 - **Named blocked proofs (honest):** growth lift unfalsifiable pre-launch;
   “gorgeous” has no automated oracle; no CI end-to-end multi-seat run
   (Keychain/sandbox); screenshot fidelity across OS versions.
+
 ## Works Test
 
 **S00:** Fixed-N counts for disagreement / consensus-with-a-call /
@@ -323,7 +421,8 @@ including ContractRegistry draft.
 OS screenshot is postable; no public URL; reproduce line present (elided);
 honesty string exact; every visible field maps to ledger / substring truth
 test; truncation marked; failed seats stay visible as failed; visual proof
-route satisfied or waived.
+route satisfied or waived; **screenshot-at-a-glance test** (§Design authority)
+passes; **G13** deterministic checks pass (no glow/animation/extra amber).
 
 **S01b+ / S03+:** waived until scheduled.
 ## Proof command
@@ -467,3 +566,18 @@ typed verdict fields are v2.
 `outputKind` hero chrome; CSS tokens as HTML source; no-canonical-result house
 line; Floor seat-set anti-drift; reproduce elision; negative fixtures; local
 demand counters for S03.
+
+## Design taste — agents in color (done)
+
+| | |
+| --- | --- |
+| **When** | 2026-07-25 · wall ~4m6s · readOnly |
+| **Run** | `96DA941A-B1E7-42E8-BA98-93459D99D84E` |
+| **Worker** | Opus 5 (Cursor) — design taste |
+| **Stimulus** | OpenAI × Work Louder Agent Keys (“Your agents, in color”) + Lead Call Ready\|Partial + existing `production.md` status tokens |
+
+**Verdict:** Steal glance-first state and Partial = “needs you.” Reject rainbow
+RGB, per-vendor hues, hardware fetish, glow on a settled card. **Ready has no
+hue** (calm ink); **Partial carries the one amber content event**. Seat color =
+lifecycle status only; glyph = who. Card = zero glow/motion (glow marks live
+board). Locked as §Design authority G1–G13 + screenshot-at-a-glance test.
