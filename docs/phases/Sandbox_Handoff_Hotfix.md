@@ -252,14 +252,43 @@ paste a command into the app.
 
 ### S9 — resolve Panel *(C4 — founder ruling, not an implementer's call)*
 
-1. **Revive** — route `alln panel` through the hand-off. Unknown size; the
-   dispatch path has been frozen for weeks and is unaudited.
-2. **Delete** — remove the surface, the help topic, and all 11 Code Red survivals.
-3. **Redirect** — fail with the exact working `alln run --team …` command.
+**RULED 2026-07-24: Option 2 — delete.** Shipped in `0656b764`. `alln panel` is
+now an ordinary unknown command; 21 files, the help topic and all 11 Code Red
+survivals are gone. `PanelPreset`/`PanelPresetStore` were kept deliberately —
+same word, unrelated live concept (team presets used by the Mac app). Contract
+cut 3.4.0 -> 4.0.0 per the registry's own "major for removals" rule.
 
-Option 3 is the cheap correct move if Panel is not coming back soon. Option 2 is
-right if it is never coming back. Either way, **a discoverable surface that can
-never work must not survive this packet.**
+### S10 — audit the async team lifecycle *(last slice; same defect class as S9)*
+
+Surfaced while fixing the recipes in S9. `--detach` was deleted in Code Red
+(`588e0621`) and runs are now foreground only, which stranded the async lifecycle
+around it. Verified, not assumed:
+
+- **`AsyncTeamService.start` has zero callers** — not in `AllnighterCLI`, not in
+  the Mac app. Nothing in the product can start an async team run.
+- Two runtime-served recipes taught `alln run --detach` and bare `alln team`;
+  both are deleted surfaces. Fixed in S9, but they are the symptom, not the cause.
+
+So `alln team status` / `result` / `cancel` are live, documented, discoverable
+commands whose originating path no longer exists. That is exactly the condition
+S9 deleted Panel for, and it must not be left standing.
+
+The audit is per-command, because they are **not** uniformly dead:
+
+| Command | Question to settle |
+| --- | --- |
+| `team status` | Does `--persisted` still read a foreground run's journal usefully? |
+| `team result` | Same — a settled foreground run has a `TeamRunJSON`; is this just `alln show`? |
+| `team cancel` | With no async runs to cancel, is this `alln kill` under another name? |
+| `team reconcile` | Believed genuinely live (ownership GC, PO-S01–S05). Confirm and keep. |
+| `AsyncTeamService.start` + whatever only it feeds | Delete — zero callers. |
+
+*Accept:* every surviving `team *` command has a reachable path that a caller can
+actually produce, proven by a test; everything else is deleted with the machinery
+only it fed. No redirect, no shim.
+
+*Note:* the recipe `recover-a-run-that-lost-its-terminal.md` is built on these
+commands and must be rewritten or deleted with them.
 
 ## What this does not fix
 
