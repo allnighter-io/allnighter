@@ -43,7 +43,7 @@ public struct RepoDelta: Codable, Equatable, Sendable {
 
 /// CR-S02 — bounded pre/post Git observation for a research (read-only) run.
 ///
-/// A research Team (`mutating == false`) is observational, not mechanically
+/// An observational Team (`mutating == false`) is not mechanically
 /// read-only: Allnighter captures the canonical repository's exact Git state
 /// before dispatch and after terminal settlement, then compares against the
 /// PRE-EXISTING state (a repo that was already dirty is not a violation).

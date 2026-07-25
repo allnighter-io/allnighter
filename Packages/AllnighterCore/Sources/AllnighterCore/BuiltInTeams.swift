@@ -545,9 +545,9 @@ public enum BuiltInTeams {
     // MARK: - Signal teams (the outside-world scout craft)
 
     static let signalPostToProject = make(
-        id: "signal_outside", name: "Outside Signal", lane: .signal, output: .insight,
+        id: "signal_outside", name: "Research", lane: .signal, output: .insight,
         defaultEffort: .med, isDefault: true,
-        description: "Grok grabs and distills a public X post, thread, article, or release note, then several different models reason over it (triangulation) into a Project-aware Insight: what happened, why it matters here, with source receipts, freshness, and a skeptic pass.",
+        description: "Paste an X post, YouTube video, article, or release note and get what it actually means for THIS project — what happened, why it matters here, and what to do about it, with source receipts and a freshness check. One model fetches and distills the source (Grok reads X; `vvx` reads video transcripts), then several different models read that same distilled source independently, so you get a triangulated read instead of one model's opinion, plus a skeptic pass that argues against it.",
         scout: signalScoutGrok,
         rows: [
             TeamWorkerSpec(id: "signal_interpret", skillId: "signal_interpret", purpose: .answer,
@@ -555,7 +555,7 @@ public enum BuiltInTeams {
             row("signal_skeptic", .review, preferred: sonnet)
         ], writer: "insight_writer", dissent: .preserveDissent,
         typeTags: ["signal", "external", "news", "article", "apply", "insight"],
-        starters: ["Paste a public X post or article link and ask how it applies to this project.",
+        starters: ["Paste an X post, video, or article link and ask how it applies to this project.",
                    "What does this release note mean for us?"])
 
     static let signalWhatToBuildNext = make(

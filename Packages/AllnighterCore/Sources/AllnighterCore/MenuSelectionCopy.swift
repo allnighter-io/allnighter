@@ -237,7 +237,7 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not short UI copy; copy_core"
         ),
         "signal_outside": Pair(
-            useWhen: "Distill a link into project insight",
+            useWhen: "Post, video, or article: what it means here",
             dontUseWhen: "Not repo changes; signal only"
         ),
         "signal_what_to_build_next": Pair(

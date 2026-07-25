@@ -122,8 +122,8 @@ public enum HelpTopicRegistry {
             - `alln run` — single worker / chat / named-model ask in the project root \
             (Default Team). One message; optional `--worker` or `--team`.
             - `alln run --team <id>` — multi-seat team in the project root.
-            - `alln run` — foreground Team run in the registered repository. `--detach` is \
-            temporarily unsupported during Code Red.
+            - `alln run` — foreground Team run in the registered repository. Runs are \
+            foreground only; there is no detached mode.
             - `alln thread send` — continue an existing work thread (not a fresh one-shot).
             - Pending — defer work with `alln pending add`; run later with `alln pending run`.
 
@@ -173,7 +173,7 @@ public enum HelpTopicRegistry {
 
             `--stream` emits NDJSON (one JSON object per stdout line). A stream ends with \
             exactly one of `teamRunCompleted`, `teamRunFailed`, or `error`. On `run`, \
-            `--stream` is mutually exclusive with `--json`, `--dry-run`, and `--detach`.
+            `--stream` is mutually exclusive with `--json` and `--dry-run`.
 
             Canonical answer text is `TeamRunJSON.answer` (status, markdown, source) — prefer \
             that field over hunting `workerAnswers` or plan markdown.
@@ -190,7 +190,7 @@ public enum HelpTopicRegistry {
                 .init("preflight", "Dry-run first", "Call `alln run --dry-run` before a foreground run so a bad lineup fails before quota is spent."),
                 .init("write-policy", "Observation vs outcome", "`effects.repoWrite` means the resolved invocation may write. Research Teams are observational; terminal `repoDelta` reports whether a mutating run did write, and `researchGitObservation.changed` flags a read-only run that unexpectedly changed Git state (files are never reset)."),
                 .init("timing", "Observed timing", "`queueMs` / `ttftMs` / `durationMs` / `outcome.timing.wallMs` are recorded clocks. Null means unreported. Do not invent an orchestration tax by subtracting duration from wall."),
-                .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` / `--detach` on `run`."),
+                .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` on `run`."),
                 .init("vendor-controls", "Vendor CLI controls", "No `--temperature` / `--max-tokens` on `alln run`. Use `--effort`, `--worker`, and the selected subscription CLI's own supported flags."),
                 .init("polling", "Polling", "Poll `alln team result` using the returned `nextPollAfterMs`; do not busy-loop."),
             ],
@@ -258,7 +258,8 @@ public enum HelpTopicRegistry {
             summary: "Panel is frozen during Code Red and does not start, route, watch, or recover work.",
             bodyMarkdown: """
             Panel is frozen during Code Red. Every public Panel entrypoint fails closed, \
-            including status and watch. Use `alln run` with a research Team for input in \
+            including status and watch. Use `alln run` with an observational (non-mutating) \
+            Team for input in \
             the registered repository instead.
             """,
             aliases: [

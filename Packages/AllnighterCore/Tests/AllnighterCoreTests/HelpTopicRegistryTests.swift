@@ -76,8 +76,13 @@ final class HelpTopicRegistryTests: XCTestCase {
         ] {
             XCTAssertTrue(prose.contains(needle), "tool_selection must mention '\(needle)'")
         }
-        XCTAssertTrue(prose.contains("--detach") && prose.contains("unsupported"),
-                      "tool_selection must disclose that --detach is temporarily unsupported (Code Red)")
+        // CR-S06 DELETED --detach; it is not "temporarily unsupported" any more.
+        // Help must not advertise a flag that no longer exists, and must say plainly
+        // that runs are foreground only.
+        XCTAssertFalse(prose.contains("--detach"),
+                       "tool_selection must not mention --detach — the flag was deleted in CR-S06")
+        XCTAssertTrue(prose.contains("foreground only"),
+                      "tool_selection must state that runs are foreground only")
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "which command"), "tool_selection")
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "run vs team"), "tool_selection")
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "thread send"), "tool_selection")

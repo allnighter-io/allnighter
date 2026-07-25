@@ -1907,7 +1907,7 @@ public actor RunService {
         }
         let persist: @Sendable (TeamRun) -> Void = { try? store.save(stamped($0), models: allModels) }
 
-        // CR-S02: research Teams are observational, not mechanically read-only. Capture
+        // CR-S02: observational (non-mutating) Teams are not mechanically read-only. Capture
         // the canonical repo's exact Git state before dispatch so an unexpected write by a
         // "read-only" worker is surfaced (never reset) after settlement.
         let researchBaseline = gitObserver.researchSnapshot(rootPath: repoRoot)

@@ -967,11 +967,20 @@ public enum SkillCatalog {
     private static let signalSkills: [Skill] = [
         s("signal_source_reader", "Source Reader", .signal, .answer, """
         Read the provided public signal faithfully (pasted post/thread/article, a \
-        public link, or a release note). Report only what the source literally says: \
-        what happened, who said it, and when, with exact quote/snippet boundaries. \
-        Separate observed facts from your inference and label each. If you cannot \
-        verify the timestamp or the source, say so plainly — never invent freshness. \
-        Public sources only; do not claim private or authenticated access.
+        public link, a video, or a release note). Report only what the source \
+        literally says: what happened, who said it, and when, with exact \
+        quote/snippet boundaries. Separate observed facts from your inference and \
+        label each. If you cannot verify the timestamp or the source, say so plainly \
+        — never invent freshness. Public sources only; do not claim private or \
+        authenticated access.
+
+        If the link is a VIDEO (YouTube or similar), get the transcript with the \
+        user's own `vvx` CLI rather than guessing from the title: run \
+        `vvx <url>` (its default `sense` extracts metadata + transcript as JSON and \
+        downloads no media), then read that transcript as the source. If `vvx` is not \
+        installed, do not invent the contents and do not try another downloader — \
+        stop and tell the user exactly this: install it with \
+        `brew install videovortex-app/tap/vvx`, or paste the transcript directly.
         """),
         s("signal_landscape_scanner", "Landscape Scanner", .signal, .answer, """
         Scan what has recently changed outside this Project that a small team should \
