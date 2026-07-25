@@ -244,6 +244,18 @@ enum RunCLI {
            let handed = await SandboxHandoff.runInApp(failedRun: run, request: request) {
             result = .success(handed)
         }
+        // A run that never STARTED has no worker failure to detect, so the signature
+        // path above can never fire for it — and a sandbox is perfectly capable of
+        // breaking resolution itself, by denying the readiness probes. Inside a
+        // restricted host, let the app try. If it refuses too, S1 returns its real
+        // error, so being wrong costs one mailbox round trip rather than a wrong
+        // answer.
+        if case .failure(let error) = result,
+           error.retryOutsideRestrictedHost,
+           HostSandboxAdvice.hostIsRestricted(),
+           let handed = await SandboxHandoff.runInAppAfterPreflightFailure(request: request) {
+            result = .success(handed)
+        }
         switch result {
         case .failure(let error):
             AllnighterCLI.emitFailure(code: error.code, message: error.description)

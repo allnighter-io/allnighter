@@ -52,7 +52,6 @@ public struct HostSandboxAdvice: Equatable, Sendable {
     /// restarting — a restart would cost the user everything they were working on,
     /// which made this option look far cheaper than it was.
     public var retryCommand: String
-    public var appCommand: String
 
     /// Returns advice only when a restricted host is present AND a worker failed
     /// with one of the known signatures.
@@ -61,6 +60,18 @@ public struct HostSandboxAdvice: Equatable, Sendable {
     ///   classified fact from `CapacityClassifier`, not a string that a vendor can
     ///   reword in its next release. Inside a restricted host it means the sandbox
     ///   blocked sign-in, because the same tools authenticate fine outside it.
+    /// True when this process is running inside a host that restricts it.
+    ///
+    /// On its own this is NEVER grounds to skip a local run: a Codex session
+    /// launched with full access carries the same variable and works perfectly.
+    /// It is only usable once something has ALREADY failed, to decide whether the
+    /// app is worth trying — see the preflight-failure path in `RunCLI`.
+    public static func hostIsRestricted(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        environment["CODEX_SANDBOX"] != nil
+    }
+
     public static func detect(
         workerFailureText: [String],
         prompt: String,
@@ -75,36 +86,36 @@ public struct HostSandboxAdvice: Equatable, Sendable {
         }
         guard matchedText || capacityAuthRequired else { return nil }
 
-        var command = "alln run \"\(prompt.replacingOccurrences(of: "\"", with: "\\\""))\""
-        if let projectReference, !projectReference.isEmpty { command += " --project \(projectReference)" }
-        if let teamId, !teamId.isEmpty { command += " --team \(teamId)" }
-
         return HostSandboxAdvice(
             message: """
             Codex is running in its protected mode, which stops other apps from signing in. \
             Allnighter needs your AI tools to sign in before they can do any work, so this run \
             could not start here. Nothing is wrong with your setup, and nothing was changed.
             """,
-            retryCommand: "codex resume --last -c sandbox_mode=\"danger-full-access\"",
-            appCommand: command
+            retryCommand: "codex resume --last -c sandbox_mode=\"danger-full-access\""
         )
     }
 
     /// The whole disclosure as one warning body: what happened, that nothing is
-    /// broken, and the two ways forward with their blast radius stated. Carried on
-    /// the existing `warnings` channel (which already has a `code`) rather than by
-    /// widening the closed `NextAction.Kind` contract enum mid-Code-Red.
+    /// broken, and the ways forward with their blast radius stated.
+    ///
+    /// This used to open with "Open Allnighter and paste this in: <command>",
+    /// written when the hand-off did not exist. It does now — the CLI enqueues the
+    /// work and waits — so telling the user to paste the same command by hand
+    /// described a product that had been replaced, and contradicted the message
+    /// printed moments earlier saying the request had already been handed off.
     public var warningMessage: String {
         """
         \(message)
 
-        Two ways to continue:
+        Allnighter already handed this to the Mac app, which can start your tools,
+        and waited for the answer here. If you are reading this, the app did not
+        finish it — the line above this one says what was actually observed.
 
-          1. Let the Allnighter app run it for you
-             Open Allnighter and paste this in:
-                 \(appCommand)
-             You stay right here in Codex — the app just does the part Codex
-             can't, and the results come back to you.
+          1. If Allnighter is not open, open it
+             Nothing outside your terminal can start your AI tools while it is
+             closed. Then collect this run with:
+                 alln run resume <the run id printed above>
 
           2. Or run it here, in this same session
              Paste this in your terminal:

@@ -71,7 +71,7 @@ final class HostSandboxAdviceTests: XCTestCase {
             "not even the typed signal fires outside a restricted host")
     }
 
-    func testDetectsTheObservedSandboxFailureAndBuildsAPasteReadyCommand() throws {
+    func testDetectsTheObservedSandboxFailureAndExplainsItWithoutJargon() throws {
         let advice = try XCTUnwrap(HostSandboxAdvice.detect(
             workerFailureText: [codexSignature],
             prompt: "find the riskiest thing in this repo",
@@ -84,9 +84,6 @@ final class HostSandboxAdviceTests: XCTestCase {
         XCTAssertEqual(advice.retryCommand,
                        "codex resume --last -c sandbox_mode=\"danger-full-access\"")
         XCTAssertFalse(advice.warningMessage.contains("Start a new Codex session"))
-        XCTAssertEqual(
-            advice.appCommand,
-            "alln run \"find the riskiest thing in this repo\" --project /Users/me/Code/thing --team code_bug_hunt")
 
         // Plain language: no jargon a non-developer would have to look up.
         let body = advice.warningMessage
@@ -95,10 +92,18 @@ final class HostSandboxAdviceTests: XCTestCase {
         }
         XCTAssertTrue(body.contains("Nothing is wrong with your setup"))
         XCTAssertTrue(body.contains("nothing is lost"))
-        XCTAssertTrue(body.contains(advice.appCommand))
+        // The hand-off is AUTOMATIC now, so the body must not instruct the user to
+        // paste a command the CLI already ran for them — that described a product
+        // that had been replaced, and contradicted the "handed this to the app"
+        // message printed moments earlier.
+        XCTAssertFalse(body.contains("paste this in:"),
+                       "the hand-off is automatic; do not ask for a manual paste")
+        XCTAssertTrue(body.contains("already handed this to the Mac app"))
+        XCTAssertTrue(body.contains("alln run resume"),
+                      "the user must be told how to collect the run instead")
 
-        // The app hand-off leads, because it needs no permission change at all.
-        let appFirst = try XCTUnwrap(body.range(of: "1. Let the Allnighter app run it"))
+        // The option that changes no permissions still leads.
+        let appFirst = try XCTUnwrap(body.range(of: "1. If Allnighter is not open"))
         let flagSecond = try XCTUnwrap(body.range(of: "2. Or run it here"))
         XCTAssertTrue(appFirst.lowerBound < flagSecond.lowerBound,
                       "the option that changes no permissions must be offered first")

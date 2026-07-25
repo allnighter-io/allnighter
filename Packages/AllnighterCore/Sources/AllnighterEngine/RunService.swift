@@ -148,6 +148,24 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         }
     }
 
+    /// Whether a run that never STARTED is worth trying in the app instead.
+    ///
+    /// A preflight failure produces no worker answers, so the signature path can
+    /// never fire for it — this is the only signal available. Included: the
+    /// failures a restricted host plausibly CAUSES, because its probes cannot
+    /// authenticate. Excluded: failures the app would hit identically (a bad team
+    /// id), contention that a second attempt would double-book (locks and lanes),
+    /// and journal failures, since the mailbox lives in the same support root and
+    /// would fail too.
+    public var retryOutsideRestrictedHost: Bool {
+        switch self {
+        case .noWorker, .workerNotAvailable, .repoRootUnavailable:
+            return true
+        case .teamResolution, .writeLockBusy, .executionLaneBusy, .journalUnavailable:
+            return false
+        }
+    }
+
     public var code: String {
         switch self {
         case .repoRootUnavailable: return "NO_PROJECT_ROOT"

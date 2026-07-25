@@ -415,8 +415,23 @@ strings. The hand-off never fired, the run reported `partial / completed`, exite
   negative test asserts none of these fire in an ordinary terminal, where they
   mean exactly what they say.
 
-*Still open in this slice:* handing off on the `.failure` path (`RunCLI.swift:243`
-gates on `.success`), and the dual product story in `warningMessage`.
+**Both remaining halves done 2026-07-25.**
+
+- **The `.failure` path now hands off.** A run that never STARTED produces no
+  worker answers, so the signature path could never fire for it — and a sandbox is
+  perfectly capable of breaking resolution itself by denying the readiness probes.
+  `RunServiceError.retryOutsideRestrictedHost` classifies which preflight failures
+  are worth trying elsewhere: `noWorker`, `workerNotAvailable`,
+  `repoRootUnavailable` yes; a bad team id no (the app refuses identically),
+  lock/lane contention no (a second attempt double-books), journal failure no (the
+  mailbox is in the same support root). Being wrong costs one round trip, because
+  S1 returns the app's real error.
+- **The dual product story is gone.** `warningMessage` opened with "Open
+  Allnighter and paste this in: `<command>`" — written before the hand-off
+  existed. It contradicted the message printed moments earlier saying the request
+  had already been handed off. It now states what was observed and points at
+  `alln run resume`. `appCommand` was left referenced only by its own tests, so it
+  is deleted with the story it served.
 
 ### S9 — resolve Panel *(C4 — founder ruling, not an implementer's call)*
 

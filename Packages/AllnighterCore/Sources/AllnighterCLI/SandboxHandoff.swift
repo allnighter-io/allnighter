@@ -55,6 +55,18 @@ enum SandboxHandoff {
         return await handOff(request: request, spool: spool, runStore: runStore, clock: clock)
     }
 
+    /// Hand off a run that never started, so had no worker failure to detect.
+    /// The caller owns the decision (see `RunServiceError.retryOutsideRestrictedHost`);
+    /// this just does it.
+    static func runInAppAfterPreflightFailure(
+        request: RunRequest,
+        spool: SandboxHandoffSpool = SandboxHandoffSpool(),
+        runStore: RunStore = RunStore(),
+        clock: @Sendable () -> Date = Date.init
+    ) async -> TeamRun? {
+        await handOff(request: request, spool: spool, runStore: runStore, clock: clock)
+    }
+
     private static func handOff(
         request: RunRequest,
         spool: SandboxHandoffSpool,
