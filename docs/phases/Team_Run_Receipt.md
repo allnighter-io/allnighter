@@ -1,12 +1,12 @@
 # Team Run Receipt — gorgeous private report, deliberate share
 
-Status: **Ready for Implementation — TRR-S01.** Primary job = scannable,
-readable polished team **artifact** (like a great AI chat response, with
-phosphor status). Not a viral poster. S00b locked 2026-07-25 (`artifact`
-verb). TRR-S00 remains optional (growth packaging only).
+Status: **Ready for Implementation** (entire authorized phase — TRR-S00,
+S00b✓, S01, S01b, S01c, S03). Cut/unscheduled: S02 / S04 / S05.
+Primary job = scannable, readable polished team **artifact** (like a great AI
+chat response, with phosphor status). Not a viral poster.
 Owner: AllnighterCore (artifact projector) + CLI first; Mac Factory Floor as
 existing deep reader (not the artifact owner).
-Updated: 2026-07-25 (S00b closed — implementation ready)
+Updated: 2026-07-25 (full packet Ready — all authorized slices specified)
 Companions:
 - Mac deep reader: `FactoryFloorView` / `docs/phases/Live_Team_Board.md`
   (Factory Floor = full team result; thread keeps a compact cockpit receipt →
@@ -48,7 +48,7 @@ virality.** Mac/CLI win on running the next team; the artifact wins on
 | **Viral / X series = optional secondary** | ~90% of opens are private reading; founder series may use the same artifact later — it must not drive frame, truncation, or Works Tests |
 | **Measure before renderer (TRR-S00)** | May kill **growth packaging**; never the readable-finish product path (§Two theses) |
 | **Cut S02 / S04 / S05 as numbered slices** | Signing / hosted / Buzz — not needed for v1 reading |
-| **Defer branded export (old S03)** | md export already ships; styled export when asked |
+| **Branded export = TRR-S03 (authorized)** | md export already ships; styled HTML export is a Ready slice, demand-triggered after S01 |
 | **One projector, all teams** | Spec Review Max, tiny feature, Design three-up — same family; content-intrinsic height |
 
 ## Two theses (do not conflate)
@@ -107,9 +107,10 @@ alln run … completes (terminal TeamRunJSON exists)
   -> optional: OS screenshot or export only if they choose to share
 ```
 
-**Out of v1:** progressive “gorgeous at early paint” while seats fill — that
-needs live events and is a separate slice (deferred). Dry-run `seats[]` is not
-on `TeamRunJSON`; do not invent a live card from dry-run alone.
+**Out of S01:** progressive paint while seats fill — **TRR-S01c** (Ready;
+Mac live preview only). Dry-run `seats[]` is not on `TeamRunJSON`; do not
+invent a live artifact from dry-run alone. CLI `artifact show` stays
+terminal-only forever under this packet.
 
 ## Non-goals
 
@@ -129,8 +130,8 @@ on `TeamRunJSON`; do not invent a live card from dry-run alone.
 - **Not auto-detecting “dodged bullet” / disagreement as card schema fields**
   unless a sourced contract field exists — S00 may *annotate* hand cards;
   S01 must not paraphrase theater.
-- **Not replacing `alln floor show` / Factory Floor** with the decision receipt.
-- **Not Mac Floor above-the-fold embed in the first code slice.**
+- **Not replacing `alln floor show` / Factory Floor** with the team artifact.
+- **Not Mac Floor embed in S01** — that is **TRR-S01b** (Ready, after S01).
 - **Not designing primarily for virality / timeline crops.** Scanability and
   readability own the layout; share is a deliberate afterthought.
 
@@ -143,11 +144,13 @@ on `TeamRunJSON`; do not invent a live card from dry-run alone.
 | Seat timings / model ids | Built — `workers[]` + `workerAnswers[]` |
 | Gorgeous Mac Factory Floor | Built — deep reader (`FactoryFloorView`) |
 | Inspectable Floor CLI | Built — `alln floor show` (different surface) |
-| Polished team artifact HTML | **Missing — TRR-S01** |
-| CLI `artifact show` | **Missing — TRR-S01** |
-| Field ownership ledger for card | **Missing until §Card field ledger sticks** |
-| Measured “do real runs have a story?” | **Missing — TRR-S00** |
-| Signed crypto verify / hosted share | Deferred / cut for now |
+| Polished team artifact HTML | **Missing — TRR-S01** (spec Ready) |
+| CLI `artifact show` / `export` | **Missing — S01 / S03** (spec Ready) |
+| Field ownership ledger | **Locked** — §Card field ledger + §Must-specify |
+| Measured “do real runs have a story?” | **Missing — TRR-S00** (spec Ready; growth only) |
+| Floor “Open artifact” | **Missing — TRR-S01b** (spec Ready) |
+| Live progressive paint | **Missing — TRR-S01c** (spec Ready; Mac only) |
+| Signed crypto verify / hosted share | Cut / unscheduled |
 
 ## Privacy laws (still bind)
 
@@ -155,23 +158,25 @@ on `TeamRunJSON`; do not invent a live card from dry-run alone.
    Shares (and Share is not v1).
 2. **Signing and visibility are orthogonal** — when/if signing returns, it
    still never implies public.
-3. **v1 share mode:** OS screenshot of the local card (or copy path). File
-   export / hosted link only later and deliberate.
-4. **Honesty string on every card:** alln-attested multi-seat receipt — not
+3. **v1 share mode:** OS screenshot of the local artifact (or copy path).
+   Styled file export is **TRR-S03**; hosted link remains unscheduled.
+4. **Honesty string on every artifact:** exact
+   `alln-attested multi-seat artifact · not vendor-signed` — not
    “Claude cryptographically signed this.”
-5. **Card content is lean by construction** — question, one-liners, timings,
+5. **Artifact content is lean by construction** — question, one-liners, timings,
    call — so casual screenshots don’t dump full prompts/seat bodies. Full
-   bodies stay on Factory Floor / `team result` / `floor show`.
+   bodies stay on Factory Floor / `team result` / `floor show` (craft body on
+   the artifact is intentional for reading; seat one-liners stay truncated).
 6. **Reproduce-line elision.** `reproduceCommand` embeds the full prompt
-   verbatim — printing it raw in the footer can violate lean-card privacy on
-   every screenshot. Elide past N chars with a marked ellipsis, or show an
-   id-based replay pointer (`alln run … --run-id …` shape TBD in S00b). Hard
-   cap the **question line** separately; when `promptSource` is file/stdin or
-   bodies were inlined via `@`, never dump the file into the card.
+   verbatim — printing it raw in the footer can violate lean privacy on
+   every screenshot. Elide past **96** chars with a marked ellipsis + run id
+   micro-line (§Must-specify). Hard cap the **question line** at 120; when
+   `promptSource` is file/stdin or bodies were inlined via `@`, never dump the
+   file into the artifact.
 ## Truth owner
 
 - **Run truth:** existing `TeamRun` / `TeamRunJSON` (unchanged).
-- **Card / receipt document:** deterministic projection from run truth. Must
+- **Team artifact document:** deterministic projection from run truth. Must
   not invent seat text the run did not store. Truncation must be marked.
 - **Share/ACL (if ever):** explicit share store — never inferred.
 - **Not owners:** SwiftUI, prompt prose, hand-edited HTML without regenerating
@@ -189,10 +194,10 @@ on `TeamRunJSON`; do not invent a live card from dry-run alone.
   never a correctness or judgment claim (`TeamRunJSON.Outcome` docs).
 - Teaching `team open` / “receipt” as if it were `floor show`.
 
-## Card field ledger (must stick before S01 code)
+## Card field ledger (LOCKED — S01 law)
 
-Every card field needs a `TeamRunJSON` (or constant) owner. No owner → not on
-the card in S01.
+Every artifact field needs a `TeamRunJSON` (or constant) owner. No owner → not
+on the artifact in S01.
 
 | Card field | Owner | Rule |
 | --- | --- | --- |
@@ -222,42 +227,133 @@ not two content truths.
 teams. Typed per-seat verdict / decision-delta fields are a **v2** path gated
 on a real contract slice — not S01. LLM-summarized one-liners are rejected
 (violates truth-owner law).
-## Suggested slices (authorized shape; schedule separately)
+## Authorized slices (Ready for Implementation)
 
-| ID | Slice | Done when |
-| --- | --- | --- |
-| **TRR-S00** | Measure + hand-render (**optional**, growth only) | Fixed N (~20) multi-seat hero runs; rubric (a)(b)(c); hand-build ~3 artifacts. Does **not** block S01. |
-| **TRR-S00b** | Lock open specs (doc-only) | **DONE 2026-07-25** — §Must-specify closed; verb = `artifact`. |
-| **TRR-S01** | Terminal artifact + CLI | Projector + `alln artifact show`; fields per ledger; substring truth test + negative fixtures with projector; visual proof desktop+mobile; private; reproduce elision + honesty. **No early-paint / live fill.** |
-| **TRR-S01b** | (later) Mac Floor optional embed | Same projector linked from Floor — after S01 CLI WOW. |
-| **TRR-S01c** | (later) Progressive paint | Live/status contract; not S01. |
-| **TRR-S03** | (later) Branded/styled export | md export already ships; branded HTML export on demand. |
-| ~~TRR-S02~~ | **Cut** — crypto sign/verify | Honesty string + reproduce; “certified” is a future property, not v1 verb. |
-| ~~TRR-S04~~ / ~~S05~~ | **Unscheduled** | Hosted link / Buzz helper |
+Execution order (do not reorder without founder):
+
+1. **TRR-S01** — core product (CLI artifact). May start immediately.
+2. **TRR-S00** — growth measure. Does **not** block S01; run before claiming
+   growth packaging / founder series success.
+3. **TRR-S01b** — after S01 Works Test green.
+4. **TRR-S01c** — after S01 Works Test green (and Live Team Board events already
+   emit `workerAnswerDelta` / status — they do; see Live_Team_Board).
+5. **TRR-S03** — after S01; ship when local demand counter ≥1 ask **or** founder
+   requests (whichever first). Spec is Ready so implementers do not invent.
+6. ~~S02 / S04 / S05~~ — cut / unscheduled (no work orders).
 
 ### Slice-order risks (named)
 
 1. ~~S01 before S00b~~ — **cleared.**
-2. **S01 bundles live paint** → couples to Live Team Board streaming gaps.
-3. **Mac embed in S01** → GUI drag before CLI Works Test.
+2. **S01 bundles live paint** → forbidden; that is S01c only.
+3. **Mac embed in S01** → forbidden; that is S01b only.
 4. **Growth kill misread as product kill** → orphan CLI finish forever.
 5. **Teaching drift** — must distinguish `artifact show` vs `floor show` vs
    `team result` vs `export` vs `continuity receipt`.
 
-## Blockers before TRR-S01 code
+### Doc blockers
 
-1. ~~TRR-S00~~ — **not a product blocker** (growth optional).
-2. ~~TRR-S00b~~ — **closed** (this revision).
-3. ~~Must-specify blanks~~ — **closed.**
-4. ContractRegistry entry + `contractVersion` bump + `docs/generated/alln/*`
-   regen — **expected in S01**, budgeted (not a doc blocker).
-5. Teaching topic + help search terms — **land in same S01 PR** (Feature
-   Workflow teaching-surface rule).
-6. No new *run* schema — projection only; new CLI verb is the contract slice.
-7. Design authority + proof route — **named** (§Design authority / §Proof).
-8. Run-status precondition — **locked** below (`RUN_NOT_TERMINAL`).
+**None.** All Must-specify locks closed. ContractRegistry + teaching + version
+bump land **inside** the S01 PR (budgeted work, not open design).
 
-**No remaining founder decisions block S01.** Implementer locks below are law.
+---
+
+### TRR-S00b — Lock open specs (DONE)
+
+| | |
+| --- | --- |
+| **Status** | Done 2026-07-25 |
+| **Owner** | Docs only |
+| **Done when** | §Must-specify closed; verb = `artifact` — **met** |
+
+---
+
+### TRR-S01 — Terminal HTML artifact + CLI (core)
+
+| Field | Spec |
+| --- | --- |
+| **Status** | Ready for Implementation |
+| **Truth owner** | `TeamRun` / `TeamRunJSON` (+ optional `lead-call` fence in Lead markdown). New code: `ArtifactProjector` (name may match repo convention) projecting to HTML under the run journal. |
+| **Lie-prone layers** | HTML that invents seats/call/status; CLI that opens non-terminal runs; teaching that conflates artifact with Floor / continuity receipt / export |
+| **CLI** | `alln artifact show <run-id\|latest> [--no-open] [--json]` — exit 0 + print absolute path to `artifact/index.html`; default open in OS browser; `--json` → path + run id + honesty string only (no HTML body). Fail closed `RUN_NOT_TERMINAL` for non-terminal. |
+| **Contract** | Register `artifact.show` in `ContractRegistry`; bump `contractVersion` off pinned `4.0.2`; regen `docs/generated/alln/*`. |
+| **Teaching** | Help topic `artifact`; search terms: report, card, receipt, team artifact → this command; deny teaching `receipt show` as this feature; note continuity `receipt` is unrelated. |
+| **Model / package** | AllnighterCore projector + AllnighterEngine CLI command. Share seat-set helper with `FloorProjector` (anti-drift unit test). Design-system: add `WorkerChip` compact (+ dot pill) in `tokens`/`components` **before or with** this slice — no one-off CSS in the projector. |
+| **Mac / iOS** | **None in S01.** No Floor button, no SwiftUI HTML webview required. |
+| **Auth / privacy** | File stays under run journal (user home / Allnighter data); never uploaded; no third-party host. |
+| **Non-goals (this slice)** | Live progressive paint; Floor embed; branded export path picker; signing; Buzz. |
+| **Works Test** | Terminal multi-seat team run → `alln artifact show <id>` opens private HTML; Lead Call (or fallback call rules) + seats per ledger; honesty exact; reproduce elision; failed seats visible; substring truth test (fixture TeamRunJSON → HTML contains only declared strings); negative fixtures (non-terminal → `RUN_NOT_TERMINAL`); visual: layout-watcher or recorded waiver for desktop ≥1280 and mobile ≤430 + G13. |
+| **User gesture** | After any terminal team run: `alln artifact show latest` |
+| **Proof command** | See §Proof command |
+| **Done when** | CLI Works Test green; ContractRegistry + generated docs + help topic shipped; G1–G13 honored; no Mac/iOS change required |
+
+---
+
+### TRR-S00 — Measure + hand-render (growth packaging)
+
+| Field | Spec |
+| --- | --- |
+| **Status** | Ready for Implementation (growth thesis only — does not block S01) |
+| **Truth owner** | Founder scorecard doc/notes (not product runtime). Hand HTML is throwaway; must not become the projector. |
+| **Purpose** | Decide whether founder **growth series / packaging** is worth effort — **not** whether the product artifact ships. |
+| **Method** | 1. Collect fixed **N = 20** recent multi-seat terminal hero-ish runs (`outputKind` plan/review preferred). 2. Score each against rubric classes (a) disagreement-with-a-call (b) consensus-with-a-call (c) lead-vs-seat reversal — count how many would make a stranger-worthy screenshot **for a growth series**. 3. Hand-build **3** HTML artifacts using design tokens (no projector code required) from the best stories. 4. Founder pass/fail: “would I post or show this.” |
+| **Kill condition** | If fewer than **3**/20 score as stranger-worthy **for series** → kill growth packaging / series ambition; **keep S01 product path**. |
+| **CLI / Mac / contract** | None. |
+| **Works Test** | Scorecard exists with N=20 rows + 3 hand files linked; founder written disposition (kill growth packaging \| proceed with optional series). |
+| **Done when** | Disposition recorded in this packet’s review log or a one-line addendum under this slice. |
+
+---
+
+### TRR-S01b — Mac Floor optional embed
+
+| Field | Spec |
+| --- | --- |
+| **Status** | Ready for Implementation (after S01 green) |
+| **Truth owner** | Same `ArtifactProjector` as S01 — Floor must not re-implement HTML mapping. |
+| **Lie-prone** | Floor inventing a second HTML layout; WebView loading a path Floor did not regenerate from current `TeamRun`. |
+| **CLI** | Unchanged. Optional: `alln floor show` teaching cross-link “Open artifact: `alln artifact show <id>`”. |
+| **Mac** | On Factory Floor for a **terminal** run: control **“Open artifact”** that (1) ensures `artifact/index.html` is regenerated via the shared projector (2) opens via `NSWorkspace` / default browser (same as CLI). Prefer open-in-browser over in-app WebKit unless GUI_Workflow later authorizes an in-app reader. |
+| **iOS** | None (GUI §5 — no shared SwiftUI). |
+| **Works Test** | Terminal run visible on Floor → Open artifact → same HTML bytes (or regenerable equivalent) as `alln artifact show --no-open` path for that run id. |
+| **Done when** | Floor control ships; no duplicate field ledger in Mac target; Works Test green. |
+
+---
+
+### TRR-S01c — Progressive / live paint
+
+| Field | Spec |
+| --- | --- |
+| **Status** | Ready for Implementation (after S01 green) |
+| **Truth owner** | Live: `RunEvent` stream (`workerStatusChanged`, `workerAnswerDelta`) — same owners as Live_Team_Board. Settled: still `TeamRunJSON` via ArtifactProjector. |
+| **Product** | While a team run is **running**, a live artifact preview may update seat chips (status + duration) and one-liner from answer deltas. **Settled card rules (G5 zero glow) do not apply to the live preview** — live may use board motion; on terminalization, rewrite via S01 projector (zero glow). |
+| **CLI** | `alln artifact show` on non-terminal remains **fail closed** (`RUN_NOT_TERMINAL`). Live paint is **Mac-only** (or a future `artifact watch` — **not** authorized in this slice). Do not weaken the CLI terminal precondition. |
+| **Mac** | Optional live panel or Floor-adjacent preview fed by existing board events; on run terminal → replace with settled artifact regenerate. |
+| **Non-goals** | Inventing new RunEvent kinds; changing RunService; CLI live HTML. |
+| **Works Test** | Start multi-seat run in Mac → live preview shows seat status transitions without inventing answers → on done, settled artifact matches S01 honesty rules. |
+| **Done when** | Live preview uses board events only; CLI still refuses non-terminal; settled path unchanged. |
+
+---
+
+### TRR-S03 — Branded / styled export
+
+| Field | Spec |
+| --- | --- |
+| **Status** | Ready for Implementation (after S01; ship on demand) |
+| **Truth owner** | Same ArtifactProjector HTML. Export = copy/regenerate to a **user-chosen path**, not a second layout. |
+| **CLI** | `alln artifact export <run-id\|latest> --out <path>` — writes self-contained HTML (inline or sibling token CSS per implementer choice; must remain readable offline). Exit non-zero if run non-terminal. Does **not** replace `alln export --format md`. |
+| **Contract** | Register `artifact.export`; teaching distinguishes `artifact export` (styled HTML) vs `export` (md/json). |
+| **Mac** | Optional “Export artifact…” save panel calling the same Core export API. |
+| **Demand gate** | Implement when founder asks **or** ≥1 real user ask is logged; spec is Ready so no redesign stall. |
+| **Works Test** | `artifact export` → file opens offline; content matches `artifact show --no-open` body for same run; md `export` unchanged. |
+| **Done when** | Command + teaching + one offline open proof. |
+
+---
+
+### Cut / unscheduled (no work orders)
+
+| ID | Disposition |
+| --- | --- |
+| ~~TRR-S02~~ | Cut — crypto sign/verify. Honesty string + reproduce. “Certified” = future property. |
+| ~~TRR-S04~~ / ~~S05~~ | Unscheduled — hosted link / Buzz helper. |
 
 ## Must-specify (S00b — LOCKED)
 
@@ -276,7 +372,9 @@ on a real contract slice — not S01. LLM-summarized one-liners are rejected
 | Run-status errors | Non-terminal (running/cancelled/parked/missing) → fail closed, error code **`RUN_NOT_TERMINAL`** (prior art), non-zero exit. Failed/timedOut/done terminal runs still show (failed seats visible). |
 | ContractRegistry | New command `artifact.show`; flags: run id / `latest`, `--no-open`, `--json` (path + metadata only in v1). Bump `contractVersion` off pinned `4.0.2`; regen generated docs; help topic `artifact` + search hits for report/card/receipt synonyms → this command. |
 | Non-hero teams | Same projector, simpler chrome |
-| Mac Floor embed | Deferred S01b |
+| Mac Floor embed | **TRR-S01b** (Ready) — same projector; Open artifact from Floor |
+| Progressive paint | **TRR-S01c** (Ready) — Mac live preview only; CLI stays terminal-only |
+| Branded export | **TRR-S03** (Ready) — `alln artifact export --out` |
 | Design-system compact chip | Add `WorkerChip` compact (+ dot pill) in design tokens/components **before or with** S01 — no one-off projector CSS |
 | Visual proof | S01: layout-watcher at desktop ≥1280 and mobile ≤430 + G13; HTML gate extension **or** recorded waiver in `WAIVERS.manifest` — implementer picks cheaper path that still proves both viewports |
 
@@ -424,9 +522,6 @@ Grade as a **reading document**, not a feed thumbnail:
 
 ## Works Test
 
-**S00:** Optional growth gate — Fixed-N story counts + hand-renders; does not
-block S01.
-
 **S00b:** **DONE** — Must-specify locked; verb = `artifact`.
 
 **S01:** Terminal CLI team run → `alln artifact show` opens the artifact
@@ -434,7 +529,16 @@ without Mac app; private; reproduce elided; honesty exact; ledger/substring
 honesty; truncation marked; failed seats visible; **desktop + mobile
 scanability** passes; **G13** checks pass. Long bodies allowed.
 
-**S01b+ / S03+:** waived until scheduled.
+**S00:** N=20 scorecard + 3 hand-renders + founder disposition on growth
+packaging (does not gate S01).
+
+**S01b:** Floor “Open artifact” → same regenerable HTML as CLI for that run.
+
+**S01c:** Mac live preview tracks board events; on terminal, settled artifact
+matches S01; CLI still `RUN_NOT_TERMINAL` while running.
+
+**S03:** `alln artifact export --out` offline-readable; matches show body;
+`alln export --format md` unchanged.
 
 ## Proof command
 
@@ -443,22 +547,23 @@ alln team result <run-id> --json   # existing truth
 alln floor show <run-id>           # existing deep Floor (not the artifact)
 alln artifact show <run-id>        # team artifact (S01)
 alln artifact show latest --no-open
+alln artifact export <run-id> --out /tmp/team-artifact.html   # S03
 ```
 
-## Done when (near-term)
+## Done when (phase)
 
 - ~~S00b~~ — **done.**
-- CLI-first users can open a private team artifact for any terminal team run.
-- Privacy default holds; reproduce elision holds; no crypto-verify theater.
-- Factory Floor, thread compact card, and team artifact share one projector
-  family over `TeamRunJSON` + shared seat-set helper.
-- Teaching distinguishes artifact vs floor vs team result vs export.
-- Buzz/Nostr/hosted / “certified” remain optional non-blockers.
+- **S01** — CLI-first users open a private team artifact for any terminal team
+  run; privacy + honesty + reproduce elision; teaching distinguishes surfaces.
+- **S00** — growth disposition recorded (kill packaging or proceed).
+- **S01b** — Floor opens the same projector artifact.
+- **S01c** — optional live Mac preview without weakening CLI terminal gate.
+- **S03** — styled HTML export on demand, same projector.
+- Buzz/Nostr/hosted / “certified” remain optional non-blockers (no slices).
 
 ## Open questions
 
-**None blocking S01.** Optional later: TRR-S00 growth measure; S01b Floor
-embed; certified/signed property; branded export.
+**None.** Entire authorized phase is Ready for Implementation.
 
 ## Relationship to Buzz
 
@@ -470,55 +575,41 @@ numbered Buzz slice until the card exists and S00/S01 earned it.
 
 ### Keep
 
-- Hero = screenshot-native decision card (§Growth reshaping).
+- Hero = polished scannable artifact (readability-first; virality secondary).
 - Verification = `reproduceCommand`; cut crypto S02.
-- Private by default; OS screenshot as v1 share.
-- S00 measure-before-renderer for **growth**.
-- Cut/unschedule S02 / S04 / S05; defer S03 until asked.
-- One projector family; hero-optimize Spec Review + Growth visuals first.
+- Private by default; OS screenshot as v1 share path.
+- S00 measure-before-renderer for **growth packaging only**.
+- Cut/unschedule S02 / S04 / S05; **S03 authorized** as Ready export slice.
+- One projector family; content-intrinsic HTML.
 - Non-goals: no Buzz marriage, no RunService grammar change, no PDF.
-- Buzz spike deferred behind card (`Buzz_Harness_Spike.md`).
+- Buzz spike deferred behind artifact (`Buzz_Harness_Spike.md`).
 
-### Change
+### Change (applied — historical)
 
-- **S00 kill scope** → growth thesis / series priority only; not the product
-  card when seats agree (§Two theses). Rubric also counts consensus-with-a-call
-  and lead-vs-seat reversals — not disagreement-only.
-- **S01 shrink** → terminal-only; drop early-paint / dry-run `seats[]` fill
-  from S01 (§Trusted workflow; TRR-S01c deferred).
-- **Add TRR-S00b** → close Must-specify + ContractRegistry draft before any
-  renderer code.
-- **Surface ownership** → name Floor / thread / decision card / export /
-  `team result` as distinct surfaces (`Live_Team_Board.md` §Done When).
-- **CLI verb lean** → `card show`; **reject `receipt show`** (collides with
-  `alln continuity receipt`).
-- **Team call** → `answer.markdown` only; no `outcome.headline`; no dead
-  `plan.markdown` fallback (Law 2).
-- **Hero keying** → `outputKind`, not exact preset-id allowlist.
-- **Reproduce line** → elision rule (Privacy law 6); “replay path” not
-  “install path.”
-- **S03** → branded/styled export; plain md export already ships.
-- **phases/README** router copy updated in this harden (was “signed receipt”).
+- S00 kill scope → growth only (§Two theses).
+- S01 = terminal-only; live paint = S01c; Floor embed = S01b.
+- S00b closed Must-specify; verb = **`artifact`** (not `card` / not
+  `receipt show`).
+- Surface ownership table; Law-2 call/one-liner rules; `outputKind` hero keying;
+  reproduce elision; G1–G13 design locks; dual viewport.
 
 ### Cut
 
-- Progressive “gorgeous at early paint” from S01 scope.
-- Auto “dodged bullet” / disagreement as first-class card fields without a
-  contract owner (`Contradiction_Pass` / `PlanAnalysis` not near-term).
-- Implicit kill of the whole feature when S00 finds consensus runs.
-- Bundling Mac Floor embed into first code slice.
-- ~2-day budget claim until S00b closes.
-- `receipt show` as verb candidate.
-- LLM-written one-liners/headlines in v1.
+- Progressive paint from S01; Mac embed from S01; crypto verify; LLM one-liners;
+  fixed 16:9 poster; `receipt show` verb.
 
-### Must-specify (blocking)
+### Must-specify
 
-- CLI verb `card show` + ContractRegistry + teaching surface + version bump.
-- Render medium (HTML + tokens) + on-disk path.
-- Seat-set rule shared with Floor; one-liner + team-call rules (ledger).
-- Exact honesty string; reproduce elision N.
-- `outputKind` hero mapping; run-status precondition.
-- S00 measurement rubric (three story classes) + visual proof route.
+**Closed** — see §Must-specify (S00b — LOCKED). Stale “card show” lean from the
+2026-07-25 Spec Review log is superseded by `artifact`.
+
+## Finalization note (2026-07-25)
+
+No further Spec Review required for this packet. Prior Growth Min, Spec Review
+Min, Lead Call schema, and design-taste runs plus founder locks already closed
+every authorized slice. Remaining work was **writing full Ready work orders**
+for S00 / S01b / S01c / S03 (not re-judging product). Code starts at **TRR-S01**.
+
 ## Growth Min review (done)
 
 | | |
