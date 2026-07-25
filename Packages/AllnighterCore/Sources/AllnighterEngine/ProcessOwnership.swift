@@ -603,7 +603,9 @@ public enum ProcessOwnership {
     ///
     /// - Identity-alive + `lastProgressAt` within `stallBudgetSeconds` → `.progressing`
     ///   (NEVER classify stalled / never reap for silence alone).
-    /// - Identity-alive + progress frozen past the budget (or never recorded) → `.stalled`.
+    /// - Identity-alive + progress frozen past the budget (or never recorded) → `.stalled`
+    ///   (detect/surface only after IDLE-HF-S04 — the runner does not reap here; wall is
+    ///   the hard stop for identity-alive owners).
     /// - Identity-dead → `.identityDead` (existing S02 reconcile path; not the progress watchdog).
     public enum ProgressStallVerdict: String, Sendable, Equatable {
         case progressing

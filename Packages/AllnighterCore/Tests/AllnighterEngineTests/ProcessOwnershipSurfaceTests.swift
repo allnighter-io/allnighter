@@ -133,6 +133,8 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
         XCTAssertEqual(alive.projectRoot, "/tmp/repo")
         XCTAssertNotNil(alive.lastProgressAt)
         XCTAssertNotNil(alive.heartbeatAgeSeconds)
+        XCTAssertNotNil(alive.silenceStatus)
+        XCTAssertTrue(alive.silenceStatus?.hasPrefix("alive, no stream for") == true)
         XCTAssertEqual(alive.identity?.kind, "detachedRunner")
 
         let dead = try XCTUnwrap(byId["run-dead"])

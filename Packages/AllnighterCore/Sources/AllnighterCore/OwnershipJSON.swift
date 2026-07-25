@@ -74,6 +74,10 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
     /// terminal journal coexists with a still identity-alive retained member.
     /// Derived — never a stored boolean.
     public var contradiction: String?
+    /// Human-readable silence line when identity-alive (IDLE-HF-S04), e.g.
+    /// `alive, no stream for 120s`. Derived from `lastProgressAt` / age — nil
+    /// when not identity-alive.
+    public var silenceStatus: String?
 
     public init(
         id: String,
@@ -95,7 +99,8 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
         wakeAfter: Date? = nil,
         capacityObservation: CapacityObservation? = nil,
         killOutcome: String? = nil,
-        contradiction: String? = nil
+        contradiction: String? = nil,
+        silenceStatus: String? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -117,6 +122,7 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
         self.capacityObservation = capacityObservation
         self.killOutcome = killOutcome
         self.contradiction = contradiction
+        self.silenceStatus = silenceStatus
     }
 }
 

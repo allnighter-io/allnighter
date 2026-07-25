@@ -181,7 +181,7 @@ final class ProcessOwnershipProgressStallTests: XCTestCase {
 
     // MARK: - Works test: progress frozen → reaped (timeout → stall endReason path)
 
-    func testFrozenProgressIsReapedWithTimeout() async throws {
+    func testFrozenProgressIsReapedAtWallNotIdle() async throws {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("po-f1-frozen-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -191,8 +191,9 @@ final class ProcessOwnershipProgressStallTests: XCTestCase {
         defer { ProcessOwnership.TurnOwnerDirectory.shared.set(nil) }
 
         let stallBudget: Duration = .seconds(1)
+        let wallBudget: Duration = .seconds(4)
         let runner = ProcessGroupCommandRunner(
-            budget: SubprocessBudget(totalDuration: .seconds(30), maxBufferedBytes: 1_000_000)
+            budget: SubprocessBudget(totalDuration: wallBudget, maxBufferedBytes: 1_000_000)
         )
 
         let start = Date()
@@ -219,15 +220,12 @@ final class ProcessOwnershipProgressStallTests: XCTestCase {
 
         let elapsed = Date().timeIntervalSince(start)
         guard case .timedOut? = terminal else {
-            return XCTFail("expected timedOut when progress freezes past budget, got \(String(describing: terminal))")
+            return XCTFail(
+                "identity-alive frozen progress must be reaped at wall, not idle; got \(String(describing: terminal))"
+            )
         }
-        XCTAssertLessThan(elapsed, 8, "frozen progress must be reaped near the stall budget, not the full sleep")
-        XCTAssertGreaterThanOrEqual(elapsed, 0.8, "must wait roughly the stall budget before reaping")
-
-        // Relay maps timedOut → .stalled → endReason stalled (see RelayTurnClassifier +
-        // existing ProcessOwnershipTurnKillTests.testDevTurnStalledBudgetStampsEndReason).
-        let outcome = WorkerRunOutcome(status: .timedOut, errorKind: .timedOut, errorReason: "progress stalled")
-        XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .stalled)
+        XCTAssertGreaterThan(elapsed, 2.5, "must survive past the idle stall budget")
+        XCTAssertLessThan(elapsed, 10, "must reap near the wall backstop, not the full sleep")
     }
 
     // MARK: - Spawn records durable progress into the turn directory

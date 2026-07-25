@@ -213,6 +213,12 @@
             "null"
           ]
         },
+        "silenceStatus" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "status" : {
           "type" : [
             "string",

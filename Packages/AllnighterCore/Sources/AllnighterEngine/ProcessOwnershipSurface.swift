@@ -81,6 +81,9 @@ public struct ProcessOwnershipSurface: Sendable {
                 pad(p.id, 28) + pad(p.kind, 8) + pad(alive, 7)
                     + pad(reap, 11) + pad(end, 18) + pad(age, 10) + root
             )
+            if let silence = p.silenceStatus {
+                lines.append("  \(silence)")
+            }
             if p.phase == RunPhase.waitingForVendor.rawValue,
                let vendor = p.vendorDisplayName {
                 lines.append("  " + VendorContinuityPresentation.waitStatus(
@@ -217,7 +220,12 @@ public struct ProcessOwnershipSurface: Sendable {
                 wakeAfter: vendorBlocker?.wakeAfter,
                 capacityObservation: vendorBlocker?.capacityObservation,
                 killOutcome: run.killOutcome?.rawValue,
-                contradiction: contradiction
+                contradiction: contradiction,
+                silenceStatus: OwnershipSilencePresentation.silenceStatusLine(
+                    identityAlive: alive || anyWorkerAlive,
+                    lastProgressAt: last,
+                    now: now
+                )
             ))
             // RLR-S04a: surface each recorded worker `runtimeOwnership` receipt
             // (zombie-aware identity-alive) so the recorded worker tree is visible
@@ -322,6 +330,9 @@ public struct ProcessOwnershipSurface: Sendable {
             let would = relay.status == .running && relayStore.isOwnerDead(id: relay.id)
             let last = ProcessOwnership.lastProgressAt(in: dir)
             let age = last.map { now.timeIntervalSince($0) }
+            let stale = (terminal || relay.status != .running)
+                ? nil
+                : ProcessOwnership.isProgressStale(in: dir, now: now)
             let endReason: String?
             if let stamped = relay.rounds.last?.devTurnEndReason {
                 endReason = stamped.rawValue
@@ -349,8 +360,14 @@ public struct ProcessOwnershipSurface: Sendable {
                     },
                 lastProgressAt: last,
                 heartbeatAgeSeconds: age,
+                progressStale: stale,
                 endReason: endReason,
-                status: relay.status.rawValue
+                status: relay.status.rawValue,
+                silenceStatus: OwnershipSilencePresentation.silenceStatusLine(
+                    identityAlive: alive,
+                    lastProgressAt: last,
+                    now: now
+                )
             )
         }
     }

@@ -82,6 +82,15 @@ Flags:
 
 Output schema: `handoffDoctorJSON`.
 
+### `alln doctor silence`
+
+Mine run journals for idle-timeout (`timeoutKind: idle`) events into per-driver silence-duration histograms. Read-only telemetry for IDLE-HF floor decisions; spends no quota.
+
+Flags:
+- `--json` — Structured RunJournalSilenceTelemetry.Report.
+
+Output schema: `idleSilenceReportJSON`.
+
 ### `alln bootstrap`
 
 Print a paste-ready agent-activation snippet for a host's context file (never edits files).

@@ -713,6 +713,7 @@ public enum ContractSchema {
                 // RLR-S04c: additive killOutcome + read-time contradiction.
                 "killOutcome": nullableEnum(["stopped", "partial", "refused", "verificationUnavailable"]),
                 "contradiction": nullableEnum(["terminalWithLiveOwnership"]),
+                "silenceStatus": nullable("string"),
             ], required: [
                 "id", "kind", "identityAlive", "wouldReconcile",
             ]),

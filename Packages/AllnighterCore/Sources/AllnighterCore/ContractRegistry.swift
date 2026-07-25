@@ -131,6 +131,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case helpSearchJSON, helpGetJSON, helpTopicsJSON
         case errorExplainJSON
         case handoffDoctorJSON
+        case idleSilenceReportJSON
         case stallEpisodeJSON
         case pendingQueueJSON
         case relayJSON

@@ -87,6 +87,13 @@ public extension ContractRegistry {
             outputSchema: .handoffDoctorJSON
         ),
         CommandSpec(
+            "doctor silence",
+            summary: "Mine run journals for idle-timeout (`timeoutKind: idle`) events into per-driver silence-duration histograms. Read-only telemetry for IDLE-HF floor decisions; spends no quota.",
+            milestone: .m1,
+            flags: [FlagSpec("json", summary: "Structured RunJournalSilenceTelemetry.Report.")],
+            outputSchema: .idleSilenceReportJSON
+        ),
+        CommandSpec(
             "bootstrap", summary: "Print a paste-ready agent-activation snippet for a host's context file (never edits files).", milestone: .m1,
             flags: [
                 FlagSpec("host", takesValue: true, valueType: "host", summary: "claude | cursor | codex | generic (default generic)."),

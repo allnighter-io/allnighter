@@ -178,6 +178,9 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     /// Read-time contradiction (RLR-S04c). `terminalWithLiveOwnership` when a
     /// terminal journal coexists with a still identity-alive retained member.
     public var contradiction: String?
+    /// Human-readable silence when identity-alive (IDLE-HF-S04), e.g.
+    /// `alive, no stream for 120s`.
+    public var silenceStatus: String?
     /// Agent next step after status / wait (PO-F3). Always set on wait-for
     /// returns; optional on plain status for forward compatibility.
     public var nextAction: AsyncTeamNextAction?
@@ -205,6 +208,7 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         progressStale: Bool? = nil,
         killOutcome: String? = nil,
         contradiction: String? = nil,
+        silenceStatus: String? = nil,
         nextAction: AsyncTeamNextAction? = nil,
         waitHintSeconds: Double? = nil
     ) {
@@ -227,6 +231,7 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         self.progressStale = progressStale
         self.killOutcome = killOutcome
         self.contradiction = contradiction
+        self.silenceStatus = silenceStatus
         self.nextAction = nextAction
         self.waitHintSeconds = waitHintSeconds
     }

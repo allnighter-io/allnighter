@@ -36,6 +36,7 @@ struct AllnighterCLI {
         switch command {
         case "doctor" where args.first == "explain": runDoctorExplain(Array(args.dropFirst()))
         case "doctor" where args.first == "handoff": await runDoctorHandoff(Array(args.dropFirst()))
+        case "doctor" where args.first == "silence": runDoctorSilence(Array(args.dropFirst()))
         case "serve": await runServe(args)
         default:
             let runtime = ToolRuntime()
@@ -1600,6 +1601,24 @@ struct AllnighterCLI {
             print("check id: \(report.runId)")
         }
         if !report.isHealthy { exit(1) }
+    }
+
+    /// `alln doctor silence [--json]` — mine run journals for idle-timeout histograms
+    /// (IDLE-HF-S04 telemetry). Read-only; spends no quota.
+    static func runDoctorSilence(_ args: [String]) {
+        let opts = Options(args)
+        let report = RunJournalSilenceTelemetry.mine(runStore: RunStore())
+        if opts.flag("json") {
+            print(jsonString(report))
+        } else {
+            print("idle timeouts: \(report.idleTimeoutCount) / \(report.scannedRuns) scanned runs")
+            for driver in report.byDriver {
+                print("\(driver.driverId): \(driver.idleTimeoutCount)")
+                for bucket in driver.buckets {
+                    print("  \(bucket.label): \(bucket.count)")
+                }
+            }
+        }
     }
 
     static func runDoctorExplain(_ args: [String]) {

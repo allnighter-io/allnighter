@@ -282,6 +282,41 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured RunJournalSilenceTelemetry.Report.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "doctor silence",
+      "outputSchema" : "idleSilenceReportJSON",
+      "spendsQuota" : false,
+      "summary" : "Mine run journals for idle-timeout (`timeoutKind: idle`) events into per-driver silence-duration histograms. Read-only telemetry for IDLE-HF floor decisions; spends no quota.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
         "bootstrap_json"
       ],
       "flagConstraints" : [

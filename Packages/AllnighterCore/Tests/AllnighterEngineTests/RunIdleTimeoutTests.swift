@@ -199,10 +199,11 @@ final class RunIdleTimeoutTests: XCTestCase {
         XCTAssertFalse(result.stdout.isEmpty, "tool-call lines should be captured")
     }
 
-    func testTotalSilencePastIdleBudgetTimesOut() async throws {
+    func testTotalSilencePastIdleBudgetIsReapedAtWallNotIdle() async throws {
         let stallBudget: Duration = .seconds(1)
+        let wallBudget: Duration = .seconds(4)
         let runner = ProcessGroupCommandRunner(
-            budget: SubprocessBudget(totalDuration: .seconds(30), maxBufferedBytes: 1_000_000)
+            budget: SubprocessBudget(totalDuration: wallBudget, maxBufferedBytes: 1_000_000)
         )
         let start = Date()
         var terminal: CommandEvent?
@@ -227,10 +228,12 @@ final class RunIdleTimeoutTests: XCTestCase {
         }
         let elapsed = Date().timeIntervalSince(start)
         guard case .timedOut? = terminal else {
-            return XCTFail("genuine total silence past budget must timedOut; got \(String(describing: terminal))")
+            return XCTFail(
+                "identity-alive silence must be reaped at wall, not idle; got \(String(describing: terminal))"
+            )
         }
-        XCTAssertLessThan(elapsed, 8, "must reap near the stall budget, not the full sleep")
-        XCTAssertGreaterThanOrEqual(elapsed, 0.8)
+        XCTAssertGreaterThan(elapsed, 2.5, "must survive past the idle stall budget")
+        XCTAssertLessThan(elapsed, 10, "must reap near the wall backstop, not the full sleep")
     }
 
     func testReasoningOnlyStreamPastIdleBudgetIsNotTimedOut() async throws {

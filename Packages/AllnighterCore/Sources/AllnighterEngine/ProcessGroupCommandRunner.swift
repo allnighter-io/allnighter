@@ -295,11 +295,9 @@ public struct ProcessGroupCommandRunner: CommandRunner, StreamingCommandRunner {
                         let sleep = min(remaining, 0.2)
                         try? await Task.sleep(for: .seconds(sleep))
                     case .stalled:
-                        if ProcessOwnership.processAlive(spawned.pid) {
-                            endReason.set(.timeout)
-                            _ = ProcessOwnership.terminateOwnerIdentityIfSafe(identity)
-                        }
-                        return
+                        // IDLE-HF-S04: identity-alive stall is detected and surfaced;
+                        // wall (`budget.totalDuration`) is the hard kill — never reap here.
+                        try? await Task.sleep(for: .seconds(0.5))
                     case .identityDead:
                         // S02 reconcile owns dead owners; waitpid finishes the stream.
                         return

@@ -1,8 +1,8 @@
 # Idle Stall False Kill — Hotfix
 
-Status: **S01 shipped** — bleed stop (1800 idle floors synced + drift guard + honest teaching). Next: S04.
+Status: **S04 shipped** — identity-alive idle demotion + silence surface + `alln doctor silence` telemetry. Next: S02 (gated).
 Owner: AllnighterEngine + driver manifests + CLI teaching
-Updated: 2026-07-25 (IDLE-HF-S01 closeout)
+Updated: 2026-07-25 (IDLE-HF-S04 closeout)
 Incident date: 2026-07-25
 
 ## Origin
@@ -178,7 +178,7 @@ swift test --package-path Packages/AllnighterCore --filter RunIdleTimeoutTests
 
 ### IDLE-HF-S04 — Kill policy demotion + silence telemetry
 
-**Authorized next (after S01). Was "optional"; Spec Review promoted it ahead of S02.**
+**Shipped 2026-07-25.** Telemetry owner: `RunJournalSilenceTelemetry` + `alln doctor silence [--json]`.
 
 #### Why ahead of S02
 
@@ -285,6 +285,8 @@ When S01 ships: update this status line + phases board; record which clock the
 incident journal shows; leave manifests + drift test as SSOT for defaults.
 **S01 closeout (2026-07-25):** Opus design incident journal not found in-repo;
 likely `timeoutKind: idle` per founder report (600s claude_code invoke budget).
-When S04 ships: note telemetry owner/command. When S02 ships (if authorized):
+**S04 closeout (2026-07-25):** Identity-alive owners are not idle-reaped in
+`ProcessGroupCommandRunner`; silence surfaces via `silenceStatus` on `alln ps --json`
+and team status; field histograms via `alln doctor silence`. When S02 ships (if authorized):
 archive this doc and leave code as SSOT. S03 stays deferred until data says
 otherwise.

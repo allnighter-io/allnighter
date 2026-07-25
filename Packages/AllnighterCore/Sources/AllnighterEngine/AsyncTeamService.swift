@@ -589,6 +589,11 @@ public actor AsyncTeamService {
                 response.progressStale = RunActivity.progressStale(
                     lastActivityAt: run.lastActivityAt, now: now()
                 )
+                response.silenceStatus = OwnershipSilencePresentation.silenceStatusLine(
+                    identityAlive: true,
+                    lastProgressAt: run.lastActivityAt,
+                    now: now()
+                )
             }
         }
         return AsyncTeamStatusMapper.withWaitGuidance(response)
