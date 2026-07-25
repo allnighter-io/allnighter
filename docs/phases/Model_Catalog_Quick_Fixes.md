@@ -1,12 +1,13 @@
 # Model Catalog & Team Schema — Quick Fixes (Reviewed)
 
-Status: **Backlog — reviewed and hardened, still not authorized to implement.**
+Status: **Backlog — reviewed and hardened. MCV-S03 ratified for
+implementation (founder, 2026-07-25); everything else still unauthorized.**
 Queued behind `Sandbox_Handoff_Hotfix.md` (the current active work) — do not
 start until that packet closes.
 Owner: AllnighterCore (`ModelCatalog.swift`, `TeamCatalog.swift`) +
 AgentOS (`BundledDefaults.swift`) — cross-repo, MCV-S04b additionally touches
 XTerminal.
-Updated: 2026-07-25 (v2 — cross-reviewed, integrated first-principles; see
+Updated: 2026-07-25 (v3 — S03 fix ratified by founder after pressure-test; see
 "What changed in this revision" below).
 Companion: XTerminal `docs/phases/Your_AI_Model_Picker.md` §5 (the founder
 ruling MCV-S04b tracks — do not restate or fork that decision here, only cite it).
@@ -39,18 +40,20 @@ Net result:
 - **MCV-S02** — **rejected outright**, moved to the ledger. Both reviewers and
   a direct check against this repo's execution-lane invariants agree the
   proposed fix is actively a bad idea, not just low-priority.
-- **MCV-S03** — kept as the highest-value item, but the proposed fix changed:
-  the reviewers' DTO-shape-swap idea was set aside after finding a
-  founder-adjacent ruling on the record that names the exact call sequence
-  "deliberate." A safer, additive fix is recommended instead.
+- **MCV-S03** — kept as the highest-value item. v2 set the reviewers'
+  DTO-shape-swap aside on a re-litigation worry; **v3 reverses that.** The
+  founder pressure-tested v2's caution (2026-07-25), a third independent
+  review reached the same conclusion, and a careful re-read of the archived
+  ruling shows it never protected the return shape. The swap is now the
+  ratified fix — see the section for the full record.
 - **MCV-S04** — split into **S04a** (new: a small, local, Allnighter-only
   disclosure fix both reviewers proposed independently) and **S04b** (the
   original cross-repo item, unchanged, still deferred behind XTerminal).
 
 ## Priority order (once authorized)
 
-1. **MCV-S03** — teach the follow-up call on `teams duplicate`. Highest
-   confidence, lowest risk, broadest value.
+1. **MCV-S03** — swap `teams duplicate`'s output to the editable `TeamPreset`
+   shape (founder-ratified 2026-07-25). Highest confidence, broadest value.
 2. **MCV-S00** — two-repo Haiku patch. Still gated on founder go-ahead.
 3. **MCV-S04a** — stamp hand-typed models as unverified.
 4. **MCV-S01** — no code action; optional documentation note only.
@@ -177,15 +180,14 @@ justify new grammar.
 
 **Status:** rejected. See ledger D4.
 
-## MCV-S03 — `teams duplicate` doesn't return the editable shape
+## MCV-S03 — `teams duplicate` returns the wrong shape; swap it to `TeamPreset` (RATIFIED)
 
 **Files:** `AllnighterCLI.swift` — `runTeamsDuplicate` (line 770) prints
 `teamShowJSONString` = `TeamShowJSON.project(...)` (`CatalogJSON.swift:265`,
 struct at line 151: `crew`/`scout`/`seatCount`/`contractVersion`, `lead: LeadSeat`).
-`runTeamsDefinition` (line 673) prints the different, editable `TeamPreset`
-shape (`workerSpecs`, `lead: TeamLeadSpec`, no `seatCount`). The DTO split
-itself is intentional — one is a display/inspection DTO, the other is the
-round-trippable edit DTO.
+`runTeamsDefinition` (line 673) prints the editable `TeamPreset` shape
+(`workerSpecs`, `lead: TeamLeadSpec`, no `seatCount`) — the only shape
+`teams edit` accepts.
 
 **Effect observed:** creating any custom team is `duplicate` → `definition` →
 hand-build JSON → `edit`, four calls minimum, because `duplicate`'s output
@@ -194,37 +196,62 @@ applicable finding of the five — it hits every future custom-team creation by
 any caller, and this CLI's callers are predominantly cold agents assembling
 JSON (agent-first-schemas law).
 
-**Original proposed fix (v1, and both reviewers' pick): set aside, not
-adopted.** The archived `docs/archive/phases/Agent_Dogfood_Papercuts.md`
-(2026-07-21, status "Done") records in its rejected ledger: *"Inline per-seat
-overrides (`--seat X=model`) — no-new-grammar; duplicate → definition → edit
-is the deliberate authoring path (D1)."* That names the three-call
-`duplicate → definition → edit` sequence itself as a deliberate,
-founder-adjacent ruling. The citation `(D1)` doesn't resolve to anything else
-findable in this repo's docs, so the full reasoning isn't recoverable from
-here — but the ruling is real and on the record, and it is specifically about
-this authoring path. Swapping what `duplicate` returns risks re-litigating
-that from inside a backlog doc. **Do not swap the DTO shape without first
-locating whatever "(D1)" actually refers to.**
+**Ruling record (founder, 2026-07-25) — supersedes v2's caution.** v2 held
+back the shape swap because the archived `Agent_Dogfood_Papercuts.md`
+rejected-ledger line reads *"duplicate → definition → edit is the deliberate
+authoring path (D1)."* Re-read carefully — by this session, by the founder,
+and by a third independent review that traced `runTeamsDuplicate` in code —
+what D1 actually rejected was **inline per-seat override grammar**
+(`--seat X=model`); the "deliberate path" phrase was its justification
+pointing at manifest-based authoring, not a ruling on `duplicate`'s return
+shape. The show-projection output was incidental reuse of the `show` printer,
+never policy. First principles then decide it: a command whose own help text
+says "then definition → edit" must return the shape that step consumes; the
+intermediate `definition` call exists only to re-fetch the same object in a
+different serialization, and carries nothing the editing caller needs.
 
-**Adopted instead — additive, same house pattern already shipped elsewhere:**
-`ADP-S02` (same archived doc) already shipped an additive `alternatives`
-field on `run --dry-run` naming the correct follow-up command, with no shape
-change and no write-policy change ("teach at the decision point"). The
-equivalent fix here: add a `nextAction` (or `alternatives`) entry to
-`duplicate`'s existing `TeamShowJSON` output, naming the exact
-`teams definition <id>` call needed to get the editable shape. This:
-- Doesn't touch the DTO shape at all — no consumer breakage. Confirm whether
-  `TeamShowJSON` is hash-locked before implementing; `ADP-S02`'s precedent
-  needed no `contractVersion` bump for an additive teaching field on
-  non-hash-locked JSON.
-- Doesn't re-litigate D1 — the three-call path stays exactly as ruled; this
-  only makes the second call discoverable from the first call's own output.
-- Solves the actual pain without inventing anything new.
+**The fix (final):**
+1. `teams duplicate` returns the round-trippable `TeamPreset` shape — byte-
+   compatible with what `teams definition` returns and what `teams edit`
+   consumes. The authoring path becomes `duplicate → edit`. Two calls, no
+   hand-conversion, no new grammar — D1's actual substance (manifest-based
+   authoring, no inline seat flags) is fully preserved.
+2. Clean cut, no compatibility machinery: no dual-shape readers, no aliases,
+   no migration shims — there are zero users (standing foundation-first
+   directive). `teams edit` keeps accepting exactly one shape; if handed a
+   show-projection payload its refusal should name the expected shape, which
+   is disclosure, not compat.
+3. Keep a `nextAction` on `duplicate`'s output naming the
+   `teams edit <id> --file <path>` follow-up — the house transactional
+   nextAction pattern, now pointing at the right next call instead of
+   compensating for a wrong shape.
+4. `teams definition` survives unchanged as the read-for-edit of any
+   *existing* team.
+5. **DTO rule, stated so this class can't recur:** mutation/duplication
+   commands speak the editable spec; inspection commands (`show`, `teams`,
+   `menu`) speak display projections. `duplicate` was the one command on the
+   wrong side of its own rule.
+6. Contract surface: this changes a public command's output schema — update
+   the registry's `teams duplicate` output schema
+   (`teamShowJSON` → `teamPreset`), regenerate exported contracts, and
+   version per the existing schema-governance law.
 
-**Effort:** small — one additive field, same shape as `ADP-S02`'s.
+**Rejected from mentor feedback:** a lenient `edit` reader accepting both
+shapes (one reviewer's belt-and-braces suggestion). Feeding the show
+projection to `edit` has never worked, so there is no flow to keep working —
+a second accepted schema is permanent complexity buying zero coverage, and
+with zero users there is nothing to migrate anyway.
 
-**Status:** recommended first, once authorized.
+**Gate (when implemented):** round-trip test — `duplicate` output fed to
+`edit` unmodified succeeds; a modified round-trip persists and `show` reflects
+it; the cold-agent creation flow is ≤2 calls; `edit` given a show-projection
+payload refuses with an error naming the expected shape.
+
+**Effort:** small — swap one printer call, registry schema update, round-trip
+gate.
+
+**Status:** **ratified for implementation** (founder, 2026-07-25) — still
+queued behind `Sandbox_Handoff_Hotfix.md` like everything else here.
 
 ## MCV-S04a — stamp hand-typed models as unverified (new, Allnighter-only)
 
@@ -286,9 +313,10 @@ it changes, this section should be updated to match, not re-argued.
 ## Ordering
 
 This entire doc remains backlog behind `Sandbox_Handoff_Hotfix.md`. Within it:
-MCV-S04b is additionally gated on XTerminal's `YM7` seal; MCV-S03, MCV-S00,
-and MCV-S04a have no gate beyond founder authorization once the hotfix closes;
-MCV-S01 requires no implementation; MCV-S02 is rejected.
+MCV-S03 is ratified and first up once the hotfix closes; MCV-S00 and MCV-S04a
+still need founder authorization; MCV-S04b is additionally gated on
+XTerminal's `YM7` seal; MCV-S01 requires no implementation; MCV-S02 is
+rejected.
 
 ## Rejection / deferral ledger
 
@@ -298,6 +326,8 @@ MCV-S01 requires no implementation; MCV-S02 is rejected.
 | D2 | Promoting Allnighter's roster/diversity/bench/seat logic to AgentOS | Mirrors XTerminal's own R5 — that's product policy, not shared infrastructure |
 | D3 | Any implementation before founder approval | Founder is still brainstorming (2026-07-25); this doc records findings, not authorization |
 | D4 | MCV-S02's `startDelaySeconds` fix (rejected, not deferred) | Persisted schema field for a one-session debug need; collides with the inviolable lane-execution invariants; the real production-need version (`maxConcurrentSpawns`) already exists |
+| D5 | Dual-shape lenient `edit` reader alongside the S03 swap | Compat machinery for a flow that never worked and a user base of zero; one editable spec, one accepted shape — clean cut per the foundation-first directive |
+| D6 | Any migration/alias/back-compat machinery anywhere in this batch | Founder ruling 2026-07-25: zero users; everything clean, no migration, no aliases — matches the standing foundation-first directive |
 
 ## Review method (for trust — verify in code, not this banner)
 
@@ -309,9 +339,13 @@ spot-checked directly against source rather than taken on faith —
 `workerAnswers` existing on every `TeamRunJSON` (confirmed,
 `TeamRunJSONMapper.swift:58,175`, which downgrades S01) and whether S03's
 DTO-swap fix was already ruled on elsewhere (confirmed a citation exists,
-`docs/archive/phases/Agent_Dogfood_Papercuts.md` lines 66-67, which redirects
-S03's fix to a safer alternative); (3) reviewer disagreements, and places
-where this session overrode both reviewers (S03's fix shape) or extended past
-what either proposed (S01's full resolution), resolved here — reviewer output
-is advisory input, not authorization, and neither review's recommendation was
-adopted wholesale.
+`docs/archive/phases/Agent_Dogfood_Papercuts.md` lines 66-67 — v2 read that
+citation as protecting the call sequence and held the swap back; v3 corrected
+the reading after founder pressure-test plus a third independent review: D1
+rejected inline seat grammar, not the return shape); (3) reviewer
+disagreements resolved here, with pieces rejected in both directions —
+reviewer output is advisory input, not authorization, and no review's
+recommendation was adopted wholesale (e.g. the lenient dual-shape reader was
+rejected, D5). The v2→v3 arc is itself the lesson: an archived ruling was
+almost allowed to veto the right fix on a misread of its scope — cite rulings
+by what they actually rejected, not by the prose around them.
