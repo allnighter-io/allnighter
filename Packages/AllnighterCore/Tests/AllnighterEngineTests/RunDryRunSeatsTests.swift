@@ -2,7 +2,7 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-/// SEAT-S3 — dry-run `seats[]` projection (W8).
+/// Dry-run `seats[]` projection.
 final class RunDryRunSeatsTests: XCTestCase {
 
     private func fullBenchWithHaikuFixture() -> (ready: [Model], haikuId: String, caps: (String) -> ModelCapabilities) {
@@ -23,22 +23,7 @@ final class RunDryRunSeatsTests: XCTestCase {
         return (ready, haikuId, caps)
     }
 
-    private func resolveTeam(
-        teamId: String,
-        ready: [Model],
-        caps: ((String) -> ModelCapabilities)? = nil
-    ) -> ResolvedRunInvocation {
-        var context = RunInvocationResolveContext(
-            models: ready,
-            teams: TeamCatalog.all,
-            readyModels: ready,
-            readyModelIds: Set(ready.map(\.id)),
-            defaultSettings: .fresh
-        )
-        _ = context
-        // Team resolution uses ModelCatalog.capabilities by default; W8 uses injected caps
-        // via TeamResolver inside RunInvocationResolver — mirror W1 by resolving team first
-        // and ensuring the bench matches the fixture.
+    private func resolveTeam(teamId: String, ready: [Model]) -> ResolvedRunInvocation {
         return RunInvocationResolver.resolve(
             RunInvocationInput(
                 message: "seat check",

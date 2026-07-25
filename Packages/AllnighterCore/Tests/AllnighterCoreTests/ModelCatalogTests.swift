@@ -221,7 +221,7 @@ final class ModelCatalogTests: XCTestCase {
     }
 
     func testPoisonedCustomRankIsIgnored() throws {
-        // Simulate Bug A disk record: donor flagship caps persisted on a custom id.
+        // Poisoned disk record: donor flagship caps persisted on a custom id.
         let registry = testRegistry()
         let created = try ModelCatalog.createCustom(
             driverId: "claude_code", displayName: "Poisoned", modelLabel: "poison",

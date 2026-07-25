@@ -443,7 +443,7 @@ final class TeamResolverTests: XCTestCase {
     // MARK: - Seating Law (SEAT-S2) — FULL-bench Works Tests
 
     /// FULL = enabled auto built-ins + fixture Haiku. `poisonedCaps` mirrors the
-    /// Bug A disk record (Fable@100); pass `useUnratedReadPath: true` for W1/W3
+    /// Poisoned disk record (Fable@100); pass `useUnratedReadPath: true` for W1/W3
     /// (S1 floors customs to rank 40). W2 injects the poisoned rank into the
     /// pre-fix comparator only.
     private func fullBenchWithHaikuFixture(
@@ -624,7 +624,6 @@ final class TeamResolverTests: XCTestCase {
             pickedViaPreferred: false,
             reserveSkipped: false,
             avoidFamilies: ["claude"],
-            avoidDrivers: ["claude_code"],
             capabilities: ModelCatalog.capabilities
         )
         XCTAssertEqual(reason, "band+unusedFamily")

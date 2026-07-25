@@ -43,7 +43,7 @@ public enum ModelCatalog {
 
     /// Underlying reasoning family for cross-source diversity. Built-in ids use
     /// the switch; customs/unknowns use `hostFamily(driverId:)` so a custom
-    /// Claude Haiku counts as `claude`, not as its own id (Bug C).
+    /// Claude Haiku counts as `claude`, not as its own id.
     /// Pass `driverId` from the ready `Model` when the id may not be on disk yet.
     public static func modelFamily(_ modelId: String, driverId: String? = nil) -> String {
         switch modelId {
@@ -81,8 +81,6 @@ public enum ModelCatalog {
         case "codex": return "gpt"
         case "grok": return "grok"
         case "kimi": return "kimi"
-        case "cursor_agent", "antigravity", "opencode":
-            return "driver:\(driverId)"
         default:
             return "driver:\(driverId)"
         }
@@ -166,7 +164,6 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
             strengthRank: 75),
-        // Bug F — explicit entries (never inherit a donor flagship profile).
         "model_gemini_pro": ModelCapabilities(
             laneTags: [.design, .code, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .design, .image, .copy],
@@ -519,7 +516,7 @@ public enum ModelCatalog {
 
     /// Capabilities for a model id. Built-ins use the table. Everything else is
     /// **unrated**: driver tags only, `unratedModelRank` — persisted donor ranks
-    /// on custom JSON are ignored (Seating Law / Bug A).
+    /// on custom JSON are ignored (Seating Law).
     public static func capabilities(_ modelId: String) -> ModelCapabilities {
         if let caps = builtInCapabilities[modelId] { return caps }
         if let def = get(modelId) {

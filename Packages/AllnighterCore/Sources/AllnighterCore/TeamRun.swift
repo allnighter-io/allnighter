@@ -143,7 +143,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// can't distinguish from default-team resolution. Optional so legacy `run.json`
     /// (no key) decodes to `nil`; `nil`/empty means no explicit `--worker` was given.
     public var explicitWorkerIds: [String]? = nil
-    /// SEAT-S3 — ready bench model ids the team was resolved against at acceptance.
+    /// Ready bench model ids the team was resolved against at acceptance.
     /// Additive audit field; legacy journals decode to `nil`.
     public var resolvedBenchModelIds: [String]? = nil
     /// FR12 — requested verbatim commit message (verification only).

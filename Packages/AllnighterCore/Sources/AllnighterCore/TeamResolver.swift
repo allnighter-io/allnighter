@@ -174,7 +174,7 @@ public enum TeamResolver {
             driversUsed.insert(model.driverId)
         }
 
-        // Stage 0 scout first (Bug D): runs before the crew; seeds diversity sets.
+        // Stage 0 scout runs before the crew and seeds diversity sets.
         var scoutWorker: Worker?
         if let scoutSpec = team.scout {
             let scoutSkillName = skill(scoutSpec.skillId)?.displayName ?? scoutSpec.skillId
@@ -314,7 +314,7 @@ public enum TeamResolver {
 
     // MARK: - Model selection
 
-    /// Resolved model plus seating audit reason (SEAT-S3 dry-run visibility).
+    /// Resolved model plus seating audit reason for dry-run projection.
     struct SeatingPick: Sendable, Equatable {
         var model: Model
         var reason: String
@@ -326,7 +326,6 @@ public enum TeamResolver {
         pickedViaPreferred: Bool,
         reserveSkipped: Bool,
         avoidFamilies: Set<String>,
-        avoidDrivers: Set<String>,
         capabilities: (String) -> ModelCapabilities
     ) -> String {
         if pickedViaPreferred { return "preferred" }
@@ -334,9 +333,7 @@ public enum TeamResolver {
         let family = ModelCatalog.modelFamily(model.id, driverId: model.driverId)
         if avoidFamilies.contains(family) { return "reuseFamily" }
         if capabilities(model.id).strengthRank == ModelCatalog.unratedModelRank { return "unratedFloor" }
-        if !avoidFamilies.contains(family) { return "band+unusedFamily" }
-        if !avoidDrivers.contains(model.driverId) { return "band+unusedDriver" }
-        return "band+rank"
+        return "band+unusedFamily"
     }
 
     /// Choose a model for one row: try the preferred, then the declared ordered
@@ -419,7 +416,6 @@ public enum TeamResolver {
                     pickedViaPreferred: pickedViaPreferred,
                     reserveSkipped: reserveSkipped,
                     avoidFamilies: avoidFamilies,
-                    avoidDrivers: avoidDrivers,
                     capabilities: capabilities
                 )
             )

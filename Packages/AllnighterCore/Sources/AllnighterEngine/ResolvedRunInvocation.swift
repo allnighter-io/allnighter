@@ -315,7 +315,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
         )
     }
 
-    /// SEAT-S3 — project crew seats for answer/research teams (not bare default-chat execution).
+    /// Project crew seats for answer/research teams (not bare default-chat execution).
     func dryRunSeatProjection() -> [RunDryRunJSON.Seat]? {
         guard !seats.isEmpty else { return nil }
         let projectsCrew = preset.runShape != .execution || explicitTeamChosen

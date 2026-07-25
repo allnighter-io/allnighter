@@ -41,7 +41,7 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
     /// runs its preferred model. Lets the UI say "substituted from X" instead of silently
     /// showing a different model than the team was configured with.
     public var substitutedFromModelId: String?
-    /// SEAT-S3 — why the resolver seated this model (dry-run + audit). Optional so
+    /// Why the resolver seated this model (dry-run + audit). Optional so
     /// legacy runs and non-catalog paths decode unchanged.
     public var seatingReason: String?
 

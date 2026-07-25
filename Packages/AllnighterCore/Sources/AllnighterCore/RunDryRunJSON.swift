@@ -29,7 +29,7 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
     /// no write-policy change). Omitted (nil) whenever there is nothing to teach, so
     /// the field is additive and does not change the shape for existing callers.
     public var alternatives: [Alternative]?
-    /// SEAT-S3 — resolved seats for team runs (capability-only + lead + scout).
+    /// Resolved seats for team runs (capability-only + lead + scout).
     /// Omitted when empty or for bare execution/default-chat single-seat previews
     /// that do not project crew seating.
     public var seats: [Seat]?
