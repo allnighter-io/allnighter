@@ -14,7 +14,6 @@
   "excludedPaths": [
     "docs/archive",
     "docs/operations/debugger",
-    "docs/phases/CODE_RED_Core_Infrastructure_Repair.md",
     "config/architecture-policy.json",
     "scripts/check_architecture_policy.sh",
     "scripts/validate_architecture_policy.py",
@@ -65,7 +64,7 @@
   "founderOwnedPaths": [
     "config/architecture-policy.json",
     "scripts/check_architecture_policy.sh",
-    "docs/phases/CODE_RED_Core_Infrastructure_Repair.md"
+    "docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md"
   ],
   "forbiddenProductionFiles": [
     "Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift",

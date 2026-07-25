@@ -18,7 +18,7 @@ public enum AllnighterSupportRoot {
         // agent that sees an empty catalog concludes the real repository is
         // unreachable. A host that cannot write this root must fail honestly
         // (RUN_JOURNAL_UNAVAILABLE) and be granted access, never be handed a
-        // parallel world. See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+        // parallel world. See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
         return base.appendingPathComponent("Allnighter", isDirectory: true)

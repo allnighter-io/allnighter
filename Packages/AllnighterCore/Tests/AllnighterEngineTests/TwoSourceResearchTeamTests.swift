@@ -11,7 +11,7 @@ import AllnighterCore
 /// `scripts/code_red_works_test.sh live-direct`; this is its deterministic twin —
 /// same `RunService.run` owner, injected runner instead of real vendors, so the
 /// roster invariants are provable in the wall.
-/// See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+/// See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
 final class TwoSourceResearchTeamTests: XCTestCase {
     private var tmp: URL!
 

@@ -42,7 +42,7 @@ final class FrontDoorTests: XCTestCase {
     /// the deleted per-thread temp redirect. Founder ruling 2026-07-24 (CR-S05):
     /// there is ONE durable state root for every host. A restricted host that
     /// cannot write it fails honestly; it is never handed a parallel, empty
-    /// product. See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+    /// product. See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
     func testCodexSandboxResolvesTheOneCanonicalSupportRoot() {
         let previousSandbox = ProcessInfo.processInfo.environment["CODEX_SANDBOX"]
         let previousThreadID = ProcessInfo.processInfo.environment["CODEX_THREAD_ID"]

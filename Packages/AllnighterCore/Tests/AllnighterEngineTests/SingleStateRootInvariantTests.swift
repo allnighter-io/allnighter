@@ -10,7 +10,7 @@ import AllnighterCore
 /// agent concludes the real repository is unreachable and starts building byte
 /// transfer to explain it. The redirect is deleted; a host that cannot write the
 /// canonical root must fail honestly instead of being given another world.
-/// See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+/// See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
 final class SingleStateRootInvariantTests: XCTestCase {
     private var saved: [String: String?] = [:]
 

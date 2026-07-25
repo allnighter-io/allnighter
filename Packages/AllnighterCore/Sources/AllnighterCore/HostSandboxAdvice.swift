@@ -11,7 +11,7 @@ import Foundation
 /// Detection is on the observed FAILURE, never on the environment alone — a
 /// Codex session launched with full access still carries the same environment
 /// variables and runs perfectly, so pre-empting on those would block work that
-/// would have succeeded. See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+/// would have succeeded. See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
 public struct HostSandboxAdvice: Equatable, Sendable {
     public static let code = "HOST_SANDBOX_BLOCKS_WORKERS"
 

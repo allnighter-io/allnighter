@@ -1,14 +1,19 @@
 # Unified Run Model — Chat, Execute, and Teams as One
 
-> **CODE RED CORRECTION (2026-07-24):**
-> `CODE_RED_Core_Infrastructure_Repair.md` is the binding implementation packet.
-> Mechanical read-only Teams, mirrors, clones, snapshots, and protected-project
-> byte transfer are retired, not temporarily paused. Research Teams and
-> execution Teams both use the registered repository. Research is an
-> observational multi-worker task; execution is one mutating worker and must
-> change the real repository when the request requires a change.
+> **CODE RED CORRECTION (2026-07-24) — the repair is CLOSED and its rules are
+> now part of this document.** Mechanical read-only Teams, mirrors, clones,
+> snapshots, and protected-project byte transfer are retired, not temporarily
+> paused. Research Teams and execution Teams both use the registered repository.
+> Research is an observational multi-worker task; execution is one mutating
+> worker and must change the real repository when the request requires a change.
+> The incident record is archived at
+> `docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md`; the durable rules
+> live below under "One run owner". The enforcement that prevents recurrence is
+> live in `config/architecture-policy.json` + `scripts/check_architecture_policy.sh`.
 
-Status: **In progress — Code Red core repair is blocking**
+Status: **In progress — no longer blocked. Code Red closed 2026-07-24, so
+execution-path work on this model is unblocked; the remaining items are this
+document's own "Done when" list.**
 
 This model replaces the old Project Manager surface, work-order/proposal loop,
 three-mode composer, and user-facing execution lane. It is not a refinement of

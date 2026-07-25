@@ -9,7 +9,7 @@ meta-gates exist.
 - `A bug fix cannot introduce a second repository truth or run owner`:
   OPEN 2026-07-24 from the repeated resident/mirror incident. Required
   wall-reachable gates are specified in
-  `docs/phases/CODE_RED_Core_Infrastructure_Repair.md`: an early architecture
+  `docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md`: an early architecture
   policy check must reject mirrors, clones, read-only injection, alternate-root
   request fields, duplicate run-semantics owners, and extra resident operations;
   positive tests must prove canonical worker CWD and the single `RunService.run`

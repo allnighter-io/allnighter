@@ -10,7 +10,7 @@ import AllnighterCore
 /// The write-lock invariant itself lives in `ExecutionWriteLockTests` (CR-S02) and
 /// is not restated here. The live twin is
 /// `scripts/code_red_works_test.sh live-direct`'s execution gesture.
-/// See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+/// See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
 final class ExecutionProofTests: XCTestCase {
     private static let proofLine = "CODE_RED_EXECUTION_PROOF"
     private var tmp: URL!

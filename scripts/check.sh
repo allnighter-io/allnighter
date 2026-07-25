@@ -12,7 +12,7 @@ ran_any=true
 # The negative self-test proves the validator actually rejects each violation
 # category (fixtures), not just that the repo happens to pass today. Cheap
 # shell+python, so it belongs next to the positive check, before any Swift
-# build. See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+# build. See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
 echo "==> check Code Red architecture policy (negative self-test)"
 bash "$ROOT/scripts/check_architecture_policy.sh" --self-test
 ran_any=true
@@ -116,7 +116,7 @@ if [[ -f "$ROOT/Packages/AllnighterCore/Package.swift" ]]; then
   swift test --package-path "$ROOT/Packages/AllnighterCore"
   ran_any=true
 
-  # Structural fixture mode runs in the wall (see docs/phases/CODE_RED_Core_Infrastructure_Repair.md):
+  # Structural fixture mode runs in the wall (see docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md):
   # re-runs the architecture-policy self-test, the positive check, and a
   # filtered swift test proving the direct CLI adapter and alternate-root
   # deletion. Builds/runs tests, so it sits after the cheap early gates above.

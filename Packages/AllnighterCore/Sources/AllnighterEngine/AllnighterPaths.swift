@@ -14,7 +14,7 @@ public enum AllnighterPaths {
         // fallback that used to live here is deleted: it handed a restricted host
         // a parallel, empty product instead of failing honestly. This mirrors
         // AllnighterSupportRoot (Engine cannot depend on Core) — keep them
-        // identical. See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+        // identical. See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
         return base.appendingPathComponent("Allnighter", isDirectory: true)

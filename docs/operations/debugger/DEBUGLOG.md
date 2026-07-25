@@ -340,7 +340,7 @@ multiple CLIs provide input in the real repository; one CLI executes there.
 The workflow did not require a founder architecture stop or a deterministic
 gate before adding a second repository representation or run owner.
 Fix boundary: Binding packet
-`docs/phases/CODE_RED_Core_Infrastructure_Repair.md`. Delete mirrors, clones,
+`docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md`. Delete mirrors, clones,
 read-only injection, duplicate run semantics, and resident scope. Restore and
 prove direct `RunService.run` first. Add one foreground resident `run` transport
 only if the isolated sandbox harness proves it necessary. Do not change macOS

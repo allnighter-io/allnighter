@@ -32,7 +32,7 @@ def write(name, text=""):
 
 write("config/architecture-policy.json", json.dumps(policy))
 write("scripts/check_architecture_policy.sh", "#!/usr/bin/env bash\n")
-write("docs/phases/CODE_RED_Core_Infrastructure_Repair.md", "Code Red\n")
+write("docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md", "Code Red\n")
 write("AGENTS.md", "routing\n")
 write("docs/phases/guide.md", "living teaching\n")
 write("docs/operations/guide.md", "operations\n")
@@ -87,7 +87,7 @@ assert_fails() {
     canonical-root)
       sed -i '' 's/repoRoot/otherRoot/' "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift" ;;
     founder-path)
-      rm "$fixture/docs/phases/CODE_RED_Core_Infrastructure_Repair.md" ;;
+      rm "$fixture/docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md" ;;
     phase-loc)
       # The declared resident file set is now empty, so the ceiling can only be
       # violated by a policy that readmits a file. Prove the LOC rule still

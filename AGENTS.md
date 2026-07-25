@@ -64,12 +64,12 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 
 | Task type | Read first |
 | --- | --- |
-| **CODE RED: core execution broken, resident/mirror repair, Team research or execution does not work in the real repo** | `docs/phases/CODE_RED_Core_Infrastructure_Repair.md` — binding implementation packet; alternate repository and mechanical read-only directions are retired |
+| Core execution broken, Team research or execution does not work in the real repo | `docs/phases/Unified_Run_Model.md` owns the live model. `docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md` is the CLOSED incident record — read it for WHY the rules exist, never as a plan. Mirrors, clones, mechanical read-only Teams, and resident execution are deleted; `config/architecture-policy.json` fails the build if they return. |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
 | Run model: chat/run = agent in repo root, Default Team, presets, write lock | `docs/phases/Unified_Run_Model.md` |
 | Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | `docs/archive/phases/Run_Lifecycle_Reliability.md` (Complete; code SSOT) |
-| Codex/host sandbox blocks child CLIs, resident execution, `alln serve` broker, source processes missing from `alln ps` | **During Code Red:** `docs/phases/CODE_RED_Core_Infrastructure_Repair.md` first, then `docs/phases/Resident_Execution_Broker.md` only as incident history/current-state inventory |
+| Codex/host sandbox blocks child CLIs, source processes missing from `alln ps` | The sandbox blocks Keychain, not the repo — vendor CLIs then believe they are logged out. `alln run` hands off to the open Mac app (SandboxHandoffHost); a per-session `codex --sandbox danger-full-access` also works. Never a global sandbox_mode change. Background: `docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md` (CR-S05). |
 | Vendor usage limit / parked run / wake-resume / authorized substitute | archived `docs/archive/phases/Rate_Limit_Continuity.md` (code SSOT) |
 | Composer `@` file references, Project file search, file chips | `docs/phases/Composer_File_References.md` |
 | Model/skill/worker/team vocabulary | `docs/phases/Work_Order_Team_Model.md` |
@@ -85,7 +85,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
 | Shared models, worker drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `02`/`04` as scoped |
-| Forward Mac app shell, Dock app, background coordinator, resident mode | During Code Red: `docs/phases/CODE_RED_Core_Infrastructure_Repair.md`; use `docs/phases/Resident_Execution_Broker.md` only as frozen incident inventory |
+| Forward Mac app shell, Dock app, background scheduler | `alln serve` is a background SCHEDULER only (Pending wake, Boost seed, vendor-backoff continuation, cloud relay). It owns no run semantics and `alln run` never needs it; adding an operation to it is a new feature packet. |
 | Historical MVP Mac app shell, run loop, what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
 | Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |
