@@ -246,4 +246,15 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertGreaterThan(ModelCatalog.capabilities("model_kimi_k3").strengthRank, sonnet)
         XCTAssertGreaterThan(ModelCatalog.capabilities("model_grok").strengthRank, sonnet)
     }
+
+    func testCustomClaudeFamilyMapsViaHostDriver() throws {
+        let registry = testRegistry()
+        let created = try ModelCatalog.createCustom(
+            driverId: "claude_code", displayName: "Family Map", modelLabel: "fm",
+            role: .answerer, enabled: false, registry: registry)
+        XCTAssertEqual(ModelCatalog.modelFamily(created.id), "claude")
+        XCTAssertEqual(ModelCatalog.hostFamily(driverId: "codex"), "gpt")
+        XCTAssertEqual(ModelCatalog.hostFamily(driverId: "cursor_agent"), "driver:cursor_agent")
+        XCTAssertEqual(ModelCatalog.modelFamily("unknown_no_disk", driverId: "kimi"), "kimi")
+    }
 }

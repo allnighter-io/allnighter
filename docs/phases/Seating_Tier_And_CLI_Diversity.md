@@ -79,13 +79,20 @@ Today's id-exclusion can shrink the pool so only Haiku remains in Flagship.
 Replace with:
 
 ```
-bestBand = max caliberBand among (hasTags ∧ autoOK) in the unfiltered pool
+unclaimed = (hasTags ∧ autoOK ∧ not excluded) in pool
+bestBand = max caliberBand among unclaimed
+           — or among all eligible if unclaimed is empty (reuse path)
 filtered = pool ∖ diversityExclusionIds(claimed)
 if filtered contains any (hasTags ∧ autoOK) with caliberBand == bestBand:
     pool = filtered
 else:
     keep unfiltered pool   // reuse within best band; degrade, don't drop band
 ```
+
+`bestBand` is taken from **unclaimed** candidates so a claimed Flagship
+does not permanently lock the crew onto Flagship reuse and starve High-band
+unused families (W1). When nothing unclaimed remains, fall back to absolute
+best band and reuse.
 
 When the chosen model’s family is already in `familyUsed`, append a warning
 (reuse). Same for driver reuse optional one-liner.

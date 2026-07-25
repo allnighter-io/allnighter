@@ -112,16 +112,16 @@ public enum TeamResolver {
         )?.id
         let reservedWorkerModelId = resolvedLeadModelId
 
-        // Family diversity signal (tiebreak only — Law 3 extension): seeded with
-        // the Lead's family and grown by every resolved row (preferred or open)
-        // so an open row choosing between exactly-tied candidates (e.g. two
-        // antigravity models at identical caliber/rank) prefers a family the
-        // crew doesn't already have, instead of an incidental alphabetical id
-        // tiebreak. Never a hard filter — ties broken this way still fall back
-        // to `a.id < b.id` when both candidates' families are already used.
+        // Family + driver diversity (Seating Law): seeded by Lead, grown by every
+        // resolved row / scout / triangle pick. Prefer unused family then unused
+        // driver within a caliber band — never a hard filter.
         var familyUsed: Set<String> = []
+        var driversUsed: Set<String> = []
         if let resolvedLeadModelId {
-            familyUsed.insert(ModelCatalog.modelFamily(resolvedLeadModelId))
+            let leadDriver = readyModels.first(where: { $0.id == resolvedLeadModelId })?.driverId
+                ?? ModelCatalog.get(resolvedLeadModelId)?.driverId
+            familyUsed.insert(ModelCatalog.modelFamily(resolvedLeadModelId, driverId: leadDriver))
+            if let leadDriver { driversUsed.insert(leadDriver) }
         }
 
         // instanceIndex is global per model across all stages so ids stay distinct
@@ -131,23 +131,13 @@ public enum TeamResolver {
         var disabled: [DisabledRow] = []
         var requiredBlock: String?
 
-        // Cross-row diversity (Law 3, Team_Catalog_Normalization.md): rows that
-        // express NEED via capability tags alone (no `preferredModelId`) spread
-        // across DISTINCT models rather than piling onto the single strongest
-        // match — declaration order gives earlier rows first pick of the
-        // strongest ready capable model, later rows take the next-best distinct
-        // model, and the pool degrades to reuse (never a block) once every
-        // capable model has been claimed. Rows with an explicit preferred
-        // identity are untouched. Shared across the answer + review passes so a
-        // team's whole row list diversifies together, matching the old
-        // hand-rotated arrays this replaces.
+        // Cross-row id diversity: capability-only rows skip already-claimed models
+        // when a best-band alternative remains (band-aware filter in selectModel).
         var diversityUsed: Set<String> = []
 
         func makeWorker(_ model: Model, row: TeamWorkerSpec, skillName: String, stage: WorkerStage) -> Worker {
             let index = nextIndex[model.id, default: 0]
             nextIndex[model.id] = index + 1
-            // Record an honest substitution: the row asked for `preferredModelId` but the
-            // resolver ran a different ready model. The UI surfaces "substituted from X".
             let substitutedFrom = row.preferredModelId.flatMap { $0 != model.id ? $0 : nil }
             return Worker(
                 id: Worker.makeID(modelId: model.id, instanceIndex: index),
@@ -165,14 +155,48 @@ public enum TeamResolver {
             }
         }
 
+        func noteReuse(_ model: Model, skillName: String) {
+            let family = ModelCatalog.modelFamily(model.id, driverId: model.driverId)
+            if familyUsed.contains(family) {
+                warnings.append("\(skillName): reusing family \(family) (no unused-family candidate in band).")
+            }
+        }
+
+        func claim(_ model: Model, capabilityOnly: Bool) {
+            if capabilityOnly {
+                diversityUsed.formUnion(ModelCatalog.diversityExclusionIds(for: model.id))
+            }
+            familyUsed.insert(ModelCatalog.modelFamily(model.id, driverId: model.driverId))
+            driversUsed.insert(model.driverId)
+        }
+
+        // Stage 0 scout first (Bug D): runs before the crew; seeds diversity sets.
+        var scoutWorker: Worker?
+        if let scoutSpec = team.scout {
+            let scoutSkillName = skill(scoutSpec.skillId)?.displayName ?? scoutSpec.skillId
+            if let model = selectModel(
+                preferredModelId: scoutSpec.preferredModelId,
+                fallbackModelIds: scoutSpec.fallbackModelIds ?? [], allowedModelIds: scoutSpec.allowedModelIds,
+                requiredTags: scoutSpec.requiredCapabilityTags, fallback: scoutSpec.fallbackPolicy,
+                lane: team.lane, ready: readyModels, capabilities: capabilities,
+                avoidFamilies: familyUsed, avoidDrivers: driversUsed
+            ) {
+                if let pref = scoutSpec.preferredModelId, pref != model.id {
+                    warnings.append("\(scoutSkillName): preferred scout \(pref) unavailable; resolved to \(model.displayName).")
+                }
+                scoutWorker = makeWorker(model, row: scoutSpec, skillName: scoutSkillName, stage: .scout)
+                claim(model, capabilityOnly: scoutSpec.preferredModelId == nil)
+            } else {
+                disable(scoutSpec, scoutSkillName, "no ready model for scout in lane \(team.lane.rawValue)")
+            }
+        }
+
         func resolveRows(_ rows: [TeamWorkerSpec], stage: WorkerStage) -> [Worker] {
             var workers: [Worker] = []
             for row in rows {
                 let skillName = skill(row.skillId)?.displayName ?? row.skillId
                 let want = max(1, row.count)
 
-                // Triangulated row: spread `count` workers across distinct CLI drivers
-                // so the signal is read by several different minds (never one).
                 if row.triangulate {
                     let models = selectTriangle(
                         count: want, preferenceIds: row.triangulatePreferenceIds,
@@ -186,13 +210,14 @@ public enum TeamResolver {
                     if models.count < want {
                         warnings.append("\(skillName): triangulation degraded — \(models.count) distinct source(s) ready, wanted \(want).")
                     }
-                    for model in models { workers.append(makeWorker(model, row: row, skillName: skillName, stage: stage)) }
+                    for model in models {
+                        noteReuse(model, skillName: skillName)
+                        claim(model, capabilityOnly: true)
+                        workers.append(makeWorker(model, row: row, skillName: skillName, stage: stage))
+                    }
                     continue
                 }
 
-                // Only capability-only rows (no named preferred identity) participate
-                // in cross-row diversity — a row with an explicit preferred model
-                // keeps its own resolution untouched.
                 let excludeForDiversity = row.preferredModelId == nil ? diversityUsed : []
                 guard let model = selectModel(
                     preferredModelId: row.preferredModelId,
@@ -200,7 +225,8 @@ public enum TeamResolver {
                     requiredTags: row.requiredCapabilityTags, fallback: row.fallbackPolicy,
                     lane: team.lane, ready: readyModels, capabilities: capabilities,
                     reserveModelId: reservedWorkerModelId, excludeModelIds: excludeForDiversity,
-                    preferredTags: row.preferredCapabilityTags, avoidFamilies: familyUsed
+                    preferredTags: row.preferredCapabilityTags,
+                    avoidFamilies: familyUsed, avoidDrivers: driversUsed
                 ) else {
                     let reason = "no ready model matches \(row.fallbackPolicy.rawValue)"
                         + (row.preferredModelId.map { " (preferred \($0) unavailable)" } ?? "")
@@ -211,9 +237,9 @@ public enum TeamResolver {
                     warnings.append("\(skillName): preferred \(preferred) unavailable; resolved to \(model.displayName).")
                 }
                 if row.preferredModelId == nil {
-                    diversityUsed.formUnion(ModelCatalog.diversityExclusionIds(for: model.id))
+                    noteReuse(model, skillName: skillName)
                 }
-                familyUsed.insert(ModelCatalog.modelFamily(model.id))
+                claim(model, capabilityOnly: row.preferredModelId == nil)
                 for _ in 0..<want { workers.append(makeWorker(model, row: row, skillName: skillName, stage: stage)) }
             }
             return workers
@@ -221,26 +247,6 @@ public enum TeamResolver {
 
         let answerWorkers = resolveRows(answerRows, stage: .answer)
         let reviewWorkers = resolveRows(reviewRows, stage: .review)
-
-        // Stage 0 scout (optional): distills the source for the crew. Resolved like a
-        // single non-triangulate row; prefers its declared model (e.g. Grok for X).
-        var scoutWorker: Worker?
-        if let scoutSpec = team.scout {
-            let scoutSkillName = skill(scoutSpec.skillId)?.displayName ?? scoutSpec.skillId
-            if let model = selectModel(
-                preferredModelId: scoutSpec.preferredModelId,
-                fallbackModelIds: scoutSpec.fallbackModelIds ?? [], allowedModelIds: scoutSpec.allowedModelIds,
-                requiredTags: scoutSpec.requiredCapabilityTags, fallback: scoutSpec.fallbackPolicy,
-                lane: team.lane, ready: readyModels, capabilities: capabilities
-            ) {
-                if let pref = scoutSpec.preferredModelId, pref != model.id {
-                    warnings.append("\(scoutSkillName): preferred scout \(pref) unavailable; resolved to \(model.displayName).")
-                }
-                scoutWorker = makeWorker(model, row: scoutSpec, skillName: scoutSkillName, stage: .scout)
-            } else {
-                disable(scoutSpec, scoutSkillName, "no ready model for scout in lane \(team.lane.rawValue)")
-            }
-        }
 
         // Rule 9: the mandatory Team Lead (synthesizer) — exactly one worker, from
         // `team.lead` (effort-independent). Resolves its model by name like a row.
@@ -322,51 +328,45 @@ public enum TeamResolver {
         reserveModelId: String? = nil,
         excludeModelIds: Set<String> = [],
         preferredTags: [ModelCapabilityTag] = [],
-        avoidFamilies: Set<String> = []
+        avoidFamilies: Set<String> = [],
+        avoidDrivers: Set<String> = []
     ) -> Model? {
+        // Snapshot once — no CatalogFileIO inside the sort comparator.
+        var capsCache: [String: ModelCapabilities] = [:]
+        func caps(_ id: String) -> ModelCapabilities {
+            if let c = capsCache[id] { return c }
+            let c = capabilities(id)
+            capsCache[id] = c
+            return c
+        }
         let byId = Dictionary(ready.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         func allowed(_ m: Model) -> Bool { allowedModelIds.isEmpty || allowedModelIds.contains(m.id) }
         func hasTags(_ m: Model) -> Bool {
-            let tags = capabilities(m.id).capabilityTags
+            let tags = caps(m.id).capabilityTags
             return requiredTags.allSatisfy { tags.contains($0) }
         }
-        // CN-S06 preference (Law 3): does this candidate carry ALL preferred tags?
-        // Empty preferredTags → vacuously true for every model, so the key is
-        // uniform and ordering is unchanged.
         func hasPreferred(_ m: Model) -> Bool {
-            let tags = capabilities(m.id).capabilityTags
+            let tags = caps(m.id).capabilityTags
             return preferredTags.allSatisfy { tags.contains($0) }
         }
-        func laneOK(_ m: Model) -> Bool { capabilities(m.id).laneTags.contains(lane) }
-        /// Broad auto pool — excludes paid/manual-only routes unless this call
-        /// explicitly preferred or ordered-fallback'd them (those paths return early).
+        func laneOK(_ m: Model) -> Bool { caps(m.id).laneTags.contains(lane) }
         func autoOK(_ m: Model) -> Bool { ModelCatalog.allowsAutomaticSubstitution(m.id) }
-        // Caliber band (Team_Catalog_Normalization Law 3): Flagship ≥95,
-        // High 85–94, Mid 70–84, floor below. Preference reorders WITHIN a
-        // band — a rank-90 specialist rightly takes the seat from a rank-92
-        // generalist (same High band) — but never across bands: a Mid
-        // specialist cannot displace a Flagship/High generalist. Never
-        // filters. With no preferred tag declared (or none carried) the
-        // preference key is uniform and ordering is byte-identical to the
-        // prior rank+id ordering (band is monotonic in rank).
-        func caliberBand(_ rank: Int) -> Int {
-            rank >= 95 ? 3 : rank >= 85 ? 2 : rank >= 70 ? 1 : 0
-        }
+        // Seating Law sort: band → preferred tags → unused family → unused driver → rank → id.
+        // Sonnet often absent on a full bench after Lead claimed claude — intended.
         func strongest(_ models: [Model]) -> Model? {
             models.sorted { a, b in
-                let ra = capabilities(a.id).strengthRank, rb = capabilities(b.id).strengthRank
-                let ba = caliberBand(ra), bb = caliberBand(rb)
+                let ra = caps(a.id).strengthRank, rb = caps(b.id).strengthRank
+                let ba = ModelCatalog.caliberBand(ra), bb = ModelCatalog.caliberBand(rb)
                 if ba != bb { return ba > bb }
                 let pa = hasPreferred(a), pb = hasPreferred(b)
                 if pa != pb { return pa && !pb }
-                if ra != rb { return ra > rb }
-                // Family diversity (Law 3 extension, tiebreak only): an exact
-                // caliber/preference/rank tie prefers the candidate whose
-                // family the crew doesn't already have, before falling to the
-                // alphabetical id tiebreak.
-                let fa = ModelCatalog.modelFamily(a.id), fb = ModelCatalog.modelFamily(b.id)
+                let fa = ModelCatalog.modelFamily(a.id, driverId: a.driverId)
+                let fb = ModelCatalog.modelFamily(b.id, driverId: b.driverId)
                 let usedA = avoidFamilies.contains(fa), usedB = avoidFamilies.contains(fb)
                 if usedA != usedB { return !usedA && usedB }
+                let da = avoidDrivers.contains(a.driverId), db = avoidDrivers.contains(b.driverId)
+                if da != db { return !da && db }
+                if ra != rb { return ra > rb }
                 return a.id < b.id
             }.first
         }
@@ -380,11 +380,6 @@ public enum TeamResolver {
             guard !allowedModelIds.isEmpty else { return nil }
             return strongest(pool.filter(hasTags).filter(autoOK))
         }
-        // Home-driver affinity: when the row named a preferred model, automatic
-        // fills stay on that CLI (Claude→Claude, Codex→Codex, Cursor→Cursor,
-        // Gemini→Antigravity…). Ready ≠ automatic cross-driver substitute.
-        // Resolve driver from the ready bench first, then the catalog (preferred
-        // may be down but still declares the home CLI).
         let homeDriver = preferredModelId.flatMap { id in
             byId[id]?.driverId ?? ModelCatalog.get(id)?.driverId
         }
@@ -392,32 +387,35 @@ public enum TeamResolver {
             guard let homeDriver else { return true }
             return m.driverId == homeDriver
         }
-        // Reserve the Lead's model for synthesis — workers take cheaper alternatives
-        // when the bench has depth (one-model benches still run). Only give up the
-        // reserved model when a *home-driver-eligible* substitute exists for this
-        // row: stripping it in favor of a cross-driver model the home-affinity
-        // filter below would then reject only strands a required worker (d8da81c2
-        // added homeOK to the fallback branches but not here).
         if let reserved = reserveModelId,
            pool.contains(where: { $0.id != reserved && hasTags($0) && autoOK($0) && homeOK($0) }) {
             pool.removeAll { $0.id == reserved }
         }
-        // Cross-row diversity: skip models already claimed (and their paid
-        // aliases — Codex Sol + Cursor Sol must not both seat as "diversity").
+        // Band-aware exclusion: bestBand is the best caliber still available among
+        // *unclaimed* candidates. If every capable model is already claimed, fall
+        // back to the absolute best band and keep the unfiltered pool (reuse).
+        // Computing bestBand on the full pool would lock Flagship reuse forever
+        // and never reach High unused families (breaks Spec Review Min W1).
         let expandedExclude = excludeModelIds.reduce(into: Set<String>()) { acc, id in
             acc.formUnion(ModelCatalog.diversityExclusionIds(for: id))
         }
         if !expandedExclude.isEmpty {
-            let alt = pool.filter { !expandedExclude.contains($0.id) }
-            if alt.contains(where: { hasTags($0) && autoOK($0) }) { pool = alt }
+            let eligible = pool.filter { hasTags($0) && autoOK($0) }
+            let unclaimed = eligible.filter { !expandedExclude.contains($0.id) }
+            let bandSource = unclaimed.isEmpty ? eligible : unclaimed
+            let bestBand = bandSource.map { ModelCatalog.caliberBand(caps($0.id).strengthRank) }.max()
+            let filtered = pool.filter { !expandedExclude.contains($0.id) }
+            if let bestBand,
+               filtered.contains(where: {
+                   hasTags($0) && autoOK($0) && ModelCatalog.caliberBand(caps($0.id).strengthRank) == bestBand
+               }) {
+                pool = filtered
+            }
         }
-        // Preferred wins when ready and allowed unless it is the resolved Lead
-        // model and an eligible alternative exists.
         if let pref = preferredModelId,
            let model = pool.first(where: { $0.id == pref }) {
             return model
         }
-        // Explicit ordered fallbacks may name a manual-opt-in model (user intent).
         for id in fallbackModelIds {
             if let model = pool.first(where: { $0.id == id && hasTags($0) }) {
                 return model
@@ -426,18 +424,15 @@ public enum TeamResolver {
         let autoPool = pool.filter(hasTags).filter(autoOK)
         switch fallback {
         case .exactOnly:
-            return nil // handled before ordered or broad substitutions
+            return nil
         case .sameSource:
             return strongest(autoPool.filter(homeOK))
         case .laneCapable:
-            // Named preferred → stay on that CLI; else any lane-capable free seat.
             if homeDriver != nil {
                 return strongest(autoPool.filter(laneOK).filter(homeOK))
             }
             return strongest(autoPool.filter(laneOK))
         case .anyReady, .strongestReady:
-            // Named preferred → stay on that CLI; else any free auto seat.
-            // Cross-CLI rescue is only via explicit `fallbackModelIds` (above).
             if homeDriver != nil {
                 return strongest(autoPool.filter(homeOK))
             }

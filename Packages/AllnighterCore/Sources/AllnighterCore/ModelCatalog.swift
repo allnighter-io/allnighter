@@ -41,14 +41,11 @@ public enum ModelCatalog {
         return ids
     }
 
-    /// Underlying reasoning family for cross-source diversity. Claude ships on
-    /// three drivers (claude_code, antigravity, and Sol/Terra don't count —
-    /// those are GPT); a resolver that only diversifies by model **id** can
-    /// stack e.g. Opus 5 + Sonnet 5 + Claude Opus 4.6 (antigravity) into one
-    /// crew and call it "diverse" because the ids differ, even though it's
-    /// three seats of the same mind. Used only as a tiebreak signal — never a
-    /// hard filter — when candidates are otherwise exactly tied.
-    public static func modelFamily(_ modelId: String) -> String {
+    /// Underlying reasoning family for cross-source diversity. Built-in ids use
+    /// the switch; customs/unknowns use `hostFamily(driverId:)` so a custom
+    /// Claude Haiku counts as `claude`, not as its own id (Bug C).
+    /// Pass `driverId` from the ready `Model` when the id may not be on disk yet.
+    public static func modelFamily(_ modelId: String, driverId: String? = nil) -> String {
         switch modelId {
         case "model_fable", "model_opus", "model_sonnet",
              "model_agy_opus", "model_agy_sonnet":
@@ -67,7 +64,27 @@ public enum ModelCatalog {
         case "model_cursor_auto", "model_cursor_composer_25", "model_cursor_composer_25_fast":
             return "cursor_native"
         default:
+            if let def = get(modelId) {
+                return hostFamily(driverId: def.driverId)
+            }
+            if let driverId {
+                return hostFamily(driverId: driverId)
+            }
             return modelId
+        }
+    }
+
+    /// Family for an unknown/custom model id from its CLI driver.
+    public static func hostFamily(driverId: String) -> String {
+        switch driverId {
+        case "claude_code": return "claude"
+        case "codex": return "gpt"
+        case "grok": return "grok"
+        case "kimi": return "kimi"
+        case "cursor_agent", "antigravity", "opencode":
+            return "driver:\(driverId)"
+        default:
+            return "driver:\(driverId)"
         }
     }
 

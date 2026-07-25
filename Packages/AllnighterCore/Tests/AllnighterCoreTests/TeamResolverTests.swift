@@ -440,79 +440,177 @@ final class TeamResolverTests: XCTestCase {
         XCTAssertEqual(decoded.requiredCapabilityTags, [.code])
     }
 
-    // MARK: - Family diversity tiebreak (Law 3 extension)
+    // MARK: - Seating Law (SEAT-S2) — FULL-bench Works Tests
 
-    /// `model_agy_opus` and `model_gemini` are the catalog's only exact
-    /// caliber/rank tie (both rank 75, "Mid" band). An open seat choosing
-    /// between them, with the crew already staffed with two Claude-family
-    /// models (Opus 5 + Sonnet 5, preferred rows), must prefer Gemini — a
-    /// genuinely different family — over stacking a third Claude-family seat.
-    /// Alphabetically "model_agy_opus" < "model_gemini", so a pass here proves
-    /// family diversity decided the seat, not the id tiebreak.
-    /// Mirrors the real `code_spec_review` shape: every worker row is a pure
-    /// need-row (no `preferredModelId`), so Law 3 cross-row diversity picks
-    /// declaration-order-first, strongest-ready-first, spreading to distinct
-    /// models as earlier rows claim them. By the third open row, the only two
-    /// ready+unclaimed candidates are `model_agy_opus` and `model_gemini` —
-    /// the catalog's one exact caliber/rank tie (both rank 75, "Mid" band) —
-    /// and the crew already has two Claude-family seats (Opus 5 + Sonnet 5).
-    /// The fix must prefer Gemini (an unused family) over stacking a third
-    /// Claude-family seat, even though "model_agy_opus" sorts first
-    /// alphabetically.
-    func testFamilyDiversityPrefersUnusedFamilyOnExactTie() {
-        // Fable as Lead (as production's synthesisLead does) so it — not
-        // Opus — gets reserved away from the worker rows; otherwise Opus
-        // would win Lead selection outright (highest band) and never reach
-        // seat_a.
+    /// FULL = enabled auto built-ins + fixture Haiku. `poisonedCaps` mirrors the
+    /// Bug A disk record (Fable@100); pass `useUnratedReadPath: true` for W1/W3
+    /// (S1 floors customs to rank 40). W2 injects the poisoned rank into the
+    /// pre-fix comparator only.
+    private func fullBenchWithHaikuFixture(
+        useUnratedReadPath: Bool
+    ) -> (ready: [Model], haikuId: String, caps: (String) -> ModelCapabilities) {
+        let haikuId = "fixture_custom_haiku"
+        let haiku = Model(
+            id: haikuId, displayName: "Claude Haiku (fixture)", modelLabel: "claude-haiku",
+            driverId: "claude_code", role: .answerer, enabled: true)
+        let ready = ModelCatalog.defaultFreshModels()
+            .filter { $0.enabled && ModelCatalog.allowsAutomaticSubstitution($0.id) }
+            + [haiku]
+        let poisoned = ModelCatalog.builtInCapabilities["model_fable"]!
+        var unrated = poisoned
+        unrated.strengthRank = ModelCatalog.unratedModelRank
+        let caps: (String) -> ModelCapabilities = { id in
+            if id == haikuId {
+                return useUnratedReadPath ? unrated : poisoned
+            }
+            return ModelCatalog.capabilities(id)
+        }
+        return (ready, haikuId, caps)
+    }
+
+    /// Pre-SEAT-S2 strongest: band → preferred → rank → family → id (family under rank).
+    /// Old exclusion: shrink pool whenever any tagged auto alternative remains.
+    private func preFixStrongest(
+        pool: [Model],
+        caps: (String) -> ModelCapabilities,
+        requiredTags: [ModelCapabilityTag],
+        preferredTags: [ModelCapabilityTag],
+        avoidFamilies: Set<String>,
+        exclude: Set<String>
+    ) -> Model? {
+        func hasTags(_ m: Model) -> Bool {
+            let tags = caps(m.id).capabilityTags
+            return requiredTags.allSatisfy { tags.contains($0) }
+        }
+        func hasPreferred(_ m: Model) -> Bool {
+            let tags = caps(m.id).capabilityTags
+            return preferredTags.allSatisfy { tags.contains($0) }
+        }
+        func autoOK(_ m: Model) -> Bool { ModelCatalog.allowsAutomaticSubstitution(m.id) }
+        func band(_ m: Model) -> Int { ModelCatalog.caliberBand(caps(m.id).strengthRank) }
+        var work = pool
+        let expanded = exclude.reduce(into: Set<String>()) { $0.formUnion(ModelCatalog.diversityExclusionIds(for: $1)) }
+        if !expanded.isEmpty {
+            let alt = work.filter { !expanded.contains($0.id) }
+            if alt.contains(where: { hasTags($0) && autoOK($0) }) { work = alt }
+        }
+        return work.filter(hasTags).filter(autoOK).sorted { a, b in
+            let ra = caps(a.id).strengthRank, rb = caps(b.id).strengthRank
+            let ba = band(a), bb = band(b)
+            if ba != bb { return ba > bb }
+            let pa = hasPreferred(a), pb = hasPreferred(b)
+            if pa != pb { return pa && !pb }
+            if ra != rb { return ra > rb }
+            let fa = ModelCatalog.modelFamily(a.id, driverId: a.driverId)
+            let fb = ModelCatalog.modelFamily(b.id, driverId: b.driverId)
+            let usedA = avoidFamilies.contains(fa), usedB = avoidFamilies.contains(fb)
+            if usedA != usedB { return !usedA && usedB }
+            return a.id < b.id
+        }.first
+    }
+
+    /// W1 — Spec Review Min seats gpt / Cursor Grok / Kimi; Haiku absent (S1 floor + S2).
+    func testW1SpecReviewMinFullBenchSeatsDiverseFamilies() {
+        let (ready, haikuId, caps) = fullBenchWithHaikuFixture(useUnratedReadPath: true)
+        let team = BuiltInTeams.team("code_spec_review_min")!
+        let r = TeamResolver.resolve(
+            team: team, requestLane: .code, requestEffort: .high,
+            readyModels: ready, capabilities: caps)
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.planWriter?.modelId, "model_fable")
+        XCTAssertEqual(
+            r.answerWorkers.map(\.modelId),
+            ["model_chatgpt", "model_cursor_grok_45", "model_kimi_k3"])
+        XCTAssertFalse(r.answerWorkers.map(\.modelId).contains(haikuId))
+        let answerFamilies = Set(r.answerWorkers.map { w in
+            ModelCatalog.modelFamily(w.modelId, driverId: ready.first { $0.id == w.modelId }?.driverId)
+        })
+        XCTAssertEqual(answerFamilies, Set(["gpt", "grok", "kimi"]))
+        XCTAssertEqual(ModelCatalog.modelFamily("model_fable"), "claude")
+    }
+
+    /// W2 — Same FULL through pre-fix comparator (family under rank) seats Haiku#2.
+    /// Evidence: DCE9AE48 (min) before the seating law landed.
+    func testW2PreFixComparatorStillSeatsPoisonedHaiku() {
+        let (ready, haikuId, caps) = fullBenchWithHaikuFixture(useUnratedReadPath: false)
+        let leadId = "model_fable"
+        var familyUsed: Set<String> = [ModelCatalog.modelFamily(leadId)]
+        var exclude: Set<String> = []
+        var pool = ready
+        // Reserve lead when alternatives exist (mirrors resolve).
+        if pool.contains(where: { $0.id != leadId }) {
+            pool.removeAll { $0.id == leadId }
+        }
+        var answers: [String] = []
+        for _ in 0..<3 {
+            guard let pick = preFixStrongest(
+                pool: pool, caps: caps, requiredTags: [.code], preferredTags: [],
+                avoidFamilies: familyUsed, exclude: exclude
+            ) else { break }
+            answers.append(pick.id)
+            familyUsed.insert(ModelCatalog.modelFamily(pick.id, driverId: pick.driverId))
+            exclude.formUnion(ModelCatalog.diversityExclusionIds(for: pick.id))
+        }
+        XCTAssertEqual([leadId] + answers, [leadId, haikuId, "model_chatgpt", "model_opus"],
+                       "Pre-fix sort (DCE9AE48) seats Flagship Haiku before diversity mattered")
+    }
+
+    /// W3 — Spec Review Max: Haiku absent; scout Grok; ≥4 families; no strict majority.
+    func testW3SpecReviewMaxFullBenchFamilySpread() {
+        let (ready, haikuId, caps) = fullBenchWithHaikuFixture(useUnratedReadPath: true)
+        let team = BuiltInTeams.team("code_spec_review_max")!
+        let r = TeamResolver.resolve(
+            team: team, requestLane: .code, requestEffort: .high,
+            readyModels: ready, capabilities: caps)
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
+        let crew = (r.answerWorkers + r.reviewWorkers + (r.planWriter.map { [$0] } ?? []))
+        XCTAssertFalse(crew.map(\.modelId).contains(haikuId))
+        let families = crew.map { worker in
+            ModelCatalog.modelFamily(
+                worker.modelId,
+                driverId: ready.first { $0.id == worker.modelId }?.driverId)
+        }
+        let counts = Dictionary(grouping: families, by: { $0 }).mapValues(\.count)
+        XCTAssertGreaterThanOrEqual(Set(families).count, 4)
+        let majorityThreshold = families.count / 2 + 1
+        XCTAssertFalse(counts.values.contains { $0 >= majorityThreshold },
+                       "no single family holds a strict majority: \(counts)")
+    }
+
+    /// W5 — Single-model bench still runs.
+    func testW5SingleModelBenchRemainsRunnable() {
         let fable = Model(id: "model_fable", displayName: "Fable 5", modelLabel: "fable",
                           driverId: "claude_code", role: .both)
+        let team = BuiltInTeams.team("code_spec_review_min")!
+        let r = TeamResolver.resolve(
+            team: team, requestLane: .code, requestEffort: .high, readyModels: [fable])
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.planWriter?.modelId, "model_fable")
+        XCTAssertFalse(r.answerWorkers.isEmpty)
+    }
+
+    /// W6 — Preferred on a used family still wins (diversity does not override).
+    func testW6PreferredOverridesFamilyDiversity() {
         let ready: [Model] = [
-            fable,
-            opus(), // claude family, band2 (rank90) — claimed by seat_a
-            Model(id: "model_sonnet", displayName: "Sonnet 5", modelLabel: "claude-sonnet-5",
-                  driverId: "claude_code", role: .answerer), // claude family, band1 (rank84) — claimed by seat_b
-            Model(id: "model_agy_opus", displayName: "Claude Opus 4.6", modelLabel: "opus-4.6",
-                  driverId: "antigravity", role: .both), // claude family, tied rank w/ gemini
-            gemini(), // gemini family, tied rank w/ agy_opus
+            Model(id: "model_fable", displayName: "Fable", modelLabel: "fable",
+                  driverId: "claude_code", role: .both),
+            Model(id: "model_opus", displayName: "Opus", modelLabel: "opus",
+                  driverId: "claude_code", role: .both),
+            Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+                  driverId: "codex", role: .both),
         ]
         let t = team(
             rows: [
-                TeamWorkerSpec(id: "seat_a", skillId: "seat_a"),
-                TeamWorkerSpec(id: "seat_b", skillId: "seat_b"),
-                TeamWorkerSpec(id: "seat_c", skillId: "seat_c"), // the tie
+                TeamWorkerSpec(id: "r1", skillId: "seat_a"), // claims chatgpt (unused family)
+                TeamWorkerSpec(
+                    id: "r2", skillId: "seat_b",
+                    preferredModelId: "model_opus", fallbackPolicy: .anyReady),
             ],
             lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_fable",
                                fallbackPolicy: .strongestReady))
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .med, readyModels: ready)
         XCTAssertTrue(r.isRunnable)
-        XCTAssertEqual(r.answerWorkers.first { $0.skillId == "seat_a" }?.modelId, "model_opus")
-        XCTAssertEqual(r.answerWorkers.first { $0.skillId == "seat_b" }?.modelId, "model_sonnet")
-        let openSeat = r.answerWorkers.first { $0.skillId == "seat_c" }
-        XCTAssertEqual(openSeat?.modelId, "model_gemini")
-    }
-
-    /// Same exact tie, but the crew's Lead is a non-Claude family (Kimi) — no
-    /// family conflict exists for either candidate, so the tiebreak falls
-    /// through to the pre-existing alphabetical id order (`model_agy_opus` <
-    /// `model_gemini`). Confirms the new tiebreak is additive, not a general
-    /// behavior change.
-    func testFamilyDiversityFallsBackToIdOrderWhenNoFamilyUsed() {
-        let kimi = Model(id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-code/k3",
-                         driverId: "kimi", role: .both)
-        let ready: [Model] = [
-            kimi, // Lead only — distinct family, no Claude/Gemini conflict
-            Model(id: "model_agy_opus", displayName: "Claude Opus 4.6", modelLabel: "opus-4.6",
-                  driverId: "antigravity", role: .both),
-            gemini(),
-        ]
-        let t = team(
-            rows: [TeamWorkerSpec(id: "seat_b", skillId: "seat_b")], // the tie
-            lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_kimi_k3",
-                               fallbackPolicy: .strongestReady))
-        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .med, readyModels: ready)
-        XCTAssertTrue(r.isRunnable)
-        XCTAssertEqual(r.planWriter?.modelId, "model_kimi_k3")
-        let openSeat = r.answerWorkers.first { $0.skillId == "seat_b" }
-        XCTAssertEqual(openSeat?.modelId, "model_agy_opus")
+        XCTAssertEqual(r.answerWorkers.first { $0.skillId == "seat_b" }?.modelId, "model_opus")
     }
 }
