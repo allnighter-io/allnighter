@@ -202,3 +202,19 @@ Buzz is **not** required for this packet. It remains a useful optional place to
 *show* a receipt inside an attended human/agent thread. Do not marry privacy or
 signing to a private auth relay. If Buzz (or Slack) agents call `alln`, they
 consume the same CLI → same receipt object.
+
+## Growth Min review (pending)
+
+**Requested:** 2026-07-25 — before/after git commits bracket this review so the
+diff is the team's input only.
+
+**Team:** `custom_growth_min_cursor_k3` (Growth Min · Cursor CLI seats + one
+Kimi K3 · Fabel lead). Read-only.
+
+**Ask:** Review this packet (`docs/phases/Team_Run_Receipt.md`) with Growth:
+the loved wedge, the shareable artifact, the simplest lovable version, what to
+cut, and whether private-by-default + deliberate share + CLI-openable gorgeous
+report is the right near-term bet (vs Buzz marriage, public Nostr, Mac-only
+viewer, etc.).
+
+**Outcome:** fold the verdict into this section after the run completes.
