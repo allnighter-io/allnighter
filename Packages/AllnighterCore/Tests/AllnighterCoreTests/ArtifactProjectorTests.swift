@@ -65,15 +65,13 @@ final class ArtifactProjectorTests: XCTestCase {
     XCTAssertFalse(ArtifactProjector.canProject(run))
   }
 
-  func testSeatSetAntiDriftWithFloor() {
+  func testSeatSetSharedHelperKeepsDeclarationOrder() {
     let run = multiSeatRun(leadMarkdown: leadCallMarkdown)
     let seatIds = TeamRunSeatSet.workers(for: run).map(\.id)
-    let floorIds = FloorProjector.seatWorkers(for: run).map(\.id)
-    XCTAssertEqual(seatIds, floorIds)
-    let lanes = FloorProjector.project(run).workerLanes.map(\.workerId)
-    for (offset, id) in seatIds.enumerated() {
-      XCTAssertEqual(lanes[offset], id, "floor lane order must match seat-set order")
-    }
+    XCTAssertEqual(seatIds, ["model_grok#0", "model_opus#0", "model_opus#1"])
+    // Floor deep-reader may still include scout lanes; artifact seat-set is the shared law.
+    let cardIds = ArtifactProjector.project(run).seats.map(\.workerId)
+    XCTAssertEqual(cardIds, seatIds)
   }
 
   func testLeadCallPreferredForCallAndVerdict() {
@@ -84,15 +82,21 @@ final class ArtifactProjectorTests: XCTestCase {
   }
 
   func testLaw2SingleSeatHoistUsesAnswerMarkdownOnChip() {
-    let worker = Worker(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0, purpose: .answer)
+    // Worker row empty (Law-2 nulled); markdown lives on the synthesized answer via plan.
+    let worker = Worker(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0,
+                        skillId: "lead", skillName: "Lead", purpose: .plan)
     let answers = [
-      TeamAnswer(memberId: "model_sonnet#0", modelId: "model_sonnet", role: "answer",
-                 result: WorkerRunResult(status: .done, output: "Hoisted success one-liner",
+      TeamAnswer(memberId: "model_sonnet#0", modelId: "model_sonnet", role: "plan",
+                 result: WorkerRunResult(status: .done, output: "",
                                          timing: RunTiming(durationMs: 1200))),
     ]
+    let plan = StageOutput(
+      id: "stage_plan", purpose: .plan, producedByWorkerId: "model_sonnet#0",
+      status: .done, payload: .plan(markdown: "Hoisted success one-liner")
+    )
     let run = TeamRun(
       id: "run_single", prompt: "Say success.", status: .done,
-      workers: [worker], workerAnswers: answers, stages: [], createdAt: now
+      workers: [worker], workerAnswers: answers, stages: [plan], createdAt: now
     )
     let card = ArtifactProjector.project(run)
     XCTAssertEqual(card.seats.count, 1)
@@ -131,6 +135,39 @@ final class ArtifactProjectorTests: XCTestCase {
       ArtifactProjector.project(multiSeatRun(leadMarkdown: leadCallMarkdown))
     )
     XCTAssertTrue(ArtifactProjector.g13Violations(in: html).isEmpty)
+  }
+
+  func testG13GatePassesOnPartialVerdict() {
+    let partialMarkdown = """
+    ```lead-call
+    {"schemaVersion":1,"status":"Partial","call":"Needs a human decision."}
+    ```
+    """
+    let html = ArtifactProjector.renderHTML(
+      ArtifactProjector.project(multiSeatRun(leadMarkdown: partialMarkdown))
+    )
+    XCTAssertTrue(html.contains("verdict-partial"))
+    XCTAssertTrue(html.contains("accent-event"))
+    XCTAssertTrue(
+      ArtifactProjector.g13Violations(in: html).isEmpty,
+      "Partial lockup is one amber event, not two class-name hits"
+    )
+  }
+
+  func testCallFallbackWhenNoLeadCallOrBody() {
+    let worker = Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0, purpose: .answer)
+    let run = TeamRun(
+      id: "run_empty", prompt: "Empty?", status: .failed,
+      workers: [worker],
+      workerAnswers: [
+        TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
+                   result: WorkerRunResult(status: .failed, errorReason: "boom",
+                                           timing: RunTiming(durationMs: 10))),
+      ],
+      stages: [], createdAt: now
+    )
+    let card = ArtifactProjector.project(run)
+    XCTAssertEqual(card.call, "(no synthesized output — status failed)")
   }
 
   func testQuestionAndOneLinerCaps() {

@@ -44,7 +44,7 @@ public enum ArtifactProjector {
 
     public init(
       models: [Model] = [],
-      manifests: [DriverManifest] = []
+      manifests _: [DriverManifest] = []
     ) {
       let modelById = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
       modelDisplayName = { modelById[$0]?.displayName ?? $0 }
@@ -76,7 +76,9 @@ public enum ArtifactProjector {
 
     let teamLabel = run.teamDisplayName ?? run.presetId ?? "Team run"
     let verdict = normalizedVerdict(leadCall?.status)
-    let call = leadCall?.call ?? fallbackCall(from: leadMarkdown)
+    let call = leadCall?.call
+      ?? fallbackCall(from: leadMarkdown)
+      ?? "(no synthesized output — status \(run.status.rawValue))"
     let recommendations = (leadCall?.recommendations ?? [])
       .prefix(3)
       .compactMap { rec -> Recommendation? in
@@ -92,7 +94,7 @@ public enum ArtifactProjector {
     let craftBody = leadMarkdown.map { LeadCallParser.stripFence(from: $0) }
       .flatMap { $0.isEmpty ? nil : $0 }
 
-  let (reproduceLine, reproduceRunIdLine) = elidedReproduce(
+    let (reproduceLine, reproduceRunIdLine) = elidedReproduce(
       command: reproduceCommand,
       runId: run.id
     )
@@ -103,7 +105,7 @@ public enum ArtifactProjector {
       teamLabel: teamLabel,
       verdict: verdict,
       verdictPartial: verdict == "Partial",
-      call: call.map { capped($0, max: 280) },
+      call: capped(call, max: 280),
       changed: leadCall?.changed,
       recommendations: recommendations,
       seats: seats,
@@ -145,9 +147,10 @@ public enum ArtifactProjector {
     if outsideStyle.range(of: "#[0-9A-Fa-f]{3,8}", options: .regularExpression) != nil {
       issues.append("hex-outside-token-layer")
     }
+    // G2/G13: one amber content event — count `accent-event` markers only.
+    // Partial lockups also carry `verdict-partial` for styling; do not double-count.
     let header = html.components(separatedBy: "<section class=\"seats\">").first ?? html
-    let amberEvents = header.components(separatedBy: "verdict-partial").count - 1
-      + header.components(separatedBy: "accent-event").count - 1
+    let amberEvents = header.components(separatedBy: "accent-event").count - 1
     if amberEvents > 1 { issues.append("multiple-amber-content-events") }
     return issues
   }

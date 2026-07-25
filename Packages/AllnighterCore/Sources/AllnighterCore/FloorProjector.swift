@@ -5,11 +5,6 @@ import Foundation
 /// (artifacts F-S01, typed return F-S02/S03, timeline F-S04, rich next actions)
 /// without changing this contract's shape.
 public enum FloorProjector {
-    /// Seat workers for artifact/Floor parity (TRR-S01 G11).
-    public static func seatWorkers(for run: TeamRun) -> [Worker] {
-        TeamRunSeatSet.workers(for: run)
-    }
-
     public static func project(
         _ run: TeamRun,
         reproduceCommand: String? = nil,
