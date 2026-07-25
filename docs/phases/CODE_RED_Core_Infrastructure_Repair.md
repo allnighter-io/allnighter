@@ -1269,6 +1269,76 @@ three consecutive times from unchanged committed HEAD.
 > `RunLifecycleReliabilityWorksTest.testItem12PsAllProjectsShowsZeroHarnessOrphansAfterClose`.
 > **CR-S06 cannot close until it un-skips this set** — CR-S06's works test re-runs
 > these reproductions once detach is settled/restored.
+>
+> **Discharged 2026-07-24 by deletion, per the implementer's call recorded above.**
+> All seven are deleted with `--detach` itself. No unconditional
+> `XCTSkipIf(true, …)` remains anywhere in the suite, and the
+> `codeRedDetachSkipReason` constant is gone with them.
+
+### CR-S06 closure — 2026-07-24
+
+CR-S05 closed with no transport, so this was total deletion, not reduction to
+one operation. The scope ruling above separated the two things that shared the
+`alln serve` process: the control plane — all of it written inside the
+2026-07-23/24 incident window — is gone; the pre-incident background daemon
+survives as `ServeDaemon`, reduced to the health server plus four schedulers.
+
+**What the packet's step order got wrong, and why the commits differ.** Steps
+2–4 could not be executed as written. `ResidentExecutionRendezvous` is the
+spine that the operation union, the probe, the coordinator, and every CLI
+client hop hang from, so "delete the 13 operations (step 2), then the
+rendezvous (step 3), then the coordinator (step 4)" does not compile at step 2.
+The commits therefore run: broker first (as planned), then CLI callers restored
+with rendezvous + operations + coordinator reduction together, then contracts
+and help, then `--detach`. Every commit still leaves the tree compiling and the
+suite green, which is the property the ordering existed to protect.
+
+**The deletion was a revert, not new construction.** The broker was a pure
+dispatcher: all 13 cases forwarded to a local service that still exists. Nine
+commands went back to those services — `doctor`, `detect`, `ps`, `kill`,
+`team status/result/cancel/reconcile`, `pending run`, `project recheck`,
+`boost-window seed`. `alln ps` and `alln kill` no longer need a running daemon
+at all, and the once-per-second machine-wide `runStore.reconcileAll` sweep the
+broker ran is gone with it.
+
+**The policy amendment inverted the gate rather than relaxing it.** Instead of
+pinning 13 allowed operations, `config/architecture-policy.json` now names every
+deleted control-plane file and requires each to be absent, and the validator
+rejects any redeclaration of the operation union anywhere in production —
+including under a renamed prefix, which is how it would actually come back. The
+self-test grew from 10 red fixture categories to 12. LOC ceiling ratcheted
+2,143 → 1,529 → 0.
+
+**Independent audit: CLEAN after one fix.** Audited against
+`docs/operations/Code_Audit.md`. One real finding (rubric 2, no half
+extractions; rubric 3, no duplicate truth): moving doctor composition into
+`SourceProbeService` left `AllnighterCLI.doctorResult` behind as a second,
+unreachable implementation of the same job. Deleted in `814b6e4d` with its
+private helpers; `DoctorTimingTests` had been exercising the forwarder rather
+than the owner (rubric 5) and now calls `SourceProbeService.probeRecords`
+directly. Rubric 4 re-checked: the only two `try?` added are carried over from
+the pre-image and neither is authoritative.
+
+```text
+Status: GREEN
+Commit: b7a2684c, 01a1272e, 78c998d5, 588e0621, 814b6e4d (live proof from f46d6229)
+Production lines added / deleted: 273 / 3,606 (Sources + Apps; net −3,333)
+Concepts deleted / added: resident execution control plane (rendezvous, broker, 13-case operation union, coordinator install/drain/probe-routing, --detach and its forked runner, context-packet provenance handoff) deleted / SourceProbeService + ServeDaemon added as renamed reductions of deleted owners
+Client binary SHA: alln 0.9.17, contract 3.4.0, hash 71f56f9bebe2, sha256 2da0f4072ec9993a…; checkout HEAD f46d6229f94c
+Execution-owner binary SHA: none — direct path only; the resident no longer exists
+Exact command: bash scripts/code_red_works_test.sh live-direct, run three times consecutively from unchanged HEAD f46d6229
+Canonical repo root: three distinct disposable fixtures — code-red-fixture.y1Oo8k @ 8d4b9afe03bc, .rVUxfj @ 35ccc5580590, .PnF0Y3 @ 11b996115b05
+Selected source IDs: research claude_code + codex (two DISTINCT vendors, both seats exactOnly, cliCalls 2, zero substitution) ×3; execution claude_code only, exactly one worker ×3
+Observed source process IDs: every seat sampled live as a descendant of `alln` — A: codex 79668 / claude 82292; B: codex 82898 / claude (execution) sampled; C: codex 86129 / claude 87285 + 88857
+Run ID: A C8C226FE (research) + 66EF9570 (execution); B 8290B5A4 + 4DFEBCC7; C 44922C7B + 77966BEC
+Git observation before: each fixture clean at its own baseline, porcelain empty
+Git observation after: research changed=false, changedPaths [] (all three); execution HEAD advanced by exactly one commit (all three)
+Real changed paths: research none; execution exactly ["sentinel.txt"], sentinelHits 1 (all three)
+Proof command/result: each seat's own text must cite the canonical root, the fixture HEAD, and that run's unique sentinel — a seat that never opened the repository cannot pass; all six gestures GREEN with `missing: []`
+Architecture policy result: passed; negative self-test passed (12 red fixture categories); structural works test passed; suite 2,235 tests / 6 skipped / 0 failures; metrics report forbidden concepts 0, resident operation cases 0, resident LOC 0, deleted files returned 0
+Missing assertion: none in the three passes. Recorded separately: (1) `AllnighterBuildInfo.gitSha` under-reports — the prebuild plugin reads HEAD at build time but SwiftPM does not re-run it when only HEAD moves, so the binary self-reported `588e0621` while built from `f46d6229`; this used to gate resident dispatch on exact-SHA equality and is now a reporting defect only. (2) An earlier attempt at these three passes went RED twice on the founder's Claude five-hour quota (HTTP 429); the harness correctly refused to call a run with no edit a pass. In one of those, the surviving seat's text was promoted to `answer` by `deriveAnswer` Law-2 de-duplication (a one-seat-dead run has exactly one non-skipped seat), so the harness's per-seat check read "empty answer" — the RED verdict was right, the message was misleading. Product behavior is correct; the harness message is a known sharp edge.
+Next deletion: none — the control plane is at zero. CR-S07 owns the gate, the waived Mac arms, and archival.
+```
 
 ### CR-S07 — Lock the gate and close Code Red
 
