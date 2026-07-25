@@ -1,5 +1,35 @@
 # Debug Log
 
+## 2026-07-25 — false `capacity: authRequired` from stdout transcript scan
+
+Tier: T2 SSOT (capacity observation / kill-reason mislabel)
+
+Symptom / repro: Claude Code seats on 2026-07-25 premise sweeps journaled
+`capacity: authRequired` with a `system/init` snippet while interactive Claude
+authenticated fine and morning spec-review panels succeeded on the same seats.
+`run_04A6D848` ran ~386s, idle budget 300s, 1.4MB stdout, zero stderr.
+
+Bug fingerprint: `DefaultWorkerRunner.normalize` + `CapacityClassifier.classifyBlockers`
+scanning combined stdout for auth substrings → `authRequired` on agent prose /
+init JSON after nonzero exit or idle kill.
+
+Truth owner: AgentOS `CapacityClassifier` (typed capacity fact); `DefaultWorkerRunner`
+(headline `errorReason`).
+
+Lie-prone layer: journal `capacityObservation.rawSnippet` showed init handshake
+(evidence session started) while reason claimed sign-in required.
+
+Fix boundary: stderr-only auth/manual blockers; matching-line snippets; idle/total
+watchdog kills headline `worker timed out` and clear weak capacity observations.
+Allnighter mirror regression fixtures in `CapacityClassifierTests`.
+
+Proof: AgentOS `bec4f9e`; `swift test --package-path Packages/AllnighterCore
+--filter CapacityClassifierTests` (16/16); steer verified
+`ResolvedRunInvocationTests.testExplicitWorkerBareAskTeachesSteerPreservingWorker`.
+
+Regression law: auth `messageFallback` must never scan stdout; timedOut path must
+not borrow capacity labels from partial stdout.
+
 ## 2026-07-24 — resident control plane accepted a paid request after its client timed out
 
 Tier: T3 Critical (duplicate quota risk, resident ownership outage, repeated

@@ -25,11 +25,14 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Idle_Stall_False_Kill_Hotfix.md`](Idle_Stall_False_Kill_Hotfix.md) | **AUTHORIZED — Spec Review Min Ready** — implement S01 next | Idle false-kill hotfix; ship order S01 → S04+telemetry → scoped S02 → deferred S03. S01 raises/syncs six drivers to 1800 + timeoutSeconds drift guard. |
+| [`Idle_Stall_False_Kill_Hotfix.md`](Idle_Stall_False_Kill_Hotfix.md) | **S02 shipped** — S03 posture floors deferred | Idle false-kill: S01 1800 floors + drift guard; S04 stall demotion + silence telemetry; S02 pgid activity progress. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
 
 > Recently completed and archived — code is the SSOT, do not reopen:
+> [`Capacity_False_Auth_Mislabel_Hotfix.md`](../archive/phases/Capacity_False_Auth_Mislabel_Hotfix.md)
+> (Complete 2026-07-25 — AgentOS `bec4f9e` stderr-only auth blockers + idle kill-reason
+> priority; Allnighter mirror `CapacityClassifierTests`; dry-run steer verified),
 > [`Seating_Tier_And_CLI_Diversity.md`](../archive/phases/Seating_Tier_And_CLI_Diversity.md)
 > (Complete 2026-07-25 — S1–S3 `6c3dff3d`/`dd319f72`/`70e045c4`, contract 4.0.2;
 > unrated customs@40 + family/CLI diversity + dry-run `seats[]`),

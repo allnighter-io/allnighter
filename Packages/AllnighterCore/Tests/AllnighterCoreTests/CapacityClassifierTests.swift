@@ -74,6 +74,31 @@ final class CapacityClassifierTests: XCTestCase {
         XCTAssertEqual(obs?.sourceConfidence, .messageFallback)
         XCTAssertNil(obs?.observedResetAt)
         XCTAssertNil(obs?.wakeAfter)
+        XCTAssertTrue(obs?.rawSnippet.contains("not signed in") ?? false)
+    }
+
+    func testClaudeInitOnStdoutAloneIsNotAuthRequired() {
+        let stdout = #"{"type":"system","subtype":"init","cwd":"/repo","session_id":"abc","tools":["Read","Write"]}"#
+        let obs = CapacityClassifier.classify(input(stdout: stdout))
+        XCTAssertNil(obs)
+    }
+
+    func testUnauthorizedProseOnStdoutIsNotAuthRequired() {
+        let stdout = """
+        {"type":"system","subtype":"init","cwd":"/repo","session_id":"abc","tools":["Read"]}
+        Checking whether the route returns unauthorized for anonymous users.
+        """
+        let obs = CapacityClassifier.classify(input(stdout: stdout))
+        XCTAssertNil(obs)
+    }
+
+    func testAuthOnStderrStillClassifiesWhenStdoutHasInit() {
+        let stdout = #"{"type":"system","subtype":"init","cwd":"/repo","session_id":"abc"}"#
+        let stderr = "Error: not signed in — please run /login"
+        let obs = CapacityClassifier.classify(input(stdout: stdout, stderr: stderr))
+        XCTAssertEqual(obs?.kind, .authRequired)
+        XCTAssertTrue(obs?.rawSnippet.contains("not signed in") ?? false)
+        XCTAssertFalse(obs?.rawSnippet.contains("subtype") ?? true)
     }
 
     func testManualRequiredBlocker() {
