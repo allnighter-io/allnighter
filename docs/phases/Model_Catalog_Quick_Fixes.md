@@ -2,8 +2,8 @@
 
 Status: **Backlog — reviewed and hardened. MCV-S03 ratified for
 implementation (founder, 2026-07-25); everything else still unauthorized.**
-Queued behind `Sandbox_Handoff_Hotfix.md` (the current active work) — do not
-start until that packet closes.
+**Unblocked 2026-07-25:** `Sandbox_Handoff_Hotfix.md` closed and archived
+(`docs/archive/phases/Sandbox_Handoff_Hotfix.md`). MCV-S03 is first up.
 Owner: AllnighterCore (`ModelCatalog.swift`, `TeamCatalog.swift`) +
 AgentOS (`BundledDefaults.swift`) — cross-repo, MCV-S04b additionally touches
 XTerminal.
@@ -250,8 +250,8 @@ payload refuses with an error naming the expected shape.
 **Effort:** small — swap one printer call, registry schema update, round-trip
 gate.
 
-**Status:** **ratified for implementation** (founder, 2026-07-25) — still
-queued behind `Sandbox_Handoff_Hotfix.md` like everything else here.
+**Status:** **ratified for implementation** (founder, 2026-07-25). The hot fix
+packet it was queued behind closed and archived on 2026-07-25, so this is first up.
 
 ## MCV-S04a — stamp hand-typed models as unverified (new, Allnighter-only)
 
@@ -312,8 +312,8 @@ it changes, this section should be updated to match, not re-argued.
 
 ## Ordering
 
-This entire doc remains backlog behind `Sandbox_Handoff_Hotfix.md`. Within it:
-MCV-S03 is ratified and first up once the hotfix closes; MCV-S00 and MCV-S04a
+The hot fix packet this was queued behind closed and archived on 2026-07-25.
+Within this doc: MCV-S03 is ratified and first up; MCV-S00 and MCV-S04a
 still need founder authorization; MCV-S04b is additionally gated on
 XTerminal's `YM7` seal; MCV-S01 requires no implementation; MCV-S02 is
 rejected.

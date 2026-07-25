@@ -1,6 +1,10 @@
 # Sandbox Hand-off Hot Fix — make `alln` work from inside Codex
 
-Status: **Hot fix packet — reviewed, ready for implementation.**
+Status: **CLOSED 2026-07-25 — shipped and archived.** S1–S10 + S12 shipped; S11
+ruled do-not-build; the mutating-writer slice cancelled by founder ruling. The
+loop this packet exists for is proven end to end from inside Codex by the founder.
+Remaining items are listed under *Remaining open* and are all deliberately
+unbuilt — none blocks use.
 Owner: AllnighterCLI + AllnighterEngine + AllnighterMac
 Updated: 2026-07-24
 
