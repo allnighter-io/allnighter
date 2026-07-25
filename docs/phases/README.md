@@ -25,14 +25,22 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`CODE_RED_Core_Infrastructure_Repair.md`](CODE_RED_Core_Infrastructure_Repair.md) | **READY FOR IMPLEMENTATION; CODE RED ACTIVE** | Delete alternate repositories/read-only overreach, restore one real-repository Team path, prove two-CLI research and one-worker execution, then add one restricted-host `run` handoff only if the sandbox harness proves it necessary. |
-| [`Resident_Execution_Broker.md`](Resident_Execution_Broker.md) | **FROZEN / SUPERSEDED** | Incident history and current-state inventory only. Do not continue its mirror, compatibility, lifecycle, or permission direction. |
-| [`CLI_Agent_Ergonomics.md`](CLI_Agent_Ergonomics.md) | **Complete 2026-07-20** — AE-S00–S15 shipped; selection work superseded by archived MNR | Generated/comprehensive help, honor-or-fail ids and flags, free `run --dry-run`, cwd→project, contract lock/versioning, and the first pinned-binary agent harness. Successor: archived [`Alln_Sharpening.md`](../archive/phases/Alln_Sharpening.md). |
-| [`Alln_Sharpening.md`](../archive/phases/Alln_Sharpening.md) | **Complete 2026-07-21, archived** — SH-S00–S10 (`3f64a7d6` + prior SH commits) | Post-MNR preference pass: preview/run identity, canonical answer + slim v2 envelope, honor-or-fail flags, complete team inspection/authoring, resolved effects, observed timing, teaching projections. Code SSOT: `ResolvedRunInvocation`, `TeamRunJSON.answer`, `CommandProjection`, `ContractRegistry`; harness `scripts/agent_eval.sh --suite sharpening`. |
-| [`CLI_Agent_Surface_Fidelity.md`](../archive/phases/CLI_Agent_Surface_Fidelity.md) | **Complete 2026-07-20, archived** — ASF-S00–S08 (`ddd6cc39` / `5b1f27ba` / `791d591e` / `02819c6b` / `ce65caf3`) | Help + transactional nextActions speak CLI only; catalog search; miss recovery; version gitSha; `RetiredVocabulary` + check.sh gates. Code SSOT: `HelpTopicRegistry`, `RetiredVocabulary`. |
-| [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md) | **SHIPPED 2026-07-19, archived** — F1–F5b + two-process gates (mutation/context + same-key idempotency). Mutation receipts deferred. | Two `alln`s on different projects isolate like two `claude`s. Code SSOT: scoped reconcile/kill, stage-lease, context provenance, `IdempotencyStore.claim`. |
-| [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md) | **Complete 2026-07-19, archived** — S00–S06; Works Test 14 GREEN / item 7 waived | Accepted runs stay observable, stoppable, recoverable. Code SSOT: `KillSettlement`, `RunClockEnforcer`, `RunContradiction`, `IdempotencyStore`; matrix `archive/phases/rlr/`. Unblocks IR-S02. |
-| [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md) | **SHIPPED 2026-07-19, archived** — S01–S04b, S05a, S06 gates; S05b deferred | Team-run open + streaming/reload hot path. Code SSOT: `ThreadsViewModel.applyLiveDelta` / `reloadAsync`, `PerfCounters`, `RunDecodeCache`. |
+| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
+| [`Menu_Relations.md`](Menu_Relations.md) | **Draft — NOT AUTHORIZED** | ⚠️ Carries a live gate risk regardless of whether the phase runs: the menu measured **32,418 / 32,768 bytes**. MRL-S00 (reclaim headroom) is worth doing on its own. |
+| [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
+| [`Team_Lab_Run_Factory.md`](Team_Lab_Run_Factory.md) | **Draft — re-base next** | Scripts still reference the dead `code_bug_hunt_lite` team; the re-base is the next code slice. |
+
+> Recently completed and archived — code is the SSOT, do not reopen:
+> [`CODE_RED_Core_Infrastructure_Repair.md`](../archive/phases/CODE_RED_Core_Infrastructure_Repair.md)
+> (CLOSED 2026-07-24, CR-S00–S07, live proof GREEN ×3; resident control plane
+> deleted to zero; `Resident_Execution_Broker.md` archived with it),
+> [`Alln_Sharpening.md`](../archive/phases/Alln_Sharpening.md),
+> [`CLI_Agent_Surface_Fidelity.md`](../archive/phases/CLI_Agent_Surface_Fidelity.md),
+> [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md),
+> [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md),
+> [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md).
+> `CLI_Agent_Ergonomics.md` is complete (AE-S00–S15) and still sits in
+> `docs/phases/` — it is a candidate for the next archive sweep.
 
 ### Agent front door (V1 Complete — gates 1–3 archived)
 
@@ -50,7 +58,7 @@ one's truth now lives.
 | --- | --- | --- |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **Living spine SSOT** (M1 built) | `alln` as the first-class agent contract; owns forward naming/agent-first laws. Run-journal foundation work (`RunStore.swift`) currently in flight. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Living implementation SSOT** (M1 built) | Generated docs/doctor/errors/events + proof gates. Forward CLI work: SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
-| [`Unified_Run_Model.md`](Unified_Run_Model.md) | **Root run-model law; Code Red correction active** | A run = message + optional preset + worker, in the real repo root. Research Teams are observational and execution Teams use one mutating worker. Alternate repository and mechanical read-only infrastructure is retired. |
+| [`Unified_Run_Model.md`](Unified_Run_Model.md) | **Root run-model law** (Code Red closed; enforcement now in `config/architecture-policy.json`) | A run = message + optional preset + worker, in the real repo root. Research Teams are observational and execution Teams use one mutating worker. Alternate repository and mechanical read-only infrastructure is retired. |
 | [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | **Living vocabulary contract** | Source/bench/model/skill/worker/team/lane/type/effort/preset word list for new phase docs and GUI briefs. |
 | [`Language_Cutover.md`](Language_Cutover.md) | **DONE** (CUT-S00–S06) — kept as canonical word list | The locked vocabulary is codebase reality. Retained as the word-list SSOT other docs cite. |
 | [`Team_Depth_Naming.md`](Team_Depth_Naming.md) | **DECIDED — convention SSOT** (partially applied) | Family = the job; depth = universal Min / (bare) / Max; bare = default send, never Min; no numbers. Stays until `Team_Catalog_Normalization` lands catalog-wide. |
@@ -184,8 +192,9 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 
 | Work | Read first |
 | --- | --- |
-| Core execution is broken, Team research does not return real answers, execution does not change the real repo, resident/mirror churn, or any “fixed again” incident | **`CODE_RED_Core_Infrastructure_Repair.md`** |
-| Codex/host sandbox blocks child CLIs, resident execution authority, `alln serve` command broker, source processes absent from ownership | During Code Red: `CODE_RED_Core_Infrastructure_Repair.md` first; `Resident_Execution_Broker.md` is incident history/current-state inventory only |
+| Core execution is broken, Team research does not return real answers, execution does not change the real repo, or any “fixed again” incident | `Unified_Run_Model.md`; enforcement is code — `config/architecture-policy.json` + `scripts/check_architecture_policy.sh` |
+| Codex/host sandbox blocks child CLIs, source processes absent from ownership | The sandbox blocks the Keychain, not the repo. Code SSOT: `SandboxHandoffSpool.swift`, `SandboxHandoffRunner.swift`, `HostSandboxAdvice.swift` |
+| `alln serve`, background scheduler scope | A scheduler only (Pending wake, Boost seed, vendor-backoff continuation, cloud relay). Owns no run semantics; `alln run` never needs it. Code SSOT: `ServeDaemon.swift` |
 | Foreground/async run stuck, journal/status mismatch, opaque blocker, orphan worker, kill/retry failure, missing lifecycle stream | archived `Run_Lifecycle_Reliability.md` (Complete; extends archived Process Ownership + Concurrent Invocation Isolation) |
 | Vendor usage limit / session cap, parked run, wake/resume, authorized substitute | archived `Rate_Limit_Continuity.md` (code SSOT: `VendorBackoffReconciler`, `VendorSubstitutionPolicy`) |
 | Two `alln`s on different projects colliding, scoped reconcile/kill, per-invocation isolation | archived `Concurrent_Invocation_Isolation.md` (code SSOT; extends archived `Process_Ownership.md`) |

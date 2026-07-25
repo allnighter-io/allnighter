@@ -1,19 +1,15 @@
 # Unified Run Model — Chat, Execute, and Teams as One
 
-> **CODE RED CORRECTION (2026-07-24) — the repair is CLOSED and its rules are
-> now part of this document.** Mechanical read-only Teams, mirrors, clones,
-> snapshots, and protected-project byte transfer are retired, not temporarily
-> paused. Research Teams and execution Teams both use the registered repository.
-> Research is an observational multi-worker task; execution is one mutating
-> worker and must change the real repository when the request requires a change.
-> The incident record is archived at
-> `docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md`; the durable rules
-> live below under "One run owner". The enforcement that prevents recurrence is
-> live in `config/architecture-policy.json` + `scripts/check_architecture_policy.sh`.
+> **Mechanical read-only Teams, mirrors, clones, snapshots, and protected-project
+> byte transfer are retired, not paused.** Research Teams and execution Teams both
+> use the registered repository. Research is an observational multi-worker task;
+> execution is one mutating worker and must change the real repository when the
+> request requires a change. Enforced by `config/architecture-policy.json` +
+> `scripts/check_architecture_policy.sh` — the gate, not this banner, is the
+> source of truth.
 
-Status: **In progress — no longer blocked. Code Red closed 2026-07-24, so
-execution-path work on this model is unblocked; the remaining items are this
-document's own "Done when" list.**
+Status: **In progress — unblocked 2026-07-24.** Remaining work is this document's
+own "Done when" list.
 
 This model replaces the old Project Manager surface, work-order/proposal loop,
 three-mode composer, and user-facing execution lane. It is not a refinement of
@@ -78,20 +74,11 @@ A default-chat turn is just a one-worker `RunRecord`. The answer board is an N-w
 worker roster, write-lock acquisition, lifecycle settlement, and result projection.
 The Terminal `alln run` adapter calls it directly.
 
-**There is no resident execution path — durable truth from Code Red CR-S06
-(2026-07-24).** The rendezvous, the broker, the 13-case operation union,
-coordinator install/drain, and `--detach` with its forked runner are deleted, and
-`config/architecture-policy.json` now names each deleted file and fails the wall
-if any returns — including under a renamed prefix. Every command runs in the
-caller's own process: `doctor`, `detect`, `ps`, `kill`,
-`team status/result/cancel/reconcile`, `pending run`, `project recheck`, and
-`boost-window seed` all call their local service directly, and none of them needs
-a daemon.
-
-`alln serve` still exists, but only as an optional background scheduler — Pending
-wake, Boost seeding, vendor-backoff continuation, and the cloud relay. It owns no
-run semantics, exposes no request/response surface, and `alln run` never needs it.
-Adding an operation to it is a new feature packet, not a bug fix.
+There is no resident execution path: every command runs in the caller's own
+process. `alln serve` is an optional background scheduler only and `alln run`
+never needs it. **This is enforced in code, not by this paragraph** —
+`config/architecture-policy.json` + `scripts/check_architecture_policy.sh` fail
+the build if a resident control plane returns.
 
 ### One recipe noun: `TeamPreset` (UI: "Team")
 
@@ -133,7 +120,8 @@ Default Team editing has one special catalog rule: the bundled `default_chat`
 team is an immutable seed, and the user's active Default Team is an optional
 same-id override on disk. There is still only one effective `default_chat` in
 lists, pickers, CLI, and run resolution. Restore deletes the override and
-reveals the seed. The implementation packet is `Default_Team_Override.md`.
+reveals the seed. Built — code SSOT: `TeamCatalog` (seed + same-id override merge)
+and `ResolvedRunInvocation` (`default_chat` resolution).
 
 ### Repo-root execution — kill the blind paths
 

@@ -39,8 +39,8 @@ Root docs are the source of truth. Read the relevant one before changing that ar
   `docs/phases/Unified_Run_Model.md` — a run = message + optional preset + worker,
   in the repo root. Research Teams are parallel and observational; execution
   Teams are one worker (mutating) under the per-root write lock. No mirror,
-  clone, or blanket read-only layer. Historical source-gate proof:
-  `docs/archive/phases/Execution_Team_Source_Gate.md`.
+  clone, or blanket read-only layer. Enforced in code by
+  `config/architecture-policy.json` + `scripts/check_architecture_policy.sh`.
 - **Built MVP foundation:** `docs/mvp/README.md` — historical team-run substrate
   (originally called Council: one prompt → parallel CLIs → plan), plus
   `docs/mvp/00_MVP_Architecture.md`.
@@ -64,20 +64,20 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 
 | Task type | Read first |
 | --- | --- |
-| Core execution broken, Team research or execution does not work in the real repo | `docs/phases/Unified_Run_Model.md` owns the live model. `docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md` is the CLOSED incident record — read it for WHY the rules exist, never as a plan. Mirrors, clones, mechanical read-only Teams, and resident execution are deleted; `config/architecture-policy.json` fails the build if they return. |
+| Core execution broken, Team research or execution does not work in the real repo | `docs/phases/Unified_Run_Model.md`. One run owner: `RunService.run`. Mirrors, clones, mechanical read-only Teams, and resident execution do not exist — `config/architecture-policy.json` + `scripts/check_architecture_policy.sh` fail the build if they return. |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, utilization, cleanup, future phases | `docs/phases/README.md` |
 | Run model: chat/run = agent in repo root, Default Team, presets, write lock | `docs/phases/Unified_Run_Model.md` |
-| Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | `docs/archive/phases/Run_Lifecycle_Reliability.md` (Complete; code SSOT) |
-| Codex/host sandbox blocks child CLIs, source processes missing from `alln ps` | The sandbox blocks Keychain, not the repo — vendor CLIs then believe they are logged out. `alln run` hands off to the open Mac app (SandboxHandoffHost); a per-session `codex --sandbox danger-full-access` also works. Never a global sandbox_mode change. Background: `docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md` (CR-S05). |
-| Vendor usage limit / parked run / wake-resume / authorized substitute | archived `docs/archive/phases/Rate_Limit_Continuity.md` (code SSOT) |
+| Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | Code SSOT: `KillSettlement.swift`, `RunClockEnforcer.swift`, `IdempotencyStore.swift`, `ProcessOwnership.swift` |
+| Codex/host sandbox blocks child CLIs, source processes missing from `alln ps` | The sandbox blocks the Keychain, not the repo — vendor CLIs then believe they are logged out. `alln run` hands off to the open Mac app; a per-session `codex --sandbox danger-full-access` also works. Never a global `sandbox_mode` change. Code SSOT: `SandboxHandoffSpool.swift`, `SandboxHandoffRunner.swift`, `HostSandboxAdvice.swift` |
+| Vendor usage limit / parked run / wake-resume / authorized substitute | Code SSOT: `VendorBackoffReconciler.swift`, `VendorSubstitutionPolicy.swift` |
 | Composer `@` file references, Project file search, file chips | `docs/phases/Composer_File_References.md` |
 | Model/skill/worker/team vocabulary | `docs/phases/Work_Order_Team_Model.md` |
 | Execution/answer teams, mutating runs, source/write safety | `docs/phases/Unified_Run_Model.md` + `docs/phases/CLI_Implementation_Contract.md` |
 | CLI product surface, `alln`, TeamRunJSON | `docs/phases/CLI_Product_Spine.md` + `docs/phases/CLI_Implementation_Contract.md` |
-| Agent surface, `alln bootstrap` activation, help/menu routing (MCP retired 2026-07-16) | archived `docs/archive/phases/Menu_Not_Router.md` — live `alln menu --json` is the selection front door; `alln bootstrap` prints the four-rule paste-ready host context; CLI is the only agent surface (`docs/phases/MCP_Retirement.md` historical) |
-| Agent front door: `install-cli`, `bootstrap`, live menu selection | Front door V1 Complete — archived `docs/archive/phases/Agent_Front_Door.md` (gate 1) + archived `docs/archive/phases/Agent_Onboarding.md` (gate 2) + archived `docs/archive/phases/Menu_Not_Router.md` (selection; gate 3 router tombstone: `docs/archive/phases/Agent_Intent_Router.md`) |
-| Stale MCP / invented flags in help, empty `help search`, dead verbs in living docs, `version` freshness | archived `docs/archive/phases/CLI_Agent_Surface_Fidelity.md` (Complete; code SSOT) + `docs/workflows/SSOT_Founder_Input_Workflow.md` §Agent-facing help |
+| Agent surface, `alln bootstrap` activation, help/menu routing (MCP retired 2026-07-16) | Live `alln menu --json` is the selection front door; `alln bootstrap` prints the paste-ready host context; CLI is the only agent surface. Code SSOT: `MenuCatalog.swift`, `Bootstrap.swift`, `HelpTopicRegistry.swift` |
+| Agent front door: `install-cli`, `bootstrap`, live menu selection | Front door V1 complete; there is no intent router — the caller chooses from the live menu. Code SSOT: `InstallCLI.swift`, `Bootstrap.swift`, `TeachingSnippet.swift`, `MenuCatalog.swift` |
+| Stale MCP / invented flags in help, empty `help search`, dead verbs in living docs, `version` freshness | Code SSOT: `RetiredVocabulary.swift`, `HelpTopicRegistry.swift`, `AllnighterVersionIdentity` + `docs/workflows/SSOT_Founder_Input_Workflow.md` §Agent-facing help |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` + `docs/operations/ios-testing-loop.md` |
 | Shared Mac/iOS SwiftUI or `Packages/AllnighterUI` | `docs/gui/GUI_Workflow.md` §5 — default **no**; founder escalation required |

@@ -1,24 +1,16 @@
 # CLI Product Spine
 
-Status: CLI M1 BUILT (2026-06-15); product spine (still owns forward naming/agent-first laws)
+Status: CLI M1 BUILT; living product spine — owns forward naming/agent-first laws
 Owner: Founder + Shared Core + CLI + Mac
-Updated: 2026-06-15
+Updated: 2026-07-24
 
-> **⚠ Known foundation gap — the run journal is one-shot-at-end and MUST be made
-> incremental.** Today `RunStore.save`
-> (`Packages/AllnighterCore/Sources/AllnighterEngine/RunStore.swift`) writes
-> `Runs/run_<id>/run.json` exactly once — from `TeamService.run` at completion
-> (`TeamService.swift:149`) and from `AppModel.persist()` only on a settled status
-> (`AppModel.swift`). RunEvents stream to the UI but are never persisted. So an
-> **interrupted run leaves no record on disk**: the result and partial worker
-> answers vanish if the process dies mid-run. This breaks the core promise that a
-> completed or overnight run survives the app/CLI closing.
->
-> **Required fix:** write the journal *incrementally* (per worker answer / status
-> change), and resolve an orphaned run to `interrupted` on next read — never
-> silently absent, never a false `running`. Treat as a milestone-1 hardening item.
-> The lifecycle rules in `Mac_Standalone_App_And_Background_Coordinator.md` depend
-> on this being true.
+> **Resolved 2026-07-19 — do not re-fix.** This doc previously carried a
+> standing warning that the run journal was one-shot-at-end, so an interrupted
+> run left no record. That is closed: `AsyncTeamService` persists incrementally
+> during the run (`persistDuringRun`), and `RunStore` resolves an orphaned run to
+> `.interrupted` / `reconciledOrphan` on read rather than leaving it absent or
+> falsely `running`. Code SSOT: `RunStore.swift`, `AsyncTeamService.swift`,
+> `KillSettlement.swift`.
 
 ## Founder Intent
 
@@ -218,7 +210,7 @@ alln menu --json   # first-contact readiness + next command
 
 > **TOMBSTONE (2026-07-16):** the MCP transport verb family is **retired**. There is
 > no `mcp` subcommand on `alln`. Historical `mcp serve` / `mcp install` examples
-> are void — see `docs/archive/phases/MCP_Retirement.md`. Live activation is
+> are void — see MCP was retired 2026-07-16; the CLI is the only agent surface (code SSOT: `RetiredVocabulary.swift`). Live activation is
 > `alln bootstrap` + CLI verbs only.
 
 `alln pending` is the public command family for Draft work, submitted Pending
@@ -555,7 +547,7 @@ GUI/iOS:    shared command handlers or local coordinator
 ```
 
 > **TOMBSTONE:** MCP as a second agent wire format is retired
-> (`docs/archive/phases/MCP_Retirement.md`). Do not reintroduce a parallel tool-id
+> (MCP was retired 2026-07-16; the CLI is the only agent surface (code SSOT: `RetiredVocabulary.swift`)). Do not reintroduce a parallel tool-id
 > grammar beside runnable `alln …` commands.
 
 Transport names may differ, but operation semantics must map to the same command
@@ -596,7 +588,7 @@ Safety rules:
 
 The GUI should render and send the same typed instructions the CLI exposes.
 The Mac process/lifecycle contract lives in
-`Mac_Standalone_App_And_Background_Coordinator.md`: standalone Dock app plus
+the Mac app + `alln serve` background scheduler (code SSOT: `ServeDaemon.swift`): standalone Dock app plus
 explicit background coordinator, with the menu bar limited to status and quick
 controls.
 
@@ -640,7 +632,7 @@ drawer. That is a trust and education feature, not the primary UI.
 
 Lifecycle behavior — when the coordinator starts, what survives a window close,
 quit semantics, offline reporting — is owned by
-`Mac_Standalone_App_And_Background_Coordinator.md`. This section covers only the
+the Mac app + `alln serve` background scheduler (code SSOT: `ServeDaemon.swift`). This section covers only the
 CLI grammar.
 
 Foreground:
@@ -661,7 +653,7 @@ This exposes the coordinator's transports (iOS, overnight runs, notifications,
 resumable event streams, local HTTP tool calls). Whether and when the
 coordinator is actually running is a lifecycle decision owned by the Mac
 standalone doc, not CLI grammar. (MCP stdio transport: **retired** — see
-`docs/archive/phases/MCP_Retirement.md`.)
+MCP was retired 2026-07-16; the CLI is the only agent surface (code SSOT: `RetiredVocabulary.swift`).)
 
 ## Naming Decision Proposal
 
@@ -682,7 +674,7 @@ Do not ship public `alln council` or `alln panel` aliases.
 Do not ship a long-lived second grammar under `allnighter`. Internal scripts
 should move to `alln` during the rename.
 Do not revive MCP transport; CLI is the only agent surface
-(`docs/archive/phases/MCP_Retirement.md`).
+(MCP was retired 2026-07-16; the CLI is the only agent surface (code SSOT: `RetiredVocabulary.swift`)).
 
 ## Current Decisions
 
@@ -768,7 +760,7 @@ Prerequisites:
 1. Incremental run journal hardening: long/resident work must survive process
    death as `interrupted`, never disappear or falsely remain `running`.
 2. `alln serve`: background scheduler from
-   `Mac_Standalone_App_And_Background_Coordinator.md`.
+   the Mac app + `alln serve` background scheduler (code SSOT: `ServeDaemon.swift`).
 3. `alln doctor --json`: reports coordinator state, journal health, source auth,
    and admission parser fixture status.
 
