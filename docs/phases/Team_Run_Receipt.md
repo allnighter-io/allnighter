@@ -1,86 +1,81 @@
 # Team Run Receipt — gorgeous private report, deliberate share
 
-Status: **Draft feature packet — visual grammar G1–G13** (content-intrinsic
-receipt; fixed 16:9 poster **retired** 2026-07-25). Not Ready for
-Implementation until §Blockers before TRR-S01 are closed. Near-term:
-screenshotable **decision receipt** (Lead Call + seat chips in phosphor
-status color); signing/hosted/Buzz cut or unscheduled.
+Status: **Draft feature packet — visual grammar G1–G13.** Primary job =
+**scannable, readable polished team result** (like a great AI chat response,
+with phosphor status). Not a viral poster. Fixed 16:9 **retired**. Not Ready
+for Implementation until §Blockers before TRR-S01 are closed.
 Owner: AllnighterCore (receipt projector) + CLI first; Mac Factory Floor as
-existing deep reader (not the card owner).
-Updated: 2026-07-25 (G8 corrected — scrollable report, not cinema frame)
+existing deep reader (not the receipt owner).
+Updated: 2026-07-25 (recentered: readability first, viral optional/rare)
 Companions:
 - Mac deep reader: `FactoryFloorView` / `docs/phases/Live_Team_Board.md`
   (Factory Floor = full team result; thread keeps a compact cockpit receipt →
-  Open Floor; **decision card is a third surface** — see §Surface ownership)
+  Open Floor; **decision receipt is a third surface** — see §Surface ownership)
 - **Lead Call** (universal Lead / `.planWriter` envelope + `lead-call` fenced
-  JSON — card headline/leans/status): `SkillCatalog.leadCallEnvelope`;
+  JSON — call / leans / status): `SkillCatalog.leadCallEnvelope`;
   Spec Review closeout: `docs/phases/Spec_Review.md` §1
-- Design authority for beauty-first HTML: `docs/design-system/production.md`
-  + `docs/design-system/tokens/*.css` (CSS tokens are canonical; see
-  §Design authority) + `docs/gui/GUI_Workflow.md`
-- Growth note: `docs/marketing/Growth_Playbook.md` §Shareable run receipts +
-  §2 receipt series
-- Adjacent Buzz spike (optional room test **after** card exists; firm/plural-
-  member framing retired):  
+- Design authority: `docs/design-system/production.md` +
+  `docs/design-system/tokens/*.css` + `docs/gui/GUI_Workflow.md`
+- Growth note (optional later series — **not** the layout driver):
+  `docs/marketing/Growth_Playbook.md` §Shareable run receipts
+- Adjacent Buzz spike (optional room test **after** receipt exists):  
   `docs/phases/Buzz_Harness_Spike.md` +  
   `docs/strategy/Buzz_And_The_Judgment_Layer.md`
-- Disagreement / co-attribution fields (NOT AUTHORIZED): `Contradiction_Pass.md`
-  — do not treat as a near-term card schema source
-## Founder intent (unchanged core)
+- Disagreement fields (NOT AUTHORIZED): `Contradiction_Pass.md`
 
-CLI-first users finish a team run and never see the gorgeous multi-seat result
-the Mac Factory Floor was built for. The judgment already happened; the
-*poster* is missing.
+## Founder intent
 
-Ship a **private-by-default team run report** every run can open locally,
-styled once, reusable across teams. Sharing is deliberate — never an automatic
-public URL. Do not require the Mac app to *view* a share (that kills the
-share). Mac/CLI win on **running** the next team, not on being the PDF reader.
+CLI-first users finish a team run and get JSON/terminal walls — or never open
+the Mac Factory Floor. The judgment happened; the **readable finish** is
+missing.
 
-## Growth reshaping (locked from review)
+Ship a **private-by-default HTML team receipt** you open locally after a run:
+scannable hierarchy, phosphor seat status, Lead Call up top, craft body below —
+the same job as polishing a long chat answer so a human can actually use it.
+Sharing is deliberate and rare; **do not design the layout primarily for
+virality.** Mac/CLI win on running the next team; the receipt wins on
+**reading this one**.
 
-Framing that can spread: **“Show the decision your AI team changed,”** not
-“CLI parity with Factory Floor” and not “signed agent receipts.”
+## Growth reshaping (locked — keep product vs growth split)
 
 | Decision | Why |
 | --- | --- |
-| **Hero = screenshot-native decision card** | Timeline-native; image is the viral unit; OS screenshot is enough for v1 |
-| **Verification = `reproduceCommand`, not cryptography** | Already on `TeamRunJSON`; “run this yourself” beats “trust my signature” for builders; deletes key-management slice |
-| **Attestation = honesty string, not TRR-S02** | “alln-attested multi-seat receipt” as copy; no verify UI in v1 |
-| **Pre-launch customer = founder’s receipt series** | Growth Playbook §2; user share loop inherits the same artifact later |
-| **Measure before renderer (TRR-S00)** | If real runs lack disagreement / dodged-bullet stories, **kill the growth thesis** before a sprint — not the product card (see §Two theses) |
-| **Cut S02 / S04 / S05 as numbered slices** | Signing infra, hosted ACL links, Buzz/Slack — gravitational pull without near-term pull |
-| **Defer file export (old S03)** | Build when an outsider asks for the file; founder screenshots locally until then |
-| **Hero-optimize Spec Review + Growth cards first** | “One report family” stays as one projector; equal visual priority across every team kills the post |
+| **Hero = polished scannable receipt** | Everyday job: read the team result fast and honestly — like a great chat response |
+| **Verification = `reproduceCommand`, not cryptography** | Already on `TeamRunJSON`; deletes key-management slice |
+| **Attestation = honesty string, not TRR-S02** | Copy only; no verify UI in v1 |
+| **Viral / X series = optional secondary** | ~90% of opens are private reading; founder series may use the same artifact later — it must not drive frame, truncation, or Works Tests |
+| **Measure before renderer (TRR-S00)** | May kill **growth packaging**; never the readable-finish product path (§Two theses) |
+| **Cut S02 / S04 / S05 as numbered slices** | Signing / hosted / Buzz — not needed for v1 reading |
+| **Defer branded export (old S03)** | md export already ships; styled export when asked |
+| **One projector, all teams** | Spec Review Max, tiny feature, Design three-up — same family; content-intrinsic height |
 
 ## Two theses (do not conflate)
 
 | Thesis | Claim | Kill condition |
 | --- | --- | --- |
-| **Growth** | Timeline posts of disagreement / changed-decision cards drive awareness | S00 finds fewer than 1 stranger-worthy story in last N multi-seat hero runs → **kill growth series / share ambition**, keep measuring later |
-| **Product** | CLI users deserve a local felt-finish poster after a team run, even when seats agree | Only kill if hand-cards feel worthless as finish (not “no drama”) |
+| **Growth** | Occasional shareable screenshots drive awareness | S00 finds no stranger-worthy stories → kill **series ambition**, keep measuring later |
+| **Product** | After every team run, CLI users deserve a polished, scannable local receipt | Only kill if the receipt is worse to read than `team result` / Floor |
 
-**Ruling (Spec Review):** TRR-S00’s “kill if 4-of-4 agree” overclaims when read as
-killing the feature. Seats agreeing is still a legitimate team outcome; a lean
-local card remains product-valuable. S00 may kill **growth packaging and
-sprint priority**, not the private decision-card product path.
+**Ruling:** Product thesis owns layout and S01. Growth thesis may borrow the
+artifact; it does not set aspect ratio, truncation, or “must fit a timeline.”
 
-## Product value (revised)
+## Product value
 
-- **Felt finish for team runs.** Card via CLI open path — recognition, not
-  novelty (“this is what I’ve been screenshotting tmux for”).
-- **Founder content engine now.** Hand-then-auto cards for the X receipt
-  series; compounds before launch — **only if S00 growth gate is green**.
-- **Later: user share without privacy foot-guns.** Deliberate only; private
-  default; card is structurally lean (no full prompts/bodies above the fold).
-- **Replay path in the proof line.** Footer prints `reproduceCommand` (replays
-  a run for someone who already has alln + vendor CLIs — it does **not**
-  install Allnighter).
+- **Felt finish / scanability.** Open the receipt and grasp Ready|Partial, the
+  call, seats, and the body without decoding JSON or hunting the Mac app.
+- **Same polish bar as good chat UI.** Hierarchy, density, status color,
+  readable markdown — not a marketing poster.
+- **Desktop-first reading, mobile-capable.** Must look **excellent on a big
+  desktop** (where most alln users will open it) and still scan cleanly on a
+  phone. Comfortable measure — not stretched edge-to-edge wallpaper, not a
+  mobile-only column that wastes a 27″ display.
+- **Optional deliberate share later.** Private by default; share is not the
+  design center.
+- **Replay path in the footer.** `reproduceCommand` (elided) when useful —
+  proof for skeptics, not an install funnel.
 
-Expected lift (revised): large on “this feels finished” **if** cards are legible;
-**binary** on share/retention depending on timeline-native story artifacts;
-~zero on the judgment engine. “Medium on retention/share” from the first draft
-was overstated.
+Expected lift: large on “I can actually read what the team did”; growth/
+retention from sharing is **optional upside**, not the success metric.
 
 ## Surface ownership (resolves Floor / thread collision)
 
@@ -90,26 +85,24 @@ copy without a qualifier.
 | Surface | Owns | Does not own |
 | --- | --- | --- |
 | **Run truth** | `TeamRun` / `TeamRunJSON` | Presentation |
-| **Factory Floor** (`FactoryFloorView`, `alln floor show`) | Full inspectable result — cast rail, full seat bodies, synthesis | Screenshot poster; viral above-the-fold |
-| **Thread compact card** (Live Team Board terminal) | Live cockpit + counts + **Open Floor** | Full bodies; decision-card layout |
-| **Decision card** (this packet) | Lean poster projection for OS screenshot / founder series | New run facts; Floor replacement |
-| **`alln team result`** | Terminal structured truth dump | Gorgeous poster |
-| **`alln export <id> --format md`** | Shipped portable markdown (already in run `nextActions`) | Branded/styled decision-card export (old S03 → re-scoped) |
-| **`alln spec …` summary paths** | Spec-oriented projections where they exist | Decision-card layout |
+| **Factory Floor** (`FactoryFloorView`, `alln floor show`) | Full inspectable result — cast rail, full seat bodies, synthesis | Everyday polished reading surface |
+| **Thread compact card** (Live Team Board terminal) | Live cockpit + counts + **Open Floor** | Full bodies; receipt layout |
+| **Decision receipt** (this packet) | Scannable polished read of Lead Call + seats + craft body | New run facts; Floor replacement; viral-first layout |
+| **`alln team result`** | Terminal structured truth dump | Gorgeous reading UI |
+| **`alln export <id> --format md`** | Shipped portable markdown | Branded/styled receipt export (old S03) |
+| **`alln spec …` summary paths** | Spec-oriented projections where they exist | Receipt layout |
 
 Companions stay authoritative: Live_Team_Board §Done When — terminal thread
-keeps compact receipt → Floor. This packet adds a **CLI-first poster**, not a
-second Floor and not a richer thread dump.
+keeps compact receipt → Floor. This packet adds a **CLI-first reading
+surface**, not a second Floor and not a marketing poster.
 ## Trusted workflow slice (v1 — terminal only)
 
 ```text
 alln run … completes (terminal TeamRunJSON exists)
-  -> DecisionCard projector derives lean fields from TeamRunJSON only
-  -> CLI open verb writes/opens local card (private; no network)
-  -> card shows: question line, seat chips + sourced one-liners + timings,
-     team call line, honesty string, reproduceCommand
-  -> user screenshots with the OS (founder series; later anyone)
-  -> (later, only if asked) deliberate file export or private hosted link
+  -> Decision receipt projector derives fields from TeamRunJSON + lead-call
+  -> CLI open verb writes/opens local HTML (private; no network)
+  -> user reads: Ready|Partial, the call, seats in status color, craft body
+  -> optional: OS screenshot or export only if they choose to share
 ```
 
 **Out of v1:** progressive “gorgeous at early paint” while seats fill — that
@@ -134,8 +127,10 @@ on `TeamRunJSON`; do not invent a live card from dry-run alone.
 - **Not auto-detecting “dodged bullet” / disagreement as card schema fields**
   unless a sourced contract field exists — S00 may *annotate* hand cards;
   S01 must not paraphrase theater.
-- **Not replacing `alln floor show` / Factory Floor** with the decision card.
+- **Not replacing `alln floor show` / Factory Floor** with the decision receipt.
 - **Not Mac Floor above-the-fold embed in the first code slice.**
+- **Not designing primarily for virality / timeline crops.** Scanability and
+  readability own the layout; share is a deliberate afterthought.
 
 ## Current state
 
@@ -271,7 +266,7 @@ on a real contract slice — not S01. LLM-summarized one-liners are rejected
 | Item | Options / default lean | Status |
 | --- | --- | --- |
 | CLI verb | Prefer **`alln card show <run-id\|latest>`**. **Strike `receipt show`** — collides with shipped `alln continuity receipt`. Avoid `team open` (Floor/`team result` teaching collision) | Open — lean `card show` |
-| Render medium | **HTML** report consuming design tokens; content-intrinsic height; G1–G13 | **Locked** — §Design authority (16:9 fixed poster **retired**) |
+| Render medium | **HTML** reading doc; content-intrinsic; **desktop + mobile** (G8); G1–G13 | **Locked** — §Design authority |
 | On-disk path | Derived cache under support/run journal vs beside journal | Open — must be private, deterministic, regenerable |
 | Seat one-liner | First line truncate + mark; Law-2 single-seat hoist rule | Lean locked in ledger |
 | Team call | First ~2 lines of `answer.markdown`; no-canonical-result house line | Lean locked in ledger |
@@ -338,9 +333,9 @@ Duration mono muted; null → blank, never estimated. Add
 `WorkerChip size="compact"` (+ dot-only pill) to the design system **before**
 S01 invents a one-off.
 
-**G5 — Glow is the live/settled bit.** Live board may glow; **the card carries
-zero glow and zero animation.** Same chips; one bit of difference. Screenshots
-freeze motion — animated grammar is worthless in the viral unit.
+**G5 — Glow is the live/settled bit.** Live board may glow; **the receipt
+carries zero glow and zero animation.** Same chips; one bit of difference.
+Motion does not help a static reading document.
 
 **G6 — Amber alive glow is singular per live surface.** Exactly one mutating
 worker → glow on that worker; parallel research → glow on the board’s live
@@ -350,27 +345,29 @@ mark, **not** every running chip (no amber wallpaper).
 faint. **Glyph says who; color says state.** Never both. No Anthropic/OpenAI
 brand hues (collides with phosphor amber).
 
-**G8 — Content-intrinsic report, not a fixed poster.** The receipt **grows with
-the run** — Spec Review Max with many leans, a tiny feature harden, a Design
-board with three proposals. Fixed 16:9 / no-scroll was an overfit to X
-timeline crops and is **retired** (founder gut 2026-07-25). Rules:
+**G8 — Content-intrinsic report; desktop + mobile.** The receipt **grows with
+the run** — Spec Review Max, a tiny feature harden, a Design board with three
+proposals. Fixed 16:9 / viral-poster framing is **retired**. Rules:
 
-- Primary artifact = **scrollable HTML report** (comfortable reading width,
-  midnight field). Zones expand; marked ellipsis only where the field ledger
-  already requires hard caps (question line, seat one-liner) — not to fake a
-  poster height.
-- Craft bodies that need space (three design directions, long recommendation
-  tables, impact ledgers) get space. Do not truncate craft truth to fit a frame.
-- Optional later: a **share crop** / OG image that freezes the **above-the-fold
-  band** (verdict + call + seat rhythm) for timelines — a derivative, never the
-  only view. v1 share = OS screenshot of whatever height the report actually is
-  (or scroll-shot); do not force users into a cinema frame.
+- Primary artifact = **scrollable HTML reading document** on midnight field.
+  Zones expand with content; marked ellipsis only where the field ledger
+  already hard-caps (question line, seat one-liner).
+- **Desktop is first-class.** On a large display the receipt must look
+  *excellent*: comfortable max measure (chat/doc column, not full-bleed
+  stretch), generous but disciplined type/spacing, seats and craft body that
+  use the width without sparse emptiness or 100vw wallpaper. Most alln users
+  will open this on a Mac display — that is the primary Works Test viewport.
+- **Mobile must still scan cleanly.** Single column, readable tap targets,
+  seats that wrap honestly, no horizontal overflow. Nice on a phone is required;
+  **perfect on a big desktop is required too** — not “mobile-first, desktop
+  afterthought.”
+- Craft bodies that need space get space. Do not truncate craft truth to fit
+  a frame or a feed.
 
-**G9 — Above-the-fold ladder (order is load-bearing; height is not).** First
-viewport / share crop targets: Verdict + team line → the call → what changed →
-top leans (≤3 on the fold; full list scrolls) → seat chips. Deeper craft body
-and remaining leans continue below. A stranger scrolling a timeline may only
-see the fold — the **reader** who opened the receipt gets the whole run.
+**G9 — Scan ladder (order is load-bearing; height is not).** Top of document:
+Verdict + team line → the call → what changed → recommendations → seat chips →
+craft body → footer. Reader who opened the receipt gets the whole run; do not
+hide long Spec Review / Design content below an artificial fold for virality.
 
 **G10 — Sentiment is not status.** “What changed” and leans are **ink only** —
 no red/green delta drama. Status hues reserved for status.
@@ -380,30 +377,28 @@ to live board / `FloorProjector` seat-set helper. Never sort by finish time.
 Lead distinguished structurally (label + border), not by amber fill.
 
 **G12 — Surface.** Solid `--bg-base` field, body `--bg-raised`, `--radius-lg`,
-`--border-subtle`, `--shadow-sm`. No gradient wash. No light-mode share
-variant (midnight in a white timeline **is** recognition). No emoji. Static
-render (no GIF/MP4 export in v1).
+`--border-subtle`, `--shadow-sm`. No gradient wash. No light-mode variant. No
+emoji. Static render.
 
 **G13 — Enforceable check (ship with projector).** Fail the gate if the
 rendered receipt contains `animation:` / `@keyframes` / `--glow-*`, any hex
-literal outside the token layer, or more than one amber content event above
-the fold. Deterministic — not agent judgment. **Do not** fail on document
-height.
+literal outside the token layer, or more than one amber content event in the
+header lockup. Deterministic — not agent judgment. **Do not** fail on document
+height. **Do** proof at **≥2 viewports**: wide desktop (≥1280px) and narrow
+mobile (≤430px).
 
-### Above-the-fold glance test (Works Test visual bar)
+### Scanability Works Test (visual bar)
 
-Grade the **first screen / share crop band** (not a forced 16:9 of the whole
-doc), as a ~500px-wide thumbnail, **and again in grayscale**. Must survive:
+Grade as a **reading document**, not a feed thumbnail:
 
-1. Warm patch present or absent (needs-you vs not) before any word is read  
-2. **The call** — largest type (`--ink-50`)  
-3. Seat-row rhythm — N aligned glyphs as a team (prefer single row; wrap only
-   if seat count demands it)  
-4. A red seat if one exists  
-5. The mark (small amber crescent)
-
-Not required at first glance: full lean table, craft body, reproduce, run id,
-timings, honesty, Why column (those scroll or sit in footer micro-type).
+1. **Desktop (≥1280px):** open a Spec Review–length and a Design three-proposal
+   fixture — hierarchy is obvious, measure is comfortable, no sparse stretch,
+   seats + body use the layout well.
+2. **Mobile (≤430px):** same fixtures — no horizontal scroll, call still
+   dominant, seats wrap cleanly, Partial “needs you” still unmistakable.
+3. Warm present/absent (Partial) readable before deep reading.
+4. Failed seats stay visibly failed.
+5. Mark present; footer proof stays quiet micro-type.
 
 ## Proof design
 
@@ -419,10 +414,9 @@ timings, honesty, Why column (those scroll or sit in footer micro-type).
 - **Visual proof:** `scripts/check_gui_proof.sh` today scopes Mac SwiftUI —
   an HTML card from Core is invisible to that wall. Extend the gate to the
   card artifact **or** record a waiver in `docs/qa/gui/WAIVERS.manifest` and
-  name a `layout-watcher` PASS on the **above-the-fold band** (and at least one
-  long-body fixture: Spec Review Max–shaped or Design three-proposal) before
-  first ship — plus G13 deterministic checks. Do **not** require a fixed 16:9
-  of the entire document.
+  name a `layout-watcher` PASS at **desktop ≥1280px and mobile ≤430px** (and at
+  least one long-body fixture: Spec Review Max–shaped or Design three-proposal)
+  before first ship — plus G13. Do **not** require a fixed 16:9 of the document.
 - **Named blocked proofs (honest):** growth lift unfalsifiable pre-launch;
   “gorgeous” has no automated oracle; no CI end-to-end multi-seat run
   (Keychain/sandbox); screenshot fidelity across OS versions.
@@ -437,13 +431,10 @@ rates to this packet.
 **S00b:** Every Must-specify row closed or waived in this packet (commit),
 including ContractRegistry draft.
 
-**S01:** Terminal CLI team run → `card show` opens the card without Mac app;
-OS screenshot is postable; no public URL; reproduce line present (elided);
-honesty string exact; every visible field maps to ledger / substring truth
-test; truncation marked; failed seats stay visible as failed; visual proof
-route satisfied or waived; **above-the-fold glance test** (§Design authority)
-passes; **G13** deterministic checks pass (no glow/animation/extra amber).
-Document height may grow — do not fail long Spec Review / Design bodies.
+**S01:** Terminal CLI team run → `card show` opens the receipt without Mac app;
+private; reproduce elided; honesty exact; ledger/substring honesty; truncation
+marked; failed seats visible; **desktop + mobile scanability** (§Design
+authority) passes; **G13** checks pass. Long bodies allowed.
 
 **S01b+ / S03+:** waived until scheduled.
 ## Proof command
@@ -603,7 +594,7 @@ hue** (calm ink); **Partial carries the one amber content event**. Seat color =
 lifecycle status only; glyph = who. Card = zero glow/motion (glow marks live
 board). Locked as §Design authority G1–G13.
 
-**Founder correction (same day):** fixed **16:9 no-scroll poster (old G8)
-retired**. Receipt is content-intrinsic / scrollable; optional share crop of
-the above-the-fold band only. Long Spec Review / Design three-proposal bodies
-must not be chopped to fit a cinema frame.
+**Founder corrections (same day):** (1) fixed 16:9 poster retired — content-
+intrinsic scrollable report. (2) Layout driver is **readability/scanability**,
+not virality (~90% private reading). (3) Must render **excellent on big
+desktop and clean on mobile** — dual viewport, not mobile-only.
