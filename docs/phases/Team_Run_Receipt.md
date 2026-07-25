@@ -1,12 +1,13 @@
 # Team Run Receipt — gorgeous private report, deliberate share
 
-Status: **Draft feature packet — visual grammar locked 2026-07-25 (Opus
-design taste).** Not Ready for Implementation until §Blockers before TRR-S01
-are closed. Near-term: screenshot-native **decision card** (Lead Call + seat
-chips in phosphor status color); signing/hosted/Buzz cut or unscheduled.
+Status: **Draft feature packet — visual grammar G1–G13** (content-intrinsic
+receipt; fixed 16:9 poster **retired** 2026-07-25). Not Ready for
+Implementation until §Blockers before TRR-S01 are closed. Near-term:
+screenshotable **decision receipt** (Lead Call + seat chips in phosphor
+status color); signing/hosted/Buzz cut or unscheduled.
 Owner: AllnighterCore (receipt projector) + CLI first; Mac Factory Floor as
 existing deep reader (not the card owner).
-Updated: 2026-07-25 (visual grammar G1–G13 locked)
+Updated: 2026-07-25 (G8 corrected — scrollable report, not cinema frame)
 Companions:
 - Mac deep reader: `FactoryFloorView` / `docs/phases/Live_Team_Board.md`
   (Factory Floor = full team result; thread keeps a compact cockpit receipt →
@@ -270,7 +271,7 @@ on a real contract slice — not S01. LLM-summarized one-liners are rejected
 | Item | Options / default lean | Status |
 | --- | --- | --- |
 | CLI verb | Prefer **`alln card show <run-id\|latest>`**. **Strike `receipt show`** — collides with shipped `alln continuity receipt`. Avoid `team open` (Floor/`team result` teaching collision) | Open — lean `card show` |
-| Render medium | **HTML** consuming design-system CSS tokens; 16:9 poster; G1–G13 | **Locked** — §Design authority |
+| Render medium | **HTML** report consuming design tokens; content-intrinsic height; G1–G13 | **Locked** — §Design authority (16:9 fixed poster **retired**) |
 | On-disk path | Derived cache under support/run journal vs beside journal | Open — must be private, deterministic, regenerable |
 | Seat one-liner | First line truncate + mark; Law-2 single-seat hoist rule | Lean locked in ledger |
 | Team call | First ~2 lines of `answer.markdown`; no-canonical-result house line | Lean locked in ledger |
@@ -349,12 +350,27 @@ mark, **not** every running chip (no amber wallpaper).
 faint. **Glyph says who; color says state.** Never both. No Anthropic/OpenAI
 brand hues (collides with phosphor amber).
 
-**G8 — Fixed-aspect poster.** One **16:9** frame, no scroll, no fold. Overflow
-truncates into per-zone budgets with marked ellipsis; frame never grows.
+**G8 — Content-intrinsic report, not a fixed poster.** The receipt **grows with
+the run** — Spec Review Max with many leans, a tiny feature harden, a Design
+board with three proposals. Fixed 16:9 / no-scroll was an overfit to X
+timeline crops and is **retired** (founder gut 2026-07-25). Rules:
 
-**G9 — Crop ladder (layout order is load-bearing).** Verdict + team line →
-the call → what changed → top leans (≤3) → seat chips → hairline → footer. A
-top-40% crop must still yield **verdict + call**.
+- Primary artifact = **scrollable HTML report** (comfortable reading width,
+  midnight field). Zones expand; marked ellipsis only where the field ledger
+  already requires hard caps (question line, seat one-liner) — not to fake a
+  poster height.
+- Craft bodies that need space (three design directions, long recommendation
+  tables, impact ledgers) get space. Do not truncate craft truth to fit a frame.
+- Optional later: a **share crop** / OG image that freezes the **above-the-fold
+  band** (verdict + call + seat rhythm) for timelines — a derivative, never the
+  only view. v1 share = OS screenshot of whatever height the report actually is
+  (or scroll-shot); do not force users into a cinema frame.
+
+**G9 — Above-the-fold ladder (order is load-bearing; height is not).** First
+viewport / share crop targets: Verdict + team line → the call → what changed →
+top leans (≤3 on the fold; full list scrolls) → seat chips. Deeper craft body
+and remaining leans continue below. A stranger scrolling a timeline may only
+see the fold — the **reader** who opened the receipt gets the whole run.
 
 **G10 — Sentiment is not status.** “What changed” and leans are **ink only** —
 no red/green delta drama. Status hues reserved for status.
@@ -366,26 +382,28 @@ Lead distinguished structurally (label + border), not by amber fill.
 **G12 — Surface.** Solid `--bg-base` field, body `--bg-raised`, `--radius-lg`,
 `--border-subtle`, `--shadow-sm`. No gradient wash. No light-mode share
 variant (midnight in a white timeline **is** recognition). No emoji. Static
-frame only (no GIF/MP4 export in v1).
+render (no GIF/MP4 export in v1).
 
 **G13 — Enforceable check (ship with projector).** Fail the gate if the
-rendered card contains `animation:` / `@keyframes` / `--glow-*`, any hex
-literal outside the token layer, or more than one amber content event.
-Deterministic — not agent judgment.
+rendered receipt contains `animation:` / `@keyframes` / `--glow-*`, any hex
+literal outside the token layer, or more than one amber content event above
+the fold. Deterministic — not agent judgment. **Do not** fail on document
+height.
 
-### Screenshot-at-a-glance test (Works Test visual bar)
+### Above-the-fold glance test (Works Test visual bar)
 
-Grade at ~1200×675 as a ~500px thumbnail, **and again in grayscale**. Must
-survive:
+Grade the **first screen / share crop band** (not a forced 16:9 of the whole
+doc), as a ~500px-wide thumbnail, **and again in grayscale**. Must survive:
 
 1. Warm patch present or absent (needs-you vs not) before any word is read  
 2. **The call** — largest type (`--ink-50`)  
-3. Seat-row rhythm — N aligned glyphs as a team (never wrap)  
+3. Seat-row rhythm — N aligned glyphs as a team (prefer single row; wrap only
+   if seat count demands it)  
 4. A red seat if one exists  
 5. The mark (small amber crescent)
 
-Not required at glance: reproduce, run id, timings, honesty, Why column
-(footer micro-type for skeptics).
+Not required at first glance: full lean table, craft body, reproduce, run id,
+timings, honesty, Why column (those scroll or sit in footer micro-type).
 
 ## Proof design
 
@@ -401,8 +419,10 @@ Not required at glance: reproduce, run id, timings, honesty, Why column
 - **Visual proof:** `scripts/check_gui_proof.sh` today scopes Mac SwiftUI —
   an HTML card from Core is invisible to that wall. Extend the gate to the
   card artifact **or** record a waiver in `docs/qa/gui/WAIVERS.manifest` and
-  name a `layout-watcher` PASS at **16:9 timeline-crop** dimensions before
-  first ship — plus G13 deterministic checks.
+  name a `layout-watcher` PASS on the **above-the-fold band** (and at least one
+  long-body fixture: Spec Review Max–shaped or Design three-proposal) before
+  first ship — plus G13 deterministic checks. Do **not** require a fixed 16:9
+  of the entire document.
 - **Named blocked proofs (honest):** growth lift unfalsifiable pre-launch;
   “gorgeous” has no automated oracle; no CI end-to-end multi-seat run
   (Keychain/sandbox); screenshot fidelity across OS versions.
@@ -421,8 +441,9 @@ including ContractRegistry draft.
 OS screenshot is postable; no public URL; reproduce line present (elided);
 honesty string exact; every visible field maps to ledger / substring truth
 test; truncation marked; failed seats stay visible as failed; visual proof
-route satisfied or waived; **screenshot-at-a-glance test** (§Design authority)
+route satisfied or waived; **above-the-fold glance test** (§Design authority)
 passes; **G13** deterministic checks pass (no glow/animation/extra amber).
+Document height may grow — do not fail long Spec Review / Design bodies.
 
 **S01b+ / S03+:** waived until scheduled.
 ## Proof command
@@ -580,4 +601,9 @@ demand counters for S03.
 RGB, per-vendor hues, hardware fetish, glow on a settled card. **Ready has no
 hue** (calm ink); **Partial carries the one amber content event**. Seat color =
 lifecycle status only; glyph = who. Card = zero glow/motion (glow marks live
-board). Locked as §Design authority G1–G13 + screenshot-at-a-glance test.
+board). Locked as §Design authority G1–G13.
+
+**Founder correction (same day):** fixed **16:9 no-scroll poster (old G8)
+retired**. Receipt is content-intrinsic / scrollable; optional share crop of
+the above-the-fold band only. Long Spec Review / Design three-proposal bodies
+must not be chopped to fit a cinema frame.
