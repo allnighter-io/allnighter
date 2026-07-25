@@ -555,13 +555,55 @@ the hand-off from Codex, which is proven end to end.
 
 | Item | Why it is still open |
 | --- | --- |
-| **A mutating hand-off is two writers on one tree** | The app running a mutating team against `repoRoot` while the Codex session edits the same worktree is the situation the write lock exists to prevent, and the sandboxed caller is invisible to it. Spec review is read-only so this has never been hit. **The largest remaining correctness risk in this packet.** |
+| ~~A mutating hand-off is two writers on one tree~~ | **RULED 2026-07-25: not a slice, do not build.** See below. |
 | **Claim-by-atomic-rename** | Deferred from S6. Closes a two-host TOCTOU race that needs a second host to exist; today there is one Mac app. Owner identity + reclaim covers the failure actually observed. |
 | **Mailbox TTL** | Deferred from S6. A request enqueued Friday runs Monday when the app opens. Bounded in practice by the caller's 30s claim grace, which removes its own entry. |
 | **An abandoned request still spends quota** | No cancel-on-death: a caller killed mid-wait leaves the app running a team nobody will read. |
 | **The app must be open** | By design. `alln doctor handoff` now answers this in under a second instead of leaving it to be guessed. |
 | **The unified-log branch is unverified** | See S3. The file log is the one that works. |
 | **S11 counting log line** | The cheap precursor to the S11 revisit trigger — `local_done / local_failed_sandbox / local_cancelled` at hand-off — so the trigger is counted rather than guessed. |
+
+### Ruling: no cross-process writer coordination *(founder, 2026-07-25)*
+
+This packet flagged "a mutating hand-off is two writers on one worktree" as its
+largest remaining risk. That framing was wrong and the slice is cancelled.
+
+> "I frequently have multiple CLIs and sessions open on the same worktree. 90% of
+> the time it works fine. It makes working 10x faster and simpler… IF alln is the
+> only CLI that makes this painful because it starts to queue shit just out of
+> fear, I will stop using it. A better practice might be to encourage frequent git
+> commits to save work and make reverting easy, and not add complexity."
+
+Three reasons the founder is right, the first of which is decisive:
+
+1. **`alln` cannot enforce it.** It has no visibility into what `grok`, `codex` or
+   a human editor are doing to the tree. Any guard would serialize `alln` against
+   *itself* while every other tool carries on — pure cost, zero protection, and it
+   makes `alln` the one painful tool in a workflow built on many.
+2. **It is not a hand-off risk.** The hand-off changes WHERE the writer runs, not
+   how many writers exist. This is ordinary multi-agent work, already accepted
+   everywhere else in this workflow.
+3. **Git is the mechanism, and it already exists.** `RunRequest.commitMessage` /
+   `noCommit` order the WORKER to commit; Allnighter never runs git itself
+   (standing law). Frequent commits make work recoverable and reverts cheap, which
+   is the actual safety property — no queue required.
+
+**Stated trade, so it is chosen and not stumbled into:** git protects against lost
+work and makes revert cheap. It does NOT prevent two agents editing the same file
+in the same minute from clobbering one another. That is the accepted 10%.
+
+**What this ruling does NOT cancel:** the existing per-root execution lane, which
+serializes Allnighter's own build-class runs (`mutatingRun`, `relayDevTurn`,
+`pilotDevTurn`, `harnessProof`). Read-only runs — spec review, research, chat —
+never take the lane and never queue.
+
+**Open question raised by this ruling, not resolved by it:**
+`RunService.writeLockWaitTimeout` is 1800s, so a second mutating Allnighter run
+waits up to thirty minutes before failing. That is the "queue out of fear"
+behavior the founder objects to, and it exists today. Options are leave it, or
+refuse in seconds naming the holding run and let the human decide. Not changed
+here: "execution-lane FIFO + one-Running-per-lane" is a standing founder law and
+this needs a founder ruling of its own.
 
 ## What this does not fix
 
