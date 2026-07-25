@@ -127,7 +127,7 @@ public enum MenuSelectionCopy {
     private static let actions: [String: Pair] = [
         "run": Pair(
             useWhen: "Ask a worker or team (starts work)",
-            dontUseWhen: "Not catalog write; teams duplicate/new/edit"
+            dontUseWhen: "Not catalog write; teams duplicate, teams edit"
         ),
         "teams duplicate": Pair(
             useWhen: "Copy a shipped team, edit it",
