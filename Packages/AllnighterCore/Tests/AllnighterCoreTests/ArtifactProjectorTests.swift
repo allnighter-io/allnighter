@@ -190,4 +190,34 @@ final class ArtifactProjectorTests: XCTestCase {
     )
     XCTAssertEqual(TeamRunSeatSet.workers(for: run).map(\.id), ["model_opus#0"])
   }
+
+  func testArtifactWriterWritesIndexHTML() throws {
+    let dir = FileManager.default.temporaryDirectory
+      .appendingPathComponent("artifact-writer-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let run = multiSeatRun(leadMarkdown: leadCallMarkdown)
+    let url = try ArtifactWriter.writeHTML(
+      run: run,
+      runDirectory: dir,
+      reproduceCommand: "alln run \"test prompt\" --team default"
+    )
+    XCTAssertEqual(url.lastPathComponent, "index.html")
+    XCTAssertTrue(url.path.hasSuffix("/artifact/index.html"))
+    let html = try String(contentsOf: url, encoding: .utf8)
+    XCTAssertTrue(html.contains(ArtifactProjector.honesty))
+  }
+
+  func testArtifactWriterRejectsNonTerminal() {
+    var run = multiSeatRun(leadMarkdown: leadCallMarkdown)
+    run.status = .running
+    let dir = FileManager.default.temporaryDirectory
+      .appendingPathComponent("artifact-writer-neg-\(UUID().uuidString)", isDirectory: true)
+    XCTAssertThrowsError(
+      try ArtifactWriter.writeHTML(run: run, runDirectory: dir, reproduceCommand: "alln run x")
+    ) { error in
+      XCTAssertEqual(error as? ArtifactWriter.WriteError, .notTerminal)
+    }
+  }
 }

@@ -1,6 +1,6 @@
 # TRR-S01b — Mac Floor “Open artifact”
 
-Status: **ready** (requires TRR-S01 done)
+Status: **done**
 SSOT: `docs/phases/Team_Run_Receipt.md` §TRR-S01b
 
 ## Goal
@@ -45,6 +45,6 @@ Core: any shared writer unit test still green.
 
 ## Done when
 
-- [ ] Floor control ships
-- [ ] Same projector as CLI
-- [ ] committed
+- [x] Floor control ships
+- [x] Same projector as CLI
+- [x] committed

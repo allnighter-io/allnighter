@@ -148,7 +148,7 @@ terminal-only forever under this packet.
 | CLI `artifact show` / `export` | **Missing — S01 / S03** (spec Ready) |
 | Field ownership ledger | **Locked** — §Card field ledger + §Must-specify |
 | Measured “do real runs have a story?” | **Missing — TRR-S00** (spec Ready; growth only) |
-| Floor “Open artifact” | **Missing — TRR-S01b** (spec Ready) |
+| Floor “Open artifact” | **Done — TRR-S01b** (2026-07-25) |
 | Live progressive paint | **Missing — TRR-S01c** (spec Ready; Mac only) |
 | Signed crypto verify / hosted share | Cut / unscheduled |
 
@@ -307,7 +307,7 @@ bump land **inside** the S01 PR (budgeted work, not open design).
 
 | Field | Spec |
 | --- | --- |
-| **Status** | Ready for Implementation (after S01 green) |
+| **Status** | Done 2026-07-25 |
 | **Truth owner** | Same `ArtifactProjector` as S01 — Floor must not re-implement HTML mapping. |
 | **Lie-prone** | Floor inventing a second HTML layout; WebView loading a path Floor did not regenerate from current `TeamRun`. |
 | **CLI** | Unchanged. Optional: `alln floor show` teaching cross-link “Open artifact: `alln artifact show <id>`”. |

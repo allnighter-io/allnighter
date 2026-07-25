@@ -112,20 +112,7 @@ struct AllnighterCLI {
     /// alongside a pinned worker, so an answer-team replay isn't given a redundant
     /// lane that could conflict with `--team`), and `--no-commit` when ordered.
     static func reproduceCommand(_ run: TeamRun) -> String {
-        var parts = ["alln run"]
-        if !run.prompt.isEmpty {
-            parts.append("\"\(run.prompt)\"")
-        }
-        if let team = run.presetId { parts.append("--team \(team)") }
-        for worker in run.explicitWorkerIds ?? [] where !worker.isEmpty {
-            parts.append("--worker \(worker)")
-        }
-        if let effort = run.effort { parts.append("--effort \(effort.rawValue)") }
-        if run.laneContextOnly == true, let lane = run.lane {
-            parts.append("--lane \(lane.rawValue)")
-        }
-        if run.noCommitOrdered == true { parts.append("--no-commit") }
-        return parts.joined(separator: " ")
+        TeamRunReplayCommand.build(from: run)
     }
 
     /// Loads a persisted run for projection to `TeamRunJSON`, applying orphan

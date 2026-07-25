@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import AllnighterCore
 import AgentOSTeam
 import AllnighterEngine
@@ -105,6 +106,9 @@ struct FactoryFloorView: View {
                         .foregroundStyle(ALColor.textFaint)
                 }
                 teamPill
+                if ArtifactProjector.canProject(run) {
+                    openArtifactButton
+                }
                 Divider().overlay(ALColor.borderSubtle)
                 HStack {
                     Text("THE TEAM").font(ALFont.monoSm.weight(.semibold)).tracking(0.8).foregroundStyle(ALColor.textFaint)
@@ -137,6 +141,26 @@ struct FactoryFloorView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(ALColor.raised, in: RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
+    }
+
+    private var openArtifactButton: some View {
+        Button {
+            ArtifactFloorOpener.openArtifact(for: run)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.richtext").font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
+                Text("Open artifact").font(ALFont.monoSm.weight(.semibold)).foregroundStyle(ALColor.textSecondary)
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(ALColor.textFaint)
+            }
+            .padding(.horizontal, 12).frame(height: 34)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(ALColor.raised, in: RoundedRectangle(cornerRadius: 9))
+            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(ALColor.borderSubtle, lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 9))
+        }
+        .buttonStyle(.plain)
+        .help("Regenerate and open the polished HTML team artifact in your browser")
     }
 
     // MARK: Reader column
@@ -546,4 +570,19 @@ private struct WorkerStateBadge: View {
 private extension View {
     /// Small top margin so the NextMove card doesn't hug the reply text.
     func markdownTopGap() -> some View { padding(.top, 8) }
+}
+
+/// TRR-S01b — regenerate artifact HTML via shared Core writer, open in default browser.
+private enum ArtifactFloorOpener {
+    static func openArtifact(for run: TeamRun) {
+        guard ArtifactProjector.canProject(run),
+              let runDir = try? RunStore().runDirectory(forRunId: run.id),
+              let url = try? ArtifactWriter.writeHTML(
+                run: run,
+                runDirectory: runDir,
+                reproduceCommand: TeamRunReplayCommand.build(from: run),
+                context: .init(models: ModelCatalog.list())
+              ) else { return }
+        NSWorkspace.shared.open(url)
+    }
 }

@@ -50,7 +50,7 @@ SSOT: archived [`Menu_Not_Router.md`](../../archive/phases/Menu_Not_Router.md).
 | Order | Doc | Status |
 | --- | --- | --- |
 | 1 | [TRR-S01 — artifact CLI](team-run-receipt/TRR-S01-artifact-cli.md) | **done** |
-| 2 | [TRR-S01b — Floor open](team-run-receipt/TRR-S01b-floor-open.md) | **ready** |
+| 2 | [TRR-S01b — Floor open](team-run-receipt/TRR-S01b-floor-open.md) | **done** |
 | 3 | [TRR-S03 — artifact export](team-run-receipt/TRR-S03-artifact-export.md) | **ready** |
 | 4 | [TRR-S01c — live paint](team-run-receipt/TRR-S01c-live-paint.md) | **ready** |
 | 5 | [TRR-S00 — growth scorecard](team-run-receipt/TRR-S00-scorecard-wo.md) | **ready** |

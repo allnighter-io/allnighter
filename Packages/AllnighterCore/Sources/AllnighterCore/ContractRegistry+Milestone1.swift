@@ -574,7 +574,7 @@ public extension ContractRegistry {
             outputSchema: .teamRunJSON, exampleIds: ["show_latest_json"]
         ),
         CommandSpec(
-            "floor show", summary: "Show the inspectable Floor for one team run (worker lanes, artifacts, typed return, timeline, Execute requirements).", milestone: .m1,
+            "floor show", summary: "Show the inspectable Floor for one team run (worker lanes, artifacts, typed return, timeline, Execute requirements). For the polished HTML receipt, use `alln artifact show <id>`.", milestone: .m1,
             args: [ArgSpec("run-id|latest", required: false, summary: "A run id or `latest` (default latest).")],
             flags: [FlagSpec("json", summary: "Emit the FloorRun projection.")],
             outputSchema: .floorRun

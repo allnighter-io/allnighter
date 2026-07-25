@@ -17,23 +17,18 @@ enum ArtifactCLI {
       )
     }
 
-    let reproduce = AllnighterCLI.reproduceCommand(run)
-    let card = ArtifactProjector.project(
-      run,
-      reproduceCommand: reproduce,
-      context: .init(models: runtime.models, manifests: runtime.registry.all)
-    )
-    let html = ArtifactProjector.renderHTML(card)
-
     let store = RunStore()
     guard let runDir = try? store.runDirectory(forRunId: run.id) else {
       AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "could not resolve run directory for \(run.id)")
     }
-    let artifactDir = runDir.appendingPathComponent("artifact", isDirectory: true)
+    let context = ArtifactProjector.Context(models: runtime.models, manifests: runtime.registry.all)
     do {
-      try FileManager.default.createDirectory(at: artifactDir, withIntermediateDirectories: true)
-      let htmlURL = artifactDir.appendingPathComponent("index.html")
-      try Data(html.utf8).write(to: htmlURL, options: .atomic)
+      let htmlURL = try ArtifactWriter.writeHTML(
+        run: run,
+        runDirectory: runDir,
+        reproduceCommand: TeamRunReplayCommand.build(from: run),
+        context: context
+      )
       emitResult(path: htmlURL.path, runId: run.id, json: opts.flag("json"), noOpen: opts.flag("no-open"))
     } catch {
       AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "could not write artifact: \(error)")
