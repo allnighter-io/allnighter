@@ -373,12 +373,35 @@ Carry the whole `RunRequest`, not four fields. Delete `runInAppAfterStream`
 *Accept:* a hand-off preserves effort, context, attachments and every timeout
 override; a property test fails if a new `RunRequest` field is not carried.
 
-### S8 — trigger coverage *(C8, C12)*
+### S8 — trigger coverage *(C8, C12)* — **SHIPPED**
 
 Hand off on the `.failure` path too, not only `.success`. Stop treating three
 hardcoded vendor strings as the only signal. Resolve the dual product story:
 if the hand-off is automatic, `HostSandboxAdvice` must stop telling the user to
 paste a command into the app.
+
+**Detection done 2026-07-25, promoted after a live founder run proved it.** A
+three-seat TEST team inside Codex lost two seats — `SecItemCopyMatching failed
+-67674` and `capacity: authRequired` — and neither matched the three hardcoded
+strings. The hand-off never fired, the run reported `partial / completed`, exited
+0, and the founder silently received one seat of a three-seat team.
+
+- **A typed signal is now primary.** `capacityAuthRequired` comes from
+  `CapacityClassifier`, a classified fact rather than prose a vendor can reword.
+  It fires even with no usable failure text at all.
+- **The prose list is the fallback and was broadened** to Keychain denials,
+  `EPERM` / `Operation not permitted` / `FS_PERMISSION_DENIED`, and
+  `not authenticated`.
+- **ANY seat lost to the sandbox now triggers the hand-off**, not only a wholly
+  failed run — because a partly-degraded team is exactly the case that looked
+  like success. Founder ruling: re-run the whole team for now; the partial re-run
+  is S11.
+- Safe to broaden because the `CODEX_SANDBOX` guard still gates everything: a
+  negative test asserts none of these fire in an ordinary terminal, where they
+  mean exactly what they say.
+
+*Still open in this slice:* handing off on the `.failure` path (`RunCLI.swift:243`
+gates on `.success`), and the dual product story in `warningMessage`.
 
 ### S9 — resolve Panel *(C4 — founder ruling, not an implementer's call)*
 

@@ -162,7 +162,10 @@ public enum TeamRunJSONMapper {
             workerFailureText: run.workerAnswers.compactMap { $0.result.errorReason },
             prompt: run.prompt,
             projectReference: run.repoRoot,
-            teamId: run.presetId
+            teamId: run.presetId,
+            capacityAuthRequired: run.workerAnswers.contains {
+                $0.result.capacityObservation?.kind == .authRequired
+            }
         ) {
             runWarnings.insert(
                 TeamRunJSON.Warning(code: HostSandboxAdvice.code, message: advice.warningMessage),

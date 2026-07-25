@@ -12,6 +12,65 @@ final class HostSandboxAdviceTests: XCTestCase {
         Error: failed to initialize in-process app-server client: Operation not permitted (os error 1)
         """
 
+    // MARK: - Signatures observed live, 2026-07-25
+
+    /// A three-seat team inside Codex: two seats died to the sandbox, one survived.
+    /// Neither failure matched the original three signatures, so the hand-off never
+    /// fired and the founder silently received one seat of a three-seat team — a
+    /// run that reported `partial / completed` and exited 0.
+    func testDetectsTheKeychainDenialThatSilentlyDegradedATeam() throws {
+        let advice = HostSandboxAdvice.detect(
+            workerFailureText: ["ERROR: SecItemCopyMatching failed -67674"],
+            prompt: "Run the TEST team.",
+            projectReference: "/repo",
+            teamId: "custom_test_pipe",
+            environment: sandboxed)
+        XCTAssertNotNil(advice, "a Keychain denial inside a sandboxed host is a sandbox failure")
+    }
+
+    /// The typed signal, which is the one to trust: a classified capacity fact
+    /// rather than a string a vendor can reword in its next release.
+    func testDetectsATypedAuthRequiredCapacityObservation() throws {
+        let advice = HostSandboxAdvice.detect(
+            workerFailureText: ["capacity: authRequired"],
+            prompt: "Run the TEST team.",
+            projectReference: "/repo",
+            teamId: "custom_test_pipe",
+            capacityAuthRequired: true,
+            environment: sandboxed)
+        XCTAssertNotNil(advice)
+    }
+
+    /// Even with NO usable failure text at all, the typed fact alone must fire.
+    func testTheTypedSignalAloneIsEnough() throws {
+        XCTAssertNotNil(HostSandboxAdvice.detect(
+            workerFailureText: [],
+            prompt: "p", projectReference: "/repo", teamId: "t",
+            capacityAuthRequired: true,
+            environment: sandboxed))
+    }
+
+    /// The guard that makes broad matching safe: outside a restricted host these
+    /// same failures mean exactly what they say and must NOT be explained away.
+    func testNoneOfTheBroadenedSignaturesFireOutsideASandboxedHost() {
+        for text in ["ERROR: SecItemCopyMatching failed -67674",
+                     "EPERM: operation not permitted",
+                     "Permission denied",
+                     "Not logged in"] {
+            XCTAssertNil(
+                HostSandboxAdvice.detect(
+                    workerFailureText: [text],
+                    prompt: "p", projectReference: "/repo", teamId: "t",
+                    environment: [:]),
+                "must not explain away \(text) in an ordinary terminal")
+        }
+        XCTAssertNil(
+            HostSandboxAdvice.detect(
+                workerFailureText: [], prompt: "p", projectReference: "/repo", teamId: "t",
+                capacityAuthRequired: true, environment: [:]),
+            "not even the typed signal fires outside a restricted host")
+    }
+
     func testDetectsTheObservedSandboxFailureAndBuildsAPasteReadyCommand() throws {
         let advice = try XCTUnwrap(HostSandboxAdvice.detect(
             workerFailureText: [codexSignature],

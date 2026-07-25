@@ -16,12 +16,35 @@ public struct HostSandboxAdvice: Equatable, Sendable {
     public static let code = "HOST_SANDBOX_BLOCKS_WORKERS"
 
     /// Signatures observed live from vendor CLIs started inside a Codex sandbox.
-    /// `Not logged in` only counts alongside a restricted host — in a normal
-    /// Terminal it means exactly what it says, and must not be explained away.
+    ///
+    /// These only count alongside a restricted host (see the `CODEX_SANDBOX` guard
+    /// in `detect`) — in a normal Terminal "Not logged in" means exactly what it
+    /// says and must never be explained away. That guard is what makes it safe to
+    /// match broadly here.
+    ///
+    /// Matching vendor prose is a losing game and this list is the fallback, not
+    /// the primary signal: `capacityAuthRequired` below is a TYPED fact. The list
+    /// grew after a live run in which two of three seats died on
+    /// `SecItemCopyMatching failed -67674` and `capacity: authRequired`, neither of
+    /// which matched the original three strings — so the hand-off never fired and
+    /// the founder silently got one seat of a three-seat team.
     static let failureSignatures = [
+        // Codex app-server / PATH
         "failed to initialize in-process app-server client",
         "could not create PATH aliases",
+        // Vendor-reported sign-in state
         "Not logged in",
+        "not authenticated",
+        // Keychain denial (cursor-agent, and anything using SecItem)
+        "SecItemCopyMatching",
+        "errSecInteractionNotAllowed",
+        "keychain",
+        // Filesystem / process denials the sandbox produces (kimi, grok, codex)
+        "Operation not permitted",
+        "operation not permitted",
+        "FS_PERMISSION_DENIED",
+        "EPERM",
+        "Permission denied",
     ]
 
     public var message: String
@@ -33,18 +56,24 @@ public struct HostSandboxAdvice: Equatable, Sendable {
 
     /// Returns advice only when a restricted host is present AND a worker failed
     /// with one of the known signatures.
+    /// - Parameter capacityAuthRequired: true when any seat recorded a typed
+    ///   `authRequired` capacity observation. This is the signal to trust: it is a
+    ///   classified fact from `CapacityClassifier`, not a string that a vendor can
+    ///   reword in its next release. Inside a restricted host it means the sandbox
+    ///   blocked sign-in, because the same tools authenticate fine outside it.
     public static func detect(
         workerFailureText: [String],
         prompt: String,
         projectReference: String?,
         teamId: String?,
+        capacityAuthRequired: Bool = false,
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> HostSandboxAdvice? {
         guard environment["CODEX_SANDBOX"] != nil else { return nil }
-        let matched = workerFailureText.contains { text in
+        let matchedText = workerFailureText.contains { text in
             failureSignatures.contains { text.localizedCaseInsensitiveContains($0) }
         }
-        guard matched else { return nil }
+        guard matchedText || capacityAuthRequired else { return nil }
 
         var command = "alln run \"\(prompt.replacingOccurrences(of: "\"", with: "\\\""))\""
         if let projectReference, !projectReference.isEmpty { command += " --project \(projectReference)" }
