@@ -55,19 +55,6 @@ enum SandboxHandoff {
         return await handOff(request: request, spool: spool, runStore: runStore, clock: clock)
     }
 
-    /// Same hand-off, for callers that already hold the failed run (the
-    /// `--stream` branch, whose result does not flow through `runInApp`).
-    static func runInAppAfterStream(
-        failedRun run: TeamRun,
-        request: RunRequest,
-        spool: SandboxHandoffSpool = SandboxHandoffSpool(),
-        runStore: RunStore = RunStore(),
-        clock: @Sendable () -> Date = Date.init
-    ) async -> TeamRun? {
-        await runInApp(failedRun: run, request: request, spool: spool,
-                       runStore: runStore, clock: clock)
-    }
-
     private static func handOff(
         request: RunRequest,
         spool: SandboxHandoffSpool,
@@ -83,7 +70,27 @@ enum SandboxHandoff {
             message: request.message,
             repoRoot: request.repoRoot,
             presetId: request.presetId,
-            workerId: request.workerId)
+            workerId: request.workerId,
+            effort: request.effort,
+            lane: request.lane,
+            type: request.type,
+            context: request.context,
+            threadId: request.threadId,
+            projectId: request.projectId,
+            deliveries: request.deliveries,
+            executorTeamId: request.executorTeamId,
+            advisoryReview: request.advisoryReview,
+            workerTimeoutSeconds: request.workerTimeoutSeconds,
+            handshakeTimeoutSeconds: request.handshakeTimeoutSeconds,
+            firstActivityTimeoutSeconds: request.firstActivityTimeoutSeconds,
+            wallTimeoutSeconds: request.wallTimeoutSeconds,
+            spawnConcurrencyLimit: request.spawnConcurrencyLimit,
+            commitMessage: request.commitMessage,
+            noCommit: request.noCommit,
+            proofCommand: request.proofCommand,
+            proofTimeoutSeconds: request.proofTimeoutSeconds,
+            retryOf: request.retryOf,
+            acceptSurvivors: request.acceptSurvivors)
         do {
             try spool.enqueue(enqueued)
         } catch {

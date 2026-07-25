@@ -225,7 +225,7 @@ enum RunCLI {
             // request to the app and print the answer, instead of leaving the user
             // with an empty stream.
             if let run = streamed.value,
-               let handed = await SandboxHandoff.runInAppAfterStream(failedRun: run, request: request) {
+               let handed = await SandboxHandoff.runInApp(failedRun: run, request: request) {
                 renderRun(handed, runtime: runtime, project: project, json: opts.flag("json"))
                 return
             }

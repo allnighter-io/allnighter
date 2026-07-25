@@ -365,13 +365,28 @@ answer, retrievable with `alln run resume <id>`.
 two-host TOCTOU race that needs a second host to exist; identity + reclaim covers
 the failure actually observed.
 
-### S7 — payload fidelity *(C7)*
+### S7 — payload fidelity *(C7)* — **SHIPPED**
 
 Carry the whole `RunRequest`, not four fields. Delete `runInAppAfterStream`
 (`SandboxHandoff.swift:41-49`) — a pure alias.
 
 *Accept:* a hand-off preserves effort, context, attachments and every timeout
 override; a property test fails if a new `RunRequest` field is not carried.
+
+**Done 2026-07-25.** The mailbox carried 4 of `RunRequest`'s 26 fields. It now
+carries 24, and the two omissions are decisions with reasons rather than
+oversights: `timing` (a caller-seeded clock ladder for the CALLER's process — the
+host measures itself and must not report times that never happened there) and
+`idempotencyKey` (the local attempt that triggered the hand-off may hold it, so
+re-using it would make the host refuse its own work as a duplicate of the run it
+is replacing).
+
+Found live: the founder ran `--effort low` and the app ran it at default effort.
+
+The drift gate reflects over `RunRequest` and fails on any field that is neither
+carried nor consciously omitted — verified by temporarily adding a field, which
+named it and told the next person exactly what to do. `runInAppAfterStream`, the
+pure alias Fable flagged, is deleted.
 
 ### S8 — trigger coverage *(C8, C12)* — **SHIPPED**
 

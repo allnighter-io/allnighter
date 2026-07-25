@@ -215,7 +215,7 @@ final class SandboxHandoffTests: XCTestCase {
             runId: "handoff-slow", requestId: request.id, spool: box, runStore: runStore,
             clock: {
                 if polls.next() == settleAfter {
-                    try? store.save(
+                    _ = try? store.save(
                         TeamRun(id: "handoff-slow", prompt: "m", status: .complete,
                                 createdAt: base, endReason: .completed),
                         models: [])

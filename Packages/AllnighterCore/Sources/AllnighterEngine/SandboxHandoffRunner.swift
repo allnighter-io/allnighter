@@ -121,12 +121,7 @@ public struct SandboxHandoffRunner: Sendable {
 
         // Fresh per request: see `makeRunService`.
         let result = await makeRunService().run(
-            RunRequest(
-                message: request.message,
-                repoRoot: request.repoRoot,
-                presetId: request.presetId,
-                workerId: request.workerId
-            ),
+            request.runRequest,
             origin: .cli,
             runId: request.runId
         )
@@ -212,5 +207,45 @@ public struct SandboxHandoffRunner: Sendable {
                 try? await Task.sleep(for: .seconds(pollSeconds))
             }
         }
+    }
+}
+
+public extension SandboxHandoffSpool.Request {
+    /// The caller's request, rebuilt on the host side.
+    ///
+    /// Deliberately NOT carried, with reasons, so the omissions are decisions
+    /// rather than oversights:
+    /// - `timing`: a caller-seeded clock ladder for the CALLER's process. The
+    ///   host's run measures itself; importing another process's stamps would
+    ///   report times that never happened here.
+    /// - `idempotencyKey`: the local attempt that triggered this hand-off may
+    ///   already hold it, and re-using it would make the host refuse its own
+    ///   work as a duplicate of the run it is replacing.
+    var runRequest: RunRequest {
+        RunRequest(
+            message: message,
+            repoRoot: repoRoot,
+            threadId: threadId,
+            projectId: projectId,
+            presetId: presetId,
+            workerId: workerId,
+            effort: effort,
+            lane: lane,
+            type: type,
+            context: context,
+            deliveries: deliveries,
+            executorTeamId: executorTeamId,
+            advisoryReview: advisoryReview,
+            workerTimeoutSeconds: workerTimeoutSeconds,
+            handshakeTimeoutSeconds: handshakeTimeoutSeconds,
+            firstActivityTimeoutSeconds: firstActivityTimeoutSeconds,
+            wallTimeoutSeconds: wallTimeoutSeconds,
+            spawnConcurrencyLimit: spawnConcurrencyLimit,
+            commitMessage: commitMessage,
+            noCommit: noCommit,
+            proofCommand: proofCommand,
+            proofTimeoutSeconds: proofTimeoutSeconds,
+            retryOf: retryOf,
+            acceptSurvivors: acceptSurvivors)
     }
 }

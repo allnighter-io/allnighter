@@ -30,6 +30,33 @@ public struct SandboxHandoffSpool: Sendable {
         public var repoRoot: String
         public var presetId: String?
         public var workerId: String?
+
+        // The rest of the caller's request. The mailbox used to carry four of the
+        // ~26 fields on `RunRequest`, so the app silently ran a DIFFERENT request
+        // than the one that was typed — a `--effort low` team run came back at
+        // default effort, and attachments, context and every timeout override were
+        // dropped on the floor with no warning.
+        public var effort: EffortLevel?
+        public var lane: WorkLane?
+        public var type: String?
+        public var context: String?
+        public var threadId: String?
+        public var projectId: String?
+        public var deliveries: [IncludedAttachmentDelivery]
+        public var executorTeamId: String?
+        public var advisoryReview: Bool
+        public var workerTimeoutSeconds: Int?
+        public var handshakeTimeoutSeconds: Int?
+        public var firstActivityTimeoutSeconds: Int?
+        public var wallTimeoutSeconds: Int?
+        public var spawnConcurrencyLimit: Int?
+        public var commitMessage: String?
+        public var noCommit: Bool
+        public var proofCommand: String?
+        public var proofTimeoutSeconds: Int?
+        public var retryOf: String?
+        public var acceptSurvivors: Bool
+
         public var createdAt: Date
         /// Absent in requests written before pings existed — decoded as `.run`.
         public var kind: Kind
@@ -52,6 +79,26 @@ public struct SandboxHandoffSpool: Sendable {
             repoRoot: String,
             presetId: String? = nil,
             workerId: String? = nil,
+            effort: EffortLevel? = nil,
+            lane: WorkLane? = nil,
+            type: String? = nil,
+            context: String? = nil,
+            threadId: String? = nil,
+            projectId: String? = nil,
+            deliveries: [IncludedAttachmentDelivery] = [],
+            executorTeamId: String? = nil,
+            advisoryReview: Bool = false,
+            workerTimeoutSeconds: Int? = nil,
+            handshakeTimeoutSeconds: Int? = nil,
+            firstActivityTimeoutSeconds: Int? = nil,
+            wallTimeoutSeconds: Int? = nil,
+            spawnConcurrencyLimit: Int? = nil,
+            commitMessage: String? = nil,
+            noCommit: Bool = false,
+            proofCommand: String? = nil,
+            proofTimeoutSeconds: Int? = nil,
+            retryOf: String? = nil,
+            acceptSurvivors: Bool = false,
             createdAt: Date = Date(),
             kind: Kind = .run,
             claimedAt: Date? = nil,
@@ -65,6 +112,26 @@ public struct SandboxHandoffSpool: Sendable {
             self.repoRoot = repoRoot
             self.presetId = presetId
             self.workerId = workerId
+            self.effort = effort
+            self.lane = lane
+            self.type = type
+            self.context = context
+            self.threadId = threadId
+            self.projectId = projectId
+            self.deliveries = deliveries
+            self.executorTeamId = executorTeamId
+            self.advisoryReview = advisoryReview
+            self.workerTimeoutSeconds = workerTimeoutSeconds
+            self.handshakeTimeoutSeconds = handshakeTimeoutSeconds
+            self.firstActivityTimeoutSeconds = firstActivityTimeoutSeconds
+            self.wallTimeoutSeconds = wallTimeoutSeconds
+            self.spawnConcurrencyLimit = spawnConcurrencyLimit
+            self.commitMessage = commitMessage
+            self.noCommit = noCommit
+            self.proofCommand = proofCommand
+            self.proofTimeoutSeconds = proofTimeoutSeconds
+            self.retryOf = retryOf
+            self.acceptSurvivors = acceptSurvivors
             self.createdAt = createdAt
             self.kind = kind
             self.claimedAt = claimedAt
@@ -84,6 +151,26 @@ public struct SandboxHandoffSpool: Sendable {
             repoRoot = try c.decode(String.self, forKey: .repoRoot)
             presetId = try c.decodeIfPresent(String.self, forKey: .presetId)
             workerId = try c.decodeIfPresent(String.self, forKey: .workerId)
+            effort = try c.decodeIfPresent(EffortLevel.self, forKey: .effort)
+            lane = try c.decodeIfPresent(WorkLane.self, forKey: .lane)
+            type = try c.decodeIfPresent(String.self, forKey: .type)
+            context = try c.decodeIfPresent(String.self, forKey: .context)
+            threadId = try c.decodeIfPresent(String.self, forKey: .threadId)
+            projectId = try c.decodeIfPresent(String.self, forKey: .projectId)
+            deliveries = try c.decodeIfPresent([IncludedAttachmentDelivery].self, forKey: .deliveries) ?? []
+            executorTeamId = try c.decodeIfPresent(String.self, forKey: .executorTeamId)
+            advisoryReview = try c.decodeIfPresent(Bool.self, forKey: .advisoryReview) ?? false
+            workerTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .workerTimeoutSeconds)
+            handshakeTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .handshakeTimeoutSeconds)
+            firstActivityTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .firstActivityTimeoutSeconds)
+            wallTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .wallTimeoutSeconds)
+            spawnConcurrencyLimit = try c.decodeIfPresent(Int.self, forKey: .spawnConcurrencyLimit)
+            commitMessage = try c.decodeIfPresent(String.self, forKey: .commitMessage)
+            noCommit = try c.decodeIfPresent(Bool.self, forKey: .noCommit) ?? false
+            proofCommand = try c.decodeIfPresent(String.self, forKey: .proofCommand)
+            proofTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .proofTimeoutSeconds)
+            retryOf = try c.decodeIfPresent(String.self, forKey: .retryOf)
+            acceptSurvivors = try c.decodeIfPresent(Bool.self, forKey: .acceptSurvivors) ?? false
             createdAt = try c.decode(Date.self, forKey: .createdAt)
             kind = try c.decodeIfPresent(Kind.self, forKey: .kind) ?? .run
             claimedAt = try c.decodeIfPresent(Date.self, forKey: .claimedAt)
