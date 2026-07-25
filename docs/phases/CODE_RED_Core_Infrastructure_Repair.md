@@ -1379,6 +1379,70 @@ This is the only remote governance action in the phase and requires the
 founder. Until it is confirmed, Code Red may be functionally green but is not
 closed against recurrence.
 
+### CR-S07 progress — 2026-07-24 — NOT yet closed
+
+**Done**
+
+1. **The gate runs first.** `scripts/check.sh` opens with the positive
+   architecture-policy check and then its negative self-test, both before any
+   Swift build — verified by reading the script.
+2. **Durable truth copied to the SSOT.** `Unified_Run_Model.md` now states that
+   there is no resident execution path, which commands run in-process, and what
+   `alln serve` is reduced to.
+3. **Mac wall arm 2, partly restored.** `TeamDraftTests` is repaired and its
+   `-skip-testing:` id is retired from `scripts/check.sh`. The test was wrong,
+   not the product: it asserted built-in rows "pre-fill a concrete model", but
+   `code_plan` declares its seats with `needRows`, which deliberately pins no
+   model (BuiltInTeams Law 3). A companion test now proves the savable gate on
+   a fully pinned seed and on one with a model cleared.
+4. **GUI proof gate is green.** It was red on an un-waived file the packet never
+   named: `AllnighterMacApp.swift`, from the sandbox-handoff commit `a6628fed`.
+   The diff is four lines of app-lifecycle wiring inside an existing `.task`
+   (`SandboxHandoffHost.shared.start()`) that renders nothing, so it is waived
+   with that reason, matching this file's prior scene-level waivers.
+
+**Open — with the work named, not hand-waved**
+
+5. **The two relay tests stay skipped.** Their stub `CommandRunner` returns plain
+   stdout, but every enabled model in the real catalog now sits on a warm driver
+   (`cursor_agent`/`grok` ACP, `codex` app-server, `claude` stream-json), so the
+   stub cannot complete a turn and the PM turn is judged stalled after four
+   attempts. This is debt from the warm-worker migration, not from Code Red; it
+   surfaced only because the tests seat `config.models[0..1]` from the user's
+   live catalog — the first of which was simply disabled
+   (`WORKER_NOT_AVAILABLE`). Seating now filters to enabled models and both
+   tests report the relay's own note on failure. The remaining repair is to give
+   them a stub driver and synthetic models instead of borrowing
+   `AppConfig.loadConfiguration()`; `DriverManifest` lives in the AgentOS
+   package, so this is contained but not a one-liner.
+6. **The four Opus-5 GUI proofs are still waivers, not renders.** Resealing runs
+   `scripts/gui_proof.sh`, which `pkill -x Allnighter` at both start and end.
+   That would kill the app instance currently serving the sandbox hand-off and
+   leave it down — a live founder dependency. Deliberately not run unattended.
+   When there is a window: render `readiness-mixed`, the routing composer, setup,
+   and team-control fixtures; get a layout-watcher PASS; then
+   `scripts/gui_proof_seal.sh` each surface, and relaunch the app afterwards.
+7. **Protected branch + Code Owner.** Unchanged founder action. This repository
+   still has no `CODEOWNERS` and no reviewed identity to assign.
+
+**Machine-state findings — recorded, deliberately not acted on**
+
+- `~/Library/LaunchAgents/com.allnighter.resident-coordinator.plist` outlived
+  `alln serve install`. It still points at a valid command
+  (`/Users/mike/.local/bin/alln serve`, now the scheduler) with `KeepAlive`, so
+  it is not broken — but nothing supported installs or refreshes it any more.
+  Left in place on purpose: removing it would silently stop Pending wake, Boost
+  seeding, vendor-backoff continuation, and the cloud relay. Either re-add a
+  supported installer for the scheduler or document manual management.
+- A leaked `alln serve` from the test build (`.build/…/alln`, pid 62128) was
+  holding the daemon record and making `serve --health` report `available` for a
+  stale binary. Stopped; `serve --health` then correctly read `foregroundOnly`.
+
+**Therefore this packet stays ACTIVE.** Code Red is functionally green — the
+control plane is at zero and the live proof passed three consecutive times — but
+items 5–7 are open, so the packet is not archived and Code Red is not closed
+against recurrence.
+
 ## Checked-in Code Red Works Test
 
 CR-S01 creates `scripts/code_red_works_test.sh`. Structural fixture mode runs

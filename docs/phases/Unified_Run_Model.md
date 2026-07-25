@@ -73,6 +73,21 @@ A default-chat turn is just a one-worker `RunRecord`. The answer board is an N-w
 worker roster, write-lock acquisition, lifecycle settlement, and result projection.
 The Terminal `alln run` adapter calls it directly.
 
+**There is no resident execution path — durable truth from Code Red CR-S06
+(2026-07-24).** The rendezvous, the broker, the 13-case operation union,
+coordinator install/drain, and `--detach` with its forked runner are deleted, and
+`config/architecture-policy.json` now names each deleted file and fails the wall
+if any returns — including under a renamed prefix. Every command runs in the
+caller's own process: `doctor`, `detect`, `ps`, `kill`,
+`team status/result/cancel/reconcile`, `pending run`, `project recheck`, and
+`boost-window seed` all call their local service directly, and none of them needs
+a daemon.
+
+`alln serve` still exists, but only as an optional background scheduler — Pending
+wake, Boost seeding, vendor-backoff continuation, and the cloud relay. It owns no
+run semantics, exposes no request/response surface, and `alln run` never needs it.
+Adding an operation to it is a new feature packet, not a bug fix.
+
 ### One recipe noun: `TeamPreset` (UI: "Team")
 
 A worker is a prompt + a worker selection. A **`TeamPreset`** is the saved recipe for a
