@@ -2,26 +2,24 @@
 
 Founder input is fast, valuable intent. It is not final semantic authority.
 
-## Every Capability Is a CLI Contract First
+## Scope of This Doc
 
-Allnighter is agent-first: the `alln` CLI IS the product surface (MCP was retired
-2026-07-16, see archived `docs/archive/phases/MCP_Retirement.md` — the CLI is the
-only agent surface now); the GUI and iOS only *present* that contract. A feature
-is therefore not specced until its CLI surface is specced alongside it. Never
-design a capability as GUI-only with "wire up the CLI later" — that is exactly
-how the old MCP surface fell behind the app, and it must not recur. For every
-capability the packet must answer: which `alln` command(s) expose it, with what
-arguments, JSON output, exit codes, and errors? If a capability has no CLI
-surface, the spec is incomplete and cannot ship. (See the agent-first law in
-`AGENTS.md`: CLI, GUI, and iOS share one contract, never parallel JSON.)
+This doc owns **intake**: turning founder input into something specifiable, and
+saying what founder input may and may not settle on its own.
 
-## Agent-facing help is part of the capability (not optional polish)
+It does not restate the build laws. `docs/workflows/SSOT_Feature_Workflow.md`
+owns those — the CLI-first rule, the teaching-surface rule, honest reporting,
+deterministic guardrails, the Feature Packet and inference bans. They were
+written out in full in both docs, which is the duplicate truth these workflows
+exist to ban.
 
-Shipping a CLI verb without updating the **live help corpus** is the same class
-of bug as shipping GUI-only truth. Agents read `alln help search` / `help get`
-and living ops playbooks before they read phase archives.
+Read this to intake a request. Read the Feature Workflow to spec it.
 
-For every CLI capability change, the packet / closeout must also answer:
+## Agent-facing help — closeout questions
+
+The *rule* lives in `SSOT_Feature_Workflow.md` §Teaching Surface Rule. These are
+the questions that close it out. For every CLI capability change, the packet /
+closeout must answer:
 
 - which `HelpTopicRegistry` topic(s) teach this surface?
 - do those topics name only flags/commands that resolve in `ContractRegistry`?
@@ -36,38 +34,21 @@ If those answers are missing, the feature is not ready to close — same bar as
 Active polish phase (Complete): archived
 `docs/archive/phases/CLI_Agent_Surface_Fidelity.md` (ASF).
 
-## Why help/doc drift was still possible (2026-07-20 lesson)
+## Why the teaching layer needs its own gate
 
-**It was not because we never bumped `binaryVersion`.** Version and docs sync
-are separate machines:
+Version sync and teaching sync are separate machines, and only the first was ever
+gated. `ContractRegistry` → `alln dev export-contracts --check` and `contractHash`
+both fail loudly on drift; `HelpTopicRegistry` prose and living ops playbooks are
+hand-authored and had no mechanical check. That is how agents kept being taught
+retired MCP grammar while the contract hash flipped happily on every edit.
 
-| Machine | What it covers | Drift gate today |
-| --- | --- | --- |
-| `ContractRegistry` → `alln dev export-contracts --check` / doctor `docsVersion` | Generated command/flag/error/example artifacts under `docs/generated/alln/` | **Yes** — regenerate or CI fails |
-| `contractHash` in `version --json` | Fingerprint of the registry contract | **Yes** — changes when registry changes |
-| `binaryVersion` (e.g. `0.9.0`) | Human/product release label | **No** — never auto-rewrote help |
-| `HelpTopicRegistry` prose (`team_run_loop`, bootstrap topic bodies, …) | What agents are *taught* in `help get` / search | **No mechanical gate** — hand-authored; survived MCP retirement |
-| Living ops playbooks agents are routed to (e.g. GLM best practices) | Extra recipes outside help | **No** — archive banners + disclaimers are not enough |
+Closed by ASF (complete, `docs/archive/phases/CLI_Agent_Surface_Fidelity.md`):
+forbidden-pattern CI on the help corpus, a resolvable-command scan, an
+empty-search recovery test, and the closeout law that a PR changing a flag or
+command updates or deletes the topic that names it.
 
-So agents still saw MCP `team_start(dryRun:true)` in `help get team_run_loop`
-while `contractHash` flipped happily on every registry edit. The front door
-shipped; the **teaching layer** did not get a regenerate/check loop.
-
-### Make drift impossible (required direction — owned by ASF)
-
-1. **Forbidden-pattern CI** on `HelpTopicRegistry` (and active ops docs ASF
-   names): no `dryRun:true`, no MCP tool-call grammar, no deleted verbs
-   (`pair slice`, …).
-2. **Resolvable-command scan**: every `` `alln …` `` / named flag in help bodies
-   must resolve via `ContractRegistry` (same idea as hello command resolution
-   tests).
-3. **Empty-search recovery test**: miss queries still return non-empty
-   `nextToolPlan`.
-4. **Closeout law**: changing a CLI flag/command in the same PR updates or
-   deletes the teaching topic that names it — or the ASF gate fails.
-
-Until ASF-S01–S03 land, treat help corpus edits as P0 when any agent dogfood
-mentions invented flags or MCP vocabulary.
+The durable rule, which outlives that phase: **changing a command changes its
+teaching in the same slice, or the gate fails.**
 
 ## Founder Input May Define
 

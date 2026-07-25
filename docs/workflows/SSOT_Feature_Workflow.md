@@ -67,11 +67,37 @@ polish. It is a **lie-prone layer in every packet by default**.
   for the dead grammar, and (b) add the dead grammar to the retired-vocabulary
   deny-list that the help-corpus test gate enforces — so the grammar can never
   be re-taught, only re-introduced deliberately by editing the deny-list.
+- **A surface that cannot work must not be discoverable.** A command left
+  listed, helped and searchable while failing closed is a trap: it cost a full
+  founder session when a frozen `alln panel` sent an agent down a fallback path.
+  Delete the surface with the feature, or make its failure name the working
+  replacement.
 - Prose that names an `alln` command or flag which `ContractRegistry` cannot
   resolve is a P0 bug, same class as GUI-only truth.
 - A phase doc may claim "shipped"/"verified" only for state that is committed
   AND observable on a binary built from committed HEAD. "Bumped in my working
   tree" is not shipped.
+
+## Honest Reporting Rule
+
+A layer that consumes work must leave a readable record of what happened to it,
+and must never name a cause it did not observe.
+
+Learned the expensive way in `docs/archive/phases/Sandbox_Handoff_Hotfix.md`,
+where every single defect was silence rather than wrong logic: a discarded
+failure, an unlogged host, `exit 0` on a failed run, silently dropped request
+fields, a 30-minute wait with nothing on screen, and a message that told the
+founder "Allnighter isn't open" about an app that was open and busy.
+
+- **A silent drop is worse than a failure.** Any path that can consume work
+  writes a terminal, readable record — or it does not ship.
+- **Never assert an unobserved cause.** Report what was observed. If two
+  different problems produce the same symptom, the surface must distinguish
+  them, not pick the likelier-sounding one.
+- **Exit codes are part of the contract.** A failed run that exits 0 is
+  indistinguishable, to an agent host, from a command that did nothing.
+- **A comment is not a contract.** Two comments in that subsystem described
+  behavior the code beneath them did not implement.
 
 ## Deterministic Guardrail Rule
 
@@ -101,7 +127,9 @@ review once the rule is known.
    find it, what the retirement sweep must remove and deny-list.
 9. Define the user-visible claim.
 10. Define the Works Test: setup, gesture, owner path, output, assertion.
-11. Name supporting checks.
+11. Name supporting checks. **A mock cannot close a host-boundary claim:** the
+    only evidence for "works from inside host X" is a run started from inside
+    host X. Mock tests prove plumbing, not the boundary.
 12. Name deletion targets for duplicate truth.
 13. Name proof waiver only when proof cannot be built yet.
 

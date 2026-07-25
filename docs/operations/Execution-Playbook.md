@@ -132,8 +132,17 @@ closeout. `Docs/phases/` is for live phase work only.
 Archive workflow:
 
 1. Confirm exit gates are checked or explicitly waived in the phase closeout.
-2. Copy durable product truth into `Docs/product/SSOT.md` or the owning product
-   contract before moving the phase.
+2. Move durable truth to its owner before moving the phase. There is no
+   `docs/product/SSOT.md`; owners are, in order of preference:
+   - **code** — the type, registry or service that now enforces the rule. Record
+     it in the archive index's *Successor owner* column so the code is findable
+     from the phase.
+   - **the living contract** — `docs/phases/CLI_Implementation_Contract.md` for
+     contract-visible surface (commands, flags, JSON, exit codes).
+   - **the workflow docs** — `docs/workflows/SSOT_Feature_Workflow.md` for build
+     laws the phase taught us, `SSOT_Founder_Input_Workflow.md` for intake rules.
+   A law that exists only inside an archived phase doc is not durable truth; it
+   is history.
 3. Move the completed phase doc to `Docs/archive/phases/<same filename>`.
 4. Remove the phase from the active table in `Docs/phases/README.md`.
 5. Add it to `Docs/archive/phases/README.md` with status, archive date, proof,
