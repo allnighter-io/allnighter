@@ -441,58 +441,40 @@ survivals are gone. `PanelPreset`/`PanelPresetStore` were kept deliberately —
 same word, unrelated live concept (team presets used by the Mac app). Contract
 cut 3.4.0 -> 4.0.0 per the registry's own "major for removals" rule.
 
-### S10 — audit the async team lifecycle *(last slice; same defect class as S9)*
+### S10 — audit the async team lifecycle — **DONE: nothing to delete**
 
-Surfaced while fixing the recipes in S9. `--detach` was deleted in Code Red
-(`588e0621`) and runs are now foreground only, which stranded the async lifecycle
-around it. Verified, not assumed:
+**The premise of this slice was wrong, and the audit is what proved it.**
 
-- **`AsyncTeamService.start` has zero callers** — not in `AllnighterCLI`, not in
-  the Mac app. Nothing in the product can start an async team run.
-- Two runtime-served recipes taught `alln run --detach` and bare `alln team`;
-  both are deleted surfaces. Fixed in S9, but they are the symptom, not the cause.
+It was written claiming `AsyncTeamService.start` had "ZERO callers in either the
+CLI or the Mac app — verified, not assumed". That verification was a grep too
+narrow to be worth the word: `start` is called by
+`RemoteCommandRouter.startRun` (`RemoteCommandRouter.swift:32`, `origin: .ios`),
+which is wired into `RemoteMacAgentBootstrap` — the iPhone remote-control path.
+The async lifecycle is live; it is simply not reachable from the CLI.
 
-So `alln team status` / `result` / `cancel` are live, documented, discoverable
-commands whose originating path no longer exists. That is exactly the condition
-S9 deleted Panel for, and it must not be left standing.
+Checked live against a real run rather than by reading:
 
-The audit is per-command, because they are **not** uniformly dead:
-
-| Command | Question to settle |
+| Command | Verdict |
 | --- | --- |
-| `team status` | Does `--persisted` still read a foreground run's journal usefully? |
-| `team result` | Same — a settled foreground run has a `TeamRunJSON`; is this just `alln show`? |
-| `team cancel` | With no async runs to cancel, is this `alln kill` under another name? |
-| `team reconcile` | Believed genuinely live (ownership GC, PO-S01–S05). Confirm and keep. |
-| `AsyncTeamService.start` + whatever only it feeds | Delete — zero callers. |
+| `team status` | **KEEP** — returns state plus a `fetchResult` nextAction |
+| `team status --persisted` | **KEEP** — reads the journal, `source: "journal"`, `live: false` |
+| `team result` | **KEEP** — returns the full `TeamRunJSON` answer |
+| `team cancel` | **KEEP** — the stop path for iOS-started runs |
+| `team reconcile` | **KEEP** — ownership GC; used in this packet to settle a stranded run |
+| `AsyncTeamService.start` | **KEEP** — live via the iOS remote path |
 
-*Accept:* every surviving `team *` command has a reachable path that a caller can
-actually produce, proven by a test; everything else is deleted with the machinery
-only it fed. No redirect, no shim.
+The one real finding is smaller than the slice assumed: since `--detach` was
+deleted, **the CLI cannot start an async run**, so `team status` / `result` /
+`cancel` are only reachable from the CLI for runs started elsewhere (iOS, GUI) or
+for reading finished ones. That is a discoverability nuance, not dead code, and
+deleting the commands would have broken the iPhone path.
 
-*Note:* the recipe `recover-a-run-that-lost-its-terminal.md` is built on these
-commands and must be rewritten or deleted with them.
+The genuinely broken thing this slice was chasing — a recipe teaching
+`alln run --detach` and bare `alln team` — was already fixed in S9.
 
-### S11 — re-run only the seats that were lost *(future; founder-raised)*
-
-When a sandbox kills some seats, S8 hands the whole team to the app and the seats
-that already answered are paid for twice. At 2-of-3 that is obviously right. At
-5-of-6 it is obviously wrong.
-
-Founder ruling 2026-07-25: **re-run the whole team for now** — in debug the TEST
-team is nearly free — and treat the partial re-run as its own slice.
-
-Feasibility, checked rather than guessed: **medium.** The halves exist and have
-never been joined. `SeatReseat` already reseats a failed seat onto a fallback
-*mid-run* (`CatalogRunCoordinator.swift:239,326`), and `resumeParkedRun` already
-re-enters an existing run carrying its own `explicitWorkerIds`
-(`RunService.swift:573`). What does not exist is running a SUBSET of a roster into
-an ALREADY-WRITTEN journal: `CatalogRunCoordinator` fans out the whole roster, and
-merging a second fan-out into an existing `workerAnswers` set is new behavior with
-real ordering and idempotency questions.
-
-*Accept:* a run degraded by the sandbox is completed by running only its missing
-seats, into the same run id, with the surviving answers untouched.
+*Law reinforced:* "verified, not assumed" has to mean the grep was wide enough to
+be wrong. A single narrow search that confirms what you expected is not
+verification, and this one nearly deleted a live feature.
 
 ## What this does not fix
 
