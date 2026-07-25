@@ -150,21 +150,13 @@ if [[ -f "$MAC_APP/project.yml" ]] && command -v xcodegen >/dev/null 2>&1; then
   echo "==> xcodegen generate (AllnighterMac)"
   ( cd "$MAC_APP" && xcodegen generate >/dev/null )
   echo "==> xcodebuild test AllnighterMac"
-  # CR-S07: the TeamDraft skip is RETIRED — that test is repaired and back on the
-  # wall. The two relay tests remain skipped with a now-precise cause: their stub
-  # `CommandRunner` returns plain stdout, which no longer drives the seats the
-  # real catalog offers. Every enabled model now sits on a WARM driver
-  # (cursor_agent/grok ACP, codex app-server, claude stream-json), so the stub
-  # cannot complete a turn and the PM turn is judged stalled. This is debt from
-  # the warm-worker migration, not from Code Red; repairing it means giving the
-  # test its own stub driver instead of borrowing the user's live catalog.
-  # See docs/phases/CODE_RED_Core_Infrastructure_Repair.md.
+  # CR-S07: all three Code Red skips are RETIRED — every Mac test is on the wall.
+  # The two relay tests were repaired by giving them their own stub driver and
+  # workers instead of seating the user's live catalog; see their doc comments.
   xcodebuild test \
     -project "$MAC_APP/AllnighterMac.xcodeproj" \
     -scheme AllnighterMac \
     -destination 'platform=macOS' \
-    -skip-testing:AllnighterMacTests/RelayLaunchViewModelTests/testStartSeedsThreadImmediatelyAndReachesDone \
-    -skip-testing:AllnighterMacTests/RelayResumeControllerTests/testResumeRoutesThroughCoordinatorAndReachesDone \
     CODE_SIGNING_ALLOWED=NO | tail -3
   ran_any=true
 elif [[ -f "$MAC_APP/project.yml" ]]; then

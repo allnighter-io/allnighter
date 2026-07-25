@@ -20,6 +20,49 @@ final class RelayResumeControllerTests: XCTestCase {
         }
     }
 
+
+    /// A driver + two workers this test OWNS. Previously these tests seated
+    /// `AppConfig.loadConfiguration().models[0..1]` — the user's live catalog —
+    /// which made them fail for reasons that had nothing to do with the relay:
+    /// the first model was simply disabled (WORKER_NOT_AVAILABLE), and once that
+    /// was skipped the next two sat on WARM drivers (cursor/grok ACP, codex
+    /// app-server, claude stream-json) that a canned-stdout stub cannot drive, so
+    /// the PM turn was judged stalled. A plain headless driver is exactly what
+    /// `DoneVerdictRunner` can stand in for, and it cannot drift when the user
+    /// edits their bench.
+    nonisolated static let stubDriverId = "relay_stub_cli"
+
+    private func stubRegistry() -> DriverRegistry {
+        DriverRegistry([
+            DriverManifest(
+                id: Self.stubDriverId,
+                displayName: "Relay Stub CLI",
+                kind: .headlessCLI,
+                detectCommand: "relay-stub --version",
+                smokeTestCommand: "relay-stub smoke {{model}}",
+                smokeTestExpect: "READY",
+                invoke: .init(
+                    command: "relay-stub",
+                    args: ["-p", "{{prompt}}", "--model", "{{model}}"],
+                    promptVia: .arg,
+                    env: [:],
+                    workingDir: nil,
+                    timeoutSeconds: 5
+                ),
+                output: .init()
+            )
+        ])
+    }
+
+    private func stubWorkers() -> [Model] {
+        [
+            Model(id: "relay_stub_pm", displayName: "Stub PM", modelLabel: "pm",
+                  driverId: Self.stubDriverId, role: .answerer, enabled: true),
+            Model(id: "relay_stub_dev", displayName: "Stub Dev", modelLabel: "dev",
+                  driverId: Self.stubDriverId, role: .answerer, enabled: true)
+        ]
+    }
+
     private func tempRoot(_ label: String) -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("alln-relay-resume-\(label)-\(UUID().uuidString)", isDirectory: true)
@@ -32,11 +75,21 @@ final class RelayResumeControllerTests: XCTestCase {
         let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true))
         let runStore = RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
         let stateStore = RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
+        let stubDriverIdValue = Self.stubDriverId
         return { idFactory in
             RelayCoordinator(
                 runService: RunService(
                     models: models, registry: registry, runStore: runStore,
-                    commandRunner: DoneVerdictRunner()
+                    commandRunner: DoneVerdictRunner(),
+                    // Declare the stub driver ready. Readiness normally comes from
+                    // the user's SetupStore probe cache; borrowing that made the
+                    // test depend on whether the founder's bench happened to be
+                    // probed, which is not what these tests are about.
+                    probeRecords: {
+                        [ToolProbeRecord(driverId: stubDriverIdValue,
+                                         status: .ready(version: "relay-stub 1.0"),
+                                         lastProbeAt: Date())]
+                    }
                 ),
                 stateStore: stateStore,
                 runStore: runStore,
@@ -125,17 +178,14 @@ final class RelayResumeControllerTests: XCTestCase {
     /// wiring dispatches through the coordinator, not a normal chat send (there is no
     /// chat path in this test's stores at all).
     func testResumeRoutesThroughCoordinatorAndReachesDone() async throws {
-        let config = AppConfig.loadConfiguration()
-        // Seat only ENABLED workers — see RelayLaunchViewModelTests.
-        let seatable = config.models.filter { ModelCatalog.isEnabled($0.id) }
-        try XCTSkipIf(seatable.count < 2, "need two distinct ENABLED worker ids to seat PM + dev")
+        let seatable = stubWorkers()
         let root = tempRoot("full")
         let relayId = "relay_full_\(UUID().uuidString)"
         let stateStore = seedEscalated(
             id: relayId, root: root, projectRoot: repoRoot(),
             pmWorkerId: seatable[0].id, devWorkerId: seatable[1].id)
         let controller = RelayResumeController(
-            makeCoordinator: stubbedFactory(root: root, models: config.models, registry: config.registry),
+            makeCoordinator: stubbedFactory(root: root, models: seatable, registry: stubRegistry()),
             stateStore: stateStore
         )
 
