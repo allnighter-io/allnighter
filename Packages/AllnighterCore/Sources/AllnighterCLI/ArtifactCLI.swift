@@ -6,26 +6,21 @@ enum ArtifactCLI {
   /// `alln artifact export <run-id|latest> --out <path> [--json]`
   static func runExport(_ args: [String], runtime: ToolRuntime) {
     let opts = Options(args)
-    let ref = opts.positional.first ?? "latest"
     guard let out = opts.value("out"), !out.isEmpty else {
       AllnighterCLI.fail(
         code: "CLI_USAGE_ERROR",
         message: "usage: alln artifact export <run-id|latest> --out <path> [--json]"
       )
     }
-    guard let run = AllnighterCLI.resolveRun(ref) else {
-      AllnighterCLI.failRunNotFound(ref == "latest" ? nil : ref, "no run matches \(ref)")
-    }
-    guard ArtifactProjector.canProject(run) else {
-      AllnighterCLI.fail(
-        code: "RUN_NOT_TERMINAL",
-        message: "run \(run.id) is not terminal — artifact export requires a finished run"
-      )
-    }
-
-    let expanded = (out as NSString).expandingTildeInPath
-    let destination = URL(fileURLWithPath: expanded, isDirectory: false)
-    let context = ArtifactProjector.Context(models: runtime.models, manifests: runtime.registry.all)
+    let (run, context) = terminalRun(
+      ref: opts.positional.first ?? "latest",
+      runtime: runtime,
+      verb: "export"
+    )
+    let destination = URL(
+      fileURLWithPath: (out as NSString).expandingTildeInPath,
+      isDirectory: false
+    )
     do {
       let htmlURL = try ArtifactWriter.exportHTML(
         run: run,
@@ -42,22 +37,15 @@ enum ArtifactCLI {
   /// `alln artifact show <run-id|latest> [--no-open] [--json]`
   static func runShow(_ args: [String], runtime: ToolRuntime) {
     let opts = Options(args)
-    let ref = opts.positional.first ?? "latest"
-    guard let run = AllnighterCLI.resolveRun(ref) else {
-      AllnighterCLI.failRunNotFound(ref == "latest" ? nil : ref, "no run matches \(ref)")
-    }
-    guard ArtifactProjector.canProject(run) else {
-      AllnighterCLI.fail(
-        code: "RUN_NOT_TERMINAL",
-        message: "run \(run.id) is not terminal — artifact show requires a finished run"
-      )
-    }
-
+    let (run, context) = terminalRun(
+      ref: opts.positional.first ?? "latest",
+      runtime: runtime,
+      verb: "show"
+    )
     let store = RunStore()
     guard let runDir = try? store.runDirectory(forRunId: run.id) else {
       AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "could not resolve run directory for \(run.id)")
     }
-    let context = ArtifactProjector.Context(models: runtime.models, manifests: runtime.registry.all)
     do {
       let htmlURL = try ArtifactWriter.writeHTML(
         run: run,
@@ -69,6 +57,24 @@ enum ArtifactCLI {
     } catch {
       AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "could not write artifact: \(error)")
     }
+  }
+
+  private static func terminalRun(
+    ref: String,
+    runtime: ToolRuntime,
+    verb: String
+  ) -> (TeamRun, ArtifactProjector.Context) {
+    guard let run = AllnighterCLI.resolveRun(ref) else {
+      AllnighterCLI.failRunNotFound(ref == "latest" ? nil : ref, "no run matches \(ref)")
+    }
+    guard ArtifactProjector.canProject(run) else {
+      AllnighterCLI.fail(
+        code: "RUN_NOT_TERMINAL",
+        message: "run \(run.id) is not terminal — artifact \(verb) requires a finished run"
+      )
+    }
+    let context = ArtifactProjector.Context(models: runtime.models, manifests: runtime.registry.all)
+    return (run, context)
   }
 
   private static func emitResult(path: String, runId: String, json: Bool, noOpen: Bool) {

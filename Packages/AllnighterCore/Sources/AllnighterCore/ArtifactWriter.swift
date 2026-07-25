@@ -34,8 +34,6 @@ public enum ArtifactWriter {
       let htmlURL = artifactDir.appendingPathComponent("index.html")
       try Data(html.utf8).write(to: htmlURL, options: .atomic)
       return htmlURL
-    } catch let error as WriteError {
-      throw error
     } catch {
       throw WriteError.writeFailed(error.localizedDescription)
     }
@@ -58,8 +56,6 @@ public enum ArtifactWriter {
       }
       try Data(html.utf8).write(to: destination, options: .atomic)
       return destination
-    } catch let error as WriteError {
-      throw error
     } catch {
       throw WriteError.writeFailed(error.localizedDescription)
     }
