@@ -439,4 +439,80 @@ final class TeamResolverTests: XCTestCase {
         XCTAssertEqual(decoded.skillId, "secrets_reviewer")
         XCTAssertEqual(decoded.requiredCapabilityTags, [.code])
     }
+
+    // MARK: - Family diversity tiebreak (Law 3 extension)
+
+    /// `model_agy_opus` and `model_gemini` are the catalog's only exact
+    /// caliber/rank tie (both rank 75, "Mid" band). An open seat choosing
+    /// between them, with the crew already staffed with two Claude-family
+    /// models (Opus 5 + Sonnet 5, preferred rows), must prefer Gemini — a
+    /// genuinely different family — over stacking a third Claude-family seat.
+    /// Alphabetically "model_agy_opus" < "model_gemini", so a pass here proves
+    /// family diversity decided the seat, not the id tiebreak.
+    /// Mirrors the real `code_spec_review` shape: every worker row is a pure
+    /// need-row (no `preferredModelId`), so Law 3 cross-row diversity picks
+    /// declaration-order-first, strongest-ready-first, spreading to distinct
+    /// models as earlier rows claim them. By the third open row, the only two
+    /// ready+unclaimed candidates are `model_agy_opus` and `model_gemini` —
+    /// the catalog's one exact caliber/rank tie (both rank 75, "Mid" band) —
+    /// and the crew already has two Claude-family seats (Opus 5 + Sonnet 5).
+    /// The fix must prefer Gemini (an unused family) over stacking a third
+    /// Claude-family seat, even though "model_agy_opus" sorts first
+    /// alphabetically.
+    func testFamilyDiversityPrefersUnusedFamilyOnExactTie() {
+        // Fable as Lead (as production's synthesisLead does) so it — not
+        // Opus — gets reserved away from the worker rows; otherwise Opus
+        // would win Lead selection outright (highest band) and never reach
+        // seat_a.
+        let fable = Model(id: "model_fable", displayName: "Fable 5", modelLabel: "fable",
+                          driverId: "claude_code", role: .both)
+        let ready: [Model] = [
+            fable,
+            opus(), // claude family, band2 (rank90) — claimed by seat_a
+            Model(id: "model_sonnet", displayName: "Sonnet 5", modelLabel: "claude-sonnet-5",
+                  driverId: "claude_code", role: .answerer), // claude family, band1 (rank84) — claimed by seat_b
+            Model(id: "model_agy_opus", displayName: "Claude Opus 4.6", modelLabel: "opus-4.6",
+                  driverId: "antigravity", role: .both), // claude family, tied rank w/ gemini
+            gemini(), // gemini family, tied rank w/ agy_opus
+        ]
+        let t = team(
+            rows: [
+                TeamWorkerSpec(id: "seat_a", skillId: "seat_a"),
+                TeamWorkerSpec(id: "seat_b", skillId: "seat_b"),
+                TeamWorkerSpec(id: "seat_c", skillId: "seat_c"), // the tie
+            ],
+            lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_fable",
+                               fallbackPolicy: .strongestReady))
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .med, readyModels: ready)
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.first { $0.skillId == "seat_a" }?.modelId, "model_opus")
+        XCTAssertEqual(r.answerWorkers.first { $0.skillId == "seat_b" }?.modelId, "model_sonnet")
+        let openSeat = r.answerWorkers.first { $0.skillId == "seat_c" }
+        XCTAssertEqual(openSeat?.modelId, "model_gemini")
+    }
+
+    /// Same exact tie, but the crew's Lead is a non-Claude family (Kimi) — no
+    /// family conflict exists for either candidate, so the tiebreak falls
+    /// through to the pre-existing alphabetical id order (`model_agy_opus` <
+    /// `model_gemini`). Confirms the new tiebreak is additive, not a general
+    /// behavior change.
+    func testFamilyDiversityFallsBackToIdOrderWhenNoFamilyUsed() {
+        let kimi = Model(id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-code/k3",
+                         driverId: "kimi", role: .both)
+        let ready: [Model] = [
+            kimi, // Lead only — distinct family, no Claude/Gemini conflict
+            Model(id: "model_agy_opus", displayName: "Claude Opus 4.6", modelLabel: "opus-4.6",
+                  driverId: "antigravity", role: .both),
+            gemini(),
+        ]
+        let t = team(
+            rows: [TeamWorkerSpec(id: "seat_b", skillId: "seat_b")], // the tie
+            lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_kimi_k3",
+                               fallbackPolicy: .strongestReady))
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .med, readyModels: ready)
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.planWriter?.modelId, "model_kimi_k3")
+        let openSeat = r.answerWorkers.first { $0.skillId == "seat_b" }
+        XCTAssertEqual(openSeat?.modelId, "model_agy_opus")
+    }
 }

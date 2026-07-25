@@ -112,6 +112,18 @@ public enum TeamResolver {
         )?.id
         let reservedWorkerModelId = resolvedLeadModelId
 
+        // Family diversity signal (tiebreak only — Law 3 extension): seeded with
+        // the Lead's family and grown by every resolved row (preferred or open)
+        // so an open row choosing between exactly-tied candidates (e.g. two
+        // antigravity models at identical caliber/rank) prefers a family the
+        // crew doesn't already have, instead of an incidental alphabetical id
+        // tiebreak. Never a hard filter — ties broken this way still fall back
+        // to `a.id < b.id` when both candidates' families are already used.
+        var familyUsed: Set<String> = []
+        if let resolvedLeadModelId {
+            familyUsed.insert(ModelCatalog.modelFamily(resolvedLeadModelId))
+        }
+
         // instanceIndex is global per model across all stages so ids stay distinct
         // and self-fusion reads as `model#0, model#1, …`.
         var nextIndex: [String: Int] = [:]
@@ -188,7 +200,7 @@ public enum TeamResolver {
                     requiredTags: row.requiredCapabilityTags, fallback: row.fallbackPolicy,
                     lane: team.lane, ready: readyModels, capabilities: capabilities,
                     reserveModelId: reservedWorkerModelId, excludeModelIds: excludeForDiversity,
-                    preferredTags: row.preferredCapabilityTags
+                    preferredTags: row.preferredCapabilityTags, avoidFamilies: familyUsed
                 ) else {
                     let reason = "no ready model matches \(row.fallbackPolicy.rawValue)"
                         + (row.preferredModelId.map { " (preferred \($0) unavailable)" } ?? "")
@@ -201,6 +213,7 @@ public enum TeamResolver {
                 if row.preferredModelId == nil {
                     diversityUsed.formUnion(ModelCatalog.diversityExclusionIds(for: model.id))
                 }
+                familyUsed.insert(ModelCatalog.modelFamily(model.id))
                 for _ in 0..<want { workers.append(makeWorker(model, row: row, skillName: skillName, stage: stage)) }
             }
             return workers
@@ -308,7 +321,8 @@ public enum TeamResolver {
         capabilities: (String) -> ModelCapabilities,
         reserveModelId: String? = nil,
         excludeModelIds: Set<String> = [],
-        preferredTags: [ModelCapabilityTag] = []
+        preferredTags: [ModelCapabilityTag] = [],
+        avoidFamilies: Set<String> = []
     ) -> Model? {
         let byId = Dictionary(ready.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         func allowed(_ m: Model) -> Bool { allowedModelIds.isEmpty || allowedModelIds.contains(m.id) }
@@ -346,6 +360,13 @@ public enum TeamResolver {
                 let pa = hasPreferred(a), pb = hasPreferred(b)
                 if pa != pb { return pa && !pb }
                 if ra != rb { return ra > rb }
+                // Family diversity (Law 3 extension, tiebreak only): an exact
+                // caliber/preference/rank tie prefers the candidate whose
+                // family the crew doesn't already have, before falling to the
+                // alphabetical id tiebreak.
+                let fa = ModelCatalog.modelFamily(a.id), fb = ModelCatalog.modelFamily(b.id)
+                let usedA = avoidFamilies.contains(fa), usedB = avoidFamilies.contains(fb)
+                if usedA != usedB { return !usedA && usedB }
                 return a.id < b.id
             }.first
         }

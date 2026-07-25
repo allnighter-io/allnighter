@@ -41,6 +41,36 @@ public enum ModelCatalog {
         return ids
     }
 
+    /// Underlying reasoning family for cross-source diversity. Claude ships on
+    /// three drivers (claude_code, antigravity, and Sol/Terra don't count —
+    /// those are GPT); a resolver that only diversifies by model **id** can
+    /// stack e.g. Opus 5 + Sonnet 5 + Claude Opus 4.6 (antigravity) into one
+    /// crew and call it "diverse" because the ids differ, even though it's
+    /// three seats of the same mind. Used only as a tiebreak signal — never a
+    /// hard filter — when candidates are otherwise exactly tied.
+    public static func modelFamily(_ modelId: String) -> String {
+        switch modelId {
+        case "model_fable", "model_opus", "model_sonnet",
+             "model_agy_opus", "model_agy_sonnet":
+            return "claude"
+        case "model_chatgpt", "model_chatgpt_sol", "model_chatgpt_terra",
+             "model_chatgpt_54", "model_chatgpt_54_mini", "model_codex_spark":
+            return "gpt"
+        case "model_agy_gptoss":
+            return "gpt_oss"
+        case "model_grok", "model_composer", "model_cursor_grok_45":
+            return "grok"
+        case "model_kimi_k3":
+            return "kimi"
+        case "model_gemini", "model_gemini_pro":
+            return "gemini"
+        case "model_cursor_auto", "model_cursor_composer_25", "model_cursor_composer_25_fast":
+            return "cursor_native"
+        default:
+            return modelId
+        }
+    }
+
     // MARK: - Built-in capability metadata
 
     public static let builtInCapabilities: [String: ModelCapabilities] = [
