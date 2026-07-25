@@ -1,9 +1,12 @@
 # Idle Stall False Kill — Hotfix
 
-Status: **Complete** — S01+S04+S02 shipped (`6ca1e30d` / `0508120e` / `9cc93421`);
-S03 posture floors deferred until telemetry. Archived 2026-07-25.
+Status: **Complete** — S01+S04+S02 shipped (`6ca1e30d` / `0508120e` / `9cc93421`
++ deslop `36466c9c` + audit `92b21f6d`); S03 posture floors **deferred** (gate =
+S04 telemetry histograms via `alln doctor silence` /
+`RunJournalSilenceTelemetry`). Contract **4.0.3** after S02 teaching.
+Archived 2026-07-25.
 Owner: AllnighterEngine + driver manifests + CLI teaching
-Updated: 2026-07-25 (IDLE-HF-S02 closeout)
+Updated: 2026-07-25 (phase archive finalize after S02 audit)
 Incident date: 2026-07-25
 
 ## Origin
@@ -105,17 +108,20 @@ Code SSOT pointers:
 ## Ship order (locked)
 
 ```text
-IDLE-HF-S01  bleed stop + drift guard + honest teaching     ← implement now
-IDLE-HF-S04  kill-policy demotion + silence telemetry         ← next
-IDLE-HF-S02  attributable process-group progress (gated)      ← after telemetry
-IDLE-HF-S03  posture floors (deferred — likely shorter chat)  ← from data
+IDLE-HF-S01  bleed stop + drift guard + honest teaching     ← shipped 6ca1e30d
+IDLE-HF-S04  kill-policy demotion + silence telemetry         ← shipped 0508120e
+IDLE-HF-S02  attributable process-group progress (gated)      ← shipped 9cc93421
+                                                               (+ 36466c9c / 92b21f6d)
+IDLE-HF-S03  posture floors                                   ← DEFERRED
+             gate = S04 telemetry histograms
+             (alln doctor silence / RunJournalSilenceTelemetry)
 ```
 
 ---
 
 ### IDLE-HF-S01 — Bleed stop: raise idle floors + sync + teach + drift guard
 
-**Authorized now. Ship first. Implementation-ready.**
+**Shipped** `6ca1e30d` (2026-07-25).
 
 #### Touch
 
@@ -219,19 +225,22 @@ floor decision.
 
 ### IDLE-HF-S02 — Attributable process-group progress (gated)
 
-**Authorized only after S01 + enough S04 telemetry to show residual false kills.**
+**Shipped** `9cc93421` (2026-07-25); deslop `36466c9c` (strip false IO claims —
+sampler is **child + CPU only**); audit `92b21f6d` (harden works tests).
+Contract **4.0.3** after S02 teaching.
 
 Idle may reset on signals that are **attributable to this run's owner process
 group** (recorded pgid / identity):
 
-1. Process-group CPU / IO / new children under the owned pgid
+1. Process-group **CPU / new children** under the owned pgid (shipped — no IO sampling)
 2. Keep stream bytes as the fast path for chatty workers
 3. Optional later: file activity **only** if it can be attributed to this
-   worker/pgid (not shared repo cwd mtime)
+  worker/pgid (not shared repo cwd mtime)
 
 **Explicitly out of scope for S02:** repo-level / working-directory filesystem
-watching. Parallel research Teams share the repo root — unattributable cwd
-activity masks true hangs and was rejected in Spec Review.
+watching; **IO byte counters** (never shipped — deslop removed false claims).
+Parallel research Teams share the repo root — unattributable cwd activity
+masks true hangs and was rejected in Spec Review.
 
 Guard: do not invent fake progress prose for the GUI. This is watchdog truth only.
 
@@ -240,15 +249,19 @@ stdout for > old budget → not reaped; frozen process with no stream/pgid
 activity → still reaped near budget; a second process writing in the same repo
 cwd must **not** keep a hung owner alive.
 
-**Done when:** help may honestly claim child/process-group activity; residual
-post-S01 false kills from silent-but-busy tool work drop in telemetry.
+**Done when:** help may honestly claim child/process-group (CPU) activity;
+residual post-S01 false kills from silent-but-busy tool work drop in telemetry.
 
 ---
 
 ### IDLE-HF-S03 — Posture floors (deferred)
 
-**Deferred.** After S01 the driver default is 1800 for the raised set, so the
-pre-review table (design/review ≥ 1800) is a **no-op**.
+**DEFERRED** — no post-S01 chat-vs-design histogram decision yet.
+**Gate = S04 telemetry histograms** (`alln doctor silence [--json]` /
+`RunJournalSilenceTelemetry`). Do not reopen until that gate is met.
+
+After S01 the driver default is 1800 for the raised set, so the pre-review
+table (design/review ≥ 1800) is a **no-op**.
 
 Open question for later, decided from S04 telemetry:
 
@@ -284,14 +297,21 @@ Flags remain overrides. Do not implement S03 until S04 histograms exist.
 
 When S01 ships: update this status line + phases board; record which clock the
 incident journal shows; leave manifests + drift test as SSOT for defaults.
-**S01 closeout (2026-07-25):** Opus design incident journal not found in-repo;
-likely `timeoutKind: idle` per founder report (600s claude_code invoke budget).
-**S04 closeout (2026-07-25):** Identity-alive owners are not idle-reaped in
-`ProcessGroupCommandRunner`; silence surfaces via `silenceStatus` on `alln ps --json`
-and team status; field histograms via `alln doctor silence`. **S02 closeout
-(2026-07-25):** Streaming stall watchdog samples the recorded pgid for child
-spawn / CPU / IO and resets progress via `pgid_activity`; repo cwd mtimes are
-explicitly excluded. **Archived 2026-07-25** — code SSOT:
+**S01 closeout (2026-07-25):** shipped `6ca1e30d`. Opus design incident journal
+not found in-repo; likely `timeoutKind: idle` per founder report (600s
+claude_code invoke budget).
+**S04 closeout (2026-07-25):** shipped `0508120e`. Identity-alive owners are not
+idle-reaped in `ProcessGroupCommandRunner`; silence surfaces via `silenceStatus`
+on `alln ps --json` and team status; field histograms via `alln doctor silence`
+(`RunJournalSilenceTelemetry`).
+**S02 closeout (2026-07-25):** shipped `9cc93421`; deslop `36466c9c` (false IO
+claims stripped — sampler is **child + CPU only**); audit `92b21f6d` (works
+tests hardened). Streaming stall watchdog samples the recorded pgid for child
+spawn / CPU and resets progress via `pgid_activity`; repo cwd mtimes and IO
+byte counters are explicitly excluded. Contract **4.0.3** after S02 teaching.
+**S03:** **deferred** — gate = S04 telemetry histograms; no chat-vs-design
+decision yet.
+**Archived 2026-07-25** (finalize after S02 audit) — code SSOT:
 `DefaultConfig` + App Drivers `invoke.timeoutSeconds` (1800), `DefaultConfigDriftTests`,
 `ProcessGroupCommandRunner` stall watchdog + `ProcessOwnership.sampleProcessGroupActivity`,
-`alln doctor silence`. S03 posture floors stay deferred until field data.
+`alln doctor silence`. Do not reopen S01–S04.

@@ -31,7 +31,7 @@ one's truth now lives.
 > Recently completed and archived — code is the SSOT, do not reopen:
 > [`Idle_Stall_False_Kill_Hotfix.md`](../archive/phases/Idle_Stall_False_Kill_Hotfix.md)
 > (Complete 2026-07-25 — S01 1800 idle floors + drift guard; S04 stall demotion +
-> silence telemetry; S02 pgid child/CPU/IO progress; S03 deferred),
+> silence telemetry; S02 pgid child/CPU progress; S03 deferred),
 > [`Capacity_False_Auth_Mislabel_Hotfix.md`](../archive/phases/Capacity_False_Auth_Mislabel_Hotfix.md)
 > (Complete 2026-07-25 — AgentOS `bec4f9e` stderr-only auth blockers + idle kill-reason
 > priority; Allnighter mirror `CapacityClassifierTests`; dry-run steer verified),
