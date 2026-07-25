@@ -420,6 +420,27 @@ only it fed. No redirect, no shim.
 *Note:* the recipe `recover-a-run-that-lost-its-terminal.md` is built on these
 commands and must be rewritten or deleted with them.
 
+### S11 — re-run only the seats that were lost *(future; founder-raised)*
+
+When a sandbox kills some seats, S8 hands the whole team to the app and the seats
+that already answered are paid for twice. At 2-of-3 that is obviously right. At
+5-of-6 it is obviously wrong.
+
+Founder ruling 2026-07-25: **re-run the whole team for now** — in debug the TEST
+team is nearly free — and treat the partial re-run as its own slice.
+
+Feasibility, checked rather than guessed: **medium.** The halves exist and have
+never been joined. `SeatReseat` already reseats a failed seat onto a fallback
+*mid-run* (`CatalogRunCoordinator.swift:239,326`), and `resumeParkedRun` already
+re-enters an existing run carrying its own `explicitWorkerIds`
+(`RunService.swift:573`). What does not exist is running a SUBSET of a roster into
+an ALREADY-WRITTEN journal: `CatalogRunCoordinator` fans out the whole roster, and
+merging a second fan-out into an existing `workerAnswers` set is new behavior with
+real ordering and idempotency questions.
+
+*Accept:* a run degraded by the sandbox is completed by running only its missing
+seats, into the same run id, with the surviving answers untouched.
+
 ## What this does not fix
 
 - **Nothing here is verifiable by an implementing agent.** Every acceptance
