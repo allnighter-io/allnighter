@@ -268,7 +268,33 @@ public actor CatalogRunCoordinator {
                 }
             }
             var collected: [TeamAnswer] = []
+            var abandonedToSandbox = false
             for await (answer, substitutedFrom) in group {
+                // Fail fast on the first seat the host's sandbox refuses to start.
+                //
+                // Measured 2026-07-25: a three-seat team inside Codex knew at 1.2s
+                // that two seats could not start, then waited another 63s for the
+                // one seat that could — and the whole run was handed to the app and
+                // re-run anyway. The caller paid 64s for a result that was discarded.
+                // Cancelling here costs ~1s instead, and `ProcessGroupCommandRunner`
+                // terminates the in-flight process groups on cancel, so nothing is
+                // left running behind us.
+                //
+                // Gated by the same `CODEX_SANDBOX` guard as every other sandbox
+                // decision: outside a restricted host this never fires, and a
+                // restricted host with full access never produces the signature.
+                if !abandonedToSandbox,
+                   answer.result.status == .failed,
+                   HostSandboxAdvice.detect(
+                       workerFailureText: [answer.result.errorReason].compactMap { $0 },
+                       prompt: run.prompt,
+                       projectReference: run.repoRoot,
+                       teamId: run.presetId,
+                       capacityAuthRequired: answer.result.capacityObservation?.kind == .authRequired
+                   ) != nil {
+                    abandonedToSandbox = true
+                    group.cancelAll()
+                }
                 emitWorker(workerId: answer.memberId, modelId: answer.modelId, from: .running, to: answer.result.status,
                            skillId: nil, durationMs: answer.result.timing.durationMs, reason: answer.result.errorReason, runId: runId)
                 if let index = run.workerAnswers.firstIndex(where: { $0.memberId == answer.memberId }) {

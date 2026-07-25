@@ -476,9 +476,15 @@ seats, into the same run id, with the surviving answers untouched.
   invisible to it. Spec review is read-only so the incident missed this; the
   mailbox accepts any team.
 - **An abandoned request still spends quota.** No cancel-on-death.
-- **The first attempt is taxed.** A full local team must fail before the hand-off
-  fires — by design (detection is on observed failure, never environment), but
-  it is a real cost the packet does not remove.
+- ~~**The first attempt is taxed.**~~ **FIXED 2026-07-25 (S12).** Measured on a
+  live founder run: a three-seat team inside Codex knew at 1.2s that two seats
+  could not start, then waited another **63s** for the one seat that could — and
+  the whole run was handed to the app and re-run anyway. 64s paid for a discarded
+  result, which is why a ~75s team took 2m49s. `CatalogRunCoordinator` now cancels
+  the remaining seats on the FIRST sandbox refusal, so the local attempt costs
+  ~1s. `ProcessGroupCommandRunner` terminates the in-flight process groups on
+  cancel, so nothing is left running. Detection is still on OBSERVED failure —
+  the tax is removed by observing it sooner, not by pre-empting on environment.
 
 ## Confidence
 
