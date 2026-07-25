@@ -190,10 +190,10 @@ case "${1:-}" in
     bash "$ROOT/scripts/check_architecture_policy.sh"
     [[ ! -e "$ROOT/Packages/AllnighterCore/Sources/AllnighterCore/ProjectMirror.swift" ]]
     [[ ! -e "$ROOT/Packages/AllnighterCore/Sources/AllnighterEngine/PanelSeatIsolation.swift" ]]
+    [[ ! -e "$ROOT/Packages/AllnighterCore/Sources/AllnighterCLI/PanelCLI.swift" ]]
     rg -q -F 'let service = RunService(' "$ROOT/Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift"
     rg -q -F 'await service.run(request' "$ROOT/Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift"
     ! rg -q -F 'ResidentExecutionOperation' "$ROOT/Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift"
-    rg -q -F 'code: "CODE_RED_UNSUPPORTED"' "$ROOT/Packages/AllnighterCore/Sources/AllnighterCLI/PanelCLI.swift"
     swift test --disable-sandbox --package-path "$ROOT/Packages/AllnighterCore" --filter RunCLIStreamAdapterTests
     swift test --disable-sandbox --package-path "$ROOT/Packages/AllnighterCore" --filter TwoSourceResearchTeamTests
     echo "code-red structural: direct CLI adapter, policy, alternate-root deletion, two-source roster verified"
