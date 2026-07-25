@@ -441,6 +441,51 @@ survivals are gone. `PanelPreset`/`PanelPresetStore` were kept deliberately —
 same word, unrelated live concept (team presets used by the Mac app). Contract
 cut 3.4.0 -> 4.0.0 per the registry's own "major for removals" rule.
 
+### S11 — re-run only the seats that were lost — **RULED: DO NOT BUILD**
+
+Pressure-tested 2026-07-25 by **Gemini 3.6 Flash** (agy) and **Grok 4.5** (grok),
+independently, each asked to argue both sides and commit. Both returned **do not
+build**, on the same argument — a better one than this packet originally made.
+
+**S12 already removed the problem S11 was designed to solve.** The local attempt
+now cancels on the FIRST sandbox refusal, ~1s in. Refusals land at ~1s; real
+multi-model answers take tens of seconds. So no seats finish locally before the
+hand-off, which means there are no surviving answers to preserve. The 5-of-6 case
+is not a rare case under current code — it is close to a nonexistent one. The
+shape that actually motivated it (2 of 3 lost, one slow survivor) is exactly what
+S8 and S12 fixed.
+
+**A correction to this packet's own feasibility note.** It claimed `SeatReseat`
+was reusable machinery. `SeatReseat.isEligible` (`SeatReseat.swift:13-21`)
+explicitly does NOT reseat on `.authRequired` or `.manualRequired` — it exists for
+capacity and rate-limit hops. Verified in code, not taken on the reviewer's word.
+The "halves exist" read oversold the reuse: S11 is new semantics, not a join of
+two finished features.
+
+**What it would cost, alone, pre-launch:** subset fan-out into an already-written
+journal, merge rules for `workerAnswers` across done/failed/cancelled, a synthesis
+writer running against a partial board, idempotency if a claim dies or retries,
+and interaction with fail-fast cancellation, the write lock and process ownership.
+New failure modes include an incomplete run that reports itself complete — the
+exact class this packet exists to eliminate.
+
+**The founder's instinct was right, for a reason worth keeping:** "if I get 5/6
+I'd just use the results" is a product preference against auto-completing a team,
+not an argument for a smarter relaunch.
+
+**Revisit trigger — observable, not "later".** Only when ALL hold in real logs:
+
+1. ≥10 hand-off events (or two weeks of founder use) where the LOCAL journal had
+   **≥2 seats already `done` with non-empty answers** at hand-off time, and the
+   app then re-ran those same seats;
+2. those seats are real answers, not cancelled shells from fail-fast;
+3. the double spend has actually been the reason to avoid `alln` from Codex twice,
+   or the spend is measurable and annoying rather than theoretical.
+
+**The cheap precursor, if anything ever hurts:** one log line at hand-off —
+`local_done=X local_failed_sandbox=Y local_cancelled=Z` — so condition 1 is
+counted rather than guessed. Not built either; noted so the trigger is checkable.
+
 ### S10 — audit the async team lifecycle — **DONE: nothing to delete**
 
 **The premise of this slice was wrong, and the audit is what proved it.**
