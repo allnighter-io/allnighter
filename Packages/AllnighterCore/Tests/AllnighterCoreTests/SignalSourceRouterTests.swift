@@ -13,7 +13,7 @@ final class SignalSourceRouterTests: XCTestCase {
             "https://mobile.twitter.com/someone/status/123",
             "https://twitter.com/someone/status/123",
             "http://m.x.com/someone/status/123",
-            "https://t.co/abc123",
+
             "x.com/someone/status/123"            // scheme-less paste
         ] {
             XCTAssertEqual(SignalSourceRouter.route(forURL: url), .xModelOnly, url)
@@ -26,6 +26,29 @@ final class SignalSourceRouterTests: XCTestCase {
         let url = "https://x.com/someone/status/123/video/1"
         XCTAssertEqual(SignalSourceRouter.route(forURL: url), .xModelOnly)
         XCTAssertFalse(SignalSourceRouter.allowsVideoTool(forPrompt: "what does this mean for us? \(url)"))
+    }
+
+    /// Reviewer finding (Gemini 3.6 Flash + Composer 2.5, 2026-07-24): t.co was the
+    /// only shortener covered, so a bit.ly that redirects INTO x.com routed to the
+    /// downloader. Any shortener is now fail-safe — we refuse to learn the
+    /// destination by pointing yt-dlp at it.
+    func testShortenersNeverReachTheVideoTool() {
+        for url in ["https://t.co/abc123", "https://bit.ly/3xyz", "https://tinyurl.com/abc",
+                    "https://lnkd.in/xyz", "https://ow.ly/abc", "https://buff.ly/abc"] {
+            let r = SignalSourceRouter.route(forURL: url)
+            XCTAssertEqual(r, .unresolvedRedirect, url)
+            XCTAssertTrue(r.forbidsVideoTool, url)
+            XCTAssertFalse(SignalSourceRouter.allowsVideoTool(forPrompt: "read this \(url)"), url)
+        }
+    }
+
+    func testShortenerAnywhereInThePromptForcesTheSafeRoute() {
+        let yt = "https://youtu.be/abc"
+        XCTAssertFalse(SignalSourceRouter.allowsVideoTool(forPrompt: "compare \(yt) and https://bit.ly/3xyz"))
+    }
+
+    func testScoutInstructionsWarnAboutShorteners() {
+        XCTAssertTrue(SignalSourceRouter.scoutInstructions.contains("Shortened link"))
     }
 
     func testNonXLinksRouteToTheVideoTool() {
