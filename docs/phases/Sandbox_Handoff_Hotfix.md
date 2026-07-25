@@ -253,13 +253,23 @@ still returned, and the two failure states produce different, non-blaming text.
 A third copy of the `(run failed)` swallow was found on the resume path and
 folded into one `printRunWithoutProject` helper shared by resume and attach.
 
-### S3 — make the host observable *(C3)*
+### S3 — make the host observable *(C3)* — **SHIPPED with S1**
 
-One log line each for config load, claim, start, terminal status, error — to the
-unified log and `Logs/`.
+`HandoffLog` writes one line per lifecycle step — host start/stop, claim, ping,
+settle, refusal, reclaim, sweep — to
+`~/Library/Application Support/Allnighter/Logs/handoff.log`, and to the unified
+log behind a `#if canImport(os)` guard (the portability gate lists `os` as
+Apple-only).
 
-*Accept:* `log show --predicate 'process == "Allnighter"'` shows the full
-lifecycle of a hand-off request.
+*Accept:* the file log shows the full lifecycle of a hand-off request.
+**Verified** — a live refusal produced `host started`, `claimed run=…`,
+`refused run=… code=…`, and the founder's own runs are traceable through it.
+
+*Honest limit, unchanged:* the unified-log branch is compiled in but
+**unverified** — `log show --predicate 'process == "Allnighter"'` returned
+nothing for this debug build and I did not chase why. The file log is the one the
+tests assert and the one to read. Do not cite `log show` as working until someone
+proves it.
 
 ### S4 — `alln doctor handoff` *(new; cuts founder-test cost)* — **SHIPPED**
 
@@ -433,6 +443,23 @@ strings. The hand-off never fired, the run reported `partial / completed`, exite
   `alln run resume`. `appCommand` was left referenced only by its own tests, so it
   is deleted with the story it served.
 
+### S12 — abandon the local attempt on the first refusal — **SHIPPED**
+
+Not in the original plan; added after a founder run measured the cost. A
+three-seat team inside Codex knew at 1.2s that two seats could not start, then
+waited 63s for the one that could — and the whole run was handed to the app and
+re-run anyway. 64s paid for a discarded result, turning a ~75s team into 2m49s.
+
+`CatalogRunCoordinator` now cancels the remaining seats on the FIRST sandbox
+refusal; `ProcessGroupCommandRunner` terminates the in-flight process groups in
+its `onCancel`, so nothing is left running. Detection stays on OBSERVED failure —
+the tax is removed by observing it sooner, not by pre-empting on environment.
+
+*Accept:* the local attempt costs ~1s instead of the slowest seat. **Verified in
+both directions** — 0.145s with the restricted-host guard active, 6.28s and
+failing without it, which is also the proof that ordinary terminals are untouched.
+Founder-confirmed live: the same team went from 2m49s to **1m31s**.
+
 ### S9 — resolve Panel *(C4 — founder ruling, not an implementer's call)*
 
 **RULED 2026-07-24: Option 2 — delete.** Shipped in `0656b764`. `alln panel` is
@@ -520,6 +547,21 @@ The genuinely broken thing this slice was chasing — a recipe teaching
 *Law reinforced:* "verified, not assumed" has to mean the grep was wide enough to
 be wrong. A single narrow search that confirms what you expected is not
 verification, and this one nearly deleted a live feature.
+
+## Remaining open
+
+Everything below is known and deliberately not built. Nothing here blocks using
+the hand-off from Codex, which is proven end to end.
+
+| Item | Why it is still open |
+| --- | --- |
+| **A mutating hand-off is two writers on one tree** | The app running a mutating team against `repoRoot` while the Codex session edits the same worktree is the situation the write lock exists to prevent, and the sandboxed caller is invisible to it. Spec review is read-only so this has never been hit. **The largest remaining correctness risk in this packet.** |
+| **Claim-by-atomic-rename** | Deferred from S6. Closes a two-host TOCTOU race that needs a second host to exist; today there is one Mac app. Owner identity + reclaim covers the failure actually observed. |
+| **Mailbox TTL** | Deferred from S6. A request enqueued Friday runs Monday when the app opens. Bounded in practice by the caller's 30s claim grace, which removes its own entry. |
+| **An abandoned request still spends quota** | No cancel-on-death: a caller killed mid-wait leaves the app running a team nobody will read. |
+| **The app must be open** | By design. `alln doctor handoff` now answers this in under a second instead of leaving it to be guessed. |
+| **The unified-log branch is unverified** | See S3. The file log is the one that works. |
+| **S11 counting log line** | The cheap precursor to the S11 revisit trigger — `local_done / local_failed_sandbox / local_cancelled` at hand-off — so the trigger is counted rather than guessed. |
 
 ## What this does not fix
 
