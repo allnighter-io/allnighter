@@ -209,3 +209,19 @@ stats (Kimi); above-the-fold hero-card discipline (Grok); reproduce-line +
 disagreement-data gap + measure-before-build (Opus); “show the decision your
 team changed” + S00 shape (Sol). Lead disagreed with all four on optimizing a
 *user* share loop pre-launch — founder series first; export when someone asks.
+
+## Spec Review Min (pending)
+
+**Requested:** 2026-07-25 — bracket commits so the diff is this review’s input.
+
+**Team:** `custom_spec_review_min_cursor_k3` (Spec Review Min · Cursor CLI seats
++ one Kimi K3 · Fabel lead). Read-only.
+
+**Ask:** Harden `docs/phases/Team_Run_Receipt.md` as a buildable packet —
+ambiguities, missing acceptance criteria, slice order risks, contradictions
+with companions (Factory Floor / Live Team Board / Buzz spike), and what must
+be true before TRR-S01 code starts. Pressure-test TRR-S00 kill gate vs product
+value of a local card even when seats agree.
+
+**Outcome:** fold the verdict into this section after the run; patch the packet
+where the review sticks.
