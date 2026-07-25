@@ -44,7 +44,7 @@ final class LiveArtifactProjectorTests: XCTestCase {
         "to": .string(WorkerAnswerStatus.running.rawValue),
       ]
     )
-    XCTAssertTrue(LiveArtifactProjector.apply(running, to: &state, context: context))
+    XCTAssertTrue(LiveArtifactProjector.apply(running, to: &state))
     XCTAssertEqual(state.seatList[0].status, WorkerAnswerStatus.running.rawValue)
     XCTAssertEqual(state.seatList[0].startedAt, running.ts)
 
@@ -57,7 +57,7 @@ final class LiveArtifactProjectorTests: XCTestCase {
         "durationMs": .int(3200),
       ]
     )
-    XCTAssertTrue(LiveArtifactProjector.apply(done, to: &state, context: context))
+    XCTAssertTrue(LiveArtifactProjector.apply(done, to: &state))
     XCTAssertEqual(state.seatList[0].status, WorkerAnswerStatus.done.rawValue)
     XCTAssertEqual(state.seatList[0].durationMs, 3200)
   }
@@ -72,7 +72,7 @@ final class LiveArtifactProjectorTests: XCTestCase {
         "text": .string("First visible line\nsecond line"),
       ]
     )
-    XCTAssertTrue(LiveArtifactProjector.apply(delta, to: &state, context: context))
+    XCTAssertTrue(LiveArtifactProjector.apply(delta, to: &state))
     XCTAssertEqual(state.seatList[0].oneLiner, "First visible line")
     XCTAssertNil(state.seatList[1].oneLiner)
   }
@@ -83,6 +83,6 @@ final class LiveArtifactProjectorTests: XCTestCase {
       id: "e4", seq: 4, ts: now, kind: RunEventKind.runStatusChanged,
       payload: ["to": .string(RunStatus.running.rawValue)]
     )
-    XCTAssertFalse(LiveArtifactProjector.apply(ignored, to: &state, context: context))
+    XCTAssertFalse(LiveArtifactProjector.apply(ignored, to: &state))
   }
 }

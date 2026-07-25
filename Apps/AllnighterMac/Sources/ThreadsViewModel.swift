@@ -883,7 +883,7 @@ final class ThreadsViewModel {
         ensureLiveArtifactSeed(
             runId: runId, question: question, teamLabel: teamLabel, context: context)
         guard var state = liveArtifactByRunId[runId] else { return }
-        if LiveArtifactProjector.apply(event, to: &state, context: context) {
+        if LiveArtifactProjector.apply(event, to: &state) {
             liveArtifactByRunId[runId] = state
             _ = bumpPublishGeneration()
         }

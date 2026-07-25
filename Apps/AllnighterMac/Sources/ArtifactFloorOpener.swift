@@ -10,13 +10,14 @@ enum ArtifactFloorOpener {
       presentFailure("Run is not terminal — artifact requires a finished run.")
       return
     }
+    let resolved = resolveModels(models)
     do {
       let runDir = try RunStore().runDirectory(forRunId: run.id)
       let url = try ArtifactWriter.writeHTML(
         run: run,
         runDirectory: runDir,
         reproduceCommand: TeamRunReplayCommand.build(from: run),
-        context: .init(models: models)
+        context: .init(models: resolved)
       )
       guard NSWorkspace.shared.open(url) else {
         presentFailure("Could not open the artifact in your browser:\n\(url.path)")
@@ -27,19 +28,25 @@ enum ArtifactFloorOpener {
     }
   }
 
-  static func regenerateArtifact(for run: TeamRun, models: [Model]) {
+  static func regenerateArtifact(for run: TeamRun, models: [Model] = []) {
     guard ArtifactProjector.canProject(run) else { return }
+    let resolved = resolveModels(models)
     do {
       let runDir = try RunStore().runDirectory(forRunId: run.id)
       try ArtifactWriter.writeHTML(
         run: run,
         runDirectory: runDir,
         reproduceCommand: TeamRunReplayCommand.build(from: run),
-        context: .init(models: models)
+        context: .init(models: resolved)
       )
     } catch {
       // Best-effort — Open artifact will retry on demand.
     }
+  }
+
+  /// Floor callers may omit models; fall back to catalog so seat labels/glyphs stay resolved (S01b).
+  private static func resolveModels(_ models: [Model]) -> [Model] {
+    models.isEmpty ? ModelCatalog.list() : models
   }
 
   private static func message(for error: Error) -> String {
