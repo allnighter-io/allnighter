@@ -21,12 +21,15 @@ enum ArtifactCLI {
       fileURLWithPath: (out as NSString).expandingTildeInPath,
       isDirectory: false
     )
+    let store = RunStore()
+    let runDir = try? store.runDirectory(forRunId: run.id)
     do {
       let htmlURL = try ArtifactWriter.exportHTML(
         run: run,
         destination: destination,
         reproduceCommand: TeamRunReplayCommand.build(from: run),
-        context: context
+        context: context,
+        runDirectory: runDir
       )
       emitResult(path: htmlURL.path, runId: run.id, json: opts.flag("json"), noOpen: true)
     } catch {

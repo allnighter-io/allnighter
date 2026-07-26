@@ -134,6 +134,39 @@ final class ArtifactProjectorTests: XCTestCase {
       "Found 3 hierarchy wounds; Lead is correctly pinned first."
     )
     XCTAssertFalse(card.seats[0].oneLiner?.contains("I'll open") == true)
+    XCTAssertEqual(card.evidence.count, 1)
+    XCTAssertTrue(card.evidence[0].bodyMarkdown.contains("Longer craft"))
+    XCTAssertFalse(card.evidence[0].bodyMarkdown.contains("```seat"))
+    let html = ArtifactProjector.renderHTML(card)
+    let anchor = ArtifactProjector.seatAnchorId("model_a#0")
+    XCTAssertTrue(html.contains("href=\"#\(anchor)\""))
+    XCTAssertTrue(html.contains("id=\"\(anchor)\""))
+  }
+
+  func testMockupColumnCount() {
+    XCTAssertEqual(ArtifactProjector.mockupColumnCount(for: 1), 1)
+    XCTAssertEqual(ArtifactProjector.mockupColumnCount(for: 2), 2)
+    XCTAssertEqual(ArtifactProjector.mockupColumnCount(for: 3), 3)
+    XCTAssertEqual(ArtifactProjector.mockupColumnCount(for: 4), 2)
+    XCTAssertEqual(ArtifactProjector.mockupColumnCount(for: 5), 3)
+  }
+
+  func testNoSeatFenceMeansBlankOneLiner() {
+    let worker = Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0,
+                        skillId: "hierarchy_sculptor", skillName: "Hierarchy Sculptor",
+                        purpose: .answer)
+    let run = TeamRun(
+      id: "run_no_seat", prompt: "x", status: .done,
+      workers: [worker],
+      workerAnswers: [
+        TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
+                   result: WorkerRunResult(status: .done, output: "I'll open the file.\nSome notes.",
+                                           timing: RunTiming(durationMs: 10))),
+      ],
+      stages: [], createdAt: now
+    )
+    let card = ArtifactProjector.project(run)
+    XCTAssertNil(card.seats[0].oneLiner)
   }
 
   func testAskedFallsBackWithoutDumpingAgentBrief() {
@@ -294,8 +327,10 @@ final class ArtifactProjectorTests: XCTestCase {
     XCTAssertTrue(html.contains("Ship the artifact CLI first"))
     XCTAssertTrue(html.contains("Asked"))
     XCTAssertTrue(html.contains("Should we ship the artifact CLI?"))
-    XCTAssertTrue(html.contains("Full notes (appendix)"))
+    XCTAssertTrue(html.contains("Evidence"))
+    XCTAssertTrue(html.contains("id=\"seat-"))
     XCTAssertTrue(html.contains("Do this next") || html.contains("Next"))
+    XCTAssertFalse(html.contains("Full notes (appendix)"))
   }
 
   func testScoutExcludedFromSeatSet() {

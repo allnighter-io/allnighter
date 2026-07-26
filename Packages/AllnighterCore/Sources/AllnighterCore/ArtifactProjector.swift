@@ -4,7 +4,8 @@ import AgentOSTeam
 /// Projects a terminal `TeamRun` into a private HTML team artifact (TRR-S01).
 /// Pure and deterministic — no filesystem or run store.
 ///
-/// Reading contract: Amazon one-pager / CEO memo — decision first, appendix last.
+/// Reading contract: CEO memo first (mockups are the hero on design boards),
+/// elevator chips that jump to labeled Evidence, full seat craft below.
 public enum ArtifactProjector {
   public static let honesty = "alln-attested multi-seat artifact · not vendor-signed"
 
@@ -24,7 +25,24 @@ public enum ArtifactProjector {
     public var status: String
     public var durationMs: Int?
     public var oneLiner: String?
-    public var detailExcerpt: String?
+    public var isLead: Bool
+  }
+
+  /// Design-board mockup tile (hero). `relSrc` is relative to the HTML file.
+  public struct Mockup: Equatable, Sendable {
+    public var workerId: String
+    public var label: String
+    public var relSrc: String?
+    public var status: String
+    public var failureReason: String?
+  }
+
+  /// Full seat craft under Evidence — chip `#seat-<workerId>` lands here.
+  public struct Evidence: Equatable, Sendable {
+    public var workerId: String
+    public var roleLabel: String
+    public var modelLabel: String
+    public var bodyMarkdown: String
     public var isLead: Bool
   }
 
@@ -43,8 +61,9 @@ public enum ArtifactProjector {
     public var recommendations: [Recommendation]
     public var nextMove: String?
     public var cta: String
+    public var mockups: [Mockup]
     public var seats: [Seat]
-    public var craftBody: String?
+    public var evidence: [Evidence]
     public var reproduceLine: String?
     public var runIdLine: String
     public var honesty: String
@@ -77,11 +96,13 @@ public enum ArtifactProjector {
   public static func project(
     _ run: TeamRun,
     reproduceCommand: String? = nil,
-    context: Context = .init()
+    context: Context = .init(),
+    runDirectory: URL? = nil,
+    mockupRelSrc: [String: String] = [:]
   ) -> Card {
     let trj = TeamRunJSONMapper.map(
       run, models: [], manifests: [],
-      context: .init(runJournalPath: "")
+      context: .init(runJournalPath: "", runDirectory: runDirectory)
     )
     let leadMarkdown = trj.answer?.markdown ?? run.plan
     let leadCall = LeadCallParser.parse(from: leadMarkdown)
@@ -112,10 +133,16 @@ public enum ArtifactProjector {
       return nextMove
     }()
     let seats = seatCards(for: run, hoistedAnswer: trj.answer, context: context)
-    let craftBody = leadMarkdown.map { LeadCallParser.stripFence(from: $0) }
-      .map { SeatSummaryParser.stripFence(from: $0) }
-      .flatMap { $0.isEmpty ? nil : $0 }
-      .map { shortenCraft($0) }
+    let mockups = mockupTiles(
+      board: trj.designBoard,
+      mockupRelSrc: mockupRelSrc,
+      context: context
+    )
+    let evidence = evidenceSections(
+      for: run,
+      seats: seats,
+      hoistedAnswer: trj.answer
+    )
 
     let (reproduceLine, _) = elidedReproduce(
       command: reproduceCommand,
@@ -134,8 +161,9 @@ public enum ArtifactProjector {
       recommendations: recommendations,
       nextMove: nextMoveForCard.map { capped($0, max: 200) },
       cta: cta,
+      mockups: mockups,
       seats: seats,
-      craftBody: craftBody,
+      evidence: evidence,
       reproduceLine: reproduceLine,
       runIdLine: run.id,
       honesty: honesty
@@ -214,7 +242,6 @@ public enum ArtifactProjector {
         oneLiner: isLead
           ? leadSeatOneLiner(hoistedAnswer: hoistedAnswer, markdown: markdown)
           : crewSeatOneLiner(from: markdown),
-        detailExcerpt: isLead ? nil : seatDetailExcerpt(from: markdown),
         isLead: isLead
       )
     }
@@ -254,10 +281,18 @@ public enum ArtifactProjector {
     hoistedAnswer: TeamRunJSON.Answer?,
     markdown: String?
   ) -> String? {
-    if let call = LeadCallParser.parse(from: hoistedAnswer?.markdown ?? markdown)?.call {
-      return titleAtWordBoundary(call, max: 120)
+    let md = hoistedAnswer?.markdown ?? markdown
+    if let call = LeadCallParser.parse(from: md)?.call {
+      return titleAtWordBoundary(call, max: 280)
     }
-    return crewSeatOneLiner(from: markdown)
+    if let summary = SeatSummaryParser.summary(from: md) {
+      return titleAtWordBoundary(summary, max: 280)
+    }
+    // Lead without lead-call / seat fence: use the same call fallback as the memo.
+    if let call = fallbackCall(from: md) {
+      return titleAtWordBoundary(call, max: 280)
+    }
+    return nil
   }
 
   /// Law-2 + trust: Lead chip must not stay `queued` when the synthesized answer exists.
@@ -295,22 +330,86 @@ public enum ArtifactProjector {
   }
 
   private static func crewSeatOneLiner(from markdown: String?) -> String? {
-    if let summary = SeatSummaryParser.summary(from: markdown) {
-      return titleAtWordBoundary(summary, max: 120)
-    }
-    // Legacy fallback while seats learn the envelope — never invent.
-    guard let line = firstSubstantiveLine(markdown) else { return nil }
-    return titleAtWordBoundary(line, max: 120)
+    // Declared elevator only — no first-line scrape / debris lottery.
+    guard let summary = SeatSummaryParser.summary(from: markdown) else { return nil }
+    return titleAtWordBoundary(summary, max: 280)
   }
 
-  private static func seatDetailExcerpt(from markdown: String?) -> String? {
-    guard let markdown else { return nil }
-    let stripped = SeatSummaryParser.stripFence(
-      from: LeadCallParser.stripFence(from: markdown)
-    )
-    .trimmingCharacters(in: .whitespacesAndNewlines)
-    guard stripped.count > 140 else { return nil }
-    return capped(stripped, max: 480)
+  private static func mockupTiles(
+    board: TeamRunJSON.DesignBoard?,
+    mockupRelSrc: [String: String],
+    context _: Context
+  ) -> [Mockup] {
+    guard let board else { return [] }
+    return board.options.map { opt in
+      let label = SkillCatalog.displayName(for: opt.persona)
+      let rel = mockupRelSrc[opt.workerId]
+        ?? opt.imagePath.map { "mockups/\(($0 as NSString).lastPathComponent)" }
+      return Mockup(
+        workerId: opt.workerId,
+        label: label,
+        relSrc: opt.status == .done ? rel : nil,
+        status: opt.status.rawValue,
+        failureReason: opt.failureReason
+      )
+    }
+  }
+
+  private static func evidenceSections(
+    for run: TeamRun,
+    seats: [Seat],
+    hoistedAnswer: TeamRunJSON.Answer?
+  ) -> [Evidence] {
+    seats.map { seat in
+      let worker = run.workers.first { $0.id == seat.workerId }
+      let answer = run.workerAnswer(workerId: seat.workerId)
+      var markdown = seatMarkdown(
+        worker: worker ?? Worker(id: seat.workerId, modelId: "", instanceIndex: 0),
+        answer: answer,
+        hoistedAnswer: seat.isLead ? hoistedAnswer : nil
+      )
+      if seat.isLead, markdown == nil || markdown?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
+        markdown = hoistedAnswer?.markdown ?? run.plan
+      }
+      let body = evidenceBody(from: markdown, isLead: seat.isLead)
+      return Evidence(
+        workerId: seat.workerId,
+        roleLabel: seat.roleLabel,
+        modelLabel: seat.modelLabel,
+        bodyMarkdown: body,
+        isLead: seat.isLead
+      )
+    }
+  }
+
+  private static func evidenceBody(from markdown: String?, isLead: Bool) -> String {
+    guard let markdown, !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      return "_(No written craft for this seat.)_"
+    }
+    let trimmed = markdown.trimmingCharacters(in: .whitespacesAndNewlines)
+    if looksLikeImagePath(trimmed) {
+      return "Mockup is in the hero above."
+    }
+    var body = LeadCallParser.stripFence(from: trimmed)
+    body = SeatSummaryParser.stripFence(from: body)
+    // Drop the visible Summary: line — chip already has the elevator.
+    let lines = body.components(separatedBy: "\n").filter { line in
+      let t = line.trimmingCharacters(in: .whitespaces)
+      let lower = t.lowercased()
+      if lower.hasPrefix("summary:") { return false }
+      if lower.hasPrefix("**summary:**") { return false }
+      return true
+    }
+    body = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    if body.isEmpty { return "_(No written craft for this seat.)_" }
+    return isLead ? shortenCraft(body) : body
+  }
+
+  private static func looksLikeImagePath(_ text: String) -> Bool {
+    let lower = text.lowercased()
+    return (lower.hasSuffix(".png") || lower.hasSuffix(".jpg") || lower.hasSuffix(".jpeg")
+      || lower.hasSuffix(".webp"))
+      && !text.contains("\n") && text.count < 200
   }
 
   // MARK: - HTML
@@ -319,7 +418,6 @@ public enum ArtifactProjector {
     var parts: [String] = []
     parts.append("<header class=\"card-header\">")
     if card.verdict != nil {
-      // Ready: calm ink. Partial: amber lives on Needs you (one accent-event), not the pill.
       let cls = card.verdictPartial ? "verdict verdict-partial" : "verdict verdict-ready"
       let label = card.verdictPartial ? "Needs you" : "Ready"
       parts.append("<div class=\"\(cls)\">\(escape(label))</div>")
@@ -331,6 +429,10 @@ public enum ArtifactProjector {
 
     if card.verdictPartial {
       parts.append(needsYouHTML(card))
+    }
+
+    if !card.mockups.isEmpty {
+      parts.append(mockupsHTML(card.mockups))
     }
 
     if let call = card.call, !call.isEmpty, !callRedundant(withTitle: card.title, call: call) {
@@ -381,13 +483,12 @@ public enum ArtifactProjector {
       parts.append("</div></section>")
     }
 
-    if let craft = card.craftBody, !craft.isEmpty {
-      parts.append(
-        "<section class=\"craft\">"
-        + "<details><summary>Full notes (appendix)</summary>"
-        + "<div class=\"craft-body\">\(renderSimpleMarkdown(craft))</div>"
-        + "</details></section>"
-      )
+    if !card.evidence.isEmpty {
+      parts.append("<section class=\"evidence\"><h2>Evidence</h2>")
+      for item in card.evidence {
+        parts.append(evidenceHTML(item))
+      }
+      parts.append("</section>")
     }
 
     parts.append("<footer class=\"footer\">")
@@ -399,6 +500,72 @@ public enum ArtifactProjector {
     parts.append("</footer>")
 
     return parts.joined(separator: "\n")
+  }
+
+  /// Stable HTML id / fragment for a seat (worker ids contain `#`).
+  public static func seatAnchorId(_ workerId: String) -> String {
+    "seat-" + workerId
+      .replacingOccurrences(of: "#", with: "-")
+      .replacingOccurrences(of: "/", with: "-")
+  }
+
+  /// Desktop columns: 1→1, 2→2, 3→3, 4→2×2, 5+→3 per row. Mobile always stacks.
+  public static func mockupColumnCount(for count: Int) -> Int {
+    switch count {
+    case 0, 1: return 1
+    case 2: return 2
+    case 3: return 3
+    case 4: return 2
+    default: return 3
+    }
+  }
+
+  private static func mockupsHTML(_ mockups: [Mockup]) -> String {
+    let cols = mockupColumnCount(for: mockups.count)
+    var parts: [String] = [
+      "<section class=\"mockups\">",
+      "<h2>Design</h2>",
+      "<div class=\"mockup-grid\" data-count=\"\(mockups.count)\" data-cols=\"\(cols)\">"
+    ]
+    for m in mockups {
+      let anchor = seatAnchorId(m.workerId)
+      if let src = m.relSrc, !src.isEmpty {
+        parts.append(
+          """
+          <figure class="mockup-tile" data-status="\(escape(m.status))">
+            <a class="mockup-link" href="#\(anchor)">
+              <img src="\(escape(src))" alt="\(escape(m.label))" loading="lazy">
+            </a>
+            <figcaption>\(escape(m.label))</figcaption>
+          </figure>
+          """
+        )
+      } else {
+        let reason = m.failureReason.map { escape($0) } ?? "No image"
+        parts.append(
+          """
+          <figure class="mockup-tile mockup-failed" data-status="\(escape(m.status))">
+            <a class="mockup-link" href="#\(anchor)">
+              <div class="mockup-placeholder">\(reason)</div>
+            </a>
+            <figcaption>\(escape(m.label))</figcaption>
+          </figure>
+          """
+        )
+      }
+    }
+    parts.append("</div></section>")
+    return parts.joined(separator: "\n")
+  }
+
+  private static func evidenceHTML(_ item: Evidence) -> String {
+    let id = seatAnchorId(item.workerId)
+    return """
+    <article class="evidence-seat" id="\(escape(id))">
+      <h3>\(escape(item.roleLabel)) <span class="model-via">via \(escape(item.modelLabel))</span></h3>
+      <div class="evidence-body">\(renderSimpleMarkdown(item.bodyMarkdown))</div>
+    </article>
+    """
   }
 
   private static func needsYouHTML(_ card: Card) -> String {
@@ -427,29 +594,21 @@ public enum ArtifactProjector {
     let durationHTML = duration.isEmpty ? "" : "<span class=\"duration\">\(escape(duration))</span>"
     let leadClass = seat.isLead ? " seat-lead" : ""
     let oneLiner = seat.oneLiner.map { "<div class=\"one-liner\">\(escape($0))</div>" } ?? ""
-    let summary = """
-      <div class="glyph">\(escape(glyph))</div>
-      <div class="seat-main">
-        <div class="seat-name">\(escape(seat.roleLabel)) <span class="model-via">via \(escape(seat.modelLabel))</span></div>
-        \(oneLiner)
-      </div>
-      <div class="seat-meta">
-        <span class="status-dot status-\(escape(seat.status))" aria-label="\(escape(seat.status))"></span>
-        \(durationHTML)
-      </div>
-    """
-    if let detail = seat.detailExcerpt, !detail.isEmpty {
-      return """
-      <details class="seat-chip\(leadClass)" data-status="\(escape(seat.status))">
-        <summary class="seat-summary">\(summary)</summary>
-        <div class="seat-detail">\(escape(detail))</div>
-      </details>
-      """
-    }
+    let href = "#\(seatAnchorId(seat.workerId))"
     return """
-    <article class="seat-chip\(leadClass)" data-status="\(escape(seat.status))">
-      <div class="seat-summary">\(summary)</div>
-    </article>
+    <a class="seat-chip\(leadClass)" href="\(href)" data-status="\(escape(seat.status))">
+      <div class="seat-summary">
+        <div class="glyph">\(escape(glyph))</div>
+        <div class="seat-main">
+          <div class="seat-name">\(escape(seat.roleLabel)) <span class="model-via">via \(escape(seat.modelLabel))</span></div>
+          \(oneLiner)
+        </div>
+        <div class="seat-meta">
+          <span class="status-dot status-\(escape(seat.status))" aria-label="\(escape(seat.status))"></span>
+          \(durationHTML)
+        </div>
+      </div>
+    </a>
     """
   }
 
@@ -565,22 +724,22 @@ public enum ArtifactProjector {
     .cta-text { margin: 0; font-size: 1.05rem; font-weight: 600; }
     .cta-detail { margin: var(--space-2) 0 0; color: var(--text-secondary); font-size: 0.9rem; }
     .seat-grid { display: flex; flex-direction: column; gap: var(--space-3); }
-    .seat-chip {
+    a.seat-chip {
       display: block;
+      text-decoration: none;
+      color: inherit;
       padding: var(--space-3);
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-lg);
       background: var(--bg-base);
     }
+    a.seat-chip:hover { border-color: var(--border-default); }
     .seat-summary {
       display: grid;
       grid-template-columns: auto 1fr auto;
       gap: var(--space-3);
       align-items: start;
-      list-style: none;
     }
-    details.seat-chip > summary.seat-summary { cursor: pointer; }
-    .seat-summary::-webkit-details-marker { display: none; }
     .seat-lead { border-color: var(--border-default); }
     .glyph {
       width: 28px; height: 28px;
@@ -596,15 +755,68 @@ public enum ArtifactProjector {
     .one-liner { color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px; }
     .model-via { color: var(--text-faint); font-size: 0.75rem; font-weight: 400; margin-left: 0.35rem; }
     .decided-by { margin-bottom: var(--space-5); }
-    .seat-meta { display: flex; align-items: center; gap: var(--space-2); }
-    .seat-detail {
-      margin-top: var(--space-3);
-      padding-top: var(--space-3);
-      border-top: 1px solid var(--border-subtle);
-      color: var(--text-secondary);
+    .mockups { margin: var(--space-6) 0; }
+    .mockup-grid {
+      display: grid;
+      gap: var(--space-4);
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 900px) {
+      .mockup-grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .mockup-grid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    .mockup-tile {
+      margin: 0;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--bg-raised);
+    }
+    .mockup-link { display: block; color: inherit; text-decoration: none; }
+    .mockup-tile img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: var(--ink-900);
+    }
+    .mockup-placeholder {
+      min-height: 160px;
+      display: grid;
+      place-items: center;
+      padding: var(--space-4);
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+    .mockup-tile figcaption {
+      padding: var(--space-3);
       font-size: 0.85rem;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--border-subtle);
+    }
+    .evidence { margin: var(--space-8) 0 var(--space-5); }
+    .evidence-seat {
+      margin: var(--space-5) 0;
+      padding: var(--space-4);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      background: var(--bg-raised);
+      scroll-margin-top: 1.5rem;
+    }
+    .evidence-seat h3 {
+      font-size: 1rem;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--text-primary);
+      margin: 0 0 var(--space-3);
+    }
+    .evidence-body {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      line-height: 1.55;
       white-space: pre-wrap;
     }
+    .seat-meta { display: flex; align-items: center; gap: var(--space-2); }
     .status-dot {
       width: 8px; height: 8px; border-radius: 999px;
       display: inline-block;
