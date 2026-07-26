@@ -1,6 +1,7 @@
 # Pilot long jobs — CEO decision brief
 
-Status: **Needs founder sign-off** before build
+Status: **Approved 2026-07-26 — building** (founder sign-off). Ship order
+S01 → S03 → S04 → S02; archive on closeout.
 Updated: 2026-07-26
 Owner: Allnighter product (CLI / Pilot)
 
@@ -15,7 +16,7 @@ keeps going — and the AI assistant often concludes “failed” and starts aga
 which wastes money and can duplicate work. We want durable job status to be the
 source of truth, and waiting windows to be disposable.
 
-**Approve?** Yes / No
+**Approve?** **Yes — signed off 2026-07-26.**
 
 ---
 
@@ -84,7 +85,7 @@ about long jobs, founders will not leave it running.
 
 ## What we are explicitly not doing
 
-- Not auto-restarting waiting windows as if they were the job
+- Not auto-restarting waiting windows as if they owned the job
 - Not inventing a special “deploy timeout” separate from normal time limits
 - Not raising timeouts for every short chat just because deploys are long
 - Not teaching “commits appeared ⇒ job is alive” (wrong for investigate / no-commit rounds)
@@ -124,17 +125,60 @@ two alone already remove most of the damage.
 | **Approve with cuts** | Say which slices to drop (recommend keeping 1–3; 4 can wait) |
 | **Reject** | Leave current behavior; accept that long jobs will keep confusing assistants when wait windows die |
 
-Founder sign-off: _______________  Date: _______________
+Founder sign-off: **Approved 2026-07-26** (full four slices).
 
 ---
 
-## Appendix — for builders only (skip for sign-off)
+## Builder slices (approved scope)
 
-Routing detail and slice IDs live in git history of this file’s earlier
-revisions and in code SSOTs (`PilotCLI`, `RelayCoordinator`, archived
-`Pilot_Relay` / `Pilot_DX`, idle-stall hotfix). Implementers: ship order
-**S01 → S03 → S04 → S02**; SIGTERM/goodbye envelope leads the watch slice;
-`waitHintSeconds` ~45s while running; commit count is supplementary; dead
-**waiter** must not orphan the round; dead **owner** orphans once with inspect
-nextAction. Do not expand scope past the CEO brief above without a new
-sign-off.
+Ship order: **PLT-S01 → PLT-S03 → PLT-S04 → PLT-S02**. Commit each slice.
+Workers for this delivery: **Composer 2.5** (`model_cursor_composer_25`) and
+**Cursor Grok 4.5** (`model_cursor_grok_45`) only.
+
+### PLT-S01 — Fix background start (functional bug)
+
+- In `PilotCLI.dispatchHandoffInBackground`: resolve executable via
+  `InstallCLI.resolvedRunningBinary(argv0:pathEnvironment:)` (never raw
+  `CommandLine.arguments[0]` alone); fail loud if unresolved. Prefer
+  `ProcessOwnership.currentExecutablePath()` when available (Darwin
+  `_NSGetExecutablePath`), then fall back to InstallCLI resolver.
+- Set `process.currentDirectoryURL` to the relay’s `projectRoot`.
+- Tests: bare / relative / absolute argv0 shapes; clean checkout without
+  `<cwd>/alln` symlink still dispatches; child cwd = projectRoot.
+- Proof: `swift test --package-path Packages/AllnighterCore --filter Pilot`
+
+### PLT-S03 — Teach status-first (harm reduction)
+
+- Bootstrap / help / `nextAction` / recovery `nextActions`: agent path =
+  `handoff --no-wait` then `pilot status --json`; demote watch as optional.
+- Dead-waiter ≠ failed round; do not re-dispatch while running.
+- Orphan (dead owner): nextAction = inspect, not blind retry.
+- Regen contracts/help if FlagSpec/TeachingSnippet change.
+- No dependency on S02 fields.
+
+### PLT-S04 — Waiting-window death message (+ heartbeats / max-wait)
+
+1. **Lead:** on SIGTERM/SIGINT, `pilot watch` prints status envelope
+   (`stillRunning` when owner alive + reattach to `pilot status`) then exits
+   without looking like round failure. Reconcile must **not** orphan the round
+   when only the waiter died.
+2. Heartbeats while running.
+3. `--max-wait` defaults on non-TTY with `maxWaitApplied: true`; TTY unbounded
+   unless flagged; explicit flag wins.
+- Works tests: SIGTERM waiter → envelope + round untouched; kill owner → orphan
+  once with inspect nextAction.
+
+### PLT-S02 — Clearer long-job status
+
+- While `.running`: `elapsedSeconds`, `ownerAlive`, `lastProgressAt` /
+  `silenceAgeSeconds` (**primary**), `commitsSinceBaseline` (**supplementary**,
+  contract-labeled), `waitHintSeconds: 45`, `watcherDisposable: true`.
+- nextActions prefer status poll with hint.
+- Zero-commit + fresh progress still reports alive.
+
+### Closeout
+
+Deslop → Code Audit → green wall → archive this doc to
+`docs/archive/phases/Pilot_Long_Turn_Survival.md`; update
+`docs/phases/README.md`, `docs/archive/phases/README.md`, `AGENTS.md` routes.
+Code SSOT after archive: `PilotCLI.swift`, `RelayCoordinator.swift`.
