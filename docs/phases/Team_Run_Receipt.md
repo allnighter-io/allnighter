@@ -17,6 +17,8 @@ Companions:
   Spec Review closeout: `docs/phases/Spec_Review.md` §1
 - Design authority: `docs/design-system/production.md` +
   `docs/design-system/tokens/*.css` + `docs/gui/GUI_Workflow.md`
+- **What Design team means** (code mockup → host capture, not Midjourney):
+  `docs/phases/Design_Lane.md`
 - Growth note (optional later series — **not** the layout driver):
   `docs/marketing/Growth_Playbook.md` §Shareable run receipts
 - Adjacent Buzz spike (optional room test **after** artifact exists):  
