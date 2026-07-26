@@ -16,12 +16,14 @@ public enum ArtifactProjector {
 
   public struct Seat: Equatable, Sendable {
     public var workerId: String
-    public var displayName: String
+    /// Role / skill label — primary headline on the chip.
+    public var roleLabel: String
+    /// Model display name — muted attribution.
+    public var modelLabel: String
     public var sourceId: String
     public var status: String
     public var durationMs: Int?
     public var oneLiner: String?
-    /// Optional short body for click-to-expand (not the Floor).
     public var detailExcerpt: String?
     public var isLead: Bool
   }
@@ -89,7 +91,8 @@ public enum ArtifactProjector {
     let call = leadCall?.call
       ?? fallbackCall(from: leadMarkdown)
       ?? "(no synthesized output — status \(run.status.rawValue))"
-    let title = headlineTitle(call: call, teamLabel: teamLabel)
+    let title = resolveTitle(leadCall: leadCall, call: call, teamLabel: teamLabel)
+    let asked = resolveAsked(leadCall: leadCall, prompt: run.prompt)
     let recommendations = (leadCall?.recommendations ?? [])
       .prefix(5)
       .compactMap { rec -> Recommendation? in
@@ -104,7 +107,6 @@ public enum ArtifactProjector {
     let whyItMatters = substantiveChanged(leadCall?.changed)
     let nextMove = leadCall?.nextMove.flatMap { $0.isEmpty ? nil : $0 }
     let cta = primaryCTA(partial: verdict == "Partial", nextMove: nextMove)
-    // Avoid printing the same closing ask twice.
     let nextMoveForCard: String? = {
       guard let nextMove else { return nil }
       if nextMove == cta { return nil }
@@ -122,8 +124,8 @@ public enum ArtifactProjector {
 
     return Card(
       runId: run.id,
-      title: titleAtWordBoundary(title, max: 140),
-      asked: capped(plainAsked(run.prompt), max: 120),
+      title: title,
+      asked: asked,
       teamLabel: teamLabel,
       verdict: verdict,
       verdictPartial: verdict == "Partial",
@@ -186,7 +188,7 @@ public enum ArtifactProjector {
   ) -> [Seat] {
     let seatWorkers = TeamRunSeatSet.workers(for: run)
     let modelCounts = Dictionary(grouping: seatWorkers, by: \.modelId).mapValues(\.count)
-    return seatWorkers.map { worker in
+    let mapped = seatWorkers.map { worker -> Seat in
       let answer = run.workerAnswer(workerId: worker.id)
       let (status, durationMs) = resolvedSeatStatus(
         worker: worker,
@@ -194,24 +196,66 @@ public enum ArtifactProjector {
         hoistedAnswer: hoistedAnswer
       )
       let sharesModel = (modelCounts[worker.modelId] ?? 0) > 1
-      let display = worker.displayName(
+      let modelLabel = worker.displayName(
         modelName: context.modelDisplayName(worker.modelId),
         sharesModel: sharesModel
       )
       let markdown = seatMarkdown(
         worker: worker, answer: answer, hoistedAnswer: hoistedAnswer
       )
+      let isLead = worker.purpose == .plan
       return Seat(
         workerId: worker.id,
-        displayName: display,
+        roleLabel: roleLabel(for: worker, isLead: isLead),
+        modelLabel: modelLabel,
         sourceId: context.sourceId(worker.modelId),
         status: status,
         durationMs: durationMs,
-        oneLiner: seatOneLiner(from: markdown),
-        detailExcerpt: seatDetailExcerpt(from: markdown),
-        isLead: worker.purpose == .plan
+        oneLiner: isLead ? leadSeatOneLiner(hoistedAnswer: hoistedAnswer, markdown: markdown) : seatOneLiner(from: markdown),
+        detailExcerpt: isLead ? nil : seatDetailExcerpt(from: markdown),
+        isLead: isLead
       )
     }
+    // Lead first — decision owner before evidence seats.
+    return mapped.sorted { a, b in
+      if a.isLead != b.isLead { return a.isLead && !b.isLead }
+      return false
+    }
+  }
+
+  private static func roleLabel(for worker: Worker, isLead: Bool) -> String {
+    if isLead { return "Lead" }
+    if let name = worker.skillName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+      return shortRole(name)
+    }
+    if let id = worker.skillId, !id.isEmpty {
+      return shortRole(SkillCatalog.displayName(for: id))
+    }
+    switch worker.purpose {
+    case .review: return "Review"
+    case .answer: return "Seat"
+    default: return "Seat"
+    }
+  }
+
+  private static func shortRole(_ name: String) -> String {
+    // "Hierarchy Sculptor" → "Hierarchy"; "Type & Spacing Auditor" → "Type & spacing"
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    let dropSuffixes = [" Sculptor", " Auditor", " Critic", " Reviewer", " Writer", " Planner"]
+    for suffix in dropSuffixes where trimmed.hasSuffix(suffix) {
+      return String(trimmed.dropLast(suffix.count))
+    }
+    return trimmed
+  }
+
+  private static func leadSeatOneLiner(
+    hoistedAnswer: TeamRunJSON.Answer?,
+    markdown: String?
+  ) -> String? {
+    if let call = LeadCallParser.parse(from: hoistedAnswer?.markdown ?? markdown)?.call {
+      return capped(call, max: 120)
+    }
+    return seatOneLiner(from: markdown)
   }
 
   /// Law-2 + trust: Lead chip must not stay `queued` when the synthesized answer exists.
@@ -266,7 +310,7 @@ public enum ArtifactProjector {
   private static func htmlBody(_ card: Card) -> String {
     var parts: [String] = []
     parts.append("<header class=\"card-header\">")
-    if let verdict = card.verdict {
+    if card.verdict != nil {
       // Ready: calm ink. Partial: amber lives on Needs you (one accent-event), not the pill.
       let cls = card.verdictPartial ? "verdict verdict-partial" : "verdict verdict-ready"
       let label = card.verdictPartial ? "Needs you" : "Ready"
@@ -314,11 +358,20 @@ public enum ArtifactProjector {
       + "</section>"
     )
 
-    parts.append("<section class=\"seats\"><h2>Who weighed in</h2><div class=\"seat-grid\">")
-    for seat in card.seats {
-      parts.append(seatChipHTML(seat))
+    let leadSeats = card.seats.filter(\.isLead)
+    let crewSeats = card.seats.filter { !$0.isLead }
+    if let lead = leadSeats.first {
+      parts.append("<section class=\"decided-by\"><h2>Decided by</h2><div class=\"seat-grid\">")
+      parts.append(seatChipHTML(lead))
+      parts.append("</div></section>")
     }
-    parts.append("</div></section>")
+    if !crewSeats.isEmpty {
+      parts.append("<section class=\"seats\"><h2>Who weighed in</h2><div class=\"seat-grid\">")
+      for seat in crewSeats {
+        parts.append(seatChipHTML(seat))
+      }
+      parts.append("</div></section>")
+    }
 
     if let craft = card.craftBody, !craft.isEmpty {
       parts.append(
@@ -361,17 +414,17 @@ public enum ArtifactProjector {
   }
 
   private static func seatChipHTML(_ seat: Seat) -> String {
-    let glyph = seat.sourceId.isEmpty
-      ? String(seat.displayName.prefix(1)).uppercased()
-      : String(seat.sourceId.prefix(1)).uppercased()
+    let glyph = String(seat.roleLabel.prefix(1)).uppercased()
     let duration = seat.durationMs.map { formatDuration(ms: $0) } ?? ""
     let leadClass = seat.isLead ? " seat-lead" : ""
     let oneLiner = seat.oneLiner.map { "<div class=\"one-liner\">\(escape($0))</div>" } ?? ""
+    let model = "<div class=\"model-via\">via \(escape(seat.modelLabel))</div>"
     let summary = """
       <div class="glyph">\(escape(glyph))</div>
       <div class="seat-main">
-        <div class="seat-name">\(escape(seat.displayName))\(seat.isLead ? " <span class=\"lead-label\">Lead</span>" : "")</div>
+        <div class="seat-name">\(escape(seat.roleLabel))</div>
         \(oneLiner)
+        \(model)
       </div>
       <div class="seat-meta">
         <span class="status-dot status-\(escape(seat.status))" aria-label="\(escape(seat.status))"></span>
@@ -531,9 +584,11 @@ public enum ArtifactProjector {
       font-size: 0.75rem;
       font-weight: 600;
     }
-    .seat-name { font-size: 0.95rem; }
+    .seat-name { font-size: 0.95rem; font-weight: 600; }
     .lead-label { color: var(--text-muted); font-size: 0.8rem; }
     .one-liner { color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px; }
+    .model-via { color: var(--text-faint); font-size: 0.75rem; margin-top: 4px; }
+    .decided-by { margin-bottom: var(--space-5); }
     .seat-meta { display: flex; align-items: center; gap: var(--space-2); }
     .seat-detail {
       margin-top: var(--space-3);
@@ -588,17 +643,72 @@ public enum ArtifactProjector {
 
   // MARK: - Helpers
 
+  private static func resolveTitle(
+    leadCall: LeadCall?,
+    call: String,
+    teamLabel: String
+  ) -> String {
+    if let t = leadCall?.title?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty {
+      return titleAtWordBoundary(t, max: 72)
+    }
+    return titleAtWordBoundary(headlineTitle(call: call, teamLabel: teamLabel), max: 72)
+  }
+
+  private static func resolveAsked(leadCall: LeadCall?, prompt: String) -> String {
+    if let a = leadCall?.asked?.trimmingCharacters(in: .whitespacesAndNewlines), !a.isEmpty {
+      return capped(a, max: 140)
+    }
+    return capped(deriveAskedFromPrompt(prompt), max: 140)
+  }
+
+  /// Last-resort Asked when Lead omitted `asked` — never dump agent briefs.
+  private static func deriveAskedFromPrompt(_ prompt: String) -> String {
+    let plain = plainAsked(prompt)
+    let lower = plain.lowercased()
+    if lower.contains("dogfood") || lower.contains("open these")
+      || lower.contains("workers critique") || lower.contains("round 2")
+      || lower.contains("round 3") || lower.hasPrefix("## ") {
+      // First clause before structural junk, or a safe generic.
+      if let cut = plain.split(separator: ".", maxSplits: 1).first {
+        let s = String(cut).trimmingCharacters(in: .whitespaces)
+        if s.count >= 12, s.count <= 100, !s.lowercased().contains("open these") {
+          return s + "."
+        }
+      }
+      return "Review this team result and decide what to do next."
+    }
+    // Stop at first markdown heading / numbered work-order section.
+    var out = ""
+    for part in plain.split(separator: " ", omittingEmptySubsequences: false) {
+      let token = String(part)
+      if token.hasPrefix("##") || token == "1." { break }
+      if out.count + token.count > 100 { break }
+      out = out.isEmpty ? token : out + " " + token
+    }
+    let trimmed = out.trimmingCharacters(in: .whitespaces)
+    if !trimmed.isEmpty { return trimmed }
+    // Unbroken long prompt (no spaces / no cut) — still never dump the raw blob.
+    if plain.count >= 12 { return plain }
+    return "Review this team result and decide what to do next."
+  }
+
   private static func headlineTitle(call: String, teamLabel: String) -> String {
     let trimmed = call.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmed.hasPrefix("(") { return "\(teamLabel) · result" }
-    // Prefer first sentence; keep the period if present.
-    if let dot = trimmed.firstIndex(of: "."), trimmed.distance(from: trimmed.startIndex, to: dot) < 140 {
-      return String(trimmed[...dot]).trimmingCharacters(in: .whitespacesAndNewlines)
+    // Prefer first sentence; keep ≤ ~12 words when possible.
+    let sentence: String
+    if let dot = trimmed.firstIndex(of: "."), trimmed.distance(from: trimmed.startIndex, to: dot) < 90 {
+      sentence = String(trimmed[...dot]).trimmingCharacters(in: .whitespacesAndNewlines)
+    } else if let nl = trimmed.firstIndex(of: "\n") {
+      sentence = String(trimmed[..<nl]).trimmingCharacters(in: .whitespacesAndNewlines)
+    } else {
+      sentence = trimmed
     }
-    if let nl = trimmed.firstIndex(of: "\n") {
-      return String(trimmed[..<nl]).trimmingCharacters(in: .whitespacesAndNewlines)
+    let words = sentence.split(separator: " ")
+    if words.count > 12 {
+      return words.prefix(12).joined(separator: " ") + "…"
     }
-    return trimmed
+    return sentence
   }
 
   private static func substantiveChanged(_ raw: String?) -> String? {

@@ -40,11 +40,17 @@ final class ArtifactProjectorTests: XCTestCase {
   private let leadCallMarkdown = """
   Status: Ready — all forks decided.
 
+  Asked: Should we ship the artifact CLI?
+
+  Title: Ship the artifact CLI first
+
   ```lead-call
   {
     "schemaVersion": 1,
     "status": "Ready",
-    "call": "Ship the artifact CLI first.",
+    "asked": "Should we ship the artifact CLI?",
+    "title": "Ship the artifact CLI first",
+    "call": "Ship the artifact CLI first. Lock the verb and path.",
     "changed": "spec only → ship CLI path",
     "recommendations": [{"decision":"Verb","lean":"artifact","why":"locked in S00b"}]
   }
@@ -69,19 +75,51 @@ final class ArtifactProjectorTests: XCTestCase {
     let run = multiSeatRun(leadMarkdown: leadCallMarkdown)
     let seatIds = TeamRunSeatSet.workers(for: run).map(\.id)
     XCTAssertEqual(seatIds, ["model_grok#0", "model_opus#0", "model_opus#1"])
-    // Floor deep-reader may still include scout lanes; artifact seat-set is the shared law.
+    // Reading order pins Lead first; declaration order stays on TeamRunSeatSet.
     let cardIds = ArtifactProjector.project(run).seats.map(\.workerId)
-    XCTAssertEqual(cardIds, seatIds)
+    XCTAssertEqual(cardIds, ["model_opus#1", "model_grok#0", "model_opus#0"])
   }
 
   func testLeadCallPreferredForCallAndVerdict() {
     let card = ArtifactProjector.project(multiSeatRun(leadMarkdown: leadCallMarkdown))
     XCTAssertEqual(card.verdict, "Ready")
-    XCTAssertEqual(card.call, "Ship the artifact CLI first.")
-    XCTAssertEqual(card.title, "Ship the artifact CLI first.")
-    XCTAssertTrue(card.asked.contains("Should we ship"))
+    XCTAssertEqual(card.call, "Ship the artifact CLI first. Lock the verb and path.")
+    XCTAssertEqual(card.title, "Ship the artifact CLI first")
+    XCTAssertEqual(card.asked, "Should we ship the artifact CLI?")
     XCTAssertEqual(card.recommendations.first?.decision, "Verb")
     XCTAssertFalse(card.cta.isEmpty)
+  }
+
+  func testRoleFirstSeatsAndLeadPinned() {
+    let card = ArtifactProjector.project(multiSeatRun(leadMarkdown: leadCallMarkdown))
+    XCTAssertTrue(card.seats.first?.isLead == true)
+    XCTAssertEqual(card.seats.map(\.roleLabel), ["Lead", "Reader", "Skeptic"])
+    let html = ArtifactProjector.renderHTML(card)
+    XCTAssertTrue(html.contains("Decided by"))
+    XCTAssertTrue(html.contains("Who weighed in"))
+    XCTAssertTrue(html.contains("model-via"))
+    // Role headline before muted model attribution.
+    XCTAssertTrue(html.contains("seat-name\">Lead"))
+    XCTAssertTrue(html.contains("seat-name\">Reader"))
+  }
+
+  func testAskedFallsBackWithoutDumpingAgentBrief() {
+    let brief = """
+    ## Round 3 dogfood. Open these files and critique the HTML.
+    Workers critique hierarchy. Should we polish again?
+    """
+    let md = """
+    ```lead-call
+    {"schemaVersion":1,"status":"Ready","call":"Polish once more.","title":"One more polish"}
+    ```
+    """
+    var run = multiSeatRun(leadMarkdown: md)
+    run.prompt = brief
+    let card = ArtifactProjector.project(run)
+    XCTAssertEqual(card.title, "One more polish")
+    XCTAssertFalse(card.asked.lowercased().contains("open these"))
+    XCTAssertFalse(card.asked.lowercased().contains("##"))
+    XCTAssertTrue(card.asked.count <= 140)
   }
 
   func testLaw2SingleSeatHoistUsesAnswerMarkdownOnChip() {
@@ -178,11 +216,17 @@ final class ArtifactProjectorTests: XCTestCase {
   }
 
   func testQuestionAndOneLinerCaps() {
+    // When Lead omits asked, prompt fallback is capped.
     let longPrompt = String(repeating: "q", count: 150)
-    var run = multiSeatRun(leadMarkdown: leadCallMarkdown)
+    let md = """
+    ```lead-call
+    {"schemaVersion":1,"status":"Ready","call":"Ship it.","title":"Ship it"}
+    ```
+    """
+    var run = multiSeatRun(leadMarkdown: md)
     run.prompt = longPrompt
     let card = ArtifactProjector.project(run)
-    XCTAssertEqual(card.asked.count, 121)
+    XCTAssertEqual(card.asked.count, 141)
     XCTAssertTrue(card.asked.hasSuffix("…"))
   }
 
@@ -214,8 +258,9 @@ final class ArtifactProjectorTests: XCTestCase {
       ArtifactProjector.project(multiSeatRun(leadMarkdown: leadCallMarkdown))
     )
     XCTAssertTrue(html.contains("<h1 class=\"title\">"))
-    XCTAssertTrue(html.contains("Ship the artifact CLI first."))
+    XCTAssertTrue(html.contains("Ship the artifact CLI first"))
     XCTAssertTrue(html.contains("Asked"))
+    XCTAssertTrue(html.contains("Should we ship the artifact CLI?"))
     XCTAssertTrue(html.contains("Full notes (appendix)"))
     XCTAssertTrue(html.contains("Do this next") || html.contains("Next"))
   }

@@ -201,33 +201,38 @@ public enum SkillCatalog {
     - Do NOT delete your craft body — but keep it short. The Lead Call IS the hero; craft is appendix.
 
     ### Copy bar (Amazon one-pager)
-    - **The call** = the decision in one breath a non-engineer understands.
-    - **What changed** = why the decision matters for the business/product — NOT "workers \
-    closed Partial" or process meta. If you have nothing product-real to say, omit it / use "".
-    - **Recommendations** = ordered actions ("Do this next") or, if Partial, choices for the human.
-    - **Next move** = the single CTA (Approve / Ship / Reply with pick X vs Y).
-    - Title the memo with the outcome, never restating the full user prompt.
+    - **Asked** = one plain sentence a human asked (never paste the agent work order, \
+    file paths, "Open these", or Round N dogfood instructions).
+    - **Title** = ≤12 words naming the outcome (artifact H1). Not a paragraph.
+    - **The call** = the decision in 1–2 short plain sentences.
+    - **What changed** = why it matters for the product — NOT worker meta. Empty OK.
+    - **Recommendations** = ordered actions, or human choices if Partial.
+    - **Next move** = single CTA.
 
     ### Required markdown sections (in order)
     1. **Status:** Ready | Partial — one plain sentence why.
-    2. **The call:** 1–3 plain sentences. Decisive takeaway.
-    3. **What changed:** one product line (or omit / empty). Never worker gossip.
-    4. **Recommendations:** table | Decision | Lean | Why | — ≤5 rows, plain English Why.
-    5. **Contrarian flags:** optional.
-    6. **Next move:** one concrete human-facing CTA.
-    7. **Proof:** how to verify, or named blocked proof. Do NOT invent reproduce commands.
-    8. **Basis:** one line on what you did not see.
-    9. **Worker credit:** short — who sparked what (only attribution home).
-    10. **Craft body:** brief appendix only (tables OK). No second full essay.
+    2. **Asked:** one plain sentence (human question only).
+    3. **Title:** ≤12 words (outcome headline).
+    4. **The call:** 1–2 plain sentences.
+    5. **What changed:** one product line (or omit / empty).
+    6. **Recommendations:** table | Decision | Lean | Why | — ≤5 rows.
+    7. **Contrarian flags:** optional.
+    8. **Next move:** one concrete human-facing CTA.
+    9. **Proof:** how to verify, or named blocked proof.
+    10. **Basis:** one line on what you did not see.
+    11. **Worker credit:** short attribution only.
+    12. **Craft body:** brief appendix only.
 
     ### Required machine block
-    After the markdown, emit a fenced `lead-call` JSON block mirroring the envelope. Every \
-    string must also appear in visible markdown (substring honesty). Plain-English `call` and \
-    `nextMove` are mandatory. Example:
+    After the markdown, emit a fenced `lead-call` JSON block. Every string must also \
+    appear in visible markdown. Plain-English `asked`, `title`, `call`, and `nextMove` \
+    are mandatory. Example:
     ```lead-call
     {
       "schemaVersion": 1,
       "status": "Ready",
+      "asked": "Should we polish the run-receipt page again?",
+      "title": "Approve one last polish pass",
       "call": "…",
       "changed": "…",
       "recommendations": [{"decision":"…","lean":"…","why":"…"}],

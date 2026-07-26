@@ -16,6 +16,10 @@ public struct LeadCall: Codable, Equatable, Sendable {
 
     public var schemaVersion: Int?
     public var status: String?
+    /// Short plain-English headline for the artifact title (≤12 words). Optional.
+    public var title: String?
+    /// One-line human question for the Asked line — never the raw agent brief.
+    public var asked: String?
     public var call: String?
     public var changed: String?
     public var recommendations: [Recommendation]?
