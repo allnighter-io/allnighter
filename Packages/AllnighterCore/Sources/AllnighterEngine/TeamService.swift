@@ -251,9 +251,12 @@ public actor TeamService {
             Task { for await event in coordinator.events { sink.yield(event) } }
         }
         // Coordinator persists each transition (incl. terminal) via `persist`.
+        // Pre-assign run id so Design board capture can write into the run folder.
+        let assignedRunId = UUID().uuidString
+        let runDir = try? store.runDirectory(forRunId: assignedRunId)
         var run = await coordinator.run(
             resolved: resolved, prompt: prompt, models: models, origin: origin, originAgent: originAgent,
-            repoRoot: request.repoRoot, persist: persist)
+            runId: assignedRunId, repoRoot: request.repoRoot, runDirectory: runDir, persist: persist)
         await forwarder?.value
         events?.finish()
 

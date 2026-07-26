@@ -525,7 +525,9 @@ public actor AsyncTeamService {
             _ = await coordinator.run(
                 resolved: resolved, prompt: prompt, models: models,
                 origin: origin, originAgent: request.originAgent,
-                runId: runId, repoRoot: request.repoRoot, persist: persistDuringRun
+                runId: runId, repoRoot: request.repoRoot,
+                runDirectory: try? store.runDirectory(forRunId: runId),
+                persist: persistDuringRun
             )
             await eventRecorder
             activityRecorder.forget(runId: runId)

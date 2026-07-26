@@ -56,6 +56,9 @@ public actor CatalogRunCoordinator {
         deliveries: [IncludedAttachmentDelivery] = [],
         workerPrompts: [String: String]? = nil,
         workerWorkingDirectories: [String: String]? = nil,
+        /// Run folder for host Design-lane capture (`option_*.html` → `option_*.png`).
+        /// Required for `outputKind == .designBoard`; nil skips board write (fail closed).
+        runDirectory: URL? = nil,
         persist: (@Sendable (TeamRun) -> Void)? = nil
     ) async -> TeamRun {
         let modelByID = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -79,6 +82,10 @@ public actor CatalogRunCoordinator {
             createdAt: now(),
             repoRoot: repoRoot
         )
+        // Stamp catalog facts early so Design board mapping + persist see them.
+        run.lane = lane
+        run.outputKind = resolved.outputKind
+        run.teamDisplayName = resolved.teamDisplayName
         // RLR-L3: a one-worker fan-out never carries `fanning_out`. `seeded` is the
         // crew that fans out in parallel (scout + answer + review); the synthetic
         // plan writer runs after and is not a fan-out member. One crew member ⇒
@@ -136,6 +143,45 @@ public actor CatalogRunCoordinator {
         }
 
         run = transition(run, to: .answersIn)
+
+        // Design lane (DL-S02) — after answer seats, host WebKit captures each
+        // seat's HTML/SVG into board.options[].imagePath. Never imageGen.
+        if resolved.outputKind == .designBoard {
+            let boardStarted = now()
+            let board: BoardPayload
+            if let runDirectory {
+                try? FileManager.default.createDirectory(at: runDirectory, withIntermediateDirectories: true)
+                board = await DesignBoardCapture.captureBoard(
+                    answerWorkers: resolved.answerWorkers,
+                    answers: answers,
+                    runDirectory: runDirectory
+                )
+            } else {
+                board = BoardPayload(
+                    targetShape: .desktop,
+                    options: resolved.answerWorkers.map {
+                        DesignOption(
+                            workerId: $0.id,
+                            modelId: $0.modelId,
+                            persona: $0.skillId ?? "design",
+                            status: .failed,
+                            failureReason: "no run directory for Design board capture"
+                        )
+                    }
+                )
+            }
+            let boardStage = StageOutput(
+                id: idFactory(),
+                purpose: .board,
+                status: .done,
+                payload: .board(board),
+                startedAt: boardStarted,
+                finishedAt: now()
+            )
+            run.stages.append(boardStage)
+            emitStage(RunEventKind.stageCompleted, runId: run.id, stageId: boardStage.id, workerId: "", purpose: "board")
+            persist?(run)
+        }
 
         // Stage 3 — synthetic plan/output writer runs last and preserves dissent.
         // Runs when a writer resolved and at least one worker produced output.
@@ -477,9 +523,9 @@ public actor CatalogRunCoordinator {
                                     kind: RunEventKind.workerStatusChanged, payload: payload))
     }
 
-    private func emitStage(_ kind: String, runId: String, stageId: String, workerId: String) {
+    private func emitStage(_ kind: String, runId: String, stageId: String, workerId: String, purpose: String = "plan") {
         continuation.yield(RunEvent(id: idFactory(), seq: nextSeq(), ts: now(), kind: kind, payload: [
-            "runId": .string(runId), "purpose": .string("plan"), "stageId": .string(stageId), "workerId": .string(workerId)
+            "runId": .string(runId), "purpose": .string(purpose), "stageId": .string(stageId), "workerId": .string(workerId)
         ]))
     }
 }

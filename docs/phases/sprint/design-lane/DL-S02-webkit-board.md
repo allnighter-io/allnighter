@@ -1,6 +1,6 @@
 # DL-S02 — Host HTML→WebKit capture writes the board
 
-Status: **ready** (after DL-S01)
+Status: **done**
 SSOT: `docs/phases/Design_Lane.md` §§Trusted workflow A, Truth owners, Simplicity law
 
 ## Goal
@@ -59,7 +59,7 @@ swift test --package-path Packages/AllnighterCore --filter 'DesignBoard|BoardCap
 
 ## Done when
 
-- [ ] WebKit capture helper exists and is tested
-- [ ] designBoard runs append `.board` with PNGs (fixture path)
-- [ ] Failed capture ≠ silent diffusion
-- [ ] Committed
+- [x] WebKit capture helper exists and is tested
+- [x] designBoard runs append `.board` with PNGs (fixture path)
+- [x] Failed capture ≠ silent diffusion
+- [x] Committed

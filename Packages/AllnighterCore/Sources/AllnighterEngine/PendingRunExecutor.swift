@@ -137,14 +137,16 @@ public struct PendingRunExecutor: Sendable {
             return copy
         }
         let persist: @Sendable (TeamRun) -> Void = { try? runStore.save(stamped($0), models: readyModels) }
+        let assignedRunId = item.runId ?? "run_\(UUID().uuidString.lowercased())"
         let run = await coordinator.run(
             resolved: resolved,
             prompt: item.prompt,
             models: readyModels,
             origin: origin,
             originAgent: nil,
-            runId: item.runId ?? "run_\(UUID().uuidString.lowercased())",
+            runId: assignedRunId,
             repoRoot: item.safety.workingDir,
+            runDirectory: try? runStore.runDirectory(forRunId: assignedRunId),
             persist: persist
         )
         return try service.settleTeamRun(
