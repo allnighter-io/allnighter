@@ -709,3 +709,21 @@ Approved dogfood decision (implementing):
 4. **Design boards:** mockups are the **hero** under the header (not buried in Evidence). Grid: mobile stack; desktop 1 / 2 / 3 cols; 4 → 2×2; 5+ → 3/row. **Click image → full-size lightbox** (not Evidence). Seat chips / caption “Evidence” → `#seat-…`.
 5. Kill legacy first-line scrape; missing `seat` fence → blank chip line.
 6. Show all Lead recommendations (no hide-to-3 density lie).
+
+## Founder lock — K3 memo-page chrome (2026-07-26)
+
+Dogfood run `99FEB349` (Visual System Designer / K3). Incorporate into
+`ArtifactProjector` (no extra Design round required for the artifact itself):
+
+1. Sticky top bar — crescent + Allnighter · Team artifact left; Ready/Partial right.
+2. Full-bleed void; content page ~1280 max (not a floating 680 card in empty space).
+3. Width rule — Design board + The team = full content width; title / Asked /
+   what-changed / call prose = ~680 reading measure.
+4. Decision as H1 under the bar; fewer section titles (Design board,
+   Recommendations, Next, The team, Evidence).
+5. Team chips — role-first, Lead tag, one-liner, model + status **word** +
+   duration; Lead listed first in one “The team” section.
+6. Full Evidence retained below (not dropped).
+7. Footer — crescent + honesty left; reproduce + run id quiet right.
+8. Design Lead skill = Spec-style closeout: verify files on disk, name tiles by
+   visible labels (never Option A/B theater), emit an **incorporate list**.

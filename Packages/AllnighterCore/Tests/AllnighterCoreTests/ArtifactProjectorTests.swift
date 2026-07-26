@@ -95,12 +95,16 @@ final class ArtifactProjectorTests: XCTestCase {
     XCTAssertTrue(card.seats.first?.isLead == true)
     XCTAssertEqual(card.seats.map(\.roleLabel), ["Lead", "Reader", "Skeptic"])
     let html = ArtifactProjector.renderHTML(card)
-    XCTAssertTrue(html.contains("Decided by"))
-    XCTAssertTrue(html.contains("Who weighed in"))
-    XCTAssertTrue(html.contains("model-via"))
-    // Role headline with via inline (not footer under one-liner).
-    XCTAssertTrue(html.contains("seat-name\">Lead <span class=\"model-via\">"))
-    XCTAssertTrue(html.contains("seat-name\">Reader <span class=\"model-via\">"))
+    XCTAssertTrue(html.contains("class=\"masthead\""))
+    XCTAssertTrue(html.contains("class=\"page\""))
+    XCTAssertTrue(html.contains("The team"))
+    XCTAssertTrue(html.contains("tag-lead"))
+    XCTAssertTrue(html.contains("status-word"))
+    XCTAssertTrue(html.contains("chip-model"))
+    XCTAssertFalse(html.contains("Decided by"))
+    XCTAssertFalse(html.contains("Who weighed in"))
+    XCTAssertTrue(html.contains("Allnighter"))
+    XCTAssertTrue(html.contains(ArtifactProjector.honesty))
   }
 
   func testSeatSummaryFencePreferredOverProcessProse() {

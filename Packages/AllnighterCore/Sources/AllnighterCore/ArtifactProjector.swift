@@ -4,9 +4,10 @@ import AgentOSTeam
 /// Projects a terminal `TeamRun` into a private HTML team artifact (TRR-S01).
 /// Pure and deterministic — no filesystem or run store.
 ///
-/// Reading contract: CEO memo first (mockups are the hero on design boards),
-/// mockup tiles open the image large (lightbox); elevator chips jump to
-/// labeled Evidence; full seat craft below.
+/// Reading contract: full-bleed memo page (K3 dogfood 2026-07-26) — sticky
+/// masthead with mark + verdict; Design board + team at content width; prose at
+/// reading measure; mockup click → lightbox; chips → Evidence; full craft below.
+
 public enum ArtifactProjector {
   public static let honesty = "alln-attested multi-seat artifact · not vendor-signed"
 
@@ -184,9 +185,9 @@ public enum ArtifactProjector {
       <style>\(css)</style>
     </head>
     <body>
-      <main class="artifact">
+      <div class="page">
         \(body)
-      </main>
+      </div>
     </body>
     </html>
     """
@@ -445,41 +446,72 @@ public enum ArtifactProjector {
 
   // MARK: - HTML
 
+  private static let crescentSVG = """
+  <svg class="crescent" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+    <path fill-rule="evenodd" fill="var(--accent)"
+      d="M 6.2 1.5 a 5.5 5.5 0 1 0 0 11 a 5.5 5.5 0 1 0 0 -11 Z
+         M 8.6 2.4 a 4.6 4.6 0 1 1 0 9.2 a 4.6 4.6 0 1 1 0 -9.2 Z"/>
+  </svg>
+  """
+
   private static func htmlBody(_ card: Card) -> String {
     var parts: [String] = []
-    parts.append("<header class=\"card-header\">")
-    if card.verdict != nil {
-      let cls = card.verdictPartial ? "verdict verdict-partial" : "verdict verdict-ready"
-      let label = card.verdictPartial ? "Needs you" : "Ready"
-      parts.append("<div class=\"\(cls)\">\(escape(label))</div>")
-    }
-    parts.append("<div class=\"team-line\">\(escape(card.teamLabel))</div>")
+
+    // Sticky masthead: brand left, verdict right (same place every run).
+    let verdictLabel: String = {
+      guard card.verdict != nil else { return "" }
+      return card.verdictPartial ? "Partial · needs you" : "Ready"
+    }()
+    let verdictClass = card.verdictPartial ? "verdict verdict-partial" : "verdict verdict-ready"
+    parts.append(
+      """
+      <header class="masthead">
+        <div class="brand">
+          \(crescentSVG)
+          <span class="brand-word">Allnighter</span>
+          <span class="brand-sep">·</span>
+          <span class="brand-what">Team artifact</span>
+        </div>
+        \(card.verdict == nil ? "" : "<div class=\"\(verdictClass)\">\(escape(verdictLabel))</div>")
+      </header>
+      """
+    )
+
+    parts.append("<main class=\"doc\">")
+
+    // Memo head: team line + decision headline + asked (+ why as support).
+    parts.append("<header class=\"run-head\">")
+    parts.append("<div class=\"eyebrow\">\(escape(card.teamLabel))</div>")
     parts.append("<h1 class=\"title\">\(escape(card.title))</h1>")
-    parts.append("<p class=\"asked\"><span class=\"asked-label\">Asked</span> \(escape(card.asked))</p>")
+    parts.append(
+      "<p class=\"asked\"><span class=\"asked-label\">Asked</span> \(escape(card.asked))</p>"
+    )
+    if let why = card.whyItMatters, !why.isEmpty {
+      parts.append(
+        "<p class=\"changed\"><strong>What changed</strong> — \(escape(why))</p>"
+      )
+    }
     parts.append("</header>")
 
     if card.verdictPartial {
       parts.append(needsYouHTML(card))
     }
 
+    // Design board under the header (full content width).
     if !card.mockups.isEmpty {
       parts.append(mockupsHTML(card.mockups))
     }
 
+    // Call only when it adds beyond the H1.
     if let call = card.call, !call.isEmpty, !callRedundant(withTitle: card.title, call: call) {
       parts.append(
-        "<section class=\"call\"><h2>The decision</h2><p class=\"call-text\">\(escape(call))</p></section>"
-      )
-    }
-
-    if let why = card.whyItMatters, !why.isEmpty {
-      parts.append(
-        "<section class=\"why\"><h2>Why it matters</h2><p>\(escape(why))</p></section>"
+        "<section class=\"call prose\"><h2>The decision</h2>"
+          + "<p class=\"call-text\">\(escape(call))</p></section>"
       )
     }
 
     if !card.recommendations.isEmpty {
-      let heading = card.verdictPartial ? "Options for you" : "Do this next"
+      let heading = card.verdictPartial ? "Options for you" : "Recommendations"
       parts.append("<section class=\"recommendations\"><h2>\(heading)</h2><ol>")
       for rec in card.recommendations {
         let lean = rec.lean.isEmpty ? "" : " — \(escape(rec.lean))"
@@ -493,42 +525,49 @@ public enum ArtifactProjector {
 
     parts.append(
       "<section class=\"cta-block\(card.verdictPartial ? " cta-partial" : "")\">"
-      + "<div class=\"cta-label\">Next</div>"
-      + "<p class=\"cta-text\">\(escape(card.cta))</p>"
-      + (card.nextMove.map { "<p class=\"cta-detail\">\(escape($0))</p>" } ?? "")
-      + "</section>"
+        + "<div class=\"cta-label\">Next</div>"
+        + "<p class=\"cta-text\">\(escape(card.cta))</p>"
+        + (card.nextMove.map { "<p class=\"cta-detail\">\(escape($0))</p>" } ?? "")
+        + "</section>"
     )
 
-    let leadSeats = card.seats.filter(\.isLead)
-    let crewSeats = card.seats.filter { !$0.isLead }
-    if let lead = leadSeats.first {
-      parts.append("<section class=\"decided-by\"><h2>Decided by</h2><div class=\"seat-grid\">")
-      parts.append(seatChipHTML(lead))
-      parts.append("</div></section>")
-    }
-    if !crewSeats.isEmpty {
-      parts.append("<section class=\"seats\"><h2>Who weighed in</h2><div class=\"seat-grid\">")
-      for seat in crewSeats {
+    // One team section: Lead first, then crew (full content width).
+    if !card.seats.isEmpty {
+      let ordered = card.seats.filter(\.isLead) + card.seats.filter { !$0.isLead }
+      parts.append(
+        "<section class=\"seats\"><h2>The team</h2><div class=\"seat-grid\">"
+      )
+      for seat in ordered {
         parts.append(seatChipHTML(seat))
       }
       parts.append("</div></section>")
     }
 
     if !card.evidence.isEmpty {
-      parts.append("<section class=\"evidence\"><h2>Evidence</h2>")
+      parts.append(
+        "<section class=\"evidence\"><h2>Evidence"
+          + "<span class=\"h2-note\">full seat craft — chips above jump here</span></h2>"
+      )
       for item in card.evidence {
         parts.append(evidenceHTML(item))
       }
       parts.append("</section>")
     }
 
+    parts.append("</main>")
+
+    // Footer: crescent + honesty left; reproduce + run id right.
     parts.append("<footer class=\"footer\">")
-    parts.append("<div class=\"honesty\">\(escape(card.honesty))</div>")
+    parts.append(
+      "<div class=\"foot-brand\">\(crescentSVG)"
+        + "<span class=\"honesty\">\(escape(card.honesty))</span></div>"
+    )
+    parts.append("<div class=\"foot-right\">")
     if let reproduce = card.reproduceLine, !reproduce.isEmpty {
-      parts.append("<div class=\"reproduce\"><code>\(escape(reproduce))</code></div>")
+      parts.append("<div class=\"reproduce\">\(escape(reproduce))</div>")
     }
     parts.append("<div class=\"run-id\">Run \(escape(card.runIdLine))</div>")
-    parts.append("</footer>")
+    parts.append("</div></footer>")
 
     return parts.joined(separator: "\n")
   }
@@ -560,7 +599,7 @@ public enum ArtifactProjector {
     let cols = mockupColumnCount(for: mockups.count)
     var parts: [String] = [
       "<section class=\"mockups\">",
-      "<h2>Design</h2>",
+      "<h2>Design board</h2>",
       "<div class=\"mockup-grid\" data-count=\"\(mockups.count)\" data-cols=\"\(cols)\">"
     ]
     var lightboxes: [String] = []
@@ -647,23 +686,36 @@ public enum ArtifactProjector {
     let duration = seat.durationMs.map { formatDuration(ms: $0) } ?? ""
     let durationHTML = duration.isEmpty ? "" : "<span class=\"duration\">\(escape(duration))</span>"
     let leadClass = seat.isLead ? " seat-lead" : ""
+    let leadTag = seat.isLead ? "<span class=\"tag-lead\">Lead</span>" : ""
     let oneLiner = seat.oneLiner.map { "<div class=\"one-liner\">\(escape($0))</div>" } ?? ""
     let href = "#\(seatAnchorId(seat.workerId))"
+    let statusLabel = statusWord(seat.status)
     return """
     <a class="seat-chip\(leadClass)" href="\(href)" data-status="\(escape(seat.status))">
-      <div class="seat-summary">
-        <div class="glyph">\(escape(glyph))</div>
-        <div class="seat-main">
-          <div class="seat-name">\(escape(seat.roleLabel)) <span class="model-via">via \(escape(seat.modelLabel))</span></div>
-          \(oneLiner)
-        </div>
-        <div class="seat-meta">
-          <span class="status-dot status-\(escape(seat.status))" aria-label="\(escape(seat.status))"></span>
-          \(durationHTML)
-        </div>
+      <div class="glyph">\(escape(glyph))</div>
+      <div class="seat-main">
+        <div class="seat-name">\(escape(seat.roleLabel))\(leadTag)</div>
+        \(oneLiner)
+      </div>
+      <div class="seat-meta">
+        <span class="chip-model">\(escape(seat.modelLabel))</span>
+        <span class="status-dot status-\(escape(seat.status))" aria-hidden="true"></span>
+        <span class="status-word status-\(escape(seat.status))">\(escape(statusLabel))</span>
+        \(durationHTML)
       </div>
     </a>
     """
+  }
+
+  private static func statusWord(_ status: String) -> String {
+    switch status.lowercased() {
+    case "done", "complete", "completed": return "done"
+    case "failed", "fail": return "failed"
+    case "running", "in_progress": return "running"
+    case "timed_out", "timeout": return "timed out"
+    case "queued": return "queued"
+    default: return status
+    }
   }
 
   private static func embeddedStylesheet() -> String {
@@ -676,19 +728,23 @@ public enum ArtifactProjector {
       --ink-400: #555C74;
       --ink-600: #252A39;
       --ink-750s: #151822;
+      --ink-850: #0D101A;
       --ink-900: #090B13;
+      --ink-950: #05060C;
       --amber-400: #FFC169;
       --amber-500: #FFA630;
       --green-500: #3FD18B;
       --red-500: #F76B6B;
       --blue-500: #5B9DFF;
       --yellow-500: #F5C84B;
+      --bg-void: var(--ink-950);
       --bg-base: var(--ink-900);
       --bg-raised: var(--ink-750s);
       --text-primary: var(--ink-100);
       --text-secondary: var(--ink-200);
       --text-muted: var(--ink-300);
       --text-faint: var(--ink-400);
+      --accent: var(--amber-500);
       --accent-text: var(--amber-400);
       --accent-surface: rgba(255, 166, 48, 0.12);
       --accent-border: rgba(255, 166, 48, 0.32);
@@ -700,8 +756,8 @@ public enum ArtifactProjector {
       --status-failed: var(--red-500);
       --status-timed_out: var(--yellow-500);
       --radius-lg: 10px;
-      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-      --container-reading: 680px;
+      --page: 1280px;
+      --prose: 680px;
       --space-2: 8px;
       --space-3: 12px;
       --space-4: 16px;
@@ -710,34 +766,49 @@ public enum ArtifactProjector {
       --space-8: 32px;
     }
     * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
     body {
-      margin: 0;
-      background: var(--bg-base);
+      background: var(--bg-void);
       color: var(--text-primary);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      font-size: 14px;
       line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
     }
-    .artifact {
-      max-width: var(--container-reading);
-      margin: var(--space-6) auto;
-      padding: var(--space-8) var(--space-5);
-      background: var(--bg-raised);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-sm);
+    .page {
+      max-width: var(--page);
+      margin: 0 auto;
+      min-height: 100vh;
+      background: var(--bg-base);
+      border-left: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
     }
-    h1, h2 { margin: 0 0 var(--space-3); font-weight: 600; }
-    h1.title { font-size: 1.45rem; line-height: 1.25; letter-spacing: -0.02em; }
-    h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
-    .card-header { margin-bottom: var(--space-6); }
-    .verdict {
-      display: inline-block;
-      padding: var(--space-2) var(--space-3);
+    .masthead {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-base);
+    }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand-word { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+    .brand-sep { color: var(--text-faint); }
+    .brand-what { font-size: 12px; color: var(--text-muted); }
+    .crescent { display: block; flex-shrink: 0; }
+    .masthead .verdict {
+      margin-left: auto;
+      margin-bottom: 0;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
       border-radius: 999px;
       border: 1px solid var(--border-default);
-      font-size: 0.8rem;
-      font-weight: 600;
-      margin-bottom: var(--space-3);
     }
     .verdict-ready { color: var(--text-primary); background: transparent; }
     .verdict-partial {
@@ -745,17 +816,68 @@ public enum ArtifactProjector {
       background: var(--accent-surface);
       border-color: var(--accent-border);
     }
-    .team-line { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-2); }
-    .asked { color: var(--text-muted); font-size: 0.85rem; margin: var(--space-3) 0 0; }
-    .asked-label { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-right: var(--space-2); }
+    .doc {
+      flex: 1;
+      padding: 34px 28px 12px;
+      width: 100%;
+    }
+    h1, h2 { margin: 0 0 var(--space-3); font-weight: 600; }
+    h1.title {
+      font-size: 1.7rem;
+      line-height: 1.22;
+      letter-spacing: -0.02em;
+      max-width: var(--prose);
+    }
+    h2 {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-3);
+    }
+    .h2-note {
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 400;
+      color: var(--text-faint);
+      font-size: 0.75rem;
+    }
+    .eyebrow {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: var(--space-3);
+    }
+    .run-head { margin-bottom: var(--space-6); }
+    .asked {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin: var(--space-3) 0 0;
+      max-width: var(--prose);
+    }
+    .asked-label {
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.7rem;
+      margin-right: var(--space-2);
+    }
+    .changed {
+      margin: var(--space-3) 0 0;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      max-width: var(--prose);
+    }
     section { margin-bottom: var(--space-6); }
-    .call-text { font-size: 1.15rem; margin: 0; line-height: 1.4; }
-    .why p { margin: 0; color: var(--text-secondary); }
+    .prose, .call { max-width: var(--prose); }
+    .call-text { font-size: 1.1rem; margin: 0; line-height: 1.4; }
     .needs-you {
       border: 1px solid var(--accent-border);
       background: var(--accent-surface);
       border-radius: var(--radius-lg);
       padding: var(--space-4);
+      max-width: var(--prose);
     }
     .needs-you h2 { color: var(--accent-text); }
     .needs-lead { margin: 0 0 var(--space-3); color: var(--text-primary); }
@@ -768,32 +890,35 @@ public enum ArtifactProjector {
       border: 1px solid var(--border-default);
       border-radius: var(--radius-lg);
       padding: var(--space-4);
-      background: var(--bg-base);
+      background: var(--ink-850);
     }
     .cta-block.cta-partial {
       border-color: var(--accent-border);
       background: var(--accent-surface);
     }
-    .cta-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: var(--space-2); }
+    .cta-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: var(--space-2);
+    }
     .cta-text { margin: 0; font-size: 1.05rem; font-weight: 600; }
     .cta-detail { margin: var(--space-2) 0 0; color: var(--text-secondary); font-size: 0.9rem; }
     .seat-grid { display: flex; flex-direction: column; gap: var(--space-3); }
     a.seat-chip {
-      display: block;
-      text-decoration: none;
-      color: inherit;
-      padding: var(--space-3);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      background: var(--bg-base);
-    }
-    a.seat-chip:hover { border-color: var(--border-default); }
-    .seat-summary {
       display: grid;
       grid-template-columns: auto 1fr auto;
       gap: var(--space-3);
       align-items: start;
+      text-decoration: none;
+      color: inherit;
+      padding: var(--space-3) var(--space-4);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      background: var(--ink-850);
     }
+    a.seat-chip:hover { border-color: var(--border-default); }
     .seat-lead { border-color: var(--border-default); }
     .glyph {
       width: 28px; height: 28px;
@@ -804,11 +929,58 @@ public enum ArtifactProjector {
       font-size: 0.75rem;
       font-weight: 600;
     }
-    .seat-name { font-size: 0.95rem; font-weight: 600; }
-    .lead-label { color: var(--text-muted); font-size: 0.8rem; }
-    .one-liner { color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px; }
-    .model-via { color: var(--text-faint); font-size: 0.75rem; font-weight: 400; margin-left: 0.35rem; }
-    .decided-by { margin-bottom: var(--space-5); }
+    .seat-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tag-lead {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border: 1px solid var(--border-default);
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+    .one-liner { color: var(--text-secondary); font-size: 0.85rem; margin-top: 4px; }
+    .seat-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .chip-model { color: var(--text-faint); font-size: 0.75rem; }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 999px;
+      display: inline-block;
+    }
+    .status-word {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .status-word.status-done, .status-dot.status-done { color: var(--status-done); }
+    .status-dot.status-done { background: var(--status-done); }
+    .status-word.status-failed, .status-dot.status-failed { color: var(--status-failed); }
+    .status-dot.status-failed { background: var(--status-failed); }
+    .status-word.status-running, .status-dot.status-running { color: var(--status-running); }
+    .status-dot.status-running { background: var(--status-running); }
+    .status-word.status-queued, .status-dot.status-queued { color: var(--status-queued); }
+    .status-dot.status-queued { background: var(--status-queued); }
+    .status-word.status-timed_out, .status-dot.status-timed_out { color: var(--status-timed_out); }
+    .status-dot.status-timed_out { background: var(--status-timed_out); }
+    .duration {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--text-faint);
+      font-size: 0.8rem;
+    }
     .mockups { margin: var(--space-6) 0; }
     .mockup-grid {
       display: grid;
@@ -889,8 +1061,8 @@ public enum ArtifactProjector {
       padding: var(--space-4);
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-lg);
-      background: var(--bg-raised);
-      scroll-margin-top: 1.5rem;
+      background: var(--ink-850);
+      scroll-margin-top: 64px;
     }
     .evidence-seat h3 {
       font-size: 1rem;
@@ -905,46 +1077,38 @@ public enum ArtifactProjector {
       line-height: 1.55;
       white-space: pre-wrap;
     }
-    .seat-meta { display: flex; align-items: center; gap: var(--space-2); }
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 999px;
-      display: inline-block;
-    }
-    .status-queued { background: var(--status-queued); }
-    .status-running { background: var(--status-running); }
-    .status-done { background: var(--status-done); }
-    .status-failed { background: var(--status-failed); }
-    .status-timed_out { background: var(--status-timed_out); }
-    .duration { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-faint); font-size: 0.8rem; }
-    .craft details { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); background: var(--bg-base); }
-    .craft summary { cursor: pointer; color: var(--text-secondary); font-size: 0.9rem; }
-    .craft-body {
-      margin-top: var(--space-4);
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-    }
-    .craft-body h3 { font-size: 0.95rem; color: var(--text-primary); margin: var(--space-4) 0 var(--space-2); text-transform: none; letter-spacing: 0; }
-    .craft-body p { margin: 0 0 var(--space-3); }
-    .craft-body ul, .craft-body ol { margin: 0 0 var(--space-3); padding-left: 1.2rem; }
-    .craft-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
+    .model-via { color: var(--text-faint); font-size: 0.75rem; font-weight: 400; margin-left: 0.35rem; }
     .footer {
-      margin-top: var(--space-8);
-      padding-top: var(--space-4);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+      margin-top: auto;
+      padding: 16px 28px 22px;
       border-top: 1px solid var(--border-subtle);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: var(--text-muted);
     }
-    .reproduce code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .run-id { margin-top: var(--space-2); color: var(--text-faint); }
-    @media (max-width: 430px) {
-      .artifact { margin: 0; padding: var(--space-5) var(--space-4); border-radius: 0; border-left: 0; border-right: 0; }
-      .seat-summary { grid-template-columns: auto 1fr; }
-      .seat-meta { grid-column: 2; }
-      h1.title { font-size: 1.25rem; }
+    .foot-brand { display: flex; align-items: center; gap: 8px; }
+    .foot-right { margin-left: auto; text-align: right; }
+    .honesty { color: var(--text-muted); }
+    .reproduce {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--text-faint);
+      max-width: 42rem;
     }
-    @media (min-width: 1280px) {
-      .artifact { padding: var(--space-8) var(--space-6); margin: var(--space-8) auto; }
-      h1.title { font-size: 1.6rem; }
+    .run-id { margin-top: 4px; color: var(--text-faint); }
+    @media (max-width: 720px) {
+      .masthead, .doc { padding-left: 18px; padding-right: 18px; }
+      .footer {
+        flex-direction: column;
+        padding: 16px 18px 22px;
+      }
+      .foot-right { margin-left: 0; text-align: left; }
+      a.seat-chip { grid-template-columns: auto 1fr; }
+      .seat-meta { grid-column: 2; justify-content: flex-start; }
+      h1.title { font-size: 1.35rem; }
+      .page { border-left: 0; border-right: 0; }
     }
     """
   }

@@ -112,6 +112,17 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertFalse(review.contains("Design capture"))
     }
 
+    func testDesignBoardWriterIsSpecStyleCloseout() throws {
+        let skill = try XCTUnwrap(SkillCatalog.skill("design_board_writer"))
+        XCTAssertTrue(skill.template.contains("Incorporate list"))
+        XCTAssertTrue(skill.template.contains("Verified on disk"))
+        XCTAssertTrue(skill.template.contains("Option A/B"))
+        XCTAssertTrue(skill.template.contains("visible labels") || skill.template.contains("tile label"))
+        let assembled = SkillCatalog.assemblePrompt(skillId: "design_board_writer", founderPrompt: "DESIGN")
+        XCTAssertTrue(assembled.contains("Lead Call envelope"))
+        XCTAssertTrue(assembled.contains("Incorporate list"))
+    }
+
     func testDesignSeatCaptureBriefDeclaresPathConvention() {
         XCTAssertTrue(SkillCatalog.designSeatCaptureBrief.contains("capture: html"))
         XCTAssertTrue(SkillCatalog.designSeatCaptureBrief.contains("capture: svg"))
