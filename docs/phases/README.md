@@ -25,7 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Pilot_Long_Turn_Survival.md`](Pilot_Long_Turn_Survival.md) | **Draft — ready to slice** (PLT-S01–S04) | Durable Pilot/Relay rounds vs disposable waiters: status-first agent path, detached handoff binary/cwd fix, watch heartbeats + `--max-wait`. Field evidence 2026-07-26 (websitemd deploy round). |
+| [`Pilot_Long_Turn_Survival.md`](Pilot_Long_Turn_Survival.md) | **Draft — ready to slice** (S01→S03→S04→S02) | Durable Pilot/Relay rounds vs disposable waiters: fix detached handoff (clean-checkout bug), teach status-first, SIGTERM watch exit envelope, then status/`waitHint` enrichment. |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
 
@@ -112,7 +112,7 @@ without a new founder ruling.
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **Draft — ⚠ FOUNDER DECISION** | Signal foundations exist (`SignalInsight.swift` struct + parser only); the whole Scout → Triangulation → Graph backend is unbuilt. Decide: build it out, or archive the deep-build spec and keep only the shipped foundations. |
 | [`Chat_Module_Extraction.md`](Chat_Module_Extraction.md) | **Plan — not started** | Consolidate Allnighter's two chat substrates and extract into the shared AgentOS `AgentOSChatCore`/`AgentOSChatUI` packages. |
 | [`Contradiction_Pass.md`](Contradiction_Pass.md) | **Draft — NOT AUTHORIZED**; queued behind Code Red + Menu Relations | Give Max a structural difference instead of more bodies: mechanical contradiction/co-attribution detection from anchored findings (all tiers, zero model cost), false/factual/judgment classification, and one bounded Max-only resolution seat. Default escalates via `escalationRecommended`, never silently spends. Extends `Spec_Review.md`. |
-| [`Pilot_Long_Turn_Survival.md`](Pilot_Long_Turn_Survival.md) | **Draft — ready to slice** (PLT-S01–S04) | Long Pilot/Relay turns under agent harnesses: durable round SSOT, status-first polls, fix detached `argv[0]` spawn, watch heartbeats / `--max-wait`. |
+| [`Pilot_Long_Turn_Survival.md`](Pilot_Long_Turn_Survival.md) | **Draft — ready to slice** (S01→S03→S04→S02) | Long Pilot turns under agent harnesses: durable round SSOT, status-first teaching, SIGTERM watch exit, detached `argv[0]` fix, `waitHintSeconds`. |
 
 ### Subdirectories
 
