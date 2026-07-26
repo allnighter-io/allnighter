@@ -104,6 +104,12 @@ public enum ArtifactProjector {
     let whyItMatters = substantiveChanged(leadCall?.changed)
     let nextMove = leadCall?.nextMove.flatMap { $0.isEmpty ? nil : $0 }
     let cta = primaryCTA(partial: verdict == "Partial", nextMove: nextMove)
+    // Avoid printing the same closing ask twice.
+    let nextMoveForCard: String? = {
+      guard let nextMove else { return nil }
+      if nextMove == cta { return nil }
+      return nextMove
+    }()
     let seats = seatCards(for: run, hoistedAnswer: trj.answer, context: context)
     let craftBody = leadMarkdown.map { LeadCallParser.stripFence(from: $0) }
       .flatMap { $0.isEmpty ? nil : $0 }
@@ -116,15 +122,15 @@ public enum ArtifactProjector {
 
     return Card(
       runId: run.id,
-      title: capped(title, max: 140),
-      asked: capped(run.prompt, max: 120),
+      title: titleAtWordBoundary(title, max: 140),
+      asked: capped(plainAsked(run.prompt), max: 120),
       teamLabel: teamLabel,
       verdict: verdict,
       verdictPartial: verdict == "Partial",
       call: capped(call, max: 320),
       whyItMatters: whyItMatters.map { capped($0, max: 200) },
       recommendations: recommendations,
-      nextMove: nextMove.map { capped($0, max: 200) },
+      nextMove: nextMoveForCard.map { capped($0, max: 200) },
       cta: cta,
       seats: seats,
       craftBody: craftBody,
@@ -275,7 +281,7 @@ public enum ArtifactProjector {
       parts.append(needsYouHTML(card))
     }
 
-    if let call = card.call, !call.isEmpty {
+    if let call = card.call, !call.isEmpty, !callRedundant(withTitle: card.title, call: call) {
       parts.append(
         "<section class=\"call\"><h2>The decision</h2><p class=\"call-text\">\(escape(call))</p></section>"
       )
@@ -719,13 +725,50 @@ public enum ArtifactProjector {
     for line in text.components(separatedBy: "\n") {
       let trimmed = line.trimmingCharacters(in: .whitespaces)
       if trimmed.isEmpty || trimmed.hasPrefix("```") { continue }
-      if trimmed.lowercased().hasPrefix("i'll ") || trimmed.lowercased().hasPrefix("i will ") {
-        continue
-      }
-      if trimmed.lowercased().hasPrefix("reviewing ") { continue }
+      if trimmed.hasPrefix("{") || trimmed.hasPrefix("}") { continue }
+      if trimmed.hasPrefix("|") { continue }
+      if trimmed.hasPrefix("#") { continue }
+      if trimmed.hasPrefix("**Status") || trimmed.lowercased().hasPrefix("status:") { continue }
+      let lower = trimmed.lowercased()
+      if lower.hasPrefix("i'll ") || lower.hasPrefix("i will ") { continue }
+      if lower.hasPrefix("i'm the lead") || lower.hasPrefix("i am the lead") { continue }
+      if lower.hasPrefix("reviewing ") { continue }
+      if lower.contains("lead call") && trimmed.count < 80 { continue }
       return trimmed
+        .replacingOccurrences(of: "**", with: "")
+        .replacingOccurrences(of: "`", with: "")
     }
     return nil
+  }
+
+  private static func callRedundant(withTitle title: String, call: String) -> Bool {
+    let t = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      .trimmingCharacters(in: CharacterSet(charactersIn: ".…"))
+    let c = call.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+      .trimmingCharacters(in: CharacterSet(charactersIn: ".…"))
+    return c == t || c.hasPrefix(t) || t.hasPrefix(c)
+  }
+
+  private static func plainAsked(_ prompt: String) -> String {
+    prompt
+      .replacingOccurrences(of: #"#+\s*"#, with: "", options: .regularExpression)
+      .replacingOccurrences(of: #"\*\*"#, with: "", options: .regularExpression)
+      .replacingOccurrences(of: "`", with: "")
+      .replacingOccurrences(of: "\n", with: " ")
+      .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private static func titleAtWordBoundary(_ text: String, max: Int) -> String {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard trimmed.count > max else { return trimmed }
+    let idx = trimmed.index(trimmed.startIndex, offsetBy: max)
+    var cut = idx
+    while cut > trimmed.startIndex, !trimmed[trimmed.index(before: cut)].isWhitespace {
+      cut = trimmed.index(before: cut)
+    }
+    if cut == trimmed.startIndex { cut = idx }
+    return String(trimmed[..<cut]).trimmingCharacters(in: .whitespaces) + "…"
   }
 
   private static func capped(_ text: String, max: Int) -> String {
