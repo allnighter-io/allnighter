@@ -81,7 +81,11 @@ public enum LiveArtifactProjector {
 
   /// Applies board events (`worker.status_changed`, `worker.answer_delta`). Returns true when
   /// the state changed. Unknown kinds are ignored — never invent RunEvent kinds here.
-  public static func apply(_ event: RunEvent, to state: inout State) -> Bool {
+  public static func apply(
+    _ event: RunEvent,
+    to state: inout State,
+    context _: ArtifactProjector.Context = .init()
+  ) -> Bool {
     switch event.kind {
     case RunEventKind.workerStatusChanged:
       guard let workerId = event.payload["workerId"]?.stringValue,
