@@ -298,7 +298,32 @@ enum RunCLI {
             } else {
                 print("(run \(run.status.rawValue))")
             }
+            // Polished finish: artifact link sits directly under the Lead/answer body.
+            if run.status.isTerminal, ArtifactProjector.canProject(run) {
+                printArtifactLink(for: run, runtime: runtime, reproduceCommand: reproduceCommand(run, project: project))
+            }
             FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
+        }
+    }
+
+    /// Writes regenerable HTML when possible and prints the path under the answer.
+    private static func printArtifactLink(
+        for run: TeamRun, runtime: ToolRuntime, reproduceCommand: String, store: RunStore = RunStore()
+    ) {
+        let context = ArtifactProjector.Context(
+            models: runtime.models, manifests: runtime.registry.all
+        )
+        if let runDir = try? store.runDirectory(forRunId: run.id),
+           let url = try? ArtifactWriter.writeHTML(
+            run: run,
+            runDirectory: runDir,
+            reproduceCommand: reproduceCommand,
+            context: context
+           ) {
+            print("\nArtifact: \(url.path)")
+            print("Open:     alln artifact show \(run.id)")
+        } else {
+            print("\nOpen artifact: alln artifact show \(run.id)")
         }
     }
 
@@ -514,6 +539,9 @@ enum RunCLI {
             print(run.warnings.joined(separator: "\n"))
         } else {
             print("(run \(run.status.rawValue))")
+        }
+        if run.status.isTerminal, ArtifactProjector.canProject(run) {
+            printArtifactLink(for: run, runtime: runtime, reproduceCommand: reproduceCommand, store: store)
         }
         FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
     }

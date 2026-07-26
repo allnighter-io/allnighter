@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "4.0.5"
+    static let contractVersion = "4.0.6"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -1188,6 +1188,7 @@ public extension ContractRegistry {
     /// The closed `nextActions.kind` catalog. Must stay in lock-step with
     /// `TeamRunJSON.NextAction.Kind` (a test enforces parity).
     static let m1NextActionKinds: [NextActionKindSpec] = [
+        NextActionKindSpec("showArtifact", summary: "Open the polished HTML team artifact for a terminal run."),
         NextActionKindSpec("showRun", summary: "Show the full run."),
         NextActionKindSpec("export", summary: "Export the result bundle."),
         NextActionKindSpec("showHistory", summary: "List recent runs."),

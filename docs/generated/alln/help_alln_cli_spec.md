@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.0.5, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.0.6, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1528,6 +1528,7 @@ and the driver's own supported flags (via manifests) for controls that actually 
 the selected CLI.
 ## Next-action kinds
 
+- `showArtifact` — Open the polished HTML team artifact for a terminal run.
 - `showRun` — Show the full run.
 - `export` — Export the result bundle.
 - `showHistory` — List recent runs.

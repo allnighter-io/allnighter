@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "contractVersion": "4.0.5",
+  "contractVersion": "4.0.6",
   "teamRun": {
     "id": "run_20260720_1200",
     "status": "done",
@@ -78,6 +78,7 @@
   "warnings": [],
   "errors": [],
   "nextActions": [
+    { "kind": "showArtifact", "command": "alln artifact show run_20260720_1200", "label": "Open team artifact" },
     { "kind": "showRun", "command": "alln show run_20260720_1200", "label": "Show run" },
     { "kind": "export", "command": "alln export run_20260720_1200 --format md", "label": "Export markdown" }
   ],

@@ -4950,7 +4950,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.0.5",
+  "contractVersion" : "4.0.6",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -6346,6 +6346,10 @@
     }
   ],
   "nextActionKinds" : [
+    {
+      "kind" : "showArtifact",
+      "summary" : "Open the polished HTML team artifact for a terminal run."
+    },
     {
       "kind" : "showRun",
       "summary" : "Show the full run."

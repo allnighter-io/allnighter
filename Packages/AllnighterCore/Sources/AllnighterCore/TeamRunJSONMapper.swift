@@ -192,10 +192,7 @@ public enum TeamRunJSONMapper {
             outcome: run.status.isTerminal ? mapOutcome(run) : nil,
             stages: stages, plan: plan, usage: usage,
             warnings: runWarnings, errors: [],
-            nextActions: [
-                .init(kind: .showRun, command: "alln show \(run.id)", label: "Show run"),
-                .init(kind: .export, command: "alln export \(run.id) --format md", label: "Export markdown"),
-            ],
+            nextActions: terminalArtifactNextActions(for: run),
             audit: .init(traceId: "trace_\(run.id)", runJournalPath: context.runJournalPath)
         )
     }
@@ -444,6 +441,26 @@ public enum TeamRunJSONMapper {
             options: options,
             chosen: chosen
         )
+    }
+
+    /// Terminal runs lead with Open artifact — that is the polished finish, not
+    /// `show` / markdown export.
+    static func terminalArtifactNextActions(for run: TeamRun) -> [TeamRunJSON.NextAction] {
+        var actions: [TeamRunJSON.NextAction] = []
+        if run.status.isTerminal {
+            actions.append(.init(
+                kind: .showArtifact,
+                command: "alln artifact show \(run.id)",
+                label: "Open team artifact"
+            ))
+        }
+        actions.append(.init(kind: .showRun, command: "alln show \(run.id)", label: "Show run"))
+        actions.append(.init(
+            kind: .export,
+            command: "alln export \(run.id) --format md",
+            label: "Export markdown"
+        ))
+        return actions
     }
 
 }

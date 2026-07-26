@@ -36,7 +36,8 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertEqual(answer.source.kind, .plan)
         XCTAssertEqual(answer.markdown, run.plan)
         XCTAssertGreaterThan(trj.usage.cliCalls, 0)
-        XCTAssertEqual(trj.nextActions.map(\.kind), [.showRun, .export])
+        XCTAssertEqual(trj.nextActions.map(\.kind), [.showArtifact, .showRun, .export])
+        XCTAssertEqual(trj.nextActions.first?.command, "alln artifact show \(run.id)")
         // Catalog-free: no top-level models.
         let data = try CoreJSON.encode(trj)
         let root = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])

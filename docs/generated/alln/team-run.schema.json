@@ -580,6 +580,7 @@
         },
         "kind" : {
           "enum" : [
+            "showArtifact",
             "showRun",
             "export",
             "showHistory"

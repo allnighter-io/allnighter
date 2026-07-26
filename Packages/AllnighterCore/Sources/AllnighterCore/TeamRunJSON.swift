@@ -618,6 +618,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     /// catalog. Add new kinds there, then regenerate — do not widen ad hoc.
     public struct NextAction: Codable, Equatable, Sendable {
         public enum Kind: String, Codable, Sendable, CaseIterable {
+            /// Open the polished HTML team artifact (primary finish for terminal runs).
+            case showArtifact
             case showRun, export, showHistory
         }
         public var kind: Kind

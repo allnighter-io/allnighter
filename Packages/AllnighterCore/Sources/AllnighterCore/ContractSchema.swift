@@ -196,7 +196,7 @@ public enum ContractSchema {
             "Warning": obj(["code": nullable("string"), "message": str], required: ["message"]),
             "ErrorEnvelope": errorEnvelopeDef(),
             "NextAction": obj([
-                "kind": enumStr(["showRun", "export", "showHistory"]), "command": str, "label": nullable("string"),
+                "kind": enumStr(["showArtifact", "showRun", "export", "showHistory"]), "command": str, "label": nullable("string"),
             ], required: ["kind", "command"]),
             "Audit": obj(["traceId": str, "runJournalPath": str], required: ["traceId", "runJournalPath"]),
         ]
