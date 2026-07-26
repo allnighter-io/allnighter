@@ -1,6 +1,9 @@
 import Foundation
 import AllnighterCore
 import AllnighterEngine
+#if canImport(Darwin)
+import Darwin
+#endif
 
 /// `alln pair pilot start|handoff|status|watch` — Pilot (`docs/phases/Pilot_Relay.md`):
 /// this session is the PM, Allnighter runs the crew (dev seat + rails). Same substrate
@@ -509,6 +512,91 @@ enum PilotCLI {
 
     // MARK: - watch
 
+    /// Non-TTY agents get a bounded wait so piped `pilot watch` does not block forever.
+    static let defaultNonTTYMaxWaitSeconds: TimeInterval = 1_800
+
+    /// Heartbeat cadence while a round is `.running` — keeps silent hosts from reaping.
+    static let watchHeartbeatSeconds: TimeInterval = 15.0
+
+    /// Set by SIGTERM/SIGINT handlers; polled between sleeps (PLT-S04).
+    final class WatchInterruptFlag: @unchecked Sendable {
+        private let lock = NSLock()
+        private var interrupted = false
+
+        func fire() {
+            lock.lock()
+            interrupted = true
+            lock.unlock()
+        }
+
+        var isInterrupted: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return interrupted
+        }
+    }
+
+    enum WatchEndReason: Equatable {
+        case interrupted
+        case maxWaitExpired
+    }
+
+    /// Resolves `--max-wait`: explicit flag wins; non-TTY stdout gets
+    /// `defaultNonTTYMaxWaitSeconds` unless interactive TTY (unbounded).
+    static func resolveWatchMaxWait(
+        opts: Options,
+        stdoutIsTTY: Bool,
+        defaultNonTTYSeconds: TimeInterval = defaultNonTTYMaxWaitSeconds
+    ) throws -> (seconds: TimeInterval?, applied: Bool) {
+        if let raw = opts.value("max-wait") {
+            guard let seconds = try parseMaxWaitSeconds(raw) else {
+                throw PilotCLIError.missingRequired("--max-wait <seconds>")
+            }
+            return (seconds, false)
+        }
+        if stdoutIsTTY { return (nil, false) }
+        return (defaultNonTTYSeconds, true)
+    }
+
+    static func parseMaxWaitSeconds(_ raw: String) throws -> TimeInterval? {
+        guard let n = Int(raw), n > 0 else {
+            throw PilotCLIError.invalidMaxWait(raw)
+        }
+        return TimeInterval(n)
+    }
+
+    static func stdoutIsTTY() -> Bool {
+        #if canImport(Darwin)
+        return isatty(STDOUT_FILENO) == 1
+        #else
+        return false
+        #endif
+    }
+
+    static func watchStillRunning(state: RelayState, recovery: InFlightRecovery) -> Bool {
+        state.status == .running && recovery == .handoffAlive
+    }
+
+    static func pilotStatusReattachCommand(relayId: String) -> String {
+        "alln pair pilot status --relay \(relayId) --json"
+    }
+
+    static func watchGoodbyeNote(relayId: String, reason: WatchEndReason, stillRunning: Bool) -> String {
+        let statusCmd = pilotStatusReattachCommand(relayId: relayId)
+        switch reason {
+        case .interrupted:
+            if stillRunning {
+                return "watch ended (signal) — round still running; poll `\(statusCmd)` (a killed watch is not a failed round)."
+            }
+            return "watch ended (signal) — inspect `\(statusCmd)` before any new handoff."
+        case .maxWaitExpired:
+            if stillRunning {
+                return "watch max-wait reached — round still running; poll `\(statusCmd)` (a killed watch is not a failed round)."
+            }
+            return "watch max-wait reached — inspect `\(statusCmd)` before any new handoff."
+        }
+    }
+
     /// Polls until the in-flight round settles (`status != .running`) — `.running` only
     /// ever happens transiently, while a `pilot handoff` dev turn is dispatching.
     /// When settled (or nothing was in flight), returns the same envelope as a blocking
@@ -519,21 +607,59 @@ enum PilotCLI {
         threadProjector: RelayThreadProjector? = RelayThreadProjector(),
         runStore: RunStore = RunStore(),
         pollInterval: TimeInterval = 1.0,
-        sleep: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
+        heartbeatInterval: TimeInterval = watchHeartbeatSeconds,
+        sleep: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) },
+        now: () -> Date = Date.init,
+        stdoutIsTTY: () -> Bool = stdoutIsTTY,
+        interruptFlag: WatchInterruptFlag = WatchInterruptFlag(),
+        installInterruptHandlers: (WatchInterruptFlag) -> [DispatchSourceSignal] = installWatchInterruptHandlers
     ) {
-        guard !args.isEmpty else { usage("pilot watch --relay <id> [--json]") }
+        guard !args.isEmpty else { usage("pilot watch --relay <id> [--max-wait <seconds>] [--json]") }
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
+        let maxWait: (seconds: TimeInterval?, applied: Bool)
+        do {
+            maxWait = try resolveWatchMaxWait(opts: opts, stdoutIsTTY: stdoutIsTTY())
+        } catch let error as PilotCLIError {
+            fail(error)
+        } catch {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
+        }
+
         guard var loaded = loadRelayState(
             relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: false
         ) else { fail(.relayNotFound(relayId)) }
 
+        let json = opts.flag("json")
         let note: String?
         if loaded.state.status != .running {
             note = watchSettledNote(recovery: loaded.recovery, status: loaded.state.status)
         } else {
             note = nil
+            let signalSources = installInterruptHandlers(interruptFlag)
+            defer { signalSources.forEach { $0.cancel() } }
+            let startedAt = now()
+            var lastHeartbeat = startedAt
             while loaded.state.status == .running {
+                if interruptFlag.isInterrupted {
+                    finishWatchEarly(
+                        relayId: relayId, reason: .interrupted, maxWaitApplied: maxWait.applied,
+                        stateStore: stateStore, threadProjector: threadProjector,
+                        runStore: runStore, json: json
+                    )
+                }
+                let elapsed = now().timeIntervalSince(startedAt)
+                if let cap = maxWait.seconds, elapsed >= cap {
+                    finishWatchEarly(
+                        relayId: relayId, reason: .maxWaitExpired, maxWaitApplied: maxWait.applied,
+                        stateStore: stateStore, threadProjector: threadProjector,
+                        runStore: runStore, json: json
+                    )
+                }
+                if now().timeIntervalSince(lastHeartbeat) >= heartbeatInterval {
+                    lastHeartbeat = now()
+                    emitWatchHeartbeat(elapsedSeconds: Int(elapsed), json: json)
+                }
                 sleep(pollInterval)
                 guard let reloaded = loadRelayState(
                     relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: true
@@ -542,7 +668,56 @@ enum PilotCLI {
             }
         }
         refreshPilotProjectGit(relayId: relayId, stateStore: stateStore)
-        emitWatchResult(loaded.state, note: note, json: opts.flag("json"), runStore: runStore)
+        emitWatchResult(
+            loaded.state, note: note, json: json, runStore: runStore,
+            maxWaitApplied: maxWait.applied ? true : nil
+        )
+    }
+
+    /// SIGTERM/SIGINT or max-wait: load once without orphan reconcile, emit goodbye, exit 0.
+    private static func finishWatchEarly(
+        relayId: String,
+        reason: WatchEndReason,
+        maxWaitApplied: Bool,
+        stateStore: RelayStateStore,
+        threadProjector: RelayThreadProjector?,
+        runStore: RunStore,
+        json: Bool
+    ) -> Never {
+        guard let loaded = loadRelayState(
+            relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: false
+        ) else { fail(.relayNotFound(relayId)) }
+        let stillRunning = watchStillRunning(state: loaded.state, recovery: loaded.recovery)
+        let note = watchGoodbyeNote(relayId: relayId, reason: reason, stillRunning: stillRunning)
+        emitWatchResult(
+            loaded.state, note: note, json: json, runStore: runStore,
+            stillRunning: stillRunning, maxWaitApplied: maxWaitApplied ? true : nil,
+            exitOnTerminalFailure: false
+        )
+        exit(0)
+    }
+
+    private static func installWatchInterruptHandlers(on flag: WatchInterruptFlag) -> [DispatchSourceSignal] {
+        [SIGTERM, SIGINT].map { sig in
+            let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
+            source.setEventHandler {
+                source.cancel()
+                flag.fire()
+            }
+            signal(sig, SIG_IGN)
+            source.resume()
+            return source
+        }
+    }
+
+    private static func emitWatchHeartbeat(elapsedSeconds: Int, json: Bool) {
+        if json {
+            print(AllnighterCLI.jsonLine(PilotWatchHeartbeatJSON(
+                elapsedSeconds: elapsedSeconds, status: RelayState.Status.running.rawValue
+            )))
+        } else {
+            print("[pilot watch] \(elapsedSeconds)s elapsed — status=running")
+        }
     }
 
     // MARK: - adopt (reverse flip: spawned → pilot)
@@ -646,12 +821,17 @@ enum PilotCLI {
     }
 
     private static func emitWatchResult(
-        _ state: RelayState, note: String?, json: Bool, runStore: RunStore
+        _ state: RelayState, note: String?, json: Bool, runStore: RunStore,
+        stillRunning: Bool? = nil, maxWaitApplied: Bool? = nil,
+        exitOnTerminalFailure: Bool = true
     ) {
         let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
-        let devReport = RelayCoordinator.settledDevReport(for: state, runStore: runStore)
+        let devReport = stillRunning == true ? nil : RelayCoordinator.settledDevReport(for: state, runStore: runStore)
         if json {
-            print(AllnighterCLI.jsonLine(PilotWatchJSON(relay: relayJSON, devReport: devReport, note: note)))
+            print(AllnighterCLI.jsonLine(PilotWatchJSON(
+                relay: relayJSON, devReport: devReport, note: note,
+                stillRunning: stillRunning, maxWaitApplied: maxWaitApplied
+            )))
         } else {
             print(RelayDispatch.humanRelaySummary(relayJSON))
             if let note { print(note) }
@@ -660,9 +840,13 @@ enum PilotCLI {
             }
             let log = RelayDispatch.humanRoundLog(relayJSON)
             if !log.isEmpty { print("\n" + log) }
-            print("\n" + nextActionLine(for: state))
+            if stillRunning == true {
+                print("\nreattach: \(pilotStatusReattachCommand(relayId: state.id))")
+            } else {
+                print("\n" + nextActionLine(for: state))
+            }
         }
-        if state.status == .escalated || state.status == .stopped { exit(1) }
+        if exitOnTerminalFailure, state.status == .escalated || state.status == .stopped { exit(1) }
     }
 
     /// Re-observe git metadata for the relay's project — pilot paths must never serve
@@ -754,6 +938,7 @@ enum PilotCLI {
         case devWorkerNotFound(alias: String, readySeats: String)
         case missingDevWorker(readySeats: String)
         case noReadyDevSeats
+        case invalidMaxWait(String)
     }
 
     static func errorEnvelope(_ error: PilotCLIError) -> (code: String, message: String) {
@@ -786,6 +971,8 @@ enum PilotCLI {
             return ("CLI_USAGE_ERROR", "--dev-worker <seat|alias> required (no remembered seat for this project) — ready seats: \(readySeats)")
         case .noReadyDevSeats:
             return ("CLI_USAGE_ERROR", "no ready dev seats — run `alln doctor --full`")
+        case .invalidMaxWait(let raw):
+            return ("CLI_USAGE_ERROR", "--max-wait must be a positive integer, got '\(raw)'")
         }
     }
 
@@ -873,9 +1060,36 @@ struct PilotStatusJSON: Encodable {
 }
 
 /// `pilot watch --json` envelope: same as a blocking handoff when settled, plus an
-/// optional note when nothing was in flight.
+/// optional note when nothing was in flight. On signal/max-wait while still running,
+/// carries `stillRunning` + reattach guidance instead of looking like round failure.
 struct PilotWatchJSON: Encodable {
     let relay: RelayJSON
     let devReport: String?
     let note: String?
+    let stillRunning: Bool?
+    let maxWaitApplied: Bool?
+
+    init(
+        relay: RelayJSON, devReport: String?, note: String?,
+        stillRunning: Bool? = nil, maxWaitApplied: Bool? = nil
+    ) {
+        self.relay = relay
+        self.devReport = devReport
+        self.note = note
+        self.stillRunning = stillRunning
+        self.maxWaitApplied = maxWaitApplied
+    }
+}
+
+/// NDJSON heartbeat line while `pilot watch` is waiting on a `.running` round.
+struct PilotWatchHeartbeatJSON: Encodable {
+    let kind: String
+    let elapsedSeconds: Int
+    let status: String
+
+    init(elapsedSeconds: Int, status: String) {
+        kind = "pilotWatchHeartbeat"
+        self.elapsedSeconds = elapsedSeconds
+        self.status = status
+    }
 }

@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "4.0.7"
+    static let contractVersion = "4.0.8"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -543,10 +543,11 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot watch", summary: "Optional interactive waiter: block until the in-flight round settles. Disposable — death ≠ job failure; prefer `pilot status` for agents.", milestone: .m1,
+            "pair pilot watch", summary: "Optional interactive waiter: block until the in-flight round settles. Disposable — death ≠ job failure; prefer `pilot status` for agents. Emits heartbeats while running; SIGTERM/SIGINT prints stillRunning goodbye.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
-                FlagSpec("json", summary: "Emit PilotWatchJSON (single-line; relay + devReport + note when nothing was in flight)."),
+                FlagSpec("max-wait", takesValue: true, valueType: "integer", summary: "Stop waiting after N seconds while still running; exit with stillRunning and reattach to pilot status (default 1800 when stdout is not a TTY; interactive TTY waits until settled unless set)."),
+                FlagSpec("json", summary: "Emit PilotWatchJSON (final single-line envelope; NDJSON pilotWatchHeartbeat lines while waiting)."),
             ],
             outputSchema: .relayJSON
         ),

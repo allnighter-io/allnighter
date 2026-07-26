@@ -261,6 +261,7 @@ final class PilotCLITests: XCTestCase {
             .devWorkerNotFound(alias: "bogus", readySeats: "model_dev (Dev)"),
             .missingDevWorker(readySeats: "model_dev (Dev)"),
             .noReadyDevSeats,
+            .invalidMaxWait("0"),
         ]
         for c in cases {
             let (code, message) = PilotCLI.errorEnvelope(c)
@@ -541,5 +542,154 @@ final class PilotCLITests: XCTestCase {
         )) { error in
             XCTAssertEqual(error as? PilotCLI.DetachedHandoffLaunchError, .unresolvedExecutable)
         }
+    }
+
+    // MARK: - watch (PLT-S04)
+
+    func testResolveWatchMaxWaitNonTTYAppliesDefault() throws {
+        let resolved = try PilotCLI.resolveWatchMaxWait(opts: Options(["--relay", "x"]), stdoutIsTTY: false)
+        XCTAssertEqual(resolved.seconds, PilotCLI.defaultNonTTYMaxWaitSeconds)
+        XCTAssertTrue(resolved.applied)
+    }
+
+    func testResolveWatchMaxWaitTTYUnboundedUnlessFlagged() throws {
+        let resolved = try PilotCLI.resolveWatchMaxWait(opts: Options(["--relay", "x"]), stdoutIsTTY: true)
+        XCTAssertNil(resolved.seconds)
+        XCTAssertFalse(resolved.applied)
+    }
+
+    func testResolveWatchMaxWaitExplicitWinsOverNonTTYDefault() throws {
+        let resolved = try PilotCLI.resolveWatchMaxWait(
+            opts: Options(["--relay", "x", "--max-wait", "120"]), stdoutIsTTY: false
+        )
+        XCTAssertEqual(resolved.seconds, 120)
+        XCTAssertFalse(resolved.applied)
+    }
+
+    func testResolveWatchMaxWaitExplicitOnTTY() throws {
+        let resolved = try PilotCLI.resolveWatchMaxWait(
+            opts: Options(["--relay", "x", "--max-wait", "90"]), stdoutIsTTY: true
+        )
+        XCTAssertEqual(resolved.seconds, 90)
+        XCTAssertFalse(resolved.applied)
+    }
+
+    func testParseMaxWaitInvalidThrows() {
+        XCTAssertThrowsError(try PilotCLI.parseMaxWaitSeconds("0")) { error in
+            XCTAssertEqual(error as? PilotCLI.PilotCLIError, .invalidMaxWait("0"))
+        }
+        XCTAssertThrowsError(try PilotCLI.parseMaxWaitSeconds("nope")) { error in
+            XCTAssertEqual(error as? PilotCLI.PilotCLIError, .invalidMaxWait("nope"))
+        }
+    }
+
+    func testWatchStillRunningRequiresRunningAndAliveOwner() {
+        let running = RelayState(
+            id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external, createdAt: Date()
+        )
+        XCTAssertTrue(PilotCLI.watchStillRunning(state: running, recovery: .handoffAlive))
+        XCTAssertFalse(PilotCLI.watchStillRunning(state: running, recovery: .orphanReconciled))
+        var awaiting = running
+        awaiting.status = .awaitingPM
+        XCTAssertFalse(PilotCLI.watchStillRunning(state: awaiting, recovery: .none))
+    }
+
+    func testWatchGoodbyeNoteStillRunningMentionsStatusNotFailure() {
+        let note = PilotCLI.watchGoodbyeNote(
+            relayId: "relay_x", reason: .interrupted, stillRunning: true
+        )
+        XCTAssertTrue(note.contains("still running"))
+        XCTAssertTrue(note.contains("pilot status"))
+        XCTAssertTrue(note.contains("not a failed round"))
+    }
+
+    func testWatchGoodbyeEnvelopeStillRunningFields() throws {
+        let relayJSON = RelayJSON.project(
+            RelayState(
+                id: "relay_watch", projectRoot: "/repo", docPath: "docs/spec.md",
+                pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+                status: .running, pmMode: .external, createdAt: Date()
+            ),
+            contractVersion: ContractRegistry.contractVersion
+        )
+        let line = AllnighterCLI.jsonLine(PilotWatchJSON(
+            relay: relayJSON, devReport: nil,
+            note: PilotCLI.watchGoodbyeNote(relayId: "relay_watch", reason: .interrupted, stillRunning: true),
+            stillRunning: true, maxWaitApplied: true
+        ))
+        let data = try XCTUnwrap(line.data(using: .utf8))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["stillRunning"] as? Bool, true)
+        XCTAssertEqual(json["maxWaitApplied"] as? Bool, true)
+        XCTAssertNil(json["devReport"])
+    }
+
+    func testWatchInterruptLeavesRunningRelayUntouched() throws {
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-watch"))
+        let state = RelayState(
+            id: "relay_live", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external, createdAt: Date()
+        )
+        try store.save(state)
+        let ownerURL = store.rootDirectory.appendingPathComponent("relay_live/owner.pid")
+        try Data("\(ProcessInfo.processInfo.processIdentifier)".utf8).write(to: ownerURL)
+
+        let flag = PilotCLI.WatchInterruptFlag()
+        flag.fire()
+        let loaded = PilotCLI.loadRelayState(
+            relayId: "relay_live", stateStore: store, threadProjector: nil, reconcileOrphans: false
+        )
+        XCTAssertEqual(loaded?.state.status, .running)
+        XCTAssertEqual(loaded?.recovery, .handoffAlive)
+        XCTAssertTrue(PilotCLI.watchStillRunning(state: loaded!.state, recovery: loaded!.recovery))
+        XCTAssertEqual(store.load(id: "relay_live")?.status, .running)
+    }
+
+    func testWatchHeartbeatJSONEncodesKind() throws {
+        let line = AllnighterCLI.jsonLine(PilotWatchHeartbeatJSON(elapsedSeconds: 30, status: "running"))
+        let data = try XCTUnwrap(line.data(using: .utf8))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["kind"] as? String, "pilotWatchHeartbeat")
+        XCTAssertEqual(json["elapsedSeconds"] as? Int, 30)
+        XCTAssertEqual(json["status"] as? String, "running")
+    }
+
+    func testWatchGoodbyeNoteMaxWaitStillRunning() {
+        let note = PilotCLI.watchGoodbyeNote(
+            relayId: "relay_x", reason: .maxWaitExpired, stillRunning: true
+        )
+        XCTAssertTrue(note.contains("max-wait"))
+        XCTAssertTrue(note.contains("still running"))
+        XCTAssertTrue(note.contains("pilot status"))
+    }
+
+    func testDeadWaiterReconcileDisabledLeavesRunningState() throws {
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-dead-waiter"))
+        var state = RelayState(
+            id: "relay_dead", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external,
+            rounds: [RelayRound(roundNumber: 1, baselineHead: "abc", startedAt: Date())],
+            createdAt: Date()
+        )
+        try store.save(state)
+        let ownerURL = store.rootDirectory.appendingPathComponent("relay_dead/owner.pid")
+        try Data("999999999".utf8).write(to: ownerURL)
+
+        let withoutReconcile = PilotCLI.loadRelayState(
+            relayId: "relay_dead", stateStore: store, threadProjector: nil, reconcileOrphans: false
+        )
+        XCTAssertEqual(withoutReconcile?.state.status, .running)
+        XCTAssertEqual(withoutReconcile?.recovery, .orphanReconciled)
+        XCTAssertEqual(store.load(id: "relay_dead")?.status, .running)
+
+        let withReconcile = PilotCLI.loadRelayState(
+            relayId: "relay_dead", stateStore: store, threadProjector: nil, reconcileOrphans: true
+        )
+        XCTAssertEqual(withReconcile?.state.status, .stopped)
+        XCTAssertEqual(withReconcile?.recovery, .orphanReconciled)
     }
 }

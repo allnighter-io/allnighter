@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.0.7, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.0.8, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -749,11 +749,12 @@ Output schema: `relayJSON`.
 
 ### `alln pair pilot watch`
 
-Optional interactive waiter: block until the in-flight round settles. Disposable — death ≠ job failure; prefer `pilot status` for agents.
+Optional interactive waiter: block until the in-flight round settles. Disposable — death ≠ job failure; prefer `pilot status` for agents. Emits heartbeats while running; SIGTERM/SIGINT prints stillRunning goodbye.
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--json` — Emit PilotWatchJSON (single-line; relay + devReport + note when nothing was in flight).
+- `--max-wait <integer>` — Stop waiting after N seconds while still running; exit with stillRunning and reattach to pilot status (default 1800 when stdout is not a TTY; interactive TTY waits until settled unless set).
+- `--json` — Emit PilotWatchJSON (final single-line envelope; NDJSON pilotWatchHeartbeat lines while waiting).
 
 Output schema: `relayJSON`.
 
