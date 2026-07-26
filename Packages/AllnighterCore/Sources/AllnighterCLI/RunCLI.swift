@@ -322,6 +322,7 @@ enum RunCLI {
            ) {
             print("\nArtifact: \(url.path)")
             print("Open:     alln artifact show \(run.id)")
+            print("Browser:  open \"\(url.path)\"")
         } else {
             print("\nOpen artifact: alln artifact show \(run.id)")
         }

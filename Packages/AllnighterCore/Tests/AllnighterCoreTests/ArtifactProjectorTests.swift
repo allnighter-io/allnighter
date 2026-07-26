@@ -78,7 +78,10 @@ final class ArtifactProjectorTests: XCTestCase {
     let card = ArtifactProjector.project(multiSeatRun(leadMarkdown: leadCallMarkdown))
     XCTAssertEqual(card.verdict, "Ready")
     XCTAssertEqual(card.call, "Ship the artifact CLI first.")
+    XCTAssertEqual(card.title, "Ship the artifact CLI first.")
+    XCTAssertTrue(card.asked.contains("Should we ship"))
     XCTAssertEqual(card.recommendations.first?.decision, "Verb")
+    XCTAssertFalse(card.cta.isEmpty)
   }
 
   func testLaw2SingleSeatHoistUsesAnswerMarkdownOnChip() {
@@ -110,7 +113,10 @@ final class ArtifactProjectorTests: XCTestCase {
       reproduceCommand: long
     )
     XCTAssertEqual(card.reproduceLine, String(repeating: "a", count: 96) + "…")
-    XCTAssertEqual(card.reproduceRunIdLine, "run_artifact1")
+    XCTAssertEqual(card.runIdLine, "run_artifact1")
+    let html = ArtifactProjector.renderHTML(card)
+    // Exactly one run id presentation in footer (no duplicate UUID lines).
+    XCTAssertEqual(html.components(separatedBy: "run_artifact1").count - 1, 1)
   }
 
   func testFailedSeatVisibleInHTML() {
@@ -147,10 +153,11 @@ final class ArtifactProjectorTests: XCTestCase {
       ArtifactProjector.project(multiSeatRun(leadMarkdown: partialMarkdown))
     )
     XCTAssertTrue(html.contains("verdict-partial"))
+    XCTAssertTrue(html.contains("needs-you"))
     XCTAssertTrue(html.contains("accent-event"))
     XCTAssertTrue(
       ArtifactProjector.g13Violations(in: html).isEmpty,
-      "Partial lockup is one amber event, not two class-name hits"
+      "Partial Needs-you is the one amber content event"
     )
   }
 
@@ -175,8 +182,42 @@ final class ArtifactProjectorTests: XCTestCase {
     var run = multiSeatRun(leadMarkdown: leadCallMarkdown)
     run.prompt = longPrompt
     let card = ArtifactProjector.project(run)
-    XCTAssertEqual(card.question.count, 121)
-    XCTAssertTrue(card.question.hasSuffix("…"))
+    XCTAssertEqual(card.asked.count, 121)
+    XCTAssertTrue(card.asked.hasSuffix("…"))
+  }
+
+  func testLeadSeatNotQueuedWhenAnswerHoisted() {
+    let worker = Worker(id: "model_opus#1", modelId: "model_opus", instanceIndex: 1,
+                        skillId: "lead", skillName: "Lead", purpose: .plan)
+    let answers = [
+      TeamAnswer(memberId: "model_opus#1", modelId: "model_opus", role: "plan",
+                 result: WorkerRunResult(status: .queued, output: "",
+                                         timing: RunTiming(durationMs: nil))),
+    ]
+    let plan = StageOutput(
+      id: "stage_plan", purpose: .plan, producedByWorkerId: "model_opus#1",
+      status: .done, payload: .plan(markdown: leadCallMarkdown)
+    )
+    let run = TeamRun(
+      id: "run_lead_hoist", prompt: "Ship?", status: .complete,
+      workers: [worker], workerAnswers: answers, stages: [plan], createdAt: now,
+      teamDisplayName: "Spec Polish"
+    )
+    let card = ArtifactProjector.project(run)
+    let lead = try! XCTUnwrap(card.seats.first)
+    XCTAssertEqual(lead.status, "done")
+    XCTAssertFalse(ArtifactProjector.renderHTML(card).contains("data-status=\"queued\""))
+  }
+
+  func testOnePagerUsesDecisionTitleNotPrompt() {
+    let html = ArtifactProjector.renderHTML(
+      ArtifactProjector.project(multiSeatRun(leadMarkdown: leadCallMarkdown))
+    )
+    XCTAssertTrue(html.contains("<h1 class=\"title\">"))
+    XCTAssertTrue(html.contains("Ship the artifact CLI first."))
+    XCTAssertTrue(html.contains("Asked"))
+    XCTAssertTrue(html.contains("Full notes (appendix)"))
+    XCTAssertTrue(html.contains("Do this next") || html.contains("Next"))
   }
 
   func testScoutExcludedFromSeatSet() {

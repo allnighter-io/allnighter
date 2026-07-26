@@ -3,6 +3,8 @@ import AgentOSTeam
 
 /// Projects a terminal `TeamRun` into a private HTML team artifact (TRR-S01).
 /// Pure and deterministic — no filesystem or run store.
+///
+/// Reading contract: Amazon one-pager / CEO memo — decision first, appendix last.
 public enum ArtifactProjector {
   public static let honesty = "alln-attested multi-seat artifact · not vendor-signed"
 
@@ -19,22 +21,30 @@ public enum ArtifactProjector {
     public var status: String
     public var durationMs: Int?
     public var oneLiner: String?
+    /// Optional short body for click-to-expand (not the Floor).
+    public var detailExcerpt: String?
     public var isLead: Bool
   }
 
   public struct Card: Equatable, Sendable {
     public var runId: String
-    public var question: String
+    /// Outcome headline (from Lead call) — never the raw prompt.
+    public var title: String
+    /// Muted “Asked” line (capped prompt).
+    public var asked: String
     public var teamLabel: String
     public var verdict: String?
     public var verdictPartial: Bool
     public var call: String?
-    public var changed: String?
+    /// Only shown when substantive (not worker-meta gossip).
+    public var whyItMatters: String?
     public var recommendations: [Recommendation]
+    public var nextMove: String?
+    public var cta: String
     public var seats: [Seat]
     public var craftBody: String?
     public var reproduceLine: String?
-    public var reproduceRunIdLine: String?
+    public var runIdLine: String
     public var honesty: String
   }
 
@@ -79,8 +89,9 @@ public enum ArtifactProjector {
     let call = leadCall?.call
       ?? fallbackCall(from: leadMarkdown)
       ?? "(no synthesized output — status \(run.status.rawValue))"
+    let title = headlineTitle(call: call, teamLabel: teamLabel)
     let recommendations = (leadCall?.recommendations ?? [])
-      .prefix(3)
+      .prefix(5)
       .compactMap { rec -> Recommendation? in
         guard let decision = rec.decision, !decision.isEmpty else { return nil }
         return Recommendation(
@@ -90,28 +101,35 @@ public enum ArtifactProjector {
         )
       }
 
+    let whyItMatters = substantiveChanged(leadCall?.changed)
+    let nextMove = leadCall?.nextMove.flatMap { $0.isEmpty ? nil : $0 }
+    let cta = primaryCTA(partial: verdict == "Partial", nextMove: nextMove)
     let seats = seatCards(for: run, hoistedAnswer: trj.answer, context: context)
     let craftBody = leadMarkdown.map { LeadCallParser.stripFence(from: $0) }
       .flatMap { $0.isEmpty ? nil : $0 }
+      .map { shortenCraft($0) }
 
-    let (reproduceLine, reproduceRunIdLine) = elidedReproduce(
+    let (reproduceLine, _) = elidedReproduce(
       command: reproduceCommand,
       runId: run.id
     )
 
     return Card(
       runId: run.id,
-      question: capped(run.prompt, max: 120),
+      title: capped(title, max: 140),
+      asked: capped(run.prompt, max: 120),
       teamLabel: teamLabel,
       verdict: verdict,
       verdictPartial: verdict == "Partial",
-      call: capped(call, max: 280),
-      changed: leadCall?.changed,
+      call: capped(call, max: 320),
+      whyItMatters: whyItMatters.map { capped($0, max: 200) },
       recommendations: recommendations,
+      nextMove: nextMove.map { capped($0, max: 200) },
+      cta: cta,
       seats: seats,
       craftBody: craftBody,
       reproduceLine: reproduceLine,
-      reproduceRunIdLine: reproduceRunIdLine,
+      runIdLine: run.id,
       honesty: honesty
     )
   }
@@ -125,7 +143,7 @@ public enum ArtifactProjector {
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>Team artifact · \(escape(card.runId))</title>
+      <title>\(escape(card.title))</title>
       <style>\(css)</style>
     </head>
     <body>
@@ -147,8 +165,6 @@ public enum ArtifactProjector {
     if outsideStyle.range(of: "#[0-9A-Fa-f]{3,8}", options: .regularExpression) != nil {
       issues.append("hex-outside-token-layer")
     }
-    // G2/G13: one amber content event — count `accent-event` markers only.
-    // Partial lockups also carry `verdict-partial` for styling; do not double-count.
     let header = html.components(separatedBy: "<section class=\"seats\">").first ?? html
     let amberEvents = header.components(separatedBy: "accent-event").count - 1
     if amberEvents > 1 { issues.append("multiple-amber-content-events") }
@@ -166,29 +182,54 @@ public enum ArtifactProjector {
     let modelCounts = Dictionary(grouping: seatWorkers, by: \.modelId).mapValues(\.count)
     return seatWorkers.map { worker in
       let answer = run.workerAnswer(workerId: worker.id)
-      let status = answer?.result.status.rawValue ?? "queued"
+      let (status, durationMs) = resolvedSeatStatus(
+        worker: worker,
+        answer: answer,
+        hoistedAnswer: hoistedAnswer
+      )
       let sharesModel = (modelCounts[worker.modelId] ?? 0) > 1
       let display = worker.displayName(
         modelName: context.modelDisplayName(worker.modelId),
         sharesModel: sharesModel
+      )
+      let markdown = seatMarkdown(
+        worker: worker, answer: answer, hoistedAnswer: hoistedAnswer
       )
       return Seat(
         workerId: worker.id,
         displayName: display,
         sourceId: context.sourceId(worker.modelId),
         status: status,
-        durationMs: answer?.result.timing.durationMs,
-        oneLiner: seatOneLiner(
-          worker: worker,
-          answer: answer,
-          hoistedAnswer: hoistedAnswer
-        ),
+        durationMs: durationMs,
+        oneLiner: seatOneLiner(from: markdown),
+        detailExcerpt: seatDetailExcerpt(from: markdown),
         isLead: worker.purpose == .plan
       )
     }
   }
 
-  private static func seatOneLiner(
+  /// Law-2 + trust: Lead chip must not stay `queued` when the synthesized answer exists.
+  private static func resolvedSeatStatus(
+    worker: Worker,
+    answer: TeamAnswer?,
+    hoistedAnswer: TeamRunJSON.Answer?
+  ) -> (String, Int?) {
+    var status = answer?.result.status.rawValue ?? "queued"
+    var durationMs = answer?.result.timing.durationMs
+    let emptyOutput = answer?.output?
+      .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+    if worker.purpose == .plan,
+       let hoisted = hoistedAnswer,
+       (answer == nil || status == "queued" || emptyOutput) {
+      status = hoisted.status.rawValue
+      if durationMs == nil {
+        durationMs = nil
+      }
+    }
+    return (status, durationMs)
+  }
+
+  private static func seatMarkdown(
     worker: Worker,
     answer: TeamAnswer?,
     hoistedAnswer: TeamRunJSON.Answer?
@@ -198,8 +239,20 @@ public enum ArtifactProjector {
        hoistedAnswer?.source.workerId == worker.id {
       markdown = hoistedAnswer?.markdown
     }
-    guard let line = firstLine(markdown) else { return nil }
+    return markdown
+  }
+
+  private static func seatOneLiner(from markdown: String?) -> String? {
+    guard let line = firstSubstantiveLine(markdown) else { return nil }
     return capped(line, max: 120)
+  }
+
+  private static func seatDetailExcerpt(from markdown: String?) -> String? {
+    guard let markdown else { return nil }
+    let stripped = LeadCallParser.stripFence(from: markdown)
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard stripped.count > 140 else { return nil }
+    return capped(stripped, max: 480)
   }
 
   // MARK: - HTML
@@ -208,33 +261,54 @@ public enum ArtifactProjector {
     var parts: [String] = []
     parts.append("<header class=\"card-header\">")
     if let verdict = card.verdict {
-      let cls = card.verdictPartial ? "verdict verdict-partial accent-event" : "verdict verdict-ready"
-      let label = card.verdictPartial ? "Partial · needs you" : verdict
+      // Ready: calm ink. Partial: amber lives on Needs you (one accent-event), not the pill.
+      let cls = card.verdictPartial ? "verdict verdict-partial" : "verdict verdict-ready"
+      let label = card.verdictPartial ? "Needs you" : "Ready"
       parts.append("<div class=\"\(cls)\">\(escape(label))</div>")
     }
     parts.append("<div class=\"team-line\">\(escape(card.teamLabel))</div>")
-    parts.append("<h1 class=\"question\">\(escape(card.question))</h1>")
+    parts.append("<h1 class=\"title\">\(escape(card.title))</h1>")
+    parts.append("<p class=\"asked\"><span class=\"asked-label\">Asked</span> \(escape(card.asked))</p>")
     parts.append("</header>")
 
-    if let call = card.call, !call.isEmpty {
-      parts.append("<section class=\"call\"><h2>The call</h2><p>\(escape(call))</p></section>")
-    }
-    if let changed = card.changed, !changed.isEmpty {
-      parts.append("<section class=\"changed\"><h2>What changed</h2><p>\(escape(changed))</p></section>")
-    }
-    if !card.recommendations.isEmpty {
-      parts.append("<section class=\"recommendations\"><h2>Recommendations</h2><ul>")
-      for rec in card.recommendations {
-        parts.append(
-          "<li><strong>\(escape(rec.decision))</strong> — \(escape(rec.lean))"
-          + (rec.why.isEmpty ? "" : " <span class=\"muted\">(\(escape(rec.why)))</span>")
-          + "</li>"
-        )
-      }
-      parts.append("</ul></section>")
+    if card.verdictPartial {
+      parts.append(needsYouHTML(card))
     }
 
-    parts.append("<section class=\"seats\"><h2>Seats</h2><div class=\"seat-grid\">")
+    if let call = card.call, !call.isEmpty {
+      parts.append(
+        "<section class=\"call\"><h2>The decision</h2><p class=\"call-text\">\(escape(call))</p></section>"
+      )
+    }
+
+    if let why = card.whyItMatters, !why.isEmpty {
+      parts.append(
+        "<section class=\"why\"><h2>Why it matters</h2><p>\(escape(why))</p></section>"
+      )
+    }
+
+    if !card.recommendations.isEmpty {
+      let heading = card.verdictPartial ? "Options for you" : "Do this next"
+      parts.append("<section class=\"recommendations\"><h2>\(heading)</h2><ol>")
+      for rec in card.recommendations {
+        let lean = rec.lean.isEmpty ? "" : " — \(escape(rec.lean))"
+        let why = rec.why.isEmpty ? "" : "<div class=\"rec-why\">\(escape(rec.why))</div>"
+        parts.append(
+          "<li><strong>\(escape(rec.decision))</strong>\(lean)\(why)</li>"
+        )
+      }
+      parts.append("</ol></section>")
+    }
+
+    parts.append(
+      "<section class=\"cta-block\(card.verdictPartial ? " cta-partial" : "")\">"
+      + "<div class=\"cta-label\">Next</div>"
+      + "<p class=\"cta-text\">\(escape(card.cta))</p>"
+      + (card.nextMove.map { "<p class=\"cta-detail\">\(escape($0))</p>" } ?? "")
+      + "</section>"
+    )
+
+    parts.append("<section class=\"seats\"><h2>Who weighed in</h2><div class=\"seat-grid\">")
     for seat in card.seats {
       parts.append(seatChipHTML(seat))
     }
@@ -242,8 +316,10 @@ public enum ArtifactProjector {
 
     if let craft = card.craftBody, !craft.isEmpty {
       parts.append(
-        "<section class=\"craft\"><h2>Craft body</h2>"
-        + "<div class=\"craft-body\">\(escape(craft))</div></section>"
+        "<section class=\"craft\">"
+        + "<details><summary>Full notes (appendix)</summary>"
+        + "<div class=\"craft-body\">\(renderSimpleMarkdown(craft))</div>"
+        + "</details></section>"
       )
     }
 
@@ -252,13 +328,30 @@ public enum ArtifactProjector {
     if let reproduce = card.reproduceLine, !reproduce.isEmpty {
       parts.append("<div class=\"reproduce\"><code>\(escape(reproduce))</code></div>")
     }
-    if let runLine = card.reproduceRunIdLine {
-      parts.append("<div class=\"run-micro\">\(escape(runLine))</div>")
-    }
-    parts.append("<div class=\"run-id\">\(escape(card.runId))</div>")
+    parts.append("<div class=\"run-id\">Run \(escape(card.runIdLine))</div>")
     parts.append("</footer>")
 
     return parts.joined(separator: "\n")
+  }
+
+  private static func needsYouHTML(_ card: Card) -> String {
+    var items = ""
+    if card.recommendations.isEmpty {
+      items = "<li>Reply with the decision you want locked — the team left this open.</li>"
+    } else {
+      for rec in card.recommendations.prefix(5) {
+        items += "<li>\(escape(rec.decision))"
+          + (rec.lean.isEmpty ? "" : " → <em>\(escape(rec.lean))</em>")
+          + "</li>"
+      }
+    }
+    return """
+    <section class="needs-you accent-event">
+      <h2>Needs you</h2>
+      <p class="needs-lead">This page is not closed until you answer:</p>
+      <ul>\(items)</ul>
+    </section>
+    """
   }
 
   private static func seatChipHTML(_ seat: Seat) -> String {
@@ -268,8 +361,7 @@ public enum ArtifactProjector {
     let duration = seat.durationMs.map { formatDuration(ms: $0) } ?? ""
     let leadClass = seat.isLead ? " seat-lead" : ""
     let oneLiner = seat.oneLiner.map { "<div class=\"one-liner\">\(escape($0))</div>" } ?? ""
-    return """
-    <article class="seat-chip\(leadClass)" data-status="\(escape(seat.status))">
+    let summary = """
       <div class="glyph">\(escape(glyph))</div>
       <div class="seat-main">
         <div class="seat-name">\(escape(seat.displayName))\(seat.isLead ? " <span class=\"lead-label\">Lead</span>" : "")</div>
@@ -279,6 +371,18 @@ public enum ArtifactProjector {
         <span class="status-dot status-\(escape(seat.status))" aria-label="\(escape(seat.status))"></span>
         <span class="duration">\(escape(duration))</span>
       </div>
+    """
+    if let detail = seat.detailExcerpt, !detail.isEmpty {
+      return """
+      <details class="seat-chip\(leadClass)" data-status="\(escape(seat.status))">
+        <summary class="seat-summary">\(summary)</summary>
+        <div class="seat-detail">\(escape(detail))</div>
+      </details>
+      """
+    }
+    return """
+    <article class="seat-chip\(leadClass)" data-status="\(escape(seat.status))">
+      <div class="seat-summary">\(summary)</div>
     </article>
     """
   }
@@ -336,7 +440,7 @@ public enum ArtifactProjector {
     }
     .artifact {
       max-width: var(--container-reading);
-      margin: 0 auto;
+      margin: var(--space-6) auto;
       padding: var(--space-8) var(--space-5);
       background: var(--bg-raised);
       border: 1px solid var(--border-subtle);
@@ -344,15 +448,16 @@ public enum ArtifactProjector {
       box-shadow: var(--shadow-sm);
     }
     h1, h2 { margin: 0 0 var(--space-3); font-weight: 600; }
-    h1.question { font-size: 1.25rem; }
-    h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+    h1.title { font-size: 1.45rem; line-height: 1.25; letter-spacing: -0.02em; }
+    h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
     .card-header { margin-bottom: var(--space-6); }
     .verdict {
       display: inline-block;
       padding: var(--space-2) var(--space-3);
-      border-radius: var(--radius-lg);
+      border-radius: 999px;
       border: 1px solid var(--border-default);
-      font-size: 0.9rem;
+      font-size: 0.8rem;
+      font-weight: 600;
       margin-bottom: var(--space-3);
     }
     .verdict-ready { color: var(--text-primary); background: transparent; }
@@ -361,23 +466,55 @@ public enum ArtifactProjector {
       background: var(--accent-surface);
       border-color: var(--accent-border);
     }
-    .team-line { color: var(--text-secondary); font-size: 0.95rem; margin-bottom: var(--space-2); }
+    .team-line { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-2); }
+    .asked { color: var(--text-muted); font-size: 0.85rem; margin: var(--space-3) 0 0; }
+    .asked-label { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-right: var(--space-2); }
     section { margin-bottom: var(--space-6); }
-    .call p, .changed p { font-size: 1.05rem; margin: 0; }
-    .recommendations ul { margin: 0; padding-left: 1.2rem; }
-    .recommendations li { margin-bottom: var(--space-2); }
-    .muted { color: var(--text-muted); }
+    .call-text { font-size: 1.15rem; margin: 0; line-height: 1.4; }
+    .why p { margin: 0; color: var(--text-secondary); }
+    .needs-you {
+      border: 1px solid var(--accent-border);
+      background: var(--accent-surface);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+    }
+    .needs-you h2 { color: var(--accent-text); }
+    .needs-lead { margin: 0 0 var(--space-3); color: var(--text-primary); }
+    .needs-you ul { margin: 0; padding-left: 1.2rem; }
+    .needs-you li { margin-bottom: var(--space-2); }
+    .recommendations ol { margin: 0; padding-left: 1.2rem; }
+    .recommendations li { margin-bottom: var(--space-3); }
+    .rec-why { color: var(--text-muted); font-size: 0.9rem; margin-top: 2px; }
+    .cta-block {
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      background: var(--bg-base);
+    }
+    .cta-block.cta-partial {
+      border-color: var(--accent-border);
+      background: var(--accent-surface);
+    }
+    .cta-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: var(--space-2); }
+    .cta-text { margin: 0; font-size: 1.05rem; font-weight: 600; }
+    .cta-detail { margin: var(--space-2) 0 0; color: var(--text-secondary); font-size: 0.9rem; }
     .seat-grid { display: flex; flex-direction: column; gap: var(--space-3); }
     .seat-chip {
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      gap: var(--space-3);
-      align-items: start;
+      display: block;
       padding: var(--space-3);
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-lg);
       background: var(--bg-base);
     }
+    .seat-summary {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: var(--space-3);
+      align-items: start;
+      list-style: none;
+    }
+    details.seat-chip > summary.seat-summary { cursor: pointer; }
+    .seat-summary::-webkit-details-marker { display: none; }
     .seat-lead { border-color: var(--border-default); }
     .glyph {
       width: 28px; height: 28px;
@@ -392,6 +529,14 @@ public enum ArtifactProjector {
     .lead-label { color: var(--text-muted); font-size: 0.8rem; }
     .one-liner { color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px; }
     .seat-meta { display: flex; align-items: center; gap: var(--space-2); }
+    .seat-detail {
+      margin-top: var(--space-3);
+      padding-top: var(--space-3);
+      border-top: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+    }
     .status-dot {
       width: 8px; height: 8px; border-radius: 999px;
       display: inline-block;
@@ -402,16 +547,17 @@ public enum ArtifactProjector {
     .status-failed { background: var(--status-failed); }
     .status-timed_out { background: var(--status-timed_out); }
     .duration { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-faint); font-size: 0.8rem; }
+    .craft details { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); background: var(--bg-base); }
+    .craft summary { cursor: pointer; color: var(--text-secondary); font-size: 0.9rem; }
     .craft-body {
-      white-space: pre-wrap;
+      margin-top: var(--space-4);
       font-size: 0.9rem;
       color: var(--text-secondary);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-      background: var(--bg-base);
-      overflow-x: auto;
     }
+    .craft-body h3 { font-size: 0.95rem; color: var(--text-primary); margin: var(--space-4) 0 var(--space-2); text-transform: none; letter-spacing: 0; }
+    .craft-body p { margin: 0 0 var(--space-3); }
+    .craft-body ul, .craft-body ol { margin: 0 0 var(--space-3); padding-left: 1.2rem; }
+    .craft-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
     .footer {
       margin-top: var(--space-8);
       padding-top: var(--space-4);
@@ -420,20 +566,123 @@ public enum ArtifactProjector {
       color: var(--text-muted);
     }
     .reproduce code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .run-micro, .run-id { margin-top: var(--space-2); color: var(--text-faint); }
+    .run-id { margin-top: var(--space-2); color: var(--text-faint); }
     @media (max-width: 430px) {
-      .artifact { padding: var(--space-5) var(--space-4); border-radius: 0; border-left: 0; border-right: 0; }
-      .seat-chip { grid-template-columns: auto 1fr; }
+      .artifact { margin: 0; padding: var(--space-5) var(--space-4); border-radius: 0; border-left: 0; border-right: 0; }
+      .seat-summary { grid-template-columns: auto 1fr; }
       .seat-meta { grid-column: 2; }
+      h1.title { font-size: 1.25rem; }
     }
     @media (min-width: 1280px) {
-      .artifact { padding: var(--space-8) var(--space-6); }
-      h1.question { font-size: 1.35rem; }
+      .artifact { padding: var(--space-8) var(--space-6); margin: var(--space-8) auto; }
+      h1.title { font-size: 1.6rem; }
     }
     """
   }
 
   // MARK: - Helpers
+
+  private static func headlineTitle(call: String, teamLabel: String) -> String {
+    let trimmed = call.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.hasPrefix("(") { return "\(teamLabel) · result" }
+    // Prefer first sentence; keep the period if present.
+    if let dot = trimmed.firstIndex(of: "."), trimmed.distance(from: trimmed.startIndex, to: dot) < 140 {
+      return String(trimmed[...dot]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    if let nl = trimmed.firstIndex(of: "\n") {
+      return String(trimmed[..<nl]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    return trimmed
+  }
+
+  private static func substantiveChanged(_ raw: String?) -> String? {
+    guard let raw else { return nil }
+    let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !t.isEmpty else { return nil }
+    let lower = t.lowercased()
+    // Drop worker-meta / process gossip.
+    let banned = ["both workers", "i rule", "closed partial", "lockable engineering", "founder fork", "averaging"]
+    if banned.contains(where: { lower.contains($0) }) { return nil }
+    return t
+  }
+
+  private static func primaryCTA(partial: Bool, nextMove: String?) -> String {
+    if partial {
+      return "Reply with your pick on the Needs you items above."
+    }
+    if let nextMove, !nextMove.isEmpty {
+      return nextMove
+    }
+    return "Approve this plan — no open questions."
+  }
+
+  /// Keep the appendix short: drop repeated Lead Call prose sections if present.
+  private static func shortenCraft(_ markdown: String) -> String {
+    let lines = markdown.components(separatedBy: "\n")
+    var kept: [String] = []
+    var skipUntilNextHeading = false
+    let dropHeadings = [
+      "## status", "## the call", "## what changed", "## recommendations",
+      "## contrarian flags", "## next move", "## proof", "## basis", "## worker credit",
+    ]
+    for line in lines {
+      let lower = line.trimmingCharacters(in: .whitespaces).lowercased()
+      if lower.hasPrefix("## ") {
+        skipUntilNextHeading = dropHeadings.contains(where: { lower.hasPrefix($0) })
+        if skipUntilNextHeading { continue }
+      }
+      if skipUntilNextHeading { continue }
+      kept.append(line)
+    }
+    let joined = kept.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    return capped(joined, max: 3500)
+  }
+
+  private static func renderSimpleMarkdown(_ text: String) -> String {
+    var html: [String] = []
+    var inList = false
+    for raw in text.components(separatedBy: "\n") {
+      let line = raw.trimmingCharacters(in: .whitespaces)
+      if line.isEmpty {
+        if inList { html.append("</ul>"); inList = false }
+        continue
+      }
+      if line.hasPrefix("### ") {
+        if inList { html.append("</ul>"); inList = false }
+        html.append("<h3>\(escape(String(line.dropFirst(4))))</h3>")
+      } else if line.hasPrefix("## ") {
+        if inList { html.append("</ul>"); inList = false }
+        html.append("<h3>\(escape(String(line.dropFirst(3))))</h3>")
+      } else if line.hasPrefix("- ") || line.hasPrefix("* ") {
+        if !inList { html.append("<ul>"); inList = true }
+        html.append("<li>\(inlineFormat(String(line.dropFirst(2))))</li>")
+      } else if line.hasPrefix("|") {
+        if inList { html.append("</ul>"); inList = false }
+        // Skip table chrome in appendix — keep as paragraph.
+        html.append("<p>\(inlineFormat(line))</p>")
+      } else {
+        if inList { html.append("</ul>"); inList = false }
+        html.append("<p>\(inlineFormat(line))</p>")
+      }
+    }
+    if inList { html.append("</ul>") }
+    return html.joined(separator: "\n")
+  }
+
+  private static func inlineFormat(_ text: String) -> String {
+    var s = escape(text)
+    // **bold**
+    while let r = s.range(of: #"\*\*([^*]+)\*\*"#, options: .regularExpression) {
+      let inner = String(s[r]).dropFirst(2).dropLast(2)
+      s.replaceSubrange(r, with: "<strong>\(inner)</strong>")
+    }
+    // `code`
+    while let r = s.range(of: #"`([^`]+)`"#, options: .regularExpression) {
+      let inner = String(s[r]).dropFirst().dropLast()
+      s.replaceSubrange(r, with: "<code>\(inner)</code>")
+    }
+    return s
+  }
 
   private static func normalizedVerdict(_ raw: String?) -> String? {
     guard let raw else { return nil }
@@ -452,6 +701,8 @@ public enum ArtifactProjector {
       .filter { line in
         !line.isEmpty && !line.hasPrefix("```") && !line.hasPrefix("#")
           && !line.lowercased().hasPrefix("status:")
+          && !line.lowercased().hasPrefix("i'm the lead")
+          && !line.lowercased().hasPrefix("i am the lead")
       }
     guard !lines.isEmpty else { return nil }
     return lines.prefix(2).joined(separator: " ")
@@ -463,11 +714,16 @@ public enum ArtifactProjector {
     return (String(command.prefix(96)) + "…", runId)
   }
 
-  private static func firstLine(_ text: String?) -> String? {
+  private static func firstSubstantiveLine(_ text: String?) -> String? {
     guard let text else { return nil }
     for line in text.components(separatedBy: "\n") {
       let trimmed = line.trimmingCharacters(in: .whitespaces)
-      if !trimmed.isEmpty { return trimmed }
+      if trimmed.isEmpty || trimmed.hasPrefix("```") { continue }
+      if trimmed.lowercased().hasPrefix("i'll ") || trimmed.lowercased().hasPrefix("i will ") {
+        continue
+      }
+      if trimmed.lowercased().hasPrefix("reviewing ") { continue }
+      return trimmed
     }
     return nil
   }
