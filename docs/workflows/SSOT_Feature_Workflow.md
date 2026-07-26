@@ -29,10 +29,19 @@ enroll repo on Mac -> run team (parallel CLIs -> plan) -> review on Mac
 
 ## Phases Are Ephemeral (never SSOT)
 
-`docs/phases/` holds **build packets** while a feature is in flight. Durable
-product truth is **code** (and standing ops / design-system docs outside
-phases). When the product ships, **archive** the phase doc. Do not leave
-“living SSOT” or “Product shipped” documents in `docs/phases/`.
+`docs/phases/` holds **build packets** while a feature is in flight. It is
+never the durable SSOT.
+
+When the product ships (or the packet closes):
+
+1. **Promote** keepable law into the right standing home — code for runtime
+   behavior; `docs/operations/`, `docs/workflows/`, `docs/design-system/`,
+   `docs/gui/`, or `docs/strategy/` for process, invariants, brand, and
+   standing engineering rules.
+2. **Archive** the phase packet under `docs/archive/phases/`.
+
+Do not leave “living SSOT” or “Product shipped” documents in `docs/phases/`.
+Do not archive without promotion when prose must outlive the build.
 
 See `docs/phases/README.md` §Purpose + §Operating Rules.
 

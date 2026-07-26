@@ -69,7 +69,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | --- | --- |
 | Core execution broken, Team research or execution does not work in the real repo | One run owner: `RunService.run`. Mirrors, clones, mechanical read-only Teams, and resident execution do not exist — `config/architecture-policy.json` + `scripts/check_architecture_policy.sh` fail the build if they return. |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
-| Post-MVP planning, open build packets, what to archive next | `docs/phases/README.md` (**ephemeral only** — never SSOT) |
+| Post-MVP planning, open build packets, what to archive next | `docs/phases/README.md` (ephemeral packets only — never SSOT; closeout = promote + archive) |
 | Run model: chat/run = agent in repo root, Default Team, presets, write lock | Code SSOT: `RunService.swift`, `TeamPreset`/`TeamCatalog`, `RunWriteLockRegistry` |
 | Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | Code SSOT: `KillSettlement.swift`, `RunClockEnforcer.swift`, `IdempotencyStore.swift`, `ProcessOwnership.swift` |
 | Codex/host sandbox blocks child CLIs, source processes missing from `alln ps` | The sandbox blocks the Keychain, not the repo — vendor CLIs then believe they are logged out. `alln run` hands off to the open Mac app; a per-session `codex --sandbox danger-full-access` also works. Never a global `sandbox_mode` change. Code SSOT: `SandboxHandoffSpool.swift`, `SandboxHandoffRunner.swift`, `HostSandboxAdvice.swift` |

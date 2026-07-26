@@ -3,8 +3,10 @@
 Completed phase docs move here after closeout.
 
 `Docs/phases/` is only for **ephemeral** phase work. Finished packets archive
-here. **SSOT is never a live `docs/phases/` path** — successor owner is code
-(or a standing ops/design doc outside phases).
+here after **promotion**: keepable truth moves into code and/or standing docs
+(`docs/operations/`, `docs/workflows/`, `docs/design-system/`, `docs/gui/`,
+`docs/strategy/`). **SSOT is never a live `docs/phases/` path.** The archive
+index names the successor owner for each closed packet.
 
 ## Index
 

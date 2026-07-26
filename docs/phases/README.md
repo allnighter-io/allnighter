@@ -8,17 +8,27 @@ Updated: 2026-07-26
 `docs/phases/` holds **ephemeral build packets** — open product slices, spikes,
 and work-in-progress specs while a feature is being built.
 
-**SSOT is never here.** Durable product truth lives in **code** (and, where
-needed, standing ops / design-system / workflow docs outside `phases/`). When a
-packet’s shipped truth is in code, **archive the phase doc** to
-[`docs/archive/phases/`](../archive/phases/README.md). Do not keep “living law”
-or “product shipped” docs in `phases/` as pseudo-SSOTs.
+**SSOT is never in `docs/phases/`.** When a packet closes, archive it to
+[`docs/archive/phases/`](../archive/phases/README.md). Before archive, **promote
+anything that must stay live** into its durable home:
+
+| Kind of truth | Durable home (examples) |
+| --- | --- |
+| Runtime / product behavior | Code (`Packages/AllnighterCore`, apps, contracts) |
+| How we build / operate | `docs/operations/` (playbooks, debugger, tech stack) |
+| How we intake & packet work | `docs/workflows/` |
+| Visual / brand law | `docs/design-system/` |
+| Standing GUI engineering | `docs/gui/` |
+| Strategy (non-build) | `docs/strategy/` |
+
+Do not leave “living law” or “product shipped” docs in `phases/` as pseudo-SSOTs.
+Archived phase docs are **history**, not the owner of keepable invariants.
 
 `docs/mvp/` remains the record of what shipped in the MVP substrate.
 
-> **Trust rule:** a phase doc's own "SHIPPED/BUILT/DONE" banner is not evidence.
-> Verify in code before trusting any status line below. A shipped banner means
-> **archive is overdue**, not “this folder is now the SSOT.”
+> **Trust rule:** a phase doc's own "SHIPPED/BUILT/DONE" banner is not evidence
+> that phases owns the truth. Verify the **successor** (code and/or standing
+> doc). A shipped banner means **promote + archive is overdue**.
 
 ## Current Phase Board
 
@@ -29,7 +39,8 @@ or “product shipped” docs in `phases/` as pseudo-SSOTs.
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. Phase packet — not SSOT. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
 
-> Recently completed and archived — code is the SSOT, do not reopen:
+> Recently completed and archived — do not reopen the phase packet; read the
+> **successor** (code and/or standing docs named in the archive index):
 > [`Team_Run_Receipt.md`](../archive/phases/Team_Run_Receipt.md)
 > (ARCHIVED 2026-07-26 — artifact product shipped; code SSOT `ArtifactProjector` /
 > `ArtifactWriter` / `ArtifactCLI`; S00 growth disposition still historical),
@@ -136,18 +147,20 @@ without a new founder ruling.
 
 ## Operating Rules
 
-- Founder input is intent. Durable semantics go through a phase **packet** while
-  building, then into **code** (SSOT). `docs/phases/` is never the durable SSOT.
+- Founder input is intent. While building, capture it in a phase **packet**.
+  Durable semantics land in **code** and/or **standing docs outside phases**
+  (operations, workflows, design-system, gui, strategy) — never as a permanent
+  resident of `docs/phases/`.
 - New phase docs must name one trusted workflow slice, one truth owner, and one
   Works Test or proof waiver. Use the template in **Adding a Phase Doc** below.
-- Product truth belongs in `AllnighterCore` (or the owning package), protocol
-  contracts, ops/design-system docs outside phases, or archived design records.
-  SwiftUI may render truth; it must not invent it.
+- Closeout = **promote keepable law** into the right standing doc and/or code,
+  then **archive** the phase packet. Skipping promotion dumps truth into the
+  archive where agents stop reading it.
+- SwiftUI may render truth; it must not invent it.
 - Generated output is derived. Change the source contract, then regenerate.
-- **Archive when the product ships** (or when remaining work is explicitly a
-  new packet). Do not leave “Product shipped” / “Living SSOT” docs in
-  `docs/phases/`. A hard cleanup pass on 2026-07-18 archived ~40 delivered
-  docs; keep that habit.
+- Do not leave “Product shipped” / “Living SSOT” docs in `docs/phases/`. A hard
+  cleanup pass on 2026-07-18 archived ~40 delivered docs; keep that habit —
+  with promotion, not archive-only amnesia.
 
 ## Post-MVP Product Laws
 
