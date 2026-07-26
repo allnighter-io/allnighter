@@ -1,7 +1,7 @@
 # TRR-S01c — Mac live artifact preview
 
 Status: **done** (2026-07-25)
-SSOT: `docs/phases/Team_Run_Receipt.md` §TRR-S01c + `docs/phases/Live_Team_Board.md` (events)
+SSOT: `docs/archive/phases/Team_Run_Receipt.md` §TRR-S01c + `docs/phases/Live_Team_Board.md` (events)
 
 ## Goal
 
@@ -16,7 +16,7 @@ Implement TRR-S01c ONLY.
 
 Read:
 - docs/phases/sprint/team-run-receipt/TRR-S01c-live-paint.md
-- docs/phases/Team_Run_Receipt.md §TRR-S01c
+- docs/archive/phases/Team_Run_Receipt.md §TRR-S01c
 - docs/phases/Live_Team_Board.md (workerStatusChanged, workerAnswerDelta)
 - Existing live board / Factory Floor live surfaces in Apps/AllnighterMac
 

@@ -12,7 +12,7 @@ Allnighter/
     FOLDER_MAP.md
     WORKING_RULES.md
     mvp/                          # active MVP execution truth
-    phases/                       # full build phases + ios/ remote spine
+    phases/                       # ephemeral build packets only (never SSOT)
     strategy/
     workflows/
     operations/
@@ -37,10 +37,10 @@ Allnighter/
 - `ALLNIGHTER.md`: product spec index and platform summary.
 - `README.md`: human overview and doc index.
 - `docs/mvp/README.md`: built Team MVP execution truth.
-- `docs/phases/README.md`: active post-MVP phase router.
+- `docs/phases/README.md`: ephemeral post-MVP phase router (**not** SSOT).
 - `docs/strategy/Allnighter-Agent-Control-Loop-Strategy.md`: agent control loop strategy.
-- `docs/phases/*.md`: active phase notes, specs, and execution docs.
-- `docs/archive/`: superseded docs; history only after closeout.
+- `docs/phases/*.md`: open build packets only; archive when shipped.
+- `docs/archive/`: closed phase records; code (or ops/design outside phases) is successor SSOT.
 - `docs/workflows/SSOT_*.md`: founder intake and feature packet shape.
 - `docs/operations/Execution-Playbook.md`: slice process and closeout checklist.
 - `docs/operations/GLM_Worker_Best_Practices.md`: GLM seating, serial hardening pass, F1–F5.
@@ -57,4 +57,5 @@ Allnighter/
 | Team/worker orchestration | `Packages/AllnighterCore/Sources/AllnighterEngine/` |
 | Mac app shell + UI | `Apps/AllnighterMac/` |
 | iOS remote UI state | `docs/phases/ios/` + `Allnighter/` or `Apps/AllnighteriOS/` (presenters only; state from Mac) |
-| Product semantics | `docs/mvp/` and `docs/phases/` before code diverges |
+| Product semantics | Code in `Packages/AllnighterCore/`; `docs/mvp/` for MVP record; `docs/phases/` only while building (then archive) |
+| Team run artifact HTML | Code SSOT: `ArtifactProjector` / `ArtifactWriter` / `ArtifactCLI` |

@@ -1,12 +1,13 @@
 # Buzz Harness Spike — receipt in an attended room
 
 Status: **SPIKE — exploratory, throwaway-permitted. Not a product commitment.
-No laws change. No core contract changes allowed.** Deferred behind
-`docs/phases/Team_Run_Receipt.md` (build the receipt first; then feel it here).
+No laws change. No core contract changes allowed.** Deferred behind archived
+receipt / code artifact path (build the receipt first; then feel it here).
 Owner: Founder (strategy), one short session (execution) after receipts exist
-Updated: 2026-07-25 (reframed — drop firm/plural-member mythology)
+Updated: 2026-07-26 (phases ≠ SSOT; receipt archived)
 Companion: `docs/strategy/Buzz_And_The_Judgment_Layer.md` — the why (revised).
-Product path: `docs/phases/Team_Run_Receipt.md` — gorgeous private receipt.
+Product path: code SSOT `ArtifactProjector` / `ArtifactCLI`; closed record
+`docs/archive/phases/Team_Run_Receipt.md`.
 
 ## 2026-07-25 reframe
 
@@ -36,7 +37,7 @@ That is still a **legibility** test, not an engineering bet on Buzz.
 ## Prerequisites
 
 1. Team Run Receipt S01+ available locally (`alln team open` or equivalent)
-   for a completed team run — see `Team_Run_Receipt.md`.
+   for a completed team run — see archived `Team_Run_Receipt.md` / `ArtifactProjector`.
 2. Founder has already tasted the receipt in CLI (and optionally Mac Factory
    Floor). If CLI WOW is weak, fix the receipt — do not debug Buzz.
 
@@ -131,7 +132,7 @@ Deliverable is the **feeling**, not a harness repo.
 - **Sandbox/spawn.** Prefer ordinary user terminal for the calling side;
   note dependencies; do not revive deleted resident broker mythology.
 - **Premature Buzz polish before receipt WOW.** If S01 is ugly, stop and
-  return to `Team_Run_Receipt.md`.
+  return to archived `Team_Run_Receipt.md` / code `ArtifactProjector`.
 
 ## Decision this spike feeds
 

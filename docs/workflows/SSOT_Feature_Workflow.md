@@ -27,6 +27,15 @@ MVP loop from `ALLNIGHTER.md`:
 enroll repo on Mac -> run team (parallel CLIs -> plan) -> review on Mac
 ```
 
+## Phases Are Ephemeral (never SSOT)
+
+`docs/phases/` holds **build packets** while a feature is in flight. Durable
+product truth is **code** (and standing ops / design-system docs outside
+phases). When the product ships, **archive** the phase doc. Do not leave
+“living SSOT” or “Product shipped” documents in `docs/phases/`.
+
+See `docs/phases/README.md` §Purpose + §Operating Rules.
+
 ## Non-Negotiable Rule
 
 Every semantic rule starts in an owning source of truth.

@@ -1,7 +1,7 @@
 # TRR-S00 — Growth measure scorecard scaffold
 
 Status: **awaiting founder disposition** (scaffold Done; does not block product)
-SSOT: `docs/phases/Team_Run_Receipt.md` §TRR-S00
+SSOT: `docs/archive/phases/Team_Run_Receipt.md` §TRR-S00
 
 ## Goal
 

@@ -5,19 +5,20 @@ Updated: 2026-07-26
 
 ## Purpose
 
-`docs/phases/` is the home for **live** post-MVP product slices and law SSOTs.
-Finished phase docs move to [`docs/archive/phases/`](../archive/phases/README.md)
-after their durable truth is promoted to code — **the code is the source of
-truth, not the doc header.** A hard cleanup pass on 2026-07-18 archived ~40
-delivered docs (verified against code); see the archive index for where each
-one's truth now lives.
+`docs/phases/` holds **ephemeral build packets** — open product slices, spikes,
+and work-in-progress specs while a feature is being built.
+
+**SSOT is never here.** Durable product truth lives in **code** (and, where
+needed, standing ops / design-system / workflow docs outside `phases/`). When a
+packet’s shipped truth is in code, **archive the phase doc** to
+[`docs/archive/phases/`](../archive/phases/README.md). Do not keep “living law”
+or “product shipped” docs in `phases/` as pseudo-SSOTs.
 
 `docs/mvp/` remains the record of what shipped in the MVP substrate.
 
 > **Trust rule:** a phase doc's own "SHIPPED/BUILT/DONE" banner is not evidence.
-> Several archived docs had stale headers (`Worker_Session_Continuity` said "CODE
-> RED" while SOLVED; `03_Mac_Streaming` said "Ready for implementation" while
-> fully built). Verify in code before trusting any status line below.
+> Verify in code before trusting any status line below. A shipped banner means
+> **archive is overdue**, not “this folder is now the SSOT.”
 
 ## Current Phase Board
 
@@ -25,10 +26,13 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
+| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. Phase packet — not SSOT. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
 
 > Recently completed and archived — code is the SSOT, do not reopen:
+> [`Team_Run_Receipt.md`](../archive/phases/Team_Run_Receipt.md)
+> (ARCHIVED 2026-07-26 — artifact product shipped; code SSOT `ArtifactProjector` /
+> `ArtifactWriter` / `ArtifactCLI`; S00 growth disposition still historical),
 > [`Pilot_Long_Turn_Survival.md`](../archive/phases/Pilot_Long_Turn_Survival.md)
 > (Complete 2026-07-26 — S01/S03/S04/S02 + audit `5761dd59`/`abb00890`/`c06c3f3d`/`9074f9ae`/`01402ab3`;
 > contract 4.0.9; durable round vs disposable waiter),
@@ -73,17 +77,22 @@ one's truth now lives.
 | [`Agent_Onboarding.md`](../archive/phases/Agent_Onboarding.md) | **Complete 2026-07-20, archived** — ONB-S01–S03 (`b6083575` / `bd28ebf0` / `a732d234` / `99fb5778`); PARKED remain parked | From findable to suggested: Teach your CLIs + recipe cards + `teaching.installed` doctor. Code SSOT: `TeachingSnippet.swift`, `GlobalTeachingInstaller.swift`, `RecipeCatalog`. |
 | [`Agent_Intent_Router.md`](../archive/phases/Agent_Intent_Router.md) | **TOMBSTONED** — superseded by archived `Menu_Not_Router.md` | Historical intent-router phase. Do not implement; selection truth is the live menu. |
 
-### CLI spine & law SSOTs (living reference — keep, do not archive)
+### Open phase packets (not SSOT — archive when the open work closes)
+
+These may still have **forward** slices. They are build packets, not durable
+law. Shipped subsections already belong to code; do not cite these paths as
+“the SSOT.”
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | **Living spine SSOT** (M1 built) | `alln` as the first-class agent contract; owns forward naming/agent-first laws. Run-journal foundation work (`RunStore.swift`) currently in flight. |
-| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Living implementation SSOT** (M1 built) | Generated docs/doctor/errors/events + proof gates. Forward CLI work: SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
-| [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | **Living vocabulary contract** | Source/bench/model/skill/worker/team/lane/type/effort/preset word list for new phase docs and GUI briefs. Run-model vocabulary is code SSOT `RunService.swift` (archived `Unified_Run_Model.md` has the closed design record). |
-| [`Language_Cutover.md`](Language_Cutover.md) | **DONE** (CUT-S00–S06) — kept as canonical word list | The locked vocabulary is codebase reality. Retained as the word-list SSOT other docs cite. |
-| [`Team_Depth_Naming.md`](Team_Depth_Naming.md) | **DECIDED — convention SSOT** (partially applied) | Family = the job; depth = universal Min / (bare) / Max; bare = default send, never Min; no numbers. Stays until `Team_Catalog_Normalization` lands catalog-wide. |
-| [`Spec_Review.md`](Spec_Review.md) | **Living hero-loop SSOT** (team built) | The multi-model spec-hardening hero loop: positioning, review-lens rubric, impact ledger. Backend team exists; this doc governs positioning/rubric. |
-| [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | **ENFORCED STANDING POLICY** (S00–S05 built) | Stops blind GUI "fixed" claims: render → separate layout-watcher looks at pixels → content-bound proof packet wall-enforced by `scripts/check_gui_proof.sh`. |
+| [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open / M1 built — **archive when no forward CLI naming work remains** | `alln` agent-first naming while still evolving. Code owns shipped contract bits. |
+| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** (SWW-S04/S05, pending stop, …) | Implementation packet for CLI doctor/errors/events + remaining commands. |
+| [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Vocabulary packet — **promote out of phases or archive**; code owns run model | Historical word list for teams/skills; run-model truth is `RunService.swift`. |
+| [`Language_Cutover.md`](Language_Cutover.md) | DONE — **archive overdue** | Locked vocabulary cutover record. Not a living SSOT in phases. |
+| [`Team_Depth_Naming.md`](Team_Depth_Naming.md) | DECIDED — **archive when catalog naming is fully applied** | Min/(bare)/Max naming convention record. |
+| [`Spec_Review.md`](Spec_Review.md) | Team built — **archive overdue**; rubric may move to ops if still needed | Spec Review hero-loop packet. Team lives in `BuiltInTeams` / skills. |
+| [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | Enforced — **promote to `docs/gui/` or `docs/operations/`; do not keep as phases SSOT** | Render → layout-watcher → proof packet. Gate: `scripts/check_gui_proof.sh`. |
+| [`Design_Lane.md`](Design_Lane.md) | Locked build law — **archive when DL capture path is fully closed**; code owns capture | Design = built surface → host screenshot. Code: `DesignBoardCapture`, catalog tags. |
 
 ### Team catalog & delegation (forward)
 
@@ -102,9 +111,7 @@ without a new founder ruling.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Team_Run_Receipt.md`](Team_Run_Receipt.md) | **Product shipped** (S01✓/S01b✓/S01c✓/S03✓/S00b✓; S00 awaiting founder disposition) | `alln artifact show` / `export`; polished scrollable team artifact; desktop+mobile; Lead Call + phosphor seats; certified stamp later, not v1. |
-| [`Design_Lane.md`](Design_Lane.md) | **Locked law** — WebKit-first product camera; seat picks build path; rip diffusion default | What Design team means: built surface → host screenshot (not Midjourney). Diffusion is explicit opt-in only. |
-| [`Buzz_Harness_Spike.md`](Buzz_Harness_Spike.md) | **SPIKE — deferred behind Team Run Receipt**; throwaway-permitted | After receipts exist: does the same object feel valuable in an attended Buzz (or Slack) thread when an ordinary agent calls `alln`? Firm/plural-member framing retired 2026-07-25. Strategy companion: `docs/strategy/Buzz_And_The_Judgment_Layer.md`. |
+| [`Buzz_Harness_Spike.md`](Buzz_Harness_Spike.md) | **SPIKE — deferred**; throwaway-permitted | After artifacts exist: does the same object feel valuable in an attended Buzz thread? Strategy: `docs/strategy/Buzz_And_The_Judgment_Layer.md`. |
 | [`Share_To_Research.md`](Share_To_Research.md) | **Draft feature packet — not started**; pre-launch, not urgent | Share an X post / video / article from the iOS share sheet, confirm once, and the Mac's Research team returns a project-aware read. Mostly wiring: typed `startRun`, the cloud relay drain loop, the Research team, and `SignalSourceRouter` all exist — new work is the iOS Share Extension + confirm sheet. The iOS app's first defensible feature (needs the user's own multi-CLI bench; no vendor can copy it). |
 | [`Composer_File_References.md`](Composer_File_References.md) | **Backend built** (FR-S00–S03 + picker); FR-S04 `@`-palette + FR-S05/06/07 forward | `@` file references. Remaining: Mac `@` palette (ranking/highlight/paste/DnD/persistence), pending/work-order revalidation, context reveal, GUI proof seal. |
 | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | **Parent/router** — MLP core delivered | Work-thread lane router; index for still-open children below. |
@@ -114,7 +121,7 @@ without a new founder ruling.
 | [`Folder_Native_Memory.md`](Folder_Native_Memory.md) | **Pointer only shipped** — consolidation engine unbuilt | Only the memory pointer line ships (referenced by relay/pilot scaffolds); the consolidation round, seat-line loop, and second-run works-test are unbuilt. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **Draft — ⚠ FOUNDER DECISION** | Signal foundations exist (`SignalInsight.swift` struct + parser only); the whole Scout → Triangulation → Graph backend is unbuilt. Decide: build it out, or archive the deep-build spec and keep only the shipped foundations. |
 | [`Chat_Module_Extraction.md`](Chat_Module_Extraction.md) | **Plan — not started** | Consolidate Allnighter's two chat substrates and extract into the shared AgentOS `AgentOSChatCore`/`AgentOSChatUI` packages. |
-| [`Contradiction_Pass.md`](Contradiction_Pass.md) | **Draft — NOT AUTHORIZED**; queued behind Code Red + Menu Relations | Give Max a structural difference instead of more bodies: mechanical contradiction/co-attribution detection from anchored findings (all tiers, zero model cost), false/factual/judgment classification, and one bounded Max-only resolution seat. Default escalates via `escalationRecommended`, never silently spends. Extends `Spec_Review.md`. |
+| [`Contradiction_Pass.md`](Contradiction_Pass.md) | **Draft — NOT AUTHORIZED**; queued behind Code Red + Menu Relations | Give Max a structural difference instead of more bodies: mechanical contradiction/co-attribution detection from anchored findings (all tiers, zero model cost), false/factual/judgment classification, and one bounded Max-only resolution seat. Default escalates via `escalationRecommended`, never silently spends. Extends archived Spec Review packet. |
 
 ### Subdirectories
 
@@ -129,16 +136,18 @@ without a new founder ruling.
 
 ## Operating Rules
 
-- Founder input is intent. Durable semantics go through a phase doc or routed
-  SSOT before implementation.
+- Founder input is intent. Durable semantics go through a phase **packet** while
+  building, then into **code** (SSOT). `docs/phases/` is never the durable SSOT.
 - New phase docs must name one trusted workflow slice, one truth owner, and one
   Works Test or proof waiver. Use the template in **Adding a Phase Doc** below.
-- Product truth belongs in `AllnighterCore`, protocol docs, or the owning phase
-  doc. SwiftUI may render truth; it must not invent it.
+- Product truth belongs in `AllnighterCore` (or the owning package), protocol
+  contracts, ops/design-system docs outside phases, or archived design records.
+  SwiftUI may render truth; it must not invent it.
 - Generated output is derived. Change the source contract, then regenerate.
-- Finished phase docs are archived only after their durable truth has been
-  promoted to the owning source. **Archive aggressively** — a shipped feature's
-  spec is clutter once the code owns the truth.
+- **Archive when the product ships** (or when remaining work is explicitly a
+  new packet). Do not leave “Product shipped” / “Living SSOT” docs in
+  `docs/phases/`. A hard cleanup pass on 2026-07-18 archived ~40 delivered
+  docs; keep that habit.
 
 ## Post-MVP Product Laws
 
@@ -240,7 +249,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Team seating, Haiku/custom rank inheritance, CLI/family diversity | archived [`Seating_Tier_And_CLI_Diversity.md`](../archive/phases/Seating_Tier_And_CLI_Diversity.md) — Complete 2026-07-25 (S1–S3, contract 4.0.2); code SSOT `ModelCatalog` + `TeamResolver` + `RunDryRunJSON.seats` |
 | Menu byte budget, cold-agent selection and composition | Code SSOT: `MenuCatalog.swift`, `MenuSelectionCopy.swift`; gate `scripts/verify_menu_contract.py`; matrix `scripts/agent_eval.sh --suite menu-not-router`. The relations phase was killed by its own measurement — do not reopen. |
 | Panel disagreement, contradiction detection, what Max does beyond more seats, anchored findings | `Contradiction_Pass.md` (extends `Spec_Review.md`) |
-| Gorgeous private team run report / artifact, deliberate share (not Mac-only) | `Team_Run_Receipt.md` (projects existing `TeamRun`/`TeamRunJSON`; Factory Floor is the deep reader; artifact is the polished read) |
+| Gorgeous private team run report / artifact, deliberate share (not Mac-only) | Code SSOT: `ArtifactProjector` / `ArtifactWriter` / `ArtifactCLI`; closed record: archived `Team_Run_Receipt.md` |
 | Design team / design edits — code mockup → host screenshot (not Midjourney) | `Design_Lane.md` |
 | Buzz / attended agent-chat rooms as a call site for alln (after receipts) | `Buzz_Harness_Spike.md` + `docs/strategy/Buzz_And_The_Judgment_Layer.md` (firm-member mythology retired; receipt-first) |
 | Share a link from the phone into a Research run, iOS share sheet intake | `Share_To_Research.md` (reuses `RemoteCommandRouter` `startRun` + `SignalSourceRouter`; no new protocol operation) |

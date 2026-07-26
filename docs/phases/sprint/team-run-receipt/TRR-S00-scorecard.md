@@ -2,7 +2,7 @@
 
 Status: **awaiting founder disposition** (scaffold only — not Done)
 
-SSOT: `docs/phases/Team_Run_Receipt.md` §TRR-S00  
+SSOT: `docs/archive/phases/Team_Run_Receipt.md` §TRR-S00  
 Work order: `TRR-S00-scorecard-wo.md`
 
 ## Purpose

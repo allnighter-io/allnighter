@@ -1,7 +1,7 @@
 # TRR-S01b — Mac Floor “Open artifact”
 
 Status: **done**
-SSOT: `docs/phases/Team_Run_Receipt.md` §TRR-S01b
+SSOT: `docs/archive/phases/Team_Run_Receipt.md` §TRR-S01b
 
 ## Goal
 
@@ -15,7 +15,7 @@ Implement TRR-S01b ONLY.
 
 Read:
 - docs/phases/sprint/team-run-receipt/TRR-S01b-floor-open.md
-- docs/phases/Team_Run_Receipt.md §TRR-S01b
+- docs/archive/phases/Team_Run_Receipt.md §TRR-S01b
 - Apps/AllnighterMac/Sources/FactoryFloorView.swift
 - Packages/AllnighterCore/Sources/AllnighterCore/ArtifactProjector.swift
 - Packages/AllnighterCore/Sources/AllnighterCLI/ArtifactCLI.swift

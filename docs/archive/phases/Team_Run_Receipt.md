@@ -1,13 +1,11 @@
 # Team Run Receipt — gorgeous private report, deliberate share
 
-Status: **Product shipped** — S01 / S01b / S01c / S03 **Done**; S00b **Done**;
-S00 **awaiting founder disposition** (growth packaging only). Cut/unscheduled:
-S02 / S04 / S05.
-Primary job = scannable, readable polished team **artifact** (like a great AI
-chat response, with phosphor status). Not a viral poster.
-Owner: AllnighterCore (artifact projector) + CLI first; Mac Factory Floor as
-existing deep reader (not the artifact owner).
-Updated: 2026-07-25 (closeout sync after orchestrated delivery)
+Status: **ARCHIVED 2026-07-26** — product shipped (S01 / S01b / S01c / S03 /
+S00b Done). S00 growth scorecard still awaiting founder disposition (historical
+only). **Code is SSOT:** `ArtifactProjector` / `ArtifactWriter` / `ArtifactCLI`.
+This file is the closed design record + founder locks — not live phase work.
+Owner (historical): AllnighterCore artifact path; Floor = deep reader.
+Updated: 2026-07-26 (archived — phases never hold SSOT)
 Companions:
 - Mac deep reader: `FactoryFloorView` / `docs/phases/Live_Team_Board.md`
   (Factory Floor = full team result; thread keeps a compact cockpit receipt →

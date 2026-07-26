@@ -1,7 +1,7 @@
 # TRR-S01 — Terminal HTML artifact + CLI
 
 Status: **done**
-SSOT: `docs/phases/Team_Run_Receipt.md` §§TRR-S01, Must-specify, Card field ledger, Design authority G1–G13
+SSOT: `docs/archive/phases/Team_Run_Receipt.md` §§TRR-S01, Must-specify, Card field ledger, Design authority G1–G13
 
 ## Goal
 
@@ -15,7 +15,7 @@ You are implementing TRR-S01 ONLY (Team Run Receipt core).
 
 Read:
 - docs/phases/sprint/team-run-receipt/TRR-S01-artifact-cli.md
-- docs/phases/Team_Run_Receipt.md (§TRR-S01, Must-specify, Card field ledger, G1–G13)
+- docs/archive/phases/Team_Run_Receipt.md (§TRR-S01, Must-specify, Card field ledger, G1–G13)
 - Packages/AllnighterCore/Sources/AllnighterCore/FloorProjector.swift
 - Packages/AllnighterCore/Sources/AllnighterCLI/AllnighterCLI.swift (runFloorShow + dispatch)
 - Packages/AllnighterCore/Sources/AllnighterCore/ContractRegistry+Milestone1.swift (floor show prior art)
@@ -63,7 +63,7 @@ Done when: command works, tests green, contract+help shipped, committed.
 - `docs/design-system/components/product/WorkerChip.*` and/or tokens — compact + dot pill **only if** HTML cannot reuse existing chip CSS without a one-off
 - `WAIVERS.manifest` (visual proof deferral only)
 - This sprint doc status → `done` on closeout
-- `docs/phases/Team_Run_Receipt.md` — mark S01 status Done when shipping (one line)
+- `docs/archive/phases/Team_Run_Receipt.md` — mark S01 status Done when shipping (one line)
 
 ## Do not touch
 

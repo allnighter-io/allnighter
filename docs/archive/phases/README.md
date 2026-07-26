@@ -2,12 +2,15 @@
 
 Completed phase docs move here after closeout.
 
-`Docs/phases/` is only for live phase work.
+`Docs/phases/` is only for **ephemeral** phase work. Finished packets archive
+here. **SSOT is never a live `docs/phases/` path** — successor owner is code
+(or a standing ops/design doc outside phases).
 
 ## Index
 
 | Phase | Archived | Final status | Proof | Successor owner |
 | --- | --- | --- | --- | --- |
+| [`Team_Run_Receipt.md`](Team_Run_Receipt.md) | 2026-07-26 | ARCHIVED — product shipped (S01/S01b/S01c/S03/S00b); S00 growth scorecard left historical. K3 memo-page chrome landed in projector `417e52d1`. Phases never hold SSOT. | `swift test --package-path Packages/AllnighterCore --filter Artifact` | Code SSOT: `ArtifactProjector.swift`, `ArtifactWriter.swift`, `ArtifactCLI.swift` |
 | [Pilot Long Turn Survival](Pilot_Long_Turn_Survival.md) | 2026-07-26 | Complete — founder-approved CEO brief; S01 `5761dd59` (absolute binary + projectRoot cwd for `--no-wait`); S03 `abb00890` (status-first teaching); S04 `c06c3f3d` (SIGTERM goodbye, heartbeats, `--max-wait`); S02 `9074f9ae` (progress-primary status + `waitHintSeconds` 45); audit/deslop `01402ab3` (contract 4.0.9 fixture sync). Workers: Composer 2.5 + Cursor Grok 4.5 only | `swift test --package-path Packages/AllnighterCore --filter 'Pilot\|ContractRegistry\|FixtureRoundTrip\|InstallCLI'` (136 green); `alln dev export-contracts --check` | Code SSOT: `PilotCLI.swift` (detached handoff, watch, status), `RelayCoordinator.swift`, `TeachingSnippet`/`Bootstrap`, `ContractRegistry+Milestone1` (4.0.9) |
 | [Idle Stall False Kill Hotfix](Idle_Stall_False_Kill_Hotfix.md) | 2026-07-25 | Complete — S01 `6ca1e30d` (1800 idle floors + `timeoutSeconds` drift guard + honest teaching); S04 `0508120e` (identity-alive stall demotion + `silenceStatus` + `alln doctor silence`); S02 `9cc93421` + deslop `36466c9c` + audit `92b21f6d` (pgid child/CPU progress via `pgid_activity`; no IO sampling; repo cwd excluded; contract 4.0.3). S03 posture floors **deferred** (gate = S04 telemetry histograms) | `swift test --package-path Packages/AllnighterCore --filter 'RunIdleTimeoutTests|ProcessOwnershipProgressStallTests|DefaultConfigDriftTests'` | Code SSOT: driver manifests + `DefaultConfig.swift`, `ProcessGroupCommandRunner.swift`, `ProcessOwnership.sampleProcessGroupActivity` (child+CPU), `ContractRegistry+Milestone1.swift` idle-timeout FlagSpec; telemetry `alln doctor silence` / `RunJournalSilenceTelemetry` |
 | [Capacity False Auth Mislabel Hotfix](Capacity_False_Auth_Mislabel_Hotfix.md) | 2026-07-25 | Complete — CAP-HF-S01+S02 in AgentOS `bec4f9e`; CAP-HF-S03 **dropped** (scope creep — manager ran sweeps sequentially; parallel research = multiple read-only teams) | `swift test --package-path Packages/AllnighterCore --filter CapacityClassifierTests` (16/16) | AgentOS: `CapacityClassifier.swift`, `DefaultWorkerRunner.swift`; Allnighter: `CapacityClassifierTests.swift` |

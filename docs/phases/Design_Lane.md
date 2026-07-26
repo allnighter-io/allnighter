@@ -8,8 +8,9 @@ Floor as readers
 Updated: 2026-07-26 (DL-S01–S03 landed)
 Companions:
 - Sprint: `docs/phases/sprint/design-lane/` (S01 rip, S02 WebKit board, S03 brief)
-- Artifact hero mockups: `docs/phases/Team_Run_Receipt.md` (Design tiles under
-  the memo header; Evidence = full seat craft; chips jump to Evidence)
+- Artifact hero mockups: archived `docs/archive/phases/Team_Run_Receipt.md`
+  (closed record); **code SSOT** `ArtifactProjector` / Design tiles under the
+  memo header; Evidence = full seat craft; chips jump to Evidence
 - Sibling proof habit for **this** app’s GUI: `GUI_Visual_Proof_Gate.md` +
   `docs/gui/GUI_Workflow.md` (SwiftUI fixture → screenshot → layout-watcher) —
   Allnighter-on-Allnighter special case, **not** the product default camera

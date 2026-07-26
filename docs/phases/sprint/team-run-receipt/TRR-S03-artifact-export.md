@@ -1,7 +1,7 @@
 # TRR-S03 — `alln artifact export`
 
 Status: **done** (2026-07-25)
-SSOT: `docs/phases/Team_Run_Receipt.md` §TRR-S03
+SSOT: `docs/archive/phases/Team_Run_Receipt.md` §TRR-S03
 
 ## Goal
 
@@ -14,7 +14,7 @@ Implement TRR-S03 ONLY.
 
 Read:
 - docs/phases/sprint/team-run-receipt/TRR-S03-artifact-export.md
-- docs/phases/Team_Run_Receipt.md §TRR-S03
+- docs/archive/phases/Team_Run_Receipt.md §TRR-S03
 - Packages/AllnighterCore/Sources/AllnighterCLI/ArtifactCLI.swift
 - ArtifactProjector
 

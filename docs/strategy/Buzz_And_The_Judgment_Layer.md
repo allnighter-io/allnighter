@@ -4,7 +4,7 @@ Status: **EXPLORATORY MEMO — revised 2026-07-25.** Still not a plan and not a
 decision for marrying Buzz. For the original suspend-laws exercise only,
 Allnighter laws were deliberately opened so the option space was visible;
 nothing here changes any law. Implementing agents: this memo authorizes **no
-core work**. Near-term product path is `docs/phases/Team_Run_Receipt.md`.
+core work**. Near-term product path is `docs/archive/phases/Team_Run_Receipt.md`.
 Buzz remains an optional attended surface — see
 `docs/phases/Buzz_Harness_Spike.md` (reframed).
 Audience: founder + outside mentors. Written to stand alone.
@@ -42,7 +42,7 @@ Live Buzz UI + a real Growth Min run inside Buzz forced three corrections:
 3. **The durable product wedge is not Buzz integration.** It is a
    **gorgeous, private-by-default, deliberately shareable Team Run Receipt**
    — signed alln attestation of what each seat said — openable from CLI and
-   Mac, reusable for every team. Spec: `docs/phases/Team_Run_Receipt.md`.
+   Mac, reusable for every team. Spec: `docs/archive/phases/Team_Run_Receipt.md`.
    Signing ≠ public. Public Nostr / hosted links are never default.
 
 What Buzz still uniquely offers (optional, later): an **attended room** where
@@ -140,7 +140,7 @@ undercuts.
 private-by-default report from existing `TeamRun` / `TeamRunJSON`; CLI open;
 deliberate signed file export; Mac Factory Floor stays the in-app reader of
 the same truth. No Buzz dependency. Spec:
-`docs/phases/Team_Run_Receipt.md`.
+`docs/archive/phases/Team_Run_Receipt.md`.
 
 **Move 1 — Optional: drop that receipt into attended rooms.** After Move 0,
 test whether the **same object** feels magic in a Buzz thread (and later
@@ -220,7 +220,7 @@ Move 0 (receipts) is just finishing the product we already built.
 
 ## Cheapest next steps (ordered)
 
-1. **Build Team Run Receipt** — `docs/phases/Team_Run_Receipt.md` (CLI WOW +
+1. **Build Team Run Receipt** — `docs/archive/phases/Team_Run_Receipt.md` (CLI WOW +
    private signed export).
 2. **Feel it in CLI and Mac** — founder taste pass.
 3. **Optional Buzz/Slack legibility** — drop the same receipt into a room;

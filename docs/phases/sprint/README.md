@@ -65,7 +65,9 @@ SSOT: `docs/phases/Design_Lane.md`. Implementers: Cursor Grok 4.5 + Composer onl
 | 4 | [TRR-S01c — live paint](team-run-receipt/TRR-S01c-live-paint.md) | **done** |
 | 5 | [TRR-S00 — growth scorecard](team-run-receipt/TRR-S00-scorecard-wo.md) | **awaiting founder disposition** |
 
-SSOT: `docs/phases/Team_Run_Receipt.md`. Audit: [TRR-S01-audit.md](team-run-receipt/TRR-S01-audit.md).
+SSOT (historical packet): archived `docs/archive/phases/Team_Run_Receipt.md`.
+**Code SSOT:** `ArtifactProjector` / `ArtifactWriter` / `ArtifactCLI`.
+Audit: [TRR-S01-audit.md](team-run-receipt/TRR-S01-audit.md).
 
 ### OpenCode driver (OC-S01)
 
