@@ -151,6 +151,46 @@ final class ArtifactProjectorTests: XCTestCase {
     XCTAssertEqual(ArtifactProjector.mockupColumnCount(for: 5), 3)
   }
 
+  func testMockupImageOpensLightboxNotEvidence() {
+    let worker = Worker(id: "model_k3#0", modelId: "model_k3", instanceIndex: 0,
+                        skillId: "visual_system_designer", skillName: "Visual System Designer",
+                        purpose: .answer)
+    let board = BoardPayload(targetShape: .desktop, options: [
+      DesignOption(workerId: "model_k3#0", modelId: "model_k3", persona: "visual_system_designer",
+                   imagePath: "option_model_k3-0.png", status: .done)
+    ])
+    let run = TeamRun(
+      id: "run_mockup_click", prompt: "Redesign?", status: .done,
+      workers: [worker],
+      workerAnswers: [
+        TeamAnswer(memberId: "model_k3#0", modelId: "model_k3", role: "answer",
+                   result: WorkerRunResult(status: .done, output: """
+                   ```seat
+                   {"schemaVersion":1,"summary":"Widen the memo."}
+                   ```
+                   """, timing: RunTiming(durationMs: 10))),
+      ],
+      stages: [
+        StageOutput(id: "board-1", purpose: .board, status: .done, payload: .board(board))
+      ],
+      createdAt: now,
+      lane: .design,
+      outputKind: .designBoard
+    )
+    let html = ArtifactProjector.renderHTML(ArtifactProjector.project(run))
+    let seat = ArtifactProjector.seatAnchorId("model_k3#0")
+    let lightbox = ArtifactProjector.mockupLightboxId("model_k3#0")
+    XCTAssertTrue(html.contains("href=\"#\(lightbox)\""), "image should open lightbox")
+    XCTAssertTrue(html.contains("id=\"\(lightbox)\""), "lightbox target present")
+    XCTAssertTrue(html.contains("class=\"mockup-lightbox\""))
+    // Image tile must not jump straight to Evidence; caption may still link there.
+    XCTAssertFalse(
+      html.contains("class=\"mockup-link\" href=\"#\(seat)\""),
+      "mockup image must not be an Evidence jump"
+    )
+    XCTAssertTrue(html.contains("class=\"mockup-evidence\" href=\"#\(seat)\""))
+  }
+
   func testNoSeatFenceMeansBlankOneLiner() {
     let worker = Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0,
                         skillId: "hierarchy_sculptor", skillName: "Hierarchy Sculptor",

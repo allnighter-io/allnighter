@@ -5,7 +5,8 @@ import AgentOSTeam
 /// Pure and deterministic — no filesystem or run store.
 ///
 /// Reading contract: CEO memo first (mockups are the hero on design boards),
-/// elevator chips that jump to labeled Evidence, full seat craft below.
+/// mockup tiles open the image large (lightbox); elevator chips jump to
+/// labeled Evidence; full seat craft below.
 public enum ArtifactProjector {
   public static let honesty = "alln-attested multi-seat artifact · not vendor-signed"
 
@@ -550,6 +551,11 @@ public enum ArtifactProjector {
     }
   }
 
+  /// Fragment id for the full-bleed mockup lightbox (not the Evidence seat).
+  public static func mockupLightboxId(_ workerId: String) -> String {
+    "mockup-" + seatAnchorId(workerId)
+  }
+
   private static func mockupsHTML(_ mockups: [Mockup]) -> String {
     let cols = mockupColumnCount(for: mockups.count)
     var parts: [String] = [
@@ -557,17 +563,29 @@ public enum ArtifactProjector {
       "<h2>Design</h2>",
       "<div class=\"mockup-grid\" data-count=\"\(mockups.count)\" data-cols=\"\(cols)\">"
     ]
+    var lightboxes: [String] = []
     for m in mockups {
-      let anchor = seatAnchorId(m.workerId)
+      let evidenceHref = "#\(seatAnchorId(m.workerId))"
       if let src = m.relSrc, !src.isEmpty {
+        let lightboxId = mockupLightboxId(m.workerId)
         parts.append(
           """
           <figure class="mockup-tile" data-status="\(escape(m.status))">
-            <a class="mockup-link" href="#\(anchor)">
+            <a class="mockup-link" href="#\(lightboxId)" aria-label="Open \(escape(m.label)) full size">
               <img src="\(escape(src))" alt="\(escape(m.label))" loading="lazy">
             </a>
-            <figcaption>\(escape(m.label))</figcaption>
+            <figcaption>
+              <span class="mockup-label">\(escape(m.label))</span>
+              <a class="mockup-evidence" href="\(evidenceHref)">Evidence</a>
+            </figcaption>
           </figure>
+          """
+        )
+        lightboxes.append(
+          """
+          <a class="mockup-lightbox" id="\(lightboxId)" href="#" aria-label="Close full-size mockup">
+            <img src="\(escape(src))" alt="\(escape(m.label))">
+          </a>
           """
         )
       } else {
@@ -575,16 +593,22 @@ public enum ArtifactProjector {
         parts.append(
           """
           <figure class="mockup-tile mockup-failed" data-status="\(escape(m.status))">
-            <a class="mockup-link" href="#\(anchor)">
+            <a class="mockup-link" href="\(evidenceHref)">
               <div class="mockup-placeholder">\(reason)</div>
             </a>
-            <figcaption>\(escape(m.label))</figcaption>
+            <figcaption>
+              <span class="mockup-label">\(escape(m.label))</span>
+              <a class="mockup-evidence" href="\(evidenceHref)">Evidence</a>
+            </figcaption>
           </figure>
           """
         )
       }
     }
     parts.append("</div></section>")
+    if !lightboxes.isEmpty {
+      parts.append(contentsOf: lightboxes)
+    }
     return parts.joined(separator: "\n")
   }
 
@@ -802,7 +826,7 @@ public enum ArtifactProjector {
       overflow: hidden;
       background: var(--bg-raised);
     }
-    .mockup-link { display: block; color: inherit; text-decoration: none; }
+    .mockup-link { display: block; color: inherit; text-decoration: none; cursor: zoom-in; }
     .mockup-tile img {
       display: block;
       width: 100%;
@@ -819,10 +843,45 @@ public enum ArtifactProjector {
       text-align: center;
     }
     .mockup-tile figcaption {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--space-3);
       padding: var(--space-3);
       font-size: 0.85rem;
       color: var(--text-secondary);
       border-top: 1px solid var(--border-subtle);
+    }
+    .mockup-evidence {
+      flex-shrink: 0;
+      color: var(--text-faint);
+      font-size: 0.75rem;
+      text-decoration: none;
+    }
+    .mockup-evidence:hover { color: var(--amber-500); }
+    .mockup-lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      margin: 0;
+      background: rgba(5, 6, 12, 0.94);
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4);
+      cursor: zoom-out;
+      text-decoration: none;
+    }
+    .mockup-lightbox:target { display: flex; }
+    .mockup-lightbox img {
+      max-width: min(1280px, 96vw);
+      max-height: 94vh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      background: var(--ink-900);
     }
     .evidence { margin: var(--space-8) 0 var(--space-5); }
     .evidence-seat {

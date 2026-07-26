@@ -706,6 +706,6 @@ Approved dogfood decision (implementing):
 1. **Artifact = CEO memo + evidence**, not memo-only with fake chip expand.
 2. **Chips** = elevator `seat.summary` only (no expand). Click → `#seat-…` Evidence.
 3. **Evidence** = full worker craft, clearly labeled per seat.
-4. **Design boards:** mockups are the **hero** under the header (not buried in Evidence). Grid: mobile stack; desktop 1 / 2 / 3 cols; 4 → 2×2; 5+ → 3/row.
+4. **Design boards:** mockups are the **hero** under the header (not buried in Evidence). Grid: mobile stack; desktop 1 / 2 / 3 cols; 4 → 2×2; 5+ → 3/row. **Click image → full-size lightbox** (not Evidence). Seat chips / caption “Evidence” → `#seat-…`.
 5. Kill legacy first-line scrape; missing `seat` fence → blank chip line.
 6. Show all Lead recommendations (no hide-to-3 density lie).
