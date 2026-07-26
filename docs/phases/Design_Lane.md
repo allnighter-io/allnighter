@@ -1,13 +1,13 @@
 # Design Lane — build a real surface, screenshot the receipt
 
-Status: **Locked law packet — founder lean confirmed 2026-07-26 after Spec
-Review Ready (`B8512396`).** Product camera = HTML→WebKit first; seat picks
-what to build from the repo. Capture wiring = DL slices. Zero customers —
-rip diffusion-default dead code; no migration.
+Status: **Locked law + DL-S01–S03 shipped 2026-07-26.** Product camera =
+HTML→WebKit; seat picks what to build from the repo. Diffusion Design default
+ripped. Capture wiring lives in `DesignBoardCapture` + CatalogRunCoordinator.
 Owner: AllnighterCore / AllnighterEngine (run path + board stage) + artifact /
 Floor as readers
-Updated: 2026-07-26 (WebKit-first product lean)
+Updated: 2026-07-26 (DL-S01–S03 landed)
 Companions:
+- Sprint: `docs/phases/sprint/design-lane/` (S01 rip, S02 WebKit board, S03 brief)
 - Artifact hero mockups: `docs/phases/Team_Run_Receipt.md` (Design tiles under
   the memo header; Evidence = full seat craft; chips jump to Evidence)
 - Sibling proof habit for **this** app’s GUI: `GUI_Visual_Proof_Gate.md` +
@@ -15,9 +15,8 @@ Companions:
   Allnighter-on-Allnighter special case, **not** the product default camera
 - Design system: `docs/design-system/production.md` + `tokens/*.css`
 - Catalog families: `BuiltInTeams.swift` (`design_design` / Min / Max / Polish)
-- Historical imageGen substrate (diffusion / engine paint): `DesignImageRunner`,
-  `DesignCoordinator` — **rip** as Design default; concept/`imageGen` only if
-  user explicitly asks for concept art
+- Chat/concept `imageGen` (WorkerImageCapture/Invoker) stays for **explicit**
+  concept art only — not Design default
 - Vocabulary: `docs/phases/Work_Order_Team_Model.md` (Design example must staff
   builder seats, not “Grok Imagine”)
 
