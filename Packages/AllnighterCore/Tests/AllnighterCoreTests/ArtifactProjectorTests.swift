@@ -169,6 +169,34 @@ final class ArtifactProjectorTests: XCTestCase {
     XCTAssertNil(card.seats[0].oneLiner)
   }
 
+  func testEvidenceRepairsStreamJoinedSentences() {
+    let md = """
+    I'll read first, then produce a mockup that matches them.Checking how mockups are stored.path.Building one layout.Opening to verify.The private finish should open as a calm Ready memo.
+
+    ### Mockup
+    Real craft with a proper space after periods. Next sentence is fine.
+    """
+    let worker = Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0,
+                        skillId: "visual_system_designer", skillName: "Visual System Designer",
+                        purpose: .answer)
+    let run = TeamRun(
+      id: "run_spaces", prompt: "Design?", status: .done,
+      workers: [worker],
+      workerAnswers: [
+        TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
+                   result: WorkerRunResult(status: .done, output: md,
+                                           timing: RunTiming(durationMs: 10))),
+      ],
+      stages: [], createdAt: now
+    )
+    let body = ArtifactProjector.project(run).evidence[0].bodyMarkdown
+    XCTAssertFalse(body.contains("them.Checking"))
+    XCTAssertFalse(body.contains("path.Building"))
+    XCTAssertTrue(body.contains("### Mockup") || body.contains("Real craft"))
+    XCTAssertTrue(body.contains("periods. Next") || body.contains("periods. Next sentence"))
+    XCTAssertFalse(body.lowercased().hasPrefix("i'll"))
+  }
+
   func testAskedFallsBackWithoutDumpingAgentBrief() {
     let brief = """
     ## Round 3 dogfood. Open these files and critique the HTML.

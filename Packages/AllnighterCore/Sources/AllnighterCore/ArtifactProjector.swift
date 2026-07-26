@@ -401,8 +401,38 @@ public enum ArtifactProjector {
       return true
     }
     body = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    body = repairStreamJoinedSentences(body)
+    body = stripProcessPreamble(from: body)
     if body.isEmpty { return "_(No written craft for this seat.)_" }
     return isLead ? shortenCraft(body) : body
+  }
+
+  /// Workers often mash tool narration onto one line: `done.Checking next`.
+  /// Insert the missing space before a new English sentence (not `4.0` / `U.S.`).
+  private static func repairStreamJoinedSentences(_ text: String) -> String {
+    text.replacingOccurrences(
+      of: #"([.!?])([A-Z][a-z]+)"#,
+      with: "$1 $2",
+      options: .regularExpression
+    )
+  }
+
+  /// Drop leading I'll/Checking narration when real craft headings follow.
+  private static func stripProcessPreamble(from text: String) -> String {
+    let lines = text.components(separatedBy: "\n")
+    guard let headingIdx = lines.firstIndex(where: { line in
+      let t = line.trimmingCharacters(in: .whitespaces)
+      return t.hasPrefix("### ") || t.hasPrefix("## ") || t.hasPrefix("# ")
+    }) else { return text }
+    let before = lines[..<headingIdx].joined(separator: "\n").lowercased()
+    let looksLikeProcess =
+      before.contains("i'll ") || before.contains("i will ")
+      || before.contains("checking ") || before.contains("opening ")
+      || before.contains("building ") || before.contains("reviewing ")
+    guard looksLikeProcess else { return text }
+    return lines[headingIdx...]
+      .joined(separator: "\n")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
   private static func looksLikeImagePath(_ text: String) -> Bool {
