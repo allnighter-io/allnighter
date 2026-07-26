@@ -2678,7 +2678,7 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "Return immediately after dispatch instead of blocking through the dev turn.",
+          "summary" : "Return immediately after dispatch; for long jobs poll `pilot status --json` until awaitingPM (do not treat a killed `pilot watch` as failure).",
           "takesValue" : false
         },
         {
@@ -2706,7 +2706,7 @@
       "name" : "pair pilot handoff",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim.",
+      "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait then poll pilot status.",
       "visibility" : "public"
     },
     {
@@ -2747,7 +2747,7 @@
       "name" : "pair pilot status",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Read a Pilot relay's durable state — rounds, verdicts, gate decisions, dirty-tree snapshots.",
+      "summary" : "Read a Pilot relay's durable state — agent truth for in-flight rounds; poll until awaitingPM. Prefer over watch for agents.",
       "visibility" : "public"
     },
     {
@@ -2788,7 +2788,7 @@
       "name" : "pair pilot watch",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status).",
+      "summary" : "Optional interactive waiter: block until the in-flight round settles. Disposable — death ≠ job failure; prefer `pilot status` for agents.",
       "visibility" : "public"
     },
     {
@@ -4950,7 +4950,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.0.6",
+  "contractVersion" : "4.0.7",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5791,7 +5791,7 @@
       "ruleId" : "relay.handover.unsafe"
     },
     {
-      "agentAction" : "Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`.",
+      "agentAction" : "Poll `alln pair pilot status --relay <id> --json` until status is `awaitingPM`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once awaitingPM, retry `pilot handoff` if still needed.",
       "code" : "RELAY_ROUND_IN_FLIGHT",
       "exitClass" : "operational",
       "explain" : "A pilot relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent `pilot handoff` on the same relay is refused rather than racing a second dev turn onto one repo root.",

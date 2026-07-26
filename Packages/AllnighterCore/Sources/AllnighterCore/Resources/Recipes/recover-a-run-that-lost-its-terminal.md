@@ -33,7 +33,9 @@ alln team result <run-id> --json
 alln team cancel <run-id> --json
 ```
 
-Relay / Pilot progress (status owns terminal truth; cancel via kill):
+Relay / Pilot progress (status owns terminal truth; cancel via kill). For Pilot,
+a killed `pilot watch` is not a failed round — poll status; if orphan, inspect
+before any new handoff:
 
 ```bash
 alln pair relay-status --relay <run-id> --json

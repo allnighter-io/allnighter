@@ -22,6 +22,9 @@ public enum TeachingSnippet {
 
     /// Four-rule live-menu reflex (Menu_Not_Router.md §Bootstrap teaches a reflex).
     /// Protocol only — never embed models, teams, recipes, or command rows.
+    /// Pilot long-job status-first habit lives on recipe
+    /// `get-another-model-to-implement-this` + `PilotCLI` nextAction/recovery
+    /// (PLT-S03), not in this block.
     public static let reflexLines = [
         "1. Before first Allnighter use in a session, read `alln menu --json`.",
         "2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.",

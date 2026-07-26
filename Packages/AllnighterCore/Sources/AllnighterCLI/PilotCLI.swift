@@ -385,7 +385,7 @@ enum PilotCLI {
     /// running the normal (blocking) `pilot handoff` against a staged copy of the
     /// submission — one dispatch path, no second in-process implementation to drift
     /// from the default. The foreground call returns as soon as the child is launched;
-    /// the caller polls with `pilot status`/`pilot watch`.
+    /// agents then poll `pilot status --json` (status-first); `pilot watch` is optional.
     private static func dispatchHandoffInBackground(
         relayId: String, opts: Options, submission: String, jsonRequested: Bool
     ) {
@@ -442,7 +442,7 @@ enum PilotCLI {
                 relayId: relayId, status: "dispatched", roundInFlight: roundInFlight,
                 pid: process.processIdentifier)))
         } else {
-            print("dispatched (pid \(process.processIdentifier)) — poll with `alln pair pilot status --relay \(relayId) --json` or `alln pair pilot watch --relay \(relayId)`")
+            print("dispatched (pid \(process.processIdentifier)) — poll with `alln pair pilot status --relay \(relayId) --json` (optional: `alln pair pilot watch --relay \(relayId)`)")
         }
     }
 
@@ -688,9 +688,9 @@ enum PilotCLI {
         case .none:
             return nil
         case .handoffAlive:
-            return "in flight — handoff process alive; run `alln pair pilot watch --relay \(state.id)` to block until it settles."
+            return "in flight — handoff process alive; poll `alln pair pilot status --relay \(state.id) --json` until it settles (optional: `alln pair pilot watch --relay \(state.id)`). A killed watch is not a failed round."
         case .orphanReconciled:
-            return "handoff owner died mid-round — relay reconciled (\(state.stoppedReason ?? RelayState.orphanReconciledReason)); inspect `alln pair pilot status --relay \(state.id) --json` before retrying."
+            return "handoff owner died mid-round — relay reconciled (\(state.stoppedReason ?? RelayState.orphanReconciledReason)); inspect `alln pair pilot status --relay \(state.id) --json` and the repo before any new handoff — do not blind retry."
         }
     }
 
@@ -699,15 +699,22 @@ enum PilotCLI {
         case .none:
             return []
         case .handoffAlive:
-            return [.init(
-                kind: "pilotWatch",
-                label: "Block until the in-flight round settles",
-                command: "alln pair pilot watch --relay \(state.id) --json"
-            )]
+            return [
+                .init(
+                    kind: "pilotStatus",
+                    label: "Poll durable status until the round settles",
+                    command: "alln pair pilot status --relay \(state.id) --json"
+                ),
+                .init(
+                    kind: "pilotWatch",
+                    label: "Optional: block interactively until the round settles (disposable waiter)",
+                    command: "alln pair pilot watch --relay \(state.id) --json"
+                ),
+            ]
         case .orphanReconciled:
             return [.init(
                 kind: "pilotStatus",
-                label: "Read reconciled relay state",
+                label: "Inspect reconciled relay state before any new handoff",
                 command: "alln pair pilot status --relay \(state.id) --json"
             )]
         }
@@ -720,7 +727,7 @@ enum PilotCLI {
         case .awaitingPM:
             return "next: write this round's order markdown, then `alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file <order.md>` (or `--file <md>` with a RelayVerdict tail for scripted PM output)."
         case .running:
-            return "a round is in flight — run `alln pair pilot watch --relay \(state.id)` to block until it settles (or `alln pair pilot status --relay \(state.id) --json` for recovery detail)."
+            return "a round is in flight — poll `alln pair pilot status --relay \(state.id) --json` until it settles; do not re-dispatch while running (optional: `alln pair pilot watch --relay \(state.id)`)."
         case .done:
             return "relay done — nothing left to hand off."
         case .escalated:
@@ -789,7 +796,7 @@ enum PilotCLI {
         case .notPilotRelay:
             return ("RELAY_INVALID_STATE", "relay is not a Pilot relay (pmMode != external) — use `alln pair relay`/`alln pair relay-resume` instead")
         case .roundInFlight:
-            return ("RELAY_ROUND_IN_FLIGHT", "a round is already dispatching for this relay — wait for it to settle, or poll with `pilot status`/`pilot watch`")
+            return ("RELAY_ROUND_IN_FLIGHT", "a round is already dispatching for this relay — poll `pilot status --json` until awaitingPM; do not re-dispatch while running (optional: `pilot watch`)")
         case .notAwaitingPM(let status):
             return ("RELAY_NOT_AWAITING_PM", "relay is \(status), not awaitingPM — nothing to hand off to")
         case .verdictUnparseable(let parseError):

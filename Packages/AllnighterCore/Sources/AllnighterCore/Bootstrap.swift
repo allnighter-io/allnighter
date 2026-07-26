@@ -39,7 +39,10 @@ public enum Bootstrap {
     }
 
     /// Paste-ready snippet: binary fallback + optional install + marked teaching.
-    /// Does **not** include Pilot recipes.
+    /// Does **not** embed Pilot command rows (MR-S05 protocol-only teaching).
+    /// Long-job Pilot habit lives on the recipe card
+    /// `get-another-model-to-implement-this`: `handoff --no-wait` then poll
+    /// `pilot status --json`; watch is optional/disposable; orphan → inspect.
     public static func snippet(binaryPath: String, onPath: Bool) -> String {
         var lines = [
             "Allnighter is available via the `alln` CLI (fallback: `\(binaryPath)`).",

@@ -31,16 +31,13 @@ Start Pilot (you are the PM; fill `--doc` / `--project`):
 alln pair pilot start --doc <path> --project <id|path> --json
 ```
 
-Each round: write the order, then hand off (blocks through the dev turn by default):
+Each round for a long job: write the order, hand off with `--no-wait`, then poll status until `awaitingPM` (do not re-dispatch while status is `running`):
 
 ```bash
-alln pair pilot handoff --relay <id> --verdict continue --handover-file <order.md> --json
-```
-
-Recover progress if the terminal scrolled away:
-
-```bash
+alln pair pilot handoff --relay <id> --verdict continue --handover-file <order.md> --no-wait --json
 alln pair pilot status --relay <id> --json
 ```
+
+`pilot watch` is optional/interactive and disposable — a killed waiting window is not a failed round. If status shows the owner died (orphan), inspect status and the repo before any new handoff — never blind retry.
 
 Only run a spending command when the user already authorized that work.

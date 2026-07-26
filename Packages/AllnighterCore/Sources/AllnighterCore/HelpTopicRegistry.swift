@@ -226,12 +226,15 @@ public enum HelpTopicRegistry {
             parks a new relay `awaitingPM` (no clock — nothing advances until you say so); \
             `alln pair pilot handoff --relay <id> --verdict continue --handover-file <order.md>` \
             (or `--file <md>` with a RelayVerdict tail for scripted PM output) submits your \
-            review, blocks through the dev turn, and prints the \
-            dev's report verbatim — read it, write the next round, call `handoff` again. A \
+            review, blocks through the dev turn by default, and prints the \
+            dev's report verbatim — read it, write the next round, call `handoff` again. For \
+            long jobs prefer `handoff --no-wait` then poll `pilot status --json` until \
+            `awaitingPM`; do not re-dispatch while status is `running`. `pilot watch` is an \
+            optional disposable waiter — its death is not a failed round. If the handoff \
+            owner died (orphan), inspect status/repo before any new handoff. A \
             `continue` verdict still passes HandoverGate, but a block or an unparseable \
             verdict leaves the relay `awaitingPM` untouched rather than escalating — you're \
-            right there to rephrase and resubmit. `pilot status`/`pilot watch` read the same \
-            durable state a spawned relay uses; the Mac inbox shows a pilot relay exactly \
+            right there to rephrase and resubmit. The Mac inbox shows a pilot relay exactly \
             like a spawned one.
             """,
             aliases: ["pm relay", "relay", "pair relay", "automate pm dev loop", "spec doc relay",
@@ -241,7 +244,7 @@ public enum HelpTopicRegistry {
                 .init("gate", "Handover safety", "Every continue verdict's handover passes a danger scan before the dev seat ever sees it. Danger blocks and escalates; mere doubt does not block."),
                 .init("ceilings", "Stopping", "`--until HH:MM`, `--max-rounds`, and a stagnation cap (repeated no-change rounds) are hard stops — the relay always ends on done, escalate, or a ceiling."),
                 .init("resume", "Escalation is not failure", "An escalated relay is a real question for the founder, not an error. `alln pair relay-resume` injects the answer and the loop continues from there."),
-                .init("pilot", "Pilot: you hold the PM seat", "`pair pilot start|handoff|status|watch` — no `--pm-worker` (there is no PM model) and no `--until` (no clock). `handoff` is the only mutation boundary: a parse failure or a gate block never escalates in Pilot, it just leaves the relay `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the relay exactly like a spawned round."),
+                .init("pilot", "Pilot: you hold the PM seat", "`pair pilot start|handoff|status|watch` — no `--pm-worker` (there is no PM model) and no `--until` (no clock). Long jobs: `handoff --no-wait` then poll `status` (watch optional/disposable). Orphan owner → inspect, never blind retry. `handoff` is the only mutation boundary: a parse failure or a gate block never escalates in Pilot, it just leaves the relay `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the relay exactly like a spawned round."),
                 .init("adopt", "Adopt: hand the SAME relay to a spawned PM (unattended)", "Pilot the first rounds yourself while context is hot, then `alln pair relay adopt --relay <id> --pm-worker <id>` converts a parked Pilot relay (`awaitingPM` or `escalated`) to a spawned PM relay and keeps going from the durable round log — same id, same rounds, same thread; the first spawned turn is told, once, that earlier rounds were externally piloted. `--max-rounds`/`--until` behave like a spawned run, and the round ceiling counts the piloted rounds too — an honest total, not a fresh budget. The reverse flip, `alln pair pilot adopt --relay <id>`, hands a parked spawned relay (escalated, or ceiling-stopped) back to Pilot — a plain state flip, no dispatch."),
             ],
             relatedCommandNames: [

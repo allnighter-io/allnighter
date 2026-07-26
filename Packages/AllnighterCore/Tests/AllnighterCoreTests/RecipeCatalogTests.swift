@@ -55,6 +55,15 @@ final class RecipeCatalogTests: XCTestCase {
         }
     }
 
+    func testPilotRecipeTeachesStatusFirstNotInfiniteWatch() throws {
+        let md = try XCTUnwrap(RecipeCatalog.markdown(id: "get-another-model-to-implement-this"))
+        XCTAssertTrue(md.contains("--no-wait"), "Pilot recipe must teach handoff --no-wait")
+        XCTAssertTrue(md.contains("pilot status"), "Pilot recipe must teach status poll")
+        XCTAssertTrue(md.contains("optional") || md.contains("disposable"), "watch must be demoted")
+        XCTAssertTrue(md.lowercased().contains("inspect"), "orphan path must teach inspect")
+        XCTAssertTrue(md.lowercased().contains("blind retry") || md.lowercased().contains("never blind"))
+    }
+
     func testMarkdownLookupById() {
         let id = "get-sols-take-without-changing-files"
         let md = RecipeCatalog.markdown(id: id)

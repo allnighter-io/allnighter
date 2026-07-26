@@ -367,15 +367,53 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(loaded?.state.status, .stopped)
     }
 
-    func testRecoveryNextActionsNameWatchForAliveHandoff() {
+    func testRecoveryNextActionsPreferStatusForAliveHandoff() {
         let state = RelayState(
             id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
             pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
             status: .running, pmMode: .external, createdAt: Date()
         )
         let actions = PilotCLI.recoveryNextActions(for: state, recovery: .handoffAlive)
+        XCTAssertEqual(actions.count, 2)
+        XCTAssertEqual(actions[0].kind, "pilotStatus")
+        XCTAssertTrue(actions[0].command.contains("pilot status"))
+        XCTAssertEqual(actions[1].kind, "pilotWatch")
+        XCTAssertTrue(actions[1].command.contains("pilot watch"))
+        XCTAssertTrue(actions[1].label.lowercased().contains("optional"))
+    }
+
+    func testRecoveryNextActionsOrphanInspectNotBlindRetry() {
+        let state = RelayState(
+            id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .stopped, pmMode: .external, createdAt: Date(),
+            stoppedReason: RelayState.orphanReconciledReason
+        )
+        let actions = PilotCLI.recoveryNextActions(for: state, recovery: .orphanReconciled)
         XCTAssertEqual(actions.count, 1)
-        XCTAssertTrue(actions[0].command.contains("pilot watch"))
+        XCTAssertEqual(actions[0].kind, "pilotStatus")
+        XCTAssertTrue(actions[0].label.lowercased().contains("inspect"))
+        XCTAssertFalse(actions[0].label.lowercased().contains("retry handoff"))
+        let line = PilotCLI.recoveryActionLine(for: state, recovery: .orphanReconciled)
+        XCTAssertTrue(line?.lowercased().contains("inspect") == true)
+        XCTAssertTrue(line?.lowercased().contains("blind retry") == true)
+    }
+
+    func testNextActionLineRunningPrefersStatusOverWatch() {
+        let state = RelayState(
+            id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external, createdAt: Date()
+        )
+        let line = PilotCLI.nextActionLine(for: state)
+        XCTAssertTrue(line.contains("pilot status"))
+        XCTAssertTrue(line.contains("do not re-dispatch"))
+        let statusIdx = line.range(of: "pilot status")?.lowerBound
+        let watchIdx = line.range(of: "pilot watch")?.lowerBound
+        XCTAssertNotNil(statusIdx)
+        if let statusIdx, let watchIdx {
+            XCTAssertLessThan(statusIdx, watchIdx)
+        }
     }
 
     func testWatchSettledNoteWhenNothingInFlight() {
