@@ -408,4 +408,100 @@ final class PilotCLITests: XCTestCase {
         // unescaped space before the closing quote).
         XCTAssertTrue(cmd.hasSuffix("'\(path)'"), "cmd: \(cmd)")
     }
+
+    // MARK: - detached handoff launch (PLT-S01)
+
+    /// Works Test intent: clean checkout without `<cwd>/alln` — bare `alln` from PATH must
+    /// still resolve to an absolute binary; child cwd must be the relay projectRoot.
+    private func makeExecutable(at url: URL) throws {
+        FileManager.default.createFile(atPath: url.path, contents: Data("#!/bin/sh\necho ok\n".utf8))
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+    }
+
+    private func saveRelay(projectRoot: String, relayId: String = "relay_handoff") throws -> RelayStateStore {
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-\(relayId)"))
+        let state = RelayState(
+            id: relayId, projectRoot: projectRoot, docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .awaitingPM, pmMode: .external, createdAt: Date()
+        )
+        try store.save(state)
+        return store
+    }
+
+    func testDetachedHandoffLaunchPrefersCurrentExecutablePath() throws {
+        let projectRoot = tmp.appendingPathComponent("repo").path
+        try FileManager.default.createDirectory(atPath: projectRoot, withIntermediateDirectories: true)
+        let store = try saveRelay(projectRoot: projectRoot)
+        let preferred = "/usr/local/bin/alln-real"
+
+        let launch = try PilotCLI.detachedHandoffLaunch(
+            relayId: "relay_handoff",
+            stateStore: store,
+            argv0: "alln",
+            pathEnvironment: "/should/not/be/searched",
+            currentExecutablePath: { preferred }
+        )
+
+        XCTAssertEqual(launch.executableURL.path, preferred)
+        XCTAssertEqual(launch.currentDirectoryURL.path, projectRoot)
+    }
+
+    func testDetachedHandoffLaunchFallsBackToInstallCLIResolverForBareArgv0() throws {
+        let projectRoot = tmp.appendingPathComponent("repo2").path
+        try FileManager.default.createDirectory(atPath: projectRoot, withIntermediateDirectories: true)
+        let store = try saveRelay(projectRoot: projectRoot, relayId: "relay_path")
+        let binary = tmp.appendingPathComponent("alln-bin")
+        try makeExecutable(at: binary)
+        let binDir = tmp.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            atPath: binDir.appendingPathComponent("alln").path,
+            withDestinationPath: binary.path
+        )
+        let elsewhere = tmp.appendingPathComponent("websitemd.studio")
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        FileManager.default.createFile(
+            atPath: elsewhere.appendingPathComponent("alln").path,
+            contents: Data("not the real binary".utf8)
+        )
+
+        let launch = try PilotCLI.detachedHandoffLaunch(
+            relayId: "relay_path",
+            stateStore: store,
+            argv0: "alln",
+            pathEnvironment: binDir.path,
+            currentExecutablePath: { nil }
+        )
+
+        XCTAssertEqual(launch.executableURL.path, binary.resolvingSymlinksInPath().path)
+        XCTAssertEqual(launch.currentDirectoryURL.path, projectRoot)
+    }
+
+    func testDetachedHandoffLaunchFailsWhenRelayMissing() throws {
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("empty-relays"))
+        XCTAssertThrowsError(try PilotCLI.detachedHandoffLaunch(
+            relayId: "missing",
+            stateStore: store,
+            currentExecutablePath: { "/bin/alln" }
+        )) { error in
+            XCTAssertEqual(error as? PilotCLI.DetachedHandoffLaunchError, .relayNotFound("missing"))
+        }
+    }
+
+    func testDetachedHandoffLaunchFailsWhenExecutableUnresolved() throws {
+        let projectRoot = tmp.appendingPathComponent("repo3").path
+        try FileManager.default.createDirectory(atPath: projectRoot, withIntermediateDirectories: true)
+        let store = try saveRelay(projectRoot: projectRoot, relayId: "relay_unresolved")
+
+        XCTAssertThrowsError(try PilotCLI.detachedHandoffLaunch(
+            relayId: "relay_unresolved",
+            stateStore: store,
+            argv0: "alln",
+            pathEnvironment: tmp.appendingPathComponent("empty-bin").path,
+            currentExecutablePath: { nil }
+        )) { error in
+            XCTAssertEqual(error as? PilotCLI.DetachedHandoffLaunchError, .unresolvedExecutable)
+        }
+    }
 }

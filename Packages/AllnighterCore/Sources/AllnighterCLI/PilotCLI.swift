@@ -335,6 +335,52 @@ enum PilotCLI {
         stateStore.load(id: relayId)?.projectRoot
     }
 
+    /// Launch configuration for `--no-wait` detached `pilot handoff`.
+    ///
+    /// Works Test intent: bare `alln` from PATH on a clean checkout — no `<cwd>/alln`
+    /// symlink masking a broken argv0 spawn.
+    struct DetachedHandoffLaunch: Equatable {
+        var executableURL: URL
+        var currentDirectoryURL: URL
+    }
+
+    enum DetachedHandoffLaunchError: Error, Equatable {
+        case relayNotFound(String)
+        case missingProjectRoot(String)
+        case unresolvedExecutable
+    }
+
+    static func detachedHandoffLaunch(
+        relayId: String,
+        stateStore: RelayStateStore,
+        argv0: String? = CommandLine.arguments.first,
+        pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"],
+        currentExecutablePath: () -> String? = ProcessOwnership.currentExecutablePath
+    ) throws -> DetachedHandoffLaunch {
+        guard let state = stateStore.load(id: relayId) else {
+            throw DetachedHandoffLaunchError.relayNotFound(relayId)
+        }
+        guard !state.projectRoot.isEmpty else {
+            throw DetachedHandoffLaunchError.missingProjectRoot(relayId)
+        }
+        let executablePath: String?
+        if let current = currentExecutablePath() {
+            executablePath = current
+        } else {
+            executablePath = InstallCLI.resolvedRunningBinary(
+                argv0: argv0,
+                pathEnvironment: pathEnvironment
+            )
+        }
+        guard let executablePath else {
+            throw DetachedHandoffLaunchError.unresolvedExecutable
+        }
+        return DetachedHandoffLaunch(
+            executableURL: URL(fileURLWithPath: executablePath),
+            currentDirectoryURL: URL(fileURLWithPath: state.projectRoot)
+        )
+    }
+
     /// `--no-wait`: re-invokes THIS SAME executable as a detached background process
     /// running the normal (blocking) `pilot handoff` against a staged copy of the
     /// submission — one dispatch path, no second in-process implementation to drift
@@ -347,8 +393,22 @@ enum PilotCLI {
         let priorStatus = stateStore.load(id: relayId)?.status
         let roundInFlight = priorStatus == .running
 
+        let launch: DetachedHandoffLaunch
+        do {
+            launch = try detachedHandoffLaunch(relayId: relayId, stateStore: stateStore)
+        } catch DetachedHandoffLaunchError.relayNotFound(let id) {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "relay not found: \(id)")
+        } catch DetachedHandoffLaunchError.missingProjectRoot(let id) {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "relay \(id) has no projectRoot")
+        } catch DetachedHandoffLaunchError.unresolvedExecutable {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not resolve running binary for background handoff")
+        } catch {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not prepare background handoff: \(error)")
+        }
+
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
+        process.executableURL = launch.executableURL
+        process.currentDirectoryURL = launch.currentDirectoryURL
         var childArgs = ["pair", "pilot", "handoff", "--relay", relayId]
 
         // SR-12 (Sol F19): stage the already-read/synthesized submission to an IMMUTABLE temp
