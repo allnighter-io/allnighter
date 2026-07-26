@@ -51,7 +51,7 @@ SSOT: archived [`Menu_Not_Router.md`](../../archive/phases/Menu_Not_Router.md).
 | --- | --- | --- |
 | 1 | [DL-S01 — rip diffusion + retag](design-lane/DL-S01-rip-and-retag.md) | **done** |
 | 2 | [DL-S02 — WebKit board capture](design-lane/DL-S02-webkit-board.md) | **done** |
-| 3 | [DL-S03 — seat brief](design-lane/DL-S03-seat-brief.md) | ready (after S02) |
+| 3 | [DL-S03 — seat brief](design-lane/DL-S03-seat-brief.md) | **done** |
 
 SSOT: `docs/phases/Design_Lane.md`. Implementers: Cursor Grok 4.5 + Composer only.
 

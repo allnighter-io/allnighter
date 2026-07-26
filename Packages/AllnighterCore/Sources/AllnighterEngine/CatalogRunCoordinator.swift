@@ -107,7 +107,7 @@ public actor CatalogRunCoordinator {
                 [scout], prompt: prompt, effort: resolved.effort, modelByID: modelByID,
                 run: &run, repoRoot: repoRoot, deliveries: deliveries, workerPrompts: nil,
                 workerWorkingDirectories: workerWorkingDirectories, persist: persist,
-                team: team, lane: lane, reseatPool: models)
+                team: team, lane: lane, reseatPool: models, outputKind: resolved.outputKind)
             applySnapshots(scoutSnapshots, to: &run)
             merge(scoutAnswers, into: &run)
             if let out = scoutAnswers.first, out.hasAnswer, let text = out.output, !text.isEmpty {
@@ -124,7 +124,8 @@ public actor CatalogRunCoordinator {
             resolved.answerWorkers, prompt: downstreamPrompt, effort: resolved.effort,
             modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries,
             workerPrompts: workerPrompts, workerWorkingDirectories: workerWorkingDirectories,
-            persist: persist, team: team, lane: lane, reseatPool: models)
+            persist: persist, team: team, lane: lane, reseatPool: models,
+            outputKind: resolved.outputKind)
         applySnapshots(answerSnapshots, to: &run)
         merge(answers, into: &run)
         persist?(run)
@@ -136,7 +137,8 @@ public actor CatalogRunCoordinator {
                 resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort,
                 modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries,
                 workerPrompts: nil, workerWorkingDirectories: workerWorkingDirectories,
-                persist: persist, team: team, lane: lane, reseatPool: models)
+                persist: persist, team: team, lane: lane, reseatPool: models,
+                outputKind: resolved.outputKind)
             applySnapshots(reviewSnapshots, to: &run)
             merge(reviews, into: &run)
             persist?(run)
@@ -232,7 +234,8 @@ public actor CatalogRunCoordinator {
         persist: (@Sendable (TeamRun) -> Void)? = nil,
         team: TeamPreset? = nil,
         lane: WorkLane = .code,
-        reseatPool: [Model] = []
+        reseatPool: [Model] = [],
+        outputKind: TeamOutputKind? = nil
     ) async -> (answers: [TeamAnswer], snapshots: [String: String]) {
         var snapshots: [String: String] = [:]
         let runId = run.id
@@ -253,7 +256,11 @@ public actor CatalogRunCoordinator {
                 let manifest = model.flatMap { registry.manifest(for: $0) }
                 let role = worker.purpose?.rawValue ?? WorkerStage.answer.rawValue
                 let founderPrompt = workerPrompts?[worker.id] ?? prompt
-                let baseWorkerPrompt = SkillCatalog.assemblePrompt(skillId: worker.skillId, founderPrompt: founderPrompt)
+                let baseWorkerPrompt = SkillCatalog.assemblePrompt(
+                    skillId: worker.skillId,
+                    founderPrompt: founderPrompt,
+                    outputKind: outputKind
+                )
                 let workerPrompt = deliveries.isEmpty ? baseWorkerPrompt
                     : TeamRunAttachmentMapper.teamRunSeatPrompt(
                         basePrompt: baseWorkerPrompt,

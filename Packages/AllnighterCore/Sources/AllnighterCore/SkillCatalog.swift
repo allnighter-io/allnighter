@@ -169,14 +169,24 @@ public enum SkillCatalog {
     /// Team's `direct_chat` skill is passthrough — nothing is prepended.
     /// Every `.planWriter` skill also receives the universal Lead Call envelope
     /// (hero synthesizer artifact + decision-card machine surface).
-    public static func assemblePrompt(skillId: String?, founderPrompt: String) -> String {
+    /// Design-board answer seats also receive `designSeatCaptureBrief` when
+    /// `outputKind == .designBoard` (DL-S03 / `docs/phases/Design_Lane.md`).
+    public static func assemblePrompt(
+        skillId: String?,
+        founderPrompt: String,
+        outputKind: TeamOutputKind? = nil
+    ) -> String {
         if skillId == directChatSkillId { return founderPrompt }
         guard let skillId, let skill = skill(skillId), !skill.template.isEmpty else { return founderPrompt }
         if skill.purpose == .planWriter {
             return "\(skill.template)\n\n\(leadCallEnvelope)\n\n\(founderPrompt)"
         }
         // Answer + review seats: elevator summary only — never a mini Lead Call.
-        return "\(skill.template)\n\n\(seatSummaryEnvelope)\n\n\(founderPrompt)"
+        var envelopes = seatSummaryEnvelope
+        if skill.lane == .design, skill.purpose == .answer, outputKind == .designBoard {
+            envelopes += "\n\n\(designSeatCaptureBrief)"
+        }
+        return "\(skill.template)\n\n\(envelopes)\n\n\(founderPrompt)"
     }
 
     // MARK: - Seat summary (answer + review elevator brief)
@@ -205,6 +215,24 @@ public enum SkillCatalog {
     }
     ```
     Then your craft body (evidence only).
+    """
+
+    /// Injected for design-board answer seats (`outputKind == .designBoard`).
+    /// Teaches one captureable HTML/SVG receipt + path declaration for WebKit board
+    /// capture (`DesignBoardCapture`). No silent diffusion fallback.
+    public static let designSeatCaptureBrief = """
+    ## Design capture (INVIOLABLE — board tile depends on this)
+
+    Leave **one** bounded surface the host can photograph — one screen or one HTML/SVG file.
+
+    - **Default:** write `option_<your-worker-id>.html` (or `.svg`) in the run folder.
+    - **Or declare** on its own line in Evidence: `capture: html <path>` or `capture: svg <path>`.
+
+    Pick build path: `html` (default for web/marketing) | `native` (only when designing \
+    **this** Allnighter Mac app — SwiftUI fixture) | `concept` (only if the user explicitly \
+    asked for illustration, not UI mockup).
+
+    **Never** call imageGen, Midjourney, or diffusion as a substitute for a built UI surface.
     """
 
     // MARK: - Lead Call (universal planWriter envelope)
@@ -573,19 +601,19 @@ public enum SkillCatalog {
     private static let designPanelSkills: [Skill] = [
         s("minimal", "Minimal", .design, .answer, """
         Restraint, generous whitespace, type-led hierarchy; strip every non-essential element. \
-        Produce exactly one finished mockup image for this direction.
+        Build one bounded HTML/SVG screen for this direction.
         """),
         s("bold", "Bold", .design, .answer, """
         High contrast, oversized type, opinionated color; the primary action dominates. \
-        Produce exactly one finished mockup image for this direction.
+        Build one bounded HTML/SVG screen for this direction.
         """),
         s("editorial", "Editorial", .design, .answer, """
         Break the generic SaaS look — magazine/editorial or information-dense — while staying \
-        recognizably the same screen and usable. Produce exactly one finished mockup image for this direction.
+        recognizably the same screen and usable. Build one bounded HTML/SVG screen for this direction.
         """),
         s("on_brand", "On-brand", .design, .answer, """
         Match the product's existing look: palette, type scale, and spacing from the attached \
-        screen. Range in layout, not in brand. Produce exactly one finished mockup image for this direction.
+        screen. Range in layout, not in brand. Build one bounded HTML/SVG screen for this direction.
         """)
     ]
 

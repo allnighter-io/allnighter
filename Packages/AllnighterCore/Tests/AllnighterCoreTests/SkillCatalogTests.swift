@@ -81,6 +81,45 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertEqual(SkillCatalog.assemblePrompt(skillId: "nope", founderPrompt: "X"), "X")
     }
 
+    func testDesignBoardAnswerSeatsReceiveCaptureBrief() {
+        let designAnswerIds = [
+            "visual_system_designer", "minimal_direction", "bold_direction", "editorial_direction",
+            "minimal", "bold", "editorial"
+        ]
+        for skillId in designAnswerIds {
+            let assembled = SkillCatalog.assemblePrompt(
+                skillId: skillId, founderPrompt: "DESIGN", outputKind: .designBoard)
+            XCTAssertTrue(assembled.contains("Design capture"), skillId)
+            XCTAssertTrue(assembled.contains("option_<your-worker-id>.html"), skillId)
+            XCTAssertTrue(assembled.contains("capture: html"), skillId)
+            XCTAssertTrue(assembled.contains("Never") && assembled.contains("imageGen"), skillId)
+            XCTAssertTrue(assembled.contains("Midjourney"), skillId)
+            XCTAssertTrue(assembled.contains("Seat brief"), skillId)
+            XCTAssertTrue(assembled.hasSuffix("DESIGN"), skillId)
+        }
+        // Polish-board answer seats must not get capture law without designBoard output.
+        let polish = SkillCatalog.assemblePrompt(
+            skillId: "hierarchy_sculptor", founderPrompt: "POLISH", outputKind: .polishBoard)
+        XCTAssertFalse(polish.contains("Design capture"))
+        // Code answer seats never get design capture.
+        let code = SkillCatalog.assemblePrompt(
+            skillId: "bug_reproducer", founderPrompt: "BUG", outputKind: .designBoard)
+        XCTAssertFalse(code.contains("Design capture"))
+        // Design review seats get seat brief only.
+        let review = SkillCatalog.assemblePrompt(
+            skillId: "accessibility_reviewer", founderPrompt: "A11Y", outputKind: .designBoard)
+        XCTAssertTrue(review.contains("Seat brief"))
+        XCTAssertFalse(review.contains("Design capture"))
+    }
+
+    func testDesignSeatCaptureBriefDeclaresPathConvention() {
+        XCTAssertTrue(SkillCatalog.designSeatCaptureBrief.contains("capture: html"))
+        XCTAssertTrue(SkillCatalog.designSeatCaptureBrief.contains("capture: svg"))
+        XCTAssertTrue(SkillCatalog.designSeatCaptureBrief.contains("native"))
+        XCTAssertTrue(SkillCatalog.designSeatCaptureBrief.contains("concept"))
+        XCTAssertTrue(SkillCatalog.designSeatCaptureBrief.contains("SwiftUI"))
+    }
+
     func testModelCapabilitiesAreDeterministicAndRanked() {
         // Flagship-only seats top the ladder (Fable + Sol); Opus is a strong high seat.
         XCTAssertEqual(ModelCatalog.capabilities("model_fable").strengthRank, 100)

@@ -1,6 +1,6 @@
 # DL-S03 — Design seat brief: leave one captureable file
 
-Status: **ready** (after DL-S02)
+Status: **done** (DL-S03)
 SSOT: `docs/phases/Design_Lane.md` §§Path selection, Path declaration, Self-determination
 
 ## Goal
@@ -51,6 +51,6 @@ swift test --package-path Packages/AllnighterCore --filter 'Design|SkillCatalog'
 
 ## Done when
 
-- [ ] Design answer seats receive captureable-file brief
-- [ ] Path declaration required in brief
-- [ ] Committed
+- [x] Design answer seats receive captureable-file brief
+- [x] Path declaration required in brief
+- [x] Committed
