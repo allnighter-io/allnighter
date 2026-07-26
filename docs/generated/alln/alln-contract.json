@@ -2678,7 +2678,7 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "Return immediately after dispatch; for long jobs poll `pilot status --json` until awaitingPM (do not treat a killed `pilot watch` as failure).",
+          "summary" : "Return immediately after dispatch instead of blocking through the dev turn.",
           "takesValue" : false
         },
         {
@@ -2706,7 +2706,7 @@
       "name" : "pair pilot handoff",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait then poll pilot status.",
+      "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim.",
       "visibility" : "public"
     },
     {
@@ -2735,7 +2735,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit PilotStatusJSON (relay + recovery nextActions; while running adds elapsedSeconds, ownerAlive, lastProgressAt\/silenceAgeSeconds as primary liveness, commitsSinceBaseline as supplementary\/not liveness, waitHintSeconds 45, watcherDisposable).",
+          "summary" : "Emit PilotStatusJSON (relay + recovery nextActions when in flight).",
           "takesValue" : false
         }
       ],
@@ -2747,7 +2747,7 @@
       "name" : "pair pilot status",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Read a Pilot relay's durable state — agent truth for in-flight rounds; poll with waitHintSeconds until awaitingPM. While running: elapsedSeconds, ownerAlive, lastProgressAt\/silenceAgeSeconds (PRIMARY liveness), commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.",
+      "summary" : "Read a Pilot relay's durable state — rounds, verdicts, gate decisions, dirty-tree snapshots.",
       "visibility" : "public"
     },
     {
@@ -2775,14 +2775,8 @@
           "valueType" : "id"
         },
         {
-          "name" : "max-wait",
-          "summary" : "Stop waiting after N seconds while still running; exit with stillRunning and reattach to pilot status (default 1800 when stdout is not a TTY; interactive TTY waits until settled unless set).",
-          "takesValue" : true,
-          "valueType" : "integer"
-        },
-        {
           "name" : "json",
-          "summary" : "Emit PilotWatchJSON (final single-line envelope; NDJSON pilotWatchHeartbeat lines while waiting).",
+          "summary" : "Emit PilotWatchJSON (single-line; relay + devReport + note when nothing was in flight).",
           "takesValue" : false
         }
       ],
@@ -2794,7 +2788,7 @@
       "name" : "pair pilot watch",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Optional interactive waiter: block until the in-flight round settles. Disposable — death ≠ job failure; prefer `pilot status` for agents. Emits heartbeats while running; SIGTERM\/SIGINT prints stillRunning goodbye.",
+      "summary" : "Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status).",
       "visibility" : "public"
     },
     {
@@ -4956,7 +4950,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.0.9",
+  "contractVersion" : "4.0.6",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5797,7 +5791,7 @@
       "ruleId" : "relay.handover.unsafe"
     },
     {
-      "agentAction" : "Poll `alln pair pilot status --relay <id> --json` until status is `awaitingPM`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once awaitingPM, retry `pilot handoff` if still needed.",
+      "agentAction" : "Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`.",
       "code" : "RELAY_ROUND_IN_FLIGHT",
       "exitClass" : "operational",
       "explain" : "A pilot relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent `pilot handoff` on the same relay is refused rather than racing a second dev turn onto one repo root.",

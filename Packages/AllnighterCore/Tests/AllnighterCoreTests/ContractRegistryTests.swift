@@ -10,7 +10,7 @@ final class ContractRegistryTests: XCTestCase {
     func testContractVersionMatchesTeamRunFixture() throws {
         let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
         XCTAssertEqual(reg.contractVersion, trj.contractVersion)
-        XCTAssertEqual(reg.contractVersion, "4.0.8")
+        XCTAssertEqual(reg.contractVersion, "4.0.9")
     }
 
     /// Team-run and Pending next-action kinds must match the registry catalog.

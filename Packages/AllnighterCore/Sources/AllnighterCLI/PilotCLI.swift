@@ -552,16 +552,13 @@ enum PilotCLI {
         defaultNonTTYSeconds: TimeInterval = defaultNonTTYMaxWaitSeconds
     ) throws -> (seconds: TimeInterval?, applied: Bool) {
         if let raw = opts.value("max-wait") {
-            guard let seconds = try parseMaxWaitSeconds(raw) else {
-                throw PilotCLIError.missingRequired("--max-wait <seconds>")
-            }
-            return (seconds, false)
+            return (try parseMaxWaitSeconds(raw), false)
         }
         if stdoutIsTTY { return (nil, false) }
         return (defaultNonTTYSeconds, true)
     }
 
-    static func parseMaxWaitSeconds(_ raw: String) throws -> TimeInterval? {
+    static func parseMaxWaitSeconds(_ raw: String) throws -> TimeInterval {
         guard let n = Int(raw), n > 0 else {
             throw PilotCLIError.invalidMaxWait(raw)
         }
