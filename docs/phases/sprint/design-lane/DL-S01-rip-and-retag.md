@@ -1,6 +1,6 @@
 # DL-S01 — Rip diffusion Design default + retag mockup seats
 
-Status: **ready**
+Status: **done**
 SSOT: `docs/phases/Design_Lane.md` (WebKit-first; rip DesignCoordinator/DesignImageRunner)
 
 ## Goal
@@ -71,7 +71,7 @@ swift test --package-path Packages/AllnighterCore --filter 'Design|TeamResolver|
 
 ## Done when
 
-- [ ] Orphaned DesignCoordinator / DesignImageRunner + their tests deleted
-- [ ] ProveCLI `--design` gone
-- [ ] Mockup seats tagged `.design`
-- [ ] Tests green; committed
+- [x] Orphaned DesignCoordinator / DesignImageRunner + their tests deleted
+- [x] ProveCLI `--design` gone
+- [x] Mockup seats tagged `.design`
+- [x] Tests green; committed

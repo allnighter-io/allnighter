@@ -425,23 +425,19 @@ public enum BuiltInTeams {
 
     // MARK: - Design teams
 
-    // Design has two seat kinds (Team_Catalog_Normalization.md): `.image` seats
-    // actually generate a mockup image (only image engines qualify — Gemini,
-    // Codex, Grok); `.design` seats are reasoning/critique/direction and a text
-    // model can hold them (Kimi K3, Sol, Fable, Grok, Gemini, Codex).
+    // Design seats are builder/reasoning roles (Team_Catalog_Normalization.md):
+    // each seat builds a bounded renderable surface; the host capture step
+    // screenshots that receipt for the board hero tile (Design_Lane.md).
 
-    /// Design Min — the leanest credible design take: one design-reasoning seat
-    /// (information architecture) plus one image seat that actually generates the
-    /// mockup. Mirrors the Default's seat kinds at minimum viable count and keeps
-    /// the design-reasoning (`.design`) vs image (`.image`) seat distinction
-    /// (Team_Catalog_Normalization.md §Design capability). Same writer/output as
-    /// the family.
+    /// Design Min — the leanest credible design take: structure plus one visual
+    /// system seat that builds and lands a screenshot receipt. Same writer/output
+    /// as the family.
     static let designMin = make(
         id: "design_design_min", name: "Design Min", lane: .design, output: .designBoard, defaultEffort: .med,
         description: "Quick credible design take — the essential structure plus one rendered mockup.",
         rows: [
             needRow("information_architect", .answer, tags: [.design]),
-            needRow("visual_system_designer", .answer, tags: [.image])
+            needRow("visual_system_designer", .answer, tags: [.design])
         ],
         writer: "design_board_writer", dissent: .compareOptions,
         typeTags: ["design-min"],
@@ -451,12 +447,9 @@ public enum BuiltInTeams {
         id: "design_design", name: "Design", lane: .design, output: .designBoard, defaultEffort: .med, isDefault: true,
         description: "Design or redesign a screen or flow — credible interface options with the tradeoffs made visible.",
         rows: [
-            // Reasoning seats (.design) vs mockup seat (.image) — the
-            // distinction Team_Catalog_Normalization §Design capability draws;
-            // K3/Sol/Fable are eligible for the reasoning seats.
             needRow("information_architect", .answer, tags: [.design]),
             needRow("interaction_designer", .answer, tags: [.design]),
-            needRow("visual_system_designer", .answer, tags: [.image])
+            needRow("visual_system_designer", .answer, tags: [.design])
         ],
         writer: "design_board_writer", dissent: .compareOptions,
         typeTags: ["design", "screen", "mockup", "ui", "interface", "directions"],
@@ -473,12 +466,11 @@ public enum BuiltInTeams {
         rows: [
             needRow("information_architect", .answer, tags: [.design]),
             needRow("interaction_designer", .answer, tags: [.design]),
-            needRow("visual_system_designer", .answer, tags: [.image]),
-            // Absorbed Radical Directions divergence seats stay image-first —
-            // each direction lands as a rendered mockup.
-            needRow("minimal_direction", .answer, tags: [.image]),
-            needRow("bold_direction", .answer, tags: [.image]),
-            needRow("editorial_direction", .answer, tags: [.image])
+            needRow("visual_system_designer", .answer, tags: [.design]),
+            // Divergence direction seats each build a surface and land a screenshot receipt.
+            needRow("minimal_direction", .answer, tags: [.design]),
+            needRow("bold_direction", .answer, tags: [.design]),
+            needRow("editorial_direction", .answer, tags: [.design])
         ],
         writer: "design_board_writer", dissent: .compareOptions,
         typeTags: ["design-max", "divergent", "explore", "alternatives"],

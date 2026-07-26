@@ -26,14 +26,6 @@ enum ProveCLI {
             exit(1)
         }
 
-        // Live design-image proof (the Activation Gate board item): generate ONE
-        // real image via an image engine and confirm a valid local file lands.
-        // Gated behind --design so the normal text proof never burns image quota.
-        if CommandLine.arguments.contains("--design") {
-            await proveDesign(driversDir: driversDir)
-            return
-        }
-
         let prompt = "Reply with exactly the two words: hello world"
         let runner = WorkerInvokerFactory.makeWorkerInvoker()
         let cases: [(name: String, worker: Model)] = [
@@ -62,42 +54,6 @@ enum ProveCLI {
             }
         }
 
-        exit(anyFailed ? 1 : 0)
-    }
-
-    /// Generate one real design image per image-capable engine and confirm a valid
-    /// local PNG/JPEG lands. The end-to-end Activation Gate "board" check at $0.
-    private static func proveDesign(driversDir: URL) async {
-        let which = CommandLine.arguments.first { ["grok", "codex", "antigravity"].contains($0) }
-        let names = which.map { ["\($0).json"] } ?? ["grok.json", "antigravity.json", "codex.json"]
-        let runner = DesignImageRunner(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
-        var anyFailed = false
-        for name in names {
-            let driverId = (name as NSString).deletingPathExtension
-            guard let manifest = try? CoreJSON.decode(DriverManifest.self, from: Data(contentsOf: driversDir.appendingPathComponent(name))),
-                  manifest.canGenerateImages else {
-                fputs("[\(driverId)] SKIP — no imageGen manifest\n", stderr); continue
-            }
-            let modelLabel = driverId == "antigravity" ? "Gemini 3.6 Flash (Medium)" : (driverId == "grok" ? "grok-build" : "gpt-5.5")
-            let worker = Model(id: "prove_\(driverId)", displayName: driverId, modelLabel: modelLabel, driverId: driverId)
-            let seat = Worker(id: "prove_\(driverId)#0", modelId: worker.id, instanceIndex: 0, skillId: "minimal")
-            let runDir = FileManager.default.temporaryDirectory.appendingPathComponent("alln-design-prove-\(driverId)")
-            try? FileManager.default.createDirectory(at: runDir, withIntermediateDirectories: true)
-            let request = DesignSeatRequest(
-                userPrompt: "a clean mobile login screen for a coffee app",
-                personaId: "minimal", personaDirection: SkillCatalog.designDirection(for: "minimal"),
-                targetShape: .mobile)
-            fputs("[\(driverId)] generating image (\(manifest.imageGen!.arrival.rawValue)) — this hits the real engine…\n", stderr)
-            let option = await runner.run(seat: seat, worker: worker, manifest: manifest, request: request, runDir: runDir)
-            if option.status == .done, let rel = option.imagePath {
-                let path = runDir.appendingPathComponent(rel).path
-                let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int) ?? 0
-                print("[\(driverId)] OK — \(path) (\(size ?? 0) bytes), session=\(option.sessionId ?? "-")")
-            } else {
-                anyFailed = true
-                fputs("[\(driverId)] FAIL — status=\(option.status) reason=\(option.failureReason ?? "-")\n", stderr)
-            }
-        }
         exit(anyFailed ? 1 : 0)
     }
 

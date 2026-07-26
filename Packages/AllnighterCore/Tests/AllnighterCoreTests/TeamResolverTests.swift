@@ -193,7 +193,7 @@ final class TeamResolverTests: XCTestCase {
     func testRequiredRowUnavailableBlocksTeam() {
         let t = team(rows: [
             TeamWorkerSpec(id: "r1", skillId: "bug_reproducer"),
-            TeamWorkerSpec(id: "r2", skillId: "visual_system_designer",
+            TeamWorkerSpec(id: "r2", skillId: "outlier_direction",
                            requiredCapabilityTags: [.image], fallbackPolicy: .anyReady, required: true)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
@@ -224,7 +224,7 @@ final class TeamResolverTests: XCTestCase {
         XCTAssertTrue(r.blockReason?.contains("is a code team") ?? false)
     }
 
-    // MARK: - Image-capable model resolves the design row when ready
+    // MARK: - Design-capable model resolves the design row when ready
 
     private func sonnet(enabled: Bool = true) -> Model {
         Model(id: "model_sonnet", displayName: "Sonnet 4.6", modelLabel: "sonnet", driverId: "claude_code", role: .answerer, enabled: enabled)
@@ -269,10 +269,10 @@ final class TeamResolverTests: XCTestCase {
         XCTAssertTrue(r.answerWorkers.isEmpty)
     }
 
-    func testImageRowResolvesWhenCapableModelReady() {
+    func testDesignRowResolvesWhenCapableModelReady() {
         let t = team(rows: [
             TeamWorkerSpec(id: "r1", skillId: "visual_system_designer",
-                           requiredCapabilityTags: [.image], fallbackPolicy: .anyReady, required: true)
+                           requiredCapabilityTags: [.design], fallbackPolicy: .anyReady, required: true)
         ], lane: .design, lead: leadSpec("design_board_writer", tags: [.design]))
         let r = TeamResolver.resolve(team: t, requestLane: .design, requestEffort: .low, readyModels: [opus(), gemini()])
         XCTAssertEqual(r.answerWorkers.first?.modelId, "model_gemini")

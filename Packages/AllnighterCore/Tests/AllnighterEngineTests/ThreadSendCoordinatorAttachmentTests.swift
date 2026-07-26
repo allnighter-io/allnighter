@@ -358,14 +358,3 @@ final class WorkspaceAttachmentStagingTests: XCTestCase {
         XCTAssertTrue(ignore.contains(".allnighter/"))
     }
 }
-
-final class TeamRunAttachmentMapperTests: XCTestCase {
-    func testDesignMapsFirstImageToScreenshotPath() {
-        let mapped = TeamRunAttachmentMapper.mapForDesign(deliveries: [
-            IncludedAttachmentDelivery(attachmentId: "a", sequence: 0, canonicalPath: "/c/a.png", deliveredPathUsed: "a.png", storedSha256: "1"),
-            IncludedAttachmentDelivery(attachmentId: "b", sequence: 1, canonicalPath: "/c/b.png", deliveredPathUsed: "b.png", storedSha256: "2"),
-        ])
-        XCTAssertEqual(mapped.screenshotAbsolutePath, "/c/a.png")
-        XCTAssertEqual(mapped.seatPromptDeliveries.map(\.attachmentId), ["b"])
-    }
-}
