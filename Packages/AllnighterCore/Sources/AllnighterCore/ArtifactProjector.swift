@@ -94,7 +94,6 @@ public enum ArtifactProjector {
     let title = resolveTitle(leadCall: leadCall, call: call, teamLabel: teamLabel)
     let asked = resolveAsked(leadCall: leadCall, prompt: run.prompt)
     let recommendations = (leadCall?.recommendations ?? [])
-      .prefix(5)
       .compactMap { rec -> Recommendation? in
         guard let decision = rec.decision, !decision.isEmpty else { return nil }
         return Recommendation(
@@ -114,6 +113,7 @@ public enum ArtifactProjector {
     }()
     let seats = seatCards(for: run, hoistedAnswer: trj.answer, context: context)
     let craftBody = leadMarkdown.map { LeadCallParser.stripFence(from: $0) }
+      .map { SeatSummaryParser.stripFence(from: $0) }
       .flatMap { $0.isEmpty ? nil : $0 }
       .map { shortenCraft($0) }
 
@@ -211,7 +211,9 @@ public enum ArtifactProjector {
         sourceId: context.sourceId(worker.modelId),
         status: status,
         durationMs: durationMs,
-        oneLiner: isLead ? leadSeatOneLiner(hoistedAnswer: hoistedAnswer, markdown: markdown) : seatOneLiner(from: markdown),
+        oneLiner: isLead
+          ? leadSeatOneLiner(hoistedAnswer: hoistedAnswer, markdown: markdown)
+          : crewSeatOneLiner(from: markdown),
         detailExcerpt: isLead ? nil : seatDetailExcerpt(from: markdown),
         isLead: isLead
       )
@@ -253,9 +255,9 @@ public enum ArtifactProjector {
     markdown: String?
   ) -> String? {
     if let call = LeadCallParser.parse(from: hoistedAnswer?.markdown ?? markdown)?.call {
-      return capped(call, max: 120)
+      return titleAtWordBoundary(call, max: 120)
     }
-    return seatOneLiner(from: markdown)
+    return crewSeatOneLiner(from: markdown)
   }
 
   /// Law-2 + trust: Lead chip must not stay `queued` when the synthesized answer exists.
@@ -292,15 +294,21 @@ public enum ArtifactProjector {
     return markdown
   }
 
-  private static func seatOneLiner(from markdown: String?) -> String? {
+  private static func crewSeatOneLiner(from markdown: String?) -> String? {
+    if let summary = SeatSummaryParser.summary(from: markdown) {
+      return titleAtWordBoundary(summary, max: 120)
+    }
+    // Legacy fallback while seats learn the envelope — never invent.
     guard let line = firstSubstantiveLine(markdown) else { return nil }
-    return capped(line, max: 120)
+    return titleAtWordBoundary(line, max: 120)
   }
 
   private static func seatDetailExcerpt(from markdown: String?) -> String? {
     guard let markdown else { return nil }
-    let stripped = LeadCallParser.stripFence(from: markdown)
-      .trimmingCharacters(in: .whitespacesAndNewlines)
+    let stripped = SeatSummaryParser.stripFence(
+      from: LeadCallParser.stripFence(from: markdown)
+    )
+    .trimmingCharacters(in: .whitespacesAndNewlines)
     guard stripped.count > 140 else { return nil }
     return capped(stripped, max: 480)
   }
@@ -398,7 +406,7 @@ public enum ArtifactProjector {
     if card.recommendations.isEmpty {
       items = "<li>Reply with the decision you want locked — the team left this open.</li>"
     } else {
-      for rec in card.recommendations.prefix(5) {
+      for rec in card.recommendations {
         items += "<li>\(escape(rec.decision))"
           + (rec.lean.isEmpty ? "" : " → <em>\(escape(rec.lean))</em>")
           + "</li>"
@@ -416,19 +424,18 @@ public enum ArtifactProjector {
   private static func seatChipHTML(_ seat: Seat) -> String {
     let glyph = String(seat.roleLabel.prefix(1)).uppercased()
     let duration = seat.durationMs.map { formatDuration(ms: $0) } ?? ""
+    let durationHTML = duration.isEmpty ? "" : "<span class=\"duration\">\(escape(duration))</span>"
     let leadClass = seat.isLead ? " seat-lead" : ""
     let oneLiner = seat.oneLiner.map { "<div class=\"one-liner\">\(escape($0))</div>" } ?? ""
-    let model = "<div class=\"model-via\">via \(escape(seat.modelLabel))</div>"
     let summary = """
       <div class="glyph">\(escape(glyph))</div>
       <div class="seat-main">
-        <div class="seat-name">\(escape(seat.roleLabel))</div>
+        <div class="seat-name">\(escape(seat.roleLabel)) <span class="model-via">via \(escape(seat.modelLabel))</span></div>
         \(oneLiner)
-        \(model)
       </div>
       <div class="seat-meta">
         <span class="status-dot status-\(escape(seat.status))" aria-label="\(escape(seat.status))"></span>
-        <span class="duration">\(escape(duration))</span>
+        \(durationHTML)
       </div>
     """
     if let detail = seat.detailExcerpt, !detail.isEmpty {
@@ -587,7 +594,7 @@ public enum ArtifactProjector {
     .seat-name { font-size: 0.95rem; font-weight: 600; }
     .lead-label { color: var(--text-muted); font-size: 0.8rem; }
     .one-liner { color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px; }
-    .model-via { color: var(--text-faint); font-size: 0.75rem; margin-top: 4px; }
+    .model-via { color: var(--text-faint); font-size: 0.75rem; font-weight: 400; margin-left: 0.35rem; }
     .decided-by { margin-bottom: var(--space-5); }
     .seat-meta { display: flex; align-items: center; gap: var(--space-2); }
     .seat-detail {
@@ -836,6 +843,7 @@ public enum ArtifactProjector {
       let trimmed = line.trimmingCharacters(in: .whitespaces)
       if trimmed.isEmpty || trimmed.hasPrefix("```") { continue }
       if trimmed.hasPrefix("{") || trimmed.hasPrefix("}") { continue }
+      if trimmed.hasPrefix("\"") && trimmed.contains("\":") { continue }
       if trimmed.hasPrefix("|") { continue }
       if trimmed.hasPrefix("#") { continue }
       if trimmed.hasPrefix("**Status") || trimmed.lowercased().hasPrefix("status:") { continue }

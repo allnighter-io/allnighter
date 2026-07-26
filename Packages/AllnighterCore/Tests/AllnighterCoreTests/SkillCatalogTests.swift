@@ -50,11 +50,14 @@ final class SkillCatalogTests: XCTestCase {
             XCTAssertTrue(assembled.hasSuffix("FOUNDER"), skill.id)
             // Ban the old Spec Review failure mode in the injected law.
             XCTAssertTrue(assembled.contains("Never say \"not ready to build.\""), skill.id)
+            XCTAssertFalse(assembled.contains("Seat brief"), skill.id)
         }
-        // Answer seats do not get the envelope.
+        // Answer seats get the elevator seat brief, not Lead Call.
         let answerAssembled = SkillCatalog.assemblePrompt(
             skillId: "spec_first_principles_reviewer", founderPrompt: "X")
         XCTAssertFalse(answerAssembled.contains("Lead Call envelope"))
+        XCTAssertTrue(answerAssembled.contains("Seat brief"))
+        XCTAssertTrue(answerAssembled.contains("```seat"))
     }
 
     func testSpecReviewWriterIsCraftBodyNotFullDocRewrite() throws {

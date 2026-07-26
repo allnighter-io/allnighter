@@ -175,8 +175,37 @@ public enum SkillCatalog {
         if skill.purpose == .planWriter {
             return "\(skill.template)\n\n\(leadCallEnvelope)\n\n\(founderPrompt)"
         }
-        return "\(skill.template)\n\n\(founderPrompt)"
+        // Answer + review seats: elevator summary only — never a mini Lead Call.
+        return "\(skill.template)\n\n\(seatSummaryEnvelope)\n\n\(founderPrompt)"
     }
+
+    // MARK: - Seat summary (answer + review elevator brief)
+
+    /// Injected after every answer/review skill template. One declared sentence for
+    /// the artifact chip — not a mini Lead Call (no status/recs/CTA).
+    public static let seatSummaryEnvelope = """
+    ## Seat brief (INVIOLABLE — emit this BEFORE your craft body)
+
+    You are one seat on a team, not the Lead. Your chip on the team artifact must pass \
+    the **elevator test**: if a CEO asks what you found while the doors are closing, \
+    you have one plain sentence.
+
+    ### Rules
+    - Emit **one** plain-English sentence as your product headline.
+    - Do **not** emit a `lead-call` block. Do not invent Status / Recommendations / CTA.
+    - Do **not** open with process chatter ("I'll open…", "Reviewing…", "Checking…").
+    - Ban JSON keys, file paths, and work-order voice in the summary.
+
+    ### Required machine block
+    After a short visible **Summary:** line (same sentence), emit:
+    ```seat
+    {
+      "schemaVersion": 1,
+      "summary": "Found 4 type wounds; mid-word ellipsis is the worst."
+    }
+    ```
+    Then your craft body (evidence only).
+    """
 
     // MARK: - Lead Call (universal planWriter envelope)
 

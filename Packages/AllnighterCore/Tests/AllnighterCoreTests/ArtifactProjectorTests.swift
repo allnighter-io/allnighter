@@ -98,9 +98,42 @@ final class ArtifactProjectorTests: XCTestCase {
     XCTAssertTrue(html.contains("Decided by"))
     XCTAssertTrue(html.contains("Who weighed in"))
     XCTAssertTrue(html.contains("model-via"))
-    // Role headline before muted model attribution.
-    XCTAssertTrue(html.contains("seat-name\">Lead"))
-    XCTAssertTrue(html.contains("seat-name\">Reader"))
+    // Role headline with via inline (not footer under one-liner).
+    XCTAssertTrue(html.contains("seat-name\">Lead <span class=\"model-via\">"))
+    XCTAssertTrue(html.contains("seat-name\">Reader <span class=\"model-via\">"))
+  }
+
+  func testSeatSummaryFencePreferredOverProcessProse() {
+    let md = """
+    I'll open the file and check everything carefully.
+
+    Summary: Found 3 hierarchy wounds; Lead is correctly pinned first.
+
+    ```seat
+    {"schemaVersion":1,"summary":"Found 3 hierarchy wounds; Lead is correctly pinned first."}
+    ```
+
+    Longer craft evidence stays below.
+    """
+    let worker = Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0,
+                        skillId: "hierarchy_sculptor", skillName: "Hierarchy Sculptor",
+                        purpose: .answer)
+    let run = TeamRun(
+      id: "run_seat_sum", prompt: "Polish?", status: .done,
+      workers: [worker],
+      workerAnswers: [
+        TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
+                   result: WorkerRunResult(status: .done, output: md,
+                                           timing: RunTiming(durationMs: 100))),
+      ],
+      stages: [], createdAt: now
+    )
+    let card = ArtifactProjector.project(run)
+    XCTAssertEqual(
+      card.seats[0].oneLiner,
+      "Found 3 hierarchy wounds; Lead is correctly pinned first."
+    )
+    XCTAssertFalse(card.seats[0].oneLiner?.contains("I'll open") == true)
   }
 
   func testAskedFallsBackWithoutDumpingAgentBrief() {
