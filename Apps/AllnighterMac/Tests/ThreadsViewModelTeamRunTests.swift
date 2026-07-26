@@ -23,7 +23,13 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
                  workingDirectory: String?, timeout: Duration) async -> CommandResult {
             let prompt: String
             if let index = args.firstIndex(of: "-p"), index + 1 < args.count {
-                prompt = args[index + 1]
+                let afterFlag = args[index + 1]
+                // cursor_agent uses bare `-p` with the prompt as the final argv token.
+                if afterFlag.hasPrefix("-") {
+                    prompt = args.last ?? afterFlag
+                } else {
+                    prompt = afterFlag
+                }
             } else {
                 prompt = stdin ?? args.joined(separator: " ")
             }
