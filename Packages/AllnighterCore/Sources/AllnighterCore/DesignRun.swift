@@ -1,14 +1,15 @@
 import Foundation
 
-/// The design lane (Lane 2). A design run reuses the team spine: the panel
-/// fans out (one image worker × one design persona per seat) and each seat's
-/// `TeamAnswer.output` carries the **local path of a generated image** instead
-/// of prose. A `board` stage (`BoardPayload`) then organizes those images into the
-/// gallery the human picks from. Image engines design; coding agents build
-/// (`ImplementationBrief` carries the chosen image, Design2). See `docs/mvp/Design0`.
+/// The design lane (Lane 2). Default Design means **built surface → host
+/// screenshot** on the board (`BoardPayload` / artifact hero) — not Midjourney.
+/// Law: `docs/phases/Design_Lane.md`. Historical Design0 diffusion/OCR contract
+/// is superseded for the Design default; concept/`imageGen` seats remain
+/// explicit opt-in only.
 ///
-/// Dead and not coming back: OCR and the HTML render pipeline. The unit is a
-/// generated image, not rendered HTML.
+/// Each UI-design seat builds a bounded renderable surface (native fixture or
+/// HTML). A **host capture step** in the team-run pipeline writes
+/// `options[].imagePath`. Dead and not coming back: OCR / pHash as the design
+/// gate, and silent diffusion as the Design default.
 
 /// The render target a board is judged at. Inferred from an attached screenshot's
 /// pixel dimensions, or chosen once for greenfield. Light — not the dead render

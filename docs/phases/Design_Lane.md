@@ -1,11 +1,11 @@
 # Design Lane — build a real surface, screenshot the receipt
 
-Status: **Draft law packet — founder-locked intent 2026-07-26; corrected same
-day (path is not HTML-only).** This is what Allnighter means by **Design team**
-and **design edits**. Not Midjourney.
+Status: **Locked law packet — Spec Review Min Ready 2026-07-26
+(`B8512396-CD63-4CCB-9C4D-FF7D94F84986`).** Amendments from that review are
+folded in below. Capture wiring is **not** built yet — that is slice DL-S0.
 Owner: AllnighterCore / AllnighterEngine (run path + board stage) + artifact /
 Floor as readers
-Updated: 2026-07-26 (path flexibility: native vs HTML)
+Updated: 2026-07-26 (Spec Review finalize)
 Companions:
 - Artifact hero mockups: `docs/phases/Team_Run_Receipt.md` (Design tiles under
   the memo header; Evidence = full seat craft; chips jump to Evidence)
@@ -14,8 +14,10 @@ Companions:
 - Design system: `docs/design-system/production.md` + `tokens/*.css`
 - Catalog families: `BuiltInTeams.swift` (`design_design` / Min / Max / Polish)
 - Historical imageGen substrate (diffusion / engine paint): `DesignImageRunner`,
-  `DesignCoordinator` — **not** the design-lane spine going forward
-- Vocabulary: `docs/phases/Work_Order_Team_Model.md`
+  `DesignCoordinator` — **not** the design-lane spine going forward; do not
+  revive them as the board writer
+- Vocabulary: `docs/phases/Work_Order_Team_Model.md` (Design example must staff
+  builder seats, not “Grok Imagine”)
 
 ## Founder intent (locked)
 
@@ -27,7 +29,7 @@ Allnighter’s Design lane must match that craft:
 
 1. Seat **builds a bounded, renderable surface** (the cheapest honest medium for
    the job — see §Path selection).
-2. **Host (or existing GUI proof harness) captures a screenshot**.
+2. **Host capture step** (see Truth owners) screenshots that surface.
 3. That PNG is the board option / artifact **hero** tile.
 4. Humans judge **side-by-side screenshots**; deep read is Evidence (+ open the
    live surface when useful).
@@ -61,12 +63,17 @@ asked for concept art.
 
 **Self-determination:** yes — within those allowed means. The agent chooses
 SwiftUI vs HTML vs “open this existing fixture” based on the prompt and repo.
-The host must make at least one capture path easy; v1 can ship **one** path
-well and teach the other, not five.
+The host must make at least one capture path easy; **slice 1 ships native
+only**; HTML→WebKit is a later slice (see §Simplicity law).
 
 What the agent must **not** self-determine: silently substituting diffusion for
 a UI mockup, or claiming a design without a screenshot (or an explicit
 waiver).
+
+**Path declaration (v1 requirement):** each design seat emits one
+machine-readable line (board meta or Evidence) naming
+`native | html | concept` and the artifact path it produced. Enough for debug
+and honesty; not a second product surface.
 
 ## Same camera, two jobs
 
@@ -85,10 +92,15 @@ closeout mode. Do not build a parallel HTML universe for our native app.
 - Catalog seats Design teams with an `image` capability gate aimed at
   **engine `imageGen`** (Grok / Gemini / ChatGPT paint a PNG).
 - Opus / Fable / K3 **cannot** call that path — yet they are the models people
-  mean when they say “great at design.”
+  mean when they say “great at design.” (They still qualify for `.design`
+  reasoning seats; it is the **mockup-producing** seats that are `.image`-gated.)
 - Live **CLI / Mac team-run path** does not yet normalize “built surface →
   board screenshot.” Models may write files under `docs/gui/…` as a side
   effect without producing a `board` stage the artifact can hero.
+- **Blocking catalog retag (DL-S0):** mockup seats
+  (`visual_system_designer`, `minimal_direction`, `bold_direction`,
+  `editorial_direction`) must drop the `.image` gate; concept seats keep it.
+  Until retagged, staffing still selects paint engines.
 
 **Ruling:** product gap. Fix the meaning of Design (screenshot of a built
 surface), wire capture into the run, staff code/design reasoners — do not paper
@@ -110,9 +122,9 @@ IDE and not “always HTML.”
 
 1. **Outcome per design seat:** one desktop screenshot on the board
    (`options[].imagePath`). How it was born is metadata, not a second gallery.
-2. **At most two capture backends in v1** — (A) existing native GUI screenshot
-   path for Allnighter surfaces, (B) sandboxed HTML file → WebKit capture for
-   web/greenfield. Do not add a third before both work once.
+2. **One capture backend in slice 1 (native)** — thin wrapper on the existing
+   GUI proof camera for Allnighter surfaces. **HTML file → WebKit** is a later
+   slice. Do not dual-ship before one path works once.
 3. **Bounded artifact** — one screen / one fixture / one HTML file. No npm,
    no multi-route SPA, no network in the HTML sandbox.
 4. **Board stage stays the contract** — Artifact / Floor already show images.
@@ -126,6 +138,8 @@ IDE and not “always HTML.”
 - Forcing HTML when the target is Allnighter SwiftUI.
 - Figma sync, bundlers, HMR, OCR gates, design studio shell.
 - Silent HTML→Midjourney fallback.
+- Reviving `DesignCoordinator` / `DesignImageRunner` as the default board
+  writer.
 
 ### Complexity tripwires
 
@@ -137,16 +151,16 @@ IDE and not “always HTML.”
 
 ## Trusted workflow slices (target)
 
-**A — Design on Allnighter (native)**
+**A — Design on Allnighter (native) — slice DL-S0**
 
 ```text
 alln run --lane design "Redesign the Boost window header"
   → seat edits / uses a SwiftUI fixture or surface
-  → GUI proof-style render → option_<id>.png
+  → host capture (GUI proof camera) → option_<id>.png
   → board stage + Lead Call + artifact Design hero
 ```
 
-**B — Design for web / external HTML**
+**B — Design for web / external HTML — later slice**
 
 ```text
 alln run --lane design "Redesign this landing hero"
@@ -155,9 +169,10 @@ alln run --lane design "Redesign this landing hero"
   → board stage + Lead Call + artifact Design hero
 ```
 
-Works Test (when built): at least one path (prefer A if Allnighter-targeted)
-produces a board screenshot without `imageGen`; artifact shows it in the Design
-hero.
+Works Test (DL-S0): a design run with **zero** `.image` seats produces
+`board.options[].imagePath` PNGs via the GUI proof camera; artifact Design hero
+shows them. Capture failure → seat shown failed; **no** silent diffusion
+fallback.
 
 ## Truth owners
 
@@ -165,29 +180,51 @@ hero.
 | --- | --- |
 | What Design means | This doc |
 | Path choice (native vs HTML vs concept) | Prompt + repo context + thin host policy |
-| Native screenshot | Existing GUI proof harness / fixtures |
-| HTML → PNG | Thin host render-capture |
+| **Who writes the board** | **Host capture step inside the team-run pipeline** (new thin owner — **not** a revived `DesignCoordinator`) |
+| Native screenshot substrate | Existing GUI proof harness / fixtures (callable from that host step) |
+| HTML → PNG (later) | Thin host WebKit render-capture |
 | Board + artifact / Floor | Existing projectors reading `board` |
 | Concept-image path | Explicit seat only |
+| Human pick (v1.1) | `BoardPayload.chosen` / `ChosenOption` → `chosen_option.json` |
+
+## Record the pick (v1.1 — after capture works)
+
+The compounding loop needs the human’s choice on disk. Schema already exists:
+`ChosenOption` on `BoardPayload.chosen`, persisted as `chosen_option.json`
+(`DesignRun.swift`). Naming it here is the requirement; wiring a pick surface
+is **not** a DL-S0 blocker — land it right after capture is honest.
 
 ## Seating (direction)
 
-Staff **design reasoners / builders** (Opus, Fable, K3, Composer, …) by caliber
-— not `imageGen`. Concept art remains an explicit add-on.
+Staff **design reasoners / builders** (e.g. Opus, Fable, K3, Composer, Grok) by
+caliber — not `imageGen`. Concept art remains an explicit add-on.
+
+Polish team (`design_polish`) is **post-pick refinement**, out of v1 capture
+scope.
+
+## Supersession
+
+This packet supersedes Design0’s “HTML rendering is DEAD / image engines
+design” **for the Design default**. That charter killed the OCR/pHash render
+*contract* and Midjourney-as-default — it did **not** ban rendering a built
+surface for a screenshot receipt. Live leftovers that still state the old law
+(e.g. `DesignRun.swift` header, stale Work Order examples) are corrected with
+this packet / DL-S0; agents must not re-learn diffusion-default from those
+lines.
 
 ## Relation to Team Run Receipt
 
 On `designBoard`, **screenshots are the memo hero**. This packet defines them
 as receipts of **built** surfaces (native or HTML), so strong design models can
-appear without pretending they are diffusion engines.
+appear without pretending they are diffusion engines. HTML mockups are **not**
+a moat — any chatbot can one-shot them; the defensible part is the user’s own
+multi-model bench, side by side, on the run record.
 
 ## Open questions (keep short)
 
-1. v1 ship order: native-Allnighter capture first, or HTML capture first?
-   (Lean: **whichever unblocks the next founder dogfood** — if the ask is
-   Allnighter UI, native first.)
-2. How the seat declares which path it used (one line in Evidence / board
-   meta) — enough for debug, not a second product surface.
+1. If the native harness wrapper proves heavy in practice, flip ship order and
+   land HTML→WebKit first — the law does not care which camera goes first.
+   (Default lean remains: Allnighter UI dogfood → native first.)
 
 ## Kill criteria
 
@@ -195,3 +232,5 @@ appear without pretending they are diffusion engines.
   prompts → the path law failed; fix teaching and defaults.
 - If seats cannot produce a screenshot without diffusion for three dogfoods →
   the capture pipeline is the bug, not the models.
+- If mockup seats still require `.image` after DL-S0 → catalog retag failed;
+  staffing will keep selecting paint engines.

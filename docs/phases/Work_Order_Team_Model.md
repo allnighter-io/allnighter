@@ -321,7 +321,8 @@ Build
 Design
   Type metadata: Redesign
   Team: Premium Polish
-  Workers: Minimal Designer on Grok Imagine, Bold Designer on ChatGPT image
+  Workers: Visual System Designer on Opus, Bold Direction on Fable
+  (builder seats → built surface → host screenshot; not diffusion engines)
 
 Copy
   Type metadata: Landing page
