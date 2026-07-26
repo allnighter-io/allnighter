@@ -1,9 +1,11 @@
 # Pilot long jobs — CEO decision brief
 
-Status: **Approved 2026-07-26 — building** (founder sign-off). Ship order
-S01 → S03 → S04 → S02; archive on closeout.
+Status: **Complete 2026-07-26** — archived. Founder approved; S01→S03→S04→S02
+shipped; closeout audit CLEAN after fixture sync.
 Updated: 2026-07-26
-Owner: Allnighter product (CLI / Pilot)
+Owner: Allnighter product (CLI / Pilot) — **code SSOT after archive:**
+`PilotCLI.swift`, `RelayCoordinator.swift`, `TeachingSnippet.swift` /
+`Bootstrap.swift`, `ContractRegistry+Milestone1.swift` (contract 4.0.9)
 
 ---
 
@@ -176,9 +178,16 @@ Workers for this delivery: **Composer 2.5** (`model_cursor_composer_25`) and
 - nextActions prefer status poll with hint.
 - Zero-commit + fresh progress still reports alive.
 
-### Closeout
+### Closeout (done 2026-07-26)
 
-Deslop → Code Audit → green wall → archive this doc to
-`docs/archive/phases/Pilot_Long_Turn_Survival.md`; update
-`docs/phases/README.md`, `docs/archive/phases/README.md`, `AGENTS.md` routes.
-Code SSOT after archive: `PilotCLI.swift`, `RelayCoordinator.swift`.
+| Slice | Commit | Worker |
+| --- | --- | --- |
+| PLT-S01 | `5761dd59` | Composer 2.5 |
+| PLT-S03 | `abb00890` | Cursor Grok 4.5 |
+| PLT-S04 | `c06c3f3d` | Composer 2.5 |
+| PLT-S02 | `9074f9ae` | Cursor Grok 4.5 |
+| Audit/deslop | `01402ab3` | Grok audit + orchestrator fix |
+
+Proof: `swift test --package-path Packages/AllnighterCore --filter 'Pilot|ContractRegistry|FixtureRoundTrip|InstallCLI'` green (136); `alln dev export-contracts --check` green. Deslop CLEAN after dead max-wait branch drop; Code Audit CLEAN after 4.0.9 fixture sync (was REFACTOR REQUIRED on version drift).
+
+Archived to `docs/archive/phases/Pilot_Long_Turn_Survival.md`. Living route: code SSOT above + `AGENTS.md` / archive index.

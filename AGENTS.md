@@ -94,7 +94,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
 | **Implement one bounded slice (32K agents)** | `docs/phases/sprint/README.md` — one work order only |
 | PM↔dev unattended loop (mechanized copy-paste relay) | archived `docs/archive/phases/PM_Relay.md` + `Pilot_Relay.md` (code SSOT: `RelayCoordinator`, `PilotCLI`) |
-| Pilot/Relay long turn; harness reaped `pilot watch`; detached handoff binary/cwd; status vs watch | `docs/phases/Pilot_Long_Turn_Survival.md` |
+| Pilot/Relay long turn; harness reaped `pilot watch`; detached handoff binary/cwd; status vs watch | archived `docs/archive/phases/Pilot_Long_Turn_Survival.md` — code SSOT `PilotCLI.swift`, `RelayCoordinator.swift` |
 | GLM advisory review / serial hardening pass | `docs/operations/GLM_Worker_Best_Practices.md` + `docs/phases/code_review/README.md` |
 | OpenCode smoke probe blocked (handoff) | `docs/phases/OpenCode_Smoke_Probe_Blocker.md` |
 | Sprint closeout / committing work | `docs/operations/Execution-Playbook.md` § Commits |
