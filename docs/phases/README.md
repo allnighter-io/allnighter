@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-07-25
+Updated: 2026-07-26
 
 ## Purpose
 
@@ -25,6 +25,7 @@ one's truth now lives.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Pilot_Long_Turn_Survival.md`](Pilot_Long_Turn_Survival.md) | **Draft — ready to slice** (PLT-S01–S04) | Durable Pilot/Relay rounds vs disposable waiters: status-first agent path, detached handoff binary/cwd fix, watch heartbeats + `--max-wait`. Field evidence 2026-07-26 (websitemd deploy round). |
 | [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. |
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
 
@@ -111,6 +112,7 @@ without a new founder ruling.
 | [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **Draft — ⚠ FOUNDER DECISION** | Signal foundations exist (`SignalInsight.swift` struct + parser only); the whole Scout → Triangulation → Graph backend is unbuilt. Decide: build it out, or archive the deep-build spec and keep only the shipped foundations. |
 | [`Chat_Module_Extraction.md`](Chat_Module_Extraction.md) | **Plan — not started** | Consolidate Allnighter's two chat substrates and extract into the shared AgentOS `AgentOSChatCore`/`AgentOSChatUI` packages. |
 | [`Contradiction_Pass.md`](Contradiction_Pass.md) | **Draft — NOT AUTHORIZED**; queued behind Code Red + Menu Relations | Give Max a structural difference instead of more bodies: mechanical contradiction/co-attribution detection from anchored findings (all tiers, zero model cost), false/factual/judgment classification, and one bounded Max-only resolution seat. Default escalates via `escalationRecommended`, never silently spends. Extends `Spec_Review.md`. |
+| [`Pilot_Long_Turn_Survival.md`](Pilot_Long_Turn_Survival.md) | **Draft — ready to slice** (PLT-S01–S04) | Long Pilot/Relay turns under agent harnesses: durable round SSOT, status-first polls, fix detached `argv[0]` spawn, watch heartbeats / `--max-wait`. |
 
 ### Subdirectories
 
@@ -239,6 +241,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Gorgeous private team run report / artifact, deliberate share (not Mac-only) | `Team_Run_Receipt.md` (projects existing `TeamRun`/`TeamRunJSON`; Factory Floor is the deep reader; artifact is the polished read) |
 | Buzz / attended agent-chat rooms as a call site for alln (after receipts) | `Buzz_Harness_Spike.md` + `docs/strategy/Buzz_And_The_Judgment_Layer.md` (firm-member mythology retired; receipt-first) |
 | Share a link from the phone into a Research run, iOS share sheet intake | `Share_To_Research.md` (reuses `RemoteCommandRouter` `startRun` + `SignalSourceRouter`; no new protocol operation) |
+| Pilot/Relay long deploy or ops turn; harness killed `pilot watch`; detached handoff cwd/binary; status vs watch recovery | `Pilot_Long_Turn_Survival.md` (substrate: archived `Pilot_Relay.md` / `Pilot_DX.md`; idle floors: archived `Idle_Stall_False_Kill_Hotfix.md`) |
 | Composer `@` file references, file chips, prompt file-read blocks | `Composer_File_References.md` |
 | Persistent chat, routable turns, thread backend | `Persistent_Work_Threads.md` → `threads/04_Observed_Usage.md`, `threads/09_Thread_Forking.md` |
 | Keyboard shortcuts, quick-switcher, list nav | `Keyboard_Shortcuts.md` |

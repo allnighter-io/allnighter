@@ -93,7 +93,8 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Team lab seat economics, roster ablation, named variants, necessity suite | Team Lab is SHUT DOWN (founder, 2026-07-24) — do not resume; built-in Teams ship as-is via `TeamCatalog`/`BuiltInTeams.swift` |
 | Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
 | **Implement one bounded slice (32K agents)** | `docs/phases/sprint/README.md` — one work order only |
-| PM↔dev unattended loop (mechanized copy-paste relay) | `docs/phases/PM_Relay.md` (supersedes the old slice-queue pair team, deleted R-S09) |
+| PM↔dev unattended loop (mechanized copy-paste relay) | archived `docs/archive/phases/PM_Relay.md` + `Pilot_Relay.md` (code SSOT: `RelayCoordinator`, `PilotCLI`) |
+| Pilot/Relay long turn; harness reaped `pilot watch`; detached handoff binary/cwd; status vs watch | `docs/phases/Pilot_Long_Turn_Survival.md` |
 | GLM advisory review / serial hardening pass | `docs/operations/GLM_Worker_Best_Practices.md` + `docs/phases/code_review/README.md` |
 | OpenCode smoke probe blocked (handoff) | `docs/phases/OpenCode_Smoke_Probe_Blocker.md` |
 | Sprint closeout / committing work | `docs/operations/Execution-Playbook.md` § Commits |
