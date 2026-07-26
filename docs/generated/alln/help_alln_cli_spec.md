@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.0.8, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.0.9, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -739,11 +739,11 @@ Output schema: `relayJSON`.
 
 ### `alln pair pilot status`
 
-Read a Pilot relay's durable state — agent truth for in-flight rounds; poll until awaitingPM. Prefer over watch for agents.
+Read a Pilot relay's durable state — agent truth for in-flight rounds; poll with waitHintSeconds until awaitingPM. While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY liveness), commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--json` — Emit PilotStatusJSON (relay + recovery nextActions when in flight).
+- `--json` — Emit PilotStatusJSON (relay + recovery nextActions; while running adds elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds as primary liveness, commitsSinceBaseline as supplementary/not liveness, waitHintSeconds 45, watcherDisposable).
 
 Output schema: `relayJSON`.
 

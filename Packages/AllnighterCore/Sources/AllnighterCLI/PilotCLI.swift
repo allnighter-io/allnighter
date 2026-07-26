@@ -507,7 +507,10 @@ enum PilotCLI {
             relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: true
         ) else { fail(.relayNotFound(relayId)) }
         refreshPilotProjectGit(relayId: relayId, stateStore: stateStore)
-        emitStatusResult(loaded.state, recovery: loaded.recovery, json: opts.flag("json"))
+        emitStatusResult(
+            loaded.state, recovery: loaded.recovery, json: opts.flag("json"),
+            stateStore: stateStore
+        )
     }
 
     // MARK: - watch
@@ -802,14 +805,18 @@ enum PilotCLI {
         }
     }
 
-    private static func emitStatusResult(_ state: RelayState, recovery: InFlightRecovery, json: Bool) {
+    private static func emitStatusResult(
+        _ state: RelayState,
+        recovery: InFlightRecovery,
+        json: Bool,
+        stateStore: RelayStateStore,
+        runStore: RunStore = RunStore()
+    ) {
         let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         let recoveryLine = recoveryActionLine(for: state, recovery: recovery)
         if json {
-            print(AllnighterCLI.jsonString(PilotStatusJSON(
-                relay: relayJSON,
-                recovery: recoveryLine,
-                nextActions: recoveryNextActions(for: state, recovery: recovery)
+            print(AllnighterCLI.jsonString(makeStatusJSON(
+                state: state, recovery: recovery, stateStore: stateStore, runStore: runStore
             )))
         } else {
             print(RelayDispatch.humanRelaySummary(relayJSON))
@@ -818,6 +825,106 @@ enum PilotCLI {
             if let recoveryLine { print(recoveryLine) }
             print(nextActionLine(for: state))
         }
+    }
+
+    /// Product-owned agent poll cadence while a Pilot round is `.running` (PLT-S02).
+    static let statusWaitHintSeconds: Double = 45
+
+    /// Builds `pilot status --json` — long-job fields only while `.running` + handoff alive.
+    static func makeStatusJSON(
+        state: RelayState,
+        recovery: InFlightRecovery,
+        stateStore: RelayStateStore,
+        runStore: RunStore = RunStore(),
+        gitObserver: GitObserver = GitObserver(),
+        now: Date = Date()
+    ) -> PilotStatusJSON {
+        let longJob = longJobStatusFields(
+            state: state, recovery: recovery, stateStore: stateStore,
+            runStore: runStore, gitObserver: gitObserver, now: now
+        )
+        return PilotStatusJSON(
+            relay: RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion),
+            recovery: recoveryActionLine(for: state, recovery: recovery),
+            nextActions: recoveryNextActions(for: state, recovery: recovery),
+            elapsedSeconds: longJob.elapsedSeconds,
+            ownerAlive: longJob.ownerAlive,
+            lastProgressAt: longJob.lastProgressAt,
+            silenceAgeSeconds: longJob.silenceAgeSeconds,
+            commitsSinceBaseline: longJob.commitsSinceBaseline,
+            waitHintSeconds: longJob.waitHintSeconds,
+            watcherDisposable: longJob.watcherDisposable
+        )
+    }
+
+    /// Progress-primary long-job fields (PLT-S02). Nil/omit when not `.running` with a live handoff.
+    static func longJobStatusFields(
+        state: RelayState,
+        recovery: InFlightRecovery,
+        stateStore: RelayStateStore,
+        runStore: RunStore = RunStore(),
+        gitObserver: GitObserver = GitObserver(),
+        now: Date = Date()
+    ) -> (
+        elapsedSeconds: Int?,
+        ownerAlive: Bool?,
+        lastProgressAt: Date?,
+        silenceAgeSeconds: Int?,
+        commitsSinceBaseline: Int?,
+        waitHintSeconds: Double?,
+        watcherDisposable: Bool?
+    ) {
+        guard state.status == .running, recovery == .handoffAlive else {
+            return (nil, nil, nil, nil, nil, nil, nil)
+        }
+        let startedAt = state.rounds.last?.startedAt
+        let elapsed = startedAt.map { max(0, Int(now.timeIntervalSince($0))) }
+        let lastProgress = resolveLastProgressAt(state: state, stateStore: stateStore, runStore: runStore)
+        let silence = lastProgress.map { max(0, Int(now.timeIntervalSince($0))) }
+        let commits = commitsSinceBaseline(state: state, gitObserver: gitObserver)
+        return (
+            elapsedSeconds: elapsed,
+            ownerAlive: true,
+            lastProgressAt: lastProgress,
+            silenceAgeSeconds: silence,
+            commitsSinceBaseline: commits,
+            waitHintSeconds: statusWaitHintSeconds,
+            watcherDisposable: true
+        )
+    }
+
+    /// PRIMARY liveness: freshest of in-flight run journal activity and relay-dir progress.
+    /// Never invents progress — nil when neither source has a stamp.
+    static func resolveLastProgressAt(
+        state: RelayState,
+        stateStore: RelayStateStore,
+        runStore: RunStore
+    ) -> Date? {
+        var candidates: [Date] = []
+        if let runId = state.rounds.last?.devRunId,
+           let activity = runStore.load(runId: runId)?.lastActivityAt {
+            candidates.append(activity)
+        }
+        if let dir = try? stateStore.directory(for: state.id),
+           let hb = ProcessOwnership.lastProgressAt(in: dir) {
+            candidates.append(hb)
+        }
+        return candidates.max()
+    }
+
+    /// SUPPLEMENTARY only — not liveness. Nil when no baseline/HEAD to observe.
+    static func commitsSinceBaseline(
+        state: RelayState,
+        gitObserver: GitObserver = GitObserver()
+    ) -> Int? {
+        guard let baseline = state.rounds.last?.baselineHead,
+              let head = gitObserver.observe(rootPath: state.projectRoot).head else {
+            return nil
+        }
+        if baseline == head { return 0 }
+        return gitObserver.commitsInRange(
+            rootPath: state.projectRoot, baseline: baseline, head: head
+        ).count
     }
 
     private static func emitWatchResult(
@@ -872,7 +979,7 @@ enum PilotCLI {
         case .none:
             return nil
         case .handoffAlive:
-            return "in flight — handoff process alive; poll `alln pair pilot status --relay \(state.id) --json` until it settles (optional: `alln pair pilot watch --relay \(state.id)`). A killed watch is not a failed round."
+            return "in flight — handoff process alive; poll `alln pair pilot status --relay \(state.id) --json` every \(Int(statusWaitHintSeconds))s until it settles (progress is primary liveness; commitsSinceBaseline is supplementary only). Optional: `alln pair pilot watch --relay \(state.id)`. A killed watch is not a failed round."
         case .orphanReconciled:
             return "handoff owner died mid-round — relay reconciled (\(state.stoppedReason ?? RelayState.orphanReconciledReason)); inspect `alln pair pilot status --relay \(state.id) --json` and the repo before any new handoff — do not blind retry."
         }
@@ -886,7 +993,7 @@ enum PilotCLI {
             return [
                 .init(
                     kind: "pilotStatus",
-                    label: "Poll durable status until the round settles",
+                    label: "Poll durable status in ~\(Int(statusWaitHintSeconds))s until the round settles (progress primary; commits supplementary)",
                     command: "alln pair pilot status --relay \(state.id) --json"
                 ),
                 .init(
@@ -1053,10 +1160,64 @@ struct PilotHandoffJSON: Encodable {
 }
 
 /// `pilot status --json` envelope: relay state plus typed recovery when `.running`.
+/// Long-job fields (PLT-S02) are present while `.running` with a live handoff owner;
+/// omitted otherwise. `lastProgressAt`/`silenceAgeSeconds` are PRIMARY liveness;
+/// `commitsSinceBaseline` is SUPPLEMENTARY only (not proof of life).
 struct PilotStatusJSON: Encodable {
     let relay: RelayJSON
     let recovery: String?
     let nextActions: [AgentSurfaceNextAction]
+    let elapsedSeconds: Int?
+    let ownerAlive: Bool?
+    let lastProgressAt: Date?
+    let silenceAgeSeconds: Int?
+    let commitsSinceBaseline: Int?
+    let waitHintSeconds: Double?
+    let watcherDisposable: Bool?
+
+    init(
+        relay: RelayJSON,
+        recovery: String?,
+        nextActions: [AgentSurfaceNextAction],
+        elapsedSeconds: Int? = nil,
+        ownerAlive: Bool? = nil,
+        lastProgressAt: Date? = nil,
+        silenceAgeSeconds: Int? = nil,
+        commitsSinceBaseline: Int? = nil,
+        waitHintSeconds: Double? = nil,
+        watcherDisposable: Bool? = nil
+    ) {
+        self.relay = relay
+        self.recovery = recovery
+        self.nextActions = nextActions
+        self.elapsedSeconds = elapsedSeconds
+        self.ownerAlive = ownerAlive
+        self.lastProgressAt = lastProgressAt
+        self.silenceAgeSeconds = silenceAgeSeconds
+        self.commitsSinceBaseline = commitsSinceBaseline
+        self.waitHintSeconds = waitHintSeconds
+        self.watcherDisposable = watcherDisposable
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(relay, forKey: .relay)
+        try c.encodeIfPresent(recovery, forKey: .recovery)
+        try c.encode(nextActions, forKey: .nextActions)
+        try c.encodeIfPresent(elapsedSeconds, forKey: .elapsedSeconds)
+        try c.encodeIfPresent(ownerAlive, forKey: .ownerAlive)
+        try c.encodeIfPresent(lastProgressAt, forKey: .lastProgressAt)
+        try c.encodeIfPresent(silenceAgeSeconds, forKey: .silenceAgeSeconds)
+        try c.encodeIfPresent(commitsSinceBaseline, forKey: .commitsSinceBaseline)
+        try c.encodeIfPresent(waitHintSeconds, forKey: .waitHintSeconds)
+        try c.encodeIfPresent(watcherDisposable, forKey: .watcherDisposable)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case relay, recovery, nextActions
+        case elapsedSeconds, ownerAlive, lastProgressAt, silenceAgeSeconds
+        case commitsSinceBaseline, waitHintSeconds, watcherDisposable
+    }
 }
 
 /// `pilot watch --json` envelope: same as a blocking handoff when settled, plus an

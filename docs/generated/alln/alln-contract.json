@@ -2735,7 +2735,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit PilotStatusJSON (relay + recovery nextActions when in flight).",
+          "summary" : "Emit PilotStatusJSON (relay + recovery nextActions; while running adds elapsedSeconds, ownerAlive, lastProgressAt\/silenceAgeSeconds as primary liveness, commitsSinceBaseline as supplementary\/not liveness, waitHintSeconds 45, watcherDisposable).",
           "takesValue" : false
         }
       ],
@@ -2747,7 +2747,7 @@
       "name" : "pair pilot status",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Read a Pilot relay's durable state — agent truth for in-flight rounds; poll until awaitingPM. Prefer over watch for agents.",
+      "summary" : "Read a Pilot relay's durable state — agent truth for in-flight rounds; poll with waitHintSeconds until awaitingPM. While running: elapsedSeconds, ownerAlive, lastProgressAt\/silenceAgeSeconds (PRIMARY liveness), commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.",
       "visibility" : "public"
     },
     {
@@ -4956,7 +4956,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.0.8",
+  "contractVersion" : "4.0.9",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

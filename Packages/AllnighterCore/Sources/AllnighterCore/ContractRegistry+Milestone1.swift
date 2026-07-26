@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "4.0.8"
+    static let contractVersion = "4.0.9"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -535,10 +535,10 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot status", summary: "Read a Pilot relay's durable state — agent truth for in-flight rounds; poll until awaitingPM. Prefer over watch for agents.", milestone: .m1,
+            "pair pilot status", summary: "Read a Pilot relay's durable state — agent truth for in-flight rounds; poll with waitHintSeconds until awaitingPM. While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY liveness), commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
-                FlagSpec("json", summary: "Emit PilotStatusJSON (relay + recovery nextActions when in flight)."),
+                FlagSpec("json", summary: "Emit PilotStatusJSON (relay + recovery nextActions; while running adds elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds as primary liveness, commitsSinceBaseline as supplementary/not liveness, waitHintSeconds 45, watcherDisposable)."),
             ],
             outputSchema: .relayJSON
         ),

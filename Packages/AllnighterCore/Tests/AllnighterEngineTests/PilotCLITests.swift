@@ -378,6 +378,9 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(actions.count, 2)
         XCTAssertEqual(actions[0].kind, "pilotStatus")
         XCTAssertTrue(actions[0].command.contains("pilot status"))
+        XCTAssertTrue(actions[0].label.contains("45"))
+        XCTAssertTrue(actions[0].label.lowercased().contains("progress"))
+        XCTAssertTrue(actions[0].label.lowercased().contains("supplementary"))
         XCTAssertEqual(actions[1].kind, "pilotWatch")
         XCTAssertTrue(actions[1].command.contains("pilot watch"))
         XCTAssertTrue(actions[1].label.lowercased().contains("optional"))
@@ -691,5 +694,104 @@ final class PilotCLITests: XCTestCase {
         )
         XCTAssertEqual(withReconcile?.state.status, .stopped)
         XCTAssertEqual(withReconcile?.recovery, .orphanReconciled)
+    }
+
+    // MARK: - PLT-S02 long-job status fields
+
+    private func runGit(_ args: [String], cwd: URL) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        p.arguments = ["-C", cwd.path] + args
+        p.standardOutput = Pipe(); p.standardError = Pipe(); p.standardInput = FileHandle.nullDevice
+        try? p.run(); p.waitUntilExit()
+    }
+
+    @discardableResult
+    private func makeGitRepo() throws -> URL {
+        let dir = tmp.appendingPathComponent("repo-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for a in [["init", "-q"], ["config", "user.email", "t@t.dev"], ["config", "user.name", "T"],
+                  ["config", "commit.gpgsign", "false"]] { runGit(a, cwd: dir) }
+        try "spec".write(to: dir.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+        runGit(["add", "."], cwd: dir)
+        runGit(["commit", "-q", "-m", "c1"], cwd: dir)
+        return dir
+    }
+
+    func testLongJobStatusZeroCommitsFreshProgressStillAlive() throws {
+        let repo = try makeGitRepo()
+        let head = try XCTUnwrap(GitObserver().observe(rootPath: repo.path).head)
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-s02"))
+        let started = Date().addingTimeInterval(-120)
+        let progressAt = Date().addingTimeInterval(-5)
+        let state = RelayState(
+            id: "relay_s02", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external,
+            rounds: [RelayRound(roundNumber: 1, baselineHead: head, startedAt: started)],
+            createdAt: Date()
+        )
+        try store.save(state)
+        let ownerURL = store.rootDirectory.appendingPathComponent("relay_s02/owner.pid")
+        try Data("\(ProcessInfo.processInfo.processIdentifier)".utf8).write(to: ownerURL)
+        let dir = try store.directory(for: "relay_s02")
+        try ProcessOwnership.recordProgress(in: dir, phase: "running", now: progressAt)
+
+        let fields = PilotCLI.longJobStatusFields(
+            state: state, recovery: .handoffAlive, stateStore: store, now: Date()
+        )
+        XCTAssertEqual(fields.ownerAlive, true)
+        XCTAssertEqual(fields.commitsSinceBaseline, 0, "zero commits must not imply dead")
+        XCTAssertNotNil(fields.lastProgressAt)
+        XCTAssertEqual(fields.waitHintSeconds, 45)
+        XCTAssertEqual(fields.watcherDisposable, true)
+        let elapsed = try XCTUnwrap(fields.elapsedSeconds)
+        XCTAssertGreaterThanOrEqual(elapsed, 118)
+        XCTAssertLessThanOrEqual(elapsed, 122)
+        XCTAssertNotNil(fields.silenceAgeSeconds)
+        XCTAssertLessThanOrEqual(fields.silenceAgeSeconds ?? 999, 10)
+
+        let json = PilotCLI.makeStatusJSON(
+            state: state, recovery: .handoffAlive, stateStore: store
+        )
+        XCTAssertEqual(json.ownerAlive, true)
+        XCTAssertEqual(json.commitsSinceBaseline, 0)
+        XCTAssertEqual(json.waitHintSeconds, PilotCLI.statusWaitHintSeconds)
+        XCTAssertEqual(json.watcherDisposable, true)
+        XCTAssertEqual(json.nextActions.first?.kind, "pilotStatus")
+        XCTAssertTrue(json.nextActions.first?.label.contains("45") == true)
+    }
+
+    func testLongJobStatusFieldsOmittedWhenNotRunning() {
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-s02b"))
+        let state = RelayState(
+            id: "relay_parked", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .awaitingPM, pmMode: .external, createdAt: Date()
+        )
+        let fields = PilotCLI.longJobStatusFields(
+            state: state, recovery: .none, stateStore: store
+        )
+        XCTAssertNil(fields.elapsedSeconds)
+        XCTAssertNil(fields.ownerAlive)
+        XCTAssertNil(fields.lastProgressAt)
+        XCTAssertNil(fields.silenceAgeSeconds)
+        XCTAssertNil(fields.commitsSinceBaseline)
+        XCTAssertNil(fields.waitHintSeconds)
+        XCTAssertNil(fields.watcherDisposable)
+    }
+
+    func testContractDocumentsCommitsSinceBaselineAsSupplementaryNotLiveness() {
+        let status = ContractRegistry.milestone1.commands.first { $0.name == "pair pilot status" }
+        let summary = status?.summary ?? ""
+        let jsonFlag = status?.flags.first { $0.name == "json" }?.summary ?? ""
+        let blob = summary + "\n" + jsonFlag
+        XCTAssertTrue(blob.contains("commitsSinceBaseline"))
+        XCTAssertTrue(
+            blob.lowercased().contains("supplementary") || blob.lowercased().contains("not liveness"),
+            "contract must label commitsSinceBaseline as not liveness: \(blob)"
+        )
+        XCTAssertTrue(blob.contains("waitHintSeconds"))
+        XCTAssertTrue(blob.contains("45"))
     }
 }
