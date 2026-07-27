@@ -756,7 +756,7 @@
     "ruleId" : "relay.handover.unsafe"
   },
   {
-    "agentAction" : "Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`.",
+    "agentAction" : "Poll `alln pair pilot status --relay <id> --json` until status is `awaitingPM`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once awaitingPM, retry `pilot handoff` if still needed.",
     "code" : "RELAY_ROUND_IN_FLIGHT",
     "exitClass" : "operational",
     "explain" : "A pilot relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent `pilot handoff` on the same relay is refused rather than racing a second dev turn onto one repo root.",

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.0.6, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.0.9, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -717,7 +717,7 @@ Output schema: `relayJSON`.
 
 ### `alln pair pilot handoff`
 
-Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim.
+Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait then poll pilot status.
 
 Flags:
 - `--relay <id>` — Relay id (required).
@@ -726,7 +726,7 @@ Flags:
 - `--handover-file <path>` — Raw order markdown for the dev seat (mutually exclusive with --file).
 - `--handover-stdin` — Read the handover markdown from stdin (mutually exclusive with --file).
 - `--note <string>` — Optional closing note for done/escalate verdicts.
-- `--no-wait` — Return immediately after dispatch instead of blocking through the dev turn.
+- `--no-wait` — Return immediately after dispatch; for long jobs poll `pilot status --json` until awaitingPM (do not treat a killed `pilot watch` as failure).
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (single-line).
 
 Mutually exclusive: `--file`, `--handover-file`.
@@ -739,21 +739,22 @@ Output schema: `relayJSON`.
 
 ### `alln pair pilot status`
 
-Read a Pilot relay's durable state — rounds, verdicts, gate decisions, dirty-tree snapshots.
+Read a Pilot relay's durable state — agent truth for in-flight rounds; poll with waitHintSeconds until awaitingPM. While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY liveness), commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--json` — Emit PilotStatusJSON (relay + recovery nextActions when in flight).
+- `--json` — Emit PilotStatusJSON (relay + recovery nextActions; while running adds elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds as primary liveness, commitsSinceBaseline as supplementary/not liveness, waitHintSeconds 45, watcherDisposable).
 
 Output schema: `relayJSON`.
 
 ### `alln pair pilot watch`
 
-Poll a Pilot relay until its in-flight round settles back to awaitingPM (or a terminal status).
+Optional interactive waiter: block until the in-flight round settles. Disposable — death ≠ job failure; prefer `pilot status` for agents. Emits heartbeats while running; SIGTERM/SIGINT prints stillRunning goodbye.
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--json` — Emit PilotWatchJSON (single-line; relay + devReport + note when nothing was in flight).
+- `--max-wait <integer>` — Stop waiting after N seconds while still running; exit with stillRunning and reattach to pilot status (default 1800 when stdout is not a TTY; interactive TTY waits until settled unless set).
+- `--json` — Emit PilotWatchJSON (final single-line envelope; NDJSON pilotWatchHeartbeat lines while waiting).
 
 Output schema: `relayJSON`.
 
@@ -1455,7 +1456,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RELAY_NOT_FOUND` | yes | no | `operational` | Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`. |
 | `RELAY_INVALID_STATE` | yes | no | `operational` | Only an `escalated` relay can be resumed; check status first with `pair relay-status`. |
 | `RELAY_HANDOVER_UNSAFE` | yes | no | `operational` | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
-| `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Wait for the in-flight round to settle, then run `alln pair pilot status --relay <id> --json` and retry `pilot handoff` once status is `awaitingPM`. |
+| `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Poll `alln pair pilot status --relay <id> --json` until status is `awaitingPM`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once awaitingPM, retry `pilot handoff` if still needed. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
 | `OWNERSHIP_NOT_FOUND` | no | no | `operational` | Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree. |
