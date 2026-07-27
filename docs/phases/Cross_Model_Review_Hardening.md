@@ -1,101 +1,136 @@
-# Cross-Model Review Hardening — Directional Role Assignment & Low-Hanging Quality Guardrails
+# Cross-Model Review Hardening
 
-Status: **OPEN PHASE PACKET — Low-Hanging Fruit Optimization**
-Owner: `Packages/AllnighterCore` (`RunService.swift`, `BuiltInTeams.swift`, `RelayCoordinator.swift`, `ArtifactProjector.swift`)
-Updated: 2026-07-27
+Directional role assignment and low-hanging quality guardrails for
+writer/reviewer model pairing.
+
+- Status: **FINALIZED — ready for slice execution**
+- Owner: `Packages/AllnighterCore` (`RunService.swift`, `BuiltInTeams.swift`,
+  `RelayCoordinator.swift`, `ArtifactProjector.swift`)
+- Updated: 2026-07-27
 
 ---
 
-## 1. Context & empirical evidence
+## 1. Evidence
 
-A July 2026 study (*[Cross-Model LLM Code Review: Should you use Claude to review Codex or vice versa?](https://arxiv.org/abs/2607.21656)*, Zuodong Xiang, Yike Zhang, YueMing Zhang, Hailu Xu; arXiv:2607.21656v1 [cs.SE], 22 Jul 2026) conducted controlled experiments across 116 hard and medium LiveCodeBench tasks evaluating static (pre-execution) code review between frontier models (**Claude Opus 4.7** and **Codex GPT-5.5**).
+Source: *[Cross-Model LLM Code Review: Should you use Claude to review Codex
+or vice versa?](https://arxiv.org/abs/2607.21656)* — Zuodong Xiang (UC Davis),
+Yike Zhang (JHU), YueMing Zhang (CSULB), Hailu Xu (CSULB).
+arXiv:2607.21656 [cs.SE], July 2026.
 
-### Primary Source & Citation
-- **Paper:** *Cross-Model LLM Code Review: Should you use Claude to review Codex or vice versa?*
-- **Authors:** Zuodong Xiang (UC Davis), Yike Zhang (JHU), YueMing Zhang (CSULB), Hailu Xu (CSULB).
-- **Publication / arXiv:** [arXiv:2607.21656 [cs.SE]](https://arxiv.org/abs/2607.21656) (July 2026).
+Controlled experiments across 116 hard/medium LiveCodeBench tasks evaluated
+static (pre-execution, no test runner) code review between Claude Opus 4.7 and
+Codex GPT-5.5:
 
-### Key Empirical Findings
-
-| Condition | Writer (Draft) | Reviewer (Static Pass) | Pass Rate | Delta vs. Solo Baseline | Significance |
+| Condition | Writer | Reviewer | Pass rate | Δ vs solo | Significance |
 | :--- | :--- | :--- | :---: | :---: | :---: |
-| **Solo Claude Baseline** | Claude Opus 4.7 | *None* | **91.4%** | — | — |
-| **Solo Codex Baseline** | Codex GPT-5.5 | *None* | **71.6%** | — | — |
-| **Codex Self-Review** | Codex GPT-5.5 | Codex GPT-5.5 | **84.5%** | +12.9% | $p_{BH} = .022$ |
-| **Claude Self-Review** | Claude Opus 4.7 | Claude Opus 4.7 | **91.4%** | 0.0% (No gain) | Unchanged |
-| **Optimal Cross-Model** | Codex GPT-5.5 | **Claude Opus 4.7** | **89.7%** | **+18.1% gain** | $p_{BH} = .001$ |
-| **Inverted Cross-Model** | Claude Opus 4.7 | **Codex GPT-5.5** | **82.8%** | **-8.6% regression** | $p_{BH} = .046$ |
+| Solo Claude baseline | Claude Opus 4.7 | — | 91.4% | — | — |
+| Solo Codex baseline | Codex GPT-5.5 | — | 71.6% | — | — |
+| Codex self-review | Codex GPT-5.5 | Codex GPT-5.5 | 84.5% | +12.9% | p = .022 |
+| Claude self-review | Claude Opus 4.7 | Claude Opus 4.7 | 91.4% | 0.0% | none |
+| **Optimal cross-model** | Codex GPT-5.5 | **Claude Opus 4.7** | **89.7%** | **+18.1%** | p = .001 |
+| Inverted cross-model | Claude Opus 4.7 | Codex GPT-5.5 | 82.8% | **−8.6%** | p = .046 |
 
-### Direct Lessons for Agent Control Loops
+### Lessons for Allnighter
 
-1. **Role Pairing Is Strongly Asymmetric:** The direction of writer vs. reviewer assignment matters immensely. Assigning a higher-reasoning model (**Claude Opus 4.7**) to review a faster/cheaper worker's draft (**Codex GPT-5.5**) elevates accuracy from **71.6% to 89.7%**—approaching top-tier solo performance at a fraction of the flagship generation cost.
-2. **Weaker Reviewers Actively Degrade Strong Drafts:** Having a weaker reviewer (**Codex GPT-5.5**) review a stronger writer's draft (**Claude Opus 4.7**) causes an **8.6% pass rate drop** (91.4% → 82.8%). The weaker reviewer introduces false-positive bug reports, breaks correct logic, and over-simplifies complex implementations.
-3. **Top-Tier Self-Review Yields Zero Gain:** Having a flagship model review its own unexecuted code draft produces **0.0% improvement**, consuming budget and latency without benefit.
-4. **Static Review Relies on Reviewer Caliber:** In static (pre-execution) review where test runners are not executed, reviewer reasoning capability is the primary bottleneck.
-
----
-
-## 2. Allnighter baseline state ("We already have most of this")
-
-Allnighter's core architecture already aligns with these principles:
-
-- **Pilot / Relay Loop:** Uses a strong Lead (e.g. Claude Opus) to steer and review, while fast execution seats (e.g. Grok, Composer, Codex) execute mutating work in the repo root ([AGENTS.md](file:///Users/mike/Documents/GitHub/Allnighter/AGENTS.md)).
-- **Built-in Team Presets:** `BuiltInTeams.swift` sets `leadFlagship` (Fable / Opus / Codex Sol) as the synthesis lead over worker seats ([BuiltInTeams.swift](file:///Users/mike/Documents/GitHub/Allnighter/Packages/AllnighterCore/Sources/AllnighterCore/BuiltInTeams.swift)).
-- **Spec Review Hero Loop:** Uses blind fan-out for critics and anchors final judgment to a flagship Synthesizer and Refutation Gate ([Spec_Review.md](file:///Users/mike/Documents/GitHub/Allnighter/docs/operations/Spec_Review.md)).
-
-### What is Missing (The Low-Hanging Fruits)
-
-While the default structures are sound, Allnighter currently lacks explicit guardrails against inverted relay configurations, advisory warnings for wasteful self-reviews, and pair-directionality telemetry in team run receipts.
+1. **Pairing is asymmetric.** A strong reviewer over a fast worker's draft
+   (Codex → Claude) lifts 71.6% to 89.7% — near-flagship quality at worker
+   generation cost. The reverse direction is not equivalent.
+2. **Weak reviewers damage strong drafts.** Claude → Codex drops 91.4% to
+   82.8%: false-positive bug reports, broken correct logic, over-simplified
+   implementations.
+3. **Flagship self-review buys nothing.** 0.0% gain at double the latency and
+   budget.
+4. **Static review is reviewer-bound.** Without test execution, reviewer
+   caliber is the bottleneck.
 
 ---
 
-## 3. Work Slices (Low-Hanging Implementation Plan)
+## 2. Baseline: what Allnighter already does right
 
-### Slice 1: Inverted Pilot / Relay Quality Warning (`CMR-S01`)
-- **Goal:** Warn users when a Relay or Pilot run is configured with an inverted role assignment (`Reviewer Caliber < Execution Seat Caliber`).
-- **Mechanism:**
-  - In `RelayCoordinator` / `PilotCLI` / CLI option validation, compare model caliber ranks of the designated Lead vs. the execution worker.
-  - If `lead.caliber < worker.caliber`:
-    Emit a non-blocking advisory warning to stdout and CLI run logs:
-    ```text
-    [alln warning] Inverted Pilot/Relay role assignment detected!
-    Reviewer (<LeadModel>) has lower reasoning caliber than Execution Seat (<WorkerModel>).
-    Empirical evidence shows reverse code review degrades code quality by up to 8.6% (arXiv:2607.21656).
-    Recommended: Set Lead to a higher-caliber model than the execution worker.
-    ```
+- **Pilot / relay loop** — a strong lead (e.g. Opus) steers and reviews while
+  execution seats (Grok, Composer, Codex) mutate the repo root
+  (`RunService.swift`, `RelayCoordinator.swift`).
+- **Built-in team presets** — `BuiltInTeams.swift` staffs a flagship synthesis
+  lead over worker seats.
+- **Spec Review** — blind critic fan-out anchored to a flagship Synthesizer and
+  Refutation Gate (`docs/operations/Spec_Review.md`).
 
-### Slice 2: Flagship Self-Review Waste Advisory (`CMR-S02`)
-- **Goal:** Prevent wasteful token spend when users configure a top-tier model for 2-pass self-review without execution/test runner feedback.
-- **Mechanism:**
-  - In `TeamRequestResolver` / `RunService.swift`, detect when a static code review run uses identical flagship models for both Writer and Reviewer seats (`Writer == Reviewer == Tier-1`).
-  - Output an advisory guidance note:
-    ```text
-    [alln tip] Flagship self-review yields 0% pass rate gain in static review (arXiv:2607.21656).
-    Consider pairing a fast worker (Codex/Composer) as Writer with <FlagshipModel> as Reviewer to achieve ~90% accuracy at reduced cost.
-    ```
-
-### Slice 3: Built-In Team Staffing Invariant Audit (`CMR-S03`)
-- **Goal:** Ensure no shipped built-in team preset in `BuiltInTeams.swift` defaults to a lower-caliber Lead than any of its constituent worker seats.
-- **Invariant:** For all presets in `BuiltInTeams.all`:
-  $$\text{CaliberRank}(\text{Lead}) \ge \max_{w \in \text{Workers}} \text{CaliberRank}(w)$$
-- **Execution:** Add unit test `BuiltInTeamsTests.testLeadCaliberDominatesWorkers()` to validate that no built-in team violates this invariant.
-
-### Slice 4: Refuter & Synthesizer Lead Seat Locking (`CMR-S04`)
-- **Goal:** Prevent the Spec Review Refutation Gate and Synthesis stage from degrading to low-tier models during fallback.
-- **Mechanism:**
-  - In `Spec_Review.md` contracts and `SkillCatalog.leadCallEnvelope`, explicitly lock the Refuter seat (`purpose: .review`) and Synthesizer (`purpose: .planWriter`) fallback policy to `.strongestReady` within Tier-1 / Tier-2 flagship models.
-  - Require that refutation of `blocking` or `material` findings must never be performed by a lower-caliber model than the finding's author.
-
-### Slice 5: Telemetry Pair-Directionality in Team Receipts (`CMR-S05`)
-- **Goal:** Track empirical `(Writer -> Reviewer)` directional pass rates in Allnighter's local receipts.
-- **Mechanism:**
-  - Update `TeamRunJSON` and `ArtifactProjector.swift` to record `writer_model_id` and `reviewer_model_id` in run metadata.
-  - Expose pair telemetry in `alln artifact` and team run receipts so users can inspect local pass rates for model pairings across their repository history.
+Missing: explicit guardrails against inverted relay configs, advisories for
+wasteful flagship self-review, and pair-directionality telemetry in receipts.
+That gap is the entire scope of this packet.
 
 ---
 
-## 4. Proof & Verification Plan
+## 3. Work slices (low-hanging)
 
-- `swift test --filter BuiltInTeamsTests`: Verify all built-in team presets pass the Lead caliber dominance invariant (`CMR-S03`).
-- `swift test --filter RelayCoordinatorTests`: Verify CLI warning is correctly emitted when inverted model pairs are configured (`CMR-S01`).
-- `swift test --filter ContractSchemaTests`: Verify `TeamRunJSON` includes `writer_model_id` and `reviewer_model_id` metadata (`CMR-S05`).
+### CMR-S01 — Inverted pilot/relay warning
+
+Warn when a relay or pilot run assigns a reviewer of lower caliber than the
+execution seat.
+
+- In `RelayCoordinator` / `PilotCLI` option validation, compare caliber ranks
+  of Lead vs worker. If `lead.caliber < worker.caliber`, emit a non-blocking
+  advisory to stdout and the run log:
+
+  ```text
+  [alln warning] Inverted pilot/relay role assignment.
+  Reviewer (<LeadModel>) has lower reasoning caliber than execution seat (<WorkerModel>).
+  Reverse review degrades pass rate by up to 8.6% (arXiv:2607.21656).
+  Recommended: set Lead to a higher-caliber model than the worker.
+  ```
+
+### CMR-S02 — Flagship self-review waste advisory
+
+Warn when a static review run uses the same flagship model as both writer and
+reviewer.
+
+- In `TeamRequestResolver` / `RunService.swift`, detect
+  `Writer == Reviewer == Tier-1` and emit:
+
+  ```text
+  [alln tip] Flagship self-review yields 0% pass-rate gain in static review (arXiv:2607.21656).
+  Pair a fast worker (Codex/Composer) as writer with <FlagshipModel> as reviewer
+  for ~90% accuracy at reduced cost.
+  ```
+
+### CMR-S03 — Built-in team staffing invariant
+
+No shipped preset may default to a lead of lower caliber than any of its
+workers.
+
+- Invariant over all presets in `BuiltInTeams.all`:
+  `caliberRank(lead) >= max(caliberRank(worker))` for every worker seat.
+- Proof: unit test `BuiltInTeamsTests.testLeadCaliberDominatesWorkers()`.
+
+### CMR-S04 — Refuter and Synthesizer seat locking
+
+The Spec Review Refutation Gate and Synthesis stage must never fall back to a
+low-tier model.
+
+- In `SkillCatalog.leadCallEnvelope`, lock the Refuter (`purpose: .review`) and
+  Synthesizer (`purpose: .planWriter`) fallback policy to `.strongestReady`
+  within Tier-1/Tier-2 flagships.
+- Refutation of a `blocking` or `material` finding must never be performed by a
+  model of lower caliber than the finding's author.
+
+### CMR-S05 — Pair-directionality telemetry
+
+Track empirical `(writer → reviewer)` outcomes in local receipts.
+
+- Record `writer_model_id` and `reviewer_model_id` in `TeamRunJSON` /
+  `ArtifactProjector.swift` run metadata.
+- Expose the pairing in `alln artifact` receipts so users can inspect local
+  pass rates per model pair across repo history.
+
+---
+
+## 4. Proof plan
+
+| Slice | Check |
+| :--- | :--- |
+| CMR-S01 | `swift test --filter RelayCoordinatorTests` — warning emitted for inverted pairs |
+| CMR-S03 | `swift test --filter BuiltInTeamsTests` — lead-caliber dominance invariant holds |
+| CMR-S05 | `swift test --filter ContractSchemaTests` — `TeamRunJSON` carries both model IDs |
+
+CMR-S02 and CMR-S04 ship with the same advisory/contract test coverage as
+their host modules.
