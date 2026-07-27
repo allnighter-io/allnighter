@@ -34,9 +34,13 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 ### Active priorities
 
-No mandatory founder-decision packets open. Forward work is optional feature
-packets below (or dogfood of shipped surfaces). Signal Graph deep-build is
-archived — keep Research; do not revive.
+One founder-decision packet open. Forward work otherwise is optional feature
+packets below (or dogfood of shipped surfaces). Signal Graph deep-build and
+CLI Implementation Contract are archived — do not revive.
+
+| Doc | Status | Purpose |
+| --- | --- | --- |
+| [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
