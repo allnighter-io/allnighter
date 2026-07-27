@@ -287,6 +287,10 @@ public enum MenuSelectionCopy {
             useWhen: "Kimi K3, strong design/code judgment",
             dontUseWhen: "No team; --worker model_kimi_k3"
         ),
+        "model_kimi_k27": Pair(
+            useWhen: "Kimi K2.7 Code, prior-gen coding seat",
+            dontUseWhen: "Prefer K3; --worker model_kimi_k27"
+        ),
         "model_composer": Pair(
             useWhen: "Grok Composer 2.5 Fast (Grok)",
             dontUseWhen: "Not Cursor; model_cursor_composer_25"

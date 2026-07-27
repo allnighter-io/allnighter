@@ -15,7 +15,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertFalse(s.tiers.flagship.contains("model_chatgpt_sol"))
         XCTAssertEqual(s.tiers.balanced, [
             "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
-            "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
+            "model_kimi_k27", "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         XCTAssertEqual(s.tiers.fast, ["model_cursor_auto", "model_composer", "model_gemini"])
     }

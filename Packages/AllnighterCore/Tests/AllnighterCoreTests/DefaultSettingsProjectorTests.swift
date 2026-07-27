@@ -15,7 +15,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
     /// Full catalog covering the fresh seed + one unassigned-on + one off-and-unassigned.
     private func catalog(ready: Set<String> = [
         "model_fable", "model_chatgpt_sol", "model_chatgpt", "model_chatgpt_terra", "model_opus", "model_sonnet",
-        "model_kimi_k3", "model_cursor_grok_45", "model_grok", "model_cursor_composer_25",
+        "model_kimi_k3", "model_kimi_k27", "model_cursor_grok_45", "model_grok", "model_cursor_composer_25",
         "model_gemini", "model_cursor_auto", "model_composer", "model_extra"
     ]) -> [ModelListJSON.Entry] {
         [
@@ -27,6 +27,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
             entry("model_opus", "Opus 5", ready: ready.contains("model_opus")),
             entry("model_sonnet", "Sonnet 5", ready: ready.contains("model_sonnet")),
             entry("model_kimi_k3", "Kimi K3", driver: "kimi", ready: ready.contains("model_kimi_k3")),
+            entry("model_kimi_k27", "Kimi K2.7 Code", driver: "kimi", ready: ready.contains("model_kimi_k27")),
             entry("model_cursor_grok_45", "Cursor Grok 4.5", driver: "cursor_agent",
                   ready: ready.contains("model_cursor_grok_45")),
             entry("model_grok", "Grok 4.5", driver: "grok", ready: ready.contains("model_grok")),
@@ -60,7 +61,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
         let balanced = p.tiers[1]
         XCTAssertEqual(balanced.members.map(\.id), [
             "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
-            "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
+            "model_kimi_k27", "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         let gemini = balanced.members.first { $0.id == "model_gemini" }
         XCTAssertEqual(gemini?.tiers, ["balanced", "fast"])

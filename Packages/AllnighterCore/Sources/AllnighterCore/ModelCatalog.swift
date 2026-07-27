@@ -57,7 +57,7 @@ public enum ModelCatalog {
             return "gpt_oss"
         case "model_grok", "model_composer", "model_cursor_grok_45":
             return "grok"
-        case "model_kimi_k3":
+        case "model_kimi_k3", "model_kimi_k27":
             return "kimi"
         case "model_gemini", "model_gemini_pro":
             return "gemini"
@@ -137,6 +137,11 @@ public enum ModelCatalog {
             laneTags: [.code, .design, .copy, .signal],
             capabilityTags: [.code, .planner, .review, .design],
             strengthRank: 88),
+        // Kimi K2.7 Code — prior-generation coding seat; below K3, still mid/high.
+        "model_kimi_k27": ModelCapabilities(
+            laneTags: [.code, .design, .copy, .signal],
+            capabilityTags: [.code, .planner, .review, .design],
+            strengthRank: 86),
         // Grok is web-aware — a natural Signal scout (interprets public posts/links) —
         // and also generates mockup images (generated-image harvest), so it carries
         // both `.design` (lane) and `.image` (capability) for design work.
@@ -246,6 +251,7 @@ public enum ModelCatalog {
             // Grok — high quality / low price → high + mid work. Effort via `--reasoning-effort`.
             def("model_grok", "Grok 4.5", "grok-4.5", "grok", .answerer, defaultEnabled: true),
             def("model_kimi_k3", "Kimi K3", "kimi-code/k3", "kimi", .both, defaultEnabled: true),
+            def("model_kimi_k27", "Kimi K2.7 Code", "kimi-code/kimi-for-coding", "kimi", .both, defaultEnabled: true),
             def("model_composer", "Grok Composer 2.5 Fast", "grok-composer-2.5-fast", "grok", .answerer, defaultEnabled: false),
             // Cursor Agent — Auto is the default; Composer 2.5 at most once in rotations;
             // Cursor Grok 4.5 is high/mid; ChatGPT 5.6 Sol is the Cursor-side flagship.
