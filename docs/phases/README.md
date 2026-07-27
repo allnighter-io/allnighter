@@ -41,6 +41,7 @@ CLI Implementation Contract are archived — do not revive.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
+| [`Cross_Model_Review_Hardening.md`](Cross_Model_Review_Hardening.md) | **OPEN PHASE PACKET** | Low-hanging quality guardrails & directional role warnings (CMR-S01–S05) based on July 2026 cross-model code review empirical findings. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
