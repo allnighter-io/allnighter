@@ -389,10 +389,24 @@ enum PilotCLI {
     /// submission — one dispatch path, no second in-process implementation to drift
     /// from the default. The foreground call returns as soon as the child is launched;
     /// agents then poll `pilot status --json` (status-first); `pilot watch` is optional.
+    ///
+    /// Preflight (status / verdict parse / HandoverGate) runs **before** the ack so a
+    /// gate block cannot report `{"status":"dispatched"}` while the child dumps
+    /// `RELAY_HANDOVER_UNSAFE` into `/dev/null` (stdout/stderr discarded).
     private static func dispatchHandoffInBackground(
         relayId: String, opts: Options, submission: String, jsonRequested: Bool
     ) {
         let stateStore = RelayStateStore()
+        switch RelayCoordinator.preflightExternalRound(
+            state: stateStore.load(id: relayId),
+            submission: submission
+        ) {
+        case .failure(let error):
+            failPilotRound(error)
+        case .success:
+            break
+        }
+
         let priorStatus = stateStore.load(id: relayId)?.status
         let roundInFlight = priorStatus == .running
 

@@ -240,6 +240,51 @@ public struct RelayCoordinator: Sendable {
         return .success(state)
     }
 
+    /// Non-mutating preflight shared by blocking `runExternalRound` and
+    /// `pilot handoff --no-wait`. Failures leave durable state untouched — the
+    /// same cases a blocking call would refuse before flipping `.running`.
+    ///
+    /// Does **not** apply max-rounds / stagnation ceilings (those intentionally
+    /// settle the relay and remain on the full round path). For `continue`,
+    /// runs `HandoverGate` so a detached dispatch cannot ack `"dispatched"`
+    /// while the child silently dumps `RELAY_HANDOVER_UNSAFE` to `/dev/null`.
+    public static func preflightExternalRound(
+        state: RelayState?,
+        submission: String
+    ) -> Result<(state: RelayState, extraction: RelayVerdictParser.Extraction), PilotRoundError> {
+        guard let state else { return .failure(.relayNotFound) }
+        guard state.pmMode == .external else { return .failure(.notPilotRelay) }
+        if state.status == .running { return .failure(.roundInFlight) }
+        guard state.status == .awaitingPM else {
+            return .failure(.notAwaitingPM(status: state.status.rawValue))
+        }
+
+        let extraction: RelayVerdictParser.Extraction
+        switch RelayVerdictParser.extract(from: submission) {
+        case .success(let ex):
+            extraction = ex
+        case .failure(let parseError):
+            return .failure(.verdictUnparseable(parseError))
+        }
+
+        if case .continueRelay = extraction.verdict.verdict {
+            guard let handover = extraction.verdict.handover,
+                  !handover.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return .failure(.verdictUnparseable(.continueWithoutHandover))
+            }
+            let gateDecision = HandoverGate.evaluate(handoverText: handover)
+            if case .blocked(let dangerClass, let code, let reason, let snippet) = gateDecision {
+                return .failure(.handoverBlocked(
+                    dangerClass: dangerClass.rawValue,
+                    code: code,
+                    reason: reason,
+                    snippet: snippet
+                ))
+            }
+        }
+        return .success((state, extraction))
+    }
+
     /// `pilot handoff` — runs exactly ONE external round: the piloting session's raw
     /// markdown `submission` stands in for a spawned PM turn. Reuses the shipped round
     /// machinery end to end (`RelayVerdictParser`, `HandoverGate`, `RelayDevPrompt`,
@@ -262,10 +307,23 @@ public struct RelayCoordinator: Sendable {
     public func runExternalRound(
         relayId: String, submission: String, projectId: String? = nil, events: EventSink? = nil
     ) async -> Result<PilotRoundResult, PilotRoundError> {
-        guard var state = stateStore.load(id: relayId) else { return .failure(.relayNotFound) }
-        guard state.pmMode == .external else { return .failure(.notPilotRelay) }
-        if state.status == .running { return .failure(.roundInFlight) }
-        guard state.status == .awaitingPM else { return .failure(.notAwaitingPM(status: state.status.rawValue)) }
+        let loaded = stateStore.load(id: relayId)
+        let preflight = Self.preflightExternalRound(state: loaded, submission: submission)
+        var state: RelayState
+        let extraction: RelayVerdictParser.Extraction
+        switch preflight {
+        case .failure(let error):
+            // Preserve the gateBlocked progress event the blocking JSON path used
+            // to emit before this preflight extraction.
+            if case .handoverBlocked(let dangerClass, _, let reason, _) = error {
+                let roundNumber = (loaded?.rounds.count ?? 0) + 1
+                events?(.gateBlocked(round: roundNumber, dangerClass: dangerClass, reason: reason))
+            }
+            return .failure(error)
+        case .success(let ok):
+            state = ok.state
+            extraction = ok.extraction
+        }
 
         let roundNumber = state.rounds.count + 1
         let maxRounds = state.pilotMaxRounds ?? 20
@@ -281,11 +339,6 @@ public struct RelayCoordinator: Sendable {
             return .success(PilotRoundResult(state: state, devReport: nil))
         }
 
-        let extraction: RelayVerdictParser.Extraction
-        switch RelayVerdictParser.extract(from: submission) {
-        case .success(let ex): extraction = ex
-        case .failure(let parseError): return .failure(.verdictUnparseable(parseError))
-        }
         events?(.pmTurnFinished(round: roundNumber, verdict: extraction.verdict.verdict))
 
         switch extraction.verdict.verdict {
@@ -311,18 +364,12 @@ public struct RelayCoordinator: Sendable {
             return .success(PilotRoundResult(state: state, devReport: nil))
 
         case .continueRelay:
-            guard let handover = extraction.verdict.handover, !handover.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                // Unreachable in practice — `RelayVerdictParser` already guarantees a
-                // non-empty handover for `continue` — kept as a defensive mirror of
-                // the spawned loop's equivalent guard.
+            // Preflight already guaranteed non-empty handover + cleared HandoverGate.
+            guard let handover = extraction.verdict.handover,
+                  !handover.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 return .failure(.verdictUnparseable(.continueWithoutHandover))
             }
-
             let gateDecision = HandoverGate.evaluate(handoverText: handover)
-            if case .blocked(let dangerClass, let code, let reason, let snippet) = gateDecision {
-                events?(.gateBlocked(round: roundNumber, dangerClass: dangerClass.rawValue, reason: reason))
-                return .failure(.handoverBlocked(dangerClass: dangerClass.rawValue, code: code, reason: reason, snippet: snippet))
-            }
 
             events?(.roundStarted(round: roundNumber))
             var round = RelayRound(

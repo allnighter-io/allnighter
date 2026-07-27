@@ -1,5 +1,45 @@
 # Debug Log
 
+## 2026-07-27 — `pilot handoff --no-wait` acked `dispatched` while HandoverGate rejected
+
+Tier: T2 SSOT (pilot handoff ack / gate verdict)
+
+Symptom / repro: Two `pilot handoff --no-wait --json` calls returned
+`{"status":"dispatched"}` with no round created and no error. Blocking handoff
+on the same brief instantly returned `RELAY_HANDOVER_UNSAFE` (HandoverGate
+correctly blocked a "push/print live token" style instruction). `doctor handoff`
+reported healthy (transport was fine). Cost: silent dispatches + state digging
+before the real reason appeared.
+
+Bug fingerprint: `PilotCLI.dispatchHandoffInBackground` + child stdio → `/dev/null`
++ HandoverGate only inside detached `runExternalRound` → success ack ≠ reality
+
+Truth owner: `RelayCoordinator.preflightExternalRound` (shared non-mutating
+status/verdict/gate checks); `PilotCLI.dispatchHandoffInBackground` must call it
+before claiming `dispatched`.
+
+Lie-prone layer: foreground `--no-wait` JSON/text ack while the detached child's
+gate rejection is discarded.
+
+RCA: `--no-wait` staged the submission, spawned a blocking handoff child with
+stdout/stderr null, and printed `dispatched` immediately. Gate (and other
+pre-round refusals) only ran in the child, so the caller never saw them.
+
+Fix boundary: extract `preflightExternalRound`; blocking path and `--no-wait`
+share it. Gate blocks / unparseable / wrong status fail closed in the foreground
+with the same `PilotRoundError` envelope. Do not kill live relays to prove this.
+HandoverGate staying fail-closed on credential-shaped briefs is correct.
+
+Proof: `swift test --package-path Packages/AllnighterCore --filter
+'PilotCoordinatorTests|HandoverGateTests'` (preflight gate/status/parse cases).
+
+Regression law: `--no-wait` must never acknowledge `dispatched` for a submission
+that blocking `pilot handoff` would refuse before flipping `.running`.
+
+What was the agent allowed to do that must never be allowed again: Treat process
+spawn as successful dispatch when the only path that can refuse the work runs
+after the ack with its errors discarded.
+
 ## 2026-07-27 — unattended worker wedged on interactive credential prompt
 
 Tier: T2 SSOT (process ownership / stall diagnosis / spawn env)

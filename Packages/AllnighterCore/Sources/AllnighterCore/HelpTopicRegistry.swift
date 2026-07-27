@@ -229,7 +229,10 @@ public enum HelpTopicRegistry {
             review, blocks through the dev turn by default, and prints the \
             dev's report verbatim — read it, write the next round, call `handoff` again. For \
             long jobs prefer `handoff --no-wait` then poll `pilot status --json` until \
-            `awaitingPM`; do not re-dispatch while status is `running`. `pilot watch` is an \
+            `awaitingPM`; do not re-dispatch while status is `running`. `--no-wait` still \
+            runs HandoverGate (and other non-mutating refusals) in the foreground — a gate \
+            block fails closed with `RELAY_HANDOVER_UNSAFE`, never a silent `dispatched` ack. \
+            `pilot watch` is an \
             optional disposable waiter — its death is not a failed round. If the handoff \
             owner died (orphan), inspect status/repo before any new handoff. A \
             `continue` verdict still passes HandoverGate, but a block or an unparseable \
