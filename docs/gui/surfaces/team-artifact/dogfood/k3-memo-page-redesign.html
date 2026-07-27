@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship the memo-first receipt — Team artifact</title>
+<style>
+/* ============================================================
+   Token layer — mirror of docs/design-system/tokens/colors.css
+   + typography.css. Every color lives here and only here
+   (G13-style: no hex below this block).
+   ============================================================ */
+:root {
+  color-scheme: dark;
+
+  --ink-100: #E1E5F0;
+  --ink-200: #AEB5C9;
+  --ink-300: #7E869E;
+  --ink-400: #555C74;
+  --ink-450: #454C62;
+  --ink-550: #2D3344;
+  --ink-600: #252A39;
+  --ink-750s:#151822;
+  --ink-800: #111420;
+  --ink-850: #0D101A;
+  --ink-900: #090B13;
+  --ink-950: #05060C;
+
+  --amber-400: #FFC169;
+  --amber-500: #FFA630;
+
+  --green-500: #3FD18B;
+  --red-500:   #F76B6B;
+  --blue-500:  #5B9DFF;
+  --yellow-500:#F5C84B;
+
+  --bg-void:    var(--ink-950);
+  --bg-base:    var(--ink-900);
+  --bg-raised:  var(--ink-750s);
+  --bg-tile:    var(--ink-850);
+
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+
+  --text-primary:   var(--ink-100);
+  --text-secondary: var(--ink-200);
+  --text-muted:     var(--ink-300);
+  --text-faint:     var(--ink-400);
+
+  --accent:         var(--amber-500);
+  --accent-text:    var(--amber-400);
+  --accent-surface: rgba(255, 166, 48, 0.12);
+  --accent-border:  rgba(255, 166, 48, 0.32);
+
+  --status-done:    var(--green-500);
+  --status-failed:  var(--red-500);
+  --status-running: var(--blue-500);
+  --status-timeout: var(--yellow-500);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, monospace;
+
+  --radius: 10px;
+  --page: 1120px;
+  --prose: 680px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- the page (was: floating 680px card) ---------- */
+.page {
+  max-width: var(--page);
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg-base);
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+}
+
+/* ---------- masthead: brand + the one amber read ---------- */
+.masthead {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand-word { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+.brand-sep { color: var(--text-faint); }
+.brand-what { font-size: 12px; color: var(--text-muted); }
+.verdict {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  background: transparent;
+}
+.verdict-partial {
+  color: var(--accent-text);
+  background: var(--accent-surface);
+  border-color: var(--accent-border);
+}
+
+/* ---------- memo header ---------- */
+.doc { padding: 34px 28px 12px; }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+h1.call {
+  margin: 12px 0 14px;
+  max-width: 780px;
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.18;
+  letter-spacing: -0.014em;
+}
+.asked { margin: 0 0 10px; font-size: 12.5px; color: var(--text-muted); }
+.asked .asked-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-right: 8px;
+}
+.changed { margin: 0; max-width: var(--prose); font-size: 13.5px; color: var(--text-secondary); }
+.changed strong { color: var(--text-primary); font-weight: 600; }
+
+/* ---------- sections ---------- */
+section { margin: 34px 0 0; }
+h2 {
+  margin: 0 0 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+h2 .h2-note {
+  margin-left: 10px;
+  font-family: var(--font-mono);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-faint);
+}
+
+/* ---------- design board hero (full page width) ---------- */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.tile {
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-raised);
+}
+.shot {
+  aspect-ratio: 16 / 10;
+  background: var(--bg-tile);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tile figcaption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+}
+.persona { font-weight: 600; color: var(--text-primary); }
+.via { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
+
+/* wireframe blocks (stand-in for a photographed surface) */
+.wb { border-radius: 3px; background: var(--ink-550); }
+.wb-head { display: flex; align-items: center; justify-content: space-between; height: 12px; }
+.wb-brand { width: 26px; height: 5px; }
+.wb-verdict {
+  width: 24px; height: 7px;
+  border-radius: 99px;
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+}
+.wb-call { height: 8px; width: 72%; background: var(--ink-450); }
+.wb-line { height: 5px; }
+.w-90 { width: 90%; } .w-60 { width: 60%; } .w-80 { width: 80%; }
+.wb-row { display: flex; gap: 6px; }
+.wb-row .wb { flex: 1; }
+.wb-tile-sm { height: 26px; background: var(--ink-800); border: 1px solid var(--border-subtle); }
+.wb-tile-lg { height: 46px; background: var(--ink-800); border: 1px solid var(--border-subtle); }
+.wb-chip { height: 14px; background: var(--ink-800); border: 1px solid var(--border-subtle); border-radius: 5px; }
+
+/* failed tile — failure survives, in words */
+.shot-failed { align-items: center; justify-content: center; text-align: center; position: relative; }
+.shot-failed::after {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border: 1px dashed var(--border-default);
+  border-radius: 6px;
+  pointer-events: none;
+}
+.fail-box { max-width: 78%; }
+.fail-word {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--status-failed);
+  margin-bottom: 6px;
+}
+.fail-reason { font-size: 11.5px; color: var(--text-muted); }
+
+/* ---------- status grammar: dot + word, never color alone ---------- */
+.dot { width: 7px; height: 7px; border-radius: 99px; flex: none; }
+.dot-done { background: var(--status-done); }
+.dot-failed { background: var(--status-failed); }
+.dot-timeout { background: var(--status-timeout); }
+.st { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+.st-done { color: var(--status-done); }
+.st-failed { color: var(--status-failed); }
+
+/* ---------- recommendations (numbered decisions, memo voice) ---------- */
+.recs ol { margin: 0; padding-left: 22px; max-width: var(--prose); }
+.recs li { margin-bottom: 14px; font-size: 13.5px; color: var(--text-secondary); }
+.recs li::marker { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); }
+.recs strong { color: var(--text-primary); font-weight: 600; }
+.recs em { color: var(--text-secondary); font-style: normal; }
+.rec-why { margin-top: 2px; font-size: 12.5px; color: var(--text-muted); }
+
+/* ---------- next (the ask, ink-only — amber already spoken for) ---------- */
+.next-block {
+  max-width: var(--prose);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 14px 16px;
+}
+.next-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.next-block p { margin: 6px 0 0; font-size: 14px; font-weight: 500; }
+
+/* ---------- the team (chips = elevator + jump, no expand) ---------- */
+.chips { display: flex; flex-direction: column; gap: 10px; }
+a.chip {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  text-decoration: none;
+  color: inherit;
+}
+a.chip:hover { border-color: var(--border-default); }
+a.chip-lead { border-color: var(--border-default); }
+.glyph {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border-radius: 6px;
+  background: var(--ink-600);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+.chip-role { font-size: 13.5px; font-weight: 600; }
+.tag-lead {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border: 1px solid var(--border-default);
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  vertical-align: 2px;
+}
+.chip-line { margin-top: 2px; font-size: 12.5px; color: var(--text-secondary); max-width: 64ch; }
+.chip-line-fail { color: var(--status-failed); }
+.chip-meta { display: flex; align-items: center; gap: 10px; padding-top: 4px; white-space: nowrap; }
+.chip-model { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
+.dur { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
+
+/* ---------- evidence (full craft, labeled, chip anchors land here) ---------- */
+.ev {
+  max-width: var(--prose);
+  border-top: 1px solid var(--border-subtle);
+  padding: 22px 0;
+  scroll-margin-top: 16px;
+}
+.ev-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.ev-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.ev-via { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
+.ev-head .dot, .ev-head .st { margin-left: auto; }
+.ev-head .st { margin-left: 0; }
+.ev-body { font-size: 14px; line-height: 1.62; color: var(--text-secondary); }
+.ev-body p { margin: 0 0 10px; }
+.ev-body ul { margin: 0 0 10px; padding-left: 18px; }
+.ev-body li { margin-bottom: 4px; }
+.ev-body strong { color: var(--text-primary); }
+.ev-body code { font-family: var(--font-mono); font-size: 12px; }
+.ev-empty { font-style: italic; color: var(--text-muted); }
+
+/* ---------- footer: proof stays quiet micro-type ---------- */
+.foot {
+  margin-top: 44px;
+  padding: 18px 28px 26px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.foot-brand { display: flex; align-items: center; gap: 8px; }
+.honesty { font-size: 12px; color: var(--text-secondary); }
+.foot-right { margin-left: auto; text-align: right; }
+.reproduce { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.run-id { margin-top: 4px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint); }
+
+/* ---------- mobile: stack honestly ---------- */
+@media (max-width: 720px) {
+  .doc { padding: 24px 18px 8px; }
+  .masthead { padding: 0 18px; }
+  h1.call { font-size: 22px; }
+  .tile-grid { grid-template-columns: 1fr; }
+  a.chip { grid-template-columns: 28px 1fr; }
+  .chip-meta { grid-column: 2; padding-top: 6px; }
+  .foot { padding: 16px 18px 22px; }
+  .foot-right { margin-left: 0; text-align: left; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Masthead: the 1-bit glance read lives here, always the same place -->
+  <header class="masthead">
+    <div class="brand">
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+        <path fill-rule="evenodd" fill="var(--accent)"
+              d="M 6.2 1.5 a 5.5 5.5 0 1 0 0 11 a 5.5 5.5 0 1 0 0 -11 Z
+                 M 8.6 2.4 a 4.6 4.6 0 1 1 0 9.2 a 4.6 4.6 0 1 1 0 -9.2 Z"/>
+      </svg>
+      <span class="brand-word">Allnighter</span>
+      <span class="brand-sep">·</span>
+      <span class="brand-what">Team artifact</span>
+    </div>
+    <div class="verdict verdict-partial">Partial · needs you</div>
+  </header>
+
+  <main class="doc">
+
+    <!-- Memo header: the call is the headline -->
+    <header class="run-head">
+      <div class="eyebrow">Design Max · 4 seats · design board</div>
+      <h1 class="call">Ship the memo-first receipt — verdict in the masthead, the board directly under the header, everything else becomes Evidence.</h1>
+      <p class="asked"><span class="asked-label">Asked</span>Design dogfood — redesign the Allnighter team run artifact (the private HTML after a team run).</p>
+      <p class="changed"><strong>What changed</strong> — the receipt stops being a floating card and becomes a page: one warm read in the masthead, hero tiles large enough to judge, seat chips that link to Evidence instead of expanding.</p>
+    </header>
+
+    <!-- Design hero: mockups under the header, judgeable at a glance -->
+    <section class="board">
+      <h2>Design board</h2>
+      <div class="tile-grid">
+
+        <figure class="tile">
+          <div class="shot">
+            <div class="wb-head"><div class="wb wb-brand"></div><div class="wb-verdict"></div></div>
+            <div class="wb wb-call"></div>
+            <div class="wb wb-line w-90"></div>
+            <div class="wb wb-line w-60"></div>
+            <div class="wb-row"><div class="wb wb-tile-sm"></div><div class="wb wb-tile-sm"></div><div class="wb wb-tile-sm"></div></div>
+            <div class="wb-chip"></div>
+            <div class="wb-chip"></div>
+          </div>
+          <figcaption>
+            <span class="dot dot-done"></span>
+            <span class="persona">Minimal direction</span>
+            <span class="via">via Opus 5</span>
+          </figcaption>
+        </figure>
+
+        <figure class="tile">
+          <div class="shot">
+            <div class="wb-head"><div class="wb wb-brand"></div><div class="wb-verdict"></div></div>
+            <div class="wb-row"><div class="wb wb-tile-lg"></div><div class="wb wb-tile-lg"></div><div class="wb wb-tile-lg"></div></div>
+            <div class="wb wb-call"></div>
+            <div class="wb wb-line w-80"></div>
+            <div class="wb-chip"></div>
+          </div>
+          <figcaption>
+            <span class="dot dot-done"></span>
+            <span class="persona">Bold direction</span>
+            <span class="via">via Kimi K3</span>
+          </figcaption>
+        </figure>
+
+        <figure class="tile">
+          <div class="shot shot-failed">
+            <div class="fail-box">
+              <div class="fail-word">Failed</div>
+              <div class="fail-reason">WebKit capture timed out — no surface to photograph.</div>
+            </div>
+          </div>
+          <figcaption>
+            <span class="dot dot-failed"></span>
+            <span class="persona">Editorial direction</span>
+            <span class="via">via ChatGPT 5.6</span>
+          </figcaption>
+        </figure>
+
+      </div>
+    </section>
+
+    <!-- Memo body -->
+    <section class="recs">
+      <h2>Recommendations</h2>
+      <ol>
+        <li>
+          <strong>Ship the memo-first direction</strong> <em>— Minimal, with the Bold seat’s wider board measure.</em>
+          <div class="rec-why">Reading is the everyday job; the wide three-up grid is the one borrowing that helps it.</div>
+        </li>
+        <li>
+          <strong>Rerun the Editorial seat</strong> <em>— the failure was capture, not taste.</em>
+          <div class="rec-why">The board owes you three photographed options; the third timed out before it had a surface.</div>
+        </li>
+        <li>
+          <strong>Lock the one-amber rule in the projector.</strong>
+          <div class="rec-why">The verdict lockup is the single warm event; Ready stays zero-hue so Partial never dilutes.</div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="next">
+      <div class="next-block">
+        <div class="next-label">Next — needs your pick</div>
+        <p>Reply with the direction to ship — memo-first or board-first — or send the failed seat back to work.</p>
+      </div>
+    </section>
+
+    <!-- The team: role-first chips, elevator only, jump to Evidence -->
+    <section class="team">
+      <h2>The team</h2>
+      <div class="chips">
+
+        <a class="chip chip-lead" href="#seat-lead">
+          <span class="glyph">D</span>
+          <span class="chip-main">
+            <span class="chip-role">Design Board Writer<span class="tag-lead">Lead</span></span>
+            <div class="chip-line">Ship the memo-first layout: call on top, board under the header, everything else is Evidence.</div>
+          </span>
+          <span class="chip-meta">
+            <span class="chip-model">Fable 5</span>
+            <span class="dot dot-done"></span><span class="st st-done">done</span>
+            <span class="dur">5m 58s</span>
+          </span>
+        </a>
+
+        <a class="chip" href="#seat-minimal">
+          <span class="glyph">M</span>
+          <span class="chip-main">
+            <span class="chip-role">Minimal direction</span>
+            <div class="chip-line">Cut the card to a page — one column, one amber, chips that link instead of expand.</div>
+          </span>
+          <span class="chip-meta">
+            <span class="chip-model">Opus 5</span>
+            <span class="dot dot-done"></span><span class="st st-done">done</span>
+            <span class="dur">4m 12s</span>
+          </span>
+        </a>
+
+        <a class="chip" href="#seat-bold">
+          <span class="glyph">B</span>
+          <span class="chip-main">
+            <span class="chip-role">Bold direction</span>
+            <div class="chip-line">Give the board real width: three hero tiles you can judge without opening the file.</div>
+          </span>
+          <span class="chip-meta">
+            <span class="chip-model">Kimi K3</span>
+            <span class="dot dot-done"></span><span class="st st-done">done</span>
+            <span class="dur">4m 47s</span>
+          </span>
+        </a>
+
+        <a class="chip" href="#seat-editorial">
+          <span class="glyph">E</span>
+          <span class="chip-main">
+            <span class="chip-role">Editorial direction</span>
+            <div class="chip-line chip-line-fail">WebKit capture timed out — no photographed surface.</div>
+          </span>
+          <span class="chip-meta">
+            <span class="chip-model">ChatGPT 5.6</span>
+            <span class="dot dot-failed"></span><span class="st st-failed">failed</span>
+            <span class="dur">1m 03s</span>
+          </span>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- Evidence: full seat craft, labeled, chip jumps land here -->
+    <section class="evidence">
+      <h2>Evidence<span class="h2-note">full seat craft — chips above jump here</span></h2>
+
+      <article class="ev" id="seat-lead">
+        <div class="ev-head">
+          <h3>Design Board Writer</h3><span class="ev-via">via Fable 5</span>
+          <span class="dot dot-done"></span><span class="st st-done">done</span>
+        </div>
+        <div class="ev-body">
+          <p>This artifact is a memo, not a poster. The masthead carries the verdict so every crop starts with the answer; the board moves under the header because judging options is the job of a design run; chips become a table of contents, not an accordion.</p>
+          <p>The recommendations above are the whole decision set — pick a direction or send the failed seat back. Nothing else on this page asks anything of you.</p>
+        </div>
+      </article>
+
+      <article class="ev" id="seat-minimal">
+        <div class="ev-head">
+          <h3>Minimal direction</h3><span class="ev-via">via Opus 5</span>
+          <span class="dot dot-done"></span><span class="st st-done">done</span>
+        </div>
+        <div class="ev-body">
+          <p>Cut everything that isn’t read. Floating card becomes a page; pill stack becomes one masthead lockup; nine section heads become five.</p>
+          <ul>
+            <li>Container: <code>1120px</code> page, <code>680px</code> prose measure — no edge-to-edge wallpaper.</li>
+            <li>Ready renders as hairline + word, zero hue; Partial is the only warm surface.</li>
+            <li>Chips keep their zones — glyph, elevator, status — but lose the expander.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="ev" id="seat-bold">
+        <div class="ev-head">
+          <h3>Bold direction</h3><span class="ev-via">via Kimi K3</span>
+          <span class="dot dot-done"></span><span class="st st-done">done</span>
+        </div>
+        <div class="ev-body">
+          <p>Width is the gift of the desktop. Tiles at <code>350px</code> can be judged; at <code>210px</code> they cannot. Keep the memo column for prose and let the board and the team rail use the page.</p>
+          <ul>
+            <li>Tile aspect matches the capture camera (<code>16:10</code>) — what you see is what the host photographed.</li>
+            <li>Failure is a first-class tile: dashed void, red word, reason — never a gray shrug.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="ev" id="seat-editorial">
+        <div class="ev-head">
+          <h3>Editorial direction</h3><span class="ev-via">via ChatGPT 5.6</span>
+          <span class="dot dot-failed"></span><span class="st st-failed">failed</span>
+        </div>
+        <div class="ev-body">
+          <p class="ev-empty">(No written craft for this seat.)</p>
+        </div>
+      </article>
+
+    </section>
+  </main>
+
+  <!-- Footer: honesty + proof, quiet micro-type; the crescent is exempt -->
+  <footer class="foot">
+    <div class="foot-brand">
+      <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
+        <path fill-rule="evenodd" fill="var(--accent)"
+              d="M 6.2 1.5 a 5.5 5.5 0 1 0 0 11 a 5.5 5.5 0 1 0 0 -11 Z
+                 M 8.6 2.4 a 4.6 4.6 0 1 1 0 9.2 a 4.6 4.6 0 1 1 0 -9.2 Z"/>
+      </svg>
+      <span class="honesty">alln-attested multi-seat artifact · not vendor-signed</span>
+    </div>
+    <div class="foot-right">
+      <div class="reproduce">alln run --lane design --team design_max "Design dogfood — redesign the Allnighter team run arti…</div>
+      <div class="run-id">Run 99FEB349-2212-4710-831D-989C642AA01C</div>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

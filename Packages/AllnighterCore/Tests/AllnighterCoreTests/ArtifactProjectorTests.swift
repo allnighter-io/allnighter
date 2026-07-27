@@ -312,6 +312,17 @@ final class ArtifactProjectorTests: XCTestCase {
     XCTAssertFalse(html.contains("outcome.headline"))
   }
 
+  func testFaviconIsSelfContainedBrandMark() {
+    let html = ArtifactProjector.renderHTML(
+      ArtifactProjector.project(multiSeatRun(leadMarkdown: leadCallMarkdown))
+    )
+    XCTAssertTrue(
+      html.contains("<link rel=\"icon\" type=\"image/svg+xml\" href=\"\(ArtifactProjector.faviconDataURI)\">")
+    )
+    // Must not depend on a repo-relative asset path (breaks for written artifacts).
+    XCTAssertFalse(html.contains("allnighter-icon.svg"))
+  }
+
   func testG13GatePassesOnSettledArtifact() {
     let html = ArtifactProjector.renderHTML(
       ArtifactProjector.project(multiSeatRun(leadMarkdown: leadCallMarkdown))

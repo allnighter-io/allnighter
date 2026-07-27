@@ -7,6 +7,15 @@ that render run/dispatch state, quota, secrets, or pairing.
 Keep briefs short. They name states, the owning core contract, and which view
 fields map to which model fields, *before* code.
 
+## Surfaces
+
+| Surface | Brief | Notes |
+| --- | --- | --- |
+| `threads` | [brief.md](threads/brief.md) | ThreadList + ThreadTimeline |
+| `send-to-team` | [brief.md](send-to-team/brief.md) | Composer send posture |
+| `team` | [handoff.md](team/handoff.md) | Team handoff notes |
+| `team-artifact` | [brief.md](team-artifact/brief.md) | Private HTML reading finish; chrome locks |
+
 ## `brief.md` template
 
 ```markdown

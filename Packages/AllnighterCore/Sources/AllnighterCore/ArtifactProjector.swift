@@ -172,6 +172,13 @@ public enum ArtifactProjector {
     )
   }
 
+  /// Brand mark for browser tabs. Base64 (not percent-encoded SVG) so
+  /// gradient `url(#…)` fragments never truncate the data URI — the usual
+  /// reason a relative/file favicon appears only on mockups or intermittently.
+  public static let faviconDataURI =
+    "data:image/svg+xml;base64,"
+    + "PHN2ZyB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiB2aWV3Qm94PSIwIDAgMTAwIDEwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iYmciIGN4PSI1MCUiIGN5PSIzMCUiIHI9Ijg4JSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxQjIxMzgiPjwvc3RvcD48c3RvcCBvZmZzZXQ9IjUyJSIgc3RvcC1jb2xvcj0iIzBCMEUxQSI+PC9zdG9wPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzA1MDYwQyI+PC9zdG9wPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iZ2xvdyIgY3g9IjUwJSIgY3k9IjUwJSIgcj0iNTAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI0ZGQTYzMCIgc3RvcC1vcGFjaXR5PSIwLjUiPjwvc3RvcD4KICAgICAgPHN0b3Agb2Zmc2V0PSI0NiUiIHN0b3AtY29sb3I9IiNGRkE2MzAiIHN0b3Atb3BhY2l0eT0iMC4xNCI+PC9zdG9wPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNGRkE2MzAiIHN0b3Atb3BhY2l0eT0iMCI+PC9zdG9wPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iY2ciIHgxPSIyMCIgeTE9IjI0IiB4Mj0iNjYiIHkyPSI4MCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNGRkQ3OUUiPjwvc3RvcD48c3RvcCBvZmZzZXQ9Ii41IiBzdG9wLWNvbG9yPSIjRkZBNjMwIj48L3N0b3A+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjRjA5MDFDIj48L3N0b3A+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPG1hc2sgaWQ9ImNtIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iYmxhY2siPjwvcmVjdD4KICAgICAgPGNpcmNsZSBjeD0iNDciIGN5PSI1MCIgcj0iMzIiIGZpbGw9IndoaXRlIj48L2NpcmNsZT48Y2lyY2xlIGN4PSI2MiIgY3k9IjQxIiByPSIyOCIgZmlsbD0iYmxhY2siPjwvY2lyY2xlPjwvbWFzaz4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHJ4PSIyMyIgZmlsbD0idXJsKCNiZykiPjwvcmVjdD4KICA8Y2lyY2xlIGN4PSI0NiIgY3k9IjQ4IiByPSI0NCIgZmlsbD0idXJsKCNnbG93KSI+PC9jaXJjbGU+CiAgPHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9InVybCgjY2cpIiBtYXNrPSJ1cmwoI2NtKSI+PC9yZWN0PgogIDxyZWN0IHg9IjAuNSIgeT0iMC41IiB3aWR0aD0iOTkiIGhlaWdodD0iOTkiIHJ4PSIyMi41IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS1vcGFjaXR5PSIwLjA3Ij48L3JlY3Q+Cjwvc3ZnPg=="
+
   public static func renderHTML(_ card: Card) -> String {
     let css = embeddedStylesheet()
     let body = htmlBody(card)
@@ -182,6 +189,7 @@ public enum ArtifactProjector {
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <title>\(escape(card.title))</title>
+      <link rel="icon" type="image/svg+xml" href="\(faviconDataURI)">
       <style>\(css)</style>
     </head>
     <body>

@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Artifact reading page — design mockup</title>
+  <link rel="icon" href="../../../../design-system/assets/allnighter-icon.svg">
+  <link rel="stylesheet" href="../../../../design-system/styles.css">
+  <style>
+    /* Surface-local layout only. Color, type, space, elevation = tokens. No glow. */
+    html { color-scheme: dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: var(--text-body-lg);
+      line-height: var(--leading-relaxed);
+      letter-spacing: var(--tracking-normal);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: calc(var(--container-reading) + 48px);
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-5) var(--space-12);
+    }
+
+    .artifact {
+      background: var(--bg-raised);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm), var(--edge-top);
+      padding: var(--space-8) var(--space-6);
+    }
+
+    /* —— Header —— */
+    .card-header {
+      margin-bottom: var(--space-6);
+    }
+    .header-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+    .verdict {
+      display: inline-flex;
+      align-items: center;
+      height: 26px;
+      padding: 0 var(--space-3);
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-default);
+      font-size: var(--text-label);
+      font-weight: var(--weight-semibold);
+      letter-spacing: var(--tracking-normal);
+      line-height: 1;
+    }
+    .verdict-ready {
+      color: var(--text-primary);
+      background: transparent;
+    }
+    .team-line {
+      color: var(--text-secondary);
+      font-size: var(--text-body);
+      font-weight: var(--weight-medium);
+    }
+    .title {
+      margin: 0 0 var(--space-3);
+      font-family: var(--font-display);
+      font-size: var(--text-h2);
+      font-weight: var(--weight-bold);
+      line-height: var(--leading-tight);
+      letter-spacing: var(--tracking-heading);
+      text-wrap: balance;
+      color: var(--text-primary);
+    }
+    .asked {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: var(--text-body);
+      line-height: var(--leading-normal);
+    }
+    .asked-label {
+      display: inline-block;
+      margin-right: var(--space-2);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-semibold);
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-faint);
+      vertical-align: 0.05em;
+    }
+
+    /* —— Sections —— */
+    section {
+      margin: 0 0 var(--space-6);
+    }
+    .eyebrow {
+      margin: 0 0 var(--space-3);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-semibold);
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* —— Hero mockups (design boards) —— */
+    .mockups {
+      margin: 0 0 var(--space-8);
+    }
+    .mockup-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-4);
+    }
+    .mockup-tile {
+      margin: 0;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--bg-base);
+    }
+    .mockup-tile.is-pick {
+      border-color: var(--border-strong);
+    }
+    .mockup-stage {
+      position: relative;
+      padding: var(--space-5);
+      background:
+        radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.03), transparent 55%),
+        var(--bg-base);
+      min-height: 280px;
+    }
+    .mockup-frame {
+      max-width: 420px;
+      margin: 0 auto;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      background: var(--bg-raised);
+      box-shadow: var(--shadow-md);
+      padding: var(--space-4);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .mini-ready {
+      display: inline-flex;
+      align-items: center;
+      height: 18px;
+      padding: 0 8px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-pill);
+      font-size: 10px;
+      font-weight: var(--weight-semibold);
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .mini-team {
+      color: var(--text-muted);
+      font-size: 10px;
+      margin-bottom: 6px;
+    }
+    .mini-title {
+      font-size: 13px;
+      font-weight: var(--weight-bold);
+      letter-spacing: var(--tracking-heading);
+      color: var(--text-primary);
+      margin: 0 0 6px;
+      line-height: 1.2;
+    }
+    .mini-asked {
+      color: var(--text-faint);
+      font-size: 10px;
+      margin-bottom: 10px;
+    }
+    .mini-hero {
+      height: 56px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      background: var(--bg-base);
+      margin-bottom: 10px;
+      display: grid;
+      place-items: center;
+      color: var(--text-faint);
+      font-size: 10px;
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+    }
+    .mini-call {
+      font-size: 12px;
+      font-weight: var(--weight-semibold);
+      color: var(--text-primary);
+      margin: 0 0 8px;
+      line-height: 1.3;
+    }
+    .mini-chips {
+      display: grid;
+      gap: 4px;
+    }
+    .mini-chip {
+      display: grid;
+      grid-template-columns: 16px 1fr auto;
+      gap: 6px;
+      align-items: center;
+      padding: 5px 6px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      background: var(--bg-base);
+    }
+    .mini-g {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: var(--ink-600);
+      color: var(--ink-100);
+      font-size: 8px;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+    }
+    .mini-chip span {
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mini-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--status-done);
+    }
+    .mockup-tile figcaption {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-raised);
+      font-size: var(--text-body);
+      color: var(--text-secondary);
+    }
+    .pick-tag {
+      font-size: var(--text-caption);
+      font-weight: var(--weight-semibold);
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-faint);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-pill);
+      padding: 2px 8px;
+    }
+
+    /* —— Decision band —— */
+    .call-text {
+      margin: 0;
+      font-size: var(--text-h3);
+      font-weight: var(--weight-semibold);
+      line-height: var(--leading-snug);
+      letter-spacing: var(--tracking-normal);
+      color: var(--text-primary);
+      max-width: 42em;
+    }
+    .why p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: var(--text-body-lg);
+      line-height: var(--leading-normal);
+      max-width: 42em;
+    }
+    .recommendations ol {
+      margin: 0;
+      padding-left: 1.15rem;
+      color: var(--text-secondary);
+      font-size: var(--text-body);
+      line-height: var(--leading-normal);
+    }
+    .recommendations li {
+      margin-bottom: var(--space-2);
+      padding-left: 2px;
+    }
+    .recommendations li:last-child { margin-bottom: 0; }
+    .recommendations strong {
+      color: var(--text-primary);
+      font-weight: var(--weight-semibold);
+    }
+    .rec-lean {
+      color: var(--text-muted);
+      font-weight: var(--weight-regular);
+    }
+    /* Ready: no rec-why sublines — keeps Next as the close */
+
+    .cta-block {
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-5);
+      background: var(--bg-base);
+      margin-bottom: var(--space-8);
+    }
+    .cta-label {
+      margin: 0 0 var(--space-2);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-semibold);
+      letter-spacing: var(--tracking-caps);
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .cta-text {
+      margin: 0;
+      font-size: var(--text-body-lg);
+      font-weight: var(--weight-semibold);
+      line-height: var(--leading-snug);
+      color: var(--text-primary);
+    }
+
+    /* —— Act / evidence break —— */
+    .crew-band {
+      padding-top: var(--space-6);
+      border-top: 1px solid var(--border-subtle);
+      margin-bottom: var(--space-6);
+    }
+
+    /* —— Seat chips —— */
+    .seat-grid {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+    a.seat-chip {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      padding: var(--space-3) var(--space-3);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      background: var(--bg-base);
+      transition: border-color 0s;
+    }
+    a.seat-chip:hover {
+      border-color: var(--border-default);
+      background: var(--bg-hover);
+    }
+    a.seat-chip:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+    .seat-summary {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: var(--space-3);
+      align-items: start;
+    }
+    .seat-lead {
+      border-color: var(--border-default);
+    }
+    .glyph {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: var(--radius-sm);
+      background: var(--ink-600);
+      color: var(--ink-100);
+      font-size: var(--text-caption);
+      font-weight: var(--weight-semibold);
+      flex-shrink: 0;
+    }
+    .seat-name {
+      font-size: var(--text-body-lg);
+      font-weight: var(--weight-semibold);
+      line-height: var(--leading-snug);
+      color: var(--text-primary);
+    }
+    .model-via {
+      margin-left: 0.35rem;
+      font-size: var(--text-caption);
+      font-weight: var(--weight-regular);
+      color: var(--text-faint);
+      font-family: var(--font-mono);
+    }
+    .one-liner {
+      margin-top: 2px;
+      color: var(--text-secondary);
+      font-size: var(--text-body);
+      line-height: var(--leading-normal);
+    }
+    .seat-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding-top: 4px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      display: inline-block;
+      background: var(--status-done);
+    }
+    .duration {
+      font-family: var(--font-mono);
+      font-size: var(--text-mono-sm);
+      color: var(--text-faint);
+      font-feature-settings: "tnum";
+    }
+
+    /* —— Evidence (glimpse) —— */
+    .evidence {
+      margin: 0 0 var(--space-6);
+    }
+    .evidence-seat {
+      margin: 0;
+      padding: var(--space-5);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      background: var(--bg-base);
+      scroll-margin-top: var(--space-6);
+    }
+    .evidence-seat + .evidence-seat {
+      margin-top: var(--space-3);
+    }
+    .evidence-seat h3 {
+      margin: 0 0 var(--space-3);
+      font-size: var(--text-title);
+      font-weight: var(--weight-semibold);
+      line-height: var(--leading-snug);
+      letter-spacing: var(--tracking-normal);
+      text-transform: none;
+      color: var(--text-primary);
+    }
+    .evidence-body {
+      color: var(--text-secondary);
+      font-size: var(--text-body);
+      line-height: var(--leading-relaxed);
+    }
+    .evidence-body p {
+      margin: 0 0 var(--space-3);
+    }
+    .evidence-body p:last-child { margin-bottom: 0; }
+    .evidence-body ul {
+      margin: 0 0 var(--space-3);
+      padding-left: 1.15rem;
+    }
+    .evidence-body li { margin-bottom: var(--space-1); }
+    .evidence-fade {
+      position: relative;
+      max-height: 9.5rem;
+      overflow: hidden;
+    }
+    .evidence-fade::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 4rem;
+      background: linear-gradient(to bottom, transparent, var(--bg-base));
+      pointer-events: none;
+    }
+    .evidence-more {
+      margin-top: var(--space-3);
+      font-size: var(--text-caption);
+      color: var(--text-faint);
+      letter-spacing: var(--tracking-normal);
+    }
+
+    /* —— Footer —— */
+    .footer {
+      margin-top: var(--space-8);
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--border-subtle);
+      font-size: var(--text-caption);
+      color: var(--text-muted);
+      line-height: var(--leading-normal);
+    }
+    .honesty {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .mark {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+      opacity: 0.55;
+    }
+    .reproduce {
+      margin-top: var(--space-2);
+      color: var(--text-faint);
+    }
+    .reproduce code {
+      font-family: var(--font-mono);
+      font-size: var(--text-mono-sm);
+      word-break: break-all;
+    }
+    .run-id {
+      margin-top: var(--space-2);
+      font-family: var(--font-mono);
+      font-size: var(--text-mono-sm);
+      color: var(--text-faint);
+    }
+
+    /* —— Responsive —— */
+    @media (max-width: 430px) {
+      .page {
+        padding: 0;
+      }
+      .artifact {
+        margin: 0;
+        padding: var(--space-5) var(--space-4);
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        box-shadow: none;
+      }
+      .title {
+        font-size: var(--text-h3);
+      }
+      .call-text {
+        font-size: var(--text-body-lg);
+      }
+      .seat-summary {
+        grid-template-columns: auto 1fr;
+      }
+      .seat-meta {
+        grid-column: 2;
+        padding-top: 0;
+      }
+      .mockup-stage {
+        min-height: 220px;
+        padding: var(--space-4);
+      }
+    }
+
+    @media (min-width: 1280px) {
+      .page {
+        padding-top: var(--space-10);
+        padding-bottom: var(--space-16);
+      }
+      .artifact {
+        padding: var(--space-10) var(--space-8);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <main class="artifact" aria-label="Team run artifact">
+
+      <!-- G9 scan ladder: verdict → team → title → Asked → hero → decision → crew → evidence -->
+      <header class="card-header">
+        <div class="header-top">
+          <div class="verdict verdict-ready">Ready</div>
+          <div class="team-line">Design · Artifact reading</div>
+        </div>
+        <h1 class="title">One memo: hero designs, then the call, then the crew</h1>
+        <p class="asked">
+          <span class="asked-label">Asked</span>
+          Redesign the private team-run artifact so a CEO can read the finish in one calm pass.
+        </p>
+      </header>
+
+      <!-- Design boards: mockups are the hero under the header — never buried in Evidence -->
+      <section class="mockups" aria-label="Design">
+        <h2 class="eyebrow">Design</h2>
+        <div class="mockup-grid" data-cols="1" data-count="1">
+          <figure class="mockup-tile is-pick">
+            <div class="mockup-stage" aria-hidden="true">
+              <div class="mockup-frame">
+                <div class="mini-ready">Ready</div>
+                <div class="mini-team">Design · Artifact reading</div>
+                <p class="mini-title">One memo: hero designs, then the call</p>
+                <div class="mini-asked">Asked · Redesign the private team-run artifact…</div>
+                <div class="mini-hero">Mockup</div>
+                <p class="mini-call">Ship a reading column: calm Ready, design first, elevator chips.</p>
+                <div class="mini-chips">
+                  <div class="mini-chip"><div class="mini-g">H</div><span>Hierarchy · Lead with design</span><div class="mini-dot"></div></div>
+                  <div class="mini-chip"><div class="mini-g">T</div><span>Type · Token ramp only</span><div class="mini-dot"></div></div>
+                  <div class="mini-chip"><div class="mini-g">P</div><span>Polish · Quiet Next close</span><div class="mini-dot"></div></div>
+                </div>
+              </div>
+            </div>
+            <figcaption>
+              <span>Reading column · design hero</span>
+              <span class="pick-tag">Pick</span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="call">
+        <h2 class="eyebrow">The decision</h2>
+        <p class="call-text">
+          Keep the 680px reading memo. On design boards, put mockups directly under the header;
+          then the call, a short Next, elevator chips that jump to Evidence, and a quiet craft tail.
+        </p>
+      </section>
+
+      <section class="why">
+        <h2 class="eyebrow">Why it matters</h2>
+        <p>
+          A finished team run should read like a great chat answer with phosphor status —
+          not a form dump, not a viral poster.
+        </p>
+      </section>
+
+      <section class="recommendations">
+        <h2 class="eyebrow">Do this next</h2>
+        <ol>
+          <li><strong>Lead with design tiles</strong> <span class="rec-lean">— ship</span></li>
+          <li><strong>Bind type to tokens; drop viewport title bumps</strong> <span class="rec-lean">— ship</span></li>
+          <li><strong>Quiet Ready recommendations so Next closes the band</strong> <span class="rec-lean">— ship</span></li>
+          <li><strong>Hairline before Who weighed in</strong> <span class="rec-lean">— ship</span></li>
+        </ol>
+      </section>
+
+      <section class="cta-block">
+        <div class="cta-label">Next</div>
+        <p class="cta-text">Project this layout in the artifact HTML — Ready calm, design hero, elevator chips, zero glow.</p>
+      </section>
+
+      <div class="crew-band">
+        <section class="seats" style="margin-bottom:0">
+          <h2 class="eyebrow">Who weighed in</h2>
+          <div class="seat-grid">
+            <a class="seat-chip seat-lead" href="#seat-lead" data-status="done">
+              <div class="seat-summary">
+                <div class="glyph" aria-hidden="true">L</div>
+                <div class="seat-main">
+                  <div class="seat-name">Lead <span class="model-via">via Cursor Grok 4.5</span></div>
+                </div>
+                <div class="seat-meta">
+                  <span class="status-dot" aria-label="done"></span>
+                  <span class="duration">1m 12s</span>
+                </div>
+              </div>
+            </a>
+            <a class="seat-chip" href="#seat-hierarchy" data-status="done">
+              <div class="seat-summary">
+                <div class="glyph" aria-hidden="true">H</div>
+                <div class="seat-main">
+                  <div class="seat-name">Hierarchy <span class="model-via">via Composer 2.5</span></div>
+                  <div class="one-liner">Put design boards under the header so the picture leads the memo, not the appendix.</div>
+                </div>
+                <div class="seat-meta">
+                  <span class="status-dot" aria-label="done"></span>
+                  <span class="duration">48.2s</span>
+                </div>
+              </div>
+            </a>
+            <a class="seat-chip" href="#seat-type" data-status="done">
+              <div class="seat-summary">
+                <div class="glyph" aria-hidden="true">T</div>
+                <div class="seat-main">
+                  <div class="seat-name">Type &amp; Spacing <span class="model-via">via Composer 2.5</span></div>
+                  <div class="one-liner">Token type only — call is title weight, chips are body, eyebrows stay caption caps.</div>
+                </div>
+                <div class="seat-meta">
+                  <span class="status-dot" aria-label="done"></span>
+                  <span class="duration">44.0s</span>
+                </div>
+              </div>
+            </a>
+            <a class="seat-chip" href="#seat-polish" data-status="done">
+              <div class="seat-summary">
+                <div class="glyph" aria-hidden="true">P</div>
+                <div class="seat-main">
+                  <div class="seat-name">Polish <span class="model-via">via Composer 2.5</span></div>
+                  <div class="one-liner">Ready stays calm ink; one hairline splits the act from the crew; no amber wallpaper.</div>
+                </div>
+                <div class="seat-meta">
+                  <span class="status-dot" aria-label="done"></span>
+                  <span class="duration">39.6s</span>
+                </div>
+              </div>
+            </a>
+          </div>
+        </section>
+      </div>
+
+      <section class="evidence">
+        <h2 class="eyebrow">Evidence</h2>
+
+        <article class="evidence-seat" id="seat-lead">
+          <h3>Lead <span class="model-via">via Cursor Grok 4.5</span></h3>
+          <div class="evidence-body">
+            <p>Ship the reading-column memo. Design tiles are the hero when the run is a board; chips jump here for the long craft.</p>
+            <p>G locks held: Ready = ink only, zero glow, monochrome glyphs, content-intrinsic height, one warm signal reserved for Partial.</p>
+          </div>
+        </article>
+
+        <article class="evidence-seat" id="seat-hierarchy">
+          <h3>Hierarchy <span class="model-via">via Composer 2.5</span></h3>
+          <div class="evidence-body evidence-fade">
+            <p>Scan ladder for a design run:</p>
+            <ul>
+              <li>Ready · team · title · Asked</li>
+              <li><strong>Design tiles</strong> (full weight, under header)</li>
+              <li>The decision · Why · Do this next · Next</li>
+              <li>Who weighed in (chips → anchors)</li>
+              <li>Evidence (full craft)</li>
+            </ul>
+            <p>Never put mockups after seats. Never bury the picture in Evidence.</p>
+            <p>Act band ends at Next; a hairline starts the crew zone so “who said it” never competes with “what to do.”</p>
+          </div>
+          <div class="evidence-more">Two more seats below in a full artifact · this mockup shows the fold.</div>
+        </article>
+      </section>
+
+      <footer class="footer">
+        <div class="honesty">
+          <img class="mark" src="../../../../design-system/assets/allnighter-glyph-mono.svg" alt="">
+          <span>alln-attested multi-seat artifact · not vendor-signed</span>
+        </div>
+        <div class="reproduce"><code>alln run "Redesign the private team-run artifact…" · design</code></div>
+        <div class="run-id">Mockup · not a live run</div>
+      </footer>
+
+    </main>
+  </div>
+</body>
+</html>
