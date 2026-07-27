@@ -8,7 +8,12 @@ Updated: 2026-07-27
 
 ## 1. Context & empirical evidence
 
-A July 2026 study (*Cross-Model LLM Code Review: Should you use Claude to review Codex or vice versa?*, Xiang et al., arXiv:2607.21656) conducted controlled experiments across 116 hard and medium LiveCodeBench tasks evaluating static (pre-execution) code review between frontier models (**Claude Opus 4.7** and **Codex GPT-5.5**).
+A July 2026 study (*[Cross-Model LLM Code Review: Should you use Claude to review Codex or vice versa?](https://arxiv.org/abs/2607.21656)*, Zuodong Xiang, Yike Zhang, YueMing Zhang, Hailu Xu; arXiv:2607.21656v1 [cs.SE], 22 Jul 2026) conducted controlled experiments across 116 hard and medium LiveCodeBench tasks evaluating static (pre-execution) code review between frontier models (**Claude Opus 4.7** and **Codex GPT-5.5**).
+
+### Primary Source & Citation
+- **Paper:** *Cross-Model LLM Code Review: Should you use Claude to review Codex or vice versa?*
+- **Authors:** Zuodong Xiang (UC Davis), Yike Zhang (JHU), YueMing Zhang (CSULB), Hailu Xu (CSULB).
+- **Publication / arXiv:** [arXiv:2607.21656 [cs.SE]](https://arxiv.org/abs/2607.21656) (July 2026).
 
 ### Key Empirical Findings
 
