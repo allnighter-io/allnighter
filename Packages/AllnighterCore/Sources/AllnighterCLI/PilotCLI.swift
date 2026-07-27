@@ -412,6 +412,7 @@ enum PilotCLI {
         let process = Process()
         process.executableURL = launch.executableURL
         process.currentDirectoryURL = launch.currentDirectoryURL
+        process.environment = AllnighterSpawnEnvironmentPolicy.processEnvironment()
         var childArgs = ["pair", "pilot", "handoff", "--relay", relayId]
 
         // SR-12 (Sol F19): stage the already-read/synthesized submission to an IMMUTABLE temp

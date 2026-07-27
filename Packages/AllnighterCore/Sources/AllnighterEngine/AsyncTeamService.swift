@@ -591,10 +591,22 @@ public actor AsyncTeamService {
                 response.progressStale = RunActivity.progressStale(
                     lastActivityAt: run.lastActivityAt, now: now()
                 )
+                let stallSummary: String? = {
+                    guard let directory = try? runStore.runDirectory(forRunId: runId) else { return nil }
+                    if let persisted = ProcessOwnership.readStallDiagnosis(in: directory)?.summary {
+                        return persisted
+                    }
+                    if let identity = ProcessOwnership.readOwnerIdentity(in: directory),
+                       ProcessOwnership.isIdentityAlive(identity) {
+                        return ProcessOwnership.diagnoseOwnedTreeStall(identity: identity)?.summary
+                    }
+                    return nil
+                }()
                 response.silenceStatus = OwnershipSilencePresentation.silenceStatusLine(
                     identityAlive: true,
                     lastProgressAt: run.lastActivityAt,
-                    now: now()
+                    now: now(),
+                    stallSummary: stallSummary
                 )
             }
         }

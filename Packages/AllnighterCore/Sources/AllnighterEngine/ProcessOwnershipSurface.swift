@@ -224,7 +224,8 @@ public struct ProcessOwnershipSurface: Sendable {
                 silenceStatus: OwnershipSilencePresentation.silenceStatusLine(
                     identityAlive: alive || anyWorkerAlive,
                     lastProgressAt: last,
-                    now: now
+                    now: now,
+                    stallSummary: stallSummaryForRun(directory: dir, identity: identity, workerOwners: workerOwners)
                 )
             ))
             // RLR-S04a: surface each recorded worker `runtimeOwnership` receipt
@@ -366,7 +367,17 @@ public struct ProcessOwnershipSurface: Sendable {
                 silenceStatus: OwnershipSilencePresentation.silenceStatusLine(
                     identityAlive: alive,
                     lastProgressAt: last,
-                    now: now
+                    now: now,
+                    stallSummary: {
+                        if let persisted = ProcessOwnership.readStallDiagnosis(in: dir)?.summary {
+                            return persisted
+                        }
+                        if alive, let identity,
+                           let live = ProcessOwnership.diagnoseOwnedTreeStall(identity: identity) {
+                            return live.summary
+                        }
+                        return nil
+                    }()
                 )
             )
         }
@@ -558,6 +569,28 @@ public struct ProcessOwnershipSurface: Sendable {
             return nil
         }
         return meta
+    }
+
+    // MARK: - Stall diagnosis (auth-prompt / frozen child)
+
+    private func stallSummaryForRun(
+        directory: URL,
+        identity: ProcessOwnership.OwnerIdentity?,
+        workerOwners: [(workerId: String, identity: ProcessOwnership.OwnerIdentity)]
+    ) -> String? {
+        if let persisted = ProcessOwnership.readStallDiagnosis(in: directory)?.summary {
+            return persisted
+        }
+        if let identity, ProcessOwnership.isIdentityAlive(identity),
+           let live = ProcessOwnership.diagnoseOwnedTreeStall(identity: identity) {
+            return live.summary
+        }
+        for (_, wIdentity) in workerOwners where ProcessOwnership.isIdentityAlive(wIdentity) {
+            if let live = ProcessOwnership.diagnoseOwnedTreeStall(identity: wIdentity) {
+                return live.summary
+            }
+        }
+        return nil
     }
 
     // MARK: - Identity

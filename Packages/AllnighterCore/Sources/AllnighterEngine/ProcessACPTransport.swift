@@ -40,9 +40,9 @@ public final class ProcessACPTransport: ACPTransport, @unchecked Sendable {
         process.standardOutput = stdoutPipe
         process.standardError = FileHandle.nullDevice  // drain-free: never fills + blocks the agent
 
-        var env = ProcessInfo.processInfo.environment
-        for (k, v) in extraEnv { env[k] = v }
-        process.environment = env
+        // ONE spawn-env definition — includes unattended GIT_/SSH_ askpass posture
+        // (does NOT suppress Security.framework Keychain modals; see policy comment).
+        process.environment = AllnighterSpawnEnvironmentPolicy.processEnvironment(extra: extraEnv)
 
         let cont = inboundCont
         stdoutPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
@@ -93,6 +93,8 @@ public final class ProcessACPTransport: ACPTransport, @unchecked Sendable {
                 // Recorded pgid == pid after setpgid in init (never invent blindly for
                 // unrelated pids — only signal the process we ourselves launched).
                 ProcessOwnership.terminateProcessGroup(pgid: pid)
+                // Reap grandchildren that left the process group (orphaned helpers).
+                ProcessOwnership.reapOrphanedDescendants(rootPid: pid)
             } else {
                 process.terminate()
             }

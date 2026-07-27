@@ -460,6 +460,7 @@ public struct ProjectFileCatalog {
         process.currentDirectoryURL = rootURL
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git", "status", "--porcelain", "-z"]
+        process.environment = AllnighterSpawnEnvironmentPolicy.processEnvironment()
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = Pipe()
@@ -488,6 +489,7 @@ public struct ProjectFileCatalog {
         process.currentDirectoryURL = rootURL
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"]
+        process.environment = AllnighterSpawnEnvironmentPolicy.processEnvironment()
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = Pipe()

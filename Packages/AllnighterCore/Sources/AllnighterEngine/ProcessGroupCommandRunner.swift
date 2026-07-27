@@ -148,13 +148,17 @@ public struct ProcessGroupCommandRunner: CommandRunner, StreamingCommandRunner {
                     try? await Task.sleep(for: timeout)
                     if ProcessOwnership.processAlive(spawned.pid) {
                         endReason.set(.timeout)
-                        _ = ProcessOwnership.terminateOwnerIdentityIfSafe(identity)
+                        Self.diagnoseAndReapOnTimeout(
+                            identity: identity,
+                            stalledFor: Self.stallBudgetSeconds(from: timeout)
+                        )
                     }
                 })
             }
         } onCancel: {
             endReason.set(.cancel)
             _ = ProcessOwnership.terminateOwnerIdentityIfSafe(identity)
+            ProcessOwnership.reapOrphanedDescendants(rootPid: identity.pid)
         }
     }
 
@@ -311,6 +315,11 @@ public struct ProcessGroupCommandRunner: CommandRunner, StreamingCommandRunner {
                     case .stalled:
                         // IDLE-HF-S04: identity-alive stall is detected and surfaced;
                         // wall (`budget.totalDuration`) is the hard kill — never reap here.
+                        // Persist a named cause (auth prompt / frozen child) so `alln ps`
+                        // and the eventual timeout receipt are not a bare "timeout".
+                        if let diagnosis = ProcessOwnership.diagnoseOwnedTreeStall(identity: identity) {
+                            ProcessOwnership.recordTurnStallDiagnosis(diagnosis)
+                        }
                         try? await Task.sleep(for: .seconds(0.5))
                     case .identityDead:
                         // S02 reconcile owns dead owners; waitpid finishes the stream.
@@ -324,13 +333,61 @@ public struct ProcessGroupCommandRunner: CommandRunner, StreamingCommandRunner {
                 try? await Task.sleep(for: budget.totalDuration)
                 if ProcessOwnership.processAlive(spawned.pid) {
                     endReason.set(.timeout)
-                    _ = ProcessOwnership.terminateOwnerIdentityIfSafe(identity)
+                    Self.diagnoseAndReapOnTimeout(
+                        identity: identity,
+                        stalledFor: Double(budget.totalDuration.components.seconds)
+                    )
                 }
             }
         }
     }
 
     // MARK: - Helpers
+
+    /// Before a bare timeout: name any auth-prompt / frozen descendant, persist
+    /// the diagnosis for receipts / `alln ps`, then PG-kill + reap orphans.
+    private static func diagnoseAndReapOnTimeout(
+        identity: ProcessOwnership.OwnerIdentity,
+        stalledFor: TimeInterval
+    ) {
+        if let diagnosis = ProcessOwnership.diagnoseOwnedTreeStall(identity: identity) {
+            persistStallDiagnosis(diagnosis, stalledFor: stalledFor)
+        }
+        _ = ProcessOwnership.terminateOwnerIdentityIfSafe(identity)
+        ProcessOwnership.reapOrphanedDescendants(rootPid: identity.pid)
+    }
+
+    private static func persistStallDiagnosis(
+        _ diagnosis: ProcessOwnership.StallDiagnosis,
+        stalledFor: TimeInterval
+    ) {
+        struct TimedWire: Codable {
+            var kind: String
+            var summary: String
+            var pid: Int32?
+            var processName: String?
+            var headline: String
+        }
+        let wire = TimedWire(
+            kind: diagnosis.kind.rawValue,
+            summary: diagnosis.summary,
+            pid: diagnosis.pid,
+            processName: diagnosis.processName,
+            headline: diagnosis.timeoutHeadline(stalledFor: stalledFor)
+        )
+        guard let data = try? CoreJSON.encode(wire) else { return }
+        var dirs: [URL] = []
+        if let turn = ProcessOwnership.TurnOwnerDirectory.shared.get() {
+            dirs.append(turn)
+        }
+        if let run = ProcessOwnership.RuntimeOwnershipContext.shared.runDirectory() {
+            dirs.append(run)
+        }
+        for dir in dirs {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? data.write(to: ProcessOwnership.stallDiagnosisURL(in: dir), options: .atomic)
+        }
+    }
 
     private func mergeEnv(_ overrides: [String: String]) -> [String: String] {
         var env = ProcessInfo.processInfo.environment

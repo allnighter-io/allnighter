@@ -214,6 +214,7 @@ public struct GitObserver: Sendable {
         let process = Process()
         process.executableURL = git
         process.arguments = ["-C", cwd] + args
+        process.environment = AllnighterSpawnEnvironmentPolicy.processEnvironment()
         let out = Pipe()
         process.standardOutput = out
         process.standardError = Pipe()
@@ -237,6 +238,7 @@ public struct GitObserver: Sendable {
         let process = Process()
         process.executableURL = git
         process.arguments = ["-C", cwd] + args
+        process.environment = AllnighterSpawnEnvironmentPolicy.processEnvironment()
         let out = Pipe()
         process.standardOutput = out
         process.standardError = Pipe()

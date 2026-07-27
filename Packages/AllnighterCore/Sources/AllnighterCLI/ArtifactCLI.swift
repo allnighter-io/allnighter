@@ -96,6 +96,7 @@ enum ArtifactCLI {
     let task = Process()
     task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
     task.arguments = [path]
+    task.environment = AllnighterSpawnEnvironmentPolicy.processEnvironment()
     try? task.run()
     #endif
   }

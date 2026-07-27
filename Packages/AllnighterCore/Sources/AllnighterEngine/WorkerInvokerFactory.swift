@@ -37,7 +37,10 @@ import AllnighterCore
 ///    straight from its own HTTP client, never calling `inner`), silently ungating
 ///    opencode. `GatedWorkerRunner` wrapping the router gates BOTH routes uniformly,
 ///    matching today's behavior exactly.
-/// 7. A thin `defaultWorkingDirectory` fill-in (OUTERMOST, not a public decorator type)
+/// 7. `StallDiagnosisEnrichingWorkerRunner` — on `.timedOut`, replaces bare
+///    `worker timed out` with a named stall cause from `stall_diagnosis.json`
+///    when ProcessGroupCommandRunner diagnosed an auth-prompt / frozen child.
+/// 8. A thin `defaultWorkingDirectory` fill-in (OUTERMOST, not a public decorator type)
 ///    — mirrors `WorkerRunner`'s stored `defaultWorkingDirectory` field: when a caller
 ///    leaves `WorkerInvocation.workingDirectory` nil, it resolves through
 ///    `WorkerInvocationCWD.resolve(override:default:)` (the neutral-scratch rule)
@@ -61,7 +64,8 @@ public enum WorkerInvokerFactory {
         let agyAware = AntigravityAwareWorkerRunner(inner: stamped)
         let openCodeRouted = OpenCodeRoutingWorkerRunner(inner: agyAware, now: now)
         let gated = GatedWorkerRunner(inner: openCodeRouted, now: now)
-        return DefaultWorkingDirectoryWorkerRunner(inner: gated, defaultWorkingDirectory: defaultWorkingDirectory)
+        let enriched = StallDiagnosisEnrichingWorkerRunner(inner: gated)
+        return DefaultWorkingDirectoryWorkerRunner(inner: enriched, defaultWorkingDirectory: defaultWorkingDirectory)
     }
 }
 

@@ -316,7 +316,7 @@ struct AllnighterCLI {
     /// `alln doctor [--json] [--full]` — the product recovery surface. Default is
     /// quota-free (resolve + version + local checks; auth/smoke/readiness reported
     /// `notChecked`). `--full` runs smoke probes (spends quota) to confirm
-    /// auth/readiness. Emits `DoctorResult` (docs/phases/CLI_Implementation_Contract.md
+    /// auth/readiness. Emits `DoctorResult` (docs/archive/phases/CLI_Implementation_Contract.md
     /// §Doctor Contract).
     static func runDoctor(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
@@ -481,7 +481,7 @@ struct AllnighterCLI {
 
     /// `alln dev export-contracts [--check]` — regenerate or verify the
     /// checked-in generated artifacts from the contract registry
-    /// (docs/phases/CLI_Implementation_Contract.md §Generated Artifacts). The
+    /// (docs/archive/phases/CLI_Implementation_Contract.md §Generated Artifacts). The
     /// generated dir is resolved relative to the current directory, so run this
     /// from the repo root.
     static func runDev(_ args: [String]) {
@@ -1415,6 +1415,7 @@ struct AllnighterCLI {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/git")
         task.arguments = ["-C", cwd, "rev-parse", "HEAD"]
+        task.environment = AllnighterSpawnEnvironmentPolicy.processEnvironment()
         let pipe = Pipe()
         task.standardOutput = pipe
         task.standardError = Pipe()

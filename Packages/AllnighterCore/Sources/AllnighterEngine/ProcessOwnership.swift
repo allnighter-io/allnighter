@@ -1091,6 +1091,14 @@ public enum ProcessOwnership {
         } else {
             env = ProcessInfo.processInfo.environment
             for (k, v) in extraEnvironment { env[k] = v }
+            // Detached / direct spawns that skip CommandRunner still need the
+            // team-depth + token scrub + unattended posture.
+            env = AllnighterSpawnEnvironmentPolicy().environment(for: env)
+        }
+        // Idempotent: ensure unattended GIT_/SSH_ keys are present even when the
+        // caller passed a pre-built environment that omitted them.
+        for (k, v) in AllnighterSpawnEnvironmentPolicy.nonInteractiveWorkerEnvironment {
+            env[k] = v
         }
         var envp: [UnsafeMutablePointer<CChar>?] = env.map { strdup("\($0.key)=\($0.value)") }
         envp.append(nil)

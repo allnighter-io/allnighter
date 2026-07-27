@@ -1,5 +1,47 @@
 # Debug Log
 
+## 2026-07-27 — unattended worker wedged on interactive credential prompt
+
+Tier: T2 SSOT (process ownership / stall diagnosis / spawn env)
+
+Symptom / repro: `alln pair pilot handoff` spawned cursor-agent → node harness →
+`ikiro` → `git clone` with token-in-URL. Xcode gitconfig `credential.helper=osxkeychain`
+tried to store the credential under a harness `HOME` temp dir with no keychain →
+blocking `SecurityAgent` modal ("A keychain cannot be found to store x-access-token").
+Unattended relay sat wedged 32+ minutes; harness timeout killed its direct child but
+git grandchildren orphaned. Receipt showed bare timeout; cause invisible in artifacts.
+
+Bug fingerprint: `ProcessGroupCommandRunner` timeout + inherited interactive env +
+no descendant stall classification → bare `worker timed out` / invisible auth prompt
+
+Truth owner: `AllnighterSpawnEnvironmentPolicy` (unattended env); `ProcessOwnership`
+stall diagnosis + `ProcessGroupCommandRunner.diagnoseAndReapOnTimeout` (named cause
++ tree reap); `StallDiagnosisEnrichingWorkerRunner` (receipt `errorReason`)
+
+Lie-prone layer: journal / receipt `errorReason == "worker timed out"` and `alln ps`
+silence line with no descendant cause, while the process tree held
+`git-credential-osxkeychain` / `SecurityAgent`
+
+RCA: alln makes the run unattended but (1) did not declare no-human env on spawns
+and (2) did not inspect the owned subtree before reporting timeout. The Keychain
+modal is Security.framework — `GIT_TERMINAL_PROMPT=0` does not suppress it.
+
+Fix boundary: ONE non-interactive env definition in `AllnighterSpawnEnvironmentPolicy`
+(honest limit documented); pure stall classifier + persist `stall_diagnosis.json`;
+enrich timeout reason + `alln ps` silence; PG-kill + reap orphaned descendants.
+Do not claim prompt-proof. Do not weaken execution-lane invariants. Do not run git.
+
+Proof: `swift test --package-path Packages/AllnighterCore --filter ProcessOwnership`
+(106/106) including `ProcessOwnershipStallDiagnosisTests` (10/10). Missing proof:
+cannot reproduce a live SecurityAgent modal in CI — classifier uses synthetic trees.
+
+Regression law: timeout of an owned worker must diagnose descendants before a bare
+`worker timed out`; spawn env must come from `AllnighterSpawnEnvironmentPolicy` only.
+
+What was the agent allowed to do that must never be allowed again: Close an
+unattended-wedge bug by shipping only GIT_/SSH_ askpass env vars and claiming
+runs are prompt-proof when Security.framework modals remain possible.
+
 ## 2026-07-25 — false `capacity: authRequired` from stdout transcript scan
 
 Tier: T2 SSOT (capacity observation / kill-reason mislabel)
@@ -195,7 +237,7 @@ Pattern candidate: Mac app launch may render cached setup truth, but must not sp
 
 Tier: T3 Critical
 Symptom: Agents claim SwiftUI GUI fixes are done, but founder opens the app and finds first-order visual failures such as missing rows, clipped popovers, wrong sublines, z-order/scrim damage, or overlapping copy.
-Truth owner: Product/domain truth remains AllnighterCore and routed phase docs; visual truth is the design system/UI kit; GUI closeout truth is `docs/phases/GUI_Visual_Proof_Gate.md`.
+Truth owner: Product/domain truth remains AllnighterCore and routed phase docs; visual truth is the design system/UI kit; GUI closeout truth is `docs/gui/Visual_Proof_Gate.md`.
 Lie-prone layer: SwiftUI views, previews, and build/test closeouts can all pass without proving the rendered surface.
 RCA: The workflow allowed agents to close visible GUI work from code confidence. HTML prototypes were optional reference material, native render screenshots were not required, and founder review became the first visual test.
 Fix boundary: Add a mandatory GUI visual proof gate — render the surface, then a separate layout-watcher agent looks at the pixels. Layout only; CLI/Core own content truth. No XCUITest, goldens, or accessibility assertions.
