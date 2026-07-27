@@ -3,14 +3,15 @@
 ## Positioning
 
 Allnighter is a **local-first control plane** for terminal-based AI coding
-tools — all-day Spec Review, pilot, relay, and team judgment. The name is brand
-only; overnight is a supported mode, not the default story. There is no separate
-"Project Manager" surface — "where are we / what's next" is just chat, an agent
-running with full repo access (`docs/phases/Unified_Run_Model.md`). Projects are
-the floor: local repo/folder scope plus threads, runs, approvals, and proof.
-Lead with parallel safe lanes, team-driven planning, and native Mac delight —
-not with model/provider choice. iOS is a parked future remote surface, not
-current scope (`docs/phases/ios/README.md`).
+tools — all-day multi-team work (Spec Review, Bug Hunt, Growth, Research, and
+other Teams; pilot and relay loops). The name is brand only; overnight is a
+supported mode, not the default story. There is no separate "Project Manager"
+surface — "where are we / what's next" is just chat, an agent running with full
+repo access (`docs/phases/Unified_Run_Model.md`). Projects are the floor: local
+repo/folder scope plus threads, runs, approvals, and proof. Lead with parallel
+safe lanes, team-driven planning, and native Mac delight — not with
+model/provider choice. iOS is a parked future remote surface, not current scope
+(`docs/phases/ios/README.md`).
 
 ## Product Boundary
 

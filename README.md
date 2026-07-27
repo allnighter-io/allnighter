@@ -4,9 +4,9 @@ Cross-CLI orchestration for terminal-based AI coding agents — one command
 surface (`alln`) plus a native macOS app and iOS remote.
 
 **Allnighter** coordinates Claude Code, Codex CLI, Grok, and other subscription
-CLIs the user already pays for as one team: multi-model spec review, blind
-fan-outs that kill copy-paste between terminals, piloted PM/dev loops, and
-unattended relay. Despite the name, runs are usually live and attended —
+CLIs the user already pays for as one bench: named Teams (Spec Review, Bug Hunt,
+Growth, Research, and more), pilot and relay loops, and fan-outs that kill
+copy-paste between terminals. Despite the name, use is all-day and attended —
 nothing here assumes overnight.
 
 Core promise: parallel safe lanes, multi-model planning, radical privacy,

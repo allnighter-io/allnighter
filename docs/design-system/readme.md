@@ -18,12 +18,12 @@ once the foundation is approved. See *Next steps* at the bottom.
 
 **Allnighter is the all-day bench for the AI coding tools the user already pays
 for** — Claude Code, Codex CLI, Grok, Gemini CLI, Aider, Cursor, local models —
-with Spec Review, pilot, relay, and team judgment as the hero loops. Mac (CLI +
-app) is the floor; iPhone is an optional remote floor. Detach and while-away
-work are supported, not the product story. The name is brand/domain only. It is
-*not* a model provider, IDE, chat aggregator, or cloud coding service. It is a
-**local control plane and option factory** for solo builders who use AI as their
-primary dev workforce.
+running named Teams (Spec Review, Bug Hunt, Growth, Research, and more) plus
+pilot and relay. Mac (CLI + app) is the floor; iPhone is an optional remote
+floor. Detach and while-away work are supported, not the product story. The
+name is brand/domain only. It is *not* a model provider, IDE, chat aggregator,
+or cloud coding service. It is a **local control plane and option factory** for
+solo builders who use AI as their primary dev workforce.
 
 ### What's being built (two horizons)
 1. **The MVP — "The team"** (active build, `archive/mentor-uploads/README-b6a6d478.md`).
@@ -91,10 +91,10 @@ The hidden engineering is impressive; the copy stays quiet about it.
 The whole system is **"amber phosphor on midnight"**: deep, blue-tinted midnight
 surfaces — a dark room, a deep sky — lit by **one** warm signal, amber. The
 amber nods to old amber-CRT terminals and to sustained, focused work under one
-warm lamp. Visual metaphor only; the product is all-day Spec Review / pilot /
-relay, not a sleep story. The chrome is Cursor-grade: precise, quiet, dense,
-dark. Lineage is Cursor · Linear · Raycast · Warp · Zed · VS Code Dark — but
-warm where they're cool.
+warm lamp. Visual metaphor only; the product is all-day multi-team work, not a
+sleep story. The chrome is Cursor-grade: precise, quiet, dense, dark. Lineage is
+Cursor · Linear · Raycast · Warp · Zed · VS Code Dark — but warm where they're
+cool.
 
 - **Color** — Three roles: **midnight** (a blue-tinted near-black neutral ramp,
   `--ink-950 → --ink-50`), **amber** (`#FFA630`, the one saturated brand color),

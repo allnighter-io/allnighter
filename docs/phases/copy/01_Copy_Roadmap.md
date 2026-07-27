@@ -398,7 +398,7 @@ Expected: sequence map, subjects, preheaders, full emails, segmentation notes.
 
 ```text
 /copy ugc
-Prompt: Create TikTok scripts for a Mac app that runs Spec Review and pilot over the AI CLIs you already pay for.
+Prompt: Create TikTok scripts for a Mac app that runs Spec Review, Bug Hunt, Growth, and Research over the AI CLIs you already pay for.
 Team: UGC Scripts Team
 Expected: hooks, scripts, shot list, on-screen text, captions, disclosure notes.
 ```

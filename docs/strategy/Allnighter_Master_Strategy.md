@@ -9,8 +9,9 @@ Allnighter vision, market, product, wedge, and opportunity.
 ## One-Sentence Version
 
 Allnighter is the all-day control plane for the AI coding CLIs you already pay
-for — Spec Review, pilot, relay, and team judgment on Mac, with phone/CLI as
-optional floors. The name is brand only; overnight is a mode, not the product.
+for — Teams like Spec Review, Bug Hunt, Growth, and Research, plus pilot and
+relay, on Mac, with phone/CLI as optional floors. The name is brand only;
+overnight is a mode, not the product.
 
 ## Executive Summary
 
@@ -402,8 +403,9 @@ plans -> work orders -> dispatch -> returned outputs -> comparison -> next work
 ```
 
 That expansion is natural because users do not want one-off answers. They want a
-project that keeps moving across many attended sessions — Spec Review before
-build, pilot/relay for multi-round work, and optional detach when they step away.
+project that keeps moving across many attended sessions — Teams for judgment
+jobs (Spec Review, Bug Hunt, Growth, Research, …), pilot/relay for multi-round
+work, and optional detach when they step away.
 
 ## Product Surfaces
 

@@ -14,11 +14,11 @@ experiments as more authoritative than the routed source docs.
 
 Allnighter is the **all-day bench** for the coding agents the user already pays
 for (Claude Code, Codex, Grok, Gemini CLI, Aider, Cursor, local models). Hero
-use is attended and high-frequency: **Spec Review**, **pilot**, **relay**, and
-team judgment on the Mac — CLI + app as one floor. Detach / while-away /
-unattended long loops are supported modes, not the product story. The name
-Allnighter is brand and domain only. Run model code SSOT: `RunService.swift`
-(the one run owner).
+use is attended and high-frequency on the Mac (CLI + app as one floor): named
+**Teams** such as Spec Review, Bug Hunt, Growth, and Research, plus **pilot**
+and **relay** multi-round loops. Detach / while-away / unattended long loops
+are supported modes, not the product story. The name Allnighter is brand and
+domain only. Run model code SSOT: `RunService.swift` (the one run owner).
 
 > You already pay for the team. Allnighter makes it show up to work.
 
@@ -29,7 +29,8 @@ canonical repository, exactly one mutating worker per root, option generation,
 quota harvesting, and preference compounding.
 
 **Do not pitch overnight / "while you sleep" / wake-up-to-diffs as the default
-value prop.** Dogfood reality is all-day Spec Review, pilot, and relay.
+value prop.** Dogfood reality is all-day multi-team work (Spec Review, Bug Hunt,
+Growth, Research, pilot, relay, and other Teams) — not sleep automation.
 
 ## Authoritative Sources
 
