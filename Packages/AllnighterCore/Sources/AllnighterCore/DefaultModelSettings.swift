@@ -144,7 +144,8 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// CLIs. Each tier's default (index 0) is on-by-default, so Auto works day-one.
     /// Flagship-only: Fable 5 + ChatGPT 5.6 Sol. Balanced starts with the
     /// medium ChatGPT 5.6 Terra seat, then orders Opus, Cursor Grok, Kimi K3,
-    /// Kimi K2.7 Code, CLI Grok, Sonnet, Composer, then Gemini.
+    /// CLI Grok, Sonnet, Composer, then Gemini. Fast holds cheap/auto seats plus
+    /// Kimi K2.7 Code as the low-tier Kimi fallback.
     /// Fast stays cheap/auto. Seed only — fully user-overridable.
     public static let fresh = DefaultModelSettings(
         defaultTier: .flagship,
@@ -153,9 +154,9 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
             flagship: ["model_fable", "model_chatgpt"],
             balanced: [
                 "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
-                "model_kimi_k27", "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
+                "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
             ],
-            fast: ["model_cursor_auto", "model_composer", "model_gemini"]))
+            fast: ["model_cursor_auto", "model_composer", "model_gemini", "model_kimi_k27"]))
 
     /// The tier's default model id (index 0), or nil when the tier is empty.
     public func tierDefault(_ tier: SubstitutionTier) -> ModelID? { tiers[tier].first }

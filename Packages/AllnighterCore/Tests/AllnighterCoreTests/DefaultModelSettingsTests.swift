@@ -15,9 +15,11 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertFalse(s.tiers.flagship.contains("model_chatgpt_sol"))
         XCTAssertEqual(s.tiers.balanced, [
             "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
-            "model_kimi_k27", "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
+            "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
-        XCTAssertEqual(s.tiers.fast, ["model_cursor_auto", "model_composer", "model_gemini"])
+        XCTAssertEqual(s.tiers.fast, [
+            "model_cursor_auto", "model_composer", "model_gemini", "model_kimi_k27"
+        ])
     }
 
     func testAutoPrefersFableOverCodexSolWhenBothReady() {
@@ -70,11 +72,13 @@ final class DefaultModelSettingsTests: XCTestCase {
 
     func testModelCanBelongToMultipleTiers() {
         let s = DefaultModelSettings.fresh
-        // Sol is Flagship-only; medium Terra is in Balanced; Gemini spans Balanced + Fast.
+        // Sol is Flagship-only; medium Terra is in Balanced; Gemini spans Balanced + Fast;
+        // K2.7 is the Fast-tier Kimi fallback.
         XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt"), [.flagship])
         XCTAssertEqual(s.tiers.highestTier(of: "model_chatgpt"), .flagship)
         XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt_terra"), [.balanced])
         XCTAssertEqual(s.tiers.tiers(of: "model_gemini"), [.balanced, .fast])
+        XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k27"), [.fast])
         // Composer Fast is Fast-only in the seed; Composer 2.5 is Balanced-only.
         XCTAssertEqual(s.tiers.tiers(of: "model_composer"), [.fast])
         XCTAssertEqual(s.tiers.tiers(of: "model_cursor_composer_25"), [.balanced])

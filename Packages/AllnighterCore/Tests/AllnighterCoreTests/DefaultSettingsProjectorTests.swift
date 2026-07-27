@@ -61,10 +61,17 @@ final class DefaultSettingsProjectorTests: XCTestCase {
         let balanced = p.tiers[1]
         XCTAssertEqual(balanced.members.map(\.id), [
             "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
-            "model_kimi_k27", "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
+            "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         let gemini = balanced.members.first { $0.id == "model_gemini" }
         XCTAssertEqual(gemini?.tiers, ["balanced", "fast"])
+
+        let fast = p.tiers[2]
+        XCTAssertEqual(fast.members.map(\.id), [
+            "model_cursor_auto", "model_composer", "model_gemini", "model_kimi_k27"
+        ])
+        let k27 = fast.members.first { $0.id == "model_kimi_k27" }
+        XCTAssertEqual(k27?.tiers, ["fast"])
     }
 
     func testUnassignedIsOnModelsNotInAnyTierSortedAToZ() {
