@@ -396,6 +396,32 @@ final class BuiltInTeamsTests: XCTestCase {
         }
     }
 
+    // MARK: - CMR-S03 (Cross_Model_Review_Hardening.md): lead/worker caliber invariant
+
+    /// No shipped preset may default a pinned worker to a higher caliber than its
+    /// own Lead. Rows with no pinned `preferredModelId` (the overwhelming
+    /// majority — Law 3) resolve dynamically via `TeamResolver`'s own
+    /// band-aware logic, already proven never to let a lower-caliber model
+    /// beat a higher one (`TeamResolverTests.testPreferredCapabilityNeverBeatsCaliber`);
+    /// this test is scoped to the few rows that carry a pinned identity at
+    /// declaration time (signal lane + the two source-pinned passthrough teams).
+    func testLeadCaliberDominatesWorkers() {
+        func rank(_ modelId: String) -> Int {
+            ModelCatalog.builtInCapabilities[modelId]?.strengthRank ?? ModelCatalog.unratedModelRank
+        }
+        for team in BuiltInTeams.all {
+            guard let leadId = team.lead.preferredModelId else { continue }
+            let leadRank = rank(leadId)
+            var pinnedWorkerIds = team.workerSpecs.compactMap(\.preferredModelId)
+            if let scoutId = team.scout?.preferredModelId { pinnedWorkerIds.append(scoutId) }
+            for workerId in pinnedWorkerIds {
+                XCTAssertGreaterThanOrEqual(
+                    leadRank, rank(workerId),
+                    "\(team.id) lead \(leadId) (rank \(leadRank)) is lower caliber than pinned worker \(workerId) (rank \(rank(workerId)))")
+            }
+        }
+    }
+
     // MARK: - Headline proof: one ready CLI runs Bug Hunt Max High
 
     func testBugHuntMaxHighWithOnlyOpusResolvesEightWorkersPlusWriter() {

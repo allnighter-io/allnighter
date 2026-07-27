@@ -80,6 +80,38 @@ final class ArtifactProjectorTests: XCTestCase {
     XCTAssertEqual(cardIds, ["model_opus#1", "model_grok#0", "model_opus#0"])
   }
 
+  // MARK: - CMR-S05 (Cross_Model_Review_Hardening.md): writer/reviewer pairing
+
+  func testWriterReviewerLinePairsAnswerAndReviewStageModels() {
+    let card = ArtifactProjector.project(multiSeatRun(leadMarkdown: leadCallMarkdown))
+    XCTAssertEqual(card.writerReviewerLine, "Writer: model_grok · Reviewer: model_opus")
+  }
+
+  func testWriterReviewerLineNilWithoutReviewStageWorker() {
+    let workers = [
+      Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
+             skillId: "reader", skillName: "Reader", purpose: .answer),
+      Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
+             skillId: "lead", skillName: "Lead", purpose: .plan),
+    ]
+    let answers = [
+      TeamAnswer(memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                 result: WorkerRunResult(status: .done, output: "Reader one-liner line",
+                                         timing: RunTiming(startedAt: now, finishedAt: now, durationMs: 900))),
+      TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "plan",
+                 result: WorkerRunResult(status: .done, output: leadCallMarkdown,
+                                         timing: RunTiming(startedAt: now, finishedAt: now, durationMs: 2200))),
+    ]
+    let plan = StageOutput(id: "stage_plan", purpose: .plan, status: .done,
+                           payload: .plan(markdown: leadCallMarkdown))
+    let run = TeamRun(
+      id: "run_no_review", prompt: "Plan only, no review seat", status: .complete,
+      presetId: "code_plan", workers: workers, workerAnswers: answers,
+      stages: [plan], createdAt: now, teamDisplayName: "Plan", outputKind: .plan
+    )
+    XCTAssertNil(ArtifactProjector.project(run).writerReviewerLine)
+  }
+
   func testLeadCallPreferredForCallAndVerdict() {
     let card = ArtifactProjector.project(multiSeatRun(leadMarkdown: leadCallMarkdown))
     XCTAssertEqual(card.verdict, "Ready")

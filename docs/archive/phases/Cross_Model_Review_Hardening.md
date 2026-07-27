@@ -3,9 +3,13 @@
 Directional role assignment and low-hanging quality guardrails for
 writer/reviewer model pairing.
 
-- Status: **FINALIZED — ready for slice execution**
-- Owner: `Packages/AllnighterCore` (`RunService.swift`, `BuiltInTeams.swift`,
-  `RelayCoordinator.swift`, `ArtifactProjector.swift`)
+- Status: **CLOSED — partial ship, archived 2026-07-27.** CMR-S03 and CMR-S05
+  shipped (cheap, evidence-backed, zero contract risk). CMR-S01, CMR-S02, and
+  CMR-S04 are **deferred, not built** — see §5. Do not reopen this packet to
+  finish them; re-scope as a fresh packet once CMR-S05's telemetry has
+  accumulated real pairing data (see §5).
+- Owner: `Packages/AllnighterCore` (`BuiltInTeamsTests.swift`,
+  `ArtifactProjector.swift`)
 - Updated: 2026-07-27
 
 ---
@@ -103,14 +107,23 @@ reviewer.
   as reviewer instead.
   ```
 
-### CMR-S03 — Built-in team staffing invariant
+### CMR-S03 — Built-in team staffing invariant — **SHIPPED**
 
 No shipped preset may default to a lead of lower caliber than any of its
 workers.
 
 - Invariant over all presets in `BuiltInTeams.all`:
-  `caliberRank(lead) >= max(caliberRank(worker))` for every worker seat.
-- Proof: unit test `BuiltInTeamsTests.testLeadCaliberDominatesWorkers()`.
+  `caliberRank(lead) >= max(caliberRank(worker))` for every worker seat that
+  carries a pinned `preferredModelId`. Rows with no pinned id (the majority,
+  per Law 3) resolve dynamically via `TeamResolver`'s own band-aware logic,
+  already proven never to let a lower-caliber model beat a higher one
+  (`TeamResolverTests.testPreferredCapabilityNeverBeatsCaliber`) — out of this
+  test's static scope, not unguarded.
+- Proof: `BuiltInTeamsTests.testLeadCaliberDominatesWorkers()` — passes as-is;
+  the invariant already held by construction (`BuiltInTeams.synthesisLead`'s
+  Fable→Codex→Opus→Kimi→CursorGrok→Grok chain dominates every pinned worker
+  id in the catalog today). This slice turns that into a regression test, not
+  new behavior.
 
 ### CMR-S04 — Refuter and Synthesizer seat locking
 
@@ -132,24 +145,64 @@ low-tier model.
   model of lower caliber than the finding's author, subject to the vendor-diversity
   constraint above.
 
-### CMR-S05 — Pair-directionality telemetry
+### CMR-S05 — Pair-directionality telemetry — **SHIPPED (narrower than specced)**
 
 Track empirical `(writer → reviewer)` outcomes in local receipts.
 
-- Record `writer_model_id` and `reviewer_model_id` in `TeamRunJSON` /
-  `ArtifactProjector.swift` run metadata.
-- Expose the pairing in `alln artifact` receipts so users can inspect local
-  pass rates per model pair across repo history.
+- Shipped: `ArtifactProjector.Card.writerReviewerLine` — a derived,
+  zero-schema-risk line ("Writer: X · Reviewer: Y") rendered under "The team"
+  in the `alln artifact` HTML receipt, computed from `Worker.purpose`
+  (`.answer`/`.review`) already carried on every run. No `TeamRunJSON` field
+  added, no `schemaVersion`/`contractVersion` bump — `Card` is a rendering-only
+  type, not the wire contract. Proof: `ArtifactProjectorTests
+  .testWriterReviewerLinePairsAnswerAndReviewStageModels` /
+  `.testWriterReviewerLineNilWithoutReviewStageWorker`.
+- **Not built:** cross-run pass-rate aggregation ("inspect local pass rates
+  per model pair across repo history"). That's a distinct, non-tiny feature —
+  reading run history, defining what "pass" means mechanically, and building
+  an aggregation view — not attempted here. If wanted, scope it as its own
+  packet once per-run pairing data (now emitted) has accumulated.
 
 ---
 
 ## 4. Proof plan
 
-| Slice | Check |
-| :--- | :--- |
-| CMR-S01 | `swift test --filter RelayCoordinatorTests` — warning emitted for inverted pairs |
-| CMR-S03 | `swift test --filter BuiltInTeamsTests` — lead-caliber dominance invariant holds |
-| CMR-S05 | `swift test --filter ContractSchemaTests` — `TeamRunJSON` carries both model IDs |
+| Slice | Check | Result |
+| :--- | :--- | :--- |
+| CMR-S03 | `swift test --filter BuiltInTeamsTests` | **Passes** — `testLeadCaliberDominatesWorkers` |
+| CMR-S05 | `swift test --filter ArtifactProjectorTests` | **Passes** — 2 new tests, narrower scope than specced (see §3) |
+| CMR-S01 | — | **Not run — not built** |
+| CMR-S02 | — | **Not run — not built** |
+| CMR-S04 | — | **Not run — not built** |
 
-CMR-S02 and CMR-S04 ship with the same advisory/contract test coverage as
-their host modules.
+Full `swift test --package-path Packages/AllnighterCore` run 2026-07-27: 2243
+tests, 4 failures — all 4 are one pre-existing `ContractExportTests
+.testCheckedInArtifactsMatchRegistry` drift (contract 4.0.6 vs 4.0.9 on disk),
+unrelated to this packet (reproduces identically with S03/S05's changes
+stashed out). Not this packet's to fix.
+
+## 5. Why S01/S02/S04 were deferred, not built
+
+Review before execution (2026-07-27) found the as-written slices asserted
+more than the cited evidence supports:
+
+- **S01/S02** would have hardcoded one external study's single-pair,
+  single-generation percentages (`−8.6%`, `0.0%`, Claude Opus 4.7 ↔ Codex
+  GPT-5.5) into live user-facing warning/tip strings as if they held for any
+  pairing on the bench (Kimi↔Grok, Gemini↔Composer, etc. — never tested).
+  Building the warning before owning real evidence for *this* roster inverts
+  the right order. **CMR-S05 (shipped) is the prerequisite**: let per-run
+  writer/reviewer pairing data accumulate first, then decide if a warning is
+  warranted and what it should say from data Allnighter actually owns.
+- **S04** named the wrong code owner (`SkillCatalog.leadCallEnvelope` is Lead
+  Call prompt copy, not a model-selection/fallback-policy resolver — the real
+  logic lives in `TeamCatalog`/`TeamResolver`) and didn't reconcile a caliber
+  floor against the Refuter's existing "fresh worker, different vendor" law
+  in `docs/operations/Spec_Review.md`. Needs its own design pass, not a
+  bolt-on, and depends on the same resolver surface S01 would touch — so it
+  waits on the same telemetry-first sequencing.
+
+Net: the packet's directionally-correct insight (asymmetric review value,
+don't waste flagship-on-flagship self-review, protect Refuter/Synthesizer
+caliber) is preserved here for whoever re-scopes it; nothing about S01/S02/S04
+was found wrong in principle, only premature.

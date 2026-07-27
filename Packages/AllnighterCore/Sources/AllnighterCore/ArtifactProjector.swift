@@ -65,6 +65,11 @@ public enum ArtifactProjector {
     public var cta: String
     public var mockups: [Mockup]
     public var seats: [Seat]
+    /// CMR-S05 (Cross_Model_Review_Hardening.md) — which model(s) drafted
+    /// (`.answer`) vs reviewed (`.review`) this run's crew, when the team
+    /// carries both roles. Derived from existing `Worker.purpose`; nil when
+    /// the team has no review-stage seat (nothing to pair against a writer).
+    public var writerReviewerLine: String?
     public var evidence: [Evidence]
     public var reproduceLine: String?
     public var runIdLine: String
@@ -135,6 +140,7 @@ public enum ArtifactProjector {
       return nextMove
     }()
     let seats = seatCards(for: run, hoistedAnswer: trj.answer, context: context)
+    let writerReviewerLine = writerReviewerPairingLine(for: run, context: context)
     let mockups = mockupTiles(
       board: trj.designBoard,
       mockupRelSrc: mockupRelSrc,
@@ -165,6 +171,7 @@ public enum ArtifactProjector {
       cta: cta,
       mockups: mockups,
       seats: seats,
+      writerReviewerLine: writerReviewerLine,
       evidence: evidence,
       reproduceLine: reproduceLine,
       runIdLine: run.id,
@@ -260,6 +267,30 @@ public enum ArtifactProjector {
       if a.isLead != b.isLead { return a.isLead && !b.isLead }
       return false
     }
+  }
+
+  /// CMR-S05 (Cross_Model_Review_Hardening.md) — pairs the run's writer(s)
+  /// (`.answer`-stage workers) against its reviewer(s) (`.review`-stage
+  /// workers), by distinct model display name in declaration order. Reuses
+  /// data already carried on `Worker.purpose` — no new stored field, no
+  /// contract/schema change. Returns nil when the team has no review-stage
+  /// seat (e.g. answer-only or plan-only teams — no pairing to report).
+  private static func writerReviewerPairingLine(for run: TeamRun, context: Context) -> String? {
+    let workers = TeamRunSeatSet.workers(for: run)
+    func distinctNames(_ stage: WorkerStage) -> [String] {
+      var seen = Set<String>()
+      var names: [String] = []
+      for worker in workers where worker.purpose == stage {
+        let name = context.modelDisplayName(worker.modelId)
+        if seen.insert(name).inserted { names.append(name) }
+      }
+      return names
+    }
+    let reviewers = distinctNames(.review)
+    guard !reviewers.isEmpty else { return nil }
+    let writers = distinctNames(.answer)
+    guard !writers.isEmpty else { return nil }
+    return "Writer: \(writers.joined(separator: ", ")) · Reviewer: \(reviewers.joined(separator: ", "))"
   }
 
   private static func roleLabel(for worker: Worker, isLead: Bool) -> String {
@@ -542,8 +573,11 @@ public enum ArtifactProjector {
     // One team section: Lead first, then crew (full content width).
     if !card.seats.isEmpty {
       let ordered = card.seats.filter(\.isLead) + card.seats.filter { !$0.isLead }
+      let pairingHTML = card.writerReviewerLine.map {
+        "<p class=\"seat-pairing\">\(escape($0))</p>"
+      } ?? ""
       parts.append(
-        "<section class=\"seats\"><h2>The team</h2><div class=\"seat-grid\">"
+        "<section class=\"seats\"><h2>The team</h2>\(pairingHTML)<div class=\"seat-grid\">"
       )
       for seat in ordered {
         parts.append(seatChipHTML(seat))
@@ -913,6 +947,11 @@ public enum ArtifactProjector {
     }
     .cta-text { margin: 0; font-size: 1.05rem; font-weight: 600; }
     .cta-detail { margin: var(--space-2) 0 0; color: var(--text-secondary); font-size: 0.9rem; }
+    .seat-pairing {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin: calc(-1 * var(--space-2)) 0 var(--space-3);
+    }
     .seat-grid { display: flex; flex-direction: column; gap: var(--space-3); }
     a.seat-chip {
       display: grid;

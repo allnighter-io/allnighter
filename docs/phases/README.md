@@ -41,10 +41,15 @@ CLI Implementation Contract are archived — do not revive.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
-| [`Cross_Model_Review_Hardening.md`](Cross_Model_Review_Hardening.md) | **OPEN PHASE PACKET** | Low-hanging quality guardrails & directional role warnings (CMR-S01–S05) based on July 2026 cross-model code review empirical findings. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
+> [`Cross_Model_Review_Hardening.md`](../archive/phases/Cross_Model_Review_Hardening.md)
+> (CLOSED 2026-07-27 — partial ship: CMR-S03 staffing invariant + CMR-S05
+> writer/reviewer pairing line shipped; CMR-S01/S02/S04 deferred pending real
+> pairing telemetry, re-scope as a fresh packet, don't resume this one; code
+> SSOT `BuiltInTeamsTests.testLeadCaliberDominatesWorkers`,
+> `ArtifactProjector.Card.writerReviewerLine`);
 > [`Unattended_Worker_Auth_Prompt_Stall.md`](../archive/phases/Unattended_Worker_Auth_Prompt_Stall.md)
 > (Complete 2026-07-27 — non-interactive spawn env + stall diagnosis; does **not**
 > claim Security.framework prompt-proof; code SSOT `AllnighterSpawnEnvironmentPolicy` /
