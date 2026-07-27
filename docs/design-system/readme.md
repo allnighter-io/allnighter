@@ -16,14 +16,15 @@ once the foundation is approved. See *Next steps* at the bottom.
 
 ## 1. Product context
 
-**Allnighter is the all-day bench for the AI coding tools the user already pays
-for** — Claude Code, Codex CLI, Grok, Gemini CLI, Aider, Cursor, local models —
-running named Teams (Spec Review, Bug Hunt, Growth, Research, and more) plus
-pilot and relay. Mac (CLI + app) is the floor; iPhone is an optional remote
-floor. Detach and while-away work are supported, not the product story. The
-name is brand/domain only. It is *not* a model provider, IDE, chat aggregator,
-or cloud coding service. It is a **local control plane and option factory** for
-solo builders who use AI as their primary dev workforce.
+**Allnighter is the all-day multi-CLI bench for the AI coding tools the user
+already pays for** — Claude Code, Codex CLI, Grok, Composer, Gemini CLI, Aider,
+Cursor, local models — running named Teams (Spec Review, Bug Hunt, Growth,
+Research, and more) for parallel judgment, and pilot/relay so a strong lead can
+route execution to other seats. Mac (CLI + app) is the floor; iPhone is an
+optional remote floor. Detach is supported, not the product story. The name is
+brand/domain only. It is *not* a model provider, IDE, chat aggregator, or cloud
+coding service. It is a **local control plane and option factory** for solo
+builders who use AI as their primary dev workforce.
 
 ### What's being built (two horizons)
 1. **The MVP — "The team"** (active build, `archive/mentor-uploads/README-b6a6d478.md`).

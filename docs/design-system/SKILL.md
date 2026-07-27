@@ -1,6 +1,6 @@
 ---
 name: allnighter-design
-description: Use this skill to generate well-branded interfaces and assets for Allnighter, either for production or throwaway prototypes/mocks/etc. Contains essential design guidelines, colors, type, fonts, the logo/icon, and design tokens for prototyping. Allnighter is a dark-mode-only macOS app — all-day multi-team work (Spec Review, Bug Hunt, Growth, Research, pilot, relay) over the CLIs you already pay for; brand is "amber phosphor on midnight." The name is brand only, not an overnight product promise.
+description: Use this skill to generate well-branded interfaces and assets for Allnighter, either for production or throwaway prototypes/mocks/etc. Contains essential design guidelines, colors, type, fonts, the logo/icon, and design tokens for prototyping. Allnighter is a dark-mode-only macOS app — all-day multi-CLI bench (Teams like Spec Review/Bug Hunt/Growth/Research; pilot/relay with strong lead → execution seats) over the CLIs you already pay for; brand is "amber phosphor on midnight." The name is brand only, not an overnight product promise.
 user-invocable: true
 ---
 

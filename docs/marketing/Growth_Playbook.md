@@ -14,9 +14,10 @@ archived `docs/archive/phases/Agent_Onboarding.md` (pilot, relay, agent-facing C
 
 **Positioning law:** Do not pitch "while you sleep," "wake up to commits," or
 overnight factory as the default value prop. The name Allnighter is brand/domain
-only. Real dogfood is all-day multi-team work: Spec Review, Bug Hunt, Growth,
-Research, pilot, relay, and other Teams. Detach / while-away is a supported mode
-— optional content, never the lead story.
+only. Real dogfood is all-day multi-team work (Spec Review, Bug Hunt, Growth,
+Research, …) **and** pilot/relay with a strong lead routing execution seats
+(e.g. Opus steers, Grok/Composer mutates). Detach / while-away is a supported
+mode — optional content, never the lead story.
 
 ---
 
@@ -32,7 +33,7 @@ Playbook sequence: build-in-public receipt series on X → concierge beta from
 those threads → Show HN anchored on **all-day multi-CLI Teams** → Product
 Hunt → newsletters.
 
-Positioning line to beat: **"Your AI subscriptions, working as one team all day — Spec Review, Bug Hunt, Growth, Research, pilot."**
+Positioning line to beat: **"Your AI subscriptions, one bench all day — Teams for judgment jobs, pilot/relay so a strong model steers and others execute."**
 
 ---
 
@@ -53,9 +54,10 @@ genuinely differentiated claim (almost every competitor is BYOK, which reads as
 the plan), Bug Hunt (find the cause), Growth (wedge and share loop), Research
 (scout the question), plus more. Not one feature — a bench of jobs.
 
-**Third — pilot / relay without becoming the traffic cop:** multi-round PM↔dev
-loops and piloted sessions so the human steers the floor instead of copy-pasting
-between terminals all day.
+**Third — pilot / relay (strong lead → execution seats):** multi-round loops so
+a strong model (e.g. Opus in Claude) steers and reviews while execution seats
+(Grok, Composer, …) mutate — human stays floor manager, not copy-paste traffic
+cop.
 
 **Not the wedge:** overnight / sleep / wake-up. That confuses the name with the
 product and mis-sells what power users actually do for 10 hours a day.

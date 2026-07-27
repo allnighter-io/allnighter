@@ -5,11 +5,12 @@ Internal product specification for the Allnighter macOS + iOS apps.
 ## What This Is
 
 Allnighter is the all-day control plane for the AI coding tools the user already
-pays for — named Teams (Spec Review, Bug Hunt, Growth, Research, and more),
-plus pilot and relay, on Mac (CLI + app). iPhone is an optional remote floor.
-Detach and while-away loops are supported; they are not the product definition.
-Not another model provider or chat aggregator. The name Allnighter is
-brand/domain only.
+pays for — named Teams (Spec Review, Bug Hunt, Growth, Research, and more) for
+parallel judgment, and pilot / relay so a strong lead can route execution to
+other seats (e.g. Opus steers, Grok or Composer mutates). Mac (CLI + app) is the
+floor; iPhone is optional remote. Detach is supported, not the product
+definition. Not another model provider or chat aggregator. The name Allnighter
+is brand/domain only.
 
 ## Primary Docs
 

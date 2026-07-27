@@ -11,11 +11,11 @@ Three things compound into the actual product:
 
 1. **Multi-CLI orchestration on your own repo, safely** (lanes, one mutating worker, proof/verify) — the "it won't wreck my repo" story matters as much as the intelligence story.
 2. **Team = ensemble intelligence.** Different models genuinely catch different bugs and propose different designs. You get frontier-plus quality from subscriptions people already pay for. Zero marginal token cost to you or them.
-3. **All-day floor + optional remote.** Named Teams all day (Spec Review, Bug Hunt, Growth, Research, and more) plus pilot and relay — 10-hour dogfood, not sleep. iOS / detach is optional steer when away from the desk. The name Allnighter is brand and domain only — do not let it redefine the product as overnight automation.
+3. **All-day floor + optional remote.** Two co-equal loops: named Teams (Spec Review, Bug Hunt, Growth, Research, …) for parallel judgment, and pilot/relay so a strong lead (e.g. Opus) routes execution to other seats (e.g. Grok, Composer). 10-hour dogfood, not sleep. iOS / detach is optional. The name Allnighter is brand and domain only — not overnight automation.
 
 **One-sentence pitch:**
 
-> You pay ~$400/month for AI coding subscriptions. Allnighter is the ~$10–20 that makes them work as one team all day — Spec Review, Bug Hunt, Growth, Research, pilot/relay — with proof when something claims "done."
+> You pay ~$400/month for AI coding subscriptions. Allnighter is the ~$10–20 that makes them one bench all day — Teams for judgment jobs, pilot/relay so Opus can steer while Grok or Composer executes — with proof when something claims "done."
 
 ## Pricing: subscription, and the honest why
 
@@ -43,14 +43,14 @@ What they'd love, ranked:
 
 1. Full value from subscriptions they already guiltily underuse
 2. **Named Teams** that match real jobs (Spec Review, Bug Hunt, Growth, Research, …) without copy-paste between terminals
-3. Model second opinions and pilot/relay without becoming the traffic cop
+3. **Strong lead → execution seats** via pilot/relay (Opus judges/steers; Grok/Composer mutates) without the human as traffic cop
 4. Safe rails that let them trust multi-CLI work (and optional detach when needed)
 
 ## Marketing: the product generates its own content
 
 Underrated asset: you are the only app that can honestly show "same hard task, four frontier models, head-to-head on a real repo" — inherently viral, evergreen, and impossible for vendors to make honestly.
 
-- **Hero demos (rotate):** Spec Review on a real plan; Bug Hunt on a real defect; Growth on a wedge; Research on a question; pilot/relay multi-round fix with receipts. Synthesis shows what changed and who caught what.
+- **Hero demos (rotate):** Spec Review on a real plan; Bug Hunt on a real defect; Growth on a wedge; Research on a question; pilot/relay with a strong lead routing execution seats (Opus → Grok/Composer) and receipts. Synthesis shows what changed and who caught what.
 - **Weekly model-vs-model reports on X:** "Claude vs Codex vs Grok on the same hard job — here's who won." People follow for the benchmarks and discover the app.
 - **Build in public:** dogfood Allnighter on Allnighter; publish run logs and receipts across Teams. "This release was pressure-tested by the bench" is the story — not "written overnight."
 - **Channels:** X is home base; Show HN when multi-team all-day use is repeatable by a stranger in under 10 minutes; r/ClaudeAI, r/ChatGPTCoding; AI-coding YouTubers for comparison content.
@@ -63,7 +63,7 @@ Don't chase vendor partnerships — their incentive is lock-in; neutrality is th
 - Vendors ship native multi-agent (Claude Code already has subagents/teams). Your answer must stay **cross-vendor + your machine + optional phone** — things no single vendor will ship.
 - Mac-only limits TAM but matches ICP. Don't port until Pro conversion proves out.
 - **Name trap:** agents and marketers re-pitch "while you sleep." Kill that framing. Hero use is all-day multi-team work.
-- **Single-Team trap:** Spec Review is a strong Team, not the whole product. Bug Hunt, Growth, Research, pilot, and relay are first-class daily use too.
+- **Single-Team trap:** Spec Review is a strong Team, not the whole product. Bug Hunt, Growth, Research are first-class Teams; pilot/relay are a co-equal loop (lead → execution), not "also Teams."
 
 ## If it were mine
 
@@ -79,6 +79,6 @@ Don't chase vendor partnerships — their incentive is lock-in; neutrality is th
 
 Own the bookends, concede the middle. Before execution: the Spec Forge (cross-vendor adversarial planning). After execution: behavioral proof. In between: executor-agnostic on purpose — "bring whichever CLI you love this month" becomes a feature, and vendor execution improvements make your product better instead of threatening it. You're the general contractor who writes airtight blueprints and runs the inspection, and happily subs out construction to whoever's best this quarter.
 
-**Pitch, revised:** "Your AI subscriptions never meet. Allnighter runs them as a team all day — Spec Review, Bug Hunt, Growth, Research, pilot — so judgment and multi-round work stop being copy-paste between terminals."
+**Pitch, revised:** "Your AI subscriptions never meet. Allnighter runs them as one bench all day — Teams for Spec Review / Bug Hunt / Growth / Research, and pilot/relay so a strong model can steer while another executes."
 
 One honest caveat: every Team's payoff must be visible in the product — synthesis needs to show what changed and which model caught what. If the fanout returns six walls of text the user still has to read, you've rebuilt six terminal tabs with nicer chrome. The synthesis step is the product. Spend design effort there before anything else.
