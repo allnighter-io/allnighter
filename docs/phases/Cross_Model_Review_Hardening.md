@@ -68,14 +68,20 @@ That gap is the entire scope of this packet.
 Warn when a relay or pilot run assigns a reviewer of lower caliber than the
 execution seat.
 
-- In `RelayCoordinator` / `PilotCLI` option validation, compare caliber ranks
-  of Lead vs worker. If `lead.caliber < worker.caliber`, emit a non-blocking
-  advisory to stdout and the run log:
+- Where pilot/relay resolves the final Lead + worker pair (near
+  `PilotSeatResolver` / `RelayCoordinator` — exact call site TBD at
+  implementation), compare caliber ranks of Lead vs worker. If
+  `lead.caliber < worker.caliber`, emit a non-blocking advisory to stdout and
+  the run log. The warning cites the study directionally; it must NOT restate
+  the paper's percentage as a general fact, since that number is from one
+  model pair (Claude Opus 4.7 / Codex GPT-5.5), not the pair actually running:
 
   ```text
   [alln warning] Inverted pilot/relay role assignment.
   Reviewer (<LeadModel>) has lower reasoning caliber than execution seat (<WorkerModel>).
-  Reverse review degrades pass rate by up to 8.6% (arXiv:2607.21656).
+  A weaker reviewer over a stronger worker's draft tends to erode correct work
+  rather than improve it (arXiv:2607.21656, one model pair — directional, not
+  a guaranteed result for this pairing).
   Recommended: set Lead to a higher-caliber model than the worker.
   ```
 
@@ -85,12 +91,16 @@ Warn when a static review run uses the same flagship model as both writer and
 reviewer.
 
 - In `TeamRequestResolver` / `RunService.swift`, detect
-  `Writer == Reviewer == Tier-1` and emit:
+  `Writer == Reviewer == Tier-1` and emit. As in CMR-S01, keep the citation
+  directional and do not present the paper's single-pair figure as a general
+  rate:
 
   ```text
-  [alln tip] Flagship self-review yields 0% pass-rate gain in static review (arXiv:2607.21656).
-  Pair a fast worker (Codex/Composer) as writer with <FlagshipModel> as reviewer
-  for ~90% accuracy at reduced cost.
+  [alln tip] Flagship self-review bought no measurable pass-rate gain in the
+  cited static-review study (arXiv:2607.21656, one model pair) despite double
+  the latency and budget.
+  Consider pairing a fast worker (Codex/Composer) as writer with <FlagshipModel>
+  as reviewer instead.
   ```
 
 ### CMR-S03 — Built-in team staffing invariant
@@ -107,11 +117,20 @@ workers.
 The Spec Review Refutation Gate and Synthesis stage must never fall back to a
 low-tier model.
 
-- In `SkillCatalog.leadCallEnvelope`, lock the Refuter (`purpose: .review`) and
-  Synthesizer (`purpose: .planWriter`) fallback policy to `.strongestReady`
+- In `TeamCatalog` / `TeamResolver` (the actual fallback-policy + caliber-band
+  resolver — **not** `SkillCatalog.leadCallEnvelope`, which is Lead Call prompt
+  copy and has no model-selection role), lock the Refuter (`purpose: .review`)
+  and Synthesizer (`purpose: .planWriter`) fallback policy to `.strongestReady`
   within Tier-1/Tier-2 flagships.
+- `docs/operations/Spec_Review.md` defines the Refuter as "a fresh worker,
+  different vendor" — decorrelation is the point, not caliber alone. This
+  slice adds a caliber floor on top of that vendor-diversity requirement; it
+  must not narrow the refuter pool to fewer vendors than today. If a caliber
+  floor and vendor diversity ever conflict for a given finding, vendor
+  diversity wins and the floor is best-effort.
 - Refutation of a `blocking` or `material` finding must never be performed by a
-  model of lower caliber than the finding's author.
+  model of lower caliber than the finding's author, subject to the vendor-diversity
+  constraint above.
 
 ### CMR-S05 — Pair-directionality telemetry
 
