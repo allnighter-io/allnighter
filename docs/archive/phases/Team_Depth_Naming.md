@@ -1,10 +1,8 @@
 # Team Depth Naming — Min / Default / Max
 
-**Status: DECIDED (founder, 2026-07-16).** Naming-convention SSOT for built-in
-team families and depth tiers. Supersedes the Lite / Forensics naming in
-archived `Team_Lab_Composition_And_Seat_Economics.md` §Named Team Variants
-(names only — Team Lab itself is SHUT DOWN, founder 2026-07-24, so the
-roster/seat-economics content there is historical, not forward work).
+**Status: ARCHIVED 2026-07-26** (DECIDED 2026-07-16; catalog applied).
+**Promoted:** `docs/workflows/Product_Vocabulary.md` § Team depth naming.
+This file is the closed naming-convention record — not live phase work.
 
 ## The problem
 

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Builds a `DoctorResult` from detection records + bench + local-check facts
-/// (docs/phases/CLI_Implementation_Contract.md §Doctor Contract).
+/// (docs/archive/phases/CLI_Implementation_Contract.md §Doctor Contract).
 ///
 /// Pure and quota-aware: with `full == false` (the default `alln doctor`), the
 /// smoke probe never ran, so auth/smoke/readiness are reported honestly as

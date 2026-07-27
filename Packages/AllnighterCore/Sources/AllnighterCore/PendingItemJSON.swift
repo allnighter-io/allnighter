@@ -1,7 +1,7 @@
 import Foundation
 
 /// `PendingItemJSON` — public machine contract for Pending items
-/// (docs/phases/CLI_Implementation_Contract.md §Pending CLI Contract).
+/// (docs/archive/phases/CLI_Implementation_Contract.md §Pending CLI Contract).
 public struct PendingItemJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var contractVersion: String

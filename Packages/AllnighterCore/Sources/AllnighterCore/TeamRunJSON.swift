@@ -1,7 +1,7 @@
 import Foundation
 
 /// `TeamRunJSON` — the first public machine contract for a team run
-/// (docs/phases/CLI_Implementation_Contract.md §TeamRunJSON).
+/// (docs/archive/phases/CLI_Implementation_Contract.md §TeamRunJSON).
 ///
 /// This is the shared shape that `alln --json`, the Mac/iOS presenters, and MCP
 /// tool results all project from. It is intentionally **separate from the

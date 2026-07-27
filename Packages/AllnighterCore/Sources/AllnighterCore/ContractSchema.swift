@@ -2,7 +2,7 @@ import Foundation
 
 /// Generates JSON Schema (draft 2020-12) for the public machine contracts
 /// `TeamRunJSON` and `DoctorResult`
-/// (docs/phases/CLI_Implementation_Contract.md §Generated Artifacts).
+/// (docs/archive/phases/CLI_Implementation_Contract.md §Generated Artifacts).
 ///
 /// Structural schemas: top-level object + `$defs` for the primary nested objects,
 /// with the closed enums enumerated. These are *generated* artifacts — a Mirror

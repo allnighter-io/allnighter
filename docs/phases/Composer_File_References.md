@@ -9,7 +9,7 @@ Process: `docs/workflows/SSOT_Founder_Input_Workflow.md` ->
 Depends on: code SSOT `RunService.swift` (run resolution/execution),
 [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md),
 [`Composer_Image_Attachments.md`](../archive/phases/Composer_Image_Attachments.md),
-[`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md)
+[`docs/archive/phases/CLI_Implementation_Contract.md`](../archive/phases/CLI_Implementation_Contract.md)
 
 ## Founder Intent
 
@@ -716,7 +716,7 @@ Register `compose-file-reference` in `GUIFixture.benchScenarios`
 `compose-*` ids (e.g. `compose-mode-menu`, `compose-target-chat`), and add the
 matching deep-link detection. The proof seal runs through
 `scripts/check_gui_proof.sh`; layout truth is the watcher's, content truth is the
-CLI's (`GUI_Visual_Proof_Gate.md`).
+CLI's (`docs/gui/Visual_Proof_Gate.md`).
 
 Missing proof / waiver:
 

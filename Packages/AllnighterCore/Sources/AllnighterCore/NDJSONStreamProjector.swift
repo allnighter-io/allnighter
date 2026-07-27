@@ -2,7 +2,7 @@ import Foundation
 import AgentOSTeam
 
 /// Projects a settled `TeamRun` into the public NDJSON event sequence for
-/// `alln team --stream` (docs/phases/CLI_Implementation_Contract.md §NDJSON
+/// `alln team --stream` (docs/archive/phases/CLI_Implementation_Contract.md §NDJSON
 /// Stream). Events are ordered by `seq`, carry the run's real timestamps, and the
 /// final event is always a terminal one (`teamRunCompleted`/`teamRunFailed`).
 ///

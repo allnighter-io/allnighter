@@ -1,14 +1,12 @@
 # Work Order Team Model
 
-> **Doc title is legacy naming.** "Work Order" as a product ceremony (propose →
-> approve → dispatch → verify, a separate Project Manager identity) was retired
-> by `Unified_Run_Model.md` (code SSOT `RunService.swift`, `RunRecord`); this doc
-> was swept 2026-07-24 to drop that vocabulary from its body. The Source/Bench/
-> Model/Skill/Worker/Team/Lane/Type word list below is still current.
+> **Doc title is legacy naming.** "Work Order" ceremony was retired by
+> `Unified_Run_Model.md` (code SSOT `RunService.swift`).
 
-Status: Active language contract for post-MVP specs
-Owner: Founder + Shared Core + Mac
-Updated: 2026-07-24
+Status: **ARCHIVED 2026-07-26**.
+**Promoted:** `docs/workflows/Product_Vocabulary.md` (standing vocabulary +
+execution-source gate summary).
+This file is the closed word-list / designer-handoff record — not live phase work.
 
 ## Purpose
 

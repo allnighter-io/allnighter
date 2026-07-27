@@ -1,7 +1,7 @@
 import Foundation
 
 /// `DoctorResult` — the structured `alln doctor --json` contract
-/// (docs/phases/CLI_Implementation_Contract.md §Doctor Contract).
+/// (docs/archive/phases/CLI_Implementation_Contract.md §Doctor Contract).
 ///
 /// The headless recovery surface: find sources/models, classify readiness, and
 /// report the next fix. Check names are stable and registry-owned (CLI M1 step

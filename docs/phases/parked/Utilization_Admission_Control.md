@@ -145,7 +145,7 @@ Existing truth owners:
 - `Pending_Work_And_Drain.md` owns user-visible Pending intent and drain surface.
 - `Mac_Standalone_App_And_Background_Coordinator.md` owns `alln serve` lifecycle
   and single-writer resident behavior.
-- `CLI_Implementation_Contract.md` owns public command grammar, JSON/NDJSON,
+- `docs/archive/phases/CLI_Implementation_Contract.md` owns public command grammar, JSON/NDJSON,
   generated docs, doctor checks, and proof gates.
 - `threads/01_Work_Threads_MLP.md` owns thread turns and context packets.
 - `threads/04_Observed_Usage.md` owns observed usage metadata; this doc consumes

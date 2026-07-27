@@ -6,7 +6,7 @@ import Crypto
 import Foundation
 
 /// `ContractRegistry` — the Core-owned source of truth for the `alln` command
-/// contract (docs/phases/CLI_Implementation_Contract.md §Contract Registry).
+/// contract (docs/archive/phases/CLI_Implementation_Contract.md §Contract Registry).
 ///
 /// Everything agent-facing is a *projection* of this: `alln --help`, `alln docs`
 /// (+ `--errors`/`--schema`/`--examples`), `alln doctor explain <code>`, the
@@ -420,7 +420,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
 
     /// The process exit class of an error code (M-C + PO-F3). Maps to the stable
     /// `ExitCode` table (`0` is success and carries no error code). See the
-    /// exit-code table in `docs/phases/CLI_Implementation_Contract.md` §Process
+    /// exit-code table in `docs/archive/phases/CLI_Implementation_Contract.md` §Process
     /// exit codes. Classes must never be renumbered without a contract bump.
     public enum ErrorExitClass: String, Codable, Sendable, CaseIterable {
         /// Well-formed command, but the operation failed or an entity was

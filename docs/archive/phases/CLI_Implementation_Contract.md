@@ -1,28 +1,23 @@
 # CLI Implementation Contract
 
-Status: CLI M1 BUILT (2026-06-15) — full wall green; `--stream` emits live
-run-lifecycle events, not worker answer deltas; MCP `serve --stdio` projects
-from the registry. **Pending0/1 BUILT** (2026-06-17):
-`alln pending` CRUD + `PendingItemJSON`; WTK-S02a added workerChat
-`pending run` execution/settlement through `PendingRunExecutor`. WTK-S00/S01a/S01b
-added `CapacityObservation`, Pending capacity JSON, MCP Pending registry specs,
-and WorkerRunner capacity capture. A1/WTK-S02c added live MCP Pending
-`pending_list`/`pending_show`/`pending_run` handlers. WTK-S03/S02b/S04 and
-SWW-S00-S03 added resident one-shot wake, non-mutating teamRun Pending execution,
-stalled-work contracts/detector, and read-only CLI/MCP stalled projections.
-Remaining (still owned here): SWW-S04/S05 product attention commands/projections,
-`pending stop`, safe followUp/returnReview Pending execution, remaining MCP
-Pending write tools, and generated contract cleanup. Broad native Pending drain
-is parked; one-shot Wake Tickets are scoped by `Stalled_Work_Watchdog.md`.
-Owner: Shared Core + CLI + Mac
-Updated: 2026-06-19
+Status: **ARCHIVED 2026-07-26** — M1 + Pending0/1 + SWW-S00–S03 shipped historically.
+**Founder ruling (2026-07-26):** the "Remaining" list (SWW-S04/S05 attention,
+`pending stop`, followUp/returnReview, MCP Pending writes, Pending stream,
+Pending2 drain) is **stale — do not build from this packet.** MCP retired;
+resident control plane deleted; Unified Run Model owns runs via `RunService`.
+**Successor:** live CLI/schemas = `ContractRegistry` + `PendingCLI` /
+`StalledCLI` / `ServeDaemon` code. Naming spine (if still open):
+`docs/phases/CLI_Product_Spine.md`. Closed companions: archived
+`Pending_Work_And_Drain.md`, `Stalled_Work_Watchdog.md`.
+This file is historical implementation detail — not a work order.
 
 ## Authority
 
-This doc is subordinate to `CLI_Product_Spine.md` (product spine) and
-`Work_Order_Team_Model.md` (vocabulary contract).
+Historical only. Product spine naming: `docs/phases/CLI_Product_Spine.md`.
+Vocabulary: `docs/workflows/Product_Vocabulary.md`. Live schemas/commands:
+`ContractRegistry` + CLI — not this archive.
 
-It owns the implementation detail those docs should not carry: schemas, command
+This packet once carried implementation detail those docs should not: schemas, command
 surface, generated artifacts, doctor checks, error codes, streaming events, and
 proof gates for making `alln` the first-class product contract.
 

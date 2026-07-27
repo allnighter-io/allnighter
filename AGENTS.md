@@ -30,13 +30,12 @@ quota harvesting, and preference compounding.
 
 Root docs are the source of truth. Read the relevant one before changing that area.
 
-- **Canonical product vocabulary (read first):** `docs/phases/Language_Cutover.md`
-  (phase packet / archive-overdue word list — **not** SSOT; shipped vocabulary is
-  codebase reality) —
+- **Canonical product vocabulary (read first):** `docs/workflows/Product_Vocabulary.md` —
  Chat / Delegate ("Send to team") / Execute; **Team** is the noun; crafts are
  **Code · Design · Copy** (+ **Signal** scout); machine layer is one `team.run`
  primitive (posture + `mutating`). Retired: `Fan out`, `Build`-as-craft,
  `Execute`-as-mode, "Move Card", `lane`=single-run. Hard cutover, no aliases.
+ Run semantics remain code SSOT (`RunService.swift`).
 - **Run model + execution safety (read before team/run changes):** a run =
   message + optional preset + worker, in the repo root. Research Teams are
   parallel and observational; execution Teams are one worker (mutating) under
@@ -75,9 +74,12 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Codex/host sandbox blocks child CLIs, source processes missing from `alln ps` | The sandbox blocks the Keychain, not the repo — vendor CLIs then believe they are logged out. `alln run` hands off to the open Mac app; a per-session `codex --sandbox danger-full-access` also works. Never a global `sandbox_mode` change. Code SSOT: `SandboxHandoffSpool.swift`, `SandboxHandoffRunner.swift`, `HostSandboxAdvice.swift` |
 | Vendor usage limit / parked run / wake-resume / authorized substitute | Code SSOT: `VendorBackoffReconciler.swift`, `VendorSubstitutionPolicy.swift` |
 | Composer `@` file references, Project file search, file chips | Open packet: `docs/phases/Composer_File_References.md` (not SSOT) |
-| Model/skill/worker/team vocabulary | Code + catalogs; word-list packet `docs/phases/Work_Order_Team_Model.md` (archive-overdue, not SSOT) |
-| Execution/answer teams, mutating runs, source/write safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry`; open packet: `docs/phases/CLI_Implementation_Contract.md` |
-| CLI product surface, `alln`, TeamRunJSON | Code SSOT: `ContractRegistry` / CLI; open packets: `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` (not SSOT) |
+| Model/skill/worker/team vocabulary | `docs/workflows/Product_Vocabulary.md` + code catalogs |
+| GUI visual layout proof / layout-watcher | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
+| Design team (build → screenshot, not Midjourney) | `docs/operations/Design_Lane.md` + code `DesignBoardCapture` |
+| Spec Review hero loop | `docs/operations/Spec_Review.md` + `BuiltInTeams` / `SkillCatalog.leadCallEnvelope` |
+| Execution/answer teams, mutating runs, source/write safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` |
+| CLI product surface, `alln`, TeamRunJSON | Code SSOT: `ContractRegistry` / CLI; naming packet: `CLI_Product_Spine.md` (not SSOT) |
 | Team run artifact / `alln artifact` | Code SSOT: `ArtifactProjector.swift`, `ArtifactWriter.swift`, `ArtifactCLI.swift`; closed record: archived `Team_Run_Receipt.md` |
 | Agent surface, `alln bootstrap` activation, help/menu routing (MCP retired 2026-07-16) | Live `alln menu --json` is the selection front door; `alln bootstrap` prints the paste-ready host context; CLI is the only agent surface. Code SSOT: `MenuCatalog.swift`, `Bootstrap.swift`, `HelpTopicRegistry.swift` |
 | Agent front door: `install-cli`, `bootstrap`, live menu selection | Front door V1 complete; there is no intent router — the caller chooses from the live menu. Code SSOT: `InstallCLI.swift`, `Bootstrap.swift`, `TeachingSnippet.swift`, `MenuCatalog.swift` |

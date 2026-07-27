@@ -120,7 +120,7 @@ Not part of the default first-run.
   can never run arbitrary commands"* (`00` §3.1). Honesty line on privacy: *"We can't
   read your work; we route minimized, auto-deleting metadata."*
 - Vocabulary: model / skill / worker / team run / lane / landing / board
-  (`../Work_Order_Team_Model.md`, `Design0`).
+  (`../../workflows/Product_Vocabulary.md`, `Design0`).
 
 ## Deferred seam — Attention Queue (design now, build later)
 

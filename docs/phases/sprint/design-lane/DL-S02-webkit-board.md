@@ -1,7 +1,7 @@
 # DL-S02 — Host HTML→WebKit capture writes the board
 
 Status: **done**
-SSOT: `docs/phases/Design_Lane.md` §§Trusted workflow A, Truth owners, Simplicity law
+SSOT: `docs/operations/Design_Lane.md` §§Trusted workflow A, Truth owners, Simplicity law
 
 ## Goal
 
@@ -16,7 +16,7 @@ You are implementing DL-S02 ONLY (Design Lane WebKit board writer).
 
 Read:
 - docs/phases/sprint/design-lane/DL-S02-webkit-board.md
-- docs/phases/Design_Lane.md
+- docs/operations/Design_Lane.md
 - CatalogRunCoordinator.swift + DesignRun.swift BoardPayload
 - docs/operations/Execution-Playbook.md §Commits
 

@@ -2,7 +2,7 @@ import Foundation
 
 /// The design lane (Lane 2). Default Design means **built surface → host
 /// screenshot** on the board (`BoardPayload` / artifact hero) — not Midjourney.
-/// Law: `docs/phases/Design_Lane.md`. Historical Design0 diffusion/OCR contract
+/// Law: `docs/operations/Design_Lane.md`. Historical Design0 diffusion/OCR contract
 /// is superseded for the Design default; concept/`imageGen` seats remain
 /// explicit opt-in only.
 ///

@@ -28,7 +28,7 @@ benches where models become workers through `Skill | Model` assignments.
 
 ## Product language
 
-Follows `docs/phases/Work_Order_Team_Model.md`:
+Follows `docs/workflows/Product_Vocabulary.md`:
 
 - **Source** = how Allnighter reaches a model.
 - **Bench** = available models.

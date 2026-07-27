@@ -60,9 +60,9 @@ Run copy board
 
 - `docs/mvp/` owns the built team-run and design-board substrate: legacy worker
   calls, stage outputs, board-style option selection, and run artifacts.
-- `docs/phases/Work_Order_Team_Model.md` owns the product vocabulary for bench,
+- `docs/workflows/Product_Vocabulary.md` owns the product vocabulary for bench,
   model, skill, worker, team, lane, type, model reasoning effort, and preset.
-- `docs/phases/Work_Order_Team_Model.md` defines team selection as the owner of
+- `docs/workflows/Product_Vocabulary.md` defines team selection as the owner of
   worker count/review/research shape. Model reasoning effort is provider config,
   not a Copy-depth toggle.
 - There is no dedicated `WorkOrder` summary type (that ceremony type is

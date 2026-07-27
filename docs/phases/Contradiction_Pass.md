@@ -3,11 +3,11 @@
 Status: **DRAFT — NOT AUTHORIZED. Queued behind
 `CODE_RED_Core_Infrastructure_Repair.md` and `Menu_Relations.md`.**
 Founder sequencing (2026-07-24): Code Red first, then Menu Relations, then this.
-Owner: `Spec_Review.md` mechanism + team-run synthesis contract
+Owner: `docs/operations/Spec_Review.md` mechanism + team-run synthesis contract
 (finding schema, synthesizer/gatekeeper, defensive seats)
 Updated: 2026-07-24
 
-Extends [`Spec_Review.md`](Spec_Review.md) (living hero-loop SSOT). That doc is
+Extends [`docs/operations/Spec_Review.md`](../operations/Spec_Review.md) (living hero-loop SSOT). That doc is
 **not reopened**: §5's blind fan-out law stays inviolable, §2's impact ledger
 stays the product, and §4's refutation gate stays the truth rule. This doc adds
 one thing those sections currently leave to synthesizer judgment — **mechanical
@@ -28,7 +28,7 @@ tokens for marginal benefit.
 
 ## The problem with Max as it stands
 
-`Spec_Review.md` §2 already says the right thing:
+`docs/operations/Spec_Review.md` §2 already says the right thing:
 
 > **Open questions** — genuine disagreements between workers... The synthesizer
 > must NOT average away a sharp disagreement; homogenized synthesis is the main
@@ -51,11 +51,11 @@ produce more opportunity for exactly that silent averaging.
 | --- | --- | --- |
 | Repeated sampling scales *coverage* log-linearly over four orders of magnitude, but selection is the bottleneck: majority voting and reward models "plateau after a few hundred samples." Gains convert to accuracy only where a verifier exists. | [Large Language Monkeys](https://arxiv.org/abs/2407.21787) | **The core argument.** Max buys coverage today and ships no selector. Adding seats without a selection mechanism is the configuration the literature says underperforms its spend. |
 | Intrinsic self-correction — a model revising its own answer with **no external feedback** — often fails and "at times, performance even degrades." | [Huang et al., ICLR 2024](https://arxiv.org/abs/2310.01798) | Hard design constraint: the resolution seat must never be "think again." It must receive external input — the opposing claim and its evidence. Adjudication, not introspection. |
-| Across 5 multi-agent-debate methods × 9 benchmarks × 4 models, **no** method beat chain-of-thought in more than 20% of 36 configurations, while consuming far more tokens; self-consistency beat both. **But model heterogeneity consistently improved MAD.** | [Stop Overvaluing Multi-Agent Debate](https://arxiv.org/abs/2502.08788) | Two conclusions. (1) External support for `Spec_Review.md` §5's ban on discussion rounds — debate rounds are the losing lever. (2) Cross-vendor spread is the empirically supported lever, which is what `alln` already sells. |
+| Across 5 multi-agent-debate methods × 9 benchmarks × 4 models, **no** method beat chain-of-thought in more than 20% of 36 configurations, while consuming far more tokens; self-consistency beat both. **But model heterogeneity consistently improved MAD.** | [Stop Overvaluing Multi-Agent Debate](https://arxiv.org/abs/2502.08788) | Two conclusions. (1) External support for `docs/operations/Spec_Review.md` §5's ban on discussion rounds — debate rounds are the losing lever. (2) Cross-vendor spread is the empirically supported lever, which is what `alln` already sells. |
 | Self-consistency gains plateau early while token cost scales nearly linearly with sample count; at high counts accuracy can decline. | [Self-Consistency Is Losing Its Edge](https://arxiv.org/abs/2511.00751) | Direct support for the founder's fixed-rounds ruling over an adaptive loop. |
 | Annotator disagreement is not noise to be adjudicated away — in interpretative tasks it reflects genuine ambiguity, underspecified guidelines, or alternative valid readings. | [Human label variation / perspectivist NLP](https://arxiv.org/html/2601.09065v2) | **The most transferable idea here.** When blind reviewers disagree about a spec, the leading hypothesis is that *the spec is ambiguous* — a defect in the artifact, not an error by a model. |
 | GPT-4 "exhibits a significant degree of self-preference bias"; the cause appears to be familiarity — LLMs rate low-perplexity text far above human evaluators whether or not they generated it. Position bias is separately documented and is mitigable by rearranging option order. | [Self-Preference Bias in LLM-as-a-Judge](https://arxiv.org/abs/2410.21819) (abstract read 2026-07-24) | The resolver must not have authored either claim, and claim order must be randomised. Backs the existing source-blind synthesis rule. ⚠️ The widely quoted "−38% to +90% on ArenaHard" range is from a *different* paper (arXiv:2604.22891) — do not attribute it here. |
-| Heterogeneous ensembles contribute more than clones — but Self-MoA (one strong model) beat mixed MoA by 6.6% on AlpacaEval 2.0. | [Rethinking Mixture-of-Agents](https://arxiv.org/abs/2502.00674) | Honest caveat: cross-vendor spread is not a free lunch. This is precisely what `Spec_Review.md` §7 "measure the moat" exists to settle with our own telemetry. |
+| Heterogeneous ensembles contribute more than clones — but Self-MoA (one strong model) beat mixed MoA by 6.6% on AlpacaEval 2.0. | [Rethinking Mixture-of-Agents](https://arxiv.org/abs/2502.00674) | Honest caveat: cross-vendor spread is not a free lunch. This is precisely what `docs/operations/Spec_Review.md` §7 "measure the moat" exists to settle with our own telemetry. |
 
 **What the evidence does not say:** none of this tested spec review, structured
 findings, or blind panels over a real repo. It supports the *shape* — fixed
@@ -68,7 +68,7 @@ specific numbers. Calibration is CP-S01's job.
 
 ### Step 1 — Anchors make agreement and conflict computable (all tiers, zero model cost)
 
-Every finding already ships schema-backed (`Spec_Review.md` §6). Add two fields:
+Every finding already ships schema-backed (`docs/operations/Spec_Review.md` §6). Add two fields:
 
 - **`anchor`** — what the claim is *about*, in a comparable form: spec section
   id, `file:line`, requirement id. Not prose.
@@ -78,7 +78,7 @@ Every finding already ships schema-backed (`Spec_Review.md` §6). Add two fields
 Then group by anchor. This is a join, not an inference — **no worker, no
 tokens**:
 
-- same anchor, same direction → **agreement**. This is `Spec_Review.md` §2
+- same anchor, same direction → **agreement**. This is `docs/operations/Spec_Review.md` §2
   co-attribution, computed instead of judged.
 - same anchor, opposing direction → **contradiction**.
 
@@ -88,12 +88,12 @@ tokens**:
 | --- | --- | --- |
 | **False conflict** | Different scope or assumptions; both claims true as stated. | **A finding in its own right: the spec is ambiguous at this anchor.** New product output — the artifact defect that caused the disagreement. |
 | **Factual conflict** | One side is checkable against the repo, the test, or the spec text. | Resolvable by evidence. |
-| **Judgment conflict** | Genuinely differing priorities; no fact settles it. | **Open question to the human, both cases stated.** Never forced to a winner. Already `Spec_Review.md` §2. |
+| **Judgment conflict** | Genuinely differing priorities; no fact settles it. | **Open question to the human, both cases stated.** Never forced to a winner. Already `docs/operations/Spec_Review.md` §2. |
 
 ### Step 3 — Resolution seat (Max)
 
 A synthesis-stage seat — the same architectural class as Refuter and Steelman,
-which `Spec_Review.md` §3 already places "inside synthesis, not the fan-out."
+which `docs/operations/Spec_Review.md` §3 already places "inside synthesis, not the fan-out."
 **This is why it does not violate the blind fan-out law**: fan-out workers still
 never see each other. The resolver is not a worker; it is a gatekeeper input.
 
@@ -134,7 +134,7 @@ handled — it is that the synthesizer can no longer *quietly not notice one*. T
 join happens whether or not the synthesizer is paying attention.
 
 **A big contradiction at Default does not silently buy a resolution round.**
-`Team_Depth_Naming.md` §Routing law: escalation may *recommend* Max but never
+`docs/workflows/Product_Vocabulary.md` §Routing law: escalation may *recommend* Max but never
 silently switches teams. So a `blocking`-severity contradiction that survives the
 refutation gate on both sides emits `escalationRecommended` — copy writes itself
 from the existing vocabulary:
@@ -161,7 +161,7 @@ hit → remaining conflicts listed as open questions, never silently dropped. Th
    exists.
 2. **The blind fan-out law is untouched.** Resolution is a synthesis-stage seat.
    No worker ever sees another worker's finding. A "discussion round" remains
-   forbidden — `Spec_Review.md` §5, now with external support.
+   forbidden — `docs/operations/Spec_Review.md` §5, now with external support.
 3. **The resolver adjudicates; it never averages.** A synthesised middle position
    that neither worker proposed is a failed resolution, recorded as such.
 4. **Judgment conflicts go to the human unresolved.** Forcing a winner on a
@@ -207,7 +207,7 @@ scripts/check.sh
 
 **Proof note:** CP-S01 cannot be satisfied mechanically. It requires real
 multi-model runs over real specs — dogfood on Allnighter's own phase docs, as
-`Spec_Review.md` §8 already prescribes. A fixture-only pass proves the join
+`docs/operations/Spec_Review.md` §8 already prescribes. A fixture-only pass proves the join
 works, not that disagreement is worth surfacing.
 
 ## Done when
@@ -235,7 +235,7 @@ works, not that disagreement is worth surfacing.
 4. **Does the Default-tier escalation prompt count as a recommendation `alln`
    is allowed to make?** It names a team, which brushes against the no-router
    posture. Recommendation: allowed — it is the existing `escalationRecommended`
-   mechanism from `Team_Depth_Naming.md`, triggered by a *mechanical* condition
+   mechanism from `docs/workflows/Product_Vocabulary.md`, triggered by a *mechanical* condition
    rather than by inferring intent from prose. Founder ruling wanted.
 5. **Relationship to the parked Buzz / judgment layer.** Judgment conflicts are
    adjacent to that exploration. Flagged, deliberately not merged — nothing here
@@ -245,7 +245,7 @@ works, not that disagreement is worth surfacing.
 
 | Work | Read first |
 | --- | --- |
-| Hero-loop positioning, lenses, impact ledger, blind fan-out law, refutation gate | `Spec_Review.md` |
-| Depth tiers, escalation law, what Min/Default/Max mean | `Team_Depth_Naming.md` |
+| Hero-loop positioning, lenses, impact ledger, blind fan-out law, refutation gate | `docs/operations/Spec_Review.md` |
+| Depth tiers, escalation law, what Min/Default/Max mean | `docs/workflows/Product_Vocabulary.md` |
 | Seat economics, roster ablation, necessity suites | Team Lab is SHUT DOWN (founder, 2026-07-24); archived `Team_Lab_Composition_And_Seat_Economics.md` has the historical spec |
 | Menu disclosure of tiers and families | `Menu_Relations.md` |

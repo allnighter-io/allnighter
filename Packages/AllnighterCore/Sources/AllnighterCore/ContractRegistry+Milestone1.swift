@@ -1,7 +1,7 @@
 import Foundation
 
 /// The milestone-1 `alln` contract, transcribed from
-/// docs/phases/CLI_Implementation_Contract.md (§Milestone Boundary, §CLI Grammar,
+/// docs/archive/phases/CLI_Implementation_Contract.md (§Milestone Boundary, §CLI Grammar,
 /// §NDJSON Stream, §Error Envelope, §Doctor Contract). This is the data; the
 /// generators that project docs/schemas from it are step 3.
 public extension ContractRegistry {

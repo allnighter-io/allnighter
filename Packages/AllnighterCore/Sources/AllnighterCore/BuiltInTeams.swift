@@ -427,7 +427,7 @@ public enum BuiltInTeams {
 
     // Design seats are builder/reasoning roles (Team_Catalog_Normalization.md):
     // each seat builds a bounded renderable surface; the host capture step
-    // screenshots that receipt for the board hero tile (Design_Lane.md).
+    // screenshots that receipt for the board hero tile (docs/operations/Design_Lane.md).
 
     /// Design Min — the leanest credible design take: structure plus one visual
     /// system seat that builds and lands a screenshot receipt. Same writer/output

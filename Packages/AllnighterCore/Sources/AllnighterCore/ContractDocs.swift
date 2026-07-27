@@ -1,7 +1,7 @@
 import Foundation
 
 /// Renders the human/agent-facing `alln` reference (`help_alln_cli_spec.md`) from
-/// the contract registry (docs/phases/CLI_Implementation_Contract.md §Generated
+/// the contract registry (docs/archive/phases/CLI_Implementation_Contract.md §Generated
 /// Artifacts). Deterministic: arrays are emitted in registry order. This is what
 /// `alln docs` projects from; do not hand-edit the generated file.
 public enum ContractDocs {

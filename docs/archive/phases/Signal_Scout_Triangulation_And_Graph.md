@@ -1,9 +1,15 @@
 # Signal Scout, Triangulation, And The Signal Graph
 
-Status: Draft backend/product spec — the next big upgrade to the Signal craft
-Owner: Signal lane (Core team-run substrate + TeamResolver + a new Signal Graph store + source adapters)
-Updated: 2026-07-24 (banned-term sweep: dead `Project_Spine_And_Project_Manager.md`
-  reference and stale propose/approve/dispatch/verify "Current State" claims removed)
+Status: **ARCHIVED 2026-07-26** — founder decision: keep shipped Research team;
+do not build Signal Graph / deep Scout packet now. Research is the 80/20.
+**Shipped (keep):** `signal_outside` (Research) + scout-first inject +
+triangulate seating + `SignalInsight` + `SignalSourceRouter` (X vs `vvx` teach).
+**Not now:** Signal Graph, doubly-grounded enforcement store, SIG-S00… slices.
+Reopen only after Research dogfood proves one-shot answers feel forgetful —
+new thin packet, do not revive this draft as a work order.
+Successor: code (`BuiltInTeams.signalPostToProject`, `CatalogRunCoordinator`
+scout stage, `SignalInsight`, `SignalSourceRouter`); strategy wedge history:
+`docs/strategy/Allnighter_Public_Signal_Wedge.md`.
 
 ## Authority
 
@@ -15,7 +21,7 @@ Read with:
 - `docs/phases/Team_Delegation_Surface.md` (owns Signal as a team family)
 - `docs/phases/Model_Catalog_And_Bench_Roster.md` (owns model lane tags + driver manifests)
 - Code SSOT `RunService.swift` / `RunRecord` owns the run+receipt trail the provenance reuses (there is no propose→approve→dispatch→verify spine — that ceremony's deletion manifest is in archived `Unified_Run_Model.md`)
-- `docs/phases/Language_Cutover.md` (Signal is the 4th craft; `WorkLane.signal`, `TeamOutputKind.insight`)
+- `docs/workflows/Product_Vocabulary.md` (Signal is the 4th craft; `WorkLane.signal`, `TeamOutputKind.insight`)
 
 This doc owns: (1) a **source-agnostic** Scout → triangulation run shape, (2)
 **role-aware, distinct-driver** model assignment so a signal is read by *many

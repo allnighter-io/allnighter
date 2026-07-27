@@ -1,7 +1,7 @@
 import Foundation
 
 /// Projects the `ContractRegistry` into the checked-in generated artifacts
-/// (docs/phases/CLI_Implementation_Contract.md §Generated Artifacts).
+/// (docs/archive/phases/CLI_Implementation_Contract.md §Generated Artifacts).
 ///
 /// These are *derived* — change the registry, then regenerate; never hand-edit
 /// the artifacts. `alln dev export-contracts --check` fails when the on-disk

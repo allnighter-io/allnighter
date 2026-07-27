@@ -1,7 +1,7 @@
 # DL-S01 — Rip diffusion Design default + retag mockup seats
 
 Status: **done**
-SSOT: `docs/phases/Design_Lane.md` (WebKit-first; rip DesignCoordinator/DesignImageRunner)
+SSOT: `docs/operations/Design_Lane.md` (WebKit-first; rip DesignCoordinator/DesignImageRunner)
 
 ## Goal
 
@@ -15,7 +15,7 @@ You are implementing DL-S01 ONLY (Design Lane rip + catalog retag).
 
 Read:
 - docs/phases/sprint/design-lane/DL-S01-rip-and-retag.md
-- docs/phases/Design_Lane.md
+- docs/operations/Design_Lane.md
 - docs/operations/Execution-Playbook.md §Commits
 
 Implement:
@@ -40,7 +40,7 @@ Done when: deleted files gone, catalog retagged, tests green, committed.
 
 ## Read only
 
-- `docs/phases/Design_Lane.md`
+- `docs/operations/Design_Lane.md`
 - This work order
 
 ## Touch allowlist

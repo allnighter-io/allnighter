@@ -1,8 +1,11 @@
 # GUI Visual Proof Gate
 
-Status: Founder packet / execution-ready policy phase
+Status: **Standing GUI law** (promoted from phases 2026-07-26)
 Owner: GUI workflow + Mac app native proof harness
-Updated: 2026-06-16
+Updated: 2026-07-26
+
+Closed phase packet history: was `docs/phases/GUI_Visual_Proof_Gate.md`
+(moved here — no separate archive copy).
 
 Founder intent:
 Stop the productivity-killing loop where an AI agent says "fixed" and hands

@@ -8,10 +8,10 @@ Updated: 2026-06-20
 
 Read with:
 
-- `docs/phases/Language_Cutover.md`
+- `docs/workflows/Product_Vocabulary.md`
 - Code SSOT `RunService.swift` (the run model)
 - `docs/phases/Team_Run_Floor.md`
-- `docs/phases/CLI_Implementation_Contract.md`
+- `docs/archive/phases/CLI_Implementation_Contract.md`
 - `docs/phases/threads/03_Mac_Streaming.md`
 - `docs/gui/GUI_Workflow.md`
 - `docs/design-system/production.md`

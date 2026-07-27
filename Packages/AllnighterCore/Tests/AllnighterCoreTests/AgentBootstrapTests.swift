@@ -30,7 +30,7 @@ final class AgentBootstrapTests: XCTestCase {
     // MARK: - preflight
 
     /// Max roster is 8 answer/review + writer = 9.
-    /// Retargeted to `code_bug_hunt_max` so the Team_Depth_Naming rename does not change
+    /// Retargeted to `code_bug_hunt_max` so the Product_Vocabulary depth rename does not change
     /// the bare-`code_bug_hunt` 4-seat default path.
     func testPreflightBugHuntHighOnOneModel() {
         let r = TeamPreflight.preflight(teams: teams, lane: .code, teamId: "code_bug_hunt_max",

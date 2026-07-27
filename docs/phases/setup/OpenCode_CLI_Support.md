@@ -352,7 +352,7 @@ Commit fixture to
 
 | Work | Read |
 | --- | --- |
-| Driver implementation | This doc → `antigravity.json` → `CLI_Implementation_Contract.md` |
+| Driver implementation | This doc → `antigravity.json` → `docs/archive/phases/CLI_Implementation_Contract.md` |
 | Streaming posture | `threads/03_Mac_Streaming.md` (OpenCode = final-output V1) |
 | Background coordinator | `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Setup/detect | `01_CLI_Detection_Auth_And_Bench.md` |

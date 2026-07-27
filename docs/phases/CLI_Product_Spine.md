@@ -51,11 +51,12 @@ AllnighterCore contract registry
 ```
 
 No surface invents behavior. If a feature changes, the command contract changes
-first, then CLI docs, GUI, MCP, local API, examples, and tests follow.
+first, then CLI docs, GUI, local API, examples, and tests follow.
 
-Implementation detail lives in `CLI_Implementation_Contract.md`: exact command
-grammar, `TeamRunJSON`, NDJSON events, doctor checks, error codes, generated
-artifacts, and proof gates.
+Implementation detail (exact schemas, events, doctor checks, errors, generated
+artifacts, proof gates) lives in code: `ContractRegistry` and CLI printers.
+Closed historical packet only: `docs/archive/phases/CLI_Implementation_Contract.md`
+— not a work order.
 
 ## Thesis
 
@@ -303,7 +304,7 @@ alln doctor explain <code> --json
 ```
 
 Minimum doctor JSON shape (M1 schema v1; agent-first upgrades it to schema v2 —
-`CLI_Implementation_Contract.md` owns the authoritative shape):
+`ContractRegistry` / code owns the authoritative shape):
 
 ```json
 {
@@ -475,7 +476,7 @@ Sketch:
 
 Status enums must be closed and shared. The run-level `teamRun.status` is
 `queued, running, done, failed, timedOut, cancelled, interrupted`; `skipped` is a
-worker-level status, not a run status (`CLI_Implementation_Contract.md` owns the
+worker-level status, not a run status (`ContractRegistry` owns the
 authoritative enums). Errors need stable `code`, human `message`, `agentAction`,
 `fixCommand`, `requiresManual`, `retryable`, and optional `sourceId` / `modelId`
 / `workerId`.
@@ -486,7 +487,7 @@ Do not ship new CLI JSON with legacy fields such as `CouncilRun`,
 The first schema artifact should be a checked-in `TeamRunJSON` fixture. Core
 types, CLI output, GUI presenter tests, MCP descriptors, and iOS snapshot
 fixtures should converge on that shape instead of inventing parallel contracts.
-The exact schema lives in `CLI_Implementation_Contract.md`.
+The exact schema lives in `ContractRegistry` / generated fixtures.
 
 ## Plan Writer Rule
 
@@ -694,11 +695,11 @@ Do not revive MCP transport; CLI is the only agent surface
 | Plan writer | A designated worker with the Plan Writer skill; JSON uses `planWriterWorkerId`; linked thread replies default to that worker. |
 | Skill library | Defer standalone `alln skills`; milestone 1 uses preset-embedded skills surfaced by `team show`. |
 | MCP cutover | **Closed:** MCP retired; do not plan a re-launch. Activation is `alln bootstrap`. |
-| Implementation detail | `CLI_Implementation_Contract.md` owns exact schemas, events, doctor checks, errors, generated artifact paths, and proof gates. |
+| Implementation detail | Code SSOT: `ContractRegistry`, CLI printers, generated fixtures. Historical packet: `docs/archive/phases/CLI_Implementation_Contract.md` (not a work order). |
 
 ## Mentor Feedback Needed
 
-1. Does the `TeamRunJSON` contract in `CLI_Implementation_Contract.md` contain
+1. Does the `TeamRunJSON` contract in `ContractRegistry` / fixtures contain
    enough stable structure for the Mac GUI and iOS snapshots to share one
    renderer/reducer?
 2. ~~Should MCP projection ship after milestone 1?~~ **Closed** — MCP retired;

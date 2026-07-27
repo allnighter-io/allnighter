@@ -1,7 +1,7 @@
 import Foundation
 
 /// The shared structured-error envelope
-/// (docs/phases/CLI_Implementation_Contract.md §Error Envelope).
+/// (docs/archive/phases/CLI_Implementation_Contract.md §Error Envelope).
 ///
 /// One shape, reused everywhere a failure can surface: JSON-mode `errors`,
 /// `TeamRunJSON.AnswerInfo.error` (a failed worker is shown failed, never

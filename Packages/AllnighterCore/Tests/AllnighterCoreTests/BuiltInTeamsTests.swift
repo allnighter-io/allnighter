@@ -324,7 +324,7 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     func testDepthTierDisplayNamesFollowMinMaxLawAndCarryNoRetiredNames() {
-        // Law 2 / Team_Depth_Naming.md: the only depth vocabulary is Min/Max,
+        // Law 2 / Product_Vocabulary depth naming: the only depth vocabulary is Min/Max,
         // appended verbatim to the base family's display name — never a
         // flavor depth name.
         for team in BuiltInTeams.all {

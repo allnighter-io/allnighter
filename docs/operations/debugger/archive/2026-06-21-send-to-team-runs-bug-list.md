@@ -261,7 +261,7 @@ custom team execution, model health/substitutions.
 
 - `docs/archive/phases/Team_Run_Load_Performance.md` - Factory Floor vs thread receipt
   ownership and lazy run rendering.
-- `docs/phases/CLI_Implementation_Contract.md` - `TeamRunJSON.workers`,
+- `docs/archive/phases/CLI_Implementation_Contract.md` - `TeamRunJSON.workers`,
   `workerAnswers`, status vocabulary, and timeout status.
 - `Packages/AllnighterCore/Sources/AllnighterCore/FloorRun.swift` -
   `FloorWorkerLane` already carries status/timing fields for Factory Floor
@@ -281,7 +281,7 @@ custom team execution, model health/substitutions.
   the visible `Inbox | Teams` top-bar control.
 - `docs/phases/Pending_Work_And_Drain.md` - Pending is durable submitted work
   intent/lifecycle state; it should not be used as a vague Floor next-move label.
-- `docs/phases/Work_Order_Team_Model.md` - worker = model wearing a skill; models
+- `docs/workflows/Product_Vocabulary.md` - worker = model wearing a skill; models
   sit on the Bench, workers do jobs.
 - `docs/phases/wiring/design_handoff_default_substitutions/README.md` - healthy
   substitution product promise and tier policy.

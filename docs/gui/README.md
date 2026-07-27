@@ -16,6 +16,7 @@ tier and links the rest.
 ## Contents
 
 - `GUI_Workflow.md` — canonical router: tiers, non-negotiables, testing, briefs.
+- `Visual_Proof_Gate.md` — render → layout-watcher → seal (standing GUI law).
 - `0.GUI-Tech-Stack.md` — SwiftUI / macOS stack and where tokens enter the app.
 - `1.GUI-Invariants.md` — the always-true UI rules.
 - `2.GUI-Surface-Architecture.md` — the app's surfaces, mapped to the design-system UI kits.

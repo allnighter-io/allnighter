@@ -1,10 +1,8 @@
 # Language Cutover
 
-Status: **DONE** (CUT-S00–S06, 2026-06-18) — cutover complete; the locked vocabulary is now the SSOT everywhere. Kept as the canonical word-list reference (no longer blocks work).
-Owner: AllnighterCore + CLI/MCP + Mac app + docs
-Updated: 2026-07-24 (banned-term sweep: struck the never-shipped `propose|review|
-  execute|scout` posture enum and "approval gates mutating" line — superseded
-  by `Unified_Run_Model.md`'s no-approval-gate law)
+Status: **ARCHIVED 2026-07-26** — cutover complete (CUT-S00–S06).
+**Promoted:** `docs/workflows/Product_Vocabulary.md` (standing vocabulary).
+This file is the closed rename/cutover record — not live phase work.
 
 ## Why now, and the law
 

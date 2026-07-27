@@ -170,7 +170,7 @@ public enum SkillCatalog {
     /// Every `.planWriter` skill also receives the universal Lead Call envelope
     /// (hero synthesizer artifact + decision-card machine surface).
     /// Design-board answer seats also receive `designSeatCaptureBrief` when
-    /// `outputKind == .designBoard` (DL-S03 / `docs/phases/Design_Lane.md`).
+    /// `outputKind == .designBoard` (DL-S03 / `docs/operations/Design_Lane.md`).
     public static func assemblePrompt(
         skillId: String?,
         founderPrompt: String,

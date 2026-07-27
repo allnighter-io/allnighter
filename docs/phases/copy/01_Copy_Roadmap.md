@@ -18,7 +18,7 @@ Copy type routes the default team.
 Context is optional.
 ```
 
-Vocabulary follows `docs/phases/Work_Order_Team_Model.md`: a team is a lineup of
+Vocabulary follows `docs/workflows/Product_Vocabulary.md`: a team is a lineup of
 workers, and each worker is one model wearing one skill.
 
 ## Product Value

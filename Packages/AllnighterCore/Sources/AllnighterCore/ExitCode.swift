@@ -6,7 +6,7 @@ import Foundation
 /// **Stable table — never renumber silently.** Drift is gated by
 /// `ExitCodeContractTests.testStableExitCodeTableNeverRenumbered` and the
 /// generated `exit-codes.json` artifact. See
-/// `docs/phases/CLI_Implementation_Contract.md` §Process exit codes and
+/// `docs/archive/phases/CLI_Implementation_Contract.md` §Process exit codes and
 /// `docs/phases/Process_Ownership.md` PO-F3.
 public enum ExitCode {
     /// The command completed. Under `--json` the envelope is a success payload.

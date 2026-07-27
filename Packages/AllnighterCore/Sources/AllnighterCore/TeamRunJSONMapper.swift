@@ -2,7 +2,7 @@ import Foundation
 import AgentOSTeam
 
 /// Projects the internal `TeamRun` persistence model into the public
-/// `TeamRunJSON` contract (docs/phases/CLI_Implementation_Contract.md
+/// `TeamRunJSON` contract (docs/archive/phases/CLI_Implementation_Contract.md
 /// §TeamRunJSON). The internal model may evolve; this mapper is the single seam
 /// that keeps the public contract stable. `alln team --json`, `alln show --json`,
 /// and the GUI/MCP/iOS presenters all read the mapper's output — never the raw

@@ -20,15 +20,15 @@ Updated: 2026-06-18
 
 Read with:
 
-- `docs/phases/Language_Cutover.md`
+- `docs/workflows/Product_Vocabulary.md`
 - `docs/phases/Team_And_Skill_Catalogs.md`
 - `docs/phases/CLI_Product_Spine.md`
-- `docs/phases/CLI_Implementation_Contract.md`
+- `docs/archive/phases/CLI_Implementation_Contract.md`
 - `docs/strategy/Allnighter_Deploy_Teams_Wedge.md`
 - `docs/strategy/Allnighter_Public_Signal_Wedge.md`
 - Code SSOT `RunService.swift` for current run/mutating-safety truth
 
-`Language_Cutover.md` owns the vocabulary. This doc owns the product surface
+`docs/workflows/Product_Vocabulary.md` owns the vocabulary. This doc owns the product surface
 that makes "Send to team" discoverable and useful.
 
 ## Founder Intent
@@ -347,7 +347,7 @@ Why: this starts from a public X post and asks how it applies to this Project.
 
 Existing useful substrate:
 
-- `Language_Cutover.md` locks Chat / Delegate ("Send to team") / Execute.
+- `docs/workflows/Product_Vocabulary.md` locks Chat / Delegate ("Send to team") / Execute.
 - `TeamCatalog` and `SkillCatalog` exist for built-in/custom teams and skills.
 - `TeamRunJSON` exists as the public team-run output contract.
 - CLI/MCP docs already name future deployable-team discovery and run tools.
@@ -390,7 +390,7 @@ Core:
 
 CLI/MCP:
 
-- Prefer the final `team.run` primitive from `Language_Cutover.md`.
+- Prefer the final `team.run` primitive from `docs/workflows/Product_Vocabulary.md`.
 - Provide list/get/preflight/run equivalents for Team Cards if the final MCP
   contract still exposes discovery.
 - Report `mutating` and approval requirements before run start.

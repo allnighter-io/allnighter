@@ -92,7 +92,7 @@ or code confidence. Before closeout:
    not `fixed`.
 
 The watcher is the eyes the building agent lacks. See
-`docs/phases/GUI_Visual_Proof_Gate.md`.
+`docs/gui/Visual_Proof_Gate.md`.
 
 ## Debug Packet
 

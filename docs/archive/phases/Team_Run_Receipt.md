@@ -3,7 +3,9 @@
 Status: **ARCHIVED 2026-07-26** — product shipped (S01 / S01b / S01c / S03 /
 S00b Done). S00 growth scorecard still awaiting founder disposition (historical
 only). **Code is SSOT:** `ArtifactProjector` / `ArtifactWriter` / `ArtifactCLI`.
-This file is the closed design record + founder locks — not live phase work.
+This file is the closed design record — not live phase work.
+**Promoted (2026-07-26):** founder chrome locks →
+`docs/gui/surfaces/team-artifact/brief.md` (standing surface brief).
 Owner (historical): AllnighterCore artifact path; Floor = deep reader.
 Updated: 2026-07-26 (archived — phases never hold SSOT)
 Companions:
@@ -12,11 +14,12 @@ Companions:
   Open Floor; **team artifact is a third surface** — see §Surface ownership)
 - **Lead Call** (universal Lead / `.planWriter` envelope + `lead-call` fenced
   JSON — call / leans / status): `SkillCatalog.leadCallEnvelope`;
-  Spec Review closeout: `docs/phases/Spec_Review.md` §1
+  Spec Review closeout: `docs/operations/Spec_Review.md`
 - Design authority: `docs/design-system/production.md` +
   `docs/design-system/tokens/*.css` + `docs/gui/GUI_Workflow.md`
+- **Standing chrome locks:** `docs/gui/surfaces/team-artifact/brief.md`
 - **What Design team means** (code mockup → host capture, not Midjourney):
-  `docs/phases/Design_Lane.md`
+  `docs/operations/Design_Lane.md`
 - Growth note (optional later series — **not** the layout driver):
   `docs/marketing/Growth_Playbook.md` §Shareable run receipts
 - Adjacent Buzz spike (optional room test **after** artifact exists):  
@@ -699,6 +702,9 @@ desktop and clean on mobile** — dual viewport, not mobile-only.
 
 ## Founder lock — Memo + evidence (2026-07-26)
 
+> **Standing home:** `docs/gui/surfaces/team-artifact/brief.md`.
+> Text below is the closed archive copy.
+
 Approved dogfood decision (implementing):
 
 1. **Artifact = CEO memo + evidence**, not memo-only with fake chip expand.
@@ -709,6 +715,9 @@ Approved dogfood decision (implementing):
 6. Show all Lead recommendations (no hide-to-3 density lie).
 
 ## Founder lock — K3 memo-page chrome (2026-07-26)
+
+> **Standing home:** `docs/gui/surfaces/team-artifact/brief.md`.
+> Text below is the closed archive copy.
 
 Dogfood run `99FEB349` (Visual System Designer / K3). Incorporate into
 `ArtifactProjector` (no extra Design round required for the artifact itself):

@@ -1,7 +1,7 @@
 import Foundation
 
 /// `ProjectJSON` family — the public machine contract for the `alln project`
-/// commands (docs/phases/CLI_Implementation_Contract.md §CLI Contract). Run
+/// commands (docs/archive/phases/CLI_Implementation_Contract.md §CLI Contract). Run
 /// resolution/execution truth lives in `RunService.swift`, not here. Every
 /// envelope carries `schemaVersion`, `contractVersion`, and a
 /// `projectId` where one applies, plus typed `nextActions` so an agent can chain

@@ -181,7 +181,7 @@ FORBIDDEN = re.compile(
 )
 
 SUPERSEDED_BANNER = """> **Vocabulary (2026-06-15).** Current product language lives in
-> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> `docs/workflows/Product_Vocabulary.md`. This doc uses team/model/worker/plan
 > terms only.
 
 """
@@ -249,9 +249,9 @@ outputs are **worker answers** and a synthesized **plan**.
 
 Durable owners going forward:
 
-- Vocabulary: `docs/phases/Work_Order_Team_Model.md`
+- Vocabulary: `docs/workflows/Product_Vocabulary.md`
 - Machine contract: `docs/phases/CLI_Product_Spine.md` +
-  `docs/phases/CLI_Implementation_Contract.md`
+  `docs/archive/phases/CLI_Implementation_Contract.md`
 - Implementation proof: `Packages/AllnighterCore` types (`TeamRun`, `Model`,
   `Worker`, `WorkerAnswer`, `TeamPreset`) and `alln team`
 
@@ -265,7 +265,7 @@ rg -n 'allnighter ask|allnighter detect|council_ask|council_|masterPlan|panelSea
 
 ## Done When (met)
 
-- `docs/phases/README.md` routes vocabulary to `Work_Order_Team_Model.md`
+- `docs/phases/README.md` routes vocabulary to `docs/workflows/Product_Vocabulary.md`
 - CLI uses `alln team` and `alln models`; MCP uses `team_*` tools
 - `TeamRunJSON` fixture exists (`team_run.json`)
 - Mac GUI says Run team / Ask the team / Team sidebar
@@ -278,7 +278,7 @@ def rewrite_mvp_readme(path: Path) -> None:
 
 > **This folder is the source of truth for the built MVP foundation.**
 > New post-MVP work starts in `docs/phases/`. This folder describes what
-> shipped using **current product vocabulary** (`docs/phases/Work_Order_Team_Model.md`).
+> shipped using **current product vocabulary** (`docs/workflows/Product_Vocabulary.md`).
 
 Status: **Build-ready.** Mac first. iOS is a designed-for, deferred follow-on.
 Updated: 2026-06-15
@@ -337,7 +337,7 @@ Prompt → Team (workers) → Worker answers → Plan → (optional) Work order
 | [`RB1`–`RB6`](RB1_Workflow_Presets_And_Stage_Primitives.md) | Review-board stages |
 | [`RB6_Team_As_Tool.md`](RB6_Team_As_Tool.md) | `alln team` tool surface |
 
-Forward vocabulary: `docs/phases/Work_Order_Team_Model.md`.
+Forward vocabulary: `docs/workflows/Product_Vocabulary.md`.
 """, encoding="utf-8")
 
 

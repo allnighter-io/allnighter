@@ -34,13 +34,28 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 ### Active priorities
 
-| Doc | Status | Purpose |
-| --- | --- | --- |
-| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** | SWW-S04/S05 attention commands, `pending stop`, safe followUp/returnReview Pending execution. Phase packet — not SSOT. |
-| [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **⚠ FOUNDER DECISION** | Build the Scout → Triangulation → Graph backend, or archive the deep-build spec and keep only the shipped foundations. |
+No mandatory founder-decision packets open. Forward work is optional feature
+packets below (or dogfood of shipped surfaces). Signal Graph deep-build is
+archived — keep Research; do not revive.
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
+> [`Unattended_Worker_Auth_Prompt_Stall.md`](../archive/phases/Unattended_Worker_Auth_Prompt_Stall.md)
+> (Complete 2026-07-27 — non-interactive spawn env + stall diagnosis; does **not**
+> claim Security.framework prompt-proof; code SSOT `AllnighterSpawnEnvironmentPolicy` /
+> `ProcessOwnership` stall diagnosis);
+> Hygiene promote 2026-07-26 — standing homes (not phases):
+> [`Product_Vocabulary.md`](../workflows/Product_Vocabulary.md)
+> (from Language_Cutover + Work_Order_Team_Model + Team_Depth_Naming),
+> [`Visual_Proof_Gate.md`](../gui/Visual_Proof_Gate.md),
+> [`Design_Lane.md`](../operations/Design_Lane.md),
+> [`Spec_Review.md`](../operations/Spec_Review.md);
+> archived packets under `docs/archive/phases/` for those names;
+> [`Signal_Scout_Triangulation_And_Graph.md`](../archive/phases/Signal_Scout_Triangulation_And_Graph.md)
+> (ARCHIVED 2026-07-26 — keep Research; Graph = not now),
+> [`CLI_Implementation_Contract.md`](../archive/phases/CLI_Implementation_Contract.md)
+> (ARCHIVED 2026-07-26 — Remaining list ruled stale; code/`ContractRegistry` SSOT;
+> do not resume June Pending/SWW leftovers),
 > [`Team_Run_Receipt.md`](../archive/phases/Team_Run_Receipt.md)
 > (ARCHIVED 2026-07-26 — artifact product shipped; code SSOT `ArtifactProjector` /
 > `ArtifactWriter` / `ArtifactCLI`; S00 growth disposition still historical),
@@ -97,13 +112,6 @@ law. Shipped subsections already belong to code; do not cite these paths as
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open / M1 built — **archive when no forward CLI naming work remains** | `alln` agent-first naming while still evolving. Code owns shipped contract bits. |
-| [`CLI_Implementation_Contract.md`](CLI_Implementation_Contract.md) | **Forward work open** (SWW-S04/S05, pending stop, …) | Implementation packet for CLI doctor/errors/events + remaining commands. |
-| [`Work_Order_Team_Model.md`](Work_Order_Team_Model.md) | Vocabulary packet — **promote out of phases or archive**; code owns run model | Historical word list for teams/skills; run-model truth is `RunService.swift`. |
-| [`Language_Cutover.md`](Language_Cutover.md) | DONE — **archive overdue** | Locked vocabulary cutover record. Not a living SSOT in phases. |
-| [`Team_Depth_Naming.md`](Team_Depth_Naming.md) | DECIDED — **archive when catalog naming is fully applied** | Min/(bare)/Max naming convention record. |
-| [`Spec_Review.md`](Spec_Review.md) | Team built — **archive overdue**; rubric may move to ops if still needed | Spec Review hero-loop packet. Team lives in `BuiltInTeams` / skills. |
-| [`GUI_Visual_Proof_Gate.md`](GUI_Visual_Proof_Gate.md) | Enforced — **promote to `docs/gui/` or `docs/operations/`; do not keep as phases SSOT** | Render → layout-watcher → proof packet. Gate: `scripts/check_gui_proof.sh`. |
-| [`Design_Lane.md`](Design_Lane.md) | Locked build law — **archive when DL capture path is fully closed**; code owns capture | Design = built surface → host screenshot. Code: `DesignBoardCapture`, catalog tags. |
 
 ### Team catalog & delegation (forward)
 
@@ -130,7 +138,6 @@ without a new founder ruling.
 | [`threads/09_Thread_Forking.md`](threads/09_Thread_Forking.md) | **Draft — unbuilt** (needs CLI-only reframe) | Fork a thread from a terminal turn prefix into a new child thread. No code yet. |
 | [`Keyboard_Shortcuts.md`](Keyboard_Shortcuts.md) | **KBD-S00/S01 done**; S02–S06 forward | Tier-2 list nav (j/k), ⌘P quick-switcher, output/manage keys, PM/pending keys, settings override page. |
 | [`Folder_Native_Memory.md`](Folder_Native_Memory.md) | **Pointer only shipped** — consolidation engine unbuilt | Only the memory pointer line ships (referenced by relay/pilot scaffolds); the consolidation round, seat-line loop, and second-run works-test are unbuilt. |
-| [`Signal_Scout_Triangulation_And_Graph.md`](Signal_Scout_Triangulation_And_Graph.md) | **Draft — ⚠ FOUNDER DECISION** | Signal foundations exist (`SignalInsight.swift` struct + parser only); the whole Scout → Triangulation → Graph backend is unbuilt. Decide: build it out, or archive the deep-build spec and keep only the shipped foundations. |
 | [`Chat_Module_Extraction.md`](Chat_Module_Extraction.md) | **Plan — not started** | Consolidate Allnighter's two chat substrates and extract into the shared AgentOS `AgentOSChatCore`/`AgentOSChatUI` packages. |
 | [`Contradiction_Pass.md`](Contradiction_Pass.md) | **Draft — NOT AUTHORIZED**; queued behind Code Red + Menu Relations | Give Max a structural difference instead of more bodies: mechanical contradiction/co-attribution detection from anchored findings (all tiers, zero model cost), false/factual/judgment classification, and one bounded Max-only resolution seat. Default escalates via `escalationRecommended`, never silently spends. Extends archived Spec Review packet. |
 
@@ -247,23 +254,23 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Vendor usage limit / session cap, parked run, wake/resume, authorized substitute | archived `Rate_Limit_Continuity.md` (code SSOT: `VendorBackoffReconciler`, `VendorSubstitutionPolicy`) |
 | Two `alln`s on different projects colliding, scoped reconcile/kill, per-invocation isolation | archived `Concurrent_Invocation_Isolation.md` (code SSOT; extends archived `Process_Ownership.md`) |
 | Default-chat / team-run latency, streaming throughput, rail click stalls, scroll jank | archived `Team_Run_Load_Performance.md` (code SSOT; warm path: archived `Warm_Single_Lane_Chat.md`) |
-| GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `GUI_Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
+| GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Agent front door — findable/suggested/selection, catalog normalization | Front door V1 Complete — archived `Agent_Front_Door.md` (gate 1) → archived `Agent_Onboarding.md` (gate 2) → archived `Menu_Not_Router.md` (selection; gate 3 router tombstone: `Agent_Intent_Router.md`); catalog: archived `Team_Catalog_Normalization.md` |
 | Stale MCP/help language, empty help search, invented flags, dead `pair slice` in living docs, version freshness | archived `CLI_Agent_Surface_Fidelity.md` (Complete; code SSOT `RetiredVocabulary` + HelpTopicRegistry) |
-| CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md` + `CLI_Implementation_Contract.md` |
+| CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md`; shipped schemas/commands = `ContractRegistry` / code |
 | Team authoring shape (`teams duplicate`/`new`/`edit` JSON), model-catalog quick fixes | archived [`Model_Catalog_Quick_Fixes.md`](../archive/phases/Model_Catalog_Quick_Fixes.md) — MCV-S03 shipped (code SSOT: `AllnighterCLI` authoring printers + `ContractRegistry` `teamPreset`/`teamShowJSON`); remaining ledger items unauthorized |
-| Run model, answer vs execution teams, dispatch/source safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` + `Work_Order_Team_Model.md` |
-| Public vocabulary, model/skill/worker/team language | `Work_Order_Team_Model.md` + `Language_Cutover.md` |
+| Run model, answer vs execution teams, dispatch/source safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` + `docs/workflows/Product_Vocabulary.md` |
+| Public vocabulary, model/skill/worker/team language | `docs/workflows/Product_Vocabulary.md` |
 | Send to team, delegation surface, Team Cards | `Team_Delegation_Surface.md` + `docs/gui/surfaces/send-to-team/brief.md` |
 | Live in-thread team run progress, honest streaming excerpts | `Live_Team_Board.md` |
-| Team naming, depth tiers (Min/Default/Max), family names | `Team_Depth_Naming.md` (applied by `Team_Catalog_Normalization.md`) |
+| Team naming, depth tiers (Min/Default/Max), family names | `docs/workflows/Product_Vocabulary.md` (applied by `Team_Catalog_Normalization.md`) |
 | Team lab — benchmarking, seat economics, roster ablation, calibration | Team Lab is SHUT DOWN (founder, 2026-07-24) — do not resume; archived `Team_Lab_Run_Factory.md` + `Team_Lab_Composition_And_Seat_Economics.md` + `Team_Lab_Slice_1_Full_Package.md` (un-rebased) |
-| Spec Review hero loop, review lenses, positioning | `Spec_Review.md` |
+| Spec Review hero loop, review lenses, positioning | `docs/operations/Spec_Review.md` |
 | Team seating, Haiku/custom rank inheritance, CLI/family diversity | archived [`Seating_Tier_And_CLI_Diversity.md`](../archive/phases/Seating_Tier_And_CLI_Diversity.md) — Complete 2026-07-25 (S1–S3, contract 4.0.2); code SSOT `ModelCatalog` + `TeamResolver` + `RunDryRunJSON.seats` |
 | Menu byte budget, cold-agent selection and composition | Code SSOT: `MenuCatalog.swift`, `MenuSelectionCopy.swift`; gate `scripts/verify_menu_contract.py`; matrix `scripts/agent_eval.sh --suite menu-not-router`. The relations phase was killed by its own measurement — do not reopen. |
-| Panel disagreement, contradiction detection, what Max does beyond more seats, anchored findings | `Contradiction_Pass.md` (extends `Spec_Review.md`) |
+| Panel disagreement, contradiction detection, what Max does beyond more seats, anchored findings | `Contradiction_Pass.md` (extends `docs/operations/Spec_Review.md`) |
 | Gorgeous private team run report / artifact, deliberate share (not Mac-only) | Code SSOT: `ArtifactProjector` / `ArtifactWriter` / `ArtifactCLI`; closed record: archived `Team_Run_Receipt.md` |
-| Design team / design edits — code mockup → host screenshot (not Midjourney) | `Design_Lane.md` |
+| Design team / design edits — code mockup → host screenshot (not Midjourney) | `docs/operations/Design_Lane.md` |
 | Buzz / attended agent-chat rooms as a call site for alln (after receipts) | `Buzz_Harness_Spike.md` + `docs/strategy/Buzz_And_The_Judgment_Layer.md` (firm-member mythology retired; receipt-first) |
 | Share a link from the phone into a Research run, iOS share sheet intake | `Share_To_Research.md` (reuses `RemoteCommandRouter` `startRun` + `SignalSourceRouter`; no new protocol operation) |
 | Pilot/Relay long deploy or ops turn; harness killed `pilot watch`; detached handoff cwd/binary; status vs watch recovery | archived [`Pilot_Long_Turn_Survival.md`](../archive/phases/Pilot_Long_Turn_Survival.md) — code SSOT `PilotCLI.swift` / `RelayCoordinator.swift` (substrate: archived `Pilot_Relay.md` / `Pilot_DX.md`; idle floors: archived `Idle_Stall_False_Kill_Hotfix.md`) |
@@ -271,7 +278,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Persistent chat, routable turns, thread backend | `Persistent_Work_Threads.md` → `threads/04_Observed_Usage.md`, `threads/09_Thread_Forking.md` |
 | Keyboard shortcuts, quick-switcher, list nav | `Keyboard_Shortcuts.md` |
 | Folder-native memory / seat-line consolidation | `Folder_Native_Memory.md` |
-| Signal craft — Scout / Triangulation / Graph | `Signal_Scout_Triangulation_And_Graph.md` (⚠ founder decision) |
+| Signal / Research team | Code: `BuiltInTeams.signalPostToProject` + `SignalSourceRouter`; deep Graph packet archived |
 | Chat module consolidation + AgentOS extraction | `Chat_Module_Extraction.md` |
 | First-run setup, CLI detection/auth, per-CLI support | `setup/README.md` |
 | Copy lane, `/copy`, copy board | `copy/README.md` |

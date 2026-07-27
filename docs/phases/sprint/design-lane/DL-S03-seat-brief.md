@@ -1,7 +1,7 @@
 # DL-S03 — Design seat brief: leave one captureable file
 
 Status: **done** (DL-S03)
-SSOT: `docs/phases/Design_Lane.md` §§Path selection, Path declaration, Self-determination
+SSOT: `docs/operations/Design_Lane.md` §§Path selection, Path declaration, Self-determination
 
 ## Goal
 
@@ -15,7 +15,7 @@ You are implementing DL-S03 ONLY (Design seat brief + path declaration).
 
 Read:
 - docs/phases/sprint/design-lane/DL-S03-seat-brief.md
-- docs/phases/Design_Lane.md
+- docs/operations/Design_Lane.md
 - docs/operations/Execution-Playbook.md §Commits
 
 Implement:

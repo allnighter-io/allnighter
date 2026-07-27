@@ -137,8 +137,9 @@ Archive workflow:
    - **code** — the type, registry or service that now enforces the rule. Record
      it in the archive index's *Successor owner* column so the code is findable
      from the phase.
-   - **the living contract** — `docs/phases/CLI_Implementation_Contract.md` for
-     contract-visible surface (commands, flags, JSON, exit codes).
+   - **the living contract** — code `ContractRegistry` / CLI for
+     contract-visible surface (commands, flags, JSON, exit codes). Historical
+     packet only: `docs/archive/phases/CLI_Implementation_Contract.md`.
    - **the workflow docs** — `docs/workflows/SSOT_Feature_Workflow.md` for build
      laws the phase taught us, `SSOT_Founder_Input_Workflow.md` for intake rules.
    A law that exists only inside an archived phase doc is not durable truth; it

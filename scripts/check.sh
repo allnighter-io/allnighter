@@ -38,7 +38,7 @@ ran_any=true
 
 # GUI Visual Proof Gate (S05): a visible SwiftUI surface cannot land without a
 # proof packet or an explicit waiver. Cheap (git + grep) so it runs first and
-# fails fast. See docs/phases/GUI_Visual_Proof_Gate.md.
+# fails fast. See docs/gui/Visual_Proof_Gate.md.
 echo "==> check GUI visual proof gate"
 bash "$ROOT/scripts/check_gui_proof.sh"
 ran_any=true
@@ -96,7 +96,7 @@ while IFS= read -r pattern; do
       rg -n -F -- "$pattern" "$ROOT"/docs/operations/*.md 2>/dev/null || true
       rg -n -F -- "$pattern" \
         "$ROOT/docs/phases/CLI_Product_Spine.md" \
-        "$ROOT/docs/phases/CLI_Implementation_Contract.md" 2>/dev/null || true
+        "$ROOT/docs/archive/phases/CLI_Implementation_Contract.md" 2>/dev/null || true
     } || true
   )
   if [[ -n "$hits" ]]; then

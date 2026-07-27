@@ -3,7 +3,7 @@ import XCTest
 
 /// The registry is the SSOT for the `alln` contract; these tests enforce that it
 /// stays internally consistent and in lock-step with the closed types it owns
-/// (docs/phases/CLI_Implementation_Contract.md §Contract Registry).
+/// (docs/archive/phases/CLI_Implementation_Contract.md §Contract Registry).
 final class ContractRegistryTests: XCTestCase {
     private let reg = ContractRegistry.milestone1
 

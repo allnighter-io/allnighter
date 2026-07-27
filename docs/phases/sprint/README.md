@@ -53,7 +53,7 @@ SSOT: archived [`Menu_Not_Router.md`](../../archive/phases/Menu_Not_Router.md).
 | 2 | [DL-S02 — WebKit board capture](design-lane/DL-S02-webkit-board.md) | **done** |
 | 3 | [DL-S03 — seat brief](design-lane/DL-S03-seat-brief.md) | **done** |
 
-SSOT: `docs/phases/Design_Lane.md`. Implementers: Cursor Grok 4.5 + Composer only.
+SSOT: `docs/operations/Design_Lane.md`. Implementers: Cursor Grok 4.5 + Composer only.
 
 ### Team Run Receipt (TRR)
 

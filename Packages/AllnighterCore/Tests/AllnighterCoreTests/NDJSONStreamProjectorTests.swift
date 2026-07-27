@@ -3,7 +3,7 @@ import AgentOSTeam
 @testable import AllnighterCore
 
 /// Output-discipline + content tests for the `alln team --stream` NDJSON
-/// projection (docs/phases/CLI_Implementation_Contract.md §NDJSON Stream).
+/// projection (docs/archive/phases/CLI_Implementation_Contract.md §NDJSON Stream).
 /// Fixture-only; no live runs.
 final class NDJSONStreamProjectorTests: XCTestCase {
     private let terminal: Set<String> = ["teamRunCompleted", "teamRunFailed", "error"]

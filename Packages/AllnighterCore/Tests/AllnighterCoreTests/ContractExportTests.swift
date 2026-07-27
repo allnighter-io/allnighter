@@ -3,7 +3,7 @@ import XCTest
 
 /// The drift gate at test level: the checked-in generated artifacts must match
 /// what the registry produces. If this fails, run `alln dev export-contracts`
-/// (docs/phases/CLI_Implementation_Contract.md §Generated Artifacts).
+/// (docs/archive/phases/CLI_Implementation_Contract.md §Generated Artifacts).
 final class ContractExportTests: XCTestCase {
 
     /// Repo root, resolved from this source file:

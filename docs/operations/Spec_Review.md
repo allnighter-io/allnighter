@@ -1,20 +1,18 @@
-# Spec Review — the spec-hardening loop
+# Spec Review
 
-> **Renamed from "Pressure Test" (2026-07-16)** per `Team_Depth_Naming.md`: the team is
-> named for what it does, one name everywhere — picker, docs, marketing.
+Standing law for the Spec Review hero loop. **Not a phase packet.**
 
-**Name: Spec Review.** Named for what it does, self-explanatory, no fantasy.
-The artifact it produces is a **hardened spec**.
-Names considered and retired: *Pressure Test* (brand over function), *Spec Hardening*, *Red Team*. Decided once, no aliases.
+**Code SSOT:** `BuiltInTeams` (`code_spec_review` / `_min` / `_max`),
+`SkillCatalog.leadCallEnvelope` (universal Lead / `.planWriter`),
+`SkillCatalog` Spec Review craft skills.
+**Closed build/marketing record:** `docs/archive/phases/Spec_Review.md`.
+**Depth naming:** `docs/workflows/Product_Vocabulary.md`.
 
-**The one-liner:** Agents fail because specs are mediocre. Spec Review puts every frontier model
-in a room to tear the plan apart until it holds — then any one of them can build it in one pass,
-and shows you it working.
-
-("In a room" is marketing, not mechanism. The mechanism is the opposite of a room — see §5:
-workers are blind to each other, always. Delphi method, not committee.)
-
----
+Lead Call markdown + `lead-call` JSON fence: owned by
+`SkillCatalog.leadCallEnvelope` (Ready|Partial only; never "not ready").
+Workers critique; they do not edit repo files. Lockable engineering leans left
+open = failed Lead. Craft body = impact ledger / rejects / apply-to-doc / proof
+plan — not a rewritten phase doc.
 
 ## 1. What it is
 
@@ -71,7 +69,7 @@ Each row has an ordered cross-CLI fallback chain. All three tiers must remain
 runnable when Claude and ChatGPT/Codex are unavailable; Kimi K3, Grok 4.5, and
 Cursor Grok 4.5 are first-class preferred workers, not weak last resorts. The
 canonical roster and fallback order live in `BuiltInTeams.swift`; naming and
-routing law live in `Team_Depth_Naming.md`.
+routing law live in `docs/workflows/Product_Vocabulary.md`.
 
 ## 2. The impact ledger (the product IS this)
 
@@ -247,29 +245,3 @@ periodically, and turn recurring gaps into new lenses or sharper exemplars. The 
 is a living asset that compounds; it (plus the rotated scoreboard) is the part of this
 feature nobody can copy by reading the marketing page.
 
-## 8. Iteration roadmap
-
-- **v0 — the loop, CLI-first, single-model OK:** draft pass + full-panel fan-out + synthesis +
-  impact ledger + dry-stop. Fixed seed lenses (critics + clean-room rival). Ledger as
-  structured JSON + rendered markdown. Prove it on Allnighter's own specs (dogfood: every
-  phase doc goes through it).
-- **v1 — convergence quality:** refutation gate + pushover test, rejected-findings memory
-  across passes, open-question surfacing to the human, spec vitals, targeted re-review
-  passes, budget caps.
-- **v2 — the flywheel:** (lens, model) scoreboard with rotation, lens→model routing,
-  single-vs-cross-vendor delta measurement, execution-failure capture feeding the lens
-  catalog, proof-plan handoff into verify.
-- **v3 — surfaces:** GUI ledger view (the pass-over-pass story is the demo), phone
-  open-question taps, then the marketing surface (scoreboard content).
-
-Ship v0 before designing v2. The fastest way to learn what the synthesizer contract should
-be is ten real runs on our own specs.
-
-## 9. Open questions
-
-- Executor clarifying-question capture: what's the cheapest reliable hook for harvesting
-  "the executor had to ask" events per CLI?
-- Does the draft pass use the strongest available planner always, or the scoreboard leader?
-- Refutation gate cost: gate every blocking/material finding, or sample below a threshold?
-  (Start: gate everything; measure kill rate; sample only if kill rate is negligible.)
-- Ledger schema versioning: lock v0 schema after dogfood run #10, not before.

@@ -1,7 +1,7 @@
 # GUI Proof Packets
 
 Status: Active
-Owner: `docs/phases/GUI_Visual_Proof_Gate.md`
+Owner: `docs/gui/Visual_Proof_Gate.md`
 Updated: 2026-06-16
 
 A visible GUI fix is not `fixed` until a **layout-watcher** has looked at a real
@@ -42,4 +42,4 @@ screen.
 ## Closeout rule
 
 If a GUI agent cannot produce a render + watcher PASS, it says `visually
-unverified` or `blocked` — never `fixed`. See `docs/phases/GUI_Visual_Proof_Gate.md`.
+unverified` or `blocked` — never `fixed`. See `docs/gui/Visual_Proof_Gate.md`.

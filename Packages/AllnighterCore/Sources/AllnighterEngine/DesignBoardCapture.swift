@@ -9,7 +9,7 @@ import AppKit
 #endif
 
 /// Thin Design-lane host camera: local HTML/SVG → PNG via WebKit.
-/// Product default for `outputKind == designBoard` (`docs/phases/Design_Lane.md`).
+/// Product default for `outputKind == designBoard` (`docs/operations/Design_Lane.md`).
 /// Never calls `imageGen`. Fail closed on missing file / render error / no WebKit.
 public enum DesignBoardCapture: Sendable {
 

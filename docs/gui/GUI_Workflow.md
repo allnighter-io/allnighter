@@ -127,7 +127,7 @@ secrets, or billing.
 
 Visible GUI work does not close from code/build confidence. Tier B-D work that
 changes layout, copy hierarchy, component state, popovers/sheets, navigation, or
-user-facing workflow must follow `docs/phases/GUI_Visual_Proof_Gate.md`.
+user-facing workflow must follow `docs/gui/Visual_Proof_Gate.md`.
 
 The gate is **layout-only**: render the changed surface to a native screenshot,
 then a separate **layout-watcher** agent looks at the pixels and must return no
@@ -146,6 +146,6 @@ or blocked, never fixed.
 - Surface briefs: `docs/gui/surfaces/README.md`
 - Design system (brand, tokens, components): `docs/design-system/readme.md`
 - Design system production rules: `docs/design-system/production.md`
-- Visual proof gate: `docs/phases/GUI_Visual_Proof_Gate.md`
+- Visual proof gate: `docs/gui/Visual_Proof_Gate.md`
 - Feature workflow: `docs/workflows/SSOT_Feature_Workflow.md`
 - iOS companion (remote shell): `docs/phases/ios/README.md`

@@ -88,7 +88,7 @@ final class AppModel {
         reloadHistory()
         #if DEBUG
         // GUI Visual Proof Gate: seed deterministic mixed-health rows ONLY when a
-        // fixture is requested. DEBUG builds only. See docs/phases/GUI_Visual_Proof_Gate.md.
+        // fixture is requested. DEBUG builds only. See docs/gui/Visual_Proof_Gate.md.
         if GUIFixture.isActive {
             if let seeded = GUIFixture.seededModels(base: config.models) {
                 models = seeded

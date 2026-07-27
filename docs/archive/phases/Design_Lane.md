@@ -1,25 +1,9 @@
 # Design Lane — build a real surface, screenshot the receipt
 
-Status: **Locked law + DL-S01–S03 shipped 2026-07-26.** Product camera =
-HTML→WebKit; seat picks what to build from the repo. Diffusion Design default
-ripped. Capture wiring lives in `DesignBoardCapture` + CatalogRunCoordinator.
-Owner: AllnighterCore / AllnighterEngine (run path + board stage) + artifact /
-Floor as readers
-Updated: 2026-07-26 (DL-S01–S03 landed)
-Companions:
-- Sprint: `docs/phases/sprint/design-lane/` (S01 rip, S02 WebKit board, S03 brief)
-- Artifact hero mockups: archived `docs/archive/phases/Team_Run_Receipt.md`
-  (closed record); **code SSOT** `ArtifactProjector` / Design tiles under the
-  memo header; Evidence = full seat craft; chips jump to Evidence
-- Sibling proof habit for **this** app’s GUI: `GUI_Visual_Proof_Gate.md` +
-  `docs/gui/GUI_Workflow.md` (SwiftUI fixture → screenshot → layout-watcher) —
-  Allnighter-on-Allnighter special case, **not** the product default camera
-- Design system: `docs/design-system/production.md` + `tokens/*.css`
-- Catalog families: `BuiltInTeams.swift` (`design_design` / Min / Max / Polish)
-- Chat/concept `imageGen` (WorkerImageCapture/Invoker) stays for **explicit**
-  concept art only — not Design default
-- Vocabulary: `docs/phases/Work_Order_Team_Model.md` (Design example must staff
-  builder seats, not “Grok Imagine”)
+Status: **ARCHIVED 2026-07-26** — locked law + DL-S01–S03 shipped.
+**Promoted:** `docs/operations/Design_Lane.md` (standing Design law).
+Code SSOT: `DesignBoardCapture`, CatalogRunCoordinator board stage.
+This file is the closed build record — not live phase work.
 
 ## Founder intent (locked)
 

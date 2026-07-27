@@ -103,7 +103,7 @@ final class FixtureRoundTripTests: XCTestCase {
 
     /// Keystone: the public `TeamRunJSON` contract decodes from the bundled
     /// fixture, round-trips, and honors the contract invariants
-    /// (docs/phases/CLI_Implementation_Contract.md §TeamRunJSON).
+    /// (docs/archive/phases/CLI_Implementation_Contract.md §TeamRunJSON).
     func testTeamRunJSONContractRoundTrips() throws {
         try assertRoundTrips(TeamRunJSON.self, .teamRunJSON)
 
@@ -177,7 +177,7 @@ final class FixtureRoundTripTests: XCTestCase {
     }
 
     /// The shared error envelope decodes from its fixture and round-trips
-    /// (docs/phases/CLI_Implementation_Contract.md §Error Envelope).
+    /// (docs/archive/phases/CLI_Implementation_Contract.md §Error Envelope).
     func testErrorEnvelopeRoundTrips() throws {
         try assertRoundTrips(ErrorEnvelope.self, .errorEnvelope)
         let err = try Fixtures.decode(ErrorEnvelope.self, .errorEnvelope)
@@ -188,7 +188,7 @@ final class FixtureRoundTripTests: XCTestCase {
     }
 
     /// `DoctorResult` decodes from its fixture, round-trips, and reuses the shared
-    /// `ErrorEnvelope` for fixes (docs/phases/CLI_Implementation_Contract.md
+    /// `ErrorEnvelope` for fixes (docs/archive/phases/CLI_Implementation_Contract.md
     /// §Doctor Contract).
     func testDoctorResultRoundTrips() throws {
         try assertRoundTrips(DoctorResult.self, .doctorResult)

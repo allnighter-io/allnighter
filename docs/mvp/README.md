@@ -2,7 +2,7 @@
 
 > **This folder is the source of truth for the built MVP foundation.**
 > New post-MVP work starts in `docs/phases/`. This folder describes what
-> shipped using **current product vocabulary** (`docs/phases/Work_Order_Team_Model.md`).
+> shipped using **current product vocabulary** (`docs/workflows/Product_Vocabulary.md`).
 
 Status: **Build-ready.** Mac first. iOS is a designed-for, deferred follow-on.
 Updated: 2026-06-15
@@ -61,4 +61,4 @@ Prompt → Team (workers) → Worker answers → Plan → (optional) Work order
 | [`RB1`–`RB6`](RB1_Workflow_Presets_And_Stage_Primitives.md) | Review-board stages |
 | [`RB6_Team_As_Tool.md`](RB6_Team_As_Tool.md) | `alln team` tool surface |
 
-Forward vocabulary: `docs/phases/Work_Order_Team_Model.md`.
+Forward vocabulary: `docs/workflows/Product_Vocabulary.md`.

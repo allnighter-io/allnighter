@@ -78,7 +78,7 @@ Type   = Landing page, Email, Ads, UGC, ...
 Reasoning effort = optional provider/model reasoning-depth setting
 ```
 
-Read `docs/phases/Work_Order_Team_Model.md` before designing Copy team controls.
+Read `docs/workflows/Product_Vocabulary.md` before designing Copy team controls.
 
 ## UX Laws
 
@@ -182,7 +182,7 @@ Read in order:
 
 1. `docs/phases/copy/README.md`
 2. `docs/phases/copy/00_Copy_MVP.md`
-3. `docs/phases/Work_Order_Team_Model.md` - model/skill/worker/team vocabulary
+3. `docs/workflows/Product_Vocabulary.md` - model/skill/worker/team vocabulary
 4. `docs/phases/parked/Utilization_Admission_Control.md` - parked admission rules
 5. `docs/mvp/README.md` - built team-run/design-board substrate
 6. `docs/phases/copy/02_Copy_Apply_To_Site.md` for the fast-follow handoff

@@ -105,6 +105,6 @@ cat >&2 <<EOF
          bash scripts/gui_proof_waive.sh "<reason>" <file>...
     3. One-shot local override (states a reason; CI cannot use it):
          ALLNIGHTER_GUI_PROOF_WAIVER="<reason>" bash scripts/check.sh
-  See docs/phases/GUI_Visual_Proof_Gate.md.
+  See docs/gui/Visual_Proof_Gate.md.
 EOF
 exit 1

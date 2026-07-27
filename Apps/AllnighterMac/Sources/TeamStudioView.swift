@@ -11,7 +11,7 @@ import AllnighterCore
 // invents team/skill truth.
 
 /// One destination in the Studio. Teams/Skills are always lane-scoped (every team
-/// and skill belongs to exactly one lane — Work_Order_Team_Model.md).
+/// and skill belongs to exactly one lane — docs/workflows/Product_Vocabulary.md).
 enum StudioRoute: Hashable {
     case clis
     case useFromCLI

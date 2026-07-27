@@ -7,7 +7,7 @@ Created: 2026-06-19
 Updated: 2026-06-21
 Depends on: `README.md`, `00_iOS_Transport_Decision.md`, `01_Connection_Spine.md`,
 `01a_Pairing_Ceremony.md`, `../CLI_Product_Spine.md`,
-`../CLI_Implementation_Contract.md`, `../Mac_Standalone_App_And_Background_Coordinator.md`
+`../../archive/phases/CLI_Implementation_Contract.md`, `../Mac_Standalone_App_And_Background_Coordinator.md`
 
 ## Purpose
 

@@ -8,7 +8,7 @@ Created: 2026-06-15
 Updated: 2026-06-21 (headless foundation status sync)
 Depends on: `00a_iOS_Foundation_Slice_0.md`, `00_iOS_Transport_Decision.md` (architecture & trust), `../../mvp/00_MVP_Architecture.md`
 §4/§6/§9, `../../mvp/RB6_Team_As_Tool.md`, `../CLI_Product_Spine.md`,
-`../Work_Order_Team_Model.md` (vocabulary),
+`../../workflows/Product_Vocabulary.md` (vocabulary),
 `../Mac_Standalone_App_And_Background_Coordinator.md`. Historical cleanup record:
 `../../archive/phases/Team_First_Vocabulary_Cleanup.md`.
 

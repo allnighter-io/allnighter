@@ -21,7 +21,7 @@ import AllnighterEngine
 ///   for deprecated CGWindowListCreateImage). Requires Screen Recording grant.
 /// - All other fixtures (home-*, thread-*, team-*, etc.): in-process snapshot of
 ///   the primary window's content view (no TCC, no separate windows). See policy
-///   in `docs/phases/GUI_Visual_Proof_Gate.md`.
+///   in `docs/gui/Visual_Proof_Gate.md`.
 enum GUIFixture {
     private static let devRoot: URL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Developer/Allnighter", isDirectory: true)

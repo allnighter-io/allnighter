@@ -1,5 +1,5 @@
 > **Vocabulary (2026-06-15).** Current product language lives in
-> `docs/phases/Work_Order_Team_Model.md`. This doc uses team/model/worker/plan
+> `docs/workflows/Product_Vocabulary.md`. This doc uses team/model/worker/plan
 > terms only.
 
 # Design2 - Build This (the flywheel)
