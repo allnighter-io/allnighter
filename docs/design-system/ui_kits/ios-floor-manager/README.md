@@ -7,9 +7,9 @@ not the MVP — built on the same tokens and components so it's ready when the
 team gets here.
 
 ## Screens (tap the tab bar)
-1. **Home** — the **Morning Pull** digest (agent-hours · drafts · landed),
-   "Needs you" pending picks, what landed overnight (green-tier), and the global
-   **Stop all workers** kill switch.
+1. **Home** — session digest (agent-hours · drafts · landed), "Needs you"
+   pending picks, what completed while unattended or between sessions
+   (green-tier), and the global **Stop all workers** kill switch.
 2. **Lanes** — **Active lanes**: each task's lane with worker, `StatusPill`, a
    progress bar, and a one-tap **Land · green tier** when it's ready. ("Lane" is
    the user-facing word; the worktree is hidden.)

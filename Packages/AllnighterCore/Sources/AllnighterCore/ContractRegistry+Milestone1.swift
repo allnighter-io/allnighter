@@ -403,7 +403,7 @@ public extension ContractRegistry {
             "run",
             summary: "Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.",
             milestone: .m1,
-            trigger: "Use when the user wants one worker or team to answer or act in a project repo root (chat / named-model ask / Default Team / async overnight).",
+            trigger: "Use when the user wants one worker or team to answer or act in a project repo root (chat / named-model ask / Default Team / detach when stepping away).",
             example: "alln run \"summarize AGENTS.md\" --project . --json",
             antiExample: "Do NOT use this to explore shapes — prefer `alln run --dry-run` or `alln menu --json` first; this spends quota.",
             args: [ArgSpec("message", required: true, summary: "The user's prompt.")],

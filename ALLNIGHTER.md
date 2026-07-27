@@ -4,9 +4,11 @@ Internal product specification for the Allnighter macOS + iOS apps.
 
 ## What This Is
 
-Allnighter turns the user's Mac into an overnight **agent factory** and their
-iPhone into the **floor manager** for that factory. It coordinates the AI coding
-tools the user already pays for — not another model provider or chat aggregator.
+Allnighter is the all-day control plane for the AI coding tools the user already
+pays for — Spec Review, pilot, relay, and team judgment on Mac (CLI + app), with
+iPhone as an optional remote floor. Detach and while-away loops are supported;
+they are not the product definition. Not another model provider or chat
+aggregator. The name Allnighter is brand/domain only.
 
 ## Primary Docs
 

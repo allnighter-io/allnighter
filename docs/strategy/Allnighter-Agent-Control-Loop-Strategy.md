@@ -68,7 +68,7 @@ valuable for visibility and remote steer, not required as the daily workplace.
 
 If Allnighter becomes another place to code, review diffs, watch terminals, or
 manage branches, it is competing on the wrong axis. If it becomes the rails that
-know the repo, run team judgment, shape handoffs, relay overnight work, and
+know the repo, run team judgment, shape handoffs, run pilot/relay loops, and
 verify what came back — callable from the agents the user already trusts — it
 has a real wedge.
 
@@ -140,7 +140,7 @@ I am using several strong agents.
 They come back with different plans, diffs, suggestions, and claims.
 I need local rails that know the Project and keep the loop moving.
 I need the next best prompt or work order without copy/paste archaeology.
-I need team judgment and overnight relay without becoming the traffic cop.
+I need team judgment and multi-round pilot/relay without becoming the traffic cop.
 I need proof before I believe "done."
 I want to steer this from a host CLI now, Mac floor when useful, phone later.
 ```
@@ -194,7 +194,7 @@ How humans optionally enter:
 
 ```text
 Mac app or iOS
--> floor visibility, attention, approve/steer, kick overnight work
+-> floor visibility, attention, approve/steer, start or resume team work
 -> same loop over the same local contract
 ```
 
@@ -274,10 +274,10 @@ agent-driven paths still need an inspectable, structured order.
 
 ### Relay And Pilot
 
-For multi-round or overnight work, relay (PM seat ↔ dev seat) and pilot are
-first-class loop modes — especially when the human is not sitting in any UI.
-They are how Allnighter shows up to work while the user stays in a host CLI or
-is offline.
+For multi-round work, relay (PM seat ↔ dev seat) and pilot are first-class loop
+modes — used all day when the human stays in a host CLI, and also when they
+step away. They are how Allnighter keeps the loop moving without the user as
+copy-paste traffic cop.
 
 ### Return Review
 
@@ -301,7 +301,7 @@ The product should fit the user's existing tools:
 ```text
 Live in the host agent/CLI you already use.
 Call alln (pilot, relay, panel, team, menu) when judgment, dispatch,
-overnight loop, or proof rails are needed.
+multi-round loop, or proof rails are needed.
 Use the Mac app or phone when you want the floor — not because you must
 type every prompt there.
 ```
@@ -510,7 +510,7 @@ one-next-move proposals and inspectable work orders
 direct dispatch with capture
 proof-aware verification
 fanout/synthesis when judgment is needed
-Mac floor: attention, threads, health, overnight visibility
+Mac floor: attention, threads, health, session/completion visibility
 iOS remote steer over the same contract
 ```
 

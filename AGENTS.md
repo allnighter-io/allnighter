@@ -12,11 +12,13 @@ experiments as more authoritative than the routed source docs.
 
 ## Mission
 
-Allnighter turns the user's Mac into an overnight **AI-agent factory** and the
-app/iPhone into one bench to run them from. It coordinates the coding agents
-the user already pays for (Claude Code, Codex, Grok, Gemini CLI, Aider, Cursor)
-plus local models — chat with one in your repo, fan out to many for options, all
-on one screen. Run model code SSOT: `RunService.swift` (the one run owner).
+Allnighter is the **all-day bench** for the coding agents the user already pays
+for (Claude Code, Codex, Grok, Gemini CLI, Aider, Cursor, local models). Hero
+use is attended and high-frequency: **Spec Review**, **pilot**, **relay**, and
+team judgment on the Mac — CLI + app as one floor. Detach / while-away /
+unattended long loops are supported modes, not the product story. The name
+Allnighter is brand and domain only. Run model code SSOT: `RunService.swift`
+(the one run owner).
 
 > You already pay for the team. Allnighter makes it show up to work.
 
@@ -25,6 +27,9 @@ terminal viewer. Dark-mode-only native macOS app; brand is "amber phosphor on
 midnight." Agents must preserve: parallel research from the selected Team in the
 canonical repository, exactly one mutating worker per root, option generation,
 quota harvesting, and preference compounding.
+
+**Do not pitch overnight / "while you sleep" / wake-up-to-diffs as the default
+value prop.** Dogfood reality is all-day Spec Review, pilot, and relay.
 
 ## Authoritative Sources
 

@@ -8,8 +8,9 @@ Allnighter vision, market, product, wedge, and opportunity.
 
 ## One-Sentence Version
 
-Allnighter turns the user's Mac into an overnight AI-agent factory and the
-user's phone, CLI, or messaging agent into the floor manager for it.
+Allnighter is the all-day control plane for the AI coding CLIs you already pay
+for — Spec Review, pilot, relay, and team judgment on Mac, with phone/CLI as
+optional floors. The name is brand only; overnight is a mode, not the product.
 
 ## Executive Summary
 
@@ -401,8 +402,8 @@ plans -> work orders -> dispatch -> returned outputs -> comparison -> next work
 ```
 
 That expansion is natural because users do not want one-off answers. They want a
-project to keep moving while they sleep, commute, think, or work on higher-level
-decisions.
+project that keeps moving across many attended sessions — Spec Review before
+build, pilot/relay for multi-round work, and optional detach when they step away.
 
 ## Product Surfaces
 
@@ -416,7 +417,7 @@ The Mac app is the floor. It should make agent work visible and trustworthy:
 - which workers failed;
 - which plan/spec was produced;
 - what needs approval;
-- what happened overnight.
+- what completed while unattended or between sessions.
 
 The Mac app is not the only way to use Allnighter. It is the visual command
 center and setup surface.
@@ -553,7 +554,7 @@ route the next action.
 ## Near-Term Product Priorities
 
 1. Make the `alln` CLI the stable product spine.
-2. Harden run durability so interrupted/overnight work is never silently lost.
+2. Harden run durability so interrupted or long-turn work is never silently lost.
 3. Upgrade Fan out to lane -> team, with strong built-in Build, Design, and
    Copy teams. Team variants own depth.
 4. Make one-CLI self-fusion excellent so the product works on day one.

@@ -620,7 +620,7 @@ Implementation detail to decide with mentors:
 | --- | --- | --- |
 | GUI shells out to `alln` | Total parity; easy dogfood | Process overhead, brittle parsing, harder live state |
 | CLI and GUI share `AllnighterCore` command handlers | Fast, testable, native | Requires discipline to keep parity visible |
-| CLI and GUI both talk to local coordinator | Best for iOS/overnight/resume | More daemon complexity early |
+| CLI and GUI both talk to local coordinator | Best for iOS/detach/resume | More daemon complexity early |
 
 Recommended posture: build shared command handlers first; make `alln` the golden
 grammar, generated docs, and Works Test surface. Add a local coordinator when
@@ -650,9 +650,9 @@ Resident:
 alln serve
 ```
 
-This exposes the coordinator's transports (iOS, overnight runs, notifications,
-resumable event streams, local HTTP tool calls). Whether and when the
-coordinator is actually running is a lifecycle decision owned by the Mac
+This exposes the coordinator's transports (iOS, detached long-turn runs,
+notifications, resumable event streams, local HTTP tool calls). Whether and when
+the coordinator is actually running is a lifecycle decision owned by the Mac
 standalone doc, not CLI grammar. (MCP stdio transport: **retired** — see
 MCP was retired 2026-07-16; the CLI is the only agent surface (code SSOT: `RetiredVocabulary.swift`).)
 

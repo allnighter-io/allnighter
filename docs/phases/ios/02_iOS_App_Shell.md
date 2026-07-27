@@ -126,7 +126,7 @@ Not part of the default first-run.
 
 Don't let Home become a raw log viewer. The Mac will emit first-class *attention
 items* (`needs_read`, `needs_pick`, `needs_approval`, `failed_needs_decision`,
-`ready_to_build`, `ready_to_land`) that become Home, Morning Pull, notifications,
+`ready_to_build`, `ready_to_land`) that become Home, session digest, notifications,
 Shortcuts. **Not v1** — but keep Home reading a small typed summary, not scraping raw
 runs, so Pending and attention items drop in without a rewrite (same posture as
 `PushNotifier`).

@@ -86,10 +86,10 @@ function HomeScreen({ go }) {
       R.createElement('span', { className: 'wm' }, 'allnighter'),
       R.createElement(Icon, { name: 'settings-2', size: 21, style: { color: 'var(--text-muted)' } })),
     R.createElement('div', { className: 'ios-hi' }, 'Good morning, Mara'),
-    R.createElement('div', { className: 'ios-sub' }, 'Thursday · the bench worked 3 lanes overnight'),
+    R.createElement('div', { className: 'ios-sub' }, 'Thursday · 3 lanes active on the bench'),
     R.createElement('div', { className: 'ios-pull', style: { marginTop: 18 } },
-      R.createElement('div', { className: 'ios-eyebrow' }, 'Morning Pull'),
-      R.createElement('div', { style: { fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.5 } }, 'While you slept, your prepaid bench turned quota into reviewable progress.'),
+      R.createElement('div', { className: 'ios-eyebrow' }, 'Session digest'),
+      R.createElement('div', { style: { fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.5 } }, 'Your prepaid bench turned quota into reviewable progress.'),
       R.createElement('div', { className: 'ios-stats' },
         [['4.2h', 'agent-hours'], ['7', 'drafts'], ['3', 'landed']].map((s, i) =>
           R.createElement('div', { className: 'ios-stat', key: i },
@@ -103,7 +103,7 @@ function HomeScreen({ go }) {
           R.createElement('span', { className: 'ios-t' }, 'A race is ready to plan writer'),
           R.createElement('span', { className: 'ios-m' }, '3 directions · premium dashboard')),
         R.createElement(Icon, { name: 'chevron-right', size: 18, style: { color: 'var(--text-faint)' } }))),
-    R.createElement('div', { className: 'ios-sectit' }, 'Landed overnight'),
+    R.createElement('div', { className: 'ios-sectit' }, 'Landed'),
     [['Onboarding copy rewrite', 'green tier · reverted 0'], ['Empty-state illustrations', 'green tier · 6 tests pass']].map((x, i) =>
       R.createElement('div', { className: 'ios-card', key: i },
         R.createElement('div', { className: 'ios-row' },

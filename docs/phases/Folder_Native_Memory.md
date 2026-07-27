@@ -12,16 +12,16 @@ Created: 2026-07-16 · Updated: 2026-07-16
 
 Every CLI vendor is building memory at the ACCOUNT level, siloed per vendor —
 Claude's memory doesn't know what Codex learned about this repo; Cursor's rules
-don't know what the Grok seat discovered overnight. Allnighter is the only thing
-that sits above all seats at the FOLDER level: it watches every vendor's worker
-succeed, fail, get gated, get flagged, get corrected — in one place.
+don't know what the Grok seat discovered last session. Allnighter is the only
+thing that sits above all seats at the FOLDER level: it watches every vendor's
+worker succeed, fail, get gated, get flagged, get corrected — in one place.
 
 > "Your repo remembers, no matter which CLI touched it" — a sentence no lab can
 > say, structurally (they won't consolidate a competitor's lessons).
 
 Evidence from the first week of piloted deliveries (#1–#5): the loop worked better
 *because the piloting PM had cross-session memory* (verdict-tail traps, cursor
-allowlist behavior, known test baselines, seat speeds). A spawned overnight PM has
+allowlist behavior, known test baselines, seat speeds). A cold-start PM seat has
 none of that — every relay is a cold read. The signals already exist and are
 durable (round logs, verdicts, dev reports, repoDeltas, gate blocks, escalations,
 founder resume answers — the highest-signal events, the analog of Ikiro's

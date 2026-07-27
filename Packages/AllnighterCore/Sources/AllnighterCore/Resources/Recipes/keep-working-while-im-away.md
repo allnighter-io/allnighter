@@ -4,8 +4,8 @@ Unattended PM↔dev loop (Relay). A PM seat reviews and a dev seat builds, round
 
 ## Example utterances
 
-1. "Keep going tonight without me."
-2. "Run the overnight PM↔dev loop on this spec."
+1. "Keep going without me for a while."
+2. "Run an unattended PM↔dev relay on this spec."
 3. "Keep working while I'm away — escalate only if stuck."
 
 ## Teaching (keep in sync with TeachingSnippet)

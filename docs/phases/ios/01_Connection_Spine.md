@@ -227,8 +227,8 @@ IA — short-lived):
   **`resyncRequired`** → fetch a `SnapshotEnvelope`, then resume live. **`seq = 0`
   (fresh install) goes straight to snapshot**, skipping the delta. No silent gaps.
 - **Snapshot includes recently-completed runs** (bounded/paginated), not just
-  in-flight ones — the **Morning Pull** (overnight results, by then past event TTL)
-  is the headline moment and must be in the snapshot. `SnapshotEnvelope { runs:
+  in-flight ones — the **session digest** (recently completed / needs-you, by then
+  past event TTL) is a headline moment and must be in the snapshot. `SnapshotEnvelope { runs:
   [TeamRunLight], lastSeq, serverTime, protocolVersion }`; sensitive fields are
   sealed refs. One fixture drives mock + UI and should derive from the same
   `TeamRunJSON` contract as the CLI.
@@ -407,7 +407,7 @@ A MockiOSClient signed into an account drives a Mac over the CLOUD relay:
   - a design board's images arrive E2E (per-device media_keys + R2 ciphertext),
     thumbnail-first, and decrypt; a SECOND paired device decrypts only its own key;
   - drop + reconnect by seq -> exactly missed events, no dupes; seq=0 -> snapshot;
-    a snapshot after the event-TTL still shows the recently-COMPLETED overnight run;
+    a snapshot after the event-TTL still shows the recently-COMPLETED detached run;
   - injected command_inbox row (valid account session, bad/missing signature OR
     spoofed fromDeviceId) -> rejected by the Mac (not the cloud); audit metadata-only;
   - reused requestId / out-of-window timestamp -> rejected (distinct codes); a phone
@@ -438,6 +438,6 @@ Then the SAME MockiOSClient drives the SAME Mac over Direct Mode with identical 
 Activate `02`. The remote loop now has a frictionless cloud-relay default, a proven
 two-key E2E crypto contract sealing content **both directions**, at-least-once
 delivery with a reliable kill switch, a transport-agnostic trust spine with surgical
-revocation and metadata-only audit, snapshots that carry overnight results, and
+revocation and metadata-only audit, snapshots that carry recently completed runs, and
 Direct Mode as the premium carrier — the GUI is "just" wiring SwiftUI to an
 already-proven surface.
