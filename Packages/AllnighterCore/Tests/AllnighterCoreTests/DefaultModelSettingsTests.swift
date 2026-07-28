@@ -25,6 +25,25 @@ final class DefaultModelSettingsTests: XCTestCase {
         }
     }
 
+    func testPickerSectionsDedupMultiTierModelsByHighestTier() {
+        let bench = [
+            "model_fable", "model_chatgpt", "model_gemini", "model_cursor_composer_25",
+            "model_kimi_k27", "model_chatgpt_sol", "model_composer",
+        ]
+        let sections = DefaultModelSettings.fresh.tiers.pickerSections(orderedBench: bench)
+        XCTAssertEqual(sections.map(\.title), ["Frontier", "Balanced", "Economy", "Unassigned"])
+        XCTAssertEqual(sections[0].modelIds, ["model_fable", "model_chatgpt"])
+        XCTAssertEqual(sections[1].modelIds, ["model_cursor_composer_25", "model_gemini"])
+        XCTAssertEqual(sections[2].modelIds, ["model_kimi_k27"])
+        XCTAssertEqual(sections[3].modelIds, ["model_chatgpt_sol", "model_composer"])
+    }
+
+    func testPickerModelIdsOmitsCollapsedUnassigned() {
+        let bench = ["model_fable", "model_composer"]
+        let flat = DefaultModelSettings.fresh.tiers.pickerModelIds(orderedBench: bench, includeUnassigned: false)
+        XCTAssertEqual(flat, ["model_fable"])
+    }
+
     func testAutoPrefersFableOverCodexSolWhenBothReady() {
         let r = SubstitutionResolver.resolveAuto(
             settings: .fresh,

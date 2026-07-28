@@ -116,6 +116,44 @@ public struct TierMembership: Codable, Sendable, Equatable {
 
     public var assignedModelIds: Set<ModelID> { Set(frontier + balanced + economy) }
 
+    /// One section in the composer / picker model list — tier roster order, deduped by
+    /// `highestTier` so a multi-tier model appears once under its best tier.
+    public struct PickerSection: Equatable, Sendable {
+        public var tier: SubstitutionTier?
+        public var title: String
+        public var modelIds: [ModelID]
+
+        public init(tier: SubstitutionTier?, title: String, modelIds: [ModelID]) {
+            self.tier = tier
+            self.title = title
+            self.modelIds = modelIds
+        }
+    }
+
+    /// Group on-Bench models for the routing picker: Frontier → Balanced → Economy →
+    /// Unassigned. `orderedBench` supplies browse order for Unassigned (typically A–Z).
+    public func pickerSections(orderedBench: [ModelID]) -> [PickerSection] {
+        let bench = Set(orderedBench)
+        var sections: [PickerSection] = []
+        for tier in SubstitutionTier.allCases {
+            let ids = self[tier].filter { bench.contains($0) && highestTier(of: $0) == tier }
+            guard !ids.isEmpty else { continue }
+            sections.append(PickerSection(tier: tier, title: tier.displayName, modelIds: ids))
+        }
+        let unassigned = orderedBench.filter { isUnassigned($0) }
+        if !unassigned.isEmpty {
+            sections.append(PickerSection(tier: nil, title: "Unassigned", modelIds: unassigned))
+        }
+        return sections
+    }
+
+    /// Flat picker order — Auto row is separate in the UI.
+    public func pickerModelIds(orderedBench: [ModelID], includeUnassigned: Bool = true) -> [ModelID] {
+        pickerSections(orderedBench: orderedBench)
+            .filter { includeUnassigned || $0.tier != nil }
+            .flatMap(\.modelIds)
+    }
+
     /// Add `id` to `tier` at `position` (clamped; nil = append), or move it within the
     /// tier if already present. Other tiers are untouched — membership is many-to-many.
     /// `position == 0` makes it that tier's default.

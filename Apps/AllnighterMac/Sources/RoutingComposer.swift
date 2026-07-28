@@ -207,6 +207,8 @@ struct RoutingComposer: View {
     /// Snapshot of `composeAllTeams()` taken when the target popover opens — avoids
     /// rebuilding the full roster on every hover/keystroke re-render.
     @State private var pickerTeams: [ComposeTeam] = []
+    /// Unassigned tier is collapsed by default so edge seats don't dominate browse.
+    @State private var unassignedSectionCollapsed = true
 
     let placeholder: String
     private let big: Bool
@@ -303,7 +305,17 @@ struct RoutingComposer: View {
             if team == nil { effortOpen = false }
         }
         .onChange(of: targetOpen) { _, open in
-            if !open { modelEditWorkerId = nil }
+            guard open else {
+                modelEditWorkerId = nil
+                return
+            }
+            defaultSettings = DefaultModelSettingsPersistence().load()
+            targetHighlight = 0
+            refreshPickerTeams()
+            unassignedSectionCollapsed = !(pinnedWorker.map { defaultSettings.tiers.isUnassigned($0) } ?? false)
+            if targetTab == .model || locksTeam {
+                appModel.refreshCapacityCooldowns()
+            }
         }
         // ⌘L — focus the composer editor from anywhere (only a real send composer).
         .onChange(of: commands.focusComposerTick) { _, _ in
@@ -994,13 +1006,13 @@ struct RoutingComposer: View {
             if locksTeam {
                 // Send-to-team launcher: team is fixed, so just override the model.
                 popHeader("Model", "Override the resolved model when needed")
-                modelList(appModel.composeBench.map(\.id))
+                modelList()
             } else {
                 targetTabs
                 if targetTab == .model {
                     // Auto = the default model, so it lives at the top of the Model tab.
                     defaultTeamRow
-                    modelList(appModel.composeBench.map(\.id))
+                    modelList()
                 } else {
                     // Team tab is just teams now — no Auto row → way cleaner.
                     teamSearchField
@@ -1014,14 +1026,6 @@ struct RoutingComposer: View {
         // ↑/↓/⏎ are handled by an AppKit key monitor (SwiftUI key focus doesn't fire
         // inside an NSPopover). Hover + the default top-row highlight come from `targetHighlight`.
         .overlay(targetKeyMonitor.allowsHitTesting(false))
-        .onChange(of: targetOpen) { _, open in
-            guard open else { return }
-            targetHighlight = 0
-            refreshPickerTeams()
-            if targetTab == .model || locksTeam {
-                appModel.refreshCapacityCooldowns()
-            }
-        }
         .onChange(of: targetTab) { _, tab in
             targetHighlight = 0
             if tab == .model, targetOpen { appModel.refreshCapacityCooldowns() }
@@ -1208,11 +1212,26 @@ struct RoutingComposer: View {
         pickerTeams = appModel.composeAllTeams()
     }
 
+    /// On-Bench model ids in A–Z browse order (Unassigned tail order).
+    private var benchModelIds: [String] { appModel.composeBench.map(\.id) }
+
+    /// Tier-grouped picker sections — roster order within tier, deduped by highest tier.
+    private var modelPickerSections: [TierMembership.PickerSection] {
+        defaultSettings.tiers.pickerSections(orderedBench: benchModelIds)
+    }
+
+    /// Flat model rows for keyboard navigation (respects Unassigned collapse).
+    private var navigableModelIds: [String] {
+        defaultSettings.tiers.pickerModelIds(
+            orderedBench: benchModelIds,
+            includeUnassigned: !unassignedSectionCollapsed)
+    }
+
     /// The flat, ordered list of selectable rows for the current tab — the index space
     /// that ↑/↓ and hover move through.
     private var targetItems: [TargetItem] {
-        if locksTeam { return appModel.composeBench.map { .model($0.id) } }
-        if targetTab == .model { return [.auto] + appModel.composeBench.map { .model($0.id) } }
+        if locksTeam { return navigableModelIds.map { .model($0) } }
+        if targetTab == .model { return [.auto] + navigableModelIds.map { .model($0) } }
         return visibleTeams.map { .team($0.id) }
     }
 
@@ -1315,19 +1334,40 @@ struct RoutingComposer: View {
         .contentShape(Rectangle())
     }
 
-    private func modelList(_ ids: [String]) -> some View {
+    private func modelSectionLabel(_ text: String) -> some View {
+        teamSectionLabel(text)
+    }
+
+    private func unassignedSectionHeader(count: Int) -> some View {
+        Button {
+            unassignedSectionCollapsed.toggle()
+            targetHighlight = min(targetHighlight, max(0, targetItems.count - 1))
+        } label: {
+            HStack(spacing: 4) {
+                modelSectionLabel("Unassigned (\(count))")
+                Spacer(minLength: 0)
+                Image(systemName: unassignedSectionCollapsed ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(ALColor.textFaint)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func modelList() -> some View {
         ScrollView {
             VStack(spacing: 1) {
-                ForEach(ids, id: \.self) { id in
-                    if let m = appModel.composeBench.first(where: { $0.id == id }) {
-                        HStack(spacing: 4) {
-                            Button {
-                                if m.ready { pinnedWorker = id; if !locksTeam { team = nil }; targetOpen = false }
-                            } label: { modelRow(m) }
-                                .buttonStyle(.plain)
-                                .disabled(!m.ready)
-                            if m.ready && m.supportsEffort {
-                                modelEffortPill(for: m.id).padding(.trailing, 6)
+                ForEach(modelPickerSections, id: \.title) { section in
+                    if section.tier != nil {
+                        modelSectionLabel(section.title)
+                        ForEach(section.modelIds, id: \.self) { id in
+                            modelListRow(id)
+                        }
+                    } else {
+                        unassignedSectionHeader(count: section.modelIds.count)
+                        if !unassignedSectionCollapsed {
+                            ForEach(section.modelIds, id: \.self) { id in
+                                modelListRow(id)
                             }
                         }
                     }
@@ -1335,6 +1375,22 @@ struct RoutingComposer: View {
             }
         }
         .frame(minHeight: 196, maxHeight: 240)
+    }
+
+    @ViewBuilder
+    private func modelListRow(_ id: String) -> some View {
+        if let m = appModel.composeBench.first(where: { $0.id == id }) {
+            HStack(spacing: 4) {
+                Button {
+                    if m.ready { pinnedWorker = id; if !locksTeam { team = nil }; targetOpen = false }
+                } label: { modelRow(m) }
+                    .buttonStyle(.plain)
+                    .disabled(!m.ready)
+                if m.ready && m.supportsEffort {
+                    modelEffortPill(for: m.id).padding(.trailing, 6)
+                }
+            }
+        }
     }
 
     private func modelRow(_ m: ComposeBenchModel) -> some View {
