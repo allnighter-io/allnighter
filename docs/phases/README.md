@@ -157,6 +157,7 @@ without a new founder ruling.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Worker_Skill_Sharing.md`](Worker_Skill_Sharing.md) | **Brainstorm — founder feedback** | Shared skill hats across teams (Bug Hunt Min/Default/Max); fork-on-save breaks reuse; options for overrides vs team-local prompts. Shipped adjacent: Skills settings tab removed, `alln skills gc`. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | **Draft — needs re-base** against `Unified_Run_Model.md` (its Execute-approval mutating gate is retired ceremony); Core routing built, GUI browse surface unbuilt | Send-to-team as the discoverable delegation surface: Team Card projection, family map, direct team send. |
 | [`Live_Team_Board.md`](Live_Team_Board.md) | **Draft feature packet** — no-theater contract | In-thread live board for running answer-team runs: sourced per-worker states + real deltas only when emitted. Forbids fake activity/progress. |
 
