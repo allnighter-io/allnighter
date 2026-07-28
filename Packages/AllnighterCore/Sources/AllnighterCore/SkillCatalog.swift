@@ -10,9 +10,9 @@ public enum SkillPurpose: String, Codable, Sendable, CaseIterable {
 }
 
 /// A reusable prompt profile ("hat") one model wears for one worker. Every skill
-/// belongs to exactly one lane. Built-in skills are product assets; editing a
-/// built-in creates a custom skill. Runs snapshot resolved skill data so history
-/// stays readable after an update (Team_And_Skill_Catalogs.md).
+/// belongs to exactly one lane. Built-in skills ship as seeds; same-ID overrides
+/// on disk win effective lookup. Runs snapshot resolved skill data so history
+/// stays readable after an update.
 public struct Skill: Codable, Sendable, Equatable, Identifiable {
     public var id: SkillID
     public var displayName: String
@@ -47,6 +47,13 @@ public struct Skill: Codable, Sendable, Equatable, Identifiable {
 /// Catalog entry for one built-in or custom skill definition.
 public typealias SkillDefinition = Skill
 
+/// Derived origin for an effective skill — do not infer from `builtIn` alone.
+public enum SkillOrigin: String, Codable, Sendable, CaseIterable {
+    case seed
+    case override
+    case custom
+}
+
 /// Core-owned source of truth for built-in skill prompts. Built-in team rows
 /// reference skills by id; the resolver snapshots id/name into runs.
 public enum SkillCatalog {
@@ -61,28 +68,85 @@ public enum SkillCatalog {
             try? CatalogFileIO.delete(id: id, root: CatalogRoots.skills)
             return nil
         }
-        return byID[id] ?? CatalogFileIO.loadOne(id: id, kind: .skill, root: CatalogRoots.skills, as: Skill.self)
+        if let file = CatalogFileIO.loadOne(id: id, kind: .skill, root: CatalogRoots.skills, as: Skill.self) {
+            if let seed = byID[id] { return normalizedOverride(file, seed: seed) }
+            return file
+        }
+        return byID[id]
     }
 
     public static func skills(in lane: WorkLane) -> [Skill] {
         list(lane: lane)
     }
 
-    /// Lane-scoped catalog list (built-in + custom). Lab skills are never listed.
+    /// Lane-scoped catalog list (built-in + override + custom). Lab skills are never listed.
     public static func list(lane: WorkLane) -> [SkillDefinition] {
         CatalogLabRetirement.purgeRetiredLabArtifacts()
+        let filesById = Dictionary(
+            CatalogFileIO.loadAll(kind: .skill, root: CatalogRoots.skills, as: Skill.self)
+                .filter { !CatalogLabRetirement.isLabSkillId($0.id) }
+                .map { ($0.id, $0) },
+            uniquingKeysWith: { a, _ in a }
+        )
         let reserved = Set(builtIns.map(\.id))
-        let customs = CatalogFileIO.loadAll(kind: .skill, root: CatalogRoots.skills, as: Skill.self)
-            .filter { $0.lane == lane && !reserved.contains($0.id) && !CatalogLabRetirement.isLabSkillId($0.id) }
-        return builtIns.filter { $0.lane == lane } + customs
+        var result: [Skill] = []
+        for seed in builtIns where seed.lane == lane {
+            if let file = filesById[seed.id] {
+                result.append(normalizedOverride(file, seed: seed))
+            } else {
+                result.append(seed)
+            }
+        }
+        for (id, file) in filesById where !reserved.contains(id) && file.lane == lane {
+            result.append(file)
+        }
+        return result
     }
 
-    /// Lookup one skill definition by id (built-in wins).
+    /// Lookup one skill definition by id (override wins over seed).
     public static func get(_ id: SkillID) -> SkillDefinition? { skill(id) }
+
+    /// True when a built-in id has a same-ID user override on disk.
+    public static func hasOverride(_ id: SkillID) -> Bool {
+        guard byID[id] != nil else { return false }
+        return CatalogFileIO.loadOne(id: id, kind: .skill, root: CatalogRoots.skills, as: Skill.self) != nil
+    }
+
+    /// Derived origin for an effective skill id.
+    public static func origin(of id: SkillID) -> SkillOrigin? {
+        guard skill(id) != nil else { return nil }
+        if byID[id] == nil { return .custom }
+        return hasOverride(id) ? .override : .seed
+    }
+
+    /// Shipped seed id when `id` is a built-in identity; nil for pure customs.
+    public static func seedId(for id: SkillID) -> SkillID? {
+        byID[id] != nil ? id : nil
+    }
+
+    /// Display names of saved teams referencing `skillId` (worker, lead, or scout).
+    public static func teamDisplayNamesReferencingSkill(_ skillId: SkillID) -> [String] {
+        let teams = TeamCatalog.all
+        let ids = teamIdsReferencingSkill(skillId, in: teams)
+        return teams
+            .filter { ids.contains($0.id) }
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+            .map(\.displayName)
+    }
+
+    private static func normalizedOverride(_ file: Skill, seed: Skill) -> Skill {
+        var s = file
+        s.id = seed.id
+        s.lane = seed.lane
+        s.purpose = seed.purpose
+        s.builtIn = false
+        return s
+    }
 
     @discardableResult
     public static func duplicateBuiltIn(_ id: SkillID, name: String?) throws -> SkillDefinition {
-        guard let source = byID[id] else { throw CatalogError.skillNotFound }
+        guard let seed = byID[id] else { throw CatalogError.skillNotFound }
+        let source = skill(id) ?? seed
         var newId = CatalogIDGenerator.customID(lane: source.lane, displayName: name ?? source.displayName)
         while get(newId) != nil { newId = CatalogIDGenerator.customID(lane: source.lane, displayName: name ?? source.displayName, suffix: String(Int.random(in: 1000...9999))) }
         let now = Date()
@@ -93,6 +157,52 @@ public enum SkillCatalog {
         )
         try saveCustom(copy)
         return copy
+    }
+
+    /// Write a same-ID override for a built-in skill (display name and template only).
+    public static func saveOverride(_ skill: SkillDefinition) throws {
+        guard let seed = byID[skill.id] else { throw CatalogError.skillNotFound }
+        if CatalogLabRetirement.isLabSkillId(skill.id) {
+            throw CatalogError.skillInvalid("lab skills are retired and are not saved to the product catalog")
+        }
+        guard skill.lane == seed.lane && skill.purpose == seed.purpose else {
+            throw CatalogError.skillInvalid("lane and purpose cannot change for a built-in skill")
+        }
+        guard !skill.template.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw CatalogError.skillInvalid("template must not be empty")
+        }
+        guard !skill.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw CatalogError.skillInvalid("display name must not be empty")
+        }
+        var override = skill
+        override.builtIn = false
+        override.lane = seed.lane
+        override.purpose = seed.purpose
+        let now = Date()
+        if override.createdAt == nil { override.createdAt = now }
+        override.updatedAt = now
+        try CatalogFileIO.save(override, id: skill.id, kind: .skill, root: CatalogRoots.skills)
+    }
+
+    /// Save an effective skill — override for built-in ids, in-place for customs.
+    public static func saveEffective(_ skill: SkillDefinition) throws {
+        if byID[skill.id] != nil {
+            try saveOverride(skill)
+        } else {
+            try saveCustom(skill)
+        }
+    }
+
+    /// Restore a built-in skill to its shipped seed by removing the user's override.
+    @discardableResult
+    public static func restore(_ id: SkillID) throws -> (skill: SkillDefinition, removedOverride: Bool) {
+        guard byID[id] != nil else { throw CatalogError.restoreUnsupported }
+        let had = hasOverride(id)
+        if had {
+            try CatalogFileIO.delete(id: id, root: CatalogRoots.skills)
+        }
+        guard let skill = get(id) else { throw CatalogError.skillNotFound }
+        return (skill, had)
     }
 
     public static func saveCustom(_ skill: SkillDefinition) throws {

@@ -118,10 +118,17 @@ public struct SkillCatalogJSON: Codable, Sendable, Equatable {
         public var lane: String
         public var purpose: String
         public var builtIn: Bool
+        public var origin: String
+        public var seedId: String?
+        public var restoreAvailable: Bool
 
-        public init(id: String, displayName: String, lane: String, purpose: String, builtIn: Bool) {
+        public init(
+            id: String, displayName: String, lane: String, purpose: String, builtIn: Bool,
+            origin: String, seedId: String?, restoreAvailable: Bool
+        ) {
             self.id = id; self.displayName = displayName; self.lane = lane
             self.purpose = purpose; self.builtIn = builtIn
+            self.origin = origin; self.seedId = seedId; self.restoreAvailable = restoreAvailable
         }
     }
     public var schemaVersion: Int
@@ -129,16 +136,78 @@ public struct SkillCatalogJSON: Codable, Sendable, Equatable {
     public var lane: String?
     public var skills: [Entry]
 
-    public init(schemaVersion: Int = 1, contractVersion: String, lane: String? = nil, skills: [Entry]) {
+    public init(schemaVersion: Int = 2, contractVersion: String, lane: String? = nil, skills: [Entry]) {
         self.schemaVersion = schemaVersion; self.contractVersion = contractVersion
         self.lane = lane; self.skills = skills
     }
 
     public static func project(_ skills: [Skill], lane: WorkLane?, contractVersion: String) -> SkillCatalogJSON {
         SkillCatalogJSON(contractVersion: contractVersion, lane: lane?.rawValue, skills: skills.map {
-            Entry(id: $0.id, displayName: $0.displayName, lane: $0.lane.rawValue,
-                  purpose: $0.purpose.rawValue, builtIn: $0.builtIn)
+            let origin = SkillCatalog.origin(of: $0.id) ?? .custom
+            return Entry(
+                id: $0.id, displayName: $0.displayName, lane: $0.lane.rawValue,
+                purpose: $0.purpose.rawValue,
+                builtIn: origin == .seed,
+                origin: origin.rawValue,
+                seedId: SkillCatalog.seedId(for: $0.id),
+                restoreAvailable: SkillCatalog.hasOverride($0.id)
+            )
         })
+    }
+}
+
+/// One skill detail projection for `skills show`, `skills edit`, `skills new`, and
+/// `skills duplicate` JSON receipts.
+public struct SkillDetailJSON: Codable, Sendable, Equatable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var id: String
+    public var displayName: String
+    public var lane: String
+    public var purpose: String
+    public var builtIn: Bool
+    public var origin: String
+    public var seedId: String?
+    public var restoreAvailable: Bool
+    public var template: String
+    public var createdAt: String?
+    public var updatedAt: String?
+
+    public static func project(_ skill: Skill, contractVersion: String) -> SkillDetailJSON {
+        let origin = SkillCatalog.origin(of: skill.id) ?? .custom
+        let iso = ISO8601DateFormatter()
+        return SkillDetailJSON(
+            schemaVersion: 2,
+            contractVersion: contractVersion,
+            id: skill.id,
+            displayName: skill.displayName,
+            lane: skill.lane.rawValue,
+            purpose: skill.purpose.rawValue,
+            builtIn: origin == .seed,
+            origin: origin.rawValue,
+            seedId: SkillCatalog.seedId(for: skill.id),
+            restoreAvailable: SkillCatalog.hasOverride(skill.id),
+            template: skill.template,
+            createdAt: skill.createdAt.map { iso.string(from: $0) },
+            updatedAt: skill.updatedAt.map { iso.string(from: $0) }
+        )
+    }
+}
+
+/// Restore acknowledgement for `alln skills restore`.
+public struct SkillRestoreJSON: Codable, Sendable, Equatable {
+    public var schemaVersion: Int
+    public var contractVersion: String
+    public var id: String
+    public var restored: Bool
+    public var origin: String
+
+    public init(schemaVersion: Int = 1, contractVersion: String, id: String, restored: Bool, origin: String) {
+        self.schemaVersion = schemaVersion
+        self.contractVersion = contractVersion
+        self.id = id
+        self.restored = restored
+        self.origin = origin
     }
 }
 

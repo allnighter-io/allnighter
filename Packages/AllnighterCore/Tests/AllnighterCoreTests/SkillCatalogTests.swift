@@ -157,4 +157,108 @@ final class SkillCatalogTests: XCTestCase {
         let opusLanes = ModelCatalog.capabilities("model_opus").laneTags
         XCTAssertGreaterThan(opusLanes.count, 1, "model capability laneTags stay multi-lane")
     }
+
+    // MARK: - WSS-S01 shared-skill overrides
+
+    private var skillsRoot: URL!
+    private var teamsRoot: URL!
+
+    override func setUp() {
+        super.setUp()
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("skill-catalog-\(UUID().uuidString)", isDirectory: true)
+        teamsRoot = base.appendingPathComponent("teams", isDirectory: true)
+        skillsRoot = base.appendingPathComponent("skills", isDirectory: true)
+        try? FileManager.default.createDirectory(at: teamsRoot, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: skillsRoot, withIntermediateDirectories: true)
+        CatalogRoots.overrideForTesting(teams: teamsRoot, skills: skillsRoot)
+    }
+
+    override func tearDown() {
+        CatalogRoots.resetTestingOverrides()
+        super.tearDown()
+    }
+
+    func testOverridePrecedenceAndOneEntryMerge() throws {
+        var override = try XCTUnwrap(SkillCatalog.get("bug_reproducer"))
+        override.template = "WSS_SENTINEL: shared override."
+        try SkillCatalog.saveOverride(override)
+
+        XCTAssertEqual(SkillCatalog.origin(of: "bug_reproducer"), .override)
+        XCTAssertTrue(SkillCatalog.hasOverride("bug_reproducer"))
+        XCTAssertEqual(SkillCatalog.get("bug_reproducer")?.template, "WSS_SENTINEL: shared override.")
+        XCTAssertEqual(SkillCatalog.list(lane: .code).filter { $0.id == "bug_reproducer" }.count, 1)
+        XCTAssertTrue(SkillCatalog.assemblePrompt(skillId: "bug_reproducer", founderPrompt: "X")
+            .contains("WSS_SENTINEL"))
+    }
+
+    func testRestoreIsIdempotent() throws {
+        var override = try XCTUnwrap(SkillCatalog.get("bug_reproducer"))
+        override.template = "temporary edit"
+        try SkillCatalog.saveOverride(override)
+
+        let r1 = try SkillCatalog.restore("bug_reproducer")
+        XCTAssertTrue(r1.removedOverride)
+        XCTAssertEqual(SkillCatalog.origin(of: "bug_reproducer"), .seed)
+
+        let r2 = try SkillCatalog.restore("bug_reproducer")
+        XCTAssertFalse(r2.removedOverride)
+        XCTAssertEqual(SkillCatalog.origin(of: "bug_reproducer"), .seed)
+    }
+
+    func testRestoreUnsupportedForCustomSkill() throws {
+        let custom = try SkillCatalog.duplicateBuiltIn("bug_reproducer", name: "Custom Only")
+        XCTAssertThrowsError(try SkillCatalog.restore(custom.id)) { error in
+            XCTAssertEqual(error as? CatalogError, .restoreUnsupported)
+        }
+    }
+
+    func testSaveOverrideRejectsLaneOrPurposeChange() throws {
+        var override = try XCTUnwrap(SkillCatalog.get("bug_reproducer"))
+        override.lane = .design
+        XCTAssertThrowsError(try SkillCatalog.saveOverride(override)) { error in
+            guard case CatalogError.skillInvalid = error else { return XCTFail("expected skillInvalid") }
+        }
+    }
+
+    func testBugReproducerOverrideVisibleToAllBugHuntTeams() throws {
+        var override = try XCTUnwrap(SkillCatalog.get("bug_reproducer"))
+        override.template = "SHARED_BUG_SENTINEL"
+        try SkillCatalog.saveOverride(override)
+
+        for teamId in ["code_bug_hunt_min", "code_bug_hunt", "code_bug_hunt_max"] {
+            let team = try XCTUnwrap(TeamCatalog.get(teamId))
+            XCTAssertTrue(team.workerSpecs.contains { $0.skillId == "bug_reproducer" })
+            XCTAssertTrue(
+                SkillCatalog.assemblePrompt(skillId: "bug_reproducer", founderPrompt: "Q")
+                    .contains("SHARED_BUG_SENTINEL"),
+                teamId
+            )
+        }
+        let names = SkillCatalog.teamDisplayNamesReferencingSkill("bug_reproducer")
+        XCTAssertTrue(names.contains("Bug Hunt Min"))
+        XCTAssertTrue(names.contains("Bug Hunt"))
+        XCTAssertTrue(names.contains("Bug Hunt Max"))
+    }
+
+    func testWorkerSkillCommitCreatesNewSkillImmediately() throws {
+        let result = try WorkerSkillCommit.apply(.init(
+            skillId: "", template: "Fresh body.", modelId: nil, lane: .code,
+            defaultPurpose: .answer, isNewSkill: true, newSkillName: "Fresh Skill"
+        ))
+        XCTAssertFalse(result.skillId.isEmpty)
+        XCTAssertEqual(SkillCatalog.get(result.skillId)?.displayName, "Fresh Skill")
+    }
+
+    func testWorkerSkillCommitSavesExistingBodyAtSameId() throws {
+        var override = try XCTUnwrap(SkillCatalog.get("bug_reproducer"))
+        override.template = "before"
+        try SkillCatalog.saveOverride(override)
+
+        _ = try WorkerSkillCommit.apply(.init(
+            skillId: "bug_reproducer", template: "after worker done", modelId: nil,
+            lane: .code, defaultPurpose: .answer, isNewSkill: false
+        ))
+        XCTAssertEqual(SkillCatalog.get("bug_reproducer")?.template, "after worker done")
+    }
 }
