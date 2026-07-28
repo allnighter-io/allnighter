@@ -29,6 +29,7 @@ let package = Package(
             resources: [
                 .copy("Resources/Fixtures"),
                 .copy("Resources/Recipes"),
+                .copy("Resources/Catalog/catalog_overlay.json"),
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)

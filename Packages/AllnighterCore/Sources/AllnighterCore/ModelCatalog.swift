@@ -1,4 +1,5 @@
 import Foundation
+import AgentOSCLI
 
 /// Core-owned, deterministic model catalog: built-in/custom definitions, Bench
 /// roster overlay, and capability metadata for resolver fallback.
@@ -47,8 +48,7 @@ public enum ModelCatalog {
     /// Pass `driverId` from the ready `Model` when the id may not be on disk yet.
     public static func modelFamily(_ modelId: String, driverId: String? = nil) -> String {
         switch modelId {
-        case "model_fable", "model_opus", "model_sonnet",
-             "model_agy_opus", "model_agy_sonnet":
+        case "model_fable", "model_opus", "model_sonnet":
             return "claude"
         case "model_chatgpt", "model_chatgpt_sol", "model_chatgpt_terra",
              "model_chatgpt_54", "model_chatgpt_54_mini", "model_codex_spark":
@@ -86,194 +86,43 @@ public enum ModelCatalog {
         }
     }
 
-    // MARK: - Built-in capability metadata
+    // MARK: - Bundled catalog authority
 
-    public static let builtInCapabilities: [String: ModelCapabilities] = [
-        // Flagship-only seats (synthesis / Auto default pool).
-        // Fable is often unavailable/reserved (Lead-only worker reservation elsewhere),
-        // but when it IS available it should be design-eligible too.
-        "model_fable": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security, .design, .copy, .localContext],
-            strengthRank: 100),
-        "model_chatgpt_sol": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security, .design, .copy, .localContext],
-            strengthRank: 99),
-        // ChatGPT 5.6 Sol via Codex — same underlying model as model_chatgpt_sol (Cursor),
-        // so it carries Sol's capability profile. Opus remains a strong judgment seat.
-        // Codex also generates mockup images (generated-image harvest), so it carries
-        // `.image` alongside its Sol design-reasoning profile.
-        "model_chatgpt": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security, .design, .image, .copy, .localContext],
-            strengthRank: 99),
-        // ChatGPT 5.6 Terra via Codex — the medium-tier ChatGPT seat. It is a
-        // distinct model from Sol, so it remains eligible to substitute other
-        // Balanced-tier models rather than being excluded as a duplicate seat.
-        "model_chatgpt_terra": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .design, .copy, .localContext],
-            strengthRank: 86),
-        // ChatGPT 5.4 (Codex, off-Bench by default) — a capable non-Sol ChatGPT.
-        // Copy-capable per founder so Copy teams have depth beyond the Sol/flagship seats.
-        "model_chatgpt_54": ModelCapabilities(
-            laneTags: [.code, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .copy],
-            strengthRank: 85),
-        "model_opus": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
-            strengthRank: 90),
-        // High + mid value seats — high quality, low price (staff mid work freely).
-        // Kimi and both Grok routes outrank Sonnet for worker substitution.
-        "model_cursor_grok_45": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .copy],
-            strengthRank: 89),
-        // Kimi K3 is a great designer (founder note) — design reasoning/critique/
-        // direction, NOT image generation.
-        "model_kimi_k3": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .design],
-            strengthRank: 88),
-        // Kimi K2.7 Code — prior-generation coding seat; below K3, still mid/high.
-        "model_kimi_k27": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .design],
-            strengthRank: 86),
-        // Grok is web-aware — a natural Signal scout (interprets public posts/links) —
-        // and also generates mockup images (generated-image harvest), so it carries
-        // both `.design` (lane) and `.image` (capability) for design work.
-        "model_grok": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .copy, .image],
-            strengthRank: 87),
-        // Sonnet is a strong review-posture Claude model — carries `.security`
-        // (CN-S06) so it is a preferred fill for Security Review seats alongside
-        // Fable/Opus/Sol. Fable and Opus already carry `.security`.
-        "model_sonnet": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security, .fast],
-            strengthRank: 84),
-        "model_cursor_composer_25": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .fast],
-            strengthRank: 80),
-        "model_cursor_auto": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .fast],
-            strengthRank: 78),
-        // Antigravity Opus 4.6 — fallback-only; never outrank Claude/Cursor/Codex flagships.
-        "model_agy_opus": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
-            strengthRank: 75),
-        "model_gemini_pro": ModelCapabilities(
-            laneTags: [.design, .code, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .design, .image, .copy],
-            strengthRank: 76),
-        "model_gemini": ModelCapabilities(
-            laneTags: [.design, .code, .copy, .signal],
-            capabilityTags: [.code, .design, .image, .copy, .fast],
-            strengthRank: 75),
-        "model_agy_sonnet": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .security, .copy, .localContext],
-            strengthRank: 74),
-        "model_agy_gptoss": ModelCapabilities(
-            laneTags: [.code, .design, .copy, .signal],
-            capabilityTags: [.code, .planner, .review, .copy],
-            strengthRank: 70),
-        "model_composer": ModelCapabilities(
-            laneTags: [.code],
-            capabilityTags: [.code, .fast],
-            strengthRank: 60),
-        "model_cursor_composer_25_fast": ModelCapabilities(
-            laneTags: [.code],
-            capabilityTags: [.code, .fast],
-            strengthRank: 50),
-        "model_chatgpt_54_mini": ModelCapabilities(
-            laneTags: [.code, .copy, .signal],
-            capabilityTags: [.code, .fast],
-            strengthRank: 40),
-        "model_codex_spark": ModelCapabilities(
-            laneTags: [.code],
-            capabilityTags: [.code, .fast],
-            strengthRank: 40)
-    ]
+    private static let bundledAuthority: (catalog: LoadedCatalog, overlay: CatalogOverlay) = {
+        do {
+            return (try CatalogLoader.bundled(), try CatalogOverlayLoader.bundled())
+        } catch {
+            preconditionFailure("ModelCatalog bundled authority failed: \(error)")
+        }
+    }()
 
-    /// Floor rank for any model without a `builtInCapabilities` entry (customs /
-    /// unevaluated). Seating Law — unrated models never inherit a donor flagship rank.
+    /// Bench policy + caliber for built-in ids. Derived from `catalog_overlay.json`.
+    public static var builtInCapabilities: [String: ModelCapabilities] {
+        Dictionary(uniqueKeysWithValues: builtIns.map { ($0.id, $0.capabilities) })
+    }
+
+    /// Built-in model definitions merged from AgentOS catalog + Allnighter overlay.
+    public static var builtIns: [ModelDefinition] {
+        do {
+            return try CatalogMerge.builtInDefinitions(
+                catalog: bundledAuthority.catalog,
+                overlay: bundledAuthority.overlay
+            )
+        } catch {
+            preconditionFailure("ModelCatalog built-in merge failed: \(error)")
+        }
+    }
+
+    public static func bundledRegistry() -> DriverRegistry {
+        bundledAuthority.catalog.driverRegistry()
+    }
+
+    /// Floor rank for any model without overlay `caliber` (customs / unevaluated).
     public static let unratedModelRank = 40
 
     /// Caliber band from strengthRank (Flagship ≥95 / High 85–94 / Mid 70–84 / floor).
-    /// Owned next to the rank table — never duplicated in the resolver.
     public static func caliberBand(_ rank: Int) -> Int {
         rank >= 95 ? 3 : rank >= 85 ? 2 : rank >= 70 ? 1 : 0
-    }
-
-    public static var builtIns: [ModelDefinition] {
-        // Antigravity encodes effort IN the model name, and variant availability is
-        // per-model (3.1 Pro has no Medium → route med to High; the Claude/GPT-OSS
-        // routes expose a single variant). Recognized from live `agy` switcher.
-        let flashVariants: [EffortLevel: String] = [
-            .low: "Gemini 3.6 Flash (Low)", .med: "Gemini 3.6 Flash (Medium)", .high: "Gemini 3.6 Flash (High)"]
-        let proVariants: [EffortLevel: String] = [
-            .low: "Gemini 3.1 Pro (Low)", .med: "Gemini 3.1 Pro (High)", .high: "Gemini 3.1 Pro (High)"]
-        let cursorGrokVariants: [EffortLevel: String] = [
-            .low: "cursor-grok-4.5-low", .med: "cursor-grok-4.5-medium", .high: "cursor-grok-4.5-high"]
-        // ChatGPT 5.6 Sol — Cursor Agent labels (`agent --list-models`). Codex CLI
-        // was down when this seat was staffed; Sol rides Cursor, not Codex.
-        let chatgptSolVariants: [EffortLevel: String] = [
-            .low: "gpt-5.6-sol-low", .med: "gpt-5.6-sol-medium", .high: "gpt-5.6-sol-high"]
-        func fixed(_ s: String) -> [EffortLevel: String] { [.low: s, .med: s, .high: s] }
-        return [
-            // Claude Code — effort via the `--effort` flag (see DefaultConfig manifest).
-            // Fable 5 is the Claude-side flagship; Sonnet 5 is the default Claude seat;
-            // Opus 5 is the high judgment seat (`opus` → Opus 5; not flagship-only).
-            def("model_fable", "Fable 5", "fable", "claude_code", .both, defaultEnabled: true),
-            def("model_opus", "Opus 5", "opus", "claude_code", .both, defaultEnabled: true),
-            def("model_sonnet", "Sonnet 5", "claude-sonnet-5", "claude_code", .answerer, defaultEnabled: true),
-            // Codex — ChatGPT 5.6 Sol. Verified callable on codex-cli 0.144.5 (2026-07-18):
-            // `codex exec -m gpt-5.6-sol` + reasoning effort via the manifest's `-c
-            // model_reasoning_effort` flag → exit 0, real answer. The prior `gpt-5.6` label
-            // was rejected 400 ("not supported when using Codex with a ChatGPT account"),
-            // and `gpt-5.6-sol` itself needs codex >= 0.144.x ("requires a newer version of
-            // Codex"). Sol is the default ChatGPT seat via Codex.
-            def("model_chatgpt", "ChatGPT 5.6 Sol (Codex)", "gpt-5.6-sol", "codex", .both, defaultEnabled: true),
-            // Terra is the Codex medium seat. It belongs to the Balanced
-            // substitution roster, so a ready Terra can cover another medium model.
-            def("model_chatgpt_terra", "ChatGPT 5.6 Terra (Codex)", "gpt-5.6-terra", "codex", .both, defaultEnabled: true),
-            def("model_chatgpt_54", "ChatGPT 5.4", "gpt-5.4", "codex", .answerer, defaultEnabled: false),
-            def("model_chatgpt_54_mini", "ChatGPT 5.4 mini", "gpt-5.4-mini", "codex", .answerer, defaultEnabled: false),
-            def("model_codex_spark", "Codex Spark", "gpt-5.3-codex-spark", "codex", .answerer, defaultEnabled: false),
-            // Grok — high quality / low price → high + mid work. Effort via `--reasoning-effort`.
-            def("model_grok", "Grok 4.5", "grok-4.5", "grok", .answerer, defaultEnabled: true),
-            def("model_kimi_k3", "Kimi K3", "kimi-code/k3", "kimi", .both, defaultEnabled: true),
-            def("model_kimi_k27", "Kimi K2.7 Code", "kimi-code/kimi-for-coding", "kimi", .both, defaultEnabled: true),
-            def("model_composer", "Grok Composer 2.5 Fast", "grok-composer-2.5-fast", "grok", .answerer, defaultEnabled: false),
-            // Cursor Agent — Auto is the default; Composer 2.5 at most once in rotations;
-            // Cursor Grok 4.5 is high/mid; ChatGPT 5.6 Sol is the Cursor-side flagship.
-            def("model_cursor_auto", "Auto", "auto", "cursor_agent", .answerer, defaultEnabled: true),
-            def("model_cursor_composer_25", "Composer 2.5", "composer-2.5", "cursor_agent", .answerer, defaultEnabled: true),
-            def("model_cursor_grok_45", "Cursor Grok 4.5", "cursor-grok-4.5-high", "cursor_agent", .answerer, defaultEnabled: true, effortVariants: cursorGrokVariants),
-            // Cursor Sol is NEVER on-Bench by default and NEVER an automatic
-            // substitute — it burns paid Cursor quota. Codex Sol (`model_chatgpt`)
-            // is the only default Sol route; Cursor Sol is manual opt-in only.
-            def("model_chatgpt_sol", "ChatGPT 5.6 Sol (Cursor)", "gpt-5.6-sol-high", "cursor_agent", .both, defaultEnabled: false, effortVariants: chatgptSolVariants),
-            def("model_cursor_composer_25_fast", "Composer 2.5 Fast", "composer-2.5-fast", "cursor_agent", .answerer, defaultEnabled: false),
-            // Antigravity — a multi-model router; effort is encoded in the model name.
-            def("model_gemini", "Gemini 3.6 Flash", "Gemini 3.6 Flash (Medium)", "antigravity", .answerer, defaultEnabled: true, effortVariants: flashVariants),
-            def("model_gemini_pro", "Gemini 3.1 Pro", "Gemini 3.1 Pro (High)", "antigravity", .answerer, defaultEnabled: false, effortVariants: proVariants),
-            def("model_agy_sonnet", "Claude Sonnet 4.6", "Claude Sonnet 4.6 (Thinking)", "antigravity", .answerer, defaultEnabled: false, effortVariants: fixed("Claude Sonnet 4.6 (Thinking)")),
-            def("model_agy_opus", "Claude Opus 4.6", "Claude Opus 4.6 (Thinking)", "antigravity", .both, defaultEnabled: false, effortVariants: fixed("Claude Opus 4.6 (Thinking)")),
-            def("model_agy_gptoss", "GPT-OSS 120B", "GPT-OSS 120B (Medium)", "antigravity", .answerer, defaultEnabled: false, effortVariants: fixed("GPT-OSS 120B (Medium)")),
-            // OpenCode ships NO built-in models (founder ruling 2026-07-24: <1% of users
-            // run opencode with these models, so they were removed from the defaults). The
-            // opencode DRIVER stays registered so users can add their own models via
-            // `alln model add` (BYOK provider/model routing).
-        ]
     }
 
     // MARK: - Test overrides
@@ -349,6 +198,10 @@ public enum ModelCatalog {
         let manifestIDs = Set(registry.all.map(\.id))
         let defs = mergedDefinitions()
         let knownIDs = Set(defs.map(\.id))
+        diags.append(contentsOf: CatalogMerge.unknownOverlayDiagnostics(
+            overlay: bundledAuthority.overlay,
+            catalog: bundledAuthority.catalog
+        ))
         for custom in CatalogFileIO.loadAll(kind: .model, root: CatalogRoots.models, as: ModelDefinition.self) {
             if !manifestIDs.contains(custom.driverId) {
                 diags.append(ModelCatalogDiagnostic(
@@ -360,6 +213,10 @@ public enum ModelCatalog {
             }
         }
         if let roster = rosterPersistence().load() {
+            diags.append(contentsOf: CatalogMerge.hiddenRosterDiagnostics(
+                overlay: bundledAuthority.overlay,
+                roster: roster
+            ))
             for stale in roster.enabledModelIds where !knownIDs.contains(stale) {
                 diags.append(ModelCatalogDiagnostic(
                     code: "MODEL_ROSTER_STALE_ID",
@@ -524,7 +381,7 @@ public enum ModelCatalog {
     /// **unrated**: driver tags only, `unratedModelRank` — persisted donor ranks
     /// on custom JSON are ignored (Seating Law).
     public static func capabilities(_ modelId: String) -> ModelCapabilities {
-        if let caps = builtInCapabilities[modelId] { return caps }
+        if let caps = builtIns.first(where: { $0.id == modelId })?.capabilities { return caps }
         if let def = get(modelId) {
             var caps = fallbackCapabilities(driverId: def.driverId)
             caps.strengthRank = unratedModelRank
@@ -543,17 +400,6 @@ public enum ModelCatalog {
     }
 
     // MARK: - Private
-
-    private static func def(
-        _ id: String, _ name: String, _ label: String, _ driver: String, _ role: ModelRole,
-        defaultEnabled: Bool, effortVariants: [EffortLevel: String]? = nil
-    ) -> ModelDefinition {
-        ModelDefinition(
-            id: id, displayName: name, modelLabel: label, driverId: driver, role: role,
-            origin: .builtIn, defaultEnabled: defaultEnabled,
-            capabilities: builtInCapabilities[id] ?? ModelCapabilities(),
-            effortVariants: effortVariants)
-    }
 
     private static func mergedDefinitions() -> [ModelDefinition] {
         var byID: [ModelID: ModelDefinition] = [:]

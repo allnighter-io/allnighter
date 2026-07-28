@@ -5858,6 +5858,15 @@
       "ruleId" : "relay.already_active"
     },
     {
+      "agentAction" : "The relay claim could not be written durably — check disk space and permissions under the support root, then retry the relay verb.",
+      "code" : "RELAY_JOURNAL_UNAVAILABLE",
+      "exitClass" : "operational",
+      "explain" : "Relay dispatch could not persist its claim to the journal.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "relay.journal.unavailable"
+    },
+    {
       "agentAction" : "Poll `alln pair pilot status --relay <id> --json` until status is `awaitingPM`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once awaitingPM, retry `pilot handoff` if still needed.",
       "code" : "RELAY_ROUND_IN_FLIGHT",
       "exitClass" : "operational",

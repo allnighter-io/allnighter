@@ -19,33 +19,18 @@ struct BundledConfiguration: Sendable {
 }
 
 enum AppConfig {
-    private static let teamFileName = "team_default"
     private static let minimumHeadlessDrivers = 4
 
     static func loadConfiguration() -> BundledConfiguration {
-        let bundleRegistry = loadRegistryFromBundle()
-
-        let registry: DriverRegistry
-        let registrySource: ConfigurationSource
-        if headlessDriverCount(in: bundleRegistry) >= minimumHeadlessDrivers {
-            registry = bundleRegistry
-            registrySource = .bundleResources
-        } else if headlessDriverCount(in: DefaultConfig.registry) >= minimumHeadlessDrivers {
-            registry = DefaultConfig.registry
-            registrySource = .embeddedDefaults
-        } else {
-            registry = DriverRegistry()
-            registrySource = .embeddedDefaults
-        }
-
+        let registry = ModelCatalog.bundledRegistry()
         let models = ModelCatalog.resolvedModels(registry: registry)
-        let modelsSource: ConfigurationSource = models.isEmpty ? .embeddedDefaults : .bundleResources
-
+        let source: ConfigurationSource =
+            headlessDriverCount(in: registry) >= minimumHeadlessDrivers ? .bundleResources : .embeddedDefaults
         return BundledConfiguration(
             models: models,
             registry: registry,
-            modelsSource: modelsSource,
-            registrySource: registrySource
+            modelsSource: source,
+            registrySource: source
         )
     }
 
@@ -60,41 +45,6 @@ enum AppConfig {
     static func builtInPresets(models: [Model]) -> [PanelPreset] {
         DefaultConfig.tieredPresets(models: models)
     }
-
-    private static func loadModelsFromBundle() -> [Model]? {
-        for subdirectory in bundleLookupSubdirectories {
-            guard let url = Bundle.main.url(
-                forResource: teamFileName,
-                withExtension: "json",
-                subdirectory: subdirectory
-            ), let data = try? Data(contentsOf: url),
-                  let models = try? CoreJSON.decode([Model].self, from: data),
-                  !models.isEmpty else { continue }
-            return models
-        }
-        return nil
-    }
-
-    private static func loadRegistryFromBundle() -> DriverRegistry {
-        for subdirectory in bundleLookupSubdirectories {
-            guard let urls = Bundle.main.urls(
-                forResourcesWithExtension: "json",
-                subdirectory: subdirectory
-            ) else { continue }
-            let manifests = urls
-                .filter { $0.deletingPathExtension().lastPathComponent != teamFileName }
-                .compactMap { url -> DriverManifest? in
-                    guard let data = try? Data(contentsOf: url) else { return nil }
-                    return try? CoreJSON.decode(DriverManifest.self, from: data)
-                }
-            if !manifests.isEmpty {
-                return DriverRegistry(manifests)
-            }
-        }
-        return DriverRegistry()
-    }
-
-    private static let bundleLookupSubdirectories: [String?] = [nil, "Drivers"]
 
     private static func headlessDriverCount(in registry: DriverRegistry) -> Int {
         registry.all.filter { $0.kind == .headlessCLI }.count

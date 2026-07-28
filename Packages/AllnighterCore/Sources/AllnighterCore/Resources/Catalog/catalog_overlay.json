@@ -1,0 +1,359 @@
+{
+  "models": {
+    "model_agy_gptoss": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "copy"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 70
+      },
+      "defaultOn": false
+    },
+    "model_chatgpt": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "design",
+          "image",
+          "copy",
+          "localContext"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 99
+      },
+      "defaultOn": true
+    },
+    "model_chatgpt_54": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "copy"
+        ],
+        "laneTags": [
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 85
+      },
+      "defaultOn": false
+    },
+    "model_chatgpt_54_mini": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 40
+      },
+      "defaultOn": false
+    },
+    "model_chatgpt_sol": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "design",
+          "copy",
+          "localContext"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 99
+      },
+      "defaultOn": false
+    },
+    "model_chatgpt_terra": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "design",
+          "copy",
+          "localContext"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 86
+      },
+      "defaultOn": true
+    },
+    "model_codex_spark": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "fast"
+        ],
+        "laneTags": [
+          "code"
+        ],
+        "strengthRank": 40
+      },
+      "defaultOn": false
+    },
+    "model_composer": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "fast"
+        ],
+        "laneTags": [
+          "code"
+        ],
+        "strengthRank": 60
+      },
+      "defaultOn": false
+    },
+    "model_cursor_auto": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 78
+      },
+      "defaultOn": true
+    },
+    "model_cursor_composer_25": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 80
+      },
+      "defaultOn": true
+    },
+    "model_cursor_composer_25_fast": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "fast"
+        ],
+        "laneTags": [
+          "code"
+        ],
+        "strengthRank": 50
+      },
+      "defaultOn": false
+    },
+    "model_cursor_grok_45": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "copy"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 89
+      },
+      "defaultOn": true
+    },
+    "model_fable": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "design",
+          "copy",
+          "localContext"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 100
+      },
+      "defaultOn": true
+    },
+    "model_gemini": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "design",
+          "image",
+          "copy",
+          "fast"
+        ],
+        "laneTags": [
+          "design",
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 75
+      },
+      "defaultOn": true
+    },
+    "model_gemini_pro": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "design",
+          "image",
+          "copy"
+        ],
+        "laneTags": [
+          "design",
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 76
+      },
+      "defaultOn": false
+    },
+    "model_grok": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "copy",
+          "image"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 87
+      },
+      "defaultOn": true
+    },
+    "model_kimi_k27": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "design"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 86
+      },
+      "defaultOn": true
+    },
+    "model_kimi_k3": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "design"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 88
+      },
+      "defaultOn": true
+    },
+    "model_opus": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "copy",
+          "localContext"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 90
+      },
+      "defaultOn": true
+    },
+    "model_sonnet": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 84
+      },
+      "defaultOn": true
+    }
+  },
+  "schemaVersion": 1
+}

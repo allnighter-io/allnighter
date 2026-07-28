@@ -1471,6 +1471,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RELAY_INVALID_STATE` | yes | no | `operational` | Only an `escalated` relay can be resumed; check status first with `pair relay-status`. |
 | `RELAY_HANDOVER_UNSAFE` | yes | no | `operational` | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
 | `RELAY_ALREADY_ACTIVE` | yes | no | `operational` | Read it with `alln pair relay-status --relay <id> --json`, resume or adopt it, or wait — do not start a second relay on the same doc. |
+| `RELAY_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | The relay claim could not be written durably — check disk space and permissions under the support root, then retry the relay verb. |
 | `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Poll `alln pair pilot status --relay <id> --json` until status is `awaitingPM`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once awaitingPM, retry `pilot handoff` if still needed. |
 | `RUN_ID_IN_USE` | yes | no | `operational` | Attach with `alln run resume <id> --json`, or omit an explicit id. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |

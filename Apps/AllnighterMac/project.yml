@@ -24,8 +24,6 @@ targets:
     platform: macOS
     sources:
       - path: Sources
-      - path: Resources/Drivers
-        buildPhase: resources
       - path: Resources/Assets.xcassets
     dependencies:
       - package: AllnighterCore
