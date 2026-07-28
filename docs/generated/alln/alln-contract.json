@@ -2383,8 +2383,13 @@
           "takesValue" : false
         },
         {
+          "name" : "no-wait",
+          "summary" : "RSC-S03: return immediately after dispatch (a detached child runs the relay); poll `pair relay-status --relay <id> --json`. All start-time validation (worker\/project resolution, the duplicate-active guard) still runs before the ack — a refusal spawns nothing.",
+          "takesValue" : false
+        },
+        {
           "name" : "json",
-          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).",
           "takesValue" : false
         }
       ],
@@ -2488,8 +2493,13 @@
           "takesValue" : false
         },
         {
+          "name" : "no-wait",
+          "summary" : "RSC-S03: run the real resume guard (lock, eligibility, flip to running) in the foreground, then hand the round loop to a detached child and return immediately; poll `pair relay-status --relay <id> --json`. A guard refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud and spawns nothing.",
+          "takesValue" : false
+        },
+        {
           "name" : "json",
-          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).",
           "takesValue" : false
         }
       ],
@@ -2552,8 +2562,13 @@
           "takesValue" : false
         },
         {
+          "name" : "no-wait",
+          "summary" : "RSC-S03: run the real adopt guard (lock, eligibility, flip to running) in the foreground, then hand the round loop to a detached child and return immediately; poll `pair relay-status --relay <id> --json`. A guard refusal fails loud and spawns nothing.",
+          "takesValue" : false
+        },
+        {
           "name" : "json",
-          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).",
           "takesValue" : false
         }
       ],
@@ -4976,7 +4991,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.2.0",
+  "contractVersion" : "4.3.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

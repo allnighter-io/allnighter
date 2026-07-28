@@ -414,4 +414,34 @@ final class RelayCLITests: XCTestCase {
         XCTAssertEqual(RelayDispatch.progressJSON(.done(note: "ok")).note, "ok")
         XCTAssertEqual(RelayDispatch.progressJSON(.stopped(reason: "ceiling")).reason, "ceiling")
     }
+
+    // MARK: - RSC-S03: --no-wait CLI surface
+
+    /// The three relay verbs' `CommandSpec`s must all carry `--no-wait`
+    /// (`docs/phases/Round_Survives_The_Caller.md` RSC-S03's only registered CLI
+    /// surface change).
+    func testNoWaitFlagRegisteredOnAllThreeRelayVerbs() {
+        let registry = ContractRegistry.milestone1
+        for name in ["pair relay", "pair relay-resume", "pair relay adopt"] {
+            let spec = registry.commands.first { $0.name == name && $0.milestone == .m1 }
+            XCTAssertNotNil(spec, "missing CommandSpec for \(name)")
+            XCTAssertTrue(
+                spec?.flags.contains { $0.name == "no-wait" } ?? false,
+                "\(name) must carry --no-wait (RSC-S03)"
+            )
+        }
+    }
+
+    /// RSC-S03's detached-child continuation verbs (`pair relay-continue`,
+    /// `pair relay-start-continue`) are deliberately NOT registered in
+    /// `ContractRegistry` — no help entry, no public flag surface, no documented
+    /// next-action can ever name them. This is what lets their internal-only flags
+    /// (`--relay-id`, `--adoption-note-b64`) skip `CLIUsage.validateFlags` without
+    /// becoming a hole in the real, registered commands' flag validation — if either
+    /// name ever collided with a real registered command's prefix, this test would
+    /// catch it before flag validation silently started applying to them.
+    func testHiddenContinuationVerbsAreNotRegisteredCommands() {
+        XCTAssertNil(CLIUsage.resolveCommandName(rootCommand: "pair", args: ["relay-continue", "--relay", "x"]))
+        XCTAssertNil(CLIUsage.resolveCommandName(rootCommand: "pair", args: ["relay-start-continue", "--relay-id", "x"]))
+    }
 }

@@ -702,6 +702,120 @@ final class RelayCoordinatorTests: XCTestCase {
         XCTAssertEqual(error, .notResumable(status: "stopped"))
     }
 
+    // MARK: - RSC-S03: --no-wait guard/continue split
+
+    /// `resumeGuard` (the foreground half of `--no-wait`) must flip + persist EXACTLY
+    /// what `resume` itself would, then `continueRound` (the detached child's half)
+    /// must finish the round to the SAME outcome `resume` produces end to end —
+    /// proving the split reproduces the fused call, not a lookalike shortcut.
+    func testResumeGuardFlipsStateAndContinueRoundReproducesResumeOutcome() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_guard_resume", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
+            createdAt: Date(), note: "which env?"
+        )
+        try stateStore.save(state)
+
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")),
+        ]
+        let (service, runner) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+        )
+
+        let guardResult = coordinator.resumeGuard(relayId: "relay_guard_resume", founderAnswer: "use staging", config: config)
+        guard case .success(let (flipped, resumedConfig)) = guardResult else { return XCTFail("expected guard success") }
+        XCTAssertEqual(flipped.status, .running, "the guard's own mutation, before any child exists")
+        XCTAssertEqual(flipped.founderNote, "use staging")
+        XCTAssertEqual(stateStore.load(id: "relay_guard_resume")?.status, .running, "durable, not just in-memory")
+
+        // The detached child: loads the ALREADY-flipped state fresh (never reuses the
+        // foreground's in-memory value) and only continues — it must never re-run the
+        // guard (which would incorrectly see `.running` and refuse itself).
+        let finished = await coordinator.continueRound(relayId: "relay_guard_resume", config: resumedConfig)
+        guard let finished else { return XCTFail("expected continueRound to find the flipped relay") }
+        XCTAssertEqual(finished.status, .done)
+        XCTAssertEqual(finished.rounds.count, 1, "this fixture starts escalated with no prior rounds on the ledger")
+        XCTAssertNil(finished.founderNote, "consumed after the first post-resume PM turn, exactly like `resume`")
+        XCTAssertEqual(runner.callCount(for: "pm_cli"), 1)
+
+        let reloaded = stateStore.load(id: "relay_guard_resume")
+        XCTAssertEqual(reloaded?.status, .done, "durable outcome matches what `resume` itself would have persisted")
+    }
+
+    /// The `--no-wait` foreground guard must refuse identically to `resume` when
+    /// another process already holds the dispatch lock — same `.roundInFlight`
+    /// failure channel, and durable state stays untouched (no ack can ever precede
+    /// a refusal because the guard never got far enough to flip anything).
+    func testResumeGuardRefusesRoundInFlightAndLeavesStateUntouched() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_guard_locked", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
+            createdAt: Date(), note: "which env?"
+        )
+        try stateStore.save(state)
+
+        var heldLock = RelayDispatchLock.tryAcquire(relayId: "relay_guard_locked", relaysRoot: stateStore.rootDirectory)
+        XCTAssertNotNil(heldLock, "precondition: lock must be free before the simulated race")
+
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+        let guardResult = coordinator.resumeGuard(relayId: "relay_guard_locked", founderAnswer: "use staging", config: config)
+        guard case .failure(let error) = guardResult else { return XCTFail("expected guard failure while the lock is held") }
+        XCTAssertEqual(error, .roundInFlight)
+        XCTAssertEqual(stateStore.load(id: "relay_guard_locked")?.status, .escalated, "a refused guard must never mutate durable state")
+        heldLock = nil
+    }
+
+    /// `run(config:id:)` — RSC-S03's pre-minted id for `pair relay --no-wait` — uses
+    /// the SUPPLIED id verbatim instead of `idFactory()`, so a foreground caller's
+    /// dispatch ack names the exact id the (detached) real dispatch is about to create.
+    func testRunWithPreMintedIdUsesSuppliedIdInsteadOfIdFactory() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmScripts: [MockCommandRunner.Script] = [.init(stdout: "Done.\n\n" + verdictJSON("done", note: "ok"))]
+        let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
+        // idFactory would produce a DIFFERENT id than the one explicitly supplied —
+        // proving `id:` wins, not merely that idFactory happens to agree with it.
+        let coordinator = RelayCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore,
+            idFactory: { "relay_from_factory_should_not_be_used" }
+        )
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+        let result = await coordinator.run(config: config, id: "relay_preminted")
+        guard case .success(let state) = result else { return XCTFail("expected success") }
+        XCTAssertEqual(state.id, "relay_preminted")
+        XCTAssertNotNil(stateStore.load(id: "relay_preminted"))
+        XCTAssertNil(stateStore.load(id: "relay_from_factory_should_not_be_used"))
+    }
+
+    /// `RelayCoordinator.mintRelayId()` — the format `pair relay --no-wait`'s
+    /// foreground pre-mint step uses — matches the coordinator's own default
+    /// `idFactory` format (`"relay_" + lowercase UUID`), so a caller minting one
+    /// externally can never drift from what `run(config:)` would have generated on
+    /// its own.
+    func testMintRelayIdMatchesDefaultIdFactoryFormat() {
+        let minted = RelayCoordinator.mintRelayId()
+        XCTAssertTrue(minted.hasPrefix("relay_"))
+        let uuidPart = String(minted.dropFirst("relay_".count))
+        XCTAssertEqual(uuidPart, uuidPart.lowercased())
+        XCTAssertNotNil(UUID(uuidString: uuidPart))
+    }
+
     // MARK: - RSC-S01: cross-process dispatch lock
 
     /// Two concurrent `resume` calls on the same relay id: exactly one dispatches a

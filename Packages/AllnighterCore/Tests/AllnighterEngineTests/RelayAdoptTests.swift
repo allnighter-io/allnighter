@@ -455,4 +455,78 @@ final class RelayAdoptTests: XCTestCase {
         XCTAssertEqual(state.status, .done)
         XCTAssertEqual(adoptedRunner.callCount(for: "pm_cli"), 1)
     }
+
+    // MARK: - RSC-S03: --no-wait guard/continue split
+
+    /// `adoptGuard` (the foreground half of `pair relay adopt --no-wait`) must flip +
+    /// persist EXACTLY what `adopt` itself would, AND return the one-time
+    /// `adoptionNote` (never persisted onto `RelayState`) so a detached child can carry
+    /// it forward explicitly. `continueRound(adoptionNote:)` must then finish the round
+    /// with that note reaching the first spawned PM prompt — reproducing `adopt`'s
+    /// fused behavior, not a lookalike shortcut.
+    func testAdoptGuardFlipsStateAndContinueRoundCarriesAdoptionNoteToPMPrompt() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        _ = await makePilotedOneRoundRelay(id: "relay_guard_adopt", repo: repo, stateStore: stateStore, runStore: runStore)
+        XCTAssertEqual(stateStore.load(id: "relay_guard_adopt")?.status, .awaitingPM)
+
+        let (adoptedService, adoptedRunner) = makeService(
+            pmScripts: [.init(stdout: "Reviewed the adopted round.\n\n" + verdictJSON("done", note: "All criteria met."))],
+            devScripts: [], runStore: runStore
+        )
+        let coordinator = RelayCoordinator(runService: adoptedService, stateStore: stateStore, runStore: runStore)
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "ignored-overridden", devWorkerId: "ignored-overridden", maxRounds: 5
+        )
+
+        let guardResult = coordinator.adoptGuard(relayId: "relay_guard_adopt", pmWorkerId: "model_pm", config: config)
+        guard case .success(let (flipped, adoptedConfig, note)) = guardResult else { return XCTFail("expected guard success") }
+        XCTAssertEqual(flipped.pmMode, .spawned)
+        XCTAssertEqual(flipped.pmWorkerId, "model_pm")
+        XCTAssertEqual(flipped.status, .running, "the guard's own mutation, before any child exists")
+        XCTAssertTrue(note.contains("Pilot"), "adoptionNote names the piloted-round handoff")
+        XCTAssertEqual(stateStore.load(id: "relay_guard_adopt")?.status, .running, "durable, not just in-memory")
+
+        // The detached child: loads the ALREADY-flipped state fresh and only
+        // continues, carrying the note forward explicitly since it is never
+        // persisted onto `RelayState`.
+        let finished = await coordinator.continueRound(relayId: "relay_guard_adopt", config: adoptedConfig, adoptionNote: note)
+        guard let finished else { return XCTFail("expected continueRound to find the flipped relay") }
+        XCTAssertEqual(finished.status, .done)
+        XCTAssertEqual(finished.rounds.count, 2, "the piloted round is never discarded")
+        XCTAssertEqual(adoptedRunner.callCount(for: "pm_cli"), 1)
+
+        let promptArgs = adoptedRunner.capturedArgs(for: "pm_cli").last ?? []
+        XCTAssertTrue(promptArgs.joined(separator: " ").contains("Pilot"), "adoptionNote must reach the first spawned PM prompt verbatim")
+
+        let reloaded = stateStore.load(id: "relay_guard_adopt")
+        XCTAssertEqual(reloaded?.status, .done, "durable outcome matches what `adopt` itself would have persisted")
+    }
+
+    /// The `--no-wait` foreground guard must refuse identically to `adopt` when
+    /// another process already holds the dispatch lock — same `.roundInFlight`
+    /// failure channel, and durable state stays untouched.
+    func testAdoptGuardRefusesRoundInFlightAndLeavesStateUntouched() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        _ = await makePilotedOneRoundRelay(id: "relay_guard_adopt_locked", repo: repo, stateStore: stateStore, runStore: runStore)
+
+        var heldLock = RelayDispatchLock.tryAcquire(relayId: "relay_guard_adopt_locked", relaysRoot: stateStore.rootDirectory)
+        XCTAssertNotNil(heldLock, "precondition: lock must be free before the simulated race")
+
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "ignored", maxRounds: 5
+        )
+        let guardResult = coordinator.adoptGuard(relayId: "relay_guard_adopt_locked", pmWorkerId: "model_pm", config: config)
+        guard case .failure(let error) = guardResult else { return XCTFail("expected guard failure while the lock is held") }
+        XCTAssertEqual(error, .roundInFlight)
+        XCTAssertEqual(stateStore.load(id: "relay_guard_adopt_locked")?.pmMode, .external, "a refused guard must never mutate durable state")
+        XCTAssertEqual(stateStore.load(id: "relay_guard_adopt_locked")?.status, .awaitingPM)
+        heldLock = nil
+    }
 }

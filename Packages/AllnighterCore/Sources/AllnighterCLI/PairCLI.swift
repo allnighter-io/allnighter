@@ -24,6 +24,14 @@ enum PairCLI {
         case "relay": await RelayCLI.runRelay(Array(args.dropFirst()), runtime: runtime)
         case "relay-status": RelayCLI.runStatus(Array(args.dropFirst()))
         case "relay-resume": await RelayCLI.runResume(Array(args.dropFirst()), runtime: runtime)
+        // RSC-S03 (`docs/phases/Round_Survives_The_Caller.md`): hidden detached-child
+        // continuation verbs for `--no-wait` — deliberately NOT in `ContractRegistry`
+        // (no help entry, no flag validation, unreachable from any documented
+        // next-action) so their internal-only flags (`--relay-id`,
+        // `--adoption-note-b64`) never become public CLI surface. Only ever spawned by
+        // `RelayCLI.runRelayNoWait`/`runResumeNoWait`/`runAdoptNoWait`.
+        case "relay-start-continue": await RelayCLI.runStartContinue(Array(args.dropFirst()), runtime: runtime)
+        case "relay-continue": await RelayCLI.runContinue(Array(args.dropFirst()), runtime: runtime)
         case "pilot": await PilotCLI.run(Array(args.dropFirst()), runtime: runtime)
         // Retired slice-queue verbs — tombstone only; do NOT re-register as commands.
         case "run", "slice":

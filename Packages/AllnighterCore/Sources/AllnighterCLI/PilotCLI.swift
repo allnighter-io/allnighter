@@ -429,10 +429,6 @@ enum PilotCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not prepare background handoff: \(error)")
         }
 
-        let process = Process()
-        process.executableURL = launch.executableURL
-        process.currentDirectoryURL = launch.currentDirectoryURL
-        process.environment = AllnighterSpawnEnvironmentPolicy.processEnvironment()
         var childArgs = ["pair", "pilot", "handoff", "--relay", relayId]
 
         // SR-12 (Sol F19): stage the already-read/synthesized submission to an IMMUTABLE temp
@@ -452,12 +448,13 @@ enum PilotCLI {
         childArgs += ["--file", stagedURL.path]
 
         if jsonRequested { childArgs.append("--json") }
-        process.arguments = childArgs
-        process.standardInput = FileHandle.nullDevice
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        let process: Process
         do {
-            try process.run()
+            process = try DetachedDispatch.launch(
+                cwd: launch.currentDirectoryURL.path,
+                arguments: childArgs,
+                executableURL: launch.executableURL
+            )
         } catch {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background handoff: \(error)")
         }

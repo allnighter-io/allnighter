@@ -174,7 +174,7 @@ public struct RelayCoordinator: Sendable {
             spawnKind: .harnessProof
         ),
         now: @escaping @Sendable () -> Date = Date.init,
-        idFactory: @escaping @Sendable () -> String = { "relay_\(UUID().uuidString.lowercased())" }
+        idFactory: @escaping @Sendable () -> String = RelayCoordinator.mintRelayId
     ) {
         self.runService = runService
         self.gitObserver = gitObserver
@@ -185,6 +185,14 @@ public struct RelayCoordinator: Sendable {
         self.proofCommandRunner = proofCommandRunner
         self.now = now
         self.idFactory = idFactory
+    }
+
+    /// The default `idFactory` format, exposed so RSC-S03's `pair relay --no-wait`
+    /// foreground step can pre-mint an id in the SAME format `run(config:)` would have
+    /// generated internally — one format, not two drifting copies of the string
+    /// template.
+    public static func mintRelayId() -> String {
+        "relay_\(UUID().uuidString.lowercased())"
     }
 
     // MARK: - Entry points
@@ -225,7 +233,12 @@ public struct RelayCoordinator: Sendable {
     /// critical section is a quick scan + persist, not the round loop that follows —
     /// released before `loop` begins, same discipline `resume`/`adopt` use for their own
     /// (non-blocking) per-id locks.
-    public func run(config: Config, events: EventSink? = nil) async -> Result<RelayState, DispatchRefusal> {
+    /// RSC-S03 (`--no-wait`): `id`, when supplied, is used instead of `idFactory()` —
+    /// lets a `pair relay --no-wait` foreground caller pre-mint the relay id (the same
+    /// format `mintRelayId()` produces) so its dispatch ack can name the real id the
+    /// detached child is about to create, instead of a placeholder the caller could
+    /// never attach to. `nil` (every existing caller) is unchanged behavior.
+    public func run(config: Config, id: String? = nil, events: EventSink? = nil) async -> Result<RelayState, DispatchRefusal> {
         let key = RelayDispatchLock.startKey(projectRoot: config.projectRoot, docPath: config.docPath)
         guard let acquired = RelayDispatchLock.acquireStart(startKey: key, relaysRoot: stateStore.rootDirectory) else {
             // `acquireStart` blocks until the lock is free, so a nil result here means a
@@ -247,7 +260,7 @@ public struct RelayCoordinator: Sendable {
         }
 
         var state = RelayState(
-            id: idFactory(),
+            id: id ?? idFactory(),
             projectRoot: config.projectRoot,
             docPath: config.docPath,
             pmWorkerId: config.pmWorkerId,
@@ -586,9 +599,15 @@ public struct RelayCoordinator: Sendable {
     /// 1 > config.maxRounds`, and `state.rounds` already carries every piloted round,
     /// the ceiling counts TOTAL rounds — piloted plus spawned — never a fresh budget
     /// that pretends the piloted rounds didn't happen.
-    public func adopt(
-        relayId: String, pmWorkerId: String, config: Config, events: EventSink? = nil
-    ) async -> Result<RelayState, AdoptError> {
+    /// RSC-S03 (`--no-wait`): the guard-only half of `adopt` below — same
+    /// lock/load/check/flip/persist/release discipline, minus the round loop. Returns
+    /// the flipped state, the resolved config, and the one-time `adoptionNote` (it is
+    /// NOT persisted onto `RelayState` — see `adopt`'s doc comment — so a detached
+    /// caller must carry it forward explicitly to `continueRound`). `adopt` is built
+    /// on top of this so there is exactly one guard implementation.
+    public func adoptGuard(
+        relayId: String, pmWorkerId: String, config: Config
+    ) -> Result<(state: RelayState, config: Config, adoptionNote: String), AdoptError> {
         // RSC-S01: the lock covers ONLY the read-check-write window below — released
         // (by dropping this handle) right before the round loop, never held across it.
         // A crashed holder never wedges the relay: `flock` is released by the kernel on
@@ -630,8 +649,20 @@ public struct RelayCoordinator: Sendable {
         persist(state)
         lockHandle = nil
 
-        await loop(state: &state, config: adoptedConfig, events: events, adoptionNote: note)
-        return .success(state)
+        return .success((state, adoptedConfig, note))
+    }
+
+    public func adopt(
+        relayId: String, pmWorkerId: String, config: Config, events: EventSink? = nil
+    ) async -> Result<RelayState, AdoptError> {
+        switch adoptGuard(relayId: relayId, pmWorkerId: pmWorkerId, config: config) {
+        case .failure(let error):
+            return .failure(error)
+        case .success(let (flipped, adoptedConfig, note)):
+            var state = flipped
+            await loop(state: &state, config: adoptedConfig, events: events, adoptionNote: note)
+            return .success(state)
+        }
     }
 
     private static func adoptionNoteText(roundsSoFar: Int, priorEscalationNote: String?) -> String {
@@ -742,10 +773,19 @@ public struct RelayCoordinator: Sendable {
         case alreadyActive(relayId: String)
     }
 
-    public func resume(
-        relayId: String, founderAnswer: String, config: Config, events: EventSink? = nil
-    ) async -> Result<RelayState, DispatchRefusal> {
-        // RSC-S01: same lock/window discipline as `adopt` above — see its comment.
+    /// RSC-S03 (`--no-wait`): the guard-only half of `resume` below — load, reconcile
+    /// an orphan if needed, check eligibility, take the per-id dispatch lock, flip to
+    /// `.running`, persist, release the lock. Returns the flipped state and the
+    /// resolved config (worker ids / `projectRoot` / `docPath` taken from the loaded
+    /// state, never from the caller-supplied `config`, exactly like `resume`) so a
+    /// detached-dispatch caller can hand the round loop to a child process instead of
+    /// running it in this one. `resume` is built on top of this so there is exactly
+    /// one guard implementation — this is the same mutate-under-lock step either way,
+    /// not a second, weaker check.
+    public func resumeGuard(
+        relayId: String, founderAnswer: String, config: Config
+    ) -> Result<(state: RelayState, config: Config), DispatchRefusal> {
+        // RSC-S01: same lock/window discipline as `adoptGuard` below — see its comment.
         var lockHandle: ThreadFlockLock.Handle? = RelayDispatchLock.tryAcquire(
             relayId: relayId, relaysRoot: stateStore.rootDirectory
         )
@@ -776,8 +816,37 @@ public struct RelayCoordinator: Sendable {
         persist(state)
         lockHandle = nil
 
-        await loop(state: &state, config: resumedConfig, events: events)
-        return .success(state)
+        return .success((state, resumedConfig))
+    }
+
+    public func resume(
+        relayId: String, founderAnswer: String, config: Config, events: EventSink? = nil
+    ) async -> Result<RelayState, DispatchRefusal> {
+        switch resumeGuard(relayId: relayId, founderAnswer: founderAnswer, config: config) {
+        case .failure(let refusal):
+            return .failure(refusal)
+        case .success(let (flipped, resumedConfig)):
+            var state = flipped
+            await loop(state: &state, config: resumedConfig, events: events)
+            return .success(state)
+        }
+    }
+
+    /// RSC-S03 (`--no-wait`): runs the round loop for a relay whose durable state has
+    /// ALREADY been flipped to `.running` by a guarded `resumeGuard`/`adoptGuard` call
+    /// — used only by the detached child a `--no-wait` resume/adopt spawns. Loads
+    /// state fresh from disk (never reuses an in-memory value across the process
+    /// boundary — the child is a separate OS process) and does not re-check
+    /// eligibility: that already happened, under lock, in the foreground process
+    /// before this child was spawned. Returns `nil` only if the relay vanished from
+    /// disk between the guard and this call (should not happen in practice; the
+    /// caller has nothing meaningful to report to since its output is discarded).
+    public func continueRound(
+        relayId: String, config: Config, adoptionNote: String? = nil, events: EventSink? = nil
+    ) async -> RelayState? {
+        guard var state = stateStore.load(id: relayId) else { return nil }
+        await loop(state: &state, config: config, events: events, adoptionNote: adoptionNote)
+        return state
     }
 
     /// `pair relay-status` / MCP `pair_relay(action: status)` — the read path that also

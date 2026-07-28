@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "4.2.0"
+    static let contractVersion = "4.3.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -474,7 +474,8 @@ public extension ContractRegistry {
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling (default 20)."),
                 FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7)."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
-                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope."),
+                FlagSpec("no-wait", summary: "RSC-S03: return immediately after dispatch (a detached child runs the relay); poll `pair relay-status --relay <id> --json`. All start-time validation (worker/project resolution, the duplicate-active guard) still runs before the ack — a refusal spawns nothing."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack)."),
             ],
             outputSchema: .relayJSON
         ),
@@ -494,7 +495,8 @@ public extension ContractRegistry {
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the resumed stretch."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the resumed stretch (default 20)."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
-                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope."),
+                FlagSpec("no-wait", summary: "RSC-S03: run the real resume guard (lock, eligibility, flip to running) in the foreground, then hand the round loop to a detached child and return immediately; poll `pair relay-status --relay <id> --json`. A guard refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud and spawns nothing."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack)."),
             ],
             outputSchema: .relayJSON
         ),
@@ -506,7 +508,8 @@ public extension ContractRegistry {
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20)."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the adopted stretch."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
-                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope."),
+                FlagSpec("no-wait", summary: "RSC-S03: run the real adopt guard (lock, eligibility, flip to running) in the foreground, then hand the round loop to a detached child and return immediately; poll `pair relay-status --relay <id> --json`. A guard refusal fails loud and spawns nothing."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack)."),
             ],
             outputSchema: .relayJSON
         ),

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.2.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.3.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -662,7 +662,8 @@ Flags:
 - `--max-rounds <integer>` — Round ceiling (default 20).
 - `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
-- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
+- `--no-wait` — RSC-S03: return immediately after dispatch (a detached child runs the relay); poll `pair relay-status --relay <id> --json`. All start-time validation (worker/project resolution, the duplicate-active guard) still runs before the ack — a refusal spawns nothing.
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).
 
 Output schema: `relayJSON`.
 
@@ -686,7 +687,8 @@ Flags:
 - `--until <time>` — Hard stop HH:MM (local) for the resumed stretch.
 - `--max-rounds <integer>` — Round ceiling for the resumed stretch (default 20).
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
-- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
+- `--no-wait` — RSC-S03: run the real resume guard (lock, eligibility, flip to running) in the foreground, then hand the round loop to a detached child and return immediately; poll `pair relay-status --relay <id> --json`. A guard refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud and spawns nothing.
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).
 
 Output schema: `relayJSON`.
 
@@ -700,7 +702,8 @@ Flags:
 - `--max-rounds <integer>` — Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20).
 - `--until <time>` — Hard stop HH:MM (local) for the adopted stretch.
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
-- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
+- `--no-wait` — RSC-S03: run the real adopt guard (lock, eligibility, flip to running) in the foreground, then hand the round loop to a detached child and return immediately; poll `pair relay-status --relay <id> --json`. A guard refusal fails loud and spawns nothing.
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).
 
 Output schema: `relayJSON`.
 
