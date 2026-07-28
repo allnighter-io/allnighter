@@ -6,7 +6,7 @@ import CryptoKit
 import Crypto
 #endif
 
-/// RSC-S01 (`docs/phases/Round_Survives_The_Caller.md`): cross-process mutual exclusion
+/// RSC-S01 (`docs/archive/phases/Round_Survives_The_Caller.md`): cross-process mutual exclusion
 /// for `RelayCoordinator.resume`/`.adopt`'s load → check-status → flip-`.running` →
 /// persist window. Without this, two separate OS processes — two `alln` CLI
 /// invocations, or a CLI racing the Mac app (`RelayGUIRuntime.makeCoordinator` builds a

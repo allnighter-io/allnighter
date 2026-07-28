@@ -2,7 +2,7 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterCLI
 
-/// RSC-S03 (`docs/phases/Round_Survives_The_Caller.md`): the shared "re-launch this
+/// RSC-S03 (`docs/archive/phases/Round_Survives_The_Caller.md`): the shared "re-launch this
 /// same binary as a detached background process" helper — extracted from
 /// `PilotCLI.dispatchHandoffInBackground` so `pair relay` / `relay-resume` /
 /// `relay adopt`'s own `--no-wait` reuse it instead of growing a second

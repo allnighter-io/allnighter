@@ -418,7 +418,7 @@ final class RelayCLITests: XCTestCase {
     // MARK: - RSC-S03: --no-wait CLI surface
 
     /// The three relay verbs' `CommandSpec`s must all carry `--no-wait`
-    /// (`docs/phases/Round_Survives_The_Caller.md` RSC-S03's only registered CLI
+    /// (`docs/archive/phases/Round_Survives_The_Caller.md` RSC-S03's only registered CLI
     /// surface change).
     func testNoWaitFlagRegisteredOnAllThreeRelayVerbs() {
         let registry = ContractRegistry.milestone1
