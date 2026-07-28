@@ -131,6 +131,61 @@ final class RetiredVocabularyTests: XCTestCase {
         }
     }
 
+    // MARK: - RSC-S05: `--detach` is structurally impossible, not just fixed once
+
+    /// A phantom flag in a next-action must be structurally impossible, not merely
+    /// fixed at the sites known today. Scans every live teaching surface the RSC-S05
+    /// packet named — `AgentBootstrap` next-actions, `CommandProjection`'s projected
+    /// docs text, `CommandDescription`'s authored-or-derived trigger/example/anti-
+    /// example for every M1 command, and every `ContractRegistry` command/flag/arg
+    /// summary — for the literal phantom substring `--detach`. `HelpTopicRegistry`
+    /// prose is covered separately by `testNoRetiredVocabularyInHelpTopicProse` now
+    /// that `--detach` is a deny-list term (aliases are exempt by design — a
+    /// discovery-only alias pointing a lost caller at the real `--no-wait` flag is
+    /// not the phantom-grammar defect).
+    func testDetachPhantomGrammarStructurallyAbsentFromLiveCorpus() {
+        var hits: [String] = []
+
+        for action in [
+            AgentNextAction.startTeamRun(teamId: "code_bug_hunt"),
+            AgentNextAction.retryLater(teamId: "code_bug_hunt"),
+            AgentNextAction.runDoctor,
+            AgentNextAction.installOrAuthSource,
+            AgentNextAction.performHumanAction,
+        ] where action.command.contains("--detach") {
+            hits.append("AgentNextAction[\(action.kind)].command: \(action.command)")
+        }
+
+        if CommandProjection.streamFramingMarkdown.contains("--detach") {
+            hits.append("CommandProjection.streamFramingMarkdown")
+        }
+
+        let registry = ContractRegistry.milestone1
+        let recipesById = Dictionary(uniqueKeysWithValues: registry.examples.map { ($0.id, $0) })
+        for cmd in registry.commands where cmd.milestone == .m1 {
+            if cmd.summary.contains("--detach") { hits.append("\(cmd.name) summary") }
+            if CommandDescription.trigger(for: cmd).contains("--detach") {
+                hits.append("\(cmd.name) trigger (derived-or-authored)")
+            }
+            if CommandDescription.example(for: cmd, recipes: recipesById).contains("--detach") {
+                hits.append("\(cmd.name) example (derived-or-authored)")
+            }
+            if CommandDescription.antiExample(for: cmd).contains("--detach") {
+                hits.append("\(cmd.name) antiExample (derived-or-authored)")
+            }
+            for flag in cmd.flags where flag.summary.contains("--detach") {
+                hits.append("\(cmd.name) --\(flag.name) summary")
+            }
+            for arg in cmd.args where arg.summary.contains("--detach") {
+                hits.append("\(cmd.name) <\(arg.name)> summary")
+            }
+        }
+
+        XCTAssertTrue(hits.isEmpty, "phantom --detach grammar found:\n\(hits.joined(separator: "\n"))")
+        XCTAssertTrue(RetiredVocabulary.denyTerms.contains("--detach"),
+                       "--detach must be on the permanent deny-list so it can never be re-taught")
+    }
+
     // MARK: - (a) Prose-command resolution
 
     func testEveryBacktickedAllnCommandInTopicProseResolves() {

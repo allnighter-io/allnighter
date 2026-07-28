@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.4.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.4.1, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1535,7 +1535,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 never mixes into stdout. Events are ordered by durable `seq`. A stream ends with
 exactly one terminal event among `error`, `teamRunCompleted`, `teamRunFailed`.
 
-On `run`, `--stream` is mutually exclusive with `--json`, `--dry-run`, and `--detach`
+On `run`, `--stream` is mutually exclusive with `--json`, `--dry-run`, and `--no-wait`
 (registry constraints; invalid combinations exit 2 before any provider start).
 ## Model controls (vendor CLI boundary)
 

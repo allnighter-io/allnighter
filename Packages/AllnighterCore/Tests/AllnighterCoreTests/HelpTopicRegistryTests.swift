@@ -62,8 +62,10 @@ final class HelpTopicRegistryTests: XCTestCase {
 
     /// ASF-S05: first-contact decision tree covers run / thread / pending / menu.
     /// `--detach` was demoted from a taught verb to a temporarily-unsupported
-    /// surface in 1c04876e (code-red: restore direct run and delete mirrors); the
-    /// topic must now disclose that status rather than teach it as a usable command.
+    /// surface in 1c04876e (code-red: restore direct run and delete mirrors), then
+    /// permanently deny-listed as phantom grammar (RSC-S05) — the real detached-
+    /// dispatch flag is `--no-wait` (RSC-S04), so the topic must teach that, not the
+    /// never-shipped `--detach` name.
     func testToolSelectionDecisionTreeMentionsCoreVerbs() throws {
         let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "tool_selection"))
         let prose = ([topic.summary, topic.bodyMarkdown]
@@ -76,13 +78,14 @@ final class HelpTopicRegistryTests: XCTestCase {
         ] {
             XCTAssertTrue(prose.contains(needle), "tool_selection must mention '\(needle)'")
         }
-        // CR-S06 DELETED --detach; it is not "temporarily unsupported" any more.
-        // Help must not advertise a flag that no longer exists, and must say plainly
-        // that runs are foreground only.
+        // RSC-S05: `--detach` never shipped as a real flag; help must not advertise
+        // it, and must instead teach the real detached-dispatch flag by name.
         XCTAssertFalse(prose.contains("--detach"),
-                       "tool_selection must not mention --detach — the flag was deleted in CR-S06")
-        XCTAssertTrue(prose.contains("foreground only"),
-                      "tool_selection must state that runs are foreground only")
+                       "tool_selection must not mention --detach — it never shipped as a CLI flag")
+        XCTAssertTrue(prose.contains("--no-wait"),
+                      "tool_selection must teach --no-wait as the real detached-dispatch flag")
+        XCTAssertTrue(prose.contains("foreground"),
+                      "tool_selection must state that runs are foreground by default")
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "which command"), "tool_selection")
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "run vs team"), "tool_selection")
         XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "thread send"), "tool_selection")
@@ -165,6 +168,21 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(top("new team"), "teams_and_workers")
         XCTAssertEqual(top("customize a team"), "teams_and_workers")
         XCTAssertEqual(top("build a team"), "teams_and_workers")
+    }
+
+    /// RSC-S05: a caller who was looking for the never-shipped `--detach` flag, or
+    /// who just watched their own session die, must land on the topic that teaches
+    /// the real survival mechanics — not just find the alias string somewhere in an
+    /// array. `alln help search` is the actual discovery entry point (`HelpService.
+    /// search`, projected by `alln help search` / `HelpProjector.search`), so proving
+    /// it here proves discoverability, not merely that the alias was typed in.
+    func testSearchRoutesDetachedDispatchSurvivalQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("no-wait"), "pm_relay")
+        XCTAssertEqual(top("survive"), "pm_relay")
+        XCTAssertEqual(top("my session died"), "pm_relay")
+        XCTAssertEqual(top("idempotency"), "team_run_loop")
+        XCTAssertEqual(top("detach"), "team_run_loop")
     }
 
     func testSearchScoresAreNormalizedAndOrdered() throws {

@@ -58,6 +58,11 @@ public enum RetiredVocabulary {
         // is no `teams create`). A caller reading the false negative can
         // conclude the named verb exists, just unreachable from here.
         "not an alias for",
+        // RSC-S05 — phantom grammar: this flag was never real CLI grammar (the
+        // shipped detached-dispatch flag is `--no-wait`, RSC-S04). Deny-listed so
+        // it can never be re-taught in prose/next-actions; still fine as a
+        // discovery-only HelpTopic alias pointing callers at the real flag.
+        "--detach",
     ]
 
     /// Underscore tool ids that must never appear as callable ids in agent-visible

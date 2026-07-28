@@ -33,7 +33,7 @@ final class VersionIdentityTests: XCTestCase {
     /// Pin the value so an accidental revert is caught here, not discovered
     /// downstream.
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.10.4")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.10.5")
     }
 
     /// Drift gate: no OTHER hardcoded `"0.9.0"` string literal survives in the

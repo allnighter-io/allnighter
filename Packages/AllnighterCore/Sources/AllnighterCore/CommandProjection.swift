@@ -90,7 +90,7 @@ public enum CommandProjection {
         never mixes into stdout. Events are ordered by durable `seq`. A stream ends with
         exactly one terminal event among \(terminals).
 
-        On `run`, `--stream` is mutually exclusive with `--json`, `--dry-run`, and `--detach`
+        On `run`, `--stream` is mutually exclusive with `--json`, `--dry-run`, and `--no-wait`
         (registry constraints; invalid combinations exit 2 before any provider start).
 
         """

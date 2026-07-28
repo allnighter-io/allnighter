@@ -61,7 +61,7 @@ public enum CommandDescription {
             return "Do NOT use this to pick a model or team by name — use `alln menu --json`."
         }
         if name.hasPrefix("pending ") {
-            return "Do NOT use this when the user wants work started now — use `alln run` (add `--detach` for async) after `--dry-run`."
+            return "Do NOT use this when the user wants work started now — use `alln run` (add `--no-wait` for async) after `--dry-run`."
         }
         return "Do NOT use this when `alln menu --json` or `alln help search \"<intent>\" --json` already answers the question."
     }

@@ -116,7 +116,9 @@ final class FixtureRoundTripTests: XCTestCase {
         // RSC-S03 bumps both again, 4.2.0 → 4.3.0 (--no-wait on the three relay verbs).
         // RSC-S04 bumps both again, 4.3.0 → 4.4.0 (--no-wait + --run-id on `alln run`,
         // new RUN_ID_IN_USE error spec).
-        XCTAssertEqual(trj.contractVersion, "4.4.0")
+        // RSC-S05 bumps both again, 4.4.0 → 4.4.1 (text-only: teaching-surface fixes
+        // + phantom --detach sweep; no new commands/flags/errors).
+        XCTAssertEqual(trj.contractVersion, "4.4.1")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.workers.count, 1)

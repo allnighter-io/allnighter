@@ -2263,7 +2263,7 @@
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : true,
       "summary" : "Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.",
-      "trigger" : "Use when the user wants one worker or team to answer or act in a project repo root (chat \/ named-model ask \/ Default Team \/ detach when stepping away).",
+      "trigger" : "Use when the user wants one worker or team to answer or act in a project repo root (chat \/ named-model ask \/ Default Team \/ --no-wait to keep going after you step away).",
       "visibility" : "public"
     },
     {
@@ -5014,7 +5014,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.4.0",
+  "contractVersion" : "4.4.1",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

@@ -184,8 +184,8 @@ final class ResolvedRunInvocationTests: XCTestCase {
         XCTAssertEqual(fg.workerId, detach.workerId)
         XCTAssertEqual(fg.seatCount, detach.seatCount)
         XCTAssertEqual(fg.writePolicy, detach.writePolicy)
-        XCTAssertTrue(detach.argvTemplate.contains("--detach"))
-        XCTAssertFalse(fg.argvTemplate.contains("--detach"))
+        XCTAssertTrue(detach.argvTemplate.contains("--no-wait"))
+        XCTAssertFalse(fg.argvTemplate.contains("--no-wait"))
         assertNoDroppedSelectors(detach, worker: "model_sonnet")
     }
 
@@ -250,7 +250,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
                 messageId: "msg_1"
             )
         )
-        XCTAssertTrue(detach.argvTemplate.contains("--detach"))
+        XCTAssertTrue(detach.argvTemplate.contains("--no-wait"))
         XCTAssertTrue(detach.argvTemplate.contains("--thread-id") && detach.argvTemplate.contains("thread_1"))
         XCTAssertTrue(detach.argvTemplate.contains("--conversation-id") && detach.argvTemplate.contains("conv_1"))
         XCTAssertTrue(detach.argvTemplate.contains("--message-id") && detach.argvTemplate.contains("msg_1"))

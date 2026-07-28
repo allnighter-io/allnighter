@@ -14,7 +14,7 @@ final class AgentBootstrapTests: XCTestCase {
         XCTAssertTrue(v.readyTeams.contains { $0.team == "code_bug_hunt" })
         XCTAssertNil(v.blockedReason)
         XCTAssertEqual(v.nextAction.kind, "startTeamRun")
-        XCTAssertEqual(v.nextAction.command, "alln run \"<message>\" --team <team-id> --detach --json")
+        XCTAssertEqual(v.nextAction.command, "alln run \"<message>\" --team <team-id> --no-wait --json")
         XCTAssertEqual(ContractRegistry.resolveCommandName(from: v.nextAction.command), "run")
     }
 
@@ -42,7 +42,7 @@ final class AgentBootstrapTests: XCTestCase {
         XCTAssertEqual(r.readyWorkers.count, 9) // 8 answer/review + writer
         XCTAssertTrue(r.selfFusion.enabled)
         XCTAssertEqual(r.nextAction.kind, "startTeamRun")
-        XCTAssertEqual(r.nextAction.command, "alln run \"<message>\" --team code_bug_hunt_max --detach --json")
+        XCTAssertEqual(r.nextAction.command, "alln run \"<message>\" --team code_bug_hunt_max --no-wait --json")
         XCTAssertTrue(r.readyWorkers.contains { $0.purpose == "plan" }) // synthetic writer
     }
 

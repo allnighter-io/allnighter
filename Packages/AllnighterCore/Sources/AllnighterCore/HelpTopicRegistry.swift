@@ -121,8 +121,8 @@ public enum HelpTopicRegistry {
             - `alln run` — single worker / chat / named-model ask in the project root \
             (Default Team). One message; optional `--worker` or `--team`.
             - `alln run --team <id>` — multi-seat team in the project root.
-            - `alln run` — foreground Team run in the registered repository. Runs are \
-            foreground only; there is no detached mode.
+            - `alln run` — foreground Team run in the registered repository by default; \
+            add `--no-wait` to return immediately and poll `alln run resume <id> --json`.
             - `alln thread send` — continue an existing work thread (not a fresh one-shot).
             - Pending — defer work with `alln pending add`; run later with `alln pending run`.
 
@@ -188,7 +188,8 @@ public enum HelpTopicRegistry {
                       "read only", "readonly", "write policy", "mutating",
                       "timing", "queueMs", "ttftMs", "durationMs", "wallMs", "latency",
                       "stream", "ndjson", "temperature", "max tokens", "max-tokens",
-                      "answer field", "canonical answer"],
+                      "answer field", "canonical answer",
+                      "no-wait", "background run", "detach", "idempotency", "retry safely"],
             sections: [
                 .init("preflight", "Dry-run first", "Call `alln run --dry-run` before a foreground run so a bad lineup fails before quota is spent."),
                 .init("write-policy", "Observation vs outcome", "`effects.repoWrite` means the resolved invocation may write. Research Teams are observational; terminal `repoDelta` reports whether a mutating run did write, and `researchGitObservation.changed` flags a read-only run that unexpectedly changed Git state (files are never reset)."),
@@ -196,6 +197,7 @@ public enum HelpTopicRegistry {
                 .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` on `run`."),
                 .init("vendor-controls", "Vendor CLI controls", "No `--temperature` / `--max-tokens` on `alln run`. Use `--effort`, `--worker`, and the selected subscription CLI's own supported flags."),
                 .init("polling", "Polling", "Poll `alln team result` using the returned `nextPollAfterMs`; do not busy-loop."),
+                .init("no-wait", "Detached runs", "`alln run --no-wait` prints a run id at dispatch and returns immediately; `alln run resume <id> --json` attaches once the run settles. `--idempotency-key` is the explicit, deliberate retry-safety contract — it is opt-in, not derived, so two intentionally identical runs are never silently collapsed into one."),
             ],
             relatedCommandNames: ["run", "team status", "team result", "team cancel", "team reconcile", "floor show"],
             schemaRefs: ["teamStartResponse", "teamStatusResponse", "teamRunJSON"],
@@ -242,7 +244,8 @@ public enum HelpTopicRegistry {
             """,
             aliases: ["pm relay", "relay", "pair relay", "automate pm dev loop", "spec doc relay",
                       "pilot", "pair pilot", "pilot mode", "i am the pm", "drive from my session",
-                      "notify me", "notification", "tell me when it's done", "background notifier"],
+                      "notify me", "notification", "tell me when it's done", "background notifier",
+                      "no-wait", "background", "detached", "my session died", "survive"],
             sections: [
                 .init("verdict", "The only structure", "Everything the PM writes is free prose except one JSON tail: verdict continue/done/escalate. Missing or unparseable triggers one re-ask, then escalate — never a guess."),
                 .init("gate", "Handover safety", "Every continue verdict's handover passes a danger scan before the dev seat ever sees it. Danger blocks and escalates; mere doubt does not block."),
@@ -251,6 +254,7 @@ public enum HelpTopicRegistry {
                 .init("pilot", "Pilot: you hold the PM seat", "`pair pilot start|handoff|status|watch` — no `--pm-worker` (there is no PM model) and no `--until` (no clock). Long jobs: `handoff --no-wait` then poll `status` (watch optional/disposable). Orphan owner → inspect, never blind retry. `handoff` is the only mutation boundary: a parse failure or a gate block never escalates in Pilot, it just leaves the relay `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the relay exactly like a spawned round."),
                 .init("adopt", "Adopt: hand the SAME relay to a spawned PM (unattended)", "Pilot the first rounds yourself while context is hot, then `alln pair relay adopt --relay <id> --pm-worker <id>` converts a parked Pilot relay (`awaitingPM` or `escalated`) to a spawned PM relay and keeps going from the durable round log — same id, same rounds, same thread; the first spawned turn is told, once, that earlier rounds were externally piloted. `--max-rounds`/`--until` behave like a spawned run, and the round ceiling counts the piloted rounds too — an honest total, not a fresh budget. The reverse flip, `alln pair pilot adopt --relay <id>`, hands a parked spawned relay (escalated, or ceiling-stopped) back to Pilot — a plain state flip, no dispatch."),
                 .init("notify", "You do not have to watch", "Dispatching `pair pilot handoff`, `pair relay`, `pair relay-resume`, or `pair relay adopt` auto-starts `alln serve` in the background (silent, opt out with `--no-auto-serve` or `ALLN_NO_AUTO_SERVE`). When the round lands or escalates — even with the Mac app closed and the CLI session that dispatched it long gone — a local notification fires: \"PM Relay needs an answer\" on escalation, or the normal completion notice when it settles. Neither you nor the human has to poll `pilot status` or build a watcher for this; `alln serve` already knows."),
+                .init("survive", "The round outlives your session", "`--no-wait` on `pair relay` / `pair relay-resume` / `pair relay adopt` dispatches, then returns immediately — poll `alln pair relay-status --relay <id> --json` for progress. A killed caller is not a killed relay: the round keeps advancing under its own process. A second dispatch against an already-active relay is refused with `RELAY_ALREADY_ACTIVE`, not raced onto the same doc."),
             ],
             relatedCommandNames: [
                 "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt", "project add", "project show",
@@ -261,6 +265,7 @@ public enum HelpTopicRegistry {
                 "RELAY_NOT_FOUND", "RELAY_INVALID_STATE", "RELAY_HANDOVER_UNSAFE", "PROJECT_NOT_FOUND",
                 "RELAY_ROUND_IN_FLIGHT", "RELAY_NOT_AWAITING_PM", "RELAY_VERDICT_UNPARSEABLE",
                 "EXECUTION_LANE_BUSY", "WRITE_SCOPE_VIOLATION", "STANDING_INVARIANT_FAILED",
+                "RELAY_ALREADY_ACTIVE",
             ],
             needsLiveCheck: true),
 

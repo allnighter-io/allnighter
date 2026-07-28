@@ -15,9 +15,10 @@ public struct AsyncTeamStartRefusal: Error, Sendable, Equatable {
 
 /// How `AsyncTeamService.start` owns the work after accepting (PO-S01).
 ///
-/// CR-S06 deleted detached execution with `--detach`, so there is exactly one
-/// ownership mode left: the caller's own process. Reintroducing a forked runner
-/// is new work with its own packet.
+/// CR-S06 deleted detached team-start execution (the flag it used never actually
+/// shipped as CLI grammar; RSC-S05 swept the last phantom references), so there is
+/// exactly one ownership mode left: the caller's own process. Reintroducing a
+/// forked runner is new work with its own packet.
 public enum AsyncTeamStartOwnership: Sendable {
     /// Coordinator + heartbeat run in this process.
     case inProcess

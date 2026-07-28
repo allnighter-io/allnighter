@@ -372,9 +372,9 @@ final class RunLifecycleReliabilityWorksTest: XCTestCase {
         _ = try runAlln(alln, ["project", "add", cwd.path, "--json"], cwd: cwd, env: env, timeout: 30)
         let result = try runAlln(
             alln,
-            ["run", prompt, "--detach", "--json", "--lane", "code", "--team", teamId, "--effort", "low"],
+            ["run", prompt, "--no-wait", "--json", "--lane", "code", "--team", teamId, "--effort", "low"],
             cwd: cwd, env: env, timeout: 90)
-        XCTAssertEqual(result.status, 0, "run --detach failed: \(result.stderr)")
+        XCTAssertEqual(result.status, 0, "run --no-wait failed: \(result.stderr)")
         return try jsonObject(result.stdout)
     }
 

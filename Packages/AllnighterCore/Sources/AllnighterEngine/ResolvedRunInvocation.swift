@@ -832,7 +832,12 @@ public enum RunInvocationResolver {
 
         switch flagMode {
         case .detach:
-            argv.append("--detach")
+            // RSC-S05: the real shipped detached-dispatch flag is `--no-wait`
+            // (RSC-S04); the phantom flag this mode used to emit never existed as
+            // real CLI grammar. This `.detach` mode has no live production call
+            // site today (every real caller passes `.foreground` or `.dryRun`), but
+            // it must still emit contract-accurate argv if it is ever wired up.
+            argv.append("--no-wait")
         case .stream:
             argv.append("--stream")
         case .tryFix:
