@@ -2206,7 +2206,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects).",
+          "summary" : "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or DetachedDispatchJSON with --no-wait.",
           "takesValue" : false
         },
         {
@@ -2215,14 +2215,8 @@
           "takesValue" : false
         },
         {
-          "name" : "run-id",
-          "summary" : "RSC-S04: use this exact id for the run instead of a minted one. Colliding with an existing run id refuses with RUN_ID_IN_USE (applies whether or not --no-wait is also set) rather than silently dispatching a second run under a reused id.",
-          "takesValue" : true,
-          "valueType" : "id"
-        },
-        {
           "name" : "no-wait",
-          "summary" : "RSC-S04: run every non-mutating check in the foreground (project\/worker resolution, exact-selector requirement, the RUN_ID_IN_USE check), then hand the run to a detached child and return immediately; poll `alln run resume <id> --json`. A refusal fails loud and spawns nothing. Mutually exclusive with --stream \/ --dry-run \/ --try-fix.",
+          "summary" : "RSC-HF: hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts (DetachedDispatchJSON ack with the real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream \/ --dry-run \/ --try-fix.",
           "takesValue" : false
         }
       ],
@@ -2407,7 +2401,7 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "RSC-S03: return immediately after dispatch (a detached child runs the relay); poll `pair relay-status --relay <id> --json`. All start-time validation (worker\/project resolution, the duplicate-active guard) still runs before the ack — a refusal spawns nothing.",
+          "summary" : "RSC-HF: spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims (DetachedDispatchJSON). A refusal fails loud and spawns nothing.",
           "takesValue" : false
         },
         {
@@ -2517,7 +2511,7 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "RSC-S03: run the real resume guard (lock, eligibility, flip to running) in the foreground, then hand the round loop to a detached child and return immediately; poll `pair relay-status --relay <id> --json`. A guard refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud and spawns nothing.",
+          "summary" : "RSC-HF: spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud.",
           "takesValue" : false
         },
         {
@@ -2586,7 +2580,7 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "RSC-S03: run the real adopt guard (lock, eligibility, flip to running) in the foreground, then hand the round loop to a detached child and return immediately; poll `pair relay-status --relay <id> --json`. A guard refusal fails loud and spawns nothing.",
+          "summary" : "RSC-HF: spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims. A refusal fails loud.",
           "takesValue" : false
         },
         {
@@ -5014,7 +5008,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.4.1",
+  "contractVersion" : "5.0.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5873,7 +5867,7 @@
       "ruleId" : "relay.round.in_flight"
     },
     {
-      "agentAction" : "Attach with `alln run resume <id> --json`, or omit --run-id.",
+      "agentAction" : "Attach with `alln run resume <id> --json`, or omit an explicit id.",
       "code" : "RUN_ID_IN_USE",
       "exitClass" : "operational",
       "explain" : "a run already exists with this id",

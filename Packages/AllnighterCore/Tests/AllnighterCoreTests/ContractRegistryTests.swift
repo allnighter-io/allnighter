@@ -10,7 +10,7 @@ final class ContractRegistryTests: XCTestCase {
     func testContractVersionMatchesTeamRunFixture() throws {
         let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
         XCTAssertEqual(reg.contractVersion, trj.contractVersion)
-        XCTAssertEqual(reg.contractVersion, "4.4.1")
+        XCTAssertEqual(reg.contractVersion, "5.0.0")
     }
 
     /// Team-run and Pending next-action kinds must match the registry catalog.
@@ -112,8 +112,8 @@ final class ContractRegistryTests: XCTestCase {
         XCTAssertEqual(auth?.retryable, false)
     }
 
-    /// RSC-S04: `RUN_ID_IN_USE` — the `alln run --run-id`/`--no-wait` collision
-    /// refusal — carries the attach-or-omit `agentAction` and has no `exitClass`
+    /// RSC-HF: `RUN_ID_IN_USE` — internal id collision refusal — carries the
+    /// attach-or-omit `agentAction` and has no `exitClass`
     /// override, so it falls through to `ExitCode.operational` (process exit 1),
     /// unchanged from every other run-related refusal.
     func testRunIdInUseErrorSpecRegistered() {

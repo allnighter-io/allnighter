@@ -38,14 +38,11 @@ final class RunFlagConstraintTests: XCTestCase {
         XCTAssertFalse(groups.contains { $0.contains("detach") })
     }
 
-    /// RSC-S04: `--no-wait` is mutually exclusive with `--stream` / `--dry-run` /
-    /// `--try-fix` — a detached child re-runs the normal blocking path, so pairing
-    /// `--no-wait` with any of these would be ambiguous about which mode wins.
-    func testRunDeclaresNoWaitAndRunIdFlags() {
+    /// RSC-HF: `--no-wait` is mutually exclusive with `--stream` / `--dry-run` /
+    /// `--try-fix`. Public `--run-id` was removed.
+    func testRunDeclaresNoWaitFlag() {
         XCTAssertTrue(run.flags.contains { $0.name == "no-wait" })
-        let runId = run.flags.first { $0.name == "run-id" }
-        XCTAssertNotNil(runId)
-        XCTAssertEqual(runId?.takesValue, true)
+        XCTAssertFalse(run.flags.contains { $0.name == "run-id" })
 
         let groups = Set(run.mutuallyExclusiveFlags.map { Set($0) })
         XCTAssertTrue(groups.contains(["no-wait", "stream"]))
@@ -114,10 +111,8 @@ final class RunFlagConstraintTests: XCTestCase {
             XCTAssertNotNil(err, "--no-wait + --\(peer) should be rejected")
             XCTAssertTrue(err?.message.contains("mutually exclusive") == true, "\(peer): \(err?.message ?? "")")
         }
-        // Alone, or with --run-id, --no-wait clears the gate.
+        // Alone, --no-wait clears the gate.
         XCTAssertNil(constraintError(for: ["probe", "--no-wait"]))
-        XCTAssertNil(constraintError(for: ["probe", "--no-wait", "--run-id", "run_fixed"]))
-        XCTAssertNil(constraintError(for: ["probe", "--run-id", "run_fixed"]))
     }
 
     /// `--detach` is gone, so argv naming it must fail as an unknown flag rather
@@ -187,8 +182,7 @@ final class RunFlagConstraintTests: XCTestCase {
             ["probe", "--commit-message", "ship"],
             ["probe", "--dry-run", "--worker", "model_sonnet", "--team", "code_bug_hunt", "--effort", "high"],
             ["probe", "--no-wait"],
-            ["probe", "--no-wait", "--run-id", "run_fixed"],
-            ["probe", "--run-id", "run_fixed", "--json"],
+            ["probe", "--no-wait", "--json"],
         ]
         for args in valid {
             let err = constraintError(for: args)
@@ -202,7 +196,7 @@ final class RunFlagConstraintTests: XCTestCase {
 
     private func validArgv(for flag: ContractRegistry.FlagSpec) -> [String] {
         switch flag.name {
-        case "stream", "try-fix", "dry-run", "json", "no-commit":
+        case "stream", "try-fix", "dry-run", "json", "no-commit", "no-wait":
             return ["probe", "--\(flag.name)"]
         case "commit-message":
             return ["probe", "--commit-message", "msg"]

@@ -97,6 +97,60 @@ final class DetachedDispatchTests: XCTestCase {
         XCTAssertEqual(DetachedDispatch.childArguments(from: argv), argv)
     }
 
+    func testChildArgumentsPreservesNoAutoServe() {
+        let argv = ["pair", "relay-resume", "--relay", "relay_1", "--answer", "go", "--no-wait", "--no-auto-serve"]
+        XCTAssertEqual(
+            DetachedDispatch.childArguments(from: argv),
+            ["pair", "relay-resume", "--relay", "relay_1", "--answer", "go", "--no-auto-serve"]
+        )
+    }
+
+    func testLaunchAndAwaitAcceptanceAccepted() throws {
+        let script = tmp.appendingPathComponent("accept.sh")
+        // Child writes runner_ready.json into $ALLNIGHTER_DETACHED_HANDOFF then exits.
+        let scriptBody = """
+        #!/bin/sh
+        dir="$ALLNIGHTER_DETACHED_HANDOFF"
+        printf '%s' '{"outcome":"accepted","runId":"relay_from_child"}' > "$dir/runner_ready.json"
+        """
+        try scriptBody.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+
+        let acceptance = try DetachedDispatch.launchAndAwaitAcceptance(
+            cwd: tmp.path,
+            arguments: [],
+            timeout: 5,
+            executableURL: script
+        )
+        guard case .accepted(let id, _) = acceptance else {
+            return XCTFail("expected accepted, got \(acceptance)")
+        }
+        XCTAssertEqual(id, "relay_from_child")
+    }
+
+    func testLaunchAndAwaitAcceptanceRefused() throws {
+        let script = tmp.appendingPathComponent("refuse.sh")
+        let scriptBody = """
+        #!/bin/sh
+        dir="$ALLNIGHTER_DETACHED_HANDOFF"
+        printf '%s' '{"outcome":"refused","runId":"","refusalCode":"RELAY_ALREADY_ACTIVE","refusalMessage":"busy"}' > "$dir/runner_ready.json"
+        """
+        try scriptBody.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+
+        let acceptance = try DetachedDispatch.launchAndAwaitAcceptance(
+            cwd: tmp.path,
+            arguments: [],
+            timeout: 5,
+            executableURL: script
+        )
+        guard case .refused(_, let code, let message, _) = acceptance else {
+            return XCTFail("expected refused, got \(acceptance)")
+        }
+        XCTAssertEqual(code, "RELAY_ALREADY_ACTIVE")
+        XCTAssertEqual(message, "busy")
+    }
+
     // MARK: - DetachedDispatchJSON: one ack shape for every --no-wait verb
 
     func testDetachedDispatchJSONShape() throws {
@@ -114,11 +168,8 @@ final class DetachedDispatchTests: XCTestCase {
     // MARK: - Structural: exactly one "resolve binary, build Process" implementation
 
     /// `PilotCLI.swift` and `RelayCLI.swift` must route detached spawn through
-    /// `DetachedDispatch.launch` — neither should construct its own `Process()` for
-    /// this purpose. A grep-level guard: if either file starts building `Process()`
-    /// directly again, that IS the drift RSC-S03 was written to prevent (task's own
-    /// words: "do not leave two independent implementations of 'resolve binary,
-    /// build Process, set env/stdio'").
+    /// `DetachedDispatch` — neither should construct its own `Process()` for
+    /// this purpose.
     func testPilotAndRelayCLIDoNotConstructProcessDirectly() throws {
         let cliDir = sourcesRoot().appendingPathComponent("AllnighterCLI")
         for name in ["PilotCLI.swift", "RelayCLI.swift"] {
@@ -126,7 +177,7 @@ final class DetachedDispatchTests: XCTestCase {
             let text = try String(contentsOf: url, encoding: .utf8)
             XCTAssertFalse(
                 text.contains("Process()"),
-                "\(name) should route detached spawn through DetachedDispatch.launch, not construct Process() directly"
+                "\(name) should route detached spawn through DetachedDispatch, not construct Process() directly"
             )
         }
     }

@@ -774,7 +774,7 @@
     "ruleId" : "relay.round.in_flight"
   },
   {
-    "agentAction" : "Attach with `alln run resume <id> --json`, or omit --run-id.",
+    "agentAction" : "Attach with `alln run resume <id> --json`, or omit an explicit id.",
     "code" : "RUN_ID_IN_USE",
     "exitClass" : "operational",
     "explain" : "a run already exists with this id",

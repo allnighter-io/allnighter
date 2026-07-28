@@ -118,7 +118,9 @@ final class FixtureRoundTripTests: XCTestCase {
         // new RUN_ID_IN_USE error spec).
         // RSC-S05 bumps both again, 4.4.0 → 4.4.1 (text-only: teaching-surface fixes
         // + phantom --detach sweep; no new commands/flags/errors).
-        XCTAssertEqual(trj.contractVersion, "4.4.1")
+        // RSC-HF bumps both again, 4.4.1 → 5.0.0 (remove public `--run-id`, add
+        // detachedDispatchJSON output schema; ack-after-accept `--no-wait`).
+        XCTAssertEqual(trj.contractVersion, "5.0.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.workers.count, 1)
