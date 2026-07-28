@@ -120,6 +120,8 @@ final class RelayResumeController {
             // `RelayCoordinator.run`'s start-time duplicate guard (RSC-S02). Kept for
             // `DispatchRefusal`'s exhaustive switch, not a real resume outcome.
             return "This relay is no longer resumable."
+        case .journalUnavailable:
+            return "The relay claim could not be written durably — check disk space and permissions, then try again."
         }
     }
 }
