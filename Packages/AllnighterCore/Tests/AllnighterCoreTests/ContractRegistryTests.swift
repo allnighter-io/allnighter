@@ -10,7 +10,7 @@ final class ContractRegistryTests: XCTestCase {
     func testContractVersionMatchesTeamRunFixture() throws {
         let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
         XCTAssertEqual(reg.contractVersion, trj.contractVersion)
-        XCTAssertEqual(reg.contractVersion, "4.3.0")
+        XCTAssertEqual(reg.contractVersion, "4.4.0")
     }
 
     /// Team-run and Pending next-action kinds must match the registry catalog.
@@ -110,6 +110,20 @@ final class ContractRegistryTests: XCTestCase {
         XCTAssertEqual(auth?.ruleId, "source.auth.expired")
         XCTAssertEqual(auth?.requiresManual, true)
         XCTAssertEqual(auth?.retryable, false)
+    }
+
+    /// RSC-S04: `RUN_ID_IN_USE` — the `alln run --run-id`/`--no-wait` collision
+    /// refusal — carries the attach-or-omit `agentAction` and has no `exitClass`
+    /// override, so it falls through to `ExitCode.operational` (process exit 1),
+    /// unchanged from every other run-related refusal.
+    func testRunIdInUseErrorSpecRegistered() {
+        let spec = reg.errors.first { $0.code == "RUN_ID_IN_USE" }
+        XCTAssertNotNil(spec, "RUN_ID_IN_USE must be registered beside RELAY_ROUND_IN_FLIGHT")
+        XCTAssertEqual(spec?.ruleId, "run.id.in_use")
+        XCTAssertEqual(spec?.requiresManual, true)
+        XCTAssertEqual(spec?.retryable, false)
+        XCTAssertTrue(spec?.agentAction.contains("alln run resume") == true)
+        XCTAssertEqual(reg.processExitCode(forErrorCode: "RUN_ID_IN_USE"), 1)
     }
 
     func testDoctorChecksAndEventsAreCompleteAndUnique() {

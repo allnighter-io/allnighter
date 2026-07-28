@@ -2213,6 +2213,17 @@
           "name" : "stream",
           "summary" : "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json \/ --dry-run.",
           "takesValue" : false
+        },
+        {
+          "name" : "run-id",
+          "summary" : "RSC-S04: use this exact id for the run instead of a minted one. Colliding with an existing run id refuses with RUN_ID_IN_USE (applies whether or not --no-wait is also set) rather than silently dispatching a second run under a reused id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "no-wait",
+          "summary" : "RSC-S04: run every non-mutating check in the foreground (project\/worker resolution, exact-selector requirement, the RUN_ID_IN_USE check), then hand the run to a detached child and return immediately; poll `alln run resume <id> --json`. A refusal fails loud and spawns nothing. Mutually exclusive with --stream \/ --dry-run \/ --try-fix.",
+          "takesValue" : false
         }
       ],
       "freeTwinCommand" : "alln run --dry-run",
@@ -2233,6 +2244,18 @@
         ],
         [
           "dry-run",
+          "try-fix"
+        ],
+        [
+          "no-wait",
+          "stream"
+        ],
+        [
+          "no-wait",
+          "dry-run"
+        ],
+        [
+          "no-wait",
           "try-fix"
         ]
       ],
@@ -4991,7 +5014,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.3.0",
+  "contractVersion" : "4.4.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5848,6 +5871,15 @@
       "requiresManual" : false,
       "retryable" : true,
       "ruleId" : "relay.round.in_flight"
+    },
+    {
+      "agentAction" : "Attach with `alln run resume <id> --json`, or omit --run-id.",
+      "code" : "RUN_ID_IN_USE",
+      "exitClass" : "operational",
+      "explain" : "a run already exists with this id",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "run.id.in_use"
     },
     {
       "agentAction" : "Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done\/escalated\/stopped have nothing left to hand off to).",

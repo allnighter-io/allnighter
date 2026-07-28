@@ -114,7 +114,9 @@ final class FixtureRoundTripTests: XCTestCase {
         // bundled team_run.json fixture both carry 3.4.0 — only this golden lagged.
         // RSC-S02 bumped both, 4.1.0 → 4.2.0 (new RELAY_ALREADY_ACTIVE error spec).
         // RSC-S03 bumps both again, 4.2.0 → 4.3.0 (--no-wait on the three relay verbs).
-        XCTAssertEqual(trj.contractVersion, "4.3.0")
+        // RSC-S04 bumps both again, 4.3.0 → 4.4.0 (--no-wait + --run-id on `alln run`,
+        // new RUN_ID_IN_USE error spec).
+        XCTAssertEqual(trj.contractVersion, "4.4.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.workers.count, 1)

@@ -38,6 +38,21 @@ final class RunFlagConstraintTests: XCTestCase {
         XCTAssertFalse(groups.contains { $0.contains("detach") })
     }
 
+    /// RSC-S04: `--no-wait` is mutually exclusive with `--stream` / `--dry-run` /
+    /// `--try-fix` — a detached child re-runs the normal blocking path, so pairing
+    /// `--no-wait` with any of these would be ambiguous about which mode wins.
+    func testRunDeclaresNoWaitAndRunIdFlags() {
+        XCTAssertTrue(run.flags.contains { $0.name == "no-wait" })
+        let runId = run.flags.first { $0.name == "run-id" }
+        XCTAssertNotNil(runId)
+        XCTAssertEqual(runId?.takesValue, true)
+
+        let groups = Set(run.mutuallyExclusiveFlags.map { Set($0) })
+        XCTAssertTrue(groups.contains(["no-wait", "stream"]))
+        XCTAssertTrue(groups.contains(["no-wait", "dry-run"]))
+        XCTAssertTrue(groups.contains(["no-wait", "try-fix"]))
+    }
+
     func testConstraintSubjectsAndPeersAreDeclaredFlags() {
         let declared = Set(run.flags.map(\.name))
         for group in run.mutuallyExclusiveFlags {
@@ -90,6 +105,21 @@ final class RunFlagConstraintTests: XCTestCase {
         XCTAssertTrue(tryFix?.message.contains("mutually exclusive") == true)
     }
 
+    /// RSC-S04: `--no-wait` paired with `--stream` / `--dry-run` / `--try-fix` is
+    /// rejected at the registry gate (exit 2), before any project resolution or
+    /// dispatch — the same "reject at parse time" shape as the other mode pairs.
+    func testNoWaitModeExclusions() {
+        for peer in ["stream", "dry-run", "try-fix"] {
+            let err = constraintError(for: ["probe", "--no-wait", "--\(peer)"])
+            XCTAssertNotNil(err, "--no-wait + --\(peer) should be rejected")
+            XCTAssertTrue(err?.message.contains("mutually exclusive") == true, "\(peer): \(err?.message ?? "")")
+        }
+        // Alone, or with --run-id, --no-wait clears the gate.
+        XCTAssertNil(constraintError(for: ["probe", "--no-wait"]))
+        XCTAssertNil(constraintError(for: ["probe", "--no-wait", "--run-id", "run_fixed"]))
+        XCTAssertNil(constraintError(for: ["probe", "--run-id", "run_fixed"]))
+    }
+
     /// `--detach` is gone, so argv naming it must fail as an unknown flag rather
     /// than being silently tolerated.
     func testDetachIsNoLongerADeclaredRunFlag() {
@@ -133,6 +163,9 @@ final class RunFlagConstraintTests: XCTestCase {
             ["probe", "--json", "--stream"],
             ["probe", "--dry-run", "--executor", "build_slice"],
             ["probe", "--stream", "--accept-survivors"],
+            ["probe", "--no-wait", "--stream"],
+            ["probe", "--no-wait", "--dry-run"],
+            ["probe", "--no-wait", "--try-fix"],
         ]
         for args in invalid {
             XCTAssertNotNil(constraintError(for: args), "expected gate fail for \(args)")
@@ -153,6 +186,9 @@ final class RunFlagConstraintTests: XCTestCase {
             ["probe", "--no-commit"],
             ["probe", "--commit-message", "ship"],
             ["probe", "--dry-run", "--worker", "model_sonnet", "--team", "code_bug_hunt", "--effort", "high"],
+            ["probe", "--no-wait"],
+            ["probe", "--no-wait", "--run-id", "run_fixed"],
+            ["probe", "--run-id", "run_fixed", "--json"],
         ]
         for args in valid {
             let err = constraintError(for: args)

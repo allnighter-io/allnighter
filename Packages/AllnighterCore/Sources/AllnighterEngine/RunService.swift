@@ -228,6 +228,14 @@ public actor RunService {
     /// beyond all of that — the bound that stops one stuck run from hanging every later run.
     static let writeLockWaitTimeout: Duration = .seconds(1800)
 
+    /// RSC-S04: the default id format `run(runId:)` mints internally (`UUID().uuidString`,
+    /// below), exposed so `alln run --no-wait`'s foreground step can pre-mint an id in the
+    /// SAME format the run would have generated on its own — one format, not two drifting
+    /// copies of the string template. Mirrors `RelayCoordinator.mintRelayId()`.
+    public static func mintRunId() -> String {
+        UUID().uuidString
+    }
+
     public init(
         models: [Model],
         registry: DriverRegistry,

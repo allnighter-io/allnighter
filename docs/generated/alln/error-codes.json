@@ -774,6 +774,15 @@
     "ruleId" : "relay.round.in_flight"
   },
   {
+    "agentAction" : "Attach with `alln run resume <id> --json`, or omit --run-id.",
+    "code" : "RUN_ID_IN_USE",
+    "exitClass" : "operational",
+    "explain" : "a run already exists with this id",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "run.id.in_use"
+  },
+  {
     "agentAction" : "Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done\/escalated\/stopped have nothing left to hand off to).",
     "code" : "RELAY_NOT_AWAITING_PM",
     "exitClass" : "operational",

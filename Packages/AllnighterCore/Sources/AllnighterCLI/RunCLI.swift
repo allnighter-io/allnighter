@@ -89,6 +89,17 @@ enum RunCLI {
         parsePositiveTimeoutSeconds(raw, flag: "--idle-timeout")
     }
 
+    /// RSC-S04: `true` when `explicitRunId` already names a persisted run — the
+    /// `RUN_ID_IN_USE` refusal condition. Pulled out of `run(_:runtime:)` (which
+    /// `exit()`s on a hit) so the condition itself is unit-testable, and so the
+    /// `--no-wait` path can be proven to refuse and spawn nothing purely by
+    /// construction: `run(_:runtime:)` checks this and fails BEFORE it ever reaches
+    /// the branch that calls `runNoWait`/`DetachedDispatch.launch`.
+    static func runIdCollision(_ explicitRunId: String?, store: RunStore = RunStore()) -> Bool {
+        guard let explicitRunId, !explicitRunId.isEmpty else { return false }
+        return store.loadRaw(runId: explicitRunId) != nil
+    }
+
     static func run(_ args: [String], runtime: ToolRuntime) async {
         if args.first == "resume" {
             await resume(Array(args.dropFirst()), runtime: runtime)
@@ -196,6 +207,27 @@ enum RunCLI {
             invocations: runtime.invocations
         )
 
+        // RSC-S04: `--run-id`. The collision check runs regardless of `--no-wait` —
+        // an explicit id that already names a run must fail loud on a normal
+        // blocking run too, not only on the detached path.
+        let explicitRunId = opts.value("run-id")
+        if runIdCollision(explicitRunId) {
+            AllnighterCLI.fail(
+                code: "RUN_ID_IN_USE", message: "a run already exists with this id: \(explicitRunId ?? "")")
+        }
+
+        // RSC-S04: `--no-wait`. Every non-mutating check above this line (project
+        // resolution, effort/lane parse, exact-selector requirement, timeout parse,
+        // the RUN_ID_IN_USE collision check) has already run in the foreground, so a
+        // `dispatched` ack can never precede a refusal the child would silently
+        // swallow. `--no-wait` is mutually exclusive with `--stream`/`--dry-run`/
+        // `--try-fix` (`ContractRegistry` gate, exit 2, before this function is even
+        // reached), so `tryFix`/`opts.flag("stream")` are guaranteed false here.
+        if opts.flag("no-wait") {
+            await runNoWait(project: project, opts: opts, explicitRunId: explicitRunId)
+            return
+        }
+
         if tryFix {
             await runTryFix(request, service: service, runtime: runtime, project: project, json: opts.flag("json"))
             return
@@ -211,7 +243,7 @@ enum RunCLI {
             let outcome = await runStream(.init(
                 run: { continuation in
                     let result = await service.run(
-                        request, origin: .cli, originAgent: originAgent, events: continuation)
+                        request, origin: .cli, originAgent: originAgent, runId: explicitRunId, events: continuation)
                     if case .success(let run) = result { streamed.value = run }
                     return result
                 },
@@ -239,7 +271,7 @@ enum RunCLI {
         // to writeLockWaitTimeout and then fails — the same "something knowable is
         // true and nobody said it" defect the sandbox hand-off packet exists to kill.
         await service.reportWaits { FileHandle.standardError.write(Data($0.utf8)) }
-        var result = await service.run(request, origin: .cli, originAgent: opts.value("agent"))
+        var result = await service.run(request, origin: .cli, originAgent: opts.value("agent"), runId: explicitRunId)
         // Inside a sandboxed terminal the vendor CLIs cannot sign in, so the run
         // comes back with every seat failed. Hand it to the Allnighter app, which
         // is not sandboxed, and wait for the answer here. Same run id, same
@@ -268,6 +300,70 @@ enum RunCLI {
             renderRun(run, runtime: runtime, project: project, json: opts.flag("json"))
             let code = exitCode(for: run)
             if code != 0 { exit(code) }
+        }
+    }
+
+    /// RSC-S04 (`docs/phases/Round_Survives_The_Caller.md`): `alln run --no-wait`.
+    ///
+    /// Unlike relay's `--no-wait` (`RelayCLI.runResumeNoWait`), whose own dispatch
+    /// correctness IS a mutate-under-lock step — load → check status → flip
+    /// `.running` → persist — that a naive re-run in a child would get wrong (the
+    /// child would see `.running` and incorrectly refuse itself), `RunService.run`'s
+    /// own dispatch has no such shared mutable state to race: nothing durable exists
+    /// for this run id yet (the RUN_ID_IN_USE check above already proved that), and
+    /// only the child ever calls `service.run` for it. So there is no reason to
+    /// invent a second, hidden entry point the way `pair relay-start-continue` /
+    /// `pair relay-continue` exist for relay — the child just runs the normal,
+    /// REGISTERED `alln run` command with an explicit `--run-id`, and gets the exact
+    /// same collision guard this process already ran, for free, should anything
+    /// change between dispatch and the child actually starting.
+    ///
+    /// Every non-mutating check (project/worker resolution, exact-selector
+    /// requirement, effort/lane/timeout parse, the RUN_ID_IN_USE collision check)
+    /// already ran in the foreground before this is called — a `dispatched` ack can
+    /// never precede a refusal the child would silently swallow to `/dev/null`.
+    ///
+    /// Residual, stated not hidden: if the child dies before persisting a `TeamRun`
+    /// record, `alln run resume <id>` returns `RUN_NOT_FOUND` — a distinguishable,
+    /// honest outcome, not a silent success. Pre-persisting a draft record is out of
+    /// scope for this slice.
+    private static func runNoWait(project: Project, opts: Options, explicitRunId: String?) async {
+        let runId = explicitRunId ?? RunService.mintRunId()
+        let childArgs = noWaitChildArguments(runId: runId, explicitRunId: explicitRunId)
+        do {
+            let process = try DetachedDispatch.launch(cwd: project.normalizedRootPath, arguments: childArgs)
+            emitDispatchAck(id: runId, pid: process.processIdentifier, json: opts.flag("json"))
+        } catch {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background run: \(error)")
+        }
+    }
+
+    /// RSC-S04: the detached child's argv — the parent's argv (`DetachedDispatch
+    /// .childArguments`, `--no-wait` removed) plus `--run-id <runId>` when the id was
+    /// minted rather than explicit (an explicit `--run-id` is already present in
+    /// `parentArgv`, and the collision check already ran against that exact value).
+    /// Pulled out of `runNoWait` (not folded inline) so the argv construction is
+    /// unit-testable without spawning a process.
+    static func noWaitChildArguments(
+        parentArgv: [String] = Array(CommandLine.arguments.dropFirst()),
+        runId: String,
+        explicitRunId: String?
+    ) -> [String] {
+        var childArgs = DetachedDispatch.childArguments(from: parentArgv)
+        if explicitRunId == nil {
+            childArgs += ["--run-id", runId]
+        }
+        return childArgs
+    }
+
+    /// RSC-S04: the `--no-wait` dispatch ack — one `DetachedDispatchJSON` shape
+    /// (`kind: "run"`), mirroring `RelayCLI`'s own `emitDispatchAck`, or a human
+    /// line naming `alln run resume <id> --json` as the way to attach.
+    private static func emitDispatchAck(id: String, pid: Int32, json: Bool) {
+        if json {
+            print(AllnighterCLI.jsonLine(DetachedDispatchJSON(kind: "run", id: id, status: "dispatched", pid: pid)))
+        } else {
+            print("dispatched (pid \(pid)) — poll with `alln run resume \(id) --json`")
         }
     }
 

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.3.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.4.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -613,6 +613,8 @@ Flags:
 - `--dry-run` — Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Research Teams are observational in the canonical repository; terminal repoDelta reports whether a mutating run wrote.
 - `--json` — Emit TeamRunJSON (or RunDryRunJSON v2 with --dry-run: writePolicy + effects).
 - `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run.
+- `--run-id <id>` — RSC-S04: use this exact id for the run instead of a minted one. Colliding with an existing run id refuses with RUN_ID_IN_USE (applies whether or not --no-wait is also set) rather than silently dispatching a second run under a reused id.
+- `--no-wait` — RSC-S04: run every non-mutating check in the foreground (project/worker resolution, exact-selector requirement, the RUN_ID_IN_USE check), then hand the run to a detached child and return immediately; poll `alln run resume <id> --json`. A refusal fails loud and spawns nothing. Mutually exclusive with --stream / --dry-run / --try-fix.
 
 Mutually exclusive: `--json`, `--stream`.
 
@@ -621,6 +623,12 @@ Mutually exclusive: `--no-commit`, `--commit-message`.
 Mutually exclusive: `--dry-run`, `--stream`.
 
 Mutually exclusive: `--dry-run`, `--try-fix`.
+
+Mutually exclusive: `--no-wait`, `--stream`.
+
+Mutually exclusive: `--no-wait`, `--dry-run`.
+
+Mutually exclusive: `--no-wait`, `--try-fix`.
 
 Only with: `--executor` only with `--try-fix`.
 
@@ -1465,6 +1473,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RELAY_HANDOVER_UNSAFE` | yes | no | `operational` | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
 | `RELAY_ALREADY_ACTIVE` | yes | no | `operational` | Read it with `alln pair relay-status --relay <id> --json`, resume or adopt it, or wait — do not start a second relay on the same doc. |
 | `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Poll `alln pair pilot status --relay <id> --json` until status is `awaitingPM`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once awaitingPM, retry `pilot handoff` if still needed. |
+| `RUN_ID_IN_USE` | yes | no | `operational` | Attach with `alln run resume <id> --json`, or omit --run-id. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |
 | `OWNERSHIP_NOT_FOUND` | no | no | `operational` | Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree. |
