@@ -8,7 +8,8 @@ import Glibc
 
 /// Background daemon for `alln serve`. Owns process lifetime, loopback health,
 /// and the scheduler loops (Pending wake, Boost seeding, vendor-backoff
-/// continuation, and the optional cloud relay).
+/// continuation, local OS notifications for relay/pilot/team-run state, and
+/// the optional cloud relay).
 ///
 /// It owns NO run semantics and exposes no request/response surface. Code Red
 /// deleted the resident execution control plane that used to be hosted here;
@@ -159,6 +160,14 @@ public final class ServeDaemon: @unchecked Sendable {
                         coordinatorId: daemonId
                     )
                     await reconciler.run { shutdown.isCancelled }
+                }
+                group.addTask {
+                    let notifications = NotificationScheduler(
+                        commandRunner: wake.commandRunner,
+                        models: wake.models,
+                        registry: wake.registry
+                    )
+                    await notifications.run { shutdown.isCancelled }
                 }
             }
             if let remote = remoteDependencies {

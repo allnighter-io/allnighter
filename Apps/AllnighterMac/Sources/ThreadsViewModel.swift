@@ -73,6 +73,12 @@ final class ThreadsViewModel {
     private var notificationPolicy: NotificationPolicy
     private let notificationPolicyStore: NotificationPolicyStore
     private let notificationDelivery: any ThreadNotificationDelivering
+    /// Liveness check for `alln serve`'s background `NotificationScheduler`
+    /// (URN-S01 "exactly one owner"). When the daemon is `.available` it is
+    /// already delivering every transition this view model would also
+    /// deliver, so the Mac app suppresses its own delivery rather than
+    /// double-firing the same banner.
+    private let serveDaemonProbe: ServeDaemonProbe
     private let floorStatus: FloorManagerStatus?
     private var latestVisibleTurnIds: [String: Set<String>] = [:]
 
@@ -170,7 +176,8 @@ final class ThreadsViewModel {
         },
         floorStatus: FloorManagerStatus? = nil,
         notificationPolicyStore: NotificationPolicyStore = NotificationPolicyStore(),
-        notificationDelivery: (any ThreadNotificationDelivering)? = nil
+        notificationDelivery: (any ThreadNotificationDelivering)? = nil,
+        serveDaemonProbe: ServeDaemonProbe = ServeDaemonProbe()
     ) {
         self.store = store
         self.runStore = runStore
@@ -185,6 +192,7 @@ final class ThreadsViewModel {
         self.notificationPolicyStore = notificationPolicyStore
         self.notificationPolicy = notificationPolicyStore.load()
         self.notificationDelivery = notificationDelivery ?? NoOpThreadNotificationDelivery()
+        self.serveDaemonProbe = serveDaemonProbe
         self.coordinator = WorkerChatCoordinator(
             store: store, runner: runner, imageInvoker: imageInvoker,
             registry: registry, models: models,
@@ -1562,6 +1570,12 @@ final class ThreadsViewModel {
         previousRunNotificationSnapshots = afterRuns
 
         guard !candidates.isEmpty, notificationPolicy.enabled else { return }
+        // URN-S01 "exactly one owner": `alln serve`'s NotificationScheduler
+        // already delivers every transition below when the daemon is alive —
+        // an open Mac app must not also fire, or the same event double-fires.
+        // The daemon wins; the cost is this path's deep link, a Mac-only
+        // affordance, acceptable for v1.
+        guard serveDaemonProbe.health(binaryVersion: "").state != .available else { return }
         _ = await MacNotificationDelivery.shared.requestAuthorizationIfNeeded()
         for candidate in candidates {
             guard let thread = threads.first(where: { $0.id == candidate.threadId }) else { continue }
