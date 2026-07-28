@@ -140,6 +140,15 @@ Output schema: `modelListJSON`.
 
 Examples: `models_json`.
 
+### `alln catalog validate`
+
+Validate bundled AgentOS catalog and Allnighter overlay (schema + effort consistency).
+
+Flags:
+- `--json` — Structured validation summary.
+
+Output schema: `catalogValidateJSON`.
+
 ### `alln models enable`
 
 Enable a model on the Bench.

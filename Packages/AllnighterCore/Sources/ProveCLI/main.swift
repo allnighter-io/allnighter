@@ -7,24 +7,7 @@ import AllnighterEngine
 @main
 enum ProveCLI {
     static func main() async {
-        let driversDir = driversDirectory()
-        guard let driversDir else {
-            fputs("error: could not find Apps/AllnighterMac/Resources/Drivers\n", stderr)
-            exit(1)
-        }
-
-        let registry: DriverRegistry
-        do {
-            let manifestFiles = ["claude_code.json", "grok.json", "antigravity.json"]
-            let manifests = try manifestFiles.map { name in
-                let url = driversDir.appendingPathComponent(name)
-                return try CoreJSON.decode(DriverManifest.self, from: Data(contentsOf: url))
-            }
-            registry = DriverRegistry(manifests)
-        } catch {
-            fputs("error: load drivers: \(error)\n", stderr)
-            exit(1)
-        }
+        let registry = ModelCatalog.bundledRegistry()
 
         let prompt = "Reply with exactly the two words: hello world"
         let runner = WorkerInvokerFactory.makeWorkerInvoker()
@@ -55,14 +38,5 @@ enum ProveCLI {
         }
 
         exit(anyFailed ? 1 : 0)
-    }
-
-    private static func driversDirectory() -> URL? {
-        let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        let candidates = [
-            cwd.appendingPathComponent("Apps/AllnighterMac/Resources/Drivers"),
-            cwd.appendingPathComponent("../../Apps/AllnighterMac/Resources/Drivers").standardized,
-        ]
-        return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
     }
 }

@@ -481,6 +481,41 @@
     },
     {
       "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured validation summary.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "catalog validate",
+      "outputSchema" : "catalogValidateJSON",
+      "spendsQuota" : false,
+      "summary" : "Validate bundled AgentOS catalog and Allnighter overlay (schema + effort consistency).",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
         {
           "name" : "model-id",
           "required" : true,

@@ -121,7 +121,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
 
     /// Primary machine-output schema a command projects to.
     public enum OutputSchema: String, Codable, Sendable, CaseIterable {
-        case none, teamRunJSON, doctorResult, coordinatorHealth, teamStartResponse, teamStatusResponse, persistedTeamStatusResponse, teamCancelResponse, pendingItemJSON, pendingListJSON, stallEpisodeListJSON, stallListJSON, modelListJSON, floorRun, specResult, teamCatalogJSON, skillCatalogJSON, historyJSON, threadStatus, threadGetJSON, threadAttachmentJSON, errorEnvelope, markdown, contractDoc
+        case none, teamRunJSON, doctorResult, coordinatorHealth, teamStartResponse, teamStatusResponse, persistedTeamStatusResponse, teamCancelResponse, pendingItemJSON, pendingListJSON, stallEpisodeListJSON, stallListJSON, modelListJSON, catalogValidateJSON, floorRun, specResult, teamCatalogJSON, skillCatalogJSON, historyJSON, threadStatus, threadGetJSON, threadAttachmentJSON, errorEnvelope, markdown, contractDoc
         case projectJSON, projectListJSON, projectContextJSON, projectWorkersJSON
         case projectThreadsJSON, projectPendingJSON
         case defaultSettingsJSON

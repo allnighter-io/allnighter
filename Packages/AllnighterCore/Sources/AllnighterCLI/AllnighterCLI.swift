@@ -75,6 +75,7 @@ struct AllnighterCLI {
         case "doctor": await runDoctor(args, runtime)
         case "detect": await runDetect(runtime)
         case "models": await ModelsCLI.run(args, runtime: runtime)
+        case "catalog" where args.first == "validate": CatalogValidateCLI.run(Array(args.dropFirst()))
         case "defaults": await DefaultsCLI.run(args, runtime: runtime)
         case "boost-window": await BoostWindowCLI.run(args, runtime: runtime)
         case "help": await HelpCLI.run(args, runtime: runtime)

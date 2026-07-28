@@ -126,6 +126,11 @@ public extension ContractRegistry {
             menuAction: true
         ),
         CommandSpec(
+            "catalog validate", summary: "Validate bundled AgentOS catalog and Allnighter overlay (schema + effort consistency).", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Structured validation summary.")],
+            outputSchema: .catalogValidateJSON
+        ),
+        CommandSpec(
             "models enable", summary: "Enable a model on the Bench.", milestone: .m1,
             args: [ArgSpec("model-id", required: true, summary: "Model id to enable.")],
             flags: [FlagSpec("json", summary: "Return refreshed ModelListJSON.")],
