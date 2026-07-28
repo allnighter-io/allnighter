@@ -26,7 +26,6 @@ public enum BuiltInTeams {
 
     /// Synthesis Lead — Fable 5 (flagship-only). Codex Sol is the strategic
     /// deputy (never Cursor Sol — paid quota, manual opt-in only).
-    /// Antigravity Opus is never a preferred seed.
     private static let leadFlagship = "model_fable"
     private static let opus = "model_opus"
     /// Default worker anchor for mutating Auto / Build a Slice (Cursor).
@@ -37,7 +36,6 @@ public enum BuiltInTeams {
     private static let kimi = "model_kimi_k3"
     private static let cursorGrok = "model_cursor_grok_45"
     private static let cursorAuto = "model_cursor_auto"
-    private static let agyOpus = "model_agy_opus"
     /// External / X / web research scout (also high/mid value in rotations).
     private static let grok = "model_grok"
 
@@ -98,7 +96,7 @@ public enum BuiltInTeams {
             preferredModelId: leadFlagship,
             fallbackModelIds: [
                 chatgpt, opus, kimi, cursorGrok, grok,
-                composer, sonnet, gemini, cursorAuto, agyOpus
+                composer, sonnet, gemini, cursorAuto
             ],
             fallbackPolicy: .strongestReady,
             dissentPolicy: dissent)

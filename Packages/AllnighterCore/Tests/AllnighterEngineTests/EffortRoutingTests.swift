@@ -110,7 +110,7 @@ final class EffortRoutingTests: XCTestCase {
         let flashModel = Model(id: flash.id, displayName: flash.displayName, modelLabel: flash.modelLabel,
                                driverId: flash.driverId, effortVariants: flash.effortVariants)
         XCTAssertTrue(flashModel.supportsEffort(manifest: manifest("antigravity")))
-        let fixed = ModelCatalog.builtIns.first { $0.id == "model_agy_sonnet" }!
+        let fixed = ModelCatalog.builtIns.first { $0.id == "model_agy_gptoss" }!
         let fixedModel = Model(id: fixed.id, displayName: fixed.displayName, modelLabel: fixed.modelLabel,
                                driverId: fixed.driverId, effortVariants: fixed.effortVariants)
         XCTAssertFalse(fixedModel.supportsEffort(manifest: manifest("antigravity")))

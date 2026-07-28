@@ -141,7 +141,7 @@ final class BuiltInTeamsTests: XCTestCase {
             "model_chatgpt", "model_opus", "model_kimi_k3",
             "model_cursor_grok_45", "model_grok",
             "model_cursor_composer_25", "model_sonnet", "model_gemini",
-            "model_cursor_auto", "model_agy_opus"
+            "model_cursor_auto"
         ]
         let passthrough: Set<String> = ["default_chat", "build_slice"]
         for team in BuiltInTeams.all where !passthrough.contains(team.id) {
@@ -188,27 +188,26 @@ final class BuiltInTeamsTests: XCTestCase {
         }
     }
 
-    func testNoBuiltInSeedPrefersAgyOpus() {
-        // Antigravity Opus 4.6 is fallback-only; seeds never prefer it.
+    func testNoBuiltInSeedPrefersRemovedAgyClaudeRoutes() {
+        // Antigravity Claude Opus/Sonnet 4.6 are not shipped in the default catalog.
+        let removed = Set(["model_agy_opus", "model_agy_sonnet"])
         for team in BuiltInTeams.all {
-            XCTAssertNotEqual(team.lead.preferredModelId, "model_agy_opus", "\(team.id) lead")
+            XCTAssertFalse(removed.contains(team.lead.preferredModelId ?? ""), "\(team.id) lead")
             for row in team.workerSpecs {
-                XCTAssertNotEqual(row.preferredModelId, "model_agy_opus",
-                                  "\(team.id) worker \(row.id)")
+                XCTAssertFalse(removed.contains(row.preferredModelId ?? ""),
+                               "\(team.id) worker \(row.id)")
             }
             if let scout = team.scout {
-                XCTAssertNotEqual(scout.preferredModelId, "model_agy_opus", "\(team.id) scout")
+                XCTAssertFalse(removed.contains(scout.preferredModelId ?? ""), "\(team.id) scout")
             }
+            XCTAssertFalse(team.lead.fallbackModelIds?.contains(where: removed.contains) ?? false,
+                           "\(team.id) lead fallbacks")
         }
     }
 
-    func testLeadFallsBackStrongestWhenFableUnavailableIncludingAgy() {
-        // Preferred Fable down; AGY Opus + ChatGPT ready → strongestReady
-        // picks ChatGPT (rank 92) over AGY Opus (rank 75).
+    func testLeadFallsBackStrongestWhenFableUnavailable() {
         let team = BuiltInTeams.team("code_plan")!
         let ready: [Model] = [
-            Model(id: "model_agy_opus", displayName: "Claude Opus 4.6",
-                  modelLabel: "Claude Opus 4.6 (Thinking)", driverId: "antigravity", role: .both),
             Model(id: "model_chatgpt", displayName: "ChatGPT 5.6", modelLabel: "gpt-5.6",
                   driverId: "codex", role: .answerer),
             Model(id: "model_cursor_composer_25", displayName: "Composer 2.5",
@@ -217,7 +216,6 @@ final class BuiltInTeamsTests: XCTestCase {
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .med, readyModels: ready)
         XCTAssertTrue(r.isRunnable)
         XCTAssertEqual(r.planWriter?.modelId, "model_chatgpt")
-        XCTAssertNotEqual(r.planWriter?.modelId, "model_agy_opus")
     }
 
     func testImplementationSourceChoicesDoNotAppearAsTeams() {

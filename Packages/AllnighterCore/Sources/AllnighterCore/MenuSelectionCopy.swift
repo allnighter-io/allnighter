@@ -291,6 +291,10 @@ public enum MenuSelectionCopy {
             useWhen: "Kimi K2.7 Code, prior-gen coding seat",
             dontUseWhen: "Prefer K3; --worker model_kimi_k27"
         ),
+        "model_kimi_k27_hs": Pair(
+            useWhen: "Kimi K2.7 HighSpeed, plan-gated fast seat",
+            dontUseWhen: "Prefer K3; --worker model_kimi_k27_hs"
+        ),
         "model_composer": Pair(
             useWhen: "Grok Composer 2.5 Fast (Grok)",
             dontUseWhen: "Not Cursor; model_cursor_composer_25"
@@ -322,14 +326,6 @@ public enum MenuSelectionCopy {
         "model_gemini_pro": Pair(
             useWhen: "Gemini 3.1 Pro, Antigravity",
             dontUseWhen: "Not Flash; model_gemini"
-        ),
-        "model_agy_sonnet": Pair(
-            useWhen: "Claude Sonnet 4.6, Antigravity",
-            dontUseWhen: "Not Code Sonnet; model_sonnet"
-        ),
-        "model_agy_opus": Pair(
-            useWhen: "Claude Opus 4.6, Antigravity",
-            dontUseWhen: "Not Code Opus; model_opus"
         ),
         "model_agy_gptoss": Pair(
             useWhen: "GPT-OSS 120B, Antigravity",

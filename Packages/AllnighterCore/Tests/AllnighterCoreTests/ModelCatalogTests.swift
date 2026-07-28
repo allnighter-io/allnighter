@@ -39,7 +39,8 @@ final class ModelCatalogTests: XCTestCase {
         // medium seat), taking the fresh-install count 10 → 11.
         // Kimi K2.7 Code added default-on 2026-07-27 (11 → 12).
         XCTAssertEqual(models.filter(\.enabled).count, 12)
-        XCTAssertFalse(models.first { $0.id == "model_agy_opus" }?.enabled ?? true)
+        XCTAssertNil(models.first { $0.id == "model_agy_opus" })
+        XCTAssertNil(models.first { $0.id == "model_agy_sonnet" })
         XCTAssertTrue(models.first { $0.id == "model_fable" }?.enabled ?? false)
         XCTAssertFalse(models.first { $0.id == "model_chatgpt_sol" }?.enabled ?? true,
                        "Cursor Sol is never on-Bench by default")
