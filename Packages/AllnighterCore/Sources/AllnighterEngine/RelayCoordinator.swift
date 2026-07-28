@@ -1346,13 +1346,10 @@ public struct RelayCoordinator: Sendable {
     /// path still routes through identity-checked group kill and stamps a
     /// `DevTurnEndReason`. After a delivered turn, the harness runs declared
     /// `proofCommands` and fail-closed write-scope commit-diff enforcement.
-    /// SR-10 (Sol F11): durably stamp the delivered dev run id + resulting HEAD on the last
-    /// round BEFORE the (possibly minutes-long) harness proof phase runs. If the coordinator
-    /// dies during proof, `reconcileOrphan` would otherwise settle the round with
-    /// `devRunId == nil`/`headAfterDev == nil` and lose the range/report linkage to work that
-    /// is ALREADY committed — a resumed/adopted PM could then re-order the completed work.
-    /// Idempotent: only fills fields not yet recorded; `runRound` stamps the final values on
-    /// a clean return.
+    /// SR-10 (Sol F11) + PLS-S02: durably stamp the dev run id on the open round as
+    /// soon as dispatch starts (before the long worker wait) and again before harness
+    /// proof. If the coordinator dies mid-turn, `pilot status` can still read stream
+    /// liveness from the linked journal instead of falling back to relay heartbeat.
     private func persistDeliveredDevRun(relayId: String, runId: String, rootPath: String) {
         guard var state = stateStore.load(id: relayId), !state.rounds.isEmpty else { return }
         var round = state.rounds[state.rounds.count - 1]
@@ -1666,7 +1663,11 @@ public struct RelayCoordinator: Sendable {
                 return DevTurnDispatch(dispatch: .deadline, endReason: .killed, owner: lastOwner)
             }
 
-            let result = await runService.run(request, origin: .cli)
+            let attemptRunId = RunService.mintRunId()
+            persistDeliveredDevRun(
+                relayId: relayId, runId: attemptRunId, rootPath: config.projectRoot
+            )
+            let result = await runService.run(request, origin: .cli, runId: attemptRunId)
             captureOwner()
 
             guard case .success(let run) = result else {

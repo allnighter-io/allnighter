@@ -565,10 +565,10 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot status", summary: "Read a Pilot relay's durable state — agent truth for in-flight rounds; poll with waitHintSeconds until awaitingPM. While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY liveness), commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.", milestone: .m1,
+            "pair pilot status", summary: "Read a Pilot relay's durable state — agent truth for in-flight rounds; poll with waitHintSeconds until awaitingPM. While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
-                FlagSpec("json", summary: "Emit PilotStatusJSON (relay + recovery nextActions; while running adds elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds as primary liveness, commitsSinceBaseline as supplementary/not liveness, waitHintSeconds 45, watcherDisposable)."),
+                FlagSpec("json", summary: "Emit PilotStatusJSON (relay + recovery nextActions; while running adds elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds as primary stream liveness, streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline as supplementary/not liveness, waitHintSeconds 45, watcherDisposable)."),
             ],
             outputSchema: .relayJSON
         ),

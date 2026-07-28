@@ -379,7 +379,7 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(actions[0].kind, "pilotStatus")
         XCTAssertTrue(actions[0].command.contains("pilot status"))
         XCTAssertTrue(actions[0].label.contains("45"))
-        XCTAssertTrue(actions[0].label.lowercased().contains("progress"))
+        XCTAssertTrue(actions[0].label.lowercased().contains("stream"))
         XCTAssertTrue(actions[0].label.lowercased().contains("supplementary"))
         XCTAssertEqual(actions[1].kind, "pilotWatch")
         XCTAssertTrue(actions[1].command.contains("pilot watch"))
@@ -722,31 +722,39 @@ final class PilotCLITests: XCTestCase {
 
     func testLongJobStatusZeroCommitsFreshProgressStillAlive() throws {
         let repo = try makeGitRepo()
-        let head = try XCTUnwrap(GitObserver().observe(rootPath: repo.path).head)
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-s02"))
         let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-s02"))
         let started = Date().addingTimeInterval(-120)
         let progressAt = Date().addingTimeInterval(-5)
+        let devRunId = "run_pilot_s02_fresh"
+        var round = RelayRound(roundNumber: 1, baselineHead: try XCTUnwrap(GitObserver().observe(rootPath: repo.path).head), startedAt: started)
+        round.devRunId = devRunId
         let state = RelayState(
             id: "relay_s02", projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
             status: .running, pmMode: .external,
-            rounds: [RelayRound(roundNumber: 1, baselineHead: head, startedAt: started)],
+            rounds: [round],
             createdAt: Date()
         )
         try store.save(state)
+        var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: started, repoRoot: repo.path)
+        run.lastActivityAt = progressAt
+        run.lastActivityKind = .message
+        try runStore.save(run, models: [])
         let ownerURL = store.rootDirectory.appendingPathComponent("relay_s02/owner.pid")
         try Data("\(ProcessInfo.processInfo.processIdentifier)".utf8).write(to: ownerURL)
         let dir = try store.directory(for: "relay_s02")
-        try ProcessOwnership.recordProgress(in: dir, phase: "running", now: progressAt)
+        try ProcessOwnership.recordProgress(in: dir, phase: "pgid_activity", now: Date())
 
         let fields = PilotCLI.longJobStatusFields(
-            state: state, recovery: .handoffAlive, stateStore: store, now: Date()
+            state: state, recovery: .handoffAlive, stateStore: store, runStore: runStore, now: Date()
         )
         XCTAssertEqual(fields.ownerAlive, true)
         XCTAssertEqual(fields.commitsSinceBaseline, 0, "zero commits must not imply dead")
         XCTAssertNotNil(fields.lastProgressAt)
         XCTAssertEqual(fields.waitHintSeconds, 45)
         XCTAssertEqual(fields.watcherDisposable, true)
+        XCTAssertEqual(fields.streamSilenceWarning, false)
         let elapsed = try XCTUnwrap(fields.elapsedSeconds)
         XCTAssertGreaterThanOrEqual(elapsed, 118)
         XCTAssertLessThanOrEqual(elapsed, 122)
@@ -754,14 +762,108 @@ final class PilotCLITests: XCTestCase {
         XCTAssertLessThanOrEqual(fields.silenceAgeSeconds ?? 999, 10)
 
         let json = PilotCLI.makeStatusJSON(
-            state: state, recovery: .handoffAlive, stateStore: store
+            state: state, recovery: .handoffAlive, stateStore: store, runStore: runStore
         )
         XCTAssertEqual(json.ownerAlive, true)
         XCTAssertEqual(json.commitsSinceBaseline, 0)
         XCTAssertEqual(json.waitHintSeconds, PilotCLI.statusWaitHintSeconds)
         XCTAssertEqual(json.watcherDisposable, true)
+        XCTAssertEqual(json.streamSilenceWarning, false)
         XCTAssertEqual(json.nextActions.first?.kind, "pilotStatus")
         XCTAssertTrue(json.nextActions.first?.label.contains("45") == true)
+    }
+
+    /// PLS-S01: hot relay heartbeat / pgid_activity must not mask stale stream silence.
+    func testPrimaryLivenessIgnoresRelayHeartbeatPgidActivity() throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-pls"))
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-pls"))
+        let started = Date().addingTimeInterval(-2000)
+        let staleActivity = Date().addingTimeInterval(-1800)
+        let devRunId = "run_pls_stale_stream"
+        var round = RelayRound(
+            roundNumber: 1,
+            baselineHead: try XCTUnwrap(GitObserver().observe(rootPath: repo.path).head),
+            startedAt: started
+        )
+        round.devRunId = devRunId
+        let state = RelayState(
+            id: "relay_pls", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external, rounds: [round], createdAt: Date()
+        )
+        try store.save(state)
+        var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: started, repoRoot: repo.path)
+        run.lastActivityAt = staleActivity
+        run.lastActivityKind = .message
+        try runStore.save(run, models: [])
+        let dir = try store.directory(for: "relay_pls")
+        try ProcessOwnership.recordProgress(in: dir, phase: "pgid_activity", now: Date())
+
+        let fields = PilotCLI.longJobStatusFields(
+            state: state, recovery: .handoffAlive, stateStore: store, runStore: runStore, now: Date()
+        )
+        let silence = try XCTUnwrap(fields.silenceAgeSeconds)
+        XCTAssertGreaterThanOrEqual(silence, 1790)
+        XCTAssertLessThanOrEqual(silence, 1810)
+        XCTAssertEqual(fields.streamSilenceWarning, true)
+        let json = PilotCLI.makeStatusJSON(
+            state: state, recovery: .handoffAlive, stateStore: store, runStore: runStore
+        )
+        XCTAssertEqual(json.nextActions.first?.kind, "inspectStreamSilence")
+    }
+
+    func testPrimaryLivenessNilWithoutDevRunIdDespiteHotHeartbeat() throws {
+        let repo = try makeGitRepo()
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-pls2"))
+        let head = try XCTUnwrap(GitObserver().observe(rootPath: repo.path).head)
+        let state = RelayState(
+            id: "relay_pls2", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external,
+            rounds: [RelayRound(roundNumber: 1, baselineHead: head, startedAt: Date())],
+            createdAt: Date()
+        )
+        try store.save(state)
+        let dir = try store.directory(for: "relay_pls2")
+        try ProcessOwnership.recordProgress(in: dir, phase: "pgid_activity", now: Date())
+
+        let fields = PilotCLI.longJobStatusFields(
+            state: state, recovery: .handoffAlive, stateStore: store, now: Date()
+        )
+        XCTAssertNil(fields.lastProgressAt)
+        XCTAssertNil(fields.silenceAgeSeconds)
+        XCTAssertEqual(fields.streamSilenceWarning, false)
+    }
+
+    func testStreamSilenceWarningThreshold() throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-pls3"))
+        let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-pls3"))
+        let devRunId = "run_pls_warn"
+        let silenceBase = Date().addingTimeInterval(-300)
+        var round = RelayRound(
+            roundNumber: 1,
+            baselineHead: try XCTUnwrap(GitObserver().observe(rootPath: repo.path).head),
+            startedAt: Date().addingTimeInterval(-400)
+        )
+        round.devRunId = devRunId
+        let state = RelayState(
+            id: "relay_pls3", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            status: .running, pmMode: .external, rounds: [round], createdAt: Date()
+        )
+        try store.save(state)
+        var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: silenceBase, repoRoot: repo.path)
+        run.lastActivityAt = silenceBase
+        run.lastActivityKind = .stdout
+        try runStore.save(run, models: [])
+
+        let fields = PilotCLI.longJobStatusFields(
+            state: state, recovery: .handoffAlive, stateStore: store, runStore: runStore, now: Date()
+        )
+        XCTAssertEqual(fields.streamSilenceWarning, true)
+        XCTAssertGreaterThanOrEqual(fields.silenceAgeSeconds ?? 0, 295)
     }
 
     func testLongJobStatusFieldsOmittedWhenNotRunning() {
@@ -795,5 +897,6 @@ final class PilotCLITests: XCTestCase {
         )
         XCTAssertTrue(blob.contains("waitHintSeconds"))
         XCTAssertTrue(blob.contains("45"))
+        XCTAssertTrue(blob.lowercased().contains("stream"))
     }
 }

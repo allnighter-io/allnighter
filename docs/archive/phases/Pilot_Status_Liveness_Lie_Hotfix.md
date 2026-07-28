@@ -1,6 +1,6 @@
 # Pilot Status Liveness Lie — Hotfix
 
-Status: **Ready for Implementation**
+Status: **Complete** — PLS-S01+S02 shipped 2026-07-28; PLS-S03 deferred.
 Owner: AllnighterCLI (`PilotCLI`) + AllnighterEngine (`ProcessGroupCommandRunner` /
 `RelayCoordinator` touch only as needed)
 Updated: 2026-07-28
@@ -270,9 +270,11 @@ Closeout questions (founder-input workflow):
 
 ## Done when (packet)
 
-1. Incident contradiction fails the new unit seam.
-2. Contract + help teach stream-primary honesty.
-3. Running pilot rounds expose `devRunId` + stream-silence warning path.
+1. Incident contradiction fails the new unit seam. **Done** (`PilotCLITests`).
+2. Contract + help teach stream-primary honesty. **Done** (`ContractRegistry`, export).
+3. Running pilot rounds expose `devRunId` + stream-silence warning path. **Done**
+   (`RelayCoordinator` early stamp, `streamSilenceWarning`).
 4. S03 still deferred unless founder reopens.
 5. Promote keepable law into code comments / ContractRegistry; archive this
-   packet. Update `AGENTS.md` / `docs/phases/README.md` routes on archive.
+   packet. **Done** — code SSOT `PilotCLI.resolveLastProgressAt`,
+   `RelayCoordinator.persistDeliveredDevRun` (early call), `PilotStatusJSON.streamSilenceWarning`.

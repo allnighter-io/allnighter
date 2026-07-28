@@ -556,4 +556,65 @@ final class PilotCoordinatorTests: XCTestCase {
         XCTAssertEqual(reconciled.status, .awaitingPM, "reconcileOrphan only ever touches .running — a parked relay passes through untouched")
         XCTAssertEqual(stateStore.load(id: "relay_pilot_parked")?.status, .awaitingPM)
     }
+
+    // MARK: - PLS-S02 early devRunId stamp
+
+    func testDevRunIdStampedBeforeDevTurnCompletes() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-pls"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-pls"))
+        let slowRunner = SlowDevCommandRunner(delaySeconds: 1, stdout: "Implemented and committed.")
+        let devModel = Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "dev_cli", role: .both)
+        let registry = DriverRegistry([TestSupport.headlessManifest(id: "dev_cli", command: "dev_cli")])
+        let service = RunService(
+            models: [devModel], registry: registry, runStore: runStore, commandRunner: slowRunner,
+            writeLock: RunWriteLockRegistry(), defaultSettings: { DefaultModelSettings() },
+            probeRecords: {
+                [ToolProbeRecord(driverId: "dev_cli", status: .ready(version: "1"), lastProbeAt: .distantPast)]
+            }
+        )
+        let coordinator = RelayCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pls_early" }
+        )
+        guard case .success = coordinator.startPilot(config: .init(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev"
+        )) else { return XCTFail("start failed") }
+
+        let submission = "Reviewed.\n\n" + verdictJSON("continue", handover: "Implement the thing.")
+        let roundTask = Task {
+            await coordinator.runExternalRound(relayId: "relay_pls_early", submission: submission)
+        }
+
+        var sawEarlyStamp = false
+        for _ in 0..<40 {
+            if let devRunId = stateStore.load(id: "relay_pls_early")?.rounds.last?.devRunId,
+               !devRunId.isEmpty {
+                sawEarlyStamp = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        _ = await roundTask.value
+        XCTAssertTrue(sawEarlyStamp, "devRunId must be stamped before the dev turn returns")
+    }
+}
+
+/// PLS-S02: blocks long enough for relay state polling to observe an early devRunId stamp.
+private final class SlowDevCommandRunner: CommandRunner, @unchecked Sendable {
+    private let delaySeconds: UInt32
+    private let stdout: String
+
+    init(delaySeconds: UInt32, stdout: String) {
+        self.delaySeconds = delaySeconds
+        self.stdout = stdout
+    }
+
+    func run(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) async -> CommandResult {
+        _ = command; _ = args; _ = stdin; _ = env; _ = workingDirectory; _ = timeout
+        sleep(delaySeconds)
+        return CommandResult(stdout: stdout, stderr: "", exitCode: 0)
+    }
 }

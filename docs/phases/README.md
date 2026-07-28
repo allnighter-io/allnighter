@@ -34,14 +34,13 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 ### Active priorities
 
-One hotfix open (agent-facing). One founder-decision packet open. Forward work
-otherwise is optional feature packets below (or dogfood of shipped surfaces).
+One founder-decision packet open. Forward work otherwise is optional feature
+packets below (or dogfood of shipped surfaces).
 Signal Graph deep-build and CLI Implementation Contract are archived — do not
 revive.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Pilot_Status_Liveness_Lie_Hotfix.md`](Pilot_Status_Liveness_Lie_Hotfix.md) | **⚠ HOTFIX — Ready** | `pilot status` PRIMARY liveness lied (pgid/heartbeat) while `alln ps` showed 30+ min stream silence. PLS-S01/S02 bleed stop; S03 deferred. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
@@ -61,6 +60,10 @@ revive.
 > one-off judgment-team crew staffing; contract 5.0.0→5.1.0; code SSOT
 > `TeamExplicitSeats`, `RunInvocationResolver`, `TeamRun.explicitSeatModelIds`,
 > `SandboxHandoffSpool.Request`);
+> [`Pilot_Status_Liveness_Lie_Hotfix.md`](../archive/phases/Pilot_Status_Liveness_Lie_Hotfix.md)
+> (Complete 2026-07-28 — PLS-S01/S02: `pilot status` stream-primary liveness +
+> `streamSilenceWarning`, early `devRunId` stamp; PLS-S03 deferred; code SSOT
+> `PilotCLI.resolveLastProgressAt`, `RelayCoordinator` early `persistDeliveredDevRun`);
 > [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md)
 > (Code Complete 2026-07-27 — URN-S01/S02/S03 shipped: `alln serve` posts local
 > notifications for relay/pilot/team-run state and auto-launches itself, silent
@@ -312,7 +315,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Buzz / attended agent-chat rooms as a call site for alln (after receipts) | `Buzz_Harness_Spike.md` + `docs/strategy/Buzz_And_The_Judgment_Layer.md` (firm-member mythology retired; receipt-first) |
 | Share a link from the phone into a Research run, iOS share sheet intake | `Share_To_Research.md` (reuses `RemoteCommandRouter` `startRun` + `SignalSourceRouter`; no new protocol operation) |
 | Pilot/Relay long deploy or ops turn; harness killed `pilot watch`; detached handoff cwd/binary; status vs watch recovery | archived [`Pilot_Long_Turn_Survival.md`](../archive/phases/Pilot_Long_Turn_Survival.md) — code SSOT `PilotCLI.swift` / `RelayCoordinator.swift` (substrate: archived `Pilot_Relay.md` / `Pilot_DX.md`; idle floors: archived `Idle_Stall_False_Kill_Hotfix.md`) |
-| `pair pilot status` says fresh liveness while `alln ps` says no stream for Ns; hung wrangler/tail under worker; pgid_activity heartbeat lie | open [`Pilot_Status_Liveness_Lie_Hotfix.md`](Pilot_Status_Liveness_Lie_Hotfix.md) — amends PLT-S02 × IDLE-HF-S02 junction; code SSOT `PilotCLI.resolveLastProgressAt`, `ProcessGroupCommandRunner` `pgid_activity` |
+| `pair pilot status` fresh silenceAge while `alln ps` says no stream for Ns; hung child under worker (e.g. wrangler tail); pgid heartbeat lie | archived `docs/archive/phases/Pilot_Status_Liveness_Lie_Hotfix.md` — Complete 2026-07-28; code SSOT `PilotCLI.resolveLastProgressAt`, `PilotStatusJSON.streamSilenceWarning`, `RelayCoordinator` early `persistDeliveredDevRun` |
 | Relay/pilot round lands or escalates with nobody notified (Mac app closed, caller already gone) | archived [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md) — Code Complete 2026-07-27, on-host banner confirmation still needed; code SSOT `NotificationScheduler.swift`, `ServeAutoLaunch.swift`, `NotificationCandidateDetection.swift`; extends archived `threads/02_Notifications.md` (Mac-app-only NOTIF-S01–S05) |
 | `pair relay`/`relay-resume`/`relay adopt`/`alln run` die when the caller dies (no `--no-wait` equivalent); relay dispatch has no in-flight guard | **Archived** — `docs/archive/phases/Round_Survives_The_Caller.md` + Hot Fixes; code SSOT `DetachedHandoff` / `DetachedDispatch` / `RelayCoordinator` |
 | Composer `@` file references, file chips, prompt file-read blocks | `Composer_File_References.md` |

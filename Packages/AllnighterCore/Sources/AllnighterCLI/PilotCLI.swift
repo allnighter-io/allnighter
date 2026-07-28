@@ -844,6 +844,8 @@ enum PilotCLI {
 
     /// Product-owned agent poll cadence while a Pilot round is `.running` (PLT-S02).
     static let statusWaitHintSeconds: Double = 45
+    /// PLS-S02: warn agents when stream silence exceeds this multiple of `waitHintSeconds`.
+    static let streamSilenceWarningMultiplier: Double = 6
 
     /// Builds `pilot status --json` — long-job fields only while `.running` + handoff alive.
     static func makeStatusJSON(
@@ -860,19 +862,24 @@ enum PilotCLI {
         )
         return PilotStatusJSON(
             relay: RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion),
-            recovery: recoveryActionLine(for: state, recovery: recovery),
-            nextActions: recoveryNextActions(for: state, recovery: recovery),
+            recovery: recoveryActionLine(
+                for: state, recovery: recovery, streamSilenceWarning: longJob.streamSilenceWarning
+            ),
+            nextActions: recoveryNextActions(
+                for: state, recovery: recovery, streamSilenceWarning: longJob.streamSilenceWarning
+            ),
             elapsedSeconds: longJob.elapsedSeconds,
             ownerAlive: longJob.ownerAlive,
             lastProgressAt: longJob.lastProgressAt,
             silenceAgeSeconds: longJob.silenceAgeSeconds,
+            streamSilenceWarning: longJob.streamSilenceWarning,
             commitsSinceBaseline: longJob.commitsSinceBaseline,
             waitHintSeconds: longJob.waitHintSeconds,
             watcherDisposable: longJob.watcherDisposable
         )
     }
 
-    /// Progress-primary long-job fields (PLT-S02). Nil/omit when not `.running` with a live handoff.
+    /// Stream-primary long-job fields (PLT-S02 + PLS-S01). Nil/omit when not `.running` with a live handoff.
     static func longJobStatusFields(
         state: RelayState,
         recovery: InFlightRecovery,
@@ -885,46 +892,42 @@ enum PilotCLI {
         ownerAlive: Bool?,
         lastProgressAt: Date?,
         silenceAgeSeconds: Int?,
+        streamSilenceWarning: Bool?,
         commitsSinceBaseline: Int?,
         waitHintSeconds: Double?,
         watcherDisposable: Bool?
     ) {
         guard state.status == .running, recovery == .handoffAlive else {
-            return (nil, nil, nil, nil, nil, nil, nil)
+            return (nil, nil, nil, nil, nil, nil, nil, nil)
         }
         let startedAt = state.rounds.last?.startedAt
         let elapsed = startedAt.map { max(0, Int(now.timeIntervalSince($0))) }
-        let lastProgress = resolveLastProgressAt(state: state, stateStore: stateStore, runStore: runStore)
+        let lastProgress = resolveLastProgressAt(state: state, runStore: runStore)
         let silence = lastProgress.map { max(0, Int(now.timeIntervalSince($0))) }
+        let warnThreshold = Int(statusWaitHintSeconds * streamSilenceWarningMultiplier)
+        let streamWarning = silence.map { $0 > warnThreshold } ?? false
         let commits = commitsSinceBaseline(state: state, gitObserver: gitObserver)
         return (
             elapsedSeconds: elapsed,
             ownerAlive: true,
             lastProgressAt: lastProgress,
             silenceAgeSeconds: silence,
+            streamSilenceWarning: streamWarning,
             commitsSinceBaseline: commits,
             waitHintSeconds: statusWaitHintSeconds,
             watcherDisposable: true
         )
     }
 
-    /// PRIMARY liveness: freshest of in-flight run journal activity and relay-dir progress.
-    /// Never invents progress — nil when neither source has a stamp.
+    /// PRIMARY liveness: worker stream activity on the in-flight dev run journal only
+    /// (RLR-L6 `lastActivityAt`). Never merges relay-dir heartbeat / `pgid_activity`
+    /// (PLS-S01) — those clocks are for the stall watchdog, not agent-facing status.
     static func resolveLastProgressAt(
         state: RelayState,
-        stateStore: RelayStateStore,
         runStore: RunStore
     ) -> Date? {
-        var candidates: [Date] = []
-        if let runId = state.rounds.last?.devRunId,
-           let activity = runStore.load(runId: runId)?.lastActivityAt {
-            candidates.append(activity)
-        }
-        if let dir = try? stateStore.directory(for: state.id),
-           let hb = ProcessOwnership.lastProgressAt(in: dir) {
-            candidates.append(hb)
-        }
-        return candidates.max()
+        guard let runId = state.rounds.last?.devRunId else { return nil }
+        return runStore.load(runId: runId)?.lastActivityAt
     }
 
     /// SUPPLEMENTARY only — not liveness. Nil when no baseline/HEAD to observe.
@@ -989,26 +992,38 @@ enum PilotCLI {
         }
     }
 
-    static func recoveryActionLine(for state: RelayState, recovery: InFlightRecovery) -> String? {
+    static func recoveryActionLine(
+        for state: RelayState,
+        recovery: InFlightRecovery,
+        streamSilenceWarning: Bool? = nil
+    ) -> String? {
         switch recovery {
         case .none:
             return nil
         case .handoffAlive:
-            return "in flight — handoff process alive; poll `alln pair pilot status --relay \(state.id) --json` every \(Int(statusWaitHintSeconds))s until it settles (progress is primary liveness; commitsSinceBaseline is supplementary only). Optional: `alln pair pilot watch --relay \(state.id)`. A killed watch is not a failed round."
+            var line = "in flight — handoff process alive; poll `alln pair pilot status --relay \(state.id) --json` every \(Int(statusWaitHintSeconds))s until it settles (stream silence is primary liveness — matches `alln ps`; commitsSinceBaseline is supplementary only). Optional: `alln pair pilot watch --relay \(state.id)`. A killed watch is not a failed round."
+            if streamSilenceWarning == true {
+                line += " streamSilenceWarning: worker stream has been silent longer than \(Int(statusWaitHintSeconds * streamSilenceWarningMultiplier))s — inspect with `alln ps` (process tree may still be busy without worker output)."
+            }
+            return line
         case .orphanReconciled:
             return "handoff owner died mid-round — relay reconciled (\(state.stoppedReason ?? RelayState.orphanReconciledReason)); inspect `alln pair pilot status --relay \(state.id) --json` and the repo before any new handoff — do not blind retry."
         }
     }
 
-    static func recoveryNextActions(for state: RelayState, recovery: InFlightRecovery) -> [AgentSurfaceNextAction] {
+    static func recoveryNextActions(
+        for state: RelayState,
+        recovery: InFlightRecovery,
+        streamSilenceWarning: Bool? = nil
+    ) -> [AgentSurfaceNextAction] {
         switch recovery {
         case .none:
             return []
         case .handoffAlive:
-            return [
+            var actions: [AgentSurfaceNextAction] = [
                 .init(
                     kind: "pilotStatus",
-                    label: "Poll durable status in ~\(Int(statusWaitHintSeconds))s until the round settles (progress primary; commits supplementary)",
+                    label: "Poll durable status in ~\(Int(statusWaitHintSeconds))s until the round settles (stream silence primary; commits supplementary)",
                     command: "alln pair pilot status --relay \(state.id) --json"
                 ),
                 .init(
@@ -1017,6 +1032,14 @@ enum PilotCLI {
                     command: "alln pair pilot watch --relay \(state.id) --json"
                 ),
             ]
+            if streamSilenceWarning == true {
+                actions.insert(.init(
+                    kind: "inspectStreamSilence",
+                    label: "Stream silence warning — correlate with `alln ps` before assuming the dev seat is progressing",
+                    command: "alln ps --json"
+                ), at: 0)
+            }
+            return actions
         case .orphanReconciled:
             return [.init(
                 kind: "pilotStatus",
@@ -1179,8 +1202,10 @@ struct PilotHandoffJSON: Encodable {
 
 /// `pilot status --json` envelope: relay state plus typed recovery when `.running`.
 /// Long-job fields (PLT-S02) are present while `.running` with a live handoff owner;
-/// omitted otherwise. `lastProgressAt`/`silenceAgeSeconds` are PRIMARY liveness;
-/// `commitsSinceBaseline` is SUPPLEMENTARY only (not proof of life).
+/// omitted otherwise. `lastProgressAt`/`silenceAgeSeconds` are PRIMARY stream liveness
+/// (RLR-L6 `lastActivityAt` on the linked dev run — same truth as `alln ps`);
+/// `streamSilenceWarning` when silence exceeds 6×`waitHintSeconds`; `commitsSinceBaseline`
+/// is SUPPLEMENTARY only (not proof of life).
 struct PilotStatusJSON: Encodable {
     let relay: RelayJSON
     let recovery: String?
@@ -1189,6 +1214,7 @@ struct PilotStatusJSON: Encodable {
     let ownerAlive: Bool?
     let lastProgressAt: Date?
     let silenceAgeSeconds: Int?
+    let streamSilenceWarning: Bool?
     let commitsSinceBaseline: Int?
     let waitHintSeconds: Double?
     let watcherDisposable: Bool?
@@ -1201,6 +1227,7 @@ struct PilotStatusJSON: Encodable {
         ownerAlive: Bool? = nil,
         lastProgressAt: Date? = nil,
         silenceAgeSeconds: Int? = nil,
+        streamSilenceWarning: Bool? = nil,
         commitsSinceBaseline: Int? = nil,
         waitHintSeconds: Double? = nil,
         watcherDisposable: Bool? = nil
@@ -1212,6 +1239,7 @@ struct PilotStatusJSON: Encodable {
         self.ownerAlive = ownerAlive
         self.lastProgressAt = lastProgressAt
         self.silenceAgeSeconds = silenceAgeSeconds
+        self.streamSilenceWarning = streamSilenceWarning
         self.commitsSinceBaseline = commitsSinceBaseline
         self.waitHintSeconds = waitHintSeconds
         self.watcherDisposable = watcherDisposable
@@ -1226,6 +1254,7 @@ struct PilotStatusJSON: Encodable {
         try c.encodeIfPresent(ownerAlive, forKey: .ownerAlive)
         try c.encodeIfPresent(lastProgressAt, forKey: .lastProgressAt)
         try c.encodeIfPresent(silenceAgeSeconds, forKey: .silenceAgeSeconds)
+        try c.encodeIfPresent(streamSilenceWarning, forKey: .streamSilenceWarning)
         try c.encodeIfPresent(commitsSinceBaseline, forKey: .commitsSinceBaseline)
         try c.encodeIfPresent(waitHintSeconds, forKey: .waitHintSeconds)
         try c.encodeIfPresent(watcherDisposable, forKey: .watcherDisposable)
@@ -1234,7 +1263,7 @@ struct PilotStatusJSON: Encodable {
     private enum CodingKeys: String, CodingKey {
         case relay, recovery, nextActions
         case elapsedSeconds, ownerAlive, lastProgressAt, silenceAgeSeconds
-        case commitsSinceBaseline, waitHintSeconds, watcherDisposable
+        case streamSilenceWarning, commitsSinceBaseline, waitHintSeconds, watcherDisposable
     }
 }
 
