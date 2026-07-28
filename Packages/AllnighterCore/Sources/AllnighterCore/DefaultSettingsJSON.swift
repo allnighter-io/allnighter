@@ -108,7 +108,10 @@ public enum DefaultSettingsProjector {
         func ref(_ id: ModelID, isTierDefault: Bool) -> DefaultSettingsJSON.ModelRef? {
             guard let e = byId[id] else { return nil }   // stale id (deleted custom) — drop
             return DefaultSettingsJSON.ModelRef(
-                id: e.id, displayName: e.displayName, driverId: e.driverId, driverName: e.driverName,
+                id: e.id,
+                displayName: ModelDisplayName.format(
+                    baseName: e.displayName, modelId: e.id, driverId: e.driverId),
+                driverId: e.driverId, driverName: e.driverName,
                 ready: isLive(e), enabled: e.enabled, isTierDefault: isTierDefault,
                 tiers: settings.tiers.tiers(of: id).map(\.rawValue))
         }
@@ -130,7 +133,10 @@ public enum DefaultSettingsProjector {
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
             .map { e in
                 DefaultSettingsJSON.ModelRef(
-                    id: e.id, displayName: e.displayName, driverId: e.driverId, driverName: e.driverName,
+                    id: e.id,
+                    displayName: ModelDisplayName.format(
+                        baseName: e.displayName, modelId: e.id, driverId: e.driverId),
+                    driverId: e.driverId, driverName: e.driverName,
                     ready: isLive(e), enabled: e.enabled, isTierDefault: false, tiers: [])
             }
 
@@ -138,7 +144,11 @@ public enum DefaultSettingsProjector {
         let auto = DefaultSettingsJSON.AutoResolution(
             tier: settings.defaultTier.rawValue,
             resolvedModelId: r.resolvedModelId,
-            resolvedModelName: r.resolvedModelId.flatMap { byId[$0]?.displayName },
+            resolvedModelName: r.resolvedModelId.flatMap { id in
+                byId[id].map {
+                    ModelDisplayName.format(baseName: $0.displayName, modelId: $0.id, driverId: $0.driverId)
+                }
+            },
             substituted: r.substituted,
             blocked: r.isBlocked,
             blockedReason: r.blockedReason?.rawValue,

@@ -48,7 +48,8 @@ public enum ModelCatalog {
     /// Pass `driverId` from the ready `Model` when the id may not be on disk yet.
     public static func modelFamily(_ modelId: String, driverId: String? = nil) -> String {
         switch modelId {
-        case "model_fable", "model_opus", "model_sonnet":
+        case "model_fable", "model_opus", "model_sonnet",
+             "model_cursor_fable", "model_cursor_opus", "model_cursor_sonnet":
             return "claude"
         case "model_chatgpt", "model_chatgpt_sol", "model_chatgpt_terra",
              "model_chatgpt_54", "model_chatgpt_54_mini", "model_codex_spark":

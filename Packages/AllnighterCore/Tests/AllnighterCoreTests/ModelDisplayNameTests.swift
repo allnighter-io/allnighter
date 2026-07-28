@@ -19,8 +19,11 @@ final class ModelDisplayNameTests: XCTestCase {
             ModelDisplayName.format(baseName: "ChatGPT 5.6 Sol", modelId: "model_chatgpt_sol", driverId: "cursor_agent"),
             "ChatGPT 5.6 Sol (Cursor)")
         XCTAssertEqual(
-            ModelDisplayName.format(baseName: "Fable 5", modelId: "model_fable", driverId: "cursor_agent"),
+            ModelDisplayName.format(baseName: "Fable 5", modelId: "model_cursor_fable", driverId: "cursor_agent"),
             "Fable 5 (Cursor)")
+        XCTAssertEqual(
+            ModelDisplayName.format(baseName: "Opus 5", modelId: "model_cursor_opus", driverId: "cursor_agent"),
+            "Opus 5 (Cursor)")
     }
 
     func testDriverSubtitleUsesFriendlyHomeLabelOrRawDriverId() {
@@ -32,6 +35,9 @@ final class ModelDisplayNameTests: XCTestCase {
             "Codex")
         XCTAssertEqual(
             ModelDisplayName.driverSubtitle(modelId: "model_chatgpt_sol", driverId: "cursor_agent"),
+            "cursor_agent")
+        XCTAssertEqual(
+            ModelDisplayName.driverSubtitle(modelId: "model_cursor_fable", driverId: "cursor_agent"),
             "cursor_agent")
         XCTAssertEqual(
             ModelDisplayName.driverSubtitle(modelId: "model_cursor_composer_25", driverId: "cursor_agent"),

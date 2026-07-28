@@ -23,7 +23,7 @@ public enum MenuCatalog {
         if let modelEntries {
             models = modelEntries.sorted { $0.id < $1.id }
         } else {
-            models = builtInModelEntries().sorted { $0.id < $1.id }
+            models = builtInModelEntries().filter(\.enabled).sorted { $0.id < $1.id }
         }
         let recipeList = (recipes ?? RecipeCatalog.list()).sorted { $0.id < $1.id }
 
@@ -81,7 +81,7 @@ public enum MenuCatalog {
             )
             enforceSelectionBounds(copy, kind: "team", id: team.id)
             let run = "alln run \"{message}\" --team \(team.id) --json"
-            let validate = "alln run \"{message}\" --team \(team.id) --dry-run --json"
+            let validate = "alln run \"{message}\" --team \(team.id) --dry-run"
             return MenuJSON.Team(
                 ref: "team:\(team.id)",
                 id: team.id,
@@ -117,7 +117,7 @@ public enum MenuCatalog {
                 useWhen: copy.useWhen,
                 dontUseWhen: copy.dontUseWhen,
                 runTemplate: "alln run \"{message}\" --worker \(entry.id) --json",
-                validateTemplate: "alln run \"{message}\" --worker \(entry.id) --dry-run --json"
+                validateTemplate: "alln run \"{message}\" --worker \(entry.id) --dry-run"
             )
         }
 
@@ -500,7 +500,7 @@ public enum MenuCatalog {
     }
 
     private static func modelBlockedReason(_ entry: ModelListJSON.Entry) -> String? {
-        if !entry.enabled { return "Not on Bench" }
+        if !entry.enabled { return "Off bench" }
         if entry.ready { return nil }
         switch entry.status {
         case "driverMissing": return "Driver missing"
@@ -613,7 +613,7 @@ public enum MenuCatalog {
                 active: active,
                 blockedReason: active ? nil : "Switched off (TeamVisibility)",
                 runTemplate: "alln run \"{message}\" --team \(team.id) --json",
-                validateTemplate: "alln run \"{message}\" --team \(team.id) --dry-run --json",
+                validateTemplate: "alln run \"{message}\" --team \(team.id) --dry-run",
                 purposeTags: team.purposeTags
             )
         )
@@ -651,7 +651,7 @@ public enum MenuCatalog {
                 blockedReason: modelBlockedReason(entry),
                 capabilities: entry.capabilities,
                 runTemplate: "alln run \"{message}\" --worker \(entry.id) --json",
-                validateTemplate: "alln run \"{message}\" --worker \(entry.id) --dry-run --json"
+                validateTemplate: "alln run \"{message}\" --worker \(entry.id) --dry-run"
             )
         )
     }

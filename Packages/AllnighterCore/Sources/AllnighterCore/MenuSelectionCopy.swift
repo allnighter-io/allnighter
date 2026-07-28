@@ -248,16 +248,16 @@ public enum MenuSelectionCopy {
 
     private static let models: [String: Pair] = [
         "model_fable": Pair(
-            useWhen: "Claude Fable 5, flagship judgment seat",
-            dontUseWhen: "No team; --worker model_fable"
+            useWhen: "Claude Fable 5, flagship judgment",
+            dontUseWhen: "Pin seat; model_fable"
         ),
         "model_opus": Pair(
-            useWhen: "Claude Opus 5 deep judgment seat",
-            dontUseWhen: "No team; --worker model_opus"
+            useWhen: "Claude Opus 5 deep judgment",
+            dontUseWhen: "Pin seat; model_opus"
         ),
         "model_sonnet": Pair(
-            useWhen: "Claude Sonnet 5 fast review/code seat",
-            dontUseWhen: "No team; --worker model_sonnet"
+            useWhen: "Claude Sonnet 5 fast review/code",
+            dontUseWhen: "Pin seat; model_sonnet"
         ),
         "model_chatgpt": Pair(
             useWhen: "ChatGPT 5.6 Sol, Codex (default)",
@@ -284,16 +284,16 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not Cursor Grok; model_cursor_grok_45"
         ),
         "model_kimi_k3": Pair(
-            useWhen: "Kimi K3, strong design/code judgment",
-            dontUseWhen: "No team; --worker model_kimi_k3"
+            useWhen: "Kimi K3, design/code judgment",
+            dontUseWhen: "Pin seat; model_kimi_k3"
         ),
         "model_kimi_k27": Pair(
-            useWhen: "Kimi K2.7 Code, prior-gen coding seat",
-            dontUseWhen: "Prefer K3; --worker model_kimi_k27"
+            useWhen: "Kimi K2.7 Code, prior-gen coding",
+            dontUseWhen: "Prefer K3; model_kimi_k27"
         ),
         "model_kimi_k27_hs": Pair(
-            useWhen: "Kimi K2.7 HighSpeed, plan-gated fast seat",
-            dontUseWhen: "Prefer K3; --worker model_kimi_k27_hs"
+            useWhen: "Kimi K2.7 HighSpeed, plan-gated fast",
+            dontUseWhen: "Prefer K3; model_kimi_k27_hs"
         ),
         "model_composer": Pair(
             useWhen: "Grok Composer 2.5 Fast (Grok)",
@@ -310,6 +310,18 @@ public enum MenuSelectionCopy {
         "model_cursor_grok_45": Pair(
             useWhen: "Cursor-hosted Grok 4.5 seat",
             dontUseWhen: "Not native Grok CLI; model_grok"
+        ),
+        "model_cursor_fable": Pair(
+            useWhen: "Fable 5 on Cursor",
+            dontUseWhen: "Not Claude CLI; model_fable"
+        ),
+        "model_cursor_opus": Pair(
+            useWhen: "Opus 5 on Cursor",
+            dontUseWhen: "Not Claude CLI; model_opus"
+        ),
+        "model_cursor_sonnet": Pair(
+            useWhen: "Sonnet 5 on Cursor",
+            dontUseWhen: "Not Claude CLI; model_sonnet"
         ),
         "model_chatgpt_sol": Pair(
             useWhen: "ChatGPT 5.6 Sol, Cursor (paid)",

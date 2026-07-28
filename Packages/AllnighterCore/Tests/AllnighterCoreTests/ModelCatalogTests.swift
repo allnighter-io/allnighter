@@ -38,7 +38,8 @@ final class ModelCatalogTests: XCTestCase {
         // Terra medium seat was added default-on in eff7d44e (models: add Codex Terra
         // medium seat), taking the fresh-install count 10 → 11.
         // Kimi K2.7 Code added default-on 2026-07-27 (11 → 12).
-        XCTAssertEqual(models.filter(\.enabled).count, 12)
+        // Cursor Fable/Opus/Sonnet seats added default-on 2026-07-28 (12 → 15).
+        XCTAssertEqual(models.filter(\.enabled).count, 15)
         XCTAssertNil(models.first { $0.id == "model_agy_opus" })
         XCTAssertNil(models.first { $0.id == "model_agy_sonnet" })
         XCTAssertTrue(models.first { $0.id == "model_fable" }?.enabled ?? false)
@@ -47,6 +48,9 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertTrue(models.first { $0.id == "model_chatgpt" }?.enabled ?? false)
         XCTAssertEqual(models.first { $0.id == "model_sonnet" }?.modelLabel, "claude-sonnet-5")
         XCTAssertEqual(models.first { $0.id == "model_opus" }?.displayName, "Opus 5")
+        XCTAssertEqual(models.first { $0.id == "model_fable" }?.displayName, "Fable 5")
+        XCTAssertEqual(models.first { $0.id == "model_cursor_fable" }?.displayName, "Fable 5 (Cursor)")
+        XCTAssertEqual(models.first { $0.id == "model_cursor_opus" }?.displayName, "Opus 5 (Cursor)")
         XCTAssertEqual(models.first { $0.id == "model_opus" }?.modelLabel, "opus")
         XCTAssertEqual(models.first { $0.id == "model_chatgpt" }?.displayName, "ChatGPT 5.6 Sol")
         XCTAssertEqual(models.first { $0.id == "model_chatgpt_sol" }?.displayName, "ChatGPT 5.6 Sol (Cursor)")

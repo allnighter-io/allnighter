@@ -353,6 +353,66 @@
         "strengthRank": 84
       },
       "defaultOn": true
+    },
+    "model_cursor_fable": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "design",
+          "copy",
+          "localContext"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 100
+      },
+      "defaultOn": true
+    },
+    "model_cursor_opus": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "copy",
+          "localContext"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 90
+      },
+      "defaultOn": true
+    },
+    "model_cursor_sonnet": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 84
+      },
+      "defaultOn": true
     }
   },
   "schemaVersion": 1

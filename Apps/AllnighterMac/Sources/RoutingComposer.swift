@@ -170,7 +170,7 @@ struct RoutingComposer: View {
     @State private var effortOpen = false
     /// Hover highlight in the effort popover (nil = show the current selection).
     @State private var effortHighlight: ComposeEffort?
-    /// Model-row Edit popover — effort for a specific bench seat (nil = closed).
+    /// Model-row effort popover — effort for a specific bench seat (nil = closed).
     @State private var modelEditWorkerId: String?
     @State private var fileSearchOpen = false
     @State private var fileSearchQuery = ""
@@ -204,6 +204,9 @@ struct RoutingComposer: View {
     /// Composer team picker search — empty shows Recent + Favorites, non-empty searches
     /// the whole roster (the picker is no longer craft-filtered).
     @State private var teamSearch = ""
+    /// Snapshot of `composeAllTeams()` taken when the target popover opens — avoids
+    /// rebuilding the full roster on every hover/keystroke re-render.
+    @State private var pickerTeams: [ComposeTeam] = []
 
     let placeholder: String
     private let big: Bool
@@ -678,7 +681,7 @@ struct RoutingComposer: View {
     }
 
     /// Team runs keep a standalone effort chip. Model routes surface effort in the
-    /// target chip (`Grok 4.5 · High`) and in each model row's Edit popover.
+    /// target chip (`Grok 4.5 · High`) and in each model row's effort pill.
     private var showsEffortChip: Bool { team != nil }
 
     private func benchModelSupportsEffort(_ id: String?) -> Bool {
@@ -1006,16 +1009,30 @@ struct RoutingComposer: View {
             }
         }
         .padding(6)
-        .frame(width: locksTeam ? 300 : 320)
+        .frame(width: locksTeam ? 300 : 400)
         .background(ALColor.surface)
         // ↑/↓/⏎ are handled by an AppKit key monitor (SwiftUI key focus doesn't fire
         // inside an NSPopover). Hover + the default top-row highlight come from `targetHighlight`.
         .overlay(targetKeyMonitor.allowsHitTesting(false))
-        // Freshen capacity cooldowns when the picker opens (a user action, not per render),
-        // so a tapped-out source grays + disables right when you're about to pick.
-        .onAppear { targetHighlight = 0; appModel.refreshCapacityCooldowns() }
-        .onChange(of: targetTab) { _, _ in targetHighlight = 0 }
+        .onChange(of: targetOpen) { _, open in
+            guard open else { return }
+            targetHighlight = 0
+            refreshPickerTeams()
+            if targetTab == .model || locksTeam {
+                appModel.refreshCapacityCooldowns()
+            }
+        }
+        .onChange(of: targetTab) { _, tab in
+            targetHighlight = 0
+            if tab == .model, targetOpen { appModel.refreshCapacityCooldowns() }
+        }
         .onChange(of: teamSearch) { _, _ in targetHighlight = 0 }
+        .onChange(of: appModel.favoriteTeamIds) { _, _ in
+            if targetOpen { refreshPickerTeams() }
+        }
+        .onAppear {
+            if pickerTeams.isEmpty { refreshPickerTeams() }
+        }
     }
 
     /// AppKit key catcher — reliably receives ↑/↓/⏎/esc inside the NSPopover (which
@@ -1025,7 +1042,7 @@ struct RoutingComposer: View {
         let items = targetItems
         let count = items.count
         let bench = appModel.composeBench
-        let teams = appModel.composeAllTeams()
+        let teams = pickerTeams
         return PopoverKeyCatcher { action in
             switch action {
             case .up:
@@ -1110,9 +1127,9 @@ struct RoutingComposer: View {
     // across the whole roster.
     @ViewBuilder private var teamPickerBody: some View {
         let q = teamSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let all = appModel.composeAllTeams()
+        let all = pickerTeams
         ScrollView {
-            VStack(spacing: 1) {
+            LazyVStack(spacing: 1) {
                 if q.isEmpty {
                     let ranked = rankedTeams(all)
                     ForEach(ranked.top) { teamButton($0) }
@@ -1181,10 +1198,14 @@ struct RoutingComposer: View {
 
     /// The teams shown in the Team tab, in render order (ranked, or search results).
     private var visibleTeams: [ComposeTeam] {
-        let all = appModel.composeAllTeams()
+        let all = pickerTeams
         let q = teamSearch.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if q.isEmpty { let r = rankedTeams(all); return r.top + r.rest }
         return all.filter { matchesTeamQuery($0, q) }
+    }
+
+    private func refreshPickerTeams() {
+        pickerTeams = appModel.composeAllTeams()
     }
 
     /// The flat, ordered list of selectable rows for the current tab — the index space
@@ -1242,7 +1263,7 @@ struct RoutingComposer: View {
             .buttonStyle(.plain)
             .onHover { if $0 { highlightTarget(.auto) } }
             if autoModelSupportsEffort, let id = autoModelId {
-                modelEditTrigger(for: id).padding(.trailing, 6)
+                modelEffortPill(for: id).padding(.trailing, 6)
             }
         }
     }
@@ -1306,7 +1327,7 @@ struct RoutingComposer: View {
                                 .buttonStyle(.plain)
                                 .disabled(!m.ready)
                             if m.ready && m.supportsEffort {
-                                modelEditTrigger(for: m.id).padding(.trailing, 6)
+                                modelEffortPill(for: m.id).padding(.trailing, 6)
                             }
                         }
                     }
@@ -1343,19 +1364,21 @@ struct RoutingComposer: View {
         .onHover { if m.ready, $0 { highlightTarget(.model(m.id)) } }
     }
 
-    /// Cursor-style Edit on a model row — opens effort Low/Med/High without selecting
-    /// the row. Fast stays a separate catalog seat; no speed toggle here.
-    private func modelEditTrigger(for modelId: String) -> some View {
+    /// Model-row effort pill — shows Low/Med/High and opens the picker without
+    /// selecting the row. Fast stays a separate catalog seat; no speed toggle here.
+    private func modelEffortPill(for modelId: String) -> some View {
         Button { modelEditWorkerId = modelId } label: {
-            Text("Edit")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(ALColor.textSecondary)
-                .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 5))
-                .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+            HStack(spacing: 3) {
+                Text(effort.label).font(.system(size: 11, weight: .medium))
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+            }
+            .foregroundStyle(ALColor.textSecondary)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 5))
+            .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
         }
         .buttonStyle(.plain)
-        .help("Reasoning effort")
+        .help("Reasoning effort for the next send")
         .alPopover(isPresented: Binding(
             get: { modelEditWorkerId == modelId },
             set: { if !$0 { modelEditWorkerId = nil } }
@@ -1364,7 +1387,7 @@ struct RoutingComposer: View {
         }
     }
 
-    // Team runs only — model routes show effort in the target chip + row Edit.
+    // Team runs only — model routes show effort in the target chip + row pill.
     private var effortChip: some View {
         Button { effortOpen.toggle() } label: {
             HStack(spacing: 5) {

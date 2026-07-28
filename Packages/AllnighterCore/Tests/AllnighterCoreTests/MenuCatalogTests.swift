@@ -71,7 +71,9 @@ final class MenuCatalogTests: XCTestCase {
         let menu = MenuCatalog.project()
         let expectedTeams = Set(TeamCatalog.all.filter { !$0.isLabTeam }.map(\.id))
         XCTAssertEqual(Set(menu.teams.map(\.id)), expectedTeams)
-        XCTAssertEqual(Set(menu.models.map(\.id)), Set(ModelCatalog.list().map(\.id)))
+        XCTAssertEqual(
+            Set(menu.models.map(\.id)),
+            Set(ModelCatalog.list().filter { ModelCatalog.isEnabled($0.id) }.map(\.id)))
         XCTAssertEqual(Set(menu.recipes.map(\.id)), Set(RecipeCatalog.list().map(\.id)))
         for cmd in menu.commands {
             XCTAssertNotNil(menu.effectProfiles[cmd.effectsRef], "command \(cmd.name) effectsRef dangling")

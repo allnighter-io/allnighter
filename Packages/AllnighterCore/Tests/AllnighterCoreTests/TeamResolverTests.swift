@@ -520,12 +520,12 @@ final class TeamResolverTests: XCTestCase {
         XCTAssertEqual(r.planWriter?.modelId, "model_fable")
         XCTAssertEqual(
             r.answerWorkers.map(\.modelId),
-            ["model_chatgpt", "model_cursor_grok_45", "model_kimi_k3"])
+            ["model_chatgpt", "model_cursor_fable", "model_kimi_k3"])
         XCTAssertFalse(r.answerWorkers.map(\.modelId).contains(haikuId))
         let answerFamilies = Set(r.answerWorkers.map { w in
             ModelCatalog.modelFamily(w.modelId, driverId: ready.first { $0.id == w.modelId }?.driverId)
         })
-        XCTAssertEqual(answerFamilies, Set(["gpt", "grok", "kimi"]))
+        XCTAssertEqual(answerFamilies, Set(["gpt", "claude", "kimi"]))
         XCTAssertEqual(ModelCatalog.modelFamily("model_fable"), "claude")
     }
 
@@ -551,7 +551,7 @@ final class TeamResolverTests: XCTestCase {
             familyUsed.insert(ModelCatalog.modelFamily(pick.id, driverId: pick.driverId))
             exclude.formUnion(ModelCatalog.diversityExclusionIds(for: pick.id))
         }
-        XCTAssertEqual([leadId] + answers, [leadId, haikuId, "model_chatgpt", "model_opus"],
+        XCTAssertEqual([leadId] + answers, [leadId, haikuId, "model_cursor_fable", "model_chatgpt"],
                        "Pre-fix sort (DCE9AE48) seats Flagship Haiku before diversity mattered")
     }
 

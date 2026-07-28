@@ -210,7 +210,9 @@ struct DefaultModelView: View {
             glyphTile(m.driverId)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(m.displayName).font(ALFont.sans(13.5, .bold)).foregroundStyle(ALColor.textPrimary)
+                    Text(ModelDisplayName.format(
+                        baseName: m.displayName, modelId: m.id, driverId: m.driverId))
+                        .font(ALFont.sans(13.5, .bold)).foregroundStyle(ALColor.textPrimary)
                     if m.isTierDefault {
                         Text("DEFAULT").font(ALFont.mono(9, .bold)).foregroundStyle(ALColor.accent)
                             .padding(.vertical, 1).padding(.horizontal, 6)
@@ -258,7 +260,9 @@ struct DefaultModelView: View {
         HStack(spacing: 11) {
             glyphTile(m.driverId)
             VStack(alignment: .leading, spacing: 2) {
-                Text(m.displayName).font(ALFont.sans(13.5, .bold)).foregroundStyle(ALColor.textPrimary)
+                Text(ModelDisplayName.format(
+                    baseName: m.displayName, modelId: m.id, driverId: m.driverId))
+                    .font(ALFont.sans(13.5, .bold)).foregroundStyle(ALColor.textPrimary)
                 Text(ModelDisplayName.driverSubtitle(modelId: m.id, driverId: m.driverId))
                     .font(ALFont.mono(11)).foregroundStyle(ALColor.textFaint)
             }

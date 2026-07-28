@@ -35,13 +35,16 @@ public enum ModelDisplayName {
     /// `ModelCatalog` — this runs while the catalog is still materializing.
     public static func defaultDriverId(for modelId: ModelID, driverId: String) -> String {
         switch modelId {
-        case "model_fable", "model_opus", "model_sonnet":
+        case "model_fable", "model_opus", "model_sonnet",
+             "model_cursor_fable", "model_cursor_opus", "model_cursor_sonnet":
             return "claude_code"
         case "model_chatgpt", "model_chatgpt_sol", "model_chatgpt_terra",
              "model_chatgpt_54", "model_chatgpt_54_mini", "model_codex_spark":
             return "codex"
-        case "model_grok", "model_composer", "model_cursor_grok_45":
+        case "model_grok", "model_composer":
             return "grok"
+        case "model_cursor_grok_45":
+            return "cursor_agent"
         case "model_gemini", "model_gemini_pro", "model_agy_gptoss":
             return "antigravity"
         case "model_kimi_k3", "model_kimi_k27", "model_kimi_k27_hs":
