@@ -18,7 +18,7 @@ final class DefaultModelSettingsTests: XCTestCase {
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         XCTAssertEqual(s.tiers.economy, [
-            "model_kimi_k27", "model_cursor_auto", "model_gemini"
+            "model_kimi_k27", "model_cursor_composer_25", "model_cursor_auto", "model_gemini"
         ])
         for fastId in ["model_cursor_composer_25_fast", "model_composer"] {
             XCTAssertTrue(s.tiers.isUnassigned(fastId), "\(fastId) must stay unassigned in fresh seed")
@@ -86,7 +86,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(s.tierDefault(.economy), "model_kimi_k27")
         XCTAssertTrue(s.tiers.isUnassigned("model_composer"))
         XCTAssertTrue(s.tiers.isUnassigned("model_cursor_composer_25_fast"))
-        XCTAssertEqual(s.tiers.tiers(of: "model_cursor_composer_25"), [.balanced])
+        XCTAssertEqual(s.tiers.tiers(of: "model_cursor_composer_25"), [.balanced, .economy])
         XCTAssertTrue(s.tiers.isUnassigned("model_chatgpt_sol"))
     }
 

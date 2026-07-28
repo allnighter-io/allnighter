@@ -70,11 +70,13 @@ final class DefaultSettingsProjectorTests: XCTestCase {
 
         let economy = p.tiers[2]
         XCTAssertEqual(economy.members.map(\.id), [
-            "model_kimi_k27", "model_cursor_auto", "model_gemini"
+            "model_kimi_k27", "model_cursor_composer_25", "model_cursor_auto", "model_gemini"
         ])
         XCTAssertEqual(economy.defaultModelId, "model_kimi_k27")
         let k27 = economy.members.first { $0.id == "model_kimi_k27" }
         XCTAssertEqual(k27?.tiers, ["economy"])
+        let composer = economy.members.first { $0.id == "model_cursor_composer_25" }
+        XCTAssertEqual(composer?.tiers, ["balanced", "economy"])
     }
 
     func testUnassignedIsOnModelsNotInAnyTierSortedAToZ() {
