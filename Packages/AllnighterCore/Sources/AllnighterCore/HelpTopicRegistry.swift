@@ -285,8 +285,10 @@ public enum HelpTopicRegistry {
             built-in judgment team, use `alln run --team <id> --seat <model_id> …` instead of \
             duplicating. Create a novel manifest with \
             `teams definition` (or a hand-authored TeamPreset) → `teams new`. Skills are the \
-            reusable prompts workers run. List and inspect with `alln teams`, `alln skills`, \
-            and `alln models`; the Default Team (Auto) is the no-pick route. Looking for a \
+            reusable prompts workers run — tune them in **Settings → Teams → edit worker** \
+            (no separate Skills settings page). List and inspect with `alln teams`, \
+            `alln skills`, and `alln models`; purge orphans with `alln skills gc`. \
+            The Default Team (Auto) is the no-pick route. Looking for a \
             model or vendor by natural-language name? Use `alln menu --json` \
             — do not stop at a models/teams list miss.
             """,
@@ -299,7 +301,7 @@ public enum HelpTopicRegistry {
                 "create a team", "make a team", "make a custom team", "new team",
                 "customize a team", "build a team", "build a custom team",
             ],
-            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams new", "teams edit", "teams restore", "skills", "skills show", "models", "menu"],
+            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams new", "teams edit", "teams restore", "skills", "skills show", "skills gc", "models", "menu"],
             schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON"],
             errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_RESTORE_UNSUPPORTED", "TEAM_ID_COLLISION", "TEAM_INVALID", "CATALOG_ID_INVALID", "SKILL_NOT_FOUND"],
             needsLiveCheck: false),

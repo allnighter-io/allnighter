@@ -1,10 +1,10 @@
 # Worker / Skill Sharing
 
 Status: **Founder direction locked** — vocabulary + sharing model + no-fork rule;
-implementation packet not started
+**Phase 1 (skill overrides) not yet implemented** in GUI or CLI
 Owner: AllnighterCore + Mac app
 Created: 2026-07-28
-Updated: 2026-07-28 (lab retirement, save boundaries, UX refinements)
+Updated: 2026-07-28 (CLI/GUI parity audit)
 Process: `docs/workflows/SSOT_Founder_Input_Workflow.md` →
 `docs/workflows/SSOT_Feature_Workflow.md`
 
@@ -74,11 +74,15 @@ Skill   = name + lane + purpose + skill.md (shared catalog entry)
 Ephemeral runs (`alln run --team … --seat …`) inherit the team’s skill ids; only
 models change per run — no new skill files.
 
-## No forking (locked — the mess is gone)
+## No forking (locked — not yet enforced in code)
 
-**Fork-on-save is retired.** Saving an edited `skill.md` writes a **skill
-override at the same id** (mirror team overrides), not `createCustom()` and not
-`"<Skill> for <Team>"` repointing.
+**Fork-on-save is retired by policy** but **still active** in `TeamDraft.commit()`
+until Phase 1 ships. Today, editing a worker prompt and saving the team still
+calls `SkillCatalog.createCustom()` (silent fork). Phase 1 removes that path.
+
+**Target behavior** once Phase 1 ships: saving an edited `skill.md` writes a
+**skill override at the same id** (mirror team overrides), not `createCustom()`
+and not `"<Skill> for <Team>"` repointing.
 
 | Action | Behavior |
 | --- | --- |
@@ -197,6 +201,49 @@ from `SkillCatalog.list`, `TeamCatalog` migration, and `alln skills gc`.
 No separate `lab-skills/` root — lab ids in the product catalog are the mistake;
 purge them.
 
+## CLI / GUI parity (audit 2026-07-28)
+
+Shared catalog rules live in **AllnighterCore** (`SkillCatalog`, `TeamCatalog`,
+`CatalogLabRetirement`). GUI and CLI both call the same APIs — no parallel truth.
+
+| Capability | CLI | GUI (Mac) | Parity |
+| --- | --- | --- | --- |
+| List skills (lane) | `alln skills --lane <lane>` | Edit worker → skill picker (built-ins + this team’s customs) | **Intentional diff:** CLI lists all product customs; GUI picker is curated so orphans do not pollute the dropdown |
+| Show skill + template | `alln skills show <id>` | Edit worker → PROMPT field (→ `skill.md` in Phase 2) | CLI today; GUI shows template in drill-in |
+| Create skill | `alln skills new` / `duplicate` | Edit worker → **+** / **+ New skill…** | Both paths; GUI discoverability shipped |
+| Edit skill | `alln skills edit <id>` (custom only) | Edit worker → change prompt → **Team Save** forks today | **Gap:** built-in edit + shared override blocked until Phase 1; GUI still forks on team Save |
+| Delete skill | `alln skills delete <id>` | — | CLI only (manual GC) |
+| Purge lab + orphans | `alln skills gc` | Automatic on `SkillCatalog.list` / team catalog read | Lab purge on both; orphan GC is **CLI/manual only** (no GUI button — by policy) |
+| Lab teams/skills | Rejected on save; purged on read | Never listed (`isLabTeam` filtered; lab skills purged) | **Aligned** |
+| Tune team roster | `teams edit` / `definition` | Settings → Teams | Aligned |
+| Skills settings tab | — (removed) | — (removed) | Skills are tuned per worker, not a global browser |
+
+**Worker Done → skill saved:** locked in doc; **not implemented** — worker Done
+still stages `promptDraft` on the team row; skill write happens at **Team Save**
+via fork. Phase 1 moves skill body commit to Worker Done (catalog override).
+
+**Contract registry:** `alln skills gc` registered in `ContractRegistry` (was
+CLI-only before this audit).
+
+### Shipped in this slice (both surfaces)
+
+- Lab retirement (`CatalogLabRetirement`) — any `SkillCatalog.list` / team load
+- Orphan + lab purge via `alln skills gc`
+- GUI: Skills settings tab removed; worker skill picker filtered; **+ New skill**
+
+### Phase 1 closes remaining gaps
+
+- `SkillCatalog.saveOverride` / `restore` (built-in ids)
+- Kill `TeamDraft.commit()` fork path
+- Worker Done writes changed `skill.md` to catalog
+- `alln skills edit` on built-in ids (override, not `builtInImmutable`)
+
+### Phase 2 GUI-only (CLI N/A)
+
+- Model → Skill → `skill.md` field order and labels
+- Blast-radius team name list
+- Restore default button on edit worker
+
 ## Sharing model (implementation)
 
 **B1 — skill overrides (mirror teams)** — preferred path:
@@ -213,7 +260,8 @@ Rejected: fork per team on save (old `TeamDraft.commit()` behavior).
 ## What works today
 
 Built-in skills already share by id across team variants. Team overrides at same
-id work; skill overrides do not yet (`builtInImmutable`).
+id work; skill overrides do not yet (`builtInImmutable`). **Fork-on-save still
+runs on team Save** — doc policy ahead of code until Phase 1.
 
 ## What was broken (being fixed)
 

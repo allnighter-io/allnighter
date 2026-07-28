@@ -29,7 +29,7 @@ final class ContractRegistryTests: XCTestCase {
             "models", "models enable", "models disable", "models add", "models verify", "models update", "models delete",
             "catalog validate",
             "teams", "teams show", "teams definition", "teams duplicate", "teams new", "teams edit", "teams set-default", "teams delete", "teams restore",
-            "skills", "skills show", "skills duplicate", "skills new", "skills edit", "skills delete",
+            "skills", "skills show", "skills duplicate", "skills new", "skills edit", "skills delete", "skills gc",
             "team status", "team result", "team cancel", "team reconcile",
             "ps", "kill", "gc",
             "thread send", "thread get", "thread attachment", "thread rename", "thread status",

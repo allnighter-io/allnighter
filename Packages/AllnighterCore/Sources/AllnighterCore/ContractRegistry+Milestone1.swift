@@ -346,6 +346,11 @@ public extension ContractRegistry {
             exampleIds: ["skills_delete_json"]
         ),
         CommandSpec(
+            "skills gc", summary: "Purge retired lab skills and delete unreferenced custom skills.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "JSON with deleted skill ids and count.")],
+            exampleIds: ["skills_gc_json"]
+        ),
+        CommandSpec(
             "team status", summary: "Poll resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).", milestone: .m1,
             args: [ArgSpec("run-id", required: true, summary: "The run id of an accepted async run.")],
             flags: [
@@ -1237,6 +1242,7 @@ public extension ContractRegistry {
         ExampleRecipe("teams_new_json", title: "Create novel team from manifest", command: "alln teams new custom_code_novel --file ./TeamPreset.json --json"),
         ExampleRecipe("skills_code_json", title: "List Code skills", command: "alln skills --lane code --json"),
         ExampleRecipe("skills_show_json", title: "Show a Code skill", command: "alln skills show bug_reproducer --json"),
+        ExampleRecipe("skills_gc_json", title: "Purge lab and orphan custom skills", command: "alln skills gc --json"),
         ExampleRecipe("run_foreground_json", title: "Run in foreground", command: "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\""),
         ExampleRecipe("try_fix_bug", title: "Auto Fix: Bug Hunt then one bounded fix", command: "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json"),
         ExampleRecipe("show_latest_json", title: "Show the latest run", command: "alln show latest --json"),

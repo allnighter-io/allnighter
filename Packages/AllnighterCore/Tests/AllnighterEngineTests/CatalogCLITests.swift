@@ -1,5 +1,5 @@
 import XCTest
-import AllnighterCore
+@testable import AllnighterCore
 @testable import AllnighterCLI
 
 final class CatalogCLITests: XCTestCase {
@@ -47,6 +47,19 @@ final class CatalogCLITests: XCTestCase {
         try SkillCatalog.saveCustom(edited)
         let json = AllnighterCLI.skillShowJSONString(try XCTUnwrap(SkillCatalog.get(skill.id)))
         XCTAssertTrue(json.contains("WT Code Contrarian"))
+    }
+
+    func testSkillsGCPurgesLabSkillsFromCatalogList() throws {
+        let labSkill = Skill(
+            id: "custom_code_lab_gc_runner", displayName: "Lab GC Runner", lane: .code,
+            purpose: .answer, template: "lab", builtIn: false
+        )
+        try CatalogFileIO.save(labSkill, id: labSkill.id, kind: .skill, root: CatalogRoots.skills)
+
+        let deleted = try SkillCatalog.purgeUnreferencedCustomSkills()
+
+        XCTAssertTrue(deleted.contains(labSkill.id))
+        XCTAssertFalse(SkillCatalog.list(lane: .code).contains { $0.id == labSkill.id })
     }
 
     func testTeamsDuplicateProducesEditablePresetJSON() throws {
