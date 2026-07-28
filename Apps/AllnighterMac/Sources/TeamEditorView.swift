@@ -323,10 +323,29 @@ struct TeamEditorView: View {
     /// This team has a shipped version that the user has edited, so a Restore is offered.
     private var canRestore: Bool { !isNew && TeamCatalog.hasOverride(draft.base.id) }
 
-    private var laneSkills: [Skill] { SkillCatalog.list(lane: lane.workLane) }
+    private var laneSkills: [Skill] { Self.pickerSkills(for: draft, lane: lane.workLane) }
     /// The Lead picks among plan-writer skills only — it's the synthesizer, not an
     /// answer/review worker.
     private var leadSkills: [Skill] { laneSkills.filter { $0.purpose == .planWriter } }
+
+    /// Built-in lane skills plus any custom skills this team (or its in-flight draft)
+    /// already references — not every orphan on disk.
+    static func pickerSkills(for draft: TeamDraft, lane: WorkLane) -> [Skill] {
+        let builtIns = SkillCatalog.list(lane: lane).filter(\.builtIn)
+        var refIds = Set<String>()
+        for row in draft.rows + [draft.lead] + (draft.scout.map { [$0] } ?? []) where !row.skillId.isEmpty {
+            refIds.insert(row.skillId)
+        }
+        for spec in draft.base.workerSpecs where !spec.skillId.isEmpty { refIds.insert(spec.skillId) }
+        if !draft.base.lead.skillId.isEmpty { refIds.insert(draft.base.lead.skillId) }
+        draft.base.scout.map { if !$0.skillId.isEmpty { refIds.insert($0.skillId) } }
+        let customs = refIds.compactMap { SkillCatalog.get($0) }
+            .filter { !$0.builtIn && $0.lane == lane }
+        var seen = Set<String>()
+        return (builtIns + customs)
+            .filter { seen.insert($0.id).inserted }
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+    }
 
     var body: some View {
         Group {

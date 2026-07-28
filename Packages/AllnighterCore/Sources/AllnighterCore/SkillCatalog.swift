@@ -136,11 +136,31 @@ public enum SkillCatalog {
     }
 
     private static func teamsReferencingSkill(_ skillId: SkillID) -> [TeamID] {
-        TeamCatalog.all.compactMap { team in
+        teamIdsReferencingSkill(skillId, in: TeamCatalog.all + LabTeamCatalog.all)
+    }
+
+    private static func teamIdsReferencingSkill(_ skillId: SkillID, in teams: [TeamPreset]) -> [TeamID] {
+        teams.compactMap { team in
             let rowHit = team.workerSpecs.contains { $0.skillId == skillId }
             let leadHit = team.lead.skillId == skillId
-            return (rowHit || leadHit) ? team.id : nil
+            let scoutHit = team.scout?.skillId == skillId
+            return (rowHit || leadHit || scoutHit) ? team.id : nil
         }
+    }
+
+    /// Delete custom skills not referenced by any product or lab team row.
+    @discardableResult
+    public static func purgeUnreferencedCustomSkills() throws -> [SkillID] {
+        let reserved = Set(builtIns.map(\.id))
+        let customs = CatalogFileIO.loadAll(kind: .skill, root: CatalogRoots.skills, as: Skill.self)
+            .filter { !reserved.contains($0.id) }
+        var deleted: [SkillID] = []
+        let teams = TeamCatalog.all + LabTeamCatalog.all
+        for skill in customs where teamIdsReferencingSkill(skill.id, in: teams).isEmpty {
+            try CatalogFileIO.delete(id: skill.id, root: CatalogRoots.skills)
+            deleted.append(skill.id)
+        }
+        return deleted.sorted()
     }
 
     /// Default design-board panel skill ids (one image worker per direction).

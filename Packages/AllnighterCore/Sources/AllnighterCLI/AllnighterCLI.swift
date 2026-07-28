@@ -60,6 +60,7 @@ struct AllnighterCLI {
         case "skills" where args.first == "new": runSkillsNew(Array(args.dropFirst()), runtime)
         case "skills" where args.first == "edit": runSkillsEdit(Array(args.dropFirst()), runtime)
         case "skills" where args.first == "delete": runSkillsDelete(Array(args.dropFirst()), runtime)
+        case "skills" where args.first == "gc": runSkillsGC(Array(args.dropFirst()), runtime)
         case "skills": runSkillCatalog(args, runtime)
         case "thread" where args.first == "send": await ThreadSendCLI.runSend(Array(args.dropFirst()), runtime: runtime)
         case "thread" where args.first == "get": ThreadCLI.runGet(Array(args.dropFirst()))
@@ -998,6 +999,23 @@ struct AllnighterCLI {
         catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }
 
+    /// `alln skills gc [--json]` — delete custom skills not referenced by any team.
+    static func runSkillsGC(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        do {
+            let deleted = try SkillCatalog.purgeUnreferencedCustomSkills()
+            if opts.flag("json") {
+                print(jsonString(SkillGCAck(deleted: deleted, count: deleted.count)))
+            } else if deleted.isEmpty {
+                print("no unreferenced custom skills")
+            } else {
+                print("deleted \(deleted.count) unreferenced custom skill(s)")
+                for id in deleted { print(id) }
+            }
+        } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
+    }
+
     /// `alln skills delete <skill-id> [--json]`
     static func runSkillsDelete(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
@@ -1020,6 +1038,12 @@ struct AllnighterCLI {
     struct DeleteAck: Encodable {
         let schemaVersion = 1
         let deleted: String
+    }
+
+    struct SkillGCAck: Encodable {
+        let schemaVersion = 1
+        let deleted: [String]
+        let count: Int
     }
 
     /// Shared readiness check for `run --dry-run` (and any other free twin).

@@ -4,14 +4,14 @@ import AllnighterCore
 // Settings — the Team configuration surface. Reached from "Manage team" (Team
 // dropdown) and, later, the title-bar health badge. The whole app is lane-first
 // (Build / Design / Copy), so the nav groups by lane: one CLIs page on top
-// (lane-agnostic — sources feed every lane), then per-lane Teams + Skills.
+// (lane-agnostic — sources feed every lane), then per-lane Teams.
 //
 // CLIs reuses the existing `TeamReadinessView` (the shipped CLI-setup/readiness
-// surface). Teams and Skills read `TeamCatalog` / `SkillCatalog` — the shell never
-// invents team/skill truth.
+// surface). Teams read `TeamCatalog`; skill prompts are tuned per worker in the
+// team editor — the shell never invents team/skill truth.
 
-/// One destination in the Studio. Teams/Skills are always lane-scoped (every team
-/// and skill belongs to exactly one lane — docs/workflows/Product_Vocabulary.md).
+/// One destination in the Studio. Teams are always lane-scoped (every team
+/// belongs to exactly one lane — docs/workflows/Product_Vocabulary.md).
 enum StudioRoute: Hashable {
     case clis
     case useFromCLI
@@ -20,7 +20,6 @@ enum StudioRoute: Hashable {
     case boostWindow
     case iphoneRemote
     case teams(ComposeLane)
-    case skills(ComposeLane)
 }
 
 struct TeamStudioView: View {
@@ -77,8 +76,6 @@ struct TeamStudioView: View {
         case .teams(let lane):
             StudioTeamListView(lane: lane, customizeTeamId: customizeTeamId, startNewTeam: startNewTeam,
                                onOpenDefaultModel: { route = .defaultModel })
-        case .skills(let lane):
-            StudioSkillListView(lane: lane)
         }
     }
 }
@@ -118,7 +115,6 @@ private struct StudioNav: View {
             ForEach(ComposeLane.allCases, id: \.self) { lane in
                 laneHeader(lane)
                 item("Teams", icon: "rectangle.3.group", target: .teams(lane), indented: true)
-                item("Skills", icon: "sparkles", target: .skills(lane), indented: true)
             }
             Spacer(minLength: 0)
         }
@@ -339,149 +335,6 @@ private struct StudioEmptyDetail: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
-    }
-}
-
-private struct StudioSkillListView: View {
-    let lane: ComposeLane
-    @State private var selectedId: SkillID?
-    @State private var query = ""
-
-    /// Lane skills, sorted A→Z, filtered by the search box (founder: a growing list
-    /// must be scannable + searchable).
-    private var skills: [Skill] {
-        let all = SkillCatalog.list(lane: lane.workLane)
-            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return q.isEmpty ? all : all.filter { $0.displayName.localizedCaseInsensitiveContains(q) }
-    }
-    private var selected: Skill? { skills.first { $0.id == selectedId } ?? skills.first }
-
-    var body: some View {
-        HStack(spacing: 0) {
-            // Master — the lane's skills (the hats a worker can wear).
-            VStack(alignment: .leading, spacing: 0) {
-                header("\(lane.label) skills",
-                       subtitle: "The hats your \(lane.label.lowercased()) models wear. Duplicate to tune one.")
-                skillSearchField
-                ScrollView {
-                    VStack(spacing: 3) {
-                        ForEach(skills) { skill in skillRow(skill) }
-                        if skills.isEmpty {
-                            Text("No \(lane.label.lowercased()) skill matches \"\(query)\".")
-                                .font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 10).padding(.top, 6)
-                        }
-                    }
-                    .padding(.horizontal, 12).padding(.bottom, 12)
-                }
-            }
-            .frame(width: 300)
-            Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
-
-            // Detail — the selected skill's compatibility + prompt template.
-            Group {
-                if let skill = selected {
-                    StudioSkillDetailView(skill: skill)
-                } else {
-                    StudioEmptyDetail(icon: "sparkles", message: "No \(lane.label.lowercased()) skills yet.")
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(ALColor.base)
-    }
-
-    private var skillSearchField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
-            TextField("Search skills…", text: $query)
-                .textFieldStyle(.plain).font(.system(size: 12.5)).foregroundStyle(ALColor.textPrimary)
-        }
-        .padding(.horizontal, 10).frame(height: 32)
-        .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
-        .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-        .padding(.horizontal, 12).padding(.bottom, 10)
-    }
-
-    private func skillRow(_ skill: Skill) -> some View {
-        let on = selected?.id == skill.id
-        return Button { selectedId = skill.id } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(skill.displayName)
-                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                        .lineLimit(1)
-                    if !skill.builtIn {
-                        Text("Custom").font(.system(size: 9, weight: .semibold)).foregroundStyle(ALColor.accent)
-                            .padding(.horizontal, 5).padding(.vertical, 1.5)
-                            .background(ALColor.accent.opacity(0.14), in: Capsule())
-                    }
-                    Spacer(minLength: 0)
-                }
-                Text("\(skill.builtIn ? "built-in" : "custom") · \(skill.purpose.rawValue)")
-                    .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
-            }
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(on ? ALColor.active : .clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// Read-only skill detail: name + built-in/custom + purpose, the lane it belongs
-/// to, and the prompt template. Duplicate-to-edit / new land in the editor slice.
-private struct StudioSkillDetailView: View {
-    let skill: Skill
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 8) {
-                    Image(systemName: "sparkles").font(.system(size: 15)).foregroundStyle(ALColor.accent)
-                    Text(skill.displayName)
-                        .font(.system(size: 18, weight: .bold)).tracking(-0.3)
-                        .foregroundStyle(ALColor.textPrimary)
-                    chip(skill.builtIn ? "Built-in template" : "Custom", accent: !skill.builtIn)
-                    Spacer(minLength: 0)
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("LANE · PURPOSE").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
-                    HStack(spacing: 6) {
-                        chip(skill.lane.rawValue.capitalized, accent: false)
-                        chip(skill.purpose.rawValue, accent: false)
-                    }
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("PROMPT TEMPLATE").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
-                    Text(skill.template)
-                        .font(.system(size: 12.5, design: .monospaced))
-                        .foregroundStyle(ALColor.textSecondary)
-                        .lineSpacing(3).textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
-                        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
-                        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-                }
-                Text("Tune a skill where you use it — open a team and customize the worker's prompt.")
-                    .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
-            }
-            .padding(24)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(ALColor.base)
-    }
-
-    private func chip(_ t: String, accent: Bool) -> some View {
-        Text(t).font(.system(size: 11, weight: .medium))
-            .foregroundStyle(accent ? ALColor.accent : ALColor.textSecondary)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(accent ? ALColor.accent.opacity(0.12) : ALColor.surface, in: Capsule())
-            .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
     }
 }
 

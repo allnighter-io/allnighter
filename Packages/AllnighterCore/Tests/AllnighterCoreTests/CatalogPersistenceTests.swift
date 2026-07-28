@@ -75,6 +75,21 @@ final class CatalogPersistenceTests: XCTestCase {
         }
     }
 
+    func testPurgeUnreferencedCustomSkillsDeletesOrphansOnly() throws {
+        let orphan = try SkillCatalog.duplicateBuiltIn("contrarian_reviewer", name: "Orphan")
+        let kept = try SkillCatalog.duplicateBuiltIn("bug_reproducer", name: "In Use")
+        var team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Keeps Skill")
+        team.workerSpecs[0].skillId = kept.id
+        try TeamCatalog.saveCustom(team)
+
+        let deleted = try SkillCatalog.purgeUnreferencedCustomSkills()
+
+        XCTAssertTrue(deleted.contains(orphan.id))
+        XCTAssertFalse(deleted.contains(kept.id))
+        XCTAssertNil(SkillCatalog.get(orphan.id))
+        XCTAssertNotNil(SkillCatalog.get(kept.id))
+    }
+
     func testRestartReloadsCustomTeam() throws {
         let team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Persisted")
         CatalogRoots.resetTestingOverrides()

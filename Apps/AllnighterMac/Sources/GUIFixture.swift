@@ -114,10 +114,9 @@ enum GUIFixture {
     /// Which Studio page a `studio-*` / settings fixture deep-links to.
     static var studioRoute: StudioRoute {
         switch active {
-        case "studio-teams-code", "studio-team-editor", "studio-worker-editor": return .teams(.code)
+        case "studio-teams-code", "studio-team-editor", "studio-worker-editor", "studio-skills-code": return .teams(.code)
         case "studio-teams-design": return .teams(.design)
         case "studio-teams-copy": return .teams(.copy)
-        case "studio-skills-code": return .skills(.code)
         case "studio-default-model": return .defaultModel
         case "studio-boost-window": return .boostWindow
         case "settings-use-from-cli", "studio-use-from-cli": return .useFromCLI
@@ -319,7 +318,6 @@ enum GUIFixture {
         ("studio-default-model", "Team Studio — Default model (Auto tiers)"),
         ("studio-boost-window", "Team Studio — Boost window"),
         ("studio-teams-code", "Team Studio — Code teams (detail)"),
-        ("studio-skills-code", "Team Studio — Code skills (detail)"),
         ("studio-team-editor", "Team Studio — Customize team editor"),
         ("studio-worker-editor", "Team Studio — Customize worker (skill + prompt)"),
         ("command-palette", "⌘K command palette"),

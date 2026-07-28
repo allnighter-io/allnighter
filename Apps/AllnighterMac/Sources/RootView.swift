@@ -433,7 +433,7 @@ struct RootView: View {
     #if DEBUG
     private var devSimLabel: String? { devBenchScenario == nil ? nil : "sim" }
 
-    /// The Settings gear opens the real Settings shell (CLIs · Teams · Skills) in every
+    /// The Settings gear opens the real Settings shell (CLIs · Teams) in every
     /// build. The developer GUI-routes sheet moved to a DEBUG-only sidebar-footer link
     /// (HomeSidebar.devRoutesEntry → onOpenDevRoutes), so it no longer hijacks the gear.
     private func openSettings() {
