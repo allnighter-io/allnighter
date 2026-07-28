@@ -41,10 +41,14 @@ CLI Implementation Contract are archived — do not revive.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
-| [`Round_Survives_The_Caller.md`](Round_Survives_The_Caller.md) | **Draft — pending Opus hardening pass** | `pilot handoff --no-wait` already survives a killed caller; `pair relay`/`relay-resume`/`relay adopt`/`alln run` do not — verified fully synchronous, no detached option. Relay dispatch also has an unlocked in-flight race (no `.running` guard the way Pilot has). Ranked above notification/exit-codes/lock-preflight: this is correctness, those are observability on top of correctness. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
+> [`Round_Survives_The_Caller.md`](../archive/phases/Round_Survives_The_Caller.md)
+> + [`Round_Survives_The_Caller_Hot_Fixes.md`](../archive/phases/Round_Survives_The_Caller_Hot_Fixes.md)
+> (Complete 2026-07-28 — S01–S05 + HF redesign: ack-after-accept, no hidden
+> relay verbs, public `--run-id` removed, contract 5.0.0 / binary 0.10.6; code
+> SSOT `DetachedHandoff`, `DetachedDispatch`, `RelayCoordinator.claimStart`);
 > [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md)
 > (Code Complete 2026-07-27 — URN-S01/S02/S03 shipped: `alln serve` posts local
 > notifications for relay/pilot/team-run state and auto-launches itself, silent
@@ -296,7 +300,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Share a link from the phone into a Research run, iOS share sheet intake | `Share_To_Research.md` (reuses `RemoteCommandRouter` `startRun` + `SignalSourceRouter`; no new protocol operation) |
 | Pilot/Relay long deploy or ops turn; harness killed `pilot watch`; detached handoff cwd/binary; status vs watch recovery | archived [`Pilot_Long_Turn_Survival.md`](../archive/phases/Pilot_Long_Turn_Survival.md) — code SSOT `PilotCLI.swift` / `RelayCoordinator.swift` (substrate: archived `Pilot_Relay.md` / `Pilot_DX.md`; idle floors: archived `Idle_Stall_False_Kill_Hotfix.md`) |
 | Relay/pilot round lands or escalates with nobody notified (Mac app closed, caller already gone) | archived [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md) — Code Complete 2026-07-27, on-host banner confirmation still needed; code SSOT `NotificationScheduler.swift`, `ServeAutoLaunch.swift`, `NotificationCandidateDetection.swift`; extends archived `threads/02_Notifications.md` (Mac-app-only NOTIF-S01–S05) |
-| `pair relay`/`relay-resume`/`relay adopt`/`alln run` die when the caller dies (no `--no-wait` equivalent); relay dispatch has no in-flight guard | `Round_Survives_The_Caller.md` — Draft, pending Opus hardening; extends archived `Pilot_Long_Turn_Survival.md`'s proven detached-dispatch pattern to the verbs that never got it |
+| `pair relay`/`relay-resume`/`relay adopt`/`alln run` die when the caller dies (no `--no-wait` equivalent); relay dispatch has no in-flight guard | **Archived** — `docs/archive/phases/Round_Survives_The_Caller.md` + Hot Fixes; code SSOT `DetachedHandoff` / `DetachedDispatch` / `RelayCoordinator` |
 | Composer `@` file references, file chips, prompt file-read blocks | `Composer_File_References.md` |
 | Persistent chat, routable turns, thread backend | `Persistent_Work_Threads.md` → `threads/04_Observed_Usage.md`, `threads/09_Thread_Forking.md` |
 | Keyboard shortcuts, quick-switcher, list nav | `Keyboard_Shortcuts.md` |

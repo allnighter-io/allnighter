@@ -1,11 +1,10 @@
 # Round survives the caller — mini phase doc
 
-Status: **Ready for Implementation** — every code claim re-verified 2026-07-27
-against HEAD; the draft's three open questions are resolved below with stated
-rationale. No founder gate: nothing here is a High-Risk Stop (no credentials, no
-permission posture, no git, no spend behavior, no distribution).
+Status: **Complete — archived 2026-07-28.** S01–S05 shipped, then RSC-HF redesign
+closed the mid-flight audit (ack-after-accept, collapsed hidden verbs, safe run
+ids). See sibling archive `Round_Survives_The_Caller_Hot_Fixes.md`.
 Owner: Allnighter product (CLI / Relay / `alln run`)
-Updated: 2026-07-27
+Updated: 2026-07-28
 
 Review history: drafted from a pressure-test of the founder feedback behind
 `docs/archive/phases/Unattended_Round_Notification.md`; hardened by an Opus pass
