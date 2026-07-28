@@ -50,15 +50,29 @@ public enum RelayDispatchLock {
 
     // MARK: - RSC-S02: start-time lock (root + doc, no relay id exists yet)
 
+    /// Canonical doc identity for duplicate-start matching: strips a leading `./` and
+    /// collapses `//` so `docs/spec.md` and `./docs/spec.md` share the same start key.
+    public static func normalizeDocPath(_ docPath: String) -> String {
+        var normalized = docPath
+        while normalized.hasPrefix("./") {
+            normalized.removeFirst(2)
+        }
+        while normalized.contains("//") {
+            normalized = normalized.replacingOccurrences(of: "//", with: "/")
+        }
+        return normalized
+    }
+
     /// `RelayCoordinator.run`'s duplicate-scan → persist window has no relay id to key a
     /// lock on until AFTER that window (the id is minted inside it) — so this lock is
     /// keyed on the START key instead: `sha256(RootNormalization.normalize(root).key +
-    /// "|" + docPath)`. A different lock FILE than `lockURL(relayId:)` above (own `.locks`
-    /// filename), so a start racing a resume/adopt on some unrelated relay id never
-    /// contends with either.
+    /// "|" + normalizeDocPath(docPath))`. A different lock FILE than `lockURL(relayId:)`
+    /// above (own `.locks` filename), so a start racing a resume/adopt on some unrelated
+    /// relay id never contends with either.
     public static func startKey(projectRoot: String, docPath: String) -> String {
         let normalizedRoot = RootNormalization.normalize(projectRoot).key
-        let digest = SHA256.hash(data: Data("\(normalizedRoot)|\(docPath)".utf8))
+        let normalizedDoc = normalizeDocPath(docPath)
+        let digest = SHA256.hash(data: Data("\(normalizedRoot)|\(normalizedDoc)".utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 

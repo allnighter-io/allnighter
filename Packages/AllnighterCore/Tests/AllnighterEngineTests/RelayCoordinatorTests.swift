@@ -702,13 +702,12 @@ final class RelayCoordinatorTests: XCTestCase {
         XCTAssertEqual(error, .notResumable(status: "stopped"))
     }
 
-    // MARK: - RSC-S03: --no-wait guard/continue split
+    // MARK: - RSC-HF: guard flips durable state
 
-    /// `resumeGuard` (the foreground half of `--no-wait`) must flip + persist EXACTLY
-    /// what `resume` itself would, then `continueRound` (the detached child's half)
-    /// must finish the round to the SAME outcome `resume` produces end to end —
-    /// proving the split reproduces the fused call, not a lookalike shortcut.
-    func testResumeGuardFlipsStateAndContinueRoundReproducesResumeOutcome() async throws {
+    /// `resumeGuard` must flip + persist EXACTLY what `resume` itself would before
+    /// the round loop runs — the detached child now runs the same registered verb and
+    /// re-enters through `resume`, so this test proves the guard half alone.
+    func testResumeGuardFlipsStateMatchingResumeMutation() throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
@@ -719,35 +718,19 @@ final class RelayCoordinatorTests: XCTestCase {
         )
         try stateStore.save(state)
 
-        let pmScripts: [MockCommandRunner.Script] = [
-            .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")),
-        ]
-        let (service, runner) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
         )
 
-        let guardResult = coordinator.resumeGuard(relayId: "relay_guard_resume", founderAnswer: "use staging", config: config, mintDispatchToken: true)
-        guard case .success(let (flipped, resumedConfig, dispatchToken)) = guardResult else { return XCTFail("expected guard success") }
+        let guardResult = coordinator.resumeGuard(relayId: "relay_guard_resume", founderAnswer: "use staging", config: config)
+        guard case .success(let (flipped, resumedConfig)) = guardResult else { return XCTFail("expected guard success") }
         XCTAssertEqual(flipped.status, .running, "the guard's own mutation, before any child exists")
         XCTAssertEqual(flipped.founderNote, "use staging")
+        XCTAssertEqual(resumedConfig.projectRoot, repo.path)
         XCTAssertEqual(stateStore.load(id: "relay_guard_resume")?.status, .running, "durable, not just in-memory")
-        guard let dispatchToken else { return XCTFail("expected a minted dispatch token") }
-        XCTAssertEqual(stateStore.load(id: "relay_guard_resume")?.dispatchToken, dispatchToken, "durable, not just in-memory")
-
-        // The detached child: loads the ALREADY-flipped state fresh (never reuses the
-        // foreground's in-memory value) and only continues — it must never re-run the
-        // guard (which would incorrectly see `.running` and refuse itself).
-        let continueResult = await coordinator.continueRound(relayId: "relay_guard_resume", dispatchToken: dispatchToken, config: resumedConfig)
-        guard case .success(let finished) = continueResult else { return XCTFail("expected continueRound to accept the minted token") }
-        XCTAssertEqual(finished.status, .done)
-        XCTAssertEqual(finished.rounds.count, 1, "this fixture starts escalated with no prior rounds on the ledger")
-        XCTAssertNil(finished.founderNote, "consumed after the first post-resume PM turn, exactly like `resume`")
-        XCTAssertEqual(runner.callCount(for: "pm_cli"), 1)
-
-        let reloaded = stateStore.load(id: "relay_guard_resume")
-        XCTAssertEqual(reloaded?.status, .done, "durable outcome matches what `resume` itself would have persisted")
+        XCTAssertEqual(stateStore.load(id: "relay_guard_resume")?.founderNote, "use staging")
     }
 
     /// The `--no-wait` foreground guard must refuse identically to `resume` when
@@ -780,243 +763,11 @@ final class RelayCoordinatorTests: XCTestCase {
         heldLock = nil
     }
 
-    // MARK: - RSC-S03 hot-fix: owner-pid handoff window (second gap,
-    // Round_Survives_The_Caller_Hot_Fixes.md)
-
-    /// The gap this closes: `resumeGuard`'s persist self-stamps `owner.pid` with the
-    /// FOREGROUND's own pid (it hasn't spawned the detached child yet). If a
-    /// concurrent `pair relay-status` (which reconciles via `reconcileOrphan`,
-    /// unlocked) lands before the child's real pid is durably recorded, it must not
-    /// mistake a legitimate in-flight `--no-wait` continuation for a dead-owner
-    /// orphan and kill it. `RelayStateStore.restampOwner` closes this by letting the
-    /// foreground correct `owner.pid` to the REAL, live child pid synchronously,
-    /// right after `DetachedDispatch.launch` returns — proven here with a genuinely
-    /// separate spawned process (not this test's own pid), so the assertion is about
-    /// the mechanism, not an accident of the test process itself being alive.
-    func testNoWaitOwnerHandoffSurvivesConcurrentStatusReadAndPersistsTheChildsRealPid() throws {
-        let repo = try makeGitRepo()
-        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let state = RelayState(
-            id: "relay_owner_handoff", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
-            createdAt: Date(), note: "which env?"
-        )
-        try stateStore.save(state)
-
-        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
-        )
-
-        let guardResult = coordinator.resumeGuard(
-            relayId: "relay_owner_handoff", founderAnswer: "use staging", config: config, mintDispatchToken: true
-        )
-        guard case .success(let (_, _, dispatchToken)) = guardResult else { return XCTFail("expected guard success") }
-        guard let dispatchToken else { return XCTFail("expected a minted dispatch token") }
-
-        let ownerURL = stateStore.rootDirectory.appendingPathComponent("relay_owner_handoff", isDirectory: true)
-            .appendingPathComponent("owner.pid")
-        let selfStampedPID = try String(contentsOf: ownerURL, encoding: .utf8)
-        XCTAssertEqual(
-            selfStampedPID, "\(ProcessInfo.processInfo.processIdentifier)",
-            "resumeGuard's persist self-stamps the FOREGROUND caller — this test process"
-        )
-
-        // Stand in for `DetachedDispatch.launch`: spawn a real, genuinely-alive child
-        // process with a pid that differs from this test process's own pid.
-        let child = Process()
-        child.executableURL = URL(fileURLWithPath: "/bin/sleep")
-        child.arguments = ["5"]
-        try child.run()
-        defer { child.terminate() }
-        let childPID = child.processIdentifier
-        XCTAssertNotEqual(childPID, ProcessInfo.processInfo.processIdentifier)
-
-        // The fix: the foreground corrects owner.pid to the child's real pid,
-        // synchronously, before it would exit.
-        stateStore.restampOwner(id: "relay_owner_handoff", pid: childPID)
-
-        let restampedPID = try String(contentsOf: ownerURL, encoding: .utf8)
-        XCTAssertEqual(
-            restampedPID, "\(childPID)",
-            "owner.pid durably names the child's real pid — not just 'the foreground did not crash'"
-        )
-
-        // A concurrent status read landing in this exact window (child launched, real
-        // work not yet started) must NOT reconcile the relay — it now has a live owner.
-        let read = coordinator.status(relayId: "relay_owner_handoff")
-        XCTAssertEqual(read?.status, .running, "a legitimate in-flight --no-wait continuation must survive a concurrent status read")
-        XCTAssertEqual(read?.dispatchToken, dispatchToken, "untouched — reconciliation must never fire here")
-    }
-
-    /// A continuation that never truly spawns (`DetachedDispatch.launch` throws) or
-    /// whose child dies before it reaches its own `continueRound` persist must still
-    /// eventually reconcile to `.stopped` — the fix must not trade "killed while
-    /// legitimately alive" for "wedged forever with a dead owner and an unconsumed
-    /// token."
-    func testNoWaitGenuinelyDeadContinuationStillReconcilesAndDoesNotWedge() throws {
-        let repo = try makeGitRepo()
-        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
-        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
-        let state = RelayState(
-            id: "relay_owner_handoff_dead", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
-            createdAt: Date(), note: "which env?"
-        )
-        try stateStore.save(state)
-
-        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, threadProjector: projector)
-        let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
-        )
-
-        let guardResult = coordinator.resumeGuard(
-            relayId: "relay_owner_handoff_dead", founderAnswer: "use staging", config: config, mintDispatchToken: true
-        )
-        guard case .success = guardResult else { return XCTFail("expected guard success") }
-
-        // Simulate a child that was launched, restamped, then crashed before it ever
-        // reached `continueRound`'s own persist — owner.pid now names a dead pid,
-        // exactly like a foreground whose `DetachedDispatch.launch` throw was never
-        // followed by a restamp at all.
-        stateStore.restampOwner(id: "relay_owner_handoff_dead", pid: 2_000_000)
-
-        let read = coordinator.status(relayId: "relay_owner_handoff_dead")
-        XCTAssertEqual(read?.status, .stopped, "a genuinely dead continuation must still reconcile, never wedge .running forever")
-        XCTAssertEqual(read?.stoppedReason, RelayState.orphanReconciledReason)
-        XCTAssertEqual(stateStore.load(id: "relay_owner_handoff_dead")?.status, .stopped, "durable, not just in-memory")
-    }
-
-    /// `restampOwner` must never resurrect a stale `owner.pid` marker for a relay that
-    /// already went terminal — it mirrors `save`'s own discipline that the marker only
-    /// ever exists while a relay is actually `.running`.
-    func testRestampOwnerIsANoOpOnceTheRelayHasGoneTerminal() throws {
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let state = RelayState(
-            id: "relay_restamp_terminal", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .done, createdAt: Date(), note: "Shipped."
-        )
-        try stateStore.save(state)
-
-        stateStore.restampOwner(id: "relay_restamp_terminal", pid: 4_242)
-
-        let ownerURL = stateStore.rootDirectory.appendingPathComponent("relay_restamp_terminal", isDirectory: true)
-            .appendingPathComponent("owner.pid")
-        XCTAssertFalse(
-            FileManager.default.fileExists(atPath: ownerURL.path),
-            "a terminal relay must never gain an owner.pid marker it didn't already have"
-        )
-    }
-
-    // MARK: - RSC-S03 hardening: continueRound's dispatch-token authorization
-
-    /// The bug this hardening closes: `continueRound` used to run the round loop for
-    /// ANY relay id, regardless of status, with no lock and no authorization check —
-    /// a direct `pair relay-continue --relay <id> --max-rounds N` against a relay that
-    /// was never flipped by a guarded `resumeGuard`/`adoptGuard` call must now be
-    /// refused, whether the caller presents no token at all or the wrong one, and
-    /// whether the relay sits `.awaitingPM` or `.escalated` — never `.running`, so the
-    /// status check alone already refuses it, but the token check refuses it too even
-    /// if a caller somehow guessed a `.running` status. Either way the loop never runs
-    /// and durable state is byte-for-byte unchanged.
-    func testContinueRoundRefusesUnauthorizedCallAgainstNonRunningRelay() async throws {
-        let repo = try makeGitRepo()
-        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let escalated = RelayState(
-            id: "relay_stray_escalated", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
-            createdAt: Date(), note: "which env?"
-        )
-        try stateStore.save(escalated)
-        let awaitingPM = RelayState(
-            id: "relay_stray_awaiting", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev", status: .awaitingPM,
-            pmMode: .external, createdAt: Date()
-        )
-        try stateStore.save(awaitingPM)
-
-        let (service, runner) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
-        )
-
-        // No token that ever matches anything — the relay was never flipped by a guard.
-        for (relayId, expectedStatus) in [("relay_stray_escalated", RelayState.Status.escalated), ("relay_stray_awaiting", .awaitingPM)] {
-            let result = await coordinator.continueRound(relayId: relayId, dispatchToken: "guessed-or-empty", config: config)
-            guard case .failure(let refusal) = result else { return XCTFail("expected a direct relay-continue call to be refused for \(relayId)") }
-            XCTAssertEqual(refusal, .unauthorized)
-            XCTAssertEqual(stateStore.load(id: relayId)?.status, expectedStatus, "a refused continuation must never mutate durable state")
-        }
-        XCTAssertEqual(runner.callCount(for: "pm_cli"), 0, "the round loop must never have run")
-    }
-
-    /// The double-dispatch hole this hardening closes: `resumeGuard` mints a token and
-    /// hands it to exactly one legitimate detached child. A second call presenting the
-    /// SAME token — a retry, a confused agent, a copy-pasted command — must be refused
-    /// because the first call already consumed it, even though the relay id and token
-    /// are both genuinely correct.
-    func testContinueRoundConsumesTokenSoASecondCallWithTheSameTokenIsRefused() async throws {
-        let repo = try makeGitRepo()
-        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let state = RelayState(
-            id: "relay_double_dispatch", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
-            createdAt: Date(), note: "which env?"
-        )
-        try stateStore.save(state)
-
-        let pmScripts: [MockCommandRunner.Script] = [
-            .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")),
-        ]
-        let (service, runner) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
-        )
-
-        let guardResult = coordinator.resumeGuard(relayId: "relay_double_dispatch", founderAnswer: "use staging", config: config, mintDispatchToken: true)
-        guard case .success(let (_, resumedConfig, dispatchToken)) = guardResult else { return XCTFail("expected guard success") }
-        guard let dispatchToken else { return XCTFail("expected a minted dispatch token") }
-
-        // First call: the legitimate detached child. Succeeds and consumes the token.
-        let first = await coordinator.continueRound(relayId: "relay_double_dispatch", dispatchToken: dispatchToken, config: resumedConfig)
-        guard case .success(let finished) = first else { return XCTFail("expected the first continueRound call to succeed") }
-        XCTAssertEqual(finished.status, .done)
-        XCTAssertEqual(runner.callCount(for: "pm_cli"), 1)
-
-        // Second call: a stray duplicate/retry presenting the SAME token. Refused —
-        // the token was already cleared by the first call, and the relay is no longer
-        // `.running` besides.
-        let second = await coordinator.continueRound(relayId: "relay_double_dispatch", dispatchToken: dispatchToken, config: resumedConfig)
-        guard case .failure(let refusal) = second else { return XCTFail("expected the second continueRound call to be refused") }
-        XCTAssertEqual(refusal, .unauthorized)
-        XCTAssertEqual(runner.callCount(for: "pm_cli"), 1, "the second call must never have dispatched another PM turn")
-        XCTAssertEqual(stateStore.load(id: "relay_double_dispatch")?.status, .done, "unchanged by the refused second call")
-    }
-
-    /// `relay-start-continue`'s exposure conclusion (Round_Survives_The_Caller.md's
-    /// open question): UNLIKE `resume`/`adopt`'s `--no-wait`, `pair relay --no-wait`'s
-    /// detached child calls the REAL, fully-guarded `RelayCoordinator.run(config:id:)`
-    /// — the exact same start-key lock + `preflightStart` duplicate scan a normal
-    /// foreground `pair relay` start goes through, keyed on normalized root + doc, NOT
-    /// on the caller-supplied id. So a stray/duplicate `relay-start-continue` call
-    /// racing a genuinely live relay on the same root+doc is refused by the
-    /// pre-existing RSC-S02 guard even when it names a DIFFERENT id than the live
-    /// relay's — no dispatch token is needed here, because unlike `continueRound` this
-    /// path never skips straight to `loop()`; it re-does the full real guard every
-    /// single time it's called, `id:` parameter or not. This is the same guard
-    /// `testSecondStartOnSameRootAndDocWhileFirstIsLiveIsRefused` above proves for the
-    /// no-id-supplied case; this test proves it holds identically when a caller (like
-    /// `relay-start-continue`) supplies its own id.
-    func testRunWithSuppliedIdIsAlreadySafeAgainstAStrayDuplicateStartContinueCall() async throws {
+    /// RSC-HF: a stray duplicate `pair relay --no-wait` start racing a genuinely live
+    /// relay on the same root+doc is refused by the pre-existing RSC-S02 guard even
+    /// when it names a DIFFERENT id than the live relay's — the child re-runs the full
+    /// guarded `run(config:id:)` path every time.
+    func testRunWithSuppliedIdRefusesDuplicateStartOnSameRootAndDoc() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
@@ -1034,8 +785,8 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
         )
 
-        // A stray `relay-start-continue --relay-id <different-id> ...` call racing the
-        // same root+doc as the live relay above.
+        // A stray `pair relay --no-wait` duplicate start racing the same root+doc as
+        // the live relay above.
         let strayResult = await coordinator.run(config: config, id: "relay_stray_duplicate_start")
         guard case .failure(let refusal) = strayResult else { return XCTFail("expected the stray duplicate start to be refused") }
         XCTAssertEqual(refusal, .alreadyActive(relayId: "relay_legit_start"))
@@ -1245,6 +996,12 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: "/repo/b", docPath: "docs/spec.md", stateStore: stateStore
         )
         guard case .success = deadOwnerMatch else { return XCTFail("expected success — a dead-owner .running relay is not a live duplicate") }
+
+        let dotSlashMatch = RelayCoordinator.preflightStart(
+            projectRoot: "/repo/a", docPath: "./docs/spec.md", stateStore: stateStore
+        )
+        guard case .failure(.alreadyActive(let id)) = dotSlashMatch else { return XCTFail("expected alreadyActive for ./docs prefix") }
+        XCTAssertEqual(id, "relay_live")
     }
 
     /// A second `pair relay` start on the SAME normalized root + doc while the first is

@@ -456,22 +456,18 @@ final class RelayAdoptTests: XCTestCase {
         XCTAssertEqual(adoptedRunner.callCount(for: "pm_cli"), 1)
     }
 
-    // MARK: - RSC-S03: --no-wait guard/continue split
+    // MARK: - RSC-HF: guard flips durable state
 
-    /// `adoptGuard` (the foreground half of `pair relay adopt --no-wait`) must flip +
-    /// persist EXACTLY what `adopt` itself would, AND return the one-time
-    /// `adoptionNote` (never persisted onto `RelayState`) so a detached child can carry
-    /// it forward explicitly. `continueRound(adoptionNote:)` must then finish the round
-    /// with that note reaching the first spawned PM prompt — reproducing `adopt`'s
-    /// fused behavior, not a lookalike shortcut.
-    func testAdoptGuardFlipsStateAndContinueRoundCarriesAdoptionNoteToPMPrompt() async throws {
+    /// `adoptGuard` must flip + persist EXACTLY what `adopt` itself would before the
+    /// round loop runs, and return the one-time `adoptionNote` (never persisted).
+    func testAdoptGuardFlipsStateAndReturnsAdoptionNote() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         _ = await makePilotedOneRoundRelay(id: "relay_guard_adopt", repo: repo, stateStore: stateStore, runStore: runStore)
         XCTAssertEqual(stateStore.load(id: "relay_guard_adopt")?.status, .awaitingPM)
 
-        let (adoptedService, adoptedRunner) = makeService(
+        let (adoptedService, _) = makeService(
             pmScripts: [.init(stdout: "Reviewed the adopted round.\n\n" + verdictJSON("done", note: "All criteria met."))],
             devScripts: [], runStore: runStore
         )
@@ -481,29 +477,14 @@ final class RelayAdoptTests: XCTestCase {
             pmWorkerId: "ignored-overridden", devWorkerId: "ignored-overridden", maxRounds: 5
         )
 
-        let guardResult = coordinator.adoptGuard(relayId: "relay_guard_adopt", pmWorkerId: "model_pm", config: config, mintDispatchToken: true)
-        guard case .success(let (flipped, adoptedConfig, note, dispatchToken)) = guardResult else { return XCTFail("expected guard success") }
+        let guardResult = coordinator.adoptGuard(relayId: "relay_guard_adopt", pmWorkerId: "model_pm", config: config)
+        guard case .success(let (flipped, adoptedConfig, note)) = guardResult else { return XCTFail("expected guard success") }
         XCTAssertEqual(flipped.pmMode, .spawned)
         XCTAssertEqual(flipped.pmWorkerId, "model_pm")
         XCTAssertEqual(flipped.status, .running, "the guard's own mutation, before any child exists")
         XCTAssertTrue(note.contains("Pilot"), "adoptionNote names the piloted-round handoff")
+        XCTAssertEqual(adoptedConfig.pmWorkerId, "model_pm")
         XCTAssertEqual(stateStore.load(id: "relay_guard_adopt")?.status, .running, "durable, not just in-memory")
-        guard let dispatchToken else { return XCTFail("expected a minted dispatch token") }
-
-        // The detached child: loads the ALREADY-flipped state fresh and only
-        // continues, carrying the note forward explicitly since it is never
-        // persisted onto `RelayState`.
-        let continueResult = await coordinator.continueRound(relayId: "relay_guard_adopt", dispatchToken: dispatchToken, config: adoptedConfig, adoptionNote: note)
-        guard case .success(let finished) = continueResult else { return XCTFail("expected continueRound to accept the minted token") }
-        XCTAssertEqual(finished.status, .done)
-        XCTAssertEqual(finished.rounds.count, 2, "the piloted round is never discarded")
-        XCTAssertEqual(adoptedRunner.callCount(for: "pm_cli"), 1)
-
-        let promptArgs = adoptedRunner.capturedArgs(for: "pm_cli").last ?? []
-        XCTAssertTrue(promptArgs.joined(separator: " ").contains("Pilot"), "adoptionNote must reach the first spawned PM prompt verbatim")
-
-        let reloaded = stateStore.load(id: "relay_guard_adopt")
-        XCTAssertEqual(reloaded?.status, .done, "durable outcome matches what `adopt` itself would have persisted")
     }
 
     /// The `--no-wait` foreground guard must refuse identically to `adopt` when

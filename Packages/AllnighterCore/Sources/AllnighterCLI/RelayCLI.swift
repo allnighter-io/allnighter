@@ -52,18 +52,9 @@ enum RelayCLI {
         }
     }
 
-    /// RSC-S03: `pair relay --no-wait`. `RelayCoordinator.preflightStart` is a
-    /// non-mutating, lock-free scan (its own doc: "not a guarantee against a start
-    /// that lands between the check and the real call") — a foreground ack-safety
-    /// check, not a replacement for the real guarded dispatch. A refusal here fails
-    /// loud and spawns nothing. On success, the relay id is pre-minted so the ack can
-    /// name it (`RelayCoordinator.mintRelayId()` — the child is told to use this exact
-    /// id via the hidden `relay-start-continue` verb's `--relay-id`, never a public
-    /// flag on `pair relay` itself, so a normal foreground start can never accidentally
-    /// collide two relays onto one id). The child then calls `RelayCoordinator.run`
-    /// for real, which re-does the preflight+lock+persist inside itself — exactly
-    /// mirroring how Pilot's foreground `preflightExternalRound` doesn't replace the
-    /// child's own real dispatch.
+    /// RSC-HF: `pair relay --no-wait`. Non-mutating preflight fails loud and spawns
+    /// nothing. On success, spawn the same registered `pair relay` verb (no hidden
+    /// continuation) and ack only after the child durably claims via `DetachedHandoff`.
     private static func runRelayNoWait(config: RelayCoordinator.Config, opts: Options) async {
         let stateStore = RelayStateStore()
         if case .failure(let refusal) = RelayCoordinator.preflightStart(
@@ -71,42 +62,7 @@ enum RelayCLI {
         ) {
             failStart(refusal)
         }
-        let relayId = RelayCoordinator.mintRelayId()
-        var childArgs = DetachedDispatch.childArguments()
-        // `runRelay` is only ever reached via "pair relay …" (PairCLI routes "relay"
-        // here before this function can run), so `childArgs` always starts with
-        // exactly these two tokens — swap in the hidden continuation verb so the
-        // child's `--relay-id` never has to be a registered, publicly reachable flag.
-        if childArgs.count >= 2, childArgs[0] == "pair", childArgs[1] == "relay" {
-            childArgs[1] = "relay-start-continue"
-        }
-        childArgs += ["--relay-id", relayId]
-        do {
-            let process = try DetachedDispatch.launch(cwd: config.projectRoot, arguments: childArgs)
-            emitDispatchAck(kind: "relay", id: relayId, pid: process.processIdentifier, json: opts.flag("json"))
-        } catch {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background relay: \(error)")
-        }
-    }
-
-    /// RSC-S03 hidden continuation verb (`pair relay-start-continue`, never registered
-    /// in `ContractRegistry` — not a public command, no help entry, fails closed like
-    /// any other unrecognized invocation if typed by hand beyond what's written here).
-    /// Only ever spawned by `runRelayNoWait` above. Re-parses the SAME flags `pair
-    /// relay` accepts (`parseStartConfig` — one parser, not a second one) plus
-    /// `--relay-id`, then calls the real, fully-guarded `RelayCoordinator.run`.
-    static func runStartContinue(_ args: [String], runtime: ToolRuntime) async {
-        let opts = Options(args)
-        guard let relayId = opts.value("relay-id") else { exit(2) }
-        let config: RelayCoordinator.Config
-        do {
-            config = try parseStartConfig(args, models: runtime.models)
-        } catch {
-            exit(2)
-        }
-        ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
-        let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        _ = await coordinator.run(config: config, id: relayId)
+        await awaitDetachedAcceptance(cwd: config.projectRoot, json: opts.flag("json"))
     }
 
     /// Reconciles via `RelayCoordinator.reconcileOrphan` (not a raw `RelayStateStore.load`)
@@ -171,94 +127,15 @@ enum RelayCLI {
         }
     }
 
-    /// RSC-S03: `pair relay-resume --no-wait`. Unlike `pair relay` start, `resume`'s
-    /// own correctness IS the mutate-under-lock step (load → check → flip `.running` →
-    /// persist) — there is no cheaper non-mutating preflight that would tell the truth,
-    /// so the foreground does the REAL guard (`RelayCoordinator.resumeGuard`, the exact
-    /// same code `resume` itself calls — one guard implementation either way) before
-    /// acking, then hands the round loop off to a detached child instead of running it
-    /// in this process. The child never re-runs the guard (it would incorrectly see
-    /// `.running` and refuse itself) — it loads the already-flipped state and just
-    /// continues (`RelayCoordinator.continueRound`, via the hidden `relay-continue`
-    /// verb). A guard refusal fails loud through the SAME `DispatchRefusal` channel
-    /// `failResume` already renders and spawns nothing.
+    /// RSC-HF: `pair relay-resume --no-wait`. Parent does not mutate — the child runs
+    /// the normal registered `relay-resume` path (one guarded entry point) and reports
+    /// acceptance via `DetachedHandoff` after the durable `.running` claim.
     private static func runResumeNoWait(
         relayId: String, founderAnswer: String, config: RelayCoordinator.Config,
         opts: Options, runtime: ToolRuntime
     ) async {
-        let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        // RSC-S03 hardening: mint a one-time dispatch token — the child (`relay-continue`
-        // below) must present it back before `continueRound` will run anything.
-        switch coordinator.resumeGuard(relayId: relayId, founderAnswer: founderAnswer, config: config, mintDispatchToken: true) {
-        case .failure(let refusal):
-            failResume(refusal, relayId: relayId)
-        case .success(let (flipped, resumedConfig, dispatchToken)):
-            guard let dispatchToken else {
-                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "resumeGuard did not mint a dispatch token for a --no-wait continuation")
-            }
-            var childArgs = [
-                "pair", "relay-continue", "--relay", relayId,
-                "--max-rounds", String(resumedConfig.maxRounds),
-                "--dispatch-token", dispatchToken,
-            ]
-            if let rawUntil = opts.value("until") { childArgs += ["--until", rawUntil] }
-            do {
-                let process = try DetachedDispatch.launch(cwd: flipped.projectRoot, arguments: childArgs)
-                // RSC-S03 hot-fix: correct `owner.pid` from this foreground's own pid
-                // (stamped by `resumeGuard`'s persist above) to the just-launched
-                // child's real pid — see `RelayStateStore.restampOwner`'s doc comment.
-                // Synchronous, before this process's own imminent exit, so the window
-                // where `owner.pid` names a dead/dying process collapses to ~zero.
-                RelayStateStore().restampOwner(id: relayId, pid: process.processIdentifier)
-                emitDispatchAck(kind: "relay", id: relayId, pid: process.processIdentifier, json: opts.flag("json"))
-            } catch {
-                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background relay: \(error)")
-            }
-        }
-    }
-
-    /// RSC-S03 hidden continuation verb (`pair relay-continue`, never registered in
-    /// `ContractRegistry`) shared by `resume`/`adopt`'s `--no-wait`: by the time
-    /// either has flipped a relay to `.running` under lock, continuing the round loop
-    /// no longer cares which of the two got it there — both just need the relay id,
-    /// the ceilings for this stretch, and (adopt only) the one-time adoption note.
-    /// `--adoption-note-b64` is base64 so the note's own text (which can legitimately
-    /// contain anything, including a leading "--") is never mistaken for a flag —
-    /// `Process.arguments` needs no shell-escaping, but this file's own `Options`
-    /// parser still splits on "--" prefixes.
-    static func runContinue(_ args: [String], runtime: ToolRuntime) async {
-        let opts = Options(args)
-        guard let relayId = opts.value("relay") else { exit(2) }
-        guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else { exit(2) }
-        // RSC-S03 hardening: the one-time token `resumeGuard`/`adoptGuard` minted and
-        // handed only to the child this call is. No token, no run — see
-        // `RelayCoordinator.continueRound`'s doc comment for why this exists.
-        guard let dispatchToken = opts.value("dispatch-token") else { exit(2) }
-        let untilParsed = RelayDispatch.parseUntilValidated(opts.value("until"))
-        var adoptionNote: String?
-        if let encoded = opts.value("adoption-note-b64"), let data = Data(base64Encoded: encoded) {
-            adoptionNote = String(data: data, encoding: .utf8)
-        }
-        let stateStore = RelayStateStore()
-        guard let state = stateStore.load(id: relayId) else { exit(1) }
-        ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
-        let projectId = AllnighterCLI.resolveProject(state.projectRoot, store: ProjectStore())?.id
-        let config = RelayCoordinator.Config(
-            projectRoot: state.projectRoot, projectId: projectId, docPath: state.docPath,
-            pmWorkerId: state.pmWorkerId, devWorkerId: state.devWorkerId,
-            maxRounds: maxRounds, until: untilParsed.value
-        )
-        let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        let result = await coordinator.continueRound(
-            relayId: relayId, dispatchToken: dispatchToken, config: config, adoptionNote: adoptionNote
-        )
-        if case .failure = result {
-            // Refused: wrong/missing/consumed token, relay not `.running`, or another
-            // process holds the lock. Never crash, never silently no-op — a clean,
-            // honest non-zero exit (this verb is hidden/unregistered; there is no
-            // founder-facing error envelope to render for it).
-            exit(1)
-        }
+        _ = (relayId, founderAnswer, runtime) // parsed/validated above; child re-runs the real path
+        await awaitDetachedAcceptance(cwd: config.projectRoot, json: opts.flag("json"))
     }
 
     /// `pair relay adopt --relay <id> --pm-worker <id>` (docs/phases/Pilot_Relay.md
@@ -310,42 +187,33 @@ enum RelayCLI {
         }
     }
 
-    /// RSC-S03: `pair relay adopt --no-wait`. Same shape as `runResumeNoWait` — `adopt`'s
-    /// own correctness is the mutate-under-lock step, so the foreground runs the REAL
-    /// guard (`RelayCoordinator.adoptGuard`, the exact code `adopt` itself calls) before
-    /// acking, then hands the round loop to a detached child via the same hidden
-    /// `relay-continue` verb resume uses — carrying the one-time `adoptionNote` forward
-    /// explicitly (base64) since, unlike `founderNote`, it is never persisted onto
-    /// `RelayState` (see `adopt`'s doc comment).
+    /// RSC-HF: `pair relay adopt --no-wait`. Parent does not mutate — child runs the
+    /// normal registered `relay adopt` path and reports acceptance after claim.
     private static func runAdoptNoWait(
         relayId: String, pmWorkerId: String, config: RelayCoordinator.Config,
         opts: Options, runtime: ToolRuntime
     ) async {
-        let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        // RSC-S03 hardening: same one-time dispatch token as resume's --no-wait.
-        switch coordinator.adoptGuard(relayId: relayId, pmWorkerId: pmWorkerId, config: config, mintDispatchToken: true) {
-        case .failure(let error):
-            failAdopt(error)
-        case .success(let (flipped, adoptedConfig, note, dispatchToken)):
-            guard let dispatchToken else {
-                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "adoptGuard did not mint a dispatch token for a --no-wait continuation")
+        _ = (relayId, pmWorkerId, runtime)
+        await awaitDetachedAcceptance(cwd: config.projectRoot, json: opts.flag("json"))
+    }
+
+    /// Shared `--no-wait` accept wait: spawn same argv minus `--no-wait`, ack only after
+    /// the child writes `DetachedHandoff` accepted/refused.
+    private static func awaitDetachedAcceptance(cwd: String, json: Bool) async {
+        do {
+            switch try DetachedDispatch.launchAndAwaitAcceptance(cwd: cwd, arguments: DetachedDispatch.childArguments()) {
+            case .accepted(let id, let pid):
+                emitDispatchAck(kind: "relay", id: id, pid: pid, json: json)
+            case .refused(_, let code, let message, _):
+                AllnighterCLI.fail(code: code, message: message)
+            case .timedOut:
+                AllnighterCLI.fail(
+                    code: "INTERNAL_ERROR",
+                    message: "detached child did not accept within the handoff window"
+                )
             }
-            var childArgs = [
-                "pair", "relay-continue", "--relay", relayId,
-                "--max-rounds", String(adoptedConfig.maxRounds),
-                "--dispatch-token", dispatchToken,
-            ]
-            if let rawUntil = opts.value("until") { childArgs += ["--until", rawUntil] }
-            childArgs += ["--adoption-note-b64", Data(note.utf8).base64EncodedString()]
-            do {
-                let process = try DetachedDispatch.launch(cwd: flipped.projectRoot, arguments: childArgs)
-                // RSC-S03 hot-fix: same owner-pid handoff as `runResumeNoWait` — see
-                // `RelayStateStore.restampOwner`'s doc comment.
-                RelayStateStore().restampOwner(id: relayId, pid: process.processIdentifier)
-                emitDispatchAck(kind: "relay", id: relayId, pid: process.processIdentifier, json: opts.flag("json"))
-            } catch {
-                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background relay: \(error)")
-            }
+        } catch {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background relay: \(error)")
         }
     }
 
@@ -502,9 +370,11 @@ enum RelayCLI {
         // in-parse `exit()` call used — candidates/suggestions/nextAction included —
         // so real invocations see byte-for-byte the same envelope as before.
         if case .workerNotAvailable(let failure) = error {
+            DetachedHandoff.reportRefused(code: failure.code, message: failure.message)
             AllnighterCLI.failExactId(failure)
         }
         let (code, message) = errorEnvelope(error)
+        DetachedHandoff.reportRefused(code: code, message: message)
         AllnighterCLI.fail(code: code, message: message)
     }
 
@@ -531,6 +401,7 @@ enum RelayCLI {
 
     private static func failAdopt(_ error: RelayCoordinator.AdoptError) -> Never {
         let (code, message) = adoptErrorEnvelope(error)
+        DetachedHandoff.reportRefused(code: code, message: message)
         AllnighterCLI.fail(code: code, message: message)
     }
 
@@ -544,6 +415,8 @@ enum RelayCLI {
             return ("RELAY_INVALID_STATE", "relay is \(status), not adoptable — only a parked Pilot relay (awaitingPM or escalated) can be adopted")
         case .roundInFlight:
             return ("RELAY_ROUND_IN_FLIGHT", "another process is already dispatching a round for this relay — poll `alln pair relay-status --relay <id> --json` and retry once it settles")
+        case .journalUnavailable:
+            return ("RELAY_JOURNAL_UNAVAILABLE", "could not persist relay claim — journal write failed")
         }
     }
 
@@ -553,6 +426,7 @@ enum RelayCLI {
     /// `resume`/`adopt` already holds this relay's dispatch lock.
     private static func failResume(_ error: RelayCoordinator.DispatchRefusal, relayId: String) -> Never {
         let (code, message) = resumeErrorEnvelope(error, relayId: relayId)
+        DetachedHandoff.reportRefused(id: relayId, code: code, message: message)
         AllnighterCLI.fail(code: code, message: message)
     }
 
@@ -571,6 +445,8 @@ enum RelayCLI {
             // `RelayCoordinator.run`'s start-time duplicate guard (RSC-S02). Kept for
             // `DispatchRefusal`'s exhaustive switch, not a real resume outcome.
             return ("RELAY_ALREADY_ACTIVE", "a relay is already running for this project + doc: \(existingRelayId)")
+        case .journalUnavailable:
+            return ("RELAY_JOURNAL_UNAVAILABLE", "could not persist relay claim — journal write failed")
         }
     }
 
@@ -581,6 +457,7 @@ enum RelayCLI {
     /// switch (they're `resume`/`adopt`'s outcomes, not `run`'s).
     private static func failStart(_ error: RelayCoordinator.DispatchRefusal) -> Never {
         let (code, message) = startErrorEnvelope(error)
+        DetachedHandoff.reportRefused(code: code, message: message)
         AllnighterCLI.fail(code: code, message: message)
     }
 
@@ -595,6 +472,8 @@ enum RelayCLI {
             )
         case .relayNotFound, .notResumable, .roundInFlight:
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "unexpected DispatchRefusal from RelayCoordinator.run: \(error)")
+        case .journalUnavailable:
+            return ("RELAY_JOURNAL_UNAVAILABLE", "could not persist relay claim — journal write failed")
         }
     }
 

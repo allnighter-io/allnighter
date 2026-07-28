@@ -198,7 +198,7 @@ public struct RelayCoordinator: Sendable {
     // MARK: - Entry points
 
     /// RSC-S02: non-mutating duplicate-start check. Scans `stateStore.list()` for a
-    /// relay with a matching normalized `projectRoot` + exact `docPath`, `status ==
+    /// relay with a matching normalized `projectRoot` + normalized `docPath`, `status ==
     /// .running`, and a LIVE owner (`!stateStore.isOwnerDead(id:)`) — a dead-owner
     /// `.running` relay is an orphan, not a live duplicate, and must never block a new
     /// start (that is `reconcileOrphan`'s job, not this one's). Parked relays
@@ -213,8 +213,10 @@ public struct RelayCoordinator: Sendable {
         projectRoot: String, docPath: String, stateStore: RelayStateStore
     ) -> Result<Void, DispatchRefusal> {
         let normalizedRoot = RootNormalization.normalize(projectRoot).key
+        let normalizedDoc = RelayDispatchLock.normalizeDocPath(docPath)
         for candidate in stateStore.list() {
-            guard candidate.status == .running, candidate.docPath == docPath else { continue }
+            guard candidate.status == .running,
+                  RelayDispatchLock.normalizeDocPath(candidate.docPath) == normalizedDoc else { continue }
             guard RootNormalization.normalize(candidate.projectRoot).key == normalizedRoot else { continue }
             guard !stateStore.isOwnerDead(id: candidate.id) else { continue }
             return .failure(.alreadyActive(relayId: candidate.id))
@@ -248,7 +250,7 @@ public struct RelayCoordinator: Sendable {
             if case .failure(let refusal) = Self.preflightStart(
                 projectRoot: config.projectRoot, docPath: config.docPath, stateStore: stateStore
             ) { return .failure(refusal) }
-            return .failure(.alreadyActive(relayId: "unknown"))
+            return .failure(.journalUnavailable)
         }
         var lockHandle: ThreadFlockLock.Handle? = acquired
 
@@ -269,7 +271,12 @@ public struct RelayCoordinator: Sendable {
             createdAt: now()
         )
         threadProjector?.started(state: state, projectId: config.projectId)
-        persist(state)
+        do {
+            try persistClaim(state)
+        } catch {
+            lockHandle = nil
+            return .failure(.journalUnavailable)
+        }
         // Release before the round loop — same discipline `resume`/`adopt` follow for
         // their own locks (RSC-S01): this lock covers the read-check-write window only.
         lockHandle = nil
@@ -572,6 +579,8 @@ public struct RelayCoordinator: Sendable {
         /// `.notAdoptable(status: "running")`, which means the durable state itself is
         /// already `.running`; this means the lock couldn't even be taken to check.
         case roundInFlight
+        /// The durable claim write (`stateStore.save`) failed after eligibility passed.
+        case journalUnavailable
     }
 
     /// `alln pair relay adopt --relay <id> --pm-worker <id>` (`docs/phases/
@@ -599,18 +608,14 @@ public struct RelayCoordinator: Sendable {
     /// 1 > config.maxRounds`, and `state.rounds` already carries every piloted round,
     /// the ceiling counts TOTAL rounds — piloted plus spawned — never a fresh budget
     /// that pretends the piloted rounds didn't happen.
-    /// RSC-S03 (`--no-wait`): the guard-only half of `adopt` below — same
+    /// RSC-HF (`--no-wait`): the guard-only half of `adopt` below — same
     /// lock/load/check/flip/persist/release discipline, minus the round loop. Returns
     /// the flipped state, the resolved config, and the one-time `adoptionNote` (it is
-    /// NOT persisted onto `RelayState` — see `adopt`'s doc comment — so a detached
-    /// caller must carry it forward explicitly to `continueRound`). `adopt` is built
+    /// NOT persisted onto `RelayState` — see `adopt`'s doc comment). `adopt` is built
     /// on top of this so there is exactly one guard implementation.
-    ///
-    /// RSC-S03 hardening: `mintDispatchToken` follows the exact same contract as
-    /// `resumeGuard`'s — see its doc comment. `true` only for `RelayCLI.runAdoptNoWait`.
     public func adoptGuard(
-        relayId: String, pmWorkerId: String, config: Config, mintDispatchToken: Bool = false
-    ) -> Result<(state: RelayState, config: Config, adoptionNote: String, dispatchToken: String?), AdoptError> {
+        relayId: String, pmWorkerId: String, config: Config
+    ) -> Result<(state: RelayState, config: Config, adoptionNote: String), AdoptError> {
         // RSC-S01: the lock covers ONLY the read-check-write window below — released
         // (by dropping this handle) right before the round loop, never held across it.
         // A crashed holder never wedges the relay: `flock` is released by the kernel on
@@ -641,8 +646,6 @@ public struct RelayCoordinator: Sendable {
         state.pmWorkerId = pmWorkerId
         state.status = .running
         state.finishedAt = nil
-        let token: String? = mintDispatchToken ? UUID().uuidString : nil
-        state.dispatchToken = token
 
         var adoptedConfig = config
         adoptedConfig.projectRoot = state.projectRoot
@@ -651,10 +654,15 @@ public struct RelayCoordinator: Sendable {
         adoptedConfig.devWorkerId = state.devWorkerId
 
         threadProjector?.started(state: state, projectId: config.projectId)
-        persist(state)
+        do {
+            try persistClaim(state)
+        } catch {
+            lockHandle = nil
+            return .failure(.journalUnavailable)
+        }
         lockHandle = nil
 
-        return .success((state, adoptedConfig, note, token))
+        return .success((state, adoptedConfig, note))
     }
 
     public func adopt(
@@ -663,7 +671,7 @@ public struct RelayCoordinator: Sendable {
         switch adoptGuard(relayId: relayId, pmWorkerId: pmWorkerId, config: config) {
         case .failure(let error):
             return .failure(error)
-        case .success(let (flipped, adoptedConfig, note, _)):
+        case .success(let (flipped, adoptedConfig, note)):
             var state = flipped
             await loop(state: &state, config: adoptedConfig, events: events, adoptionNote: note)
             return .success(state)
@@ -776,9 +784,11 @@ public struct RelayCoordinator: Sendable {
         /// guessing. A dead-owner `.running` relay (orphan) never produces this — see
         /// `preflightStart`.
         case alreadyActive(relayId: String)
+        /// The durable claim write (`stateStore.save`) failed after eligibility passed.
+        case journalUnavailable
     }
 
-    /// RSC-S03 (`--no-wait`): the guard-only half of `resume` below — load, reconcile
+    /// RSC-HF (`--no-wait`): the guard-only half of `resume` below — load, reconcile
     /// an orphan if needed, check eligibility, take the per-id dispatch lock, flip to
     /// `.running`, persist, release the lock. Returns the flipped state and the
     /// resolved config (worker ids / `projectRoot` / `docPath` taken from the loaded
@@ -787,21 +797,9 @@ public struct RelayCoordinator: Sendable {
     /// running it in this one. `resume` is built on top of this so there is exactly
     /// one guard implementation — this is the same mutate-under-lock step either way,
     /// not a second, weaker check.
-    ///
-    /// RSC-S03 hardening: `mintDispatchToken` is `true` only for the `--no-wait`
-    /// foreground caller (`RelayCLI.runResumeNoWait`), which is about to hand the round
-    /// loop off to a detached child rather than run it in this process — a fresh
-    /// one-time token is minted and persisted onto `state.dispatchToken` so
-    /// `continueRound` can later demand proof the caller actually is that authorized
-    /// child, not a stray direct `pair relay-continue` call or a racing duplicate. The
-    /// blocking `resume` below always passes `false`: it runs `loop` itself, in this
-    /// same process, so there is no separate process handoff to authorize, and the
-    /// returned token is always `nil`. Either way `state.dispatchToken` is written
-    /// unconditionally (to the minted token, or to `nil`) so a stale token from an
-    /// earlier aborted `--no-wait` attempt on this same relay can never linger.
     public func resumeGuard(
-        relayId: String, founderAnswer: String, config: Config, mintDispatchToken: Bool = false
-    ) -> Result<(state: RelayState, config: Config, dispatchToken: String?), DispatchRefusal> {
+        relayId: String, founderAnswer: String, config: Config
+    ) -> Result<(state: RelayState, config: Config), DispatchRefusal> {
         // RSC-S01: same lock/window discipline as `adoptGuard` below — see its comment.
         var lockHandle: ThreadFlockLock.Handle? = RelayDispatchLock.tryAcquire(
             relayId: relayId, relaysRoot: stateStore.rootDirectory
@@ -826,16 +824,19 @@ public struct RelayCoordinator: Sendable {
         state.founderNote = founderAnswer
         state.status = .running
         state.finishedAt = nil
-        let token: String? = mintDispatchToken ? UUID().uuidString : nil
-        state.dispatchToken = token
         // Re-affirms the thread's projectId (a no-op when already bound) and guarantees
         // the thread exists even if the original `run()` call never had a projector
         // attached — `sync` below is then guaranteed a thread to project onto.
         threadProjector?.started(state: state, projectId: config.projectId)
-        persist(state)
+        do {
+            try persistClaim(state)
+        } catch {
+            lockHandle = nil
+            return .failure(.journalUnavailable)
+        }
         lockHandle = nil
 
-        return .success((state, resumedConfig, token))
+        return .success((state, resumedConfig))
     }
 
     public func resume(
@@ -844,75 +845,11 @@ public struct RelayCoordinator: Sendable {
         switch resumeGuard(relayId: relayId, founderAnswer: founderAnswer, config: config) {
         case .failure(let refusal):
             return .failure(refusal)
-        case .success(let (flipped, resumedConfig, _)):
+        case .success(let (flipped, resumedConfig)):
             var state = flipped
             await loop(state: &state, config: resumedConfig, events: events)
             return .success(state)
         }
-    }
-
-    /// RSC-S03 hardening: `continueRound`'s refusal channel. Every case means the round
-    /// loop was never entered and durable state is untouched beyond whatever the guard
-    /// step (`resumeGuard`/`adoptGuard`) already did before this call was ever reached.
-    /// `RelayCLI.runContinue` must turn any of these into a clean non-zero exit.
-    public enum ContinuationRefusal: Swift.Error, Sendable, Equatable {
-        case relayNotFound
-        /// Another process currently holds this relay's dispatch lock (RSC-S01) — a
-        /// genuinely concurrent `relay-continue` racing this exact call.
-        case lockContended
-        /// The relay isn't `.running`, or its durable `dispatchToken` is `nil` or
-        /// doesn't match the token this call presented. One case for all three
-        /// (wrong token, already-consumed token, or a relay never flipped by a
-        /// guarded `--no-wait` continuation at all) — distinguishing them would only
-        /// tell an unauthorized caller more about a token it did not prove it knows.
-        case unauthorized
-    }
-
-    /// RSC-S03 (`--no-wait`): runs the round loop for a relay whose durable state has
-    /// ALREADY been flipped to `.running` by a guarded `resumeGuard`/`adoptGuard` call
-    /// — used only by the detached child a `--no-wait` resume/adopt spawns. Loads
-    /// state fresh from disk (never reuses an in-memory value across the process
-    /// boundary — the child is a separate OS process).
-    ///
-    /// RSC-S03 hardening: this used to load-and-run with NO eligibility check at all —
-    /// a direct `pair relay-continue --relay <id> --max-rounds N` against ANY relay id
-    /// (regardless of its real status) would run the round loop against state that was
-    /// never legitimately flipped, and two calls racing the same `.running` relay could
-    /// both pass through and both dispatch a dev turn — exactly the unlocked
-    /// double-dispatch race RSC-S01 closed for `resume`/`adopt`, reopened here because
-    /// the guard's protection didn't extend to the continuation step. Fixed the same
-    /// way: under the SAME per-relay dispatch lock the guard used, load state fresh,
-    /// require `status == .running` AND `dispatchToken == dispatchToken` (the exact
-    /// one-time token the guard minted and handed only to the child it spawned), then
-    /// atomically consume it (clear to `nil`, persist) BEFORE releasing the lock and
-    /// running the loop. A second call — legitimate retry, stray duplicate, or a bare
-    /// hand-typed invocation — sees the token already cleared (or never matches) and is
-    /// refused, never runs the loop, and never mutates anything.
-    public func continueRound(
-        relayId: String, dispatchToken: String, config: Config, adoptionNote: String? = nil, events: EventSink? = nil
-    ) async -> Result<RelayState, ContinuationRefusal> {
-        var lockHandle: ThreadFlockLock.Handle? = RelayDispatchLock.tryAcquire(
-            relayId: relayId, relaysRoot: stateStore.rootDirectory
-        )
-        guard lockHandle != nil else { return .failure(.lockContended) }
-
-        guard var state = stateStore.load(id: relayId) else {
-            lockHandle = nil
-            return .failure(.relayNotFound)
-        }
-        guard state.status == .running, let storedToken = state.dispatchToken, storedToken == dispatchToken else {
-            lockHandle = nil
-            return .failure(.unauthorized)
-        }
-        // Single-use: consume the token before doing anything else so a call that
-        // fails partway through never leaves a token a later stray retry could still
-        // present successfully.
-        state.dispatchToken = nil
-        persist(state)
-        lockHandle = nil
-
-        await loop(state: &state, config: config, events: events, adoptionNote: adoptionNote)
-        return .success(state)
     }
 
     /// `pair relay-status` / MCP `pair_relay(action: status)` — the read path that also
@@ -1924,6 +1861,14 @@ public struct RelayCoordinator: Sendable {
     private func persist(_ state: RelayState) {
         try? stateStore.save(state)
         threadProjector?.sync(state: state, now: now())
+    }
+
+    /// Hard-fail claim persist for the first `.running` write in `run`/`resumeGuard`/
+    /// `adoptGuard`. Mid-loop mutations keep using `persist(_:)` (`try?`) for now.
+    private func persistClaim(_ state: RelayState) throws {
+        try stateStore.save(state)
+        threadProjector?.sync(state: state, now: now())
+        DetachedHandoff.reportAccepted(id: state.id)
     }
 
     private func isPastDeadline(_ config: Config) -> Bool {

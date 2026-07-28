@@ -245,21 +245,6 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// execution lane (FIFO ticket). Cleared when the lane is acquired or the
     /// wait ends. Status JSON surfaces this as `laneBlocked`.
     public var laneBlocked: ExecutionLaneTicket?
-    /// RSC-S03 hardening (`docs/phases/Round_Survives_The_Caller.md` §RSC-S03
-    /// follow-up): a one-time-use dispatch authorization token minted by
-    /// `RelayCoordinator.resumeGuard`/`.adoptGuard` ONLY when flipping to `.running`
-    /// for a `--no-wait` continuation (never for the normal blocking `resume`/`adopt`
-    /// path, which has no separate process handoff to authorize). The detached child
-    /// spawned for that continuation must present this exact token to
-    /// `RelayCoordinator.continueRound`, which consumes it (clears back to `nil`)
-    /// atomically under the same per-relay dispatch lock before running the round
-    /// loop. Closes two holes the hidden `pair relay-continue`/`relay-start-continue`
-    /// verbs otherwise leave open: a stray direct call against a relay that was never
-    /// legitimately flipped, and two calls racing the same already-`.running` relay.
-    /// Never surfaced in `RelayJSON` — this is a dispatch-authorization guard, not a
-    /// founder-facing fact. `nil` for every relay before this field existed (lenient
-    /// decode below) and for any relay flipped by the blocking path.
-    public var dispatchToken: String?
 
     public init(
         id: String,
@@ -278,8 +263,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         pilotMaxRounds: Int? = nil,
         pilotStagnationRoundCap: Int? = nil,
         pilotDevTurnIdleTimeoutSeconds: Int? = nil,
-        laneBlocked: ExecutionLaneTicket? = nil,
-        dispatchToken: String? = nil
+        laneBlocked: ExecutionLaneTicket? = nil
     ) {
         self.id = id
         self.projectRoot = projectRoot
@@ -298,7 +282,6 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.pilotStagnationRoundCap = pilotStagnationRoundCap
         self.pilotDevTurnIdleTimeoutSeconds = pilotDevTurnIdleTimeoutSeconds
         self.laneBlocked = laneBlocked
-        self.dispatchToken = dispatchToken
     }
 
     /// Pilot only: the sentinel `pmWorkerId` stamped on an `external`-mode relay —
@@ -330,7 +313,6 @@ public struct RelayState: Sendable, Codable, Equatable {
         pilotStagnationRoundCap = try c.decodeIfPresent(Int.self, forKey: .pilotStagnationRoundCap)
         pilotDevTurnIdleTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .pilotDevTurnIdleTimeoutSeconds)
         laneBlocked = try c.decodeIfPresent(ExecutionLaneTicket.self, forKey: .laneBlocked)
-        dispatchToken = try c.decodeIfPresent(String.self, forKey: .dispatchToken)
     }
 
     // MARK: - Orphan reconciliation (works-test hazard #1)
