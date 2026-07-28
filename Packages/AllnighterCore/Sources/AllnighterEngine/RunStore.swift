@@ -22,11 +22,35 @@ public struct RunStore: Sendable {
     }
 
     /// The run's folder, created if needed.
+    ///
+    /// RSC-HF: `runId` is a path component. Reject empty, `/`, `\\`, and `..` so a
+    /// hostile or mistaken id cannot escape `rootDirectory` (defense in depth —
+    /// public CLI `--run-id` is removed; internal callers still pass ids).
     @discardableResult
     public func runDirectory(forRunId runId: String) throws -> URL {
+        try Self.validateRunId(runId)
         let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
+        // Resolve and confirm containment after path construction.
+        let standardized = directory.standardizedFileURL
+        let rootStandardized = rootDirectory.standardizedFileURL
+        guard standardized.path.hasPrefix(rootStandardized.path + "/")
+                || standardized.path == rootStandardized.path else {
+            throw RunStoreError.unsafeRunId(runId)
+        }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
+    }
+
+    public enum RunStoreError: Error, Equatable, Sendable {
+        case unsafeRunId(String)
+    }
+
+    public static func validateRunId(_ runId: String) throws {
+        let trimmed = runId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw RunStoreError.unsafeRunId(runId) }
+        guard !trimmed.contains("/"), !trimmed.contains("\\") else { throw RunStoreError.unsafeRunId(runId) }
+        guard trimmed != ".", trimmed != ".." else { throw RunStoreError.unsafeRunId(runId) }
+        guard !trimmed.contains("..") else { throw RunStoreError.unsafeRunId(runId) }
     }
 
     /// Persist a run. `forceArtifacts` regenerates the derived markdown/artifact set even
@@ -40,6 +64,7 @@ public struct RunStore: Sendable {
     /// stamps it, or leaves it nil/`unknown`.
     @discardableResult
     public func save(_ run: TeamRun, models: [Model], forceArtifacts: Bool = false) throws -> URL {
+        try Self.validateRunId(run.id)
         let directory = rootDirectory.appendingPathComponent("run_\(run.id)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 

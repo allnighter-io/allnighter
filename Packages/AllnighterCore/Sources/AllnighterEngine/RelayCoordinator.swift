@@ -224,29 +224,12 @@ public struct RelayCoordinator: Sendable {
         return .success(())
     }
 
-    /// Starts a new relay and runs it to a terminal `RelayState` (`done`, `escalated`, or
-    /// `stopped`). Every round is persisted the moment it changes (durable mid-round).
-    ///
-    /// RSC-S02: `preflightStart`'s scan and the new state's first `.running` persist run
-    /// under a start-key lock (`RelayDispatchLock.acquireStart`, keyed on
-    /// `sha256(normalizedRoot + "|" + docPath)` — no relay id exists yet to key on the way
-    /// `resume`/`adopt`'s per-id lock does) so two starts racing the SAME root+doc can
-    /// never both pass the scan. The lock is BLOCKING (not `tryAcquire`) because its
-    /// critical section is a quick scan + persist, not the round loop that follows —
-    /// released before `loop` begins, same discipline `resume`/`adopt` use for their own
-    /// (non-blocking) per-id locks.
-    /// RSC-S03 (`--no-wait`): `id`, when supplied, is used instead of `idFactory()` —
-    /// lets a `pair relay --no-wait` foreground caller pre-mint the relay id (the same
-    /// format `mintRelayId()` produces) so its dispatch ack can name the real id the
-    /// detached child is about to create, instead of a placeholder the caller could
-    /// never attach to. `nil` (every existing caller) is unchanged behavior.
-    public func run(config: Config, id: String? = nil, events: EventSink? = nil) async -> Result<RelayState, DispatchRefusal> {
+    /// RSC-HF: durable start claim only (lock + preflight + first `.running` persist).
+    /// GUI navigates after this succeeds; `complete` runs the round loop in the background.
+    /// `run` is claimStart + complete.
+    public func claimStart(config: Config, id: String? = nil) -> Result<RelayState, DispatchRefusal> {
         let key = RelayDispatchLock.startKey(projectRoot: config.projectRoot, docPath: config.docPath)
         guard let acquired = RelayDispatchLock.acquireStart(startKey: key, relaysRoot: stateStore.rootDirectory) else {
-            // `acquireStart` blocks until the lock is free, so a nil result here means a
-            // real I/O problem (e.g. an unwritable relays root), never contention — fail
-            // closed, but still run the lock-free scan so a genuine duplicate is named
-            // rather than surfacing a bare, unnamed refusal.
             if case .failure(let refusal) = Self.preflightStart(
                 projectRoot: config.projectRoot, docPath: config.docPath, stateStore: stateStore
             ) { return .failure(refusal) }
@@ -261,7 +244,7 @@ public struct RelayCoordinator: Sendable {
             return .failure(refusal)
         }
 
-        var state = RelayState(
+        let state = RelayState(
             id: id ?? idFactory(),
             projectRoot: config.projectRoot,
             docPath: config.docPath,
@@ -277,12 +260,31 @@ public struct RelayCoordinator: Sendable {
             lockHandle = nil
             return .failure(.journalUnavailable)
         }
-        // Release before the round loop — same discipline `resume`/`adopt` follow for
-        // their own locks (RSC-S01): this lock covers the read-check-write window only.
         lockHandle = nil
-
-        await loop(state: &state, config: config, events: events)
         return .success(state)
+    }
+
+    /// Runs the round loop for a relay that `claimStart` (or an equivalent guard) already
+    /// flipped to `.running`.
+    public func complete(
+        _ claimed: RelayState,
+        config: Config,
+        events: EventSink? = nil
+    ) async {
+        var state = claimed
+        await loop(state: &state, config: config, events: events)
+    }
+
+    /// Starts a new relay and runs it to a terminal `RelayState` (`done`, `escalated`, or
+    /// `stopped`). Every round is persisted the moment it changes (durable mid-round).
+    public func run(config: Config, id: String? = nil, events: EventSink? = nil) async -> Result<RelayState, DispatchRefusal> {
+        switch claimStart(config: config, id: id) {
+        case .failure(let refusal):
+            return .failure(refusal)
+        case .success(var state):
+            await loop(state: &state, config: config, events: events)
+            return .success(state)
+        }
     }
 
     // MARK: - Pilot (docs/phases/Pilot_Relay.md) — `pmMode: .external`

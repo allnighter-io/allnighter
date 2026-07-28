@@ -937,28 +937,9 @@ public enum ProcessOwnership {
     /// files and optional working directory. Child must call `becomeSessionLeader()`
     /// at entry.
     ///
-    /// Returns the child pid (also the intended process-group id after SETPGROUP).
-    public static func spawnDetachedRunner(
-        executablePath: String,
-        arguments: [String],
-        workingDirectory: String?,
-        stdoutPath: String,
-        stderrPath: String,
-        extraEnvironment: [String: String] = [:]
-    ) throws -> Int32 {
-        try spawnProcessGroupLeader(
-            executablePath: executablePath,
-            arguments: arguments,
-            workingDirectory: workingDirectory,
-            stdinMode: .devNull,
-            stdoutMode: .path(stdoutPath),
-            stderrMode: .path(stderrPath),
-            extraEnvironment: extraEnvironment,
-            kind: .detachedRunner
-        ).pid
-    }
-
-    /// How the child's stdio FDs are wired for a process-group-leader spawn.
+    /// Spawn a child as its own process-group leader via `posix_spawn` +
+    /// `POSIX_SPAWN_SETPGROUP` (same mechanism as worker/dev-turn spawns). Never
+    /// invents pgid after the fact — SETPGROUP makes `pgid == pid` at creation.
     public enum SpawnStdioMode: Sendable {
         case devNull
         case path(String)

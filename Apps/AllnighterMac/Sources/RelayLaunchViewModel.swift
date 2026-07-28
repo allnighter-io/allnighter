@@ -115,30 +115,13 @@ final class RelayLaunchViewModel {
 
     // MARK: - Start
 
-    /// Seeds the relay's thread synchronously (so the caller can `select()` it immediately —
-    /// no race with the background `Task`), then runs the loop in a detached `Task`.
-    /// Returns the relay id (== the thread id, `RelayThreadProjector`'s identity rule) on
-    /// success, `nil` when validation fails.
+    /// Seeds the relay thread only after a durable claim succeeds, then runs the loop
+    /// in a background Task. Returns the relay id on claim success, `nil` on refusal.
     @discardableResult
     func start(onEvent: (@Sendable (RelayCoordinator.RelayEvent) -> Void)? = nil) -> String? {
         guard canStart, let pmWorkerId, let devWorkerId else { return nil }
         startRefusalIssue = nil
         let trimmedDoc = docPath.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // RSC-S02: preflight BEFORE the thread pre-seed below — a refused start must
-        // never leave an orphan thread with no relay behind it (the pre-seed writes to
-        // the SAME thread store the CLI/other GUI sessions would see).
-        if case .failure(let refusal) = RelayCoordinator.preflightStart(
-            projectRoot: projectRoot, docPath: trimmedDoc, stateStore: stateStore
-        ) {
-            if case .alreadyActive(let existingRelayId) = refusal {
-                startRefusalIssue = ValidationIssue(
-                    id: "already-active",
-                    message: "A relay is already running for this doc (id \(existingRelayId)) — open it, resume/adopt it, or wait instead of starting a second one."
-                )
-            }
-            return nil
-        }
 
         let relayId = RelayGUIRuntime.newRelayId()
         let config = RelayCoordinator.Config(
@@ -151,24 +134,33 @@ final class RelayLaunchViewModel {
             until: RelayGUIRuntime.parseUntil(untilTime)
         )
 
-        // Pre-seed the thread (idempotent — `RelayCoordinator.run` calls `started` again
-        // for the SAME id, a no-op besides re-affirming the project bind) so the caller can
-        // navigate to it before the background Task has even been scheduled.
-        let seedState = RelayState(
-            id: relayId, projectRoot: projectRoot, docPath: trimmedDoc,
-            pmWorkerId: pmWorkerId, devWorkerId: devWorkerId, status: .running,
-            createdAt: Date()
-        )
-        makeThreadProjector().started(state: seedState, projectId: projectId)
-
-        isStarting = true
         let coordinator = makeCoordinator { relayId }
-        Task { @MainActor [weak self] in
-            _ = await coordinator.run(config: config) { event in
-                Task { @MainActor in onEvent?(event) }
+        // RSC-HF: claim under the real start lock before seeding/navigating — never
+        // return an id from a lock-free preflight while ignoring the guarded result.
+        switch coordinator.claimStart(config: config, id: relayId) {
+        case .failure(let refusal):
+            if case .alreadyActive(let existingRelayId) = refusal {
+                startRefusalIssue = ValidationIssue(
+                    id: "already-active",
+                    message: "A relay is already running for this doc (id \(existingRelayId)) — open it, resume/adopt it, or wait instead of starting a second one."
+                )
+            } else if case .journalUnavailable = refusal {
+                startRefusalIssue = ValidationIssue(
+                    id: "journal-unavailable",
+                    message: "Could not claim the relay on disk."
+                )
             }
-            self?.isStarting = false
+            return nil
+        case .success(let claimed):
+            makeThreadProjector().started(state: claimed, projectId: projectId)
+            isStarting = true
+            Task { @MainActor [weak self] in
+                await coordinator.complete(claimed, config: config) { event in
+                    Task { @MainActor in onEvent?(event) }
+                }
+                self?.isStarting = false
+            }
+            return claimed.id
         }
-        return relayId
     }
 }

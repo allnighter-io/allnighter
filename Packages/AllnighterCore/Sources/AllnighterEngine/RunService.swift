@@ -717,8 +717,10 @@ public actor RunService {
         if !invocation.canStart {
             let reason = invocation.blockedReason ?? "run cannot start"
             if invocation.explicitWorkerChosen {
+                DetachedHandoff.reportRefused(code: "WORKER_NOT_AVAILABLE", message: reason)
                 return .failure(.workerNotAvailable(reason))
             }
+            DetachedHandoff.reportRefused(code: "DEFAULT_TEAM_INVALID", message: reason)
             return .failure(.teamResolution(reason, code: "DEFAULT_TEAM_INVALID"))
         }
 
@@ -749,10 +751,18 @@ public actor RunService {
         // RLR-L1: the canonical id is minted BEFORE any long wait so the emitted
         // id and the durable journal always exist together.
         let id = runId ?? UUID().uuidString
+        do {
+            try RunStore.validateRunId(id)
+        } catch {
+            let message = "unsafe run id: \(id)"
+            DetachedHandoff.reportRefused(id: id, code: "CLI_USAGE_ERROR", message: message)
+            return .failure(.teamResolution(message, code: "CLI_USAGE_ERROR"))
+        }
 
         // RLR-L9: `--retry-of` gate before mint/claim — refuse when prior workers
         // are still identity-alive unless `--accept-survivors`.
         if let error = assertRetryOfAllowed(request) {
+            DetachedHandoff.reportRefused(id: id, code: error.code, message: error.description)
             return .failure(error)
         }
 
@@ -792,10 +802,12 @@ public actor RunService {
             )
             switch claimSyncIdempotency(key: key, payload: canonical, runId: id) {
             case .success(let existing?):
+                DetachedHandoff.reportAccepted(id: existing.id)
                 return .success(existing)          // transport replay — the original run
             case .success(.none):
                 break                              // claimed — proceed with `id`
             case .failure(let error):
+                DetachedHandoff.reportRefused(id: id, code: error.code, message: error.description)
                 return .failure(error)
             }
         }
@@ -825,7 +837,9 @@ public actor RunService {
                 // Hard gate, not best-effort: acceptance IS this save (RLR-L2).
                 // If it fails the id must never be emitted as accepted.
                 try runStore.save(pending, models: models)
+                DetachedHandoff.reportAccepted(id: id)
             } catch {
+                DetachedHandoff.reportRefused(id: id, code: "JOURNAL_UNAVAILABLE", message: "\(error)")
                 return .failure(.journalUnavailable("\(error)"))
             }
 
@@ -907,6 +921,13 @@ public actor RunService {
             commandRunner: (commandRunner as? StreamingCommandRunner) ?? CommandRunnerAsStreaming(commandRunner),
             invocations: invocations, defaultWorkingDirectory: root
         )
+
+        // RSC-HF: observational (non-mutating) path has no pre-lock journal stub —
+        // still acknowledge the minted id to a waiting `--no-wait` parent before the
+        // long team work. Mutating path already reported at the pending save above.
+        if !takesWriteLock {
+            DetachedHandoff.reportAccepted(id: id)
+        }
 
         // RLR-S04a: this foreground process IS the (in-process) coordinator.
         // Record it as a separate root owner (never PG-killed — it is a receipt

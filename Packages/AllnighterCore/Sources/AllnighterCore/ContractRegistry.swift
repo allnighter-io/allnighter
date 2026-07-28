@@ -147,6 +147,8 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case teamPreset
         /// Display projection for one team — `teams show` / `teams set-default`.
         case teamShowJSON
+        /// `--no-wait` dispatch ack (`DetachedDispatchJSON`) for run/relay verbs.
+        case detachedDispatchJSON
     }
 
     /// Registry-owned parser visibility (MR-S01). Public rows appear in `alln menu`;
