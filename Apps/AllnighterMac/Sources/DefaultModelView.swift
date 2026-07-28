@@ -160,7 +160,7 @@ struct DefaultModelView: View {
             HStack(alignment: .top, spacing: 16) {
                 ForEach(tiers, id: \.self) { tier in tierColumn(tier) }
             }
-            unassignedShelf
+            availableModelsShelf
         }
     }
 
@@ -231,20 +231,20 @@ struct DefaultModelView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(ALColor.borderSubtle, lineWidth: 1))
     }
 
-    private var unassignedShelf: some View {
-        let items = vm.projection.unassigned
+    private var availableModelsShelf: some View {
+        let items = vm.availableModels
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text("UNASSIGNED").font(ALFont.mono(10.5, .bold)).tracking(1.0).foregroundStyle(ALColor.textFaint)
+                Text("AVAILABLE MODELS").font(ALFont.mono(10.5, .bold)).tracking(1.0).foregroundStyle(ALColor.textFaint)
                 Text("\(items.count)").font(ALFont.mono(11)).foregroundStyle(ALColor.textFaint)
-                Text("· Hand-pick only. Auto skips these.")
+                Text("· Tap F · B · E to add or remove from a tier. Models stay listed here.")
                     .font(ALFont.sans(12)).foregroundStyle(ALColor.textMuted)
             }
             if items.isEmpty {
-                Text("Every model is on a tier.").font(ALFont.sans(12)).foregroundStyle(ALColor.textFaint)
+                Text("Turn on models in Setup to tier them here.").font(ALFont.sans(12)).foregroundStyle(ALColor.textFaint)
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 248), spacing: 10)], alignment: .leading, spacing: 10) {
-                    ForEach(items, id: \.id) { m in unassignedCard(m) }
+                    ForEach(items, id: \.id) { m in availableModelCard(m) }
                 }
             }
         }
@@ -253,7 +253,7 @@ struct DefaultModelView: View {
             .foregroundStyle(ALColor.borderDefault))
     }
 
-    private func unassignedCard(_ m: DefaultSettingsJSON.ModelRef) -> some View {
+    private func availableModelCard(_ m: DefaultSettingsJSON.ModelRef) -> some View {
         HStack(spacing: 11) {
             glyphTile(m.driverId)
             VStack(alignment: .leading, spacing: 2) {
@@ -261,21 +261,29 @@ struct DefaultModelView: View {
                 Text(m.driverId).font(ALFont.mono(11)).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 0)
+            statusDot(ready: m.ready, enabled: m.enabled)
             HStack(spacing: 4) {
                 ForEach(tiers, id: \.self) { tier in
-                    Button { vm.assign(m.id, to: tier) } label: {
-                        Text("+\(String(tier.displayName.prefix(1)))").font(ALFont.mono(10, .bold))
-                            .foregroundStyle(ALColor.textSecondary)
-                            .frame(width: 22, height: 22)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(ALColor.active))
-                    }
-                    .buttonStyle(.plain).help("Add to \(tier.displayName)")
+                    tierMembershipToggle(modelId: m.id, tier: tier)
                 }
             }
         }
         .padding(.vertical, 9).padding(.horizontal, 11)
         .background(RoundedRectangle(cornerRadius: 10).fill(ALColor.raised))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(ALColor.borderSubtle, lineWidth: 1))
+    }
+
+    private func tierMembershipToggle(modelId: ModelID, tier: SubstitutionTier) -> some View {
+        let on = vm.isInTier(modelId, tier)
+        let letter = String(tier.displayName.prefix(1))
+        return Button { vm.toggleTierMembership(modelId, tier: tier) } label: {
+            Text(letter).font(ALFont.mono(10, .bold))
+                .foregroundStyle(on ? ALColor.textOnAmber : ALColor.textSecondary)
+                .frame(width: 22, height: 22)
+                .background(RoundedRectangle(cornerRadius: 6).fill(on ? ALColor.accent : ALColor.active))
+        }
+        .buttonStyle(.plain)
+        .help(on ? "Remove from \(tier.displayName)" : "Add to \(tier.displayName)")
     }
 
     // MARK: - Small parts

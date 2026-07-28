@@ -16,7 +16,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
     private func catalog(ready: Set<String> = [
         "model_fable", "model_chatgpt_sol", "model_chatgpt", "model_chatgpt_terra", "model_opus", "model_sonnet",
         "model_kimi_k3", "model_kimi_k27", "model_cursor_grok_45", "model_grok", "model_cursor_composer_25",
-        "model_gemini", "model_cursor_auto", "model_composer", "model_extra"
+        "model_cursor_composer_25_fast", "model_gemini", "model_cursor_auto", "model_composer", "model_extra"
     ]) -> [ModelListJSON.Entry] {
         [
             entry("model_fable", "Fable 5", ready: ready.contains("model_fable")),
@@ -33,6 +33,8 @@ final class DefaultSettingsProjectorTests: XCTestCase {
             entry("model_grok", "Grok 4.5", driver: "grok", ready: ready.contains("model_grok")),
             entry("model_cursor_composer_25", "Composer 2.5", driver: "cursor_agent",
                   ready: ready.contains("model_cursor_composer_25")),
+            entry("model_cursor_composer_25_fast", "Composer 2.5 Fast", driver: "cursor_agent",
+                  ready: ready.contains("model_cursor_composer_25_fast")),
             entry("model_gemini", "Gemini 3.6 Flash", driver: "antigravity", ready: ready.contains("model_gemini")),
             entry("model_cursor_auto", "Cursor Auto", driver: "cursor", ready: ready.contains("model_cursor_auto")),
             entry("model_composer", "Grok Composer 2.5 Fast", driver: "grok", ready: ready.contains("model_composer")),
@@ -50,17 +52,17 @@ final class DefaultSettingsProjectorTests: XCTestCase {
         let frontier = p.tiers[0]
         XCTAssertTrue(frontier.isDefaultTier)
         XCTAssertEqual(frontier.members.map(\.id),
-                       ["model_fable", "model_chatgpt"])
+                       ["model_fable", "model_chatgpt", "model_kimi_k3"])
         XCTAssertEqual(frontier.defaultModelId, "model_fable")
         XCTAssertTrue(frontier.members[0].isTierDefault)
         XCTAssertFalse(frontier.members[1].isTierDefault)
-        XCTAssertEqual(frontier.substituteCount, 1)
-        XCTAssertEqual(frontier.readyCount, 2)
+        XCTAssertEqual(frontier.substituteCount, 2)
+        XCTAssertEqual(frontier.readyCount, 3)
 
         // Gemini spans Balanced + Economy.
         let balanced = p.tiers[1]
         XCTAssertEqual(balanced.members.map(\.id), [
-            "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
+            "model_chatgpt_terra", "model_opus", "model_cursor_grok_45",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         let gemini = balanced.members.first { $0.id == "model_gemini" }
@@ -68,8 +70,9 @@ final class DefaultSettingsProjectorTests: XCTestCase {
 
         let economy = p.tiers[2]
         XCTAssertEqual(economy.members.map(\.id), [
-            "model_cursor_auto", "model_gemini", "model_kimi_k27"
+            "model_kimi_k27", "model_cursor_auto", "model_gemini"
         ])
+        XCTAssertEqual(economy.defaultModelId, "model_kimi_k27")
         let k27 = economy.members.first { $0.id == "model_kimi_k27" }
         XCTAssertEqual(k27?.tiers, ["economy"])
     }
@@ -77,7 +80,9 @@ final class DefaultSettingsProjectorTests: XCTestCase {
     func testUnassignedIsOnModelsNotInAnyTierSortedAToZ() {
         let p = DefaultSettingsProjector.build(settings: .fresh, models: catalog(), contractVersion: "1.0.0")
         // model_chatgpt_sol is on in the fixture catalog but Unassigned in the seed.
-        XCTAssertEqual(p.unassigned.map(\.id), ["model_chatgpt_sol", "model_composer", "model_extra"])
+        XCTAssertEqual(p.unassigned.map(\.id), [
+            "model_chatgpt_sol", "model_cursor_composer_25_fast", "model_composer", "model_extra"
+        ])
         XCTAssertFalse(p.unassigned.contains { $0.id == "model_off" })
     }
 

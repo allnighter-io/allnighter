@@ -189,21 +189,20 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// Fresh-install seed: ordered membership per tier across multiple CLIs so
     /// substitution always has somewhere to go even when a user has only one or two
     /// CLIs. Each tier's default (index 0) is on-by-default, so Auto works day-one.
-    /// Frontier: Fable 5 + ChatGPT 5.6 Sol. Balanced starts with the
-    /// medium ChatGPT 5.6 Terra seat, then orders Opus, Cursor Grok, Kimi K3,
-    /// CLI Grok, Sonnet, Composer, then Gemini. Economy holds cheap/auto seats plus
-    /// Kimi K2.7 Code as the low-tier Kimi fallback.
-    /// Economy stays cheap/auto. Seed only — fully user-overridable.
+    /// Frontier: Fable, Codex Sol, Kimi K3. Balanced: everyday seats including
+    /// Composer 2.5 (not the vendor "Fast" SKUs). Economy: K2.7, Auto, Gemini.
+    /// Vendor *Fast* model ids stay Unassigned — never tiered by default.
+    /// Seed only — fully user-overridable.
     public static let fresh = DefaultModelSettings(
         defaultTier: .frontier,
         allowHealthySubstitutions: true,
         tiers: TierMembership(
-            frontier: ["model_fable", "model_chatgpt"],
+            frontier: ["model_fable", "model_chatgpt", "model_kimi_k3"],
             balanced: [
-                "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
+                "model_chatgpt_terra", "model_opus", "model_cursor_grok_45",
                 "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
             ],
-            economy: ["model_cursor_auto", "model_gemini", "model_kimi_k27"]))
+            economy: ["model_kimi_k27", "model_cursor_auto", "model_gemini"]))
 
     /// The tier's default model id (index 0), or nil when the tier is empty.
     public func tierDefault(_ tier: SubstitutionTier) -> ModelID? { tiers[tier].first }

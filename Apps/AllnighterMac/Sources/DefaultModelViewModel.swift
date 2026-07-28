@@ -54,6 +54,10 @@ final class DefaultModelViewModel {
     func assign(_ id: ModelID, to tier: SubstitutionTier) { mutate { $0.tiers.assign(id, to: tier) } }
     /// Remove from one tier (or all tiers when `tier == nil`).
     func unassign(_ id: ModelID, from tier: SubstitutionTier?) { mutate { $0.tiers.unassign(id, from: tier) } }
+    /// Toggle tier membership from the Available Models shelf (same as `×` on a tier card).
+    func toggleTierMembership(_ id: ModelID, tier: SubstitutionTier) {
+        if isInTier(id, tier) { unassign(id, from: tier) } else { assign(id, to: tier) }
+    }
     func reset() { try? persistence.reset(); reproject() }
 
     // MARK: - View helpers
@@ -61,5 +65,22 @@ final class DefaultModelViewModel {
     var defaultTier: SubstitutionTier { SubstitutionTier.parse(projection.defaultTier) ?? .frontier }
     func tierView(_ tier: SubstitutionTier) -> DefaultSettingsJSON.TierView? {
         projection.tiers.first { $0.tier == tier.rawValue }
+    }
+
+    func isInTier(_ id: ModelID, _ tier: SubstitutionTier) -> Bool {
+        tierView(tier)?.members.contains { $0.id == id } ?? false
+    }
+
+    /// Every model turned on in Setup, sorted for the Available Models shelf.
+    var availableModels: [DefaultSettingsJSON.ModelRef] {
+        var refsById: [ModelID: DefaultSettingsJSON.ModelRef] = [:]
+        for tierView in projection.tiers {
+            for member in tierView.members { refsById[member.id] = member }
+        }
+        for member in projection.unassigned { refsById[member.id] = member }
+        return benchModels
+            .filter(\.enabled)
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+            .compactMap { refsById[$0.id] }
     }
 }

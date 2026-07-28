@@ -10,16 +10,19 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(s.defaultTier, .frontier)
         XCTAssertTrue(s.allowHealthySubstitutions)
         XCTAssertEqual(s.tierDefault(.frontier), "model_fable")
-        // Frontier: Fable + Codex Sol only. Cursor Sol is never seeded.
-        XCTAssertEqual(s.tiers.frontier, ["model_fable", "model_chatgpt"])
+        // Frontier: Fable + Codex Sol + Kimi K3. Cursor Sol is never seeded.
+        XCTAssertEqual(s.tiers.frontier, ["model_fable", "model_chatgpt", "model_kimi_k3"])
         XCTAssertFalse(s.tiers.frontier.contains("model_chatgpt_sol"))
         XCTAssertEqual(s.tiers.balanced, [
-            "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
+            "model_chatgpt_terra", "model_opus", "model_cursor_grok_45",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         XCTAssertEqual(s.tiers.economy, [
-            "model_cursor_auto", "model_gemini", "model_kimi_k27"
+            "model_kimi_k27", "model_cursor_auto", "model_gemini"
         ])
+        for fastId in ["model_cursor_composer_25_fast", "model_composer"] {
+            XCTAssertTrue(s.tiers.isUnassigned(fastId), "\(fastId) must stay unassigned in fresh seed")
+        }
     }
 
     func testAutoPrefersFableOverCodexSolWhenBothReady() {
@@ -72,14 +75,17 @@ final class DefaultModelSettingsTests: XCTestCase {
 
     func testModelCanBelongToMultipleTiers() {
         let s = DefaultModelSettings.fresh
-        // Sol is Frontier-only; medium Terra is in Balanced; Gemini spans Balanced + Economy;
-        // K2.7 is the Economy-tier Kimi fallback.
+        // K3 is Frontier-only; medium Terra is in Balanced; Gemini spans Balanced + Economy;
+        // K2.7 is the Economy-tier default.
         XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt"), [.frontier])
-        XCTAssertEqual(s.tiers.highestTier(of: "model_chatgpt"), .frontier)
+        XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k3"), [.frontier])
+        XCTAssertEqual(s.tiers.highestTier(of: "model_kimi_k3"), .frontier)
         XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt_terra"), [.balanced])
         XCTAssertEqual(s.tiers.tiers(of: "model_gemini"), [.balanced, .economy])
         XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k27"), [.economy])
+        XCTAssertEqual(s.tierDefault(.economy), "model_kimi_k27")
         XCTAssertTrue(s.tiers.isUnassigned("model_composer"))
+        XCTAssertTrue(s.tiers.isUnassigned("model_cursor_composer_25_fast"))
         XCTAssertEqual(s.tiers.tiers(of: "model_cursor_composer_25"), [.balanced])
         XCTAssertTrue(s.tiers.isUnassigned("model_chatgpt_sol"))
     }
@@ -257,6 +263,6 @@ final class DefaultModelSettingsTests: XCTestCase {
         try p.save(s)
         let reset = try p.reset()
         XCTAssertEqual(reset.defaultTier, .frontier)
-        XCTAssertEqual(reset.tiers.frontier, ["model_fable", "model_chatgpt"])
+        XCTAssertEqual(reset.tiers.frontier, ["model_fable", "model_chatgpt", "model_kimi_k3"])
     }
 }
