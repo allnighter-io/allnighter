@@ -150,7 +150,7 @@ law. Shipped subsections already belong to code; do not cite these paths as
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Core_Loop_Improvements.md`](Core_Loop_Improvements.md) | **Open — planning** | Ranked control-loop improvements (liveness contract, reconcile-on-read, golden path, mutation intent) with overfitting check; sparked by PLS + relay smoke, grounded in incident class + agent-scale model |
+| [`Core_Loop_Improvements.md`](Core_Loop_Improvements.md) | **Authorized — one PR** | CLP-S01 liveness everywhere + S02/S07 reconcile-on-read + S03 ps filter; passengers S05 teaching + S08 URN wire-up; S04/S06/S09 killed; unified status projector deferred v2 |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open / M1 built — **archive when no forward CLI naming work remains** | `alln` agent-first naming while still evolving. Code owns shipped contract bits. |
 
 ### Team catalog & delegation (forward)
