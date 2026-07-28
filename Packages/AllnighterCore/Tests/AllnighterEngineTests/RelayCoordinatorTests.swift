@@ -780,6 +780,139 @@ final class RelayCoordinatorTests: XCTestCase {
         heldLock = nil
     }
 
+    // MARK: - RSC-S03 hot-fix: owner-pid handoff window (second gap,
+    // Round_Survives_The_Caller_Hot_Fixes.md)
+
+    /// The gap this closes: `resumeGuard`'s persist self-stamps `owner.pid` with the
+    /// FOREGROUND's own pid (it hasn't spawned the detached child yet). If a
+    /// concurrent `pair relay-status` (which reconciles via `reconcileOrphan`,
+    /// unlocked) lands before the child's real pid is durably recorded, it must not
+    /// mistake a legitimate in-flight `--no-wait` continuation for a dead-owner
+    /// orphan and kill it. `RelayStateStore.restampOwner` closes this by letting the
+    /// foreground correct `owner.pid` to the REAL, live child pid synchronously,
+    /// right after `DetachedDispatch.launch` returns — proven here with a genuinely
+    /// separate spawned process (not this test's own pid), so the assertion is about
+    /// the mechanism, not an accident of the test process itself being alive.
+    func testNoWaitOwnerHandoffSurvivesConcurrentStatusReadAndPersistsTheChildsRealPid() throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_owner_handoff", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
+            createdAt: Date(), note: "which env?"
+        )
+        try stateStore.save(state)
+
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+
+        let guardResult = coordinator.resumeGuard(
+            relayId: "relay_owner_handoff", founderAnswer: "use staging", config: config, mintDispatchToken: true
+        )
+        guard case .success(let (_, _, dispatchToken)) = guardResult else { return XCTFail("expected guard success") }
+        guard let dispatchToken else { return XCTFail("expected a minted dispatch token") }
+
+        let ownerURL = stateStore.rootDirectory.appendingPathComponent("relay_owner_handoff", isDirectory: true)
+            .appendingPathComponent("owner.pid")
+        let selfStampedPID = try String(contentsOf: ownerURL, encoding: .utf8)
+        XCTAssertEqual(
+            selfStampedPID, "\(ProcessInfo.processInfo.processIdentifier)",
+            "resumeGuard's persist self-stamps the FOREGROUND caller — this test process"
+        )
+
+        // Stand in for `DetachedDispatch.launch`: spawn a real, genuinely-alive child
+        // process with a pid that differs from this test process's own pid.
+        let child = Process()
+        child.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        child.arguments = ["5"]
+        try child.run()
+        defer { child.terminate() }
+        let childPID = child.processIdentifier
+        XCTAssertNotEqual(childPID, ProcessInfo.processInfo.processIdentifier)
+
+        // The fix: the foreground corrects owner.pid to the child's real pid,
+        // synchronously, before it would exit.
+        stateStore.restampOwner(id: "relay_owner_handoff", pid: childPID)
+
+        let restampedPID = try String(contentsOf: ownerURL, encoding: .utf8)
+        XCTAssertEqual(
+            restampedPID, "\(childPID)",
+            "owner.pid durably names the child's real pid — not just 'the foreground did not crash'"
+        )
+
+        // A concurrent status read landing in this exact window (child launched, real
+        // work not yet started) must NOT reconcile the relay — it now has a live owner.
+        let read = coordinator.status(relayId: "relay_owner_handoff")
+        XCTAssertEqual(read?.status, .running, "a legitimate in-flight --no-wait continuation must survive a concurrent status read")
+        XCTAssertEqual(read?.dispatchToken, dispatchToken, "untouched — reconciliation must never fire here")
+    }
+
+    /// A continuation that never truly spawns (`DetachedDispatch.launch` throws) or
+    /// whose child dies before it reaches its own `continueRound` persist must still
+    /// eventually reconcile to `.stopped` — the fix must not trade "killed while
+    /// legitimately alive" for "wedged forever with a dead owner and an unconsumed
+    /// token."
+    func testNoWaitGenuinelyDeadContinuationStillReconcilesAndDoesNotWedge() throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
+        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        let state = RelayState(
+            id: "relay_owner_handoff_dead", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
+            createdAt: Date(), note: "which env?"
+        )
+        try stateStore.save(state)
+
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, threadProjector: projector)
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+
+        let guardResult = coordinator.resumeGuard(
+            relayId: "relay_owner_handoff_dead", founderAnswer: "use staging", config: config, mintDispatchToken: true
+        )
+        guard case .success = guardResult else { return XCTFail("expected guard success") }
+
+        // Simulate a child that was launched, restamped, then crashed before it ever
+        // reached `continueRound`'s own persist — owner.pid now names a dead pid,
+        // exactly like a foreground whose `DetachedDispatch.launch` throw was never
+        // followed by a restamp at all.
+        stateStore.restampOwner(id: "relay_owner_handoff_dead", pid: 2_000_000)
+
+        let read = coordinator.status(relayId: "relay_owner_handoff_dead")
+        XCTAssertEqual(read?.status, .stopped, "a genuinely dead continuation must still reconcile, never wedge .running forever")
+        XCTAssertEqual(read?.stoppedReason, RelayState.orphanReconciledReason)
+        XCTAssertEqual(stateStore.load(id: "relay_owner_handoff_dead")?.status, .stopped, "durable, not just in-memory")
+    }
+
+    /// `restampOwner` must never resurrect a stale `owner.pid` marker for a relay that
+    /// already went terminal — it mirrors `save`'s own discipline that the marker only
+    /// ever exists while a relay is actually `.running`.
+    func testRestampOwnerIsANoOpOnceTheRelayHasGoneTerminal() throws {
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_restamp_terminal", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .done, createdAt: Date(), note: "Shipped."
+        )
+        try stateStore.save(state)
+
+        stateStore.restampOwner(id: "relay_restamp_terminal", pid: 4_242)
+
+        let ownerURL = stateStore.rootDirectory.appendingPathComponent("relay_restamp_terminal", isDirectory: true)
+            .appendingPathComponent("owner.pid")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: ownerURL.path),
+            "a terminal relay must never gain an owner.pid marker it didn't already have"
+        )
+    }
+
     // MARK: - RSC-S03 hardening: continueRound's dispatch-token authorization
 
     /// The bug this hardening closes: `continueRound` used to run the round loop for

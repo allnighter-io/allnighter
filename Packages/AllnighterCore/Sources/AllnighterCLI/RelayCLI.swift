@@ -204,6 +204,12 @@ enum RelayCLI {
             if let rawUntil = opts.value("until") { childArgs += ["--until", rawUntil] }
             do {
                 let process = try DetachedDispatch.launch(cwd: flipped.projectRoot, arguments: childArgs)
+                // RSC-S03 hot-fix: correct `owner.pid` from this foreground's own pid
+                // (stamped by `resumeGuard`'s persist above) to the just-launched
+                // child's real pid — see `RelayStateStore.restampOwner`'s doc comment.
+                // Synchronous, before this process's own imminent exit, so the window
+                // where `owner.pid` names a dead/dying process collapses to ~zero.
+                RelayStateStore().restampOwner(id: relayId, pid: process.processIdentifier)
                 emitDispatchAck(kind: "relay", id: relayId, pid: process.processIdentifier, json: opts.flag("json"))
             } catch {
                 AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background relay: \(error)")
@@ -333,6 +339,9 @@ enum RelayCLI {
             childArgs += ["--adoption-note-b64", Data(note.utf8).base64EncodedString()]
             do {
                 let process = try DetachedDispatch.launch(cwd: flipped.projectRoot, arguments: childArgs)
+                // RSC-S03 hot-fix: same owner-pid handoff as `runResumeNoWait` — see
+                // `RelayStateStore.restampOwner`'s doc comment.
+                RelayStateStore().restampOwner(id: relayId, pid: process.processIdentifier)
                 emitDispatchAck(kind: "relay", id: relayId, pid: process.processIdentifier, json: opts.flag("json"))
             } catch {
                 AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background relay: \(error)")

@@ -50,6 +50,36 @@ public struct RelayStateStore: Sendable {
         return directory
     }
 
+    /// RSC-S03 hot-fix (`docs/phases/Round_Survives_The_Caller.md`, "second gap"):
+    /// re-stamps `owner.pid` alone to `pid` — never touches `relay.json`. `--no-wait`
+    /// resume/adopt's guard step (`RelayCoordinator.resumeGuard`/`adoptGuard`) flips
+    /// `status` to `.running` and calls `save`, which self-stamps `owner.pid` with the
+    /// FOREGROUND process's own pid (it is the calling process at that point — it
+    /// hasn't spawned the detached child yet). The foreground then calls
+    /// `DetachedDispatch.launch`, which returns the child's real `Process`
+    /// synchronously (`.processIdentifier` is available right after `.run()`, no
+    /// async wait) — so the foreground calls this immediately after, BEFORE it exits,
+    /// to correct `owner.pid` to the child's real pid. Without this, `owner.pid` names
+    /// a process that is either already dead (foreground exited) or about to be, for
+    /// the whole window until the child reaches its own `continueRound` persist —
+    /// long enough (real I/O in `ServeAutoLaunchCLI.ensureRunning`) for a concurrent
+    /// `reconcileOrphan` read (`pair relay-status`, unlocked) to see a dead-owner
+    /// `.running` relay and kill a legitimately in-flight continuation.
+    ///
+    /// A no-op (never writes) unless `id`'s current durable status is still
+    /// `.running` — mirrors `save`'s own discipline that `owner.pid` only ever exists
+    /// for a `.running` relay, so this can never resurrect a stale owner.pid file for
+    /// a relay that already went terminal between the guard's persist and this call
+    /// (e.g. immediately reconciled by an unrelated concurrent reader — see the doc
+    /// comment on `save` for why that path only fires while an owner is still
+    /// provably alive, which the foreground still is at this exact point).
+    public func restampOwner(id: String, pid: Int32) {
+        guard let current = load(id: id), current.status == .running else { return }
+        let directory = (try? relayDirectory(id: id)) ?? rootDirectory.appendingPathComponent(id, isDirectory: true)
+        let ownerURL = directory.appendingPathComponent("owner.pid")
+        try? Data("\(pid)".utf8).write(to: ownerURL, options: .atomic)
+    }
+
     public func load(id: String) -> RelayState? {
         let url = rootDirectory.appendingPathComponent(id, isDirectory: true).appendingPathComponent("relay.json")
         guard let data = try? Data(contentsOf: url) else { return nil }
