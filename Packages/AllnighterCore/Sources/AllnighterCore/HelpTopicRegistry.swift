@@ -302,13 +302,13 @@ public enum HelpTopicRegistry {
             summary: "Auto answers when you pick no team/model; it draws from a substitution tier and routes around a down CLI.",
             bodyMarkdown: """
             The Default model — Auto — answers any chat where you do not pick a team or a \
-            specific model. Auto draws from a **tier** (Flagship / Balanced / Fast). If the \
+            specific model. Auto draws from a **tier** (Frontier / Balanced / Economy). If the \
             tier default's CLI is down and healthy substitutions are on, Auto uses the next \
             ready model on the same tier, across CLIs — never a different tier. If the whole \
             tier is down, work waits. Membership is many-to-many: a model can sit in several \
             tiers. Configure and inspect with `alln defaults show`.
             """,
-            aliases: ["auto", "default", "substitution", "substitutions", "tier", "tiers", "flagship", "balanced", "fast"],
+            aliases: ["auto", "default", "substitution", "substitutions", "tier", "tiers", "frontier", "balanced", "economy", "flagship", "fast"],
             sections: [
                 .init("substitution", "Healthy substitution", "OFF → Auto uses only the tier default and waits if it is down. ON → the first ready model on the tier, across CLIs. Never upgrades, never downgrades, never crosses tiers."),
             ],

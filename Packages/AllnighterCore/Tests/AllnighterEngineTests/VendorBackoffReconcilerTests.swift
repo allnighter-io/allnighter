@@ -79,9 +79,9 @@ final class VendorBackoffReconcilerTests: XCTestCase {
         let runner = ScriptRunner(scripts)
         let lock = RunWriteLockRegistry()
         let settings = DefaultModelSettings(
-            defaultTier: .flagship,
+            defaultTier: .frontier,
             allowHealthySubstitutions: true,
-            tiers: TierMembership(flagship: [model.id])
+            tiers: TierMembership(frontier: [model.id])
         )
         let probe = ToolProbeRecord(
             driverId: "agy",

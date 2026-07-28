@@ -50,8 +50,8 @@ final class ExecutionWriteLockTests: XCTestCase {
             commandRunner: runner,
             writeLock: registry,
             defaultSettings: {
-                DefaultModelSettings(defaultTier: .flagship, allowHealthySubstitutions: true,
-                                     tiers: TierMembership(flagship: ["model_grok"]))
+                DefaultModelSettings(defaultTier: .frontier, allowHealthySubstitutions: true,
+                                     tiers: TierMembership(frontier: ["model_grok"]))
             },
             probeRecords: {
                 [ToolProbeRecord(driverId: "grok", status: .ready(version: "1"), lastProbeAt: .distantPast)]
@@ -74,8 +74,8 @@ final class ExecutionWriteLockTests: XCTestCase {
             commandRunner: runner,
             writeLock: registry,
             defaultSettings: {
-                DefaultModelSettings(defaultTier: .flagship, allowHealthySubstitutions: true,
-                                     tiers: TierMembership(flagship: ["model_opus"]))
+                DefaultModelSettings(defaultTier: .frontier, allowHealthySubstitutions: true,
+                                     tiers: TierMembership(frontier: ["model_opus"]))
             },
             probeRecords: {
                 [ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1"), lastProbeAt: .distantPast)]

@@ -1233,10 +1233,10 @@ Output schema: `defaultSettingsJSON`.
 
 ### `alln defaults tier`
 
-Set which tier Auto draws from (flagship|balanced|fast).
+Set which tier Auto draws from (frontier|balanced|economy).
 
 Arguments:
-- `tier` (required) — flagship | balanced | fast.
+- `tier` (required) — frontier | balanced | economy.
 
 Flags:
 - `--json` — Emit a DefaultSettingsJSON object.
@@ -1251,7 +1251,7 @@ Arguments:
 - `model` (required) — Model id (see `alln models --json`).
 
 Flags:
-- `--tier <tier>` — flagship | balanced | fast (required).
+- `--tier <tier>` — frontier | balanced | economy (required).
 - `--default` — Place at the top of the tier (make it that tier's default).
 - `--position <int>` — 0-based index within the tier (default: append).
 - `--json` — Emit a DefaultSettingsJSON object.
@@ -1401,7 +1401,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `CONTRACT_DRIFT` | yes | no | `operational` | Run `alln dev export-contracts`, then rebuild. |
 | `CONTRACT_VERSION_NOT_BUMPED` | yes | no | `usage` | Bump `ContractRegistry.contractVersion` (minor for additions, major for removals/renames), then run `alln dev export-contracts`. |
 | `CONTRACT_ARTIFACTS_NOT_FOUND` | yes | no | `operational` | Run `alln dev export-contracts` from inside the repo (repo root or a subdirectory). |
-| `DEFAULTS_TIER_INVALID` | yes | no | `usage` | Use one of flagship | balanced | fast. |
+| `DEFAULTS_TIER_INVALID` | yes | no | `usage` | Use one of frontier | balanced | economy. |
 | `DEFAULTS_MODEL_UNKNOWN` | yes | no | `operational` | Run `alln models --json` and pass a known model id. |
 | `STALL_EPISODE_NOT_FOUND` | no | no | `operational` | Run `alln stalled list --all --json` and use a current episode id. |
 | `DOCTOR_CHECK_FAILED` | no | yes | `operational` | Run `alln doctor --json`. |

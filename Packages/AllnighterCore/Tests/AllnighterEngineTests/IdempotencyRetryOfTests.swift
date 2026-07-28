@@ -24,8 +24,8 @@ final class IdempotencyRetryOfTests: XCTestCase {
             writeLock: RunWriteLockRegistry(),
             defaultSettings: {
                 DefaultModelSettings(
-                    defaultTier: .flagship, allowHealthySubstitutions: true,
-                    tiers: TierMembership(flagship: ["model_cursor_composer_25"]))
+                    defaultTier: .frontier, allowHealthySubstitutions: true,
+                    tiers: TierMembership(frontier: ["model_cursor_composer_25"]))
             },
             probeRecords: {
                 [ToolProbeRecord(driverId: "cursor_agent", status: .ready(version: "1.0"), lastProbeAt: .distantPast)]

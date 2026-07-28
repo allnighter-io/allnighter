@@ -59,8 +59,8 @@ final class SandboxHandoffTests: XCTestCase {
             commandRunner: MockCommandRunner(scripts: ["claude": .init(stdout: "Handed off.", exitCode: 0)]),
             writeLock: RunWriteLockRegistry(),
             defaultSettings: {
-                DefaultModelSettings(defaultTier: .flagship, allowHealthySubstitutions: true,
-                                     tiers: TierMembership(flagship: ["model_opus"]))
+                DefaultModelSettings(defaultTier: .frontier, allowHealthySubstitutions: true,
+                                     tiers: TierMembership(frontier: ["model_opus"]))
             },
             probeRecords: {
                 [ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1"), lastProbeAt: .distantPast)]
@@ -330,8 +330,8 @@ final class SandboxHandoffTests: XCTestCase {
             ]),
             writeLock: RunWriteLockRegistry(),
             defaultSettings: {
-                DefaultModelSettings(defaultTier: .flagship, allowHealthySubstitutions: true,
-                                     tiers: TierMembership(flagship: ["model_opus"]))
+                DefaultModelSettings(defaultTier: .frontier, allowHealthySubstitutions: true,
+                                     tiers: TierMembership(frontier: ["model_opus"]))
             },
             probeRecords: {
                 [ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1"), lastProbeAt: .distantPast)]

@@ -5,7 +5,7 @@ A single settings surface — **Settings › Default** — that controls two thi
 
 1. **The Default ("Auto")** — the model that answers any chat when the user hasn't picked a team or a specific model. Auto draws from a **tier**.
 2. **Healthy substitutions** — if the chosen model is down, fall back to another ready model **on the same tier** (across any CLI). Never upgrades, never downgrades.
-3. **Tiers** (Flagship / Balanced / Fast) — the shared concept under both. A tier is a **roster** (a membership list), not a property of a model. The **top model in a tier is that tier's Default** — what Auto resolves to and what substitutes lead with.
+3. **Tiers** (Frontier / Balanced / Economy) — the shared concept under both. A tier is a **roster** (a membership list), not a property of a model. The **top model in a tier is that tier's Default** — what Auto resolves to and what substitutes lead with.
 
 This pairs with the separate **CLI Setup** handoff: that surface decides *which models are turned on/available*; this surface decides *which of those available models are tiered, and which tier Auto uses.*
 
@@ -28,7 +28,7 @@ The prototype is **interactive** — open it in a browser and:
 A flat list of **available** models (the on-models from CLI Setup). Each carries a **tier** membership; `nil` = Unassigned. **Order matters** — within a tier, index 0 is the Default.
 
 ```swift
-enum Tier: String, CaseIterable { case flagship = "Flagship", balanced = "Balanced", fast = "Fast" }
+enum Tier: String, CaseIterable { case frontier = "Frontier", balanced = "Balanced", economy = "Economy" }
 
 struct DefaultModel: Identifiable {
     let id: String          // "opus-4.8"
@@ -52,7 +52,7 @@ var substitutionsEnabled: Bool = true
 - `autoResolved = models(in: defaultTier).first` — the model Auto currently uses. If `nil`, **chats wait**.
 - `substituteCount = models(in: defaultTier).count - 1`.
 
-**Ordering rule:** keep the array grouped by tier (Flagship, Balanced, Fast, then Unassigned) using a **stable** sort, so intra-tier order (and therefore the Default) is preserved across moves. See **Move semantics**.
+**Ordering rule:** keep the array grouped by tier (Frontier, Balanced, Economy, then Unassigned) using a **stable** sort, so intra-tier order (and therefore the Default) is preserved across moves. See **Move semantics**.
 
 > **Most models start Unassigned.** Do NOT pre-sort every available model into a tier — there are too many. Ship a few sensible defaults tiered (e.g. Opus → Flagship) and leave the rest on the Unassigned shelf for the user to place.
 
@@ -74,7 +74,7 @@ A single `--bg-raised` card, 1pt `--border-default`, radius 14pt, padding 20/22p
 - **Main** (fills): 
   - Row: **`Auto`** (18pt/800) + a small **`Default`** pill (mono 11pt/600, `--accent-text`, `--accent-surface` fill, 1pt `--accent-border`, radius 999pt, padding 2/9pt, uppercase, tracking 0.06em).
   - Below (13pt muted), one line: *"Your go-to model used in chat by default."* followed inline by the **resolved-model pill** (see below).
-- **Tier control** (right, `flex: none`): a small label **`Pick the tier`** (11pt/600 muted) above a **segmented control** (Flagship / Balanced / Fast). Use a native macOS segmented control or `Picker(.segmented)`. Active segment = amber fill (`--accent`) with `--text-on-amber` label; inactive = muted, hover brightens. Changing it sets `defaultTier` and updates the resolved pill + the **Auto** badge on the rosters.
+- **Tier control** (right, `flex: none`): a small label **`Pick the tier`** (11pt/600 muted) above a **segmented control** (Frontier / Balanced / Economy). Use a native macOS segmented control or `Picker(.segmented)`. Active segment = amber fill (`--accent`) with `--text-on-amber` label; inactive = muted, hover brightens. Changing it sets `defaultTier` and updates the resolved pill + the **Auto** badge on the rosters.
 
 **Resolved-model pill** (the inline pill — styled like the model chips on CLI cards):
 - `--bg-active` fill, 1pt `--border-subtle`, radius 999pt, padding 4/13pt, 13pt/600.
@@ -92,7 +92,7 @@ A single `--bg-raised` card, 1pt `--border-default`, radius 14pt, padding 20/22p
 ### Section 3 — Default model per tier (the rosters)
 - Section label `DEFAULT MODEL PER TIER` + hairline.
 - **Three tier columns** (`HStack`/grid, 3 equal columns, gap 16pt). Each column is a `--bg-surface` card, 1pt `--border-subtle`, radius 14pt, min-height ~200pt:
-  - **Header** (padding 15/16/12, bottom hairline): optional **★** (amber) for Flagship; tier **name** (15pt/800); an **Auto** badge if this tier == `defaultTier` (9.5pt/700 uppercase, amber, `--accent-surface` fill, 1pt `--accent-border`, radius 999pt); a mono **count** pushed right (`--text-faint`); a small **＋** add button (24×24pt, `--bg-active`, neutral). Below: a one-line **caption** (12pt muted) — Flagship: *"Your best. Slowest and priciest — use when only the smartest will do."* · Balanced: *"Strong all-rounders. The everyday workhorses."* · Fast: *"Quick and cheap. Great for simple, high-volume work."*
+  - **Header** (padding 15/16/12, bottom hairline): optional **★** (amber) for Frontier; tier **name** (15pt/800); an **Auto** badge if this tier == `defaultTier` (9.5pt/700 uppercase, amber, `--accent-surface` fill, 1pt `--accent-border`, radius 999pt); a mono **count** pushed right (`--text-faint`); a small **＋** add button (24×24pt, `--bg-active`, neutral). Below: a one-line **caption** (12pt muted) — Frontier: *"Smartest. Slow and pricey."* · Balanced: *"Everyday workhorses."* · Economy: *"Quick and cheap."*
   - **List** (padding 12pt, vertical gap 8pt): **model cards** (see below), or an **empty state** (centered, amber clock icon, *"Empty — work waits"*, *"Nothing can stand in here."*, and an **Add a model** button).
 - **Unassigned shelf** (below the columns, full width): a **dashed** 1pt `--border-default` container, radius 12pt, padding 13/15pt. Header `UNASSIGNED` + count + a muted caption *"pickable by hand · Auto never uses these · they never substitute."* Body = model cards in a wrapping row (each ~248pt wide), or empty text *"Every model is on a tier. Drag one here to bench it from Auto & substitution."*
 - **Legend** (mono 11.5pt faint): *"The top model in each tier is its **default** — what Auto picks and what substitutes lead with. Drag to reorder; drag across tiers to move."*

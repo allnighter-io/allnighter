@@ -54,8 +54,8 @@ final class ResearchGitObservationTests: XCTestCase {
             commandRunner: runner,
             writeLock: RunWriteLockRegistry(),
             defaultSettings: {
-                DefaultModelSettings(defaultTier: .flagship, allowHealthySubstitutions: true,
-                                     tiers: TierMembership(flagship: ["model_opus"]))
+                DefaultModelSettings(defaultTier: .frontier, allowHealthySubstitutions: true,
+                                     tiers: TierMembership(frontier: ["model_opus"]))
             },
             probeRecords: {
                 [ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1"), lastProbeAt: .distantPast)]

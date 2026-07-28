@@ -51,9 +51,9 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
 
     private var settings: DefaultModelSettings {
         DefaultModelSettings(
-            defaultTier: .flagship,
+            defaultTier: .frontier,
             allowHealthySubstitutions: true,
-            tiers: TierMembership(flagship: ["model_fable", "model_chatgpt"])
+            tiers: TierMembership(frontier: ["model_fable", "model_chatgpt"])
         )
     }
 

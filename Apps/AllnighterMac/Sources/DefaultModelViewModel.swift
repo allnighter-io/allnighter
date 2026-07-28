@@ -58,7 +58,7 @@ final class DefaultModelViewModel {
 
     // MARK: - View helpers
 
-    var defaultTier: SubstitutionTier { SubstitutionTier(rawValue: projection.defaultTier) ?? .flagship }
+    var defaultTier: SubstitutionTier { SubstitutionTier.parse(projection.defaultTier) ?? .frontier }
     func tierView(_ tier: SubstitutionTier) -> DefaultSettingsJSON.TierView? {
         projection.tiers.first { $0.tier == tier.rawValue }
     }

@@ -9,7 +9,7 @@ struct DefaultModelView: View {
     @Environment(AppModel.self) private var appModel
     @State private var vm = DefaultModelViewModel()
 
-    private let tiers: [SubstitutionTier] = [.flagship, .balanced, .fast]
+    private let tiers: [SubstitutionTier] = [.frontier, .balanced, .economy]
 
     var body: some View {
         ScrollView {
@@ -169,7 +169,7 @@ struct DefaultModelView: View {
         let isDefault = vm.defaultTier == tier
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 7) {
-                if tier == .flagship { Image(systemName: "star.fill").font(.system(size: 11)).foregroundStyle(ALColor.accent) }
+                if tier == .frontier { Image(systemName: "star.fill").font(.system(size: 11)).foregroundStyle(ALColor.accent) }
                 Text(tier.displayName).font(ALFont.sans(15, .heavy)).foregroundStyle(ALColor.textPrimary)
                 if isDefault {
                     Text("AUTO").font(ALFont.mono(9.5, .bold)).tracking(0.4).foregroundStyle(ALColor.accent)
@@ -307,9 +307,9 @@ struct DefaultModelView: View {
 
     private func caption(_ tier: SubstitutionTier) -> String {
         switch tier {
-        case .flagship: "Smartest. Slow and pricey."
+        case .frontier: "Smartest. Slow and pricey."
         case .balanced: "Everyday workhorses."
-        case .fast: "Quick and cheap."
+        case .economy: "Quick and cheap."
         }
     }
 }

@@ -86,3 +86,24 @@ proof: `docs/archive/phases/Execution_Team_Source_Gate.md`.
    **Max** = every seat that earns its place on the hardest case class.
 
 Roster truth lives in `BuiltInTeams.swift` / `TeamCatalog`.
+
+---
+
+## Substitution tiers (Frontier / Balanced / Economy)
+
+Auto and healthy substitution draw from a **tier** — an ordered roster, not a
+model property. Distinct from team depth (Min / bare / Max) and from caliber
+(seating strength).
+
+| Tier | Meaning |
+| --- | --- |
+| **Frontier** | Smartest models you are willing to spend on Auto |
+| **Balanced** | Everyday workhorses |
+| **Economy** | Lowest acceptable spend for Auto |
+
+- IDs / CLI / JSON: `frontier` | `balanced` | `economy`.
+- **Retired tier names:** `flagship`, `fast` — still parse from old settings files
+  but must not appear in new Allnighter copy, help, or UI.
+- **Never use “Fast”** as a tier label — vendor model names already use it
+  (`Composer 2.5 Fast`, etc.).
+- Code SSOT: `DefaultModelSettings.swift`, `DefaultSettingsJSON`, `alln defaults`.

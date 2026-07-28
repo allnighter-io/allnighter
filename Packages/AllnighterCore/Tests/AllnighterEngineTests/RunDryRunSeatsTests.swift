@@ -76,12 +76,12 @@ final class RunDryRunSeatsTests: XCTestCase {
                 readyModels: bench,
                 readyModelIds: Set(bench.map(\.id)),
                 defaultSettings: DefaultModelSettings(
-                    defaultTier: .flagship,
+                    defaultTier: .frontier,
                     allowHealthySubstitutions: true,
                     tiers: TierMembership(
-                        flagship: ["model_sonnet"],
+                        frontier: ["model_sonnet"],
                         balanced: ["model_sonnet"],
-                        fast: ["model_sonnet"]
+                        economy: ["model_sonnet"]
                     )
                 )
             )

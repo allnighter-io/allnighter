@@ -92,6 +92,9 @@ polish. It is a **lie-prone layer in every packet by default**.
   replacement.
 - Prose that names an `alln` command or flag which `ContractRegistry` cannot
   resolve is a P0 bug, same class as GUI-only truth.
+- **Product vocabulary** for shipped capabilities belongs in
+  `docs/workflows/Product_Vocabulary.md` at closeout (substitution tiers,
+  team depth, crafts, etc.) — not only in archived phase packets.
 - A phase doc may claim "shipped"/"verified" only for state that is committed
   AND observable on a binary built from committed HEAD. "Bumped in my working
   tree" is not shipped.

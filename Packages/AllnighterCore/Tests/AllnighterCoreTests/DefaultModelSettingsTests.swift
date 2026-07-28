@@ -5,20 +5,20 @@ final class DefaultModelSettingsTests: XCTestCase {
 
     // MARK: - Fresh install + seed
 
-    func testFreshInstallIsAutoOnFlagshipWithSubstitutionsOn() {
+    func testFreshInstallIsAutoOnFrontierWithSubstitutionsOn() {
         let s = DefaultModelSettings.fresh
-        XCTAssertEqual(s.defaultTier, .flagship)
+        XCTAssertEqual(s.defaultTier, .frontier)
         XCTAssertTrue(s.allowHealthySubstitutions)
-        XCTAssertEqual(s.tierDefault(.flagship), "model_fable")
-        // Flagship: Fable + Codex Sol only. Cursor Sol is never seeded.
-        XCTAssertEqual(s.tiers.flagship, ["model_fable", "model_chatgpt"])
-        XCTAssertFalse(s.tiers.flagship.contains("model_chatgpt_sol"))
+        XCTAssertEqual(s.tierDefault(.frontier), "model_fable")
+        // Frontier: Fable + Codex Sol only. Cursor Sol is never seeded.
+        XCTAssertEqual(s.tiers.frontier, ["model_fable", "model_chatgpt"])
+        XCTAssertFalse(s.tiers.frontier.contains("model_chatgpt_sol"))
         XCTAssertEqual(s.tiers.balanced, [
             "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
-        XCTAssertEqual(s.tiers.fast, [
-            "model_cursor_auto", "model_composer", "model_gemini", "model_kimi_k27"
+        XCTAssertEqual(s.tiers.economy, [
+            "model_cursor_auto", "model_gemini", "model_kimi_k27"
         ])
     }
 
@@ -36,7 +36,7 @@ final class DefaultModelSettingsTests: XCTestCase {
             readyModelIds: ["model_chatgpt"])
         XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
         XCTAssertTrue(r.substituted)
-        XCTAssertEqual(r.tier, .flagship)
+        XCTAssertEqual(r.tier, .frontier)
     }
 
     func testRequestedFableFallsBackToCodexSol() {
@@ -65,45 +65,44 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(back, s)
         // Tier membership encodes as a keyed object, not an array of pairs.
         let json = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(json.contains("\"flagship\""))
+        XCTAssertTrue(json.contains("\"frontier\""))
     }
 
     // MARK: - Many-to-many membership
 
     func testModelCanBelongToMultipleTiers() {
         let s = DefaultModelSettings.fresh
-        // Sol is Flagship-only; medium Terra is in Balanced; Gemini spans Balanced + Fast;
-        // K2.7 is the Fast-tier Kimi fallback.
-        XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt"), [.flagship])
-        XCTAssertEqual(s.tiers.highestTier(of: "model_chatgpt"), .flagship)
+        // Sol is Frontier-only; medium Terra is in Balanced; Gemini spans Balanced + Economy;
+        // K2.7 is the Economy-tier Kimi fallback.
+        XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt"), [.frontier])
+        XCTAssertEqual(s.tiers.highestTier(of: "model_chatgpt"), .frontier)
         XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt_terra"), [.balanced])
-        XCTAssertEqual(s.tiers.tiers(of: "model_gemini"), [.balanced, .fast])
-        XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k27"), [.fast])
-        // Composer Fast is Fast-only in the seed; Composer 2.5 is Balanced-only.
-        XCTAssertEqual(s.tiers.tiers(of: "model_composer"), [.fast])
+        XCTAssertEqual(s.tiers.tiers(of: "model_gemini"), [.balanced, .economy])
+        XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k27"), [.economy])
+        XCTAssertTrue(s.tiers.isUnassigned("model_composer"))
         XCTAssertEqual(s.tiers.tiers(of: "model_cursor_composer_25"), [.balanced])
         XCTAssertTrue(s.tiers.isUnassigned("model_chatgpt_sol"))
     }
 
     func testNormalizePreservesCrossTierAndDedupesWithinTier() {
         // `a` is intentionally in two tiers (preserved); the second `a` *within*
-        // Flagship is the only true duplicate.
-        let m = TierMembership(flagship: ["a", "b", "a"], balanced: ["a", "c"], fast: ["c"])
+        // Frontier is the only true duplicate.
+        let m = TierMembership(frontier: ["a", "b", "a"], balanced: ["a", "c"], economy: ["c"])
         let (clean, dups) = m.normalized()
-        XCTAssertEqual(clean.flagship, ["a", "b"], "intra-tier dup removed")
+        XCTAssertEqual(clean.frontier, ["a", "b"], "intra-tier dup removed")
         XCTAssertEqual(clean.balanced, ["a", "c"], "cross-tier `a` preserved")
-        XCTAssertEqual(clean.fast, ["c"], "cross-tier `c` preserved")
-        XCTAssertEqual(dups, ["a"], "only the within-Flagship dup is reported")
+        XCTAssertEqual(clean.economy, ["c"], "cross-tier `c` preserved")
+        XCTAssertEqual(dups, ["a"], "only the within-Frontier dup is reported")
     }
 
     // MARK: - Auto resolution + the toggle-gates-Auto rule
 
     func testAutoSubstitutionsOnPicksFirstReadyInTier() {
-        let s = DefaultModelSettings.fresh   // Flagship: fable, chatgpt
+        let s = DefaultModelSettings.fresh   // Frontier: fable, chatgpt
         let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_chatgpt"])
         XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
         XCTAssertTrue(r.substituted)
-        XCTAssertEqual(r.tier, .flagship)
+        XCTAssertEqual(r.tier, .frontier)
     }
 
     func testAutoSubstitutionsOnDefaultReadyIsNotASubstitution() {
@@ -129,7 +128,7 @@ final class DefaultModelSettingsTests: XCTestCase {
     }
 
     func testAutoBlocksWhenWholeTierDown() {
-        // Only Sonnet (Balanced) ready → Flagship Auto must not downgrade.
+        // Only Sonnet (Balanced) ready → Frontier Auto must not downgrade.
         let r = SubstitutionResolver.resolveAuto(settings: .fresh, readyModelIds: ["model_sonnet"])
         XCTAssertNil(r.resolvedModelId, "no silent downgrade to Balanced")
         XCTAssertEqual(r.blockedReason, .shelfEmpty)
@@ -137,7 +136,7 @@ final class DefaultModelSettingsTests: XCTestCase {
 
     func testAutoBlocksWhenTierEmpty() {
         var s = DefaultModelSettings.fresh
-        s.tiers.flagship = []
+        s.tiers.frontier = []
         let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_chatgpt"])
         XCTAssertNil(r.resolvedModelId)
         XCTAssertEqual(r.blockedReason, .tierEmpty)
@@ -162,26 +161,26 @@ final class DefaultModelSettingsTests: XCTestCase {
     }
 
     func testRequestedDownSubstitutesWithinHighestTier() {
-        // Fable down, Codex Sol ready, both Flagship → substitute to Codex Sol.
+        // Fable down, Codex Sol ready, both Frontier → substitute to Codex Sol.
         let r = SubstitutionResolver.resolveRequested(modelId: "model_fable", settings: .fresh, readyModelIds: ["model_chatgpt"])
         XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
         XCTAssertTrue(r.substituted)
-        XCTAssertEqual(r.tier, .flagship)
+        XCTAssertEqual(r.tier, .frontier)
     }
 
     func testRequestedNeverDowngrades() {
-        // Fable (Flagship) down; only Sonnet (Balanced) ready → no downgrade.
+        // Fable (Frontier) down; only Sonnet (Balanced) ready → no downgrade.
         let r = SubstitutionResolver.resolveRequested(modelId: "model_fable", settings: .fresh, readyModelIds: ["model_sonnet"])
         XCTAssertNil(r.resolvedModelId)
         XCTAssertEqual(r.blockedReason, .shelfEmpty)
     }
 
     func testRequestedMultiTierModelSubstitutesWithinHighestTier() {
-        // ChatGPT spans Flagship + Balanced. Down → substitute within Flagship
+        // ChatGPT spans Frontier + Balanced. Down → substitute within Frontier
         // (highest), never the lower tier.
         let r = SubstitutionResolver.resolveRequested(modelId: "model_chatgpt", settings: .fresh, readyModelIds: ["model_fable", "model_sonnet"])
         XCTAssertEqual(r.resolvedModelId, "model_fable")
-        XCTAssertEqual(r.tier, .flagship)
+        XCTAssertEqual(r.tier, .frontier)
     }
 
     func testRequestedUnassignedDownNeverSubstitutes() {
@@ -207,19 +206,19 @@ final class DefaultModelSettingsTests: XCTestCase {
         let p = DefaultModelSettingsPersistence(fileURL: file)
 
         // No file yet → fresh seed.
-        XCTAssertEqual(p.load().defaultTier, .flagship)
+        XCTAssertEqual(p.load().defaultTier, .frontier)
 
         var s = DefaultModelSettings.fresh
         s.defaultTier = .balanced
         s.allowHealthySubstitutions = false
-        s.tiers.flagship = ["model_opus", "model_chatgpt", "model_opus"]  // intra-tier dup
+        s.tiers.frontier = ["model_opus", "model_chatgpt", "model_opus"]  // intra-tier dup
         s.tiers.balanced = ["model_opus", "model_sonnet"]                  // model_opus also in Balanced
         try p.save(s)
 
         let loaded = p.load()
         XCTAssertEqual(loaded.defaultTier, .balanced)
         XCTAssertFalse(loaded.allowHealthySubstitutions)
-        XCTAssertEqual(loaded.tiers.flagship, ["model_opus", "model_chatgpt"], "intra-tier dup normalized away")
+        XCTAssertEqual(loaded.tiers.frontier, ["model_opus", "model_chatgpt"], "intra-tier dup normalized away")
         XCTAssertEqual(loaded.tiers.balanced, ["model_opus", "model_sonnet"], "cross-tier membership preserved")
         XCTAssertNotNil(loaded.updatedAt)
     }
@@ -232,9 +231,21 @@ final class DefaultModelSettingsTests: XCTestCase {
         try Data("{ this is not valid json".utf8).write(to: file)
 
         let loaded = DefaultModelSettingsPersistence(fileURL: file).load()
-        XCTAssertEqual(loaded.defaultTier, .flagship, "falls back to the seed")
+        XCTAssertEqual(loaded.defaultTier, .frontier, "falls back to the seed")
         XCTAssertTrue(FileManager.default.fileExists(atPath: file.appendingPathExtension("corrupt").path),
                       "corrupt file preserved for recovery, not silently dropped")
+    }
+
+    func testLegacyTierKeysDecodeFromPersistedJSON() throws {
+        let json = """
+        {"schemaVersion":1,"defaultTier":"flagship","allowHealthySubstitutions":true,\
+        "tiers":{"flagship":["model_fable"],"balanced":["model_opus"],"fast":["model_gemini"]}}
+        """
+        let decoded = try CoreJSON.decode(DefaultModelSettings.self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.defaultTier, .frontier)
+        XCTAssertEqual(decoded.tiers.frontier, ["model_fable"])
+        XCTAssertEqual(decoded.tiers.balanced, ["model_opus"])
+        XCTAssertEqual(decoded.tiers.economy, ["model_gemini"])
     }
 
     func testResetRestoresFreshSeed() throws {
@@ -242,10 +253,10 @@ final class DefaultModelSettingsTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
         let p = DefaultModelSettingsPersistence(fileURL: dir.appendingPathComponent("s.json"))
         var s = DefaultModelSettings.fresh
-        s.defaultTier = .fast
+        s.defaultTier = .economy
         try p.save(s)
         let reset = try p.reset()
-        XCTAssertEqual(reset.defaultTier, .flagship)
-        XCTAssertEqual(reset.tiers.flagship, ["model_fable", "model_chatgpt"])
+        XCTAssertEqual(reset.defaultTier, .frontier)
+        XCTAssertEqual(reset.tiers.frontier, ["model_fable", "model_chatgpt"])
     }
 }

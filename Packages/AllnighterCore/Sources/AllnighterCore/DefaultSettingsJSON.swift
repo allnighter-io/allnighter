@@ -10,7 +10,7 @@ public struct DefaultSettingsJSON: Codable, Sendable, Equatable {
     /// Which tier Auto draws from.
     public var defaultTier: String
     public var allowHealthySubstitutions: Bool
-    /// Always three views, ordered Flagship → Balanced → Fast.
+    /// Always three views, ordered Frontier → Balanced → Economy.
     public var tiers: [TierView]
     /// On (available) models in zero tiers — hand-pickable, never used by Auto.
     public var unassigned: [ModelRef]
@@ -70,7 +70,7 @@ public struct DefaultSettingsJSON: Codable, Sendable, Equatable {
         /// True when nothing in the tier is ready (or the tier is empty) → chat waits.
         public var blocked: Bool
         public var blockedReason: String?
-        /// Owner-facing one-liner for the empty/wait state, e.g. "No model on Flagship — waits".
+        /// Owner-facing one-liner for the empty/wait state, e.g. "No model on Frontier — waits".
         public var waitsMessage: String?
 
         public init(tier: String, resolvedModelId: ModelID?, resolvedModelName: String?,

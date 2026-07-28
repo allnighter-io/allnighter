@@ -4457,7 +4457,7 @@
         {
           "name" : "tier",
           "required" : true,
-          "summary" : "flagship | balanced | fast."
+          "summary" : "frontier | balanced | economy."
         }
       ],
       "effects" : {
@@ -4488,7 +4488,7 @@
       "name" : "defaults tier",
       "outputSchema" : "defaultSettingsJSON",
       "spendsQuota" : false,
-      "summary" : "Set which tier Auto draws from (flagship|balanced|fast).",
+      "summary" : "Set which tier Auto draws from (frontier|balanced|economy).",
       "visibility" : "public"
     },
     {
@@ -4515,7 +4515,7 @@
       "flags" : [
         {
           "name" : "tier",
-          "summary" : "flagship | balanced | fast (required).",
+          "summary" : "frontier | balanced | economy (required).",
           "takesValue" : true,
           "valueType" : "tier"
         },
@@ -5182,10 +5182,10 @@
       "ruleId" : "contract.artifacts.not_found"
     },
     {
-      "agentAction" : "Use one of flagship | balanced | fast.",
+      "agentAction" : "Use one of frontier | balanced | economy.",
       "code" : "DEFAULTS_TIER_INVALID",
       "exitClass" : "usage",
-      "explain" : "The tier name was not one of flagship, balanced, or fast.",
+      "explain" : "The tier name was not frontier, balanced, or economy. Legacy names flagship and fast still parse but are retired.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "defaults.tier.invalid"

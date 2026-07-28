@@ -121,11 +121,11 @@ final class TwoSourceResearchTeamTests: XCTestCase {
             writeLock: RunWriteLockRegistry(),
             defaultSettings: {
                 DefaultModelSettings(
-                    defaultTier: .flagship,
+                    defaultTier: .frontier,
                     // Substitution is ON: the roster must hold because it was
                     // explicitly selected, not because swapping was disabled.
                     allowHealthySubstitutions: true,
-                    tiers: TierMembership(flagship: tiers ?? models.map(\.id)))
+                    tiers: TierMembership(frontier: tiers ?? models.map(\.id)))
             },
             probeRecords: {
                 [

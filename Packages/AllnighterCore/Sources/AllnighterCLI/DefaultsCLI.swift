@@ -29,8 +29,8 @@ enum DefaultsCLI {
 
     private static func setTier(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
-        guard let raw = opts.positional.first else { usage("tier <flagship|balanced|fast>") }
-        guard let tier = SubstitutionTier(rawValue: raw.lowercased()) else {
+        guard let raw = opts.positional.first else { usage("tier <frontier|balanced|economy>") }
+        guard let tier = SubstitutionTier.parse(raw) else {
             AllnighterCLI.fail(code: "DEFAULTS_TIER_INVALID", message: "unknown tier: \(raw)")
         }
         var s = persistence().load()
@@ -41,10 +41,10 @@ enum DefaultsCLI {
     private static func assign(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let model = opts.positional.first else {
-            usage("assign <model-id> --tier <flagship|balanced|fast> [--default | --position <n>]")
+            usage("assign <model-id> --tier <frontier|balanced|economy> [--default | --position <n>]")
         }
-        guard let tierRaw = opts.value("tier"), let tier = SubstitutionTier(rawValue: tierRaw.lowercased()) else {
-            AllnighterCLI.fail(code: "DEFAULTS_TIER_INVALID", message: "--tier flagship|balanced|fast is required")
+        guard let tierRaw = opts.value("tier"), let tier = SubstitutionTier.parse(tierRaw) else {
+            AllnighterCLI.fail(code: "DEFAULTS_TIER_INVALID", message: "--tier frontier|balanced|economy is required")
         }
         guard ModelCatalog.get(model) != nil else {
             AllnighterCLI.fail(code: "DEFAULTS_MODEL_UNKNOWN", message: "unknown model id: \(model)")
@@ -67,10 +67,10 @@ enum DefaultsCLI {
 
     private static func unassign(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
-        guard let model = opts.positional.first else { usage("unassign <model-id> [--tier <flagship|balanced|fast>]") }
+        guard let model = opts.positional.first else { usage("unassign <model-id> [--tier <frontier|balanced|economy>]") }
         let tier: SubstitutionTier?
         if let raw = opts.value("tier") {
-            guard let t = SubstitutionTier(rawValue: raw.lowercased()) else {
+            guard let t = SubstitutionTier.parse(raw) else {
                 AllnighterCLI.fail(code: "DEFAULTS_TIER_INVALID", message: "unknown tier: \(raw)")
             }
             tier = t

@@ -120,7 +120,7 @@ public enum ModelCatalog {
     /// Floor rank for any model without overlay `caliber` (customs / unevaluated).
     public static let unratedModelRank = 40
 
-    /// Caliber band from strengthRank (Flagship ≥95 / High 85–94 / Mid 70–84 / floor).
+    /// Caliber band from strengthRank (Elite ≥95 / Strong 85–94 / Capable 70–84 / floor).
     public static func caliberBand(_ rank: Int) -> Int {
         rank >= 95 ? 3 : rank >= 85 ? 2 : rank >= 70 ? 1 : 0
     }

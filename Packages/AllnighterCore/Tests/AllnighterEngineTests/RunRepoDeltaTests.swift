@@ -50,8 +50,8 @@ final class RunRepoDeltaTests: XCTestCase {
             writeLock: RunWriteLockRegistry(),
             defaultSettings: {
                 DefaultModelSettings(
-                    defaultTier: .flagship, allowHealthySubstitutions: true,
-                    tiers: TierMembership(flagship: ["model_grok"]))
+                    defaultTier: .frontier, allowHealthySubstitutions: true,
+                    tiers: TierMembership(frontier: ["model_grok"]))
             },
             probeRecords: {
                 [ToolProbeRecord(driverId: "grok", status: .ready(version: "1"), lastProbeAt: .distantPast)]

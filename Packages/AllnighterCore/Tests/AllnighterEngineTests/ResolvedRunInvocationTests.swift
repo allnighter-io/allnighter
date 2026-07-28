@@ -22,9 +22,9 @@ final class ResolvedRunInvocationTests: XCTestCase {
 
     private func settings(defaultModel: String = "model_sonnet") -> DefaultModelSettings {
         DefaultModelSettings(
-            defaultTier: .flagship,
+            defaultTier: .frontier,
             allowHealthySubstitutions: true,
-            tiers: TierMembership(flagship: [defaultModel], balanced: [defaultModel], fast: [defaultModel])
+            tiers: TierMembership(frontier: [defaultModel], balanced: [defaultModel], economy: [defaultModel])
         )
     }
 

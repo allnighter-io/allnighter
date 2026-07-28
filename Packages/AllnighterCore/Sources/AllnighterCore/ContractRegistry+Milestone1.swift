@@ -852,8 +852,8 @@ public extension ContractRegistry {
             outputSchema: .defaultSettingsJSON
         ),
         CommandSpec(
-            "defaults tier", summary: "Set which tier Auto draws from (flagship|balanced|fast).", milestone: .m1,
-            args: [ArgSpec("tier", required: true, summary: "flagship | balanced | fast.")],
+            "defaults tier", summary: "Set which tier Auto draws from (frontier|balanced|economy).", milestone: .m1,
+            args: [ArgSpec("tier", required: true, summary: "frontier | balanced | economy.")],
             flags: [FlagSpec("json", summary: "Emit a DefaultSettingsJSON object.")],
             outputSchema: .defaultSettingsJSON
         ),
@@ -861,7 +861,7 @@ public extension ContractRegistry {
             "defaults assign", summary: "Add a model to a tier (or move it within that tier). Membership is many-to-many — assigning to one tier never removes it from another.", milestone: .m1,
             args: [ArgSpec("model", required: true, summary: "Model id (see `alln models --json`).")],
             flags: [
-                FlagSpec("tier", takesValue: true, valueType: "tier", summary: "flagship | balanced | fast (required)."),
+                FlagSpec("tier", takesValue: true, valueType: "tier", summary: "frontier | balanced | economy (required)."),
                 FlagSpec("default", summary: "Place at the top of the tier (make it that tier's default)."),
                 FlagSpec("position", takesValue: true, valueType: "int", summary: "0-based index within the tier (default: append)."),
                 FlagSpec("json", summary: "Emit a DefaultSettingsJSON object."),
@@ -980,7 +980,7 @@ public extension ContractRegistry {
             exitClass: .usage
         ),
         ErrorSpec("CONTRACT_ARTIFACTS_NOT_FOUND", ruleId: "contract.artifacts.not_found", agentAction: "Run `alln dev export-contracts` from inside the repo (repo root or a subdirectory).", requiresManual: true, retryable: false, explain: "The repo root, the generated artifacts dir, or an individual artifact file could not be found. This is not content drift — it means the artifacts were never generated at the resolved location, or the command ran outside the repo."),
-        ErrorSpec("DEFAULTS_TIER_INVALID", ruleId: "defaults.tier.invalid", agentAction: "Use one of flagship | balanced | fast.", requiresManual: true, retryable: false, explain: "The tier name was not one of flagship, balanced, or fast.", exitClass: .usage),
+        ErrorSpec("DEFAULTS_TIER_INVALID", ruleId: "defaults.tier.invalid", agentAction: "Use one of frontier | balanced | economy.", requiresManual: true, retryable: false, explain: "The tier name was not frontier, balanced, or economy. Legacy names flagship and fast still parse but are retired.", exitClass: .usage),
         ErrorSpec("DEFAULTS_MODEL_UNKNOWN", ruleId: "defaults.model.unknown", agentAction: "Run `alln models --json` and pass a known model id.", requiresManual: true, retryable: false, explain: "The model id is not in the catalog, so it cannot be assigned to a tier. List models and use a real id."),
         ErrorSpec("STALL_EPISODE_NOT_FOUND", ruleId: "stall.episode.not_found", agentAction: "Run `alln stalled list --all --json` and use a current episode id.", requiresManual: false, retryable: false, explain: "No stall episode matches the given id (it may have cleared). List stalled work and retry with a live episode id."),
         ErrorSpec("DOCTOR_CHECK_FAILED", ruleId: "doctor.check.failed", agentAction: "Run `alln doctor --json`.", requiresManual: false, retryable: true, explain: "A required doctor check failed. Inspect the structured report and address the named check, then retry."),

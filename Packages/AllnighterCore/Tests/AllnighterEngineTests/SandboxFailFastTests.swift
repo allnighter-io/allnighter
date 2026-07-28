@@ -69,8 +69,8 @@ final class SandboxFailFastTests: XCTestCase {
             ]),
             writeLock: RunWriteLockRegistry(),
             defaultSettings: {
-                DefaultModelSettings(defaultTier: .flagship, allowHealthySubstitutions: false,
-                                     tiers: TierMembership(flagship: ["model_blocked", "model_slow"]))
+                DefaultModelSettings(defaultTier: .frontier, allowHealthySubstitutions: false,
+                                     tiers: TierMembership(frontier: ["model_blocked", "model_slow"]))
             },
             probeRecords: {
                 [ToolProbeRecord(driverId: "blocked_driver", status: .ready(version: "1"),

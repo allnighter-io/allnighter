@@ -8,15 +8,41 @@ import Foundation
 /// A substitution tier — the shared concept under Auto and healthy substitution.
 /// A tier is a ROSTER (an ordered membership list), never a property of a model.
 public enum SubstitutionTier: String, Codable, Sendable, CaseIterable {
-    case flagship, balanced, fast
+    case frontier, balanced, economy
 
     public var displayName: String {
         switch self {
-        case .flagship: "Flagship"
+        case .frontier: "Frontier"
         case .balanced: "Balanced"
-        case .fast: "Fast"
+        case .economy: "Economy"
         }
     }
+
+  /// Parse CLI / persisted tier ids, including legacy `flagship` and `fast`.
+  public static func parse(_ raw: String) -> SubstitutionTier? {
+    switch raw.lowercased() {
+    case "frontier", "flagship": return .frontier
+    case "balanced": return .balanced
+    case "economy", "fast": return .economy
+    default: return nil
+    }
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    let raw = try container.decode(String.self)
+    guard let tier = SubstitutionTier.parse(raw) else {
+      throw DecodingError.dataCorruptedError(
+        in: container,
+        debugDescription: "unknown substitution tier: \(raw)")
+    }
+    self = tier
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    try container.encode(rawValue)
+  }
 }
 
 /// Ordered model-id membership per tier. **Index 0 of each list is that tier's
@@ -26,40 +52,61 @@ public enum SubstitutionTier: String, Codable, Sendable, CaseIterable {
 /// compute to burn (e.g. a ChatGPT-max or unused-Opus month). A model in **zero**
 /// tiers is **Unassigned** (hand-pickable, never used by Auto, never a substitute).
 public struct TierMembership: Codable, Sendable, Equatable {
-    public var flagship: [ModelID]
+    public var frontier: [ModelID]
     public var balanced: [ModelID]
-    public var fast: [ModelID]
+    public var economy: [ModelID]
 
-    public init(flagship: [ModelID] = [], balanced: [ModelID] = [], fast: [ModelID] = []) {
-        self.flagship = flagship
+    public init(frontier: [ModelID] = [], balanced: [ModelID] = [], economy: [ModelID] = []) {
+        self.frontier = frontier
         self.balanced = balanced
-        self.fast = fast
+        self.economy = economy
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case frontier, balanced, economy
+        case flagship, fast
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        frontier = try c.decodeIfPresent([ModelID].self, forKey: .frontier)
+            ?? c.decodeIfPresent([ModelID].self, forKey: .flagship) ?? []
+        balanced = try c.decodeIfPresent([ModelID].self, forKey: .balanced) ?? []
+        economy = try c.decodeIfPresent([ModelID].self, forKey: .economy)
+            ?? c.decodeIfPresent([ModelID].self, forKey: .fast) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(frontier, forKey: .frontier)
+        try c.encode(balanced, forKey: .balanced)
+        try c.encode(economy, forKey: .economy)
     }
 
     public subscript(_ tier: SubstitutionTier) -> [ModelID] {
         get {
             switch tier {
-            case .flagship: flagship
+            case .frontier: frontier
             case .balanced: balanced
-            case .fast: fast
+            case .economy: economy
             }
         }
         set {
             switch tier {
-            case .flagship: flagship = newValue
+            case .frontier: frontier = newValue
             case .balanced: balanced = newValue
-            case .fast: fast = newValue
+            case .economy: economy = newValue
             }
         }
     }
 
-    /// Every tier a model belongs to, ordered Flagship → Balanced → Fast. Empty =
+    /// Every tier a model belongs to, ordered Frontier → Balanced → Economy. Empty =
     /// Unassigned. (Membership is many-to-many — a model can be in several tiers.)
     public func tiers(of modelId: ModelID) -> [SubstitutionTier] {
         SubstitutionTier.allCases.filter { self[$0].contains(modelId) }
     }
 
-    /// The highest-quality tier a model belongs to (Flagship > Balanced > Fast), or
+    /// The highest-quality tier a model belongs to (Frontier > Balanced > Economy), or
     /// nil if Unassigned. Used to substitute a down pinned model without downgrading.
     public func highestTier(of modelId: ModelID) -> SubstitutionTier? {
         tiers(of: modelId).first
@@ -67,7 +114,7 @@ public struct TierMembership: Codable, Sendable, Equatable {
 
     public func isUnassigned(_ modelId: ModelID) -> Bool { tiers(of: modelId).isEmpty }
 
-    public var assignedModelIds: Set<ModelID> { Set(flagship + balanced + fast) }
+    public var assignedModelIds: Set<ModelID> { Set(frontier + balanced + economy) }
 
     /// Add `id` to `tier` at `position` (clamped; nil = append), or move it within the
     /// tier if already present. Other tiers are untouched — membership is many-to-many.
@@ -103,9 +150,9 @@ public struct TierMembership: Codable, Sendable, Equatable {
             }
             return out
         }
-        return (TierMembership(flagship: dedupeWithinTier(flagship),
+        return (TierMembership(frontier: dedupeWithinTier(frontier),
                                balanced: dedupeWithinTier(balanced),
-                               fast: dedupeWithinTier(fast)), duplicates)
+                               economy: dedupeWithinTier(economy)), duplicates)
     }
 }
 
@@ -127,7 +174,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
 
     public init(
         schemaVersion: Int = DefaultModelSettings.currentSchemaVersion,
-        defaultTier: SubstitutionTier = .flagship,
+        defaultTier: SubstitutionTier = .frontier,
         allowHealthySubstitutions: Bool = true,
         tiers: TierMembership = TierMembership(),
         updatedAt: Date? = nil
@@ -142,21 +189,21 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// Fresh-install seed: ordered membership per tier across multiple CLIs so
     /// substitution always has somewhere to go even when a user has only one or two
     /// CLIs. Each tier's default (index 0) is on-by-default, so Auto works day-one.
-    /// Flagship-only: Fable 5 + ChatGPT 5.6 Sol. Balanced starts with the
+    /// Frontier: Fable 5 + ChatGPT 5.6 Sol. Balanced starts with the
     /// medium ChatGPT 5.6 Terra seat, then orders Opus, Cursor Grok, Kimi K3,
-    /// CLI Grok, Sonnet, Composer, then Gemini. Fast holds cheap/auto seats plus
+    /// CLI Grok, Sonnet, Composer, then Gemini. Economy holds cheap/auto seats plus
     /// Kimi K2.7 Code as the low-tier Kimi fallback.
-    /// Fast stays cheap/auto. Seed only — fully user-overridable.
+    /// Economy stays cheap/auto. Seed only — fully user-overridable.
     public static let fresh = DefaultModelSettings(
-        defaultTier: .flagship,
+        defaultTier: .frontier,
         allowHealthySubstitutions: true,
         tiers: TierMembership(
-            flagship: ["model_fable", "model_chatgpt"],
+            frontier: ["model_fable", "model_chatgpt"],
             balanced: [
                 "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
                 "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
             ],
-            fast: ["model_cursor_auto", "model_composer", "model_gemini", "model_kimi_k27"]))
+            economy: ["model_cursor_auto", "model_gemini", "model_kimi_k27"]))
 
     /// The tier's default model id (index 0), or nil when the tier is empty.
     public func tierDefault(_ tier: SubstitutionTier) -> ModelID? { tiers[tier].first }

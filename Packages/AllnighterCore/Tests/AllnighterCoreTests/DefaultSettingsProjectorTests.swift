@@ -43,41 +43,41 @@ final class DefaultSettingsProjectorTests: XCTestCase {
 
     func testProjectsTiersWithDefaultsAndMultiTierBadges() {
         let p = DefaultSettingsProjector.build(settings: .fresh, models: catalog(), contractVersion: "1.0.0")
-        XCTAssertEqual(p.defaultTier, "flagship")
+        XCTAssertEqual(p.defaultTier, "frontier")
         XCTAssertTrue(p.allowHealthySubstitutions)
-        XCTAssertEqual(p.tiers.map(\.tier), ["flagship", "balanced", "fast"])
+        XCTAssertEqual(p.tiers.map(\.tier), ["frontier", "balanced", "economy"])
 
-        let flagship = p.tiers[0]
-        XCTAssertTrue(flagship.isDefaultTier)
-        XCTAssertEqual(flagship.members.map(\.id),
+        let frontier = p.tiers[0]
+        XCTAssertTrue(frontier.isDefaultTier)
+        XCTAssertEqual(frontier.members.map(\.id),
                        ["model_fable", "model_chatgpt"])
-        XCTAssertEqual(flagship.defaultModelId, "model_fable")
-        XCTAssertTrue(flagship.members[0].isTierDefault)
-        XCTAssertFalse(flagship.members[1].isTierDefault)
-        XCTAssertEqual(flagship.substituteCount, 1)
-        XCTAssertEqual(flagship.readyCount, 2)
+        XCTAssertEqual(frontier.defaultModelId, "model_fable")
+        XCTAssertTrue(frontier.members[0].isTierDefault)
+        XCTAssertFalse(frontier.members[1].isTierDefault)
+        XCTAssertEqual(frontier.substituteCount, 1)
+        XCTAssertEqual(frontier.readyCount, 2)
 
-        // Gemini spans Balanced + Fast.
+        // Gemini spans Balanced + Economy.
         let balanced = p.tiers[1]
         XCTAssertEqual(balanced.members.map(\.id), [
             "model_chatgpt_terra", "model_opus", "model_cursor_grok_45", "model_kimi_k3",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         let gemini = balanced.members.first { $0.id == "model_gemini" }
-        XCTAssertEqual(gemini?.tiers, ["balanced", "fast"])
+        XCTAssertEqual(gemini?.tiers, ["balanced", "economy"])
 
-        let fast = p.tiers[2]
-        XCTAssertEqual(fast.members.map(\.id), [
-            "model_cursor_auto", "model_composer", "model_gemini", "model_kimi_k27"
+        let economy = p.tiers[2]
+        XCTAssertEqual(economy.members.map(\.id), [
+            "model_cursor_auto", "model_gemini", "model_kimi_k27"
         ])
-        let k27 = fast.members.first { $0.id == "model_kimi_k27" }
-        XCTAssertEqual(k27?.tiers, ["fast"])
+        let k27 = economy.members.first { $0.id == "model_kimi_k27" }
+        XCTAssertEqual(k27?.tiers, ["economy"])
     }
 
     func testUnassignedIsOnModelsNotInAnyTierSortedAToZ() {
         let p = DefaultSettingsProjector.build(settings: .fresh, models: catalog(), contractVersion: "1.0.0")
         // model_chatgpt_sol is on in the fixture catalog but Unassigned in the seed.
-        XCTAssertEqual(p.unassigned.map(\.id), ["model_chatgpt_sol", "model_extra"])
+        XCTAssertEqual(p.unassigned.map(\.id), ["model_chatgpt_sol", "model_composer", "model_extra"])
         XCTAssertFalse(p.unassigned.contains { $0.id == "model_off" })
     }
 
@@ -90,7 +90,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
     }
 
     func testAutoSubstitutesWhenDefaultDown() {
-        // Fable down; Codex Sol ready → Auto substitutes within Flagship.
+        // Fable down; Codex Sol ready → Auto substitutes within Frontier.
         let models = catalog(ready: ["model_chatgpt"])
         let p = DefaultSettingsProjector.build(settings: .fresh, models: models, contractVersion: "1.0.0")
         XCTAssertEqual(p.auto.resolvedModelId, "model_chatgpt")
@@ -99,7 +99,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
     }
 
     func testAutoDoesNotSubstituteToCursorSolEvenWhenOnlyCursorSolReady() {
-        // Cursor Sol is never a Flagship Auto substitute (paid Cursor quota).
+        // Cursor Sol is never a Frontier Auto substitute (paid Cursor quota).
         let models = catalog(ready: ["model_chatgpt_sol"])
         let p = DefaultSettingsProjector.build(settings: .fresh, models: models, contractVersion: "1.0.0")
         XCTAssertNil(p.auto.resolvedModelId)
@@ -122,16 +122,16 @@ final class DefaultSettingsProjectorTests: XCTestCase {
         let p = DefaultSettingsProjector.build(settings: .fresh, models: models, contractVersion: "1.0.0")
         XCTAssertNil(p.auto.resolvedModelId)
         XCTAssertTrue(p.auto.blocked)
-        XCTAssertEqual(p.auto.waitsMessage, "No model on Flagship — waits")
+        XCTAssertEqual(p.auto.waitsMessage, "No model on Frontier — waits")
     }
 
     func testOffBenchModelIsNeverLiveAndNeverResolvedByAuto() {
-        // A Flagship tier where the default (fable) is OFF-bench but its driver is
+        // A Frontier tier where the default (fable) is OFF-bench but its driver is
         // "ready" upstream, and Codex Sol is genuinely live. Auto must skip the
         // off-bench default and substitute to Codex Sol — never run a model the
         // user turned off.
         var s = DefaultModelSettings.fresh
-        s.tiers.flagship = ["model_fable", "model_chatgpt"]
+        s.tiers.frontier = ["model_fable", "model_chatgpt"]
         let models = [
             entry("model_fable", "Fable 5", enabled: false, ready: true),   // driver up, but OFF bench
             entry("model_chatgpt", "ChatGPT 5.6 Sol", driver: "codex", enabled: true, ready: true),
@@ -153,7 +153,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
                   driverId: "codex", role: .both, enabled: false),
         ]
         var s = DefaultModelSettings.fresh
-        s.tiers.flagship = ["model_fable", "model_chatgpt"]
+        s.tiers.frontier = ["model_fable", "model_chatgpt"]
         let p = DefaultSettingsProjector.build(
             settings: s, benchModels: models,
             sourceReadyModelIds: ["model_fable", "model_chatgpt"],   // both sources up
@@ -167,7 +167,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
 
     func testStaleTierIdIsDroppedFromRender() {
         var s = DefaultModelSettings.fresh
-        s.tiers.flagship.append("model_ghost")   // id not in catalog
+        s.tiers.frontier.append("model_ghost")   // id not in catalog
         let p = DefaultSettingsProjector.build(settings: s, models: catalog(), contractVersion: "1.0.0")
         XCTAssertFalse(p.tiers[0].members.contains { $0.id == "model_ghost" })
     }

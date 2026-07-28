@@ -25,9 +25,9 @@ final class ReproduceCommandTests: XCTestCase {
 
     private func settings() -> DefaultModelSettings {
         DefaultModelSettings(
-            defaultTier: .flagship,
+            defaultTier: .frontier,
             allowHealthySubstitutions: true,
-            tiers: TierMembership(flagship: ["model_sonnet"], balanced: ["model_sonnet"], fast: ["model_sonnet"]))
+            tiers: TierMembership(frontier: ["model_sonnet"], balanced: ["model_sonnet"], economy: ["model_sonnet"]))
     }
 
     /// A double-quote-aware tokenizer so a quoted prompt survives as one token.

@@ -54,10 +54,10 @@
     "ruleId" : "contract.artifacts.not_found"
   },
   {
-    "agentAction" : "Use one of flagship | balanced | fast.",
+    "agentAction" : "Use one of frontier | balanced | economy.",
     "code" : "DEFAULTS_TIER_INVALID",
     "exitClass" : "usage",
-    "explain" : "The tier name was not one of flagship, balanced, or fast.",
+    "explain" : "The tier name was not frontier, balanced, or economy. Legacy names flagship and fast still parse but are retired.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "defaults.tier.invalid"

@@ -216,8 +216,8 @@ without a new founder ruling.
 - Team selection owns work shape. Effort (Low/Med/High) is per-worker model
   reasoning level only — never a generic team-depth toggle. Depth is a bigger
   team (Min/Default/Max families), not an effort dial.
-- Healthy model substitution is same-shelf only (user-governed Flagship /
-  Balanced / Fast tiers); it may cross CLIs inside a shelf, never silently
+- Healthy model substitution is same-tier only (user-governed Frontier /
+  Balanced / Economy tiers); it may cross CLIs inside a tier, never silently
   upgrades/downgrades or leaves the selected shelf.
 - Do not estimate future cost, quota burn, runtime, or task complexity.
 - Capacity state is observed, sourced, timestamped, and local by default.

@@ -62,8 +62,8 @@ final class RunAcceptanceBoundaryTests: XCTestCase {
             id: "model_cursor_composer_25", displayName: "Cursor Composer",
             modelLabel: "composer-2.5", driverId: "cursor_agent", role: .both)
         let settings = DefaultModelSettings(
-            defaultTier: .flagship, allowHealthySubstitutions: true,
-            tiers: TierMembership(flagship: ["model_cursor_composer_25"]))
+            defaultTier: .frontier, allowHealthySubstitutions: true,
+            tiers: TierMembership(frontier: ["model_cursor_composer_25"]))
         let probe = ToolProbeRecord(driverId: "cursor_agent", status: .ready(version: "1.0"), lastProbeAt: .distantPast)
         let registry = RunWriteLockRegistry()
         let service = RunService(

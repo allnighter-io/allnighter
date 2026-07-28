@@ -69,8 +69,8 @@ final class SingleRunOwnerInvariantTests: XCTestCase {
             commandRunner: MockCommandRunner(scripts: [driverCommand: .init(stdout: "# Answer\nok", exitCode: 0)]),
             writeLock: RunWriteLockRegistry(),
             defaultSettings: {
-                DefaultModelSettings(defaultTier: .flagship, allowHealthySubstitutions: true,
-                                     tiers: TierMembership(flagship: [model.id]))
+                DefaultModelSettings(defaultTier: .frontier, allowHealthySubstitutions: true,
+                                     tiers: TierMembership(frontier: [model.id]))
             },
             probeRecords: {
                 [ToolProbeRecord(driverId: model.driverId, status: .ready(version: "1"), lastProbeAt: .distantPast)]
@@ -113,8 +113,8 @@ final class SingleRunOwnerInvariantTests: XCTestCase {
             commandRunner: MockCommandRunner(scripts: ["grok": .init(stdout: "Done.", exitCode: 0)]),
             writeLock: RunWriteLockRegistry(),
             defaultSettings: {
-                DefaultModelSettings(defaultTier: .flagship, allowHealthySubstitutions: true,
-                                     tiers: TierMembership(flagship: ["model_grok"]))
+                DefaultModelSettings(defaultTier: .frontier, allowHealthySubstitutions: true,
+                                     tiers: TierMembership(frontier: ["model_grok"]))
             },
             probeRecords: {
                 [ToolProbeRecord(driverId: "grok", status: .ready(version: "1"), lastProbeAt: .distantPast)]
