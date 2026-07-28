@@ -2,7 +2,7 @@ import Foundation
 import AllnighterCore
 
 /// URN-S02 — "dispatch guarantees a live notifier"
-/// (`docs/phases/Unattended_Round_Notification.md`). URN-S01 taught `alln
+/// (`docs/archive/phases/Unattended_Round_Notification.md`). URN-S01 taught `alln
 /// serve` to post OS notifications for relay/pilot state, but that is inert
 /// for a founder who never remembered to start it. The four `pair` verbs that
 /// actually dispatch a real dev turn (`pilot handoff`, `relay`, `relay-resume`,

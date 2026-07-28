@@ -1,7 +1,14 @@
 # Unattended round notification — CEO decision brief
 
-Status: **Approved — Ready for Implementation.** URN-S01 → URN-S02 (silent
-auto-launch, default-on) → URN-S03, in order. URN-S04–S06 deferred.
+Status: **Code Complete 2026-07-27 — URN-S01/S02/S03 shipped, full automated
+proof green** (2277 tests, `check_architecture_policy.sh`,
+`export-contracts --check`, deslop + Code Audit CLEAN). **One proof step
+remains, unwaived:** the on-host macOS banner (Works Test step 3 below) needs
+a live confirmation on the founder's own Mac — no environment used to build
+this can visually observe a real Notification Center banner. Not claimed as
+shipped until that runs once. URN-S04–S06 deferred, not authorized to resume
+without a fresh founder scoping — re-scope as a new packet, don't reopen this
+one.
 Updated: 2026-07-27
 Owner: Allnighter product (CLI / Pilot / Relay / `alln serve`) — code SSOT once
 approved: `ServeDaemon.swift`, `NotificationCandidateDetection.swift`,
@@ -457,3 +464,26 @@ and must be run on the founder's Mac before this packet is called shipped.
 - Closeout: promote nothing to a standing doc (behavior is code-owned), then
   archive this packet to `docs/archive/phases/` naming `ServeDaemon.swift` /
   `NotificationCandidateDetection.swift` / `PilotCLI.swift` as successors.
+
+---
+
+## Closeout (2026-07-27)
+
+| Slice | Commit | What |
+| --- | --- | --- |
+| URN-S01 | `2ea59585` | `NotificationScheduler` in `alln serve`'s `TaskGroup`; `osascript` delivery via `CommandRunner`; own dedupe ledger; `ThreadsViewModel` suppresses when the daemon is `.available` |
+| URN-S02 | `53a5df9a` | `ServeAutoLaunch` wired into `pair pilot handoff` / `pair relay` / `pair relay-resume` / `pair relay adopt`; `--no-auto-serve` / `ALLN_NO_AUTO_SERVE`; `serveAutoLaunch` on `PilotHandoffDispatchJSON`; contract 4.0.9 → 4.1.0, binary 0.10.0 → 0.10.1 |
+| URN-S03 | `d0e0f8dc` | `relayNeedsAnswer`/`relayStopped` `NotificationEventKind`; fixed a real bug beyond the spec's paraphrase (`eventForCompletedTurn` returned `nil` for every `.systemEvent`-kind terminal turn, so a stopped relay produced no candidate at all); deleted the two stale "deferred to R-S08" comments |
+| Teaching surface | `ee88503d` | `serve` `CommandSpec` names notifications + auto-launch; `pm_relay` help topic gains a "notify" section + discovery aliases; contracts regenerated |
+| Deslop + Code Audit | `420b1a20` | Deslop found and fixed one real duplication (executable-resolution fallback copy-pasted from `PilotCLI` into `ServeAutoLaunch` instead of shared) — extracted to `ProcessOwnership.resolveRunningExecutablePath`. Code Audit verdict **CLEAN**: confirmed `alln serve`'s real CLI entry point (not just tests) always wires `NotificationScheduler` in; confirmed S01/S03 compose (no stale exhaustive-switch case list drops the two new event kinds) |
+
+Proof: `swift test --package-path Packages/AllnighterCore` — 2277 tests, 0
+failures, 6 pre-existing skips. `scripts/check_architecture_policy.sh` green.
+`alln dev export-contracts --check` clean (26 artifacts, contract 4.1.0).
+Full `xcodebuild test -scheme AllnighterMac` run for the new suppression test
+during URN-S01. **Not run: the on-host banner** — see Status above.
+
+Archived to `docs/archive/phases/Unattended_Round_Notification.md`. Living
+route: code SSOT above + `AGENTS.md` / archive index. URN-S04–S06 (exit-code
+split, lock-status preflight, blocking wait verb) remain unbuilt and
+unauthorized to resume without a fresh founder scoping.

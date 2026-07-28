@@ -3,7 +3,7 @@ import AllnighterCore
 @testable import AllnighterEngine
 
 /// URN-S02 — "dispatch guarantees a live notifier"
-/// (`docs/phases/Unattended_Round_Notification.md`). `ServeAutoLaunch` is the
+/// (`docs/archive/phases/Unattended_Round_Notification.md`). `ServeAutoLaunch` is the
 /// read-then-shell-out guarantee the four `pair` dispatch verbs call before
 /// starting a real dev turn: `ServeDaemonProbe` is the single liveness check,
 /// a miss spawns a detached `alln serve`, and a launch failure is swallowed

@@ -48,7 +48,7 @@ public struct DeliveredNotificationLedgerStore: Sendable {
 /// Resident loop for `alln serve`: posts local OS notifications for
 /// relay/pilot/team-run state so CLI-only work notifies the founder with the
 /// Mac app closed (URN-S01,
-/// `docs/phases/Unattended_Round_Notification.md`). Strictly
+/// `docs/archive/phases/Unattended_Round_Notification.md`). Strictly
 /// read-then-shell-out — it reads `ThreadStore`/`RunStore`/
 /// `NotificationPolicyStore` and spawns `osascript`. It never touches
 /// `RunService`, `AsyncTeamService`, or `RunWriteLockRegistry`: no run
