@@ -1,6 +1,6 @@
-# Seat / Skill Sharing
+# Worker / Skill Sharing
 
-Status: **Brainstorm — founder direction locked on vocabulary + sharing model**;
+Status: **Founder direction locked** — vocabulary + sharing model + no-fork rule;
 implementation packet not started
 Owner: AllnighterCore + Mac app
 Created: 2026-07-28
@@ -16,49 +16,102 @@ Related: `docs/archive/phases/Team_And_Skill_Catalogs.md`,
 
 Define reusable instructions once — Bug Hunter, Copywriter, Documenter — and
 staff them on many teams. Edit the Copywriter skill in one place; Spec Review,
-an ephemeral `--seat` run, and Bug Hunt all inherit the same prompt.
+Bug Hunt Min, and Bug Hunt Max all inherit the same `skill.md`.
 
-Analogy: **Claude Code Skills** — a skill is a shared `SKILL.md`; sessions pick
-it up. Allnighter must not fork a private copy every time someone tunes a seat.
+Analogy: **Claude Code Skills** — a skill is a shared `SKILL.md`; workers pick
+it up. **No silent forking.** Editing a skill changes the skill for every team
+that uses it.
 
 ## Vocabulary (locked)
 
-Drop **worker** as a product noun. It collided with **skill** and **prompt** in
-the UI (“First Principles Reviewer” on the roster, again under SKILL, again as
-PROMPT body).
+Two surfaces, two words — not one noun for everything.
 
-| Term | Meaning |
-| --- | --- |
-| **Team** | A saved lineup of seats (+ lead, scout) |
-| **Seat** | One slot on a team — **model + skill** (who wears which hat) |
-| **Skill** | Reusable instructions (the hat); shared across teams |
-| **Model** | Which CLI/model runs the seat |
-| **skill.md** | The skill’s template body (not a separate “prompt”) |
+### Team / staffing view → **Worker**
+
+The team editor is a crew roster. Keep user-facing copy:
+
+- **WORKERS** section
+- **+ Add worker**
+- **N workers + 1 lead** footer
+- **Team Lead** (synthesizer; same model + skill shape, separate section)
+
+A **worker** on a team = **skill + model** (who wears which hat, on which CLI).
 
 ```text
-Team  = roster of seats
-Seat  = modelId + skillId
-Skill = name + lane + purpose + skill.md
+First Principles Reviewer · Auto
+         ↑ skill (display name)   ↑ model
 ```
 
-A team needs **seats**, not “workers.” **Staff seat** is the editor action (not
-“Customize worker”).
+The row label is the skill name because that is how you identify the role. The
+worker is the staffed row; the skill is the shared hat it wears.
+
+### Drill-in → **Model · Skill · skill.md**
+
+Tap a worker to **edit worker** — assign model, pick skill, edit the shared body.
+
+| Field | Meaning |
+| --- | --- |
+| **Model** | Who runs this worker |
+| **Skill** | Which shared hat (catalog picker) |
+| **skill.md** | The skill’s template body — **not** a separate “prompt” |
+
+### Catalog / sharing → **Skill**
+
+Reusable across teams. Many workers on many teams can reference the same
+`skillId`. One edit → all of them.
+
+### Internal / code (optional)
+
+`TeamWorkerSpec`, `skillId`, CLI `alln skills` — implementation names can stay.
+**Seat** is fine in architecture docs; not required in the team staffing UI.
+
+```text
+Team    = workers + lead (+ scout)
+Worker  = skillId + modelId (one roster row)
+Skill   = name + lane + purpose + skill.md (shared catalog entry)
+```
 
 Ephemeral runs (`alln run --team … --seat …`) inherit the team’s skill ids; only
 models change per run — no new skill files.
 
+## No forking (locked — the mess is gone)
+
+**Fork-on-save is retired.** Saving an edited `skill.md` writes a **skill
+override at the same id** (mirror team overrides), not `createCustom()` and not
+`"<Skill> for <Team>"` repointing.
+
+| Action | Behavior |
+| --- | --- |
+| Edit skill.md on a worker | Updates the **shared skill**; every team with that skill id inherits |
+| Restore default | Drops override; shipped seed returns |
+| Duplicate skill… | **Explicit only** — new id, user assigns workers manually |
+
+The 86 orphan lab forks were a symptom of the old rule (73 GC’d 2026-07-28;
+`alln skills gc` remains for cleanup). Do not reintroduce silent fork-on-save.
+
 ## Target UX (locked)
 
-Roster row (unchanged shape, clearer meaning):
+### Team editor (keep “worker”)
 
 ```text
-First Principles Reviewer · Auto
-         ↑ skill name          ↑ model
+TEAM LEAD
+  Spec Review Writer · Fable 5
+
+WORKERS
+  First Principles Reviewer · Auto
+  Doc Hygiene Reviewer · Auto
+  …
+
++ Add worker
+
+5 workers + 1 lead · saved as a code team you can pick in the composer
 ```
 
-**Staff seat** editor — field order and labels:
+### Edit worker (drill-in)
 
 ```text
+Edit worker · Spec Review
+
 MODEL
 [ Auto ▼ ]
 
@@ -71,134 +124,93 @@ skill.md
 └─────────────────────────────────────┘
 Shared across every team that uses this skill.
 
-[ Cancel ]  [ Save ]
+[ Cancel worker changes ]  [ Done ]
 ```
 
 Changes from today:
 
 1. **Model first** — primary staffing decision.
-2. **Skill** — pick the shared hat (catalog dropdown).
-3. **`skill.md`** — replaces the PROMPT label; editing here must mean editing the
-   **shared skill**, not a seat-local string.
-4. Footer copy: shared-skill scope (all teams on this skill id).
-5. **Restore default** on edited built-in skills (mirror team overrides).
+2. **Skill** — shared catalog picker (not a duplicate of the row label).
+3. **`skill.md`** — replaces PROMPT; edits the shared skill.
+4. **Restore default** on edited built-in skills.
+5. Footer: scope of sharing (all teams on this skill id).
 
-**Guardrail:** `skill.md` labeling is honest only after fork-on-save is removed
-and save writes an override at the same skill id (see B1 below). Until then,
-the label would lie.
+## Sharing model (implementation)
 
-## Sharing Model (locked)
+**B1 — skill overrides (mirror teams)** — preferred path:
 
-**Option B — shared skill entity** (Claude Code mental model):
+- `SkillCatalog.get(id)` → user override at same id ?? built-in seed.
+- GUI Done / `alln skills edit <id>` write override; restore deletes it.
+- Bug Hunt Min / Default / Max keep `skillId: bug_reproducer` → all pick up edits.
+- Runs snapshot resolved prompt at dispatch.
 
-- Tune = edit the skill once at its id.
-- Teams keep referencing `skillId`; many teams, one hat.
-- Explicit **Duplicate skill** when the user wants a fork, not silent fork-on-save.
+**B2 — explicit duplicate** only when the user chooses “Duplicate skill…”.
 
-Rejected as the default product story:
+Rejected: fork per team on save (old `TeamDraft.commit()` behavior).
 
-- **Option A** — fork per team on every prompt edit (today’s mess).
-- **Option C / B3** — prompt override on the team row (team-local unless we add
-  a second shared layer; more concepts).
+## What works today
 
-**B1 — skill overrides (mirror teams)** is the preferred implementation path:
+Built-in skills already share by id across team variants. Team overrides at same
+id work; skill overrides do not yet (`builtInImmutable`).
 
-- `SkillCatalog.get(id)` → user override file at same id ?? built-in seed.
-- GUI Save / `alln skills edit <id>` write the override; **Restore** deletes it.
-- Bug Hunt Min / Default / Max keep `skillId: bug_reproducer` → all pick up the edit.
-- Runs snapshot resolved prompt at dispatch (history stays readable).
+## What was broken (being fixed)
 
-**B2 — named shared customs** remains for intentional forks only (`Duplicate
-skill…` → new id → assign seats).
+1. **Fork-on-save** — `TeamDraft.commit()` → `createCustom()`; sharing destroyed.
+2. **No skill override-at-same-id** — unlike teams.
+3. **SKILL + PROMPT UI** — looked like two concepts; PROMPT was the skill body.
+4. **Skills settings tab** — orphan junk drawer (removed 2026-07-28).
 
-## What Works Today
+## Implementation phases
 
-**Built-ins already share by id.** Bug Hunt Min / Default / Max reference the same
-skill ids (`bug_reproducer`, …). One seed in `SkillCatalog` → all seats with
-that id get the same assembled prompt.
+### Phase 1 — No forking (required)
 
-**Teams can override at the same id** (restore to seed). Skills cannot —
-`builtInImmutable` / `idCollision`; no override layer.
-
-## What Breaks Sharing
-
-### 1. Fork-on-save (`TeamDraft.commit()`)
-
-Staff seat → edit text → Save calls `SkillCatalog.createCustom()`, repoints
-**one** seat to a new id (`"<Skill> for <Team>"`). Sharing gone. Produced 86
-orphan lab files (73 GC’d 2026-07-28 via `alln skills gc`; 13 still referenced
-by lab teams).
-
-### 2. No skill override-at-same-id
-
-Teams: override at `code_bug_hunt.json`. Skills: built-in always wins lookup.
-
-### 3. Vocabulary collision in the editor
-
-SKILL dropdown + PROMPT field implied two things; PROMPT was the skill body.
-Roster “worker” label was the skill display name again.
-
-### 4. Standalone Skills settings tab (removed 2026-07-28)
-
-Orphan junk drawer; removed. Tune at the seat. Picker: built-ins + this team’s
-referenced customs only.
-
-## Implementation Phases (proposed)
-
-### Phase 1 — Stop the bleeding
-
-- Kill fork-on-save; default Save → skill override at same id.
+- Remove fork-on-save from `TeamDraft.commit()`.
 - `SkillCatalog.saveOverride` / `restore` (mirror `TeamCatalog`).
 - CLI: `alln skills edit` / `restore` on built-in ids.
 
-### Phase 2 — Staff seat UI
+### Phase 2 — Edit worker UI
 
-- Rename “Customize worker” → **Staff seat**.
-- Reorder: Model → Skill → `skill.md`.
-- Restore default + “shared across teams” footer.
+- Keep **Workers** / **Add worker** on team editor.
+- Drill-in: Model → Skill → `skill.md`; shared-skill footer + Restore default.
+- Drop PROMPT label; honest `skill.md` once Phase 1 ships.
 
-### Phase 3 — Skill library (optional surface)
+### Phase 3 — Skill library (optional)
 
-- Lane list of skills (built-in + customs); not a duplicate of seat editor.
-- Entry from seat editor (“manage skills…”) if needed.
+- Browse lane skills (built-in + customs); entry from edit worker if needed.
+- Not a separate tuning surface that forks.
 
-Code names (`skillId`, `TeamWorkerSpec`, `alln skills`) can stay; user-facing
-copy uses **seat** and **skill**.
+## Open questions (remaining)
 
-## Open Questions (remaining)
-
-1. **Auto GC:** run `alln skills gc` on app launch, or CLI/manual only?
-2. **Lab skills:** separate storage root (like `lab-teams`) so product pickers
-   never see lab customs?
-3. **Seat label ≠ skill name:** support cosmetic seat labels later, or keep
-   seat label = skill display name for v1?
+1. **Auto GC:** `alln skills gc` on app launch, or CLI/manual only?
+2. **Lab skills:** separate storage root (like `lab-teams`)?
 
 ## Answered (founder, 2026-07-28)
 
 | Question | Answer |
 | --- | --- |
-| Edit shared or fork per team? | **Shared** (override at same skill id). Fork only via explicit Duplicate. |
-| Bug Hunt family shares one Bug Reproducer? | **Yes** — requirement. |
-| Worker vs skill vs prompt? | **Seat** = model + skill; body is **skill.md**. Retire “worker” in UI. |
-| Agent path? | `alln skills edit <id>` + seat/team edits; agents tune skills, teams staff them. |
+| Worker vs skill vs prompt? | **Worker** on team roster (skill + model). **Skill** = shared hat. Body = **skill.md**. |
+| Edit shared or fork? | **Shared.** No silent forking. Duplicate skill is explicit only. |
+| Bug Hunt family shares Bug Reproducer? | **Yes.** |
+| “Seat” in team UI? | **No** — keep **worker** for staffing view; seat is internal if needed. |
+| Agent path? | `alln skills edit <id>` + team/worker staffing via GUI or `teams edit`. |
 
-## Non-Goals (this packet)
+## Non-goals
 
 - Cross-lane skills.
 - Skill marketplace / import-export.
 - Version history UI.
 
-## Smallest Proof Slice
+## Smallest proof slice
 
 ```text
-1. Staff seat → edit skill.md for bug_reproducer → Save (override, not fork).
+1. Edit worker → change skill.md for bug_reproducer → Done (override, not fork).
 2. Run Bug Hunt Min and Bug Hunt Max on the same fixture.
-3. Both seats receive the updated template.
+3. Both workers receive the updated template.
 4. Restore default → both teams revert to shipped seed.
 ```
 
-## Shipped Adjacent (2026-07-28)
+## Shipped adjacent (2026-07-28)
 
 - Removed Settings → Skills tab.
-- Seat skill picker: built-ins + this team’s referenced customs only.
-- `alln skills gc` — delete custom skills not referenced by any product or lab team.
+- Worker skill picker: built-ins + this team’s referenced customs only.
+- `alln skills gc` — delete unreferenced custom skills.
