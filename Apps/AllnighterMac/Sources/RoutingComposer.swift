@@ -1142,7 +1142,13 @@ struct RoutingComposer: View {
                         ForEach(ranked.rest) { teamButton($0) }
                     }
                 } else {
-                    let results = all.filter { matchesTeamQuery($0, q) }
+                    let results = all
+                        .filter { matchesTeamQuery($0, q) }
+                        .sorted { a, b in
+                            let af = appModel.isFavorite(a.id), bf = appModel.isFavorite(b.id)
+                            if af != bf { return af && !bf }
+                            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+                        }
                     if results.isEmpty {
                         teamPickerEmpty("No teams found")
                     } else {
@@ -1158,7 +1164,7 @@ struct RoutingComposer: View {
     /// remaining teams A–Z. `top` is the ranked cluster, `rest` is the A–Z tail (rendered
     /// below a divider). Deduped — each team appears once, in its highest tier.
     private func rankedTeams(_ all: [ComposeTeam]) -> (top: [ComposeTeam], rest: [ComposeTeam]) {
-        let favs = all.filter(\.isFavorite)
+        let favs = all.filter { appModel.isFavorite($0.id) }
         var used = Set(favs.map(\.id))
         let recents = recentTeams(from: all).filter { used.insert($0.id).inserted }
         let featured = all.filter { $0.isFeatured && used.insert($0.id).inserted }
@@ -1295,17 +1301,21 @@ struct RoutingComposer: View {
     }
 
     private func teamButton(_ t: ComposeTeam) -> some View {
-        HStack(spacing: 6) {
+        let isFavorite = appModel.isFavorite(t.id)
+        return HStack(spacing: 6) {
             Button { selectTeam(t) } label: { teamRowBody(t) }.buttonStyle(.plain)
             // Star toggles favorite without selecting the team. Neutral fill — the
             // shape says "favorite", no color needed (color earns its place).
-            Button { appModel.toggleFavorite(t.id) } label: {
-                Image(systemName: t.isFavorite ? "star.fill" : "star").font(.system(size: 12))
-                    .foregroundStyle(t.isFavorite ? ALColor.textSecondary : ALColor.textFaint)
+            Button {
+                appModel.toggleFavorite(t.id)
+                refreshPickerTeams()
+            } label: {
+                Image(systemName: isFavorite ? "star.fill" : "star").font(.system(size: 12))
+                    .foregroundStyle(isFavorite ? ALColor.textSecondary : ALColor.textFaint)
                     .frame(width: 22, height: 22)
             }
             .buttonStyle(.plain)
-            .help(t.isFavorite ? "Remove from favorites" : "Add to favorites")
+            .help(isFavorite ? "Remove from favorites" : "Add to favorites")
         }
         .padding(.horizontal, 9).padding(.vertical, 8)
         .background(highlightedTargetItem == .team(t.id) ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
