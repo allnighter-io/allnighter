@@ -933,13 +933,7 @@ public enum ProcessOwnership {
         return try body()
     }
 
-    /// Spawn a detached runner in its own process group with stdio redirected to
-    /// files and optional working directory. Child must call `becomeSessionLeader()`
-    /// at entry.
-    ///
-    /// Spawn a child as its own process-group leader via `posix_spawn` +
-    /// `POSIX_SPAWN_SETPGROUP` (same mechanism as worker/dev-turn spawns). Never
-    /// invents pgid after the fact — SETPGROUP makes `pgid == pid` at creation.
+    /// How the child's stdio FDs are wired for a process-group-leader spawn.
     public enum SpawnStdioMode: Sendable {
         case devNull
         case path(String)
