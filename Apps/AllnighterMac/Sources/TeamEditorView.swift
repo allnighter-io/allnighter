@@ -6,37 +6,23 @@ import AllnighterCore
 // duplicates it to a NEW custom (the built-in is never mutated). Models are always
 // picked by NAME — never "strongest" (founder ICP rule).
 
-/// In-memory edit state for one team. Pure of UI; `commit()` is the only write.
+/// In-memory edit state for one team. Pure of UI; `commit()` writes roster only.
+/// Skill bodies commit separately via `WorkerSkillCommit` on Worker Done.
 struct TeamDraft: Equatable {
     let base: TeamPreset
     var name: String
     var rows: [Row]
-    /// The mandatory Team Lead (synthesizer) — exactly one, never removable. Editable
-    /// like a worker (skill + model + prompt); its prompt forks on save the same way.
     var lead: Row
-    /// Optional Stage-0 scout (Signal teams). Grabs/distills the source first. nil
-    /// for teams without a scout (non-Signal, or the landscape-scan Signal team).
     var scout: Row?
     var allowSubstitutions: Bool
     var mutating: Bool
 
-    /// One worker's pending edit state (the rescue's TeamWorkerDraft). Prompt edits
-    /// live here and are forked into a custom skill ONLY at team Save — never
-    /// mutating the shared/built-in skill, never written before Save.
+    /// One worker's roster row (skill + model). Skill catalog writes happen on Worker Done.
     struct Row: Identifiable, Equatable {
         let id: String
         var skillId: String
         var modelId: String?
         var purpose: TeamWorkerPurpose
-        /// Edited prompt for this worker. nil = use `skillId`'s template as-is (no fork).
-        var promptDraft: String? = nil
-        /// The skill whose template seeded `promptDraft` (so a skill change can ask
-        /// before discarding an edit).
-        var promptBaseSkillId: String? = nil
-        /// User-chosen name for the would-be custom skill. nil = auto-name a fork
-        /// "<Skill> for <Team>". An empty `skillId` means a brand-new skill (type-to-
-        /// create) named by this; it then requires `promptDraft`.
-        var customSkillName: String? = nil
     }
 
     /// Seed from a base team. The name stays the base team's real name — selecting a
@@ -63,15 +49,9 @@ struct TeamDraft: Equatable {
         }
     }
 
-    /// A role is complete when it has either an existing skill or a fully-specified
-    /// new skill (name + prompt) to create on save. The model may be nil = Auto.
+    /// A role is complete when it has a skill id. nil model = Auto.
     static func rowComplete(_ r: Row) -> Bool {
-        // Every role needs a named model before Save — a model-less worker can't run.
-        guard r.modelId != nil else { return false }
-        guard r.skillId.isEmpty else { return true }
-        let hasName = !((r.customSkillName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        let hasPrompt = !((r.promptDraft ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        return hasName && hasPrompt
+        !r.skillId.isEmpty
     }
 
     /// Save is allowed only when every role — and the Lead — is complete.
@@ -84,22 +64,10 @@ struct TeamDraft: Equatable {
         (mutating || Self.rowComplete(lead))
     }
 
-    /// Persist as a custom team and return its id. Built-in base → duplicate to a
-    /// fresh custom; existing custom → save in place. Throws CatalogError on
-    /// validation failure (e.g. a skill from another lane).
-    /// Save-time forking (rescue S01A): one transaction-like sequence.
-    ///   for each row with an edited prompt → fork a custom skill, repoint the row;
-    ///   then save the custom team. If anything fails, roll back every custom skill
-    ///   (and a freshly-duplicated team) created in this attempt — no orphans.
-    /// Built-in source skills/teams are never mutated; the fork is a normal custom
-    /// SkillDefinition named "<Skill> for <Team>".
+    /// Persist roster facts only (skill ids + model picks). Skill bodies are committed
+    /// on Worker Done via `WorkerSkillCommit`, not here.
     @discardableResult
     func commit() throws -> TeamID {
-        // A mutating (execution) team is ONE agent on ONE CLI. If the user's rows span
-        // more than one source, REJECT — never silently keep only the first worker
-        // (the `rows.prefix(1)` collapse below would otherwise hide the conflict). The
-        // editor surfaces this live via `executionSourceConflictMessage`; enforce it
-        // here too so every caller of commit() is held to the same rule.
         if mutating {
             let bench = Dictionary(ModelCatalog.list().map { ($0.id, $0.driverId) },
                                    uniquingKeysWith: { a, _ in a })
@@ -109,127 +77,92 @@ struct TeamDraft: Equatable {
             }
         }
         let fallback: ModelFallbackPolicy = allowSubstitutions ? .laneCapable : .exactOnly
-        // Editing a team keeps its name — no "(custom)" suffix. A built-in edit saves
-        // the user's version in place at the same id; the shipped seed stays for Restore.
         let saveName = name
-        var forkedSkillIds: [SkillID] = []
         var duplicatedTeamId: TeamID?
 
-        func rollback() {
-            for id in forkedSkillIds { try? SkillCatalog.deleteCustom(id) }
-            if let duplicatedTeamId { try? TeamCatalog.deleteCustom(duplicatedTeamId) }
-        }
-
-        // A row's effective skill. Makes a custom skill when the prompt was edited
-        // (fork) OR there's no source skill (type-to-create). Otherwise the skill is
-        // used as-is. The custom name is the user's chosen name, else auto
-        // "<Skill> for <Team>". Tracked for rollback. Shared by workers + Lead.
-        func resolveSkill(_ row: Row, defaultPurpose: SkillPurpose) throws -> String {
-            let prompt = (row.promptDraft ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            let makesCustom = !prompt.isEmpty || row.skillId.isEmpty
-            guard makesCustom else { return row.skillId }
-            let source = SkillCatalog.get(row.skillId)
-            let chosen = (row.customSkillName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            let name = chosen.isEmpty ? "\(source?.displayName ?? row.skillId) for \(saveName)" : chosen
-            let custom = try SkillCatalog.createCustom(
-                lane: base.lane, name: name,
-                purpose: source?.purpose ?? defaultPurpose, template: prompt
+        let effectiveRows = mutating ? Array(rows.prefix(1)) : rows
+        let specs: [TeamWorkerSpec] = try effectiveRows.map { row in
+            guard !row.skillId.isEmpty else {
+                throw CatalogError.teamInvalid("every worker needs a skill")
+            }
+            let original = base.workerSpecs.first { $0.id == row.id }
+            return TeamWorkerSpec(
+                id: row.id, skillId: row.skillId,
+                purpose: row.purpose, preferredModelId: row.modelId,
+                fallbackModelIds: original?.fallbackModelIds,
+                allowedModelIds: original?.allowedModelIds ?? [],
+                requiredCapabilityTags: original?.requiredCapabilityTags ?? [],
+                count: original?.count ?? 1, fallbackPolicy: fallback,
+                required: original?.required ?? true,
+                triangulate: original?.triangulate ?? false,
+                triangulatePreferenceIds: original?.triangulatePreferenceIds ?? []
             )
-            forkedSkillIds.append(custom.id)
-            return custom.id
+        }
+        let leadSpec: TeamLeadSpec
+        if mutating, let only = specs.first {
+            leadSpec = TeamLeadSpec(
+                skillId: only.skillId,
+                preferredModelId: only.preferredModelId,
+                fallbackModelIds: only.fallbackModelIds,
+                requiredCapabilityTags: only.requiredCapabilityTags,
+                fallbackPolicy: fallback,
+                dissentPolicy: base.lead.dissentPolicy
+            )
+        } else {
+            guard !lead.skillId.isEmpty else {
+                throw CatalogError.teamInvalid("the team lead needs a skill")
+            }
+            leadSpec = TeamLeadSpec(
+                skillId: lead.skillId,
+                preferredModelId: lead.modelId,
+                fallbackModelIds: base.lead.fallbackModelIds,
+                requiredCapabilityTags: base.lead.requiredCapabilityTags,
+                fallbackPolicy: fallback,
+                dissentPolicy: base.lead.dissentPolicy
+            )
         }
 
+        var team: TeamPreset
+        if base.builtIn {
+            team = base
+        } else if let existing = TeamCatalog.get(base.id) {
+            team = existing
+        } else {
+            let newId = TeamCatalog.freshCustomId(lane: base.lane, displayName: saveName)
+            team = base.duplicated(newId: newId, newName: saveName)
+            duplicatedTeamId = team.id
+        }
+        team.displayName = saveName
+        team.workerSpecs = specs
+        team.lead = leadSpec
+        if let s = scout {
+            let original = base.scout
+            team.scout = TeamWorkerSpec(
+                id: s.id, skillId: s.skillId, purpose: .answer,
+                preferredModelId: s.modelId,
+                fallbackModelIds: original?.fallbackModelIds,
+                allowedModelIds: original?.allowedModelIds ?? [],
+                requiredCapabilityTags: original?.requiredCapabilityTags ?? [],
+                count: original?.count ?? 1,
+                fallbackPolicy: original?.fallbackPolicy ?? .laneCapable,
+                required: original?.required ?? true,
+                triangulate: original?.triangulate ?? false,
+                triangulatePreferenceIds: original?.triangulatePreferenceIds ?? [])
+        } else {
+            team.scout = nil
+        }
+        team.mutating = mutating
+        if mutating {
+            team.executionSourceId = try Self.resolvedExecutionSourceId(from: specs, lead: leadSpec)
+        } else {
+            team.executionSourceId = nil
+        }
         do {
-            // 1) Fork edited prompts into custom skills; build the worker specs.
-            let effectiveRows = mutating ? Array(rows.prefix(1)) : rows
-            let specs: [TeamWorkerSpec] = try effectiveRows.map { row in
-                // Carry forward per-row facts the editor doesn't expose so
-                // customizing a team never silently flattens its routing contract.
-                let original = base.workerSpecs.first { $0.id == row.id }
-                return TeamWorkerSpec(
-                    id: row.id, skillId: try resolveSkill(row, defaultPurpose: .answer),
-                    purpose: row.purpose, preferredModelId: row.modelId,
-                    fallbackModelIds: original?.fallbackModelIds,
-                    allowedModelIds: original?.allowedModelIds ?? [],
-                    requiredCapabilityTags: original?.requiredCapabilityTags ?? [],
-                    count: original?.count ?? 1, fallbackPolicy: fallback,
-                    required: original?.required ?? true,
-                    triangulate: original?.triangulate ?? false,
-                    triangulatePreferenceIds: original?.triangulatePreferenceIds ?? []
-                )
-            }
-            // 1b) The Team Lead. For an answer team this is the synthesizer (fork its
-            // prompt the same way). For a MUTATING team there is no separate lead —
-            // the single agent IS the source, so mirror the worker into the lead slot
-            // the data model still carries (kept identical, never a second agent).
-            let leadSpec: TeamLeadSpec
-            if mutating, let only = specs.first {
-                leadSpec = TeamLeadSpec(
-                    skillId: only.skillId,
-                    preferredModelId: only.preferredModelId,
-                    fallbackModelIds: only.fallbackModelIds,
-                    requiredCapabilityTags: only.requiredCapabilityTags,
-                    fallbackPolicy: fallback,
-                    dissentPolicy: base.lead.dissentPolicy
-                )
-            } else {
-                leadSpec = TeamLeadSpec(
-                    skillId: try resolveSkill(lead, defaultPurpose: .planWriter),
-                    preferredModelId: lead.modelId,
-                    fallbackModelIds: base.lead.fallbackModelIds,
-                    requiredCapabilityTags: base.lead.requiredCapabilityTags,
-                    fallbackPolicy: fallback,
-                    dissentPolicy: base.lead.dissentPolicy
-                )
-            }
-
-            // 2) Save the custom team. Built-in source → duplicate to a fresh custom;
-            // an existing custom → save in place; a brand-new draft (Add team) →
-            // mint a fresh custom id and create it.
-            var team: TeamPreset
-            if base.builtIn {
-                // Editing a shipped team writes the user's version at the SAME id (an
-                // override) — never a duplicate. Start from the seed and apply edits.
-                team = base
-            } else if let existing = TeamCatalog.get(base.id) {
-                team = existing
-            } else {
-                let newId = TeamCatalog.freshCustomId(lane: base.lane, displayName: saveName)
-                team = base.duplicated(newId: newId, newName: saveName)
-                duplicatedTeamId = team.id
-            }
-            team.displayName = saveName
-            team.workerSpecs = specs
-            team.lead = leadSpec
-            // Preserve / write the Stage-0 scout (Signal teams). Editing it here keeps
-            // the scout role rather than silently dropping it on customize.
-            if let s = scout {
-                let original = base.scout
-                team.scout = TeamWorkerSpec(
-                    id: s.id, skillId: s.skillId, purpose: .answer,
-                    preferredModelId: s.modelId,
-                    fallbackModelIds: original?.fallbackModelIds,
-                    allowedModelIds: original?.allowedModelIds ?? [],
-                    requiredCapabilityTags: original?.requiredCapabilityTags ?? [],
-                    count: original?.count ?? 1,
-                    fallbackPolicy: original?.fallbackPolicy ?? .laneCapable,
-                    required: original?.required ?? true,
-                    triangulate: original?.triangulate ?? false,
-                    triangulatePreferenceIds: original?.triangulatePreferenceIds ?? [])
-            } else {
-                team.scout = nil
-            }
-            team.mutating = mutating
-            if mutating {
-                team.executionSourceId = try Self.resolvedExecutionSourceId(from: specs, lead: leadSpec)
-            } else {
-                team.executionSourceId = nil
-            }
             try TeamCatalog.validateExecutionSourceGate(team)
             try TeamCatalog.saveCustom(team)
             return team.id
         } catch {
-            rollback()
+            if let duplicatedTeamId { try? TeamCatalog.deleteCustom(duplicatedTeamId) }
             throw error
         }
     }
@@ -328,10 +261,8 @@ struct TeamEditorView: View {
     /// answer/review worker.
     private var leadSkills: [Skill] { laneSkills.filter { $0.purpose == .planWriter } }
 
-    /// Built-in lane skills plus any custom skills this team (or its in-flight draft)
-    /// already references — not every orphan on disk.
+    /// Built-in identities (seed + override) plus custom skills this team references.
     static func pickerSkills(for draft: TeamDraft, lane: WorkLane) -> [Skill] {
-        let builtIns = SkillCatalog.list(lane: lane).filter(\.builtIn)
         var refIds = Set<String>()
         for row in draft.rows + [draft.lead] + (draft.scout.map { [$0] } ?? []) where !row.skillId.isEmpty {
             refIds.insert(row.skillId)
@@ -339,12 +270,13 @@ struct TeamEditorView: View {
         for spec in draft.base.workerSpecs where !spec.skillId.isEmpty { refIds.insert(spec.skillId) }
         if !draft.base.lead.skillId.isEmpty { refIds.insert(draft.base.lead.skillId) }
         draft.base.scout.map { if !$0.skillId.isEmpty { refIds.insert($0.skillId) } }
-        let customs = refIds.compactMap { SkillCatalog.get($0) }
-            .filter { !$0.builtIn && $0.lane == lane }
-        var seen = Set<String>()
-        return (builtIns + customs)
-            .filter { seen.insert($0.id).inserted }
-            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+        return SkillCatalog.list(lane: lane).filter { skill in
+            switch SkillCatalog.origin(of: skill.id) {
+            case .seed, .override: return true
+            case .custom: return refIds.contains(skill.id)
+            case .none: return false
+            }
+        }.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
     }
 
     var body: some View {
@@ -358,7 +290,8 @@ struct TeamEditorView: View {
                 )
             } else if editingLead {
                 CustomizeWorkerView(
-                    teamName: draft.name, roleLabel: "Team Lead", lane: lane, models: models, laneSkills: leadSkills,
+                    teamName: draft.name, roleLabel: "Team Lead", lane: lane, models: models,
+                    laneSkills: leadSkills, defaultPurpose: .planWriter,
                     row: draft.lead,
                     onDone: { updated in draft.lead = updated; editingLead = false },
                     onCancel: { editingLead = false }
@@ -527,9 +460,6 @@ struct TeamEditorView: View {
                     Image(systemName: "megaphone.fill").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
                     Text(skillLabel(draft.lead))
                         .font(.system(size: 12, weight: .medium)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
-                    if draft.lead.promptDraft != nil {
-                        Circle().fill(ALColor.textMuted).frame(width: 5, height: 5)
-                    }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
                 }
@@ -564,9 +494,6 @@ struct TeamEditorView: View {
                         HStack(spacing: 6) {
                             Text(skillLabel($row.wrappedValue))
                                 .font(.system(size: 12)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
-                            if $row.wrappedValue.promptDraft != nil {
-                                Circle().fill(ALColor.textMuted).frame(width: 5, height: 5)
-                            }
                             Spacer(minLength: 0)
                             Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(ALColor.textFaint)
                         }
@@ -618,7 +545,7 @@ struct TeamEditorView: View {
     // MARK: - Model pickers (Auto + concrete)
 
     /// Sentinel id for the "Auto" option (nil model = resolver picks a ready model).
-    private static let autoOptionId = "__alln_auto__"
+    fileprivate static let autoOptionId = "__alln_auto__"
 
     /// Model display: nil → "Auto" (never a guessed/strongest model), else the name.
     private func modelDisplay(_ id: String?) -> String {
@@ -844,8 +771,8 @@ struct TeamEditorView: View {
     private func skillName(_ id: String) -> String { SkillCatalog.get(id)?.displayName ?? id }
     /// A row's display name — the chosen name for a not-yet-created skill, else the
     /// resolved skill name.
-    private func skillLabel(_ r: TeamDraft.Row) -> String {
-        r.skillId.isEmpty ? (r.customSkillName ?? "New skill") : skillName(r.skillId)
+      private func skillLabel(_ r: TeamDraft.Row) -> String {
+        skillName(r.skillId)
     }
     private func modelName(_ id: String?) -> String? {
         guard let id else { return nil }
@@ -864,74 +791,122 @@ struct TeamEditorView: View {
 
 // MARK: - Customize worker (level 2)
 
-/// The focused worker editor: the skill (hat), its full PROMPT (editable), and the
-/// model — everything for one worker in one place (rescue S01B). Edits stay in the
-/// in-memory team draft; the prompt is forked into a custom skill only at team Save.
+/// Edit worker: Model → Skill → skill.md. Skill catalog writes commit on Done.
 private struct CustomizeWorkerView: View {
     let teamName: String
-    /// "worker" or "Team Lead" — only affects the header copy.
     let roleLabel: String
     let lane: ComposeLane
     let models: [Model]
     let laneSkills: [Skill]
+    let defaultPurpose: SkillPurpose
     let row: TeamDraft.Row
     var onDone: (TeamDraft.Row) -> Void
     var onCancel: () -> Void
 
     @State private var skillId: String
     @State private var modelId: String?
-    @State private var promptText: String
-    /// Type-to-create: building a brand-new skill (no source). Name is required.
-    @State private var isNew: Bool
-    /// User-chosen name for the would-be custom skill (fork or new).
-    @State private var customName: String
+    @State private var templateText: String
+    @State private var isNewSkill: Bool
+    @State private var newSkillName: String
+    @State private var errorText: String?
 
-    init(teamName: String, roleLabel: String = "worker", lane: ComposeLane, models: [Model], laneSkills: [Skill],
+    init(teamName: String, roleLabel: String = "worker", lane: ComposeLane, models: [Model],
+         laneSkills: [Skill], defaultPurpose: SkillPurpose = .answer,
          row: TeamDraft.Row, onDone: @escaping (TeamDraft.Row) -> Void, onCancel: @escaping () -> Void) {
         self.teamName = teamName; self.roleLabel = roleLabel; self.lane = lane; self.models = models
-        self.laneSkills = laneSkills; self.row = row; self.onDone = onDone; self.onCancel = onCancel
+        self.laneSkills = laneSkills; self.defaultPurpose = defaultPurpose; self.row = row
+        self.onDone = onDone; self.onCancel = onCancel
         _skillId = State(initialValue: row.skillId)
         _modelId = State(initialValue: row.modelId)
-        _promptText = State(initialValue: row.promptDraft ?? (SkillCatalog.get(row.skillId)?.template ?? ""))
-        _isNew = State(initialValue: row.skillId.isEmpty)
-        _customName = State(initialValue: row.customSkillName ?? "")
+        _templateText = State(initialValue: SkillCatalog.get(row.skillId)?.template ?? "")
+        _isNewSkill = State(initialValue: row.skillId.isEmpty)
+        _newSkillName = State(initialValue: "")
     }
 
-    private var skill: Skill? { SkillCatalog.get(skillId) }
-    private var template: String { skill?.template ?? "" }
-    private var isForked: Bool {
-        promptText.trimmingCharacters(in: .whitespacesAndNewlines)
-            != template.trimmingCharacters(in: .whitespacesAndNewlines)
+    private var skill: Skill? { isNewSkill ? nil : SkillCatalog.get(skillId) }
+    private var canRestore: Bool {
+        !isNewSkill && SkillCatalog.hasOverride(skillId)
     }
-    /// True when this edit will produce a custom skill (a fork or a brand-new one).
-    private var willSaveAsCustom: Bool { isNew || isForked }
-    /// What the SKILL field + header show — the chosen name for a new skill, else
-    /// the picked skill's name.
     private var currentSkillLabel: String {
-        if isNew { return customName.isEmpty ? "New skill" : customName }
+        if isNewSkill { return newSkillName.isEmpty ? "New skill" : newSkillName }
         return skill?.displayName ?? skillId
     }
-    private var autoForkName: String { "\(skill?.displayName ?? skillId) for \(teamName)" }
-    /// The trimmed chosen name, or nil to let commit auto-name a fork.
-    private var chosenName: String? {
-        let t = customName.trimmingCharacters(in: .whitespacesAndNewlines)
+    private var chosenNewName: String? {
+        let t = newSkillName.trimmingCharacters(in: .whitespacesAndNewlines)
         return t.isEmpty ? nil : t
     }
-    /// Done is allowed with a model, a non-empty prompt, and — for a new skill — a name.
-    private var isDone: Bool {
-        guard modelId != nil, !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        return isNew ? (chosenName != nil) : true
+    private var isDoneEnabled: Bool {
+        guard !templateText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return isNewSkill ? chosenNewName != nil : !skillId.isEmpty
     }
-    private func modelName(_ id: String?) -> String {
-        guard let id else { return "Pick a model" }
+    private var blastRadiusLine: String {
+        if isNewSkill {
+            return "New skill — it is not used until you save this team."
+        }
+        let names = SkillCatalog.teamDisplayNamesReferencingSkill(skillId)
+        if names.isEmpty { return "Not used by a saved team yet." }
+        return "Shared across \(names.count) team\(names.count == 1 ? "" : "s"): \(names.joined(separator: " · "))"
+    }
+    private func modelLabel(_ id: String?) -> String {
+        guard let id else { return "Auto" }
         return models.first { $0.id == id }?.displayName ?? id
+    }
+    private func skillPickerTag(_ skill: Skill) -> String {
+        switch SkillCatalog.origin(of: skill.id) {
+        case .seed: return "built-in"
+        case .override: return "edited"
+        case .custom: return "custom"
+        case .none: return "custom"
+        }
     }
 
     private func beginNewSkill(named name: String = "") {
-        isNew = true
+        isNewSkill = true
         skillId = ""
-        customName = name
-        promptText = ""
+        newSkillName = name
+        templateText = ""
+        errorText = nil
+    }
+
+    private func restoreDefault() {
+        guard canRestore else { return }
+        do {
+            _ = try SkillCatalog.restore(skillId)
+            templateText = SkillCatalog.get(skillId)?.template ?? ""
+            errorText = nil
+        } catch {
+            errorText = "Could not restore this skill."
+        }
+    }
+
+    private func commitDone() {
+        do {
+            let result = try WorkerSkillCommit.apply(.init(
+                skillId: skillId,
+                template: templateText,
+                modelId: modelId,
+                lane: lane.workLane,
+                defaultPurpose: defaultPurpose,
+                isNewSkill: isNewSkill,
+                newSkillName: chosenNewName
+            ))
+            var updated = row
+            updated.skillId = result.skillId
+            updated.modelId = result.modelId
+            onDone(updated)
+        } catch let e as CatalogError {
+            errorText = friendly(e)
+        } catch {
+            errorText = "Could not save this skill."
+        }
+    }
+
+    private func friendly(_ e: CatalogError) -> String {
+        switch e {
+        case .skillInvalid(let why): return why
+        case .skillNotFound: return "Skill not found."
+        default: return "Could not save this skill."
+        }
     }
 
     var body: some View {
@@ -940,14 +915,16 @@ private struct CustomizeWorkerView: View {
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    field("MODEL") { modelField }
                     skillField
-                    if willSaveAsCustom { skillNameField }
-                    field("MODEL") {
-                        ALDropdown(current: modelName(modelId),
-                                   options: models.map { ($0.id, $0.displayName) }) { modelId = $0 }
+                    if isNewSkill { newSkillNameField }
+                    skillMdEditor
+                    Text(blastRadiusLine)
+                        .font(.system(size: 11))
+                        .foregroundStyle(ALColor.textFaint)
+                    if let errorText {
+                        Text(errorText).font(.system(size: 11)).foregroundStyle(ALColor.accentText)
                     }
-                    metadata
-                    promptEditor
                 }
                 .padding(20)
             }
@@ -960,8 +937,9 @@ private struct CustomizeWorkerView: View {
             Button(action: onCancel) { Image(systemName: "arrow.left").font(.system(size: 13)) }
                 .buttonStyle(.plain).foregroundStyle(ALColor.textSecondary)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Customize \(roleLabel)").font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                Text("\(teamName) · \(currentSkillLabel) | \(modelName(modelId))")
+                Text("Edit \(roleLabel.lowercased()) · \(teamName)")
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                Text("\(currentSkillLabel) · \(modelLabel(modelId))")
                     .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
             }
             Spacer(minLength: 0)
@@ -969,11 +947,23 @@ private struct CustomizeWorkerView: View {
         .padding(.horizontal, 18).padding(.vertical, 14)
     }
 
+    private var modelField: some View {
+        let options: [(String, String)] = [(TeamEditorView.autoOptionId, "Auto")]
+            + models.map { ($0.id, $0.displayName) }
+        return ALDropdown(current: modelLabel(modelId), options: options) { pick in
+            modelId = pick == TeamEditorView.autoOptionId ? nil : pick
+        }
+    }
+
     private var skillField: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Text("SKILL").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
                 Spacer(minLength: 0)
+                if canRestore {
+                    Button("Restore default", action: restoreDefault)
+                        .buttonStyle(.alSecondary(small: true))
+                }
                 Button(action: { beginNewSkill() }) {
                     Image(systemName: "plus")
                         .font(.system(size: 11, weight: .semibold))
@@ -986,18 +976,30 @@ private struct CustomizeWorkerView: View {
             }
             ALSearchableDropdown(
                 current: currentSkillLabel,
-                items: laneSkills.map { ALComboItem(id: $0.id, label: $0.displayName,
-                                                    tag: $0.builtIn ? "built-in" : "custom") },
+                items: laneSkills.map {
+                    ALComboItem(id: $0.id, label: $0.displayName, tag: skillPickerTag($0))
+                },
                 placeholder: "Search \(lane.label.lowercased()) skills…",
                 onPick: { newId in
-                    if promptText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        == template.trimmingCharacters(in: .whitespacesAndNewlines) {
-                        promptText = SkillCatalog.get(newId)?.template ?? ""
-                    }
-                    skillId = newId; isNew = false; customName = ""
+                    skillId = newId
+                    isNewSkill = false
+                    newSkillName = ""
+                    templateText = SkillCatalog.get(newId)?.template ?? ""
+                    errorText = nil
                 },
                 onCreate: { typed in beginNewSkill(named: typed) }
             )
+        }
+    }
+
+    private var newSkillNameField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("SKILL NAME").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+            TextField("Name your new skill", text: $newSkillName)
+                .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
+                .padding(.horizontal, 10).frame(height: 32)
+                .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
+                .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
         }
     }
 
@@ -1008,46 +1010,10 @@ private struct CustomizeWorkerView: View {
         }
     }
 
-    /// Shown only when the edit will create a custom skill — name it (or accept the
-    /// suggested fork name).
-    private var skillNameField: some View {
+    private var skillMdEditor: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("SKILL NAME").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
-            TextField(isNew ? "Name your new skill" : autoForkName, text: $customName)
-                .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(ALColor.textPrimary)
-                .padding(.horizontal, 10).frame(height: 32)
-                .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.md))
-                .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-            Text(isNew
-                 ? "Saved as a new custom \(lane.label.lowercased()) skill on Save."
-                 : "Your edit forks a custom skill — name it, or leave blank for \u{201C}\(autoForkName)\u{201D}.")
-                .font(.system(size: 10.5)).foregroundStyle(ALColor.textFaint)
-        }
-    }
-
-    private var metadata: some View {
-        HStack(spacing: 6) {
-            chip(lane.label)
-            if isNew {
-                chip("new")
-            } else {
-                chip(skill?.purpose.rawValue ?? "answer")
-                chip(willSaveAsCustom ? "custom" : ((skill?.builtIn ?? true) ? "from a template" : "custom"))
-            }
-        }
-    }
-
-    private var promptEditor: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Text("PROMPT").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
-                if willSaveAsCustom {
-                    Text(isNew ? "· new custom skill" : "· will save as a custom skill")
-                        .font(.system(size: 10)).foregroundStyle(ALColor.accentText)
-                }
-                Spacer(minLength: 0)
-            }
-            TextEditor(text: $promptText)
+            Text("skill.md").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+            TextEditor(text: $templateText)
                 .font(.system(size: 12.5, design: .monospaced))
                 .foregroundStyle(ALColor.textPrimary)
                 .scrollContentBackground(.hidden)
@@ -1058,28 +1024,13 @@ private struct CustomizeWorkerView: View {
         }
     }
 
-    private func chip(_ t: String) -> some View {
-        Text(t).font(.system(size: 11, weight: .medium)).foregroundStyle(ALColor.textSecondary)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(ALColor.surface, in: Capsule())
-            .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-    }
-
     private var footer: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
             Button("Cancel \(roleLabel) changes", action: onCancel).buttonStyle(.alSecondary(small: true))
-            Button("Done") {
-                var updated = row
-                updated.skillId = isNew ? "" : skillId
-                updated.modelId = modelId
-                updated.promptDraft = willSaveAsCustom ? promptText : nil
-                updated.promptBaseSkillId = (willSaveAsCustom && !isNew) ? skillId : nil
-                updated.customSkillName = willSaveAsCustom ? chosenName : nil
-                onDone(updated)
-            }
-            .buttonStyle(.alPrimary(small: true))
-            .disabled(!isDone)
+            Button("Done", action: commitDone)
+                .buttonStyle(.alPrimary(small: true))
+                .disabled(!isDoneEnabled)
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
         .overlay(alignment: .top) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }

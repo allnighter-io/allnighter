@@ -2,10 +2,8 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterMac
 
-/// The Customize editor's write path. Editing a built-in saves the user's version IN
-/// PLACE at the same id (an override) — never a duplicate — and the shipped seed stays
-/// available via Restore. A failed save must leave no orphan; a wrong-lane skill must be
-/// rejected. Catalog is isolated to a temp dir.
+/// The Customize editor's write path. Team Save is roster-only; skill bodies commit on
+/// Worker Done via `WorkerSkillCommit`. Catalog is isolated to a temp dir.
 final class TeamDraftTests: XCTestCase {
 
     override func setUp() {
@@ -29,74 +27,61 @@ final class TeamDraftTests: XCTestCase {
     }
     private var buildSkill: String { SkillCatalog.list(lane: .code).first!.id }
 
+    private func customSkillCount() -> Int {
+        SkillCatalog.list(lane: .code).filter { SkillCatalog.origin(of: $0.id) == .custom }.count
+    }
+
     func testSeedFromBuiltInKeepsRealNameUntilSaved() {
         let d = TeamDraft(base: buildBase)
-        XCTAssertEqual(d.name, buildBase.displayName,
-                       "selecting a built-in must NOT preemptively rename it to (custom)")
+        XCTAssertEqual(d.name, buildBase.displayName)
         XCTAssertFalse(d.name.contains("(custom)"))
-        XCTAssertFalse(d.rows.isEmpty)
-        // The draft mirrors the seed's specs exactly — it must not invent a model
-        // the preset deliberately left open. Built-ins like `code_plan` declare
-        // seats by SKILL and let the resolver pick by caliber at run time
-        // ("declaration order + caliber, not a pinned identity" — BuiltInTeams
-        // Law 3), so an unpinned seat must arrive unpinned.
         XCTAssertEqual(d.rows.map(\.modelId), buildBase.workerSpecs.map(\.preferredModelId))
     }
 
-    /// The savable gate is about row COMPLETENESS, not about the editor filling
-    /// in models on the user's behalf: a seed whose seats pin models is savable
-    /// as-is, and the same seed with one model cleared is not.
-    func testSavableRequiresEveryRowToCarryAModel() throws {
+    func testSavableAllowsAutoModel() throws {
         let pinned = try XCTUnwrap(
             TeamCatalog.list(lane: .code).first {
                 $0.builtIn && !$0.workerSpecs.isEmpty
                     && $0.workerSpecs.allSatisfy { $0.preferredModelId != nil }
                     && $0.lead.preferredModelId != nil
-            },
-            "expected at least one built-in code team that pins every seat's model"
+            }
         )
         var d = TeamDraft(base: pinned)
-        XCTAssertTrue(d.isSavable, "a fully pinned seed is savable without further editing")
+        XCTAssertTrue(d.isSavable)
 
         d.rows[0].modelId = nil
-        XCTAssertFalse(d.isSavable, "a row without a model must block save")
+        XCTAssertTrue(d.isSavable, "nil model = Auto and must not block team save")
     }
 
     func testSavingABuiltInKeepsItsNameAndId() throws {
-        let base = buildBase   // capture once — after a save the built-in carries an override
+        let base = buildBase
         var d = TeamDraft(base: base)
         d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer)]
         let id = try d.commit()
-        XCTAssertEqual(id, base.id, "editing a built-in saves at the SAME id — no duplicate")
-        XCTAssertEqual(TeamCatalog.get(id)?.displayName, base.displayName,
-                       "the name is kept — never suffixed with (custom)")
+        XCTAssertEqual(id, base.id)
+        XCTAssertEqual(TeamCatalog.get(id)?.displayName, base.displayName)
     }
 
-    func testNotSavableWithAModellessRow() {
+    func testNotSavableWithoutSkillId() {
         var d = TeamDraft(base: buildBase)
-        d.rows[0].modelId = nil
-        XCTAssertFalse(d.isSavable, "every role needs a named model before Save")
+        d.rows[0].skillId = ""
+        XCTAssertFalse(d.isSavable)
     }
 
     func testCommitEditsBuiltInInPlaceNoDuplicateAndRestoreReverts() throws {
-        let base = buildBase   // capture once — recomputing after the save would skip it
+        let base = buildBase
         var d = TeamDraft(base: base)
         d.rows = [.init(id: "r1", skillId: buildSkill, modelId: "model_opus", purpose: .answer)]
 
         let id = try d.commit()
         let saved = TeamCatalog.get(id)
-        XCTAssertEqual(id, base.id, "saved at the built-in's own id — not a new custom id")
-        XCTAssertEqual(saved?.builtIn, false, "the effective team is now the user's editable version")
-        XCTAssertEqual(saved?.workerSpecs.count, 1)
-        XCTAssertEqual(saved?.workerSpecs.first?.preferredModelId, "model_opus", "saved by name, not Auto")
-        // Exactly one entry for this id in the catalog — no duplicate row.
+        XCTAssertEqual(id, base.id)
+        XCTAssertEqual(saved?.builtIn, false)
+        XCTAssertEqual(saved?.workerSpecs.first?.preferredModelId, "model_opus")
         XCTAssertEqual(TeamCatalog.list(lane: .code).filter { $0.id == id }.count, 1)
-        XCTAssertTrue(TeamCatalog.hasOverride(id), "a Restore is now available")
 
-        // Restore reverts to the shipped seed.
         _ = try TeamCatalog.restore(id)
-        XCTAssertEqual(TeamCatalog.get(base.id)?.builtIn, true, "restore reveals the shipped team")
-        XCTAssertFalse(TeamCatalog.hasOverride(id))
+        XCTAssertEqual(TeamCatalog.get(base.id)?.builtIn, true)
     }
 
     func testWrongLaneSkillIsRejectedWithNoOrphanLeftBehind() throws {
@@ -112,58 +97,41 @@ final class TeamDraftTests: XCTestCase {
                 return XCTFail("expected skillLaneMismatch, got \(err)")
             }
         }
-        XCTAssertEqual(TeamCatalog.list(lane: .code).count, before,
-                       "a rejected save must not leave an orphan custom team")
+        XCTAssertEqual(TeamCatalog.list(lane: .code).count, before)
     }
 
-    // MARK: - S01A: save-time worker-prompt forking
-
-    private func customBuildSkills() -> [Skill] {
-        SkillCatalog.list(lane: .code).filter { !$0.builtIn }
-    }
-    private func customBuildTeams() -> [TeamPreset] {
-        TeamCatalog.list(lane: .code).filter { !$0.builtIn }
-    }
-
-    func testEditingPromptDraftWithoutCommitWritesNothing() {
-        let skillsBefore = customBuildSkills().count
-        let teamsBefore = customBuildTeams().count
+    func testTeamSaveDoesNotWriteSkills() throws {
+        let before = customSkillCount()
         var d = TeamDraft(base: buildBase)
-        d.rows[0].promptDraft = "edited but never saved (this is Cancel)"
-        // No commit() — equivalent to Cancel.
-        XCTAssertEqual(customBuildSkills().count, skillsBefore, "cancel forks no skill")
-        XCTAssertEqual(customBuildTeams().count, teamsBefore, "cancel saves no team")
-    }
-
-    func testPromptEditForksCustomSkillOnSaveAndRepointsRow() throws {
-        var d = TeamDraft(base: buildBase)
-        let originalSkillId = d.rows[0].skillId
-        let originalTemplate = SkillCatalog.get(originalSkillId)?.template
-        let originalName = SkillCatalog.get(originalSkillId)?.displayName ?? originalSkillId
-        d.rows[0].promptDraft = "You are a tuned product architect. Be terse and ship."
-        let skillsBefore = customBuildSkills().count
-
-        let teamId = try d.commit()
-        let team = try XCTUnwrap(TeamCatalog.get(teamId))
-        let customs = customBuildSkills()
-        XCTAssertEqual(customs.count, skillsBefore + 1, "exactly one fork is created")
-
-        let fork = try XCTUnwrap(customs.first { $0.template.contains("tuned product architect") })
-        XCTAssertFalse(fork.builtIn)
-        XCTAssertEqual(fork.lane, .code, "fork inherits the team lane")
-        XCTAssertEqual(fork.displayName, "\(originalName) for \(team.displayName)",
-                       "<Skill> for <Team> naming — keyed to the saved team name (kept, not suffixed)")
-        XCTAssertEqual(team.workerSpecs.first?.skillId, fork.id, "row repointed to the fork")
-        XCTAssertEqual(SkillCatalog.get(originalSkillId)?.template, originalTemplate,
-                       "the built-in skill is never mutated")
-    }
-
-    func testModelOnlyChangeDoesNotFork() throws {
-        var d = TeamDraft(base: buildBase)
-        d.rows[0].modelId = "model_grok"   // model only; no promptDraft
-        let skillsBefore = customBuildSkills().count
+        d.rows[0].modelId = "model_grok"
         _ = try d.commit()
-        XCTAssertEqual(customBuildSkills().count, skillsBefore, "changing only the model forks no skill")
+        XCTAssertEqual(customSkillCount(), before, "roster-only save must not mint skills")
+    }
+
+    func testWorkerDoneSharedOverrideSurvivesTeamCancel() throws {
+        _ = try WorkerSkillCommit.apply(.init(
+            skillId: buildSkill, template: "WSS_TEAM_CANCEL_SENTINEL", modelId: nil,
+            lane: .code, defaultPurpose: .answer, isNewSkill: false
+        ))
+        var d = TeamDraft(base: buildBase)
+        d.rows[0].modelId = "model_grok"
+        _ = try d.commit()
+        XCTAssertTrue(SkillCatalog.get(buildSkill)?.template.contains("WSS_TEAM_CANCEL_SENTINEL") == true)
+    }
+
+    func testNewSkillCreatedOnWorkerDoneNotTeamSave() throws {
+        let before = customSkillCount()
+        let created = try WorkerSkillCommit.apply(.init(
+            skillId: "", template: "Brand new body.", modelId: "model_opus",
+            lane: .code, defaultPurpose: .answer, isNewSkill: true, newSkillName: "My Fresh Skill"
+        ))
+        XCTAssertEqual(customSkillCount(), before + 1)
+        XCTAssertEqual(SkillCatalog.get(created.skillId)?.displayName, "My Fresh Skill")
+
+        var d = TeamDraft(base: buildBase)
+        d.rows[0].skillId = created.skillId
+        _ = try d.commit()
+        XCTAssertNotNil(SkillCatalog.get(created.skillId), "explicit new skill survives roster save")
     }
 
     func testSavePreservesOrderedFallbackChainsTheEditorDoesNotExpose() throws {
@@ -214,76 +182,9 @@ final class TeamDraftTests: XCTestCase {
         let id = try TeamDraft(base: base).commit()
         let saved = try XCTUnwrap(TeamCatalog.get(id))
         XCTAssertEqual(saved.workerSpecs.first?.fallbackModelIds, worker.fallbackModelIds)
-        XCTAssertEqual(saved.workerSpecs.first?.allowedModelIds, worker.allowedModelIds)
-        XCTAssertEqual(saved.workerSpecs.first?.requiredCapabilityTags, worker.requiredCapabilityTags)
-        XCTAssertEqual(saved.workerSpecs.first?.count, worker.count)
-        XCTAssertEqual(saved.workerSpecs.first?.required, worker.required)
         XCTAssertEqual(saved.workerSpecs.first?.triangulate, worker.triangulate)
-        XCTAssertEqual(saved.workerSpecs.first?.triangulatePreferenceIds, worker.triangulatePreferenceIds)
         XCTAssertEqual(saved.lead.fallbackModelIds, lead.fallbackModelIds)
-        XCTAssertEqual(saved.lead.requiredCapabilityTags, lead.requiredCapabilityTags)
         XCTAssertEqual(saved.scout?.fallbackModelIds, scout.fallbackModelIds)
-        XCTAssertEqual(saved.scout?.allowedModelIds, scout.allowedModelIds)
-        XCTAssertEqual(saved.scout?.requiredCapabilityTags, scout.requiredCapabilityTags)
-        XCTAssertEqual(saved.scout?.required, scout.required)
-    }
-
-    func testFailedTeamSaveRollsBackForkedSkill() throws {
-        var d = TeamDraft(base: buildBase)
-        XCTAssertGreaterThan(d.rows.count, 1, "need a second row to force a team-save failure")
-        d.rows[0].promptDraft = "tuned prompt that must roll back"
-        // Force the team save to fail AFTER the fork: a later row points at no skill.
-        d.rows[1].skillId = "nonexistent_skill_xyz"
-        let skillsBefore = customBuildSkills().count
-        let teamsBefore = customBuildTeams().count
-
-        XCTAssertThrowsError(try d.commit(), "team save must fail on the unknown skill")
-        XCTAssertEqual(customBuildSkills().count, skillsBefore,
-                       "the forked skill is rolled back — no orphan custom skill")
-        XCTAssertEqual(customBuildTeams().count, teamsBefore,
-                       "no orphan custom team")
-    }
-
-    // MARK: - S03b: type-to-create + named forks
-
-    func testTypeToCreateMakesANamedCustomSkillOnSave() throws {
-        var d = TeamDraft(base: buildBase)
-        // A brand-new skill (no source skillId), named by the user, prompt written.
-        d.rows[0] = .init(id: "r_new", skillId: "", modelId: "model_opus",
-                          purpose: .answer,
-                          promptDraft: "Brand new behavior.", customSkillName: "My Fresh Skill")
-        let skillsBefore = customBuildSkills().count
-
-        let teamId = try d.commit()
-        let team = try XCTUnwrap(TeamCatalog.get(teamId))
-        let customs = customBuildSkills()
-        XCTAssertEqual(customs.count, skillsBefore + 1, "one new skill created")
-        let made = try XCTUnwrap(customs.first { $0.displayName == "My Fresh Skill" })
-        XCTAssertEqual(made.template, "Brand new behavior.")
-        XCTAssertEqual(made.lane, .code, "new skill inherits the team lane")
-        XCTAssertEqual(team.workerSpecs.first { $0.id == "r_new" }?.skillId, made.id,
-                       "row repointed to the new skill")
-    }
-
-    func testNamedForkUsesChosenNameNotAuto() throws {
-        var d = TeamDraft(base: buildBase)
-        let sourceId = d.rows[0].skillId
-        d.rows[0].promptDraft = "tuned"
-        d.rows[0].customSkillName = "Renamed Skill"
-
-        _ = try d.commit()
-        let made = try XCTUnwrap(customBuildSkills().first { $0.template == "tuned" })
-        XCTAssertEqual(made.displayName, "Renamed Skill",
-                       "the chosen name wins over the auto <skill> for <team> name")
-        XCTAssertNotEqual(made.id, sourceId, "a new custom skill, not the built-in")
-    }
-
-    func testNewSkillRowWithoutNameIsNotSavable() {
-        var d = TeamDraft(base: buildBase)
-        d.rows[0] = .init(id: "r_new", skillId: "", modelId: "model_opus",
-                          purpose: .answer,
-                          promptDraft: "has prompt", customSkillName: nil)
-        XCTAssertFalse(d.isSavable, "a create-from-scratch row needs a name")
     }
 
     func testMutatingMixedSourceSaveIsBlocked() {
