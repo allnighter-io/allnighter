@@ -52,7 +52,7 @@ struct RelayLaunchView: View {
                             selected: Binding(get: { viewModel.devWorkerId }, set: { viewModel.devWorkerId = $0 })
                         )
                         ceilingsSection(viewModel)
-                        if !viewModel.validationIssues.isEmpty {
+                        if !viewModel.validationIssues.isEmpty || viewModel.startRefusalIssue != nil {
                             issuesBlock(viewModel)
                         }
                     }
@@ -275,17 +275,29 @@ struct RelayLaunchView: View {
         }
     }
 
+    // RSC-S02: `startRefusalIssue` is a dynamic, disk-backed fact (a duplicate-relay
+    // refusal from `RelayCoordinator.preflightStart`) rather than a form-completeness
+    // issue, so it is not folded into `validationIssues`/`canStart` — but it renders in
+    // the same block so a refused Start click is never silent. It clears at the top of
+    // every `start()` attempt, so retrying re-checks fresh.
     private func issuesBlock(_ viewModel: RelayLaunchViewModel) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             ForEach(viewModel.validationIssues) { issue in
-                HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10)).foregroundStyle(ALPalette.amber400)
-                    Text(issue.message).font(ALFont.caption).foregroundStyle(ALColor.textMuted)
-                }
+                issueRow(issue.message)
+            }
+            if let refusal = viewModel.startRefusalIssue {
+                issueRow(refusal.message)
             }
         }
         .padding(10)
         .background(ALColor.warningSurface, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+    }
+
+    private func issueRow(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10)).foregroundStyle(ALPalette.amber400)
+            Text(message).font(ALFont.caption).foregroundStyle(ALColor.textMuted)
+        }
     }
 
     private func sectionLabel(_ text: String) -> some View {
