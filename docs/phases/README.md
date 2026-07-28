@@ -41,7 +41,7 @@ CLI Implementation Contract are archived — do not revive.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
-| [`Unattended_Round_Notification.md`](Unattended_Round_Notification.md) | **⚠ FOUNDER DECISION** (Draft, recommend approve) | CLI-only relay/pilot rounds land with nobody notified when the Mac app is closed — `alln serve` has zero notification code today. URN-S01/S02: serve posts OS notifications + guarantees it's running, so neither the human nor the calling agent has to watch. |
+| [`Unattended_Round_Notification.md`](Unattended_Round_Notification.md) | **Approved 2026-07-27 — build not started** | CLI-only relay/pilot rounds land with nobody notified when the Mac app is closed — `alln serve` has zero notification code today. URN-S01→S03: serve posts OS notifications + auto-launches itself (silent, default-on) so neither the human nor the calling agent has to watch. URN-S04–S06 deferred. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
@@ -285,7 +285,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Buzz / attended agent-chat rooms as a call site for alln (after receipts) | `Buzz_Harness_Spike.md` + `docs/strategy/Buzz_And_The_Judgment_Layer.md` (firm-member mythology retired; receipt-first) |
 | Share a link from the phone into a Research run, iOS share sheet intake | `Share_To_Research.md` (reuses `RemoteCommandRouter` `startRun` + `SignalSourceRouter`; no new protocol operation) |
 | Pilot/Relay long deploy or ops turn; harness killed `pilot watch`; detached handoff cwd/binary; status vs watch recovery | archived [`Pilot_Long_Turn_Survival.md`](../archive/phases/Pilot_Long_Turn_Survival.md) — code SSOT `PilotCLI.swift` / `RelayCoordinator.swift` (substrate: archived `Pilot_Relay.md` / `Pilot_DX.md`; idle floors: archived `Idle_Stall_False_Kill_Hotfix.md`) |
-| Relay/pilot round lands or escalates with nobody notified (Mac app closed, caller already gone) | `Unattended_Round_Notification.md` — founder decision pending; extends archived `threads/02_Notifications.md` (Mac-app-only NOTIF-S01–S05) to the app-closed `alln serve` case |
+| Relay/pilot round lands or escalates with nobody notified (Mac app closed, caller already gone) | `Unattended_Round_Notification.md` — Approved 2026-07-27, build not started; extends archived `threads/02_Notifications.md` (Mac-app-only NOTIF-S01–S05) to the app-closed `alln serve` case |
 | Composer `@` file references, file chips, prompt file-read blocks | `Composer_File_References.md` |
 | Persistent chat, routable turns, thread backend | `Persistent_Work_Threads.md` → `threads/04_Observed_Usage.md`, `threads/09_Thread_Forking.md` |
 | Keyboard shortcuts, quick-switcher, list nav | `Keyboard_Shortcuts.md` |

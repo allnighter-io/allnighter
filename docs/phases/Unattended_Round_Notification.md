@@ -1,7 +1,7 @@
 # Unattended round notification — CEO decision brief
 
-Status: **Ready for Implementation — pending founder approve/cut ruling.**
-No engineering ambiguity remains; the only open item is scope (see §Decision).
+Status: **Approved — Ready for Implementation.** URN-S01 → URN-S02 (silent
+auto-launch, default-on) → URN-S03, in order. URN-S04–S06 deferred.
 Updated: 2026-07-27
 Owner: Allnighter product (CLI / Pilot / Relay / `alln serve`) — code SSOT once
 approved: `ServeDaemon.swift`, `NotificationCandidateDetection.swift`,
@@ -29,7 +29,8 @@ nothing, and the agent that started the round should not have to build its own
 watcher.** Allnighter already knows the moment work lands or needs a PM answer —
 it should say so, on its own, without either party polling for it.
 
-**Approve?** Recommend **yes**, scoped to URN-S01 → URN-S02 → URN-S03.
+**Approved 2026-07-27** — URN-S01 → URN-S02 → URN-S03, S02 auto-launch silent
+and default-on (see §Decision).
 
 ---
 
@@ -155,18 +156,24 @@ fix.
 
 | Option | Meaning |
 | --- | --- |
-| **Approve** | Build URN-S01 → URN-S02 → URN-S03 in order; URN-S04 stays deferred |
-| **Approve with cuts** | Cut URN-S03 (cosmetic sharpening) or URN-S02 (then the founder must start `alln serve` by hand). S01+S02 is the pair that fixes today's failure |
+| **Approve** | Build URN-S01 → URN-S02 → URN-S03 in order; URN-S04–S06 stay deferred |
+| **Approve with cuts** | Cut URN-S03 (cosmetic sharpening). S01+S02 is the pair that fixes today's failure |
 | **Reject** | Leave current behavior; CLI-only relay/pilot work stays silent |
 
-The one genuinely founder-level call inside "Approve": **URN-S02 starts a
-background process on the founder's machine that the founder did not explicitly
-ask for.** It is local, owns no run semantics, and is opt-out-able
-(`--no-auto-serve`, `ALLN_NO_AUTO_SERVE=1`), but "a CLI command may silently
-start a daemon" is a product-posture ruling, not an engineering one. Everything
-else below is decided.
+**URN-S02 auto-launch: approved, silent, default-on** (founder ruling
+2026-07-27). The user is already asking Allnighter to run a background task —
+`alln serve` is that task's own delivery mechanism, not a new one, so it
+launches without a prompt. Reasoning: (1) an opt-in daemon reproduces the
+original bug — a forgotten manual step fails the exact same way the incident
+did, silently; (2) `pair pilot handoff` already forks a detached process
+without asking for the round itself, so this is the same trust category, not
+a new one; (3) local, no credentials, no data leaving the machine, fully
+reversible (`--no-auto-serve` / `ALLN_NO_AUTO_SERVE=1`, or `pkill`) — not a
+High-Risk-Stop class action. Nothing else in this packet requires a founder
+call.
 
-Founder sign-off: _pending_
+Founder sign-off: **Approved 2026-07-27** — URN-S01 → URN-S02 (auto-launch,
+silent, default-on) → URN-S03. URN-S04–S06 deferred, build after.
 
 ---
 
