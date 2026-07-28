@@ -428,7 +428,8 @@ final class PilotCLITests: XCTestCase {
 
     func testHandoffDispatchAckJSONEncodesSingleLine() throws {
         let ack = PilotHandoffDispatchJSON(
-            relayId: "relay_test", status: "dispatched", roundInFlight: false, pid: 4242)
+            relayId: "relay_test", status: "dispatched", roundInFlight: false, pid: 4242,
+            serveAutoLaunch: "launched")
         let line = AllnighterCLI.jsonLine(ack)
         XCTAssertFalse(line.contains("\n"))
         let data = try XCTUnwrap(line.data(using: .utf8))
@@ -437,6 +438,7 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(json["status"] as? String, "dispatched")
         XCTAssertEqual(json["roundInFlight"] as? Bool, false)
         XCTAssertEqual(json["pid"] as? Int, 4242)
+        XCTAssertEqual(json["serveAutoLaunch"] as? String, "launched")
     }
 
     /// SR-13 (Sol F20): the printed `next:` command must shell-quote the scaffold path — the

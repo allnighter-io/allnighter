@@ -2378,6 +2378,11 @@
           "valueType" : "integer"
         },
         {
+          "name" : "no-auto-serve",
+          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch.",
+          "takesValue" : false
+        },
+        {
           "name" : "json",
           "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.",
           "takesValue" : false
@@ -2478,6 +2483,11 @@
           "valueType" : "integer"
         },
         {
+          "name" : "no-auto-serve",
+          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch.",
+          "takesValue" : false
+        },
+        {
           "name" : "json",
           "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.",
           "takesValue" : false
@@ -2535,6 +2545,11 @@
           "summary" : "Hard stop HH:MM (local) for the adopted stretch.",
           "takesValue" : true,
           "valueType" : "time"
+        },
+        {
+          "name" : "no-auto-serve",
+          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch.",
+          "takesValue" : false
         },
         {
           "name" : "json",
@@ -2679,6 +2694,11 @@
         {
           "name" : "no-wait",
           "summary" : "Return immediately after dispatch; for long jobs poll `pilot status --json` until awaitingPM (do not treat a killed `pilot watch` as failure).",
+          "takesValue" : false
+        },
+        {
+          "name" : "no-auto-serve",
+          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch.",
           "takesValue" : false
         },
         {
@@ -4956,7 +4976,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "4.0.9",
+  "contractVersion" : "4.1.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

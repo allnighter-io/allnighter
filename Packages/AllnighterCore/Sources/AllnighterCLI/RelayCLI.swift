@@ -21,6 +21,7 @@ enum RelayCLI {
             return
         }
         guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-worker <modelId> --dev-worker <modelId> [--until HH:MM] [--max-rounds N] [--idle-timeout <seconds>] [--json]") }
+        let opts = Options(args)
         let config: RelayCoordinator.Config
         do {
             config = try parseStartConfig(args, models: runtime.models)
@@ -30,8 +31,11 @@ enum RelayCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
 
+        // URN-S02: guarantee a live notifier before dispatching a real dev turn.
+        ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
+
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        let emitJSON = Options(args).flag("json")
+        let emitJSON = opts.flag("json")
         let state = await coordinator.run(config: config) { event in
             emit(event, json: emitJSON)
         }
@@ -65,6 +69,7 @@ enum RelayCLI {
 
     static func runResume(_ args: [String], runtime: ToolRuntime) async {
         guard !args.isEmpty else { usage("relay-resume --relay <id> --answer <text> [--until HH:MM] [--max-rounds N] [--json]") }
+        let opts = Options(args)
         let request: (relayId: String, answer: String, priorState: RelayState, config: RelayCoordinator.Config)
         do {
             request = try parseResumeRequest(args)
@@ -74,8 +79,11 @@ enum RelayCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
 
+        // URN-S02: guarantee a live notifier before dispatching a real dev turn.
+        ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
+
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        let emitJSON = Options(args).flag("json")
+        let emitJSON = opts.flag("json")
         guard let state = await coordinator.resume(
             relayId: request.relayId, founderAnswer: request.answer, config: request.config,
             events: { event in emit(event, json: emitJSON) }
@@ -110,6 +118,11 @@ enum RelayCLI {
             pmWorkerId: pmWorkerId, devWorkerId: priorState.devWorkerId,
             maxRounds: maxRounds, until: untilParsed.value
         )
+
+        // URN-S02: guarantee a live notifier before dispatching a real dev turn.
+        // Reachable both directly (`pair relay adopt`) and via `runRelay`'s
+        // early redirect — this is the only place the check runs for adopt.
+        ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
 
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
         let emitJSON = opts.flag("json")

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 4.0.9, schemaVersion 1).
+Generated from the contract registry (contractVersion 4.1.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -661,6 +661,7 @@ Flags:
 - `--until <time>` — Hard stop HH:MM (local).
 - `--max-rounds <integer>` — Round ceiling (default 20).
 - `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
+- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
 
 Output schema: `relayJSON`.
@@ -684,6 +685,7 @@ Flags:
 - `--answer <string>` — The founder's answer to the escalation (required).
 - `--until <time>` — Hard stop HH:MM (local) for the resumed stretch.
 - `--max-rounds <integer>` — Round ceiling for the resumed stretch (default 20).
+- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
 
 Output schema: `relayJSON`.
@@ -697,6 +699,7 @@ Flags:
 - `--pm-worker <id>` — The spawned PM seat's model id (required).
 - `--max-rounds <integer>` — Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20).
 - `--until <time>` — Hard stop HH:MM (local) for the adopted stretch.
+- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope.
 
 Output schema: `relayJSON`.
@@ -727,6 +730,7 @@ Flags:
 - `--handover-stdin` — Read the handover markdown from stdin (mutually exclusive with --file).
 - `--note <string>` — Optional closing note for done/escalate verdicts.
 - `--no-wait` — Return immediately after dispatch; for long jobs poll `pilot status --json` until awaitingPM (do not treat a killed `pilot watch` as failure).
+- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (single-line).
 
 Mutually exclusive: `--file`, `--handover-file`.

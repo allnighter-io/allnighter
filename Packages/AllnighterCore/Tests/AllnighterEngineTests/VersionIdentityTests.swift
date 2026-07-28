@@ -27,11 +27,12 @@ final class VersionIdentityTests: XCTestCase {
         XCTAssertFalse(line.contains("0.9.0"), "Codex handshake must not carry the retired 0.9.0 literal")
     }
 
-    /// Bump rule (Agent_Dogfood_Papercuts.md §Version rule): this batch bumps
-    /// 0.9.16 → 0.9.17. Pin the value so an accidental revert is caught here,
-    /// not discovered downstream.
+    /// Bump rule (Agent_Dogfood_Papercuts.md §Version rule): URN-S02 bumps
+    /// 0.10.0 → 0.10.1 (one shipped batch: --no-auto-serve + serveAutoLaunch).
+    /// Pin the value so an accidental revert is caught here, not discovered
+    /// downstream.
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.10.0")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.10.1")
     }
 
     /// Drift gate: no OTHER hardcoded `"0.9.0"` string literal survives in the

@@ -203,10 +203,19 @@ enum PilotCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
 
+        // URN-S02: guarantee a live notifier before dispatching a real dev
+        // turn. Covers both branches below (--no-wait and the default
+        // blocking path) with one check, not two.
+        let autoLaunch = ServeAutoLaunchCLI.ensureRunning(opts)
+
         if opts.flag("no-wait") {
-            dispatchHandoffInBackground(relayId: relayId, opts: opts, submission: submission, jsonRequested: opts.flag("json"))
+            dispatchHandoffInBackground(
+                relayId: relayId, opts: opts, submission: submission, jsonRequested: opts.flag("json"),
+                serveAutoLaunch: autoLaunch.outcome
+            )
             return
         }
+        ServeAutoLaunchCLI.reportToStderr(autoLaunch)
 
         let stateStore = RelayStateStore()
         guard stateStore.load(id: relayId) != nil else { fail(.relayNotFound(relayId)) }
@@ -394,7 +403,8 @@ enum PilotCLI {
     /// gate block cannot report `{"status":"dispatched"}` while the child dumps
     /// `RELAY_HANDOVER_UNSAFE` into `/dev/null` (stdout/stderr discarded).
     private static func dispatchHandoffInBackground(
-        relayId: String, opts: Options, submission: String, jsonRequested: Bool
+        relayId: String, opts: Options, submission: String, jsonRequested: Bool,
+        serveAutoLaunch: ServeAutoLaunch.Outcome
     ) {
         let stateStore = RelayStateStore()
         switch RelayCoordinator.preflightExternalRound(
@@ -458,7 +468,7 @@ enum PilotCLI {
         if jsonRequested {
             print(AllnighterCLI.jsonLine(PilotHandoffDispatchJSON(
                 relayId: relayId, status: "dispatched", roundInFlight: roundInFlight,
-                pid: process.processIdentifier)))
+                pid: process.processIdentifier, serveAutoLaunch: serveAutoLaunch.rawValue)))
         } else {
             print("dispatched (pid \(process.processIdentifier)) — poll with `alln pair pilot status --relay \(relayId) --json` (optional: `alln pair pilot watch --relay \(relayId)`)")
         }
@@ -1161,6 +1171,9 @@ struct PilotHandoffDispatchJSON: Encodable {
     let status: String
     let roundInFlight: Bool
     let pid: Int32
+    /// URN-S02: outcome of the `alln serve` auto-launch guarantee for this
+    /// dispatch — `"alreadyRunning" | "launched" | "skipped" | "failed"`.
+    let serveAutoLaunch: String
 }
 
 /// `pilot handoff --json` envelope: the same `RelayJSON` every other relay verb emits,

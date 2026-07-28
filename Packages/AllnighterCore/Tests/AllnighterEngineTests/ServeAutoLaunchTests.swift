@@ -1,0 +1,218 @@
+import XCTest
+import AllnighterCore
+@testable import AllnighterEngine
+
+/// URN-S02 — "dispatch guarantees a live notifier"
+/// (`docs/phases/Unattended_Round_Notification.md`). `ServeAutoLaunch` is the
+/// read-then-shell-out guarantee the four `pair` dispatch verbs call before
+/// starting a real dev turn: `ServeDaemonProbe` is the single liveness check,
+/// a miss spawns a detached `alln serve`, and a launch failure is swallowed
+/// (never allowed to change the caller's exit code).
+final class ServeAutoLaunchTests: XCTestCase {
+
+    private func tempDirs() -> (root: URL, store: ServeDaemonStore, probe: ServeDaemonProbe) {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("serve-autolaunch-\(UUID().uuidString)")
+        let coordDir = root.appendingPathComponent("Coordinator", isDirectory: true)
+        let runsDir = root.appendingPathComponent("Runs", isDirectory: true)
+        let store = ServeDaemonStore(directory: coordDir)
+        let probe = ServeDaemonProbe(store: store, runsDirectory: runsDir)
+        return (root, store, probe)
+    }
+
+    private func removeIfPresent(_ url: URL) {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    // MARK: - isOptedOut
+
+    func testIsOptedOutFlagTrue() {
+        XCTAssertTrue(ServeAutoLaunch.isOptedOut(flag: true, environment: [:]))
+    }
+
+    func testIsOptedOutEnvNonEmptySuppresses() {
+        XCTAssertTrue(ServeAutoLaunch.isOptedOut(flag: false, environment: ["ALLN_NO_AUTO_SERVE": "1"]))
+    }
+
+    func testIsOptedOutNeitherPresentReturnsFalse() {
+        XCTAssertFalse(ServeAutoLaunch.isOptedOut(flag: false, environment: [:]))
+    }
+
+    func testIsOptedOutEnvEmptyStringDoesNotSuppress() {
+        // "any non-empty value" opts out; an accidentally-empty env var must
+        // not silently suppress auto-launch.
+        XCTAssertFalse(ServeAutoLaunch.isOptedOut(flag: false, environment: ["ALLN_NO_AUTO_SERVE": ""]))
+    }
+
+    // MARK: - ensureRunning: opt-out
+
+    func testEnsureRunningOptedOutSkipsWithZeroLaunches() {
+        let (root, _, probe) = tempDirs()
+        defer { removeIfPresent(root) }
+        var launchCount = 0
+
+        let result = ServeAutoLaunch.ensureRunning(
+            optedOut: true,
+            probe: probe,
+            binaryVersion: "0.1.0",
+            currentExecutablePath: { "/bin/alln" },
+            homeDirectory: root,
+            launch: { _, _ in launchCount += 1; return 1 }
+        )
+
+        XCTAssertEqual(result.outcome, .skipped)
+        XCTAssertNil(result.pid)
+        XCTAssertEqual(launchCount, 0)
+    }
+
+    // MARK: - ensureRunning: liveness
+
+    func testEnsureRunningNoDaemonRecordLaunchesExactlyOnce() {
+        let (root, _, probe) = tempDirs()
+        defer { removeIfPresent(root) }
+        var launchCount = 0
+
+        let result = ServeAutoLaunch.ensureRunning(
+            optedOut: false,
+            probe: probe,
+            binaryVersion: "0.1.0",
+            currentExecutablePath: { "/bin/alln" },
+            homeDirectory: root,
+            launch: { _, _ in launchCount += 1; return 4242 }
+        )
+
+        XCTAssertEqual(result.outcome, .launched)
+        XCTAssertEqual(result.pid, 4242)
+        XCTAssertEqual(launchCount, 1)
+    }
+
+    func testEnsureRunningStaleDaemonRecordLaunchesExactlyOnce() throws {
+        let (root, store, probe) = tempDirs()
+        defer { removeIfPresent(root) }
+        try store.save(.init(
+            daemonId: "stale", pid: 2_000_000, startedAt: Date(),
+            loopbackHost: "127.0.0.1", loopbackPort: 18743,
+            binaryVersion: "0.1.0", contractVersion: "1.0.0"
+        ))
+        var launchCount = 0
+
+        let result = ServeAutoLaunch.ensureRunning(
+            optedOut: false,
+            probe: probe,
+            binaryVersion: "0.1.0",
+            currentExecutablePath: { "/bin/alln" },
+            homeDirectory: root,
+            launch: { _, _ in launchCount += 1; return 4242 }
+        )
+
+        XCTAssertEqual(result.outcome, .launched)
+        XCTAssertEqual(launchCount, 1)
+    }
+
+    func testEnsureRunningLiveDaemonSkipsLaunch() throws {
+        let (root, store, probe) = tempDirs()
+        defer { removeIfPresent(root) }
+        try store.save(.init(
+            daemonId: "live", pid: ProcessInfo.processInfo.processIdentifier, startedAt: Date(),
+            loopbackHost: "127.0.0.1", loopbackPort: 18743,
+            binaryVersion: "0.1.0", contractVersion: "1.0.0"
+        ))
+        var launchCount = 0
+
+        let result = ServeAutoLaunch.ensureRunning(
+            optedOut: false,
+            probe: probe,
+            binaryVersion: "0.1.0",
+            currentExecutablePath: { "/bin/alln" },
+            homeDirectory: root,
+            launch: { _, _ in launchCount += 1; return 4242 }
+        )
+
+        XCTAssertEqual(result.outcome, .alreadyRunning)
+        XCTAssertNil(result.pid)
+        XCTAssertEqual(launchCount, 0)
+    }
+
+    // MARK: - never fails the round
+
+    func testEnsureRunningThrowingLauncherReturnsFailedWithoutThrowing() {
+        let (root, _, probe) = tempDirs()
+        defer { removeIfPresent(root) }
+        struct BoomError: Error {}
+        var launchCount = 0
+
+        // The function signature itself is non-throwing — a launcher that
+        // throws cannot propagate to the caller by construction. This proves
+        // the "never fails the round" guarantee directly, not by inspection.
+        let result = ServeAutoLaunch.ensureRunning(
+            optedOut: false,
+            probe: probe,
+            binaryVersion: "0.1.0",
+            currentExecutablePath: { "/bin/alln" },
+            homeDirectory: root,
+            launch: { _, _ in launchCount += 1; throw BoomError() }
+        )
+
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertNil(result.pid)
+        XCTAssertEqual(launchCount, 1)
+    }
+
+    func testEnsureRunningUnresolvedExecutableReturnsFailedWithoutLaunching() {
+        let (root, _, probe) = tempDirs()
+        defer { removeIfPresent(root) }
+        var launchCount = 0
+
+        let result = ServeAutoLaunch.ensureRunning(
+            optedOut: false,
+            probe: probe,
+            binaryVersion: "0.1.0",
+            argv0: "alln",
+            pathEnvironment: nil,
+            currentExecutablePath: { nil },
+            homeDirectory: root,
+            launch: { _, _ in launchCount += 1; return 1 }
+        )
+
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertEqual(launchCount, 0, "an unresolved executable must never invoke the launcher")
+    }
+
+    // MARK: - executable resolution order (mirrors PilotCLI.detachedHandoffLaunch)
+
+    func testEnsureRunningPrefersCurrentExecutablePathOverPathFallback() {
+        let (root, _, probe) = tempDirs()
+        defer { removeIfPresent(root) }
+        var launchedURL: URL?
+
+        _ = ServeAutoLaunch.ensureRunning(
+            optedOut: false,
+            probe: probe,
+            binaryVersion: "0.1.0",
+            argv0: "alln",
+            pathEnvironment: "/should/not/be/searched",
+            currentExecutablePath: { "/usr/local/bin/alln-real" },
+            homeDirectory: root,
+            launch: { url, _ in launchedURL = url; return 1 }
+        )
+
+        XCTAssertEqual(launchedURL?.path, "/usr/local/bin/alln-real")
+    }
+
+    func testEnsureRunningUsesHomeDirectoryAsWorkingDirectory() {
+        let (root, _, probe) = tempDirs()
+        defer { removeIfPresent(root) }
+        var launchedCwd: URL?
+
+        _ = ServeAutoLaunch.ensureRunning(
+            optedOut: false,
+            probe: probe,
+            binaryVersion: "0.1.0",
+            currentExecutablePath: { "/bin/alln" },
+            homeDirectory: root,
+            launch: { _, cwd in launchedCwd = cwd; return 1 }
+        )
+
+        XCTAssertEqual(launchedCwd, root)
+    }
+}
