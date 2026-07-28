@@ -8,6 +8,15 @@ approved: `ServeDaemon.swift`, `NotificationCandidateDetection.swift`,
 `NotificationEvent.swift`, `PilotCLI.swift`, `RelayCoordinator.swift`,
 `ContractRegistry+Milestone1.swift`
 
+Review history: drafted from founder incident report; hardened to
+implementation-ready by an Opus pass (corrected CLI grammar and state source,
+closed a double-delivery gap, added the full implementation contract);
+extended by an outside review (Gemini via `agy`) asked specifically what an
+agent driving `alln` purely via CLI would want next — two of its three ideas
+were real, verified gaps (URN-S05/S06, both optional/deferred); the third
+("run list/attach") was discarded as already shipped (`alln ps` +
+`alln run resume`).
+
 ---
 
 ## The ask (one paragraph)
@@ -91,8 +100,14 @@ never the mechanism.
    this, S01 only helps founders who remembered to start `serve`.
 3. **URN-S03 — real relay escalation/stop events + delete the stale comment.**
 4. **URN-S04 (optional, defer first)** — `pair pilot wait` / `pair relay wait`.
+5. **URN-S05 (optional, defer first)** — split "needs your answer" from
+   "failed" on exit code (outside review, verified real gap).
+6. **URN-S06 (optional, defer first)** — `alln lock status --json` +
+   `--on-lock=fail` preflight (outside review, verified real gap).
 
-If you only do two, do S01 and S02 — S01 alone is inert without S02.
+If you only do two, do S01 and S02 — S01 alone is inert without S02. S04-S06
+are independent of each other and of S01-S03; none blocks approval of the core
+fix.
 
 ---
 
@@ -251,6 +266,55 @@ truth arrives through the same door as every other thread.
   `timeout` per `ExitCode.stableTable`). Solves the problem only for an agent
   that chooses to poll in-process — not the founder's ask. Do not build it
   before S01–S03 land.
+
+### URN-S05 (optional, deferred) — separate "needs your answer" from "failed" on exit code
+
+Outside review (Gemini via `agy`, 2026-07-27) flagged that a caller reading
+only `$?` — a very common shell pattern, and the one thing a dying/amnesiac
+agent can check without JSON parsing — cannot tell "the round is fine and
+waiting on you" from "the round broke." Verified in code: `PilotCLI.swift:480,968`
+call `exit(1)` for both an escalated/stopped round and a genuine failure —
+same bucket as `ExitCode.runFailed`. The JSON envelope already carries the
+real distinction (`RelayJSON.status`, `PilotHandoffDispatchJSON.status` /
+`roundInFlight`), so this is a narrow exit-code addendum, not new plumbing —
+`ExitCode.stableTable` (`ExitCode.swift:11-36`) is contract-frozen "never
+renumber," so add one new additive code (e.g. `needsAttention = 5`) rather
+than repurpose an existing one, and update `ExitCodeContractTests` +
+`ContractRegistry.contractVersion` deliberately. Do not build before S01–S03;
+`--no-auto-serve` callers are unaffected either way since this only changes
+which of two already-correct-in-JSON states the process exit code reports.
+(Gemini's companion "no-op vs. did-work" ask is already covered —
+`PilotHandoffDispatchJSON.roundInFlight`/`rounds` already say this in JSON —
+so no exit-code change is proposed for that half.)
+
+### URN-S06 (optional, deferred) — `alln lock status --json` + `--on-lock=fail`
+
+Same outside-review pass flagged repo-lock preflight as missing. Verified:
+there is no standalone lock-status verb and no `--on-lock`/`--wait-for-lock`
+flag anywhere in `AllnighterCLI.swift` or `ContractRegistry+Milestone1.swift`
+today. The underlying data already exists and is already exposed, just not as
+a targeted preflight — `alln ps --json` returns `OwnershipJSON` rows with
+`holderId`/`holderKind`/`heldSinceSeconds`
+(`Sources/AllnighterCore/OwnershipJSON.swift:133-135`, populated from
+`ExecutionLaneFlock` holder metadata in
+`Sources/AllnighterEngine/ProcessOwnershipSurface.swift:539-556`, including
+queue position via `wouldBePosition`). Today a second mutating dispatch always
+queues FIFO against the held lock and only exits `4`
+(`RUN_WRITE_LOCK_BUSY`/`laneBusy`) if the wait bound is exceeded — there is no
+way to ask for immediate-fail-on-contention instead of joining the queue. A
+real, narrow gem: (a) `alln lock status --repo . --json`, a thin projection of
+data `ps` already computes, scoped to the current repo root, no run id
+required; (b) an `--on-lock=fail|wait` flag on the mutating dispatch verbs,
+default `wait` (unchanged behavior) so this is additive, never a default
+change. Do not build before S01–S03.
+
+**Discarded as noise (already shipped, verified 2026-07-27):** the same
+review proposed `alln run list` / `alln run attach <run_id>` for a
+turn-dying caller to rediscover in-flight work without duplicating it. This
+already exists: `alln ps [--all-projects] --json` is repo-scoped by default
+(`AllnighterCLI.swift:1252-1264`) and `alln run resume <runId> --json`
+(`RunCLI.swift:401-416`) is the attach-by-id primitive, backed by the same
+`RunStore`. Not re-proposing under a new name.
 
 ---
 
