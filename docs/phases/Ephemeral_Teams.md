@@ -74,9 +74,10 @@ save.
 
 ### Scope and mapping
 
-1. `--seat` **requires an explicit `--team`** and is mutually exclusive with
-   `--worker`. Invalid combinations fail before dry-run, journal creation, or
-   worker spawn with `CLI_USAGE_ERROR` (process exit 2).
+1. `--seat` **requires an explicit `--team`**, is **judgment/answer teams only**
+   (`runShape != .execution` — mutating one-worker teams keep `--worker`), and is
+   mutually exclusive with `--worker`. Invalid combinations fail before dry-run,
+   journal creation, or worker spawn with `CLI_USAGE_ERROR` (process exit 2).
 2. The override covers **crew rows only** (`TeamPreset.workerSpecs`). The
    Team-owned scout and lead resolve normally and are not counted or replaced.
 3. Expand crew rows in declaration order. A row with `count: N` contributes N
@@ -113,12 +114,15 @@ save.
     (for example, additive `TeamRun.explicitSeatModelIds`). Resolved workers
     alone cannot distinguish an explicit override from the Team's normal
     resolution or later recovery. Legacy journals decode missing data as `nil`.
-11. The ordered ids participate in the idempotency payload. Changing any
-    `--seat` under the same key is an idempotency conflict, not a replay.
-12. Dry-run `argvTemplate`, persisted `reproduceCommand` surfaces, artifact
-    replay, detached `--no-wait`, and sandbox handoff preserve every accepted
-    `--seat` in order. Dry-run's `seats[]` shows the effective crew plus
-    unchanged scout/lead.
+11. The ordered ids participate in the idempotency digest via additive
+    `explicitSeatModelIds` on `AsyncTeamCanonicalPayload` (alongside existing
+    `resolvedWorkerIds`). Changing any `--seat` under the same key is an
+    idempotency conflict, not a replay.
+12. `ResolvedRunInvocation.buildTemplate` and `TeamRunReplayCommand` emit each
+    accepted `--seat` in order (not `--worker`). Dry-run `argvTemplate`, persisted
+    `reproduceCommand` surfaces, artifact replay, detached `--no-wait`, and
+    sandbox handoff preserve the same flags. Dry-run's `seats[]` shows the
+    effective crew plus unchanged scout/lead.
 
 ## Truth and inference bans
 
@@ -129,7 +133,7 @@ save.
 | explicit id → model | `ExactIdResolver` + readiness gate | Display name or fallback is close enough | Unknown/not-ready id refuses |
 | resolved run → journal | `RunService` / `TeamRun` | Resolved workers prove which ids were explicit | Explicit ordered ids round-trip |
 | run → catalog | `RunService` | Runtime customization needs a saved Team | Catalog directory is byte-identical |
-| explicit seat → recovery | capacity/substitution policy | A failed exact seat may be silently reseated | Failure keeps the requested model identity |
+| explicit seat → recovery | `VendorSubstitutionPolicy` (`inferInitialSelectionOrigin` / per-seat `selection.explicit`) | A failed exact seat may be silently reseated | Failure keeps the requested model identity |
 
 ## Implementation
 
@@ -142,7 +146,9 @@ Truth owner: `RunInvocationResolver`, called only through `RunService`.
 - Add ordered seat ids to `RunRequest`, `RunInvocationNormalizedFlags`, and the
   resolved invocation.
 - Validate flag relationships, count, exact readiness, row compatibility, and
-  execution source before acceptance.
+  execution source before acceptance. Reject `--seat` on execution-shape teams.
+- Extend `VendorSubstitutionPolicy.inferInitialSelectionOrigin` (or per-worker
+  provenance) so explicit crew seats get `selection.explicit` and never silent hop.
 - Resolve explicit crew workers without Team fallback or diversity selection;
   resolve unchanged scout and lead through the Team.
 - Persist explicit seat ids, include them in idempotency, and round-trip them
@@ -153,9 +159,10 @@ Truth owner: `RunInvocationResolver`, called only through `RunService`.
 Likely touchpoints:
 
 `RunCLI.swift`, the shared `Options` parser, `RunService.swift`,
-`ResolvedRunInvocation.swift`, `TeamRun.swift`, `TeamRunReplayCommand.swift`,
-`ContractRegistry`, `ContractSchema`, `CatalogRunCoordinator` /
-`VendorSubstitutionPolicy`, and focused engine/CLI tests.
+`ResolvedRunInvocation.swift` (`buildTemplate`), `TeamRun.swift`,
+`TeamRunReplayCommand.swift`, `AsyncTeamCanonicalPayload`,
+`ContractRegistry`, `ContractSchema`, `VendorSubstitutionPolicy`, and focused
+engine/CLI tests.
 
 ### RSO-S02 — agent teaching cutover
 
@@ -197,7 +204,6 @@ Use a real registered repo and ready models:
 
 ```bash
 alln run "Review docs/phases/Ephemeral_Teams.md" \
-  --project . \
   --team code_spec_review_min \
   --seat model_chatgpt \
   --seat model_grok \
