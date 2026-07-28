@@ -187,11 +187,20 @@ enum RelayCLI {
         opts: Options, runtime: ToolRuntime
     ) async {
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        switch coordinator.resumeGuard(relayId: relayId, founderAnswer: founderAnswer, config: config) {
+        // RSC-S03 hardening: mint a one-time dispatch token — the child (`relay-continue`
+        // below) must present it back before `continueRound` will run anything.
+        switch coordinator.resumeGuard(relayId: relayId, founderAnswer: founderAnswer, config: config, mintDispatchToken: true) {
         case .failure(let refusal):
             failResume(refusal, relayId: relayId)
-        case .success(let (flipped, resumedConfig)):
-            var childArgs = ["pair", "relay-continue", "--relay", relayId, "--max-rounds", String(resumedConfig.maxRounds)]
+        case .success(let (flipped, resumedConfig, dispatchToken)):
+            guard let dispatchToken else {
+                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "resumeGuard did not mint a dispatch token for a --no-wait continuation")
+            }
+            var childArgs = [
+                "pair", "relay-continue", "--relay", relayId,
+                "--max-rounds", String(resumedConfig.maxRounds),
+                "--dispatch-token", dispatchToken,
+            ]
             if let rawUntil = opts.value("until") { childArgs += ["--until", rawUntil] }
             do {
                 let process = try DetachedDispatch.launch(cwd: flipped.projectRoot, arguments: childArgs)
@@ -215,6 +224,10 @@ enum RelayCLI {
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { exit(2) }
         guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else { exit(2) }
+        // RSC-S03 hardening: the one-time token `resumeGuard`/`adoptGuard` minted and
+        // handed only to the child this call is. No token, no run — see
+        // `RelayCoordinator.continueRound`'s doc comment for why this exists.
+        guard let dispatchToken = opts.value("dispatch-token") else { exit(2) }
         let untilParsed = RelayDispatch.parseUntilValidated(opts.value("until"))
         var adoptionNote: String?
         if let encoded = opts.value("adoption-note-b64"), let data = Data(base64Encoded: encoded) {
@@ -230,7 +243,16 @@ enum RelayCLI {
             maxRounds: maxRounds, until: untilParsed.value
         )
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        _ = await coordinator.continueRound(relayId: relayId, config: config, adoptionNote: adoptionNote)
+        let result = await coordinator.continueRound(
+            relayId: relayId, dispatchToken: dispatchToken, config: config, adoptionNote: adoptionNote
+        )
+        if case .failure = result {
+            // Refused: wrong/missing/consumed token, relay not `.running`, or another
+            // process holds the lock. Never crash, never silently no-op — a clean,
+            // honest non-zero exit (this verb is hidden/unregistered; there is no
+            // founder-facing error envelope to render for it).
+            exit(1)
+        }
     }
 
     /// `pair relay adopt --relay <id> --pm-worker <id>` (docs/phases/Pilot_Relay.md
@@ -294,11 +316,19 @@ enum RelayCLI {
         opts: Options, runtime: ToolRuntime
     ) async {
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        switch coordinator.adoptGuard(relayId: relayId, pmWorkerId: pmWorkerId, config: config) {
+        // RSC-S03 hardening: same one-time dispatch token as resume's --no-wait.
+        switch coordinator.adoptGuard(relayId: relayId, pmWorkerId: pmWorkerId, config: config, mintDispatchToken: true) {
         case .failure(let error):
             failAdopt(error)
-        case .success(let (flipped, adoptedConfig, note)):
-            var childArgs = ["pair", "relay-continue", "--relay", relayId, "--max-rounds", String(adoptedConfig.maxRounds)]
+        case .success(let (flipped, adoptedConfig, note, dispatchToken)):
+            guard let dispatchToken else {
+                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "adoptGuard did not mint a dispatch token for a --no-wait continuation")
+            }
+            var childArgs = [
+                "pair", "relay-continue", "--relay", relayId,
+                "--max-rounds", String(adoptedConfig.maxRounds),
+                "--dispatch-token", dispatchToken,
+            ]
             if let rawUntil = opts.value("until") { childArgs += ["--until", rawUntil] }
             childArgs += ["--adoption-note-b64", Data(note.utf8).base64EncodedString()]
             do {

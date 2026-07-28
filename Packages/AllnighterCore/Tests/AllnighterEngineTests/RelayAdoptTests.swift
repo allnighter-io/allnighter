@@ -481,19 +481,20 @@ final class RelayAdoptTests: XCTestCase {
             pmWorkerId: "ignored-overridden", devWorkerId: "ignored-overridden", maxRounds: 5
         )
 
-        let guardResult = coordinator.adoptGuard(relayId: "relay_guard_adopt", pmWorkerId: "model_pm", config: config)
-        guard case .success(let (flipped, adoptedConfig, note)) = guardResult else { return XCTFail("expected guard success") }
+        let guardResult = coordinator.adoptGuard(relayId: "relay_guard_adopt", pmWorkerId: "model_pm", config: config, mintDispatchToken: true)
+        guard case .success(let (flipped, adoptedConfig, note, dispatchToken)) = guardResult else { return XCTFail("expected guard success") }
         XCTAssertEqual(flipped.pmMode, .spawned)
         XCTAssertEqual(flipped.pmWorkerId, "model_pm")
         XCTAssertEqual(flipped.status, .running, "the guard's own mutation, before any child exists")
         XCTAssertTrue(note.contains("Pilot"), "adoptionNote names the piloted-round handoff")
         XCTAssertEqual(stateStore.load(id: "relay_guard_adopt")?.status, .running, "durable, not just in-memory")
+        guard let dispatchToken else { return XCTFail("expected a minted dispatch token") }
 
         // The detached child: loads the ALREADY-flipped state fresh and only
         // continues, carrying the note forward explicitly since it is never
         // persisted onto `RelayState`.
-        let finished = await coordinator.continueRound(relayId: "relay_guard_adopt", config: adoptedConfig, adoptionNote: note)
-        guard let finished else { return XCTFail("expected continueRound to find the flipped relay") }
+        let continueResult = await coordinator.continueRound(relayId: "relay_guard_adopt", dispatchToken: dispatchToken, config: adoptedConfig, adoptionNote: note)
+        guard case .success(let finished) = continueResult else { return XCTFail("expected continueRound to accept the minted token") }
         XCTAssertEqual(finished.status, .done)
         XCTAssertEqual(finished.rounds.count, 2, "the piloted round is never discarded")
         XCTAssertEqual(adoptedRunner.callCount(for: "pm_cli"), 1)
