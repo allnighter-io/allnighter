@@ -153,9 +153,12 @@ public enum HelpTopicRegistry {
             id: "team_run_loop", title: "Running a Team", audience: .both,
             summary: "Send work to a Team in its registered repository: dry-run, then foreground run.",
             bodyMarkdown: """
-            Sending work to a Team is dry-run → foreground run. `alln run --dry-run` validates \
+            Sending work to a Team is dry-run → foreground run.             `alln run --dry-run` validates \
             the lineup before spending quota. Research Teams are observational in the real repository; \
-            execution Teams resolve to one selected mutating worker. Inspect a finished run with \
+            execution Teams resolve to one selected mutating worker. For one-off crew staffing on a \
+            built-in judgment team, repeat `--seat <model_id>` in crew order with `--team` — no catalog \
+            write. Durable custom rosters still use `teams duplicate` → `teams definition` → `teams edit`. \
+            Inspect a finished run with \
             `alln show`, `alln spec`, or `alln floor show`.
 
             Dry-run `writePolicy` / `effects.repoWrite` report write *permission*, not prompt \
@@ -181,6 +184,7 @@ public enum HelpTopicRegistry {
             subscription CLIs; use `--effort`, `--worker`, and each driver's supported controls.
             """,
             aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt",
+                      "custom seats", "staff models once", "one-off team", "temporary team",
                       // Spec review is a Team run like any other. These phrases used to
                       // resolve to the deleted `panel` surface; they must keep landing on
                       // the one primitive that actually performs the work.
@@ -192,6 +196,7 @@ public enum HelpTopicRegistry {
                       "no-wait", "background run", "detach", "idempotency", "retry safely"],
             sections: [
                 .init("preflight", "Dry-run first", "Call `alln run --dry-run` before a foreground run so a bad lineup fails before quota is spent."),
+                .init("explicit-seats", "One-off crew staffing", "`alln run --team <built-in> --seat <model_id> --seat …` staffs crew seats in order without writing the catalog. Lead and scout stay on the Team. Mutating teams still use `--worker`."),
                 .init("write-policy", "Observation vs outcome", "`effects.repoWrite` means the resolved invocation may write. Research Teams are observational; terminal `repoDelta` reports whether a mutating run did write, and `researchGitObservation.changed` flags a read-only run that unexpectedly changed Git state (files are never reset)."),
                 .init("timing", "Observed timing", "`queueMs` / `ttftMs` / `durationMs` / `outcome.timing.wallMs` are recorded clocks. Null means unreported. Do not invent an orchestration tax by subtracting duration from wall."),
                 .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` on `run`."),
@@ -276,7 +281,9 @@ public enum HelpTopicRegistry {
             A team is a lane-scoped roster of workers, each a model running a skill. \
             Built-in teams are immutable — customize a shipped method with \
             `teams duplicate` → `teams definition` → `teams edit` (prefer Bug Hunt; \
-            pass `--id` for a deterministic custom id). Create a novel manifest with \
+            pass `--id` for a deterministic custom id). For a one-off crew lineup on a \
+            built-in judgment team, use `alln run --team <id> --seat <model_id> …` instead of \
+            duplicating. Create a novel manifest with \
             `teams definition` (or a hand-authored TeamPreset) → `teams new`. Skills are the \
             reusable prompts workers run. List and inspect with `alln teams`, `alln skills`, \
             and `alln models`; the Default Team (Auto) is the no-pick route. Looking for a \

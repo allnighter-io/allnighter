@@ -126,12 +126,12 @@ public enum MenuSelectionCopy {
 
     private static let actions: [String: Pair] = [
         "run": Pair(
-            useWhen: "Ask a worker or team (starts work)",
+            useWhen: "Ask a worker/team; `--seat` staffs crew once",
             dontUseWhen: "Not catalog write; teams duplicate, teams edit"
         ),
         "teams duplicate": Pair(
             useWhen: "Copy a shipped team, edit it",
-            dontUseWhen: "Not run; novel manifest, teams new"
+            dontUseWhen: "Not one-off staffing; run --seat"
         ),
         "teams new": Pair(
             useWhen: "Create novel team from TeamPreset JSON",

@@ -120,7 +120,8 @@ final class MenuSelectionGradeTests: XCTestCase {
         XCTAssertNotNil(MenuSelectionCopy.action("teams new"))
         XCTAssertTrue(MenuSelectionCopy.action("teams new")!.useWhen.lowercased().contains("novel")
             || MenuSelectionCopy.action("teams new")!.useWhen.contains("TeamPreset"))
-        XCTAssertTrue(MenuSelectionCopy.action("teams duplicate")!.dontUseWhen.contains("teams new")
+        XCTAssertTrue(MenuSelectionCopy.action("teams duplicate")!.dontUseWhen.contains("run")
+            || MenuSelectionCopy.action("teams duplicate")!.dontUseWhen.contains("teams new")
             || MenuSelectionCopy.action("teams duplicate")!.dontUseWhen.contains("novel"))
     }
 

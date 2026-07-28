@@ -161,6 +161,14 @@ final class HelpTopicRegistryTests: XCTestCase {
     /// every one of these phrases contains the bare word "team", which
     /// `team_run_loop` also scores heavily on via its title/summary/related
     /// commands. Before ADP-S04 every query below topped out at `team_run_loop`.
+    func testSearchRoutesExplicitSeatQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("staff models once"), "team_run_loop")
+        XCTAssertEqual(top("custom seats"), "team_run_loop")
+        XCTAssertEqual(top("one-off team"), "team_run_loop")
+        XCTAssertEqual(top("temporary team"), "team_run_loop")
+    }
+
     func testSearchRoutesTeamAuthoringQueries() {
         func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
         XCTAssertEqual(top("create a team"), "teams_and_workers")
