@@ -375,15 +375,11 @@ enum PilotCLI {
         guard !state.projectRoot.isEmpty else {
             throw DetachedHandoffLaunchError.missingProjectRoot(relayId)
         }
-        let executablePath: String?
-        if let current = currentExecutablePath() {
-            executablePath = current
-        } else {
-            executablePath = InstallCLI.resolvedRunningBinary(
-                argv0: argv0,
-                pathEnvironment: pathEnvironment
-            )
-        }
+        let executablePath = ProcessOwnership.resolveRunningExecutablePath(
+            argv0: argv0,
+            pathEnvironment: pathEnvironment,
+            currentExecutablePath: currentExecutablePath
+        )
         guard let executablePath else {
             throw DetachedHandoffLaunchError.unresolvedExecutable
         }

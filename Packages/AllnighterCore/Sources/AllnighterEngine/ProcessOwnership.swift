@@ -716,6 +716,21 @@ public enum ProcessOwnership {
         #endif
     }
 
+    /// The running binary's own path via `currentExecutablePath()`, falling back to
+    /// `InstallCLI.resolvedRunningBinary` (argv0 + PATH search) when the OS call
+    /// cannot resolve it. Single source for this two-step resolution — every detached
+    /// self-relaunch (`pilot handoff --no-wait`'s `detachedHandoffLaunch`, `alln serve`
+    /// auto-launch's `ServeAutoLaunch.ensureRunning`) uses this instead of
+    /// reimplementing the fallback.
+    public static func resolveRunningExecutablePath(
+        argv0: String? = CommandLine.arguments.first,
+        pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"],
+        currentExecutablePath: () -> String? = ProcessOwnership.currentExecutablePath
+    ) -> String? {
+        if let current = currentExecutablePath() { return current }
+        return InstallCLI.resolvedRunningBinary(argv0: argv0, pathEnvironment: pathEnvironment)
+    }
+
     /// Become a session leader so this process is its own process-group owner
     /// (`pgid == pid`). Safe to call when already a session leader (EPERM ignored).
     @discardableResult

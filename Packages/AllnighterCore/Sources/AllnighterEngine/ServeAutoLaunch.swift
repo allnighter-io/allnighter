@@ -57,11 +57,11 @@ public enum ServeAutoLaunch {
     /// code or JSON envelope (see the packet's §Inference bans: "a failed
     /// notifier launch means the round failed" is a banned inference).
     ///
-    /// Executable resolution mirrors `PilotCLI.detachedHandoffLaunch` exactly:
-    /// `ProcessOwnership.currentExecutablePath()` first, falling back to
-    /// `InstallCLI.resolvedRunningBinary(argv0:pathEnvironment:)` (PLT-S01).
-    /// Working directory is irrelevant to `serve`, so the detached child's cwd
-    /// is the user's home.
+    /// Executable resolution is `ProcessOwnership.resolveRunningExecutablePath`
+    /// — the same shared helper `PilotCLI.detachedHandoffLaunch` uses (PLT-S01's
+    /// `currentExecutablePath()`-then-`InstallCLI.resolvedRunningBinary` fallback,
+    /// now owned in one place instead of two). Working directory is irrelevant to
+    /// `serve`, so the detached child's cwd is the user's home.
     @discardableResult
     public static func ensureRunning(
         optedOut: Bool,
@@ -78,15 +78,11 @@ public enum ServeAutoLaunch {
         let state = probe.health(binaryVersion: binaryVersion).state
         if state == .available { return LaunchResult(outcome: .alreadyRunning) }
 
-        let executablePath: String?
-        if let current = currentExecutablePath() {
-            executablePath = current
-        } else {
-            executablePath = InstallCLI.resolvedRunningBinary(
-                argv0: argv0,
-                pathEnvironment: pathEnvironment
-            )
-        }
+        let executablePath = ProcessOwnership.resolveRunningExecutablePath(
+            argv0: argv0,
+            pathEnvironment: pathEnvironment,
+            currentExecutablePath: currentExecutablePath
+        )
         guard let executablePath else {
             FileHandle.standardError.write(Data(
                 "alln serve auto-launch: could not resolve the running binary\n".utf8
