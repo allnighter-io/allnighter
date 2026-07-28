@@ -330,6 +330,44 @@ final class RelayCLITests: XCTestCase {
         }
     }
 
+    /// RSC-S01: `RelayCoordinator.resume`'s `DispatchRefusal` channel, including the
+    /// new `.roundInFlight` case, maps to a real catalog code — specifically
+    /// `RELAY_ROUND_IN_FLIGHT` (reused, not invented) for the dispatch-lock refusal.
+    func testResumeErrorEnvelopeMapsEveryCaseToACatalogCode() {
+        let known = Set(ContractRegistry.milestone1.errors.map(\.code))
+        let cases: [RelayCoordinator.DispatchRefusal] = [
+            .relayNotFound,
+            .notResumable(status: "done"),
+            .roundInFlight,
+        ]
+        for c in cases {
+            let (code, message) = RelayCLI.resumeErrorEnvelope(c, relayId: "relay_1")
+            XCTAssertTrue(known.contains(code), "\(code) missing from error catalog")
+            XCTAssertFalse(message.isEmpty)
+        }
+        let (roundInFlightCode, _) = RelayCLI.resumeErrorEnvelope(.roundInFlight, relayId: "relay_1")
+        XCTAssertEqual(roundInFlightCode, "RELAY_ROUND_IN_FLIGHT", "reuses the existing pilot code, never a new one")
+    }
+
+    /// RSC-S01: `RelayCoordinator.adopt`'s `AdoptError` channel, including the new
+    /// `.roundInFlight` case, maps to a real catalog code the same way.
+    func testAdoptErrorEnvelopeMapsEveryCaseToACatalogCode() {
+        let known = Set(ContractRegistry.milestone1.errors.map(\.code))
+        let cases: [RelayCoordinator.AdoptError] = [
+            .relayNotFound,
+            .notPilotRelay,
+            .notAdoptable(status: "running"),
+            .roundInFlight,
+        ]
+        for c in cases {
+            let (code, message) = RelayCLI.adoptErrorEnvelope(c)
+            XCTAssertTrue(known.contains(code), "\(code) missing from error catalog")
+            XCTAssertFalse(message.isEmpty)
+        }
+        let (roundInFlightCode, _) = RelayCLI.adoptErrorEnvelope(.roundInFlight)
+        XCTAssertEqual(roundInFlightCode, "RELAY_ROUND_IN_FLIGHT", "reuses the existing pilot code, never a new one")
+    }
+
     // MARK: - RelayDispatch progress/human mappings
 
     func testProgressJSONMapsEveryEventCase() {

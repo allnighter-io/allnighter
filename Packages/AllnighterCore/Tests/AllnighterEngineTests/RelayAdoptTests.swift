@@ -412,4 +412,47 @@ final class RelayAdoptTests: XCTestCase {
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
         XCTAssertEqual(error, .relayNotFound)
     }
+
+    // MARK: - RSC-S01: cross-process dispatch lock
+
+    /// Two concurrent `adopt` calls on the same relay id: the one that cannot take the
+    /// dispatch lock is refused with `.roundInFlight` rather than racing the other into
+    /// a double dispatch — same guard `resume` gets (`RelayCoordinatorTests.
+    /// testConcurrentResumeCallsYieldExactlyOneDispatchTheOtherRoundInFlight`),
+    /// simulated the same way: hold the lock directly with the SAME primitive `adopt`
+    /// contends on, then release it and confirm a later legitimate adopt succeeds.
+    func testConcurrentAdoptCallsYieldExactlyOneDispatchTheOtherRoundInFlight() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        _ = await makePilotedOneRoundRelay(id: "relay_adopt_concurrent", repo: repo, stateStore: stateStore, runStore: runStore)
+        XCTAssertEqual(stateStore.load(id: "relay_adopt_concurrent")?.status, .awaitingPM)
+
+        var heldLock = RelayDispatchLock.tryAcquire(relayId: "relay_adopt_concurrent", relaysRoot: stateStore.rootDirectory)
+        XCTAssertNotNil(heldLock, "precondition: lock must be free before the simulated race")
+
+        let (racedService, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let racedCoordinator = RelayCoordinator(runService: racedService, stateStore: stateStore, runStore: runStore)
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "ignored", maxRounds: 5
+        )
+        let racedResult = await racedCoordinator.adopt(relayId: "relay_adopt_concurrent", pmWorkerId: "model_pm", config: config)
+        guard case .failure(let error) = racedResult else { return XCTFail("expected failure while the lock is held") }
+        XCTAssertEqual(error, .roundInFlight)
+        // The lock loser must never have mutated durable state.
+        XCTAssertEqual(stateStore.load(id: "relay_adopt_concurrent")?.pmMode, .external)
+        XCTAssertEqual(stateStore.load(id: "relay_adopt_concurrent")?.status, .awaitingPM)
+
+        heldLock = nil
+
+        let (adoptedService, adoptedRunner) = makeService(
+            pmScripts: [.init(stdout: "Reviewed.\n\n" + verdictJSON("done", note: "All criteria met."))],
+            devScripts: [], runStore: runStore
+        )
+        let adoptCoordinator = RelayCoordinator(runService: adoptedService, stateStore: stateStore, runStore: runStore)
+        let secondResult = await adoptCoordinator.adopt(relayId: "relay_adopt_concurrent", pmWorkerId: "model_pm", config: config)
+        guard case .success(let state) = secondResult else { return XCTFail("expected success once the lock is released") }
+        XCTAssertEqual(state.status, .done)
+        XCTAssertEqual(adoptedRunner.callCount(for: "pm_cli"), 1)
+    }
 }

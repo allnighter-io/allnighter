@@ -496,6 +496,11 @@ public struct RelayCoordinator: Sendable {
         /// round in flight (`running`), a finished relay (`done`), or a ceiling-fired
         /// one (`stopped`). Only a genuinely parked relay can be handed to a spawned PM.
         case notAdoptable(status: String)
+        /// RSC-S01: another process currently holds this relay's `RelayDispatchLock` —
+        /// a concurrent `adopt`/`resume` is already mid read-check-write. Distinct from
+        /// `.notAdoptable(status: "running")`, which means the durable state itself is
+        /// already `.running`; this means the lock couldn't even be taken to check.
+        case roundInFlight
     }
 
     /// `alln pair relay adopt --relay <id> --pm-worker <id>` (`docs/phases/
@@ -526,9 +531,26 @@ public struct RelayCoordinator: Sendable {
     public func adopt(
         relayId: String, pmWorkerId: String, config: Config, events: EventSink? = nil
     ) async -> Result<RelayState, AdoptError> {
-        guard var state = stateStore.load(id: relayId) else { return .failure(.relayNotFound) }
-        guard state.pmMode == .external else { return .failure(.notPilotRelay) }
+        // RSC-S01: the lock covers ONLY the read-check-write window below — released
+        // (by dropping this handle) right before the round loop, never held across it.
+        // A crashed holder never wedges the relay: `flock` is released by the kernel on
+        // process death, and liveness after the flip to `.running` is separately owned
+        // by `owner.pid` + `reconcileOrphan` (unchanged).
+        var lockHandle: ThreadFlockLock.Handle? = RelayDispatchLock.tryAcquire(
+            relayId: relayId, relaysRoot: stateStore.rootDirectory
+        )
+        guard lockHandle != nil else { return .failure(.roundInFlight) }
+
+        guard var state = stateStore.load(id: relayId) else {
+            lockHandle = nil
+            return .failure(.relayNotFound)
+        }
+        guard state.pmMode == .external else {
+            lockHandle = nil
+            return .failure(.notPilotRelay)
+        }
         guard state.status == .awaitingPM || state.status == .escalated else {
+            lockHandle = nil
             return .failure(.notAdoptable(status: state.status.rawValue))
         }
 
@@ -548,6 +570,8 @@ public struct RelayCoordinator: Sendable {
 
         threadProjector?.started(state: state, projectId: config.projectId)
         persist(state)
+        lockHandle = nil
+
         await loop(state: &state, config: adoptedConfig, events: events, adoptionNote: note)
         return .success(state)
     }
@@ -640,14 +664,38 @@ public struct RelayCoordinator: Sendable {
     /// — these are per-invocation, not part of the persisted `RelayState`, so a resumed run
     /// can widen or tighten them (e.g. a fresh `--until` for the next stretch);
     /// `projectRoot`/`docPath`/worker ids are taken from the loaded state, not `config`, so
-    /// a resume can never silently redirect a relay at a different doc or repo. Returns
-    /// `nil` when no such relay exists, or its status isn't resumable (`.done`, or a
-    /// ceiling-fired `.stopped` — a deliberate stop, never silently resumable) — the caller
-    /// (CLI/MCP) turns that into a clean, honest error rather than the coordinator guessing.
-    public func resume(relayId: String, founderAnswer: String, config: Config, events: EventSink? = nil) async -> RelayState? {
-        guard let loaded = stateStore.load(id: relayId) else { return nil }
+    /// a resume can never silently redirect a relay at a different doc or repo. Fails with
+    /// `.relayNotFound` when no such relay exists, `.notResumable(status:)` when its status
+    /// isn't resumable (`.done`, or a ceiling-fired `.stopped` — a deliberate stop, never
+    /// silently resumable), or `.roundInFlight` (RSC-S01) when another process already
+    /// holds this relay's dispatch lock — the caller (CLI/MCP/GUI) turns any of these into
+    /// a clean, honest error rather than the coordinator guessing.
+    public enum DispatchRefusal: Swift.Error, Sendable, Equatable {
+        case relayNotFound
+        case notResumable(status: String)
+        /// RSC-S01: another process currently holds this relay's `RelayDispatchLock` —
+        /// a concurrent `resume`/`adopt` is already mid read-check-write.
+        case roundInFlight
+    }
+
+    public func resume(
+        relayId: String, founderAnswer: String, config: Config, events: EventSink? = nil
+    ) async -> Result<RelayState, DispatchRefusal> {
+        // RSC-S01: same lock/window discipline as `adopt` above — see its comment.
+        var lockHandle: ThreadFlockLock.Handle? = RelayDispatchLock.tryAcquire(
+            relayId: relayId, relaysRoot: stateStore.rootDirectory
+        )
+        guard lockHandle != nil else { return .failure(.roundInFlight) }
+
+        guard let loaded = stateStore.load(id: relayId) else {
+            lockHandle = nil
+            return .failure(.relayNotFound)
+        }
         var state = reconcileIfOrphaned(loaded)
-        guard state.isResumable else { return nil }
+        guard state.isResumable else {
+            lockHandle = nil
+            return .failure(.notResumable(status: state.status.rawValue))
+        }
         var resumedConfig = config
         resumedConfig.projectRoot = state.projectRoot
         resumedConfig.docPath = state.docPath
@@ -662,8 +710,10 @@ public struct RelayCoordinator: Sendable {
         // attached — `sync` below is then guaranteed a thread to project onto.
         threadProjector?.started(state: state, projectId: config.projectId)
         persist(state)
+        lockHandle = nil
+
         await loop(state: &state, config: resumedConfig, events: events)
-        return state
+        return .success(state)
     }
 
     /// `pair relay-status` / MCP `pair_relay(action: status)` — the read path that also

@@ -194,7 +194,7 @@ final class RelayThreadProjectionTests: XCTestCase {
         let resumedResult = await rig.coordinator.resume(
             relayId: escalated.id, founderAnswer: "use staging", config: resumedConfig
         )
-        let resumed = try XCTUnwrap(resumedResult)
+        guard case .success(let resumed) = resumedResult else { return XCTFail("expected success") }
         XCTAssertEqual(resumed.status, .done)
 
         thread = try XCTUnwrap(rig.threadStore.get(resumed.id))

@@ -84,13 +84,16 @@ enum RelayCLI {
 
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
         let emitJSON = opts.flag("json")
-        guard let state = await coordinator.resume(
+        let result = await coordinator.resume(
             relayId: request.relayId, founderAnswer: request.answer, config: request.config,
             events: { event in emit(event, json: emitJSON) }
-        ) else {
-            fail(.relayNotFound(request.relayId))
+        )
+        switch result {
+        case .success(let state):
+            emitTerminal(state, json: emitJSON)
+        case .failure(let refusal):
+            failResume(refusal, relayId: request.relayId)
         }
-        emitTerminal(state, json: emitJSON)
     }
 
     /// `pair relay adopt --relay <id> --pm-worker <id>` (docs/phases/Pilot_Relay.md
@@ -319,6 +322,30 @@ enum RelayCLI {
             return ("RELAY_INVALID_STATE", "relay is not a Pilot relay (pmMode != external) — only a Pilot relay can be adopted by a spawned PM")
         case .notAdoptable(let status):
             return ("RELAY_INVALID_STATE", "relay is \(status), not adoptable — only a parked Pilot relay (awaitingPM or escalated) can be adopted")
+        case .roundInFlight:
+            return ("RELAY_ROUND_IN_FLIGHT", "another process is already dispatching a round for this relay — poll `alln pair relay-status --relay <id> --json` and retry once it settles")
+        }
+    }
+
+    /// RSC-S01: `RelayCoordinator.resume`'s failure channel. `.relayNotFound`/
+    /// `.notResumable` mirror the existing pre-check in `parseResumeRequest` (which
+    /// normally catches these first); `.roundInFlight` is new — a concurrent
+    /// `resume`/`adopt` already holds this relay's dispatch lock.
+    private static func failResume(_ error: RelayCoordinator.DispatchRefusal, relayId: String) -> Never {
+        let (code, message) = resumeErrorEnvelope(error, relayId: relayId)
+        AllnighterCLI.fail(code: code, message: message)
+    }
+
+    static func resumeErrorEnvelope(
+        _ error: RelayCoordinator.DispatchRefusal, relayId: String
+    ) -> (code: String, message: String) {
+        switch error {
+        case .relayNotFound:
+            return ("RELAY_NOT_FOUND", "relay not found: \(relayId)")
+        case .notResumable(let status):
+            return ("RELAY_INVALID_STATE", "relay is \(status), not resumable — only an escalated relay, or one reconciled after its owner process died, can be resumed")
+        case .roundInFlight:
+            return ("RELAY_ROUND_IN_FLIGHT", "another process is already dispatching a round for this relay — poll `alln pair relay-status --relay <id> --json` and retry once it settles")
         }
     }
 

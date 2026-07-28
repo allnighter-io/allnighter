@@ -505,11 +505,12 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
         )
-        let resumed = await coordinator.resume(relayId: "relay_resume_test", founderAnswer: "use staging", config: resumedConfig)
+        let resumedResult = await coordinator.resume(relayId: "relay_resume_test", founderAnswer: "use staging", config: resumedConfig)
+        guard case .success(let resumed) = resumedResult else { return XCTFail("expected success") }
 
-        XCTAssertEqual(resumed?.status, .done)
-        XCTAssertEqual(resumed?.rounds.count, 2)
-        XCTAssertNil(resumed?.founderNote, "consumed after the first post-resume PM turn")
+        XCTAssertEqual(resumed.status, .done)
+        XCTAssertEqual(resumed.rounds.count, 2)
+        XCTAssertNil(resumed.founderNote, "consumed after the first post-resume PM turn")
 
         let secondCallArgs = runner.capturedArgs(for: "pm_cli").last ?? []
         XCTAssertTrue(secondCallArgs.joined(separator: " ").contains("use staging"), "founder note must reach the PM prompt verbatim")
@@ -532,7 +533,8 @@ final class RelayCoordinatorTests: XCTestCase {
         XCTAssertEqual(done.status, .done)
 
         let result = await coordinator.resume(relayId: "relay_done_test", founderAnswer: "irrelevant", config: config)
-        XCTAssertNil(result)
+        guard case .failure(let error) = result else { return XCTFail("expected failure") }
+        XCTAssertEqual(error, .notResumable(status: "done"))
     }
 
     // MARK: - Durability
@@ -643,14 +645,15 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
         )
-        let resumed = await coordinator.resume(relayId: "relay_resume_after_kill", founderAnswer: "continue please", config: config)
+        let resumedResult = await coordinator.resume(relayId: "relay_resume_after_kill", founderAnswer: "continue please", config: config)
+        guard case .success(let resumed) = resumedResult else { return XCTFail("expected success") }
 
-        XCTAssertEqual(resumed?.status, .done)
+        XCTAssertEqual(resumed.status, .done)
         // The killed round stays recorded as stopped — reconciliation never silently
         // erases it, it settles it — and the resumed attempt is a NEW round after it.
-        XCTAssertEqual(resumed?.rounds.count, 2)
-        XCTAssertEqual(resumed?.rounds.first?.outcome, .stopped)
-        XCTAssertEqual(resumed?.rounds.last?.outcome, .done)
+        XCTAssertEqual(resumed.rounds.count, 2)
+        XCTAssertEqual(resumed.rounds.first?.outcome, .stopped)
+        XCTAssertEqual(resumed.rounds.last?.outcome, .done)
     }
 
     func testResumeNeverAcceptsADoneRelayEvenThoughReconciliationOnlyTouchesRunning() async throws {
@@ -668,7 +671,8 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: "/repo", docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
         )
         let result = await coordinator.resume(relayId: "relay_done_never_resumable", founderAnswer: "anything", config: config)
-        XCTAssertNil(result)
+        guard case .failure(let error) = result else { return XCTFail("expected failure") }
+        XCTAssertEqual(error, .notResumable(status: "done"))
         XCTAssertEqual(stateStore.load(id: "relay_done_never_resumable")?.status, .done, "never mutated")
     }
 
@@ -694,8 +698,146 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: "/repo", docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
         )
         let result = await coordinator.resume(relayId: "relay_ceiling_stopped", founderAnswer: "anything", config: config)
-        XCTAssertNil(result)
+        guard case .failure(let error) = result else { return XCTFail("expected failure") }
+        XCTAssertEqual(error, .notResumable(status: "stopped"))
     }
+
+    // MARK: - RSC-S01: cross-process dispatch lock
+
+    /// Two concurrent `resume` calls on the same relay id: exactly one dispatches a
+    /// dev turn (via the PM's `done` verdict), the other is refused with
+    /// `.roundInFlight` because it cannot take the dispatch lock. Simulates the second
+    /// caller by holding the lock directly (`RelayDispatchLock.tryAcquire`) — the same
+    /// primitive `RelayCoordinator.resume` itself contends on — while the first
+    /// `resume` is in its read-check-write window.
+    func testConcurrentResumeCallsYieldExactlyOneDispatchTheOtherRoundInFlight() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_concurrent_resume", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
+            createdAt: Date(), note: "which env?"
+        )
+        try stateStore.save(state)
+
+        // Hold the SAME lock a real racing `resume` call would contend on.
+        var heldLock = RelayDispatchLock.tryAcquire(relayId: "relay_concurrent_resume", relaysRoot: stateStore.rootDirectory)
+        XCTAssertNotNil(heldLock, "precondition: lock must be free before the simulated race")
+
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+        let racedResult = await coordinator.resume(relayId: "relay_concurrent_resume", founderAnswer: "use staging", config: config)
+        guard case .failure(let error) = racedResult else { return XCTFail("expected failure while the lock is held") }
+        XCTAssertEqual(error, .roundInFlight)
+        // The lock loser must never have mutated durable state.
+        XCTAssertEqual(stateStore.load(id: "relay_concurrent_resume")?.status, .escalated)
+
+        // Release the simulated holder — dropping the last reference triggers
+        // `ThreadFlockLock.Handle.deinit` (`flock(LOCK_UN)` + `close`).
+        heldLock = nil
+
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")),
+        ]
+        let (service2, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
+        let coordinator2 = RelayCoordinator(runService: service2, stateStore: stateStore, runStore: runStore)
+        let secondResult = await coordinator2.resume(relayId: "relay_concurrent_resume", founderAnswer: "use staging", config: config)
+        guard case .success(let resumed) = secondResult else { return XCTFail("expected success once the lock is released") }
+        XCTAssertEqual(resumed.status, .done)
+    }
+
+    /// A stale lock file left by a process that has since died does not block a fresh
+    /// acquire — a real child process (`python3`, always present on macOS, no compile
+    /// step) `flock`s the SAME lock file `RelayDispatchLock` uses, is `kill -9`'d, and a
+    /// fresh `resume` on the same relay id then succeeds. This is the host-boundary
+    /// claim the spec calls out as needing a real process, not a mock: `flock`
+    /// releases automatically when the holding process dies, with no cooperative
+    /// unlock — exactly why a crashed dispatcher can never wedge a relay.
+    func testStaleLockFromADeadProcessDoesNotBlockAFreshAcquire() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_stale_lock", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
+            createdAt: Date(), note: "which env?"
+        )
+        try stateStore.save(state)
+
+        let lockURL = RelayDispatchLock.lockURL(relayId: "relay_stale_lock", relaysRoot: stateStore.rootDirectory)
+        try FileManager.default.createDirectory(at: lockURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let holderScript = """
+        import os, fcntl, time
+        fd = os.open(\(pythonStringLiteral(lockURL.path)), os.O_CREAT | os.O_RDWR, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        while True:
+            time.sleep(3600)
+        """
+        let scriptURL = tmp.appendingPathComponent("hold_lock.py")
+        try holderScript.write(to: scriptURL, atomically: true, encoding: .utf8)
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.arguments = [scriptURL.path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        defer { if process.isRunning { process.terminate() } }
+
+        // Poll (in-process) with the SAME primitive `resume` contends on, until the
+        // child has actually taken the flock — no IPC readiness signal needed.
+        var childHoldsLock = false
+        for _ in 0..<200 {
+            if let probe = RelayDispatchLock.tryAcquire(relayId: "relay_stale_lock", relaysRoot: stateStore.rootDirectory) {
+                _ = probe // free — child hasn't locked yet; release and retry
+                try await Task.sleep(nanoseconds: 15_000_000)
+                continue
+            }
+            childHoldsLock = true
+            break
+        }
+        XCTAssertTrue(childHoldsLock, "precondition: the child process must actually hold the flock")
+
+        // While held, a resume attempt is refused.
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+        let blockedResult = await coordinator.resume(relayId: "relay_stale_lock", founderAnswer: "use staging", config: config)
+        guard case .failure(let blockedError) = blockedResult else { return XCTFail("expected failure while the child holds the lock") }
+        XCTAssertEqual(blockedError, .roundInFlight)
+
+        // Kill -9 the holder — the kernel releases its flock immediately, no cooperative unlock.
+        kill(process.processIdentifier, SIGKILL)
+        process.waitUntilExit()
+
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")),
+        ]
+        let (service2, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
+        let coordinator2 = RelayCoordinator(runService: service2, stateStore: stateStore, runStore: runStore)
+
+        // The stale flock releases the instant the process dies, but give the reaped
+        // process table a brief moment to settle; poll rather than assert on one tick.
+        var settled: RelayState?
+        for _ in 0..<50 {
+            let result = await coordinator2.resume(relayId: "relay_stale_lock", founderAnswer: "use staging", config: config)
+            if case .success(let resumedState) = result { settled = resumedState; break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertEqual(settled?.status, .done, "a stale lock from a dead process must never wedge the relay")
+    }
+}
+
+/// Minimal Python string-literal escaping for the one path we splice into the
+/// spawned holder script above (test-only; not a general-purpose escaper).
+private func pythonStringLiteral(_ raw: String) -> String {
+    "r\"\"\"\(raw)\"\"\""
 }
 
 // MARK: - RelayStateStore

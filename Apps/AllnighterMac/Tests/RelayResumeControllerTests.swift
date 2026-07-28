@@ -213,4 +213,42 @@ final class RelayResumeControllerTests: XCTestCase {
         }
         XCTAssertFalse(controller.isResuming(relayId))
     }
+
+    // MARK: - RSC-S01: cause-specific refusal copy
+
+    /// A lock-contention refusal (another process is actively dispatching right now)
+    /// is a different, true statement from "not resumable" — asserting the latter
+    /// would name an unobserved cause. Simulates the race by holding the SAME
+    /// dispatch lock `RelayCoordinator.resume` contends on before calling
+    /// `RelayResumeController.resume`.
+    func testResumeSurfacesRoundInFlightCauseWhenAnotherProcessHoldsTheDispatchLock() async throws {
+        let root = tempRoot("inflight")
+        let relayId = "relay_inflight_\(UUID().uuidString)"
+        let stateStore = seedEscalated(
+            id: relayId, root: root, projectRoot: repoRoot(),
+            pmWorkerId: "pm", devWorkerId: "dev")
+        let controller = RelayResumeController(
+            makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
+            stateStore: stateStore
+        )
+
+        var heldLock = RelayDispatchLock.tryAcquire(relayId: relayId, relaysRoot: stateStore.rootDirectory)
+        XCTAssertNotNil(heldLock, "precondition: lock must be free before the simulated race")
+
+        XCTAssertTrue(controller.resume(relayId: relayId, answer: "Go with 88."))
+
+        for _ in 0..<100 {
+            if !controller.isResuming(relayId) { break }
+            try await Task.sleep(nanoseconds: 15_000_000)
+        }
+        XCTAssertFalse(controller.isResuming(relayId))
+        XCTAssertEqual(
+            controller.lastError[relayId],
+            "Another process is already dispatching a round for this relay — try again in a moment."
+        )
+        // The relay's durable state must be untouched — the lock loser never mutated it.
+        XCTAssertEqual(stateStore.load(id: relayId)?.status, .escalated)
+
+        heldLock = nil // release; avoids leaking the flock past the test
+    }
 }

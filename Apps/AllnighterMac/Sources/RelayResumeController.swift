@@ -89,17 +89,32 @@ final class RelayResumeController {
         lastError[relayId] = nil
         let coordinator = makeCoordinator(idFactory)
         Task { @MainActor [weak self] in
-            let resumed = await coordinator.resume(
+            let result = await coordinator.resume(
                 relayId: relayId, founderAnswer: trimmed, config: config
             ) { event in
                 Task { @MainActor in onEvent?(event) }
             }
             guard let self else { return }
             self.resumingRelayIds.remove(relayId)
-            if resumed == nil {
-                self.lastError[relayId] = "This relay is no longer resumable."
+            if case .failure(let refusal) = result {
+                self.lastError[relayId] = Self.resumeFailureMessage(refusal)
             }
         }
         return true
+    }
+
+    /// RSC-S01: cause-specific copy for each `DispatchRefusal` — a lock-contention
+    /// refusal (another process is actively dispatching right now) is a different,
+    /// true statement from "not resumable" (the durable status itself is wrong), and
+    /// asserting the wrong one names an unobserved cause.
+    private static func resumeFailureMessage(_ refusal: RelayCoordinator.DispatchRefusal) -> String {
+        switch refusal {
+        case .relayNotFound:
+            return "This relay no longer exists."
+        case .notResumable:
+            return "This relay is no longer resumable."
+        case .roundInFlight:
+            return "Another process is already dispatching a round for this relay — try again in a moment."
+        }
     }
 }
