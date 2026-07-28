@@ -1,9 +1,10 @@
 # Model Catalog Unification
 
-Status: **Ready for Implementation** — final audit **Ready with edits incorporated** (2026-07-28); start **MCAT-S01a**
-Owner: AgentOS (`AgentOSCLI`) first → Allnighter consumer cutover
+Status: **Complete** — MCAT-S01a through S07 shipped 2026-07-28 (S06 live-label smoke remains opt-in manual)
+Owner: AgentOS (`AgentOSCLI`) catalog + Allnighter `catalog_overlay.json` policy
 Created: 2026-07-27
 Updated: 2026-07-28
+Archived: 2026-07-28
 Process: `docs/workflows/SSOT_Founder_Input_Workflow.md` →
 `docs/workflows/SSOT_Feature_Workflow.md`  
 Depends on: AgentOS P1 CLI runtime (`BundledDefaults`, `Model`, `EffortLevel`,
@@ -666,15 +667,15 @@ Mac resource linkage, or CLI projection tests.
 
 ### Done When
 
-- [ ] AgentOS `catalog.json` is the only runtime definition for bundled drivers + models
-- [ ] Allnighter loads catalog + overlay; no `builtIns` / `builtInCapabilities` Swift encyclopedia
-- [ ] No Allnighter `team_default.json`, bundled per-driver JSON, or embedded manifest strings remain
-- [ ] One-file runtime add/remove in AgentOS and one-file default enable/hide in the overlay are proven; a brand-new default intentionally edits both owners
-- [ ] Effort schema validated in loader tests; runtime types unchanged
-- [ ] `DefaultConfigDriftTests` is deleted and its useful assertions live in catalog-authoritative tests
-- [ ] Teaching surface: built-in model copy comes from overlay `menuHint`; removed ids have no `MenuSelectionCopy` keys
-- [ ] AgentOS + Allnighter adjacent commit hashes and both green walls are recorded for every slice
-- [ ] MCAT-S01a through S05 committed; packet archived after promotion
+- [x] AgentOS `catalog.json` is the only runtime definition for bundled drivers + models
+- [x] Allnighter loads catalog + overlay; no `builtIns` / `builtInCapabilities` Swift encyclopedia
+- [x] No Allnighter `team_default.json`, bundled per-driver JSON, or embedded manifest strings remain
+- [x] One-file runtime add/remove in AgentOS and one-file default enable/hide in the overlay are proven; a brand-new default intentionally edits both owners
+- [x] Effort schema validated in loader tests; runtime types unchanged
+- [x] `DefaultConfigDriftTests` is deleted and its useful assertions live in catalog-authoritative tests
+- [x] Teaching surface: built-in model copy comes from overlay `menuHint`; removed ids have no `MenuSelectionCopy` keys
+- [x] AgentOS + Allnighter adjacent commit hashes and both green walls are recorded for every slice
+- [x] MCAT-S01a through S07 committed; packet archived after promotion
 
 ---
 

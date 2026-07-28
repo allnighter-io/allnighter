@@ -49,6 +49,11 @@ CLI Implementation Contract are archived — do not revive.
 > (Complete 2026-07-28 — S01–S05 + HF redesign: ack-after-accept, no hidden
 > relay verbs, public `--run-id` removed, contract 5.0.0 / binary 0.10.6; code
 > SSOT `DetachedHandoff`, `DetachedDispatch`, `RelayCoordinator.claimStart`);
+> [`Model_Catalog_Simplification.md`](../archive/phases/Model_Catalog_Simplification.md)
+> (Complete 2026-07-28 — MCAT-S01a–S07: AgentOS `catalog.json` + Allnighter
+> `catalog_overlay.json` cutover, legacy driver JSON removed, `alln catalog
+> validate`; S06 live-label smoke opt-in manual; code SSOT `CatalogLoader`,
+> `ModelCatalog`, `CatalogOverlayLoader`, `ModelCatalogValidator`);
 > [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md)
 > (Code Complete 2026-07-27 — URN-S01/S02/S03 shipped: `alln serve` posts local
 > notifications for relay/pilot/team-run state and auto-launches itself, silent
@@ -136,7 +141,6 @@ law. Shipped subsections already belong to code; do not cite these paths as
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open / M1 built — **archive when no forward CLI naming work remains** | `alln` agent-first naming while still evolving. Code owns shipped contract bits. |
-| [`Model_Catalog_Simplification.md`](Model_Catalog_Simplification.md) | **Ready for Implementation** — Spec Review Ready 2026-07-27; **MCAT-S01a** → AgentOS | Founder intake + Feature Packet; one AgentOS `catalog.json` for drivers/models/effort; Allnighter overlay for bench/tiers. Run `32F60943…`. |
 
 ### Team catalog & delegation (forward)
 
