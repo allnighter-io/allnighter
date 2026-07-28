@@ -339,6 +339,9 @@ final class RelayCLITests: XCTestCase {
             .relayNotFound,
             .notResumable(status: "done"),
             .roundInFlight,
+            // RSC-S02: unreachable from `resume` in practice, but `DispatchRefusal` is
+            // shared with `run` now — the exhaustive mapping must still cover it.
+            .alreadyActive(relayId: "relay_other"),
         ]
         for c in cases {
             let (code, message) = RelayCLI.resumeErrorEnvelope(c, relayId: "relay_1")
@@ -347,6 +350,17 @@ final class RelayCLITests: XCTestCase {
         }
         let (roundInFlightCode, _) = RelayCLI.resumeErrorEnvelope(.roundInFlight, relayId: "relay_1")
         XCTAssertEqual(roundInFlightCode, "RELAY_ROUND_IN_FLIGHT", "reuses the existing pilot code, never a new one")
+    }
+
+    /// RSC-S02: `RelayCoordinator.run`'s `DispatchRefusal` channel — `.alreadyActive`
+    /// is the only case `run` actually produces — maps to the new `RELAY_ALREADY_ACTIVE`
+    /// catalog code and names the existing relay id in the message.
+    func testStartErrorEnvelopeMapsAlreadyActiveToRelayAlreadyActive() {
+        let known = Set(ContractRegistry.milestone1.errors.map(\.code))
+        let (code, message) = RelayCLI.startErrorEnvelope(.alreadyActive(relayId: "relay_existing"))
+        XCTAssertEqual(code, "RELAY_ALREADY_ACTIVE")
+        XCTAssertTrue(known.contains(code), "\(code) missing from error catalog")
+        XCTAssertTrue(message.contains("relay_existing"), "message must name the existing relay id, not just refuse silently")
     }
 
     /// RSC-S01: `RelayCoordinator.adopt`'s `AdoptError` channel, including the new

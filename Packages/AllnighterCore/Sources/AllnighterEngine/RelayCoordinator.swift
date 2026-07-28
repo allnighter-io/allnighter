@@ -189,9 +189,63 @@ public struct RelayCoordinator: Sendable {
 
     // MARK: - Entry points
 
+    /// RSC-S02: non-mutating duplicate-start check. Scans `stateStore.list()` for a
+    /// relay with a matching normalized `projectRoot` + exact `docPath`, `status ==
+    /// .running`, and a LIVE owner (`!stateStore.isOwnerDead(id:)`) — a dead-owner
+    /// `.running` relay is an orphan, not a live duplicate, and must never block a new
+    /// start (that is `reconcileOrphan`'s job, not this one's). Parked relays
+    /// (`awaitingPM`/`escalated`) never match: they need `resume`/`adopt`, not a
+    /// competing new relay, and refusing a start because one exists would break
+    /// Pilot's long-parked-by-design flow. `run` below calls this UNDER its start-key
+    /// lock so the scan and the new relay's first persist are one atomic window across
+    /// processes; a foreground caller (e.g. a CLI ack-before-dispatch check) may also
+    /// call this standalone for an early, lock-free read — a `.success` here is not a
+    /// guarantee against a start that lands between the check and the real call.
+    public static func preflightStart(
+        projectRoot: String, docPath: String, stateStore: RelayStateStore
+    ) -> Result<Void, DispatchRefusal> {
+        let normalizedRoot = RootNormalization.normalize(projectRoot).key
+        for candidate in stateStore.list() {
+            guard candidate.status == .running, candidate.docPath == docPath else { continue }
+            guard RootNormalization.normalize(candidate.projectRoot).key == normalizedRoot else { continue }
+            guard !stateStore.isOwnerDead(id: candidate.id) else { continue }
+            return .failure(.alreadyActive(relayId: candidate.id))
+        }
+        return .success(())
+    }
+
     /// Starts a new relay and runs it to a terminal `RelayState` (`done`, `escalated`, or
     /// `stopped`). Every round is persisted the moment it changes (durable mid-round).
-    public func run(config: Config, events: EventSink? = nil) async -> RelayState {
+    ///
+    /// RSC-S02: `preflightStart`'s scan and the new state's first `.running` persist run
+    /// under a start-key lock (`RelayDispatchLock.acquireStart`, keyed on
+    /// `sha256(normalizedRoot + "|" + docPath)` — no relay id exists yet to key on the way
+    /// `resume`/`adopt`'s per-id lock does) so two starts racing the SAME root+doc can
+    /// never both pass the scan. The lock is BLOCKING (not `tryAcquire`) because its
+    /// critical section is a quick scan + persist, not the round loop that follows —
+    /// released before `loop` begins, same discipline `resume`/`adopt` use for their own
+    /// (non-blocking) per-id locks.
+    public func run(config: Config, events: EventSink? = nil) async -> Result<RelayState, DispatchRefusal> {
+        let key = RelayDispatchLock.startKey(projectRoot: config.projectRoot, docPath: config.docPath)
+        guard let acquired = RelayDispatchLock.acquireStart(startKey: key, relaysRoot: stateStore.rootDirectory) else {
+            // `acquireStart` blocks until the lock is free, so a nil result here means a
+            // real I/O problem (e.g. an unwritable relays root), never contention — fail
+            // closed, but still run the lock-free scan so a genuine duplicate is named
+            // rather than surfacing a bare, unnamed refusal.
+            if case .failure(let refusal) = Self.preflightStart(
+                projectRoot: config.projectRoot, docPath: config.docPath, stateStore: stateStore
+            ) { return .failure(refusal) }
+            return .failure(.alreadyActive(relayId: "unknown"))
+        }
+        var lockHandle: ThreadFlockLock.Handle? = acquired
+
+        if case .failure(let refusal) = Self.preflightStart(
+            projectRoot: config.projectRoot, docPath: config.docPath, stateStore: stateStore
+        ) {
+            lockHandle = nil
+            return .failure(refusal)
+        }
+
         var state = RelayState(
             id: idFactory(),
             projectRoot: config.projectRoot,
@@ -203,8 +257,12 @@ public struct RelayCoordinator: Sendable {
         )
         threadProjector?.started(state: state, projectId: config.projectId)
         persist(state)
+        // Release before the round loop — same discipline `resume`/`adopt` follow for
+        // their own locks (RSC-S01): this lock covers the read-check-write window only.
+        lockHandle = nil
+
         await loop(state: &state, config: config, events: events)
-        return state
+        return .success(state)
     }
 
     // MARK: - Pilot (docs/phases/Pilot_Relay.md) — `pmMode: .external`
@@ -676,6 +734,12 @@ public struct RelayCoordinator: Sendable {
         /// RSC-S01: another process currently holds this relay's `RelayDispatchLock` —
         /// a concurrent `resume`/`adopt` is already mid read-check-write.
         case roundInFlight
+        /// RSC-S02: `run`'s start-time duplicate guard — a live-owner `.running` relay
+        /// already exists on the same normalized `projectRoot` + `docPath`. Names the
+        /// existing relay id so the caller can resume/adopt/inspect it instead of
+        /// guessing. A dead-owner `.running` relay (orphan) never produces this — see
+        /// `preflightStart`.
+        case alreadyActive(relayId: String)
     }
 
     public func resume(

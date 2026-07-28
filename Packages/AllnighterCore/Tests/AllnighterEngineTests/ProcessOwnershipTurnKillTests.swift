@@ -172,10 +172,10 @@ final class ProcessOwnershipTurnKillTests: XCTestCase {
         let coordinator = RelayCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore
         )
-        let state = await coordinator.run(config: .init(
+        let state = try await coordinator.run(config: .init(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
-        ))
+        )).get()
         XCTAssertEqual(state.status, .done)
         let devRound = try XCTUnwrap(state.rounds.first { $0.devRunId != nil })
         XCTAssertEqual(devRound.devTurnEndReason, .reported,
@@ -210,10 +210,10 @@ final class ProcessOwnershipTurnKillTests: XCTestCase {
         let coordinator = RelayCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore
         )
-        let state = await coordinator.run(config: .init(
+        let state = try await coordinator.run(config: .init(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
-        ))
+        )).get()
         XCTAssertEqual(state.status, .escalated)
         let round = try XCTUnwrap(state.rounds.last)
         XCTAssertEqual(round.devTurnEndReason, .stalled,

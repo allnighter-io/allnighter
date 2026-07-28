@@ -110,7 +110,7 @@ final class RelayThreadProjectionTests: XCTestCase {
             projectRoot: repo.path, projectId: "proj_relay_1", docPath: "docs/phases/PM_Relay.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev"
         )
-        let state = await rig.coordinator.run(config: config)
+        let state = try await rig.coordinator.run(config: config).get()
 
         let thread = rig.threadStore.get(state.id)
         XCTAssertNotNil(thread, "the relay's thread id must equal the relay id")
@@ -134,7 +134,7 @@ final class RelayThreadProjectionTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
         )
-        let state = await rig.coordinator.run(config: config)
+        let state = try await rig.coordinator.run(config: config).get()
         XCTAssertEqual(state.status, .done)
 
         let thread = try XCTUnwrap(rig.threadStore.get(state.id))
@@ -174,7 +174,7 @@ final class RelayThreadProjectionTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev"
         )
-        let escalated = await rig.coordinator.run(config: config)
+        let escalated = try await rig.coordinator.run(config: config).get()
         XCTAssertEqual(escalated.status, .escalated)
 
         var thread = try XCTUnwrap(rig.threadStore.get(escalated.id))
@@ -216,7 +216,7 @@ final class RelayThreadProjectionTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev"
         )
-        let state = await rig.coordinator.run(config: config)
+        let state = try await rig.coordinator.run(config: config).get()
         XCTAssertEqual(state.status, .done)
 
         let thread = try XCTUnwrap(rig.threadStore.get(state.id))
@@ -238,7 +238,7 @@ final class RelayThreadProjectionTests: XCTestCase {
             pmWorkerId: "model_pm", devWorkerId: "model_dev",
             maxRounds: 1, stagnationRoundCap: 10
         )
-        let state = await rig.coordinator.run(config: config)
+        let state = try await rig.coordinator.run(config: config).get()
         XCTAssertEqual(state.status, .stopped)
 
         let thread = try XCTUnwrap(rig.threadStore.get(state.id))
@@ -286,7 +286,7 @@ final class RelayThreadProjectionTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev"
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
         XCTAssertEqual(state.status, .done, "the relay must not depend on a thread store being attached")
     }
 

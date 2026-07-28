@@ -20,6 +20,14 @@ final class RelayLaunchViewModel {
     /// Optional `HH:MM` deadline. Empty = no deadline (`--max-rounds` is the only ceiling).
     var untilTime: String = ""
     private(set) var isStarting = false
+    /// RSC-S02: set by `start()` when `RelayCoordinator.preflightStart` refuses a
+    /// duplicate live relay on this project root + doc. Deliberately NOT folded into
+    /// `validationIssues`/`canStart` — those gate the Start button on pure form
+    /// completeness; a duplicate-relay refusal is a dynamic, disk-backed fact that can
+    /// change the moment the existing relay settles, so blocking the button on it would
+    /// dead-end the form until the user edits an unrelated field. Cleared at the top of
+    /// every `start()` attempt so retrying re-checks fresh.
+    private(set) var startRefusalIssue: ValidationIssue?
 
     let projectId: String
     let projectRoot: String
@@ -34,6 +42,12 @@ final class RelayLaunchViewModel {
     let readyModels: [Model]
 
     private let makeCoordinator: (@escaping @Sendable () -> String) -> RelayCoordinator
+    /// RSC-S02: the store `preflightStart` scans. Defaults to production
+    /// (`RelayStateStore()`), the SAME default root `RelayGUIRuntime.makeCoordinator`'s
+    /// internal `RelayCoordinator` uses — a test-injected store must point at the SAME
+    /// root the injected `makeCoordinator` factory's coordinator was built against, or
+    /// the preflight would scan a different directory than the one `run()` persists to.
+    private let stateStore: RelayStateStore
     /// Builds the `RelayThreadProjector` used for the synchronous pre-seed in `start()`
     /// (below). Defaults to the SAME default-store projector `RelayGUIRuntime.makeCoordinator`
     /// builds internally — in production these are two instances over the identical default
@@ -50,7 +64,8 @@ final class RelayLaunchViewModel {
         registry: DriverRegistry,
         readyModels: [Model],
         makeCoordinator: @escaping (@escaping @Sendable () -> String) -> RelayCoordinator = RelayGUIRuntime.makeCoordinator,
-        makeThreadProjector: @escaping () -> RelayThreadProjector = { RelayThreadProjector() }
+        makeThreadProjector: @escaping () -> RelayThreadProjector = { RelayThreadProjector() },
+        stateStore: RelayStateStore = RelayStateStore()
     ) {
         self.projectId = projectId
         self.projectRoot = projectRoot
@@ -59,6 +74,7 @@ final class RelayLaunchViewModel {
         self.readyModels = readyModels
         self.makeCoordinator = makeCoordinator
         self.makeThreadProjector = makeThreadProjector
+        self.stateStore = stateStore
     }
 
     // MARK: - Validation (pure, testable)
@@ -106,8 +122,25 @@ final class RelayLaunchViewModel {
     @discardableResult
     func start(onEvent: (@Sendable (RelayCoordinator.RelayEvent) -> Void)? = nil) -> String? {
         guard canStart, let pmWorkerId, let devWorkerId else { return nil }
-        let relayId = RelayGUIRuntime.newRelayId()
+        startRefusalIssue = nil
         let trimmedDoc = docPath.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // RSC-S02: preflight BEFORE the thread pre-seed below — a refused start must
+        // never leave an orphan thread with no relay behind it (the pre-seed writes to
+        // the SAME thread store the CLI/other GUI sessions would see).
+        if case .failure(let refusal) = RelayCoordinator.preflightStart(
+            projectRoot: projectRoot, docPath: trimmedDoc, stateStore: stateStore
+        ) {
+            if case .alreadyActive(let existingRelayId) = refusal {
+                startRefusalIssue = ValidationIssue(
+                    id: "already-active",
+                    message: "A relay is already running for this doc (id \(existingRelayId)) — open it, resume/adopt it, or wait instead of starting a second one."
+                )
+            }
+            return nil
+        }
+
+        let relayId = RelayGUIRuntime.newRelayId()
         let config = RelayCoordinator.Config(
             projectRoot: projectRoot,
             projectId: projectId,

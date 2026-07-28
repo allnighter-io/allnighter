@@ -110,7 +110,7 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
 
         XCTAssertEqual(state.status, .done)
         XCTAssertEqual(state.note, "All criteria met.")
@@ -149,7 +149,7 @@ final class RelayCoordinatorTests: XCTestCase {
             devWorkerId: "model_does_not_exist",
             maxRounds: 5
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
 
         XCTAssertEqual(state.status, .escalated)
         XCTAssertTrue(
@@ -184,7 +184,7 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/phases/Pilot_Defect_Fixes.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
         XCTAssertEqual(state.status, .done)
         XCTAssertEqual(runner.callCount(for: "dev_cli"), 1)
 
@@ -236,7 +236,7 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
 
         XCTAssertEqual(devRunner.callCount, 1, "delivered-not-stalled must not re-dispatch")
         XCTAssertEqual(pmRunner.callCount(for: "pm_cli"), 2)
@@ -274,7 +274,7 @@ final class RelayCoordinatorTests: XCTestCase {
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 1,
             devTurnIdleTimeoutSeconds: 555
         )
-        _ = await coordinator.run(config: config)
+        _ = try await coordinator.run(config: config).get()
 
         XCTAssertEqual(
             devSpy.lastTimeout?.components.seconds, 555,
@@ -304,7 +304,7 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 1
         )
-        _ = await coordinator.run(config: config)
+        _ = try await coordinator.run(config: config).get()
 
         // `makeService`'s `TestSupport.headlessManifest` default `invoke.timeoutSeconds`
         // (2) — no override flows through when `devTurnIdleTimeoutSeconds` is nil (default).
@@ -330,7 +330,7 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
 
         XCTAssertEqual(runner.callCount(for: "dev_cli"), 2)
         let secondPrompt = runner.capturedArgs(for: "dev_cli")[1].joined(separator: " ")
@@ -359,7 +359,7 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 1
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
 
         XCTAssertEqual(runner.callCount(for: "pm_cli"), 2, "first attempt + one re-ask")
         XCTAssertEqual(state.rounds.count, 1)
@@ -387,7 +387,7 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev"
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
 
         XCTAssertEqual(runner.callCount(for: "pm_cli"), 2)
         XCTAssertEqual(state.status, .escalated)
@@ -413,7 +413,7 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev"
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
 
         XCTAssertEqual(runner.callCount(for: "dev_cli"), 0, "the dev turn must never dispatch on a blocked handover")
         XCTAssertEqual(state.status, .escalated)
@@ -441,7 +441,7 @@ final class RelayCoordinatorTests: XCTestCase {
             pmWorkerId: "model_pm", devWorkerId: "model_dev",
             maxRounds: 2, stagnationRoundCap: 10
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
 
         XCTAssertEqual(state.status, .stopped)
         XCTAssertEqual(state.stoppedReason, "reached --max-rounds (2)")
@@ -468,7 +468,7 @@ final class RelayCoordinatorTests: XCTestCase {
             pmWorkerId: "model_pm", devWorkerId: "model_dev",
             maxRounds: 20, stagnationRoundCap: 2
         )
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
 
         XCTAssertEqual(state.status, .stopped)
         XCTAssertTrue(state.stoppedReason?.contains("stagnation") ?? false)
@@ -494,7 +494,7 @@ final class RelayCoordinatorTests: XCTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmWorkerId: "model_pm", devWorkerId: "model_dev"
         )
-        let escalated = await coordinator.run(config: config)
+        let escalated = try await coordinator.run(config: config).get()
         XCTAssertEqual(escalated.status, .escalated)
         XCTAssertEqual(escalated.id, "relay_resume_test")
 
@@ -529,7 +529,7 @@ final class RelayCoordinatorTests: XCTestCase {
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
         )
-        let done = await coordinator.run(config: config)
+        let done = try await coordinator.run(config: config).get()
         XCTAssertEqual(done.status, .done)
 
         let result = await coordinator.resume(relayId: "relay_done_test", founderAnswer: "irrelevant", config: config)
@@ -559,13 +559,13 @@ final class RelayCoordinatorTests: XCTestCase {
         )
 
         let midRelayRoundCount = LockedBox<Int?>(nil)
-        let final = await coordinator.run(config: config) { event in
+        let final = try await coordinator.run(config: config) { event in
             if case .devTurnFinished(let round) = event, round == 1 {
                 // The relay is still mid-flight (round 2 hasn't started) — the loaded
                 // on-disk state must already reflect round 1's completed dev turn.
                 midRelayRoundCount.value = stateStore.load(id: "relay_durability_test")?.rounds.count
             }
-        }
+        }.get()
 
         XCTAssertEqual(midRelayRoundCount.value, 1)
         XCTAssertEqual(final.status, .done)
@@ -831,6 +831,211 @@ final class RelayCoordinatorTests: XCTestCase {
             try await Task.sleep(nanoseconds: 50_000_000)
         }
         XCTAssertEqual(settled?.status, .done, "a stale lock from a dead process must never wedge the relay")
+    }
+
+    // MARK: - RSC-S02: duplicate start guard
+
+    /// `preflightStart` in isolation (no lock, no coordinator, mirrors how
+    /// `preflightExternalRound` is unit-tested directly) — the three shapes a bare scan
+    /// must get right: a live `.running` match refuses; a non-matching doc on the same
+    /// root does not; a dead-owner `.running` relay does not.
+    func testPreflightStartDirectScanShapes() throws {
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        try stateStore.save(RelayState(
+            id: "relay_live", projectRoot: "/repo/a", docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+        ))
+
+        let liveMatch = RelayCoordinator.preflightStart(
+            projectRoot: "/repo/a", docPath: "docs/spec.md", stateStore: stateStore
+        )
+        guard case .failure(.alreadyActive(let id)) = liveMatch else { return XCTFail("expected alreadyActive") }
+        XCTAssertEqual(id, "relay_live")
+
+        let differentDoc = RelayCoordinator.preflightStart(
+            projectRoot: "/repo/a", docPath: "docs/other.md", stateStore: stateStore
+        )
+        guard case .success = differentDoc else { return XCTFail("expected success for a non-matching doc") }
+
+        let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        try makeOrphanedRunningRelay(id: "relay_dead_owner", projectRoot: "/repo/b", stateStore: stateStore, projector: projector)
+        let deadOwnerMatch = RelayCoordinator.preflightStart(
+            projectRoot: "/repo/b", docPath: "docs/spec.md", stateStore: stateStore
+        )
+        guard case .success = deadOwnerMatch else { return XCTFail("expected success — a dead-owner .running relay is not a live duplicate") }
+    }
+
+    /// A second `pair relay` start on the SAME normalized root + doc while the first is
+    /// genuinely live (`.running`, owner alive) is refused with `.alreadyActive` naming
+    /// the existing relay id — never a second, independently-dispatching relay against
+    /// the same repo.
+    func testSecondStartOnSameRootAndDocWhileFirstIsLiveIsRefused() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        // `save()` stamps owner.pid with THIS test process's own pid for a `.running`
+        // save — `isOwnerDead` reads that as alive, exactly like a genuinely live relay.
+        let existing = RelayState(
+            id: "relay_first", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+        )
+        try stateStore.save(existing)
+
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+        let result = await coordinator.run(config: config)
+        guard case .failure(let refusal) = result else { return XCTFail("expected failure while a live relay is active") }
+        XCTAssertEqual(refusal, .alreadyActive(relayId: "relay_first"))
+        // The refused start must never have created (or mutated) a second relay.
+        XCTAssertEqual(stateStore.list().count, 1)
+        XCTAssertEqual(stateStore.load(id: "relay_first")?.status, .running)
+    }
+
+    /// A `.running` relay whose owner process has died (an orphan — `reconcileOrphan`'s
+    /// job, not this guard's) must NEVER block a new start; it is not a live duplicate.
+    func testDeadOwnerRunningRelayDoesNotBlockANewStart() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
+        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        try makeOrphanedRunningRelay(id: "relay_orphan_start", projectRoot: repo.path, stateStore: stateStore, projector: projector)
+
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Fresh start beside an orphan.\n\n" + verdictJSON("done", note: "Shipped.")),
+        ]
+        let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore,
+            idFactory: { "relay_new_after_orphan" }
+        )
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+        let result = await coordinator.run(config: config)
+        guard case .success(let state) = result else {
+            return XCTFail("expected success — a dead-owner .running relay is an orphan, not a live duplicate")
+        }
+        XCTAssertEqual(state.id, "relay_new_after_orphan")
+        XCTAssertEqual(state.status, .done)
+    }
+
+    /// Two relays against the SAME root but DIFFERENT docs never contend — the guard
+    /// keys on root + doc together, not root alone.
+    func testDifferentDocPathSameRootIsAllowed() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let existing = RelayState(
+            id: "relay_doc_a", projectRoot: repo.path, docPath: "docs/a.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+        )
+        try stateStore.save(existing)
+
+        let pmScripts: [MockCommandRunner.Script] = [.init(stdout: "Different doc.\n\n" + verdictJSON("done", note: "ok"))]
+        let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore,
+            idFactory: { "relay_doc_b" }
+        )
+        let config = RelayCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/b.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+        )
+        let result = await coordinator.run(config: config)
+        guard case .success(let state) = result else {
+            return XCTFail("expected success — different doc, same root, must never be treated as a duplicate")
+        }
+        XCTAssertEqual(state.status, .done)
+    }
+
+    /// A parked relay (`awaitingPM` — a Pilot relay between rounds, or `escalated` — a
+    /// real founder question) on the SAME root + doc must never block a new start:
+    /// parked relays need `resume`/`adopt`, and Pilot relays can sit `awaitingPM` for
+    /// days by design.
+    func testParkedRelayAwaitingPMOrEscalatedDoesNotBlockANewStart() async throws {
+        let repo = try makeGitRepo()
+        for (label, status, pmMode) in [
+            ("awaiting_pm", RelayState.Status.awaitingPM, PMMode.external),
+            ("escalated", RelayState.Status.escalated, PMMode.spawned),
+        ] {
+            let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-\(label)"))
+            let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-\(label)"))
+            let parked = RelayState(
+                id: "relay_parked_\(label)", projectRoot: repo.path, docPath: "docs/spec.md",
+                pmWorkerId: pmMode == .external ? RelayState.externalPMWorkerId : "model_pm",
+                devWorkerId: "model_dev", status: status, pmMode: pmMode, createdAt: Date(),
+                note: status == .escalated ? "which env?" : nil
+            )
+            try stateStore.save(parked)
+
+            let pmScripts: [MockCommandRunner.Script] = [
+                .init(stdout: "New start beside a parked relay.\n\n" + verdictJSON("done", note: "ok")),
+            ]
+            let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
+            let coordinator = RelayCoordinator(
+                runService: service, stateStore: stateStore, runStore: runStore,
+                idFactory: { "relay_new_beside_\(label)" }
+            )
+            let config = RelayCoordinator.Config(
+                projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            )
+            let result = await coordinator.run(config: config)
+            guard case .success(let state) = result else {
+                return XCTFail("expected success — a parked (\(label)) relay must never block a new start")
+            }
+            XCTAssertEqual(state.status, .done)
+        }
+    }
+
+    /// Root normalization actually matters: a live relay saved against the repo's
+    /// canonical path is still caught when the NEW start's `projectRoot` is spelled
+    /// with a trailing slash, a `..` component, or a symlink that resolves to the same
+    /// key — never a bare exact-string comparison.
+    func testRootNormalizationCatchesTrailingSlashDotDotAndSymlinkSpellings() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let existing = RelayState(
+            id: "relay_canonical", projectRoot: repo.path, docPath: "docs/spec.md",
+            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+        )
+        try stateStore.save(existing)
+
+        let symlink = tmp.appendingPathComponent("repo-symlink")
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: repo)
+
+        // Every component along this path actually exists (`repo`, then back up via
+        // `..` into `repo`'s own parent, then forward into `repo` again) — a `..`
+        // segment through a NON-existent directory is not a reliable normalization
+        // probe (`resolvingSymlinksInPath` only promises to resolve what is really
+        // there), so this stays inside real, already-created directories.
+        let sneakyDotDot = repo
+            .appendingPathComponent("..", isDirectory: true)
+            .appendingPathComponent(repo.lastPathComponent, isDirectory: true)
+
+        let spellings: [String] = [
+            repo.path + "/",
+            sneakyDotDot.path,
+            symlink.path,
+        ]
+        for spelling in spellings {
+            let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+            let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+            let config = RelayCoordinator.Config(
+                projectRoot: spelling, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            )
+            let result = await coordinator.run(config: config)
+            guard case .failure(let refusal) = result else {
+                return XCTFail("spelling '\(spelling)' must normalize to the SAME key as the canonical root and be refused")
+            }
+            XCTAssertEqual(refusal, .alreadyActive(relayId: "relay_canonical"), "spelling: \(spelling)")
+        }
+        XCTAssertEqual(stateStore.list().count, 1, "none of the differently-spelled attempts may have created a new relay")
     }
 }
 

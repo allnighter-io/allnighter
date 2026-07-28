@@ -36,10 +36,15 @@ enum RelayCLI {
 
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
         let emitJSON = opts.flag("json")
-        let state = await coordinator.run(config: config) { event in
+        let result = await coordinator.run(config: config) { event in
             emit(event, json: emitJSON)
         }
-        emitTerminal(state, json: emitJSON)
+        switch result {
+        case .success(let state):
+            emitTerminal(state, json: emitJSON)
+        case .failure(let refusal):
+            failStart(refusal)
+        }
     }
 
     /// Reconciles via `RelayCoordinator.reconcileOrphan` (not a raw `RelayStateStore.load`)
@@ -346,6 +351,35 @@ enum RelayCLI {
             return ("RELAY_INVALID_STATE", "relay is \(status), not resumable — only an escalated relay, or one reconciled after its owner process died, can be resumed")
         case .roundInFlight:
             return ("RELAY_ROUND_IN_FLIGHT", "another process is already dispatching a round for this relay — poll `alln pair relay-status --relay <id> --json` and retry once it settles")
+        case .alreadyActive(let existingRelayId):
+            // Unreachable from `resume` — `.alreadyActive` is only ever produced by
+            // `RelayCoordinator.run`'s start-time duplicate guard (RSC-S02). Kept for
+            // `DispatchRefusal`'s exhaustive switch, not a real resume outcome.
+            return ("RELAY_ALREADY_ACTIVE", "a relay is already running for this project + doc: \(existingRelayId)")
+        }
+    }
+
+    /// RSC-S02: `RelayCoordinator.run`'s failure channel. `.alreadyActive` is the only
+    /// case `run` ever actually produces (a live-owner `.running` relay already exists
+    /// on this normalized root + doc) — `.relayNotFound`/`.notResumable`/`.roundInFlight`
+    /// are unreachable from a fresh start, kept only for `DispatchRefusal`'s exhaustive
+    /// switch (they're `resume`/`adopt`'s outcomes, not `run`'s).
+    private static func failStart(_ error: RelayCoordinator.DispatchRefusal) -> Never {
+        let (code, message) = startErrorEnvelope(error)
+        AllnighterCLI.fail(code: code, message: message)
+    }
+
+    static func startErrorEnvelope(
+        _ error: RelayCoordinator.DispatchRefusal
+    ) -> (code: String, message: String) {
+        switch error {
+        case .alreadyActive(let existingRelayId):
+            return (
+                "RELAY_ALREADY_ACTIVE",
+                "a relay is already running for this project + doc: \(existingRelayId) — read it with `alln pair relay-status --relay \(existingRelayId) --json`, resume or adopt it, or wait; do not start a second relay on the same doc"
+            )
+        case .relayNotFound, .notResumable, .roundInFlight:
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "unexpected DispatchRefusal from RelayCoordinator.run: \(error)")
         }
     }
 

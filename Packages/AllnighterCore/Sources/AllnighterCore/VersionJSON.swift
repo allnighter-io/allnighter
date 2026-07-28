@@ -12,7 +12,7 @@ import Foundation
 /// `ContractRegistry.contractVersion`, which is schema-shape governed and
 /// never substitutes for this.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.10.1"
+    public static let binaryVersion = "0.10.2"
 }
 
 /// `alln version` / `alln --version` machine contract.

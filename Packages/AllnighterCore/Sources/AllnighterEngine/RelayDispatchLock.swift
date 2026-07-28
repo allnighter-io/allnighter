@@ -1,5 +1,10 @@
 import Foundation
 import AllnighterCore
+#if canImport(CryptoKit)
+import CryptoKit
+#else
+import Crypto
+#endif
 
 /// RSC-S01 (`docs/phases/Round_Survives_The_Caller.md`): cross-process mutual exclusion
 /// for `RelayCoordinator.resume`/`.adopt`'s load → check-status → flip-`.running` →
@@ -41,5 +46,43 @@ public enum RelayDispatchLock {
             return nil
         }
         return ThreadFlockLock.tryAcquire(lockURL: url)
+    }
+
+    // MARK: - RSC-S02: start-time lock (root + doc, no relay id exists yet)
+
+    /// `RelayCoordinator.run`'s duplicate-scan → persist window has no relay id to key a
+    /// lock on until AFTER that window (the id is minted inside it) — so this lock is
+    /// keyed on the START key instead: `sha256(RootNormalization.normalize(root).key +
+    /// "|" + docPath)`. A different lock FILE than `lockURL(relayId:)` above (own `.locks`
+    /// filename), so a start racing a resume/adopt on some unrelated relay id never
+    /// contends with either.
+    public static func startKey(projectRoot: String, docPath: String) -> String {
+        let normalizedRoot = RootNormalization.normalize(projectRoot).key
+        let digest = SHA256.hash(data: Data("\(normalizedRoot)|\(docPath)".utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    public static func startLockURL(startKey: String, relaysRoot: URL = AllnighterPaths.relays) -> URL {
+        relaysRoot
+            .appendingPathComponent(".locks", isDirectory: true)
+            .appendingPathComponent("start-\(startKey).start.lock")
+    }
+
+    /// Blocking exclusive acquire (unlike `tryAcquire` above): the critical section this
+    /// guards is a quick scan of `RelayStateStore.list()` plus one `save` — not a
+    /// long-lived round loop — so a brief wait for a concurrent start on the SAME
+    /// root+doc to clear its identical window is correct, not a hang risk. Still a real
+    /// `flock(2)`, released by the kernel if the holder dies, so a crashed starter can
+    /// never wedge a later start.
+    public static func acquireStart(startKey: String, relaysRoot: URL = AllnighterPaths.relays) -> ThreadFlockLock.Handle? {
+        let url = startLockURL(startKey: startKey, relaysRoot: relaysRoot)
+        do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+        } catch {
+            return nil
+        }
+        return try? ThreadFlockLock.acquire(lockURL: url)
     }
 }

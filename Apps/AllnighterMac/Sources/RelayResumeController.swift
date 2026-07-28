@@ -115,6 +115,11 @@ final class RelayResumeController {
             return "This relay is no longer resumable."
         case .roundInFlight:
             return "Another process is already dispatching a round for this relay — try again in a moment."
+        case .alreadyActive:
+            // Unreachable from `resume` — `.alreadyActive` is only ever produced by
+            // `RelayCoordinator.run`'s start-time duplicate guard (RSC-S02). Kept for
+            // `DispatchRefusal`'s exhaustive switch, not a real resume outcome.
+            return "This relay is no longer resumable."
         }
     }
 }

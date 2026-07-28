@@ -317,7 +317,7 @@ final class RelayAdoptTests: XCTestCase {
         let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_reverse_escalated" })
         let config = RelayCoordinator.Config(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev")
-        let state = await coordinator.run(config: config)
+        let state = try await coordinator.run(config: config).get()
         XCTAssertEqual(state.status, .escalated)
 
         let result = RelayCoordinator.adoptToPilot(relayId: "relay_reverse_escalated", stateStore: stateStore, threadProjector: nil)

@@ -47,7 +47,9 @@ final class RelayLaunchViewModelTests: XCTestCase {
     /// pointed at an isolated root instead of the real default paths.
     private func stubbedFactory(root: URL, models: [Model], registry: DriverRegistry) -> (
         coordinator: (@escaping @Sendable () -> String) -> RelayCoordinator,
-        threadProjector: () -> RelayThreadProjector
+        threadProjector: () -> RelayThreadProjector,
+        stateStore: RelayStateStore,
+        threadStore: ThreadStore
     ) {
         let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true))
         let runStore = RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
@@ -74,7 +76,7 @@ final class RelayLaunchViewModelTests: XCTestCase {
                 idFactory: idFactory
             )
         }
-        return (coordinatorFactory, { RelayThreadProjector(store: store, runStore: runStore) })
+        return (coordinatorFactory, { RelayThreadProjector(store: store, runStore: runStore) }, stateStore, store)
     }
 
 
@@ -170,7 +172,8 @@ final class RelayLaunchViewModelTests: XCTestCase {
             projectId: "prj_test", projectRoot: repoRoot(),
             models: seatable, registry: registry, readyModels: [],
             makeCoordinator: factory.coordinator,
-            makeThreadProjector: factory.threadProjector
+            makeThreadProjector: factory.threadProjector,
+            stateStore: factory.stateStore
         )
         vm.docPath = "docs/spec.md"
         vm.pmWorkerId = seatable[0].id
@@ -204,6 +207,51 @@ final class RelayLaunchViewModelTests: XCTestCase {
         let texts = (thread?.turns ?? []).map { $0.text ?? "<nil>" }
         XCTAssertTrue(texts.contains { $0.contains("Reviewed") },
                       "thread must project the PM turn's settled prose; got turns: \(texts)")
+    }
+
+    /// RSC-S02: a live `.running` relay already active on the SAME project root + doc
+    /// must refuse the start BEFORE the thread pre-seed — otherwise a refused start
+    /// still leaves an orphan thread in the sidebar with no relay behind it.
+    func testStartRefusesBeforePreSeedingAThreadWhenARelayIsAlreadyActive() throws {
+        let seatable = stubWorkers()
+        let registry = stubRegistry()
+        let root = tempRoot("dup")
+        let factory = stubbedFactory(root: root, models: seatable, registry: registry)
+        let vm = RelayLaunchViewModel(
+            projectId: "prj_test", projectRoot: repoRoot(),
+            models: seatable, registry: registry, readyModels: [],
+            makeCoordinator: factory.coordinator,
+            makeThreadProjector: factory.threadProjector,
+            stateStore: factory.stateStore
+        )
+        vm.docPath = "docs/spec.md"
+        vm.pmWorkerId = seatable[0].id
+        vm.devWorkerId = seatable[1].id
+
+        // A LIVE .running relay on the exact same normalized root + doc — `save()`
+        // stamps owner.pid with THIS test process's own pid, so `isOwnerDead` reads
+        // it as alive, exactly like a real concurrent relay would be.
+        let existing = RelayState(
+            id: "relay_existing_active", projectRoot: vm.projectRoot, docPath: "docs/spec.md",
+            pmWorkerId: seatable[0].id, devWorkerId: seatable[1].id,
+            status: .running, createdAt: Date()
+        )
+        try factory.stateStore.save(existing)
+
+        let threadCountBefore = factory.threadStore.list().count
+
+        let relayId = vm.start()
+        XCTAssertNil(relayId, "a refused start must never return a relay id")
+        XCTAssertEqual(vm.startRefusalIssue?.id, "already-active")
+        XCTAssertTrue(
+            vm.startRefusalIssue?.message.contains("relay_existing_active") ?? false,
+            "the refusal must name the existing relay id, not just refuse silently"
+        )
+        XCTAssertFalse(vm.isStarting, "a refused start must never flip isStarting")
+
+        // No orphan thread: the pre-seed must never have run for a refused start.
+        XCTAssertEqual(factory.threadStore.list().count, threadCountBefore,
+                       "a refused start must not seed a thread with no relay behind it")
     }
 
     func testStartReturnsNilWhenInvalid() {

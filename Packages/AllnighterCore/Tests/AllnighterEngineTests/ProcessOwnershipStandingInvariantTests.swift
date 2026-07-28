@@ -165,13 +165,13 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             proofCommandRunner: proofRunner
         )
 
-        let state = await coordinator.run(config: .init(
+        let state = try await coordinator.run(config: .init(
             projectRoot: repo.path,
             docPath: "docs/spec.md",
             pmWorkerId: "model_pm",
             devWorkerId: "model_dev",
             maxRounds: 5
-        ))
+        )).get()
 
         let devRound = try XCTUnwrap(state.rounds.first { $0.devRunId != nil })
         XCTAssertEqual(
@@ -234,13 +234,13 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             proofCommandRunner: proofRunner
         )
 
-        let state = await coordinator.run(config: .init(
+        let state = try await coordinator.run(config: .init(
             projectRoot: repo.path,
             docPath: "docs/spec.md",
             pmWorkerId: "model_pm",
             devWorkerId: "model_dev",
             maxRounds: 5
-        ))
+        )).get()
 
         let devRound = try XCTUnwrap(state.rounds.first { $0.devRunId != nil })
         XCTAssertEqual(devRound.devTurnEndReason, .reported)
