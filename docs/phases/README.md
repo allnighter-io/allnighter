@@ -54,6 +54,11 @@ CLI Implementation Contract are archived — do not revive.
 > `catalog_overlay.json` cutover, legacy driver JSON removed, `alln catalog
 > validate`; S06 live-label smoke opt-in manual; code SSOT `CatalogLoader`,
 > `ModelCatalog`, `CatalogOverlayLoader`, `ModelCatalogValidator`);
+> [`Ephemeral_Teams.md`](../archive/phases/Ephemeral_Teams.md)
+> (Complete 2026-07-28 — RSO-S01/S02: runtime `--seat` on `alln run` for
+> one-off judgment-team crew staffing; contract 5.0.0→5.1.0; code SSOT
+> `TeamExplicitSeats`, `RunInvocationResolver`, `TeamRun.explicitSeatModelIds`,
+> `SandboxHandoffSpool.Request`);
 > [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md)
 > (Code Complete 2026-07-27 — URN-S01/S02/S03 shipped: `alln serve` posts local
 > notifications for relay/pilot/team-run state and auto-launches itself, silent
@@ -152,7 +157,6 @@ without a new founder ruling.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Ephemeral_Teams.md`](Ephemeral_Teams.md) | **Ready** — Option C locked (runtime `--seat` on `alln run`); no ephemeral-tag interim | One-off crew staffing without catalog pollution. Agents pass repeated `--seat`; `teams duplicate` stays library-only. Bulk cleanup is separate because no safe “unused” predicate exists. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | **Draft — needs re-base** against `Unified_Run_Model.md` (its Execute-approval mutating gate is retired ceremony); Core routing built, GUI browse surface unbuilt | Send-to-team as the discoverable delegation surface: Team Card projection, family map, direct team send. |
 | [`Live_Team_Board.md`](Live_Team_Board.md) | **Draft feature packet** — no-theater contract | In-thread live board for running answer-team runs: sourced per-worker states + real deltas only when emitted. Forbids fake activity/progress. |
 
@@ -297,7 +301,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Team lab — benchmarking, seat economics, roster ablation, calibration | Team Lab is SHUT DOWN (founder, 2026-07-24) — do not resume; archived `Team_Lab_Run_Factory.md` + `Team_Lab_Composition_And_Seat_Economics.md` + `Team_Lab_Slice_1_Full_Package.md` (un-rebased) |
 | Spec Review hero loop, review lenses, positioning | `docs/operations/Spec_Review.md` |
 | Team seating, Haiku/custom rank inheritance, CLI/family diversity | archived [`Seating_Tier_And_CLI_Diversity.md`](../archive/phases/Seating_Tier_And_CLI_Diversity.md) — Complete 2026-07-25 (S1–S3, contract 4.0.2); code SSOT `ModelCatalog` + `TeamResolver` + `RunDryRunJSON.seats` |
-| One-off crew staffing, custom-Team picker sprawl, `teams duplicate` for throwaways | [`Ephemeral_Teams.md`](Ephemeral_Teams.md) — Ready; repeated runtime `--seat` on `alln run` (Option C); no temporary Team or catalog write |
+| One-off crew staffing, custom-Team picker sprawl, `teams duplicate` for throwaways | archived [`Ephemeral_Teams.md`](../archive/phases/Ephemeral_Teams.md) — Complete 2026-07-28; `alln run --team <built-in> --seat <model_id>…` (Option C); code SSOT `TeamExplicitSeats`, `RunInvocationResolver`, `TeamRun.explicitSeatModelIds` |
 | Menu byte budget, cold-agent selection and composition | Code SSOT: `MenuCatalog.swift`, `MenuSelectionCopy.swift`; gate `scripts/verify_menu_contract.py`; matrix `scripts/agent_eval.sh --suite menu-not-router`. The relations phase was killed by its own measurement — do not reopen. |
 | Panel disagreement, contradiction detection, what Max does beyond more seats, anchored findings | `Contradiction_Pass.md` (extends `docs/operations/Spec_Review.md`) |
 | Gorgeous private team run report / artifact, deliberate share (not Mac-only) | Code SSOT: `ArtifactProjector` / `ArtifactWriter` / `ArtifactCLI`; closed record: archived `Team_Run_Receipt.md` |

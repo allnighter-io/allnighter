@@ -1,6 +1,6 @@
 # Runtime Seat Overrides
 
-Status: **Ready** — Option C locked; no interim
+Status: **Complete** — RSO-S01 + RSO-S02 shipped 2026-07-28; archived
 
 Owner: `RunService` via `RunInvocationResolver`
 
