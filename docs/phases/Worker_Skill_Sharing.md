@@ -4,7 +4,7 @@ Status: **Founder direction locked** — vocabulary + sharing model + no-fork ru
 implementation packet not started
 Owner: AllnighterCore + Mac app
 Created: 2026-07-28
-Updated: 2026-07-28 (new-skill affordances)
+Updated: 2026-07-28 (lab retirement, save boundaries, UX refinements)
 Process: `docs/workflows/SSOT_Founder_Input_Workflow.md` →
 `docs/workflows/SSOT_Feature_Workflow.md`
 
@@ -154,6 +154,49 @@ Explicit **new skill** is not silent forking — it mints a new `skillId` the us
 names and can assign to other workers/teams. Editing an existing skill’s
 `skill.md` updates the shared skill (no fork) once Phase 1 ships.
 
+## Save boundaries (locked)
+
+Team edits and skill edits are **separate transactions**. Do not stage skill
+catalog writes inside `TeamDraft` until team Save — that would mix two owners.
+
+| Action | Commits |
+| --- | --- |
+| **Worker Done** (edit-worker drill-in) | `skill.md` → `SkillCatalog` when changed (override at same id, Phase 1) |
+| **Team Save** | Roster only: worker `skillId` picks + `modelId` assignments |
+| **Team Cancel** | Discards roster draft only; does **not** undo skill catalog writes the user already committed with Worker Done |
+
+Canceling a team edit must not roll back a shared skill the user explicitly saved.
+Show blast radius before/alongside skill edits so Worker Done is an informed
+catalog write.
+
+### Blast radius (required UX — Phase 2)
+
+Passive “shared across teams” is not enough. When editing `skill.md`, show exact
+impact:
+
+```text
+Shared across 3 teams: Bug Hunt Min · Bug Hunt Max · Security Audit
+```
+
+List team **names** (not just a count). Optional confirm when `teamCount > 1` and
+`skill.md` changed — prefer visibility first; avoid modal theater.
+
+## Lab teams and skills (locked — never in catalog)
+
+Team Lab is **retired**. Lab artifacts must not appear in product pickers or
+survive on disk:
+
+- **Lab teams** (`typeTags` contains `"lab"`): reject on save; delete strays from
+  `Catalogs/teams/`; purge `Catalogs/lab-teams/` on catalog read.
+- **Lab skills** (id contains `_lab_`, e.g. `custom_code_lab_*`): never listed;
+  deleted on read; reject on save.
+
+Code SSOT: `CatalogLabRetirement.swift` (`purgeRetiredLabArtifacts()`). Called
+from `SkillCatalog.list`, `TeamCatalog` migration, and `alln skills gc`.
+
+No separate `lab-skills/` root — lab ids in the product catalog are the mistake;
+purge them.
+
 ## Sharing model (implementation)
 
 **B1 — skill overrides (mirror teams)** — preferred path:
@@ -202,8 +245,7 @@ id work; skill overrides do not yet (`builtInImmutable`).
 
 ## Open questions (remaining)
 
-1. **Auto GC:** `alln skills gc` on app launch, or CLI/manual only?
-2. **Lab skills:** separate storage root (like `lab-teams`)?
+_None — policy locked below._
 
 ## Answered (founder, 2026-07-28)
 
@@ -215,6 +257,10 @@ id work; skill overrides do not yet (`builtInImmutable`).
 | “Seat” in team UI? | **No** — keep **worker** for staffing view; seat is internal if needed. |
 | Agent path? | `alln skills edit <id>` + team/worker staffing via GUI or `teams edit`. |
 | How to create a new skill? | **+** on SKILL row + **+ New skill…** in dropdown; type-to-create remains as **+ Create "…"**. |
+| Worker Done vs Team Save? | **Worker Done** commits changed `skill.md` to catalog. **Team Save** commits roster only. |
+| Auto GC? | **Manual / CLI only** (`alln skills gc`). Never on app launch — user skills are data. |
+| Lab teams/skills? | **Never in product catalog.** Purge on read; reject saves. Shipped `CatalogLabRetirement`. |
+| Stage skill edits in TeamDraft until team Save? | **No** — wrong transaction boundary. |
 
 ## Non-goals
 
@@ -235,6 +281,8 @@ id work; skill overrides do not yet (`builtInImmutable`).
 
 - Removed Settings → Skills tab.
 - Worker skill picker: built-ins + this team’s referenced customs only.
-- `alln skills gc` — delete unreferenced custom skills.
+- `alln skills gc` — delete unreferenced custom skills (+ lab skills).
 - Edit worker: **+** on SKILL row + persistent **+ New skill…** in skill dropdown
   (`TeamEditorView`, `ALSearchableDropdown`).
+- **Lab retirement:** `CatalogLabRetirement` purges `lab-teams/` and `_lab_` skills;
+  lab saves rejected (`TeamCatalog`, `SkillCatalog`).

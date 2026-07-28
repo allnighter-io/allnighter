@@ -392,9 +392,8 @@ public extension Array where Element == TeamPreset {
 // MARK: - Team catalog API
 
 /// Built-in and custom team definitions. Built-in ids are reserved; customs persist
-/// under `Catalogs/teams/<id>.json`. Lab experiment teams (`typeTags` contains `"lab"`)
-/// never live in the product catalog — they are redirected to `Catalogs/lab-teams/`
-/// (AE-S02 / Law 7).
+/// under `Catalogs/teams/<id>.json`. Lab teams are retired — tagged teams are
+/// rejected on save and deleted from disk on catalog read (CatalogLabRetirement).
 public enum TeamCatalog {
     nonisolated(unsafe) private static var mergedAllCache: [TeamPreset]?
 
@@ -421,13 +420,11 @@ public enum TeamCatalog {
             let normalized = normalizedOverride(file)
             // Stray lab copies must not remain in the product root.
             if normalized.isLabTeam {
-                try? LabTeamCatalog.save(normalized)
                 try? CatalogFileIO.delete(id: id, root: CatalogRoots.teams)
-                return LabTeamCatalog.get(id) ?? normalized
+                return nil
             }
             return normalized
         }
-        if let lab = LabTeamCatalog.get(id) { return lab }
         return BuiltInTeams.team(id)
     }
 
@@ -530,14 +527,8 @@ public enum TeamCatalog {
     }
 
     public static func saveCustom(_ team: TeamDefinition) throws {
-        // AE-S02 / Law 7: lab teams never enter the product catalog. Match on
-        // `typeTags` containing `"lab"` (not id prefix — `code_core` is lab-tagged).
         if team.isLabTeam {
-            try LabTeamCatalog.save(team)
-            if CatalogFileIO.loadOne(id: team.id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) != nil {
-                try? CatalogFileIO.delete(id: team.id, root: CatalogRoots.teams)
-            }
-            return
+            throw CatalogError.teamInvalid("Team Lab is retired; lab teams are not saved")
         }
         // Any team saves in place. A built-in id writes the user's edited version (the
         // "override") at that same id — no duplicate. A new id is an ordinary custom team.
@@ -653,65 +644,37 @@ public enum TeamCatalog {
         return merged + ordinaryCustoms
     }
 
-    /// Move any lab-tagged files that landed in the product `Catalogs/teams/` root
-    /// into lab storage. Idempotent. Match on `typeTags`, never id prefix (AE-S02).
+    /// Delete stray lab-tagged files from the product teams root and purge retired
+    /// lab-teams storage. Idempotent.
     private static func migrateStrayLabTeamsFromProductCatalog() {
+        _ = CatalogLabRetirement.purgeRetiredLabArtifacts()
         let strays = CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.teams, as: TeamPreset.self)
             .filter(\.isLabTeam)
         guard !strays.isEmpty else { return }
         for team in strays {
-            try? LabTeamCatalog.save(team)
             try? CatalogFileIO.delete(id: team.id, root: CatalogRoots.teams)
         }
         invalidateCache()
     }
 }
 
-// MARK: - Lab team storage (AE-S02)
+// MARK: - Lab team storage (retired)
 
-/// Team Lab experiment teams. Champions and candidates live here (and under
-/// `docs/team-lab/champions/`), never in the product `TeamCatalog` list.
+/// Team Lab experiment storage — **retired**. Files are purged on catalog read;
+/// saves are rejected. Kept only so tests can reference the type.
 public enum LabTeamCatalog {
     public static var all: [TeamDefinition] {
-        CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.labTeams, as: TeamPreset.self)
+        CatalogLabRetirement.purgeRetiredLabArtifacts()
+        return []
     }
 
-    public static func get(_ id: TeamID) -> TeamDefinition? {
-        CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.labTeams, as: TeamPreset.self)
-    }
+    public static func get(_ id: TeamID) -> TeamDefinition? { nil }
 
     public static func save(_ team: TeamDefinition) throws {
-        guard team.isLabTeam else {
-            throw CatalogError.teamInvalid("lab storage requires typeTags to include \"\(TeamPreset.labTypeTag)\"")
-        }
-        guard CatalogIDValidator.isValid(team.id) else {
-            throw CatalogError.idInvalid
-        }
-        guard !team.workerSpecs.isEmpty else {
-            throw CatalogError.teamInvalid("team must have at least one worker row")
-        }
-        for row in team.workerSpecs {
-            guard let skill = SkillCatalog.get(row.skillId) else {
-                throw CatalogError.teamInvalid("unknown skill \(row.skillId)")
-            }
-            guard skill.lane == team.lane else {
-                throw CatalogError.skillLaneMismatch(skillId: row.skillId, teamId: team.id)
-            }
-        }
-        guard let leadSkill = SkillCatalog.get(team.lead.skillId) else {
-            throw CatalogError.teamInvalid("unknown Team Lead skill \(team.lead.skillId)")
-        }
-        guard leadSkill.lane == team.lane else {
-            throw CatalogError.skillLaneMismatch(skillId: team.lead.skillId, teamId: team.id)
-        }
-        var custom = team
-        custom.builtIn = false
-        custom.isDefaultForLane = false
-        try CatalogFileIO.save(custom, id: custom.id, kind: .team, root: CatalogRoots.labTeams)
+        throw CatalogError.teamInvalid("Team Lab is retired; lab teams are not saved")
     }
 
     public static func delete(_ id: TeamID) throws {
-        guard get(id) != nil else { throw CatalogError.teamNotFound }
         try CatalogFileIO.delete(id: id, root: CatalogRoots.labTeams)
     }
 }

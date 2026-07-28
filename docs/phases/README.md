@@ -157,7 +157,7 @@ without a new founder ruling.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Worker_Skill_Sharing.md`](Worker_Skill_Sharing.md) | **Direction locked** | **Worker** on team roster (skill + model); shared **skill** + `skill.md`; no fork-on-save; edit-worker UI (+ new skill affordances shipped). Phase 1: skill overrides (B1). |
+| [`Worker_Skill_Sharing.md`](Worker_Skill_Sharing.md) | **Direction locked** | Shared skills; worker roster UX; Worker Done → skill save; lab purge; no fork-on-save (Phase 1). |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | **Draft — needs re-base** against `Unified_Run_Model.md` (its Execute-approval mutating gate is retired ceremony); Core routing built, GUI browse surface unbuilt | Send-to-team as the discoverable delegation surface: Team Card projection, family map, direct team send. |
 | [`Live_Team_Board.md`](Live_Team_Board.md) | **Draft feature packet** — no-theater contract | In-thread live board for running answer-team runs: sourced per-worker states + real deltas only when emitted. Forbids fake activity/progress. |
 

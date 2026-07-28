@@ -57,18 +57,23 @@ public enum SkillCatalog {
         Dictionary(builtIns.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
 
     public static func skill(_ id: String) -> Skill? {
-        byID[id] ?? CatalogFileIO.loadOne(id: id, kind: .skill, root: CatalogRoots.skills, as: Skill.self)
+        if CatalogLabRetirement.isLabSkillId(id) {
+            try? CatalogFileIO.delete(id: id, root: CatalogRoots.skills)
+            return nil
+        }
+        return byID[id] ?? CatalogFileIO.loadOne(id: id, kind: .skill, root: CatalogRoots.skills, as: Skill.self)
     }
 
     public static func skills(in lane: WorkLane) -> [Skill] {
         list(lane: lane)
     }
 
-    /// Lane-scoped catalog list (built-in + custom).
+    /// Lane-scoped catalog list (built-in + custom). Lab skills are never listed.
     public static func list(lane: WorkLane) -> [SkillDefinition] {
+        CatalogLabRetirement.purgeRetiredLabArtifacts()
         let reserved = Set(builtIns.map(\.id))
         let customs = CatalogFileIO.loadAll(kind: .skill, root: CatalogRoots.skills, as: Skill.self)
-            .filter { $0.lane == lane && !reserved.contains($0.id) }
+            .filter { $0.lane == lane && !reserved.contains($0.id) && !CatalogLabRetirement.isLabSkillId($0.id) }
         return builtIns.filter { $0.lane == lane } + customs
     }
 
@@ -92,6 +97,9 @@ public enum SkillCatalog {
 
     public static func saveCustom(_ skill: SkillDefinition) throws {
         guard !skill.builtIn else { throw CatalogError.builtInImmutable }
+        if CatalogLabRetirement.isLabSkillId(skill.id) {
+            throw CatalogError.skillInvalid("lab skills are retired and are not saved to the product catalog")
+        }
         if byID[skill.id] != nil { throw CatalogError.idCollision }
         guard CatalogIDValidator.isValid(skill.id) else { throw CatalogError.idInvalid }
         guard !skill.template.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -136,7 +144,7 @@ public enum SkillCatalog {
     }
 
     private static func teamsReferencingSkill(_ skillId: SkillID) -> [TeamID] {
-        teamIdsReferencingSkill(skillId, in: TeamCatalog.all + LabTeamCatalog.all)
+        teamIdsReferencingSkill(skillId, in: TeamCatalog.all)
     }
 
     private static func teamIdsReferencingSkill(_ skillId: SkillID, in teams: [TeamPreset]) -> [TeamID] {
@@ -148,17 +156,19 @@ public enum SkillCatalog {
         }
     }
 
-    /// Delete custom skills not referenced by any product or lab team row.
+    /// Delete custom skills not referenced by any product team row. Lab skills are
+    /// always removed (Team Lab retired).
     @discardableResult
     public static func purgeUnreferencedCustomSkills() throws -> [SkillID] {
+        let (_, labSkills) = CatalogLabRetirement.purgeRetiredLabArtifacts()
         let reserved = Set(builtIns.map(\.id))
         let customs = CatalogFileIO.loadAll(kind: .skill, root: CatalogRoots.skills, as: Skill.self)
-            .filter { !reserved.contains($0.id) }
-        var deleted: [SkillID] = []
-        let teams = TeamCatalog.all + LabTeamCatalog.all
+            .filter { !reserved.contains($0.id) && !CatalogLabRetirement.isLabSkillId($0.id) }
+        var deleted = Set(labSkills)
+        let teams = TeamCatalog.all
         for skill in customs where teamIdsReferencingSkill(skill.id, in: teams).isEmpty {
             try CatalogFileIO.delete(id: skill.id, root: CatalogRoots.skills)
-            deleted.append(skill.id)
+            deleted.insert(skill.id)
         }
         return deleted.sorted()
     }

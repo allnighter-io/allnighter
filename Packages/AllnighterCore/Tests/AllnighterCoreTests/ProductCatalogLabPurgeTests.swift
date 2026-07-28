@@ -1,8 +1,8 @@
 import XCTest
 @testable import AllnighterCore
 
-/// AE-S02: product TeamCatalog contains zero `isLabTeam` entries; write path
-/// redirects lab-tagged teams to lab storage (match on typeTags, not id prefix).
+/// AE-S02 + Team Lab retirement: product catalog never lists lab teams/skills;
+/// lab artifacts are purged on read and rejected on write.
 final class ProductCatalogLabPurgeTests: XCTestCase {
     private var teamsRoot: URL!
     private var skillsRoot: URL!
@@ -32,41 +32,52 @@ final class ProductCatalogLabPurgeTests: XCTestCase {
         XCTAssertTrue(TeamCatalog.all.filter(\.isLabTeam).isEmpty)
     }
 
-    func testSaveCustomRedirectsLabTaggedTeamToLabStorage() throws {
+    func testSaveCustomRejectsLabTaggedTeam() throws {
         var team = try TeamCatalog.duplicateBuiltIn("code_bug_hunt", name: "Lab Experiment")
-        // Ensure lab tag (code_core-style: display Lab without lab_ id prefix).
         team.id = "code_core"
         team.displayName = "Code Core · Lab"
         team.typeTags = [TeamPreset.labTypeTag]
 
-        try TeamCatalog.saveCustom(team)
-
-        XCTAssertNil(
-            CatalogFileIO.loadOne(id: "code_core", kind: .team, root: CatalogRoots.teams, as: TeamPreset.self),
-            "lab team must not land in product Catalogs/teams"
-        )
-        XCTAssertNotNil(LabTeamCatalog.get("code_core"))
-        XCTAssertTrue(TeamCatalog.all.filter(\.isLabTeam).isEmpty)
-        XCTAssertEqual(TeamCatalog.get("code_core")?.displayName, "Code Core · Lab",
-                       "explicit get still resolves lab teams for the Team Lab runner")
+        XCTAssertThrowsError(try TeamCatalog.saveCustom(team)) { error in
+            if case .teamInvalid(let msg) = error as? CatalogError {
+                XCTAssertTrue(msg.contains("retired"))
+            } else {
+                XCTFail("expected teamInvalid, got \(error)")
+            }
+        }
     }
 
-    func testStrayLabFileMigratesOutOfProductCatalog() throws {
+    func testStrayLabFileDeletedFromProductCatalog() throws {
         var team = try TeamCatalog.duplicateBuiltIn("code_bug_hunt", name: "Stray Lab")
         team.id = "lab_code_bug_hunt_r99_champion"
         team.typeTags = [TeamPreset.labTypeTag]
         team.displayName = "Bug Hunt · Lab"
-        // Bypass saveCustom — write a stray product-root file the way old Team Lab did.
         try CatalogFileIO.save(team, id: team.id, kind: .team, root: CatalogRoots.teams)
         XCTAssertNotNil(CatalogFileIO.loadOne(id: team.id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self))
 
         _ = TeamCatalog.all
 
         XCTAssertNil(CatalogFileIO.loadOne(id: team.id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self))
-        XCTAssertNotNil(LabTeamCatalog.get(team.id))
+        XCTAssertNil(LabTeamCatalog.get(team.id))
+        XCTAssertNil(TeamCatalog.get(team.id))
         XCTAssertTrue(TeamCatalog.all.filter(\.isLabTeam).isEmpty)
         XCTAssertTrue(TeamCatalog.all.contains { $0.id == "code_bug_hunt_min" },
                       "shipped Bug Hunt Min must remain visible")
+    }
+
+    func testLabSkillsPurgedAndExcludedFromCatalogList() throws {
+        let labSkill = Skill(
+            id: "custom_code_lab_test_runner", displayName: "Lab Test Runner", lane: .code,
+            purpose: .answer, template: "lab only", builtIn: false
+        )
+        try CatalogFileIO.save(labSkill, id: labSkill.id, kind: .skill, root: CatalogRoots.skills)
+        XCTAssertNotNil(CatalogFileIO.loadOne(id: labSkill.id, kind: .skill, root: CatalogRoots.skills, as: Skill.self))
+
+        _ = SkillCatalog.list(lane: .code)
+
+        XCTAssertNil(CatalogFileIO.loadOne(id: labSkill.id, kind: .skill, root: CatalogRoots.skills, as: Skill.self))
+        XCTAssertNil(SkillCatalog.get(labSkill.id))
+        XCTAssertFalse(SkillCatalog.list(lane: .code).contains { $0.id == labSkill.id })
     }
 
     func testIsLabTeamMatchesTypeTagsNotIdPrefix() {
