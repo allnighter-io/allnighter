@@ -640,7 +640,7 @@ public extension ContractRegistry {
             exampleIds: ["export_contracts_check"]
         ),
         CommandSpec(
-            "serve", summary: "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay). It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it.", milestone: .m1,
+            "serve", summary: "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or PM Relay round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it. `pair pilot handoff`/`pair relay`/`pair relay-resume`/`pair relay adopt` auto-start it in the background unless `--no-auto-serve`/`ALLN_NO_AUTO_SERVE` is set.", milestone: .m1,
             flags: [
                 FlagSpec("health", summary: "Read-only serve health; does not start serve."),
                 FlagSpec("json", summary: "Structured CoordinatorHealth output."),
