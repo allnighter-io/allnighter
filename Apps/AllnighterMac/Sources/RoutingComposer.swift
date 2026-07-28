@@ -170,6 +170,8 @@ struct RoutingComposer: View {
     @State private var effortOpen = false
     /// Hover highlight in the effort popover (nil = show the current selection).
     @State private var effortHighlight: ComposeEffort?
+    /// Model-row Edit popover — effort for a specific bench seat (nil = closed).
+    @State private var modelEditWorkerId: String?
     @State private var fileSearchOpen = false
     @State private var fileSearchQuery = ""
     /// Project corpus size (cached per @-session) for the "N / total" scope hint.
@@ -294,13 +296,11 @@ struct RoutingComposer: View {
         // worker, never a stale override.
         .onChange(of: team) { _, _ in
             pinnedWorker = nil
-            if !showsEffortChip { effortOpen = false }
+            modelEditWorkerId = nil
+            if team == nil { effortOpen = false }
         }
-        .onChange(of: pinnedWorker) { _, _ in
-            if !showsEffortChip { effortOpen = false }
-        }
-        .onChange(of: defaultSettings) { _, _ in
-            if !showsEffortChip { effortOpen = false }
+        .onChange(of: targetOpen) { _, open in
+            if !open { modelEditWorkerId = nil }
         }
         // ⌘L — focus the composer editor from anywhere (only a real send composer).
         .onChange(of: commands.focusComposerTick) { _, _ in
@@ -677,15 +677,18 @@ struct RoutingComposer: View {
         return qi == q.endIndex ? offsets : []
     }
 
-    /// Reasoning effort is model-specific — hide it for Grok/Cursor fast models and
-    /// any worker whose driver has no effort axis. Team runs keep the dial (effort
-    /// applies per worker where the source supports it).
-    private var showsEffortChip: Bool {
-        if team != nil { return true }
-        guard let id = selectedWorkerId,
-              let bench = appModel.composeBench.first(where: { $0.id == id }) else { return false }
-        return bench.supportsEffort
+    /// Team runs keep a standalone effort chip. Model routes surface effort in the
+    /// target chip (`Grok 4.5 · High`) and in each model row's Edit popover.
+    private var showsEffortChip: Bool { team != nil }
+
+    private func benchModelSupportsEffort(_ id: String?) -> Bool {
+        guard let id else { return false }
+        return appModel.composeBench.first(where: { $0.id == id })?.supportsEffort == true
     }
+
+    private var autoModelSupportsEffort: Bool { benchModelSupportsEffort(autoModelId) }
+
+    private var selectedModelSupportsEffort: Bool { benchModelSupportsEffort(selectedWorkerId) }
 
     private var bar: some View {
         HStack(spacing: 9) {
@@ -749,11 +752,17 @@ struct RoutingComposer: View {
             if let name = autoModelName {
                 Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
                 Text(name).font(ALFont.mono).foregroundStyle(ALColor.textMuted).lineLimit(1)
+                if autoModelSupportsEffort {
+                    Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
+                    Text(effort.label).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
+                }
             }
         } else {
-            // Pinned model: just the model name. Effort lives in its own chip now — do
-            // NOT repeat it here (that produced the "… · Med   Med ⌄" duplicate).
             Text(singleModelName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+            if selectedModelSupportsEffort {
+                Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
+                Text(effort.label).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
+            }
         }
     }
 
@@ -1214,23 +1223,28 @@ struct RoutingComposer: View {
     // One line, like every other row: name + a quiet parenthetical.
     private var defaultTeamRow: some View {
         let highlighted = highlightedTargetItem == .auto
-        return Button { team = nil; pinnedWorker = nil; targetOpen = false } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "infinity").font(.system(size: 11)).foregroundStyle(ALColor.textSecondary)
-                    .frame(width: 18, height: 18)
-                    .background(ALColor.active, in: RoundedRectangle(cornerRadius: 5))
-                rowLabel("Auto", autoModelName ?? "Default model", primary: true)
-                Spacer(minLength: 8)
-                if isAutoSelected { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
+        return HStack(spacing: 4) {
+            Button { team = nil; pinnedWorker = nil; targetOpen = false } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "infinity").font(.system(size: 11)).foregroundStyle(ALColor.textSecondary)
+                        .frame(width: 18, height: 18)
+                        .background(ALColor.active, in: RoundedRectangle(cornerRadius: 5))
+                    rowLabel("Auto", autoModelName ?? "Default model", primary: true)
+                    Spacer(minLength: 8)
+                    if isAutoSelected { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
+                }
+                .padding(.horizontal, 9).padding(.vertical, 7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(highlighted ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
+                .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(highlighted ? ALColor.borderDefault : ALColor.borderSubtle, lineWidth: 1) }
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 9).padding(.vertical, 7)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(highlighted ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(highlighted ? ALColor.borderDefault : ALColor.borderSubtle, lineWidth: 1) }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .onHover { if $0 { highlightTarget(.auto) } }
+            if autoModelSupportsEffort, let id = autoModelId {
+                modelEditTrigger(for: id).padding(.trailing, 6)
+            }
         }
-        .buttonStyle(.plain)
-        .onHover { if $0 { highlightTarget(.auto) } }
     }
 
     private func teamSectionLabel(_ text: String) -> some View {
@@ -1285,11 +1299,16 @@ struct RoutingComposer: View {
             VStack(spacing: 1) {
                 ForEach(ids, id: \.self) { id in
                     if let m = appModel.composeBench.first(where: { $0.id == id }) {
-                        Button {
-                            if m.ready { pinnedWorker = id; if !locksTeam { team = nil }; targetOpen = false }
-                        } label: { modelRow(m) }
-                            .buttonStyle(.plain)
-                            .disabled(!m.ready)
+                        HStack(spacing: 4) {
+                            Button {
+                                if m.ready { pinnedWorker = id; if !locksTeam { team = nil }; targetOpen = false }
+                            } label: { modelRow(m) }
+                                .buttonStyle(.plain)
+                                .disabled(!m.ready)
+                            if m.ready && m.supportsEffort {
+                                modelEditTrigger(for: m.id).padding(.trailing, 6)
+                            }
+                        }
                     }
                 }
             }
@@ -1300,7 +1319,16 @@ struct RoutingComposer: View {
     private func modelRow(_ m: ComposeBenchModel) -> some View {
         HStack(spacing: 8) {
             DriverBrandGlyph(driverId: m.driverId, boxSize: 18, iconSize: 11, cornerRadius: 5).opacity(m.ready ? 1 : 0.5)
-            rowLabel(m.name, m.sub, primary: m.ready)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(m.name).font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(m.ready ? ALColor.textPrimary : ALColor.textMuted)
+                    .lineLimit(1)
+                if !m.sub.isEmpty {
+                    Text(m.sub).font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(ALColor.textFaint)
+                        .lineLimit(1)
+                }
+            }
             Spacer(minLength: 8)
             if m.ready {
                 if pinnedWorker == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
@@ -1315,8 +1343,28 @@ struct RoutingComposer: View {
         .onHover { if m.ready, $0 { highlightTarget(.model(m.id)) } }
     }
 
-    // Effort is its OWN axis — how hard the model reasons, not who runs — so it lives in
-    // a standalone chip beside the target chip, not crammed into the target popover.
+    /// Cursor-style Edit on a model row — opens effort Low/Med/High without selecting
+    /// the row. Fast stays a separate catalog seat; no speed toggle here.
+    private func modelEditTrigger(for modelId: String) -> some View {
+        Button { modelEditWorkerId = modelId } label: {
+            Text("Edit")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(ALColor.textSecondary)
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 5))
+                .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        }
+        .buttonStyle(.plain)
+        .help("Reasoning effort")
+        .alPopover(isPresented: Binding(
+            get: { modelEditWorkerId == modelId },
+            set: { if !$0 { modelEditWorkerId = nil } }
+        ), arrowEdge: .trailing) {
+            effortEditPanel(onDismiss: { modelEditWorkerId = nil })
+        }
+    }
+
+    // Team runs only — model routes show effort in the target chip + row Edit.
     private var effortChip: some View {
         Button { effortOpen.toggle() } label: {
             HStack(spacing: 5) {
@@ -1330,15 +1378,34 @@ struct RoutingComposer: View {
         .buttonStyle(.plain)
         .fixedSize()
         .help("Reasoning effort")
-        .alPopover(isPresented: $effortOpen, arrowEdge: .top) { effortPopover }
+        .alPopover(isPresented: $effortOpen, arrowEdge: .top) {
+            effortEditPanel(onDismiss: { effortOpen = false })
+        }
     }
 
-    private var effortPopover: some View {
+    private func effortEditPanel(onDismiss: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Reasoning effort")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(ALColor.textFaint)
+                .padding(.horizontal, 4)
+            effortPickerRows(onDismiss: onDismiss)
+        }
+        .padding(6)
+        .frame(width: 150)
+        .background(ALColor.surface)
+        .overlay(effortKeyMonitor(onDismiss: onDismiss).allowsHitTesting(false))
+        .onAppear { effortHighlight = nil }
+    }
+
+    private func effortPickerRows(onDismiss: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             ForEach(ComposeEffort.allCases, id: \.self) { e in
-                // Highlight follows hover; with no hover, the current effort is highlighted.
                 let highlighted = (effortHighlight ?? effort) == e
-                Button { effort = e; effortOpen = false } label: {
+                Button {
+                    effort = e
+                    onDismiss()
+                } label: {
                     HStack(spacing: 8) {
                         Text(e.label).font(.system(size: 13, weight: .medium)).foregroundStyle(ALColor.textPrimary)
                         Spacer(minLength: 8)
@@ -1353,16 +1420,11 @@ struct RoutingComposer: View {
                 .onHover { if $0 { effortHighlight = e } }
             }
         }
-        .padding(6)
-        .frame(width: 150)
-        .background(ALColor.surface)
-        .overlay(effortKeyMonitor.allowsHitTesting(false))
-        .onAppear { effortHighlight = nil }
     }
 
     /// ↑/↓ move through Low/Med/High, ⏎ selects, esc closes — same AppKit key monitor
     /// the target popover uses (SwiftUI key focus doesn't fire inside an NSPopover).
-    private var effortKeyMonitor: some View {
+    private func effortKeyMonitor(onDismiss: @escaping () -> Void) -> some View {
         let all = ComposeEffort.allCases
         return PopoverKeyCatcher { action in
             let current = effortHighlight ?? effort
@@ -1370,9 +1432,9 @@ struct RoutingComposer: View {
             switch action {
             case .up: effortHighlight = all[(idx - 1 + all.count) % all.count]
             case .down: effortHighlight = all[(idx + 1) % all.count]
-            case .enter: effort = effortHighlight ?? effort; effortOpen = false
-            case .escape: effortOpen = false
-            case .tab: return false   // no tabs here — let Tab pass through
+            case .enter: effort = effortHighlight ?? effort; onDismiss()
+            case .escape: onDismiss()
+            case .tab: return false
             }
             return true
         }

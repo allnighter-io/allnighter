@@ -217,7 +217,8 @@ struct DefaultModelView: View {
                             .background(Capsule().fill(ALColor.accent.opacity(0.12)))
                     }
                 }
-                Text(m.driverId).font(ALFont.mono(11)).foregroundStyle(ALColor.textFaint)
+                Text(ModelDisplayName.driverSubtitle(modelId: m.id, driverId: m.driverId))
+                    .font(ALFont.mono(11)).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 0)
             statusDot(ready: m.ready, enabled: m.enabled)
@@ -258,7 +259,8 @@ struct DefaultModelView: View {
             glyphTile(m.driverId)
             VStack(alignment: .leading, spacing: 2) {
                 Text(m.displayName).font(ALFont.sans(13.5, .bold)).foregroundStyle(ALColor.textPrimary)
-                Text(m.driverId).font(ALFont.mono(11)).foregroundStyle(ALColor.textFaint)
+                Text(ModelDisplayName.driverSubtitle(modelId: m.id, driverId: m.driverId))
+                    .font(ALFont.mono(11)).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 0)
             statusDot(ready: m.ready, enabled: m.enabled)

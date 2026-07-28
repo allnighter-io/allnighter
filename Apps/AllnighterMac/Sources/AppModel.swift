@@ -546,7 +546,7 @@ final class AppModel {
                 name: ModelDisplayName.format(baseName: m.displayName, modelId: m.id, driverId: m.driverId),
                 driverId: m.driverId,
                 cli: m.driverId.replacingOccurrences(of: "_", with: "-"),
-                sub: "",
+                sub: ModelDisplayName.driverSubtitle(modelId: m.id, driverId: m.driverId),
                 ready: ready, notReadyReason: ready ? nil : reason,
                 supportsEffort: m.supportsEffort(registry: registry))
         }

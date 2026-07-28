@@ -23,6 +23,21 @@ final class ModelDisplayNameTests: XCTestCase {
             "Fable 5 (Cursor)")
     }
 
+    func testDriverSubtitleUsesFriendlyHomeLabelOrRawDriverId() {
+        XCTAssertEqual(
+            ModelDisplayName.driverSubtitle(modelId: "model_chatgpt", driverId: "codex"),
+            "Codex")
+        XCTAssertEqual(
+            ModelDisplayName.driverSubtitle(modelId: "model_chatgpt_terra", driverId: "codex"),
+            "Codex")
+        XCTAssertEqual(
+            ModelDisplayName.driverSubtitle(modelId: "model_chatgpt_sol", driverId: "cursor_agent"),
+            "cursor_agent")
+        XCTAssertEqual(
+            ModelDisplayName.driverSubtitle(modelId: "model_cursor_composer_25", driverId: "cursor_agent"),
+            "Cursor")
+    }
+
     func testCursorNativeSeatsStayUnsuffixedOnCursor() {
         XCTAssertEqual(
             ModelDisplayName.format(baseName: "Composer 2.5", modelId: "model_cursor_composer_25", driverId: "cursor_agent"),

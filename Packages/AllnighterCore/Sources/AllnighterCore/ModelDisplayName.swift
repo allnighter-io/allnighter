@@ -62,4 +62,11 @@ public enum ModelDisplayName {
         guard !isDefaultDriver(modelId: modelId, driverId: driverId) else { return base }
         return "\(base) (\(driverLabel(driverId: driverId)))"
     }
+
+    /// Second-line source label under the model name: friendly home CLI when default
+    /// (`Codex`), raw `driverId` when the seat is on an alternate source (`cursor_agent`).
+    public static func driverSubtitle(modelId: ModelID, driverId: String) -> String {
+        isDefaultDriver(modelId: modelId, driverId: driverId)
+            ? driverLabel(driverId: driverId) : driverId
+    }
 }
