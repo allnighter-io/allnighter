@@ -526,7 +526,6 @@ final class AppModel {
             let probeReady = rec?.status.isSmokeReady ?? false
             let isCooling = cooling.contains(m.driverId)
             let ready = probeReady && !isCooling
-            let cliName = registry.manifest(for: m)?.displayName ?? m.driverId
             let reason: String?
             if !probeReady {
                 switch rec?.status {
@@ -543,9 +542,12 @@ final class AppModel {
                 reason = nil
             }
             return ComposeBenchModel(
-                id: m.id, name: m.displayName, driverId: m.driverId,
+                id: m.id,
+                name: ModelDisplayName.format(baseName: m.displayName, modelId: m.id, driverId: m.driverId),
+                driverId: m.driverId,
                 cli: m.driverId.replacingOccurrences(of: "_", with: "-"),
-                sub: cliName, ready: ready, notReadyReason: ready ? nil : reason,
+                sub: "",
+                ready: ready, notReadyReason: ready ? nil : reason,
                 supportsEffort: m.supportsEffort(registry: registry))
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }

@@ -37,7 +37,7 @@ final class PilotSeatResolverTests: XCTestCase {
     /// An exact model id must resolve to itself even when it is a substring of other ids.
     func testExactModelIdResolvesToItselfNotAFuzzyMatch() {
         let models = [
-            model("model_chatgpt", name: "ChatGPT 5.6 Sol (Codex)"),
+            model("model_chatgpt", name: "ChatGPT 5.6 Sol"),
             model("model_chatgpt_54", name: "ChatGPT 5.4"),
             model("model_chatgpt_sol", name: "ChatGPT 5.6 Sol (Cursor)"),
         ]

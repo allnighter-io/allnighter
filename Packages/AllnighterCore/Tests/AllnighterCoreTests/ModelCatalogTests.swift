@@ -32,7 +32,7 @@ final class ModelCatalogTests: XCTestCase {
     func testBuiltInsDefaultEnabledOnFreshInstall() {
         let registry = testRegistry()
         let models = ModelCatalog.resolvedModels(registry: registry)
-        // Fable, Opus, Sonnet 5, ChatGPT 5.6 Sol (Codex), ChatGPT 5.6 Terra (Codex),
+        // Fable, Opus, Sonnet 5, ChatGPT 5.6 Sol, ChatGPT 5.6 Terra,
         // Grok 4.5, Kimi K3, Kimi K2.7 Code, Cursor Auto, Composer 2.5, Cursor Grok 4.5, Gemini Flash.
         // Cursor Sol + Antigravity Opus stay default-off.
         // Terra medium seat was added default-on in eff7d44e (models: add Codex Terra
@@ -48,7 +48,8 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertEqual(models.first { $0.id == "model_sonnet" }?.modelLabel, "claude-sonnet-5")
         XCTAssertEqual(models.first { $0.id == "model_opus" }?.displayName, "Opus 5")
         XCTAssertEqual(models.first { $0.id == "model_opus" }?.modelLabel, "opus")
-        XCTAssertEqual(models.first { $0.id == "model_chatgpt" }?.displayName, "ChatGPT 5.6 Sol (Codex)")
+        XCTAssertEqual(models.first { $0.id == "model_chatgpt" }?.displayName, "ChatGPT 5.6 Sol")
+        XCTAssertEqual(models.first { $0.id == "model_chatgpt_sol" }?.displayName, "ChatGPT 5.6 Sol (Cursor)")
     }
 
     func testDisableSonnetPersistsAcrossReload() throws {

@@ -13,7 +13,10 @@ enum CatalogMerge {
             let capabilities = overlayRow?.caliber ?? ModelCapabilities(strengthRank: ModelCatalog.unratedModelRank)
             return ModelDefinition(
                 id: record.id,
-                displayName: record.displayName,
+                displayName: ModelDisplayName.format(
+                    baseName: record.displayName,
+                    modelId: record.id,
+                    driverId: record.driver),
                 modelLabel: materialized.modelLabel,
                 driverId: record.driver,
                 role: record.role,
