@@ -1,11 +1,11 @@
 # Worker / Skill Sharing
 
-Status: **Ready for Implementation**
+Status: **Code Complete (WSS-S01)** — archive when founder signs Works Test
 Owner: `SkillCatalog` (semantic truth); `ContractRegistry`, `RunService`, and the
 Mac app project or consume it
 Created: 2026-07-28
-Updated: 2026-07-28 (founder-input and implementation-readiness pass)
-Next work order: **WSS-S01 — shared-skill cutover**
+Updated: 2026-07-28 (WSS-S01 shared-skill cutover shipped)
+Next work order: none (archive after Works Test sign-off)
 
 Process:
 `docs/workflows/SSOT_Founder_Input_Workflow.md` →

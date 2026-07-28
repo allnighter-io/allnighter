@@ -46,8 +46,8 @@ product gates. Code stages use `WorkerStage` without an approval concept.
 | **Execution source** | The single source/driver that owns a mutating run. |
 | **Bench** | Models the user has available. |
 | **Model** | Recognizable AI identity (Opus, Grok, …). |
-| **Skill** | Hat / instruction profile a model wears. |
-| **Worker** | One model + skill for this run. |
+| **Skill** | Hat / instruction profile a model wears. Shared by `skillId` across teams; the editable body is **skill.md** (the `template` field in catalog JSON). Same-ID overrides edit in place; **Restore** drops the override. |
+| **Worker** | One model + skill for this run (staffing row on a team). |
 | **Type** | Optional subtype metadata inside a craft; not a Send-to-team selector. |
 | **Reasoning effort** | Per-worker model reasoning (`low|med|high` when supported). Never changes lineup, depth, or flavor. |
 | **TeamPreset** | Saved team definition (lane, workers, synthesis policy). UI says Team. |
