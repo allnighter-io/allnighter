@@ -132,7 +132,7 @@ law. Shipped subsections already belong to code; do not cite these paths as
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open / M1 built — **archive when no forward CLI naming work remains** | `alln` agent-first naming while still evolving. Code owns shipped contract bits. |
-| [`Model_Catalog_Simplification.md`](Model_Catalog_Simplification.md) | **Draft — Ready for Implementation** (MCAT-S01 → AgentOS) | Founder intake + Feature Packet: one AgentOS `catalog.json` for drivers/models/effort; Allnighter overlay for bench/tiers. Stops multi-file sweeps for default model changes. |
+| [`Model_Catalog_Simplification.md`](Model_Catalog_Simplification.md) | **Ready for Implementation** — Spec Review Ready 2026-07-27; **MCAT-S01a** → AgentOS | Founder intake + Feature Packet; one AgentOS `catalog.json` for drivers/models/effort; Allnighter overlay for bench/tiers. Run `32F60943…`. |
 
 ### Team catalog & delegation (forward)
 
