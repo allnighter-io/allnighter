@@ -1,226 +1,235 @@
 # Runtime Seat Overrides
 
-Status: **Ready** — Option C locked; no interim; authorized for implementation  
-Owner: AllnighterCore (`RunService` / CLI / agent surface)  
-Created: 2026-07-28 (brainstorm)  
-Updated: 2026-07-28 (finalized)  
+Status: **Ready** — Option C locked; no interim
+
+Owner: `RunService` via `RunInvocationResolver`
+
+Created: 2026-07-28
+
+Updated: 2026-07-28 (hardened against code)
+
 Process: `docs/workflows/SSOT_Founder_Input_Workflow.md` →
-`docs/workflows/SSOT_Feature_Workflow.md`  
-Depends on: code SSOT `RunService.swift`, `TeamPreset` / `TeamCatalog`,
-`TeamRequestResolver.swift`, `ExactIdResolver.swift`, `--worker` honor-or-fail
-precedent (PO-F10 / MR-S04); agent surface `MenuCatalog` / `MenuSelectionCopy` /
-`HelpTopicRegistry` / `Bootstrap`
+`docs/workflows/SSOT_Feature_Workflow.md`
 
 ---
 
 ## Founder intent
 
-Raw request (dogfood):
+Dogfood request:
 
 ```text
-Run a Spec Review team on this doc using alln and staff only sol from codex,
-grok 4.5 from grok, and composer 2.5 from cursor.
+Run Spec Review Min on this doc with ChatGPT 5.6 Sol from Codex,
+Grok 4.5 from Grok, and Composer 2.5 from Cursor.
 ```
 
-That is a **run gesture** (built-in job + one-off seats), not a **bench gesture**
-(save a named team to the library). Today every such ask becomes another durable
-`custom_*` team and pollutes the picker.
+This is one run with a chosen crew. It is not a request to save another Team.
 
 ## Problem
 
-`alln run` accepts `--team <id>` and can pin **one** seat via `--worker` on
-answer/mutating teams. It has **no** flag to reseat a multi-seat judgment team
-inline.
-
-Agents correctly fall back to the only multi-seat customize path the product
-teaches:
-
-1. `alln teams duplicate <built-in> …`
-2. Edit seats (`teams edit` / JSON under
-   `~/Library/Application Support/Allnighter/Catalogs/teams/`)
-3. `alln run --team custom_…`
-
-Step 1 writes the durable catalog. Relay/pilot do not invent teams themselves;
-PM agents fulfilling “staff these models” use that authoring path, so every
-one-off seating experiment becomes a permanent library card.
-
-Founder report (2026-07-28): 50+ picker entries, mostly
-`Spec Review Min (Cursor …)` throwaways. Team list became unusable.
-
-**Related (shipped separately):** picker performance under a large roster —
-catalog caching in `TeamCatalog.swift` / `RoutingComposer.swift`.
-
-## Goal
-
-One atomic run command reseats a built-in (or saved) team **for that run only**.
-Zero catalog writes. Catalog `teams duplicate` reserved for teams the user
-explicitly wants on the bench.
-
-## Locked decision
-
-**Option C — runtime seat overrides on `alln run`.** Clean cut.
-
-| Keep | Drop |
-| --- | --- |
-| Built-in team = job/method SSOT (skills, lead, synthesis, lane, envelopes) | `typeTags: ["ephemeral"]` / lab-style hide |
-| Ordered `--seat` overrides for this run only | Two-tier `duplicate --ephemeral` vs `--durable` |
-| Resolved roster on run receipt / journal (already) | Relay/run sidecar team entities |
-| `teams duplicate` = intentional library save only | TTL auto-delete of customs |
-| Founder purge of existing throwaways (recovery) | Guidance-only “don’t duplicate” without a primitive |
-| | Skill forks for one-off seating |
-
-No users to migrate. No compatibility aliases. No interim hide-the-mess path.
-
-## Why C (and only C)
-
-| Criterion | Verdict |
-| --- | --- |
-| Stops sprawl at source | Yes — no entity created |
-| Agent-simple | One command; no duplicate → edit → run |
-| Preserves team posture SSOT | Skills / lead / judgment rules stay on `--team` |
-| Replay / audit | Receipt + journal already record resolved workers |
-| Matches founder speech | “staff only X, Y, Z” on a named team |
-
-Rejected alternatives (consult record only — do not implement):
-
-- **A / F (ephemeral tag + two-tier save)** — still teaches “make a team,” then
-  hide/promote/TTL. Wrong object for one-off seating.
-- **B (relay sidecar)** — too narrow; the same ask happens on plain `alln run`.
-- **D (guidance only)** — already failed; help teaches `teams duplicate`.
-- **E (TTL prune)** — deletes after damage; surprising for anything meant to keep.
-
-## Agent-facing contract
-
-### Teaching story (three lines)
-
-| Intent | Gesture |
-| --- | --- |
-| Run a job with default seats | `alln run --team code_spec_review_min …` |
-| Run a job with these models once | `alln run --team … --seat <model_id> …` |
-| Keep a lineup on my bench | `teams duplicate` → name it → save |
-
-### Canonical shape
-
-```bash
-alln run --team code_spec_review_min \
-  --seat model_codex_sol \
-  --seat model_grok_45 \
-  --seat model_cursor_composer_25 \
-  --prompt "Review docs/phases/Ephemeral_Teams.md"
-```
-
-Repeated `--seat <model_id>` flags, **in crew order**, replace the crew model
-identities of the resolved `--team`. Skills, lead, synthesis policy, lane, and
-judgment envelopes stay on the team.
-
-### Semantics (locked)
-
-1. **Base team** resolves exactly as today (`TeamRequestResolver` +
-   `ExactIdResolver` on `--team`).
-2. **`--seat` count must equal** the base team’s crew size
-   (`workerSpecs` seat count). Wrong count → fail loud (`CLI_USAGE_ERROR` /
-   dedicated seat-override code). No silent truncate/pad.
-3. Each `--seat` value is an exact model id (same honor-or-fail posture as
-   `--worker`). Unknown / not-ready → fail loud; never invent a substitute for
-   an explicit seat.
-4. **Lead is unchanged** by `--seat` (follow-up `--lead` is out of scope for v1
-   unless a slice proves it is needed).
-5. **Skills stay with the team.** Do not fork skills for one-off seating.
-6. **Mutating / execution-source gate still applies** after override (mixed
-   sources on a mutating team still fail closed).
-7. **`--worker` unchanged** — still the single-seat pin for answer / Default
-   Team / mutating one-worker runs. Do not overload `--worker` as multi-seat
-   reseat; agents must use `--seat` for multi-crew judgment teams.
-8. **No catalog write** when `--seat` is present. Effective roster is whatever
-   the run already persists (resolved workers on `TeamRun` / receipt / journal).
-9. **Reproduce / dry-run** must echo the same `--seat` flags that were accepted.
-
-### Exact founder scenario
-
-| Flow | Steps | Catalog |
-| --- | --- | --- |
-| **Broken (today)** | duplicate → edit `custom_*.json` → `run --team custom_*` | Permanent file; picker grows |
-| **Fixed (this packet)** | one `alln run --team code_spec_review_min --seat …` ×3 | Zero files written |
-
-## Agent surface cutover
-
-Update in the same implementation pass as the flag (not a soft follow-up):
-
-| Surface | Change |
-| --- | --- |
-| `MenuSelectionCopy` / `MenuCatalog` | `run`: useWhen covers one-off seating via `--seat`; `teams duplicate` dontUseWhen = one-off seating — use `--seat` on `run` |
-| `HelpTopicRegistry` (`teams_and_workers`) | Teach `--seat` as the reseat path; duplicate only for library saves |
-| `Bootstrap` / teaching snippets | One line: custom seats for a single run → `--seat` on `alln run`; do not duplicate |
-| `ContractRegistry` | Flag + error specs for `--seat` |
-
-## Founder recovery (not the product model)
-
-Existing throwaway `custom_*` files are debt from the broken path. Ship a
-**one-shot cleanup** so the bench is usable again:
+`alln run` can select a Team with `--team` and pin one model with `--worker`.
+It cannot supply the crew of a multi-seat judgment Team inline. Agents therefore
+use the only taught customization path:
 
 ```text
-alln teams purge --unused
+teams duplicate → edit the copy → run the copy
 ```
 
-Suggested meaning: custom teams with no (or zero recent) run history, or an
-explicit allowlist of throwaway name patterns — fail closed / dry-run first;
-never delete built-ins; never delete a custom the founder named as a keeper
-without confirmation. This is recovery hygiene, not ongoing architecture.
-TTL auto-prune is still rejected.
+That path writes `custom_*.json` under the durable Team catalog. One-off pilot,
+relay, and direct-run staffing has produced 50+ permanent picker entries.
+
+## User-visible claim
+
+An agent can run any saved or built-in judgment Team once with an exact crew in
+one command. The Team keeps its job, skills, lead, scout, posture, and synthesis
+rules. The run writes no Team or skill catalog files.
+
+Prior art: repeatable options are normal CLI grammar for ordered lists. Use one
+repeatable scalar flag; do not introduce JSON argv, temporary entities, TTL, or a
+second run verb.
+
+## Locked CLI
+
+```bash
+alln run "Review docs/phases/Ephemeral_Teams.md" \
+  --team code_spec_review_min \
+  --seat model_chatgpt \
+  --seat model_grok \
+  --seat model_cursor_composer_25
+```
+
+`--seat <model_id>` is repeatable. Its occurrence order is the crew order.
+
+Three intents, three gestures:
+
+| Intent | CLI |
+| --- | --- |
+| Use the Team's normal lineup | `alln run "<message>" --team <team_id>` |
+| Choose this run's crew | add repeated `--seat <model_id>` |
+| Save a reusable Team | `alln teams duplicate <team_id>` → edit/save |
+
+No alias, `--seats` JSON form, `--ephemeral` flag, temporary Team, or implicit
+save.
+
+## Runtime contract
+
+### Scope and mapping
+
+1. `--seat` **requires an explicit `--team`** and is mutually exclusive with
+   `--worker`. Invalid combinations fail before dry-run, journal creation, or
+   worker spawn with `CLI_USAGE_ERROR` (process exit 2).
+2. The override covers **crew rows only** (`TeamPreset.workerSpecs`). The
+   Team-owned scout and lead resolve normally and are not counted or replaced.
+3. Expand crew rows in declaration order. A row with `count: N` contributes N
+   adjacent slots. The number of `--seat` values must equal:
+
+   ```text
+   Σ max(1, workerSpec.count)
+   ```
+
+   Wrong count fails with `CLI_USAGE_ERROR` and reports expected and received
+   counts. Never truncate, pad, or fall back to the normal lineup.
+4. Slot `i` keeps row `i`'s skill, purpose, and required capability/lane rules;
+   only its model identity changes. An incompatible model fails loud.
+5. Duplicate model ids are allowed. They create distinct worker instances, as
+   ordinary row multiplicity already does.
+
+### Exact selection
+
+6. Each value must be a canonical model id. Display names, unknown ids, disabled
+   models, and not-ready models fail through the existing honor-or-fail model
+   discovery path (`WORKER_NOT_AVAILABLE`); the error names the seat index and
+   offers `alln menu --json`.
+7. An explicit seat is exact. Initial resolution and mid-run capacity recovery
+   must not substitute another model for it. Failure is recorded honestly.
+8. Team write policy does not change. The execution-source gate still runs
+   after the override; a mutating Team that no longer resolves to exactly one
+   source fails closed.
+
+### Persistence and replay
+
+9. `RunService` receives the ordered ids as request data. It does not create,
+   duplicate, edit, hide, or delete catalog entities.
+10. Persist the accepted ordered selection separately from resolved workers
+    (for example, additive `TeamRun.explicitSeatModelIds`). Resolved workers
+    alone cannot distinguish an explicit override from the Team's normal
+    resolution or later recovery. Legacy journals decode missing data as `nil`.
+11. The ordered ids participate in the idempotency payload. Changing any
+    `--seat` under the same key is an idempotency conflict, not a replay.
+12. Dry-run `argvTemplate`, persisted `reproduceCommand` surfaces, artifact
+    replay, detached `--no-wait`, and sandbox handoff preserve every accepted
+    `--seat` in order. Dry-run's `seats[]` shows the effective crew plus
+    unchanged scout/lead.
+
+## Truth and inference bans
+
+| Junction | Owner | Forbidden inference | Negative proof |
+| --- | --- | --- | --- |
+| argv → request | `Options` / `RunCLI` | Last repeated value wins | Three flags arrive as three ordered ids |
+| request → seats | `RunInvocationResolver` | Count mismatch uses defaults | Mismatch refuses with no run/spawn |
+| explicit id → model | `ExactIdResolver` + readiness gate | Display name or fallback is close enough | Unknown/not-ready id refuses |
+| resolved run → journal | `RunService` / `TeamRun` | Resolved workers prove which ids were explicit | Explicit ordered ids round-trip |
+| run → catalog | `RunService` | Runtime customization needs a saved Team | Catalog directory is byte-identical |
+| explicit seat → recovery | capacity/substitution policy | A failed exact seat may be silently reseated | Failure keeps the requested model identity |
+
+## Implementation
+
+### RSO-S01 — flag, resolution, and durable replay
+
+Truth owner: `RunInvocationResolver`, called only through `RunService`.
+
+- Make the shared CLI parser preserve ordered repeated values; retain current
+  single-value behavior for ordinary flags.
+- Add ordered seat ids to `RunRequest`, `RunInvocationNormalizedFlags`, and the
+  resolved invocation.
+- Validate flag relationships, count, exact readiness, row compatibility, and
+  execution source before acceptance.
+- Resolve explicit crew workers without Team fallback or diversity selection;
+  resolve unchanged scout and lead through the Team.
+- Persist explicit seat ids, include them in idempotency, and round-trip them
+  through replay, dry-run templates, `--no-wait`, and sandbox handoff.
+- Register `--seat` and its existing error families in `ContractRegistry`; bump
+  the contract version and regenerate artifacts from the registry.
+
+Likely touchpoints:
+
+`RunCLI.swift`, the shared `Options` parser, `RunService.swift`,
+`ResolvedRunInvocation.swift`, `TeamRun.swift`, `TeamRunReplayCommand.swift`,
+`ContractRegistry`, `ContractSchema`, `CatalogRunCoordinator` /
+`VendorSubstitutionPolicy`, and focused engine/CLI tests.
+
+### RSO-S02 — agent teaching cutover
+
+This lands with S01; the capability is not done while agents are still taught
+to duplicate Teams for one-off staffing.
+
+- `MenuSelectionCopy` / `MenuCatalog`: `run` covers “staff these models once”;
+  `teams duplicate` says not to use it for one-off staffing.
+- `HelpTopicRegistry` (`teams_and_workers` and run help): teach the three-gesture
+  table and the crew-only lead/scout rule.
+- `Bootstrap` / teaching snippets: one short `--seat` recipe.
+- Help search must find the recipe for `custom seats`, `staff models once`,
+  `one-off team`, and `temporary team`.
+- Contract/help tests reject invented `--prompt`, stale model ids, and any return
+  of ephemeral/TTL teaching.
+
+## Existing catalog cleanup
+
+Cleanup is recovery, not architecture, and does not block `--seat`.
+
+Use the existing exact-id `alln teams delete <team_id>` for known throwaways.
+Do **not** add `teams purge --unused` in this packet: current Team files do not
+carry a safe “throwaway” marker, and “not in retained run history” does not mean
+the user does not want the Team. A bulk-delete feature needs its own explicit,
+preview-first contract rather than a heuristic hidden inside runtime seating.
 
 ## Non-goals
 
-- Ephemeral catalog entities, tags, or TTL
-- Replacing built-ins or Team Studio for intentional durable customization
-- Resuming Team Lab
-- Changing relay/pilot PM/dev seating (`pmWorkerId` / `devWorkerId`) — those
-  already pin seats without inventing teams; nested judgment runs use `--seat`
-- GUI composer reseat UX in v1 (CLI + agent path first; GUI can mirror later)
-- Per-seat `skill:model` surgery or JSON `--seats` blobs in v1
-- Forking skills for one-off runs
+- Ephemeral catalog entities, tags, hiding, promotion, TTL, or auto-prune
+- Resuming Team Lab or changing built-in Team definitions
+- Changing relay/pilot PM and dev pins (`pmWorkerId` / `devWorkerId`)
+- Choosing a different lead or scout for one run
+- GUI reseating in v1
+- Per-seat skill edits or a JSON `--seats` blob
 
-## Implementation slices
+## Works Test
 
-| Slice | Goal | Done when |
-| --- | --- | --- |
-| **RSO-S00** | Founder purge | `alln teams purge --unused` (or equivalent) removes throwaway customs; dry-run + explicit paths; built-ins untouched |
-| **RSO-S01** | Resolver + CLI `--seat` | Repeated `--seat` reseats crew in order; count/id fail loud; no catalog write; mutating source gate still holds |
-| **RSO-S02** | Persistence / reproduce | Accepted seats appear on run record; `reproduce` / dry-run argv includes `--seat`; receipt honest |
-| **RSO-S03** | Agent teaching | Menu / help / bootstrap / ContractRegistry teach `--seat`; `teams duplicate` no longer the one-off path |
+Use a real registered repo and ready models:
 
-Slice order: S00 can ship first for relief; S01 is the core fix; S02/S03 must
-land before calling the packet done (agents will keep duplicating if teaching
-lags the flag).
-
-## Code touchpoints
-
-| Area | Files |
-| --- | --- |
-| Resolve / run | `TeamRequestResolver.swift`, `RunService.swift`, `ResolvedRunInvocation.swift`, seat resolution near `--worker` honor-or-fail |
-| CLI | `RunCLI.swift`, `AllnighterCLI.swift`, `ContractRegistry` (+ milestone flag/error specs) |
-| Catalog cleanup | `TeamCatalog.swift`, Catalog CLI (`teams purge`) |
-| Agent surface | `MenuSelectionCopy.swift`, `MenuCatalog.swift`, `HelpTopicRegistry.swift`, `Bootstrap` / teaching |
-| Proof | Engine/CLI tests for override count, unknown id, no `saveCustom` side effect, reproduce argv |
-
-## Works Test / proof
-
-```text
-1. alln run --team code_spec_review_min --seat A --seat B --seat C …
-   → run accepts; Catalogs/teams/ unchanged (no new custom_*)
-2. Wrong --seat count → loud CLI error; no spawn
-3. Unknown model id on --seat → loud error; no silent substitute
-4. alln reproduce / dry-run echoes the same --seat flags
-5. Menu/help: one-off seating points at --seat; duplicate dontUseWhen matches
-6. (S00) purge --unused removes founder throwaways without touching built-ins
-7. swift test (focused): seat override + catalog CLI + menu copy contracts
+```bash
+alln run "Review docs/phases/Ephemeral_Teams.md" \
+  --project . \
+  --team code_spec_review_min \
+  --seat model_chatgpt \
+  --seat model_grok \
+  --seat model_cursor_composer_25 \
+  --dry-run --json
 ```
 
-## Open only if blocked in implementation
+The Works Test passes only when:
 
-These are **not** product reopeners; resolve inside the slice if they appear:
+1. Dry-run reports the three chosen crew models in order, plus the unchanged
+   Team lead, and its `argvTemplate` contains all three ordered flags.
+2. The foreground form starts those exact crew models and records the ordered
+   explicit selection.
+3. TeamRunJSON and artifact reproduce commands emit the same three flags.
+4. The Team catalog directory has the same paths and file hashes before and
+   after dry-run and foreground run.
+5. Wrong count, `--worker` + `--seat`, missing `--team`, unknown/not-ready id,
+   incompatible row, and mixed-source mutation all refuse before spawn.
+6. A capacity failure on an explicit crew seat does not silently substitute.
+7. `alln help search "staff models once"` returns the `--seat` recipe, while
+   `teams duplicate` teaches durable saves only.
+8. Focused tests pass, followed by:
 
-- Exact crew-count definition when a `workerSpec` has `count > 1` (expand to
-  N ordered `--seat` values vs reject multi-count specs for override) — pick one
-  rule, document in S01, test it.
-- Whether GUI composer needs a parallel “staff for this send” control before
-  archive — default **no** for v1; file a follow-up packet if dogfood demands it.
+   ```bash
+   bash scripts/check.sh
+   ```
+
+## Done when
+
+- One atomic `alln run` gesture performs one-off crew staffing.
+- No runtime path writes the Team or skill catalogs.
+- Every execution/replay/handoff path preserves the ordered exact selection.
+- Agent teaching makes duplication the durable-save gesture only.
+- Contract artifacts are regenerated, the Works Test is recorded, and the
+  packet is promoted to code/standing vocabulary then archived.
