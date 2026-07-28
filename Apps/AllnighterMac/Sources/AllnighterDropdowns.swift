@@ -122,9 +122,9 @@ struct ALDropdown: View {
 // MARK: - ALSearchableDropdown
 //
 // A searchable option picker for long lists (skills): type to filter, rows sorted
-// A→Z with an optional trailing tag (e.g. built-in / custom), and — when `onCreate`
-// is set and the typed name matches nothing — a "+ Create …" footer. Same anchored
-// `.alPopover` chrome as `ALDropdown`; never the native Menu.
+// A→Z with an optional trailing tag (e.g. built-in / custom). When `onCreate` is set,
+// the popover footer always offers "+ New skill…"; a typed non-match becomes
+// "+ Create \"…\"". Same anchored `.alPopover` chrome as `ALDropdown`.
 
 struct ALComboItem: Identifiable, Equatable {
     let id: String
@@ -138,7 +138,7 @@ struct ALSearchableDropdown: View {
     var width: CGFloat = 280
     var placeholder: String = "Search…"
     var onPick: (String) -> Void
-    /// When set, a non-matching query offers "+ Create <query>" (passes the name).
+    /// When set, the popover footer offers new-skill creation (blank or from query).
     var onCreate: ((String) -> Void)? = nil
 
     @State private var open = false
@@ -160,9 +160,14 @@ struct ALSearchableDropdown: View {
     private var hasExactMatch: Bool {
         !trimmedQuery.isEmpty && items.contains { $0.label.caseInsensitiveCompare(trimmedQuery) == .orderedSame }
     }
-    private var canCreate: Bool { onCreate != nil && !trimmedQuery.isEmpty && !hasExactMatch }
+    /// Footer create row: always when `onCreate` is set (blank name ok); hide only
+    /// when the typed name exactly matches an existing item.
+    private var showsCreateRow: Bool { onCreate != nil && (trimmedQuery.isEmpty || !hasExactMatch) }
+    private var createRowLabel: String {
+        trimmedQuery.isEmpty ? "New skill…" : "Create \"\(trimmedQuery)\""
+    }
     /// Selectable rows = filtered items, plus the create row when offered.
-    private var optionCount: Int { filtered.count + (canCreate ? 1 : 0) }
+    private var optionCount: Int { filtered.count + (showsCreateRow ? 1 : 0) }
 
     private func move(_ delta: Int) {
         guard optionCount > 0 else { return }
@@ -171,7 +176,7 @@ struct ALSearchableDropdown: View {
     private func activateHighlighted() {
         if highlighted < filtered.count {
             onPick(filtered[highlighted].id); close()
-        } else if canCreate {
+        } else if showsCreateRow {
             onCreate?(trimmedQuery); close()
         }
     }
@@ -208,7 +213,7 @@ struct ALSearchableDropdown: View {
                         ForEach(Array(filtered.enumerated()), id: \.element.id) { idx, item in
                             row(item, index: idx)
                         }
-                        if filtered.isEmpty && !canCreate {
+                        if filtered.isEmpty && !showsCreateRow {
                             Text("No match").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
                                 .frame(maxWidth: .infinity).padding(.vertical, 14)
                         }
@@ -217,7 +222,7 @@ struct ALSearchableDropdown: View {
                 }
                 .frame(maxHeight: 260)
 
-                if canCreate {
+                if showsCreateRow {
                     Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
                     let createIndex = filtered.count
                     Button {
@@ -225,7 +230,7 @@ struct ALSearchableDropdown: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "plus").font(.system(size: 11)).foregroundStyle(ALColor.accentText)
-                            Text("Create \"\(trimmedQuery)\"").font(.system(size: 12.5, weight: .medium))
+                            Text(createRowLabel).font(.system(size: 12.5, weight: .medium))
                                 .foregroundStyle(ALColor.accentText).lineLimit(1)
                             Spacer(minLength: 0)
                         }

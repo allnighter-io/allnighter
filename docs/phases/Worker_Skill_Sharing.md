@@ -4,7 +4,7 @@ Status: **Founder direction locked** — vocabulary + sharing model + no-fork ru
 implementation packet not started
 Owner: AllnighterCore + Mac app
 Created: 2026-07-28
-Updated: 2026-07-28
+Updated: 2026-07-28 (new-skill affordances)
 Process: `docs/workflows/SSOT_Founder_Input_Workflow.md` →
 `docs/workflows/SSOT_Feature_Workflow.md`
 
@@ -115,8 +115,10 @@ Edit worker · Spec Review
 MODEL
 [ Auto ▼ ]
 
-SKILL
+SKILL                                          [ + ]
 [ First Principles Reviewer ▼ ]     [ Restore default ]
+  └─ popover footer: + New skill…  (always visible)
+  └─ or type to filter: + Create "Your Name"
 
 skill.md
 ┌─────────────────────────────────────┐
@@ -134,6 +136,23 @@ Changes from today:
 3. **`skill.md`** — replaces PROMPT; edits the shared skill.
 4. **Restore default** on edited built-in skills.
 5. Footer: scope of sharing (all teams on this skill id).
+
+### Creating a new skill (locked)
+
+Users must not have to discover type-to-create by accident. Two affordances:
+
+| Affordance | Behavior |
+| --- | --- |
+| **+** on the SKILL row (right-aligned, label row) | Starts blank new-skill flow: name field + empty `skill.md`; persists as an explicit new catalog entry on team Save |
+| **+ New skill…** in the skill dropdown footer | Always visible when the picker opens (not only after typing) |
+| **+ Create "…"** in the dropdown footer | When the user types a name that does not exactly match an existing skill |
+
+**+** on the label row is the primary entry; the persistent footer backs up users
+who open the list first. Typing to filter remains for power users.
+
+Explicit **new skill** is not silent forking — it mints a new `skillId` the user
+names and can assign to other workers/teams. Editing an existing skill’s
+`skill.md` updates the shared skill (no fork) once Phase 1 ships.
 
 ## Sharing model (implementation)
 
@@ -173,6 +192,8 @@ id work; skill overrides do not yet (`builtInImmutable`).
 - Keep **Workers** / **Add worker** on team editor.
 - Drill-in: Model → Skill → `skill.md`; shared-skill footer + Restore default.
 - Drop PROMPT label; honest `skill.md` once Phase 1 ships.
+- **Discoverable new skill:** + on SKILL row; persistent **+ New skill…** dropdown
+  footer (shipped 2026-07-28 in `CustomizeWorkerView` / `ALSearchableDropdown`).
 
 ### Phase 3 — Skill library (optional)
 
@@ -193,6 +214,7 @@ id work; skill overrides do not yet (`builtInImmutable`).
 | Bug Hunt family shares Bug Reproducer? | **Yes.** |
 | “Seat” in team UI? | **No** — keep **worker** for staffing view; seat is internal if needed. |
 | Agent path? | `alln skills edit <id>` + team/worker staffing via GUI or `teams edit`. |
+| How to create a new skill? | **+** on SKILL row + **+ New skill…** in dropdown; type-to-create remains as **+ Create "…"**. |
 
 ## Non-goals
 
@@ -214,3 +236,5 @@ id work; skill overrides do not yet (`builtInImmutable`).
 - Removed Settings → Skills tab.
 - Worker skill picker: built-ins + this team’s referenced customs only.
 - `alln skills gc` — delete unreferenced custom skills.
+- Edit worker: **+** on SKILL row + persistent **+ New skill…** in skill dropdown
+  (`TeamEditorView`, `ALSearchableDropdown`).

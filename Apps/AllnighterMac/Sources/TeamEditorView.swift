@@ -927,34 +927,20 @@ private struct CustomizeWorkerView: View {
         return models.first { $0.id == id }?.displayName ?? id
     }
 
+    private func beginNewSkill(named name: String = "") {
+        isNew = true
+        skillId = ""
+        customName = name
+        promptText = ""
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    field("SKILL") {
-                        ALSearchableDropdown(
-                            current: currentSkillLabel,
-                            items: laneSkills.map { ALComboItem(id: $0.id, label: $0.displayName,
-                                                                tag: $0.builtIn ? "built-in" : "custom") },
-                            placeholder: "Search \(lane.label.lowercased()) skills…",
-                            onPick: { newId in
-                                // Don't silently discard an edit: only reload the template
-                                // when the prompt is still the current skill's template.
-                                if promptText.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    == template.trimmingCharacters(in: .whitespacesAndNewlines) {
-                                    promptText = SkillCatalog.get(newId)?.template ?? ""
-                                }
-                                skillId = newId; isNew = false; customName = ""
-                            },
-                            onCreate: { typed in
-                                // Type-to-create: a brand-new skill named `typed`, empty
-                                // prompt to fill in below; persists on team Save.
-                                isNew = true; skillId = ""; customName = typed; promptText = ""
-                            }
-                        )
-                    }
+                    skillField
                     if willSaveAsCustom { skillNameField }
                     field("MODEL") {
                         ALDropdown(current: modelName(modelId),
@@ -981,6 +967,38 @@ private struct CustomizeWorkerView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
+    }
+
+    private var skillField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text("SKILL").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                Spacer(minLength: 0)
+                Button(action: { beginNewSkill() }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(ALColor.accentText)
+                        .frame(width: 22, height: 22)
+                        .background(ALColor.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                }
+                .buttonStyle(.plain)
+                .help("New skill")
+            }
+            ALSearchableDropdown(
+                current: currentSkillLabel,
+                items: laneSkills.map { ALComboItem(id: $0.id, label: $0.displayName,
+                                                    tag: $0.builtIn ? "built-in" : "custom") },
+                placeholder: "Search \(lane.label.lowercased()) skills…",
+                onPick: { newId in
+                    if promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        == template.trimmingCharacters(in: .whitespacesAndNewlines) {
+                        promptText = SkillCatalog.get(newId)?.template ?? ""
+                    }
+                    skillId = newId; isNew = false; customName = ""
+                },
+                onCreate: { typed in beginNewSkill(named: typed) }
+            )
+        }
     }
 
     private func field<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
