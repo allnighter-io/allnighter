@@ -1,163 +1,137 @@
 # Unattended round notification — CEO decision brief
 
-Status: **Draft — pending founder decision**
+Status: **Ready for Implementation — pending founder approve/cut ruling.**
+No engineering ambiguity remains; the only open item is scope (see §Decision).
 Updated: 2026-07-27
 Owner: Allnighter product (CLI / Pilot / Relay / `alln serve`) — code SSOT once
 approved: `ServeDaemon.swift`, `NotificationCandidateDetection.swift`,
-`NotificationEvent.swift`, `PilotCLI.swift`, `RelayCoordinator.swift`
+`NotificationEvent.swift`, `PilotCLI.swift`, `RelayCoordinator.swift`,
+`ContractRegistry+Milestone1.swift`
 
 ---
 
 ## The ask (one paragraph)
 
-Three times in one day, an agent started `alln pilot`/`alln relay` work from a
-terminal and nothing told the founder when it landed — not the CLI (the agent
-that dispatched it had already moved on or died), not the Mac app (it was not
-open), nothing. The founder's bar: **the human should have to do nothing, and
-the agent that started the round should not have to build its own watcher.**
-Allnighter already knows the moment work lands or needs a PM answer — it should
-say so, on its own, without either party polling for it.
+Three times in one day, an agent started `alln pair pilot` / `alln pair relay`
+work from a terminal and nothing told the founder when it landed — not the CLI
+(the agent that dispatched it had already moved on or died), not the Mac app (it
+was not open), nothing. The founder's bar: **the human should have to do
+nothing, and the agent that started the round should not have to build its own
+watcher.** Allnighter already knows the moment work lands or needs a PM answer —
+it should say so, on its own, without either party polling for it.
 
-**Approve?** Recommend **yes**, scoped to slices URN-S01/S02 below.
+**Approve?** Recommend **yes**, scoped to URN-S01 → URN-S02 → URN-S03.
 
 ---
 
-## What went wrong (plain story, grounded in the actual code)
+## What went wrong (verified in code, 2026-07-27)
 
-Allnighter already has a real notification pipeline, and it is good machinery:
-`NotificationCandidateDetection` (`Packages/AllnighterCore/Sources/AllnighterCore/NotificationCandidateDetection.swift`)
-purely diffs thread/turn/run snapshots into `NotificationCandidate`s —
+Allnighter already has a real notification pipeline, and it is good machinery.
+`NotificationCandidateDetection`
+(`Packages/AllnighterCore/Sources/AllnighterCore/NotificationCandidateDetection.swift`)
+purely diffs `WorkThread`/`TeamRun` snapshots into `NotificationCandidate`s —
 `turnCompleted`, `turnFailed`, `teamRunCompleted`, `vendorParked`/`vendorResumed`,
-`threadNeedsAttention`. `MacNotificationDelivery` (`Apps/AllnighterMac/Sources/MacNotificationDelivery.swift`)
-posts a real macOS banner with click-to-thread deep linking. This shipped as
-NOTIF-S01–S05 (`docs/archive/phases/threads/02_Notifications.md`) and it works.
+`threadNeedsAttention`. `NotificationDeliveryFilter` applies policy, mute, quiet
+hours and debounce. `MacNotificationDelivery`
+(`Apps/AllnighterMac/Sources/MacNotificationDelivery.swift`) posts a real macOS
+banner via `UNUserNotificationCenter` with click-to-thread deep linking. This
+shipped as NOTIF-S01–S05 (`docs/archive/phases/threads/02_Notifications.md`).
 
 The scope line in that doc is the whole bug: **"Ship Mac local notifications
-only in this phase."** The candidate-detection diff only ever runs inside
-`ThreadsViewModel` (`Apps/AllnighterMac/Sources/ThreadsViewModel.swift:1536,1557`)
+only in this phase."** The diff only ever runs from `ThreadsViewModel.reload`
+(`Apps/AllnighterMac/Sources/ThreadsViewModel.swift`, `processNotificationTransitions`)
 — i.e. only while the Mac GUI process is alive and polling. `alln serve`, the
-component AGENTS.md and `CLI_Product_Spine.md` already name as the
-**app-closed** background owner ("Resident mode... `alln serve` is required
-before public Pending can promise app-closed execution"), has **zero**
-notification code (`ServeDaemon.swift` — no reference to `Notification` or
-`UserNotifications` anywhere in the scheduler). A relay/pilot round dispatched
-purely from a terminal, with the Mac app never opened, writes real state to
-disk (`RelayState`, thread/turn projections via `RelayThreadProjector`) that
-nothing is watching. This is exactly the founder's three failures today — not
-a fluke, a designed-in gap between "Mac app open" (notified) and "CLI-only"
-(silent forever).
+component AGENTS.md already names as the app-closed background scheduler, has
+**zero** notification code: `ServeDaemon.swift` contains no `Notification` or
+`UserNotifications` reference anywhere.
+
+Meanwhile the state is all there on disk and unread. `RelayThreadProjector`
+already projects every relay round onto one `WorkThread` per relay in the shared
+file-backed `ThreadStore` — including an open `.running` system-event turn with
+`systemEvent: .relayEscalated` and a terminal `.relayStopped` turn. A relay
+dispatched purely from a terminal writes complete, correct thread truth that
+nothing is watching. This is not a fluke; it is a designed-in gap between "Mac
+app open" (notified) and "CLI-only" (silent forever).
 
 A second, smaller bug compounds it. Even when the Mac app **is** running, a
 relay round entering `.relayEscalated` (needs a PM answer) or `.relayStopped`
-does not get its own notification event — `NotificationCandidateDetection.swift:293,305`
-explicitly excludes both from `isOpenBlockingSystem`/`blockingSystemEvent`, and
-a code comment (lines 289-292) claims a "per-event specific push... is GUI
-polish deferred to PM_Relay.md R-S08." R-S08 shipped — but it shipped the Mac
-GUI escalation *row* (`RelayEscalationRow`, visible only if the thread is
-already open), not a push notification. The comment overclaims; it describes
-behavior the code does not implement. Today a relay escalation only surfaces
-via the generic `threadNeedsAttention` transition, which is one more layer
-riding on the same Mac-app-must-be-running assumption above.
+gets no event of its own: `NotificationCandidateDetection.blockingSystemEvent`
+and `isOpenBlockingSystem` both list `.relayEscalated, .relayStopped` in their
+"return nil / false" cases, and the comment above them claims a per-event push
+is "GUI polish deferred to PM_Relay.md R-S08." R-S08 shipped — but it shipped
+the Mac GUI escalation *row*, visible only if the thread is already open, not a
+push. The comment describes behavior the code does not implement, which is
+exactly the "a comment is not a contract" defect class in
+`SSOT_Feature_Workflow.md` §Honest Reporting.
 
 ---
 
 ## Prior art (how mature tools solve this)
 
-The common pattern across CI/build tooling: **the notifier is a standing
+The convention across CI and build tooling: **the notifier is a standing
 process independent of the caller**, never the caller's own responsibility.
-GitHub Actions notifies via webhook/email regardless of whether the machine
-that pushed the commit is still online. Xcode posts a system notification when
-a background build finishes even if Xcode is not frontmost — but Xcode's own
-process is still alive; it never asks the build's *invoker* to poll. iTerm2's
-"alert on next mark" watches a shell command from the terminal app itself, not
-from the command. The same shape applies here: `alln serve` is Allnighter's
-already-declared standing, app-closed process — this is squarely its job, not
-a new architectural concept, and not something `pilot`/`relay`'s calling agent
-should ever reinvent as a pgrep loop.
+GitHub Actions notifies by webhook/email regardless of whether the machine that
+pushed is still online. Xcode posts a system notification when a background
+build finishes without asking the build's invoker to poll. `gh run watch` is the
+*opt-in* blocking path, deliberately additive to, not a replacement for, the
+standing notifier. We adopt that split exactly: `alln serve` is the standing
+notifier (URN-S01/S02); a blocking `wait` verb is the optional extra (URN-S04),
+never the mechanism.
 
 ---
 
 ## What we are recommending
 
-1. **`alln serve` delivers OS notifications for relay/pilot rounds, with the
-   Mac app fully closed.** Reuse the existing, portable
-   `NotificationCandidateDetection` pure functions (already living in
-   `AllnighterCore`, no `UserNotifications` import, so no portability-hygiene
-   violation) inside a new scheduler loop on `ServeDaemon`, following the exact
-   pattern already used by `PendingWakeScheduler`/`BoostSeedScheduler`/
-   `VendorBackoffReconciler` (`ServeDaemon.swift:126-162`). Deliver via
-   `osascript -e 'display notification ...'` through the existing
-   `CommandRunner` dependency already injected into `ServeDaemon.WakeDependencies`
-   — no new framework, no app-bundle registration problem (bare CLI processes
-   cannot reliably register with `UNUserNotificationCenter`; `osascript` has no
-   such requirement).
+1. **URN-S01 — `alln serve` posts OS notifications with the Mac app closed.**
+   Reuse the existing portable `NotificationCandidateDetection` pure functions
+   inside a new scheduler on `ServeDaemon`, following the pattern of the three
+   existing schedulers.
+2. **URN-S02 — dispatch guarantees the watcher exists.** Round-dispatching
+   `pair` verbs auto-launch a detached `alln serve` if none is alive. Without
+   this, S01 only helps founders who remembered to start `serve`.
+3. **URN-S03 — real relay escalation/stop events + delete the stale comment.**
+4. **URN-S04 (optional, defer first)** — `pair pilot wait` / `pair relay wait`.
 
-2. **Dispatch guarantees the watcher exists — the human does nothing, the
-   calling agent builds nothing.** `PilotCLI.dispatchHandoffInBackground` and
-   `alln relay` start should check whether a serve daemon is already alive
-   (`ServeDaemonStore`/`ServeDaemonProbe` already expose this) and auto-launch
-   a detached `alln serve` if not, using the same detached-`Process()` pattern
-   `PilotCLI` already uses for the round itself. This is what actually closes
-   the founder's ask — without it, slice 1 only helps founders who remembered
-   to leave `alln serve` running.
-
-3. **Give relay escalation/stop their own notification event** instead of
-   riding the generic `threadNeedsAttention` fallback, and delete the stale
-   comment. Copy the comment's own suggested language: "PM Relay needs an
-   answer." Cheap, and it sharpens slice 1's dedupe key.
-
-4. **(Optional, lower priority) `pilot wait` / `alln relay wait` blocking
-   primitive**, parity with `team status --wait-for <state> --timeout`
-   (`ContractRegistry+Milestone1.swift:344`), which pilot/relay currently lack.
-   This helps an agent that *chooses* to block in-process; it does not replace
-   slices 1-2, since the founder's ask is specifically that nobody — human or
-   agent — should have to watch at all.
-
-If you only do two, do #1 and #2 — #1 alone is inert without #2 guaranteeing
-the daemon is actually running.
+If you only do two, do S01 and S02 — S01 alone is inert without S02.
 
 ---
 
 ## Why you should care
 
-| If we do nothing | If we ship URN-S01/S02 |
+| If we do nothing | If we ship URN-S01/S02/S03 |
 | --- | --- |
 | CLI-only relay/pilot work (today's dominant real usage) notifies nobody, ever, unless the Mac app happens to be open | Allnighter pings the human the moment a round lands or needs a PM answer, app open or closed |
-| Every agent independently reinvents a pgrep/poll loop, or nothing, and founders manually re-check three times a day | Zero caller-side watching, human or agent |
-| A code comment claims relay escalation already pushes a notification; it does not | Escalation gets a real, correctly-labeled event |
+| Every agent reinvents a pgrep/poll loop, or nothing; the founder manually re-checks three times a day | Zero caller-side watching, human or agent |
+| A code comment claims relay escalation already pushes a notification; it does not | Escalation gets a real, correctly-labelled event |
 
 ---
 
 ## What we are explicitly not doing
 
-- Not building a new cloud/push service — this is local `osascript`/`UserNotifications` delivery only, same trust boundary as NOTIF-S01–S05.
-- Not touching iOS push (that is `docs/phases/ios/03_iOS_Thread_Read_State_And_Push.md`, already deferred and out of scope here).
-- Not giving `alln serve` any run semantics — it only *reads* existing `RelayState`/thread state and shells out to notify; it owns no run.
-- Not replacing `pilot status`/`pilot watch`; those stay as the pull-based path for a caller that wants to poll in-process.
-- Not rebuilding notification detection — `NotificationCandidateDetection` is reused as-is.
-
----
-
-## Scope and cost (feel)
-
-Small, bounded CLI/engine work: one new scheduler loop on `ServeDaemon`
-(same shape as three existing ones), one auto-launch check at two dispatch
-sites, one new `NotificationEventKind` pair + copy. No Mac redesign required
-for slices 1-2 (the Mac app's own NOTIF-S01–S05 pipeline is untouched and still
-works when it happens to be open). No new billing, no new permission class
-beyond the macOS notification permission already requested by NOTIF-S01.
+- No new cloud/push service. Local delivery only, same trust boundary as
+  NOTIF-S01–S05. No API keys, no accounts, no network egress.
+- No iOS push (`docs/phases/ios/03_iOS_Thread_Read_State_And_Push.md` stays
+  deferred).
+- **No run semantics in `alln serve`.** The new scheduler is strictly
+  read-then-shell-out: it reads `ThreadStore`/`RunStore`, and spawns
+  `osascript`. It never mutates a run, never dispatches, never touches the write
+  lock. This is the AGENTS.md constraint and it is a test assertion (see
+  §Inference bans).
+- No replacement for `pair pilot status` / `pair pilot watch`; those stay as the
+  pull-based path.
+- No rebuild of notification detection — `NotificationCandidateDetection` and
+  `NotificationDeliveryFilter` are reused unchanged except for the S03 cases.
+- No git operations of any kind.
 
 ---
 
 ## Success looks like
 
-- Quit the Mac app entirely. From a terminal, dispatch a pilot round or start a
-  relay. Walk away. When the round completes or escalates, a macOS notification
-  banner appears — with no human polling and no watcher process the calling
-  agent had to invent.
-- The founder never has to remember to run `alln serve` first; dispatching a
-  round guarantees a notifier is alive.
-- A relay round that needs a PM answer reads "PM Relay needs an answer," not a
+- Quit the Mac app entirely. From a terminal, submit a pilot handoff. Walk away.
+  When the round completes or escalates, a macOS banner appears — no human
+  polling, no watcher the calling agent had to invent.
+- The founder never has to remember to run `alln serve`; dispatch guarantees it.
+- A relay round needing a PM answer reads **"PM Relay needs an answer"**, not a
   generic thread-needs-attention line.
 
 ---
@@ -166,80 +140,249 @@ beyond the macOS notification permission already requested by NOTIF-S01.
 
 | Option | Meaning |
 | --- | --- |
-| **Approve** | Build URN-S01 → URN-S02 → URN-S03 in order; URN-S04 optional/deferred |
-| **Approve with cuts** | Say which slices to drop (URN-S04 is the one to cut first; URN-S01/S02 are the pair that actually fixes today's failure) |
-| **Reject** | Leave current behavior; CLI-only relay/pilot work stays silent until the founder happens to check |
+| **Approve** | Build URN-S01 → URN-S02 → URN-S03 in order; URN-S04 stays deferred |
+| **Approve with cuts** | Cut URN-S03 (cosmetic sharpening) or URN-S02 (then the founder must start `alln serve` by hand). S01+S02 is the pair that fixes today's failure |
+| **Reject** | Leave current behavior; CLI-only relay/pilot work stays silent |
+
+The one genuinely founder-level call inside "Approve": **URN-S02 starts a
+background process on the founder's machine that the founder did not explicitly
+ask for.** It is local, owns no run semantics, and is opt-out-able
+(`--no-auto-serve`, `ALLN_NO_AUTO_SERVE=1`), but "a CLI command may silently
+start a daemon" is a product-posture ruling, not an engineering one. Everything
+else below is decided.
 
 Founder sign-off: _pending_
 
 ---
 
-## Builder slices (proposed)
+## Builder slices
 
 ### URN-S01 — `alln serve` posts OS notifications for relay/pilot state
 
-- New scheduler (e.g. `RelayNotificationScheduler`) added to `ServeDaemon.run`'s
-  `TaskGroup` alongside `PendingWakeScheduler`/`BoostSeedScheduler`/
-  `VendorBackoffReconciler` (`ServeDaemon.swift:126-162`), gated on an optional
-  dependency bundle the same way `remoteDependencies` is.
-- Polls relay/pilot state the same way `alln ps`'s process-ownership
-  enumeration already does machine-wide (`ProcessOwnershipSurface.swift`) —
-  reuse that enumeration rather than inventing a parallel relay registry.
-- Feeds snapshots through the existing `NotificationCandidateDetection.candidates`/
-  `runCandidates` (unchanged; already portable, already tested).
-- Delivery: shell `osascript -e 'display notification "<body>" with title
-  "Allnighter"'` via the existing `CommandRunner` protocol (already injected as
-  `WakeDependencies.commandRunner`) — keeps delivery unit-testable with a mock
-  runner; the real macOS banner itself needs one manual on-host confirmation
-  per SSOT_Feature_Workflow's host-boundary rule (a mock cannot close that
-  claim).
-- Dedupe: persist delivered `NotificationCandidate.id`s in `ServeDaemonStore`
-  so a daemon restart does not replay old notifications (mirrors the
-  `before`-must-be-non-nil cold-start-quiet rule already in
-  `NotificationCandidateDetection.candidates`).
-- Tests: scheduler fires exactly once per real transition; restart does not
-  re-fire; mock `CommandRunner` receives the expected `osascript` invocation.
+**State source (resolved).** `NotificationCandidateDetection.snapshots(from:)`
+consumes `[WorkThread]` and `runSnapshots(from:runsById:)` consumes
+`[String: TeamRun]`. The source is therefore `ThreadStore.list()` +
+`RunStore.list()` — **not** `ProcessOwnershipSurface`, whose `list()` returns
+`OwnershipPsJSON` rows (a different shape, built for `alln ps`/`alln kill`).
+`RelayThreadProjector` already writes relay rounds into `ThreadStore`, so relay
+truth arrives through the same door as every other thread.
+
+- New `NotificationScheduler` in `AllnighterEngine`, added to `ServeDaemon.run`'s
+  `TaskGroup` beside `PendingWakeScheduler` / `BoostSeedScheduler` /
+  `VendorBackoffReconciler`, gated on `wakeDependencies` exactly as they are.
+- Poll interval 10s, injectable sleeper (mirror `PendingWakeSleeper`) so tests
+  are deterministic.
+- Cold start is quiet: first tick stores the snapshot and passes `before: nil`,
+  which `candidates()` already treats as "emit nothing."
+- **Policy is read-only from the daemon.** Load `NotificationPolicyStore` each
+  tick and call `NotificationDeliveryFilter.shouldDeliver` (which takes policy by
+  value). Do **not** call `recordDelivery`, and never write
+  `notification_policy.json` from `serve` — the Mac app owns that file and a
+  second writer would clobber user settings. Debounce/dedupe bookkeeping lives in
+  the daemon's own ledger (`delivered_notifications.json` under
+  `AllnighterPaths.coordinator`, next to `coordinator.json`), merged into the
+  in-memory policy copy before `shouldDeliver`. Restart therefore does not
+  replay.
+- **Delivery:** `osascript -e 'display notification "<body>" with title "<title>"'`
+  through the injected `WakeDependencies.commandRunner` (`CommandRunner`
+  protocol), so a `MockCommandRunner` can assert the exact invocation. Body/title
+  come from the existing `NotificationCopy`. `osascript` is used because a bare
+  CLI process cannot reliably register with `UNUserNotificationCenter`; there is
+  no `osascript` call anywhere in the repo today, so this is a new dependency and
+  is named as one. Guard the call site `#if canImport(Darwin)` and no-op with a
+  logged line elsewhere (PortabilityHygieneTests).
+- **Honest reporting:** every delivery attempt writes one line to the daemon's
+  stderr log with candidate id and the `osascript` exit code. A non-zero exit
+  (e.g. the user has denied Script Editor notifications) is logged as a failed
+  delivery, never swallowed. `serve` does not exit non-zero for it — a failed
+  banner must not kill the scheduler.
+- **Exactly one owner:** `ThreadsViewModel` skips its own delivery when
+  `ServeDaemonProbe().health(...).state == .available`. Without this, an open Mac
+  app and a live daemon both fire for the same transition. The daemon wins
+  because it is the one that is always there; the cost is the deep link, which is
+  a Mac-only affordance and acceptable for v1.
+- Tests: one candidate → exactly one `osascript` invocation with the expected
+  argv; a restart with the ledger present fires zero; cold start fires zero;
+  quiet hours / muted thread / disabled policy fire zero; `ThreadsViewModel`
+  suppresses when the probe says `.available`.
 
 ### URN-S02 — Dispatch guarantees a live notifier
 
-- `PilotCLI.dispatchHandoffInBackground` and `alln relay` start: before/while
-  forking the round's detached child, check `ServeDaemonProbe`/`ServeDaemonStore`
-  for a live daemon; if none, auto-launch a detached `alln serve` using the
-  same executable-resolution fix PLT-S01 already built
-  (`InstallCLI.resolvedRunningBinary`).
-- Idempotent: never double-launch if a daemon is already alive (reuse the
-  existing probe, do not invent a second liveness check).
-- Tests: dispatch with no daemon running launches exactly one; dispatch with a
-  daemon already running launches zero.
+- New `ServeAutoLaunch.ensureRunning()` in `AllnighterEngine`: if
+  `ServeDaemonProbe().health(...).state != .available`, launch a detached
+  `alln serve`. Reuse `PilotCLI.detachedHandoffLaunch`'s executable resolution —
+  `ProcessOwnership.currentExecutablePath()` first, falling back to
+  `InstallCLI.resolvedRunningBinary(argv0:pathEnvironment:)` (the PLT-S01 fix).
+  Working directory is irrelevant to `serve`; use the user's home.
+- Called from the `pair` verbs that actually start a dev turn:
+  `pair pilot handoff`, `pair relay`, `pair relay-resume`, `pair relay adopt`.
+  **Not** `pair pilot start` (it only parks `awaitingPM`; nothing runs).
+- Idempotent: the probe is the single liveness check. Never invent a second one.
+- **Never fails the round.** A launch failure prints one stderr line and
+  continues; the exit code of the dispatch is unchanged.
+- Tests: no daemon → exactly one launch; live daemon → zero launches;
+  `--no-auto-serve` / `ALLN_NO_AUTO_SERVE=1` → zero launches; a throwing
+  launcher leaves the dispatch's exit code untouched.
 
-### URN-S03 — Real relay escalation/stop notification event + comment fix
+### URN-S03 — Real relay escalation/stop event + comment fix
 
-- Add `.relayEscalated`/`.relayStopped` (or equivalent) to
-  `NotificationEventKind`; wire `blockingSystemEvent`/`isOpenBlockingSystem`
-  (`NotificationCandidateDetection.swift:283-308`) to emit them instead of
-  falling through to the generic `threadNeedsAttention` path.
-- Delete the stale "deferred to PM_Relay.md R-S08" comment; R-S08 shipped the
-  GUI row, not this push.
-- Copy: "PM Relay needs an answer" per the existing comment's own suggestion.
-- Regen contracts/fixtures if `NotificationEventKind` cases are contract-visible.
+- Add `relayNeedsAnswer = "relay.needs_answer"` and
+  `relayStopped = "relay.stopped"` to `NotificationEventKind`.
+- `blockingSystemEvent` returns `.relayNeedsAnswer` for `.relayEscalated` and
+  `.relayStopped` for `.relayStopped`; `isOpenBlockingSystem` returns `true` for
+  `.relayEscalated` (it is an open `.running` system turn) and `false` for
+  `.relayStopped` (terminal — it lands through the terminal-turn path).
+- `NotificationDeliveryFilter.eventEnabled` gains both under
+  `policy.notifyFailuresAndBlocked` (the switch is exhaustive; the compiler
+  enforces this).
+- `NotificationCopy` title: **"PM Relay needs an answer"** / **"PM Relay
+  stopped"**.
+- Delete the "deferred to PM_Relay.md R-S08" comment and both "deliberately
+  excluded" comments. Replace with a one-line statement of what the code now
+  does.
+- Tests: an `.relayEscalated` transition yields exactly one
+  `.relayNeedsAnswer` candidate and no `.threadNeedsAttention` duplicate for the
+  same turn.
 
-### URN-S04 (optional, defer-first) — `pilot wait` / `alln relay wait`
+### URN-S04 (optional, deferred) — `pair pilot wait` / `pair relay wait`
 
 - Blocking flag parity with `team status --wait-for <state> --timeout`
-  (`ContractRegistry+Milestone1.swift:344`). Lower priority: solves the same
-  problem for an agent that chooses to poll in-process, not the founder's
-  actual ask (nobody should have to watch).
+  (`ContractRegistry+Milestone1.swift`, `team status` CommandSpec; exit 3 =
+  `timeout` per `ExitCode.stableTable`). Solves the problem only for an agent
+  that chooses to poll in-process — not the founder's ask. Do not build it
+  before S01–S03 land.
 
 ---
 
-## Open questions
+## Implementation contract
 
-- Does `alln serve` already have a clean, scoped way to enumerate active
-  relay/pilot state across projects on one machine, or does URN-S01 need to
-  add one? (Lean on `ProcessOwnershipSurface`/`alln ps` first — do not build a
-  second machine-wide registry; `Concurrent_Invocation_Isolation.md` already
-  established the scoped-enumeration pattern.)
-- Should `osascript` delivery in URN-S01 also carry a click-to-thread deep
-  link, or is a plain banner (open Allnighter manually) good enough for v1?
-  Recommend plain banner for v1 — richer click-through only works when the Mac
-  app is the one delivering (NOTIF-S03, already shipped for that case).
+**CLI surface.**
+
+| Command | Change |
+| --- | --- |
+| `serve` | `CommandSpec` summary gains: "…and posts local notifications when a run, team run, or PM Relay round lands or needs an answer." No new flags. Exit codes unchanged. |
+| `pair pilot handoff` | New `FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier for this dispatch.")`. `PilotHandoffDispatchJSON` gains `serveAutoLaunch: String` — `"alreadyRunning" \| "launched" \| "skipped" \| "failed"`. Exit codes unchanged. |
+| `pair relay`, `pair relay-resume`, `pair relay adopt` | Same `--no-auto-serve` flag. Their envelope is the shared `RelayJSON`; do **not** add a field there — report auto-launch on stderr only. |
+
+Environment opt-out: `ALLN_NO_AUTO_SERVE=1` suppresses auto-launch everywhere.
+
+**Model / package / contract impact.**
+
+- `ContractRegistry.contractVersion` **4.0.9 → 4.1.0** (minor: flag + field
+  additions, no removals or renames — the registry's own
+  `agentAction` for contract drift states this rule). Then
+  `alln dev export-contracts` and commit the regenerated artifacts; never
+  hand-edit them.
+- `VersionJSON.binaryVersion` **0.10.0 → 0.10.1** (one shipped batch), with
+  `VersionIdentityTests` as the drift gate.
+- `NotificationEventKind` is *not* referenced by `ContractRegistry` and has no
+  `outputSchema`, so the two new cases are not a wire-contract change on their
+  own. They are persisted indirectly inside `NotificationPolicy`'s
+  `deliveredLifecycleEventIds` strings, which are additive and forward-safe.
+- New durable file: `delivered_notifications.json` under
+  `AllnighterPaths.coordinator`. Deleting it costs at most one duplicate banner.
+- Mac app impact: one suppression check in `ThreadsViewModel` (see URN-S01).
+- iOS impact: none. WebSocket/protocol impact: none. Agent driver impact: none.
+- Auth/privacy/permissions: no new permission class. The macOS notification
+  permission requested by NOTIF-S01 covers the Mac app path; the `osascript`
+  path is attributed to Script Editor and is subject to *that* app's
+  notification permission — the one real host-boundary risk, which is why the
+  Works Test below requires an on-host confirmation and why S01 logs delivery
+  failures instead of assuming success.
+
+**Teaching surface.**
+
+- `HelpTopicRegistry` topic `pm_relay`: add a `sections` entry
+  `("notify", "You do not have to watch", …)` describing that a dispatched round
+  notifies on completion/escalation with the app closed, and that the notifier
+  auto-starts. Aliases to add: `"notify me"`, `"notification"`,
+  `"tell me when it's done"`, `"background notifier"`.
+- `HelpTopicRegistry` topic `pending` / `quickstart`: wherever `alln serve` is
+  described as "optional background scheduler", extend to name notifications so
+  the two descriptions cannot drift.
+- `relatedCommandNames` on `pm_relay` already lists the four dispatch verbs; the
+  new `--no-auto-serve` flag is discoverable through their `CommandSpec`s.
+- Nothing is retired, so there is no deny-list sweep.
+- Gate: `alln dev export-contracts --check` plus the existing help-corpus test
+  must be green — prose naming a flag `ContractRegistry` cannot resolve is a P0.
+
+**Deletion targets (duplicate truth).**
+
+- The three stale comments in `NotificationCandidateDetection.swift` (S03).
+- The Mac app's unconditional delivery path becomes conditional (S01) — there
+  must never be two live notifiers for one transition.
+
+---
+
+## Inference bans
+
+| Junction | Owner | Possible bad inference | Ban | Negative test |
+| --- | --- | --- | --- | --- |
+| `serve` scheduler → runs | `RunService` | "The notifier may nudge/resume a stuck run" | The notification scheduler may only read stores and spawn `osascript`; no `RunService`, no `AsyncTeamService`, no `RunWriteLockRegistry` reference | Architecture-policy check: the new scheduler file imports/uses no run-mutating symbol |
+| `serve` ↔ Mac app | one live notifier | "Both can deliver; dedupe will sort it out" | Mac app suppresses when `ServeDaemonProbe` reports `.available` | Probe `.available` → `ThreadsViewModel` delivers zero |
+| `serve` → `notification_policy.json` | Mac app / user settings | "The daemon can record its deliveries in the shared policy file" | Daemon reads the policy, never writes it | Daemon tick leaves the policy file's mtime and bytes unchanged |
+| dispatch → round outcome | the round | "A failed notifier launch means the round failed" | Auto-launch failure never changes the dispatch exit code | Throwing launcher → dispatch exit code identical to baseline |
+
+---
+
+## Proof
+
+**Works Test (owner-visible, on-host — a mock cannot close this).**
+
+Setup, with the Mac app **quit**:
+
+```bash
+osascript -e 'tell application "Allnighter" to quit' 2>/dev/null || true
+pkill -f 'alln serve' || true
+alln serve --health --json          # expect "state":"foregroundOnly"
+```
+
+Gesture (from the repo root, with an existing pilot relay id):
+
+```bash
+alln pair pilot start --doc docs/phases/Unattended_Round_Notification.md \
+  --project "$PWD" --dev-worker <dev-id> --json      # -> relayId
+printf 'Add one line to README.md, then stop.\n' > /tmp/order.md
+alln pair pilot handoff --relay <relayId> --verdict continue \
+  --handover-file /tmp/order.md --no-wait --json
+```
+
+Assertions:
+
+1. The dispatch JSON contains `"serveAutoLaunch":"launched"`.
+2. `alln serve --health --json` now reports `"state":"available"`.
+3. **A macOS banner appears when the dev turn settles, with the Mac app closed.**
+   This is the claim; it is the step no mock can prove.
+4. `alln pair pilot status --relay <relayId> --json` reports `awaitingPM`.
+5. Escalation copy: submit `--verdict escalate --note "which file?"` and confirm
+   the banner reads **"PM Relay needs an answer."**
+6. Idempotence: a second `handoff` reports `"serveAutoLaunch":"alreadyRunning"`
+   and `pgrep -f 'alln serve' | wc -l` stays at 1.
+
+**Supporting checks.**
+
+```bash
+swift test --package-path Packages/AllnighterCore \
+  --filter 'Notification|ServeDaemon|Pilot|ContractRegistry|FixtureRoundTrip|VersionIdentity|PortabilityHygiene'
+alln dev export-contracts --check
+scripts/check_architecture_policy.sh
+```
+
+**Missing proof / waiver:** none requested. Step 3 is the host-boundary claim
+and must be run on the founder's Mac before this packet is called shipped.
+
+---
+
+## Done when
+
+- **User-visible claim:** "Allnighter tells you when a round lands or needs your
+  answer, even with the app closed — and you never have to start the notifier."
+- CLI contract shipped and tested: `--no-auto-serve` on four verbs,
+  `serveAutoLaunch` on `PilotHandoffDispatchJSON`, contract 4.1.0 regenerated.
+- Teaching surface updated: `pm_relay` notify section + aliases; `serve`
+  description no longer says the scheduler is notification-free; help corpus
+  green.
+- Proof: the six Works Test assertions above, including the on-host banner.
+- Closeout: promote nothing to a standing doc (behavior is code-owned), then
+  archive this packet to `docs/archive/phases/` naming `ServeDaemon.swift` /
+  `NotificationCandidateDetection.swift` / `PilotCLI.swift` as successors.
