@@ -121,6 +121,7 @@ public enum CatalogRoots {
         skillsOverride = nil
         modelsOverride = nil
         labTeamsOverride = nil
+        TeamCatalog.invalidateCache()
     }
 }
 

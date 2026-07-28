@@ -396,14 +396,23 @@ public extension Array where Element == TeamPreset {
 /// never live in the product catalog — they are redirected to `Catalogs/lab-teams/`
 /// (AE-S02 / Law 7).
 public enum TeamCatalog {
+    nonisolated(unsafe) private static var mergedAllCache: [TeamPreset]?
+
     public static var all: [TeamDefinition] {
+        if let mergedAllCache { return mergedAllCache }
         migrateStrayLabTeamsFromProductCatalog()
-        return mergeCustom(CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.teams, as: TeamPreset.self))
+        let merged = mergeCustom(CatalogFileIO.loadAll(kind: .team, root: CatalogRoots.teams, as: TeamPreset.self))
+        mergedAllCache = merged
+        return merged
     }
+
+    /// Drop the in-memory merged roster (tests, or after writes outside `saveCustom`).
+    public static func invalidateCache() { mergedAllCache = nil }
 
     public static func list(lane: WorkLane) -> [TeamDefinition] { all.teams(in: lane) }
 
     public static func get(_ id: TeamID) -> TeamDefinition? {
+        if let cached = mergedAllCache?.first(where: { $0.id == id }) { return cached }
         migrateStrayLabTeamsFromProductCatalog()
         // A saved file ALWAYS wins — for a built-in id that's the user's edited version
         // (the "override"); the shipped team stays hidden as the restore source. So
@@ -445,7 +454,10 @@ public enum TeamCatalog {
     public static func restore(_ id: TeamID) throws -> (team: TeamDefinition, removedOverride: Bool) {
         guard BuiltInTeams.team(id) != nil else { throw CatalogError.restoreUnsupported }
         let had = hasOverride(id)
-        if had { try CatalogFileIO.delete(id: id, root: CatalogRoots.teams) }
+        if had {
+            try CatalogFileIO.delete(id: id, root: CatalogRoots.teams)
+            invalidateCache()
+        }
         guard let team = get(id) else { throw CatalogError.teamNotFound }
         return (team, had)
     }
@@ -564,6 +576,7 @@ public enum TeamCatalog {
         var custom = team
         custom.builtIn = false
         try CatalogFileIO.save(custom, id: custom.id, kind: .team, root: CatalogRoots.teams)
+        invalidateCache()
     }
 
     /// Reject custom mutating teams whose resolved workers cross CLI sources.
@@ -591,6 +604,7 @@ public enum TeamCatalog {
         if BuiltInTeams.team(id) != nil {
             guard hasOverride(id) else { throw CatalogError.builtInImmutable }
             try CatalogFileIO.delete(id: id, root: CatalogRoots.teams)
+            invalidateCache()
             return
         }
         guard let existing = CatalogFileIO.loadOne(id: id, kind: .team, root: CatalogRoots.teams, as: TeamPreset.self) else {
@@ -603,6 +617,7 @@ public enum TeamCatalog {
             }
         }
         try CatalogFileIO.delete(id: id, root: CatalogRoots.teams)
+        invalidateCache()
     }
 
     @discardableResult
@@ -622,6 +637,7 @@ public enum TeamCatalog {
             custom.isDefaultForLane = false
             try CatalogFileIO.save(custom, id: custom.id, kind: .team, root: CatalogRoots.teams)
         }
+        invalidateCache()
     }
 
     private static func mergeCustom(_ customs: [TeamPreset]) -> [TeamPreset] {
@@ -647,6 +663,7 @@ public enum TeamCatalog {
             try? LabTeamCatalog.save(team)
             try? CatalogFileIO.delete(id: team.id, root: CatalogRoots.teams)
         }
+        invalidateCache()
     }
 }
 

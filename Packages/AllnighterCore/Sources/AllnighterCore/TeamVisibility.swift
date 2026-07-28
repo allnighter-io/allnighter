@@ -25,11 +25,25 @@ public enum TeamVisibility {
     }
 
     /// Test seam: point the store at a scratch file.
-    public static func overrideForTesting(file: URL?) { fileOverride = file }
+    public static func overrideForTesting(file: URL?) {
+        fileOverride = file
+        invalidateCache()
+    }
+
+    nonisolated(unsafe) private static var cachedState: State?
+    nonisolated(unsafe) private static var disabledIdSet: Set<TeamID>?
 
     private static func loadState() -> State {
+        if let cachedState { return cachedState }
         guard let data = try? Data(contentsOf: fileURL),
-              let state = try? CoreJSON.decode(State.self, from: data) else { return State() }
+              let state = try? CoreJSON.decode(State.self, from: data) else {
+            let empty = State()
+            cachedState = empty
+            disabledIdSet = []
+            return empty
+        }
+        cachedState = state
+        disabledIdSet = Set(state.disabledTeamIds)
         return state
     }
 
@@ -38,14 +52,26 @@ public enum TeamVisibility {
             at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         var seen = Set<TeamID>()
         let ordered = ids.filter { seen.insert($0).inserted }
-        try CoreJSON.encode(State(disabledTeamIds: ordered, updatedAt: Date())).write(to: fileURL, options: .atomic)
+        let state = State(disabledTeamIds: ordered, updatedAt: Date())
+        try CoreJSON.encode(state).write(to: fileURL, options: .atomic)
+        cachedState = state
+        disabledIdSet = Set(ordered)
+    }
+
+    /// Drop in-memory visibility state (tests, or after external file edits).
+    public static func invalidateCache() {
+        cachedState = nil
+        disabledIdSet = nil
     }
 
     /// Ids the user has switched OFF.
     public static func disabledIds() -> [TeamID] { loadState().disabledTeamIds }
 
-    /// Default true — a team shows on the Teams page unless explicitly switched off.
-    public static func isEnabled(_ id: TeamID) -> Bool { !loadState().disabledTeamIds.contains(id) }
+      /// Default true — a team shows on the Teams page unless explicitly switched off.
+    public static func isEnabled(_ id: TeamID) -> Bool {
+        if let disabledIdSet { return !disabledIdSet.contains(id) }
+        return !loadState().disabledTeamIds.contains(id)
+    }
 
     /// Switch a team on/off for the Teams page + picker. Returns the new enabled state.
     @discardableResult

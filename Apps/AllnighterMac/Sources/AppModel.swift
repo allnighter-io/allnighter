@@ -560,9 +560,13 @@ final class AppModel {
     }
 
     func composeTeams(for lane: ComposeLane) -> [ComposeTeam] {
+        composeTeams(for: lane, catalog: TeamCatalog.all)
+    }
+
+    private func composeTeams(for lane: ComposeLane, catalog: [TeamDefinition]) -> [ComposeTeam] {
         let favorites = favoriteTeamIds
         let favRank = Dictionary(uniqueKeysWithValues: favorites.enumerated().map { ($1, $0) })
-        let teams = TeamCatalog.list(lane: lane.workLane)
+        let teams = catalog.filter { $0.lane == lane.workLane }
             .filter { !$0.isLabTeam && TeamVisibility.isEnabled($0.id) }.map { p -> ComposeTeam in
             let n = p.workerSpecs.count
             let noun = lane == .design ? "mockups" : (lane == .copy ? "versions" : "workers")
@@ -591,10 +595,11 @@ final class AppModel {
     /// is no longer lane-scoped (search spans the whole roster; favorites are the
     /// default browsing surface).
     func composeAllTeams() -> [ComposeTeam] {
+        let catalog = TeamCatalog.all
         var seen = Set<String>()
         var all: [ComposeTeam] = []
         for lane in ComposeLane.allCases {
-            for t in composeTeams(for: lane) where !seen.contains(t.id) {
+            for t in composeTeams(for: lane, catalog: catalog) where !seen.contains(t.id) {
                 seen.insert(t.id)
                 all.append(t)
             }
