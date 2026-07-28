@@ -95,9 +95,20 @@ under **different names**. Do not reverse IDLE-HF-S04 kill policy in this packet
 
 ```text
 PLS-S01  Bleed stop — honest PRIMARY = stream only          ← ship first
-PLS-S02  Link + warn — stamp devRunId early; silence warn   ← same PR ok if small
+PLS-S02  Link + warn — stamp devRunId early; silence warn   ← same PR (one small PR)
 PLS-S03  Mid-round partial pointer                          ← DEFERRED
 ```
+
+**Implementation notes (founder review 2026-07-28):**
+
+- Ship **S01 + S02 in one PR**. Order inside the PR: S01 first (stops the lie even
+  when `devRunId` is missing — nil PRIMARY beats fake fresh silence), then S02
+  (early `devRunId` + warning so agents can correlate without `alln ps`).
+- **Do not** add optional `treeSilenceAgeSeconds` in the bleed stop unless it is
+  essentially free. Honest PRIMARY + `streamSilenceWarning` is enough for S01/S02.
+- **Do not** change IDLE-HF-S02 stall-watchdog behavior (`pgid_activity` still
+  resets idle inside `ProcessGroupCommandRunner`). This packet only uncouples
+  **agent-facing** `pilot status` from that clock.
 
 ---
 
@@ -132,13 +143,10 @@ freshly progressing.
 1. **Stop the merge lie.** `resolveLastProgressAt` (or replacement) must use
    **only** `runStore.load(devRunId)?.lastActivityAt` for PRIMARY fields.
    Do **not** `max()` with `ProcessOwnership.lastProgressAt(in: relayDir)`.
-2. **Rename or dual-emit (hard cut preferred):**
-   - Keep `lastProgressAt` / `silenceAgeSeconds` = stream only (breaking
-     semantics fix; same field names, honest meaning — matches `ps`).
-   - If tree busyness is still useful, add optional
-     `treeActivityAt` / `treeSilenceAgeSeconds` (or `pgidActivityAgeSeconds`)
-     sourced from relay heartbeat — labeled **SUPPLEMENTARY / not liveness**
-     in contract + JSON comments/docs the same way `commitsSinceBaseline` is.
+2. **Hard cut (preferred for bleed stop):** keep `lastProgressAt` /
+   `silenceAgeSeconds` = stream only (same field names, honest meaning — matches
+   `ps`). **Defer** optional `treeSilenceAgeSeconds` unless essentially free;
+   do not block S01 on supplementary tree ages.
 3. **Teaching (same slice):** rewrite `pair pilot status` summary and any
    `nextAction` / bootstrap / help prose that says "progress is primary
    liveness" to mean **worker stream / `lastActivityAt`**, and to say tree/CPU
@@ -241,8 +249,8 @@ cannot diagnose without attaching to the worker process.
 
 | Surface | Change |
 | --- | --- |
-| `alln pair pilot status --json` | Honest PRIMARY fields; optional supplementary tree ages; warning flag |
-| `ContractRegistry` `pair pilot status` | Rewrite PRIMARY wording; label any tree fields supplementary |
+| `alln pair pilot status --json` | Honest PRIMARY fields; `streamSilenceWarning` when stream age > 6× hint |
+| `ContractRegistry` `pair pilot status` | Rewrite PRIMARY wording (stream/journal only; not heartbeat/pgid) |
 | Help / bootstrap / nextAction | "stream silence is primary"; point at `alln ps` only as secondary |
 | `alln ps` | Unchanged truth (already stream-based for runs) |
 
