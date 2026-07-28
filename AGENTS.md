@@ -88,6 +88,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Vendor usage limit / parked run / wake-resume / authorized substitute | Code SSOT: `VendorBackoffReconciler.swift`, `VendorSubstitutionPolicy.swift` |
 | Composer `@` file references, Project file search, file chips | Open packet: `docs/phases/Composer_File_References.md` (not SSOT) |
 | Relay/pilot round lands or escalates with nobody notified (Mac app closed) | archived `docs/archive/phases/Unattended_Round_Notification.md` — Code Complete 2026-07-27; code SSOT `NotificationScheduler.swift`, `ServeAutoLaunch.swift`, `NotificationCandidateDetection.swift` |
+| `pair relay`/`relay-resume`/`relay adopt`/`alln run` die when the caller dies; relay dispatch race (no in-flight guard) | Open packet, Draft: `docs/phases/Round_Survives_The_Caller.md` (not SSOT) |
 | Model/skill/worker/team vocabulary | `docs/workflows/Product_Vocabulary.md` + code catalogs |
 | GUI visual layout proof / layout-watcher | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Design team (build → screenshot, not Midjourney) | `docs/operations/Design_Lane.md` + code `DesignBoardCapture` |
