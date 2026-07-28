@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-07-26
+Updated: 2026-07-28
 
 ## Purpose
 
@@ -157,7 +157,7 @@ without a new founder ruling.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Worker_Skill_Sharing.md`](Worker_Skill_Sharing.md) | **Direction locked** | Shared skills; worker roster UX; Worker Done → skill save; lab purge; no fork-on-save (Phase 1). |
+| [`Worker_Skill_Sharing.md`](Worker_Skill_Sharing.md) | **Ready for Implementation** | WSS-S01: same-ID shared Skill overrides + Restore; roster-only Team Save; CLI/help/Mac cutover with one Works Test. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | **Draft — needs re-base** against `Unified_Run_Model.md` (its Execute-approval mutating gate is retired ceremony); Core routing built, GUI browse surface unbuilt | Send-to-team as the discoverable delegation surface: Team Card projection, family map, direct team send. |
 | [`Live_Team_Board.md`](Live_Team_Board.md) | **Draft feature packet** — no-theater contract | In-thread live board for running answer-team runs: sourced per-worker states + real deltas only when emitted. Forbids fake activity/progress. |
 

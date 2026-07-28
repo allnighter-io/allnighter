@@ -1,336 +1,494 @@
 # Worker / Skill Sharing
 
-Status: **Founder direction locked** — vocabulary + sharing model + no-fork rule;
-**Phase 1 (skill overrides) not yet implemented** in GUI or CLI
-Owner: AllnighterCore + Mac app
+Status: **Ready for Implementation**
+Owner: `SkillCatalog` (semantic truth); `ContractRegistry`, `RunService`, and the
+Mac app project or consume it
 Created: 2026-07-28
-Updated: 2026-07-28 (CLI/GUI parity audit)
-Process: `docs/workflows/SSOT_Founder_Input_Workflow.md` →
+Updated: 2026-07-28 (founder-input and implementation-readiness pass)
+Next work order: **WSS-S01 — shared-skill cutover**
+
+Process:
+`docs/workflows/SSOT_Founder_Input_Workflow.md` →
 `docs/workflows/SSOT_Feature_Workflow.md`
 
-Related: `docs/archive/phases/Team_And_Skill_Catalogs.md`,
-`docs/archive/phases/Ephemeral_Teams.md`, code SSOT `SkillCatalog.swift`,
-`TeamEditorView.swift` (`TeamDraft.commit()`)
+Related history:
+`docs/archive/phases/Team_And_Skill_Catalogs.md`,
+`docs/archive/phases/Ephemeral_Teams.md`
 
-## Founder Intent
+## Founder Intake
 
-Define reusable instructions once — Bug Hunter, Copywriter, Documenter — and
-staff them on many teams. Edit the Copywriter skill in one place; Spec Review,
-Bug Hunt Min, and Bug Hunt Max all inherit the same `skill.md`.
+**Raw request:** Define a reusable instruction once — Bug Hunter, Copywriter,
+Documenter — and staff it on many Teams. Editing that Skill in one place must
+change every Worker that references it. The current silent per-Team copies are
+unworkable.
 
-Analogy: **Claude Code Skills** — a skill is a shared `SKILL.md`; workers pick
-it up. **No silent forking.** Editing a skill changes the skill for every team
-that uses it.
+**Product value:** A human or agent can understand and tune the bench without
+maintaining a pile of almost-identical prompt forks.
 
-## Vocabulary (locked)
-
-Two surfaces, two words — not one noun for everything.
-
-### Team / staffing view → **Worker**
-
-The team editor is a crew roster. Keep user-facing copy:
-
-- **WORKERS** section
-- **+ Add worker**
-- **N workers + 1 lead** footer
-- **Team Lead** (synthesizer; same model + skill shape, separate section)
-
-A **worker** on a team = **skill + model** (who wears which hat, on which CLI).
+**Trusted workflow slice:**
 
 ```text
-First Principles Reviewer · Auto
-         ↑ skill (display name)   ↑ model
+edit Bug Reproducer once
+→ Bug Hunt Min / Bug Hunt / Bug Hunt Max keep one skillId
+→ later runs use the edited body
+→ Restore default returns all three to the shipped body
 ```
 
-The row label is the skill name because that is how you identify the role. The
-worker is the staffed row; the skill is the shared hat it wears.
+**Current truth owner:** `SkillCatalog.swift`.
 
-### Drill-in → **Model · Skill · skill.md**
+**CLI surface:** `alln skills edit`, `alln skills restore`, and the existing
+`skills` / `skills show` / `skills new` / `skills duplicate` commands.
 
-Tap a worker to **edit worker** — assign model, pick skill, edit the shared body.
+**Help surface:** `HelpTopicRegistry.teams_and_workers`; search terms `edit
+skill`, `shared skill`, `restore skill`, `skill.md`, and `worker skill`;
+ordinary `nextToolPlan` recovery remains the fallback.
 
-| Field | Meaning |
+**Risk:** Local catalog data and prompt instructions only. No privacy,
+credentials, Keychain, permission, session-kill, distribution, billing, iOS, or
+protocol change. The shared-edit blast radius must be visible before the Mac app
+commits it.
+
+**Blocking questions:** None. Founder decisions are recorded below.
+
+## Prior Art
+
+Claude Code uses a stable named Skill with one required `SKILL.md`; consumers
+discover and reuse that Skill, and edits are picked up without minting a copy for
+each caller. See [Extend Claude with
+skills](https://code.claude.com/docs/en/slash-commands).
+
+Allnighter adopts the same useful convention: **reference a stable identity;
+copy only through an explicit Duplicate action.** It does not adopt Claude's
+filesystem layout. Allnighter must send the same Skill through many vendor CLIs,
+so its Markdown body remains `Skill.template` in the Core-owned JSON catalog.
+`skill.md` is the honest UI label for that Markdown body, not a promised
+filesystem path or import/export format.
+
+## Current State (Verified Against Code)
+
+| Area | Current truth | Gap WSS-S01 closes |
+| --- | --- | --- |
+| Built-in Skills | Compiled seeds in `SkillCatalog.builtIns` | `SkillCatalog.skill` returns the seed before checking disk, so a same-ID override cannot take effect |
+| Custom Skills | `Catalogs/skills/<id>.json`; edit-in-place works | No change to custom identity semantics |
+| Built-in sharing | Bug Hunt Min / Bug Hunt / Bug Hunt Max already reference `bug_reproducer` | Shared IDs work only while the seed is immutable |
+| Team overrides | Same-ID override + Restore already work in `TeamCatalog` | Skill catalog needs the same merge model |
+| Mac Worker editor | `promptDraft` is staged on `TeamDraft.Row`; Team Save calls `createCustom()` and repoints the row | This is the silent fork to delete |
+| Auto rows | Core uses `preferredModelId == nil` for Auto; the drill-in says `Pick a model` and blocks Done | Skill-only work must preserve valid Auto staffing |
+| CLI | `alln skills edit` calls `saveCustom`, so built-ins fail with `SKILL_BUILTIN_IMMUTABLE` | Built-in edit must write an override; add Restore |
+| Read JSON | Skill list/show expose `builtIn` but not `origin` or `restoreAvailable` | Agents cannot distinguish seed / override / custom reliably |
+| Help | Says built-in Teams are immutable and omits shared edit/Restore | Teaching is stale and must change in the same slice |
+| Lab cleanup | `CatalogLabRetirement` rejects/purges retired lab artifacts; `alln skills gc` purges orphans manually | Already shipped; do not reopen or mix it into WSS-S01 |
+
+The old fork behavior is also asserted by
+`Apps/AllnighterMac/Tests/TeamDraftTests.swift`; those tests are evidence of the
+current defect, not desired behavior.
+
+Implementation preflight: current HEAD already has contract drift from the
+recent `skills gc` registration (`CONTRACT_VERSION_NOT_BUMPED` at 5.1.0) and
+unsealed GUI-proof debt, including unrelated surfaces. WSS-S01's 5.2.0 export
+must absorb the contract drift. Do not sweep unrelated GUI files into this
+slice; WSS-S01 must seal the Worker editor it changes, while the other surface
+owners resolve their own proof debt before the repository-wide wall can be
+green.
+
+## Locked Product Semantics
+
+### Vocabulary
+
+The standing nouns remain those in
+`docs/workflows/Product_Vocabulary.md`:
+
+```text
+Team   = Workers + Lead (+ optional Scout)
+Worker = modelId + skillId for one staffed roster row
+Model  = who runs the row
+Skill  = the shared instruction profile the Model wears
+```
+
+Team staffing UI keeps **WORKERS**, **+ Add worker**, **Team Lead**, and the
+`N workers + 1 lead` summary. The drill-in fields are **Model**, **Skill**, and
+**skill.md**. Do not add Prompt as a fourth concept. `Seat` remains an internal
+architecture word, not the staffing label.
+
+`TeamWorkerSpec.preferredModelId == nil` is the existing **Auto** staffing
+choice. It is valid in the Worker drill-in and must remain nil when the user edits
+only a Skill; never relabel it `Pick a model` or force a concrete Model as the
+price of saving Skill work.
+
+Ephemeral `alln run --team … --seat …` changes Models for that invocation. It
+does not create, duplicate, or edit Skills.
+
+### One identity, seed + override
+
+For a built-in Skill ID:
+
+```text
+effective Skill = same-ID user override, when present
+               ?? shipped seed
+```
+
+- Editing a built-in Skill writes a file at the **same ID**. It may change
+  `displayName` and `template`; it may not change `id`, `lane`, or `purpose`.
+- Editing a custom Skill updates that custom Skill at its existing ID.
+- Updating an override never repoints a Team row and never creates a
+  `"<Skill> for <Team>"` Skill.
+- **Restore** removes the built-in's override and reveals the current shipped
+  seed. Restore is idempotent.
+- **Duplicate Skill** and **New Skill** are the only actions that mint a new ID.
+- `skills delete` remains custom-only. It is not a hidden alias for Restore.
+- A future app update may change a shipped seed. An existing user override
+  continues to mask it until Restore.
+
+`Skill.builtIn` alone cannot represent all three effective origins. The public
+derived origin is:
+
+```text
+seed | override | custom
+```
+
+Code and UI must use the derived origin / `hasOverride`, not infer origin from
+`builtIn == false`.
+
+### Transaction boundaries
+
+Skill changes and Team roster changes have different owners and therefore
+different commit points:
+
+| Gesture | Commit |
 | --- | --- |
-| **Model** | Who runs this worker |
-| **Skill** | Which shared hat (catalog picker) |
-| **skill.md** | The skill’s template body — **not** a separate “prompt” |
+| Cancel Worker changes | Discard local Model / Skill / skill.md edits; write nothing |
+| Worker **Done**, existing Skill body changed | Save that Skill at the same ID |
+| Worker **Done**, explicit New Skill | Create the named custom Skill immediately, then stage its new `skillId` on the roster row |
+| **Restore default** | Remove the same-ID override immediately and reload the shipped body |
+| Team **Save** | Save roster facts only: Team fields, `skillId`, and `modelId` assignments |
+| Team **Cancel** | Discard the roster draft only; do not roll back a Skill already committed with Worker Done |
 
-### Catalog / sharing → **Skill**
+This deliberately resolves a contradiction in the prior draft: a New Skill
+cannot wait for Team Save while Skill and Team writes are separate transactions.
+An explicitly created Skill may become unreferenced if the user later cancels
+the Team. That is honest user data, not a failed transaction; manual
+`alln skills gc` remains the cleanup path. Never auto-GC on launch.
 
-Reusable across teams. Many workers on many teams can reference the same
-`skillId`. One edit → all of them.
+If Worker Done cannot save or create the Skill, stay in the Worker editor, show
+the observed error, and leave the roster row unchanged.
 
-### Internal / code (optional)
+### Blast radius
 
-`TeamWorkerSpec`, `skillId`, CLI `alln skills` — implementation names can stay.
-**Seat** is fine in architecture docs; not required in the team staffing UI.
+Before Worker Done commits a changed existing Skill, the Mac app shows every
+saved Team that currently references the ID, by display name:
 
 ```text
-Team    = workers + lead (+ scout)
-Worker  = skillId + modelId (one roster row)
-Skill   = name + lane + purpose + skill.md (shared catalog entry)
+Shared across 3 teams: Bug Hunt Min · Bug Hunt · Bug Hunt Max
 ```
 
-Ephemeral runs (`alln run --team … --seat …`) inherit the team’s skill ids; only
-models change per run — no new skill files.
+The list includes Worker, Lead, and Scout references, deduplicated by Team ID and
+sorted by display name. Empty copy is explicit: `Not used by a saved team yet.`
+For a new Skill: `New skill — it is not used until you save this team.`
 
-## No forking (locked — not yet enforced in code)
+No confirmation modal is required. Exact, persistent visibility is the guard;
+the primary action remains Worker Done.
 
-**Fork-on-save is retired by policy** but **still active** in `TeamDraft.commit()`
-until Phase 1 ships. Today, editing a worker prompt and saving the team still
-calls `SkillCatalog.createCustom()` (silent fork). Phase 1 removes that path.
+### Run boundary
 
-**Target behavior** once Phase 1 ships: saving an edited `skill.md` writes a
-**skill override at the same id** (mirror team overrides), not `createCustom()`
-and not `"<Skill> for <Team>"` repointing.
+`RunService` resolves and snapshots the effective Skill name/body for every
+Worker, Lead, and Scout before the run spawns its first provider process. An edit
+affects runs accepted afterward. It must not mutate the prompt or history of an
+already accepted run.
 
-| Action | Behavior |
+Persisted `resolvedWorkerPromptSnapshot` remains the historical proof. Replaying
+or rendering an old run reads its snapshot, never today's catalog body.
+
+## CLI Contract
+
+### Commands
+
+| Command | Behavior |
 | --- | --- |
-| Edit skill.md on a worker | Updates the **shared skill**; every team with that skill id inherits |
-| Restore default | Drops override; shipped seed returns |
-| Duplicate skill… | **Explicit only** — new id, user assigns workers manually |
+| `alln skills [--lane <lane>] [--json]` | List effective Skills once per ID, including origin and Restore availability |
+| `alln skills show <skill-id> [--json]` | Show the effective Skill body and origin |
+| `alln skills edit <skill-id> [--name <name>] [--template-file <path>] [--json]` | Update a custom Skill or write a same-ID built-in override |
+| `alln skills restore <skill-id> [--json]` | Idempotently remove a built-in override |
+| `alln skills duplicate <skill-id> [--name <name>] [--json]` | Explicitly mint a custom copy |
+| `alln skills new …` | Explicitly mint a new custom identity |
 
-The 86 orphan lab forks were a symptom of the old rule (73 GC’d 2026-07-28;
-`alln skills gc` remains for cleanup). Do not reintroduce silent fork-on-save.
+No alias is added for the retired fork-on-Team-Save behavior.
 
-## Target UX (locked)
+### Read / mutation receipt
 
-### Team editor (keep “worker”)
+Replace the anonymous CLI-local detail encoder with one Core-owned
+`SkillDetailJSON` projection used by show, new, duplicate, and edit:
 
-```text
-TEAM LEAD
-  Spec Review Writer · Fable 5
-
-WORKERS
-  First Principles Reviewer · Auto
-  Doc Hygiene Reviewer · Auto
-  …
-
-+ Add worker
-
-5 workers + 1 lead · saved as a code team you can pick in the composer
+```json
+{
+  "schemaVersion": 2,
+  "contractVersion": "5.2.0",
+  "id": "bug_reproducer",
+  "displayName": "Bug Reproducer",
+  "lane": "code",
+  "purpose": "answer",
+  "builtIn": false,
+  "origin": "override",
+  "seedId": "bug_reproducer",
+  "restoreAvailable": true,
+  "template": "Reproduce from the smallest...",
+  "createdAt": "2026-07-28T20:59:00Z",
+  "updatedAt": "2026-07-28T21:00:00Z"
+}
 ```
 
-### Edit worker (drill-in)
+`SkillCatalogJSON.Entry` adds the same `origin`, `seedId`, and
+`restoreAvailable` fields (without `template`) and advances to schema version 2.
+`origin` is authoritative; `builtIn` stays for compatibility and is true only
+for an effective unedited seed.
+
+Restore JSON:
+
+```json
+{
+  "schemaVersion": 1,
+  "contractVersion": "5.2.0",
+  "id": "bug_reproducer",
+  "restored": true,
+  "origin": "seed"
+}
+```
+
+Text output:
 
 ```text
-Edit worker · Spec Review
+restored bug_reproducer to shipped version
+bug_reproducer already at shipped version
+```
+
+### Errors and exits
+
+| Condition | Error | Exit |
+| --- | --- | --- |
+| Success, including already-restored seed | — | 0 |
+| Missing ID / unknown flag / bad lane | `CLI_USAGE_ERROR` / `UNKNOWN_FLAG` | 2 |
+| Unknown Skill ID | `SKILL_NOT_FOUND` | 1 |
+| Restore requested for a custom Skill | `SKILL_RESTORE_UNSUPPORTED` | 1 |
+| Empty body / changed seed lane or purpose / invalid definition | `SKILL_INVALID` | 1 |
+| Catalog write failure | observed operational error; never success | 1 |
+
+Retire `SKILL_BUILTIN_IMMUTABLE` from the edit path. It remains valid for
+`skills delete <built-in-id>`. Do not reuse `TEAM_RESTORE_UNSUPPORTED` for a
+Skill error.
+
+This is an additive command plus JSON-shape change: bump the contract from
+5.1.0 to 5.2.0 (or the next unused minor if HEAD moved), regenerate contracts,
+and bump the binary patch version at closeout.
+
+## Mac Presentation
+
+The existing Worker drill-in is the only Skill editing surface:
+
+```text
+Edit worker · Bug Hunt
 
 MODEL
 [ Auto ▼ ]
 
-SKILL                                          [ + ]
-[ First Principles Reviewer ▼ ]     [ Restore default ]
-  └─ popover footer: + New skill…  (always visible)
-  └─ or type to filter: + Create "Your Name"
+SKILL                                           [ + ]
+[ Bug Reproducer ▼ ]                 [ Restore default ]
 
 skill.md
-┌─────────────────────────────────────┐
-│ Read the spec from first principles…│
-└─────────────────────────────────────┘
-Shared across every team that uses this skill.
+┌──────────────────────────────────────────────┐
+│ Reproduce from the smallest failing case... │
+└──────────────────────────────────────────────┘
+Shared across 3 teams: Bug Hunt Min · Bug Hunt · Bug Hunt Max
 
 [ Cancel worker changes ]  [ Done ]
 ```
 
-Changes from today:
+Rules:
 
-1. **Model first** — primary staffing decision.
-2. **Skill** — shared catalog picker (not a duplicate of the row label).
-3. **`skill.md`** — replaces PROMPT; edits the shared skill.
-4. **Restore default** on edited built-in skills.
-5. Footer: scope of sharing (all teams on this skill id).
+- Field order is Model → Skill → skill.md.
+- Model nil renders as Auto and does not block Worker Done.
+- Restore appears only for an overridden built-in and refreshes the editor to
+  the seed after a successful Core write.
+- **+** on the Skill label and persistent **+ New skill…** in the picker enter
+  the same explicit new-Skill flow. Typed **+ Create "…"** remains.
+- Existing Skill edits do not show a fork name field.
+- The picker contains effective built-in seed/override entries plus the custom
+  Skills already referenced by this Team. An override must not disappear merely
+  because its effective `builtIn` value is false.
+- The removed Settings → Skills page stays removed.
+- No iOS or shared SwiftUI work is in scope.
 
-### Creating a new skill (locked)
+## WSS-S01 — Shared-Skill Cutover
 
-Users must not have to discover type-to-create by accident. Two affordances:
+One work order closes the invariant across Core, CLI, teaching, and Mac. Commits
+may be incremental, but do not release or close a partial state in which the CLI
+shares while the Mac app still silently forks.
 
-| Affordance | Behavior |
-| --- | --- |
-| **+** on the SKILL row (right-aligned, label row) | Starts blank new-skill flow: name field + empty `skill.md`; persists as an explicit new catalog entry on team Save |
-| **+ New skill…** in the skill dropdown footer | Always visible when the picker opens (not only after typing) |
-| **+ Create "…"** in the dropdown footer | When the user types a name that does not exactly match an existing skill |
+### Core and run truth
 
-**+** on the label row is the primary entry; the persistent footer backs up users
-who open the list first. Typing to filter remains for power users.
+1. Make `SkillCatalog.get/list` merge same-ID overrides ahead of seeds, exactly
+   once per ID.
+2. Add Core-owned `SkillOrigin`, `hasOverride`, unified save, Restore, and
+   Team-reference projection APIs. Keep explicit create/duplicate APIs.
+3. Validate immutable built-in `id` / `lane` / `purpose`; keep atomic file
+   writes and lab-retirement guards.
+4. Snapshot effective Skill bodies at the `RunService` acceptance boundary.
+5. Correct comments in `SkillCatalog.swift` and `TeamCatalog.swift` that still
+   teach fork-on-edit.
 
-Explicit **new skill** is not silent forking — it mints a new `skillId` the user
-names and can assign to other workers/teams. Editing an existing skill’s
-`skill.md` updates the shared skill (no fork) once Phase 1 ships.
+### CLI and teaching
 
-## Save boundaries (locked)
+1. Register and implement `skills restore`; update `skills edit` for seed IDs.
+2. Add the Core-owned JSON projections and generated schemas.
+3. Register `SKILL_RESTORE_UNSUPPORTED`; keep exit-code ownership in
+   `ContractRegistry`.
+4. Update `teams_and_workers` to teach edit / shared effect / Restore / explicit
+   Duplicate. Add related commands and the search aliases named in Founder
+   Intake.
+5. Delete the stale help claim that built-in Teams require duplication; Team
+   same-ID edit/Restore already shipped.
+6. No retired-vocabulary deny-list entry is appropriate for the generic word
+   `PROMPT`. Protect this cutover with focused help and GUI tests instead.
+7. Regenerate checked-in contract artifacts from `ContractRegistry`.
 
-Team edits and skill edits are **separate transactions**. Do not stage skill
-catalog writes inside `TeamDraft` until team Save — that would mix two owners.
+### Mac app
 
-| Action | Commits |
-| --- | --- |
-| **Worker Done** (edit-worker drill-in) | `skill.md` → `SkillCatalog` when changed (override at same id, Phase 1) |
-| **Team Save** | Roster only: worker `skillId` picks + `modelId` assignments |
-| **Team Cancel** | Discards roster draft only; does **not** undo skill catalog writes the user already committed with Worker Done |
+1. Delete `promptDraft`, `promptBaseSkillId`, `customSkillName`, save-time
+   `resolveSkill`, and fork rollback from `TeamDraft`.
+2. Make `TeamDraft.commit()` roster-only and preserve nil = Auto.
+3. Put Skill save/create behind a small testable Worker-Done action; do not bury
+   catalog semantics in SwiftUI-local state.
+4. Implement the field order, honest labels, exact blast radius, Restore, and
+   explicit new-Skill transaction above.
+5. Update `TeamDraftTests`; delete every test whose desired result is a silent
+   fork.
 
-Canceling a team edit must not roll back a shared skill the user explicitly saved.
-Show blast radius before/alongside skill edits so Worker Done is an informed
-catalog write.
+### Duplicate truth to delete
 
-### Blast radius (required UX — Phase 2)
+- Team-local prompt bodies in `TeamDraft.Row`.
+- `"<Skill> for <Team>"` auto-fork naming.
+- GUI copy that says an edit “will save as a custom skill.”
+- CLI/help claims that a built-in Skill must be duplicated before edit.
+- Phase prose that re-specifies already-shipped lab cleanup.
 
-Passive “shared across teams” is not enough. When editing `skill.md`, show exact
-impact:
+## Inference Bans
+
+| Junction | Owner | Bad inference | Ban | Negative proof |
+| --- | --- | --- | --- | --- |
+| Skill file → effective catalog | `SkillCatalog` | A built-in ID always means compiled seed wins | Same-ID file is an override and wins effective lookup | Save override; `get/list/assemblePrompt` all return it once |
+| Effective Skill → origin | `SkillCatalog` | `builtIn == false` means custom | Use derived `seed/override/custom` | Overridden seed remains picker-visible with Restore |
+| Worker Done → Team draft | Worker-Done action + `TeamDraft` | Parent Cancel rolls back a committed shared Skill | Team Cancel owns roster draft only | Done edit, cancel Team, reopen another Team and see edit |
+| Team Save → Skill catalog | `TeamDraft.commit()` | A changed body should be copied during Team Save | Team Save performs zero Skill writes | Compare Skill directory before/after roster-only save |
+| Worker Model field → roster | `TeamWorkerSpec.preferredModelId` | nil means incomplete | nil means Auto and is a valid unchanged staffing choice | Edit only skill.md on an Auto row; Done succeeds and model stays nil |
+| Accepted run → later catalog edit | `RunService` | A live run can reread today's Skill mid-flight or from history | Snapshot before first spawn; history reads snapshot | Block runner, edit Skill, release runner; accepted run keeps old sentinel |
+| GUI picker → effective list | Core origin projection | Filter `builtIn == true` to find shipped identities | Seed and override are both built-in identities | Override does not vanish from an unrelated Team's picker |
+| Restore → custom Skill | `SkillCatalog.restore` | Any Skill can restore | Only IDs with shipped seeds restore | Custom ID returns `SKILL_RESTORE_UNSUPPORTED` and remains intact |
+
+## Proof
+
+### Deterministic tests
+
+Add focused coverage for:
+
+- override precedence, one-entry merge, Restore idempotence, seed field
+  validation, custom edit stability, and reference-name projection;
+- one `bug_reproducer` override reaching Bug Hunt Min / Bug Hunt / Bug Hunt Max
+  without any Team row ID changing;
+- accepted-run prompt snapshot isolation;
+- `skills edit` built-in round trip, `skills restore` twice, JSON origin fields,
+  custom Restore refusal, registered exits, schemas, and contract examples;
+- help search for `edit skill`, `shared skill`, and `restore skill`;
+- roster-only `TeamDraft.commit`, Worker Done / Worker Cancel / Team Cancel, new
+  Skill creation, Restore, Auto preservation, and picker visibility.
+
+Focused commands:
 
 ```text
-Shared across 3 teams: Bug Hunt Min · Bug Hunt Max · Security Audit
+swift test --package-path Packages/AllnighterCore --filter SkillCatalog
+swift test --package-path Packages/AllnighterCore --filter CatalogCLI
+xcodebuild test -project Apps/AllnighterMac/AllnighterMac.xcodeproj \
+  -scheme AllnighterMac -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 ```
 
-List team **names** (not just a count). Optional confirm when `teamCount > 1` and
-`skill.md` changed — prefer visibility first; avoid modal theater.
+### CLI smoke (isolated catalog)
 
-## Lab teams and skills (locked — never in catalog)
+Use an `ALLNIGHTER_SUPPORT_DIR` created under `/tmp`; never mutate the user's
+real catalog for proof.
 
-Team Lab is **retired**. Lab artifacts must not appear in product pickers or
-survive on disk:
+```text
+export ALLNIGHTER_SUPPORT_DIR="$(mktemp -d /tmp/alln-wss-s01-XXXXXX)"
+printf 'WSS_SENTINEL: shared override.\\n' > "$ALLNIGHTER_SUPPORT_DIR/override.md"
+Packages/AllnighterCore/.build/debug/alln skills edit bug_reproducer \
+  --template-file "$ALLNIGHTER_SUPPORT_DIR/override.md" --json
+Packages/AllnighterCore/.build/debug/alln skills show bug_reproducer --json
+Packages/AllnighterCore/.build/debug/alln skills restore bug_reproducer --json
+Packages/AllnighterCore/.build/debug/alln skills restore bug_reproducer --json
+```
 
-- **Lab teams** (`typeTags` contains `"lab"`): reject on save; delete strays from
-  `Catalogs/teams/`; purge `Catalogs/lab-teams/` on catalog read.
-- **Lab skills** (id contains `_lab_`, e.g. `custom_code_lab_*`): never listed;
-  deleted on read; reject on save.
+Assertions: first edit receipt is `origin=override`, show contains the sentinel,
+first Restore says `restored=true`, second says `restored=false`, and both exit
+0.
 
-Code SSOT: `CatalogLabRetirement.swift` (`purgeRetiredLabArtifacts()`). Called
-from `SkillCatalog.list`, `TeamCatalog` migration, and `alln skills gc`.
+### Owner-visible Works Test
 
-No separate `lab-skills/` root — lab ids in the product catalog are the mistake;
-purge them.
+1. Open Settings → Teams → Bug Hunt Min → Bug Reproducer.
+2. Confirm the impact line names Bug Hunt Min, Bug Hunt, and Bug Hunt Max.
+3. Add a unique sentinel to skill.md and press Worker Done.
+4. Cancel the parent Team editor.
+5. Open Bug Hunt Max → Bug Reproducer; the sentinel is present and no new Skill
+   exists.
+6. Press Restore default; reopen Bug Hunt Min and confirm the shipped body is
+   back.
+7. Create a named Skill through **+**, press Worker Done, then cancel the Team.
+   Confirm the Skill remains explicit user data and `alln skills gc --json`
+   reports it as unreferenced.
 
-## CLI / GUI parity (audit 2026-07-28)
+No provider run or quota spend is required; Core tests prove all three Team IDs
+assemble the effective shared body.
 
-Shared catalog rules live in **AllnighterCore** (`SkillCatalog`, `TeamCatalog`,
-`CatalogLabRetirement`). GUI and CLI both call the same APIs — no parallel truth.
+### GUI visual proof
 
-| Capability | CLI | GUI (Mac) | Parity |
-| --- | --- | --- | --- |
-| List skills (lane) | `alln skills --lane <lane>` | Edit worker → skill picker (built-ins + this team’s customs) | **Intentional diff:** CLI lists all product customs; GUI picker is curated so orphans do not pollute the dropdown |
-| Show skill + template | `alln skills show <id>` | Edit worker → PROMPT field (→ `skill.md` in Phase 2) | CLI today; GUI shows template in drill-in |
-| Create skill | `alln skills new` / `duplicate` | Edit worker → **+** / **+ New skill…** | Both paths; GUI discoverability shipped |
-| Edit skill | `alln skills edit <id>` (custom only) | Edit worker → change prompt → **Team Save** forks today | **Gap:** built-in edit + shared override blocked until Phase 1; GUI still forks on team Save |
-| Delete skill | `alln skills delete <id>` | — | CLI only (manual GC) |
-| Purge lab + orphans | `alln skills gc` | Automatic on `SkillCatalog.list` / team catalog read | Lab purge on both; orphan GC is **CLI/manual only** (no GUI button — by policy) |
-| Lab teams/skills | Rejected on save; purged on read | Never listed (`isLabTeam` filtered; lab skills purged) | **Aligned** |
-| Tune team roster | `teams edit` / `definition` | Settings → Teams | Aligned |
-| Skills settings tab | — (removed) | — (removed) | Skills are tuned per worker, not a global browser |
+This is Tier B visible GUI work. Render:
 
-**Worker Done → skill saved:** locked in doc; **not implemented** — worker Done
-still stages `promptDraft` on the team row; skill write happens at **Team Save**
-via fork. Phase 1 moves skill body commit to Worker Done (catalog override).
+```text
+bash scripts/gui_proof.sh studio-worker-editor
+```
 
-**Contract registry:** `alln skills gc` registered in `ContractRegistry` (was
-CLI-only before this audit).
+A separate layout-watcher must return P1 none, then seal the proof packet under
+`docs/qa/gui/studio/`. The fixture must visibly cover Model → Skill → skill.md,
+the exact impact line, Restore, and New Skill entry. Build success is not visual
+proof.
 
-### Shipped in this slice (both surfaces)
+### Green wall
 
-- Lab retirement (`CatalogLabRetirement`) — any `SkillCatalog.list` / team load
-- Orphan + lab purge via `alln skills gc`
-- GUI: Skills settings tab removed; worker skill picker filtered; **+ New skill**
+```text
+bash scripts/check.sh
+```
 
-### Phase 1 closes remaining gaps
+## Done When
 
-- `SkillCatalog.saveOverride` / `restore` (built-in ids)
-- Kill `TeamDraft.commit()` fork path
-- Worker Done writes changed `skill.md` to catalog
-- `alln skills edit` on built-in ids (override, not `builtInImmutable`)
-
-### Phase 2 GUI-only (CLI N/A)
-
-- Model → Skill → `skill.md` field order and labels
-- Blast-radius team name list
-- Restore default button on edit worker
-
-## Sharing model (implementation)
-
-**B1 — skill overrides (mirror teams)** — preferred path:
-
-- `SkillCatalog.get(id)` → user override at same id ?? built-in seed.
-- GUI Done / `alln skills edit <id>` write override; restore deletes it.
-- Bug Hunt Min / Default / Max keep `skillId: bug_reproducer` → all pick up edits.
-- Runs snapshot resolved prompt at dispatch.
-
-**B2 — explicit duplicate** only when the user chooses “Duplicate skill…”.
-
-Rejected: fork per team on save (old `TeamDraft.commit()` behavior).
-
-## What works today
-
-Built-in skills already share by id across team variants. Team overrides at same
-id work; skill overrides do not yet (`builtInImmutable`). **Fork-on-save still
-runs on team Save** — doc policy ahead of code until Phase 1.
-
-## What was broken (being fixed)
-
-1. **Fork-on-save** — `TeamDraft.commit()` → `createCustom()`; sharing destroyed.
-2. **No skill override-at-same-id** — unlike teams.
-3. **SKILL + PROMPT UI** — looked like two concepts; PROMPT was the skill body.
-4. **Skills settings tab** — orphan junk drawer (removed 2026-07-28).
-
-## Implementation phases
-
-### Phase 1 — No forking (required)
-
-- Remove fork-on-save from `TeamDraft.commit()`.
-- `SkillCatalog.saveOverride` / `restore` (mirror `TeamCatalog`).
-- CLI: `alln skills edit` / `restore` on built-in ids.
-
-### Phase 2 — Edit worker UI
-
-- Keep **Workers** / **Add worker** on team editor.
-- Drill-in: Model → Skill → `skill.md`; shared-skill footer + Restore default.
-- Drop PROMPT label; honest `skill.md` once Phase 1 ships.
-- **Discoverable new skill:** + on SKILL row; persistent **+ New skill…** dropdown
-  footer (shipped 2026-07-28 in `CustomizeWorkerView` / `ALSearchableDropdown`).
-
-### Phase 3 — Skill library (optional)
-
-- Browse lane skills (built-in + customs); entry from edit worker if needed.
-- Not a separate tuning surface that forks.
-
-## Open questions (remaining)
-
-_None — policy locked below._
-
-## Answered (founder, 2026-07-28)
-
-| Question | Answer |
-| --- | --- |
-| Worker vs skill vs prompt? | **Worker** on team roster (skill + model). **Skill** = shared hat. Body = **skill.md**. |
-| Edit shared or fork? | **Shared.** No silent forking. Duplicate skill is explicit only. |
-| Bug Hunt family shares Bug Reproducer? | **Yes.** |
-| “Seat” in team UI? | **No** — keep **worker** for staffing view; seat is internal if needed. |
-| Agent path? | `alln skills edit <id>` + team/worker staffing via GUI or `teams edit`. |
-| How to create a new skill? | **+** on SKILL row + **+ New skill…** in dropdown; type-to-create remains as **+ Create "…"**. |
-| Worker Done vs Team Save? | **Worker Done** commits changed `skill.md` to catalog. **Team Save** commits roster only. |
-| Auto GC? | **Manual / CLI only** (`alln skills gc`). Never on app launch — user skills are data. |
-| Lab teams/skills? | **Never in product catalog.** Purge on read; reject saves. Shipped `CatalogLabRetirement`. |
-| Stage skill edits in TeamDraft until team Save? | **No** — wrong transaction boundary. |
+- Editing an existing Skill never mints or repoints to a new ID.
+- Bug Hunt Min / Bug Hunt / Bug Hunt Max resolve one edited
+  `bug_reproducer`, then all revert through Restore.
+- Team Save performs no Skill writes.
+- Worker Done and both Cancel boundaries behave exactly as specified.
+- CLI commands, JSON, exits, generated artifacts, help search, and Mac behavior
+  agree.
+- No stale fork-on-save test, comment, help sentence, or GUI copy remains.
+- Mac visual proof is sealed with layout-watcher P1 none.
+- `docs/workflows/Product_Vocabulary.md` receives the keepable shared-identity /
+  `skill.md` wording; code remains runtime truth.
+- This packet is archived and `docs/phases/README.md` routes to the successor
+  code/docs.
 
 ## Non-goals
 
-- Cross-lane skills.
-- Skill marketplace / import-export.
-- Version history UI.
+- Cross-lane Skills.
+- Skill marketplace, import/export, or physical `SKILL.md` directories.
+- Skill version-history UI.
+- A separate Skills settings/library page.
+- Automatic orphan deletion.
+- iOS presentation or protocol work.
+- Reopening Team Lab or its cleanup.
 
-## Smallest proof slice
+## Open Questions
 
-```text
-1. Edit worker → change skill.md for bug_reproducer → Done (override, not fork).
-2. Run Bug Hunt Min and Bug Hunt Max on the same fixture.
-3. Both workers receive the updated template.
-4. Restore default → both teams revert to shipped seed.
-```
-
-## Shipped adjacent (2026-07-28)
-
-- Removed Settings → Skills tab.
-- Worker skill picker: built-ins + this team’s referenced customs only.
-- `alln skills gc` — delete unreferenced custom skills (+ lab skills).
-- Edit worker: **+** on SKILL row + persistent **+ New skill…** in skill dropdown
-  (`TeamEditorView`, `ALSearchableDropdown`).
-- **Lab retirement:** `CatalogLabRetirement` purges `lab-teams/` and `_lab_` skills;
-  lab saves rejected (`TeamCatalog`, `SkillCatalog`).
+None.
