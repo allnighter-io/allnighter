@@ -61,6 +61,8 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
     public var conversationId: String?
     public var messageId: String?
     public var agent: String?
+    /// RSO-S01 — ordered explicit `--seat` model ids accepted at resolve time.
+    public var explicitSeatModelIds: [String]? = nil
 
     public init(
         projectId: String? = nil,
@@ -85,7 +87,8 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
         threadId: String? = nil,
         conversationId: String? = nil,
         messageId: String? = nil,
-        agent: String? = nil
+        agent: String? = nil,
+        explicitSeatModelIds: [String]? = nil
     ) {
         self.projectId = projectId
         self.teamId = teamId
@@ -110,6 +113,7 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
         self.conversationId = conversationId
         self.messageId = messageId
         self.agent = agent
+        self.explicitSeatModelIds = explicitSeatModelIds
     }
 }
 
@@ -161,7 +165,8 @@ public struct RunInvocationInput: Sendable, Equatable {
             idempotencyKey: request.idempotencyKey,
             retryOf: request.retryOf,
             threadId: request.threadId,
-            agent: nil
+            agent: nil,
+            explicitSeatModelIds: request.explicitSeatModelIds
         )
     }
 
@@ -508,6 +513,21 @@ public enum RunInvocationResolver {
 
         let effort = input.flags.effort ?? preset.defaultEffort
         let lane = input.flags.lane ?? preset.lane
+        let explicitSeatModelIds = input.flags.explicitSeatModelIds ?? []
+        let explicitSeatsChosen = !explicitSeatModelIds.isEmpty
+        if explicitSeatsChosen,
+           let seatError = TeamExplicitSeats.validateFlags(
+               seatModelIds: explicitSeatModelIds,
+               explicitTeamChosen: explicitTeamChosen,
+               explicitWorkerChosen: explicitWorkerChosen,
+               preset: preset
+           ) {
+            return blocked(
+                input: input, root: root, preset: preset,
+                reason: seatError.description,
+                explicitTeam: explicitTeamChosen, explicitWorker: explicitWorkerChosen
+            )
+        }
         let writePolicy = preset.writePolicy
         let takesWriteLock = writePolicy == .mutating && !input.advisoryReview
         let lockKey = RunWriteLock.key(repoRoot: root)
@@ -544,10 +564,33 @@ public enum RunInvocationResolver {
         }
 
         // --- Seats (execution shape = one seat; answer = team seats or pin) ---
-        var teamResolved = TeamResolver.resolve(
-            team: preset, requestLane: lane, requestEffort: effort,
-            readyModels: context.readyModels
-        )
+        var teamResolved: ResolvedTeamRun
+        if explicitSeatsChosen {
+            switch TeamExplicitSeats.resolve(
+                team: preset,
+                lane: lane,
+                effort: effort,
+                seatModelIds: explicitSeatModelIds,
+                models: context.models,
+                readyModels: context.readyModels
+            ) {
+            case .failure(let seatError):
+                canStart = false
+                blockedReason = seatError.description
+                blockedSeatCount = explicitSeatModelIds.count
+                teamResolved = TeamResolver.resolve(
+                    team: preset, requestLane: lane, requestEffort: effort,
+                    readyModels: context.readyModels
+                )
+            case .success(let resolved):
+                teamResolved = resolved
+            }
+        } else {
+            teamResolved = TeamResolver.resolve(
+                team: preset, requestLane: lane, requestEffort: effort,
+                readyModels: context.readyModels
+            )
+        }
         TeamSourceFacts.enrich(&teamResolved, models: context.models)
 
         var seats: [ResolvedRunSeat] = []
@@ -765,6 +808,9 @@ public enum RunInvocationResolver {
         }
         if let team = resolvedTeamId ?? flags.teamId, !team.isEmpty {
             argv.append(contentsOf: ["--team", team])
+        }
+        for seat in flags.explicitSeatModelIds ?? [] where !seat.isEmpty {
+            argv.append(contentsOf: ["--seat", seat])
         }
         if let worker = resolvedWorkerId ?? flags.workerId, !worker.isEmpty {
             argv.append(contentsOf: ["--worker", worker])

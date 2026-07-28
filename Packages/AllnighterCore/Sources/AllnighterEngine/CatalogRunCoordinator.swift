@@ -289,7 +289,8 @@ public actor CatalogRunCoordinator {
                     }
                     var settledModel = model
                     var substitutedFrom: String? = worker.substitutedFromModelId
-                    if SeatReseat.isEligible(result), let team {
+                    if SeatReseat.isEligible(result), let team,
+                       worker.seatingReason != TeamExplicitSeats.explicitSeatingReason {
                         let chain = SeatReseat.chain(for: worker, team: team, isLead: false)
                         if let alt = SeatReseat.nextModel(
                             failedModelId: settledModel.id,
@@ -402,7 +403,8 @@ public actor CatalogRunCoordinator {
                 model: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort,
                 workingDirectory: repoRoot))
         }
-        if SeatReseat.isEligible(outcome), let team {
+        if SeatReseat.isEligible(outcome), let team,
+           writer.seatingReason != TeamExplicitSeats.explicitSeatingReason {
             let chain = SeatReseat.chain(for: writer, team: team, isLead: true)
             let pool = reseatPool.isEmpty ? Array(modelByID.values) : reseatPool
             if let alt = SeatReseat.nextModel(

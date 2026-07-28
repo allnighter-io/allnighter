@@ -34,10 +34,11 @@ public enum VendorSubstitutionPolicy {
         autoResolved: Bool,
         explicitWorkerPin: Bool,
         explicitTeamChosen: Bool,
-        teamHasDeclaredFallbacks: Bool
+        teamHasDeclaredFallbacks: Bool,
+        explicitSeatPins: Bool = false
     ) -> String {
         if autoResolved { return RunSelectionOrigin.auto }
-        if explicitWorkerPin { return RunSelectionOrigin.explicit }
+        if explicitWorkerPin || explicitSeatPins { return RunSelectionOrigin.explicit }
         if explicitTeamChosen, teamHasDeclaredFallbacks { return RunSelectionOrigin.teamFallback }
         if explicitTeamChosen { return RunSelectionOrigin.explicit }
         return RunSelectionOrigin.auto

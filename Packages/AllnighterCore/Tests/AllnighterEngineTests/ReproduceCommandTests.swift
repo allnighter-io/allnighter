@@ -61,6 +61,11 @@ final class ReproduceCommandTests: XCTestCase {
             case "--project": flags.projectId = next(); i += 1
             case "--team": flags.teamId = next(); i += 1
             case "--worker": flags.workerId = next(); i += 1
+            case "--seat":
+                var seats = flags.explicitSeatModelIds ?? []
+                if let seat = next() { seats.append(seat) }
+                flags.explicitSeatModelIds = seats
+                i += 1
             case "--effort": flags.effort = next().flatMap(EffortLevel.init(rawValue:)); i += 1
             case "--lane": flags.lane = next().flatMap(WorkLane.init(rawValue:)); i += 1
             case "--no-commit": flags.noCommit = true

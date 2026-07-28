@@ -2079,6 +2079,13 @@
             "retry-of"
           ],
           "subject" : "accept-survivors"
+        },
+        {
+          "kind" : "requires",
+          "peers" : [
+            "team"
+          ],
+          "subject" : "seat"
         }
       ],
       "flags" : [
@@ -2097,6 +2104,12 @@
         {
           "name" : "worker",
           "summary" : "Override worker model id.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "seat",
+          "summary" : "Override one crew seat model id (repeatable, crew order; requires --team; judgment teams only).",
           "takesValue" : true,
           "valueType" : "id"
         },
@@ -2266,6 +2279,10 @@
         [
           "no-commit",
           "commit-message"
+        ],
+        [
+          "worker",
+          "seat"
         ],
         [
           "dry-run",
@@ -5043,7 +5060,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "5.0.0",
+  "contractVersion" : "5.1.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

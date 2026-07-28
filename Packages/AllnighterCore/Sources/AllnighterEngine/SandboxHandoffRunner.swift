@@ -246,6 +246,7 @@ public extension SandboxHandoffSpool.Request {
             proofCommand: proofCommand,
             proofTimeoutSeconds: proofTimeoutSeconds,
             retryOf: retryOf,
-            acceptSurvivors: acceptSurvivors)
+            acceptSurvivors: acceptSurvivors,
+            explicitSeatModelIds: explicitSeatModelIds)
     }
 }

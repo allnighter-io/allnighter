@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "5.0.0"
+    static let contractVersion = "5.1.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -416,6 +416,7 @@ public extension ContractRegistry {
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path. When omitted, walk to the git root and match a registered project (AE-S05)."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id; omit for Default Team."),
                 FlagSpec("worker", takesValue: true, valueType: "id", summary: "Override worker model id."),
+                FlagSpec("seat", takesValue: true, valueType: "id", summary: "Override one crew seat model id (repeatable, crew order; requires --team; judgment teams only)."),
                 FlagSpec("message", takesValue: true, valueType: "string", summary: "Alias for the positional message."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
                 FlagSpec("lane", takesValue: true, valueType: "lane", summary: "Lane tags the run for context and filtering; `--team` routes."),
@@ -445,6 +446,7 @@ public extension ContractRegistry {
             mutuallyExclusiveFlags: [
                 ["json", "stream"],
                 ["no-commit", "commit-message"],
+                ["worker", "seat"],
                 ["dry-run", "stream"],
                 ["dry-run", "try-fix"],
                 ["no-wait", "stream"],
@@ -454,6 +456,7 @@ public extension ContractRegistry {
             flagConstraints: [
                 FlagConstraint(.onlyWith, "executor", "try-fix"),
                 FlagConstraint(.requires, "accept-survivors", "retry-of"),
+                FlagConstraint(.requires, "seat", "team"),
             ],
             outputSchema: .teamRunJSON,
             exampleIds: ["run_foreground_json"],

@@ -143,6 +143,9 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// can't distinguish from default-team resolution. Optional so legacy `run.json`
     /// (no key) decodes to `nil`; `nil`/empty means no explicit `--worker` was given.
     public var explicitWorkerIds: [String]? = nil
+    /// RSO-S01 — ordered explicit `--seat` model ids at run acceptance. Distinct from
+    /// `explicitWorkerIds` (single `--worker` pin) and from resolved `workers`.
+    public var explicitSeatModelIds: [String]? = nil
     /// Ready bench model ids the team was resolved against at acceptance.
     /// Additive audit field; legacy journals decode to `nil`.
     public var resolvedBenchModelIds: [String]? = nil
@@ -215,6 +218,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         repoDelta: RepoDelta? = nil,
         laneContextOnly: Bool? = nil,
         explicitWorkerIds: [String]? = nil,
+        explicitSeatModelIds: [String]? = nil,
         resolvedBenchModelIds: [String]? = nil,
         requestedCommitMessage: String? = nil,
         noCommitOrdered: Bool? = nil,
@@ -256,6 +260,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.repoDelta = repoDelta
         self.laneContextOnly = laneContextOnly
         self.explicitWorkerIds = explicitWorkerIds
+        self.explicitSeatModelIds = explicitSeatModelIds
         self.resolvedBenchModelIds = resolvedBenchModelIds
         self.requestedCommitMessage = requestedCommitMessage
         self.noCommitOrdered = noCommitOrdered

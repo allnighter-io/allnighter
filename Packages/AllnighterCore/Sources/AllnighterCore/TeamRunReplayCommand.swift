@@ -15,6 +15,9 @@ public enum TeamRunReplayCommand {
     for worker in run.explicitWorkerIds ?? [] where !worker.isEmpty {
       parts.append("--worker \(worker)")
     }
+    for seat in run.explicitSeatModelIds ?? [] where !seat.isEmpty {
+      parts.append("--seat \(seat)")
+    }
     if let effort = run.effort { parts.append("--effort \(effort.rawValue)") }
     if run.laneContextOnly == true, let lane = run.lane {
       parts.append("--lane \(lane.rawValue)")

@@ -425,6 +425,8 @@ public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
     public var commitMessage: String?
     public var noCommit: Bool
     public var contractVersion: String?
+    /// RSO-S01 — ordered explicit `--seat` ids at acceptance (input selectors, not resolved workers).
+    public var explicitSeatModelIds: [String] = []
 
     public init(from request: AsyncTeamStartRequest) {
         prompt = request.question
@@ -447,6 +449,7 @@ public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
         commitMessage = nil
         noCommit = false
         contractVersion = nil
+        explicitSeatModelIds = []
     }
 
     /// Sync `alln run` acceptance payload (RunService). Carries the mutating-run
@@ -472,7 +475,8 @@ public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
         proofCommand: String? = nil,
         commitMessage: String? = nil,
         noCommit: Bool = false,
-        contractVersion: String? = nil
+        contractVersion: String? = nil,
+        explicitSeatModelIds: [String] = []
     ) {
         self.prompt = prompt
         self.lane = lane
@@ -494,5 +498,6 @@ public struct AsyncTeamCanonicalPayload: Codable, Equatable, Sendable {
         self.commitMessage = commitMessage
         self.noCommit = noCommit
         self.contractVersion = contractVersion
+        self.explicitSeatModelIds = explicitSeatModelIds
     }
 }

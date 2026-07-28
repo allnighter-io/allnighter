@@ -120,7 +120,8 @@ final class FixtureRoundTripTests: XCTestCase {
         // + phantom --detach sweep; no new commands/flags/errors).
         // RSC-HF bumps both again, 4.4.1 → 5.0.0 (remove public `--run-id`, add
         // detachedDispatchJSON output schema; ack-after-accept `--no-wait`).
-        XCTAssertEqual(trj.contractVersion, "5.0.0")
+        // RSO-S01 bumps contract 5.0.0 → 5.1.0 (`--seat` on `alln run`).
+        XCTAssertEqual(trj.contractVersion, "5.1.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.workers.count, 1)

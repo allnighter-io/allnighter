@@ -16,6 +16,31 @@ final class RunFlagConstraintTests: XCTestCase {
 
     // MARK: - Registry data
 
+    func testRunDeclaresSeatFlagAndConstraints() {
+        XCTAssertTrue(run.flags.contains { $0.name == "seat" })
+        let groups = Set(run.mutuallyExclusiveFlags.map { Set($0) })
+        XCTAssertTrue(groups.contains(["worker", "seat"]))
+        let kinds = Dictionary(uniqueKeysWithValues: run.flagConstraints.map { ($0.subject, $0) })
+        XCTAssertEqual(kinds["seat"]?.kind, .requires)
+        XCTAssertEqual(kinds["seat"]?.peers, ["team"])
+    }
+
+    func testSeatRequiresTeam() {
+        let bad = constraintError(for: ["probe", "--seat", "model_chatgpt"])
+        XCTAssertEqual(bad?.subject, "seat")
+        XCTAssertTrue(bad?.message.contains("--team") == true)
+        XCTAssertNil(constraintError(for: [
+            "probe", "--team", "code_spec_review_min",
+            "--seat", "model_chatgpt", "--seat", "model_grok", "--seat", "model_cursor_composer_25"
+        ]))
+    }
+
+    func testWorkerSeatMutuallyExclusive() {
+        let err = constraintError(for: ["probe", "--worker", "model_chatgpt", "--seat", "model_grok"])
+        XCTAssertNotNil(err)
+        XCTAssertTrue(err?.message.contains("mutually exclusive") == true)
+    }
+
     func testRunDeclaresRequiredModeConstraints() {
         let kinds = Dictionary(uniqueKeysWithValues: run.flagConstraints.map { ($0.subject, $0) })
         // CR-S06 deleted --detach. The three provenance ids were scoped to it and

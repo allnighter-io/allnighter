@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 5.0.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 5.1.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -598,6 +598,7 @@ Flags:
 - `--project <id>` — Project id, name, or repo path. When omitted, walk to the git root and match a registered project (AE-S05).
 - `--team <id>` — Team preset id; omit for Default Team.
 - `--worker <id>` — Override worker model id.
+- `--seat <id>` — Override one crew seat model id (repeatable, crew order; requires --team; judgment teams only).
 - `--message <string>` — Alias for the positional message.
 - `--effort <low|med|high>` — low | med | high.
 - `--lane <code|design|copy|signal>` — Lane tags the run for context and filtering; `--team` routes.
@@ -628,6 +629,8 @@ Mutually exclusive: `--json`, `--stream`.
 
 Mutually exclusive: `--no-commit`, `--commit-message`.
 
+Mutually exclusive: `--worker`, `--seat`.
+
 Mutually exclusive: `--dry-run`, `--stream`.
 
 Mutually exclusive: `--dry-run`, `--try-fix`.
@@ -641,6 +644,8 @@ Mutually exclusive: `--no-wait`, `--try-fix`.
 Only with: `--executor` only with `--try-fix`.
 
 Requires: `--accept-survivors` requires `--retry-of`.
+
+Requires: `--seat` requires `--team`.
 
 Output schema: `teamRunJSON`.
 

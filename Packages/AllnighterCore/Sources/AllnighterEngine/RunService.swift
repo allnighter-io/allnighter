@@ -63,6 +63,8 @@ public struct RunRequest: Sendable, Equatable {
     /// RLR-L9 — allow `--retry-of` even when the prior run still has identity-alive
     /// recorded workers (typed partial after a clock/kill).
     public var acceptSurvivors: Bool
+    /// RSO-S01 — ordered `--seat` model ids for one-off crew staffing on a judgment team.
+    public var explicitSeatModelIds: [String]? = nil
 
     public init(
         message: String,
@@ -90,7 +92,8 @@ public struct RunRequest: Sendable, Equatable {
         proofTimeoutSeconds: Int? = nil,
         idempotencyKey: String? = nil,
         retryOf: String? = nil,
-        acceptSurvivors: Bool = false
+        acceptSurvivors: Bool = false,
+        explicitSeatModelIds: [String]? = nil
     ) {
         self.message = message
         self.repoRoot = repoRoot
@@ -118,6 +121,7 @@ public struct RunRequest: Sendable, Equatable {
         self.idempotencyKey = idempotencyKey
         self.retryOf = retryOf
         self.acceptSurvivors = acceptSurvivors
+        self.explicitSeatModelIds = explicitSeatModelIds
     }
 }
 
@@ -716,7 +720,8 @@ public actor RunService {
         )
         if !invocation.canStart {
             let reason = invocation.blockedReason ?? "run cannot start"
-            if invocation.explicitWorkerChosen {
+            let explicitSeats = !(request.explicitSeatModelIds ?? []).isEmpty
+            if invocation.explicitWorkerChosen || explicitSeats {
                 DetachedHandoff.reportRefused(code: "WORKER_NOT_AVAILABLE", message: reason)
                 return .failure(.workerNotAvailable(reason))
             }
@@ -734,6 +739,10 @@ public actor RunService {
         let explicitWorkerIds: [String]? = invocation.explicitWorkerChosen
             ? (effectiveWorkerId.map { [$0] } ?? request.workerId.map { [$0] })
             : nil
+        let explicitSeatModelIds: [String]? = {
+            let ids = request.explicitSeatModelIds?.filter { !$0.isEmpty } ?? []
+            return ids.isEmpty ? nil : ids
+        }()
         let effectiveLane = invocation.lane
         let effort = invocation.effort
         let lockKey = invocation.lockKey
@@ -798,7 +807,8 @@ public actor RunService {
                 proofCommand: request.proofCommand,
                 commitMessage: request.commitMessage,
                 noCommit: request.noCommit,
-                contractVersion: ContractRegistry.contractVersion
+                contractVersion: ContractRegistry.contractVersion,
+                explicitSeatModelIds: explicitSeatModelIds ?? []
             )
             switch claimSyncIdempotency(key: key, payload: canonical, runId: id) {
             case .success(let existing?):
@@ -994,6 +1004,7 @@ public actor RunService {
             projectId: request.projectId, lane: request.lane ?? preset.lane,
             explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
             explicitWorkerIds: explicitWorkerIds,
+            explicitSeatModelIds: explicitSeatModelIds,
             workerOverride: effectiveWorkerId,
             origin: origin, originAgent: originAgent, runId: id, runner: runner,
             deliveries: request.deliveries, timing: timing, events: events,
@@ -1916,6 +1927,7 @@ public actor RunService {
         explicitTeamChosen: Bool,
         laneContextOnly: Bool,
         explicitWorkerIds: [String]? = nil,
+        explicitSeatModelIds: [String]? = nil,
         workerOverride: String? = nil,
         origin: RunOrigin,
         originAgent: String?,
@@ -1930,11 +1942,28 @@ public actor RunService {
         var timing = seedTiming
         let bench = readyModels()
         timing.stamp(RunTimingKey.workerResolveStart)
-        var resolvedMut = TeamResolver.resolve(
-            team: preset, requestLane: lane, requestEffort: effort, readyModels: bench
-        )
-        guard resolvedMut.isRunnable else {
-            return .failure(.teamResolution(resolvedMut.blockReason ?? "team cannot run", code: "DEFAULT_TEAM_INVALID"))
+        var resolvedMut: ResolvedTeamRun
+        if let seatIds = explicitSeatModelIds, !seatIds.isEmpty {
+            switch TeamExplicitSeats.resolve(
+                team: preset,
+                lane: lane,
+                effort: effort,
+                seatModelIds: seatIds,
+                models: models,
+                readyModels: bench
+            ) {
+            case .failure(let seatError):
+                return .failure(.teamResolution(seatError.description, code: "WORKER_NOT_AVAILABLE"))
+            case .success(let resolved):
+                resolvedMut = resolved
+            }
+        } else {
+            resolvedMut = TeamResolver.resolve(
+                team: preset, requestLane: lane, requestEffort: effort, readyModels: bench
+            )
+            guard resolvedMut.isRunnable else {
+                return .failure(.teamResolution(resolvedMut.blockReason ?? "team cannot run", code: "DEFAULT_TEAM_INVALID"))
+            }
         }
 
         // AE-S03 / PO-F10: explicit --worker on the answer path is honored or fails
@@ -1979,6 +2008,7 @@ public actor RunService {
             r.lane = lane; r.effort = effort
             r.laneContextOnly = laneContextOnly ? true : nil
             r.explicitWorkerIds = explicitWorkerIds
+            r.explicitSeatModelIds = explicitSeatModelIds
             r.resolvedBenchModelIds = bench.map(\.id).sorted()
             r.teamDisplayName = RunIdentity.teamDisplayName(
                 presetId: preset.id, catalogDisplayName: resolved.teamDisplayName,

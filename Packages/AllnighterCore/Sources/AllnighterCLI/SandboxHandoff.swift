@@ -102,7 +102,8 @@ enum SandboxHandoff {
             proofCommand: request.proofCommand,
             proofTimeoutSeconds: request.proofTimeoutSeconds,
             retryOf: request.retryOf,
-            acceptSurvivors: request.acceptSurvivors)
+            acceptSurvivors: request.acceptSurvivors,
+            explicitSeatModelIds: request.explicitSeatModelIds)
         do {
             try spool.enqueue(enqueued)
         } catch {

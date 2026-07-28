@@ -170,16 +170,24 @@ struct AllnighterCLI {
         exit(ContractRegistry.milestone1.processExitCode(forErrorCode: code))
     }
 
-    /// MR-S04 — honor-or-fail every explicit `--worker` / `--team` before dispatch.
+    /// MR-S04 — honor-or-fail every explicit `--worker` / `--team` / `--seat` before dispatch.
     static func requireExactSelectors(
         workerId: String?,
         teamId: String?,
+        seatModelIds: [String] = [],
         models: [Model],
         teams: [TeamPreset]
     ) {
         if let workerId, !workerId.isEmpty {
             if case .failure(let failure) = ExactIdResolver.resolveWorker(
                 workerId, flag: "--worker", models: models
+            ) {
+                failExactId(failure)
+            }
+        }
+        for (index, seatId) in seatModelIds.enumerated() where !seatId.isEmpty {
+            if case .failure(let failure) = ExactIdResolver.resolveWorker(
+                seatId, flag: "--seat[\(index + 1)]", models: models
             ) {
                 failExactId(failure)
             }
@@ -1828,14 +1836,18 @@ struct ToolRuntime {
 }
 
 /// Tiny argv parser: positionals + `--key value` + `--flag`.
+/// Repeatable value flags (`seat`, and thread `image`/`ref`) preserve order.
 struct Options {
     /// Boolean flags never consume the next token as a value, so
     /// `alln team --json "prompt"` keeps "prompt" as the positional.
     /// Derived from M1 `FlagSpec.takesValue == false` — never a parallel hand list
     /// (AE code-audit: FlagSpec is the choke point for flag shape).
     static let booleanFlags: Set<String> = ContractRegistry.booleanFlagNames()
+    /// Flags whose repeated occurrences each contribute one ordered value (RSO-S01).
+    static let orderedRepeatableFlags: Set<String> = ["seat", "image", "ref"]
     var positional: [String] = []
     var values: [String: String] = [:]
+    var repeatedValues: [String: [String]] = [:]
     var flags: Set<String> = []
     init(_ args: [String]) {
         var i = 0
@@ -1846,13 +1858,26 @@ struct Options {
                 if Self.booleanFlags.contains(key) {
                     flags.insert(key); i += 1
                 } else if i + 1 < args.count && !args[i + 1].hasPrefix("--") {
-                    values[key] = args[i + 1]; i += 2
+                    let value = args[i + 1]
+                    if Self.orderedRepeatableFlags.contains(key) {
+                        repeatedValues[key, default: []].append(value)
+                    } else {
+                        values[key] = value
+                    }
+                    i += 2
                 } else {
                     flags.insert(key); i += 1
                 }
             } else { positional.append(a); i += 1 }
         }
+        // Last single value wins for ordinary flags; repeatable flags also mirror the last.
+        for (key, ordered) in repeatedValues {
+            if let last = ordered.last {
+                values[key] = last
+            }
+        }
     }
     func value(_ key: String) -> String? { values[key] }
+    func valuesList(_ key: String) -> [String] { repeatedValues[key] ?? [] }
     func flag(_ key: String) -> Bool { flags.contains(key) }
 }

@@ -56,6 +56,8 @@ public struct SandboxHandoffSpool: Sendable {
         public var proofTimeoutSeconds: Int?
         public var retryOf: String?
         public var acceptSurvivors: Bool
+        /// RSO-S01 — ordered explicit `--seat` ids; must survive sandbox hand-off.
+        public var explicitSeatModelIds: [String]?
 
         public var createdAt: Date
         /// Absent in requests written before pings existed — decoded as `.run`.
@@ -99,6 +101,7 @@ public struct SandboxHandoffSpool: Sendable {
             proofTimeoutSeconds: Int? = nil,
             retryOf: String? = nil,
             acceptSurvivors: Bool = false,
+            explicitSeatModelIds: [String]? = nil,
             createdAt: Date = Date(),
             kind: Kind = .run,
             claimedAt: Date? = nil,
@@ -132,6 +135,7 @@ public struct SandboxHandoffSpool: Sendable {
             self.proofTimeoutSeconds = proofTimeoutSeconds
             self.retryOf = retryOf
             self.acceptSurvivors = acceptSurvivors
+            self.explicitSeatModelIds = explicitSeatModelIds
             self.createdAt = createdAt
             self.kind = kind
             self.claimedAt = claimedAt
@@ -171,6 +175,7 @@ public struct SandboxHandoffSpool: Sendable {
             proofTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .proofTimeoutSeconds)
             retryOf = try c.decodeIfPresent(String.self, forKey: .retryOf)
             acceptSurvivors = try c.decodeIfPresent(Bool.self, forKey: .acceptSurvivors) ?? false
+            explicitSeatModelIds = try c.decodeIfPresent([String].self, forKey: .explicitSeatModelIds)
             createdAt = try c.decode(Date.self, forKey: .createdAt)
             kind = try c.decodeIfPresent(Kind.self, forKey: .kind) ?? .run
             claimedAt = try c.decodeIfPresent(Date.self, forKey: .claimedAt)

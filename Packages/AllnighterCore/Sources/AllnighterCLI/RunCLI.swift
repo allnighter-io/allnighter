@@ -149,9 +149,11 @@ enum RunCLI {
         }
 
         // MR-S04: exact-id choke point before dry-run soft path or any RunRecord mint.
+        let seatModelIds = opts.valuesList("seat")
         AllnighterCLI.requireExactSelectors(
             workerId: opts.value("worker"),
             teamId: opts.value("team"),
+            seatModelIds: seatModelIds,
             models: runtime.models,
             teams: runtime.teams
         )
@@ -201,7 +203,8 @@ enum RunCLI {
             proofCommand: opts.value("proof"),
             idempotencyKey: opts.value("idempotency-key"),
             retryOf: opts.value("retry-of"),
-            acceptSurvivors: opts.flag("accept-survivors")
+            acceptSurvivors: opts.flag("accept-survivors"),
+            explicitSeatModelIds: seatModelIds.isEmpty ? nil : seatModelIds
         )
         let service = RunService(
             models: runtime.models,
@@ -433,7 +436,11 @@ enum RunCLI {
             proofCommand: opts.value("proof"),
             idempotencyKey: opts.value("idempotency-key"),
             retryOf: opts.value("retry-of"),
-            acceptSurvivors: opts.flag("accept-survivors")
+            acceptSurvivors: opts.flag("accept-survivors"),
+            explicitSeatModelIds: {
+                let seats = opts.valuesList("seat")
+                return seats.isEmpty ? nil : seats
+            }()
         )
         let service = RunService(
             models: runtime.models,
@@ -693,6 +700,9 @@ enum RunCLI {
         if let team = run.presetId { parts.append(contentsOf: ["--team", team]) }
         for worker in run.explicitWorkerIds ?? [] where !worker.isEmpty {
             parts.append(contentsOf: ["--worker", worker])
+        }
+        for seat in run.explicitSeatModelIds ?? [] where !seat.isEmpty {
+            parts.append(contentsOf: ["--seat", seat])
         }
         if let effort = run.effort { parts.append(contentsOf: ["--effort", effort.rawValue]) }
         if run.laneContextOnly == true, let lane = run.lane {
