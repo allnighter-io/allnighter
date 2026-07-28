@@ -31,6 +31,41 @@ final class NotificationCandidateDetectionTests: XCTestCase {
         XCTAssertTrue(candidates.contains { $0.event == .threadNeedsAttention })
     }
 
+    func testRelayEscalatedTransitionEmitsRelayNeedsAnswerWithoutDuplicateAttention() {
+        var beforeThread = sampleThread(workerStatus: .done)
+        beforeThread.turns = [userTurn()]
+        var afterThread = sampleThread(workerStatus: .done)
+        afterThread.turns = [userTurn(), relayEscalatedTurn()]
+        let before = NotificationCandidateDetection.snapshots(from: [beforeThread])
+        let after = NotificationCandidateDetection.snapshots(from: [afterThread])
+        let candidates = NotificationCandidateDetection.candidates(before: before, after: after, now: now)
+        XCTAssertEqual(candidates.count, 1)
+        XCTAssertEqual(candidates[0].event, .relayNeedsAnswer)
+        XCTAssertEqual(candidates[0].turnId, "relay_escalate1")
+        XCTAssertFalse(candidates.contains { $0.event == .threadNeedsAttention })
+    }
+
+    func testRelayStoppedLandedTurnEmitsRelayStopped() {
+        var beforeThread = sampleThread(workerStatus: .done)
+        beforeThread.turns = [userTurn()]
+        var afterThread = sampleThread(workerStatus: .done)
+        afterThread.turns = [userTurn(), relayStoppedTurn()]
+        let before = NotificationCandidateDetection.snapshots(from: [beforeThread])
+        let after = NotificationCandidateDetection.snapshots(from: [afterThread])
+        let candidates = NotificationCandidateDetection.candidates(before: before, after: after, now: now)
+        XCTAssertEqual(candidates.count, 1)
+        XCTAssertEqual(candidates[0].event, .relayStopped)
+        XCTAssertEqual(candidates[0].turnId, "relay_stopped")
+    }
+
+    func testRelayStoppedColdLoadEmitsNoCandidate() {
+        var afterThread = sampleThread(workerStatus: .done)
+        afterThread.turns = [userTurn(), relayStoppedTurn()]
+        let after = NotificationCandidateDetection.snapshots(from: [afterThread])
+        let candidates = NotificationCandidateDetection.candidates(before: nil, after: after, now: now)
+        XCTAssertTrue(candidates.isEmpty)
+    }
+
     func testTeamRunCompleteEvent() {
         var before = sampleThread(workerStatus: .done)
         var after = sampleThread(workerStatus: .done)
@@ -80,6 +115,22 @@ final class NotificationCandidateDetectionTests: XCTestCase {
             id: "team1", threadId: "t1", kind: .teamRun, status: status,
             createdAt: now, completedAt: status.isTerminal ? now : nil,
             author: .worker, runId: "run1"
+        )
+    }
+
+    private func relayEscalatedTurn() -> ThreadTurn {
+        ThreadTurn(
+            id: "relay_escalate1", threadId: "t1", kind: .systemEvent, status: .running,
+            createdAt: now, author: .system, text: "PM escalated (round 1).",
+            systemEvent: .relayEscalated
+        )
+    }
+
+    private func relayStoppedTurn() -> ThreadTurn {
+        ThreadTurn(
+            id: "relay_stopped", threadId: "t1", kind: .systemEvent, status: .done,
+            createdAt: now, completedAt: now, author: .system, text: "Relay stopped.",
+            systemEvent: .relayStopped
         )
     }
 }

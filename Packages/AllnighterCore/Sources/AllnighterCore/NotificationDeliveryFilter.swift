@@ -42,7 +42,8 @@ public enum NotificationDeliveryFilter {
         case .teamRunCompleted:
             return policy.notifyTeamRunComplete
         case .turnFailed, .turnTimedOut, .turnAwaitingManualPaste, .turnAuthRequired,
-             .threadNeedsAttention, .vendorParked, .vendorResumed:
+             .threadNeedsAttention, .vendorParked, .vendorResumed,
+             .relayNeedsAnswer, .relayStopped:
             return policy.notifyFailuresAndBlocked
         }
     }
@@ -95,6 +96,10 @@ public enum NotificationCopy {
             return "Paste required in \(quoted)"
         case .turnAuthRequired:
             return "\(workerDisplayName ?? "Worker") needs sign-in"
+        case .relayNeedsAnswer:
+            return "PM Relay needs an answer"
+        case .relayStopped:
+            return "PM Relay stopped"
         }
     }
 
@@ -112,6 +117,10 @@ public enum NotificationCopy {
             return "Paste the worker reply to continue."
         case .turnAuthRequired:
             return "Sign in to continue the thread."
+        case .relayNeedsAnswer:
+            return "Open Allnighter to answer."
+        case .relayStopped:
+            return "Check the relay's final state."
         }
     }
 

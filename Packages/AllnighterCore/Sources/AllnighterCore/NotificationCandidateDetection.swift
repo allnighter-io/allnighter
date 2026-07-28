@@ -275,7 +275,14 @@ public enum NotificationCandidateDetection {
             return .turnCompleted
         case .teamRun, .designBoard, .reviewBoard, .mutatingRun:
             return .teamRunCompleted
-        case .userMessage, .userDecision, .systemEvent:
+        case .systemEvent:
+            // `.relayStopped` is always created terminal (`RelayThreadProjector.syncStopped`
+            // appends it `.done` directly, never `.running`), so it always lands here rather
+            // than through `isOpenBlockingSystem`/`blockingSystemEvent`. Every other terminal
+            // system event (a resolved manual-paste/sign-in/relay-escalation note) already got
+            // its own notification when it opened; resolving it stays silent.
+            return turn.systemEvent == .relayStopped ? .relayStopped : nil
+        case .userMessage, .userDecision:
             return nil
         }
     }
@@ -286,11 +293,11 @@ public enum NotificationCandidateDetection {
             return .turnAwaitingManualPaste
         case .signInRequired:
             return .turnAuthRequired
-        // `relayEscalated` blocks (see `isOpenBlockingSystem`/`ThreadTurn.requiresUserAttention`)
-        // and still raises the thread-level `.threadNeedsAttention` notification via
-        // `candidates()`'s generic needsAttention transition — a per-event specific push
-        // ("PM Relay needs an answer") is GUI polish deferred to PM_Relay.md R-S08.
-        case .migrationImported, .waiting, .relayEscalated, .relayStopped, .none:
+        case .relayEscalated:
+            return .relayNeedsAnswer
+        case .relayStopped:
+            return .relayStopped
+        case .migrationImported, .waiting, .none:
             return nil
         }
     }
@@ -298,11 +305,11 @@ public enum NotificationCandidateDetection {
     private static func isOpenBlockingSystem(_ turn: TurnNotificationSnapshot) -> Bool {
         guard turn.kind == .systemEvent, turn.status == .running else { return false }
         switch turn.systemEvent {
-        case .manualPaste, .signInRequired:
+        case .manualPaste, .signInRequired, .relayEscalated:
             return true
-        // Deliberately excluded here (see `blockingSystemEvent` above) — the thread-level
-        // needsAttention notification still fires via `ThreadTurn.requiresUserAttention`.
-        case .migrationImported, .waiting, .relayEscalated, .relayStopped, .none:
+        // `.relayStopped` is never open/running (see `eventForCompletedTurn` above) — it
+        // lands through the terminal-turn path, not this one.
+        case .migrationImported, .waiting, .relayStopped, .none:
             return false
         }
     }
