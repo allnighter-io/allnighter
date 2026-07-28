@@ -62,6 +62,50 @@ final class CatalogCLITests: XCTestCase {
         XCTAssertFalse(SkillCatalog.list(lane: .code).contains { $0.id == labSkill.id })
     }
 
+    func testSkillsEditBuiltInRoundTripAndRestoreJSON() throws {
+        var skill = try XCTUnwrap(SkillCatalog.get("bug_reproducer"))
+        skill.template = "WSS_CLI_SENTINEL: shared override."
+        try SkillCatalog.saveEffective(skill)
+        let detail = try CoreJSON.decode(
+            SkillDetailJSON.self,
+            from: Data(AllnighterCLI.skillShowJSONString(try XCTUnwrap(SkillCatalog.get("bug_reproducer"))).utf8)
+        )
+        XCTAssertEqual(detail.origin, "override")
+        XCTAssertTrue(detail.template.contains("WSS_CLI_SENTINEL"))
+
+        let r1 = try SkillCatalog.restore("bug_reproducer")
+        XCTAssertTrue(r1.removedOverride)
+        let restore1 = SkillRestoreJSON(
+            contractVersion: ContractRegistry.contractVersion,
+            id: "bug_reproducer", restored: true, origin: "seed"
+        )
+        let ack = try CoreJSON.decode(
+            SkillRestoreJSON.self, from: Data(AllnighterCLI.jsonString(restore1).utf8)
+        )
+        XCTAssertTrue(ack.restored)
+
+        let r2 = try SkillCatalog.restore("bug_reproducer")
+        XCTAssertFalse(r2.removedOverride)
+    }
+
+    func testSkillsRestoreUnsupportedForCustom() throws {
+        let custom = try SkillCatalog.duplicateBuiltIn("bug_reproducer", name: "Only Custom")
+        XCTAssertThrowsError(try SkillCatalog.restore(custom.id)) { error in
+            XCTAssertEqual(error as? CatalogError, .restoreUnsupported)
+        }
+    }
+
+    func testSkillsCatalogListJSONIncludesOriginFields() throws {
+        let catalog = try CoreJSON.decode(
+            SkillCatalogJSON.self,
+            from: Data(AllnighterCLI.skillsCatalogJSONString(lane: .code).utf8)
+        )
+        XCTAssertEqual(catalog.schemaVersion, 2)
+        XCTAssertFalse(catalog.skills.isEmpty)
+        XCTAssertNotNil(catalog.skills.first?.origin)
+        XCTAssertNotNil(catalog.skills.first?.seedId as String??)
+    }
+
     func testTeamsDuplicateProducesEditablePresetJSON() throws {
         let team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "WT Code Team")
         let json = AllnighterCLI.teamDefinitionJSONString(team)

@@ -387,13 +387,22 @@
     "ruleId" : "team.restore.unsupported"
   },
   {
-    "agentAction" : "Duplicate the built-in skill, then edit the custom copy.",
+    "agentAction" : "Built-in skills cannot be deleted. Use `skills restore` to drop an override, or `skills duplicate` for a separate copy.",
     "code" : "SKILL_BUILTIN_IMMUTABLE",
     "exitClass" : "operational",
-    "explain" : "Built-in skills cannot be edited or deleted. Duplicate to a custom skill and edit that copy.",
+    "explain" : "Built-in skill seeds cannot be deleted. Restore removes a same-ID override; duplicate mints a new custom id.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "skill.builtin.immutable"
+  },
+  {
+    "agentAction" : "Only built-in skills can be restored; for a custom skill, edit or delete it instead.",
+    "code" : "SKILL_RESTORE_UNSUPPORTED",
+    "exitClass" : "operational",
+    "explain" : "Restore reverts a built-in skill to its shipped seed. A custom skill has no shipped version to restore to.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "skill.restore.unsupported"
   },
   {
     "agentAction" : "Pick a different team id or delete the conflicting custom team.",

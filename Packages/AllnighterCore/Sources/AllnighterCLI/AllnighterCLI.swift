@@ -59,6 +59,7 @@ struct AllnighterCLI {
         case "skills" where args.first == "duplicate": runSkillsDuplicate(Array(args.dropFirst()), runtime)
         case "skills" where args.first == "new": runSkillsNew(Array(args.dropFirst()), runtime)
         case "skills" where args.first == "edit": runSkillsEdit(Array(args.dropFirst()), runtime)
+        case "skills" where args.first == "restore": runSkillsRestore(Array(args.dropFirst()), runtime)
         case "skills" where args.first == "delete": runSkillsDelete(Array(args.dropFirst()), runtime)
         case "skills" where args.first == "gc": runSkillsGC(Array(args.dropFirst()), runtime)
         case "skills": runSkillCatalog(args, runtime)
@@ -289,7 +290,9 @@ struct AllnighterCLI {
         case .skillInUse(let ids):
             return ("SKILL_IN_USE", "skill is referenced by team(s): \(ids.joined(separator: ", "))")
         case .teamDefaultInvalid(let detail): return ("TEAM_DEFAULT_INVALID", detail)
-        case .restoreUnsupported: return ("TEAM_RESTORE_UNSUPPORTED", "this team has no shipped version to restore")
+        case .restoreUnsupported:
+            return (skillContext ? "SKILL_RESTORE_UNSUPPORTED" : "TEAM_RESTORE_UNSUPPORTED",
+                    skillContext ? "this skill has no shipped version to restore" : "this team has no shipped version to restore")
         }
     }
 
@@ -634,22 +637,7 @@ struct AllnighterCLI {
     }
 
     static func skillShowJSONString(_ skill: Skill) -> String {
-        struct Detail: Encodable {
-            let schemaVersion = 1
-            let contractVersion: String
-            let id, displayName, lane, purpose: String
-            let builtIn: Bool
-            let template: String
-            let createdAt, updatedAt: String?
-        }
-        let iso = ISO8601DateFormatter()
-        return jsonString(Detail(
-            contractVersion: ContractRegistry.contractVersion,
-            id: skill.id, displayName: skill.displayName, lane: skill.lane.rawValue,
-            purpose: skill.purpose.rawValue, builtIn: skill.builtIn, template: skill.template,
-            createdAt: skill.createdAt.map { iso.string(from: $0) },
-            updatedAt: skill.updatedAt.map { iso.string(from: $0) }
-        ))
+        jsonString(SkillDetailJSON.project(skill, contractVersion: ContractRegistry.contractVersion))
     }
 
     static func failUnknownTeam(_ id: String) -> Never {
@@ -992,9 +980,33 @@ struct AllnighterCLI {
         if let name = opts.value("name") { skill.displayName = name }
         do {
             if let path = opts.value("template-file") { skill.template = try loadTemplateText(path) }
-            try SkillCatalog.saveCustom(skill)
-            if opts.flag("json") { print(skillShowJSONString(skill)) }
-            else { print("saved \(skill.id)") }
+            try SkillCatalog.saveEffective(skill)
+            guard let saved = SkillCatalog.get(id) else { failUnknownSkill(id) }
+            if opts.flag("json") { print(skillShowJSONString(saved)) }
+            else { print("saved \(saved.id)") }
+        } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
+        catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
+    }
+
+    /// `alln skills restore <skill-id> [--json]` — revert a built-in skill to its shipped seed.
+    static func runSkillsRestore(_ args: [String], _ runtime: ToolRuntime) {
+        let opts = Options(args)
+        guard let id = opts.positional.first else {
+            fail(code: "CLI_USAGE_ERROR", message: "usage: alln skills restore <skill-id> [--json]")
+        }
+        do {
+            let result = try SkillCatalog.restore(id)
+            let origin = SkillCatalog.origin(of: id)?.rawValue ?? "seed"
+            if opts.flag("json") {
+                print(jsonString(SkillRestoreJSON(
+                    contractVersion: ContractRegistry.contractVersion,
+                    id: id, restored: result.removedOverride, origin: origin
+                )))
+            } else {
+                print(result.removedOverride
+                      ? "restored \(id) to shipped version"
+                      : "\(id) already at shipped version")
+            }
         } catch let error as CatalogError { emitCatalogError(error, skillContext: true) }
         catch { fail(code: "INTERNAL_ERROR", message: "\(error)") }
     }

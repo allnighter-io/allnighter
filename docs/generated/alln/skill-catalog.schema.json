@@ -15,8 +15,20 @@
         "lane" : {
           "type" : "string"
         },
+        "origin" : {
+          "type" : "string"
+        },
         "purpose" : {
           "type" : "string"
+        },
+        "restoreAvailable" : {
+          "type" : "boolean"
+        },
+        "seedId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
         }
       },
       "required" : [
@@ -24,7 +36,9 @@
         "displayName",
         "lane",
         "purpose",
-        "builtIn"
+        "builtIn",
+        "origin",
+        "restoreAvailable"
       ],
       "type" : "object"
     }

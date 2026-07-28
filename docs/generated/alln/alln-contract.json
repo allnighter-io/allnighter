@@ -1680,7 +1680,46 @@
       "name" : "skills edit",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Edit a custom skill definition.",
+      "summary" : "Edit a skill or write a same-ID built-in override.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "skill-id",
+          "required" : true,
+          "summary" : "Built-in skill id."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+        "skills_restore_json"
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Restore acknowledgement JSON.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "skills restore",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Restore a built-in skill to its shipped version (remove override).",
       "visibility" : "public"
     },
     {
@@ -1720,6 +1759,41 @@
       "outputSchema" : "none",
       "spendsQuota" : false,
       "summary" : "Delete a custom skill.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "dependsOnSelection",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "always",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+        "skills_gc_json"
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "JSON with deleted skill ids and count.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "skills gc",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Purge retired lab skills and delete unreferenced custom skills.",
       "visibility" : "public"
     },
     {
@@ -5060,7 +5134,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "5.1.0",
+  "contractVersion" : "5.2.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5532,13 +5606,22 @@
       "ruleId" : "team.restore.unsupported"
     },
     {
-      "agentAction" : "Duplicate the built-in skill, then edit the custom copy.",
+      "agentAction" : "Built-in skills cannot be deleted. Use `skills restore` to drop an override, or `skills duplicate` for a separate copy.",
       "code" : "SKILL_BUILTIN_IMMUTABLE",
       "exitClass" : "operational",
-      "explain" : "Built-in skills cannot be edited or deleted. Duplicate to a custom skill and edit that copy.",
+      "explain" : "Built-in skill seeds cannot be deleted. Restore removes a same-ID override; duplicate mints a new custom id.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "skill.builtin.immutable"
+    },
+    {
+      "agentAction" : "Only built-in skills can be restored; for a custom skill, edit or delete it instead.",
+      "code" : "SKILL_RESTORE_UNSUPPORTED",
+      "exitClass" : "operational",
+      "explain" : "Restore reverts a built-in skill to its shipped seed. A custom skill has no shipped version to restore to.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "skill.restore.unsupported"
     },
     {
       "agentAction" : "Pick a different team id or delete the conflicting custom team.",
@@ -6415,6 +6498,16 @@
       "command" : "alln skills show bug_reproducer --json",
       "id" : "skills_show_json",
       "title" : "Show a Code skill"
+    },
+    {
+      "command" : "alln skills restore bug_reproducer --json",
+      "id" : "skills_restore_json",
+      "title" : "Restore a built-in skill override"
+    },
+    {
+      "command" : "alln skills gc --json",
+      "id" : "skills_gc_json",
+      "title" : "Purge lab and orphan custom skills"
     },
     {
       "command" : "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\"",

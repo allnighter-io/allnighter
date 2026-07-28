@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "5.1.0"
+    static let contractVersion = "5.2.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -330,7 +330,7 @@ public extension ContractRegistry {
             exampleIds: ["skills_new_json"]
         ),
         CommandSpec(
-            "skills edit", summary: "Edit a custom skill definition.", milestone: .m1,
+            "skills edit", summary: "Edit a skill or write a same-ID built-in override.", milestone: .m1,
             args: [ArgSpec("skill-id", required: true, summary: "Skill id.")],
             flags: [
                 FlagSpec("name", takesValue: true, valueType: "string", summary: "New display name."),
@@ -338,6 +338,12 @@ public extension ContractRegistry {
                 FlagSpec("json", summary: "Structured skill detail."),
             ],
             exampleIds: ["skills_edit_json"]
+        ),
+        CommandSpec(
+            "skills restore", summary: "Restore a built-in skill to its shipped version (remove override).", milestone: .m1,
+            args: [ArgSpec("skill-id", required: true, summary: "Built-in skill id.")],
+            flags: [FlagSpec("json", summary: "Restore acknowledgement JSON.")],
+            exampleIds: ["skills_restore_json"]
         ),
         CommandSpec(
             "skills delete", summary: "Delete a custom skill.", milestone: .m1,
@@ -1053,7 +1059,8 @@ public extension ContractRegistry {
         ErrorSpec("TEAM_NOT_FOUND", ruleId: "team.not_found", agentAction: "Run `alln menu --json` (or `alln menu show team:<id>`) and retry with a canonical team id — never a display name.", requiresManual: true, retryable: false, explain: "No team matches the given id (or a display name was passed). List the live menu and retry with a valid TeamID."),
         ErrorSpec("TEAM_BUILTIN_IMMUTABLE", ruleId: "team.builtin.immutable", agentAction: "Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version).", requiresManual: true, retryable: false, explain: "A built-in team that was never edited has nothing to delete. Edit it in place with `teams edit`, or use `teams restore` to revert prior edits."),
         ErrorSpec("TEAM_RESTORE_UNSUPPORTED", ruleId: "team.restore.unsupported", agentAction: "Only built-in teams can be restored; for a custom team, edit or delete it instead.", requiresManual: true, retryable: false, explain: "Restore reverts a built-in team to its shipped version. A custom team has no shipped version to restore to."),
-        ErrorSpec("SKILL_BUILTIN_IMMUTABLE", ruleId: "skill.builtin.immutable", agentAction: "Duplicate the built-in skill, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in skills cannot be edited or deleted. Duplicate to a custom skill and edit that copy."),
+        ErrorSpec("SKILL_BUILTIN_IMMUTABLE", ruleId: "skill.builtin.immutable", agentAction: "Built-in skills cannot be deleted. Use `skills restore` to drop an override, or `skills duplicate` for a separate copy.", requiresManual: true, retryable: false, explain: "Built-in skill seeds cannot be deleted. Restore removes a same-ID override; duplicate mints a new custom id."),
+        ErrorSpec("SKILL_RESTORE_UNSUPPORTED", ruleId: "skill.restore.unsupported", agentAction: "Only built-in skills can be restored; for a custom skill, edit or delete it instead.", requiresManual: true, retryable: false, explain: "Restore reverts a built-in skill to its shipped seed. A custom skill has no shipped version to restore to."),
         ErrorSpec("TEAM_ID_COLLISION", ruleId: "team.id.collision", agentAction: "Pick a different team id or delete the conflicting custom team.", requiresManual: true, retryable: false, explain: "A team with this id already exists."),
         ErrorSpec("SKILL_ID_COLLISION", ruleId: "skill.id.collision", agentAction: "Pick a different skill id or delete the conflicting custom skill.", requiresManual: true, retryable: false, explain: "A skill with this id already exists."),
         ErrorSpec("TEAM_INVALID", ruleId: "team.invalid", agentAction: "Fix the team definition and retry `alln teams edit`.", requiresManual: true, retryable: false, explain: "The team definition is invalid (missing rows, unknown skills, or bad effort/output kind)."),
@@ -1242,6 +1249,7 @@ public extension ContractRegistry {
         ExampleRecipe("teams_new_json", title: "Create novel team from manifest", command: "alln teams new custom_code_novel --file ./TeamPreset.json --json"),
         ExampleRecipe("skills_code_json", title: "List Code skills", command: "alln skills --lane code --json"),
         ExampleRecipe("skills_show_json", title: "Show a Code skill", command: "alln skills show bug_reproducer --json"),
+        ExampleRecipe("skills_restore_json", title: "Restore a built-in skill override", command: "alln skills restore bug_reproducer --json"),
         ExampleRecipe("skills_gc_json", title: "Purge lab and orphan custom skills", command: "alln skills gc --json"),
         ExampleRecipe("run_foreground_json", title: "Run in foreground", command: "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\""),
         ExampleRecipe("try_fix_bug", title: "Auto Fix: Bug Hunt then one bounded fix", command: "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json"),

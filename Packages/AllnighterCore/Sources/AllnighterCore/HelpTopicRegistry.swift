@@ -276,34 +276,38 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "teams_and_workers", title: "Teams, Workers & Skills", audience: .both,
-            summary: "Teams are lane-scoped rosters of workers (a model + skill); manage built-ins and custom copies in the catalog.",
+            summary: "Teams are lane-scoped rosters of workers (a model + skill); skills are shared instruction profiles.",
             bodyMarkdown: """
             A team is a lane-scoped roster of workers, each a model running a skill. \
-            Built-in teams are immutable — customize a shipped method with \
-            `teams duplicate` → `teams definition` → `teams edit` (prefer Bug Hunt; \
-            pass `--id` for a deterministic custom id). For a one-off crew lineup on a \
+            Built-in teams and skills edit in place at the same id — use \
+            `teams restore` / `skills restore` to drop overrides and reveal shipped seeds. \
+            Customize a shipped team with `teams duplicate` → `teams definition` → \
+            `teams edit` when you need a separate id. For a one-off crew lineup on a \
             built-in judgment team, use `alln run --team <id> --seat <model_id> …` instead of \
             duplicating. Create a novel manifest with \
-            `teams definition` (or a hand-authored TeamPreset) → `teams new`. Skills are the \
-            reusable prompts workers run — tune them in **Settings → Teams → edit worker** \
-            (no separate Skills settings page). List and inspect with `alln teams`, \
-            `alln skills`, and `alln models`; purge orphans with `alln skills gc`. \
-            The Default Team (Auto) is the no-pick route. Looking for a \
+            `teams definition` (or a hand-authored TeamPreset) → `teams new`. \
+            Skills are shared `skill.md` bodies — edit with `alln skills edit <id>` or \
+            **Settings → Teams → edit worker** (no separate Skills settings page). \
+            Editing an existing skill updates every team that references that id; \
+            `skills duplicate` mints an explicit new id. List and inspect with \
+            `alln teams`, `alln skills`, and `alln models`; purge orphans with \
+            `alln skills gc`. The Default Team (Auto) is the no-pick route. Looking for a \
             model or vendor by natural-language name? Use `alln menu --json` \
             — do not stop at a models/teams list miss.
             """,
             aliases: [
                 "teams", "workers", "skills", "roster", "catalog", "which model", "ask a model",
                 "create team", "custom team",
+                "edit skill", "shared skill", "restore skill", "skill.md", "worker skill",
                 // ADP-S04: task-verb phrasing a caller actually types for team authoring
                 // must outrank the generic "team" overlap with team_run_loop (running a
                 // team), which otherwise wins ties on every bare "team" query.
                 "create a team", "make a team", "make a custom team", "new team",
                 "customize a team", "build a team", "build a custom team",
             ],
-            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams new", "teams edit", "teams restore", "skills", "skills show", "skills gc", "models", "menu"],
+            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams new", "teams edit", "teams restore", "skills", "skills show", "skills edit", "skills restore", "skills gc", "models", "menu"],
             schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON"],
-            errorRefs: ["TEAM_NOT_FOUND", "TEAM_BUILTIN_IMMUTABLE", "TEAM_RESTORE_UNSUPPORTED", "TEAM_ID_COLLISION", "TEAM_INVALID", "CATALOG_ID_INVALID", "SKILL_NOT_FOUND"],
+            errorRefs: ["TEAM_NOT_FOUND", "TEAM_RESTORE_UNSUPPORTED", "TEAM_ID_COLLISION", "TEAM_INVALID", "CATALOG_ID_INVALID", "SKILL_NOT_FOUND", "SKILL_RESTORE_UNSUPPORTED", "SKILL_INVALID"],
             needsLiveCheck: false),
 
         HelpTopic(

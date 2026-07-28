@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 5.1.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 5.2.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -475,7 +475,7 @@ Examples: `skills_new_json`.
 
 ### `alln skills edit`
 
-Edit a custom skill definition.
+Edit a skill or write a same-ID built-in override.
 
 Arguments:
 - `skill-id` (required) — Skill id.
@@ -486,6 +486,18 @@ Flags:
 - `--json` — Structured skill detail.
 
 Examples: `skills_edit_json`.
+
+### `alln skills restore`
+
+Restore a built-in skill to its shipped version (remove override).
+
+Arguments:
+- `skill-id` (required) — Built-in skill id.
+
+Flags:
+- `--json` — Restore acknowledgement JSON.
+
+Examples: `skills_restore_json`.
 
 ### `alln skills delete`
 
@@ -498,6 +510,15 @@ Flags:
 - `--json` — Deletion acknowledgement JSON.
 
 Examples: `skills_delete_json`.
+
+### `alln skills gc`
+
+Purge retired lab skills and delete unreferenced custom skills.
+
+Flags:
+- `--json` — JSON with deleted skill ids and count.
+
+Examples: `skills_gc_json`.
 
 ### `alln team status`
 
@@ -1443,7 +1464,8 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `TEAM_NOT_FOUND` | yes | no | `operational` | Run `alln menu --json` (or `alln menu show team:<id>`) and retry with a canonical team id — never a display name. |
 | `TEAM_BUILTIN_IMMUTABLE` | yes | no | `operational` | Edit the team with `teams edit` instead; only delete an edited built-in (which restores the shipped version). |
 | `TEAM_RESTORE_UNSUPPORTED` | yes | no | `operational` | Only built-in teams can be restored; for a custom team, edit or delete it instead. |
-| `SKILL_BUILTIN_IMMUTABLE` | yes | no | `operational` | Duplicate the built-in skill, then edit the custom copy. |
+| `SKILL_BUILTIN_IMMUTABLE` | yes | no | `operational` | Built-in skills cannot be deleted. Use `skills restore` to drop an override, or `skills duplicate` for a separate copy. |
+| `SKILL_RESTORE_UNSUPPORTED` | yes | no | `operational` | Only built-in skills can be restored; for a custom skill, edit or delete it instead. |
 | `TEAM_ID_COLLISION` | yes | no | `operational` | Pick a different team id or delete the conflicting custom team. |
 | `SKILL_ID_COLLISION` | yes | no | `operational` | Pick a different skill id or delete the conflicting custom skill. |
 | `TEAM_INVALID` | yes | no | `operational` | Fix the team definition and retry `alln teams edit`. |
@@ -1584,6 +1606,8 @@ the selected CLI.
 - `teams_new_json` — Create novel team from manifest: `alln teams new custom_code_novel --file ./TeamPreset.json --json`
 - `skills_code_json` — List Code skills: `alln skills --lane code --json`
 - `skills_show_json` — Show a Code skill: `alln skills show bug_reproducer --json`
+- `skills_restore_json` — Restore a built-in skill override: `alln skills restore bug_reproducer --json`
+- `skills_gc_json` — Purge lab and orphan custom skills: `alln skills gc --json`
 - `run_foreground_json` — Run in foreground: `alln run --json --lane code --team code_bug_hunt --effort low "tiny foreground sanity"`
 - `try_fix_bug` — Auto Fix: Bug Hunt then one bounded fix: `alln run "The history view loses finished runs after restart." --project <id> --team code_bug_hunt --try-fix --executor build_slice --json`
 - `show_latest_json` — Show the latest run: `alln show latest --json`

@@ -65,6 +65,16 @@
     "title" : "Show a Code skill"
   },
   {
+    "command" : "alln skills restore bug_reproducer --json",
+    "id" : "skills_restore_json",
+    "title" : "Restore a built-in skill override"
+  },
+  {
+    "command" : "alln skills gc --json",
+    "id" : "skills_gc_json",
+    "title" : "Purge lab and orphan custom skills"
+  },
+  {
     "command" : "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\"",
     "id" : "run_foreground_json",
     "title" : "Run in foreground"

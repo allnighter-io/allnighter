@@ -595,7 +595,8 @@ public enum ContractSchema {
         schema["$defs"] = [
             "SkillCatalogEntry": obj([
                 "id": str, "displayName": str, "lane": str, "purpose": str, "builtIn": bool,
-            ], required: ["id", "displayName", "lane", "purpose", "builtIn"]),
+                "origin": str, "seedId": nullable("string"), "restoreAvailable": bool,
+            ], required: ["id", "displayName", "lane", "purpose", "builtIn", "origin", "restoreAvailable"]),
         ]
         return schema
     }

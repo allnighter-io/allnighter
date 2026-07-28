@@ -176,6 +176,9 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(top("new team"), "teams_and_workers")
         XCTAssertEqual(top("customize a team"), "teams_and_workers")
         XCTAssertEqual(top("build a team"), "teams_and_workers")
+        XCTAssertEqual(top("edit skill"), "teams_and_workers")
+        XCTAssertEqual(top("shared skill"), "teams_and_workers")
+        XCTAssertEqual(top("restore skill"), "teams_and_workers")
     }
 
     /// RSC-S05: a caller who was looking for the never-shipped `--detach` flag, or
