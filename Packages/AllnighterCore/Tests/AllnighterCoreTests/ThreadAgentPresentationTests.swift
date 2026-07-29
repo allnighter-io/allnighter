@@ -10,9 +10,7 @@ final class ThreadAgentPresentationTests: XCTestCase {
             modelDisplayName: "Opus 5",
             driverId: "claude_code"
         )
-        XCTAssertEqual(label.layout, .plain)
         XCTAssertEqual(label.primary, "Agent · Opus 5")
-        XCTAssertNil(label.secondary)
         XCTAssertEqual(label.driverId, "claude_code")
     }
 
@@ -39,7 +37,7 @@ final class ThreadAgentPresentationTests: XCTestCase {
         XCTAssertEqual(label.primary, "Agent · unknown")
     }
 
-    func testRelayTwoLineWithSeatAndDriver() {
+    func testRelaySingleLineDevSeat() {
         let label = ThreadAgentPresentation.make(
             threadId: "relay_abc",
             turnId: "relay_abc_dev5",
@@ -47,13 +45,11 @@ final class ThreadAgentPresentationTests: XCTestCase {
             modelDisplayName: "Grok Build",
             driverId: "grok"
         )
-        XCTAssertEqual(label.layout, .relay)
-        XCTAssertEqual(label.primary, "Agent")
-        XCTAssertEqual(label.secondary, "Grok Build · Grok · Dev")
+        XCTAssertEqual(label.primary, "Dev · Grok Build")
         XCTAssertEqual(label.driverId, "grok")
     }
 
-    func testRelayPMSeat() {
+    func testRelaySingleLinePMSeat() {
         let label = ThreadAgentPresentation.make(
             threadId: "relay_abc",
             turnId: "relay_abc_pm3",
@@ -61,7 +57,7 @@ final class ThreadAgentPresentationTests: XCTestCase {
             modelDisplayName: "Opus 5",
             driverId: "claude_code"
         )
-        XCTAssertEqual(label.secondary, "Opus 5 · Claude · PM")
+        XCTAssertEqual(label.primary, "PM · Opus 5")
     }
 
     func testRelaySeatDetection() {

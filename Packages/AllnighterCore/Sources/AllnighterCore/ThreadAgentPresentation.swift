@@ -1,32 +1,22 @@
 import Foundation
 
 /// Owner-facing agent labels for thread transcript rows (chat, mutating run, relay).
-/// Plain threads: `Agent · Opus 5` + driver glyph. Relay threads: two-line
-/// `Agent` + `Opus 5 · Claude · PM`.
+/// Plain threads: `Agent · Opus 5`. Relay threads: `Dev · Grok Build` (seat · model).
+/// The Mac UI appends time on the same row (` · 4:23 AM`).
 public enum ThreadAgentPresentation {
     public enum RelaySeat: String, Sendable {
         case pm = "PM"
         case dev = "Dev"
     }
 
-    public enum Layout: Sendable, Equatable {
-        case plain
-        case relay
-    }
-
     public struct Label: Sendable, Equatable {
-        public var layout: Layout
         public var driverId: String?
-        /// Plain: full single-line header (`Agent · Opus 5`). Relay: primary line (`Agent`).
+        /// Single-line header before time — `Agent · Opus 5` or `Dev · Grok Build`.
         public var primary: String
-        /// Relay only: model · driver · seat (`Opus 5 · Claude · PM`).
-        public var secondary: String?
 
-        public init(layout: Layout, driverId: String?, primary: String, secondary: String? = nil) {
-            self.layout = layout
+        public init(driverId: String?, primary: String) {
             self.driverId = driverId
             self.primary = primary
-            self.secondary = secondary
         }
     }
 
@@ -60,7 +50,6 @@ public enum ThreadAgentPresentation {
 
     private struct Identity: Sendable {
         var name: String
-        var driverLabel: String?
         var driverId: String?
     }
 
@@ -81,27 +70,14 @@ public enum ThreadAgentPresentation {
         }
         let trimmedDriver = driverId?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedDriver = (trimmedDriver?.isEmpty == false) ? trimmedDriver : nil
-        let driverLabel = resolvedDriver.map { ModelDisplayName.driverLabel(driverId: $0) }
-        return Identity(name: name, driverLabel: driverLabel, driverId: resolvedDriver)
+        return Identity(name: name, driverId: resolvedDriver)
     }
 
     private static func plainLabel(identity: Identity) -> Label {
-        Label(
-            layout: .plain,
-            driverId: identity.driverId,
-            primary: "Agent · \(identity.name)"
-        )
+        Label(driverId: identity.driverId, primary: "Agent · \(identity.name)")
     }
 
     private static func relayLabel(identity: Identity, seat: RelaySeat) -> Label {
-        var parts = [identity.name]
-        if let driverLabel = identity.driverLabel { parts.append(driverLabel) }
-        parts.append(seat.rawValue)
-        return Label(
-            layout: .relay,
-            driverId: identity.driverId,
-            primary: "Agent",
-            secondary: parts.joined(separator: " · ")
-        )
+        Label(driverId: identity.driverId, primary: "\(seat.rawValue) · \(identity.name)")
     }
 }

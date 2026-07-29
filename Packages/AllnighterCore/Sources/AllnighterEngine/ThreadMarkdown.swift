@@ -39,7 +39,7 @@ public enum ThreadMarkdown {
                 modelDisplayName: nil,
                 driverId: nil
             )
-            who = label.secondary.map { sec in "\(label.primary) · \(sec)" } ?? label.primary
+            who = label.primary
         case .system: who = "System"
         }
         var header = "## \(who) · \(turn.kind.rawValue)"

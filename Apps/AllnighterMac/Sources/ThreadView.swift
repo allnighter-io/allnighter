@@ -623,31 +623,16 @@ private struct ThreadAgentGlyph: View {
     }
 }
 
-/// Plain chat: `Agent · Opus 5`. Relay: bold `Agent` + faint `Opus 5 · Claude · PM`.
+/// Single row: `Agent · Opus 5 · 4:23 AM` or relay `Dev · Grok Build · 4:23 AM`.
 private struct ThreadAgentHeader: View {
     let label: ThreadAgentPresentation.Label
     let timestamp: Date
 
     var body: some View {
         HStack(spacing: 6) {
-            switch label.layout {
-            case .plain:
-                Text(label.primary)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(ALColor.textSecondary)
-            case .relay:
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(label.primary)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(ALColor.textSecondary)
-                    if let secondary = label.secondary {
-                        Text(secondary)
-                            .font(ALFont.monoSm)
-                            .foregroundStyle(ALColor.textFaint)
-                            .lineLimit(1)
-                    }
-                }
-            }
+            Text(label.primary)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(ALColor.textSecondary)
             Text(timestamp, format: .dateTime.hour().minute())
                 .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
         }
