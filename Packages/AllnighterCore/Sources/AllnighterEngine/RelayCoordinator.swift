@@ -1390,7 +1390,7 @@ public struct RelayCoordinator: Sendable {
         // PO-F10: explicit --dev-model must resolve BEFORE lane wait / stall-retry.
         // An unresolvable worker escalates with AGENT_NOT_AVAILABLE — never 4 silent stalls.
         if let workerId = request.workerId, !workerId.isEmpty {
-            if case .failure(let error) = await runService.resolveExplicitWorker(workerId) {
+            if case .failure(let error) = await runService.resolveExplicitModel(workerId) {
                 return DevTurnDispatch(
                     dispatch: .serviceError(error),
                     endReason: .unknown,

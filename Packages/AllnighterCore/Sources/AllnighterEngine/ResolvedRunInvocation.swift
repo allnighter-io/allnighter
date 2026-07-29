@@ -541,7 +541,7 @@ public enum RunInvocationResolver {
         var autoResolved = false
 
         if explicitWorkerChosen, let raw = input.flags.workerId {
-            switch resolveExplicitWorker(raw, context: context) {
+            switch resolveExplicitModel(raw, context: context) {
             case .failure(let error):
                 canStart = false
                 blockedReason = error.description
@@ -718,7 +718,7 @@ public enum RunInvocationResolver {
 
     // MARK: - Helpers
 
-    private static func resolveExplicitWorker(
+    private static func resolveExplicitModel(
         _ id: String,
         context: RunInvocationResolveContext
     ) -> Result<Model, RunServiceError> {

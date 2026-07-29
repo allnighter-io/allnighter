@@ -283,7 +283,7 @@ public actor RunService {
 
     /// PO-F10 / MR-S04: honor an explicit worker id or fail with `AGENT_NOT_AVAILABLE`.
     /// Never returns a substitute model. Display names fail closed via ExactIdResolver.
-    public func resolveExplicitWorker(_ id: String) -> Result<Model, RunServiceError> {
+    public func resolveExplicitModel(_ id: String) -> Result<Model, RunServiceError> {
         switch ExactIdResolver.resolveWorker(id, flag: "--model", models: models, readyModelIds: Set(sourceReadyModelIds())) {
         case .failure(let failure):
             return .failure(.workerNotAvailable(failure.message))
@@ -1210,7 +1210,7 @@ public actor RunService {
                 // PO-F10: explicit --model / --dev-model is honored or fails LOUD — never
                 // silently substitute a different model when the named id is disabled,
                 // notReady, or unknown.
-                switch resolveExplicitWorker(override) {
+                switch resolveExplicitModel(override) {
                 case .failure(let error):
                     return .failure(error)
                 case .success(let m):
@@ -1974,7 +1974,7 @@ public actor RunService {
         // AE-S03 / PO-F10: explicit --model on the answer path is honored or fails
         // loud — never accepted into the idempotency payload and then dropped.
         if let override = workerOverride, !override.isEmpty {
-            switch resolveExplicitWorker(override) {
+            switch resolveExplicitModel(override) {
             case .failure(let error):
                 return .failure(error)
             case .success(let m):
