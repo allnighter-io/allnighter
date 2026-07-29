@@ -233,14 +233,14 @@ public struct RunStore: Sendable {
             let spawnDiagnostics: WorkerSpawnDiagnostics?
         }
 
-        for worker in run.workers {
-            let stem = RunArtifactRef.safeStem(worker.id)
-            let answer = run.workerAnswer(workerId: worker.id)
+        for agent in run.workers {
+            let stem = RunArtifactRef.safeStem(agent.id)
+            let answer = run.workerAnswer(workerId: agent.id)
 
             let meta = WorkerMetadata(
-                workerId: worker.id, modelId: worker.modelId,
-                skillId: worker.skillId, skillName: worker.skillName,
-                purpose: worker.purpose?.rawValue,
+                workerId: agent.id, modelId: agent.modelId,
+                skillId: agent.skillId, skillName: agent.skillName,
+                purpose: agent.purpose?.rawValue,
                 status: (answer?.result.status ?? .queued).rawValue,
                 startedAt: answer?.result.timing.startedAt, finishedAt: answer?.result.timing.finishedAt,
                 durationMs: answer?.result.timing.durationMs, queueMs: answer?.queueMs, ttftMs: answer?.result.timing.ttftMs,
@@ -255,7 +255,7 @@ public struct RunStore: Sendable {
                 try Data(output.utf8).write(
                     to: workersDir.appendingPathComponent("\(stem).answer.md"), options: .atomic)
             }
-            if let prompt = worker.resolvedWorkerPromptSnapshot, !prompt.isEmpty {
+            if let prompt = agent.resolvedWorkerPromptSnapshot, !prompt.isEmpty {
                 try Data(prompt.utf8).write(
                     to: workersDir.appendingPathComponent("\(stem).prompt.md"), options: .atomic)
             }
