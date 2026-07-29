@@ -194,7 +194,7 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("image", takesValue: true, valueType: "path", summary: "Attach an image (repeatable)."),
                 FlagSpec("ref", takesValue: true, valueType: "path[:start-end]", summary: "Reference a project file or line range (repeatable)."),
-                FlagSpec("model", takesValue: true, valueType: "string", summary: "Requested worker/model id."),
+                FlagSpec("model", takesValue: true, valueType: "string", summary: "Requested model id."),
                 FlagSpec("idempotency-key", takesValue: true, valueType: "string", summary: "Idempotency key (24h)."),
                 FlagSpec("json", summary: "Structured send result."),
             ],
@@ -427,7 +427,7 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path. When omitted, walk to the git root and match a registered project (AE-S05)."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id; omit for Default Team."),
-                FlagSpec("model", takesValue: true, valueType: "id", summary: "Override worker model id."),
+                FlagSpec("model", takesValue: true, valueType: "id", summary: "Override model id."),
                 FlagSpec("seat", takesValue: true, valueType: "id", summary: "Override one crew seat model id (repeatable, crew order; requires --team; judgment teams only)."),
                 FlagSpec("message", takesValue: true, valueType: "string", summary: "Alias for the positional message."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
@@ -680,9 +680,9 @@ public extension ContractRegistry {
             args: [ArgSpec("prompt", required: false, summary: "Work prompt (or use --file).")],
             flags: [
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read prompt from a file."),
-                FlagSpec("model", takesValue: true, valueType: "id", summary: "Target worker model id."),
+                FlagSpec("model", takesValue: true, valueType: "id", summary: "Target model id."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id."),
-                FlagSpec("fallback", takesValue: true, valueType: "id", summary: "Fallback worker id."),
+                FlagSpec("fallback", takesValue: true, valueType: "id", summary: "Fallback model id."),
                 FlagSpec("when", takesValue: true, valueType: "when", summary: "ready | away | manual."),
                 FlagSpec("cwd", takesValue: true, valueType: "path", summary: "Working directory context."),
                 FlagSpec("submit", summary: "Create directly as Pending."),
@@ -720,9 +720,9 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("prompt", takesValue: true, valueType: "string", summary: "Replacement prompt text."),
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Replacement prompt file."),
-                FlagSpec("model", takesValue: true, valueType: "id", summary: "Target worker model id."),
+                FlagSpec("model", takesValue: true, valueType: "id", summary: "Target model id."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id."),
-                FlagSpec("fallback", takesValue: true, valueType: "id", summary: "Fallback worker id."),
+                FlagSpec("fallback", takesValue: true, valueType: "id", summary: "Fallback model id."),
                 FlagSpec("when", takesValue: true, valueType: "when", summary: "ready | away | manual."),
                 FlagSpec("cwd", takesValue: true, valueType: "path", summary: "Working directory context."),
                 FlagSpec("json", summary: "Emit one PendingItemJSON object."),
