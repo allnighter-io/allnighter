@@ -109,8 +109,8 @@ final class AppModel {
 
     var expandedAgents: [Agent] { currentPinnedSeatSpecs.expandedAgents() }
 
-    func isSeated(_ worker: Model) -> Bool {
-        currentPinnedSeatSpecs.contains { $0.modelId == worker.id }
+    func isSeated(_ model: Model) -> Bool {
+        currentPinnedSeatSpecs.contains { $0.modelId == model.id }
     }
 
     func seatCount(for worker: Model) -> Int {
