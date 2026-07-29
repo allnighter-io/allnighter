@@ -1184,10 +1184,10 @@ public extension ContractRegistry {
             meaning: "Cursor CLI global shell allowlist is not so restrictive that headless turns cannot run git/python (read-only; Allnighter never writes vendor config)."
         ),
         DoctorCheckSpec("benchReadyCount", meaning: "At least one model is ready."),
-        DoctorCheckSpec("defaultTeamValid", meaning: "Default team has runnable workers."),
-        DoctorCheckSpec("planWriterReady", meaning: "Default team has a ready plan worker."),
+        DoctorCheckSpec("defaultTeamValid", meaning: "Default team has runnable agents."),
+        DoctorCheckSpec("planWriterReady", meaning: "Default team has a ready plan agent."),
         DoctorCheckSpec("coordinator", meaning: "Resident coordinator state; may be degraded in M1."),
-        DoctorCheckSpec("journal.incrementalDurable", meaning: "Async run journal persists worker/status transitions incrementally."),
+        DoctorCheckSpec("journal.incrementalDurable", meaning: "Async run journal persists agent/status transitions incrementally."),
         DoctorCheckSpec("journal.orphanRecovery", meaning: "Orphaned async runs resolve to interrupted."),
         DoctorCheckSpec("pending.storeReadable", meaning: "Pending store can be read."),
         DoctorCheckSpec("pending.storeWritable", meaning: "Pending store can be mutated."),
