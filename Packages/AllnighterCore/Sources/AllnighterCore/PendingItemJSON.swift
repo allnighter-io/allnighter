@@ -71,9 +71,9 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
     public struct TargetInfo: Codable, Equatable, Sendable {
         public var workerIds: [String]
         public var teamPresetId: String?
-        public var preferredWorkerIds: [String]
-        public var fallbackWorkerIds: [String]
-        public var requiredWorkerIds: [String]
+        public var preferredModelIds: [String]
+        public var fallbackModelIds: [String]
+        public var requiredModelIds: [String]
         public var minWorkers: Int?
     }
 

@@ -69,9 +69,9 @@ public enum PendingItemJSONMapper {
             target: .init(
                 workerIds: item.target.workerIds,
                 teamPresetId: item.target.teamPresetId,
-                preferredWorkerIds: item.target.preferredWorkerIds,
-                fallbackWorkerIds: item.target.fallbackWorkerIds,
-                requiredWorkerIds: item.target.requiredWorkerIds,
+                preferredModelIds: item.target.preferredModelIds,
+                fallbackModelIds: item.target.fallbackModelIds,
+                requiredModelIds: item.target.requiredModelIds,
                 minWorkers: item.target.minWorkers
             ),
             policy: .init(
@@ -172,9 +172,9 @@ public enum PendingItemJSONMapper {
             target: .init(
                 workerIds: workerIds,
                 teamPresetId: teamPresetId,
-                preferredWorkerIds: workerIds,
-                fallbackWorkerIds: [],
-                requiredWorkerIds: [],
+                preferredModelIds: workerIds,
+                fallbackModelIds: [],
+                requiredModelIds: [],
                 minWorkers: nil
             ),
             policy: .init(

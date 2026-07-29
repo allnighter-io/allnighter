@@ -27,24 +27,24 @@ public enum PendingOrigin: String, Codable, Sendable, CaseIterable {
 public struct PendingTarget: Codable, Sendable, Equatable {
     public var workerIds: [String]
     public var teamPresetId: String?
-    public var preferredWorkerIds: [String]
-    public var fallbackWorkerIds: [String]
-    public var requiredWorkerIds: [String]
+    public var preferredModelIds: [String]
+    public var fallbackModelIds: [String]
+    public var requiredModelIds: [String]
     public var minWorkers: Int?
 
     public init(
         workerIds: [String] = [],
         teamPresetId: String? = nil,
-        preferredWorkerIds: [String] = [],
-        fallbackWorkerIds: [String] = [],
-        requiredWorkerIds: [String] = [],
+        preferredModelIds: [String] = [],
+        fallbackModelIds: [String] = [],
+        requiredModelIds: [String] = [],
         minWorkers: Int? = nil
     ) {
         self.workerIds = workerIds
         self.teamPresetId = teamPresetId
-        self.preferredWorkerIds = preferredWorkerIds
-        self.fallbackWorkerIds = fallbackWorkerIds
-        self.requiredWorkerIds = requiredWorkerIds
+        self.preferredModelIds = preferredModelIds
+        self.fallbackModelIds = fallbackModelIds
+        self.requiredModelIds = requiredModelIds
         self.minWorkers = minWorkers
     }
 }

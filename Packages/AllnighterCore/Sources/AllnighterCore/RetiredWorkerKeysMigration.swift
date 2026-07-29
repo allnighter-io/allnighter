@@ -113,6 +113,12 @@ public enum RetiredWorkerKeysMigration {
                 return ("agents", true)
             }
             return (key, false)
+        case "preferredWorkerIds":
+            return ("preferredModelIds", true)
+        case "fallbackWorkerIds":
+            return ("fallbackModelIds", true)
+        case "requiredWorkerIds":
+            return ("requiredModelIds", true)
         case "explicitWorkerIds":
             return ("explicitModelIds", true)
         case "resolvedWorkerPromptSnapshot":

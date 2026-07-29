@@ -332,9 +332,9 @@ public enum ContractSchema {
             ], required: ["id", "status", "title", "kind", "origin", "promptExcerpt", "createdAt", "updatedAt", "needsAttention"]),
             "TargetInfo": obj([
                 "workerIds": arr(str), "teamPresetId": nullable("string"),
-                "preferredWorkerIds": arr(str), "fallbackWorkerIds": arr(str),
-                "requiredWorkerIds": arr(str), "minWorkers": nullable("integer"),
-            ], required: ["workerIds", "preferredWorkerIds", "fallbackWorkerIds", "requiredWorkerIds"]),
+                "preferredModelIds": arr(str), "fallbackModelIds": arr(str),
+                "requiredModelIds": arr(str), "minWorkers": nullable("integer"),
+            ], required: ["workerIds", "preferredModelIds", "fallbackModelIds", "requiredModelIds"]),
             "PolicyInfo": obj([
                 "selection": str, "attentionMode": str, "drainMode": str,
                 "maxAttempts": nullable("integer"), "retryFloorSeconds": nullable("integer"),

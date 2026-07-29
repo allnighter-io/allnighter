@@ -30,7 +30,7 @@ final class PendingServiceTests: XCTestCase {
     func testAddCreatesDraftWithWorkerId() throws {
         let item = try service.add(.init(prompt: "Review this patch when Claude is ready.", workerToken: "model_opus"))
         XCTAssertEqual(item.status, .draft)
-        XCTAssertEqual(item.target.preferredWorkerIds, ["model_opus"])
+        XCTAssertEqual(item.target.preferredModelIds, ["model_opus"])
         let json = try service.mapJSON(item)
         XCTAssertEqual(json.pendingItem.status, .draft)
         XCTAssertNil(json.admission)

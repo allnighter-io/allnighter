@@ -58,7 +58,7 @@ public struct PendingRunExecutor: Sendable {
     // MARK: - workerChat
 
     private func runWorkerChat(item: PendingItem, attemptIndex: Int, attemptId: String) async throws -> PendingItem {
-        let workerId = item.target.preferredWorkerIds.first ?? item.target.workerIds.first ?? ""
+        let workerId = item.target.preferredModelIds.first ?? item.target.workerIds.first ?? ""
         guard let model = service.models.first(where: { $0.id == workerId }) else {
             throw PendingServiceError.invalidWorker(workerId.isEmpty ? "no worker specified" : workerId)
         }

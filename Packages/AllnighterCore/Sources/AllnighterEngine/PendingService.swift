@@ -87,8 +87,8 @@ public struct PendingService: Sendable {
             target: PendingTarget(
                 workerIds: workerIds.all,
                 teamPresetId: request.teamPresetId,
-                preferredWorkerIds: workerIds.preferred,
-                fallbackWorkerIds: workerIds.fallbacks
+                preferredModelIds: workerIds.preferred,
+                fallbackModelIds: workerIds.fallbacks
             ),
             policy: PendingPolicy(drainMode: request.drainMode),
             safety: PendingSafety(workingDir: request.workingDir)
@@ -153,11 +153,11 @@ public struct PendingService: Sendable {
         if let workerToken = request.workerToken {
             let resolved = try resolveWorkerIds(primary: workerToken, fallbacks: request.fallbackTokens ?? [])
             item.target.workerIds = resolved.all
-            item.target.preferredWorkerIds = resolved.preferred
-            item.target.fallbackWorkerIds = resolved.fallbacks
+            item.target.preferredModelIds = resolved.preferred
+            item.target.fallbackModelIds = resolved.fallbacks
         } else if let fallbacks = request.fallbackTokens {
             let resolved = try resolveWorkerIds(primary: nil, fallbacks: fallbacks)
-            item.target.fallbackWorkerIds = resolved.fallbacks
+            item.target.fallbackModelIds = resolved.fallbacks
         }
         if let team = request.teamPresetId { item.target.teamPresetId = team }
         if let drain = request.drainMode { item.policy.drainMode = drain }
@@ -266,7 +266,7 @@ public struct PendingService: Sendable {
 
         let timestamp = now()
         let attemptId = "attempt_\(UUID().uuidString.lowercased())"
-        let workerId = item.target.preferredWorkerIds.first ?? item.target.workerIds.first ?? ""
+        let workerId = item.target.preferredModelIds.first ?? item.target.workerIds.first ?? ""
         let attempt = PendingAttemptSummary(
             attemptId: attemptId,
             createdAt: timestamp,

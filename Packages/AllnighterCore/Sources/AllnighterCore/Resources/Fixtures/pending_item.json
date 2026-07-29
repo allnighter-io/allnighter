@@ -18,9 +18,9 @@
   "target": {
     "workerIds": ["model_opus"],
     "teamPresetId": null,
-    "preferredWorkerIds": ["model_opus"],
-    "fallbackWorkerIds": [],
-    "requiredWorkerIds": [],
+    "preferredModelIds": ["model_opus"],
+    "fallbackModelIds": [],
+    "requiredModelIds": [],
     "minWorkers": null
   },
   "policy": {
