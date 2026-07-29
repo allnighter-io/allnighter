@@ -3,6 +3,9 @@
     "FailedWorker" : {
       "additionalProperties" : false,
       "properties" : {
+        "agentId" : {
+          "type" : "string"
+        },
         "reason" : {
           "type" : "string"
         },
@@ -11,13 +14,10 @@
             "string",
             "null"
           ]
-        },
-        "workerId" : {
-          "type" : "string"
         }
       },
       "required" : [
-        "workerId",
+        "agentId",
         "reason"
       ],
       "type" : "object"

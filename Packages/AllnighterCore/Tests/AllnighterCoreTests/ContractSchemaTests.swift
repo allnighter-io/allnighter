@@ -79,7 +79,7 @@ final class ContractSchemaTests: XCTestCase {
         let result = SpecRetrieval.Result(
             runId: "r", status: "done", lane: "signal", teamPresetId: "t", outputKind: "insight",
             selector: "latest", detail: "summary", summary: "s", full: nil, warnings: [],
-            failedWorkers: [SpecRetrieval.FailedWorker(workerId: "w", skillName: "Sk", reason: "x")],
+            failedWorkers: [SpecRetrieval.FailedWorker(agentId: "w", skillName: "Sk", reason: "x")],
             artifactRefs: [])
         let schema = ContractSchema.specResultSchema()
         XCTAssertEqual(try properties(schema), labels(result), "SpecResult top-level schema drifted from the type")

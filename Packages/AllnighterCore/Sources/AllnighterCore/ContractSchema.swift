@@ -549,8 +549,8 @@ public enum ContractSchema {
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
             "FailedWorker": obj([
-                "workerId": str, "skillName": nullable("string"), "reason": str,
-            ], required: ["workerId", "reason"]),
+                "agentId": str, "skillName": nullable("string"), "reason": str,
+            ], required: ["agentId", "reason"]),
         ]
         return schema
     }

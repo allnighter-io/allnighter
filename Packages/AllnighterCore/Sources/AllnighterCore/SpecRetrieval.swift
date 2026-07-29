@@ -12,7 +12,7 @@ public enum SpecRetrieval {
     }
 
     public struct FailedWorker: Codable, Sendable, Equatable {
-        public var workerId: String
+        public var agentId: String
         public var skillName: String?
         public var reason: String
     }
@@ -49,7 +49,7 @@ public enum SpecRetrieval {
         let plan = run.plan
         let modelCount = Set(run.workers.map(\.modelId)).count
         let failed = run.failedWorkerAnswers.map {
-            FailedWorker(workerId: $0.memberId, skillName: skillNameByWorker[$0.memberId] ?? nil,
+            FailedWorker(agentId: $0.memberId, skillName: skillNameByWorker[$0.memberId] ?? nil,
                          reason: $0.result.errorReason ?? $0.result.status.rawValue)
         }
 
@@ -59,7 +59,7 @@ public enum SpecRetrieval {
         if let plan { summaryLines.append(String(plan.prefix(400))) }
         else { summaryLines.append("(no synthesized output — status \(run.status.rawValue))") }
         if !failed.isEmpty {
-            let names = failed.map { $0.skillName ?? $0.workerId }.joined(separator: ", ")
+            let names = failed.map { $0.skillName ?? $0.agentId }.joined(separator: ", ")
             summaryLines.append("Failed workers: \(names)")
         }
         _ = modelName // reserved for richer per-worker summaries
