@@ -98,7 +98,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
 
         XCTAssertEqual(dry.teamPresetId, "default_chat")
         XCTAssertEqual(dry.seatCount, 1, "execution Default Team is one seat, not lead+crew roster")
-        XCTAssertEqual(dry.workerId, "model_sonnet")
+        XCTAssertEqual(dry.pinnedModelId, "model_sonnet")
         XCTAssertTrue(dry.autoResolved)
         XCTAssertFalse(dry.explicitModelChosen)
         XCTAssertTrue(dry.mutating)
@@ -106,7 +106,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
 
         // Preview/execution identity
         XCTAssertEqual(dry.teamPresetId, fg.teamPresetId)
-        XCTAssertEqual(dry.workerId, fg.workerId)
+        XCTAssertEqual(dry.pinnedModelId, fg.pinnedModelId)
         XCTAssertEqual(dry.seatCount, fg.seatCount)
         XCTAssertEqual(dry.writePolicy, fg.writePolicy)
         XCTAssertEqual(dry.seats.map(\.modelId), fg.seats.map(\.modelId))
@@ -122,7 +122,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         let dry = resolve(flags: .init(pinnedModelId: "model_sonnet", json: true))
         let fg = resolve(mode: .foreground, flags: .init(pinnedModelId: "model_sonnet", json: true))
 
-        XCTAssertEqual(dry.workerId, "model_sonnet")
+        XCTAssertEqual(dry.pinnedModelId, "model_sonnet")
         XCTAssertTrue(dry.explicitModelChosen)
         XCTAssertFalse(dry.autoResolved)
         XCTAssertEqual(dry.seatCount, 1)
@@ -138,7 +138,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
 
         assertNoDroppedSelectors(dry, worker: "model_sonnet")
         XCTAssertEqual(dry.teamPresetId, fg.teamPresetId)
-        XCTAssertEqual(dry.workerId, fg.workerId)
+        XCTAssertEqual(dry.pinnedModelId, fg.pinnedModelId)
         XCTAssertEqual(dry.seatCount, fg.seatCount)
         XCTAssertTrue(substitutedArgv(dry).contains("model_sonnet"))
     }
@@ -169,10 +169,10 @@ final class ResolvedRunInvocationTests: XCTestCase {
         )
 
         XCTAssertEqual(dry.seatCount, 1)
-        XCTAssertEqual(dry.workerId, "model_sonnet")
+        XCTAssertEqual(dry.pinnedModelId, "model_sonnet")
         XCTAssertEqual(dry.teamPresetId, "code_bug_hunt")
         XCTAssertEqual(dry.seatCount, fg.seatCount)
-        XCTAssertEqual(dry.workerId, fg.workerId)
+        XCTAssertEqual(dry.pinnedModelId, fg.pinnedModelId)
         assertNoDroppedSelectors(dry, team: "code_bug_hunt", worker: "model_sonnet")
     }
 
@@ -181,7 +181,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         let detach = resolve(mode: .detach, flags: .init(pinnedModelId: "model_sonnet", json: true))
 
         XCTAssertEqual(fg.teamPresetId, detach.teamPresetId)
-        XCTAssertEqual(fg.workerId, detach.workerId)
+        XCTAssertEqual(fg.pinnedModelId, detach.pinnedModelId)
         XCTAssertEqual(fg.seatCount, detach.seatCount)
         XCTAssertEqual(fg.writePolicy, detach.writePolicy)
         XCTAssertTrue(detach.argvTemplate.contains("--no-wait"))
@@ -334,7 +334,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
             context: context()
         )
         XCTAssertEqual(again.teamPresetId, dry.teamPresetId)
-        XCTAssertEqual(again.workerId, dry.workerId)
+        XCTAssertEqual(again.pinnedModelId, dry.pinnedModelId)
         XCTAssertEqual(again.seatCount, dry.seatCount)
     }
 

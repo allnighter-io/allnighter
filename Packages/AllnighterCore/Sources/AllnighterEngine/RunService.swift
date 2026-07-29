@@ -730,7 +730,7 @@ public actor RunService {
         }
 
         let preset = invocation.preset
-        let effectiveWorkerId = invocation.workerId
+        let effectiveWorkerId = invocation.pinnedModelId
         let explicitTeamChosen = invocation.explicitTeamChosen
         let laneContextOnly = request.lane != nil && !(request.pinnedModelId ?? "").isEmpty
         // ADP-S01: the explicit `--model` selection, canonicalized to the resolved

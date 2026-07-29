@@ -128,7 +128,7 @@ final class ReproduceCommandTests: XCTestCase {
         XCTAssertEqual(replay.writePolicy, original.writePolicy,
                        "replay must resolve the same write policy")
         XCTAssertTrue(replay.explicitModelChosen, "replay preserves explicit worker selection")
-        XCTAssertEqual(replay.workerId, "model_sonnet")
+        XCTAssertEqual(replay.pinnedModelId, "model_sonnet")
     }
 
     func testLegacyBuilderEmitsExplicitWorker() {

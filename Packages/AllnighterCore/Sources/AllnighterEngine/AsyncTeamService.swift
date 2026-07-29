@@ -136,7 +136,7 @@ public actor AsyncTeamService {
         )
         guard invocation.canStart else {
             return .failure(.init(
-                code: invocation.explicitWorkerChosen ? "CLI_USAGE_ERROR" : "DEFAULT_TEAM_INVALID",
+                code: invocation.explicitModelChosen ? "CLI_USAGE_ERROR" : "DEFAULT_TEAM_INVALID",
                 message: invocation.blockedReason ?? "team cannot start",
                 preset: invocation.teamPresetId
             ))
@@ -148,7 +148,7 @@ public actor AsyncTeamService {
         request.teamPresetId = invocation.teamPresetId
         request.lane = invocation.lane
         request.effort = invocation.effort
-        if let worker = invocation.workerId {
+        if let worker = invocation.pinnedModelId {
             request.modelId = worker
         }
         if request.repoRoot == nil || request.repoRoot?.isEmpty == true {
@@ -202,7 +202,7 @@ public actor AsyncTeamService {
                     message: "model is not ready: \(modelId)",
                     preset: resolvedRequest.team.id
                 ))
-            } else if !resolved.mutating, invocation.explicitWorkerChosen {
+            } else if !resolved.mutating, invocation.explicitModelChosen {
                 // Answer-team pin (matches RunService.runAnswer / dry-run seats).
                 let skillId = resolved.answerWorkers.first?.skillId ?? "first_principles_builder"
                 let skillName = resolved.answerWorkers.first?.skillName

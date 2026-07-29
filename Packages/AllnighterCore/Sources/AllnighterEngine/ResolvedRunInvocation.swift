@@ -238,7 +238,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
     public var teamDisplayName: String
     public var explicitTeamChosen: Bool
     public var explicitModelChosen: Bool
-    public var workerId: String?
+    public var pinnedModelId: String?
     public var autoResolved: Bool
     public var lane: WorkLane
     public var effort: EffortLevel
@@ -294,7 +294,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
             projectRoot: projectRoot,
             teamPresetId: teamPresetId,
             teamDisplayName: teamDisplayName,
-            workerId: workerId,
+            workerId: pinnedModelId,
             writePolicy: writePolicy,
             effects: effects,
             lane: lane.rawValue,
@@ -361,7 +361,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
             message: templateVariables["message"] ?? "",
             flagMode: flagMode,
             flags: altFlags,
-            resolvedWorkerId: explicitModelChosen ? workerId : nil,
+            resolvedWorkerId: explicitModelChosen ? pinnedModelId : nil,
             resolvedTeamId: answerTeam.id
         )
         let command = Self.shellJoin(altArgv)
@@ -403,7 +403,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
             threadId: flags.threadId,
             projectId: projectId,
             presetId: explicitTeamChosen ? teamPresetId : flags.teamId,
-            pinnedModelId: explicitModelChosen ? workerId : flags.pinnedModelId,
+            pinnedModelId: explicitModelChosen ? pinnedModelId : flags.pinnedModelId,
             effort: flags.effort,
             lane: flags.lane,
             type: type,
@@ -430,7 +430,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
             lane: flags.lane ?? lane,
             teamPresetId: teamPresetId,
             effort: effort,
-            modelId: workerId,
+            modelId: pinnedModelId,
             type: type,
             context: flags.context,
             threadId: flags.threadId,
@@ -693,7 +693,7 @@ public enum RunInvocationResolver {
             teamDisplayName: displayName,
             explicitTeamChosen: explicitTeamChosen,
             explicitModelChosen: explicitModelChosen,
-            workerId: workerId,
+            pinnedModelId: workerId,
             autoResolved: autoResolved,
             lane: lane,
             effort: effort,
@@ -768,7 +768,7 @@ public enum RunInvocationResolver {
                 explicitTeamChosen: explicitTeam),
             explicitTeamChosen: explicitTeam,
             explicitModelChosen: explicitWorker,
-            workerId: flags.pinnedModelId,
+            pinnedModelId: flags.pinnedModelId,
             autoResolved: false,
             lane: flags.lane ?? preset.lane,
             effort: flags.effort ?? preset.defaultEffort,
