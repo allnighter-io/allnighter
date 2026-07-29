@@ -163,11 +163,12 @@ billing product.
 
 | Layer | Effect |
 | --- | --- |
-| **1. Edge avoidance** | Don’t start long mutating work when a sample shows near-floor session/week |
-| **2. Same-tier harvest** | Prefer fat seats; protect thin preferred seats; authorized substitute when preferred is thin and alternate has room |
-| **3. Reset clocks** | Queue heavy work after known resets; wake from sample clocks, not only from 429 text |
-| **4. Dashboard** | One strip: every seat available / cooling / unknown + windows |
-| **5. Optional projection** | Local pace → “likely empty by X” for human + soft throttle — not silent hard blocks from guesses |
+| **1. Pre-Flight Relay Guard** | Protect multi-round mutating pilot/relay runs (>3 turns) from mid-flight 429 crashes. Single-shot prompts stay fast/reactive; long relays check headroom before turn 1 to prevent dirty git states and context loss. |
+| **2. Burn-to-Reset Arbitrage** | Quotas do not roll over. If Model A resets in 15m with 40% remaining, aggressively prioritize heavy tasks on Model A before the clock wipes expiring headroom. Save Model B whose reset is hours away. |
+| **3. Role-Aware Admission** | Unbundle Lead (low token burn ~2-5k/turn) vs Mutating Worker (high token burn ~30k-100k/turn). A seat at 10% headroom can still steer 20 Lead turns, even if blocked from mutating work. |
+| **4. Same-tier harvest** | Prefer fat seats; protect thin preferred seats; authorized substitute when preferred is thin and alternate has room. |
+| **5. Reset clocks** | Queue heavy work after known resets; wake from sample clocks, not only from 429 text. |
+| **6. Dashboard** | One strip: every seat available / cooling / unknown + windows. |
 
 Without samples, Boost is **retry when dead**.  
 With samples, Boost is **run the bench at full draw without face-planting.**
@@ -181,7 +182,7 @@ per-driver CapacityProbe
   spawn interactive-capable session (PTY preferred; not Terminal.app as SSOT)
   invoke vendor usage/status surface (/status, Usage, /usage, …)
   parse with fixtures → CapacityWindow[] | parseFailed
-  cache + rate limit; never keepalive storm
+  cadence: opportunistic (app launch, post-run piggyback, pre-relay gate if >30m stale) — no idle background PTY storms
 
 → CapacityObservation / CapacityWindow
   source, confidence, observedAt, scope (session|weekly|planClass|…),
@@ -189,13 +190,14 @@ per-driver CapacityProbe
 
 → SourceCapacityLedger (extend)
   merge probe windows with failure-derived cooldowns
-  unknown ≠ full
+  unknown ≠ full; parseFailed fails closed strictly to unknown
 
 → alln capacity (one contract)
   CLI + Boost strip + future iOS
 
 → policy
-  pre-dispatch near-floor gate
+  pre-dispatch near-floor gate (differentiated by posture: Lead min 5%, Worker min 20%)
+  burn-to-reset prioritization (burn expiring headroom before reset wipe)
   same-tier order / substitute from headroom
   park/wake still from real limits when probes miss
 ```
