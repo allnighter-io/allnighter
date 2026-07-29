@@ -128,8 +128,8 @@ final class AppModel {
         activePresetId = nil
     }
 
-    func driverName(for worker: Model) -> String {
-        registry.manifest(for: worker)?.displayName ?? worker.driverId
+    func driverName(for model: Model) -> String {
+        registry.manifest(for: model)?.displayName ?? model.driverId
     }
 
     func isManual(_ model: Model) -> Bool {
