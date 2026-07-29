@@ -247,6 +247,54 @@ work requires *judgment about meaning* or *transcription under a checker*.
 | S05 Mac + iOS presenters | **Gemini**, but see GUI note below | Compiler-verified, with an extra gate. |
 | S06 teaching scrub | Sonnet drafts, **lead verifies** | String-keyed; "is this agent-facing?" is a judgment call. |
 
+### Round size and gate cost — the loop that actually goes fast
+
+Founder correction, 2026-07-29, after the lead spent a session running the full
+suite on every slice:
+
+> Smaller rounds, each ending in a commit, each verified by a test filtered to
+> ONLY what changed. Not bigger batches.
+
+Measured on this packet:
+
+| gate | wall clock |
+| --- | --- |
+| `swift test` (full, 2385 tests) | ~150s + flake/hang/lane-poison exposure |
+| `swift test --filter <3-4 classes>` | **~2s** (14s including incremental build) |
+
+The full suite is ~99% irrelevant work for a rename, and it is *actively worse
+than useless*: nearly every failure the lead diagnosed this session came from
+tests unrelated to the change — flaky loopback sockets, a poisoned lane, orphaned
+`xctest` processes. A filtered run skips all of it.
+
+**Why small + committed beats big + verified-later:**
+
+1. **Speed.** ~100× on the gate.
+2. **Cheap failure.** A red filtered test costs seconds, not minutes.
+3. **Free attribution — the real win.** When a round is one small commit, the
+   failing diff *is* the round. The lead burned significant time this session
+   stashing a 33-file change to prove a crash was pre-existing; with per-round
+   commits that question answers itself, and `git bisect` is free.
+4. **The seat verifies itself.** A ~2s command cannot end the turn mid-wait (see
+   the completion-signal section above), so the executor runs its own gate and
+   the lead leaves the loop entirely.
+
+**Therefore, every delegated round:**
+
+```text
+one narrow change
+  -> swift test --filter <only the affected classes>   (~2s, run BY the seat)
+  -> git commit                                        (the completion signal)
+  -> next round
+```
+
+Run the full suite **once at closeout**, never per round. If a filtered gate is
+green and closeout is red, the closeout failure is information about the *suite*,
+not about the round.
+
+Name the filter in the work order. If you cannot name which classes cover the
+change, the round is too big or too vague — split it before dispatching.
+
 ### The acceptance gate (why delegation is safe here)
 
 This migration is unusual: it has an **objective oracle**. Most refactors don't.
