@@ -5,8 +5,8 @@ Owner: AllnighterEngine (`RelayCoordinator`, `RunService` / run completion) +
 AllnighterCLI (`RunCLI`, `PilotCLI`, `RelayCLI`, `AllnighterCLI.runTeamStatus`) +
 `ServeDaemon`
 Created: 2026-07-29
-Revised: 2026-07-29 — v4: universal delegation (`alln run` + pilot + relay);
-one PM Turn contract, three delivery paths, one teaching model
+Revised: 2026-07-29 — v5 Grok adversarial pass: cross-CLI robustness, failure/
+resume boundaries, crash safety, simplification; no open TBDs
 
 ## Product law
 
@@ -83,6 +83,11 @@ embed the report + next commands in one shape. The machinery is half-built; the
 Same three delivery paths (block / wait / wake). Same `pmTurn` object. Same
 teaching. A PM learns **one** delegation discipline, not three.
 
+**Wait-target footgun:** run waiters use `terminal`; pilot/relay park uses
+`parked`. Agents must run the **returned** ack command, never invent a target.
+`team status … --wait-for parked` and `pilot status … --wait-for terminal` are
+usage errors — fail clear, do not silently map.
+
 ## Agent PM experience
 
 This is what an agent PM (Opus, Sonnet, or any other CLI-driving model) sees,
@@ -122,6 +127,11 @@ complexity, and failure modes than detach-and-wait for short work.
 
 A **multi-hour job wants B (if you're staying) or C (if you might not be).**
 
+**Non-TTY hosts (Cursor subagent, Codex tool, piped stdout):** prefer **A** only
+when the host will keep the process alive for the whole job. If the host kills
+idle children or caps wall time, use **B** or **C**. With `--json`, stdout is
+**only** the contract JSON (human banners stay on stderr).
+
 ### 2. Wait — one bounded call, not a loop
 
 Never chain short polls to fake a long wait. One `status --wait-for` invocation,
@@ -134,6 +144,11 @@ alln pair pilot status --relay relay_abc --wait-for parked --timeout 7200 --json
 
 If it expires (`PM_TURN_WAIT_TIMEOUT`, exit 3), re-run the **same** command with
 a longer `--timeout` — never switch to manual polling or `run resume` loops.
+Recovery ladder (only this):
+
+1. Same waiter, longer `--timeout` (double, then job-scale; multi-hour jobs: hours).
+2. Snapshot `status … --json` (no wait) to see lifecycle / `pmTurn` if already written.
+3. Still not terminal/parked → inspect `alln ps`; do not invent a different verb.
 
 ### 3. Land — read `pmTurn`, not prose
 
@@ -176,6 +191,10 @@ You never need to open `answer.md`, grep a log directory, or trust a Mac
 banner. If `report` is `null`, see `notes[]` — do not go dig for the text
 yourself.
 
+**Failed / timedOut / cancelled is still a PM Turn.** Path A/B/C deliver the
+same shape; `reason` and exit code carry failure. Do not treat non-`done` as
+"no delivery."
+
 ### 4. Judge — the next command is already expanded
 
 `nextCommands` are copy-paste-ready with real ids and status-valid verbs. Your
@@ -195,6 +214,9 @@ array (or your own equivalent). Never hand-assemble ids or guess legal verbs.
   was the verbatim text.
 - **Treating surfaces differently.** If you know how to delegate a pilot round,
   you already know how to delegate an `alln run` — block, wait, or wake.
+- **Confusing vendor park with PM Turn.** `alln run resume` is for vendor backoff
+  / re-attach — not terminal delivery (see Decision §10).
+- **Inventing wait targets.** Always paste the ack `delivery.command`.
 
 ### Success, from the PM's chair
 
@@ -210,24 +232,24 @@ failed.
 
 1. **One durable object; one field name; no inbox verb.** `pmTurn` is embedded
    in every status/result envelope (`TeamStatusResponse`, `PilotStatusJSON`,
-   `RelayJSON`). No separate inbox verb. `report` is the verbatim worker answer
-   on all surfaces (relay rounds may still populate from `settledDevReport`
-   internally — wire name is always `report`).
+   `RelayJSON`). No separate inbox verb. `report` is the verbatim primary answer
+   on all surfaces (see report source table).
 2. **Extend status; do not add wait verbs.** Detached waiters are only:
    `team status --wait-for …`, `pair pilot status --wait-for …`, and
    `pair relay-status --wait-for …`. `pilot watch` and `run resume` as primary
-   detach paths are legacy — compatible, never taught.
+   detach paths are legacy — compatible, never taught for terminal delivery.
 3. **A detached PM chooses a delivery route.** Default dispatch blocks. `--no-wait`
    must pair with the returned status waiter or `--delivery wake`. Wake without
    a configured receiver fails before dispatch.
-4. **Wake delivery means an acknowledged hook invocation.** Serve writes the PM
-   Turn, invokes the hook with full JSON on stdin, records success only on exit 0.
-   Dedupe key: `(kind, subjectId, sequence)`.
+4. **Wake delivery means an acknowledged hook invocation.** Serve writes nothing
+   new for truth — it **reads** durable `pm-turn.json`, invokes the hook with full
+   JSON on stdin, records success only on exit 0. Dedupe key:
+   `(kind, subjectId, sequence)`.
 5. **Universal law — not a relay feature.** PTD ships for `alln run` and
    pilot/relay in the same slices. Partial ship (relay-only) does not satisfy
    the product law or v1 exit gate.
 
-### Decision addendum — v3/v4 deltas
+### Decision addendum — v3–v5
 
 6. **`--no-wait` is never valid alone** — must pair with wait command or
    `--delivery wake`. Teach as one unit on every surface.
@@ -235,10 +257,17 @@ failed.
 8. **Path table is canonical teaching** — reproduce verbatim or link; do not
    paraphrase per surface.
 9. **Wake receiver is host-agnostic** — judged by exit 0 + idempotency on
-   `(kind, subjectId, sequence)`.
-10. **`run resume` is not PM Turn delivery** — it remains for vendor-park /
-    handoff re-attach only. Terminal run delivery is `team status --wait-for
-    terminal` + embedded `pmTurn`, or blocking `alln run`.
+   `(kind, subjectId, sequence)`. Configuration is **machine-level** (serve
+   config), not per-CLI-host. Any agent session benefits once configured once.
+10. **`run resume` is not PM Turn delivery** — remains for vendor-park claim and
+    non-terminal re-attach only. Terminal run delivery is `team status --wait-for
+    terminal` + embedded `pmTurn`, or blocking `alln run`. Enforce in teaching +
+    contracts; do not remove the verb.
+11. **Failure is delivery.** Terminal `failed` / `timedOut` / `cancelled` and
+    relay `escalated` / `stopped` still write a PM Turn.
+12. **Idempotency replay ≠ new PM Turn.** `--idempotency-key` that re-acks an
+    existing run reuses that subject; at most one terminal sequence per settled
+    transition.
 
 ## Current gap
 
@@ -263,16 +292,39 @@ boundary.
 ~/Library/Application Support/Allnighter/Relays/<relayId>/pm-turn.json # kind: relay
 ```
 
-Temp-file + atomic rename in the same transition that persists terminal relay
-state or terminal run lifecycle. `sequence` is monotonic per `(kind, subjectId)`.
-Re-read/retry of the same transition must not duplicate.
+Temp-file + atomic rename **in the same transition** that persists terminal run
+lifecycle or terminal/parked relay state. Order within the transition:
+
+1. Build `PMTurnJSON` (sequence = last+1 for subject; durable counter on subject).
+2. Atomic write `pm-turn.json`.
+3. Persist subject terminal/parked state (`run.json` / `relay.json`).
+
+Readers: if subject is terminal/parked but `pm-turn.json` is missing (crash
+between steps), project `pmTurn: null` + note `pm_turn_missing` — **never invent
+report**. Retry of the same transition must not bump `sequence` if the same
+boundary was already recorded (dedupe on transition identity / last sequence for
+that reason).
+
+`sequence` is monotonic per `(kind, subjectId)`.
 
 ### Write sites
 
 | Kind | Owner | When |
 | --- | --- | --- |
-| `run` | Run completion path (`RunService` / coordinator that settles `TeamRun`) | Run enters terminal lifecycle with a deliverable answer (or failure report) |
+| `run` | Run completion path (`RunService` / coordinator that settles `TeamRun`) | Run enters **any** terminal lifecycle (`done`/`failed`/`timedOut`/`cancelled`) |
 | `relay` | `RelayCoordinator` | `awaitingPM`, `escalated`, `stopped`, or `done` after a worker round |
+
+### Report source (no ambiguity)
+
+| Kind | Shape | `report` is |
+| --- | --- | --- |
+| `run` | Single worker | That worker's answer markdown |
+| `run` | Team / multi-seat | Primary team answer (synthesis / lead answer) — same text as today's blocking `TeamRunJSON` answer path |
+| `run` | Terminal with no answer body | `null` + `notes[]` (warnings / failure reason if available) |
+| `relay` | Any park/terminal above | `settledDevReport` when present; else `null` + note |
+
+Do not embed every seat's raw answer in `pmTurn`. Deep dive stays `alln show` /
+`team result` / artifact — listed in `nextCommands`.
 
 ### Shape
 
@@ -327,13 +379,27 @@ Relay example — same object, relay-specific `reason` / `round`:
 | `sequence` | Monotonic per subject; dedupe for wait/wake/notify |
 | `reason` | **Run:** `done`, `failed`, `timedOut`, `cancelled`. **Relay:** `awaitingPM`, `escalated`, `stopped`, `done`. Never infer from copy. |
 | `lifecycleStatus` | Run: `RunLifecycle` value. Relay: `RelayState.Status` value. |
-| `report` | Verbatim answer — run: primary worker/team answer markdown; relay: `settledDevReport`. `null` + `notes[]` when unavailable, never `""`. |
+| `report` | Verbatim primary answer (see source table). `null` + `notes[]` when unavailable, never `""`. No truncation in durable store. |
 | `workerRunId` | Linked worker run when known |
-| `workRecovery` | WRC-S00 nested object when available; else `null` + note |
-| `nextCommands` | Fully expanded, copy-paste commands — no placeholders |
+| `workRecovery` | WRC-S00 nested object when available; else `null`. **Never block** PM Turn write on WRC readiness. |
+| `nextCommands` | Fully expanded, copy-paste commands — no placeholders. Prefer 1–3 status-valid verbs. |
 | `round`, `pmMode` | Relay-only; omitted or `null` on runs |
 
-`running` / `queued` create no PM Turn.
+`running` / `queued` create no PM Turn — including vendor-parked `queued` +
+`waitingForVendor` (that is resume territory, not a PM Turn).
+
+### Failed-run report content (minimum)
+
+| Terminal reason | `report` preference | `nextCommands` preference |
+| --- | --- | --- |
+| `done` | Primary answer | show / result / artifact as applicable |
+| `failed` | Error/warnings body if any, else `null` + note | `alln show <id> --json` |
+| `timedOut` | Partial answer if any, else `null` + note | show; re-dispatch is PM judgment, not auto-retry |
+| `cancelled` | `null` + note unless a partial answer exists | show |
+
+Process exit for blocking path stays existing lifecycle mapping (`done` → 0;
+failed/timedOut/cancelled → non-zero). Path B waiters: `matched` + `pmTurn` on
+any terminal; non-zero exit when the matched lifecycle is a failure class.
 
 ### Read sites
 
@@ -343,7 +409,9 @@ Embed `pmTurn: PMTurnJSON?` in:
 - `PilotStatusJSON`
 - `RelayJSON` status projection
 
-`report` and `nextCommands` appear only under `pmTurn`.
+`report` and `nextCommands` appear only under `pmTurn`. Top-level answer fields
+on `TeamRunJSON` may remain for back-compat; they must equal `pmTurn.report`
+when both present.
 
 ## Read contract and the three delivery paths
 
@@ -373,24 +441,23 @@ alln pair relay-status --relay <id> --wait-for terminal --timeout 7200 --json
 
 `--timeout` required with `--wait-for`. Non-negative seconds.
 
-| Surface | Wait targets | Match |
-| --- | --- | --- |
-| **Run** | `terminal`, or specific `done`/`failed`/`timedOut`/`cancelled` | Terminal lifecycle (existing `TeamStatusWaitTarget`) |
-| **Pilot** | `parked` | `awaitingPM` or `escalated` |
-| **Relay** | `parked`, `terminal` | Parked or `done`/`stopped` |
+| Surface | Wait targets | Match | Delivers `pmTurn`? |
+| --- | --- | --- | --- |
+| **Run** | `terminal` (primary); optional specific `done`/`failed`/`timedOut`/`cancelled` | Terminal lifecycle | **Yes** on match |
+| **Run** | `running` (existing observation) | In-flight | **No** — observation only |
+| **Pilot** | `parked` | `awaitingPM` or `escalated` | **Yes** |
+| **Relay** | `parked`, `terminal` | Parked or `done`/`stopped` | **Yes** |
 
-No `running` target on relay (unchanged). Runs may wait for `running` only when
-observing in-flight work — **that wait does not deliver a PM Turn**; document as
-observation-only, not PM delivery.
+No `running` target on relay (unchanged).
 
-Shared wait implementation: generalize `RelayStatusWait` and the existing
-`runTeamStatus` loop behind one helper (`PMTurnStatusWait`) — same cadence
-(`min 50 ms`, `max 5 s`), same `waitOutcome` (`matched` | `timedOut` |
-`terminalMismatch`), same exit classification.
+Shared wait implementation: one helper (name optional: `PMTurnStatusWait`) —
+same cadence (`min 50 ms`, `max 5 s`), same `waitOutcome` (`matched` |
+`timedOut` | `terminalMismatch`), same exit classification. Do not invent a
+second polling subsystem.
 
-On timeout: exit 3, `PM_TURN_WAIT_TIMEOUT` (rename from relay-only
-`RELAY_WAIT_TIMEOUT` or alias both). `agentAction` names the same waiter with
-longer timeout — never "poll status" or "poll resume."
+On timeout: exit 3, `PM_TURN_WAIT_TIMEOUT` (alias `RELAY_WAIT_TIMEOUT` during
+migration). `agentAction` names the same waiter with longer timeout — never
+"poll status" or "poll resume."
 
 **`--no-wait --json` acknowledgement** on every detachable dispatch:
 
@@ -412,14 +479,23 @@ longer timeout — never "poll status" or "poll resume."
 }
 ```
 
-Route instruction only — not a claim delivery already occurred.
+Route instruction only — not a claim delivery already occurred. Prefer embedding
+the **resolved `alln` executable path** used for dispatch when known (avoids PATH
+skew); human line may still show bare `alln`.
 
 ### C. Wake hook — unattended/dead-session path
 
-`ServeDaemon` remains read-then-shell-out. On new `(kind, subjectId, sequence)`:
+`ServeDaemon` remains read-then-shell-out. It must observe **both**:
+
+```text
+…/Allnighter/Runs/*/pm-turn.json
+…/Allnighter/Relays/*/pm-turn.json
+```
+
+On new `(kind, subjectId, sequence)` not yet in the receipt ledger:
 
 1. Mac notification (WRC-S01 / existing run-complete events where applicable)
-2. Configured wake hook — stdin = full `PMTurnJSON`
+2. Configured wake hook — stdin = full `PMTurnJSON` (stream stdin; never argv)
 
 ```json
 {
@@ -435,16 +511,78 @@ and relay dispatch. Fail `PM_TURN_WAKE_UNCONFIGURED` before dispatch if no
 receiver. Receipt ledger keyed by `(kind, subjectId, sequence)`.
 
 `pmTurnDelivery` failure projection on status when wake fails after retries.
+Durable `pm-turn.json` remains the SSOT; wake failure does not erase the turn.
+
+**Report size:** durable store is untruncated. Hook stdin is the full object;
+receivers must stream stdin (not buffer as argv). If the OS/pipe cannot accept
+the payload, exit non-zero → `PM_TURN_WAKE_FAILED`; agent recovers via path B
+snapshot status (report still on disk). No second wire format in v1.
+
+## Vendor park vs PM Turn (hard boundary)
+
+| State | PM Turn? | Correct attach |
+| --- | --- | --- |
+| Run `running` / non-vendor `queued` | No | Path A hold, or path B wait for `terminal` |
+| Run vendor park (`queued` + `waitingForVendor`) | No | `alln run resume <id>` (claim/continue) |
+| Run terminal | Yes (written once) | `team status --wait-for terminal` or snapshot status; resume may **reprint** a finished run for back-compat but is **not** taught and must not write a second sequence |
+| Relay `running` | No | Wait / poll status only |
+| Relay `awaitingPM` / `escalated` / terminal | Yes | Pilot/relay status `--wait-for parked\|terminal` |
+
+`run resume` must never be the documented happy path for "worker finished."
+Contracts/help teach wait/wake; resume help stays vendor-continuity only.
+
+## Concurrent delegation (write lock)
+
+Existing product law is unchanged: **one mutating worker per repo root**.
+
+| Scenario | Behavior | PTD impact |
+| --- | --- | --- |
+| Two mutating `alln run` same root | Second waits or fails under write lock | Two subjects when both run; each gets its own `pmTurn` when *it* terminals |
+| Research/judgment team + mutating run | Allowed per run model | Independent PM Turns |
+| Relay round + mutating run same root | Write lock / `RELAY_ROUND_IN_FLIGHT` already gate races | PTD does not add a second lock; waiters only observe their subject id |
+| Two sessions wait on same run id | Both may block on status; one sequence, one durable file | Idempotent reads |
+
+Agents must wait on the **id returned in their own ack**, not "the repo's run."
+
+## Idempotency
+
+`--idempotency-key` on `alln run`:
+
+- Replay that re-acks the **same** run id before terminal: ack again with the
+  same `delivery.command` (path B) — no second subject.
+- After terminal: no second `pm-turn.json` write; status returns the existing
+  `pmTurn` (same sequence).
+
+## WRC / workRecovery timing
+
+- Mutating runs that commit and research teams that do not: both write PM Turns
+  at terminal; `workRecovery` is often `null` on pure runs.
+- Relay parks: nest WRC-S00 when ready; if WRC lags, still write `pmTurn` with
+  `workRecovery: null` + optional note. Delivery must not wait on git stamping.
+
+## iOS / remote
+
+**Explicit non-goal for this packet.** iOS companion and remote Project Manager
+do not implement path B/C clients in PTD v1. No silent claim that remote gets
+wake delivery. Future remote packet may consume the same durable `pm-turn.json`.
 
 ## Build slices
 
 | Slice | Scope | Owner | Depends on |
 | --- | --- | --- | --- |
-| **PTD-1 — universal pull delivery** | `PMTurnJSON` + atomic store for **run and relay**; embed `pmTurn` in `TeamStatusResponse`, `TeamRunJSON` (terminal), `PilotStatusJSON`, `RelayJSON`; shared `PMTurnStatusWait`; relay `--wait-for parked\|terminal`; run `--wait-for` returns `pmTurn` on terminal; `PM_TURN_WAIT_TIMEOUT`; `--no-wait` `delivery.path: wait` on **RunCLI, PilotCLI, RelayCLI**; teaching flip all surfaces | `RelayCoordinator`, run completion owner, `AllnighterCLI`, CLI surfaces, contracts/help | — |
-| **PTD-2 — universal wake delivery** | `--delivery wake` on all three dispatch verbs; config validation; receipt/retry ledger; `ServeDaemon` hook for run + relay PM Turns; failure projection | `ServeDaemon`, dispatch CLIs | PTD-1; URN-S01/S02 |
+| **PTD-1 — universal pull delivery** | `PMTurnJSON` + atomic store for **run and relay**; embed `pmTurn` in status/result envelopes; shared wait helper; run terminal wait returns `pmTurn`; `PM_TURN_WAIT_TIMEOUT`; `--no-wait` `delivery.path: wait` on **RunCLI, PilotCLI, RelayCLI**; teaching flip all surfaces | Run completion owner, `RelayCoordinator`, CLI, contracts/help | — |
+| **PTD-2 — universal wake delivery** | `--delivery wake` on all three dispatch verbs; config validation; receipt/retry ledger; `ServeDaemon` scans Runs + Relays `pm-turn.json`; failure projection | `ServeDaemon`, dispatch CLIs | PTD-1; URN-S01/S02 |
 
 PTD-1 is not done until **run, pilot, and relay** all pass the v1 exit gate.
 PTD-2 is not done until wake works for run and relay.
+
+**Simplified out of scope for v1 (do not build):**
+
+- Separate inbox verb or PM Turn store outside Runs/Relays
+- Report truncation / secondary wire shape for huge reports
+- Per-CLI-host wake config
+- iOS wake client
+- Removing `run resume` (legacy keep; re-teach only)
 
 ## Teaching and contract flip (part of PTD-1)
 
@@ -464,19 +602,19 @@ Update and regenerate (do not hand-edit `docs/generated/alln/*`):
 - `HelpTopicRegistry.swift` — `tool_selection`, `team_run_loop`, `no-wait`, `pm_relay`, `pilot`
 - `Bootstrap.swift`, `TeachingSnippet.swift`, `MenuSelectionCopy.swift`
 - `RunCLI.swift`, `PilotCLI.swift`, `RelayCLI.swift`
-- `AsyncTeamContracts.swift` — retire `pollStatus` as primary `nextAction`; emit
-  `delivery.path: wait` waiter instead
+- `AsyncTeamContracts.swift` — retire `pollStatus` / resume-poll as primary
+  `nextAction`; emit `delivery.path: wait` waiter instead
 - Recipes: `get-another-model-to-implement-this.md` and any run-loop recipe cards
 
 Registered errors (unified naming):
 
 | Code | Exit | Agent action |
 | --- | --- | --- |
-| `PM_TURN_WAIT_TIMEOUT` | 3 | Re-run returned `… status --wait-for … --timeout <longer> --json` |
+| `PM_TURN_WAIT_TIMEOUT` | 3 | Re-run returned `… status --wait-for … --timeout <longer> --json`; then snapshot status; then `alln ps` |
 | `RELAY_WAIT_TIMEOUT` | 3 | Alias of above for relay-only callers during migration |
 | `PM_TURN_WAKE_UNCONFIGURED` | operational | Configure receiver or use block/wait; no dispatch |
 | `PM_TURN_WAKE_UNAVAILABLE` | operational | Repair serve or use block/wait; no dispatch |
-| `PM_TURN_WAKE_FAILED` | operational | Repair receiver; PM Turn remains durable |
+| `PM_TURN_WAKE_FAILED` | operational | Repair receiver; read durable status/`pmTurn`; path B still works |
 
 ## WRC boundary
 
@@ -484,6 +622,35 @@ Unchanged — PTD owns delivery; WRC owns recovery facts and `relayAwaitingPM`.
 `pmTurn.workRecovery` nests WRC-S00. WRC-S01 dedupes on `(kind, subjectId,
 sequence)` for relay parks. Run-complete Mac notifications may share the same
 sequence for dedupe when both fire.
+
+## Cross-CLI robustness
+
+Practical rules for builders and dogfood (Claude Code, Cursor, Codex, Grok CLI,
+Composer):
+
+1. **PATH / binary identity.** Detached children and wait commands must invoke
+   the same product binary the user installed (`alln` on PATH, or absolute path
+   captured at dispatch). Multiple checkouts on PATH are a user env bug; ack
+   should prefer the absolute path of the dispatching process when available.
+2. **Wake is machine config, not CLI-host config.** One `pmTurnWake` under serve
+   config. Claude/Cursor/Codex/Grok/Composer do not each register receivers.
+   Founder/agent configures once; any session can choose path C.
+3. **Concurrent sessions.** Two agents may delegate from different terminals.
+   Each owns its returned `subjectId`. Mutating contention is write-lock /
+   relay-in-flight — not a second PTD queue.
+4. **Failed runs still deliver.** Hosts that only look for exit 0 will miss the
+   report — teach reading `pmTurn` even when exit ≠ 0; JSON envelopes still carry
+   the turn.
+5. **Vendor park boundary.** If status shows vendor wait, use `run resume` — not
+   `team status --wait-for terminal` as the only story (terminal wait eventually
+   works after resume/ continuum, but resume is the claim verb). Do not write
+   `pmTurn` on vendor park.
+6. **Non-TTY / subagent hosts.** Pure `--json` on stdout; no progress spam on
+   stdout. Prefer path B when the host may kill long blocks.
+7. **Wrong wait target.** Validate surface-legal targets; refuse with usage error
+   rather than hanging forever.
+8. **Idempotent re-entry.** Same key / same id → one terminal `pmTurn` sequence;
+   waiters and wake ledger are safe to retry.
 
 ## Non-goals
 
@@ -493,25 +660,34 @@ sequence for dedupe when both fire.
 - Human PM seat
 - Second storage model per surface
 - Relay-only partial ship
+- iOS / remote PM Turn client (v1)
+- Per-CLI wake registration
+- Truncating or dual-encoding large reports (v1)
+- Removing legacy `run resume` / `pilot watch`
 
 ## v1 exit gate
 
 All gates required. **Run + pilot + relay** — partial pass fails the gate.
 
 1. Blocking dispatch on all three surfaces returns `pmTurn.report` and
-   `pmTurn.nextCommands` without regression.
+   `pmTurn.nextCommands` without regression (success **and** one failure-class
+   run).
 2. `--no-wait` + returned `status --wait-for` delivers `pmTurn` in one process —
    no watcher, no `answer.md` read — for **one run**, **one pilot round**, and
    **one relay round**.
 3. Terminal/parked snapshot status embeds the same `pmTurn` on all three surfaces.
 4. `--delivery wake` refuses before dispatch when unconfigured; succeeds with
-   hook for run and relay dogfood paths.
-5. Help/Bootstrap/recipes teach one path table; never poll/resume/watch as primary.
-6. Hermetic tests: run + relay write/dedupe; all wait outcomes; all `--no-wait`
-   acks; wake refusal/retry; WRC null composition.
+   hook for run and relay dogfood paths; serve observes Runs + Relays paths.
+5. Help/Bootstrap/recipes teach one path table; never poll/resume/watch as primary
+   terminal delivery.
+6. Hermetic tests: run + relay write/dedupe; crash-missing `pm-turn` → null + note;
+   all wait outcomes; wrong wait target usage error; all `--no-wait` acks;
+   idempotency replay no double sequence; wake refusal/retry; WRC null composition;
+   vendor-park writes **no** PM Turn.
 7. Dogfood: (a) 5-min blocking `alln run`, (b) multi-hour `alln run --no-wait`
-   + wait, (c) pilot path B, (d) relay path B or C. `swift test`, `export-contracts
-   --check`, architecture policy green.
+   + wait, (c) pilot path B, (d) relay path B or C, (e) one failed run lands
+   `pmTurn.reason=failed`. `swift test`, `export-contracts --check`, architecture
+   policy green.
 
 ## Builder routing
 
@@ -520,10 +696,11 @@ All gates required. **Run + pilot + relay** — partial pass fails the gate.
 | Run completion / answer | `RunService`, `CatalogRunCoordinator`, `TeamRunJSONMapper` |
 | Relay park / report | `RelayCoordinator`, `settledDevReport` |
 | Run status + wait | `AllnighterCLI.runTeamStatus`, `TeamStatusWaitTarget` |
-| Relay status + wait | `PilotCLI`, `RelayCLI`, new `PMTurnStatusWait` |
+| Relay status + wait | `PilotCLI`, `RelayCLI`, shared wait helper |
 | Detached dispatch ack | `RunCLI`, `PilotCLI`, `RelayCLI` |
-| Serve / notify | `ServeDaemon`, `NotificationCandidateDetection` |
+| Serve / notify | `ServeDaemon`, `NotificationCandidateDetection` (scan Runs + Relays) |
 | Recovery fields | WRC-S00 in `Work_Recovery_And_PM_Continuity.md` |
+| Vendor park / resume | `RunCLI.resume`, `RunService.resumeParkedRun` — **not** PM Turn write |
 
 ## Standing rules
 
@@ -532,3 +709,29 @@ All gates required. **Run + pilot + relay** — partial pass fails the gate.
 - **Missing data is null + note** — never invent.
 - **serve stays read-only** — hook shells out; no dispatch from serve.
 - **Sequence dedupe** — one notify + one hook per `(kind, subjectId, sequence)`.
+- **Failure is still a turn** — silence is the bug, not a non-zero exit.
+- **Resume is not delivery** — vendor park / re-attach only.
+
+## Adversarial review (resolved)
+
+Grok adversarial pass (2026-07-29). Each attack → resolution. No open TBDs.
+
+| # | Finding | Resolution |
+| --- | --- | --- |
+| 1 | Cross-CLI: who configures wake? Multiple `alln` on PATH? | **Accept.** Wake is machine-level serve config (once). Ack prefers absolute dispatch binary when known. Documented in Cross-CLI §1–2. |
+| 2 | Concurrent delegation / write lock / relay+run race | **Accept / non-goal.** Existing write lock + `RELAY_ROUND_IN_FLIGHT` own races. PTD is per-subject; wait only on returned id. Concurrent section added. |
+| 3 | Failed / timedOut / cancelled still a PM Turn? | **Accept fix.** Yes — always write on any terminal reason; report/nextCommands table; exit codes unchanged. Decision §11. |
+| 4 | Team synthesis vs single-worker report | **Accept fix.** Report source table: primary/synthesis answer only; seats via show/result. |
+| 5 | Vendor park / `run resume` collides with delivery? | **Accept fix.** Hard boundary table; no PM Turn on vendor park; resume never taught for terminal; resume may reprint finished run without new sequence. |
+| 6 | `pm-turn.json` vs `run.json` crash / stale sequence | **Accept fix.** Write order 1→2→3; missing file → null + `pm_turn_missing`; no sequence bump on same-transition retry. |
+| 7 | Blocking + `--json` non-TTY hosts | **Accept fix.** Pure JSON stdout; prefer B/C when host kills long blocks. |
+| 8 | Serve knowledge of Runs/ `pm-turn` paths | **Accept fix.** Serve scans Runs + Relays; explicit in path C + exit gate. |
+| 9 | Wrong wait target (parked vs terminal) | **Accept fix.** Surface-legal targets only; refuse invented targets; footgun callout on delegation table. |
+| 10 | Idempotency key → duplicate pmTurn? | **Accept fix.** Replay reuses subject; one terminal sequence; Decision §12. |
+| 11 | Mutating commit vs research / workRecovery lag | **Accept fix.** Never block PM Turn on WRC; null workRecovery OK. |
+| 12 | iOS / remote silent lie? | **Explicit non-goal.** iOS section; Non-goals list. |
+| 13 | Short timeout / recovery ladder | **Accept fix.** Ladder: longer timeout → snapshot status → `alln ps`; agentAction text. |
+| 14 | Hook stdin size / report truncation | **Accept / simplify.** Durable untruncated; stdin full JSON stream; wake fail → durable still readable. No dual wire format v1. |
+| 15 | Over-complexity: drop what? | **Accept simplify.** No inbox verb, no per-CLI wake, no report dual-encoding, no resume removal, no iOS client. Shared wait helper only (no second subsystem). Optional specific run wait statuses kept as thin existing targets, primary remains `terminal`. |
+
+**Deferred (one line, not TBD for implementers):** remote/iOS PM Turn consumer packet after Mac dogfood; optional absolute-path-only teaching if PATH skew shows up in week-2.
