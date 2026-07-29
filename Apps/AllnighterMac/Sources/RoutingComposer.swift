@@ -325,13 +325,13 @@ struct RoutingComposer: View {
         .onChange(of: commands.openRoutePickerTick) { _, _ in
             if onSend != nil { targetOpen = true }
         }
-        .onAppear { adoptContinuationWorkerIfNeeded() }
-        .onChange(of: continuationModelId) { _, _ in adoptContinuationWorkerIfNeeded() }
+        .onAppear { adoptContinuationModelIfNeeded() }
+        .onChange(of: continuationModelId) { _, _ in adoptContinuationModelIfNeeded() }
     }
 
     /// Pin the bench model this thread last spoke through so the chip survives turn
     /// settlement, empty→conversation transitions, and thread switches.
-    private func adoptContinuationWorkerIfNeeded() {
+    private func adoptContinuationModelIfNeeded() {
         guard !locksTeam, team == nil, let id = continuationModelId,
               appModel.composeBench.contains(where: { $0.id == id }) else { return }
         pinnedModelId = id
