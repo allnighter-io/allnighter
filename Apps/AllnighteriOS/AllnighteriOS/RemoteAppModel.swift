@@ -1001,7 +1001,7 @@ final class RemoteAppModel {
 
     private func appendOptimisticSend(prompt: String, threadId: String) -> String? {
         guard var snapshot = threadSnapshot, snapshot.id == threadId else { return nil }
-        let workerId = composerDraft.workerIdForSend(
+        let agentInstanceId = composerDraft.agentInstanceIdForSend(
             continuationModelId: composerContinuationAgent?.modelId
         )
         let suffix = UUID().uuidString.prefix(8)
@@ -1025,9 +1025,9 @@ final class RemoteAppModel {
             role: .assistant,
             text: "Working on this on your Mac…",
             runId: runId,
-            modelId: workerId,
-            driverId: ConversationAgentPresentation.driverId(for: workerId),
-            agentTitle: ConversationAgentPresentation.agentTitle(for: workerId),
+            modelId: agentInstanceId,
+            driverId: ConversationAgentPresentation.driverId(for: agentInstanceId),
+            agentTitle: ConversationAgentPresentation.agentTitle(for: agentInstanceId),
             isPending: true,
             isFailed: false,
             isTruncated: false,
@@ -1113,7 +1113,7 @@ final class RemoteAppModel {
         let now = Date()
         let threadId = "preview-new-\(UUID().uuidString.prefix(8))"
         let title = Self.previewThreadTitle(from: prompt)
-        let workerId = composerDraft.workerIdForSend(continuationModelId: nil)
+        let agentInstanceId = composerDraft.agentInstanceIdForSend(continuationModelId: nil)
         let runId = "run_preview_\(threadId)"
 
         let summary = RemoteThreadSummary(
@@ -1164,7 +1164,7 @@ final class RemoteAppModel {
                         author: .worker,
                         createdAt: now,
                         text: "Working on this on your Mac…",
-                        modelId: workerId,
+                        modelId: agentInstanceId,
                         runId: runId,
                         partialOutputTruncated: false
                     ),
