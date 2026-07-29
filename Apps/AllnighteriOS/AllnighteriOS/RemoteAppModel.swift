@@ -296,7 +296,7 @@ final class RemoteAppModel {
                 item.pendingItem.title = title
                 item.target.teamPresetId = draft.selectedTeam.presetId
                 if let modelId = draft.selectedWorkerId {
-                    item.target.workerIds = [modelId]
+                    item.target.modelIds = [modelId]
                     item.target.preferredModelIds = [modelId]
                 }
                 group.pending[itemIndex] = item

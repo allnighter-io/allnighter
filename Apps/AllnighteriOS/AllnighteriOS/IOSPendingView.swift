@@ -240,7 +240,7 @@ private struct IOSPendingReviewSheet: View {
         self.onClose = onClose
         _composerText = State(initialValue: initialPrompt)
         var draft = IOSComposerDraft()
-        if let workerId = target.item.target.preferredModelIds.first ?? target.item.target.workerIds.first {
+        if let workerId = target.item.target.preferredModelIds.first ?? target.item.target.modelIds.first {
             draft.selectedWorkerId = workerId
         }
         if let teamId = target.item.target.teamPresetId,
@@ -323,11 +323,11 @@ enum IOSPendingPresentation {
             return name
         }
         if let team = target.teamPresetId, !team.isEmpty { return team }
-        if let workerId = target.preferredModelIds.first ?? target.workerIds.first,
+        if let workerId = target.preferredModelIds.first ?? target.modelIds.first,
            let name = ModelCatalog.get(workerId)?.displayName {
             return name
         }
-        if let workerId = target.preferredModelIds.first ?? target.workerIds.first {
+        if let workerId = target.preferredModelIds.first ?? target.modelIds.first {
             return workerId
         }
         return "Auto"

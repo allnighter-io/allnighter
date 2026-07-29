@@ -16,7 +16,7 @@
     "needsAttention": false
   },
   "target": {
-    "workerIds": ["model_opus"],
+    "modelIds": ["model_opus"],
     "teamPresetId": null,
     "preferredModelIds": ["model_opus"],
     "fallbackModelIds": [],

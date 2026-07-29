@@ -180,7 +180,7 @@ struct PendingView: View {
 
     private func targetLabel(_ target: PendingItemJSON.TargetInfo) -> String {
         if let team = target.teamPresetId, !team.isEmpty { return team }
-        if let worker = target.preferredModelIds.first ?? target.workerIds.first { return worker }
+        if let worker = target.preferredModelIds.first ?? target.modelIds.first { return worker }
         return "auto"
     }
 }

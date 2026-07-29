@@ -25,7 +25,7 @@ public enum PendingOrigin: String, Codable, Sendable, CaseIterable {
 // MARK: - Target / policy / safety
 
 public struct PendingTarget: Codable, Sendable, Equatable {
-    public var workerIds: [String]
+    public var modelIds: [String]
     public var teamPresetId: String?
     public var preferredModelIds: [String]
     public var fallbackModelIds: [String]
@@ -33,14 +33,14 @@ public struct PendingTarget: Codable, Sendable, Equatable {
     public var minWorkers: Int?
 
     public init(
-        workerIds: [String] = [],
+        modelIds: [String] = [],
         teamPresetId: String? = nil,
         preferredModelIds: [String] = [],
         fallbackModelIds: [String] = [],
         requiredModelIds: [String] = [],
         minWorkers: Int? = nil
     ) {
-        self.workerIds = workerIds
+        self.modelIds = modelIds
         self.teamPresetId = teamPresetId
         self.preferredModelIds = preferredModelIds
         self.fallbackModelIds = fallbackModelIds
@@ -167,7 +167,7 @@ public struct PendingAttemptSummary: Codable, Sendable, Equatable, Identifiable 
     public var createdAt: Date
     public var startedAt: Date?
     public var completedAt: Date?
-    public var workerIds: [String]
+    public var modelIds: [String]
     public var status: PendingAttemptStatus
     public var admissionEventIds: [String]
     public var reason: String?
@@ -181,7 +181,7 @@ public struct PendingAttemptSummary: Codable, Sendable, Equatable, Identifiable 
         createdAt: Date,
         startedAt: Date? = nil,
         completedAt: Date? = nil,
-        workerIds: [String] = [],
+        modelIds: [String] = [],
         status: PendingAttemptStatus,
         admissionEventIds: [String] = [],
         reason: String? = nil,
@@ -191,7 +191,7 @@ public struct PendingAttemptSummary: Codable, Sendable, Equatable, Identifiable 
         self.createdAt = createdAt
         self.startedAt = startedAt
         self.completedAt = completedAt
-        self.workerIds = workerIds
+        self.modelIds = modelIds
         self.status = status
         self.admissionEventIds = admissionEventIds
         self.reason = reason

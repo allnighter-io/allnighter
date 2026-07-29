@@ -44,7 +44,7 @@ final class PendingProjectMigratorTests: XCTestCase {
         let item = PendingItem(
             id: id, threadId: threadId, title: id, kind: .workerChat, status: .pending,
             createdAt: Date(), updatedAt: Date(), prompt: "do \(id)",
-            target: PendingTarget(workerIds: ["claude"]), policy: PendingPolicy(),
+            target: PendingTarget(modelIds: ["claude"]), policy: PendingPolicy(),
             safety: PendingSafety(workingDir: workingDir))
         try pendingStore.save(item)
         return item

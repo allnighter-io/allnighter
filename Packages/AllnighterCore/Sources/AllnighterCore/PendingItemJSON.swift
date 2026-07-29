@@ -69,7 +69,7 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
     }
 
     public struct TargetInfo: Codable, Equatable, Sendable {
-        public var workerIds: [String]
+        public var modelIds: [String]
         public var teamPresetId: String?
         public var preferredModelIds: [String]
         public var fallbackModelIds: [String]
@@ -108,7 +108,7 @@ public struct PendingItemJSON: Codable, Equatable, Sendable {
         public var createdAt: String
         public var startedAt: String?
         public var completedAt: String?
-        public var workerIds: [String]
+        public var modelIds: [String]
         public var status: String
         public var reason: String?
         public var transcriptRef: String?

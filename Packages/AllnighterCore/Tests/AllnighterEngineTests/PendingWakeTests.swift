@@ -16,7 +16,7 @@ final class PendingWakePlannerTests: XCTestCase {
             createdAt: now,
             updatedAt: now,
             prompt: "Review patch",
-            target: PendingTarget(workerIds: ["model_opus"], preferredModelIds: ["model_opus"]),
+            target: PendingTarget(modelIds: ["model_opus"], preferredModelIds: ["model_opus"]),
             policy: PendingPolicy(),
             resume: PendingResume(
                 reason: .cooldown,

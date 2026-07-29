@@ -85,7 +85,7 @@ public struct PendingService: Sendable {
             origin: request.origin,
             prompt: request.prompt,
             target: PendingTarget(
-                workerIds: workerIds.all,
+                modelIds: workerIds.all,
                 teamPresetId: request.teamPresetId,
                 preferredModelIds: workerIds.preferred,
                 fallbackModelIds: workerIds.fallbacks
@@ -152,7 +152,7 @@ public struct PendingService: Sendable {
         }
         if let workerToken = request.workerToken {
             let resolved = try resolveWorkerIds(primary: workerToken, fallbacks: request.fallbackTokens ?? [])
-            item.target.workerIds = resolved.all
+            item.target.modelIds = resolved.all
             item.target.preferredModelIds = resolved.preferred
             item.target.fallbackModelIds = resolved.fallbacks
         } else if let fallbacks = request.fallbackTokens {
@@ -266,12 +266,12 @@ public struct PendingService: Sendable {
 
         let timestamp = now()
         let attemptId = "attempt_\(UUID().uuidString.lowercased())"
-        let workerId = item.target.preferredModelIds.first ?? item.target.workerIds.first ?? ""
+        let workerId = item.target.preferredModelIds.first ?? item.target.modelIds.first ?? ""
         let attempt = PendingAttemptSummary(
             attemptId: attemptId,
             createdAt: timestamp,
             startedAt: timestamp,
-            workerIds: workerId.isEmpty ? [] : [workerId],
+            modelIds: workerId.isEmpty ? [] : [workerId],
             status: .running,
             reason: options.attemptReason
         )

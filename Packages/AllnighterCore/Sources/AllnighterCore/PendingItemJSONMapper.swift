@@ -67,7 +67,7 @@ public enum PendingItemJSONMapper {
                 needsAttention: PendingItemDerivation.needsAttention(blockedReason: blocked)
             ),
             target: .init(
-                workerIds: item.target.workerIds,
+                modelIds: item.target.modelIds,
                 teamPresetId: item.target.teamPresetId,
                 preferredModelIds: item.target.preferredModelIds,
                 fallbackModelIds: item.target.fallbackModelIds,
@@ -99,7 +99,7 @@ public enum PendingItemJSONMapper {
                     createdAt: iso.string(from: attempt.createdAt),
                     startedAt: attempt.startedAt.map { iso.string(from: $0) },
                     completedAt: attempt.completedAt.map { iso.string(from: $0) },
-                    workerIds: attempt.workerIds,
+                    modelIds: attempt.modelIds,
                     status: attempt.status.rawValue,
                     reason: attempt.reason,
                     transcriptRef: attempt.transcriptRef
@@ -152,7 +152,7 @@ public enum PendingItemJSONMapper {
     ) -> PendingItemJSON {
         let iso = ISO8601DateFormatter()
         let stamp = iso.string(from: now)
-        let workerIds = modelId.map { [$0] } ?? []
+        let modelIds = modelId.map { [$0] } ?? []
         return PendingItemJSON(
             contractVersion: ContractRegistry.contractVersion,
             pendingItem: .init(
@@ -170,9 +170,9 @@ public enum PendingItemJSONMapper {
                 needsAttention: false
             ),
             target: .init(
-                workerIds: workerIds,
+                modelIds: modelIds,
                 teamPresetId: teamPresetId,
-                preferredModelIds: workerIds,
+                preferredModelIds: modelIds,
                 fallbackModelIds: [],
                 requiredModelIds: [],
                 minWorkers: nil

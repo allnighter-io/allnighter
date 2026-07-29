@@ -119,6 +119,11 @@ public enum RetiredWorkerKeysMigration {
             return ("fallbackModelIds", true)
         case "requiredWorkerIds":
             return ("requiredModelIds", true)
+        case "workerIds":
+            if parentKey == "target" || parentKey == "attempts" {
+                return ("modelIds", true)
+            }
+            return (key, false)
         case "explicitWorkerIds":
             return ("explicitModelIds", true)
         case "resolvedWorkerPromptSnapshot":

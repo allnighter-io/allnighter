@@ -331,10 +331,10 @@ public enum ContractSchema {
                 "blockedReason": nullable("string"), "needsAttention": bool,
             ], required: ["id", "status", "title", "kind", "origin", "promptExcerpt", "createdAt", "updatedAt", "needsAttention"]),
             "TargetInfo": obj([
-                "workerIds": arr(str), "teamPresetId": nullable("string"),
+                "modelIds": arr(str), "teamPresetId": nullable("string"),
                 "preferredModelIds": arr(str), "fallbackModelIds": arr(str),
                 "requiredModelIds": arr(str), "minWorkers": nullable("integer"),
-            ], required: ["workerIds", "preferredModelIds", "fallbackModelIds", "requiredModelIds"]),
+            ], required: ["modelIds", "preferredModelIds", "fallbackModelIds", "requiredModelIds"]),
             "PolicyInfo": obj([
                 "selection": str, "attentionMode": str, "drainMode": str,
                 "maxAttempts": nullable("integer"), "retryFloorSeconds": nullable("integer"),
@@ -362,9 +362,9 @@ public enum ContractSchema {
             ], required: ["kind", "source", "sourceConfidence", "rawSnippet", "observedAt"]),
             "AttemptInfo": obj([
                 "attemptId": str, "createdAt": str, "startedAt": nullable("string"),
-                "completedAt": nullable("string"), "workerIds": arr(str), "status": str,
+                "completedAt": nullable("string"), "modelIds": arr(str), "status": str,
                 "reason": nullable("string"), "transcriptRef": nullable("string"),
-            ], required: ["attemptId", "createdAt", "workerIds", "status"]),
+            ], required: ["attemptId", "createdAt", "modelIds", "status"]),
             "NextAction": obj([
                 "kind": enumStr(["submitPending", "runPending", "showPending", "cancelPending"]),
                 "command": str, "label": nullable("string"),
