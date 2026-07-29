@@ -119,7 +119,7 @@ public enum ContractSchema {
             ], required: ["id", "displayName", "sourceId", "status"]),
             "WorkerInfo": obj([
                 "id": str, "skillId": nullable("string"), "skillName": nullable("string"),
-                "resolvedWorkerPromptSnapshot": nullable("string"),
+                "resolvedAgentPromptSnapshot": nullable("string"),
                 "modelId": str, "modelName": str, "sourceId": str,
                 "purpose": enumStr(["answer", "plan", "review"]), "instanceIndex": int,
             ], required: ["id", "modelId", "modelName", "sourceId", "purpose", "instanceIndex"]),
