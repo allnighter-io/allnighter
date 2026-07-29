@@ -65,7 +65,7 @@ final class FixtureRoundTripTests: XCTestCase {
         XCTAssertEqual(preset.workerSpecs.count, 6)
         XCTAssertEqual(preset.synthesis.planWriterModelId, "model_opus")
         XCTAssertEqual(preset.synthesis.analysisDepth, .combined)
-        XCTAssertEqual(preset.workerIds.count, 6)
+        XCTAssertEqual(preset.modelIds.count, 6)
     }
 
     func testPanelPresetBuiltInDefaultDefaultsPlanWriterToOpus() throws {

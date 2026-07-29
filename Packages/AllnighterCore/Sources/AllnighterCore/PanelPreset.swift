@@ -60,8 +60,8 @@ public struct PanelPreset: Codable, Sendable, Equatable, Identifiable {
         self.builtIn = builtIn
     }
 
-    /// Distinct worker ids referenced by the seats, in first-seen order.
-    public var workerIds: [String] {
+    /// Distinct model ids referenced by the seats, in first-seen order.
+    public var modelIds: [String] {
         var seen = Set<String>()
         var ordered: [String] = []
         for spec in workerSpecs where seen.insert(spec.modelId).inserted {
