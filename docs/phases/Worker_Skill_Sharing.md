@@ -105,13 +105,14 @@ Model  = who runs the row
 Skill  = the shared instruction profile the Model wears
 ```
 
-Team staffing UI keeps **WORKERS**, **+ Add worker**, **Team Lead**, and the
-`N workers + 1 lead` summary. The drill-in fields are **Model**, **Skill**, and
-**skill.md**. Do not add Prompt as a fourth concept. `Seat` remains an internal
-architecture word, not the staffing label.
+Team staffing UI uses **AGENTS** with **MODEL | SKILL** column headers,
+**+ Add agent**, **Team Lead**, and the `N agents + 1 lead` summary. Model is
+staffed on the roster row; the skill cell opens **Edit skill** (Skill →
+skill.md). Do not add Prompt as a fourth concept. `Seat` and `Worker` remain
+internal architecture words, not staffing labels.
 
 `TeamWorkerSpec.preferredModelId == nil` is the existing **Auto** staffing
-choice. It is valid in the Worker drill-in and must remain nil when the user edits
+choice. It is valid on the roster row and must remain nil when the user edits
 only a Skill; never relabel it `Pick a model` or force a concrete Model as the
 price of saving Skill work.
 
@@ -174,7 +175,7 @@ the observed error, and leave the roster row unchanged.
 
 ### Blast radius
 
-Before Worker Done commits a changed existing Skill, the Mac app shows every
+Before Skill Done commits a changed existing Skill, the Mac app shows every
 saved Team that currently references the ID, by display name:
 
 ```text
@@ -281,13 +282,11 @@ and bump the binary patch version at closeout.
 
 ## Mac Presentation
 
-The existing Worker drill-in is the only Skill editing surface:
+The existing skill drill-in is the only Skill editing surface:
 
 ```text
-Edit worker · Bug Hunt
-
-MODEL
-[ Auto ▼ ]
+Edit skill · Bug Reproducer
+Auto · Bug Hunt
 
 SKILL                                           [ + ]
 [ Bug Reproducer ▼ ]                 [ Restore default ]
@@ -296,14 +295,24 @@ skill.md
 ┌──────────────────────────────────────────────┐
 │ Reproduce from the smallest failing case... │
 └──────────────────────────────────────────────┘
-Shared across 3 teams: Bug Hunt Min · Bug Hunt · Bug Hunt Max
+This skill is used by 3 teams: Bug Hunt Min · Bug Hunt · Bug Hunt Max
+Model applies to this team only — change it on the roster row.
 
-[ Cancel worker changes ]  [ Done ]
+[ Cancel skill changes ]  [ Done ]
+```
+
+Roster (parent screen):
+
+```text
+AGENTS
+MODEL              SKILL
+[ Auto ▼ ]         [ Bug Reproducer › ]
+[ + Add agent ]
 ```
 
 Rules:
 
-- Field order is Model → Skill → skill.md.
+- Field order in the drill-in is Skill → skill.md. Model is roster-only.
 - Model nil renders as Auto and does not block Worker Done.
 - Restore appears only for an overridden built-in and refreshes the editor to
   the seed after a successful Core write.

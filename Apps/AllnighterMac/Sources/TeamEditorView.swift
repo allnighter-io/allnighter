@@ -198,8 +198,7 @@ struct TeamEditorView: View {
     /// The draft as first loaded — compared against `draft` to know if anything was
     /// actually edited (so Cancel only appears when there's something to cancel).
     private let initialDraft: TeamDraft
-    /// Level-2: which worker row is open in the Customize-worker editor (nil = the
-    /// team roster). The pane pushes to the worker editor and back.
+    /// Level-2: which roster row is open in Edit skill (nil = team roster).
     @State private var editingRow: Int?
     /// Level-2 for the Team Lead (separate from worker rows; the Lead is pinned).
     @State private var editingLead = false
@@ -282,15 +281,15 @@ struct TeamEditorView: View {
     var body: some View {
         Group {
             if let i = editingRow, draft.rows.indices.contains(i) {
-                CustomizeWorkerView(
-                    teamName: draft.name, roleLabel: "worker", lane: lane, models: models, laneSkills: laneSkills,
+                EditSkillView(
+                    teamName: draft.name, isLead: false, lane: lane, models: models, laneSkills: laneSkills,
                     row: draft.rows[i],
                     onDone: { updated in draft.rows[i] = updated; editingRow = nil },
                     onCancel: { editingRow = nil }
                 )
             } else if editingLead {
-                CustomizeWorkerView(
-                    teamName: draft.name, roleLabel: "Team Lead", lane: lane, models: models,
+                EditSkillView(
+                    teamName: draft.name, isLead: true, lane: lane, models: models,
                     laneSkills: leadSkills, defaultPurpose: .planWriter,
                     row: draft.lead,
                     onDone: { updated in draft.lead = updated; editingLead = false },
@@ -340,7 +339,7 @@ struct TeamEditorView: View {
                 Text(draft.name).font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(ALColor.textPrimary).lineLimit(1)
                 Text(canRestore ? "\(lane.label) team · edited · Restore to revert"
-                                : "\(lane.label) team · skill | model")
+                                : "\(lane.label) team · model · skill")
                     .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 0)
@@ -445,16 +444,16 @@ struct TeamEditorView: View {
                 Text("· reports back · required").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
                 Spacer(minLength: 0)
             }
+            rosterColumnHeaders()
             leadRow
-            Text("Reads every worker's output and writes the single answer.")
+            Text("Reads every agent's output and writes the single answer.")
                 .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
         }
     }
 
     private var leadRow: some View {
         HStack(spacing: 8) {
-            // Skill cell opens the same level-2 editor (skill + prompt + model). No
-            // remove button — the Lead is mandatory.
+            modelPicker(draft.lead.modelId) { draft.lead.modelId = $0 }
             Button { editingLead = true } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "megaphone.fill").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
@@ -469,16 +468,13 @@ struct TeamEditorView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-
-            modelPicker(draft.lead.modelId) { draft.lead.modelId = $0 }
-            // Width-match the workers' × column so the model dropdowns align.
             Color.clear.frame(width: 14, height: 1)
         }
     }
 
     private var workers: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(draft.mutating ? "AGENT" : "WORKERS")
+            Text(draft.mutating ? "AGENT" : "AGENTS")
                 .font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
             if draft.mutating {
                 Text(isDefaultAutoTeam
@@ -486,10 +482,16 @@ struct TeamEditorView: View {
                      : "One agent does the work in the repo root — no separate lead.")
                     .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
             }
+            rosterColumnHeaders(showRemoveColumn: !draft.mutating)
             ForEach($draft.rows) { $row in
                 HStack(spacing: 8) {
-                    // Skill cell opens the level-2 Customize-worker editor (skill +
-                    // prompt + model). A dot marks a worker whose prompt is tuned.
+                    if isDefaultAutoTeam {
+                        defaultModelCell
+                    } else if isTriangulated(row.id) {
+                        triangulatedModelCell(count: triangulateCount(row.id))
+                    } else {
+                        modelPicker($row.wrappedValue.modelId) { $row.wrappedValue.modelId = $0 }
+                    }
                     Button { editingRow = draft.rows.firstIndex { $0.id == row.id } } label: {
                         HStack(spacing: 6) {
                             Text(skillLabel($row.wrappedValue))
@@ -503,18 +505,6 @@ struct TeamEditorView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-
-                    // Model quick-swap stays inline (rescue: fast model change on the row).
-                    // A triangulated row reads on several distinct CLIs — shown read-only.
-                    // The Auto team's model is owned by the Default-model screen, shown
-                    // read-only here (a per-team pick would be silently ignored by the run).
-                    if isDefaultAutoTeam {
-                        defaultModelCell
-                    } else if isTriangulated(row.id) {
-                        triangulatedModelCell(count: triangulateCount(row.id))
-                    } else {
-                        modelPicker($row.wrappedValue.modelId) { $row.wrappedValue.modelId = $0 }
-                    }
                     if !draft.mutating {
                         Button { draft.rows.removeAll { $0.id == row.id } } label: {
                             Image(systemName: "xmark").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
@@ -530,10 +520,25 @@ struct TeamEditorView: View {
                 draft.rows.append(.init(id: UUID().uuidString, skillId: skillId,
                                         modelId: nil, purpose: .answer)) // nil = Auto
             } label: {
-                Label("Add worker", systemImage: "plus").font(.system(size: 12, weight: .medium))
+                Label("Add agent", systemImage: "plus").font(.system(size: 12, weight: .medium))
             }
             .disabled(draft.mutating)
             .buttonStyle(.plain).foregroundStyle(ALColor.textSecondary).padding(.top, 2)
+        }
+    }
+
+    /// Column labels for model + skill roster rows (agents and team lead).
+    private func rosterColumnHeaders(showRemoveColumn: Bool = true) -> some View {
+        HStack(spacing: 8) {
+            Text("MODEL")
+                .font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("SKILL")
+                .font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if showRemoveColumn {
+                Color.clear.frame(width: 14, height: 1)
+            }
         }
     }
 
@@ -571,6 +576,7 @@ struct TeamEditorView: View {
         }
         .buttonStyle(.plain)
         .help("Auto runs your Default model — change it in Default model")
+        .frame(maxWidth: .infinity)
     }
 
     /// A model picker whose first option is Auto (nil). Picking Auto clears the pin.
@@ -579,6 +585,7 @@ struct TeamEditorView: View {
         return picker(current: modelDisplay(id), options: options) { picked in
             onPick(picked == Self.autoOptionId ? nil : picked)
         }
+        .frame(maxWidth: .infinity)
     }
 
     private func isTriangulated(_ rowId: String) -> Bool {
@@ -601,6 +608,7 @@ struct TeamEditorView: View {
         .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
         .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
         .help("Reads the scout's source on \(count) distinct CLIs (e.g. Grok, GPT-5.5, Gemini).")
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Scout (Signal teams)
@@ -617,7 +625,11 @@ struct TeamEditorView: View {
                         .foregroundStyle(ALColor.textFaint)
                     Spacer(minLength: 0)
                 }
+                rosterColumnHeaders(showRemoveColumn: false)
                 HStack(spacing: 8) {
+                    picker(current: modelDisplay(scout.modelId),
+                           options: models.map { ($0.id, $0.displayName) }) { draft.scout?.modelId = $0 }
+                        .frame(maxWidth: .infinity)
                     HStack(spacing: 6) {
                         Image(systemName: "antenna.radiowaves.left.and.right")
                             .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
@@ -628,14 +640,9 @@ struct TeamEditorView: View {
                     .padding(.horizontal, 9).frame(height: 30).frame(maxWidth: .infinity)
                     .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
                     .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-
-                    // Scout shows a concrete model (Grok), not Auto — its model is
-                    // load-bearing (only Grok reads X).
-                    picker(current: modelDisplay(scout.modelId),
-                           options: models.map { ($0.id, $0.displayName) }) { draft.scout?.modelId = $0 }
                     Color.clear.frame(width: 14, height: 1)
                 }
-                Text("Grok grabs the public link/post and distills it for the workers.")
+                Text("Grok grabs the public link/post and distills it for the agents.")
                     .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
                 if let warning = SignalScoutPolicy.scoutModelWarning(scout.modelId) {
                     HStack(alignment: .top, spacing: 6) {
@@ -665,7 +672,7 @@ struct TeamEditorView: View {
             Toggle(isOn: $draft.mutating) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Mutating team").font(.system(size: 13, weight: .medium)).foregroundStyle(ALColor.textPrimary)
-                    Text("Runs one worker in the repo root under the write lock.")
+                    Text("Runs one agent in the repo root under the write lock.")
                         .font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
                 }
             }
@@ -706,13 +713,13 @@ struct TeamEditorView: View {
             if let mid = row.modelId, let source = bench[mid] { sources.insert(source) }
         }
         guard sources.count > 1 else { return nil }
-        return "Execution teams run on one CLI. Pick one source for all workers."
+        return "Execution teams run on one CLI. Pick one source for all agents."
     }
 
     private var summary: some View {
         Text(draft.mutating
              ? "1 agent · runs in the repo root under the write lock · saved as a \(lane.label.lowercased()) team you can pick in the composer."
-             : "\(draft.rows.count) workers + 1 lead · saved as a \(lane.label.lowercased()) team you can pick in the composer.")
+             : "\(draft.rows.count) agents + 1 lead · saved as a \(lane.label.lowercased()) team you can pick in the composer.")
             .font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
     }
 
@@ -789,12 +796,12 @@ struct TeamEditorView: View {
     }
 }
 
-// MARK: - Customize worker (level 2)
+// MARK: - Edit skill (level 2)
 
-/// Edit worker: Model → Skill → skill.md. Skill catalog writes commit on Done.
-private struct CustomizeWorkerView: View {
+/// Edit skill: Skill → skill.md. Model is staffed on the roster row; catalog writes commit on Done.
+private struct EditSkillView: View {
     let teamName: String
-    let roleLabel: String
+    let isLead: Bool
     let lane: ComposeLane
     let models: [Model]
     let laneSkills: [Skill]
@@ -804,20 +811,18 @@ private struct CustomizeWorkerView: View {
     var onCancel: () -> Void
 
     @State private var skillId: String
-    @State private var modelId: String?
     @State private var templateText: String
     @State private var isNewSkill: Bool
     @State private var newSkillName: String
     @State private var errorText: String?
 
-    init(teamName: String, roleLabel: String = "worker", lane: ComposeLane, models: [Model],
+    init(teamName: String, isLead: Bool = false, lane: ComposeLane, models: [Model],
          laneSkills: [Skill], defaultPurpose: SkillPurpose = .answer,
          row: TeamDraft.Row, onDone: @escaping (TeamDraft.Row) -> Void, onCancel: @escaping () -> Void) {
-        self.teamName = teamName; self.roleLabel = roleLabel; self.lane = lane; self.models = models
+        self.teamName = teamName; self.isLead = isLead; self.lane = lane; self.models = models
         self.laneSkills = laneSkills; self.defaultPurpose = defaultPurpose; self.row = row
         self.onDone = onDone; self.onCancel = onCancel
         _skillId = State(initialValue: row.skillId)
-        _modelId = State(initialValue: row.modelId)
         _templateText = State(initialValue: SkillCatalog.get(row.skillId)?.template ?? "")
         _isNewSkill = State(initialValue: row.skillId.isEmpty)
         _newSkillName = State(initialValue: "")
@@ -841,11 +846,11 @@ private struct CustomizeWorkerView: View {
     }
     private var blastRadiusLine: String {
         if isNewSkill {
-            return "New skill — it is not used until you save this team."
+            return "New skill — not used until you save this team."
         }
         let names = SkillCatalog.teamDisplayNamesReferencingSkill(skillId)
-        if names.isEmpty { return "Not used by a saved team yet." }
-        return "Shared across \(names.count) team\(names.count == 1 ? "" : "s"): \(names.joined(separator: " · "))"
+        if names.isEmpty { return "This skill is not used by a saved team yet." }
+        return "This skill is used by \(names.count) team\(names.count == 1 ? "" : "s"): \(names.joined(separator: " · "))"
     }
     private func modelLabel(_ id: String?) -> String {
         guard let id else { return "Auto" }
@@ -884,7 +889,7 @@ private struct CustomizeWorkerView: View {
             let result = try WorkerSkillCommit.apply(.init(
                 skillId: skillId,
                 template: templateText,
-                modelId: modelId,
+                modelId: row.modelId,
                 lane: lane.workLane,
                 defaultPurpose: defaultPurpose,
                 isNewSkill: isNewSkill,
@@ -915,11 +920,13 @@ private struct CustomizeWorkerView: View {
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    field("MODEL") { modelField }
                     skillField
                     if isNewSkill { newSkillNameField }
                     skillMdEditor
                     Text(blastRadiusLine)
+                        .font(.system(size: 11))
+                        .foregroundStyle(ALColor.textSecondary)
+                    Text("Model applies to this team only — change it on the roster row.")
                         .font(.system(size: 11))
                         .foregroundStyle(ALColor.textFaint)
                     if let errorText {
@@ -937,9 +944,9 @@ private struct CustomizeWorkerView: View {
             Button(action: onCancel) { Image(systemName: "arrow.left").font(.system(size: 13)) }
                 .buttonStyle(.plain).foregroundStyle(ALColor.textSecondary)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Edit \(roleLabel.lowercased()) · \(teamName)")
+                Text("Edit skill · \(currentSkillLabel)")
                     .font(.system(size: 14, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-                Text("\(currentSkillLabel) · \(modelLabel(modelId))")
+                Text(headerSubtitle)
                     .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
             }
             Spacer(minLength: 0)
@@ -947,12 +954,10 @@ private struct CustomizeWorkerView: View {
         .padding(.horizontal, 18).padding(.vertical, 14)
     }
 
-    private var modelField: some View {
-        let options: [(String, String)] = [(TeamEditorView.autoOptionId, "Auto")]
-            + models.map { ($0.id, $0.displayName) }
-        return ALDropdown(current: modelLabel(modelId), options: options) { pick in
-            modelId = pick == TeamEditorView.autoOptionId ? nil : pick
-        }
+    private var headerSubtitle: String {
+        let model = modelLabel(row.modelId)
+        if isLead { return "\(model) · \(teamName) · Team lead" }
+        return "\(model) · \(teamName)"
     }
 
     private var skillField: some View {
@@ -1003,13 +1008,6 @@ private struct CustomizeWorkerView: View {
         }
     }
 
-    private func field<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
-            content()
-        }
-    }
-
     private var skillMdEditor: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("skill.md").font(.system(size: 10, weight: .semibold)).tracking(0.6).foregroundStyle(ALColor.textFaint)
@@ -1027,7 +1025,7 @@ private struct CustomizeWorkerView: View {
     private var footer: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
-            Button("Cancel \(roleLabel) changes", action: onCancel).buttonStyle(.alSecondary(small: true))
+            Button("Cancel skill changes", action: onCancel).buttonStyle(.alSecondary(small: true))
             Button("Done", action: commitDone)
                 .buttonStyle(.alPrimary(small: true))
                 .disabled(!isDoneEnabled)
