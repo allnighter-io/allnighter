@@ -12,8 +12,8 @@ public enum TeamRunReplayCommand {
       parts.append("\"\(run.prompt)\"")
     }
     if let team = run.presetId { parts.append("--team \(team)") }
-    for worker in run.explicitModelIds ?? [] where !worker.isEmpty {
-      parts.append("--model \(worker)")
+    for modelId in run.explicitModelIds ?? [] where !modelId.isEmpty {
+      parts.append("--model \(modelId)")
     }
     for seat in run.explicitSeatModelIds ?? [] where !seat.isEmpty {
       parts.append("--seat \(seat)")

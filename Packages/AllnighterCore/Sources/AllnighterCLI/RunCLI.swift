@@ -698,8 +698,8 @@ enum RunCLI {
         if !run.prompt.isEmpty { parts.append("\"\(run.prompt)\"") }
         parts.append(contentsOf: ["--project", project.id])
         if let team = run.presetId { parts.append(contentsOf: ["--team", team]) }
-        for worker in run.explicitModelIds ?? [] where !worker.isEmpty {
-            parts.append(contentsOf: ["--model", worker])
+        for modelId in run.explicitModelIds ?? [] where !modelId.isEmpty {
+            parts.append(contentsOf: ["--model", modelId])
         }
         for seat in run.explicitSeatModelIds ?? [] where !seat.isEmpty {
             parts.append(contentsOf: ["--seat", seat])
