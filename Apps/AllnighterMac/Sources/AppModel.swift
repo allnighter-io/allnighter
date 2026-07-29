@@ -113,8 +113,8 @@ final class AppModel {
         currentPinnedSeatSpecs.contains { $0.modelId == model.id }
     }
 
-    func seatCount(for worker: Model) -> Int {
-        currentPinnedSeatSpecs.first { $0.modelId == worker.id }?.count ?? 0
+    func seatCount(for model: Model) -> Int {
+        currentPinnedSeatSpecs.first { $0.modelId == model.id }?.count ?? 0
     }
 
     /// Toggle a worker in/out of the current (ad-hoc) panel. Marks the panel as
