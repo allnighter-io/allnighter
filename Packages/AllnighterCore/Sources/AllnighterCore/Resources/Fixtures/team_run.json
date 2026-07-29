@@ -21,7 +21,7 @@
     "modelId": "model_sonnet",
     "writePolicy": "mutating",
     "identitySummary": "worker model_sonnet · lane code · mutating",
-    "planWriterWorkerId": null,
+    "planWriterAgentId": null,
     "reproduceCommand": "alln run --model model_sonnet \"Say success.\"",
     "endReason": "completed",
     "blocker": null,

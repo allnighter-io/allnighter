@@ -15,7 +15,7 @@ struct TeamRunJSONPresenter {
     /// Canonical result text. Prefer `answer.markdown`; plan/worker rows no longer duplicate it.
     var planMarkdown: String? { run.answer?.markdown ?? run.plan?.markdown }
     var answerMarkdown: String? { run.answer?.markdown }
-    var planWriterWorkerId: String? { run.teamRun.planWriterWorkerId }
+    var planWriterAgentId: String? { run.teamRun.planWriterAgentId }
     var stageSummaries: [String] { run.stages.map { "\($0.purpose.rawValue): \($0.status.rawValue)" } }
 
     struct WorkerRow: Identifiable {

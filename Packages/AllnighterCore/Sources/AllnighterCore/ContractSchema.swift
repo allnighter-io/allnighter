@@ -74,7 +74,7 @@ public enum ContractSchema {
                 "teamDisplayName": nullable("string"), "outputKind": nullable("string"),
                 "modelId": nullable("string"), "writePolicy": nullable("string"),
                 "identitySummary": nullable("string"),
-                "planWriterWorkerId": nullable("string"), "reproduceCommand": nullable("string"),
+                "planWriterAgentId": nullable("string"), "reproduceCommand": nullable("string"),
                 "endReason": nullable("string"), "blocker": nullableRef("BlockerJSON"),
                 "attempts": arr(ref("RunAttempt")),
             ], required: ["id", "status", "origin", "prompt", "promptSource", "createdAt", "attempts"]),

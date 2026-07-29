@@ -30,7 +30,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         // Plan produced → plan-writer invariant holds; markdown moved to answer.
         XCTAssertEqual(trj.plan?.status, .done)
         XCTAssertNotNil(trj.plan?.writerAgentId)
-        XCTAssertEqual(trj.plan?.writerAgentId, trj.teamRun.planWriterWorkerId)
+        XCTAssertEqual(trj.plan?.writerAgentId, trj.teamRun.planWriterAgentId)
         XCTAssertNil(trj.plan?.markdown)
         let answer = try XCTUnwrap(trj.answer)
         XCTAssertEqual(answer.source.kind, .plan)
@@ -87,7 +87,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
 
         XCTAssertEqual(trj.teamRun.status, .done)           // partial -> done
         XCTAssertNil(trj.plan)                              // no plan produced -> null
-        XCTAssertNil(trj.teamRun.planWriterWorkerId)
+        XCTAssertNil(trj.teamRun.planWriterAgentId)
         // Failed workers are shown failed with an error envelope — never hidden.
         let failed = trj.answers.filter { $0.status == .failed || $0.status == .timedOut }
         XCTAssertFalse(failed.isEmpty)

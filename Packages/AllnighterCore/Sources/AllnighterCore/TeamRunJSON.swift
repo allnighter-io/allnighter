@@ -177,7 +177,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var writePolicy: String?
         /// Headline identity: `worker <id> · lane <lane> · mutating|readOnly`.
         public var identitySummary: String?
-        public var planWriterWorkerId: String?
+        public var planWriterAgentId: String?
         public var reproduceCommand: String?
         /// Why a terminal run ended (`completed|failed|cancelled|reconciledOrphan|killed|unknown`).
         /// Actor-stamped only — never inferred. Nil while live (PO-S01 v2).
@@ -196,7 +196,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             startedAt: String? = nil, completedAt: String? = nil, threadId: String? = nil,
             teamPresetId: String? = nil, teamDisplayName: String? = nil, outputKind: String? = nil,
             modelId: String? = nil, writePolicy: String? = nil, identitySummary: String? = nil,
-            planWriterWorkerId: String? = nil, reproduceCommand: String? = nil,
+            planWriterAgentId: String? = nil, reproduceCommand: String? = nil,
             endReason: String? = nil, blocker: BlockerJSON? = nil,
             attempts: [AttemptJSON] = []
         ) {
@@ -208,7 +208,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             self.teamPresetId = teamPresetId; self.teamDisplayName = teamDisplayName
             self.outputKind = outputKind; self.modelId = modelId
             self.writePolicy = writePolicy; self.identitySummary = identitySummary
-            self.planWriterWorkerId = planWriterWorkerId
+            self.planWriterAgentId = planWriterAgentId
             self.reproduceCommand = reproduceCommand
             self.endReason = endReason
             self.blocker = blocker
@@ -218,7 +218,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         private enum CodingKeys: String, CodingKey {
             case id, status, origin, originAgent, lane, type, effort, prompt, promptSource
             case createdAt, startedAt, completedAt, threadId, teamPresetId, teamDisplayName
-            case outputKind, modelId, writePolicy, identitySummary, planWriterWorkerId
+            case outputKind, modelId, writePolicy, identitySummary, planWriterAgentId
             case reproduceCommand, endReason, blocker, attempts
         }
 
@@ -243,7 +243,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             modelId = try c.decodeIfPresent(String.self, forKey: .modelId)
             writePolicy = try c.decodeIfPresent(String.self, forKey: .writePolicy)
             identitySummary = try c.decodeIfPresent(String.self, forKey: .identitySummary)
-            planWriterWorkerId = try c.decodeIfPresent(String.self, forKey: .planWriterWorkerId)
+            planWriterAgentId = try c.decodeIfPresent(String.self, forKey: .planWriterAgentId)
             reproduceCommand = try c.decodeIfPresent(String.self, forKey: .reproduceCommand)
             endReason = try c.decodeIfPresent(String.self, forKey: .endReason)
             blocker = try c.decodeIfPresent(BlockerJSON.self, forKey: .blocker)
