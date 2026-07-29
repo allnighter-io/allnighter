@@ -148,7 +148,7 @@ enum RelayCLI {
         guard !args.isEmpty else { usage("relay adopt --relay <id> --pm-model <modelId> [--max-rounds N] [--until HH:MM] [--no-wait] [--json]") }
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        guard let pmWorkerId = opts.value("pm-model") else { fail(.missingRequired("--pm-model <modelId>")) }
+        guard let pmModelId = opts.value("pm-model") else { fail(.missingRequired("--pm-model <modelId>")) }
         guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else {
             fail(.invalidMaxRounds(opts.value("max-rounds") ?? ""))
         }
@@ -160,12 +160,12 @@ enum RelayCLI {
         let projectId = AllnighterCLI.resolveProject(priorState.projectRoot, store: ProjectStore())?.id
         let config = RelayCoordinator.Config(
             projectRoot: priorState.projectRoot, projectId: projectId, docPath: priorState.docPath,
-            pmWorkerId: pmWorkerId, devModelId: priorState.devModelId,
+            pmModelId: pmModelId, devModelId: priorState.devModelId,
             maxRounds: maxRounds, until: untilParsed.value
         )
 
         if opts.flag("no-wait") {
-            await runAdoptNoWait(relayId: relayId, pmWorkerId: pmWorkerId, config: config, opts: opts, runtime: runtime)
+            await runAdoptNoWait(relayId: relayId, pmModelId: pmModelId, config: config, opts: opts, runtime: runtime)
             return
         }
 
@@ -176,7 +176,7 @@ enum RelayCLI {
 
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
         let emitJSON = opts.flag("json")
-        let result = await coordinator.adopt(relayId: relayId, pmWorkerId: pmWorkerId, config: config) { event in
+        let result = await coordinator.adopt(relayId: relayId, pmModelId: pmModelId, config: config) { event in
             emit(event, json: emitJSON)
         }
         switch result {
@@ -190,10 +190,10 @@ enum RelayCLI {
     /// RSC-HF: `pair relay adopt --no-wait`. Parent does not mutate — child runs the
     /// normal registered `relay adopt` path and reports acceptance after claim.
     private static func runAdoptNoWait(
-        relayId: String, pmWorkerId: String, config: RelayCoordinator.Config,
+        relayId: String, pmModelId: String, config: RelayCoordinator.Config,
         opts: Options, runtime: ToolRuntime
     ) async {
-        _ = (relayId, pmWorkerId, runtime)
+        _ = (relayId, pmModelId, runtime)
         await awaitDetachedAcceptance(cwd: config.projectRoot, json: opts.flag("json"))
     }
 
@@ -243,13 +243,13 @@ enum RelayCLI {
         let opts = Options(args)
         guard let docPath = opts.value("doc") else { throw RelayCLIError.missingRequired("--doc <path>") }
         guard let projectToken = opts.value("project") else { throw RelayCLIError.missingRequired("--project <id|path>") }
-        guard let pmWorkerId = opts.value("pm-model") else { throw RelayCLIError.missingRequired("--pm-model <modelId>") }
+        guard let pmModelId = opts.value("pm-model") else { throw RelayCLIError.missingRequired("--pm-model <modelId>") }
         guard let devModelId = opts.value("dev-model") else { throw RelayCLIError.missingRequired("--dev-model <modelId>") }
         // Empty `models` (the default) falls back to the live catalog for real
         // invocations; tests inject a hermetic fixture instead (mirrors PilotCLI's
         // `parseStartConfig(models:)` seam) — never reads live user config in tests.
         let catalogModels = models.isEmpty ? ModelCatalog.resolvedModels(registry: DefaultConfig.registry) : models
-        if case .failure(let failure) = ExactIdResolver.resolveWorker(pmWorkerId, flag: "--pm-model", models: catalogModels) {
+        if case .failure(let failure) = ExactIdResolver.resolveWorker(pmModelId, flag: "--pm-model", models: catalogModels) {
             throw RelayCLIError.workerNotAvailable(failure)
         }
         if case .failure(let failure) = ExactIdResolver.resolveWorker(devModelId, flag: "--dev-model", models: catalogModels) {
@@ -270,7 +270,7 @@ enum RelayCLI {
             projectRoot: project.normalizedRootPath,
             projectId: project.id,
             docPath: docPath,
-            pmWorkerId: pmWorkerId,
+            pmModelId: pmModelId,
             devModelId: devModelId,
             maxRounds: maxRounds,
             until: untilParsed.value,
@@ -302,7 +302,7 @@ enum RelayCLI {
         guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else {
             throw RelayCLIError.invalidMaxRounds(opts.value("max-rounds") ?? "")
         }
-        // The coordinator itself re-derives projectRoot/docPath/pmWorkerId/devModelId
+        // The coordinator itself re-derives projectRoot/docPath/pmModelId/devModelId
         // from the persisted state on resume (RelayCoordinator.resume) — resolving the
         // project here too only recovers a real `projectId` for the RunRequest;
         // `nil` degrades gracefully if the project entry can't be found.
@@ -313,7 +313,7 @@ enum RelayCLI {
             projectRoot: priorState.projectRoot,
             projectId: projectId,
             docPath: priorState.docPath,
-            pmWorkerId: priorState.pmWorkerId,
+            pmModelId: priorState.pmModelId,
             devModelId: priorState.devModelId,
             maxRounds: maxRounds,
             until: untilParsed.value

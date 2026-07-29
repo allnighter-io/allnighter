@@ -88,7 +88,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         let rig = makeRig(devScripts: [])
         let started = rig.coordinator.startPilot(config: .init(
             projectRoot: repo.path, projectId: "proj_pilot_1", docPath: "docs/spec.md",
-            pmWorkerId: "ignored", devModelId: "model_dev"
+            pmModelId: "ignored", devModelId: "model_dev"
         ))
         guard case .success(let state) = started else { return XCTFail("start failed") }
 
@@ -105,7 +105,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         let repo = try makeGitRepo()
         let rig = makeRig(devScripts: [.init(stdout: "Implemented and committed.")])
         let started = rig.coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"
         ))
         guard case .success(let relay) = started else { return XCTFail("start failed") }
 
@@ -140,7 +140,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         let repo = try makeGitRepo()
         let rig = makeRig(devScripts: [])
         let started = rig.coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"
         ))
         guard case .success(let relay) = started else { return XCTFail("start failed") }
 
@@ -159,7 +159,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         let repo = try makeGitRepo()
         let rig = makeRig(devScripts: [])
         let started = rig.coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"
         ))
         guard case .success(let relay) = started else { return XCTFail("start failed") }
 
@@ -181,7 +181,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         let repo = try makeGitRepo()
         let rig = makeRig(devScripts: [])
         let started = rig.coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"
         ))
         guard case .success(let relay) = started else { return XCTFail("start failed") }
 
@@ -207,7 +207,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         let repo = try makeGitRepo()
         let rig = makeRig(devScripts: [.init(stdout: "Round done.")])
         let started = rig.coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"
         ))
         guard case .success(let relay) = started else { return XCTFail("start failed") }
 

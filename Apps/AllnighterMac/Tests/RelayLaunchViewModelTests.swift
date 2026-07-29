@@ -131,7 +131,7 @@ final class RelayLaunchViewModelTests: XCTestCase {
 
     func testValidationRequiresDocAndSeats() {
         let issues = RelayLaunchViewModel.validate(
-            docPath: "", pmWorkerId: nil, devModelId: nil, maxRounds: 20)
+            docPath: "", pmModelId: nil, devModelId: nil, maxRounds: 20)
         XCTAssertTrue(issues.contains { $0.id == "doc" })
         XCTAssertTrue(issues.contains { $0.id == "pm" })
         XCTAssertTrue(issues.contains { $0.id == "dev" })
@@ -139,13 +139,13 @@ final class RelayLaunchViewModelTests: XCTestCase {
 
     func testValidationRejectsSameSeatForBothRoles() {
         let issues = RelayLaunchViewModel.validate(
-            docPath: "docs/spec.md", pmWorkerId: "model_x", devModelId: "model_x", maxRounds: 20)
+            docPath: "docs/spec.md", pmModelId: "model_x", devModelId: "model_x", maxRounds: 20)
         XCTAssertTrue(issues.contains { $0.id == "same-seat" })
     }
 
     func testValidationRejectsNonPositiveMaxRounds() {
         let issues = RelayLaunchViewModel.validate(
-            docPath: "docs/spec.md", pmWorkerId: "a", devModelId: "b", maxRounds: 0)
+            docPath: "docs/spec.md", pmModelId: "a", devModelId: "b", maxRounds: 0)
         XCTAssertTrue(issues.contains { $0.id == "max-rounds" })
     }
 
@@ -156,7 +156,7 @@ final class RelayLaunchViewModelTests: XCTestCase {
             models: config.models, registry: config.registry, readyModels: [])
         XCTAssertFalse(vm.canStart)
         vm.docPath = "docs/spec.md"
-        vm.pmWorkerId = "pm_worker"
+        vm.pmModelId = "pm_worker"
         vm.devModelId = "dev_worker"
         XCTAssertTrue(vm.canStart)
     }
@@ -176,7 +176,7 @@ final class RelayLaunchViewModelTests: XCTestCase {
             stateStore: factory.stateStore
         )
         vm.docPath = "docs/spec.md"
-        vm.pmWorkerId = seatable[0].id
+        vm.pmModelId = seatable[0].id
         vm.devModelId = seatable[1].id
 
         guard let relayId = vm.start() else {
@@ -225,7 +225,7 @@ final class RelayLaunchViewModelTests: XCTestCase {
             stateStore: factory.stateStore
         )
         vm.docPath = "docs/spec.md"
-        vm.pmWorkerId = seatable[0].id
+        vm.pmModelId = seatable[0].id
         vm.devModelId = seatable[1].id
 
         // A LIVE .running relay on the exact same normalized root + doc — `save()`
@@ -233,7 +233,7 @@ final class RelayLaunchViewModelTests: XCTestCase {
         // it as alive, exactly like a real concurrent relay would be.
         let existing = RelayState(
             id: "relay_existing_active", projectRoot: vm.projectRoot, docPath: "docs/spec.md",
-            pmWorkerId: seatable[0].id, devModelId: seatable[1].id,
+            pmModelId: seatable[0].id, devModelId: seatable[1].id,
             status: .running, createdAt: Date()
         )
         try factory.stateStore.save(existing)

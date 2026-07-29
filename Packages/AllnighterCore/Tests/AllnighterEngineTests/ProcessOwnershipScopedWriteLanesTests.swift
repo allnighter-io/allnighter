@@ -478,7 +478,7 @@ final class ProcessOwnershipScopedWriteLanesTests: XCTestCase {
             id: "relay_scope_violation",
             projectRoot: repo.path,
             docPath: "docs/spec.md",
-            pmWorkerId: "model_pm",
+            pmModelId: "model_pm",
             devModelId: "model_dev",
             status: .awaitingPM,
             rounds: [round],

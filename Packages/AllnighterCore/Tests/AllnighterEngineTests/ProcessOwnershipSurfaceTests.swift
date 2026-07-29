@@ -85,7 +85,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
             id: "relay_live_1",
             projectRoot: "/tmp/relay-repo",
             docPath: "docs/spec.md",
-            pmWorkerId: "model_pm",
+            pmModelId: "model_pm",
             devModelId: "model_dev",
             status: .running,
             createdAt: Date()
@@ -186,7 +186,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
         try ProcessOwnership.writeOwnerIdentity(liveIdentity, in: try runs.runDirectory(forRunId: "run-b"))
         var relay = RelayState(
             id: "relay_b_1", projectRoot: "/tmp/repo-b", docPath: "d.md",
-            pmWorkerId: "pm", devModelId: "dev", status: .running, createdAt: Date()
+            pmModelId: "pm", devModelId: "dev", status: .running, createdAt: Date()
         )
         relay.rounds = [RelayRound(roundNumber: 1, startedAt: Date())]
         _ = try relays.save(relay)
@@ -230,7 +230,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
 
         var stoppedRelay = RelayState(
             id: "relay_stopped", projectRoot: "/tmp/r", docPath: "d.md",
-            pmWorkerId: "pm", devModelId: "dev", status: .stopped, createdAt: Date()
+            pmModelId: "pm", devModelId: "dev", status: .stopped, createdAt: Date()
         )
         stoppedRelay.stoppedReason = "done"
         _ = try relays.save(stoppedRelay)
@@ -255,7 +255,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
 
         var relay = RelayState(
             id: "relay_stream", projectRoot: "/tmp/r", docPath: "d.md",
-            pmWorkerId: "pm", devModelId: "dev", status: .running, createdAt: Date()
+            pmModelId: "pm", devModelId: "dev", status: .running, createdAt: Date()
         )
         var round = RelayRound(roundNumber: 1, startedAt: Date())
         round.devRunId = devRunId
@@ -281,7 +281,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
 
         var relay = RelayState(
             id: "relay_orphan", projectRoot: "/tmp/r", docPath: "d.md",
-            pmWorkerId: "pm", devModelId: "dev", status: .running, createdAt: Date()
+            pmModelId: "pm", devModelId: "dev", status: .running, createdAt: Date()
         )
         relay.rounds = [RelayRound(roundNumber: 1, startedAt: Date())]
         _ = try relays.save(relay)
@@ -508,7 +508,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
             id: "relay_kill_1",
             projectRoot: "/tmp/r",
             docPath: "d.md",
-            pmWorkerId: "pm",
+            pmModelId: "pm",
             devModelId: "dev",
             status: .running,
             createdAt: Date()

@@ -168,7 +168,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         let state = try await coordinator.run(config: .init(
             projectRoot: repo.path,
             docPath: "docs/spec.md",
-            pmWorkerId: "model_pm",
+            pmModelId: "model_pm",
             devModelId: "model_dev",
             maxRounds: 5
         )).get()
@@ -237,7 +237,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         let state = try await coordinator.run(config: .init(
             projectRoot: repo.path,
             docPath: "docs/spec.md",
-            pmWorkerId: "model_pm",
+            pmModelId: "model_pm",
             devModelId: "model_dev",
             maxRounds: 5
         )).get()
@@ -280,7 +280,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             id: "relay_standing",
             projectRoot: "/r",
             docPath: "d",
-            pmWorkerId: "pm",
+            pmModelId: "pm",
             devModelId: "dev",
             status: .awaitingPM,
             rounds: [r],

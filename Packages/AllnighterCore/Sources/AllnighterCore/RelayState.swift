@@ -205,7 +205,7 @@ public struct RelayState: Sendable, Codable, Equatable {
     public var id: String
     public var projectRoot: String
     public var docPath: String
-    public var pmWorkerId: String
+    public var pmModelId: String
     public var devModelId: String
     public var status: Status
     /// `spawned` (default) or `external` (Pilot). Legacy relays persisted before this
@@ -250,7 +250,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         id: String,
         projectRoot: String,
         docPath: String,
-        pmWorkerId: String,
+        pmModelId: String,
         devModelId: String,
         status: Status,
         pmMode: PMMode = .spawned,
@@ -268,7 +268,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.id = id
         self.projectRoot = projectRoot
         self.docPath = docPath
-        self.pmWorkerId = pmWorkerId
+        self.pmModelId = pmModelId
         self.devModelId = devModelId
         self.status = status
         self.pmMode = pmMode
@@ -284,7 +284,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.laneBlocked = laneBlocked
     }
 
-    /// Pilot only: the sentinel `pmWorkerId` stamped on an `external`-mode relay —
+    /// Pilot only: the sentinel `pmModelId` stamped on an `external`-mode relay —
     /// there is no PM model to dispatch (the piloting session IS the PM), so this
     /// documents the field's meaning rather than leaving it a real, dispatchable
     /// worker id. Never resolved through `RunService`.
@@ -297,7 +297,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         id = try c.decode(String.self, forKey: .id)
         projectRoot = try c.decode(String.self, forKey: .projectRoot)
         docPath = try c.decode(String.self, forKey: .docPath)
-        pmWorkerId = try c.decode(String.self, forKey: .pmWorkerId)
+        pmModelId = try c.decode(String.self, forKey: .pmModelId)
         devModelId = try c.decode(String.self, forKey: .devModelId)
         status = try c.decode(Status.self, forKey: .status)
         // Legacy decode: every relay persisted before Pilot existed only ever ran

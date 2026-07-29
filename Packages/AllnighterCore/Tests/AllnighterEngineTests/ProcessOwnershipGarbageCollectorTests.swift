@@ -195,7 +195,7 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
             id: "relay-done",
             projectRoot: "/repo",
             docPath: "docs/spec.md",
-            pmWorkerId: "pm",
+            pmModelId: "pm",
             devModelId: "dev",
             status: .done,
             createdAt: .distantPast
@@ -204,7 +204,7 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
             id: "relay-escalated",
             projectRoot: "/repo",
             docPath: "docs/spec.md",
-            pmWorkerId: "pm",
+            pmModelId: "pm",
             devModelId: "dev",
             status: .escalated,
             createdAt: .distantPast

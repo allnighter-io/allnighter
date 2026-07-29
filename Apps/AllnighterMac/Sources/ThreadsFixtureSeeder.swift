@@ -490,12 +490,12 @@ struct ThreadsFixtureSeeder {
     /// `RelayCoordinator`/`RelayState` involved, this is pure UI-fixture data.
     private func seedFixtureRelayEscalated() {
         let id = "fixture-relay-escalated"
-        let pmWorkerId = models.first { $0.id == "model_claude_code" }?.id
+        let pmModelId = models.first { $0.id == "model_claude_code" }?.id
             ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI }?.id
             ?? models.first?.id ?? "model_claude_code"
         let devModelId = models.first { $0.id == "model_codex" }?.id
-            ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI && $0.id != pmWorkerId }?.id
-            ?? pmWorkerId
+            ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI && $0.id != pmModelId }?.id
+            ?? pmModelId
         let base = Date().addingTimeInterval(-600)
 
         guard (try? store.create(
@@ -510,7 +510,7 @@ struct ThreadsFixtureSeeder {
             )
         }
         _ = try? store.appendTurn(turn(
-            "pm1", workerId: pmWorkerId,
+            "pm1", workerId: pmModelId,
             text: "Reviewed baseline..HEAD — nothing to fix yet. Handover: implement §6 R-S08 per the slice table.",
             at: 0
         ), toThreadId: id, now: base)

@@ -153,7 +153,7 @@ enum PilotCLI {
             projectRoot: project.normalizedRootPath,
             projectId: project.id,
             docPath: docPath,
-            pmWorkerId: RelayState.externalPMWorkerId,
+            pmModelId: RelayState.externalPMWorkerId,
             devModelId: devModelId,
             maxRounds: maxRounds,
             devTurnIdleTimeoutSeconds: idleParsed.value

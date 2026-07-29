@@ -61,7 +61,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
         let state = try await coordinator.run(config: .init(
             projectRoot: repo.path,
             docPath: "docs/spec.md",
-            pmWorkerId: "model_pm",
+            pmModelId: "model_pm",
             devModelId: "model_dev",
             maxRounds: 5,
             proofTimeoutSeconds: 1
@@ -252,7 +252,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
             id: "relay_lane_busy",
             projectRoot: repo.path,
             docPath: "docs/spec.md",
-            pmWorkerId: "model_pm",
+            pmModelId: "model_pm",
             devModelId: "model_dev",
             status: .escalated,
             rounds: [round],
@@ -354,7 +354,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
         )
         round.devRunId = "run_dev"
         let state = RelayState(
-            id: "r1", projectRoot: "/r", docPath: "d", pmWorkerId: "pm",
+            id: "r1", projectRoot: "/r", docPath: "d", pmModelId: "pm",
             devModelId: "dev", status: .done, rounds: [round],
             createdAt: Date(timeIntervalSince1970: 1)
         )

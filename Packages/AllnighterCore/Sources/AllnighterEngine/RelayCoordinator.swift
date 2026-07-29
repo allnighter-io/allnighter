@@ -19,7 +19,7 @@ public struct RelayCoordinator: Sendable {
         /// Repo-relative path to the spec doc — never a payload; the PM re-reads it fresh
         /// from disk each round (PM_Relay.md §2, "the doc is an anchor, not a payload").
         public var docPath: String
-        public var pmWorkerId: String
+        public var pmModelId: String
         public var devModelId: String
         public var maxRounds: Int
         public var until: Date?
@@ -49,7 +49,7 @@ public struct RelayCoordinator: Sendable {
             projectRoot: String,
             projectId: String? = nil,
             docPath: String,
-            pmWorkerId: String,
+            pmModelId: String,
             devModelId: String,
             maxRounds: Int = 20,
             until: Date? = nil,
@@ -63,7 +63,7 @@ public struct RelayCoordinator: Sendable {
             self.projectRoot = projectRoot
             self.projectId = projectId
             self.docPath = docPath
-            self.pmWorkerId = pmWorkerId
+            self.pmModelId = pmModelId
             self.devModelId = devModelId
             self.maxRounds = max(1, maxRounds)
             self.until = until
@@ -248,7 +248,7 @@ public struct RelayCoordinator: Sendable {
             id: id ?? idFactory(),
             projectRoot: config.projectRoot,
             docPath: config.docPath,
-            pmWorkerId: config.pmWorkerId,
+            pmModelId: config.pmModelId,
             devModelId: config.devModelId,
             status: .running,
             createdAt: now()
@@ -298,7 +298,7 @@ public struct RelayCoordinator: Sendable {
     /// onto the durable state (`RelayState.pilotMaxRounds`/`pilotStagnationRoundCap`)
     /// because, unlike a spawned relay's `run`/`resume`, there is no long-lived process
     /// to re-supply them at every later round — each `pilot handoff` is a fresh CLI
-    /// invocation. `config.pmWorkerId` is ignored; the durable `pmWorkerId` is always
+    /// invocation. `config.pmModelId` is ignored; the durable `pmModelId` is always
     /// `RelayState.externalPMWorkerId` (there is no PM model to dispatch).
     public func startPilot(config: Config) -> Result<RelayState, PilotStartError> {
         guard config.until == nil else { return .failure(.untilNotSupported) }
@@ -306,7 +306,7 @@ public struct RelayCoordinator: Sendable {
             id: idFactory(),
             projectRoot: config.projectRoot,
             docPath: config.docPath,
-            pmWorkerId: RelayState.externalPMWorkerId,
+            pmModelId: RelayState.externalPMWorkerId,
             devModelId: config.devModelId,
             status: .awaitingPM,
             pmMode: .external,
@@ -480,7 +480,7 @@ public struct RelayCoordinator: Sendable {
             // deadline plumbing, which is always inert here (`until: nil`).
             let dispatchConfig = Config(
                 projectRoot: state.projectRoot, projectId: projectId, docPath: state.docPath,
-                pmWorkerId: state.pmWorkerId, devModelId: state.devModelId,
+                pmModelId: state.pmModelId, devModelId: state.devModelId,
                 maxRounds: maxRounds, until: nil, stagnationRoundCap: stagnationCap,
                 devTurnIdleTimeoutSeconds: state.pilotDevTurnIdleTimeoutSeconds
             )
@@ -588,7 +588,7 @@ public struct RelayCoordinator: Sendable {
     /// `alln pair relay adopt --relay <id> --pm-model <id>` (`docs/phases/
     /// Pilot_Relay.md` §5 "adopt (unattended handover) is the strategic unlock") —
     /// converts a PARKED pilot relay (`pmMode == .external`, `status == .awaitingPM`
-    /// or `.escalated`) to `pmMode: .spawned` with `pmWorkerId` as the new PM seat,
+    /// or `.escalated`) to `pmMode: .spawned` with `pmModelId` as the new PM seat,
     /// then CONTINUES the SAME relay — same id, same round log, same thread — from
     /// exactly where the piloting session left it.
     ///
@@ -616,7 +616,7 @@ public struct RelayCoordinator: Sendable {
     /// NOT persisted onto `RelayState` — see `adopt`'s doc comment). `adopt` is built
     /// on top of this so there is exactly one guard implementation.
     public func adoptGuard(
-        relayId: String, pmWorkerId: String, config: Config
+        relayId: String, pmModelId: String, config: Config
     ) -> Result<(state: RelayState, config: Config, adoptionNote: String), AdoptError> {
         // RSC-S01: the lock covers ONLY the read-check-write window below — released
         // (by dropping this handle) right before the round loop, never held across it.
@@ -645,14 +645,14 @@ public struct RelayCoordinator: Sendable {
         let note = Self.adoptionNoteText(roundsSoFar: state.rounds.count, priorEscalationNote: priorEscalationNote)
 
         state.pmMode = .spawned
-        state.pmWorkerId = pmWorkerId
+        state.pmModelId = pmModelId
         state.status = .running
         state.finishedAt = nil
 
         var adoptedConfig = config
         adoptedConfig.projectRoot = state.projectRoot
         adoptedConfig.docPath = state.docPath
-        adoptedConfig.pmWorkerId = pmWorkerId
+        adoptedConfig.pmModelId = pmModelId
         adoptedConfig.devModelId = state.devModelId
 
         threadProjector?.started(state: state, projectId: config.projectId)
@@ -668,9 +668,9 @@ public struct RelayCoordinator: Sendable {
     }
 
     public func adopt(
-        relayId: String, pmWorkerId: String, config: Config, events: EventSink? = nil
+        relayId: String, pmModelId: String, config: Config, events: EventSink? = nil
     ) async -> Result<RelayState, AdoptError> {
-        switch adoptGuard(relayId: relayId, pmWorkerId: pmWorkerId, config: config) {
+        switch adoptGuard(relayId: relayId, pmModelId: pmModelId, config: config) {
         case .failure(let error):
             return .failure(error)
         case .success(let (flipped, adoptedConfig, note)):
@@ -720,7 +720,7 @@ public struct RelayCoordinator: Sendable {
     /// relay (`RelayState.isResumable`: `escalated`, or ceiling-`stopped` and
     /// reconciled) is EXACTLY the set `relay-resume` already accepts, so this simply
     /// re-labels it `pmMode: .external`, `status: .awaitingPM`,
-    /// `pmWorkerId: RelayState.externalPMWorkerId` and persists — the round log and
+    /// `pmModelId: RelayState.externalPMWorkerId` and persists — the round log and
     /// thread carry over untouched, and the piloting session picks it up with an
     /// ordinary `pilot handoff` next. `static` for the same reason `reconcileOrphan`
     /// is: a plain state mutation shouldn't need a full `RelayCoordinator` (and the
@@ -737,7 +737,7 @@ public struct RelayCoordinator: Sendable {
 
         var state = reconciled
         state.pmMode = .external
-        state.pmWorkerId = RelayState.externalPMWorkerId
+        state.pmModelId = RelayState.externalPMWorkerId
         state.status = .awaitingPM
         state.finishedAt = nil
         state.stoppedReason = nil
@@ -820,7 +820,7 @@ public struct RelayCoordinator: Sendable {
         var resumedConfig = config
         resumedConfig.projectRoot = state.projectRoot
         resumedConfig.docPath = state.docPath
-        resumedConfig.pmWorkerId = state.pmWorkerId
+        resumedConfig.pmModelId = state.pmModelId
         resumedConfig.devModelId = state.devModelId
 
         state.founderNote = founderAnswer
@@ -1037,7 +1037,7 @@ public struct RelayCoordinator: Sendable {
         let pmRequest = RunRequest(
             message: RelayPMPrompt.assemble(context: pmContext),
             repoRoot: config.projectRoot, projectId: config.projectId,
-            presetId: config.presetId, pinnedModelId: config.pmWorkerId
+            presetId: config.presetId, pinnedModelId: config.pmModelId
         )
         let pmDispatch = await dispatchTurn(pmRequest, config: config)
 
@@ -1074,7 +1074,7 @@ public struct RelayCoordinator: Sendable {
             let reaskRequest = RunRequest(
                 message: RelayReaskPrompt.assemble(previousOutput: pmOutput, parseError: parseError),
                 repoRoot: config.projectRoot, projectId: config.projectId,
-                presetId: config.presetId, pinnedModelId: config.pmWorkerId
+                presetId: config.presetId, pinnedModelId: config.pmModelId
             )
             let reaskDispatch = await dispatchTurn(reaskRequest, config: config)
             switch reaskDispatch {

@@ -109,7 +109,7 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
             id: "relay_orphan_1",
             projectRoot: "/tmp/repo",
             docPath: "docs/spec.md",
-            pmWorkerId: "model_pm",
+            pmModelId: "model_pm",
             devModelId: "model_dev",
             status: .running,
             createdAt: Date(timeIntervalSince1970: 1_700_000_000)
@@ -174,7 +174,7 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
         )
         let state = try await coordinator.run(config: .init(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
+            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )).get()
         XCTAssertEqual(state.status, .done)
         let devRound = try XCTUnwrap(state.rounds.first { $0.devRunId != nil })
@@ -212,7 +212,7 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
         )
         let state = try await coordinator.run(config: .init(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
+            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )).get()
         XCTAssertEqual(state.status, .escalated)
         let round = try XCTUnwrap(state.rounds.last)

@@ -45,7 +45,7 @@ struct RelayLaunchView: View {
                         docSection(viewModel)
                         seatSection(
                             title: "PM seat", subtitle: "Reviews rounds, writes the handover.",
-                            selected: Binding(get: { viewModel.pmWorkerId }, set: { viewModel.pmWorkerId = $0 })
+                            selected: Binding(get: { viewModel.pmModelId }, set: { viewModel.pmModelId = $0 })
                         )
                         seatSection(
                             title: "Dev seat", subtitle: "Builds, commits, reports back.",

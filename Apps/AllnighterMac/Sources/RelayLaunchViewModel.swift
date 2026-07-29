@@ -14,7 +14,7 @@ import AllnighterEngine
 @Observable
 final class RelayLaunchViewModel {
     var docPath: String = ""
-    var pmWorkerId: String?
+    var pmModelId: String?
     var devModelId: String?
     var maxRounds: Int = 20
     /// Optional `HH:MM` deadline. Empty = no deadline (`--max-rounds` is the only ceiling).
@@ -85,20 +85,20 @@ final class RelayLaunchViewModel {
     }
 
     static func validate(
-        docPath: String, pmWorkerId: String?, devModelId: String?, maxRounds: Int
+        docPath: String, pmModelId: String?, devModelId: String?, maxRounds: Int
     ) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
         let trimmedDoc = docPath.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedDoc.isEmpty {
             issues.append(.init(id: "doc", message: "Pick a spec doc to relay against."))
         }
-        if pmWorkerId == nil {
+        if pmModelId == nil {
             issues.append(.init(id: "pm", message: "Pick a PM seat."))
         }
         if devModelId == nil {
             issues.append(.init(id: "dev", message: "Pick a dev seat."))
         }
-        if let pmWorkerId, let devModelId, pmWorkerId == devModelId {
+        if let pmModelId, let devModelId, pmModelId == devModelId {
             issues.append(.init(id: "same-seat", message: "PM and dev seats must be different models."))
         }
         if maxRounds < 1 {
@@ -108,7 +108,7 @@ final class RelayLaunchViewModel {
     }
 
     var validationIssues: [ValidationIssue] {
-        Self.validate(docPath: docPath, pmWorkerId: pmWorkerId, devModelId: devModelId, maxRounds: maxRounds)
+        Self.validate(docPath: docPath, pmModelId: pmModelId, devModelId: devModelId, maxRounds: maxRounds)
     }
 
     var canStart: Bool { validationIssues.isEmpty && !isStarting }
@@ -119,7 +119,7 @@ final class RelayLaunchViewModel {
     /// in a background Task. Returns the relay id on claim success, `nil` on refusal.
     @discardableResult
     func start(onEvent: (@Sendable (RelayCoordinator.RelayEvent) -> Void)? = nil) -> String? {
-        guard canStart, let pmWorkerId, let devModelId else { return nil }
+        guard canStart, let pmModelId, let devModelId else { return nil }
         startRefusalIssue = nil
         let trimmedDoc = docPath.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -128,7 +128,7 @@ final class RelayLaunchViewModel {
             projectRoot: projectRoot,
             projectId: projectId,
             docPath: trimmedDoc,
-            pmWorkerId: pmWorkerId,
+            pmModelId: pmModelId,
             devModelId: devModelId,
             maxRounds: maxRounds,
             until: RelayGUIRuntime.parseUntil(untilTime)

@@ -109,7 +109,7 @@ final class RelayCLITests: XCTestCase {
         XCTAssertEqual(config.projectRoot, project.normalizedRootPath)
         XCTAssertEqual(config.projectId, project.id)
         XCTAssertEqual(config.docPath, "docs/spec.md")
-        XCTAssertEqual(config.pmWorkerId, "model_pm")
+        XCTAssertEqual(config.pmModelId, "model_pm")
         XCTAssertEqual(config.devModelId, "model_dev")
         XCTAssertEqual(config.maxRounds, 20)   // default
         XCTAssertNil(config.until)
@@ -244,7 +244,7 @@ final class RelayCLITests: XCTestCase {
         let stateStore = makeRelayStateStore()
         let running = RelayState(
             id: "relay_running", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
+            pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try stateStore.save(running)
         XCTAssertThrowsError(try RelayCLI.parseResumeRequest(
@@ -262,7 +262,7 @@ final class RelayCLITests: XCTestCase {
         let stateStore = makeRelayStateStore()
         let running = RelayState(
             id: "relay_orphaned", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
+            pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try stateStore.save(running)
         // Simulate the owner process dying mid-round (mirrors RunStoreJournalTests'
@@ -284,7 +284,7 @@ final class RelayCLITests: XCTestCase {
         let project = try addProject(projectStore)
         let escalated = RelayState(
             id: "relay_escalated", projectRoot: project.normalizedRootPath, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", status: .escalated, createdAt: Date(),
+            pmModelId: "model_pm", devModelId: "model_dev", status: .escalated, createdAt: Date(),
             note: "76/77 or 88 — say which"
         )
         try stateStore.save(escalated)
@@ -296,12 +296,12 @@ final class RelayCLITests: XCTestCase {
         XCTAssertEqual(request.relayId, "relay_escalated")
         XCTAssertEqual(request.answer, "77")
         XCTAssertEqual(request.priorState.status, .escalated)
-        // docPath/pmWorkerId/devModelId/projectRoot are taken from the persisted state,
+        // docPath/pmModelId/devModelId/projectRoot are taken from the persisted state,
         // never re-derived from CLI flags (a resume can never silently redirect a relay).
         XCTAssertEqual(request.config.projectRoot, project.normalizedRootPath)
         XCTAssertEqual(request.config.projectId, project.id)
         XCTAssertEqual(request.config.docPath, "docs/spec.md")
-        XCTAssertEqual(request.config.pmWorkerId, "model_pm")
+        XCTAssertEqual(request.config.pmModelId, "model_pm")
         XCTAssertEqual(request.config.devModelId, "model_dev")
         XCTAssertEqual(request.config.maxRounds, 5)
     }

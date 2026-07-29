@@ -15,7 +15,7 @@ final class StreamLivenessTests: XCTestCase {
         let frozen = Date().addingTimeInterval(-400)
         var relay = RelayState(
             id: "r1", projectRoot: "/tmp", docPath: "d.md",
-            pmWorkerId: "pm", devModelId: "dev", status: .running, createdAt: Date()
+            pmModelId: "pm", devModelId: "dev", status: .running, createdAt: Date()
         )
         var round = RelayRound(roundNumber: 1, startedAt: Date())
         round.devRunId = "run1"

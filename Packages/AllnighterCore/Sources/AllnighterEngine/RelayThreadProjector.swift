@@ -97,7 +97,7 @@ public struct RelayThreadProjector: Sendable {
         guard let existing = thread.turn(id: turnId) else {
             let turn = ThreadTurn(
                 id: turnId, threadId: thread.id, kind: .workerChat, status: .running,
-                createdAt: round.startedAt, author: .worker, workerId: state.pmWorkerId
+                createdAt: round.startedAt, author: .worker, workerId: state.pmModelId
             )
             if let updated = try? store.appendTurn(turn, toThreadId: thread.id, now: now) { thread = updated }
             return
@@ -107,7 +107,7 @@ public struct RelayThreadProjector: Sendable {
             var settled = existing
             settled.status = .done
             settled.text = text
-            settled.workerId = state.pmWorkerId
+            settled.workerId = state.pmModelId
             settled.runId = pmRunId
             settled.completedAt = round.finishedAt ?? now
             if let updated = try? store.updateTurn(settled, inThreadId: thread.id, now: now) { thread = updated }
@@ -144,7 +144,7 @@ public struct RelayThreadProjector: Sendable {
     ///
     /// Attribution is the "distinct from a spawned PM" signal the doc calls for:
     /// `author: .user` (a live human/agent session) instead of `.worker`, and
-    /// `workerId: nil` (no model dispatched) instead of `state.pmWorkerId`'s sentinel —
+    /// `workerId: nil` (no model dispatched) instead of `state.pmModelId`'s sentinel —
     /// existing `ThreadTurn` fields carry this with no new type.
     ///
     /// A pilot round's `verdict`/`gate`/`externalSubmission` never change after the

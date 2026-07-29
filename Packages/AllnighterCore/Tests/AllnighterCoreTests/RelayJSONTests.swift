@@ -25,7 +25,7 @@ final class RelayJSONTests: XCTestCase {
     func testProjectsRunningRelayWithNoVerdictYet() {
         let state = RelayState(
             id: "relay_1", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running,
+            pmModelId: "model_pm", devModelId: "model_dev", status: .running,
             rounds: [makeRound(1, baseline: "abc123", head: nil, pmRunId: "run_pm_1", devRunId: nil, verdict: nil)],
             createdAt: now
         )
@@ -41,7 +41,7 @@ final class RelayJSONTests: XCTestCase {
         XCTAssertNil(json.note)
         XCTAssertNil(json.stoppedReason)
         XCTAssertEqual(json.docPath, "docs/spec.md")
-        XCTAssertEqual(json.pmWorkerId, "model_pm")
+        XCTAssertEqual(json.pmModelId, "model_pm")
         XCTAssertEqual(json.devModelId, "model_dev")
         XCTAssertEqual(json.roundLog.count, 1)
         XCTAssertEqual(json.roundLog[0].round, 1)
@@ -65,7 +65,7 @@ final class RelayJSONTests: XCTestCase {
         )
         let state = RelayState(
             id: "relay_2", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", status: .done,
+            pmModelId: "model_pm", devModelId: "model_dev", status: .done,
             rounds: [round1, round2], createdAt: now, finishedAt: now, note: "All criteria met."
         )
 
@@ -95,7 +95,7 @@ final class RelayJSONTests: XCTestCase {
         )
         let state = RelayState(
             id: "relay_3", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", status: .escalated,
+            pmModelId: "model_pm", devModelId: "model_dev", status: .escalated,
             rounds: [round], createdAt: now, finishedAt: now,
             note: "HandoverGate blocked (destructiveGit, RELAY_HANDOVER_UNSAFE): destructive git instruction"
         )
@@ -112,7 +112,7 @@ final class RelayJSONTests: XCTestCase {
     func testProjectsStoppedRelayWithStoppedReason() {
         let state = RelayState(
             id: "relay_4", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", status: .stopped,
+            pmModelId: "model_pm", devModelId: "model_dev", status: .stopped,
             rounds: [], createdAt: now, finishedAt: now,
             stoppedReason: "reached --max-rounds (20)"
         )
@@ -131,7 +131,7 @@ final class RelayJSONTests: XCTestCase {
     func testProjectsSpawnedRelayWithSpawnedPMMode() {
         let state = RelayState(
             id: "relay_spawned", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running,
+            pmModelId: "model_pm", devModelId: "model_dev", status: .running,
             createdAt: now
         )
         XCTAssertEqual(RelayJSON.project(state, contractVersion: "1.0.0").pmMode, "spawned")
@@ -147,7 +147,7 @@ final class RelayJSONTests: XCTestCase {
         )
         let state = RelayState(
             id: "relay_pilot", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: RelayState.externalPMWorkerId, devModelId: "model_dev", status: .awaitingPM,
+            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev", status: .awaitingPM,
             pmMode: .external, rounds: [round], createdAt: now
         )
 
@@ -164,7 +164,7 @@ final class RelayJSONTests: XCTestCase {
         let json = RelayJSON.project(
             RelayState(
                 id: "relay_spawned_round", projectRoot: "/repo", docPath: "docs/spec.md",
-                pmWorkerId: "model_pm", devModelId: "model_dev", status: .running,
+                pmModelId: "model_pm", devModelId: "model_dev", status: .running,
                 rounds: [makeRound(1, baseline: "a", head: "b", pmRunId: "p1", devRunId: "d1", verdict: nil)],
                 createdAt: now
             ),
@@ -177,7 +177,7 @@ final class RelayJSONTests: XCTestCase {
     func testRoundTripsThroughCoreJSON() throws {
         let state = RelayState(
             id: "relay_5", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", status: .done,
+            pmModelId: "model_pm", devModelId: "model_dev", status: .done,
             rounds: [makeRound(1, baseline: "a", head: "b", pmRunId: "p1", devRunId: "d1",
                                 verdict: RelayVerdict(verdict: .done, note: "done"), outcome: .done)],
             createdAt: now, finishedAt: now, note: "done"

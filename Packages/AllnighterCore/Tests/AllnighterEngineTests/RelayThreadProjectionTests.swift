@@ -110,7 +110,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
         )
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, projectId: "proj_relay_1", docPath: "docs/phases/PM_Relay.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev"
+            pmModelId: "model_pm", devModelId: "model_dev"
         )
         let state = try await rig.coordinator.run(config: config).get()
 
@@ -134,7 +134,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
         )
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
+            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
         let state = try await rig.coordinator.run(config: config).get()
         XCTAssertEqual(state.status, .done)
@@ -174,7 +174,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
         )
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev"
+            pmModelId: "model_pm", devModelId: "model_dev"
         )
         let escalated = try await rig.coordinator.run(config: config).get()
         XCTAssertEqual(escalated.status, .escalated)
@@ -191,7 +191,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
         rig.runner.enqueue(command: "pm_cli", .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")))
         let resumedConfig = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
+            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
         let resumedResult = await rig.coordinator.resume(
             relayId: escalated.id, founderAnswer: "use staging", config: resumedConfig
@@ -216,7 +216,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
         )
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev"
+            pmModelId: "model_pm", devModelId: "model_dev"
         )
         let state = try await rig.coordinator.run(config: config).get()
         XCTAssertEqual(state.status, .done)
@@ -237,7 +237,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
         )
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev",
+            pmModelId: "model_pm", devModelId: "model_dev",
             maxRounds: 1, stagnationRoundCap: 10
         )
         let state = try await rig.coordinator.run(config: config).get()
@@ -286,7 +286,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
         )
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
-            pmWorkerId: "model_pm", devModelId: "model_dev"
+            pmModelId: "model_pm", devModelId: "model_dev"
         )
         let state = try await coordinator.run(config: config).get()
         XCTAssertEqual(state.status, .done, "the relay must not depend on a thread store being attached")
