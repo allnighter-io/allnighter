@@ -12,7 +12,7 @@ public enum RunInvocationFlagMode: String, Sendable, Equatable, CaseIterable {
 
 /// One executable seat after resolution (selected seats only).
 public struct ResolvedRunSeat: Sendable, Equatable {
-    public var workerId: String
+    public var agentId: String
     public var modelId: String
     public var skillId: String?
     public var purpose: String
@@ -20,14 +20,14 @@ public struct ResolvedRunSeat: Sendable, Equatable {
     public var seatingReason: String?
 
     public init(
-        workerId: String,
+        agentId: String,
         modelId: String,
         skillId: String? = nil,
         purpose: String,
         sourceId: String? = nil,
         seatingReason: String? = nil
     ) {
-        self.workerId = workerId
+        self.agentId = agentId
         self.modelId = modelId
         self.skillId = skillId
         self.purpose = purpose
@@ -603,7 +603,7 @@ public enum RunInvocationResolver {
                 let skillId = teamResolved.answerWorkers.first?.skillId
                 seats = [
                     ResolvedRunSeat(
-                        workerId: Agent.makeID(modelId: modelId, instanceIndex: 0),
+                        agentId: Agent.makeID(modelId: modelId, instanceIndex: 0),
                         modelId: modelId,
                         skillId: skillId,
                         purpose: AgentStage.answer.rawValue,
@@ -625,7 +625,7 @@ public enum RunInvocationResolver {
             let skillId = teamResolved.answerWorkers.first?.skillId
             seats = [
                 ResolvedRunSeat(
-                    workerId: Agent.makeID(modelId: pinnedId, instanceIndex: 0),
+                    agentId: Agent.makeID(modelId: pinnedId, instanceIndex: 0),
                     modelId: pinnedId,
                     skillId: skillId,
                     purpose: AgentStage.answer.rawValue,
@@ -639,7 +639,7 @@ public enum RunInvocationResolver {
             seats = teamResolved.allWorkers.map { w in
                 let driverId = context.models.first { $0.id == w.modelId }?.driverId
                 return ResolvedRunSeat(
-                    workerId: w.id,
+                    agentId: w.id,
                     modelId: w.modelId,
                     skillId: w.skillId,
                     purpose: (w.purpose ?? .answer).rawValue,
