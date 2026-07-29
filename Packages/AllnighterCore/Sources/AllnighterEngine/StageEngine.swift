@@ -96,7 +96,7 @@ public struct ReduceRunner: Sendable {
     /// `makePayload` maps the raw worker output into the typed `StagePayload`.
     public func runMarkdown(
         purpose: StagePurpose,
-        worker: Model,
+        model: Model,
         manifest: DriverManifest,
         prompt: String,
         promptProfileId: String,
@@ -104,17 +104,17 @@ public struct ReduceRunner: Sendable {
         makePayload: @Sendable (String) -> StagePayload
     ) async -> StageOutput {
         let started = now()
-        let outcome = await workerRunner.collect(WorkerInvocation(model: worker, manifest: manifest, prompt: prompt))
+        let outcome = await workerRunner.collect(WorkerInvocation(model: model, manifest: manifest, prompt: prompt))
         let finished = now()
         if outcome.hasOutput, let out = outcome.output {
             return StageOutput(
-                id: idFactory(), purpose: purpose, producedByWorkerId: worker.id,
+                id: idFactory(), purpose: purpose, producedByWorkerId: model.id,
                 promptProfileId: promptProfileId, status: .done, payload: makePayload(out),
                 reuseKey: reuseKey, startedAt: started, finishedAt: finished
             )
         }
         return StageOutput(
-            id: idFactory(), purpose: purpose, producedByWorkerId: worker.id,
+            id: idFactory(), purpose: purpose, producedByWorkerId: model.id,
             promptProfileId: promptProfileId, status: outcome.status == .timedOut ? .timedOut : .failed,
             reuseKey: reuseKey, errorReason: outcome.errorReason ?? "no output",
             startedAt: started, finishedAt: finished

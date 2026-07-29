@@ -105,7 +105,7 @@ final class WorkflowTests: XCTestCase {
         let worker = TestSupport.worker("model_opus", driverId: "claude_code")
 
         let stage = await runner.runMarkdown(
-            purpose: .review, worker: worker, manifest: manifest,
+            purpose: .review, model: worker, manifest: manifest,
             prompt: "review this", promptProfileId: "security_privacy"
         ) { .plan(markdown: $0) }
         XCTAssertEqual(stage.purpose, .review)

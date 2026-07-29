@@ -50,7 +50,7 @@ public struct ReviewCoordinator: Sendable {
                         run: run, models: models
                     )
                     let stage = await runner.runMarkdown(
-                        purpose: .review, worker: lens.model, manifest: lens.manifest,
+                        purpose: .review, model: lens.model, manifest: lens.manifest,
                         prompt: prompt, promptProfileId: lens.lensId
                     ) { .review(ReviewResult(lensId: lens.lensId, markdown: $0)) }
                     return (index, stage)
