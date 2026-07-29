@@ -121,7 +121,7 @@ final class SingleRunOwnerInvariantTests: HermeticSupportTestCase {
             probeRecords: {
                 [ToolProbeRecord(driverId: "grok", status: .ready(version: "1"), lastProbeAt: .distantPast)]
             })
-        let request = RunRequest(message: "make a change", repoRoot: repo.path, workerId: "model_grok")
+        let request = RunRequest(message: "make a change", repoRoot: repo.path, pinnedModelId: "model_grok")
 
         let dry = await svc.dryRun(request, readyModels: [model])
         XCTAssertEqual(dry.writePolicy, RunWritePolicy.mutating.rawValue)

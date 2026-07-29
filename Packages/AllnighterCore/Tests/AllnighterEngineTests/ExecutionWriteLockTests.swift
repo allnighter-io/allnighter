@@ -126,7 +126,7 @@ final class ExecutionWriteLockTests: HermeticSupportTestCase {
             runner: MockCommandRunner(scripts: ["grok": .init(stdout: "Done.", exitCode: 0)]))
         let task = Task { () -> Result<TeamRun, RunServiceError> in
             let r = await service.run(
-                RunRequest(message: "make a change", repoRoot: repo.path, workerId: "model_grok"),
+                RunRequest(message: "make a change", repoRoot: repo.path, pinnedModelId: "model_grok"),
                 origin: .cli, runId: "mutating-lock")
             await done.mark()
             return r

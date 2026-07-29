@@ -325,7 +325,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         let dry = resolve(flags: .init(teamId: "code_bug_hunt", workerId: "model_sonnet", effort: .high, json: true))
         let request = dry.makeRunRequest(message: "probe")
         XCTAssertEqual(request.presetId, "code_bug_hunt")
-        XCTAssertEqual(request.workerId, "model_sonnet")
+        XCTAssertEqual(request.pinnedModelId, "model_sonnet")
         XCTAssertEqual(request.effort, .high)
         XCTAssertEqual(request.message, "probe")
 

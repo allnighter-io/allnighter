@@ -61,7 +61,7 @@ final class CanonicalRepoRootInvariantTests: HermeticSupportTestCase {
 
         let recorder = CWDRecorder()
         let result = await makeService(recorder: recorder).run(
-            RunRequest(message: "do work", repoRoot: registered.path + "/", workerId: "model_grok"),
+            RunRequest(message: "do work", repoRoot: registered.path + "/", pinnedModelId: "model_grok"),
             origin: .cli, runId: "canon-root")
 
         guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }

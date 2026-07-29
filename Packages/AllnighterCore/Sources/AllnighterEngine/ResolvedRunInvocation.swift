@@ -147,7 +147,7 @@ public struct RunInvocationInput: Sendable, Equatable {
         self.flags = RunInvocationNormalizedFlags(
             projectId: request.projectId,
             teamId: request.presetId,
-            workerId: request.workerId,
+            workerId: request.pinnedModelId,
             effort: request.effort,
             lane: request.lane,
             type: request.type,
@@ -237,7 +237,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
     public var teamPresetId: String
     public var teamDisplayName: String
     public var explicitTeamChosen: Bool
-    public var explicitWorkerChosen: Bool
+    public var explicitModelChosen: Bool
     public var workerId: String?
     public var autoResolved: Bool
     public var lane: WorkLane
@@ -361,7 +361,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
             message: templateVariables["message"] ?? "",
             flagMode: flagMode,
             flags: altFlags,
-            resolvedWorkerId: explicitWorkerChosen ? workerId : nil,
+            resolvedWorkerId: explicitModelChosen ? workerId : nil,
             resolvedTeamId: answerTeam.id
         )
         let command = Self.shellJoin(altArgv)
@@ -403,7 +403,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
             threadId: flags.threadId,
             projectId: projectId,
             presetId: explicitTeamChosen ? teamPresetId : flags.teamId,
-            workerId: explicitWorkerChosen ? workerId : flags.workerId,
+            pinnedModelId: explicitModelChosen ? workerId : flags.workerId,
             effort: flags.effort,
             lane: flags.lane,
             type: type,
@@ -456,7 +456,7 @@ public enum RunInvocationResolver {
         var blockedSeatCount = 0
 
         let explicitTeamChosen = !(input.flags.teamId ?? "").isEmpty
-        let explicitWorkerChosen = !(input.flags.workerId ?? "").isEmpty
+        let explicitModelChosen = !(input.flags.workerId ?? "").isEmpty
         let root = RunWriteLock.normalize(input.projectRoot) ?? input.projectRoot
 
         // --- Team (Default Team when no --team; matches RunService.run) ---
@@ -469,14 +469,14 @@ public enum RunInvocationResolver {
                     return blocked(
                         input: input, root: root, preset: team,
                         reason: "team \(team.id) is a \(team.lane.rawValue) team but --lane is \(lane.rawValue)",
-                        explicitTeam: true, explicitWorker: explicitWorkerChosen
+                        explicitTeam: true, explicitWorker: explicitModelChosen
                     )
                 }
                 if let type = input.flags.type, !type.isEmpty, !team.typeTags.contains(type) {
                     return blocked(
                         input: input, root: root, preset: team,
                         reason: "--type \(type) conflicts with --team \(team.id) (type is not in the team's typeTags).",
-                        explicitTeam: true, explicitWorker: explicitWorkerChosen
+                        explicitTeam: true, explicitWorker: explicitModelChosen
                     )
                 }
                 preset = team
@@ -489,7 +489,7 @@ public enum RunInvocationResolver {
                 return blocked(
                     input: input, root: root, preset: fallback,
                     reason: failure.message,
-                    explicitTeam: true, explicitWorker: explicitWorkerChosen
+                    explicitTeam: true, explicitWorker: explicitModelChosen
                 )
             }
         } else {
@@ -504,7 +504,7 @@ public enum RunInvocationResolver {
                         id: "default_chat", displayName: "Auto", lane: .code, outputKind: .plan,
                         defaultEffort: .med, agentSpecs: [], lead: TeamLeadSpec(skillId: "plan_writer_build")),
                     reason: "no default team configured",
-                    explicitTeam: false, explicitWorker: explicitWorkerChosen
+                    explicitTeam: false, explicitWorker: explicitModelChosen
                 )
             }
             preset = team
@@ -519,13 +519,13 @@ public enum RunInvocationResolver {
            let seatError = TeamExplicitSeats.validateFlags(
                seatModelIds: explicitSeatModelIds,
                explicitTeamChosen: explicitTeamChosen,
-               explicitWorkerChosen: explicitWorkerChosen,
+               explicitWorkerChosen: explicitModelChosen,
                preset: preset
            ) {
             return blocked(
                 input: input, root: root, preset: preset,
                 reason: seatError.description,
-                explicitTeam: explicitTeamChosen, explicitWorker: explicitWorkerChosen
+                explicitTeam: explicitTeamChosen, explicitWorker: explicitModelChosen
             )
         }
         let writePolicy = preset.writePolicy
@@ -540,7 +540,7 @@ public enum RunInvocationResolver {
         var workerId: String? = nil
         var autoResolved = false
 
-        if explicitWorkerChosen, let raw = input.flags.workerId {
+        if explicitModelChosen, let raw = input.flags.workerId {
             switch resolveExplicitModel(raw, context: context) {
             case .failure(let error):
                 canStart = false
@@ -620,7 +620,7 @@ public enum RunInvocationResolver {
                 blockedReason = teamResolved.blockReason ?? "no worker resolved"
                 blockedSeatCount = 1
             }
-        } else if explicitWorkerChosen, let pinnedId = workerId {
+        } else if explicitModelChosen, let pinnedId = workerId {
             // Answer team + --model → single pinned seat (matches RunService.runAnswer).
             let skillId = teamResolved.answerWorkers.first?.skillId
             seats = [
@@ -675,14 +675,14 @@ public enum RunInvocationResolver {
 
         var flags = input.flags
         // Canonicalize resolved worker id; type echoes only when valid for the team.
-        if explicitWorkerChosen { flags.workerId = workerId ?? input.flags.workerId }
+        if explicitModelChosen { flags.workerId = workerId ?? input.flags.workerId }
         flags.type = typeEcho ?? input.flags.type
 
         let (templateVariables, argvTemplate) = buildTemplate(
             message: input.message,
             flagMode: input.flagMode,
             flags: flags,
-            resolvedWorkerId: explicitWorkerChosen ? workerId : nil,
+            resolvedWorkerId: explicitModelChosen ? workerId : nil,
             resolvedTeamId: explicitTeamChosen ? preset.id : nil
         )
 
@@ -692,7 +692,7 @@ public enum RunInvocationResolver {
             teamPresetId: preset.id,
             teamDisplayName: displayName,
             explicitTeamChosen: explicitTeamChosen,
-            explicitWorkerChosen: explicitWorkerChosen,
+            explicitModelChosen: explicitModelChosen,
             workerId: workerId,
             autoResolved: autoResolved,
             lane: lane,
@@ -767,7 +767,7 @@ public enum RunInvocationResolver {
                 catalogDisplayName: preset.displayName,
                 explicitTeamChosen: explicitTeam),
             explicitTeamChosen: explicitTeam,
-            explicitWorkerChosen: explicitWorker,
+            explicitModelChosen: explicitWorker,
             workerId: flags.workerId,
             autoResolved: false,
             lane: flags.lane ?? preset.lane,

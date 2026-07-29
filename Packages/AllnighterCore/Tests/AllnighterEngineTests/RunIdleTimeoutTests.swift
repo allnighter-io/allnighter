@@ -90,7 +90,7 @@ final class RunIdleTimeoutTests: XCTestCase {
             RunRequest(
                 message: "hi",
                 repoRoot: repo.path,
-                workerId: "model_grok",
+                pinnedModelId: "model_grok",
                 workerTimeoutSeconds: 777
             ),
             origin: .cli,
@@ -133,7 +133,7 @@ final class RunIdleTimeoutTests: XCTestCase {
         )
 
         let result = await service.run(
-            RunRequest(message: "hi", repoRoot: repo.path, workerId: "model_grok"),
+            RunRequest(message: "hi", repoRoot: repo.path, pinnedModelId: "model_grok"),
             origin: .cli,
             runId: "po-f5-default"
         )

@@ -474,7 +474,7 @@ public struct RelayCoordinator: Sendable {
                     handover: handover, docPath: state.docPath, roundNumber: roundNumber,
                     workerDisplayName: devDisplayName)),
                 repoRoot: state.projectRoot, projectId: projectId,
-                presetId: "build_slice", workerId: state.devWorkerId
+                presetId: "build_slice", pinnedModelId: state.devWorkerId
             )
             // No `--until` in Pilot — `dispatchTurn` only needs `config` for its
             // deadline plumbing, which is always inert here (`until: nil`).
@@ -1037,7 +1037,7 @@ public struct RelayCoordinator: Sendable {
         let pmRequest = RunRequest(
             message: RelayPMPrompt.assemble(context: pmContext),
             repoRoot: config.projectRoot, projectId: config.projectId,
-            presetId: config.presetId, workerId: config.pmWorkerId
+            presetId: config.presetId, pinnedModelId: config.pmWorkerId
         )
         let pmDispatch = await dispatchTurn(pmRequest, config: config)
 
@@ -1074,7 +1074,7 @@ public struct RelayCoordinator: Sendable {
             let reaskRequest = RunRequest(
                 message: RelayReaskPrompt.assemble(previousOutput: pmOutput, parseError: parseError),
                 repoRoot: config.projectRoot, projectId: config.projectId,
-                presetId: config.presetId, workerId: config.pmWorkerId
+                presetId: config.presetId, pinnedModelId: config.pmWorkerId
             )
             let reaskDispatch = await dispatchTurn(reaskRequest, config: config)
             switch reaskDispatch {
@@ -1153,7 +1153,7 @@ public struct RelayCoordinator: Sendable {
                     handover: handover, docPath: config.docPath, roundNumber: roundNumber,
                     workerDisplayName: devDisplayName)),
                 repoRoot: config.projectRoot, projectId: config.projectId,
-                presetId: config.presetId, workerId: config.devWorkerId
+                presetId: config.presetId, pinnedModelId: config.devWorkerId
             )
             let devResult = await dispatchDevTurn(
                 devRequest,
@@ -1389,7 +1389,7 @@ public struct RelayCoordinator: Sendable {
 
         // PO-F10: explicit --dev-model must resolve BEFORE lane wait / stall-retry.
         // An unresolvable worker escalates with AGENT_NOT_AVAILABLE — never 4 silent stalls.
-        if let workerId = request.workerId, !workerId.isEmpty {
+        if let workerId = request.pinnedModelId, !workerId.isEmpty {
             if case .failure(let error) = await runService.resolveExplicitModel(workerId) {
                 return DevTurnDispatch(
                     dispatch: .serviceError(error),

@@ -14,7 +14,7 @@ public struct RunRequest: Sendable, Equatable {
     public var projectId: String?
     public var presetId: String?
     /// Override the resolved worker (model id) for execution / default chat.
-    public var workerId: String?
+    public var pinnedModelId: String?
     public var effort: EffortLevel?
     /// Lane hint when resolving an answer team without an explicit preset.
     public var lane: WorkLane?
@@ -72,7 +72,7 @@ public struct RunRequest: Sendable, Equatable {
         threadId: String? = nil,
         projectId: String? = nil,
         presetId: String? = nil,
-        workerId: String? = nil,
+        pinnedModelId: String? = nil,
         effort: EffortLevel? = nil,
         lane: WorkLane? = nil,
         type: String? = nil,
@@ -100,7 +100,7 @@ public struct RunRequest: Sendable, Equatable {
         self.threadId = threadId
         self.projectId = projectId
         self.presetId = presetId
-        self.workerId = workerId
+        self.pinnedModelId = pinnedModelId
         self.effort = effort
         self.lane = lane
         self.type = type
@@ -721,7 +721,7 @@ public actor RunService {
         if !invocation.canStart {
             let reason = invocation.blockedReason ?? "run cannot start"
             let explicitSeats = !(request.explicitSeatModelIds ?? []).isEmpty
-            if invocation.explicitWorkerChosen || explicitSeats {
+            if invocation.explicitModelChosen || explicitSeats {
                 DetachedHandoff.reportRefused(code: "AGENT_NOT_AVAILABLE", message: reason)
                 return .failure(.workerNotAvailable(reason))
             }
@@ -732,12 +732,12 @@ public actor RunService {
         let preset = invocation.preset
         let effectiveWorkerId = invocation.workerId
         let explicitTeamChosen = invocation.explicitTeamChosen
-        let laneContextOnly = request.lane != nil && !(request.workerId ?? "").isEmpty
+        let laneContextOnly = request.lane != nil && !(request.pinnedModelId ?? "").isEmpty
         // ADP-S01: the explicit `--model` selection, canonicalized to the resolved
         // id so a `reproduceCommand` replay resolves to the same seat. Nil when the
         // worker was default-team/Auto resolved (no explicit `--model`).
-        let explicitWorkerIds: [String]? = invocation.explicitWorkerChosen
-            ? (effectiveWorkerId.map { [$0] } ?? request.workerId.map { [$0] })
+        let explicitWorkerIds: [String]? = invocation.explicitModelChosen
+            ? (effectiveWorkerId.map { [$0] } ?? request.pinnedModelId.map { [$0] })
             : nil
         let explicitSeatModelIds: [String]? = {
             let ids = request.explicitSeatModelIds?.filter { !$0.isEmpty } ?? []
@@ -953,7 +953,7 @@ public actor RunService {
 
         if preset.runShape == .execution {
             let autoResolved = invocation.autoResolved
-            let explicitPin = invocation.explicitWorkerChosen || laneContextOnly
+            let explicitPin = invocation.explicitModelChosen || laneContextOnly
             let provisionalWorker = Agent(
                 id: Agent.makeID(modelId: effectiveWorkerId ?? "unknown", instanceIndex: 0),
                 modelId: effectiveWorkerId ?? "unknown",
@@ -1055,7 +1055,7 @@ public actor RunService {
             flags: RunInvocationNormalizedFlags(
                 projectId: request.projectId,
                 teamId: request.presetId,
-                workerId: request.workerId,
+                workerId: request.pinnedModelId,
                 effort: request.effort,
                 lane: request.lane,
                 type: request.type,
@@ -1093,7 +1093,7 @@ public actor RunService {
         )
         var payload = resolved.makeDryRunJSON()
         // MR-S04: an explicit worker that resolved not-runnable teaches `alln models`.
-        if !resolved.canStart, resolved.explicitWorkerChosen {
+        if !resolved.canStart, resolved.explicitModelChosen {
             let reason = resolved.blockedReason ?? ""
             if reason.localizedCaseInsensitiveContains("notReady")
                 || reason.localizedCaseInsensitiveContains("disabled")

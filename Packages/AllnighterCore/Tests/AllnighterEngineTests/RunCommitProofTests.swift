@@ -79,7 +79,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
         let exact = "feat: ship FR12 verbatim"
         let result = await service.run(
             RunRequest(
-                message: "Do the work", repoRoot: repo.path, workerId: "model_grok",
+                message: "Do the work", repoRoot: repo.path, pinnedModelId: "model_grok",
                 commitMessage: exact),
             origin: .cli, runId: "fr12-prompt")
         guard case .success = result else { return XCTFail("run failed: \(result)") }
@@ -96,7 +96,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
         let proof = "swift test --filter Foo"
         let result = await service.run(
             RunRequest(
-                message: "Do the work", repoRoot: repo.path, workerId: "model_grok",
+                message: "Do the work", repoRoot: repo.path, pinnedModelId: "model_grok",
                 proofCommand: proof),
             origin: .cli, runId: "fr13-prompt")
         guard case .success = result else { return XCTFail("run failed: \(result)") }
@@ -116,7 +116,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
             commandRunner: ConfigurableCommittingCommandRunner(repoRoot: repo, commitMessage: exact))
         let result = await service.run(
             RunRequest(
-                message: "Commit", repoRoot: repo.path, workerId: "model_grok",
+                message: "Commit", repoRoot: repo.path, pinnedModelId: "model_grok",
                 commitMessage: exact),
             origin: .cli, runId: "fr12-match")
         guard case .success(let run) = result else { return XCTFail("run failed") }
@@ -135,7 +135,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
                 repoRoot: repo, commitMessage: "relay: reworded subject line"))
         let result = await service.run(
             RunRequest(
-                message: "Commit", repoRoot: repo.path, workerId: "model_grok",
+                message: "Commit", repoRoot: repo.path, pinnedModelId: "model_grok",
                 commitMessage: requested),
             origin: .cli, runId: "fr12-mismatch")
         guard case .success(let run) = result else { return XCTFail("run failed") }
@@ -152,7 +152,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
         let baseline = GitObserver().observe(rootPath: repo.path).head
         let service = makeService(repo: repo, commandRunner: DirtyNoCommitCommandRunner(repoRoot: repo))
         let result = await service.run(
-            RunRequest(message: "Edit only", repoRoot: repo.path, workerId: "model_grok", noCommit: true),
+            RunRequest(message: "Edit only", repoRoot: repo.path, pinnedModelId: "model_grok", noCommit: true),
             origin: .cli, runId: "fr12-nocommit")
         guard case .success(let run) = result else { return XCTFail("run failed") }
         XCTAssertEqual(run.repoDelta?.baseline, baseline)
@@ -175,7 +175,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
             proofRunner: SubprocessCommandRunner())
         let result = await service.run(
             RunRequest(
-                message: "noop", repoRoot: repo.path, workerId: "model_grok",
+                message: "noop", repoRoot: repo.path, pinnedModelId: "model_grok",
                 proofCommand: "exit 0"),
             origin: .cli, runId: "fr13-pass")
         guard case .success(let run) = result else { return XCTFail("run failed") }
@@ -196,7 +196,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
             proofRunner: SubprocessCommandRunner())
         let result = await service.run(
             RunRequest(
-                message: "Commit", repoRoot: repo.path, workerId: "model_grok",
+                message: "Commit", repoRoot: repo.path, pinnedModelId: "model_grok",
                 commitMessage: exact, proofCommand: "exit 1"),
             origin: .cli, runId: "fr13-fail")
         guard case .success(let run) = result else { return XCTFail("run failed") }
@@ -217,7 +217,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
             proofRunner: SubprocessCommandRunner())
         let result = await service.run(
             RunRequest(
-                message: "noop", repoRoot: repo.path, workerId: "model_grok",
+                message: "noop", repoRoot: repo.path, pinnedModelId: "model_grok",
                 proofCommand: "sleep 10", proofTimeoutSeconds: 1),
             origin: .cli, runId: "fr13-timeout")
         guard case .success(let run) = result else { return XCTFail("run failed") }
@@ -237,7 +237,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
         let result = await service.run(
             RunRequest(
                 message: "Say done", repoRoot: repo.path,
-                presetId: "build_slice", workerId: "model_grok", lane: .code),
+                presetId: "build_slice", pinnedModelId: "model_grok", lane: .code),
             origin: .cli, runId: "closed-team-name")
         guard case .success(let run) = result else { return XCTFail("run failed") }
         XCTAssertEqual(run.teamDisplayName, "Build a Slice")

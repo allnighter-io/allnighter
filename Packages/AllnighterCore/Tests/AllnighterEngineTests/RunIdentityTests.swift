@@ -57,7 +57,7 @@ final class RunIdentityTests: HermeticSupportTestCase {
         )
 
         let result = await service.run(
-            RunRequest(message: "Say done", repoRoot: repo.path, workerId: "model_grok", lane: .code),
+            RunRequest(message: "Say done", repoRoot: repo.path, pinnedModelId: "model_grok", lane: .code),
             origin: .cli, runId: "identity-run")
 
         guard case .success(let run) = result else {

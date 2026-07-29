@@ -126,7 +126,7 @@ final class VendorBackoffReconcilerTests: HermeticSupportTestCase {
                 message: "continue this work",
                 repoRoot: rig.repo.path,
                 threadId: "thread-1",
-                workerId: rig.model.id
+                pinnedModelId: rig.model.id
             ),
             origin: .cli,
             runId: "same-run"
@@ -206,7 +206,7 @@ final class VendorBackoffReconcilerTests: HermeticSupportTestCase {
                 message: "bounded",
                 repoRoot: rig.repo.path,
                 threadId: "thread-bounded",
-                workerId: rig.model.id
+                pinnedModelId: rig.model.id
             ),
             origin: .cli,
             runId: "bounded-run"
@@ -248,7 +248,7 @@ final class VendorBackoffReconcilerTests: HermeticSupportTestCase {
                 message: "finish the original goal",
                 repoRoot: rig.repo.path,
                 threadId: "thread-fallback",
-                workerId: rig.model.id
+                pinnedModelId: rig.model.id
             ),
             origin: .cli,
             runId: "fresh-fallback"

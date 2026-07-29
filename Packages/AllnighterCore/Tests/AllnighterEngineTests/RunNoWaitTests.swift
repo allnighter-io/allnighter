@@ -39,7 +39,7 @@ final class RunNoWaitTests: HermeticSupportTestCase {
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
         let store = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let svc = fixtureService(repo: repo, store: store)
-        let request = RunRequest(message: "make a change", repoRoot: repo.path, workerId: "model_grok")
+        let request = RunRequest(message: "make a change", repoRoot: repo.path, pinnedModelId: "model_grok")
 
         XCTAssertFalse(RunCLI.runIdCollision("run_fixed_id", store: store))
         guard case .success = await svc.run(request, origin: .cli, runId: "run_fixed_id") else {
@@ -88,7 +88,7 @@ final class RunNoWaitTests: HermeticSupportTestCase {
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
         let store = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let svc = fixtureService(repo: repo, store: store)
-        let request = RunRequest(message: "make a change", repoRoot: repo.path, workerId: "model_grok")
+        let request = RunRequest(message: "make a change", repoRoot: repo.path, pinnedModelId: "model_grok")
         let mintedId = RunService.mintRunId()
         guard case .success(let run) = await svc.run(request, origin: .cli, runId: mintedId) else {
             return XCTFail("fixture run failed")

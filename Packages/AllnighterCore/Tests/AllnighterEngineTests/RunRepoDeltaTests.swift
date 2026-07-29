@@ -67,7 +67,7 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
         let service = makeMutatingService(repo: repo, commandRunner: CommittingCommandRunner(repoRoot: repo))
 
         let result = await service.run(
-            RunRequest(message: "Make a change", repoRoot: repo.path, workerId: "model_grok", lane: .code),
+            RunRequest(message: "Make a change", repoRoot: repo.path, pinnedModelId: "model_grok", lane: .code),
             origin: .cli, runId: "repo-delta-commit")
 
         guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
@@ -119,7 +119,7 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
             commandRunner: MockCommandRunner(scripts: ["grok": .init(stdout: "Done.", exitCode: 0)]))
 
         let result = await service.run(
-            RunRequest(message: "Say done", repoRoot: repo.path, workerId: "model_grok"),
+            RunRequest(message: "Say done", repoRoot: repo.path, pinnedModelId: "model_grok"),
             origin: .cli, runId: "repo-delta-none")
 
         guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
@@ -151,7 +151,7 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
                 message: RelayDevPrompt.assemble(context: .init(
                     handover: "Commit a file.", docPath: "docs/spec.md", roundNumber: 1,
                     workerDisplayName: "Dev Seat")),
-                repoRoot: repo.path, presetId: "build_slice", workerId: "model_grok"),
+                repoRoot: repo.path, presetId: "build_slice", pinnedModelId: "model_grok"),
             origin: .cli, runId: "relay-dev-inherit")
         guard case .success(let run) = result else { return XCTFail("relay-path run failed") }
         XCTAssertTrue(try XCTUnwrap(run.repoDelta).changed,

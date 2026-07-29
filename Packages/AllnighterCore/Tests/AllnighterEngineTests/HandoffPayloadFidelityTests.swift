@@ -27,7 +27,7 @@ final class HandoffPayloadFidelityTests: XCTestCase {
     /// is the point: silent loss is exactly how `--effort` went missing.
     func testEveryRunRequestFieldIsCarriedOrConsciouslyOmitted() {
         let carried: Set<String> = [
-            "message", "repoRoot", "threadId", "projectId", "presetId", "workerId",
+            "message", "repoRoot", "threadId", "projectId", "presetId", "pinnedModelId",
             "effort", "lane", "type", "context", "deliveries", "executorTeamId",
             "advisoryReview", "workerTimeoutSeconds", "handshakeTimeoutSeconds",
             "firstActivityTimeoutSeconds", "wallTimeoutSeconds", "spawnConcurrencyLimit",
@@ -75,7 +75,7 @@ final class HandoffPayloadFidelityTests: XCTestCase {
 
         try spool.enqueue(.init(
             runId: "handoff-fidelity", message: original.message, repoRoot: original.repoRoot,
-            presetId: original.presetId, workerId: original.workerId,
+            presetId: original.presetId, workerId: original.pinnedModelId,
             effort: original.effort, context: original.context,
             threadId: original.threadId, wallTimeoutSeconds: original.wallTimeoutSeconds,
             noCommit: original.noCommit))

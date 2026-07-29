@@ -63,7 +63,7 @@ final class RunProvenanceTests: HermeticSupportTestCase {
                 message: "Make a small change",
                 repoRoot: repo.path,
                 presetId: "build_slice",
-                workerId: "model_grok",
+                pinnedModelId: "model_grok",
                 lane: .code),
             origin: .cli, runId: "bare-run-trailer")
         guard case .success = result else { return XCTFail("bare mutating run failed: \(result)") }

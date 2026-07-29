@@ -226,7 +226,7 @@ final class RunServiceTests: XCTestCase {
         )
 
         let result = await service.run(
-            RunRequest(message: "hi", repoRoot: repo.path, workerId: "model_cursor_grok_45"),
+            RunRequest(message: "hi", repoRoot: repo.path, pinnedModelId: "model_cursor_grok_45"),
             origin: .cli
         )
         guard case .failure(let err) = result else {
@@ -261,7 +261,7 @@ final class RunServiceTests: XCTestCase {
         )
 
         let result = await service.run(
-            RunRequest(message: "hi", repoRoot: repo.path, workerId: "model_does_not_exist"),
+            RunRequest(message: "hi", repoRoot: repo.path, pinnedModelId: "model_does_not_exist"),
             origin: .cli
         )
         guard case .failure(let err) = result else {
@@ -306,7 +306,7 @@ final class RunServiceTests: XCTestCase {
         )
 
         let result = await service.run(
-            RunRequest(message: "hi", repoRoot: repo.path, workerId: "model_cursor_grok_45"),
+            RunRequest(message: "hi", repoRoot: repo.path, pinnedModelId: "model_cursor_grok_45"),
             origin: .cli
         )
         guard case .failure(let err) = result else {
@@ -353,7 +353,7 @@ final class RunServiceTests: XCTestCase {
         )
 
         let result = await service.run(
-            RunRequest(message: "hi", repoRoot: repo.path, workerId: "model_cursor_grok_45"),
+            RunRequest(message: "hi", repoRoot: repo.path, pinnedModelId: "model_cursor_grok_45"),
             origin: .cli
         )
         guard case .success(let run) = result else {
@@ -417,7 +417,7 @@ final class RunServiceTests: XCTestCase {
         let result = await service.run(
             RunRequest(
                 message: "do the thing", repoRoot: repo.path,
-                presetId: "build_slice", workerId: "model_chatgpt"
+                presetId: "build_slice", pinnedModelId: "model_chatgpt"
             ),
             origin: .cli
         )
@@ -468,7 +468,7 @@ final class RunServiceTests: XCTestCase {
                 message: "probe",
                 repoRoot: repo.path,
                 presetId: "code_bug_hunt",
-                workerId: "model_bogus_id"
+                pinnedModelId: "model_bogus_id"
             ),
             origin: .cli
         )
