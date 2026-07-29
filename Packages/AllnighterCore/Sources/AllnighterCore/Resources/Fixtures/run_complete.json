@@ -39,7 +39,7 @@
       "instanceIndex": 0
     }
   ],
-  "workerAnswers": [
+  "answers": [
     {
       "memberId": "model_chatgpt#0",
       "modelId": "model_chatgpt",

@@ -54,7 +54,7 @@ final class FixtureRoundTripTests: XCTestCase {
         XCTAssertEqual(run.origin, .gui)
         XCTAssertEqual(run.presetId, "preset_six_default")
         // seats are keyed independently
-        XCTAssertEqual(Set(run.workerAnswers.map(\.memberId)).count, 6)
+        XCTAssertEqual(Set(run.answers.map(\.memberId)).count, 6)
     }
 
     func testPresetFixturesRoundTrip() throws {
@@ -126,8 +126,8 @@ final class FixtureRoundTripTests: XCTestCase {
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.workers.count, 1)
-        XCTAssertEqual(trj.workerAnswers.count, 1)
-        XCTAssertNil(trj.workerAnswers.first?.markdown)  // Law 2: markdown moved to answer
+        XCTAssertEqual(trj.answers.count, 1)
+        XCTAssertNil(trj.answers.first?.markdown)  // Law 2: markdown moved to answer
         let answer = try XCTUnwrap(trj.answer)
         XCTAssertEqual(answer.markdown, "success")
         XCTAssertEqual(answer.source.kind, .worker)
@@ -148,7 +148,7 @@ final class FixtureRoundTripTests: XCTestCase {
         XCTAssertEqual(trj.nextActions.map(\.kind), [.showArtifact, .showRun, .export])
 
         // SH-S08 — exact observed timing on the one-worker fixture.
-        let answerRow = try XCTUnwrap(trj.workerAnswers.first)
+        let answerRow = try XCTUnwrap(trj.answers.first)
         XCTAssertEqual(answerRow.queueMs, 1000)
         XCTAssertEqual(answerRow.ttftMs, 500)
         XCTAssertEqual(answerRow.durationMs, 4000)
@@ -242,15 +242,15 @@ final class FixtureRoundTripTests: XCTestCase {
             prompt: "Review code",
             status: .complete,
             workers: [agent],
-            workerAnswers: [answer],
+            answers: [answer],
             createdAt: Date()
         )
 
         let context = TeamRunJSONMapper.Context(runJournalPath: "/tmp/journal.json")
         let jsonContract = TeamRunJSONMapper.map(run, models: [], manifests: [], context: context)
 
-        XCTAssertEqual(jsonContract.workerAnswers.count, 1)
-        let mappedAnswer = jsonContract.workerAnswers[0]
+        XCTAssertEqual(jsonContract.answers.count, 1)
+        let mappedAnswer = jsonContract.answers[0]
         XCTAssertEqual(mappedAnswer.agentId, "seat_reviewer")
         XCTAssertEqual(mappedAnswer.modelId, "model_sonnet")
         XCTAssertEqual(mappedAnswer.workerId, "model_sonnet#0")
@@ -258,8 +258,8 @@ final class FixtureRoundTripTests: XCTestCase {
         let encoded = try CoreJSON.encode(jsonContract)
         let decoded = try CoreJSON.decode(TeamRunJSON.self, from: encoded)
 
-        XCTAssertEqual(decoded.workerAnswers.count, 1)
-        let roundTrippedAnswer = decoded.workerAnswers[0]
+        XCTAssertEqual(decoded.answers.count, 1)
+        let roundTrippedAnswer = decoded.answers[0]
         XCTAssertEqual(roundTrippedAnswer.agentId, "seat_reviewer")
         XCTAssertEqual(roundTrippedAnswer.modelId, "model_sonnet")
         XCTAssertEqual(roundTrippedAnswer.workerId, "model_sonnet#0")
@@ -287,7 +287,7 @@ final class FixtureRoundTripTests: XCTestCase {
               "instanceIndex": 0
             }
           ],
-          "workerAnswers": [
+          "answers": [
             {
               "workerId": "model_sonnet#0",
               "modelId": "model_sonnet",
@@ -311,8 +311,8 @@ final class FixtureRoundTripTests: XCTestCase {
         """.data(using: .utf8)!
 
         let oldDecoded = try CoreJSON.decode(TeamRunJSON.self, from: oldShapeJSON)
-        XCTAssertEqual(oldDecoded.workerAnswers.count, 1)
-        let oldAnswer = oldDecoded.workerAnswers[0]
+        XCTAssertEqual(oldDecoded.answers.count, 1)
+        let oldAnswer = oldDecoded.answers[0]
         XCTAssertEqual(oldAnswer.workerId, "model_sonnet#0")
         XCTAssertEqual(oldAnswer.modelId, "model_sonnet")
         XCTAssertNil(oldAnswer.agentId, "OLD shape fixture without agentId decodes with agentId == nil")

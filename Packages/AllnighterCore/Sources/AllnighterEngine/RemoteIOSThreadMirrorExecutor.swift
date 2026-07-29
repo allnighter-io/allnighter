@@ -119,7 +119,7 @@ public actor RemoteIOSThreadMirrorExecutor: RemoteTeamCommandExecuting {
                 continue
             }
 
-            let answer = run.workerAnswers.first
+            let answer = run.answers.first
             let status = chatStatus(for: answer?.result.status ?? .failed)
             let text = settlementText(for: answer, run: run)
             try? updateWorkerTurn(
@@ -150,7 +150,7 @@ public actor RemoteIOSThreadMirrorExecutor: RemoteTeamCommandExecuting {
     }
 
     private func partialWorkerText(from run: TeamRun) -> String? {
-        guard let answer = run.workerAnswers.first(where: { $0.result.status == .running || $0.result.status == .done }) else {
+        guard let answer = run.answers.first(where: { $0.result.status == .running || $0.result.status == .done }) else {
             return nil
         }
         let text = (answer.output ?? "").trimmingCharacters(in: .whitespacesAndNewlines)

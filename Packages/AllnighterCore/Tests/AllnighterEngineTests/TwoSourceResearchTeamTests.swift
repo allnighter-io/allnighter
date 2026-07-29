@@ -190,8 +190,8 @@ final class TwoSourceResearchTeamTests: XCTestCase {
 
         // Crew seat: its answer carries its own real source identity and its own
         // text — the per-vendor sentinel proves it was not copied from the other CLI.
-        XCTAssertEqual(run.workerAnswers.count, 1, "one crew answer for the one crew seat")
-        let crew = try XCTUnwrap(run.workerAnswers.first(where: { $0.modelId == "model_chatgpt" }),
+        XCTAssertEqual(run.answers.count, 1, "one crew answer for the one crew seat")
+        let crew = try XCTUnwrap(run.answers.first(where: { $0.modelId == "model_chatgpt" }),
                                  "no answer attributed to the codex crew seat")
         XCTAssertEqual(crew.result.status, .done)
         let crewText = crew.result.output ?? ""

@@ -30,7 +30,7 @@ public struct PromptProfile: Codable, Sendable, Equatable, Identifiable {
 /// What a stage consumes. A **closed** enum (no free-form graph).
 public enum InputSelector: String, Codable, Sendable, CaseIterable {
     case founderPrompt = "founder_prompt"
-    case workerAnswers = "worker_answers"
+    case answers = "worker_answers"
     case planAnalysis = "plan_analysis"
     case draftPlan = "draft_plan"
     case reviews

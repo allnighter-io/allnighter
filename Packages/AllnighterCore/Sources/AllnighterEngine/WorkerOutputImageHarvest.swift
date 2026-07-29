@@ -59,7 +59,7 @@ public enum WorkerOutputImageHarvest {
         let modelById = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let cwd = (repoRoot?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
         var results: [DataCandidate] = []
-        for answer in run.workerAnswers {
+        for answer in run.answers {
             guard results.count < maxImagesPerTurn,
                   let model = modelById[answer.modelId],
                   model.driverId == "codex" else { continue }

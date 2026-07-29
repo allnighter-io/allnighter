@@ -144,7 +144,7 @@ final class TeamStartTests: XCTestCase {
                 return XCTFail("expected success")
             }
             let run = try XCTUnwrap(RunStore(rootDirectory: root.appendingPathComponent("Runs")).load(runId: response.runId))
-            XCTAssertEqual(run.workerAnswers.first?.modelId, "model_sonnet")
+            XCTAssertEqual(run.answers.first?.modelId, "model_sonnet")
             _ = await service.cancel(runId: response.runId)
         }
     }

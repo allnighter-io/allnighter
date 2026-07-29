@@ -19,7 +19,7 @@ final class RunStoreProgressFastPathTests: XCTestCase {
         TeamRun(
             id: "r1", prompt: "p", status: status, origin: .cli,
             workers: [Agent(id: "model_a#0", modelId: "model_a", instanceIndex: 0)],
-            workerAnswers: [TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
+            answers: [TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
                                        result: WorkerRunResult(status: .done, output: "answer A"))],
             createdAt: Date())
     }

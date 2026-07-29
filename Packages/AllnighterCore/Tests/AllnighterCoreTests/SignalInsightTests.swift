@@ -68,7 +68,7 @@ final class SignalInsightTests: XCTestCase {
         let run = TeamRun(id: "sigrun", prompt: "p", status: .complete, origin: .cli,
                           presetId: "signal_outside",
                           workers: [Agent(id: "w#0", modelId: "model_grok", instanceIndex: 0, purpose: .plan)],
-                          workerAnswers: [TeamAnswer(memberId: "w#0", modelId: "model_grok", role: "plan",
+                          answers: [TeamAnswer(memberId: "w#0", modelId: "model_grok", role: "plan",
                                                      result: WorkerRunResult(status: .done, output: "x"))],
                           stages: [plan], createdAt: now, lane: .signal, outputKind: .insight)
         let floor = FloorProjector.project(run)

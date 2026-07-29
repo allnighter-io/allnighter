@@ -22,7 +22,7 @@ final class LiveArtifactProjectorTests: XCTestCase {
     }
     return TeamRun(
       id: "run_live1", prompt: "Should we ship live paint?", status: .fanningOut,
-      presetId: "code_spec_review", workers: workers, workerAnswers: answers,
+      presetId: "code_spec_review", workers: workers, answers: answers,
       createdAt: now, teamDisplayName: "Spec Review"
     )
   }

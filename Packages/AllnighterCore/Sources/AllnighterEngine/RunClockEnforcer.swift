@@ -107,8 +107,8 @@ public enum RunClockEnforcer {
             current.endReason = .timedOut
             current.killOutcome = settlement.outcome
             current.phase = nil
-            for i in current.workerAnswers.indices where !current.workerAnswers[i].result.status.isTerminal {
-                current.workerAnswers[i].result.status = .timedOut
+            for i in current.answers.indices where !current.answers[i].result.status.isTerminal {
+                current.answers[i].result.status = .timedOut
             }
             let wasBlocked = current.blocker != nil
             current.blocker = nil

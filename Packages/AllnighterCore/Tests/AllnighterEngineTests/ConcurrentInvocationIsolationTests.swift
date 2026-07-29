@@ -145,7 +145,7 @@ final class ConcurrentInvocationIsolationTests: XCTestCase {
         XCTAssertNil(bAfter.endReason, "A's storm must not stamp an endReason on B")
         XCTAssertEqual(bAfter.repoRoot, repoB.path)
         XCTAssertTrue(
-            bAfter.workerAnswers.allSatisfy { $0.result.status != .cancelled },
+            bAfter.answers.allSatisfy { $0.result.status != .cancelled },
             "A's kill --all must not cancel B's workers")
 
         // Positive control: B's own scope reaps its orphan, and B's context

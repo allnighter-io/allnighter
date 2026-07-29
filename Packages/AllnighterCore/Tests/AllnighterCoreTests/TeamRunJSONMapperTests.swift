@@ -26,7 +26,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertEqual(trj.schemaVersion, 2)
         XCTAssertEqual(trj.teamRun.status, .done)           // .complete -> done
         XCTAssertEqual(trj.workers.count, run.workers.count)
-        XCTAssertEqual(trj.workerAnswers.count, run.workerAnswers.count)
+        XCTAssertEqual(trj.answers.count, run.answers.count)
         // Plan produced → plan-writer invariant holds; markdown moved to answer.
         XCTAssertEqual(trj.plan?.status, .done)
         XCTAssertNotNil(trj.plan?.writerWorkerId)
@@ -55,7 +55,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
         XCTAssertEqual(trj.answer?.markdown, "success")
         XCTAssertEqual(trj.answer?.source.kind, .worker)
-        XCTAssertNil(trj.workerAnswers.first?.markdown)
+        XCTAssertNil(trj.answers.first?.markdown)
         XCTAssertNil(trj.plan)
     }
 
@@ -63,7 +63,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         let run = try Fixtures.run(.runPartial)             // status .partial, plan failed
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
         XCTAssertNil(trj.answer)
-        XCTAssertTrue(trj.workerAnswers.contains { ($0.markdown ?? "").isEmpty == false })
+        XCTAssertTrue(trj.answers.contains { ($0.markdown ?? "").isEmpty == false })
     }
 
     func testFailedRunSerializesAnswerNull() throws {
@@ -89,7 +89,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertNil(trj.plan)                              // no plan produced -> null
         XCTAssertNil(trj.teamRun.planWriterWorkerId)
         // Failed workers are shown failed with an error envelope — never hidden.
-        let failed = trj.workerAnswers.filter { $0.status == .failed || $0.status == .timedOut }
+        let failed = trj.answers.filter { $0.status == .failed || $0.status == .timedOut }
         XCTAssertFalse(failed.isEmpty)
         XCTAssertTrue(failed.allSatisfy { $0.error != nil })
         // The plan failure is still visible as a stage.
@@ -194,7 +194,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         TeamRun(
             id: "outcome-\(status.rawValue)", prompt: "p", status: status,
             workers: [Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0)],
-            workerAnswers: answers,
+            answers: answers,
             createdAt: Date(), lane: lane, mutating: mutating, repoDelta: repoDelta)
     }
 
@@ -267,7 +267,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         let run = TeamRun(
             id: "timing-one", prompt: "Say success.", status: .complete,
             workers: [Agent(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0)],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "model_sonnet#0", modelId: "model_sonnet", role: "answer",
                     result: WorkerRunResult(
@@ -279,7 +279,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
             ],
             createdAt: created, lane: .code, mutating: true)
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
-        let row = try XCTUnwrap(trj.workerAnswers.first)
+        let row = try XCTUnwrap(trj.answers.first)
         XCTAssertEqual(row.queueMs, 1000)
         XCTAssertEqual(row.ttftMs, 500)
         XCTAssertEqual(row.durationMs, 4000)
@@ -300,7 +300,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
                 result: WorkerRunResult(status: .done, output: "x"))],
             mutating: false)
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
-        let row = try XCTUnwrap(trj.workerAnswers.first)
+        let row = try XCTUnwrap(trj.answers.first)
         XCTAssertNil(row.queueMs)
         XCTAssertNil(row.ttftMs)
         XCTAssertNil(row.durationMs)
@@ -318,7 +318,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
                 Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0),
                 Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0),
             ],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "model_grok#0", modelId: "model_grok", role: "answer",
                     result: WorkerRunResult(
@@ -334,7 +334,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
             ],
             createdAt: created, lane: .code, mutating: false)
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
-        XCTAssertEqual(trj.workerAnswers.map(\.queueMs), [10, 20])
+        XCTAssertEqual(trj.answers.map(\.queueMs), [10, 20])
         XCTAssertEqual(trj.outcome?.timing?.wallMs, 3000)
         let headline = try XCTUnwrap(trj.outcome?.headline)
         XCTAssertFalse(headline.contains("queue"), headline)

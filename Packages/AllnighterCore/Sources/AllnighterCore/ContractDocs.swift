@@ -101,7 +101,7 @@ public enum ContractDocs {
         line()
         line("Terminal `TeamRunJSON` projects observed clocks only — null means the driver did not report that observation. No forecasts or targets.")
         line()
-        line("Per-worker on `workerAnswers[]`:")
+        line("Per-worker on `answers[]`:")
         line()
         line("- `queueMs` — run request accepted → this seat's CLI spawn (lock / lane / resolution / staging).")
         line("- `ttftMs` — CLI spawn → first visible streamed delta (null off the streaming path).")

@@ -16,7 +16,7 @@ public enum AsyncTeamStatusMapper {
         case .partial:
             return run.plan != nil ? .done : .failed
         case .fanningOut:
-            let active = run.workerAnswers.contains { $0.result.status == .running || $0.result.status == .done || $0.result.status == .failed }
+            let active = run.answers.contains { $0.result.status == .running || $0.result.status == .done || $0.result.status == .failed }
             return active ? .running : .queued
         default:
             return run.status.lifecycle
@@ -30,7 +30,7 @@ public enum AsyncTeamStatusMapper {
         case .fanningOut, .answersIn:
             let reviewIds = Set(run.workers.filter { $0.purpose == .review }.map(\.id))
             if !reviewIds.isEmpty,
-               run.workerAnswers.contains(where: { reviewIds.contains($0.memberId) && $0.result.status != .queued }) {
+               run.answers.contains(where: { reviewIds.contains($0.memberId) && $0.result.status != .queued }) {
                 return "review"
             }
             return "answer"
@@ -76,7 +76,7 @@ public enum AsyncTeamStatusMapper {
     public static func workers(for run: TeamRun) -> [TeamStatusWorker] {
         let nameById = Dictionary(run.workers.map { ($0.id, $0.skillName ?? $0.label ?? $0.skillId ?? $0.id) },
                                   uniquingKeysWith: { a, _ in a })
-        return run.workerAnswers.map { answer in
+        return run.answers.map { answer in
             TeamStatusWorker(
                 workerId: answer.memberId,
                 displayName: nameById[answer.memberId] ?? answer.memberId,

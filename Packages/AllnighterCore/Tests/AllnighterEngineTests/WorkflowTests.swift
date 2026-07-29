@@ -20,7 +20,7 @@ final class WorkflowTests: XCTestCase {
     private func finalStage() -> WorkflowStage {
         WorkflowStage(
             id: "final", kind: .reduce, displayName: "Final", purpose: .finalSpec,
-            inputSelectors: [.founderPrompt, .workerAnswers, .planAnalysis, .draftPlan, .reviews],
+            inputSelectors: [.founderPrompt, .answers, .planAnalysis, .draftPlan, .reviews],
             bindings: [StageBinding(id: "b2", promptProfileId: "final_spec_v1", workerId: "model_opus")]
         )
     }
@@ -68,7 +68,7 @@ final class WorkflowTests: XCTestCase {
     func testInputBuilderAssemblesSelectedSections() {
         var run = TeamRun(id: "r", prompt: "Build X", status: .complete,
                              workers: [TestSupport.seat("model_opus")],
-                             workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .done, output: "Use an actor."))],
+                             answers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .done, output: "Use an actor."))],
                              createdAt: Date())
         run.stages = [
             StageOutput(id: "a", purpose: .analysis, status: .done, payload: .analysis(PlanAnalysis(consensus: [AnalysisPoint(statement: "actor")]))),
@@ -76,7 +76,7 @@ final class WorkflowTests: XCTestCase {
         ]
         let models = [Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)]
         let prompt = StageInputBuilder.assemble(
-            instructions: "REVIEW THIS", selectors: [.founderPrompt, .planAnalysis, .draftPlan, .workerAnswers],
+            instructions: "REVIEW THIS", selectors: [.founderPrompt, .planAnalysis, .draftPlan, .answers],
             run: run, models: models
         )
         XCTAssertTrue(prompt.contains("REVIEW THIS"))

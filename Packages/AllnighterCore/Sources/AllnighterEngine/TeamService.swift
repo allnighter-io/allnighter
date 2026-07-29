@@ -263,7 +263,7 @@ public actor TeamService {
         // Stamp the returned run too (disk already has it via the terminal persist).
         run = stamped(run)
 
-        let invocations = run.workerAnswers.count + run.stages.filter { $0.status == .done || $0.status == .failed }.count
+        let invocations = run.answers.count + run.stages.filter { $0.status == .done || $0.status == .failed }.count
         return TeamToolResult(
             runId: run.id, origin: origin, preset: resolvedRequest.team.id, status: run.status, createdAt: run.createdAt,
             plan: run.plan, analysis: run.analysis,

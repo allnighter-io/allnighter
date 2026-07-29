@@ -11,7 +11,7 @@ final class PresetAndDoctorTests: XCTestCase {
         TeamRun(
             id: "run1", prompt: "p", status: .answersIn,
             workers: [TestSupport.seat("model_opus")],
-            workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
+            answers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
                                        result: WorkerRunResult(status: .done, output: "answer"))],
             createdAt: Date()
         )

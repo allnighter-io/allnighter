@@ -677,7 +677,7 @@ enum RunCLI {
         case .fixAttempted:
             lines.append("\n# Fix attempt (\(outcome.childRun?.status.rawValue ?? "?"))")
             if case .allowed(let topId) = outcome.gate { lines.append("Tried hypothesis \(topId) within its boundary.") }
-            lines.append(outcome.childRun?.plan ?? outcome.childRun?.workerAnswers.first?.output ?? "(no fix output)")
+            lines.append(outcome.childRun?.plan ?? outcome.childRun?.answers.first?.output ?? "(no fix output)")
         case .blocked:
             lines.append("\n# No fix attempt — \(chain.gate.code ?? "blocked"): \(chain.gate.reason ?? "")")
         case .noPacket:

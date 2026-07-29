@@ -32,7 +32,7 @@ final class ArtifactProjectorTests: XCTestCase {
                            payload: .plan(markdown: leadMarkdown))
     return TeamRun(
       id: "run_artifact1", prompt: "Should we ship the artifact CLI?", status: status,
-      presetId: "code_spec_review", workers: workers, workerAnswers: answers,
+      presetId: "code_spec_review", workers: workers, answers: answers,
       stages: [plan], createdAt: now, teamDisplayName: "Spec Review", outputKind: .specReview
     )
   }
@@ -106,7 +106,7 @@ final class ArtifactProjectorTests: XCTestCase {
                            payload: .plan(markdown: leadCallMarkdown))
     let run = TeamRun(
       id: "run_no_review", prompt: "Plan only, no review seat", status: .complete,
-      presetId: "code_plan", workers: workers, workerAnswers: answers,
+      presetId: "code_plan", workers: workers, answers: answers,
       stages: [plan], createdAt: now, teamDisplayName: "Plan", outputKind: .plan
     )
     XCTAssertNil(ArtifactProjector.project(run).writerReviewerLine)
@@ -157,7 +157,7 @@ final class ArtifactProjectorTests: XCTestCase {
     let run = TeamRun(
       id: "run_seat_sum", prompt: "Polish?", status: .done,
       workers: [worker],
-      workerAnswers: [
+      answers: [
         TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
                    result: WorkerRunResult(status: .done, output: md,
                                            timing: RunTiming(durationMs: 100))),
@@ -198,7 +198,7 @@ final class ArtifactProjectorTests: XCTestCase {
     let run = TeamRun(
       id: "run_mockup_click", prompt: "Redesign?", status: .done,
       workers: [worker],
-      workerAnswers: [
+      answers: [
         TeamAnswer(memberId: "model_k3#0", modelId: "model_k3", role: "answer",
                    result: WorkerRunResult(status: .done, output: """
                    ```seat
@@ -234,7 +234,7 @@ final class ArtifactProjectorTests: XCTestCase {
     let run = TeamRun(
       id: "run_no_seat", prompt: "x", status: .done,
       workers: [worker],
-      workerAnswers: [
+      answers: [
         TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
                    result: WorkerRunResult(status: .done, output: "I'll open the file.\nSome notes.",
                                            timing: RunTiming(durationMs: 10))),
@@ -258,7 +258,7 @@ final class ArtifactProjectorTests: XCTestCase {
     let run = TeamRun(
       id: "run_spaces", prompt: "Design?", status: .done,
       workers: [worker],
-      workerAnswers: [
+      answers: [
         TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
                    result: WorkerRunResult(status: .done, output: md,
                                            timing: RunTiming(durationMs: 10))),
@@ -307,7 +307,7 @@ final class ArtifactProjectorTests: XCTestCase {
     )
     let run = TeamRun(
       id: "run_single", prompt: "Say success.", status: .done,
-      workers: [worker], workerAnswers: answers, stages: [plan], createdAt: now
+      workers: [worker], answers: answers, stages: [plan], createdAt: now
     )
     let card = ArtifactProjector.project(run)
     XCTAssertEqual(card.seats.count, 1)
@@ -385,7 +385,7 @@ final class ArtifactProjectorTests: XCTestCase {
     let run = TeamRun(
       id: "run_empty", prompt: "Empty?", status: .failed,
       workers: [worker],
-      workerAnswers: [
+      answers: [
         TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
                    result: WorkerRunResult(status: .failed, errorReason: "boom",
                                            timing: RunTiming(durationMs: 10))),
@@ -425,7 +425,7 @@ final class ArtifactProjectorTests: XCTestCase {
     )
     let run = TeamRun(
       id: "run_lead_hoist", prompt: "Ship?", status: .complete,
-      workers: [worker], workerAnswers: answers, stages: [plan], createdAt: now,
+      workers: [worker], answers: answers, stages: [plan], createdAt: now,
       teamDisplayName: "Spec Polish"
     )
     let card = ArtifactProjector.project(run)
@@ -455,7 +455,7 @@ final class ArtifactProjectorTests: XCTestCase {
     ]
     let run = TeamRun(
       id: "run_scout", prompt: "x", status: .done, workers: workers,
-      workerAnswers: [], stages: [], createdAt: now
+      answers: [], stages: [], createdAt: now
     )
     XCTAssertEqual(TeamRunSeatSet.workers(for: run).map(\.id), ["model_opus#0"])
   }

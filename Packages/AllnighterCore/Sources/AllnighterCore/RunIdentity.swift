@@ -39,7 +39,7 @@ public enum RunIdentity {
     }
 
     public static func primaryWorkerModelId(_ run: TeamRun) -> String? {
-        run.workers.first?.modelId ?? run.workerAnswers.first?.modelId
+        run.workers.first?.modelId ?? run.answers.first?.modelId
     }
 
     /// Headline for `TeamRunJSON.outcome` and human stderr: identity + repo delta when mutating.
@@ -81,7 +81,7 @@ public enum RunIdentity {
                 parts.append("PROOF FAILED")
             }
         }
-        if let suffix = run.workerAnswers.first?.result.reportedTokenUsage?.headlineSuffix {
+        if let suffix = run.answers.first?.result.reportedTokenUsage?.headlineSuffix {
             parts.append(suffix)
         }
         parts.append(contentsOf: singleWorkerTimingSummary(run, wallMs: wallMs))
@@ -91,7 +91,7 @@ public enum RunIdentity {
     /// Observed phase clocks for a single executable seat only. Parallel runs stay
     /// identity-only — never subtract phases into an invented orchestration tax or seat blame.
     private static func singleWorkerTimingSummary(_ run: TeamRun, wallMs: Int?) -> [String] {
-        let seats = run.workerAnswers.filter { $0.result.status != .skipped }
+        let seats = run.answers.filter { $0.result.status != .skipped }
         guard seats.count == 1, let answer = seats.first else { return [] }
         var parts: [String] = []
         if let queueMs = answer.queueMs { parts.append("queue \(queueMs)ms") }

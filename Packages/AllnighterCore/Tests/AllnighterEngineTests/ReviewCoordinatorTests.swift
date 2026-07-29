@@ -8,7 +8,7 @@ final class ReviewCoordinatorTests: XCTestCase {
     private func completedRun() -> TeamRun {
         var run = TeamRun(id: "r", prompt: "Build X", status: .complete,
                              workers: [TestSupport.seat("model_opus"), TestSupport.seat("model_grok")],
-                             workerAnswers: [
+                             answers: [
                                 TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .done, output: "Use an actor.")),
                                 TeamAnswer(memberId: "model_grok#0", modelId: "model_grok", role: "answer", result: WorkerRunResult(status: .done, output: "Use a queue."))
                              ],
@@ -64,8 +64,8 @@ final class ReviewCoordinatorTests: XCTestCase {
     }
 
     func testDissentLensGetsMemberAnswers() {
-        XCTAssertTrue(ReviewCoordinator.defaultSelectors(forLens: "dissent_preserver").contains(.workerAnswers))
-        XCTAssertFalse(ReviewCoordinator.defaultSelectors(forLens: "security_privacy").contains(.workerAnswers))
+        XCTAssertTrue(ReviewCoordinator.defaultSelectors(forLens: "dissent_preserver").contains(.answers))
+        XCTAssertFalse(ReviewCoordinator.defaultSelectors(forLens: "security_privacy").contains(.answers))
     }
 
     func testReviewsRenderInBundleAndStore() throws {

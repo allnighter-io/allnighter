@@ -234,7 +234,7 @@ final class StalledWorkDetectorTests: XCTestCase {
             id: "run-advisory",
             prompt: "READ-ONLY advisory review for CR-07",
             status: .fanningOut,
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "model_glm",
                     modelId: "model_glm",
@@ -276,7 +276,7 @@ final class StalledWorkDetectorTests: XCTestCase {
             id: "run-advisory",
             prompt: "READ-ONLY advisory review for CR-07",
             status: .fanningOut,
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "model_glm",
                     modelId: "model_glm",
@@ -346,7 +346,7 @@ final class StalledWorkDetectorTests: XCTestCase {
             id: "run1",
             prompt: "Build feature",
             status: .fanningOut,
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "model_opus",
                     modelId: "model_opus",
@@ -386,7 +386,7 @@ final class StalledWorkDetectorTests: XCTestCase {
             id: "run1",
             prompt: "Build feature",
             status: .fanningOut,
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "model_opus",
                     modelId: "model_opus",

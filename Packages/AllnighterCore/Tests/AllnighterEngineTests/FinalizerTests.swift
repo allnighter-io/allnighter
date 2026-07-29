@@ -8,7 +8,7 @@ final class FinalizerTests: XCTestCase {
     private func run(withReview: Bool) -> TeamRun {
         var run = TeamRun(id: "r", prompt: "Build X", status: .complete,
                              workers: [TestSupport.seat("model_opus")],
-                             workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .done, output: "Use an actor."))],
+                             answers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .done, output: "Use an actor."))],
                              createdAt: Date())
         run.stages = [
             StageOutput(id: "a", purpose: .analysis, status: .done, payload: .analysis(PlanAnalysis(contradictions: [Contradiction(topic: "store", positions: [], recommendedResolution: "actor")]))),

@@ -317,7 +317,7 @@ public actor AsyncTeamService {
             originAgent: request.originAgent,
             presetId: resolved.teamPresetId,
             workers: resolved.allWorkers,
-            workerAnswers: answerAndReview.map {
+            answers: answerAndReview.map {
                 TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? AgentStage.answer.rawValue,
                           result: WorkerRunResult(status: .queued))
             },
@@ -745,8 +745,8 @@ public actor AsyncTeamService {
                 }
                 run.status = .cancelled
                 run.endReason = .cancelled
-                for i in run.workerAnswers.indices where !run.workerAnswers[i].result.status.isTerminal {
-                    run.workerAnswers[i].result.status = .cancelled
+                for i in run.answers.indices where !run.answers[i].result.status.isTerminal {
+                    run.answers[i].result.status = .cancelled
                 }
                 // RLR-L3: the terminal revision clears the blocker and withdraws any
                 // FIFO ticket atomically (mirrors `killRun`), gated on `.stopped`.

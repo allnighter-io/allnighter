@@ -823,7 +823,7 @@ final class ThreadsViewModel {
             case .success(var run):
                 // RLS-S01: a terminal run MUST settle to a terminal turn — never .running.
                 settled.status = Self.settledStatus(forSuccessfulRun: run.status)
-                if settled.workerId == nil, let modelId = run.workerAnswers.first?.modelId {
+                if settled.workerId == nil, let modelId = run.answers.first?.modelId {
                     settled.workerId = modelId
                 }
                 if preset.mutating, let stage = run.stages.last(where: { $0.purpose == .plan }) {
@@ -1100,7 +1100,7 @@ final class ThreadsViewModel {
         // the cleaned caption may be sourced from.
         var captionTexts: [String] = []
         if let t = settledText, !t.isEmpty { captionTexts.append(t) }
-        for answer in run.workerAnswers where !(answer.output ?? "").isEmpty {
+        for answer in run.answers where !(answer.output ?? "").isEmpty {
             captionTexts.append(answer.output ?? "")
         }
         for stage in run.stages where !(stage.payload?.markdown ?? "").isEmpty {
@@ -1434,7 +1434,7 @@ final class ThreadsViewModel {
             origin: .gui,
             presetId: "code_spec_review",
             workers: [w0, w1, w2],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: w0.id, modelId: m0, role: "answer",
                     result: WorkerRunResult(

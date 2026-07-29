@@ -34,7 +34,7 @@ final class FloorProjectorTests: XCTestCase {
         return TeamRun(
             id: "run_floor1", prompt: "interpret this post", status: status, origin: .cli,
             originAgent: "claude-code", presetId: "signal_outside",
-            workers: workers, workerAnswers: answers, stages: [plan], createdAt: now,
+            workers: workers, answers: answers, stages: [plan], createdAt: now,
             lane: .signal, effort: .med, teamDisplayName: "Outside Signal",
             outputKind: .insight, mutating: false, warnings: ["one-model self-fusion"])
     }
@@ -121,7 +121,7 @@ final class FloorProjectorTests: XCTestCase {
     func testTimelineNeverInventsMissingTimestamps() {
         // WT-FLOOR04: a worker with a start but no finish yields workerStarted only.
         var run = signalRun(status: .planning)
-        run.workerAnswers = [TeamAnswer(memberId: "w#0", modelId: "m", role: "answer",
+        run.answers = [TeamAnswer(memberId: "w#0", modelId: "m", role: "answer",
                                         result: WorkerRunResult(status: .running, timing: RunTiming(startedAt: now)))]
         run.workers = [Agent(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .answer)]
         run.stages = []

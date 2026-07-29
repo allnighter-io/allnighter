@@ -55,7 +55,7 @@ final class BenchReadinessTests: XCTestCase {
             prompt: "p",
             status: .failed,
             workers: [Agent(id: "w", modelId: "m", instanceIndex: 0)],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "w",
                     modelId: "m",

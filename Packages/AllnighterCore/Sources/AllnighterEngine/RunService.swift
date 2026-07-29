@@ -1306,7 +1306,7 @@ public actor RunService {
             existingRun.blocker = nil
             existingRun.endReason = nil
             existingRun.workers = [worker]
-            existingRun.workerAnswers = [
+            existingRun.answers = [
                 TeamAnswer(
                     memberId: worker.id,
                     modelId: model.id,
@@ -1335,7 +1335,7 @@ public actor RunService {
                 id: runId, prompt: prompt, status: .running, phase: .working,
                 origin: origin, originAgent: originAgent,
                 presetId: preset.id, workers: [worker],
-                workerAnswers: [TeamAnswer(
+                answers: [TeamAnswer(
                     memberId: worker.id, modelId: model.id,
                     role: worker.purpose?.rawValue ?? AgentStage.answer.rawValue,
                     result: WorkerRunResult(status: .running)
@@ -1597,7 +1597,7 @@ public actor RunService {
                 result: outcome,
                 queueMs: queueMs
             )
-            run.workerAnswers = [answer]
+            run.answers = [answer]
             Self.settleLatestAttempt(
                 in: &run,
                 endedAt: outcome.timing.finishedAt ?? now(),
@@ -1790,7 +1790,7 @@ public actor RunService {
         timing.count(RunTimingKey.parsedStreamEvents, by: outcome.timing.parsedStreamEventCount)
         timing.count(RunTimingKey.answerDeltaCount, by: outcome.timing.answerDeltaCount)
         timing.count(RunTimingKey.reasoningDeltaCount, by: outcome.timing.reasoningDeltaCount)
-        run.workerAnswers = [answer]
+        run.answers = [answer]
         Self.settleLatestAttempt(
             in: &run,
             endedAt: outcome.timing.finishedAt ?? now(),

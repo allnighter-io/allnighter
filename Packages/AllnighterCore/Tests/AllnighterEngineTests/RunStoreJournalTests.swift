@@ -16,7 +16,7 @@ final class RunStoreJournalTests: XCTestCase {
     private func run(_ id: String, status: RunStatus) -> TeamRun {
         TeamRun(id: id, prompt: "p", status: status,
                 workers: [Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
-                workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
+                answers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
                                            result: WorkerRunResult(status: status.isTerminal ? .done : .running))],
                 createdAt: Date())
     }
@@ -201,7 +201,7 @@ final class RunStoreJournalTests: XCTestCase {
             resolved: resolved, prompt: "p", models: [opus], runId: "status-live",
             persist: { saved in
                 _ = try? store.save(saved, models: [opus])
-                if saved.workerAnswers.contains(where: { $0.result.status == .running }) {
+                if saved.answers.contains(where: { $0.result.status == .running }) {
                     sawRunningPersist.set()
                     let status = AsyncTeamStatusMapper.statusResponse(for: saved)
                     XCTAssertEqual(status.status, .running)
@@ -277,7 +277,7 @@ final class RunStoreJournalTests: XCTestCase {
         try CoreJSON.encode(TeamRun(
             id: "async-orphan", prompt: "p", status: .fanningOut,
             workers: [Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
-            workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
+            answers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
                                        result: WorkerRunResult(status: .running))],
             createdAt: Date()
         )).write(to: runDir.appendingPathComponent("run.json"))

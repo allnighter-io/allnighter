@@ -44,11 +44,11 @@ enum SandboxHandoff {
         // this the caller silently receives a fraction of the team it asked for and
         // has no way to know. What the app can run properly, it should.
         guard HostSandboxAdvice.detect(
-            workerFailureText: run.workerAnswers.compactMap { $0.result.errorReason },
+            workerFailureText: run.answers.compactMap { $0.result.errorReason },
             prompt: run.prompt,
             projectReference: run.repoRoot,
             teamId: run.presetId,
-            capacityAuthRequired: run.workerAnswers.contains {
+            capacityAuthRequired: run.answers.contains {
                 $0.result.capacityObservation?.kind == .authRequired
             }
         ) != nil else { return nil }

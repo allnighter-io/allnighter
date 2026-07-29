@@ -35,7 +35,7 @@ public struct ReviewCoordinator: Sendable {
     public static func defaultSelectors(forLens lensId: String) -> [InputSelector] {
         var selectors: [InputSelector] = [.founderPrompt, .planAnalysis, .draftPlan]
         if lensId == "dissent_preserver" || lensId == "coverage_audit" {
-            selectors.append(.workerAnswers)
+            selectors.append(.answers)
         }
         return selectors
     }

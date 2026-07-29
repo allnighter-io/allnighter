@@ -178,7 +178,7 @@ public enum HelpTopicRegistry {
             `--stream` is mutually exclusive with `--json` and `--dry-run`.
 
             Canonical answer text is `TeamRunJSON.answer` (status, markdown, source) — prefer \
-            that field over hunting `workerAnswers` or plan markdown.
+            that field over hunting `answers` or plan markdown.
 
             `alln run` does not expose `--temperature` or `--max-tokens`. Alln drives \
             subscription CLIs; use `--effort`, `--model`, and each driver's supported controls.

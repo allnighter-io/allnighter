@@ -102,7 +102,7 @@ extension StagePayload: Codable {
 }
 
 /// One post-answer stage in a team run. Parallel answer workers produce
-/// `workerAnswers`; everything after is a `StageOutput`. A reduce/review stage is
+/// `answers`; everything after is a `StageOutput`. A reduce/review stage is
 /// produced by its own worker invocation, recorded in `producedByAgentId`;
 /// `producedByAnswerWorkerId` is set only on the rare stage produced directly by
 /// an answer worker.

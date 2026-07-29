@@ -5,7 +5,7 @@ import AllnighterCore
 /// contract) into display-ready values for the Mac UI — with **no legacy field
 /// translation**. This is the GUI-side proof for CLI M1 step 9: the same shape
 /// `alln team --json` emits drives the app directly. Reads only new-vocabulary
-/// fields (`workers`, `workerAnswers`, `answer`, `stages`, `plan`, `errors`); it never sees
+/// fields (`workers`, `answers`, `answer`, `stages`, `plan`, `errors`); it never sees
 /// `seat`/`member`/`council`/`panel`/`masterPlan`. No SwiftUI/AppKit here.
 struct TeamRunJSONPresenter {
     let run: TeamRunJSON
@@ -32,7 +32,7 @@ struct TeamRunJSONPresenter {
 
     var workerRows: [WorkerRow] {
         run.workers.map { worker in
-            let answer = run.workerAnswers.first { $0.workerId == worker.id }
+            let answer = run.answers.first { $0.workerId == worker.id }
             // One-worker canonical text lives on `run.answer`; surface it on that row.
             let seatMarkdown = answer?.markdown.flatMap { $0.isEmpty ? nil : $0 }
             let rowMarkdown = seatMarkdown

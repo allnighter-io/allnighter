@@ -400,7 +400,7 @@ struct ThreadsFixtureSeeder {
             id: "fixture-team-run", prompt: "Per-user rate limiting for the public API — recommend an approach.",
             status: .complete, origin: .gui, presetId: "build_panel",
             workers: [w0, w1, writer],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(memberId: w0.id, modelId: m0, role: "answer",
                           result: WorkerRunResult(status: .done,
                              output: "**Token bucket.** Allows controlled bursts up to the bucket size while holding the long-run average to the refill rate — the right fit for per-user API limits.",
@@ -448,7 +448,7 @@ struct ThreadsFixtureSeeder {
                           workers: [Agent(id: Agent.makeID(modelId: workerId, instanceIndex: 0),
                                            modelId: workerId, instanceIndex: 0,
                                            skillId: "first_principles_builder", purpose: .answer)],
-                          workerAnswers: [
+                          answers: [
                               TeamAnswer(
                                   memberId: Agent.makeID(modelId: workerId, instanceIndex: 0),
                                   modelId: workerId, role: "answer",
@@ -630,7 +630,7 @@ struct ThreadsFixtureSeeder {
                 id: runId, prompt: "Make this profile feel premium and clean.",
                 status: .complete, origin: .gui, presetId: "design_design",
                 workers: [w0, w1],
-                workerAnswers: [
+                answers: [
                     TeamAnswer(memberId: w0.id, modelId: m0, role: "answer",
                               result: WorkerRunResult(status: .done, output: path0, timing: RunTiming(durationMs: 8000))),
                     TeamAnswer(memberId: w1.id, modelId: m1, role: "answer",

@@ -103,7 +103,7 @@ public struct RelayThreadProjector: Sendable {
             return
         }
         if let pmRunId = round.pmRunId, existing.runId != pmRunId,
-           let text = runStore.load(runId: pmRunId)?.workerAnswers.first?.output {
+           let text = runStore.load(runId: pmRunId)?.answers.first?.output {
             var settled = existing
             settled.status = .done
             settled.text = text
@@ -178,7 +178,7 @@ public struct RelayThreadProjector: Sendable {
             return
         }
         if let devRunId = round.devRunId, existing.runId != devRunId,
-           let text = runStore.load(runId: devRunId)?.workerAnswers.first?.output {
+           let text = runStore.load(runId: devRunId)?.answers.first?.output {
             var settled = existing
             settled.status = .done
             settled.text = text

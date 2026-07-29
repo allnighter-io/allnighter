@@ -331,8 +331,8 @@ public struct ProcessOwnershipSurface: Sendable {
             // Verified stop → the atomic terminal revision.
             current.status = .cancelled
             current.endReason = .killed
-            for i in current.workerAnswers.indices where !current.workerAnswers[i].result.status.isTerminal {
-                current.workerAnswers[i].result.status = .cancelled
+            for i in current.answers.indices where !current.answers[i].result.status.isTerminal {
+                current.answers[i].result.status = .cancelled
             }
             // RLR-S02c / RLR-L3: cancel/kill of a BLOCKED run clears its blocker AND
             // withdraws its FIFO ticket in this same terminal revision. The parked run

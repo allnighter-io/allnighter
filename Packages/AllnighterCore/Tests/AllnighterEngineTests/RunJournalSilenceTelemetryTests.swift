@@ -28,7 +28,7 @@ final class RunJournalSilenceTelemetryTests: XCTestCase {
             prompt: "p",
             status: .timedOut,
             workers: [Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "model_opus#0",
                     modelId: "model_opus",
@@ -84,7 +84,7 @@ final class RunJournalSilenceTelemetryTests: XCTestCase {
             prompt: "quiet",
             status: .timedOut,
             workers: [Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0)],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "model_grok#0",
                     modelId: "model_grok",

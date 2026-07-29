@@ -77,7 +77,7 @@ public enum NDJSONStreamProjector {
         }
 
         let created = run.createdAt
-        let lastFinish = run.workerAnswers.compactMap(\.result.timing.finishedAt).max() ?? created
+        let lastFinish = run.answers.compactMap(\.result.timing.finishedAt).max() ?? created
 
         add("teamRunStarted", created, EventData(
             status: TeamRunJSON.Status.running.rawValue,

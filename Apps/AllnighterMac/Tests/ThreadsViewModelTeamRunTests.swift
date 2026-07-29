@@ -136,8 +136,8 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
         let board = vm.selectedThread?.turns.first { $0.kind == .teamRun }
         XCTAssertEqual(board?.status, .done, "a completed run settles the board turn to done")
         let run = try XCTUnwrap(vm.teamRun(forRunId: runId), "the board must load a durable TeamRun by runId")
-        XCTAssertFalse(run.workerAnswers.isEmpty)
-        XCTAssertTrue(run.workerAnswers.contains { $0.result.status == .done || $0.output != nil },
+        XCTAssertFalse(run.answers.isEmpty)
+        XCTAssertTrue(run.answers.contains { $0.result.status == .done || $0.output != nil },
                       "the stubbed bench produces answers")
     }
 

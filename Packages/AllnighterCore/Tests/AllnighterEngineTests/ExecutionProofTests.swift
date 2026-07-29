@@ -153,7 +153,7 @@ final class ExecutionProofTests: XCTestCase {
 
         XCTAssertEqual(run.workers.count, 1,
                        "a mutating Team resolves to exactly one worker, whatever its declared seat count")
-        XCTAssertEqual(run.workerAnswers.count, 1, "one answer from the one executor")
+        XCTAssertEqual(run.answers.count, 1, "one answer from the one executor")
         let owners = Set(run.stages.compactMap(\.producedByAgentId))
         XCTAssertTrue(owners.isSubset(of: Set(run.workers.map(\.id))),
                       "every stage belongs to the single selected worker; got \(owners)")

@@ -219,7 +219,7 @@ final class AppModel {
             id: runId, prompt: trimmed, status: .draft,
             origin: .gui, presetId: activePresetId,
             workers: seats,
-            workerAnswers: seats.map {
+            answers: seats.map {
                 TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? AgentStage.answer.rawValue,
                           result: WorkerRunResult(status: .queued))
             },
@@ -297,10 +297,10 @@ final class AppModel {
     func setManualAnswer(workerId: String, text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, var current = run,
-              let index = current.workerAnswers.firstIndex(where: { $0.memberId == workerId }) else { return }
-        current.workerAnswers[index].result.status = .done
-        current.workerAnswers[index].result.output = trimmed
-        current.workerAnswers[index].result.timing.finishedAt = Date()
+              let index = current.answers.firstIndex(where: { $0.memberId == workerId }) else { return }
+        current.answers[index].result.status = .done
+        current.answers[index].result.output = trimmed
+        current.answers[index].result.timing.finishedAt = Date()
         run = current
     }
 
@@ -876,12 +876,12 @@ final class AppModel {
             if let workerId = event.payload["workerId"]?.stringValue,
                let to = event.payload["to"]?.stringValue,
                let status = WorkerAnswerStatus(rawValue: to),
-               let index = current.workerAnswers.firstIndex(where: { $0.memberId == workerId }) {
-                current.workerAnswers[index].result.status = status
+               let index = current.answers.firstIndex(where: { $0.memberId == workerId }) {
+                current.answers[index].result.status = status
                 // Design runs ride the run-relative image path on the event so the
                 // board tile fills in progressively.
                 if let output = event.payload["output"]?.stringValue {
-                    current.workerAnswers[index].result.output = output
+                    current.answers[index].result.output = output
                 }
             }
         default:

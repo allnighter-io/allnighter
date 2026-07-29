@@ -134,7 +134,7 @@ final class DesignBoardCaptureTests: XCTestCase {
             origin: .cli,
             presetId: "design_design",
             workers: [worker],
-            workerAnswers: [],
+            answers: [],
             stages: [StageOutput(
                 id: "board-1", purpose: .board, status: .done, payload: .board(board)
             )],

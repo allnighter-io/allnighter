@@ -183,7 +183,7 @@ final class RunAcceptanceBoundaryTests: XCTestCase {
         // No spawn while blocked: control never reaches the worker invoker.
         XCTAssertFalse(spy.launched, "no worker may be launched while the run is blocked on the write lock")
         XCTAssertTrue(run.workers.isEmpty)
-        XCTAssertTrue(run.workerAnswers.isEmpty)
+        XCTAssertTrue(run.answers.isEmpty)
 
         // Release → B acquires, clears the blocker, spawns, settles.
         await h.registry.release(h.lockKey, token: holderToken)

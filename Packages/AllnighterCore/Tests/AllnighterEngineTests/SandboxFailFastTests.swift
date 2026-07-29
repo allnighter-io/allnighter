@@ -96,7 +96,7 @@ final class SandboxFailFastTests: HermeticSupportTestCase {
             "the local attempt must be abandoned on the first refused seat, not carried "
             + "to the end of the slowest one (took \(elapsed)s of a \(slowSeconds)s seat)")
         XCTAssertFalse(
-            run.workerAnswers.isEmpty,
+            run.answers.isEmpty,
             "the refusal must still be recorded — the hand-off decision reads it")
     }
 }

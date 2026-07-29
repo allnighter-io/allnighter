@@ -75,7 +75,7 @@ public actor CatalogRunCoordinator {
             originAgent: originAgent,
             presetId: resolved.teamPresetId,
             workers: resolved.allWorkers,
-            workerAnswers: seeded.map {
+            answers: seeded.map {
                 TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? AgentStage.answer.rawValue,
                           result: WorkerRunResult(status: .queued))
             },
@@ -240,9 +240,9 @@ public actor CatalogRunCoordinator {
         var snapshots: [String: String] = [:]
         let runId = run.id
         for worker in workers {
-            if let index = run.workerAnswers.firstIndex(where: { $0.memberId == worker.id }) {
-                run.workerAnswers[index].result.status = .running
-                run.workerAnswers[index].result.timing.startedAt = now()
+            if let index = run.answers.firstIndex(where: { $0.memberId == worker.id }) {
+                run.answers[index].result.status = .running
+                run.answers[index].result.timing.startedAt = now()
             }
             emitWorker(workerId: worker.id, modelId: worker.modelId, from: .queued, to: .running, skillId: worker.skillId, runId: runId)
         }
@@ -351,8 +351,8 @@ public actor CatalogRunCoordinator {
                 }
                 emitWorker(workerId: answer.memberId, modelId: answer.modelId, from: .running, to: answer.result.status,
                            skillId: nil, durationMs: answer.result.timing.durationMs, reason: answer.result.errorReason, runId: runId)
-                if let index = run.workerAnswers.firstIndex(where: { $0.memberId == answer.memberId }) {
-                    run.workerAnswers[index] = answer
+                if let index = run.answers.firstIndex(where: { $0.memberId == answer.memberId }) {
+                    run.answers[index] = answer
                     persist?(run)
                 }
                 if let wi = run.workers.firstIndex(where: { $0.id == answer.memberId }) {
@@ -458,8 +458,8 @@ public actor CatalogRunCoordinator {
     private func writerInput(resolved: ResolvedTeamRun, run: TeamRun, basePrompt: String) -> String {
         let answerIds = Set(resolved.answerWorkers.map(\.id))
         let reviewIds = Set(resolved.reviewWorkers.map(\.id))
-        let answers = run.workerAnswers.filter { answerIds.contains($0.memberId) }
-        let reviews = run.workerAnswers.filter { reviewIds.contains($0.memberId) }
+        let answers = run.answers.filter { answerIds.contains($0.memberId) }
+        let reviews = run.answers.filter { reviewIds.contains($0.memberId) }
         // basePrompt carries the scout-distilled source so the Lead sees it too.
         var parts = [basePrompt, "# Agent answers\n\n" + answersBlock(answers, workers: resolved.answerWorkers)]
         if !reviews.isEmpty {
@@ -484,8 +484,8 @@ public actor CatalogRunCoordinator {
 
     private func merge(_ answers: [TeamAnswer], into run: inout TeamRun) {
         for answer in answers {
-            if let i = run.workerAnswers.firstIndex(where: { $0.memberId == answer.memberId }) {
-                run.workerAnswers[i] = answer
+            if let i = run.answers.firstIndex(where: { $0.memberId == answer.memberId }) {
+                run.answers[i] = answer
             }
         }
     }

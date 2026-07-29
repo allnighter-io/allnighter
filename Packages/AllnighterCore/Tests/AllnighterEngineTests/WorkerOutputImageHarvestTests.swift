@@ -207,7 +207,7 @@ final class WorkerOutputImageHarvestTests: XCTestCase {
             prompt: "generate an image",
             status: .complete,
             workers: [TestSupport.seat("chatgpt")],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "chatgpt#0",
                     modelId: "chatgpt",

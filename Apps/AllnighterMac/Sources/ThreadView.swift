@@ -868,7 +868,7 @@ private struct ThreadBoardRow: View {
         HStack(spacing: 6) {
             Text(turn.kind == .designBoard ? "Design board" : "Team board")
                 .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
-            if let n = run?.workerAnswers.count, n > 0 {
+            if let n = run?.answers.count, n > 0 {
                 Text("· \(n) models").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
             }
             Text(turn.createdAt, format: .dateTime.hour().minute())
@@ -984,7 +984,7 @@ private struct ThreadBoardRow: View {
                 .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
             }
             if turn.kind != .designBoard {
-                ForEach(run?.workerAnswers ?? []) { answer in
+                ForEach(run?.answers ?? []) { answer in
                     answerCard(answer)
                 }
             }
@@ -1113,7 +1113,7 @@ private struct ThreadMutatingRunRow: View {
     }
     private var runOutput: String? {
         if let markdown = run?.latestStage(.plan)?.payload?.markdown, !markdown.isEmpty { return markdown }
-        return run?.workerAnswers.first { ($0.output ?? "").isEmpty == false }?.output
+        return run?.answers.first { ($0.output ?? "").isEmpty == false }?.output
     }
     private var model: ComposeBenchModel? {
         guard let id = turn.workerId else { return nil }

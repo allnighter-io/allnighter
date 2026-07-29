@@ -20,7 +20,7 @@ final class TeamRunJSONPresenterTests: XCTestCase {
         XCTAssertNotNil(run.answer?.markdown)
         XCTAssertEqual(p.answerMarkdown, run.answer?.markdown)
         XCTAssertEqual(p.planMarkdown, run.answer?.markdown)
-        // Agent answers come from `workerAnswers` (new vocab), keyed by workerId;
+        // Agent answers come from `answers` (new vocab), keyed by workerId;
         // one-worker canonical text is on `answer` and surfaced on that row.
         XCTAssertTrue(p.workerRows.contains { $0.answerMarkdown != nil })
         let encoded = try CoreJSON.encode(run)
@@ -40,7 +40,7 @@ final class TeamRunJSONPresenterTests: XCTestCase {
                 .init(id: "w_ok", modelId: "m", modelName: "Opus 5", sourceId: "claude_code", purpose: .answer, instanceIndex: 0),
                 .init(id: "w_bad", modelId: "m", modelName: "Opus 5", sourceId: "claude_code", purpose: .answer, instanceIndex: 1),
             ],
-            workerAnswers: [
+            answers: [
                 .init(workerId: "w_ok", status: .done, markdown: "ok"),
                 .init(workerId: "w_bad", status: .failed,
                       error: .init(code: "AGENT_FAILED", message: "boom", requiresManual: false, retryable: true)),

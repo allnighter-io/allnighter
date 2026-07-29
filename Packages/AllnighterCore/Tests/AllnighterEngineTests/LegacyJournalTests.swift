@@ -20,7 +20,7 @@ final class LegacyJournalTests: XCTestCase {
     private func run(_ id: String, status: RunStatus) -> TeamRun {
         TeamRun(id: id, prompt: "p", status: status,
                 workers: [Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
-                workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
+                answers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
                                            result: WorkerRunResult(status: status.isTerminal ? .done : .running))],
                 createdAt: Date())
     }

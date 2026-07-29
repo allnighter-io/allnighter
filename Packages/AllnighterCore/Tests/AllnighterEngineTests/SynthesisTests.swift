@@ -11,7 +11,7 @@ final class SynthesisTests: XCTestCase {
             prompt: "Team accounts or analytics first?",
             status: .answersIn,
             workers: [TestSupport.seat("model_opus"), TestSupport.seat("model_grok"), TestSupport.seat("model_gemini")],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer", result: WorkerRunResult(status: .done, output: "Team accounts first.")),
                 TeamAnswer(memberId: "model_grok#0", modelId: "model_grok", role: "answer", result: WorkerRunResult(status: .done, output: "Accounts, then analytics.")),
                 TeamAnswer(memberId: "model_gemini#0", modelId: "model_gemini", role: "answer", result: WorkerRunResult(status: .timedOut, errorKind: .timedOut, errorReason: "no output for 120s"))

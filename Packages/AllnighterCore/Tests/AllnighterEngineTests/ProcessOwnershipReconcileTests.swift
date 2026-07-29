@@ -17,7 +17,7 @@ final class ProcessOwnershipReconcileTests: XCTestCase {
         TeamRun(
             id: id, prompt: "p", status: .fanningOut,
             workers: [Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
-            workerAnswers: [TeamAnswer(
+            answers: [TeamAnswer(
                 memberId: "model_opus#0", modelId: "model_opus", role: "answer",
                 result: WorkerRunResult(status: .queued)
             )],

@@ -1783,7 +1783,7 @@ struct AllnighterCLI {
             context: .init(runJournalPath: runJournalPath)
         )
         if let md = trj.answer?.markdown, !md.isEmpty { return md }
-        return trj.workerAnswers.lazy
+        return trj.answers.lazy
             .compactMap(\.markdown)
             .first { !$0.isEmpty }
     }

@@ -48,7 +48,7 @@ public actor TeamRunCoordinator {
             originAgent: originAgent,
             presetId: presetId,
             workers: teamWorkers,
-            workerAnswers: teamWorkers.map {
+            answers: teamWorkers.map {
                 TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? AgentStage.answer.rawValue,
                           result: WorkerRunResult(status: .queued))
             },
@@ -64,11 +64,11 @@ public actor TeamRunCoordinator {
 
         let skillByWorker = Dictionary(teamWorkers.map { ($0.id, $0.skillId) }, uniquingKeysWith: { a, _ in a })
 
-        for index in run.workerAnswers.indices where run.workerAnswers[index].result.status == .queued {
-            run.workerAnswers[index].result.status = .running
-            run.workerAnswers[index].result.timing.startedAt = now()
-            let id = run.workerAnswers[index].memberId
-            emitWorkerAnswer(run.workerAnswers[index], runId: run.id, from: .queued, skillId: skillByWorker[id] ?? nil)
+        for index in run.answers.indices where run.answers[index].result.status == .queued {
+            run.answers[index].result.status = .running
+            run.answers[index].result.timing.startedAt = now()
+            let id = run.answers[index].memberId
+            emitWorkerAnswer(run.answers[index], runId: run.id, from: .queued, skillId: skillByWorker[id] ?? nil)
         }
 
         let runnerCopy = workerRunner
@@ -113,9 +113,9 @@ public actor TeamRunCoordinator {
         }
 
         for result in results {
-            if let index = run.workerAnswers.firstIndex(where: { $0.memberId == result.memberId }) {
-                let previous = run.workerAnswers[index].result.status
-                run.workerAnswers[index] = result
+            if let index = run.answers.firstIndex(where: { $0.memberId == result.memberId }) {
+                let previous = run.answers[index].result.status
+                run.answers[index] = result
                 emitWorkerAnswer(result, runId: run.id, from: previous, skillId: skillByWorker[result.memberId] ?? nil)
             }
         }

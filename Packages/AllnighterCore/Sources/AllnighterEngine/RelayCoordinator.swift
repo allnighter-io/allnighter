@@ -1300,7 +1300,7 @@ public struct RelayCoordinator: Sendable {
                 if case .failure(let error) = result { return .serviceError(error) }
                 return .serviceError(.noWorker("relay turn dispatch failed"))
             }
-            let outcome = run.workerAnswers.first?.result
+            let outcome = run.answers.first?.result
                 ?? WorkerRunOutcome(status: .failed, errorReason: "no worker answer")
 
             switch RelayTurnClassifier.classify(.init(outcome: outcome)) {
@@ -1680,7 +1680,7 @@ public struct RelayCoordinator: Sendable {
                     endReason: .unknown, owner: lastOwner
                 )
             }
-            let outcome = run.workerAnswers.first?.result
+            let outcome = run.answers.first?.result
                 ?? WorkerRunOutcome(status: .failed, errorReason: "no worker answer")
 
             switch RelayTurnClassifier.classify(.init(outcome: outcome)) {
@@ -1823,11 +1823,11 @@ public struct RelayCoordinator: Sendable {
     /// uses when building `PilotRoundResult.devReport` (`Pilot_DX.md` §DX5).
     public static func settledDevReport(for state: RelayState, runStore: RunStore = RunStore()) -> String? {
         guard let devRunId = state.rounds.last?.devRunId else { return nil }
-        return runStore.load(runId: devRunId)?.workerAnswers.first?.output
+        return runStore.load(runId: devRunId)?.answers.first?.output
     }
 
     private func devReportText(runId: String) -> String? {
-        runStore.load(runId: runId)?.workerAnswers.first?.output
+        runStore.load(runId: runId)?.answers.first?.output
     }
 
     private func stop(_ state: inout RelayState, reason: String) {

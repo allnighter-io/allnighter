@@ -123,7 +123,7 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
         XCTAssertEqual(turn.status, .done)
         let runId = try XCTUnwrap(turn.runId)
         let run = try XCTUnwrap(vm.teamRun(forRunId: runId))
-        XCTAssertFalse(run.workerAnswers.isEmpty)
+        XCTAssertFalse(run.answers.isEmpty)
     }
 
     func testWriteLockReleasedAfterRunSettles() async throws {

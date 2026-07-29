@@ -159,7 +159,7 @@ final class RunServiceTests: XCTestCase {
 
         let result = await service.run(RunRequest(message: "hi", repoRoot: repo.path), origin: .cli)
         guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
-        XCTAssertEqual(run.workerAnswers.first?.modelId, "model_chatgpt", "Auto routed around the down Opus to ChatGPT")
+        XCTAssertEqual(run.answers.first?.modelId, "model_chatgpt", "Auto routed around the down Opus to ChatGPT")
         XCTAssertEqual(run.executionSourceId, "codex", "run records the CLI it actually ran on, not the default team's declared source")
         XCTAssertEqual(run.status, .complete)
     }
@@ -359,7 +359,7 @@ final class RunServiceTests: XCTestCase {
         guard case .success(let run) = result else {
             return XCTFail("run failed: \(result)")
         }
-        XCTAssertEqual(run.workerAnswers.first?.modelId, "model_cursor_grok_45")
+        XCTAssertEqual(run.answers.first?.modelId, "model_cursor_grok_45")
         XCTAssertEqual(run.executionSourceId, "cursor_agent")
         XCTAssertEqual(run.status, .complete)
     }

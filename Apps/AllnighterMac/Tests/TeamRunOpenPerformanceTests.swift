@@ -57,7 +57,7 @@ final class TeamRunOpenPerformanceTests: XCTestCase {
         return TeamRun(
             id: id, prompt: "find the bug", status: .complete, origin: .gui,
             presetId: "custom_code_bug_hunt_custom",
-            workers: workers, workerAnswers: answers, stages: [plan], createdAt: now,
+            workers: workers, answers: answers, stages: [plan], createdAt: now,
             lane: .code, teamDisplayName: "Bug Hunt MAX", outputKind: .plan
         )
     }
@@ -70,7 +70,7 @@ final class TeamRunOpenPerformanceTests: XCTestCase {
 
         PerfCounters.reset()
         let first = try XCTUnwrap(vm.teamRun(forRunId: runId))
-        XCTAssertEqual(first.workerAnswers.count, 11)
+        XCTAssertEqual(first.answers.count, 11)
         XCTAssertEqual(PerfCounters.value(.runJSONDecode), 1, "first open pays one decode")
 
         // SwiftUI body re-reads the same run many times per frame — cache must absorb them.
@@ -91,12 +91,12 @@ final class TeamRunOpenPerformanceTests: XCTestCase {
 
         let run = try XCTUnwrap(vm.teamRun(forRunId: runId))
         XCTAssertTrue(run.status.isTerminal)
-        XCTAssertFalse(run.workerAnswers.isEmpty)
+        XCTAssertFalse(run.answers.isEmpty)
         // Synthesis/plan is available for the receipt card without requiring every
         // worker answer to be markdown-rendered (GUI expands per-answer on demand).
         let synthesis = run.stages.last { $0.purpose == .plan && $0.status == .done }?.payload?.markdown
         XCTAssertEqual(synthesis?.isEmpty, false)
-        let totalWorkerChars = run.workerAnswers.compactMap(\.output).map(\.count).reduce(0, +)
+        let totalWorkerChars = run.answers.compactMap(\.output).map(\.count).reduce(0, +)
         XCTAssertGreaterThan(totalWorkerChars, 10_000,
                              "fixture is fat enough that eager markdown would hurt first paint")
     }

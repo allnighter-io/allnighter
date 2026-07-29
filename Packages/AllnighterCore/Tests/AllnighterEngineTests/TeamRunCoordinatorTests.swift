@@ -42,7 +42,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(run.status, .answersIn)
         XCTAssertEqual(run.answeredWorkers.count, 3)
-        XCTAssertEqual(Set(run.workerAnswers.map(\.memberId)), ["model_opus#0", "model_grok#0", "model_gemini#0"])
+        XCTAssertEqual(Set(run.answers.map(\.memberId)), ["model_opus#0", "model_grok#0", "model_gemini#0"])
     }
 
     func testSelfFusionSeatsDoNotCollide() async {
@@ -51,9 +51,9 @@ final class TeamRunCoordinatorTests: XCTestCase {
         let seats = SeatSpec(modelId: "model_opus", count: 3).expand(startingIndex: 0)
 
         let run = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: [opus], runId: "run_sf")
-        XCTAssertEqual(run.workerAnswers.count, 3)
-        XCTAssertEqual(Set(run.workerAnswers.map(\.memberId)).count, 3)
-        XCTAssertTrue(run.workerAnswers.allSatisfy { $0.modelId == "model_opus" })
+        XCTAssertEqual(run.answers.count, 3)
+        XCTAssertEqual(Set(run.answers.map(\.memberId)).count, 3)
+        XCTAssertTrue(run.answers.allSatisfy { $0.modelId == "model_opus" })
     }
 
     func testRunsInParallel() async {
@@ -93,7 +93,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
 
         let run = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: models)
         XCTAssertEqual(run.workers.map(\.id), ["model_opus#0"])
-        XCTAssertEqual(run.workerAnswers.count, 1)
+        XCTAssertEqual(run.answers.count, 1)
     }
 
     func testEmitsRunAndMemberEvents() async {

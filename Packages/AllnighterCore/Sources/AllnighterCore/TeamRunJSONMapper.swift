@@ -55,7 +55,7 @@ public enum TeamRunJSONMapper {
             )
         }
 
-        let answers = run.workerAnswers.map { a in
+        let answers = run.answers.map { a in
             let outputAbsolute: String? = {
                 guard let output = a.output, let dir = context.runDirectory,
                       RunImagePathResolver.isImagePath(output) else { return nil }
@@ -86,12 +86,12 @@ public enum TeamRunJSONMapper {
             )
         }()
 
-        let ran = run.workerAnswers.filter { $0.result.status != .skipped }.count
+        let ran = run.answers.filter { $0.result.status != .skipped }.count
         let planDone = planStage?.status == .done
         let usage = TeamRunJSON.Usage(cliCalls: ran + (planDone ? 1 : 0))
 
-        let started = run.workerAnswers.compactMap(\.result.timing.startedAt).min()
-        let completed = run.status.isTerminal ? run.workerAnswers.compactMap(\.result.timing.finishedAt).max() : nil
+        let started = run.answers.compactMap(\.result.timing.startedAt).min()
+        let completed = run.status.isTerminal ? run.answers.compactMap(\.result.timing.finishedAt).max() : nil
 
         // RLR-S02a — project the durable FIFO blocker onto the wire (never wired before).
         // Only for non-terminal runs; terminal transitions clear the blocker in the journal.
@@ -160,11 +160,11 @@ public enum TeamRunJSONMapper {
         // why, in plain language, instead of returning an unexplained empty run.
         // Keyed off the observed failure, never the environment alone.
         if let advice = HostSandboxAdvice.detect(
-            workerFailureText: run.workerAnswers.compactMap { $0.result.errorReason },
+            workerFailureText: run.answers.compactMap { $0.result.errorReason },
             prompt: run.prompt,
             projectReference: run.repoRoot,
             teamId: run.presetId,
-            capacityAuthRequired: run.workerAnswers.contains {
+            capacityAuthRequired: run.answers.contains {
                 $0.result.capacityObservation?.kind == .authRequired
             }
         ) {
@@ -173,19 +173,19 @@ public enum TeamRunJSONMapper {
                 at: 0)
         }
 
-        var workerAnswers = answers
+        var projectedAnswers = answers
         let answer = deriveAnswer(
             runStatus: runStatus,
             outputKind: run.outputKind?.rawValue,
             plan: &plan,
-            workerAnswers: &workerAnswers,
+            answers: &projectedAnswers,
             designBoard: designBoard
         )
 
         return TeamRunJSON(
             schemaVersion: 2,
             contractVersion: ContractRegistry.contractVersion,
-            teamRun: info, workers: workers, workerAnswers: workerAnswers,
+            teamRun: info, workers: workers, answers: projectedAnswers,
             answer: answer,
             designBoard: designBoard,
             repoDelta: run.mutating ? run.repoDelta : nil,
@@ -199,12 +199,12 @@ public enum TeamRunJSONMapper {
     }
 
     /// Deterministic canonical-answer derivation (archived Alln_Sharpening § Canonical answer).
-    /// Mutates `plan` / `workerAnswers` so markdown is not duplicated (Law 2).
+    /// Mutates `plan` / `answers` so markdown is not duplicated (Law 2).
     public static func deriveAnswer(
         runStatus: TeamRunJSON.Status,
         outputKind: String?,
         plan: inout TeamRunJSON.Plan?,
-        workerAnswers: inout [TeamRunJSON.AnswerInfo],
+        answers: inout [TeamRunJSON.AnswerInfo],
         designBoard: TeamRunJSON.DesignBoard?
     ) -> TeamRunJSON.Answer? {
         guard runStatus == .done else { return nil }
@@ -221,18 +221,18 @@ public enum TeamRunJSONMapper {
                 source: .init(
                     kind: .plan,
                     workerId: donePlan.writerWorkerId,
-                    modelId: workerAnswers.first { $0.workerId == donePlan.writerWorkerId }?.modelId,
+                    modelId: answers.first { $0.workerId == donePlan.writerWorkerId }?.modelId,
                     stageId: donePlan.stageId
                 )
             )
         }
 
         // 2. Successful one-worker → answer from that worker; row keeps status/model/timing.
-        let seats = workerAnswers.filter { $0.status != .skipped }
+        let seats = answers.filter { $0.status != .skipped }
         if seats.count == 1, let only = seats.first, only.status == .done,
            let markdown = only.markdown, !markdown.isEmpty,
-           let idx = workerAnswers.firstIndex(where: { $0.workerId == only.workerId }) {
-            workerAnswers[idx].markdown = nil
+           let idx = answers.firstIndex(where: { $0.workerId == only.workerId }) {
+            answers[idx].markdown = nil
             return TeamRunJSON.Answer(
                 status: .done,
                 outputKind: outputKind,
@@ -267,7 +267,7 @@ public enum TeamRunJSONMapper {
 
     /// Agent terminal states → mechanical outcome status (never a correctness verdict).
     static func mapOutcomeStatus(_ run: TeamRun) -> TeamRunJSON.Outcome.Status {
-        let answers = run.workerAnswers.filter { $0.result.status != .skipped }
+        let answers = run.answers.filter { $0.result.status != .skipped }
         guard !answers.isEmpty else { return .failed }
         let doneCount = answers.filter { $0.result.status == .done }.count
         if doneCount == answers.count { return .completed }
@@ -284,7 +284,7 @@ public enum TeamRunJSONMapper {
             TeamRunJSON.Outcome.Proof(
                 command: $0.command, exitCode: $0.exitCode, passed: $0.passed, outputTail: $0.outputTail)
         }
-        let usage: TeamRunJSON.Outcome.TokenUsage? = run.workerAnswers.first?.result.reportedTokenUsage
+        let usage: TeamRunJSON.Outcome.TokenUsage? = run.answers.first?.result.reportedTokenUsage
             .flatMap { reported in
                 guard !reported.isEmpty else { return nil }
                 return TeamRunJSON.Outcome.TokenUsage(
@@ -303,7 +303,7 @@ public enum TeamRunJSONMapper {
 
     /// Observed wall ms: run `createdAt` → latest worker `finishedAt`. Null when unfinished.
     static func observedWallMs(_ run: TeamRun) -> Int? {
-        guard let finished = run.workerAnswers.compactMap(\.result.timing.finishedAt).max() else {
+        guard let finished = run.answers.compactMap(\.result.timing.finishedAt).max() else {
             return nil
         }
         return max(0, Int(finished.timeIntervalSince(run.createdAt) * 1000))
@@ -312,7 +312,7 @@ public enum TeamRunJSONMapper {
     // MARK: - Enum mappings
 
     /// Internal run lifecycle → the closed public set. `partial` is a finished run
-    /// with some failed workers (shown in workerAnswers), so it maps to `done`.
+    /// with some failed workers (shown in answers), so it maps to `done`.
     static func mapRun(_ s: RunStatus) -> TeamRunJSON.Status {
         switch s {
         case .draft, .queued: return .queued

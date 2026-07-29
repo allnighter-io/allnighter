@@ -72,7 +72,7 @@ private actor StubRemoteTeamExecutor: RemoteTeamCommandExecuting {
             prompt: request.question,
             status: .fanningOut,
             origin: .ios,
-            workerAnswers: [
+            answers: [
                 TeamAnswer(memberId: "model_cursor#0", modelId: "model_cursor", role: "answer",
                           result: WorkerRunResult(status: .running))
             ],
@@ -98,7 +98,7 @@ private actor StubRemoteTeamExecutor: RemoteTeamCommandExecuting {
     func complete(runId: String, output: String) {
         guard var run = runStore.load(runId: runId) else { return }
         run.status = .complete
-        run.workerAnswers = [
+        run.answers = [
             TeamAnswer(
                 memberId: "model_cursor#0",
                 modelId: "model_cursor",

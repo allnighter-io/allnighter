@@ -58,7 +58,7 @@ final class RunTokenUsageTests: XCTestCase {
     func testOutcomeMapsUsageAndHeadlineSuffix() {
         var run = TeamRun(
             id: "u1", prompt: "p", status: .complete, workers: [],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "model_opus#0", modelId: "model_opus", role: "answer",
                     result: WorkerRunResult(
@@ -77,7 +77,7 @@ final class RunTokenUsageTests: XCTestCase {
     func testOutcomeOmitsUsageWhenDriverReportsNothing() {
         var run = TeamRun(
             id: "u2", prompt: "p", status: .complete, workers: [],
-            workerAnswers: [
+            answers: [
                 TeamAnswer(
                     memberId: "model_grok#0", modelId: "model_grok", role: "answer",
                     result: WorkerRunResult(status: .done, output: "done"))

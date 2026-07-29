@@ -155,7 +155,7 @@ final class SandboxHandoffTests: HermeticSupportTestCase {
         XCTAssertEqual(settled, [runId])
         let run: TeamRun = try XCTUnwrap(runStore.load(runId: runId))
         XCTAssertEqual(run.status, .complete)
-        XCTAssertTrue(run.workerAnswers.isEmpty, "a ping must not start a worker")
+        XCTAssertTrue(run.answers.isEmpty, "a ping must not start a worker")
         XCTAssertTrue(run.warnings.contains { $0.contains("HANDOFF_HOST_ALIVE") })
 
         let log = try String(contentsOf: XCTUnwrap(HandoffLog.fileURL), encoding: .utf8)

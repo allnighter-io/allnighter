@@ -260,9 +260,9 @@ public enum FloorProjector {
 
         add(.runQueued, run.createdAt)
         // Run started = the first worker that actually began (a real timestamp).
-        add(.runStarted, run.workerAnswers.compactMap(\.result.timing.startedAt).min())
+        add(.runStarted, run.answers.compactMap(\.result.timing.startedAt).min())
 
-        for a in run.workerAnswers {
+        for a in run.answers {
             add(.workerStarted, a.result.timing.startedAt, workerId: a.memberId)
             let returned: FloorTimelineEvent.Kind = (a.result.status == .failed || a.result.status == .timedOut) ? .workerFailed : .workerReturned
             add(returned, a.result.timing.finishedAt, workerId: a.memberId, status: a.result.status.rawValue)
@@ -278,7 +278,7 @@ public enum FloorProjector {
 
         // Run finished = the last observed terminal timestamp (never invented).
         if run.status.isTerminal {
-            let lastTimes = run.workerAnswers.compactMap(\.result.timing.finishedAt) + run.stages.compactMap(\.finishedAt)
+            let lastTimes = run.answers.compactMap(\.result.timing.finishedAt) + run.stages.compactMap(\.finishedAt)
             add(.runFinished, lastTimes.max())
         }
 

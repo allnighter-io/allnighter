@@ -92,7 +92,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// One result per answer/review worker (keyed by `memberId`, F2_B.3c: was
     /// `[WorkerAnswer]`, now AgentOSTeam's `[TeamAnswer]` — same shape, `result:
     /// WorkerRunResult` instead of the flat inline fields).
-    public var workerAnswers: [TeamAnswer]
+    public var answers: [TeamAnswer]
     /// Everything after the answer stage: review/plan/output stages.
     public var stages: [StageOutput]
     public var createdAt: Date
@@ -199,7 +199,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         originAgent: String? = nil,
         presetId: String? = nil,
         workers: [Agent] = [],
-        workerAnswers: [TeamAnswer] = [],
+        answers: [TeamAnswer] = [],
         stages: [StageOutput] = [],
         createdAt: Date,
         lane: WorkLane? = nil,
@@ -241,7 +241,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.originAgent = originAgent
         self.presetId = presetId
         self.workers = workers
-        self.workerAnswers = workerAnswers
+        self.answers = answers
         self.stages = stages
         self.createdAt = createdAt
         self.lane = lane
@@ -281,16 +281,16 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
 
 public extension TeamRun {
     var answeredWorkers: [TeamAnswer] {
-        workerAnswers.filter(\.hasAnswer)
+        answers.filter(\.hasAnswer)
     }
 
     var failedWorkerAnswers: [TeamAnswer] {
-        workerAnswers.filter { $0.result.status == .failed || $0.result.status == .timedOut }
+        answers.filter { $0.result.status == .failed || $0.result.status == .timedOut }
     }
 
     /// True once every non-skipped member has reached a terminal state.
     var allWorkerAnswersSettled: Bool {
-        workerAnswers.allSatisfy { $0.result.status.isTerminal || $0.result.status == .skipped }
+        answers.allSatisfy { $0.result.status.isTerminal || $0.result.status == .skipped }
     }
 
     /// The latest stage output of a given purpose (stages are append-only; the
@@ -311,7 +311,7 @@ public extension TeamRun {
     }
 
     func workerAnswer(workerId: String) -> TeamAnswer? {
-        workerAnswers.first { $0.memberId == workerId }
+        answers.first { $0.memberId == workerId }
     }
 }
 

@@ -124,7 +124,7 @@ public enum RunJournalSilenceTelemetry {
         let budgets = run.clockBudgets ?? RunClockBudgets()
         let idleBudget = budgets.idleTimeoutSeconds
 
-        let spawnIdle = run.workerAnswers.contains {
+        let spawnIdle = run.answers.contains {
             $0.result.status == .timedOut
                 && $0.result.spawnDiagnostics?.timeoutKind == .idle
         }
@@ -149,7 +149,7 @@ public enum RunJournalSilenceTelemetry {
     private static func resolvedDriverId(run: TeamRun) -> String {
         if let source = run.executionSourceId, !source.isEmpty { return source }
         if let worker = run.workers.first { return worker.modelId }
-        if let answer = run.workerAnswers.first { return answer.modelId }
+        if let answer = run.answers.first { return answer.modelId }
         return "unknown"
     }
 
