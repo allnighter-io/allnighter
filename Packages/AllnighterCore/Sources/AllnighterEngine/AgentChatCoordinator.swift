@@ -91,7 +91,7 @@ public actor AgentChatCoordinator {
     public func resolveWorkerId(for thread: WorkThread, requested: String? = nil) -> String? {
         if let requested, hasRunnableOrManual(requested) { return requested }
         if let d = thread.defaultWorkerId, hasRunnableOrManual(d) { return d }
-        if let last = thread.lastWorkerId, hasRunnableOrManual(last) { return last }
+        if let last = thread.lastModelId, hasRunnableOrManual(last) { return last }
         if let global = defaultDriverWorkerId, hasRunnableOrManual(global) { return global }
         return models.first { model in
             model.enabled && registry.manifest(for: model)?.kind == .headlessCLI

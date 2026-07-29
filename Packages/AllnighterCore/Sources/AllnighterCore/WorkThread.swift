@@ -149,8 +149,8 @@ public extension WorkThread {
         turns.contains(where: \.requiresUserAttention)
     }
 
-    /// The worker behind the most recent worker-authored turn.
-    var lastWorkerId: String? {
+    /// The model behind the most recent worker-authored turn.
+    var lastModelId: String? {
         turns.last { $0.author == .worker }?.workerId
     }
 

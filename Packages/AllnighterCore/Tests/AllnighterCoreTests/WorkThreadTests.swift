@@ -54,7 +54,7 @@ final class WorkThreadTests: XCTestCase {
         let thread = try Fixtures.thread(.threadChat)
         XCTAssertFalse(thread.isRunning)         // all turns done
         XCTAssertFalse(thread.needsAttention)    // no failed/blocking turns
-        XCTAssertEqual(thread.lastWorkerId, "model_opus")
+        XCTAssertEqual(thread.lastModelId, "model_opus")
         XCTAssertEqual(thread.preview, "Start with a single owner-scoped flag before per-seat roles.")
         XCTAssertFalse(thread.isPinned)
     }

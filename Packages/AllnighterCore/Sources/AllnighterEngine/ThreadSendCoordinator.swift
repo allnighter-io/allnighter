@@ -638,7 +638,7 @@ public struct ThreadSendCoordinator: Sendable {
             }
         }
         if let d = thread.defaultWorkerId, models.contains(where: { $0.id == d }) { return d }
-        if let last = thread.lastWorkerId, models.contains(where: { $0.id == last }) { return last }
+        if let last = thread.lastModelId, models.contains(where: { $0.id == last }) { return last }
         if let global = defaultDriverWorkerId, models.contains(where: { $0.id == global }) { return global }
         return models.first { $0.enabled && registry.manifest(for: $0)?.kind == .headlessCLI }?.id
     }

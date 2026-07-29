@@ -220,7 +220,7 @@ struct RoutingComposer: View {
     var onSend: ((ComposeRouting) -> Void)?
     /// Fired once on the first user edit (Pending review modal un-arms Pending→Draft).
     var onEdit: (() -> Void)?
-    /// Thread-local model to pin when no explicit override — `lastWorkerId` / default.
+    /// Thread-local model to pin when no explicit override — `lastModelId` / default.
     private let continuationWorkerId: String?
 
     init(
