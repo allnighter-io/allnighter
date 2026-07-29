@@ -61,8 +61,9 @@ public enum TeamRunJSONMapper {
                       RunImagePathResolver.isImagePath(output) else { return nil }
                 return RunImagePathResolver.absolutePath(runDirectory: dir, relativePath: output)
             }()
+            let agentId = run.workers.first(where: { $0.id == a.memberId })?.agentId
             return TeamRunJSON.AnswerInfo(
-                workerId: a.memberId, modelId: a.modelId, status: mapWorker(a.result.status),
+                workerId: a.memberId, agentId: agentId, modelId: a.modelId, status: mapWorker(a.result.status),
                 queueMs: a.queueMs, ttftMs: a.result.timing.ttftMs,
                 durationMs: a.result.timing.durationMs, markdown: a.output,
                 outputAbsolutePath: outputAbsolute,

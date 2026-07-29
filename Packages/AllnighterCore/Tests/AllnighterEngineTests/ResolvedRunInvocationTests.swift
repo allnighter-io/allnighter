@@ -100,7 +100,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         XCTAssertEqual(dry.seatCount, 1, "execution Default Team is one seat, not lead+crew roster")
         XCTAssertEqual(dry.workerId, "model_sonnet")
         XCTAssertTrue(dry.autoResolved)
-        XCTAssertFalse(dry.explicitWorkerChosen)
+        XCTAssertFalse(dry.explicitModelChosen)
         XCTAssertTrue(dry.mutating)
         XCTAssertEqual(dry.flagMode, .dryRun)
 
@@ -123,7 +123,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         let fg = resolve(mode: .foreground, flags: .init(workerId: "model_sonnet", json: true))
 
         XCTAssertEqual(dry.workerId, "model_sonnet")
-        XCTAssertTrue(dry.explicitWorkerChosen)
+        XCTAssertTrue(dry.explicitModelChosen)
         XCTAssertFalse(dry.autoResolved)
         XCTAssertEqual(dry.seatCount, 1)
         XCTAssertEqual(dry.seats.map(\.modelId), ["model_sonnet"])
@@ -483,7 +483,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
     /// preserves the caller's `--model` selector (answer team + pin = read-only).
     func testExplicitWorkerBareAskTeachesSteerPreservingWorker() {
         let dry = resolve(flags: .init(workerId: "model_sonnet", json: true))
-        XCTAssertTrue(dry.explicitWorkerChosen)
+        XCTAssertTrue(dry.explicitModelChosen)
         XCTAssertTrue(dry.mutating)
         let json = dry.makeDryRunJSON()
 

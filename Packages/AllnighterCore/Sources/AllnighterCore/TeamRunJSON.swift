@@ -426,6 +426,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     /// `queueMs` request→spawn, `ttftMs` spawn→first token, `durationMs` spawn→exit.
     public struct AnswerInfo: Codable, Equatable, Sendable {
         public var workerId: String
+        public var agentId: String?
         public var modelId: String?
         public var status: Status
         /// Ms from run request accepted to this seat's CLI spawn. Null when unmeasured.
@@ -439,11 +440,11 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var outputAbsolutePath: String?
         public var error: ErrorEnvelope?
         public init(
-            workerId: String, modelId: String? = nil, status: Status,
+            workerId: String, agentId: String? = nil, modelId: String? = nil, status: Status,
             queueMs: Int? = nil, ttftMs: Int? = nil, durationMs: Int? = nil,
             markdown: String? = nil, outputAbsolutePath: String? = nil, error: ErrorEnvelope? = nil
         ) {
-            self.workerId = workerId; self.modelId = modelId; self.status = status
+            self.workerId = workerId; self.agentId = agentId; self.modelId = modelId; self.status = status
             self.queueMs = queueMs; self.ttftMs = ttftMs; self.durationMs = durationMs
             self.markdown = markdown
             self.outputAbsolutePath = outputAbsolutePath; self.error = error

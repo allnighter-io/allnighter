@@ -113,7 +113,7 @@ final class ReproduceCommandTests: XCTestCase {
         // Original run: explicit --model on Default Team, mutating-allowed.
         let original = resolve("Fix the bug", RunInvocationNormalizedFlags(
             projectId: "proj_test", workerId: "model_sonnet", effort: .high))
-        XCTAssertTrue(original.explicitWorkerChosen)
+        XCTAssertTrue(original.explicitModelChosen)
         XCTAssertEqual(original.seats.map(\.modelId), ["model_sonnet"])
 
         let run = TeamRun(
@@ -127,7 +127,7 @@ final class ReproduceCommandTests: XCTestCase {
                        "replay must resolve the same seats")
         XCTAssertEqual(replay.writePolicy, original.writePolicy,
                        "replay must resolve the same write policy")
-        XCTAssertTrue(replay.explicitWorkerChosen, "replay preserves explicit worker selection")
+        XCTAssertTrue(replay.explicitModelChosen, "replay preserves explicit worker selection")
         XCTAssertEqual(replay.workerId, "model_sonnet")
     }
 
