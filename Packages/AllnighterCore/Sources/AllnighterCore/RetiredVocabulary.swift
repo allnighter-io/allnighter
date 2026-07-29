@@ -75,6 +75,15 @@ public enum RetiredVocabulary {
         "edit worker",
         "alln project workers",
         "project recheck-workers",
+        // WTA-S06 — retired JSON wire keys (do not teach in help/recipes)
+        "\"workerAnswers\"",
+        "\"producedByWorkerId\"",
+        "\"devWorkerId\"",
+        "\"pmWorkerId\"",
+        "\"defaultWorkerId\"",
+        "\"leadWorkerId\"",
+        "\"rejectedWorkerIds\"",
+        "\"sourceWorkerIds\"",
     ]
 
     /// Underscore tool ids that must never appear as callable ids in agent-visible

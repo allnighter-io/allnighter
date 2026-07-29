@@ -5377,10 +5377,10 @@
       "ruleId" : "team.default.invalid"
     },
     {
-      "agentAction" : "Inspect `workerId` and source error; failed worker remains visible.",
+      "agentAction" : "Inspect `agentId` and source error; failed agent remains visible.",
       "code" : "AGENT_FAILED",
       "exitClass" : "operational",
-      "explain" : "One worker failed. The failure is shown, never hidden; other workers may still have answered. Retry the worker or proceed with partial results.",
+      "explain" : "One agent failed. The failure is shown, never hidden; other agents may still have answered. Retry the agent or proceed with partial results.",
       "requiresManual" : false,
       "retryable" : true,
       "ruleId" : "agent.failed"

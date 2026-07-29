@@ -1439,7 +1439,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `MODEL_UNAVAILABLE` | no | yes | `operational` | Run `alln models --json`; pick an on-Bench ready model or enable one. |
 | `AGENT_NOT_AVAILABLE` | yes | yes | `operational` | Run `alln menu --json` (or `alln menu show model:<id>`); pass a canonical model_* id. Never substitute a display name. |
 | `DEFAULT_TEAM_INVALID` | yes | no | `operational` | Run `alln menu --json` / `alln teams show <id> --json`; fix unavailable workers. |
-| `AGENT_FAILED` | no | yes | `operational` | Inspect `workerId` and source error; failed worker remains visible. |
+| `AGENT_FAILED` | no | yes | `operational` | Inspect `agentId` and source error; failed agent remains visible. |
 | `PLAN_WRITER_FAILED` | no | yes | `operational` | Retry with a ready plan writer or export worker answers. |
 | `TEAM_RUN_TIMEOUT` | no | yes | `timeout` | Retry with lower effort or fewer workers. |
 | `STATUS_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run `alln team status <id> --wait-for <state> --timeout <s> --json` with a longer timeout, or poll with waitHintSeconds; do not busy-loop. |
