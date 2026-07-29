@@ -33,6 +33,10 @@ public struct RelayJSON: Codable, Equatable, Sendable {
     /// PO-S03: present while this relay's dev turn holds a FIFO ticket on the
     /// per-root execution lane (harness-owned wait; agents must not busy-loop).
     public var laneBlocked: ExecutionLaneTicket?
+    /// Durable PM delivery at a parked or terminal boundary. Always encoded, including null.
+    public var pmTurn: PMTurnJSON?
+    /// Status-level notes; `pm_turn_missing` marks the receipt crash window.
+    public var notes: [String]
 
     public init(
         schemaVersion: Int = 1,
@@ -48,7 +52,9 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         pmModelId: String,
         devModelId: String,
         stoppedReason: String? = nil,
-        laneBlocked: ExecutionLaneTicket? = nil
+        laneBlocked: ExecutionLaneTicket? = nil,
+        pmTurn: PMTurnJSON? = nil,
+        notes: [String] = []
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -64,12 +70,19 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         self.devModelId = devModelId
         self.stoppedReason = stoppedReason
         self.laneBlocked = laneBlocked
+        self.pmTurn = pmTurn
+        self.notes = notes
     }
 
     /// Projects a durable `RelayState` to its wire shape. The one place CLI and MCP
     /// both call, so `alln pair relay` output and MCP `pair_relay` output can never
     /// drift (Agent-First Product Law: MCP never richer than the CLI).
-    public static func project(_ state: RelayState, contractVersion: String) -> RelayJSON {
+    public static func project(
+        _ state: RelayState,
+        contractVersion: String,
+        pmTurn: PMTurnJSON? = nil,
+        notes: [String] = []
+    ) -> RelayJSON {
         RelayJSON(
             contractVersion: contractVersion,
             relayId: state.id,
@@ -83,8 +96,35 @@ public struct RelayJSON: Codable, Equatable, Sendable {
             pmModelId: state.pmModelId,
             devModelId: state.devModelId,
             stoppedReason: state.stoppedReason,
-            laneBlocked: state.laneBlocked
+            laneBlocked: state.laneBlocked,
+            pmTurn: pmTurn,
+            notes: notes
         )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, contractVersion, relayId, status, pmMode, rounds, verdict, note
+        case roundLog, docPath, pmModelId, devModelId, stoppedReason, laneBlocked, pmTurn, notes
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(schemaVersion, forKey: .schemaVersion)
+        try c.encode(contractVersion, forKey: .contractVersion)
+        try c.encode(relayId, forKey: .relayId)
+        try c.encode(status, forKey: .status)
+        try c.encode(pmMode, forKey: .pmMode)
+        try c.encode(rounds, forKey: .rounds)
+        try c.encodeIfPresent(verdict, forKey: .verdict)
+        try c.encodeIfPresent(note, forKey: .note)
+        try c.encode(roundLog, forKey: .roundLog)
+        try c.encode(docPath, forKey: .docPath)
+        try c.encode(pmModelId, forKey: .pmModelId)
+        try c.encode(devModelId, forKey: .devModelId)
+        try c.encodeIfPresent(stoppedReason, forKey: .stoppedReason)
+        try c.encodeIfPresent(laneBlocked, forKey: .laneBlocked)
+        try c.encode(pmTurn, forKey: .pmTurn)
+        try c.encode(notes, forKey: .notes)
     }
 }
 

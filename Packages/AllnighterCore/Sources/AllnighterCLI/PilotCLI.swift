@@ -887,6 +887,7 @@ enum PilotCLI {
         recovery: InFlightRecovery,
         stateStore: RelayStateStore,
         runStore: RunStore = RunStore(),
+        pmTurnStore: PMTurnStore? = nil,
         gitObserver: GitObserver = GitObserver(),
         now: Date = Date()
     ) -> PilotStatusJSON {
@@ -894,8 +895,21 @@ enum PilotCLI {
             state: state, recovery: recovery, stateStore: stateStore,
             runStore: runStore, gitObserver: gitObserver, now: now
         )
+        let pmTurn = PMTurnStatusProjection.load(
+            kind: .relay,
+            subjectId: state.id,
+            atPMBoundary: PMTurnStatusProjection.isRelayPMBoundary(state.status),
+            store: pmTurnStore ?? PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        )
         return PilotStatusJSON(
-            relay: RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion),
+            relay: RelayJSON.project(
+                state,
+                contractVersion: ContractRegistry.contractVersion,
+                pmTurn: pmTurn.pmTurn,
+                notes: pmTurn.notes
+            ),
+            pmTurn: pmTurn.pmTurn,
+            notes: pmTurn.notes,
             recovery: recoveryActionLine(
                 for: state, recovery: recovery, streamSilenceWarning: longJob.streamSilenceWarning
             ),
@@ -1241,6 +1255,8 @@ struct PilotHandoffJSON: Encodable {
 /// is SUPPLEMENTARY only (not proof of life).
 struct PilotStatusJSON: Encodable {
     let relay: RelayJSON
+    let pmTurn: PMTurnJSON?
+    let notes: [String]
     let recovery: String?
     let nextActions: [AgentSurfaceNextAction]
     let elapsedSeconds: Int?
@@ -1254,6 +1270,8 @@ struct PilotStatusJSON: Encodable {
 
     init(
         relay: RelayJSON,
+        pmTurn: PMTurnJSON? = nil,
+        notes: [String] = [],
         recovery: String?,
         nextActions: [AgentSurfaceNextAction],
         elapsedSeconds: Int? = nil,
@@ -1266,6 +1284,8 @@ struct PilotStatusJSON: Encodable {
         watcherDisposable: Bool? = nil
     ) {
         self.relay = relay
+        self.pmTurn = pmTurn
+        self.notes = notes
         self.recovery = recovery
         self.nextActions = nextActions
         self.elapsedSeconds = elapsedSeconds
@@ -1281,6 +1301,8 @@ struct PilotStatusJSON: Encodable {
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(relay, forKey: .relay)
+        try c.encode(pmTurn, forKey: .pmTurn)
+        try c.encode(notes, forKey: .notes)
         try c.encodeIfPresent(recovery, forKey: .recovery)
         try c.encode(nextActions, forKey: .nextActions)
         try c.encodeIfPresent(elapsedSeconds, forKey: .elapsedSeconds)
@@ -1294,7 +1316,7 @@ struct PilotStatusJSON: Encodable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case relay, recovery, nextActions
+        case relay, pmTurn, notes, recovery, nextActions
         case elapsedSeconds, ownerAlive, lastProgressAt, silenceAgeSeconds
         case streamSilenceWarning, commitsSinceBaseline, waitHintSeconds, watcherDisposable
     }

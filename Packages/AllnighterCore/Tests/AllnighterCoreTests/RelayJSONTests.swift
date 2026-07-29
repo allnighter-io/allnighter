@@ -1,5 +1,6 @@
 import XCTest
 @testable import AllnighterCore
+import AllnighterEngine
 
 /// `RelayJSON` is the one wire shape `alln pair relay*` and MCP `pair_relay*` both
 /// project (docs/phases/PM_Relay.md §6 R-S05/R-S06, §7 works-test output shape).
@@ -20,6 +21,38 @@ final class RelayJSONTests: XCTestCase {
             pmRunId: pmRunId, devRunId: devRunId, verdict: verdict, gate: gate,
             startedAt: now, finishedAt: now, outcome: outcome
         )
+    }
+
+    func testProjectsPersistedPMTurnAndMissingReceiptNote() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("relay-json-pm-turn-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = PMTurnStore(relaysRootDirectory: root)
+        let state = RelayState(
+            id: "relay_receipt", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: "model_pm", devModelId: "model_dev", status: .done, createdAt: now
+        )
+        let turn = PMTurnJSON(
+            kind: .relay, subjectId: state.id, sequence: 1, createdAt: now,
+            reason: "done", lifecycleStatus: "done", report: "Relay delivered.",
+            nextCommands: ["alln pair relay-status --relay relay_receipt --json"]
+        )
+        try store.save(turn)
+
+        let loaded = PMTurnStatusProjection.load(
+            kind: .relay, subjectId: state.id, atPMBoundary: true, store: store
+        )
+        let json = RelayJSON.project(
+            state, contractVersion: "1.0.0", pmTurn: loaded.pmTurn, notes: loaded.notes
+        )
+        XCTAssertEqual(json.pmTurn, turn)
+        XCTAssertTrue(json.notes.isEmpty)
+
+        let missing = PMTurnStatusProjection.load(
+            kind: .relay, subjectId: "relay_missing", atPMBoundary: true, store: store
+        )
+        XCTAssertNil(missing.pmTurn)
+        XCTAssertEqual(missing.notes, ["pm_turn_missing"])
     }
 
     func testProjectsRunningRelayWithNoVerdictYet() {

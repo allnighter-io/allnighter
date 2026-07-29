@@ -187,6 +187,10 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     /// Seconds the harness suggests sleeping before the next check when the
     /// target is not yet reached (PO-F3). 0 when terminal / target matched.
     public var waitHintSeconds: Double?
+    /// Durable PM delivery at a terminal boundary. Always encoded, including null.
+    public var pmTurn: PMTurnJSON?
+    /// Status-level notes; `pm_turn_missing` marks the receipt crash window.
+    public var notes: [String]
 
     public init(
         schemaVersion: Int = 1,
@@ -210,7 +214,9 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         contradiction: String? = nil,
         silenceStatus: String? = nil,
         nextAction: AsyncTeamNextAction? = nil,
-        waitHintSeconds: Double? = nil
+        waitHintSeconds: Double? = nil,
+        pmTurn: PMTurnJSON? = nil,
+        notes: [String] = []
     ) {
         self.schemaVersion = schemaVersion
         self.runId = runId
@@ -234,6 +240,43 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         self.silenceStatus = silenceStatus
         self.nextAction = nextAction
         self.waitHintSeconds = waitHintSeconds
+        self.pmTurn = pmTurn
+        self.notes = notes
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, runId, status, lane, teamPresetId, effort, currentStage
+        case workers, workersDone, workersTotal, warnings, resultAvailable, nextPollAfterMs
+        case traceId, endReason, lastProgressAt, progressStale, killOutcome, contradiction
+        case silenceStatus, nextAction, waitHintSeconds, pmTurn, notes
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(schemaVersion, forKey: .schemaVersion)
+        try c.encode(runId, forKey: .runId)
+        try c.encode(status, forKey: .status)
+        try c.encodeIfPresent(lane, forKey: .lane)
+        try c.encodeIfPresent(teamPresetId, forKey: .teamPresetId)
+        try c.encodeIfPresent(effort, forKey: .effort)
+        try c.encodeIfPresent(currentStage, forKey: .currentStage)
+        try c.encode(workers, forKey: .workers)
+        try c.encode(workersDone, forKey: .workersDone)
+        try c.encode(workersTotal, forKey: .workersTotal)
+        try c.encode(warnings, forKey: .warnings)
+        try c.encode(resultAvailable, forKey: .resultAvailable)
+        try c.encode(nextPollAfterMs, forKey: .nextPollAfterMs)
+        try c.encode(traceId, forKey: .traceId)
+        try c.encodeIfPresent(endReason, forKey: .endReason)
+        try c.encodeIfPresent(lastProgressAt, forKey: .lastProgressAt)
+        try c.encodeIfPresent(progressStale, forKey: .progressStale)
+        try c.encodeIfPresent(killOutcome, forKey: .killOutcome)
+        try c.encodeIfPresent(contradiction, forKey: .contradiction)
+        try c.encodeIfPresent(silenceStatus, forKey: .silenceStatus)
+        try c.encodeIfPresent(nextAction, forKey: .nextAction)
+        try c.encodeIfPresent(waitHintSeconds, forKey: .waitHintSeconds)
+        try c.encode(pmTurn, forKey: .pmTurn)
+        try c.encode(notes, forKey: .notes)
     }
 }
 

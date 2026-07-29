@@ -19,6 +19,10 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     /// Canonical result text. Always serialized (JSON `null` while non-terminal or
     /// when no canonical result exists). See `TeamRunJSONMapper.deriveAnswer`.
     public var answer: Answer?
+    /// Durable PM delivery at a terminal boundary. Always serialized, including JSON null.
+    public var pmTurn: PMTurnJSON?
+    /// Status/result-level notes; `pm_turn_missing` marks the receipt crash window.
+    public var notes: [String]
     public var designBoard: DesignBoard?
     public var repoDelta: RepoDelta?
     /// CR-S02 — bounded pre/post Git observation for a research (read-only) run.
@@ -42,6 +46,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         agents: [AgentInfo],
         answers: [AnswerInfo],
         answer: Answer? = nil,
+        pmTurn: PMTurnJSON? = nil,
+        notes: [String] = [],
         designBoard: DesignBoard? = nil,
         repoDelta: RepoDelta? = nil,
         researchGitObservation: ResearchGitObservation? = nil,
@@ -60,6 +66,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.agents = agents
         self.answers = answers
         self.answer = answer
+        self.pmTurn = pmTurn
+        self.notes = notes
         self.designBoard = designBoard
         self.repoDelta = repoDelta
         self.researchGitObservation = researchGitObservation
@@ -74,7 +82,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, contractVersion, teamRun, agents, answers, answer
+        case schemaVersion, contractVersion, teamRun, agents, answers, answer, pmTurn, notes
         case designBoard, repoDelta, researchGitObservation, outcome, stages, plan, usage, warnings, errors
         case nextActions, audit
     }
@@ -88,6 +96,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         answers = try c.decode([AnswerInfo].self, forKey: .answers)
         // Required on the wire (null while non-terminal / no canonical result).
         answer = try c.decode(Answer?.self, forKey: .answer)
+        pmTurn = try c.decodeIfPresent(PMTurnJSON.self, forKey: .pmTurn)
+        notes = try c.decodeIfPresent([String].self, forKey: .notes) ?? []
         designBoard = try c.decodeIfPresent(DesignBoard.self, forKey: .designBoard)
         repoDelta = try c.decodeIfPresent(RepoDelta.self, forKey: .repoDelta)
         researchGitObservation = try c.decodeIfPresent(ResearchGitObservation.self, forKey: .researchGitObservation)
@@ -111,6 +121,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         try c.encode(answers, forKey: .answers)
         // Law 2: always serialize `answer` (including JSON null).
         try c.encode(answer, forKey: .answer)
+        try c.encode(pmTurn, forKey: .pmTurn)
+        try c.encode(notes, forKey: .notes)
         try c.encodeIfPresent(designBoard, forKey: .designBoard)
         try c.encodeIfPresent(repoDelta, forKey: .repoDelta)
         try c.encodeIfPresent(researchGitObservation, forKey: .researchGitObservation)

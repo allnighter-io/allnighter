@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 6.0.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 6.1.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "contractVersion": "6.0.0",
+  "contractVersion": "6.1.0",
   "teamRun": {
     "id": "run_20260720_1200",
     "status": "done",
@@ -63,6 +63,8 @@
     },
     "typedResultField": null
   },
+  "pmTurn": null,
+  "notes": [],
   "stages": [],
   "plan": null,
   "outcome": {

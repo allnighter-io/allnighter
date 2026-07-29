@@ -764,6 +764,87 @@
       ],
       "type" : "object"
     },
+    "PMTurn" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "createdAt" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "enum" : [
+            "run",
+            "relay"
+          ],
+          "type" : "string"
+        },
+        "lifecycleStatus" : {
+          "type" : "string"
+        },
+        "nextCommands" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "notes" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "pmMode" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "reason" : {
+          "type" : "string"
+        },
+        "report" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "round" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "schemaVersion" : {
+          "type" : "integer"
+        },
+        "sequence" : {
+          "type" : "integer"
+        },
+        "subjectId" : {
+          "type" : "string"
+        },
+        "workerRunId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "workRecovery" : {
+
+        }
+      },
+      "required" : [
+        "schemaVersion",
+        "kind",
+        "subjectId",
+        "sequence",
+        "createdAt",
+        "reason",
+        "lifecycleStatus",
+        "nextCommands",
+        "notes"
+      ],
+      "type" : "object"
+    },
     "PromptSource" : {
       "additionalProperties" : false,
       "properties" : {
@@ -1339,6 +1420,12 @@
       },
       "type" : "array"
     },
+    "notes" : {
+      "items" : {
+        "type" : "string"
+      },
+      "type" : "array"
+    },
     "outcome" : {
       "oneOf" : [
         {
@@ -1353,6 +1440,16 @@
       "oneOf" : [
         {
           "$ref" : "#\/$defs\/Plan"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
+    "pmTurn" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/PMTurn"
         },
         {
           "type" : "null"
@@ -1408,6 +1505,8 @@
     "agents",
     "answers",
     "answer",
+    "pmTurn",
+    "notes",
     "stages",
     "plan",
     "usage",

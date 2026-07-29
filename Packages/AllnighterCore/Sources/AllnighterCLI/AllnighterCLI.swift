@@ -1233,13 +1233,16 @@ struct AllnighterCLI {
             print(jsonString(notReady))
         case .ready(let run):
             let directory = try? runStore.runDirectory(forRunId: run.id)
+            let pmTurn = pmTurnProjection(for: run, store: runStore)
             print(jsonString(TeamRunJSONMapper.map(
                 run,
                 models: runtime.models,
                 manifests: runtime.registry.all,
                 context: .init(
                     runJournalPath: directory?.appendingPathComponent("run.json").path ?? "",
-                    runDirectory: directory
+                    runDirectory: directory,
+                    pmTurn: pmTurn.pmTurn,
+                    pmTurnNotes: pmTurn.notes
                 )
             )))
         }
@@ -1506,13 +1509,27 @@ struct AllnighterCLI {
     /// Default projection context for a persisted run (journal path + reproduce
     /// command derived from the run's own catalog facts).
     static func defaultRunContext(_ run: TeamRun, full: Bool = false) -> TeamRunJSONMapper.Context {
-        let runDir = try? RunStore().runDirectory(forRunId: run.id)
+        let store = RunStore()
+        let runDir = try? store.runDirectory(forRunId: run.id)
         let path = runDir?.appendingPathComponent("run.json").path ?? ""
+        let pmTurn = pmTurnProjection(for: run, store: store)
         return .init(
             runJournalPath: path,
             reproduceCommand: reproduceCommand(run),
             includeWorkerPromptSnapshots: full,
-            runDirectory: runDir
+            runDirectory: runDir,
+            pmTurn: pmTurn.pmTurn,
+            pmTurnNotes: pmTurn.notes
+        )
+    }
+
+    /// The CLI owns attaching a durable PM receipt to a projected terminal run.
+    static func pmTurnProjection(for run: TeamRun, store: RunStore) -> PMTurnStatusProjection {
+        PMTurnStatusProjection.load(
+            kind: .run,
+            subjectId: run.id,
+            atPMBoundary: run.status.isTerminal,
+            store: PMTurnStore(runsRootDirectory: store.rootDirectory)
         )
     }
 

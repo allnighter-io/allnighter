@@ -122,7 +122,8 @@ final class FixtureRoundTripTests: XCTestCase {
         // RSC-HF bumps both again, 4.4.1 → 5.0.0 (remove public `--run-id`, add
         // detachedDispatchJSON output schema; ack-after-accept `--no-wait`).
         // WTA-S03 bumps contract 5.2.0 → 6.0.0 (TeamRunJSON worker→agent wire keys).
-        XCTAssertEqual(trj.contractVersion, "6.0.0")
+        // PTD-1d adds the terminal PM Turn delivery envelope in 6.1.0.
+        XCTAssertEqual(trj.contractVersion, "6.1.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.agents.count, 1)

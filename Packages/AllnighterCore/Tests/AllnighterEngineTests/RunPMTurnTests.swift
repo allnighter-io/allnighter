@@ -104,6 +104,62 @@ final class RunPMTurnTests: XCTestCase {
         XCTAssertTrue(turn.notes.contains("run_report_missing"))
     }
 
+    func testTerminalStatusAndResultProjectPersistedPMTurn() async throws {
+        let service = makeExecutionService()
+        let result = await service.run(
+            RunRequest(message: "make the change", repoRoot: root.path, presetId: "execution_pm_turn"),
+            origin: .cli,
+            runId: "status-terminal"
+        )
+        guard case .success(let run) = result else {
+            return XCTFail("terminal run failed: \(result)")
+        }
+
+        let statusService = AsyncTeamService(
+            models: [], registry: DriverRegistry([]), runStore: runStore, pmTurnStore: pmTurnStore
+        )
+        let statusSnapshot = await statusService.status(runId: run.id)
+        let status = try XCTUnwrap(statusSnapshot)
+        let turn = try XCTUnwrap(try pmTurnStore.load(kind: .run, subjectId: run.id))
+        XCTAssertEqual(status.pmTurn, turn)
+        XCTAssertTrue(status.notes.isEmpty)
+
+        let projection = PMTurnStatusProjection.load(
+            kind: .run, subjectId: run.id, atPMBoundary: true, store: pmTurnStore
+        )
+        let resultJSON = TeamRunJSONMapper.map(
+            run,
+            models: [],
+            manifests: [],
+            context: .init(
+                runJournalPath: "", pmTurn: projection.pmTurn, pmTurnNotes: projection.notes
+            )
+        )
+        XCTAssertEqual(resultJSON.pmTurn, turn)
+        XCTAssertTrue(resultJSON.notes.isEmpty)
+    }
+
+    func testTerminalStatusMarksMissingPMTurn() async throws {
+        let service = makeExecutionService()
+        let result = await service.run(
+            RunRequest(message: "make the change", repoRoot: root.path, presetId: "execution_pm_turn"),
+            origin: .cli,
+            runId: "missing-status-turn"
+        )
+        guard case .success(let run) = result else {
+            return XCTFail("terminal run failed: \(result)")
+        }
+        try FileManager.default.removeItem(at: try pmTurnStore.fileURL(for: .run, subjectId: run.id))
+
+        let statusService = AsyncTeamService(
+            models: [], registry: DriverRegistry([]), runStore: runStore, pmTurnStore: pmTurnStore
+        )
+        let statusSnapshot = await statusService.status(runId: run.id)
+        let status = try XCTUnwrap(statusSnapshot)
+        XCTAssertNil(status.pmTurn)
+        XCTAssertEqual(status.notes, ["pm_turn_missing"])
+    }
+
     private func makeExecutionService(
         output: String = "# Delivered\nThe change is complete.",
         exitCode: Int32 = 0,

@@ -337,12 +337,16 @@ enum RunCLI {
         _ run: TeamRun, runtime: ToolRuntime, project: Project, json: Bool
     ) {
         if json {
-            let journalPath = (try? RunStore().runDirectory(forRunId: run.id))?
+            let store = RunStore()
+            let journalPath = (try? store.runDirectory(forRunId: run.id))?
                 .appendingPathComponent("run.json").path ?? ""
+            let pmTurn = AllnighterCLI.pmTurnProjection(for: run, store: store)
             let context = TeamRunJSONMapper.Context(
                 promptSource: .init(kind: .positional, path: nil),
                 runJournalPath: journalPath,
-                reproduceCommand: reproduceCommand(run, project: project)
+                reproduceCommand: reproduceCommand(run, project: project),
+                pmTurn: pmTurn.pmTurn,
+                pmTurnNotes: pmTurn.notes
             )
             let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
             print(AllnighterCLI.jsonString(trj))
@@ -535,10 +539,13 @@ enum RunCLI {
             if opts.flag("json") {
                 let journalPath = (try? store.runDirectory(forRunId: run.id))?
                     .appendingPathComponent("run.json").path ?? ""
+                let pmTurn = AllnighterCLI.pmTurnProjection(for: run, store: store)
                 let context = TeamRunJSONMapper.Context(
                     promptSource: .init(kind: .positional, path: nil),
                     runJournalPath: journalPath,
-                    reproduceCommand: "alln run resume \(run.id) --json"
+                    reproduceCommand: "alln run resume \(run.id) --json",
+                    pmTurn: pmTurn.pmTurn,
+                    pmTurnNotes: pmTurn.notes
                 )
                 let trj = TeamRunJSONMapper.map(
                     run, models: runtime.models, manifests: runtime.registry.all, context: context
@@ -587,10 +594,13 @@ enum RunCLI {
         if json {
             let journalPath = (try? store.runDirectory(forRunId: run.id))?
                 .appendingPathComponent("run.json").path ?? ""
+            let pmTurn = AllnighterCLI.pmTurnProjection(for: run, store: store)
             let context = TeamRunJSONMapper.Context(
                 promptSource: .init(kind: .positional, path: nil),
                 runJournalPath: journalPath,
-                reproduceCommand: reproduceCommand
+                reproduceCommand: reproduceCommand,
+                pmTurn: pmTurn.pmTurn,
+                pmTurnNotes: pmTurn.notes
             )
             print(AllnighterCLI.jsonString(TeamRunJSONMapper.map(
                 run, models: runtime.models, manifests: runtime.registry.all, context: context)))

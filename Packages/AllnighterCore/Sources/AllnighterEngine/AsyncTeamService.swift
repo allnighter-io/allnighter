@@ -72,6 +72,7 @@ public actor AsyncTeamService {
     private let governor: TeamGovernor
     private let idempotency: IdempotencyStore
     private let remoteEventJournal: RemoteRunEventJournal
+    private let pmTurnStore: PMTurnStore
     private let now: @Sendable () -> Date
     private let environment: [String: String]
     private let invocations: [String: ToolInvocation]
@@ -95,6 +96,7 @@ public actor AsyncTeamService {
         governor: TeamGovernor? = nil,
         idempotency: IdempotencyStore = IdempotencyStore(),
         remoteEventJournal: RemoteRunEventJournal? = nil,
+        pmTurnStore: PMTurnStore? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,
@@ -109,6 +111,7 @@ public actor AsyncTeamService {
         self.governor = governor ?? TeamGovernor(capacity: config.maxConcurrentTeamRuns)
         self.idempotency = idempotency
         self.remoteEventJournal = remoteEventJournal ?? RemoteRunEventJournal(rootDirectory: runStore.rootDirectory)
+        self.pmTurnStore = pmTurnStore ?? PMTurnStore(runsRootDirectory: runStore.rootDirectory)
         self.environment = environment
         self.invocations = invocations
         self.now = now
@@ -565,6 +568,14 @@ public actor AsyncTeamService {
         _ = runStore.reconcileRun(runId: runId, models: models)
         guard let run = runStore.load(runId: runId) else { return nil }
         var response = AsyncTeamStatusMapper.statusResponse(for: run)
+        let pmTurn = PMTurnStatusProjection.load(
+            kind: .run,
+            subjectId: run.id,
+            atPMBoundary: run.status.isTerminal,
+            store: pmTurnStore
+        )
+        response.pmTurn = pmTurn.pmTurn
+        response.notes = pmTurn.notes
         // RLR-S03a / RLR-L6: activity truth is `run.json.lastActivityAt`, not
         // `heartbeat.json` (retired). `progressStale` is a read-time derivation —
         // absent (nil) before the first post-spawn activity, and only meaningful

@@ -80,7 +80,18 @@ enum RelayCLI {
         let state = RelayCoordinator.reconcileOrphan(
             loaded, stateStore: stateStore, threadProjector: threadProjector, now: Date.init)
 
-        let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let pmTurn = PMTurnStatusProjection.load(
+            kind: .relay,
+            subjectId: state.id,
+            atPMBoundary: PMTurnStatusProjection.isRelayPMBoundary(state.status),
+            store: PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        )
+        let json = RelayJSON.project(
+            state,
+            contractVersion: ContractRegistry.contractVersion,
+            pmTurn: pmTurn.pmTurn,
+            notes: pmTurn.notes
+        )
         if opts.flag("json") {
             print(AllnighterCLI.jsonString(json))
         } else {
@@ -363,7 +374,18 @@ enum RelayCLI {
     /// from either. `running` never reaches here: `run`/`resume` only return once the
     /// loop hits a terminal `RelayState`.
     private static func emitTerminal(_ state: RelayState, json: Bool) {
-        let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let pmTurn = PMTurnStatusProjection.load(
+            kind: .relay,
+            subjectId: state.id,
+            atPMBoundary: true,
+            store: PMTurnStore()
+        )
+        let relayJSON = RelayJSON.project(
+            state,
+            contractVersion: ContractRegistry.contractVersion,
+            pmTurn: pmTurn.pmTurn,
+            notes: pmTurn.notes
+        )
         if json {
             print(AllnighterCLI.jsonLine(relayJSON))
         } else {

@@ -30,6 +30,51 @@ final class PilotCLITests: XCTestCase {
         return try store.add(path: dir.path, name: nil)
     }
 
+    func testStatusEmbedsPersistedPMTurnAtParkedBoundary() throws {
+        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let state = RelayState(
+            id: "relay_pm_turn", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, pmMode: .external, createdAt: Date()
+        )
+        let turnStore = PMTurnStore(relaysRootDirectory: relayStore.rootDirectory)
+        let turn = PMTurnJSON(
+            kind: .relay, subjectId: state.id, sequence: 1, createdAt: Date(),
+            reason: "awaitingPM", lifecycleStatus: "awaitingPM", report: "Settled report.",
+            nextCommands: ["alln pair pilot handoff --relay relay_pm_turn --verdict continue --handover-file order.md --json"]
+        )
+        try turnStore.save(turn)
+
+        let json = PilotCLI.makeStatusJSON(
+            state: state, recovery: .none, stateStore: relayStore, runStore: runStore,
+            pmTurnStore: turnStore
+        )
+
+        XCTAssertEqual(json.pmTurn?.subjectId, turn.subjectId)
+        XCTAssertEqual(json.pmTurn?.report, turn.report)
+        XCTAssertEqual(json.relay.pmTurn?.sequence, turn.sequence)
+        XCTAssertTrue(json.notes.isEmpty)
+        XCTAssertTrue(json.relay.notes.isEmpty)
+    }
+
+    func testStatusMarksMissingPMTurnAtParkedBoundary() throws {
+        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_missing_turn", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, pmMode: .external, createdAt: Date()
+        )
+
+        let json = PilotCLI.makeStatusJSON(
+            state: state, recovery: .none, stateStore: relayStore,
+            pmTurnStore: PMTurnStore(relaysRootDirectory: relayStore.rootDirectory)
+        )
+
+        XCTAssertNil(json.pmTurn)
+        XCTAssertEqual(json.notes, ["pm_turn_missing"])
+    }
+
     // MARK: - parseStartConfig
 
     func testParseStartConfigMissingDocThrows() {

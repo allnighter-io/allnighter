@@ -19,18 +19,26 @@ public enum TeamRunJSONMapper {
         public var includeWorkerPromptSnapshots: Bool
         /// Run folder for resolving design image absolute paths.
         public var runDirectory: URL?
+        /// Durable delivery receipt supplied by the read-side owner for terminal runs.
+        public var pmTurn: PMTurnJSON?
+        /// Status/result-level notes associated with the delivery receipt.
+        public var pmTurnNotes: [String]
         public init(
             promptSource: TeamRunJSON.PromptSource = .init(kind: .positional),
             lane: String? = nil, type: String? = nil, effort: String? = nil,
             runJournalPath: String, reproduceCommand: String? = nil,
             includeWorkerPromptSnapshots: Bool = false,
-            runDirectory: URL? = nil
+            runDirectory: URL? = nil,
+            pmTurn: PMTurnJSON? = nil,
+            pmTurnNotes: [String] = []
         ) {
             self.promptSource = promptSource; self.lane = lane; self.type = type
             self.effort = effort; self.runJournalPath = runJournalPath
             self.reproduceCommand = reproduceCommand
             self.includeWorkerPromptSnapshots = includeWorkerPromptSnapshots
             self.runDirectory = runDirectory
+            self.pmTurn = pmTurn
+            self.pmTurnNotes = pmTurnNotes
         }
     }
 
@@ -187,6 +195,8 @@ public enum TeamRunJSONMapper {
             contractVersion: ContractRegistry.contractVersion,
             teamRun: info, agents: workers, answers: projectedAnswers,
             answer: answer,
+            pmTurn: context.pmTurn,
+            notes: context.pmTurnNotes,
             designBoard: designBoard,
             repoDelta: run.mutating ? run.repoDelta : nil,
             researchGitObservation: run.mutating ? nil : run.researchGitObservation,

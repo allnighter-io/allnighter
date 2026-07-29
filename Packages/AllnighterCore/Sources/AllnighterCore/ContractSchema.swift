@@ -49,6 +49,7 @@ public enum ContractSchema {
             "teamRun": ref("RunInfo"),
             "agents": arr(ref("WorkerInfo")), "answers": arr(ref("AnswerInfo")),
             "answer": nullableRef("Answer"),
+            "pmTurn": nullableRef("PMTurn"), "notes": arr(str),
             "stages": arr(ref("StageInfo")), "plan": nullableRef("Plan"),
             "designBoard": nullableRef("DesignBoard"),
             "repoDelta": nullableRef("RepoDelta"),
@@ -59,7 +60,7 @@ public enum ContractSchema {
             "audit": ref("Audit"),
         ], required: [
             "schemaVersion", "contractVersion", "teamRun", "agents",
-            "answers", "answer", "stages", "plan", "usage", "warnings", "errors", "nextActions", "audit",
+            "answers", "answer", "pmTurn", "notes", "stages", "plan", "usage", "warnings", "errors", "nextActions", "audit",
         ])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
@@ -142,6 +143,17 @@ public enum ContractSchema {
                 "modelId": nullable("string"),
                 "stageId": nullable("string"),
             ], required: ["kind"]),
+            "PMTurn": obj([
+                "schemaVersion": int, "kind": enumStr(["run", "relay"]),
+                "subjectId": str, "sequence": int, "round": nullable("integer"),
+                "createdAt": str, "reason": str, "lifecycleStatus": str,
+                "report": nullable("string"), "workerRunId": nullable("string"),
+                "workRecovery": [:], "nextCommands": arr(str), "notes": arr(str),
+                "pmMode": nullable("string"),
+            ], required: [
+                "schemaVersion", "kind", "subjectId", "sequence", "createdAt", "reason",
+                "lifecycleStatus", "nextCommands", "notes",
+            ]),
             "StageInfo": obj([
                 "id": str, "purpose": enumStr(["analysis", "plan", "review"]), "status": runStatus,
                 "producedByAgentId": nullable("string"), "promptProfileId": nullable("string"),
