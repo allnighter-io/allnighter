@@ -167,7 +167,6 @@ without a new founder ruling.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Worker_To_Agent_Migration.md`](Worker_To_Agent_Migration.md) | **Open — destination locked** | Kill bilingual worker/agent fence: machine JSON = Team/Agent/Model/Skill; hard cutover, one file/slice at a time (WTA-S00 inventory first). Standing nouns: `Product_Vocabulary.md`. |
 | [`Worker_Skill_Sharing.md`](Worker_Skill_Sharing.md) | **Code Complete (WSS-S01)** — archive after Works Test | Same-ID shared Skill overrides + Restore; roster-only Team Save; CLI 5.2.0 + Mac worker editor cutover. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | **Draft — needs re-base** against `Unified_Run_Model.md` (its Execute-approval mutating gate is retired ceremony); Core routing built, GUI browse surface unbuilt | Send-to-team as the discoverable delegation surface: Team Card projection, family map, direct team send. |
 | [`Live_Team_Board.md`](Live_Team_Board.md) | **Draft feature packet** — no-theater contract | In-thread live board for running answer-team runs: sourced per-worker states + real deltas only when emitted. Forbids fake activity/progress. |

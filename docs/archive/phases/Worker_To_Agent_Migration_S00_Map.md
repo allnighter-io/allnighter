@@ -1,6 +1,6 @@
 # WTA-S00 — Inventory + id-meaning map
 
-Appendix to `docs/phases/Worker_To_Agent_Migration.md`.
+Appendix to `docs/archive/phases/Worker_To_Agent_Migration.md`.
 Status: **Adjudicated** — 2026-07-28
 Method: four parallel readers gathered evidence; the lead adjudicated every
 bucket. No reader was permitted to decide meaning (packet, Orchestration §).

@@ -52,10 +52,18 @@ product gates.
 | **TeamPreset** | Saved team definition (lane, agents, synthesis policy). UI says Team. |
 
 **Retired (user-facing):** **Worker** — do not use in GUI, CLI flags, help, or
-docs. Internal/runtime identifiers (`workerId`, `workers[]`, `TeamWorkerSpec`)
-are **scaffolding only** until the machine layer matches these nouns — migration
-packet: `docs/phases/Worker_To_Agent_Migration.md` (hard cutover, one file /
-slice at a time; no global grep). Never teach `worker*` to humans.
+docs. Never teach `worker*` to humans.
+
+**Machine contracts** (TeamRunJSON, floor, NDJSON stream, threads, pending,
+handoff mailbox, spec retrieval): staffed seats expose **`agentId`**; catalog
+pins expose **`modelId`**. Never overload one field for both meanings.
+
+**Layer E (internal only — not product seats, not agent-facing wire):** journal
+`TeamRun.workers`, `workerAnswer(workerId:)`, internal `RunEvent` payload keys,
+process ownership (`WarmWorker*`, `kind: "worker"`), on-disk `workers/`
+artifact directories. These stay until an explicit process-layer cutover.
+
+Historical cutover record: `docs/archive/phases/Worker_To_Agent_Migration.md`.
 
 Shortcut: *Model at rest. Agent at work (model + skill).*
 

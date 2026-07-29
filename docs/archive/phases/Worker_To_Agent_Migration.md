@@ -1,11 +1,14 @@
 # Worker → Agent Migration
 
-Status: **Open — destination locked; method locked; execution starting at WTA-S00**
-Owner: code SSOT for runs (`RunService.swift`, `TeamCatalog` / `TeamWorkerSpec`,
+Status: **Complete — 2026-07-29** (machine contracts + teaching scrub shipped; Layer E
+exceptions documented in `Product_Vocabulary.md`)
+Owner: code SSOT for runs (`RunService.swift`, `TeamCatalog` / `TeamAgentSpec`,
 `TeamRunJSON`); standing vocabulary `docs/workflows/Product_Vocabulary.md`
 Created: 2026-07-28
-Updated: 2026-07-28
-Next work order: **WTA-S00** (inventory + id-meaning map) before any rename PR
+Updated: 2026-07-29
+Closeout: living contracts use `agentId` + `modelId`; `RetiredWorkerKeysMigration`
+on-disk; `RetiredVocabulary` denies retired wire keys; S07 (process/session rename)
+deferred unless founder reopens.
 
 Process:
 `docs/workflows/SSOT_Founder_Input_Workflow.md` →

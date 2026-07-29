@@ -1,8 +1,8 @@
 # WTA-S02b — Work Order: `TeamPreset.workerSpecs` → `agentSpecs`
 
 Dev seat: `model_gemini` (Antigravity). PM: lead session.
-Packet: `docs/phases/Worker_To_Agent_Migration.md`
-Meaning map (already adjudicated — do not re-derive): `docs/phases/Worker_To_Agent_Migration_S00_Map.md`
+Packet: `docs/archive/phases/Worker_To_Agent_Migration.md`
+Meaning map (already adjudicated — do not re-derive): `docs/archive/phases/Worker_To_Agent_Migration_S00_Map.md`
 
 ---
 

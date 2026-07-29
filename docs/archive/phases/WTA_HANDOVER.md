@@ -4,8 +4,8 @@ Written 2026-07-29 by the outgoing lead, after a session that produced 47 commit
 and wasted most of a night. Read the **Lessons** section before touching anything;
 it is the part with actual value.
 
-Packet: `docs/phases/Worker_To_Agent_Migration.md`
-Meaning map (adjudicated, trustworthy): `docs/phases/Worker_To_Agent_Migration_S00_Map.md`
+Packet: `docs/archive/phases/Worker_To_Agent_Migration.md`
+Meaning map (adjudicated, trustworthy): `docs/archive/phases/Worker_To_Agent_Migration_S00_Map.md`
 
 ---
 
