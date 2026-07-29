@@ -361,7 +361,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
             message: templateVariables["message"] ?? "",
             flagMode: flagMode,
             flags: altFlags,
-            resolvedWorkerId: explicitModelChosen ? pinnedModelId : nil,
+            resolvedModelId: explicitModelChosen ? pinnedModelId : nil,
             resolvedTeamId: answerTeam.id
         )
         let command = Self.shellJoin(altArgv)
@@ -682,7 +682,7 @@ public enum RunInvocationResolver {
             message: input.message,
             flagMode: input.flagMode,
             flags: flags,
-            resolvedWorkerId: explicitModelChosen ? workerId : nil,
+            resolvedModelId: explicitModelChosen ? workerId : nil,
             resolvedTeamId: explicitTeamChosen ? preset.id : nil
         )
 
@@ -755,7 +755,7 @@ public enum RunInvocationResolver {
             message: input.message,
             flagMode: input.flagMode,
             flags: flags,
-            resolvedWorkerId: flags.pinnedModelId,
+            resolvedModelId: flags.pinnedModelId,
             resolvedTeamId: flags.teamId
         )
         return ResolvedRunInvocation(
@@ -797,7 +797,7 @@ public enum RunInvocationResolver {
         message: String,
         flagMode: RunInvocationFlagMode,
         flags: RunInvocationNormalizedFlags,
-        resolvedWorkerId: String?,
+        resolvedModelId: String?,
         resolvedTeamId: String?
     ) -> (variables: [String: String], argv: [String]) {
         var variables: [String: String] = ["message": message]
@@ -812,8 +812,8 @@ public enum RunInvocationResolver {
         for seat in flags.explicitSeatModelIds ?? [] where !seat.isEmpty {
             argv.append(contentsOf: ["--seat", seat])
         }
-        if let worker = resolvedWorkerId ?? flags.pinnedModelId, !worker.isEmpty {
-            argv.append(contentsOf: ["--model", worker])
+        if let modelId = resolvedModelId ?? flags.pinnedModelId, !modelId.isEmpty {
+            argv.append(contentsOf: ["--model", modelId])
         }
         if let effort = flags.effort {
             argv.append(contentsOf: ["--effort", effort.rawValue])
