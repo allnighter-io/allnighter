@@ -38,7 +38,7 @@ struct ConversationThreadView: View {
                 placeholder: "Continue this conversation…",
                 continuationAgentTitle: appModel.composerContinuationAgent?.title,
                 continuationDriverId: appModel.composerContinuationAgent?.driverId,
-                continuationWorkerId: appModel.composerContinuationAgent?.workerId,
+                continuationWorkerId: appModel.composerContinuationAgent?.modelId,
                 isSending: appModel.workRequestSendPhase == .sending,
                 canSend: appModel.canSendWorkRequests
                     && !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,

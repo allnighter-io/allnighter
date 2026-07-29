@@ -895,7 +895,7 @@ final class RemoteAppModel {
             lane: team.lane,
             effort: composerDraft.effort,
             modelId: composerDraft.modelIdForSend(
-                continuationWorkerId: composerContinuationAgent?.workerId
+                continuationWorkerId: composerContinuationAgent?.modelId
             )
         )
 
@@ -1002,7 +1002,7 @@ final class RemoteAppModel {
     private func appendOptimisticSend(prompt: String, threadId: String) -> String? {
         guard var snapshot = threadSnapshot, snapshot.id == threadId else { return nil }
         let workerId = composerDraft.workerIdForSend(
-            continuationWorkerId: composerContinuationAgent?.workerId
+            continuationWorkerId: composerContinuationAgent?.modelId
         )
         let suffix = UUID().uuidString.prefix(8)
         let userTurn = ConversationThreadTurn(

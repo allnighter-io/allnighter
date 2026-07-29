@@ -24,15 +24,15 @@ public enum SynthesisInstructions {
 
     {
       "consensus":      [{ "statement": "...", "sourceAgentIds": ["..."], "strength": "strong|moderate|weak" }],
-      "contradictions": [{ "topic": "...", "positions": [{ "workerId": "...", "summary": "..." }], "recommendedResolution": "..." }],
+      "contradictions": [{ "topic": "...", "positions": [{ "agentId": "...", "summary": "..." }], "recommendedResolution": "..." }],
       "partialCoverage":[{ "agentId": "...", "addressed": ["..."], "silentOn": ["..."] }],
       "uniqueInsights": [{ "statement": "...", "sourceAgentIds": ["..."], "strength": "strong|moderate|weak" }],
-      "blindSpots":     ["angles NO worker addressed"],
-      "failedWorkers":    [{ "workerId": "...", "reason": "..." }],
+      "blindSpots":     ["angles NO agent addressed"],
+      "failedWorkers":    [{ "agentId": "...", "reason": "..." }],
       "confidenceNote": "optional calibration note"
     }
 
-    Attribute every point to the worker ids that raised it. Do not average away \
+    Attribute every point to the agent ids that raised it. Do not average away \
     disagreement — record genuine contradictions and recommend a resolution.
     """
 
