@@ -50,25 +50,25 @@ public enum LiveArtifactProjector {
     let modelCounts = Dictionary(grouping: seatWorkers, by: \.modelId).mapValues(\.count)
     var seats: [String: SeatState] = [:]
     var order: [String] = []
-    for worker in seatWorkers {
-      let answer = run.workerAnswer(workerId: worker.id)
+    for agent in seatWorkers {
+      let answer = run.workerAnswer(workerId: agent.id)
       let status = answer?.result.status.rawValue ?? WorkerAnswerStatus.queued.rawValue
-      let sharesModel = (modelCounts[worker.modelId] ?? 0) > 1
-      let display = worker.displayName(
-        modelName: context.modelDisplayName(worker.modelId),
+      let sharesModel = (modelCounts[agent.modelId] ?? 0) > 1
+      let display = agent.displayName(
+        modelName: context.modelDisplayName(agent.modelId),
         sharesModel: sharesModel
       )
-      seats[worker.id] = SeatState(
-        agentId: worker.id,
+      seats[agent.id] = SeatState(
+        agentId: agent.id,
         displayName: display,
-        sourceId: context.sourceId(worker.modelId),
+        sourceId: context.sourceId(agent.modelId),
         status: status,
         startedAt: answer?.result.timing.startedAt,
         durationMs: answer?.result.timing.durationMs,
         oneLiner: oneLiner(from: answer?.output),
-        isLead: worker.purpose == .plan
+        isLead: agent.purpose == .plan
       )
-      order.append(worker.id)
+      order.append(agent.id)
     }
     return State(
       runId: run.id,
