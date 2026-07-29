@@ -147,7 +147,7 @@ public enum ContractSchema {
                 "producedByAgentId": nullable("string"), "promptProfileId": nullable("string"),
             ], required: ["id", "purpose", "status"]),
             "Plan": obj([
-                "status": runStatus, "writerWorkerId": nullable("string"),
+                "status": runStatus, "writerAgentId": nullable("string"),
                 "stageId": nullable("string"), "markdown": nullable("string"),
             ], required: ["status"]),
             "DesignBoard": obj([

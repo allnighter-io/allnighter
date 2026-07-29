@@ -586,11 +586,11 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     /// markdown moves to `answer` and `plan.markdown` is null (Law 2).
     public struct Plan: Codable, Equatable, Sendable {
         public var status: Status
-        public var writerWorkerId: String?
+        public var writerAgentId: String?
         public var stageId: String?
         public var markdown: String?
-        public init(status: Status, writerWorkerId: String? = nil, stageId: String? = nil, markdown: String? = nil) {
-            self.status = status; self.writerWorkerId = writerWorkerId
+        public init(status: Status, writerAgentId: String? = nil, stageId: String? = nil, markdown: String? = nil) {
+            self.status = status; self.writerAgentId = writerAgentId
             self.stageId = stageId; self.markdown = markdown
         }
     }

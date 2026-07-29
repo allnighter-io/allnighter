@@ -29,8 +29,8 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertEqual(trj.answers.count, run.answers.count)
         // Plan produced → plan-writer invariant holds; markdown moved to answer.
         XCTAssertEqual(trj.plan?.status, .done)
-        XCTAssertNotNil(trj.plan?.writerWorkerId)
-        XCTAssertEqual(trj.plan?.writerWorkerId, trj.teamRun.planWriterWorkerId)
+        XCTAssertNotNil(trj.plan?.writerAgentId)
+        XCTAssertEqual(trj.plan?.writerAgentId, trj.teamRun.planWriterWorkerId)
         XCTAssertNil(trj.plan?.markdown)
         let answer = try XCTUnwrap(trj.answer)
         XCTAssertEqual(answer.source.kind, .plan)

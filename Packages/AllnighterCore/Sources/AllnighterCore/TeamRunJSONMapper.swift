@@ -81,7 +81,7 @@ public enum TeamRunJSONMapper {
         var plan: TeamRunJSON.Plan? = {
             guard let stage = planStage, let markdown = run.plan else { return nil }
             return TeamRunJSON.Plan(
-                status: .done, writerWorkerId: stage.producedByAgentId,
+                status: .done, writerAgentId: stage.producedByAgentId,
                 stageId: stage.id, markdown: markdown
             )
         }()
@@ -151,7 +151,7 @@ public enum TeamRunJSONMapper {
             identitySummary: RunIdentity.summary(
                 workerId: workerModelId, lane: run.lane, mutating: run.mutating,
                 laneContextOnly: run.laneContextOnly == true),
-            planWriterWorkerId: plan?.writerWorkerId, reproduceCommand: context.reproduceCommand,
+            planWriterWorkerId: plan?.writerAgentId, reproduceCommand: context.reproduceCommand,
             endReason: run.endReason?.rawValue, blocker: blockerInfo, attempts: attempts
         )
 
@@ -220,8 +220,8 @@ public enum TeamRunJSONMapper {
                 markdown: markdown,
                 source: .init(
                     kind: .plan,
-                    agentId: donePlan.writerWorkerId,
-                    modelId: answers.first { $0.agentId == donePlan.writerWorkerId }?.modelId,
+                    agentId: donePlan.writerAgentId,
+                    modelId: answers.first { $0.agentId == donePlan.writerAgentId }?.modelId,
                     stageId: donePlan.stageId
                 )
             )
