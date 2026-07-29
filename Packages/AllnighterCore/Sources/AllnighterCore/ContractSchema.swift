@@ -156,13 +156,13 @@ public enum ContractSchema {
                 "options": arr(ref("DesignBoardOption")), "chosen": nullableRef("DesignBoardChosen"),
             ], required: ["targetShape", "options"]),
             "DesignBoardOption": obj([
-                "workerId": str, "modelId": str, "persona": str,
+                "agentId": str, "modelId": str, "persona": str,
                 "imagePath": nullable("string"), "absolutePath": nullable("string"),
                 "status": runStatus, "failureReason": nullable("string"), "sessionId": nullable("string"),
-            ], required: ["workerId", "modelId", "persona", "status"]),
+            ], required: ["agentId", "modelId", "persona", "status"]),
             "DesignBoardChosen": obj([
-                "workerId": str, "persona": str, "chosenAt": nullable("string"),
-            ], required: ["workerId", "persona"]),
+                "agentId": str, "persona": str, "chosenAt": nullable("string"),
+            ], required: ["agentId", "persona"]),
             "RepoDelta": obj([
                 "changed": bool, "baseline": nullable("string"), "head": nullable("string"),
                 "commits": arr(ref("RepoDeltaCommit")),

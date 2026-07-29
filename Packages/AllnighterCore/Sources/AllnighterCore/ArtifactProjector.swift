@@ -384,10 +384,10 @@ public enum ArtifactProjector {
     guard let board else { return [] }
     return board.options.map { opt in
       let label = SkillCatalog.displayName(for: opt.persona)
-      let rel = mockupRelSrc[opt.workerId]
+      let rel = mockupRelSrc[opt.agentId]
         ?? opt.imagePath.map { "mockups/\(($0 as NSString).lastPathComponent)" }
       return Mockup(
-        workerId: opt.workerId,
+        workerId: opt.agentId,
         label: label,
         relSrc: opt.status == .done ? rel : nil,
         status: opt.status.rawValue,

@@ -474,7 +474,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     }
 
     public struct DesignBoardOption: Codable, Equatable, Sendable {
-        public var workerId: String
+        public var agentId: String
         public var modelId: String
         public var persona: String
         public var imagePath: String?
@@ -484,23 +484,23 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var sessionId: String?
 
         public init(
-            workerId: String, modelId: String, persona: String, imagePath: String? = nil,
+            agentId: String, modelId: String, persona: String, imagePath: String? = nil,
             absolutePath: String? = nil, status: Status, failureReason: String? = nil,
             sessionId: String? = nil
         ) {
-            self.workerId = workerId; self.modelId = modelId; self.persona = persona
+            self.agentId = agentId; self.modelId = modelId; self.persona = persona
             self.imagePath = imagePath; self.absolutePath = absolutePath; self.status = status
             self.failureReason = failureReason; self.sessionId = sessionId
         }
     }
 
     public struct DesignBoardChosen: Codable, Equatable, Sendable {
-        public var workerId: String
+        public var agentId: String
         public var persona: String
         public var chosenAt: String?
 
-        public init(workerId: String, persona: String, chosenAt: String? = nil) {
-            self.workerId = workerId; self.persona = persona; self.chosenAt = chosenAt
+        public init(agentId: String, persona: String, chosenAt: String? = nil) {
+            self.agentId = agentId; self.persona = persona; self.chosenAt = chosenAt
         }
     }
 
