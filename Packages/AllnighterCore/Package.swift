@@ -38,7 +38,7 @@ let package = Package(
         ),
         .testTarget(
             name: "AllnighterCoreTests",
-            dependencies: ["AllnighterCore"]
+            dependencies: ["AllnighterCore", "AllnighterEngine"]
         ),
         // Execution layer: subprocess team coordination. Depends on Core;
         // contains all the I/O so Core stays pure. The Mac app imports this.
