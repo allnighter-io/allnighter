@@ -1,115 +1,83 @@
 # PM Turn Delivery
 
-Status: **OPEN — founder intake packet (incident-driven 2026-07-29)**
-Owner: AllnighterEngine (`RelayCoordinator`) + AllnighterCLI (`PilotCLI`, `RelayCLI`) +
-`ServeDaemon`
+Status: **OPEN — implementation-ready, founder law (2026-07-29)**
+Owner: AllnighterEngine (`RelayCoordinator`, `ServeDaemon`) + AllnighterCLI
+(`PilotCLI`, `RelayCLI`)
 Created: 2026-07-29
-Revised: 2026-07-29 (initial draft from founder incident + PM notification brainstorm)
-Origin: Founder delegated pilot work to Opus; agent used `pilot handoff --no-wait` per
-help text; Opus was never notified when dev rounds landed; dev report required forensic
-`answer.md` recovery. Mac app notifications not used. Custom poll watcher worked but is
-unacceptable friction.
-Related shipped substrate (reuse, do not re-build):
-[`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md)
-(URN-S01–S03), [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md)
-(WRC-S00/S01/S02), [`Round_Survives_The_Caller.md`](../archive/phases/Round_Survives_The_Caller.md),
-[`Pilot_Relay.md`](../archive/phases/Pilot_Relay.md). Deferred URN-S04 (`pilot wait`) is
-**superseded by this packet** — ship here instead.
-
-Phases are ephemeral. At closeout: promote product law into help / vocabulary /
-`ContractRegistry`; code remains SSOT for fields; archive this packet.
-
----
-
-## Founder intake (SSOT_Founder_Input_Workflow)
-
-```text
-Founder intent:
-  If an agent PM (Opus, Sonnet, Composer, …) delegates through Allnighter — pilot
-  OR relay, attended OR unattended — Allnighter MUST deliver the PM Turn when work
-  finishes. No custom poll watchers. No Mac-banner-only delivery. No answer.md
-  archaeology. Blocking dispatch is the default; detached dispatch must have a
-  first-class wait primitive that returns devReport + next commands.
-
-Product value:
-  The 10x for Allnighter: super basic plumbing that just works. Delegation without
-  delivery is fire-and-forget, not a PM loop. This is the control-loop contract.
-
-Trusted workflow slice:
-  Opus calls `pilot handoff` → dev works ~5 min → Opus gets dev report verbatim +
-  copy-paste next command — in the same session (blocking) or via `--wait-for parked`
-  (detached). Session dead → recovery agent reads pm-turn inbox or gets wake hook.
-
-Current state (verified 2026-07-29):
-  Blocking `pilot handoff` / `relay-resume` returns devReport (works).
-  `--no-wait` returns dispatch ack only; help/recipes teach poll `pilot status` (broken:
-  status JSON has no devReport when awaitingPM).
-  `pilot watch` returns devReport when settled but is documented optional/disposable.
-  `team status --wait-for` exists for async team runs; pilot/relay status do not.
-  `alln serve` auto-launches (URN-S02); macOS notifications fire for escalation/stop
-  but NOT for `awaitingPM` (WRC-S01 gap). No push into IDE sessions.
-  NotificationCandidateDetection has no `relayAwaitingPM` event.
-
-Truth owner:
-  PM Turn durable record: new `PMTurnStore` (or relay-dir file) written by
-  `RelayCoordinator` at park transitions.
-  Session delivery: `--wait-for` on `pilot status` + `relay-status` (CLI).
-  Out-of-band wake: `ServeDaemon` hook on new pm-turn sequence.
-  devReport text: `RelayCoordinator.settledDevReport` (existing).
-  workRecovery envelope: WRC-S00 projection (compose, do not fork).
-
-Blocking questions:
-  None on product posture. Host-specific wake scripts (Cursor automation vs Claude
-  hook) are configuration, not Allnighter core — serve fires hook with pm-turn JSON
-  on stdin.
-```
-
----
+Revised: 2026-07-29 — spec-editor finalization
 
 ## Product law
 
-```text
-Every transition to "PM must act" produces a PM Turn.
-Every PM Turn must be deliverable to the PM agent without invention.
-```
+When an agent PM delegates through Allnighter — Pilot or Relay, attended or
+unattended — Allnighter **must deliver a PM Turn** when work reaches a PM
+boundary. A PM Turn contains the verbatim dev report and the exact next commands.
 
-**PM must act** means:
+Delivery is not a Mac banner, a status-poll recipe, `answer.md` archaeology, or
+a promise that the caller happened to remain alive. A banner is a parallel human
+channel only. The agent-facing contract is one durable PM Turn and one of three
+delivery paths below.
 
-| Mode | `pmMode` | Park reasons (`reason` field) |
-| --- | --- | --- |
-| **Pilot** (session PM) | `external` | `awaitingPM` (dev landed, judge next round); `escalated` |
-| **Relay** (spawned PM) | `spawned` | `escalated` (needs answer); `stopped` / `done` (settled) |
+This packet supersedes only deferred URN-S04's proposed wait verbs. It does not
+reopen the archived notification packet. At closeout, promote the law and public
+contract to help/vocabulary, then archive this packet; code remains the field
+SSOT.
 
-Mac Notification Center banners are a **parallel human channel**, not the PM contract.
-Poll loops built by agents are **not** acceptable as the documented happy path.
+Related work, deliberately not duplicated:
 
----
+- [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md)
+  WRC-S00 owns `workRecovery`; WRC-S01 owns the `relayAwaitingPM` Mac event;
+  WRC-S02 owns substituted-PM resume.
+- [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md)
+  URN-S01–S03 already supply the read-only `alln serve` notification substrate.
+  Its deferred URN-S04 (`pair … wait`) is replaced here by status `--wait-for`.
+- [`Round_Survives_The_Caller.md`](../archive/phases/Round_Survives_The_Caller.md)
+  owns detached dispatch survival, not completion delivery.
 
-## Why today fails (verified)
+## Decision
 
-| Channel | Works? | Gap |
-| --- | --- | --- |
-| Blocking `handoff` / `relay-resume` | Yes | Docs teach agents to avoid it (`--no-wait` for "long jobs") |
-| Poll `pilot status` / `relay-status` | Partial | No `devReport` when parked; 45s `waitHintSeconds` only while `.running` |
-| `pilot watch` | Yes | Called optional/disposable; non-TTY capped at 30 min |
-| `alln serve` + macOS notify | Partial | Wrong seat for IDE PM; `awaitingPM` silent |
-| `team status --wait-for` | Yes (team runs) | Never extended to pilot/relay |
+1. **One durable object; no inbox verb.** `pmTurn` is embedded in both status
+   envelopes. A separate `relay inbox` would duplicate status/recovery surfaces
+   and is out of scope.
+2. **Extend status; do not add wait verbs.** The only detached waiter is
+   `pair pilot status --wait-for …` or `pair relay-status --wait-for …`.
+   `pilot watch` remains compatible but is legacy and is never taught.
+3. **A detached PM chooses a delivery route.** Default dispatch blocks. A PM
+   using `--no-wait` must either run the returned status waiter (attended
+   detach) or request the configured wake route (unattended/dead-session).
+   `--delivery wake` without a configured wake command fails before dispatch;
+   Allnighter never accepts an unattended fire-and-forget delegation it cannot
+   deliver.
+4. **Wake delivery means an acknowledged hook invocation.** `alln serve` writes
+   the PM Turn first, invokes the hook with the full JSON on stdin, and records
+   success only on exit 0. Nonzero/launch failure is retried with durable,
+   bounded backoff and remains visible as a delivery failure; it is never
+   represented as delivered. The hook host owns the final IDE/session handoff.
 
-Incident shape: ~5 min rounds; blocking would have been fine. Agent took `--no-wait`
-escape hatch per `ContractRegistry`, `HelpTopicRegistry`, and
-`get-another-model-to-implement-this` recipe → lost in-session delivery.
+## Current gap
 
----
+Blocking `pilot handoff` and `relay-resume` already return a report when their
+round completes. `--no-wait` returns a dispatch acknowledgement, while help and
+error guidance currently tell agents to poll status. Parked status has no report.
+`pilot watch` can observe a settlement but is explicitly disposable. `alln serve`
+can notify a human but cannot deliver a PM turn into an agent session.
 
-## Architecture: one object, three delivery paths
+The result was an agent PM that used the documented detached path and received
+neither the report nor a next command. The implementation must remove that gap,
+not move it into a custom watcher.
 
-### PM Turn (durable)
+## Contract: `PMTurnJSON`
 
-On every park transition, atomically write:
+`RelayCoordinator` owns creation. At every transition that ends a dev/PM round
+and leaves a PM boundary, it writes exactly one immutable record at:
 
 ```text
 ~/Library/Application Support/Allnighter/Relays/<relayId>/pm-turn.json
 ```
+
+Write with temp-file + atomic rename in the same serialized transition that
+persists `RelayState`. A new record increments `sequence` once per relay. A
+re-read/retry of the same transition must not increment it or emit a duplicate.
+The relay state remains run truth; this is the durable delivery projection.
 
 ```json
 {
@@ -117,309 +85,237 @@ On every park transition, atomically write:
   "relayId": "relay_abc",
   "sequence": 7,
   "round": 2,
-  "landedAt": "2026-07-29T22:14:00Z",
+  "createdAt": "2026-07-29T22:14:00Z",
   "reason": "awaitingPM",
   "pmMode": "external",
   "relayStatus": "awaitingPM",
-  "devReport": "…verbatim from settledDevReport…",
-  "workRecovery": {
-    "workState": "workUncommitted",
-    "repoRoot": "/path/to/repo",
-    "baseline": "e5cae21c",
-    "head": "bcd15eca",
-    "commitCount": 3,
-    "uncommitted": { "count": 1, "paths": ["packages/foo.mjs"] }
-  },
+  "devReport": "verbatim settledDevReport text",
+  "devRunId": "AD0446C6-…",
+  "workRecovery": null,
   "nextCommands": [
     "alln pair pilot handoff --relay relay_abc --verdict continue --handover-file order.md --json"
-  ]
+  ],
+  "notes": []
 }
 ```
 
-**Write site:** `RelayCoordinator` when setting `status` to `awaitingPM`, `escalated`,
-`stopped`, or `done` after a dev turn completes. Same transaction as state persist.
-**Sequence:** monotonic per relay; increment on each new PM Turn (dedup key for notify +
-wait).
+| Field | Rule / source |
+| --- | --- |
+| `sequence` | Monotonic `Int64`, scoped to `relayId`; dedupe key for wait/wake/notification. |
+| `reason` | Exactly `awaitingPM`, `escalated`, `stopped`, or `done`; never infer from copy. |
+| `relayStatus`, `pmMode`, `round` | Snapshot from the just-persisted `RelayState`. |
+| `devReport` | `RelayCoordinator.settledDevReport`; `null` with a `notes[]` explanation when unavailable, never `""`. |
+| `devRunId` | Current/settled round id when known; otherwise `null` with a note. |
+| `workRecovery` | The WRC-S00 projection, copied as one nested object. Before WRC-S00 ships it is `null` plus `"workRecovery unavailable until WRC-S00"`; PTD does not create a competing recovery shape. |
+| `nextCommands` | Fully expanded, status-valid commands with the real relay id — no placeholders, prose, or invented flags. |
 
-**Read site:** `pilot status --json`, `relay-status --json` when parked include latest
-pm-turn fields inline (or `pmTurn` sub-object). Optional dedicated verb:
-`alln pair relay inbox --relay <id> --json` for recovery agents (PTD-1b, optional if
-status embed is sufficient).
+`reason` is emitted for `awaitingPM`, `escalated`, `stopped`, and `done`. Thus a
+Relay PM's final `done` report is deliverable to the delegating agent just as a
+Pilot's `awaitingPM` report is. `running` creates no PM Turn.
 
-### Delivery path A — Blocking dispatch (default, attended)
+## Read contract and the three delivery paths
 
-No change to semantics. **Change teaching only** — blocking IS the notification:
+Both `PilotStatusJSON` and the `RelayJSON` status response gain an optional
+`pmTurn: PMTurnJSON`. The read sites are `PilotCLI.makeStatusJSON` and
+`RelayJSON.project` (or their common status projector). A status snapshot includes
+the latest PM Turn when present, including terminal states. `devReport` and
+`nextCommands` appear only under `pmTurn`; do not add duplicate top-level aliases.
 
-```bash
-alln pair pilot handoff --relay <id> --verdict continue --handover-file order.md --json
-```
+### A. Blocking dispatch — default attended path
 
-Returns `PilotHandoffJSON` with `devReport` when dev lands. Same for blocking
-`relay-resume` / `relay` / `relay adopt`.
+No new flag or protocol. Blocking `pilot handoff`, `relay-resume`, `relay`, and
+`relay adopt` return the same PM Turn payload through their existing result
+envelopes when their round reaches a PM boundary. This return is delivery.
 
-### Delivery path B — `--wait-for` (detached, attended)
+### B. Status `--wait-for` — attended detached path
 
-Extend **both** status commands (mirror `team status --wait-for`):
+Extend both status commands, mirroring the existing in-process team-status loop:
 
 ```bash
 alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json
-alln pair relay-status --relay <id> --wait-for parked --timeout 7200 --json
+alln pair relay-status --relay <id> --wait-for terminal --timeout 7200 --json
 ```
 
-**Wait targets:**
+`--timeout` is required whenever `--wait-for` is supplied, and is a
+non-negative number of seconds. `--wait-for` is mutually exclusive with any
+persisted-only observation flag if one is added later.
 
-| Target | Matches | Use when |
+| Wait target | Match | Intended use |
 | --- | --- | --- |
-| `parked` | `awaitingPM` OR `escalated` | PM must act (primary) |
-| `terminal` | `done` OR `stopped` | Unattended relay run to completion |
-| `running` | `.running` | Rare; round dispatched (symmetry only) |
+| `parked` | `awaitingPM` or `escalated` | A PM must make the next decision. |
+| `terminal` | `done` or `stopped` | A delegated Relay finishes or stops. |
 
-**Behavior:**
+There is intentionally no `running` target: it delivers no PM Turn and would
+teach a new polling milestone instead of delivery.
 
-- Blocks in-process; polls relay state + pm-turn sequence (same cadence as team wait:
-  min 50ms, max 5s, respect `nextPollAfterMs` if added).
-- On match: return full envelope — `devReport`, `workRecovery`, `nextCommands`,
-  `reason`, `relay` — same shape whether arrived via wait or snapshot read.
-- Timeout: exit `3` (`RELAY_WAIT_TIMEOUT`); response includes last-known state.
-- Terminal mismatch (waited for `parked`, got `done` without passing `parked`): exit
-  per lifecycle class (mirror team wait).
+The loop reads live relay state plus `pmTurn.sequence`; it returns immediately
+when the target is already true. Otherwise it uses the team-status cadence
+(`min 50 ms`, `max 5 s`, honoring a future `nextPollAfterMs`) and returns the
+normal status envelope with `pmTurn` intact. It does not spin an external process.
 
-**`--no-wait` ack must emit:**
+For a nonmatching terminal state, return the final snapshot and set
+`waitOutcome: "terminalMismatch"`; classify process exit exactly as the team
+waiter does (stopped is failure-class; done is success-class). On a match, set
+`waitOutcome: "matched"`. On expiry, print the last snapshot with
+`waitOutcome: "timedOut"`, then exit 3 with registered error
+`RELAY_WAIT_TIMEOUT`. The error's `agentAction` must name the same status waiter
+with a longer timeout — never "poll status."
+
+The `--no-wait --json` acknowledgement gains:
 
 ```json
 {
-  "status": "dispatched",
-  "nextAction": {
-    "kind": "relayWait",
-    "command": "alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json"
+  "delivery": {
+    "path": "wait",
+    "command": "alln pair pilot status --relay relay_abc --wait-for parked --timeout 7200 --json"
   }
 }
 ```
 
-Not "poll status." **Wait.**
+For Relay dispatch, choose `terminal` only when the caller needs final settlement;
+choose `parked` when it expects to judge an escalation. The acknowledgement is a
+route instruction, not a claim that delivery already occurred.
 
-`pilot watch` becomes **deprecated alias** for `--wait-for parked` (keep working;
-stop teaching).
+### C. Wake hook — unattended/dead-session path
 
-### Delivery path C — Wake hook (unattended / dead session)
+The already auto-launched `ServeDaemon` is the independent delivery process. It
+remains read-then-shell-out: it never resumes, dispatches, changes relay state,
+or takes a write lock.
 
-When `pm-turn.json` `sequence` advances, `ServeDaemon` (already auto-launched via
-URN-S02):
-
-1. Posts macOS notification (extend WRC-S01 `relayAwaitingPM` for `awaitingPM`; existing
-   events for `escalated`/`stopped`).
-2. Invokes configurable wake hook once per new sequence (debounced):
+Configuration is local and explicit:
 
 ```json
-// ~/.allnighter/config.json (or env ALLN_PM_TURN_WAKE_COMMAND)
 {
   "pmTurnWake": {
-    "command": ["/path/to/script"],
-    "debounceSeconds": 5
+    "command": ["/absolute/path/to/pm-turn-receiver"],
+    "retryMaxSeconds": 300
   }
 }
 ```
 
-Hook stdin = pm-turn JSON. Host-specific (Cursor automation, paste bridge) — Allnighter's
-job is fire-once with full payload.
+`ALLN_PM_TURN_WAKE_COMMAND` is an equivalent command-array override. The hook
+receives exactly `PMTurnJSON` on stdin. Its exit 0 acknowledges this delivery;
+the receiver must be idempotent on `(relayId, sequence)`. The daemon maintains a
+durable receipt ledger keyed by that pair, records attempt count/last error, and
+retries a failed invocation with bounded exponential backoff through
+`retryMaxSeconds`. It attempts at least once after restart when no successful
+receipt exists. A final failed receipt is surfaced in status as
+`pmTurnDelivery: { "path": "wake", "state": "failed", "errorCode":
+"PM_TURN_WAKE_FAILED" }` and causes the existing human notification channel to
+carry a delivery-failed warning.
 
-Recovery without hook: any session runs status with `--json` when parked, or
-`relay inbox` if implemented.
+`--delivery wake` is valid only with `--no-wait`. Before creating the detached
+round it must verify a valid configured command and a usable serve launch. If
+not, fail `PM_TURN_WAKE_UNCONFIGURED` (or `PM_TURN_WAKE_UNAVAILABLE`) and do not
+dispatch. Its acknowledgement has `delivery.path: "wake"` and the delivery id;
+it must not print a fake status waiter. This is the fail-loud enforcement of the
+unattended part of the product law.
 
----
+Mac banners remain WRC-S01/URN territory. They may share `(relayId, sequence)`
+for dedupe, but they never satisfy `pmTurnDelivery`.
 
-## Teaching flip (ship with PTD-3)
+## Build slices
 
-| Old (broken) | New |
+| Slice | Scope and owner | Depends on |
+| --- | --- | --- |
+| **PTD-1 — durable pull delivery** | `PMTurnJSON`/atomic store in `RelayCoordinator`; embed `pmTurn` in pilot/relay status; shared `RelayStatusWait`; `--wait-for parked|terminal`; `RELAY_WAIT_TIMEOUT`; no-wait `delivery.path: wait`; teaching flip. Owners: `RelayCoordinator`, `PilotCLI`, `RelayCLI`, `RelayJSON`, contract/help surfaces. | — |
+| **PTD-2 — unattended wake delivery** | Config validation, `--delivery wake`, durable receipt/retry ledger, `ServeDaemon` hook, delivery failure projection. Reuse URN serve launch and WRC-S01 notification event; do not reimplement either. | PTD-1; URN-S01/S02 already shipped |
+
+PTD-1 and PTD-2 are deliberately two slices, not five: the object, snapshot,
+waiter, acknowledgement, and teaching are one pull-delivery contract. The only
+separate concern is an independent delivery process for a dead session.
+
+## Teaching and contract flip (part of PTD-1)
+
+Replace every primary instruction of the form “`--no-wait`, then poll status”
+with:
+
+> Dispatch blocks by default. If you detach while still present, run the returned
+> `status --wait-for` command. If the PM session will be gone, use
+> `--no-wait --delivery wake` with a configured PM Turn receiver.
+
+Update these source files and regenerate derived contract/help artifacts; do not
+hand-edit `docs/generated/alln/*`:
+
+- `Packages/AllnighterCore/Sources/AllnighterCore/ContractRegistry+Milestone1.swift`
+- `Packages/AllnighterCore/Sources/AllnighterCore/HelpTopicRegistry.swift`
+- `Packages/AllnighterCore/Sources/AllnighterCore/Bootstrap.swift`
+- `Packages/AllnighterCore/Sources/AllnighterCore/TeachingSnippet.swift`
+- `Packages/AllnighterCore/Sources/AllnighterCore/MenuSelectionCopy.swift`
+- `Packages/AllnighterCore/Sources/AllnighterCLI/PilotCLI.swift` and
+  `RelayCLI.swift` caller-facing `RELAY_ROUND_IN_FLIGHT` guidance
+
+The in-flight action becomes a bounded status waiter appropriate to the command,
+not poll/`pilot watch` prose. Keep `pilot watch` compatible, label it legacy,
+and remove it from Bootstrap, recipes, help examples, and error actions.
+
+New registered errors:
+
+| Code | Exit class | Agent action |
+| --- | --- | --- |
+| `RELAY_WAIT_TIMEOUT` | 3 (`timeout`) | Re-run the returned `pair … status --wait-for … --timeout <longer> --json` command. |
+| `PM_TURN_WAKE_UNCONFIGURED` | operational failure | Configure `pmTurnWake.command`, or use blocking/wait delivery; no round was dispatched. |
+| `PM_TURN_WAKE_UNAVAILABLE` | operational failure | Start/repair the local serve delivery process, or use blocking/wait delivery; no round was dispatched. |
+| `PM_TURN_WAKE_FAILED` | operational failure (status/notification) | Repair the receiver; daemon retry state and the PM Turn remain durable. |
+
+## WRC boundary
+
+PTD owns delivery of the report and commands. WRC owns recovery facts and its
+Mac notification event. The composition rules are strict:
+
+| WRC owner | PTD use |
 | --- | --- |
-| Long jobs: `handoff --no-wait` then poll status | **Default: blocking handoff** |
-| `pilot watch` optional/disposable | **`--wait-for parked`** is the detached waiter |
-| `alln serve` = you don't have to watch | Serve = out-of-band wake when session is gone |
-| Relay: poll `relay-status` | Block, or `--wait-for parked\|terminal` |
+| WRC-S00 `workRecovery` | Nest the exact projection under `pmTurn.workRecovery`; no PTD fields, derivation, or git reads. |
+| WRC-S01 `relayAwaitingPM` | Add `(relayId, sequence)` to its payload/dedupe when PTD exists; WRC retains event detection and banner delivery. |
+| WRC-S02 substitution | Its status-valid `resumeCommands` feed `pmTurn.nextCommands`; PTD does not add PM-model policy. |
 
-Agent one-liner:
-
-> Dispatch blocks. If you must detach, the next command is `--wait-for parked`, not poll.
-
-Files to update at PTD-3: `ContractRegistry+Milestone1.swift`, `HelpTopicRegistry.swift`,
-`get-another-model-to-implement-this.md`, `Bootstrap.swift` routed teaching, error
-`agentAction` strings on `RELAY_ROUND_IN_FLIGHT`.
-
----
-
-## Packet split
-
-| Slice | Claim | Owner | Deps |
-| --- | --- | --- | --- |
-| **PTD-1** | PM Turn durable write + parked status includes devReport | `RelayCoordinator`, `PMTurnStore` | — |
-| **PTD-2** | `--wait-for parked\|terminal` on pilot status + relay-status | `PilotCLI`, `RelayCLI` | PTD-1 |
-| **PTD-3** | `--no-wait` nextAction + teaching flip | CLI + help + recipes | PTD-2 |
-| **PTD-4** | Serve wake hook on pm-turn sequence | `ServeDaemon` | PTD-1 |
-| **PTD-5** | WRC-S01 `relayAwaitingPM` notify + pm-turn payload | `NotificationCandidateDetection` | PTD-1 |
-
-**v1 exit gate:** PTD-1 + PTD-2 + PTD-3 (attended Opus never builds a watcher).
-PTD-4 + PTD-5 = unattended parity.
-
-URN-S04 (`pair pilot wait` / `pair relay wait`) — **do not build separately**; ship as
-`status --wait-for` in PTD-2.
-
----
-
-## Slices (dependency order)
-
-### PTD-1 · PM Turn durable write — **do first**
-
-*Claim:* "When dev lands, one file + status read gives devReport and next commands."
-
-*Write:* `pm-turn.json` at park transitions (`awaitingPM`, `escalated`, `stopped`,
-`done`). Fields above. `devReport` from `settledDevReport`. `workRecovery` from WRC-S00
-projection when that slice ships; stub null + note until then (honest reporting).
-
-*Read:* `pilot status --json` and `relay-status --json` embed `pmTurn` (or top-level
-fields) when `relayStatus` is parked/terminal.
-
-*Harden:*
-- Atomic write (write temp + rename).
-- Sequence monotonic; same park transition does not double-write same sequence.
-- Missing devReport → null + note, never empty string pretending success.
-
-*Proof:* unit — coordinator parks pilot relay → pm-turn file exists with devReport;
-status JSON includes it. Integration — no read of `Runs/.../answer.md` required.
-
-*Optional PTD-1b:* `alln pair relay inbox --relay <id> --json` — read latest pm-turn;
-only if status embed insufficient for recovery agents.
-
-### PTD-2 · `--wait-for` on status — **v1 core**
-
-*Claim:* "One command blocks until PM Turn; returns full payload."
-
-*Implement:* shared `RelayStatusWait` helper (mirror `TeamStatusWaitTarget` /
-`AllnighterCLI.runTeamStatus` loop). Both `PilotCLI.runStatus` and `RelayCLI.runStatus`
-gain `--wait-for <parked|terminal|running>` + `--timeout <seconds>` (required pair).
-
-*Contract:* extend `PilotStatusJSON` / `RelayJSON` response wrapper with `pmTurn`,
-`waitOutcome` (`matched` | `timedOut` | `terminalMismatch`), `devReport`, `nextCommands`.
-
-*Error:* `RELAY_WAIT_TIMEOUT` → exit 3.
-
-*Proof:* hermetic — mock state transitions; wait returns on sequence change; timeout
-exits 3.
-
-*Deprecate teaching:* `pilot watch` documented as legacy alias only.
-
-### PTD-3 · nextAction + teaching flip
-
-*Claim:* "Agents cannot learn the broken path from our own docs."
-
-*Change:* all `--no-wait` dispatch acks (`pilot handoff`, `relay`, `relay-resume`,
-`relay adopt`) emit `nextAction.command` with `--wait-for parked` (or `terminal` when
-appropriate).
-
-*Files:* see Teaching flip table above.
-
-*Proof:* `HelpTopicRegistryTests`, recipe snapshot, `DetachedDispatchJSON` contract test.
-
-### PTD-4 · Serve wake hook
-
-*Claim:* "Session dead; something still fires with full pm-turn payload."
-
-*Implement:* `ServeDaemon` scheduler tick reads pm-turn sequences (or thread projection);
-on new sequence since last seen, run `pmTurnWake.command` with stdin JSON. Debounce per
-relay. No-op when config absent.
-
-*Constraints:* serve still read-then-shell-out only (URN inference bans). No dispatch
-from serve.
-
-*Proof:* harness — write pm-turn → hook invoked once; second tick same sequence → silent.
-
-### PTD-5 · `relayAwaitingPM` notification
-
-*Claim:* "Mac banner when `awaitingPM` parks (human parallel channel)."
-
-*Reuse:* WRC-S01 spec — `NotificationEventKind.relayAwaitingPM`; payload from pm-turn
-(relay id, work counts, suggested command). Dedup on sequence. Do not double-fire with
-`relayNeedsAnswer` for same transition.
-
-*Proof:* `NotificationCandidateDetectionTests` + serve harness.
-
----
-
-## Relationship to WRC
-
-| WRC slice | PTD relationship |
-| --- | --- |
-| WRC-S00 workRecovery envelope | Composed into pm-turn + status; PTD-1 reads it |
-| WRC-S01 relayAwaitingPM | **PTD-5** — same event, pm-turn payload |
-| WRC-S02 PM substitution | Independent; pm-turn `nextCommands` may include `--pm-model` |
-
-Build order: PTD-1/2 can ship before WRC-S00; workRecovery fields null until WRC-S00
-lands. Do not block PTD on WRC.
-
----
+PTD-1 may land before WRC-S00: use `null` plus `notes[]`, never a partial fork of
+the recovery envelope. A one-line cross-link in WRC is sufficient if needed; no
+WRC rewrite is authorized by this packet.
 
 ## Non-goals
 
-- Cloud push / third-party notification services.
-- Push directly into Cursor/Claude APIs (hook is config; host owns integration).
-- Replacing blocking dispatch as default.
-- Separate `pilot wait` / `relay wait` verbs (use `status --wait-for`).
-- Storing full diffs/transcripts in pm-turn (devRunId → RunStore remains SSOT for depth).
-- Human PM seat — PM is always an agent.
+- New `pair pilot wait`, `pair relay wait`, `relay inbox`, or a second PM-Turn
+  storage model.
+- Poll scripts/watchers as the documented happy path.
+- Cloud push, third-party accounts, or direct Cursor/Claude API integration.
+- A human PM seat; PMs are agents.
+- Storing a transcript, diff, or a second git model in `PMTurnJSON`.
+- Changing state-machine/write-lock safety; a `.running` relay still rejects a
+  second mutating dispatch with `RELAY_ROUND_IN_FLIGHT`.
 
----
+## v1 exit gate
 
-## Exit gate (v1 — PTD-1/2/3)
+All gates are required; this product law is not met by PTD-1 alone.
 
-1. Blocking `pilot handoff` still returns devReport (no regression).
-2. `handoff --no-wait` → `status --wait-for parked` returns devReport within one
-   command (hermetic + one dogfood round).
-3. Parked `pilot status --json` includes devReport without `--wait-for` (snapshot path).
-4. `--no-wait` ack includes `nextAction` with wait command (not poll-only).
-5. Help/recipe no longer teach "poll status until awaitingPM" as primary path.
-6. `swift test --package-path Packages/AllnighterCore` + `alln dev export-contracts --check`
-   green for touched contracts.
+1. A blocking Pilot and Relay round returns the PM Turn report and exact next
+   commands without regression.
+2. `--no-wait` followed by its returned `status --wait-for parked|terminal`
+   command returns `pmTurn.devReport` and `pmTurn.nextCommands` in one process,
+   with no external watcher or `answer.md` read.
+3. A parked/terminal snapshot (`pilot status --json` and `relay-status --json`)
+   embeds the same `pmTurn` object, including a null+note for unavailable data.
+4. A no-wait request for `--delivery wake` without a valid receiver refuses before
+   dispatch. With a receiver, killing the dispatching PM session still invokes it
+   once with the correct JSON; a failed hook is durably retried and visibly failed,
+   never marked delivered.
+5. Help, Bootstrap, recipes/menu teaching, and `RELAY_ROUND_IN_FLIGHT` actions
+   name blocking, status wait, or explicit wake — never polling/watch as primary.
+6. Hermetic tests cover atomic/deduped PM Turn write, every reason, snapshot and
+   waiter match/mismatch/timeout, no-wait delivery acknowledgement, wake
+   config refusal, hook receipt/retry/dedupe, and the WRC composition null case.
+7. One dogfood Pilot and one dogfood Relay demonstrate the attended waiter and
+   dead-session wake path. Run `swift test --package-path Packages/AllnighterCore`,
+   `alln dev export-contracts --check`, and the architecture policy check.
 
-**Not in v1 exit gate:** wake hook (PTD-4), macOS `relayAwaitingPM` (PTD-5), `relay inbox`
-(PTD-1b).
+## Builder routing
 
----
-
-## Success test (founder Works Test)
-
-```bash
-# Detached path — the incident reproduction
-alln pair pilot handoff --relay <id> --verdict continue --handover-file order.md --no-wait --json
-alln pair pilot status --relay <id> --wait-for parked --timeout 3600 --json
-# → blocks; returns devReport + nextCommands when dev lands; no custom watcher
-
-# Snapshot path — recovery agent
-alln pair pilot status --relay <id> --json
-# → when awaitingPM: devReport present in response
-```
-
-Same for `pair relay` / `relay-status --wait-for terminal`.
-
----
-
-## Routing
-
-| Work | Read first |
+| Concern | Start here |
 | --- | --- |
-| Park transitions | `RelayCoordinator.runExternalRound`, `resume`, spawned loop |
-| devReport | `RelayCoordinator.settledDevReport` |
-| Team wait pattern | `AllnighterCLI.runTeamStatus`, `TeamStatusWaitTarget` |
-| Serve schedulers | `ServeDaemon.swift` |
-| Notifications | `NotificationCandidateDetection.swift`, URN archive |
-| Status projection | `PilotCLI.makeStatusJSON`, `RelayJSON.project` |
-| Prior deferred wait | URN-S04 in `Unattended_Round_Notification.md` |
-
----
-
-## Standing rules
-
-- **PM Turn is the contract** — not poll hints, not banners alone.
-- **Blocking is default** — `--no-wait` is exception; ack must name wait command.
-- **Missing data is null + note** — never zero-filled invent.
-- **One wait primitive** — pilot status and relay-status share implementation.
-- **serve stays read-only** — hook shells out; no dispatch from serve.
-- **Sequence dedup** — one notify + one hook per PM Turn.
+| Park transitions/report source | `RelayCoordinator.runExternalRound`, spawned relay loop, `RelayCoordinator.settledDevReport` |
+| Pilot status | `PilotCLI.makeStatusJSON`, `PilotStatusJSON` |
+| Relay status wire projection | `RelayJSON.project`, `RelayCLI` |
+| Wait-loop precedent | `AllnighterCLI.runTeamStatus`, `TeamStatusWaitTarget` |
+| Detached dispatch/serve launch | `DetachedDispatch`, `ServeAutoLaunch` |
+| Daemon scheduling/notifications | `ServeDaemon`, `NotificationCandidateDetection`, URN archive |
+| Recovery fields | WRC-S00 in `Work_Recovery_And_PM_Continuity.md` |
