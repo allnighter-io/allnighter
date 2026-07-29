@@ -575,11 +575,11 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var id: String
         public var purpose: StagePurpose
         public var status: Status
-        public var producedByWorkerId: String?
+        public var producedByAgentId: String?
         public var promptProfileId: String?
-        public init(id: String, purpose: StagePurpose, status: Status, producedByWorkerId: String? = nil, promptProfileId: String? = nil) {
+        public init(id: String, purpose: StagePurpose, status: Status, producedByAgentId: String? = nil, promptProfileId: String? = nil) {
             self.id = id; self.purpose = purpose; self.status = status
-            self.producedByWorkerId = producedByWorkerId; self.promptProfileId = promptProfileId
+            self.producedByAgentId = producedByAgentId; self.promptProfileId = promptProfileId
         }
     }
 

@@ -283,10 +283,10 @@ final class AppModel {
         let parsed = PlanOutputParser.parseCombined(trimmed)
         let now = Date()
         if let analysis = parsed.analysis {
-            current.stages.append(StageOutput(id: UUID().uuidString, purpose: .analysis, producedByWorkerId: planWriter.id, promptProfileId: currentSynthesis.analysisProfileId, status: .done, payload: .analysis(analysis), startedAt: now, finishedAt: now))
+            current.stages.append(StageOutput(id: UUID().uuidString, purpose: .analysis, producedByAgentId: planWriter.id, promptProfileId: currentSynthesis.analysisProfileId, status: .done, payload: .analysis(analysis), startedAt: now, finishedAt: now))
         }
         let planText = parsed.planMarkdown ?? trimmed
-        current.stages.append(StageOutput(id: UUID().uuidString, purpose: .plan, producedByWorkerId: planWriter.id, promptProfileId: currentSynthesis.planProfileId, status: .done, payload: .plan(markdown: planText), startedAt: now, finishedAt: now))
+        current.stages.append(StageOutput(id: UUID().uuidString, purpose: .plan, producedByAgentId: planWriter.id, promptProfileId: currentSynthesis.planProfileId, status: .done, payload: .plan(markdown: planText), startedAt: now, finishedAt: now))
         run = current
         transition(to: .planning)
         transition(to: .complete)

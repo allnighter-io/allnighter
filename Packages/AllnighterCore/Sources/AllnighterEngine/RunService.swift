@@ -1893,7 +1893,7 @@ public actor RunService {
                 "stageId": .string(stageId), "workerId": .string(worker.id)
             ])
             run.stages.append(StageOutput(
-                id: stageId, purpose: .plan, producedByWorkerId: worker.id,
+                id: stageId, purpose: .plan, producedByAgentId: worker.id,
                 promptProfileId: skillId, status: .done,
                 payload: .plan(markdown: text), startedAt: startedAt, finishedAt: now()
             ))

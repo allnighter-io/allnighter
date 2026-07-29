@@ -144,7 +144,7 @@ public enum ContractSchema {
             ], required: ["kind"]),
             "StageInfo": obj([
                 "id": str, "purpose": enumStr(["analysis", "plan", "review"]), "status": runStatus,
-                "producedByWorkerId": nullable("string"), "promptProfileId": nullable("string"),
+                "producedByAgentId": nullable("string"), "promptProfileId": nullable("string"),
             ], required: ["id", "purpose", "status"]),
             "Plan": obj([
                 "status": runStatus, "writerWorkerId": nullable("string"),
@@ -482,7 +482,7 @@ public enum ContractSchema {
             "FloorReturn": obj([
                 "kind": enumStr(["insight", "plan", "board", "draft", "proposal", "proofPacket", "audit"]),
                 "status": str, "title": str, "summaryMarkdown": nullable("string"),
-                "producedByWorkerId": nullable("string"), "stageId": nullable("string"),
+                "producedByAgentId": nullable("string"), "stageId": nullable("string"),
                 "artifactRefs": arr(ref("RunArtifactRef")), "insight": nullableRef("SignalInsight"),
             ], required: ["kind", "status", "title", "artifactRefs"]),
             "RunArtifactRef": obj([

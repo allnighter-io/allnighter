@@ -468,7 +468,7 @@ if workers:
           f"execution ran on {only.get('sourceId')}, not the selected {exec_source}")
     check(len(d.get("workerAnswers", [])) == 1,
           f"expected one answer from the single executor, got {len(d.get('workerAnswers', []))}")
-    stage_owners = {s.get("producedByWorkerId") for s in d.get("stages", []) if s.get("producedByWorkerId")}
+    stage_owners = {s.get("producedByAgentId") for s in d.get("stages", []) if s.get("producedByAgentId")}
     check(stage_owners <= {only.get("id")},
           f"a stage was produced by someone other than the single executor: {stage_owners}")
     check(d.get("usage", {}).get("cliCalls", 0) <= 2,

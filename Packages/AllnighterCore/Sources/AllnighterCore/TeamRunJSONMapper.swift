@@ -81,7 +81,7 @@ public enum TeamRunJSONMapper {
         var plan: TeamRunJSON.Plan? = {
             guard let stage = planStage, let markdown = run.plan else { return nil }
             return TeamRunJSON.Plan(
-                status: .done, writerWorkerId: stage.producedByWorkerId,
+                status: .done, writerWorkerId: stage.producedByAgentId,
                 stageId: stage.id, markdown: markdown
             )
         }()
@@ -379,7 +379,7 @@ public enum TeamRunJSONMapper {
         }
         return TeamRunJSON.StageInfo(
             id: stage.id, purpose: purpose, status: mapStage(status: stage.status),
-            producedByWorkerId: stage.producedByWorkerId, promptProfileId: stage.promptProfileId
+            producedByAgentId: stage.producedByAgentId, promptProfileId: stage.promptProfileId
         )
     }
 

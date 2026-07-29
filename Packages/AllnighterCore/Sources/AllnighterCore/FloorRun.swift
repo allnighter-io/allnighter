@@ -187,7 +187,7 @@ public struct FloorReturn: Codable, Sendable, Equatable {
     public var status: String
     public var title: String
     public var summaryMarkdown: String?
-    public var producedByWorkerId: String?
+    public var producedByAgentId: String?
     public var stageId: String?
     public var artifactRefs: [RunArtifactRef]
     /// The typed Signal output, present on `kind == .insight` runs when the Insight
@@ -195,11 +195,11 @@ public struct FloorReturn: Codable, Sendable, Equatable {
     public var insight: SignalInsight?
 
     public init(kind: Kind, status: String, title: String,
-                summaryMarkdown: String? = nil, producedByWorkerId: String? = nil,
+                summaryMarkdown: String? = nil, producedByAgentId: String? = nil,
                 stageId: String? = nil, artifactRefs: [RunArtifactRef] = [],
                 insight: SignalInsight? = nil) {
         self.kind = kind; self.status = status; self.title = title
-        self.summaryMarkdown = summaryMarkdown; self.producedByWorkerId = producedByWorkerId
+        self.summaryMarkdown = summaryMarkdown; self.producedByAgentId = producedByAgentId
         self.stageId = stageId; self.artifactRefs = artifactRefs; self.insight = insight
     }
 }

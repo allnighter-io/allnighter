@@ -69,7 +69,7 @@ final class FloorProjectorTests: XCTestCase {
     func testReturnIsTypedInsightWithSummary() {
         let floor = FloorProjector.project(signalRun())
         XCTAssertEqual(floor.floorReturn?.kind, .insight)
-        XCTAssertEqual(floor.floorReturn?.producedByWorkerId, "model_opus#1")
+        XCTAssertEqual(floor.floorReturn?.producedByAgentId, "model_opus#1")
         XCTAssertEqual(floor.floorReturn?.summaryMarkdown, "# Insight\nNo move today.")
         // The done worker's lane carries a scan excerpt (truncated), not the full answer.
         let reader = floor.workerLanes.first { $0.workerId == "model_grok#0" }

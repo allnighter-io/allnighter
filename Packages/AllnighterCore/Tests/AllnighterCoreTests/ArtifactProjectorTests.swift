@@ -302,7 +302,7 @@ final class ArtifactProjectorTests: XCTestCase {
                                          timing: RunTiming(durationMs: 1200))),
     ]
     let plan = StageOutput(
-      id: "stage_plan", purpose: .plan, producedByWorkerId: "model_sonnet#0",
+      id: "stage_plan", purpose: .plan, producedByAgentId: "model_sonnet#0",
       status: .done, payload: .plan(markdown: "Hoisted success one-liner")
     )
     let run = TeamRun(
@@ -420,7 +420,7 @@ final class ArtifactProjectorTests: XCTestCase {
                                          timing: RunTiming(durationMs: nil))),
     ]
     let plan = StageOutput(
-      id: "stage_plan", purpose: .plan, producedByWorkerId: "model_opus#1",
+      id: "stage_plan", purpose: .plan, producedByAgentId: "model_opus#1",
       status: .done, payload: .plan(markdown: leadCallMarkdown)
     )
     let run = TeamRun(

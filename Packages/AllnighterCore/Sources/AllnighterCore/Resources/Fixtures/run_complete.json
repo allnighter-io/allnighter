@@ -153,7 +153,7 @@
     {
       "id": "stage_analysis_01",
       "purpose": "analysis",
-      "producedByWorkerId": "model_opus",
+      "producedByAgentId": "model_opus",
       "promptProfileId": "plan_analysis_v1",
       "status": "done",
       "payload": {
@@ -194,7 +194,7 @@
     {
       "id": "stage_plan_01",
       "purpose": "plan",
-      "producedByWorkerId": "model_opus",
+      "producedByAgentId": "model_opus",
       "promptProfileId": "plan_writer_v1",
       "status": "done",
       "payload": {

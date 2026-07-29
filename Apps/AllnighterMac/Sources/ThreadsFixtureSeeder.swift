@@ -413,7 +413,7 @@ struct ThreadsFixtureSeeder {
             createdAt: Date()
         )
         run.stages = [StageOutput(
-            id: "fixture-team-plan", purpose: .plan, producedByWorkerId: writer.id,
+            id: "fixture-team-plan", purpose: .plan, producedByAgentId: writer.id,
             promptProfileId: "plan_writer", status: .done,
             payload: .plan(markdown: "**Recommendation: token bucket**, refill = sustained rate, capacity = burst budget. It satisfies the burst requirement both answers agreed on; the sliding-window counter is the fallback if memory per user must stay flat. Minority view (worker 2) preserved: prefer sliding-window if exact boundary fairness matters more than bursts."),
             startedAt: Date(), finishedAt: Date()
@@ -459,7 +459,7 @@ struct ThreadsFixtureSeeder {
                           createdAt: Date(),
                           mutating: true)
         run.stages = [StageOutput(
-            id: "fixture-mutating-run-stage", purpose: .plan, producedByWorkerId: workerId,
+            id: "fixture-mutating-run-stage", purpose: .plan, producedByAgentId: workerId,
             status: .done,
             payload: .plan(markdown: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing."),
             startedAt: Date(), finishedAt: Date()

@@ -103,13 +103,13 @@ extension StagePayload: Codable {
 
 /// One post-answer stage in a team run. Parallel answer workers produce
 /// `workerAnswers`; everything after is a `StageOutput`. A reduce/review stage is
-/// produced by its own worker invocation, recorded in `producedByWorkerId`;
+/// produced by its own worker invocation, recorded in `producedByAgentId`;
 /// `producedByAnswerWorkerId` is set only on the rare stage produced directly by
 /// an answer worker.
 public struct StageOutput: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var purpose: StagePurpose
-    public var producedByWorkerId: String?
+    public var producedByAgentId: String?
     public var producedByAnswerWorkerId: String?
     /// The named profile used — OR `customInstruction` (exactly one is set). The
     /// honest record of what ran.
@@ -126,7 +126,7 @@ public struct StageOutput: Codable, Sendable, Equatable, Identifiable {
     public init(
         id: String,
         purpose: StagePurpose,
-        producedByWorkerId: String? = nil,
+        producedByAgentId: String? = nil,
         producedByAnswerWorkerId: String? = nil,
         promptProfileId: String? = nil,
         customInstruction: String? = nil,
@@ -139,7 +139,7 @@ public struct StageOutput: Codable, Sendable, Equatable, Identifiable {
     ) {
         self.id = id
         self.purpose = purpose
-        self.producedByWorkerId = producedByWorkerId
+        self.producedByAgentId = producedByAgentId
         self.producedByAnswerWorkerId = producedByAnswerWorkerId
         self.promptProfileId = promptProfileId
         self.customInstruction = customInstruction

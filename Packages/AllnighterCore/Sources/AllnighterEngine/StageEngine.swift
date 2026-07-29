@@ -108,13 +108,13 @@ public struct ReduceRunner: Sendable {
         let finished = now()
         if outcome.hasOutput, let out = outcome.output {
             return StageOutput(
-                id: idFactory(), purpose: purpose, producedByWorkerId: model.id,
+                id: idFactory(), purpose: purpose, producedByAgentId: model.id,
                 promptProfileId: promptProfileId, status: .done, payload: makePayload(out),
                 reuseKey: reuseKey, startedAt: started, finishedAt: finished
             )
         }
         return StageOutput(
-            id: idFactory(), purpose: purpose, producedByWorkerId: model.id,
+            id: idFactory(), purpose: purpose, producedByAgentId: model.id,
             promptProfileId: promptProfileId, status: outcome.status == .timedOut ? .timedOut : .failed,
             reuseKey: reuseKey, errorReason: outcome.errorReason ?? "no output",
             startedAt: started, finishedAt: finished

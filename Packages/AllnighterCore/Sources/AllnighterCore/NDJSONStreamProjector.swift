@@ -102,9 +102,9 @@ public enum NDJSONStreamProjector {
         }
 
         if let plan = run.latestStage(.plan) {
-            add("planStarted", lastFinish, EventData(workerId: plan.producedByWorkerId, stageId: plan.id))
+            add("planStarted", lastFinish, EventData(workerId: plan.producedByAgentId, stageId: plan.id))
             if plan.status == .done {
-                add("planWritten", lastFinish, EventData(workerId: plan.producedByWorkerId, stageId: plan.id))
+                add("planWritten", lastFinish, EventData(workerId: plan.producedByAgentId, stageId: plan.id))
             }
         }
 

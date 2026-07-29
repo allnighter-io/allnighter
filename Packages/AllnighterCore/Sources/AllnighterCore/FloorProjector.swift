@@ -182,7 +182,7 @@ public enum FloorProjector {
             status: status(for: run.status).rawValue,
             title: title,
             summaryMarkdown: markdown,
-            producedByWorkerId: leadWorkerId,
+            producedByAgentId: leadWorkerId,
             stageId: stage?.id,
             artifactRefs: refs,
             insight: insight

@@ -385,7 +385,7 @@ public actor CatalogRunCoordinator {
 
         func fail(_ reason: String) -> (StageOutput, String?, Agent) {
             emitStage(RunEventKind.stageFailed, runId: run.id, stageId: stageId, workerId: writer.id)
-            return (StageOutput(id: stageId, purpose: .plan, producedByWorkerId: writer.id,
+            return (StageOutput(id: stageId, purpose: .plan, producedByAgentId: writer.id,
                                promptProfileId: writer.skillId, status: .failed,
                                errorReason: reason, startedAt: startedAt, finishedAt: now()), nil, writer)
         }
@@ -433,7 +433,7 @@ public actor CatalogRunCoordinator {
             return fail(outcome.errorReason ?? "plan writer produced no output")
         }
         emitStage(RunEventKind.stageCompleted, runId: run.id, stageId: stageId, workerId: writer.id)
-        return (StageOutput(id: stageId, purpose: .plan, producedByWorkerId: writer.id,
+        return (StageOutput(id: stageId, purpose: .plan, producedByAgentId: writer.id,
                            promptProfileId: writer.skillId, status: .done,
                            payload: .plan(markdown: markdown), startedAt: startedAt, finishedAt: now()),
                 writerPrompt, writer)

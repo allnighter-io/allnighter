@@ -159,7 +159,7 @@
     {
       "id": "stage_analysis_p1",
       "purpose": "analysis",
-      "producedByWorkerId": "model_opus",
+      "producedByAgentId": "model_opus",
       "promptProfileId": "plan_analysis_v1",
       "status": "done",
       "payload": {
@@ -214,7 +214,7 @@
     {
       "id": "stage_plan_p1",
       "purpose": "plan",
-      "producedByWorkerId": "model_opus",
+      "producedByAgentId": "model_opus",
       "promptProfileId": "plan_writer_v1",
       "status": "failed",
       "errorReason": "plan writer produced no output",

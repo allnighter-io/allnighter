@@ -205,9 +205,9 @@ final class TwoSourceResearchTeamTests: XCTestCase {
         let leadWorker = try XCTUnwrap(run.workers.first(where: { $0.modelId == "model_opus" }),
                                        "the claude lead seat is missing from the roster")
         let leadStage = try XCTUnwrap(
-            run.stages.first(where: { $0.producedByWorkerId == leadWorker.id }),
+            run.stages.first(where: { $0.producedByAgentId == leadWorker.id }),
             "no stage attributed to the claude lead seat; stages: "
-                + "\(run.stages.map { "\($0.purpose):\($0.producedByWorkerId ?? "nil")" })")
+                + "\(run.stages.map { "\($0.purpose):\($0.producedByAgentId ?? "nil")" })")
         XCTAssertEqual(leadStage.status, .done)
         let leadText = leadStage.payload?.markdown ?? ""
         XCTAssertFalse(leadText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,

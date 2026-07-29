@@ -194,7 +194,7 @@ public struct RunStore: Sendable {
 
         struct StageMetadata: Encodable {
             let stageId, purpose, status: String
-            let producedByWorkerId: String?
+            let producedByAgentId: String?
             let startedAt, finishedAt: Date?
         }
         for stage in withMarkdown {
@@ -204,7 +204,7 @@ public struct RunStore: Sendable {
                 to: stagesDir.appendingPathComponent("\(stem).\(stage.purpose.rawValue).md"), options: .atomic)
             let meta = StageMetadata(
                 stageId: stage.id, purpose: stage.purpose.rawValue, status: stage.status.rawValue,
-                producedByWorkerId: stage.producedByWorkerId,
+                producedByAgentId: stage.producedByAgentId,
                 startedAt: stage.startedAt, finishedAt: stage.finishedAt)
             try CoreJSON.encode(meta).write(
                 to: stagesDir.appendingPathComponent("\(stem).metadata.json"), options: .atomic)

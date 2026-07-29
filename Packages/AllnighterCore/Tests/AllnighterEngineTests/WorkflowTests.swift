@@ -110,7 +110,7 @@ final class WorkflowTests: XCTestCase {
         ) { .plan(markdown: $0) }
         XCTAssertEqual(stage.purpose, .review)
         XCTAssertEqual(stage.status, .done)
-        XCTAssertEqual(stage.producedByWorkerId, "model_opus")
+        XCTAssertEqual(stage.producedByAgentId, "model_opus")
     }
 
     func testWorkflowPresetStoreValidatesOnSave() throws {

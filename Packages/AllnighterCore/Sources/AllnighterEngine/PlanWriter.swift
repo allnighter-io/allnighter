@@ -324,13 +324,13 @@ public struct PlanWriter: Sendable {
     private func analysisStage(from analysis: PlanAnalysis?, error: String?, raw: String, planWriter: Model, profileId: String, startedAt: Date, finishedAt: Date) -> StageOutput {
         if let analysis {
             return StageOutput(
-                id: idFactory(), purpose: .analysis, producedByWorkerId: planWriter.id,
+                id: idFactory(), purpose: .analysis, producedByAgentId: planWriter.id,
                 promptProfileId: profileId, status: .done, payload: .analysis(analysis),
                 startedAt: startedAt, finishedAt: finishedAt
             )
         }
         return StageOutput(
-            id: idFactory(), purpose: .analysis, producedByWorkerId: planWriter.id,
+            id: idFactory(), purpose: .analysis, producedByAgentId: planWriter.id,
             promptProfileId: profileId, status: .failed,
             errorReason: (error ?? "analysis parse failed") + " — raw: " + raw.prefix(2000),
             startedAt: startedAt, finishedAt: finishedAt
@@ -340,7 +340,7 @@ public struct PlanWriter: Sendable {
     private func planStage(markdown: String?, planWriter: Model, profileId: String, startedAt: Date, finishedAt: Date) -> StageOutput {
         if let markdown, !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return StageOutput(
-                id: idFactory(), purpose: .plan, producedByWorkerId: planWriter.id,
+                id: idFactory(), purpose: .plan, producedByAgentId: planWriter.id,
                 promptProfileId: profileId, status: .done, payload: .plan(markdown: markdown),
                 startedAt: startedAt, finishedAt: finishedAt
             )
@@ -350,7 +350,7 @@ public struct PlanWriter: Sendable {
 
     private func failedStage(_ purpose: StagePurpose, planWriter: Model, profileId: String, reason: String, startedAt: Date, finishedAt: Date) -> StageOutput {
         StageOutput(
-            id: idFactory(), purpose: purpose, producedByWorkerId: planWriter.id,
+            id: idFactory(), purpose: purpose, producedByAgentId: planWriter.id,
             promptProfileId: profileId, status: .failed, errorReason: reason,
             startedAt: startedAt, finishedAt: finishedAt
         )

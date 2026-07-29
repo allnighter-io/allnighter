@@ -46,7 +46,7 @@ public struct Finalizer: Sendable {
 
         guard outcome.hasOutput, let raw = outcome.output else {
             return StageOutput(
-                id: idFactory(), purpose: .finalSpec, producedByWorkerId: finalizer.id,
+                id: idFactory(), purpose: .finalSpec, producedByAgentId: finalizer.id,
                 promptProfileId: profile.id, status: outcome.status == .timedOut ? .timedOut : .failed,
                 errorReason: outcome.errorReason ?? "no output", startedAt: started, finishedAt: finished
             )
@@ -63,7 +63,7 @@ public struct Finalizer: Sendable {
             hasProofCommands: detectProofCommands(specMarkdown)
         )
         return StageOutput(
-            id: idFactory(), purpose: .finalSpec, producedByWorkerId: finalizer.id,
+            id: idFactory(), purpose: .finalSpec, producedByAgentId: finalizer.id,
             promptProfileId: profile.id, status: .done, payload: .finalSpec(payload),
             startedAt: started, finishedAt: finished
         )
