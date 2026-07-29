@@ -18,7 +18,7 @@ public enum ArtifactProjector {
   }
 
   public struct Seat: Equatable, Sendable {
-    public var workerId: String
+    public var agentId: String
     /// Role / skill label — primary headline on the chip.
     public var roleLabel: String
     /// Model display name — muted attribution.
@@ -32,16 +32,16 @@ public enum ArtifactProjector {
 
   /// Design-board mockup tile (hero). `relSrc` is relative to the HTML file.
   public struct Mockup: Equatable, Sendable {
-    public var workerId: String
+    public var agentId: String
     public var label: String
     public var relSrc: String?
     public var status: String
     public var failureReason: String?
   }
 
-  /// Full seat craft under Evidence — chip `#seat-<workerId>` lands here.
+  /// Full seat craft under Evidence — chip `#seat-<agentId>` lands here.
   public struct Evidence: Equatable, Sendable {
-    public var workerId: String
+    public var agentId: String
     public var roleLabel: String
     public var modelLabel: String
     public var bodyMarkdown: String
@@ -250,7 +250,7 @@ public enum ArtifactProjector {
       )
       let isLead = worker.purpose == .plan
       return Seat(
-        workerId: worker.id,
+        agentId: worker.id,
         roleLabel: roleLabel(for: worker, isLead: isLead),
         modelLabel: modelLabel,
         sourceId: context.sourceId(worker.modelId),
@@ -387,7 +387,7 @@ public enum ArtifactProjector {
       let rel = mockupRelSrc[opt.agentId]
         ?? opt.imagePath.map { "mockups/\(($0 as NSString).lastPathComponent)" }
       return Mockup(
-        workerId: opt.agentId,
+        agentId: opt.agentId,
         label: label,
         relSrc: opt.status == .done ? rel : nil,
         status: opt.status.rawValue,
@@ -402,10 +402,10 @@ public enum ArtifactProjector {
     hoistedAnswer: TeamRunJSON.Answer?
   ) -> [Evidence] {
     seats.map { seat in
-      let worker = run.workers.first { $0.id == seat.workerId }
-      let answer = run.workerAnswer(workerId: seat.workerId)
+      let worker = run.workers.first { $0.id == seat.agentId }
+      let answer = run.workerAnswer(workerId: seat.agentId)
       var markdown = seatMarkdown(
-        worker: worker ?? Agent(id: seat.workerId, modelId: "", instanceIndex: 0),
+        worker: worker ?? Agent(id: seat.agentId, modelId: "", instanceIndex: 0),
         answer: answer,
         hoistedAnswer: seat.isLead ? hoistedAnswer : nil
       )
@@ -414,7 +414,7 @@ public enum ArtifactProjector {
       }
       let body = evidenceBody(from: markdown, isLead: seat.isLead)
       return Evidence(
-        workerId: seat.workerId,
+        agentId: seat.agentId,
         roleLabel: seat.roleLabel,
         modelLabel: seat.modelLabel,
         bodyMarkdown: body,
@@ -646,9 +646,9 @@ public enum ArtifactProjector {
     ]
     var lightboxes: [String] = []
     for m in mockups {
-      let evidenceHref = "#\(seatAnchorId(m.workerId))"
+      let evidenceHref = "#\(seatAnchorId(m.agentId))"
       if let src = m.relSrc, !src.isEmpty {
-        let lightboxId = mockupLightboxId(m.workerId)
+        let lightboxId = mockupLightboxId(m.agentId)
         parts.append(
           """
           <figure class="mockup-tile" data-status="\(escape(m.status))">
@@ -694,7 +694,7 @@ public enum ArtifactProjector {
   }
 
   private static func evidenceHTML(_ item: Evidence) -> String {
-    let id = seatAnchorId(item.workerId)
+    let id = seatAnchorId(item.agentId)
     return """
     <article class="evidence-seat" id="\(escape(id))">
       <h3>\(escape(item.roleLabel)) <span class="model-via">via \(escape(item.modelLabel))</span></h3>
@@ -730,7 +730,7 @@ public enum ArtifactProjector {
     let leadClass = seat.isLead ? " seat-lead" : ""
     let leadTag = seat.isLead ? "<span class=\"tag-lead\">Lead</span>" : ""
     let oneLiner = seat.oneLiner.map { "<div class=\"one-liner\">\(escape($0))</div>" } ?? ""
-    let href = "#\(seatAnchorId(seat.workerId))"
+    let href = "#\(seatAnchorId(seat.agentId))"
     let statusLabel = statusWord(seat.status)
     return """
     <a class="seat-chip\(leadClass)" href="\(href)" data-status="\(escape(seat.status))">

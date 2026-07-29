@@ -76,7 +76,7 @@ final class ArtifactProjectorTests: XCTestCase {
     let seatIds = TeamRunSeatSet.workers(for: run).map(\.id)
     XCTAssertEqual(seatIds, ["model_grok#0", "model_opus#0", "model_opus#1"])
     // Reading order pins Lead first; declaration order stays on TeamRunSeatSet.
-    let cardIds = ArtifactProjector.project(run).seats.map(\.workerId)
+    let cardIds = ArtifactProjector.project(run).seats.map(\.agentId)
     XCTAssertEqual(cardIds, ["model_opus#1", "model_grok#0", "model_opus#0"])
   }
 

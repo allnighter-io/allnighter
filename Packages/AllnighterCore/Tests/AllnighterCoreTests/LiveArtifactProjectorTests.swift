@@ -29,7 +29,7 @@ final class LiveArtifactProjectorTests: XCTestCase {
 
   func testSeedUsesSeatSetOrderAndQueuedStatus() {
     let state = LiveArtifactProjector.seed(run: teamRun(), context: context)
-    XCTAssertEqual(state.seatList.map(\.workerId), ["model_grok#0", "model_opus#0"])
+    XCTAssertEqual(state.seatList.map(\.agentId), ["model_grok#0", "model_opus#0"])
     XCTAssertEqual(state.seatList.map(\.status), ["queued", "queued"])
     XCTAssertNil(state.seatList[0].oneLiner)
   }

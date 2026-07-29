@@ -5,7 +5,7 @@ import AgentOSTeam
 /// Settled artifacts still use `ArtifactProjector` — this path is live-only.
 public enum LiveArtifactProjector {
   public struct SeatState: Equatable, Sendable {
-    public var workerId: String
+    public var agentId: String
     public var displayName: String
     public var sourceId: String
     public var status: String
@@ -59,7 +59,7 @@ public enum LiveArtifactProjector {
         sharesModel: sharesModel
       )
       seats[worker.id] = SeatState(
-        workerId: worker.id,
+        agentId: worker.id,
         displayName: display,
         sourceId: context.sourceId(worker.modelId),
         status: status,
