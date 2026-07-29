@@ -113,7 +113,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
 
         let dryRunJSON = dry.makeDryRunJSON()
         XCTAssertEqual(dryRunJSON.counts.seatCount, 1)
-        XCTAssertEqual(dryRunJSON.workerId, "model_sonnet")
+        XCTAssertEqual(dryRunJSON.modelId, "model_sonnet")
         XCTAssertTrue(dryRunJSON.nextAction.command.contains("{message}"))
         XCTAssertFalse(dryRunJSON.nextAction.command.contains("<message>"))
     }
@@ -132,7 +132,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
 
         let json = dry.makeDryRunJSON()
         XCTAssertEqual(json.counts.seatCount, 1)
-        XCTAssertEqual(json.workerId, "model_sonnet")
+        XCTAssertEqual(json.modelId, "model_sonnet")
         XCTAssertTrue(json.nextAction.command.contains("--model"))
         XCTAssertTrue(json.nextAction.command.contains("model_sonnet"))
 

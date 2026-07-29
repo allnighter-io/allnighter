@@ -294,7 +294,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
             projectRoot: projectRoot,
             teamPresetId: teamPresetId,
             teamDisplayName: teamDisplayName,
-            workerId: pinnedModelId,
+            modelId: pinnedModelId,
             writePolicy: writePolicy,
             effects: effects,
             lane: lane.rawValue,

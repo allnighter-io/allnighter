@@ -12,7 +12,7 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
     public var projectRoot: String?
     public var teamPresetId: String?
     public var teamDisplayName: String?
-    public var workerId: String?
+    public var modelId: String?
     /// `readOnly` or `mutating` — permission after selectors resolve (Law 7).
     public var writePolicy: String
     /// Resolved effect booleans for the spend twin.
@@ -136,7 +136,7 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
         projectRoot: String? = nil,
         teamPresetId: String? = nil,
         teamDisplayName: String? = nil,
-        workerId: String? = nil,
+        modelId: String? = nil,
         writePolicy: RunWritePolicy = .readOnly,
         effects: Effects,
         lane: String? = nil,
@@ -154,7 +154,7 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
         self.projectRoot = projectRoot
         self.teamPresetId = teamPresetId
         self.teamDisplayName = teamDisplayName
-        self.workerId = workerId
+        self.modelId = modelId
         self.writePolicy = writePolicy.rawValue
         self.effects = effects
         self.lane = lane
