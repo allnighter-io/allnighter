@@ -239,25 +239,25 @@ public actor CatalogRunCoordinator {
     ) async -> (answers: [TeamAnswer], snapshots: [String: String]) {
         var snapshots: [String: String] = [:]
         let runId = run.id
-        for worker in workers {
-            if let index = run.answers.firstIndex(where: { $0.memberId == worker.id }) {
+        for agent in workers {
+            if let index = run.answers.firstIndex(where: { $0.memberId == agent.id }) {
                 run.answers[index].result.status = .running
                 run.answers[index].result.timing.startedAt = now()
             }
-            emitWorker(workerId: worker.id, modelId: worker.modelId, from: .queued, to: .running, skillId: worker.skillId, runId: runId)
+            emitWorker(workerId: agent.id, modelId: agent.modelId, from: .queued, to: .running, skillId: agent.skillId, runId: runId)
         }
         persist?(run)
         let runner = workerRunner
         let registry = self.registry
         let pool = reseatPool.isEmpty ? Array(modelByID.values) : reseatPool
         let answers = await withTaskGroup(of: (TeamAnswer, String?).self) { group in
-            for worker in workers {
-                let model = modelByID[worker.modelId]
+            for agent in workers {
+                let model = modelByID[agent.modelId]
                 let manifest = model.flatMap { registry.manifest(for: $0) }
-                let role = worker.purpose?.rawValue ?? AgentStage.answer.rawValue
-                let founderPrompt = workerPrompts?[worker.id] ?? prompt
+                let role = agent.purpose?.rawValue ?? AgentStage.answer.rawValue
+                let founderPrompt = workerPrompts?[agent.id] ?? prompt
                 let baseWorkerPrompt = SkillCatalog.assemblePrompt(
-                    skillId: worker.skillId,
+                    skillId: agent.skillId,
                     founderPrompt: founderPrompt,
                     outputKind: outputKind
                 )
@@ -266,32 +266,32 @@ public actor CatalogRunCoordinator {
                         basePrompt: baseWorkerPrompt,
                         deliveries: deliveries,
                         readsImages: manifest?.canReadImages ?? false)
-                snapshots[worker.id] = workerPrompt
-                let workingDirectory = workerWorkingDirectories?[worker.id] ?? repoRoot
+                snapshots[agent.id] = workerPrompt
+                let workingDirectory = workerWorkingDirectories?[agent.id] ?? repoRoot
                 group.addTask {
                     guard let model else {
-                        return (TeamAnswer(memberId: worker.id, modelId: worker.modelId, role: role,
+                        return (TeamAnswer(memberId: agent.id, modelId: agent.modelId, role: role,
                                           result: WorkerRunResult(status: .failed, errorKind: .missingCLI,
-                                                                  errorReason: "no model for worker \(worker.id)")), nil)
+                                                                  errorReason: "no model for agent \(agent.id)")), nil)
                     }
                     guard let manifest else {
-                        return (TeamAnswer(memberId: worker.id, modelId: worker.modelId, role: role,
+                        return (TeamAnswer(memberId: agent.id, modelId: agent.modelId, role: role,
                                           result: WorkerRunResult(status: .failed, errorKind: .missingCLI,
                                                                   errorReason: "no driver manifest for \(model.driverId)")), nil)
                     }
                     // RLR-S04a: stamp the worker id task-local around the spawn so
                     // the process-group leader records its runtimeOwnership keyed by
                     // this worker id (captured synchronously into the spawn).
-                    var result = await ProcessOwnership.$currentWorkerId.withValue(worker.id) {
+                    var result = await ProcessOwnership.$currentWorkerId.withValue(agent.id) {
                         await runner.collect(WorkerInvocation(
                             model: model, manifest: manifest, prompt: workerPrompt, effort: effort,
                             workingDirectory: workingDirectory))
                     }
                     var settledModel = model
-                    var substitutedFrom: String? = worker.substitutedFromModelId
+                    var substitutedFrom: String? = agent.substitutedFromModelId
                     if SeatReseat.isEligible(result), let team,
-                       worker.seatingReason != TeamExplicitSeats.explicitSeatingReason {
-                        let chain = SeatReseat.chain(for: worker, team: team, isLead: false)
+                       agent.seatingReason != TeamExplicitSeats.explicitSeatingReason {
+                        let chain = SeatReseat.chain(for: agent, team: team, isLead: false)
                         if let alt = SeatReseat.nextModel(
                             failedModelId: settledModel.id,
                             failedDriverId: settledModel.driverId,
@@ -310,14 +310,14 @@ public actor CatalogRunCoordinator {
                                     basePrompt: baseWorkerPrompt,
                                     deliveries: deliveries,
                                     readsImages: altManifest.canReadImages)
-                            result = await ProcessOwnership.$currentWorkerId.withValue(worker.id) {
+                            result = await ProcessOwnership.$currentWorkerId.withValue(agent.id) {
                                 await runner.collect(WorkerInvocation(
                                     model: alt, manifest: altManifest, prompt: altPrompt, effort: effort,
                                     workingDirectory: workingDirectory))
                             }
                         }
                     }
-                    return (TeamAnswer(memberId: worker.id, modelId: settledModel.id, role: role, result: result),
+                    return (TeamAnswer(memberId: agent.id, modelId: settledModel.id, role: role, result: result),
                             substitutedFrom)
                 }
             }
