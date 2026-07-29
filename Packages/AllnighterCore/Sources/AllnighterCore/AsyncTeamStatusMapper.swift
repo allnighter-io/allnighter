@@ -89,9 +89,9 @@ public enum AsyncTeamStatusMapper {
 
     public static func statusResponse(for run: TeamRun) -> TeamStatusResponse {
         let live = liveStatus(for: run)
-        let workerRows = workers(for: run)
+        let agentRows = workers(for: run)
         let terminal: Set<String> = ["completed", "failed", "timedOut", "cancelled"]
-        let done = workerRows.filter { terminal.contains($0.status) }.count
+        let done = agentRows.filter { terminal.contains($0.status) }.count
         // Never infer endReason — only what the actor stamped.
         return TeamStatusResponse(
             runId: run.id,
@@ -100,9 +100,9 @@ public enum AsyncTeamStatusMapper {
             teamPresetId: run.presetId,
             effort: run.effort?.rawValue,
             currentStage: currentStage(for: run),
-            workers: workerRows,
+            workers: agentRows,
             workersDone: done,
-            workersTotal: workerRows.count,
+            workersTotal: agentRows.count,
             warnings: run.warnings,
             resultAvailable: resultAvailable(for: run),
             nextPollAfterMs: nextPollAfterMs(for: live),
