@@ -290,7 +290,9 @@ final class KillSettlementTests: XCTestCase {
         try runs.save(r, models: [])
         try writeWorker(deadWorker(pgid: 9_501), workerId: "r1", runs: runs, runId: "ok1")
 
-        let row = try XCTUnwrap(surface.list().processes.first { $0.id == "ok1" && $0.kind == "run" })
+        // Terminal + all-dead is history (CLP-S03 hides it from the default floor);
+        // opt in to inspect the contradiction derivation on the museum row.
+        let row = try XCTUnwrap(surface.list(includeHistory: true).processes.first { $0.id == "ok1" && $0.kind == "run" })
         XCTAssertNil(row.contradiction, "clean verified stop must not invent a contradiction")
         XCTAssertEqual(row.killOutcome, KillOutcome.stopped.rawValue)
     }

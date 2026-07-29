@@ -185,7 +185,10 @@ final class RunActivityJournalTests: XCTestCase {
             relayStore: RelayStateStore(rootDirectory: dir.appendingPathComponent("relays")),
             lanesRoot: dir.appendingPathComponent("lanes"),
             now: { now })
-        let rows = Dictionary(uniqueKeysWithValues: surface.list().processes.map { ($0.id, $0) })
+        // The terminal "run-done" row is history (CLP-S03 hides identity-dead
+        // terminal rows from the default floor); opt in so its derivation is
+        // still checkable here.
+        let rows = Dictionary(uniqueKeysWithValues: surface.list(includeHistory: true).processes.map { ($0.id, $0) })
         XCTAssertNil(try XCTUnwrap(rows["run-fresh"]).progressStale,
                      "no activity yet → progressStale absent (RLR-L6)")
         XCTAssertNil(try XCTUnwrap(rows["run-done"]).progressStale,
