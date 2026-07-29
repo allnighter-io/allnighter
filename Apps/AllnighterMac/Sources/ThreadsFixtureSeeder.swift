@@ -506,7 +506,7 @@ struct ThreadsFixtureSeeder {
             ThreadTurn(
                 id: "\(id)_\(suffix)", threadId: id, kind: .workerChat, status: .done,
                 createdAt: base.addingTimeInterval(offset), completedAt: base.addingTimeInterval(offset + 20),
-                author: .worker, text: text, modelId: workerId
+                author: .worker, text: text, modelId: modelId
             )
         }
         _ = try? store.appendTurn(turn(

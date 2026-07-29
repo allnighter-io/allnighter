@@ -225,7 +225,7 @@ final class ThreadsViewModel {
     }
 
     func driverName(for modelId: String) -> String {
-        guard let model = models.first(where: { $0.id == workerId }) else { return workerId }
+        guard let model = models.first(where: { $0.id == modelId }) else { return modelId }
         return registry.manifest(for: model)?.displayName ?? model.driverId
     }
 
@@ -767,7 +767,7 @@ final class ThreadsViewModel {
             threadId: threadId,
             projectId: projectId,
             presetId: routing.team,
-            modelId: routing.to.isEmpty ? nil : routing.to,
+            pinnedModelId: routing.to.isEmpty ? nil : routing.to,
             effort: effort,
             lane: routing.lane.workLane,
             context: context,
@@ -1232,7 +1232,7 @@ final class ThreadsViewModel {
                 let checkpoint = try await coordinator.beginSend(
                     message: message,
                     toThreadId: threadId,
-                    requestedModelId: workerId,
+                    requestedModelId: modelId,
                     fileReferences: fileReferences
                 )
                 refreshPublishedThread(threadId)
