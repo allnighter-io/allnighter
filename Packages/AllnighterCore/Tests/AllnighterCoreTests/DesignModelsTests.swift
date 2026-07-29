@@ -29,27 +29,27 @@ final class DesignModelsTests: XCTestCase {
             targetShape: .mobile,
             screenshotPath: "screenshot.png",
             options: [
-                DesignOption(workerId: "model_grok#0", modelId: "model_grok", persona: "bold",
+                DesignOption(agentId: "model_grok#0", modelId: "model_grok", persona: "bold",
                              imagePath: "option_model_grok#0.png", sessionId: "sess-1", status: .done),
-                DesignOption(workerId: "model_gemini#0", modelId: "model_gemini", persona: "minimal",
+                DesignOption(agentId: "model_gemini#0", modelId: "model_gemini", persona: "minimal",
                              imagePath: "option_model_gemini#0.jpg", status: .done),
-                DesignOption(workerId: "model_chatgpt#0", modelId: "model_chatgpt", persona: "editorial",
+                DesignOption(agentId: "model_chatgpt#0", modelId: "model_chatgpt", persona: "editorial",
                              status: .failed, failureReason: "engine error: rate limited")
             ],
-            chosen: ChosenOption(workerId: "model_grok#0", persona: "bold",
-                                 rationale: "tightest hierarchy", rejectedWorkerIds: ["model_gemini#0"])
+            chosen: ChosenOption(agentId: "model_grok#0", persona: "bold",
+                                 rationale: "tightest hierarchy", rejectedAgentIds: ["model_gemini#0"])
         )
         try assertRoundTrips(board)
         XCTAssertEqual(board.options.count, 3)
         XCTAssertEqual(board.rendered.count, 2)           // one failed seat excluded
-        XCTAssertEqual(board.chosen?.workerId, "model_grok#0")
+        XCTAssertEqual(board.chosen?.agentId, "model_grok#0")
         XCTAssertFalse(board.options[2].hasImage)          // failed seat
         XCTAssertTrue(board.options[0].hasImage)
     }
 
     func testBoardStageOutputRoundTripsAndDiscriminates() throws {
         let board = BoardPayload(targetShape: .desktop, options: [
-            DesignOption(workerId: "w#0", modelId: "w", persona: "minimal", imagePath: "option_w#0.png", status: .done)
+            DesignOption(agentId: "w#0", modelId: "w", persona: "minimal", imagePath: "option_w#0.png", status: .done)
         ])
         let stage = StageOutput(id: "board-1", purpose: .board, status: .done, payload: .board(board))
         try assertRoundTrips(stage)

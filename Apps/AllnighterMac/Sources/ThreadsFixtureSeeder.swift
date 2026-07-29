@@ -646,12 +646,12 @@ struct ThreadsFixtureSeeder {
                     payload: .board(BoardPayload(
                         targetShape: .mobile,
                         options: [
-                            DesignOption(modelId: w0.id, modelId: m0, persona: "bold", imagePath: path0, status: .done),
-                            DesignOption(modelId: w1.id, modelId: m1, persona: "minimal", imagePath: path1, status: .done),
-                            DesignOption(modelId: "failed-seat", modelId: m1, persona: "editorial",
+                            DesignOption(agentId: w0.id, modelId: m0, persona: "bold", imagePath: path0, status: .done),
+                            DesignOption(agentId: w1.id, modelId: m1, persona: "minimal", imagePath: path1, status: .done),
+                            DesignOption(agentId: "failed-seat", modelId: m1, persona: "editorial",
                                          status: .failed, failureReason: "Image gen timed out"),
                         ],
-                        chosen: ChosenOption(modelId: w1.id, persona: "minimal")
+                        chosen: ChosenOption(agentId: w1.id, persona: "minimal")
                     )),
                     startedAt: Date(), finishedAt: Date()
                 )

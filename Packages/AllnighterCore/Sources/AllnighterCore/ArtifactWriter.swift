@@ -133,7 +133,7 @@ public enum ArtifactWriter {
         try fileManager.removeItem(at: dst)
       }
       try fileManager.copyItem(at: src, to: dst)
-      map[opt.workerId] = "mockups/\(name)"
+      map[opt.agentId] = "mockups/\(name)"
     }
     return map
   }

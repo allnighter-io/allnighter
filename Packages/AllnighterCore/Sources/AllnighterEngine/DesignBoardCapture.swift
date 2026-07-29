@@ -42,23 +42,23 @@ public enum DesignBoardCapture: Sendable {
     public static let captureableExtensions: Set<String> = ["html", "htm", "svg"]
 
     /// Sanitize a worker id for a run-folder filename (`model_x#0` → `model_x-0`).
-    public static func sanitizeFileToken(_ workerId: String) -> String {
-        workerId
+    public static func sanitizeFileToken(_ agentId: String) -> String {
+        agentId
             .replacingOccurrences(of: "#", with: "-")
             .replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: "-")
     }
 
     /// Relative PNG name written into the run folder for a seat.
-    public static func optionImageRelativeName(workerId: String) -> String {
-        "option_\(sanitizeFileToken(workerId)).png"
+    public static func optionImageRelativeName(agentId: String) -> String {
+        "option_\(sanitizeFileToken(agentId)).png"
     }
 
     /// Locate a captureable HTML/SVG for one seat.
     /// Prefer a machine-readable path declaration in seat output, else
     /// `runDir/option_<id>.html|.svg` (sanitized id).
     public static func locateArtifact(
-        workerId: String,
+        agentId: String,
         runDirectory: URL,
         seatOutput: String?,
         fileManager: FileManager = .default
@@ -67,7 +67,7 @@ public enum DesignBoardCapture: Sendable {
            let resolved = resolveArtifactPath(declared, runDirectory: runDirectory, fileManager: fileManager) {
             return resolved
         }
-        let token = sanitizeFileToken(workerId)
+        let token = sanitizeFileToken(agentId)
         for name in ["option_\(token).html", "option_\(token).htm", "option_\(token).svg"] {
             let url = runDirectory.appendingPathComponent(name)
             if fileManager.fileExists(atPath: url.path) { return url }
@@ -128,12 +128,12 @@ public enum DesignBoardCapture: Sendable {
             let persona = worker.skillId ?? "design"
             let answer = answerById[worker.id]
             guard let source = locateArtifact(
-                workerId: worker.id,
+                agentId: worker.id,
                 runDirectory: runDirectory,
                 seatOutput: answer?.output
             ) else {
                 options.append(DesignOption(
-                    workerId: worker.id,
+                    agentId: worker.id,
                     modelId: worker.modelId,
                     persona: persona,
                     status: .failed,
@@ -142,7 +142,7 @@ public enum DesignBoardCapture: Sendable {
                 continue
             }
 
-            let relative = optionImageRelativeName(workerId: worker.id)
+            let relative = optionImageRelativeName(agentId: worker.id)
             let dest = runDirectory.appendingPathComponent(relative)
             try? FileManager.default.removeItem(at: dest)
 
@@ -150,7 +150,7 @@ public enum DesignBoardCapture: Sendable {
                 try await capture(sourceFile: source, destinationPNG: dest, viewport: viewport)
                 guard WorkerImageCapture.isValidImage(at: dest) else {
                     options.append(DesignOption(
-                        workerId: worker.id,
+                        agentId: worker.id,
                         modelId: worker.modelId,
                         persona: persona,
                         status: .failed,
@@ -159,7 +159,7 @@ public enum DesignBoardCapture: Sendable {
                     continue
                 }
                 options.append(DesignOption(
-                    workerId: worker.id,
+                    agentId: worker.id,
                     modelId: worker.modelId,
                     persona: persona,
                     imagePath: relative,
@@ -167,7 +167,7 @@ public enum DesignBoardCapture: Sendable {
                 ))
             } catch let error as CaptureError {
                 options.append(DesignOption(
-                    workerId: worker.id,
+                    agentId: worker.id,
                     modelId: worker.modelId,
                     persona: persona,
                     status: .failed,
@@ -175,7 +175,7 @@ public enum DesignBoardCapture: Sendable {
                 ))
             } catch {
                 options.append(DesignOption(
-                    workerId: worker.id,
+                    agentId: worker.id,
                     modelId: worker.modelId,
                     persona: persona,
                     status: .failed,

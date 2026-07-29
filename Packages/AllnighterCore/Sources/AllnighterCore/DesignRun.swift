@@ -51,7 +51,7 @@ public struct DesignRequest: Codable, Sendable, Equatable {
 /// failed (a gray tile + reason). `sessionId` is the engine's session handle, used
 /// by "more like this" (resume + image edit).
 public struct DesignOption: Codable, Sendable, Equatable, Identifiable {
-    public var workerId: String
+    public var agentId: String
     public var modelId: String
     /// The design skill this worker wore (e.g. `bold`).
     public var persona: String
@@ -60,11 +60,11 @@ public struct DesignOption: Codable, Sendable, Equatable, Identifiable {
     public var status: StageStatus
     public var failureReason: String?
 
-    public var id: String { workerId }
+    public var id: String { agentId }
     public var hasImage: Bool { status == .done && (imagePath?.isEmpty == false) }
 
     public init(
-        workerId: String,
+        agentId: String,
         modelId: String,
         persona: String,
         imagePath: String? = nil,
@@ -72,7 +72,7 @@ public struct DesignOption: Codable, Sendable, Equatable, Identifiable {
         status: StageStatus,
         failureReason: String? = nil
     ) {
-        self.workerId = workerId
+        self.agentId = agentId
         self.modelId = modelId
         self.persona = persona
         self.imagePath = imagePath
@@ -86,25 +86,25 @@ public struct DesignOption: Codable, Sendable, Equatable, Identifiable {
 /// logged for future taste memory. Persisted inside the latest `board` stage and as
 /// `chosen_option.json`.
 public struct ChosenOption: Codable, Sendable, Equatable {
-    public var workerId: String
+    public var agentId: String
     public var persona: String
     /// User-authored ("why I picked this"); the best taste-ledger signal.
     public var rationale: String?
     /// Seats the user passed over (provenance for taste memory).
-    public var rejectedWorkerIds: [String]
+    public var rejectedAgentIds: [String]
     public var chosenAt: Date?
 
     public init(
-        workerId: String,
+        agentId: String,
         persona: String,
         rationale: String? = nil,
-        rejectedWorkerIds: [String] = [],
+        rejectedAgentIds: [String] = [],
         chosenAt: Date? = nil
     ) {
-        self.workerId = workerId
+        self.agentId = agentId
         self.persona = persona
         self.rationale = rationale
-        self.rejectedWorkerIds = rejectedWorkerIds
+        self.rejectedAgentIds = rejectedAgentIds
         self.chosenAt = chosenAt
     }
 }

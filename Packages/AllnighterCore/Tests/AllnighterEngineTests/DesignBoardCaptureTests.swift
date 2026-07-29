@@ -26,7 +26,7 @@ final class DesignBoardCaptureTests: XCTestCase {
         let html = tempRoot.appendingPathComponent("option_model_opus-0.html")
         try fixtureHTML.write(to: html, atomically: true, encoding: .utf8)
         let found = DesignBoardCapture.locateArtifact(
-            workerId: workerId, runDirectory: tempRoot, seatOutput: nil)
+            agentId: workerId, runDirectory: tempRoot, seatOutput: nil)
         XCTAssertEqual(found?.standardizedFileURL, html.standardizedFileURL)
     }
 
@@ -38,7 +38,7 @@ final class DesignBoardCaptureTests: XCTestCase {
         capture: svg seat-mock.svg
         """
         let found = DesignBoardCapture.locateArtifact(
-            workerId: "w#0", runDirectory: tempRoot, seatOutput: output)
+            agentId: "w#0", runDirectory: tempRoot, seatOutput: output)
         XCTAssertEqual(found?.lastPathComponent, "seat-mock.svg")
     }
 

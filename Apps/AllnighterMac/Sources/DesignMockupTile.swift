@@ -108,7 +108,7 @@ struct DesignBoardTileStrip: View {
                             absolutePath: option.imagePath.flatMap { rel in
                                 runDirectory.flatMap { RunImagePathResolver.absolutePath(runDirectory: $0, relativePath: rel) }
                             },
-                            isChosen: board.chosen?.workerId == option.workerId,
+                            isChosen: board.chosen?.agentId == option.agentId,
                             failed: !option.hasImage,
                             failureReason: option.failureReason,
                             onOpen: {

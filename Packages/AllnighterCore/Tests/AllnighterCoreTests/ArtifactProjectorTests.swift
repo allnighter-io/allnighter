@@ -192,7 +192,7 @@ final class ArtifactProjectorTests: XCTestCase {
                         skillId: "visual_system_designer", skillName: "Visual System Designer",
                         purpose: .answer)
     let board = BoardPayload(targetShape: .desktop, options: [
-      DesignOption(workerId: "model_k3#0", modelId: "model_k3", persona: "visual_system_designer",
+      DesignOption(agentId: "model_k3#0", modelId: "model_k3", persona: "visual_system_designer",
                    imagePath: "option_model_k3-0.png", status: .done)
     ])
     let run = TeamRun(

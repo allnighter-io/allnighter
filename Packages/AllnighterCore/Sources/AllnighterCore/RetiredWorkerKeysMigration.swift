@@ -137,6 +137,8 @@ public enum RetiredWorkerKeysMigration {
             return ("defaultModelId", true)
         case "leadWorkerId":
             return ("leadAgentId", true)
+        case "rejectedWorkerIds":
+            return ("rejectedAgentIds", true)
         case "workerId":
             if parentKey == "teamRun" || parentKey == "turns" {
                 return ("modelId", true)

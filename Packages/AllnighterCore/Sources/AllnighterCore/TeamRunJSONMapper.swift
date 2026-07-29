@@ -416,7 +416,7 @@ public enum TeamRunJSONMapper {
         }
         let options = board.options.map { opt in
             TeamRunJSON.DesignBoardOption(
-                agentId: opt.workerId,
+                agentId: opt.agentId,
                 modelId: opt.modelId,
                 persona: opt.persona,
                 imagePath: opt.imagePath,
@@ -430,7 +430,7 @@ public enum TeamRunJSONMapper {
         }
         let chosen = board.chosen.map { c in
             TeamRunJSON.DesignBoardChosen(
-                agentId: c.workerId,
+                agentId: c.agentId,
                 persona: c.persona,
                 chosenAt: c.chosenAt.map(isoString)
             )

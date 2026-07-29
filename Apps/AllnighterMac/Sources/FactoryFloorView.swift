@@ -88,11 +88,11 @@ struct FactoryFloorView: View {
     }
 
     private var boardChosenWorkerId: String? {
-        run.latestStage(.board)?.payload?.board?.chosen?.workerId
+        run.latestStage(.board)?.payload?.board?.chosen?.agentId
     }
 
     private func designOption(for workerId: String) -> DesignOption? {
-        run.latestStage(.board)?.payload?.board?.options.first { $0.workerId == workerId }
+        run.latestStage(.board)?.payload?.board?.options.first { $0.agentId == workerId }
     }
 
     // MARK: Cast rail
@@ -191,7 +191,7 @@ struct FactoryFloorView: View {
                                 absolutePath: option.imagePath.flatMap { rel in
                                     runDirectory.flatMap { RunImagePathResolver.absolutePath(runDirectory: $0, relativePath: rel) }
                                 },
-                                isChosen: boardChosenWorkerId == option.workerId,
+                                isChosen: boardChosenWorkerId == option.agentId,
                                 failed: !option.hasImage,
                                 failureReason: option.failureReason,
                                 size: CGSize(width: 220, height: 320),

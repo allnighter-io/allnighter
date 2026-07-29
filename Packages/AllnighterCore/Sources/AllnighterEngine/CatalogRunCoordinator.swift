@@ -163,7 +163,7 @@ public actor CatalogRunCoordinator {
                     targetShape: .desktop,
                     options: resolved.answerWorkers.map {
                         DesignOption(
-                            workerId: $0.id,
+                            agentId: $0.id,
                             modelId: $0.modelId,
                             persona: $0.skillId ?? "design",
                             status: .failed,

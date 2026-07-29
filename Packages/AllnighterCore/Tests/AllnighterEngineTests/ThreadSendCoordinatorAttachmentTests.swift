@@ -257,11 +257,11 @@ final class ThreadSendCoordinatorAttachmentTests: XCTestCase {
                     targetShape: .mobile,
                     options: [
                         DesignOption(
-                            workerId: "img#0", modelId: "img", persona: "bold",
+                            agentId: "img#0", modelId: "img", persona: "bold",
                             imagePath: optionPath, status: .done
                         )
                     ],
-                    chosen: ChosenOption(workerId: "img#0", persona: "bold")
+                    chosen: ChosenOption(agentId: "img#0", persona: "bold")
                 )),
                 startedAt: clock, finishedAt: clock
             )

@@ -60,13 +60,13 @@ public struct ThreadImageSeedResolver: Sendable {
                   let run = runStore.load(runId: runId),
                   let board = run.latestStage(.board)?.payload?.board,
                   let chosen = board.chosen,
-                  let option = board.options.first(where: { $0.workerId == chosen.workerId }),
+                  let option = board.options.first(where: { $0.agentId == chosen.agentId }),
                   let relative = option.imagePath,
                   option.hasImage else { continue }
             guard let runDir = try? runStore.runDirectory(forRunId: runId) else { continue }
             let imageURL = runDir.appendingPathComponent(relative)
             guard WorkerImageCapture.isValidImage(at: imageURL) else { continue }
-            return (runId, chosen.workerId, imageURL)
+            return (runId, chosen.agentId, imageURL)
         }
         return nil
     }
