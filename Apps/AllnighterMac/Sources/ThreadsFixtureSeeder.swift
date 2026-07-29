@@ -161,7 +161,7 @@ struct ThreadsFixtureSeeder {
 
     private func seedFixtureUnreadMatrix() {
         let base = Date()
-        let workerId = models.first?.id ?? "model_opus"
+        let modelId = models.first?.id ?? "model_opus"
 
         func userTurn(_ id: String, threadId: String, at: Date, text: String = "question") -> ThreadTurn {
             ThreadTurn(
@@ -177,7 +177,7 @@ struct ThreadsFixtureSeeder {
             ThreadTurn(
                 id: id, threadId: threadId, kind: .workerChat, status: status,
                 createdAt: at, completedAt: status.isTerminal ? at : nil,
-                author: .worker, text: text, modelId: workerId
+                author: .worker, text: text, modelId: modelId
             )
         }
 
@@ -283,7 +283,7 @@ struct ThreadsFixtureSeeder {
     private func seedFixtureChatExchange() {
         let id = "fixture-chat"
         _ = try? store.create(id: id, title: "Token bucket vs sliding window", now: Date())
-        let workerId = models.first { $0.id == "model_opus" }?.id ?? models.first?.id ?? "model_opus"
+        let modelId = models.first { $0.id == "model_opus" }?.id ?? models.first?.id ?? "model_opus"
         let user = ThreadTurn(
             id: "fixture-chat-user", threadId: id, kind: .userMessage, status: .done,
             createdAt: Date(), completedAt: Date(), author: .user,
@@ -293,7 +293,7 @@ struct ThreadsFixtureSeeder {
             id: "fixture-chat-reply", threadId: id, kind: .workerChat, status: .done,
             createdAt: Date(), completedAt: Date(), author: .worker,
             text: "**Token bucket.** It allows short bursts (up to the bucket size) while holding the long-run average to the refill rate — which is what per-user API limits actually want. Sliding-window log is more precise but stores every timestamp per user (memory + GC churn); sliding-window counter approximates it but still smooths bursts away. For rate limiting, allow the burst: token bucket, refill = your sustained rate, capacity = your burst budget.",
-            modelId: workerId
+            modelId: modelId
         )
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
@@ -307,7 +307,7 @@ struct ThreadsFixtureSeeder {
     private func seedFixtureStreamingChat() {
         let id = "fixture-streaming"
         _ = try? store.create(id: id, title: "Explain backpressure", now: Date())
-        let workerId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
+        let modelId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
         let user = ThreadTurn(
             id: "fixture-streaming-user", threadId: id, kind: .userMessage, status: .done,
             createdAt: Date(), completedAt: Date(), author: .user,
@@ -316,7 +316,7 @@ struct ThreadsFixtureSeeder {
             id: "fixture-streaming-reply", threadId: id, kind: .workerChat, status: .running,
             createdAt: Date(), author: .worker,
             text: "Backpressure is how a fast producer is slowed to a rate its slower consumer can actually keep up with, so queues don't grow without bound. The consumer signals demand upstream — pull-based or via a bounded buffer that blocks the produc",
-            modelId: workerId)
+            modelId: modelId)
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
         reload()
@@ -330,7 +330,7 @@ struct ThreadsFixtureSeeder {
         let id = "fixture-streaming-build"
         _ = try? store.create(id: id, title: "Add a health endpoint", now: Date(),
                               workingDir: "/Users/you/code/app")
-        let workerId = models.first { $0.id == "model_cursor_composer_25" }?.id ?? models.first?.id ?? "model_cursor_composer_25"
+        let modelId = models.first { $0.id == "model_cursor_composer_25" }?.id ?? models.first?.id ?? "model_cursor_composer_25"
         let user = ThreadTurn(
             id: "fixture-streaming-build-user", threadId: id, kind: .userMessage, status: .done,
             createdAt: Date(), completedAt: Date(), author: .user,
@@ -339,7 +339,7 @@ struct ThreadsFixtureSeeder {
             id: "fixture-streaming-build-turn", threadId: id, kind: .mutatingRun, status: .running,
             createdAt: Date(), author: .worker,
             text: "I'll add a `/health` route. Looking at the router setup in `app/server.swift`… adding a handler that returns `Response(status: .ok, body: \"OK\")`, wiring it into the route table, then I'll run `swift test` to confir",
-            modelId: workerId, runId: "fixture-streaming-build-run")
+            modelId: modelId, runId: "fixture-streaming-build-run")
         run.reasoningText = "The user wants a /health endpoint returning 200. Let me find the router — likely app/server.swift. I should match the existing handler style and add a test so I don't regress the suite. Checking how routes are registered first…"
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(run, toThreadId: id, now: Date())
@@ -353,7 +353,7 @@ struct ThreadsFixtureSeeder {
     private func seedFixtureThinkingHistory() {
         let id = "fixture-thinking-history"
         _ = try? store.create(id: id, title: "Rate limiting", now: Date())
-        let workerId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
+        let modelId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
         let now = Date()
 
         let q1 = ThreadTurn(id: "th-u1", threadId: id, kind: .userMessage, status: .done,
@@ -363,7 +363,7 @@ struct ThreadsFixtureSeeder {
                             createdAt: now.addingTimeInterval(-58), completedAt: now.addingTimeInterval(-55),
                             author: .worker,
                             text: "**Token bucket** — it allows short bursts while holding the long-run average to the refill rate.",
-                            modelId: workerId)
+                            modelId: modelId)
         a1.reasoningText = "Per-user rate limiting. Trade-off is burst tolerance vs memory; sliding-window log stores every timestamp, token bucket is O(1) and allows bursts…"
 
         let q2 = ThreadTurn(id: "th-u2", threadId: id, kind: .userMessage, status: .done,
@@ -372,7 +372,7 @@ struct ThreadsFixtureSeeder {
         var a2 = ThreadTurn(id: "th-a2", threadId: id, kind: .workerChat, status: .running,
                             createdAt: now.addingTimeInterval(-6), author: .worker,
                             text: "Set the refill rate to your sustained per-user limit and the bucket capacity to the burst you're willing to al",
-                            modelId: workerId)
+                            modelId: modelId)
         a2.reasoningText = "Refill rate = sustained rate. Capacity = burst budget. I'll give concrete numbers so they can map it to their SLOs…"
 
         for turn in [q1, a1, q2, a2] {
@@ -439,19 +439,19 @@ struct ThreadsFixtureSeeder {
         let id = "fixture-mutating-run"
         _ = try? store.create(id: id, title: "Add retry to the upload client", now: Date(),
                               workingDir: "/Users/you/code/uploader")
-        let workerId = models.first { $0.id == "model_claude_code" }?.id
+        let modelId = models.first { $0.id == "model_claude_code" }?.id
             ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI }?.id
             ?? models.first?.id ?? "model_claude_code"
 
         var run = TeamRun(id: "fixture-mutating-run-run", prompt: "Add retry to the upload client",
                           status: .complete, origin: .gui,
-                          workers: [Agent(id: Agent.makeID(modelId: workerId, instanceIndex: 0),
-                                           modelId: workerId, instanceIndex: 0,
+                          workers: [Agent(id: Agent.makeID(modelId: modelId, instanceIndex: 0),
+                                           modelId: modelId, instanceIndex: 0,
                                            skillId: "first_principles_builder", purpose: .answer)],
                           answers: [
                               TeamAnswer(
-                                  memberId: Agent.makeID(modelId: workerId, instanceIndex: 0),
-                                  modelId: workerId, role: "answer",
+                                  memberId: Agent.makeID(modelId: modelId, instanceIndex: 0),
+                                  modelId: modelId, role: "answer",
                                   result: WorkerRunResult(status: .done,
                                      output: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing.")
                               )
@@ -459,7 +459,7 @@ struct ThreadsFixtureSeeder {
                           createdAt: Date(),
                           mutating: true)
         run.stages = [StageOutput(
-            id: "fixture-mutating-run-stage", purpose: .plan, producedByAgentId: workerId,
+            id: "fixture-mutating-run-stage", purpose: .plan, producedByAgentId: modelId,
             status: .done,
             payload: .plan(markdown: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing."),
             startedAt: Date(), finishedAt: Date()
@@ -474,7 +474,7 @@ struct ThreadsFixtureSeeder {
         let mutatingRun = ThreadTurn(
             id: "fixture-mutating-run-turn", threadId: id, kind: .mutatingRun, status: .done,
             createdAt: Date(), completedAt: Date(), author: .worker,
-            modelId: workerId, runId: run.id, stageId: "fixture-mutating-run-stage"
+            modelId: modelId, runId: run.id, stageId: "fixture-mutating-run-stage"
         )
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(mutatingRun, toThreadId: id, now: Date())
@@ -555,7 +555,7 @@ struct ThreadsFixtureSeeder {
     /// attachments at settlement, so the agent reply shows a preview chip — not just a path.
     private func seedFixtureAgentImageReply() {
         let id = "fixture-agent-image"
-        let workerId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
+        let modelId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
         _ = try? store.create(id: id, title: "Generate an image of a super cute adorable cat", now: Date())
         let user = ThreadTurn(
             id: "fixture-agent-image-user", threadId: id, kind: .userMessage, status: .done,
@@ -572,7 +572,7 @@ struct ThreadsFixtureSeeder {
                 id: "fixture-agent-image-reply", threadId: id, kind: .mutatingRun, status: .done,
                 createdAt: Date(), completedAt: Date(), author: .worker,
                 text: "Done! I've generated a super cute adorable cat for you.",
-                modelId: workerId,
+                modelId: modelId,
                 attachmentRefs: [ref]
             )
             _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
@@ -583,7 +583,7 @@ struct ThreadsFixtureSeeder {
 
     private func seedFixtureWorkerImageReply() {
         let id = "fixture-worker-image"
-        let workerId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
+        let modelId = models.first { $0.id == "model_grok" }?.id ?? models.first?.id ?? "model_grok"
         _ = try? store.create(id: id, title: "Draw a cute cat", now: Date())
         let user = ThreadTurn(
             id: "fixture-worker-image-user", threadId: id, kind: .userMessage, status: .done,
@@ -600,7 +600,7 @@ struct ThreadsFixtureSeeder {
                 id: "fixture-worker-image-reply", threadId: id, kind: .workerChat, status: .done,
                 createdAt: Date(), completedAt: Date(), author: .worker,
                 text: "Here's the photorealistic cat you asked for.",
-                modelId: workerId,
+                modelId: modelId,
                 attachmentRefs: [ref]
             )
             _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
