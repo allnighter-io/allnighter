@@ -127,7 +127,7 @@ final class RelayCoordinatorTests: XCTestCase {
         // otherwise) and the relay reached `done` only via round 2's verdict.
     }
 
-    /// PO-F10: unresolvable `--dev-worker` escalates with WORKER_NOT_AVAILABLE before
+    /// PO-F10: unresolvable `--dev-model` escalates with WORKER_NOT_AVAILABLE before
     /// silent stall retries (no 4 stalls + devRunId:NONE).
     func testUnresolvableDevWorkerEscalatesWithWorkerNotAvailable() async throws {
         let repo = try makeGitRepo()

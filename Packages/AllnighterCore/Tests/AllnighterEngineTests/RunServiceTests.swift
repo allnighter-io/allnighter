@@ -190,7 +190,7 @@ final class RunServiceTests: XCTestCase {
         XCTAssertEqual(err.code, "DEFAULT_TEAM_INVALID")
     }
 
-    // MARK: - PO-F10 honest explicit --worker
+    // MARK: - PO-F10 honest explicit --model
 
     func testExplicitWorkerDisabledFailsWithWorkerNotAvailableNeverSubstitutes() async throws {
         let repo = FileManager.default.temporaryDirectory
@@ -368,7 +368,7 @@ final class RunServiceTests: XCTestCase {
     /// used to be read from `resolved.answerWorkers.first`, which only contains rows
     /// that found a READY model. When `build_slice`'s declared answer-row model
     /// (Cursor Composer) is disabled, `resolved.answerWorkers` resolves empty even
-    /// though a *different* worker is explicitly pinned via `--worker` — so the old
+    /// though a *different* worker is explicitly pinned via `--model` — so the old
     /// code silently fell back to `first_principles_builder` instead of the team's
     /// declared `execution_playbook` skill. The skill must come from the preset's
     /// durable declaration, never from bench readiness.
@@ -391,7 +391,7 @@ final class RunServiceTests: XCTestCase {
             displayName: "Cursor Composer", modelLabel: "composer-2.5",
             driverId: "cursor_agent", role: .both, enabled: false
         )
-        // A different, ready model pinned explicitly via `--worker`.
+        // A different, ready model pinned explicitly via `--model`.
         let gpt = Model(
             id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
             driverId: "codex", role: .both, enabled: true
@@ -431,7 +431,7 @@ final class RunServiceTests: XCTestCase {
         )
     }
 
-    /// AE-S03: answer-path (non-mutating team) must fail closed on a bogus `--worker`,
+    /// AE-S03: answer-path (non-mutating team) must fail closed on a bogus `--model`,
     /// never accept-and-drop.
     func testAnswerPathBogusWorkerFailsWithWorkerNotAvailable() async throws {
         let repo = FileManager.default.temporaryDirectory

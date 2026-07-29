@@ -1,6 +1,6 @@
 # Use a specific model without silent substitution
 
-Pin a named worker. Never invent a substitute when the user named one — ask the menu, then run the exact `--worker` it returns (or surface unread).
+Pin a named model. Never invent a substitute when the user named one — ask the menu, then run the exact `--model` it returns (or surface unread).
 
 ## Example utterances
 
@@ -34,8 +34,8 @@ alln models --json
 Validate, then run the pinned worker (fill `--project`; use the canonical id only):
 
 ```bash
-alln run --project <id|path> --worker <model-id> --dry-run --json "<prompt>"
-alln run --project <id|path> --worker <model-id> --json "<prompt>"
+alln run --project <id|path> --model <model-id> --dry-run --json "<prompt>"
+alln run --project <id|path> --model <model-id> --json "<prompt>"
 ```
 
 If the requested worker is unavailable, follow menu blockedReason / doctor — do not pick a different worker unless the user says so.

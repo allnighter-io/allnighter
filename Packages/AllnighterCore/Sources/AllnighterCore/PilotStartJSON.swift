@@ -8,7 +8,7 @@ public struct PilotStartJSON: Codable, Equatable, Sendable {
     public var scaffoldPath: String
     /// The dev seat model id actually used (after alias resolution).
     public var devWorkerId: String
-    /// Present when `--dev-worker` was omitted and the last-used seat was recalled.
+    /// Present when `--dev-model` was omitted and the last-used seat was recalled.
     public var rememberedDevWorker: Bool?
 
     public init(

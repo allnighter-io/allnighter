@@ -156,7 +156,7 @@ final class HelpTopicRegistryTests: XCTestCase {
     }
 
     /// ADP-S04: task-verb team-authoring queries must resolve to the
-    /// `teams_and_workers` topic (which teaches `teams duplicate` / `teams new`)
+    /// `teams_agents_and_skills` topic (which teaches `teams duplicate` / `teams new`)
     /// rather than losing the ranking tie to `team_run_loop` (running a team) —
     /// every one of these phrases contains the bare word "team", which
     /// `team_run_loop` also scores heavily on via its title/summary/related
@@ -171,14 +171,14 @@ final class HelpTopicRegistryTests: XCTestCase {
 
     func testSearchRoutesTeamAuthoringQueries() {
         func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
-        XCTAssertEqual(top("create a team"), "teams_and_workers")
-        XCTAssertEqual(top("make a custom team"), "teams_and_workers")
-        XCTAssertEqual(top("new team"), "teams_and_workers")
-        XCTAssertEqual(top("customize a team"), "teams_and_workers")
-        XCTAssertEqual(top("build a team"), "teams_and_workers")
-        XCTAssertEqual(top("edit skill"), "teams_and_workers")
-        XCTAssertEqual(top("shared skill"), "teams_and_workers")
-        XCTAssertEqual(top("restore skill"), "teams_and_workers")
+        XCTAssertEqual(top("create a team"), "teams_agents_and_skills")
+        XCTAssertEqual(top("make a custom team"), "teams_agents_and_skills")
+        XCTAssertEqual(top("new team"), "teams_agents_and_skills")
+        XCTAssertEqual(top("customize a team"), "teams_agents_and_skills")
+        XCTAssertEqual(top("build a team"), "teams_agents_and_skills")
+        XCTAssertEqual(top("edit skill"), "teams_agents_and_skills")
+        XCTAssertEqual(top("shared skill"), "teams_agents_and_skills")
+        XCTAssertEqual(top("restore skill"), "teams_agents_and_skills")
     }
 
     /// RSC-S05: a caller who was looking for the never-shipped `--detach` flag, or
@@ -220,16 +220,16 @@ final class HelpTopicRegistryTests: XCTestCase {
         // 2026-07-24 removed the two opencode built-in models).
         let kimi = HelpService.search("kimi")
         XCTAssertFalse(kimi.isMiss)
-        XCTAssertEqual(kimi.results.first?.topicId, "teams_and_workers")
+        XCTAssertEqual(kimi.results.first?.topicId, "teams_agents_and_skills")
         XCTAssertFalse(kimi.discoveryModelIds.isEmpty)
 
         let grok = HelpService.search("grok")
         XCTAssertFalse(grok.isMiss)
-        XCTAssertEqual(grok.results.first?.topicId, "teams_and_workers")
+        XCTAssertEqual(grok.results.first?.topicId, "teams_agents_and_skills")
         XCTAssertTrue(grok.discoveryModelIds.contains("model_grok"))
 
-        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "kimi"), "teams_and_workers")
-        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "grok"), "teams_and_workers")
+        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "kimi"), "teams_agents_and_skills")
+        XCTAssertEqual(HelpTopicRegistry.canonicalTopicId(for: "grok"), "teams_agents_and_skills")
     }
 
     func testSearchTreatsWeakFuzzyNoiseAsMiss() {

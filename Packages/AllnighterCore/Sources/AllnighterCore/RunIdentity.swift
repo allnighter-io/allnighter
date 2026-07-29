@@ -1,7 +1,7 @@
 import Foundation
 
 /// Human-facing run identity — worker, lane, write policy, and honest team naming.
-/// Per Unified Run Model: with an explicit `--worker`, `--lane` is context metadata;
+/// Per Unified Run Model: with an explicit `--model`, `--lane` is context metadata;
 /// identity leads with what an auditor needs, not internal preset ids.
 public enum RunIdentity {
     public static let defaultTeamPresetId = "default_chat"

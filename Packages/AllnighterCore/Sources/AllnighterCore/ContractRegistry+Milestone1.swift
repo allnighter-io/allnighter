@@ -194,7 +194,7 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("image", takesValue: true, valueType: "path", summary: "Attach an image (repeatable)."),
                 FlagSpec("ref", takesValue: true, valueType: "path[:start-end]", summary: "Reference a project file or line range (repeatable)."),
-                FlagSpec("worker", takesValue: true, valueType: "string", summary: "Requested worker/model id."),
+                FlagSpec("model", takesValue: true, valueType: "string", summary: "Requested worker/model id."),
                 FlagSpec("idempotency-key", takesValue: true, valueType: "string", summary: "Idempotency key (24h)."),
                 FlagSpec("json", summary: "Structured send result."),
             ],
@@ -427,7 +427,7 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path. When omitted, walk to the git root and match a registered project (AE-S05)."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id; omit for Default Team."),
-                FlagSpec("worker", takesValue: true, valueType: "id", summary: "Override worker model id."),
+                FlagSpec("model", takesValue: true, valueType: "id", summary: "Override worker model id."),
                 FlagSpec("seat", takesValue: true, valueType: "id", summary: "Override one crew seat model id (repeatable, crew order; requires --team; judgment teams only)."),
                 FlagSpec("message", takesValue: true, valueType: "string", summary: "Alias for the positional message."),
                 FlagSpec("effort", takesValue: true, valueType: "effort", summary: "low | med | high."),
@@ -458,7 +458,7 @@ public extension ContractRegistry {
             mutuallyExclusiveFlags: [
                 ["json", "stream"],
                 ["no-commit", "commit-message"],
-                ["worker", "seat"],
+                ["model", "seat"],
                 ["dry-run", "stream"],
                 ["dry-run", "try-fix"],
                 ["no-wait", "stream"],
@@ -492,8 +492,8 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the PM re-reads it fresh each round."),
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
-                FlagSpec("pm-worker", takesValue: true, valueType: "id", summary: "PM seat model id (required)."),
-                FlagSpec("dev-worker", takesValue: true, valueType: "id", summary: "Dev seat model id (required)."),
+                FlagSpec("pm-model", takesValue: true, valueType: "id", summary: "PM seat model id (required)."),
+                FlagSpec("dev-model", takesValue: true, valueType: "id", summary: "Dev seat model id (required)."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local)."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling (default 20)."),
                 FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7)."),
@@ -528,7 +528,7 @@ public extension ContractRegistry {
             "pair relay adopt", summary: "Night-shift handover: converts a parked Pilot relay (awaitingPM or escalated) to a spawned PM relay and continues the loop from the durable round log.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
-                FlagSpec("pm-worker", takesValue: true, valueType: "id", summary: "The spawned PM seat's model id (required)."),
+                FlagSpec("pm-model", takesValue: true, valueType: "id", summary: "The spawned PM seat's model id (required)."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20)."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the adopted stretch."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
@@ -542,7 +542,7 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the piloting session re-reads it fresh each round."),
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
-                FlagSpec("dev-worker", takesValue: true, valueType: "id|alias", summary: "Dev seat model id or alias (optional when a seat was remembered for this project)."),
+                FlagSpec("dev-model", takesValue: true, valueType: "id|alias", summary: "Dev seat model id or alias (optional when a seat was remembered for this project)."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling, set once here — Pilot has no long-lived process to re-supply it per handoff (default 20)."),
                 FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout), set once here and re-read from durable state at every later `pilot handoff`. Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7)."),
                 FlagSpec("json", summary: "Emit PilotStartJSON (relay + nextCommand + scaffoldPath)."),
@@ -680,7 +680,7 @@ public extension ContractRegistry {
             args: [ArgSpec("prompt", required: false, summary: "Work prompt (or use --file).")],
             flags: [
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read prompt from a file."),
-                FlagSpec("worker", takesValue: true, valueType: "id", summary: "Target worker model id."),
+                FlagSpec("model", takesValue: true, valueType: "id", summary: "Target worker model id."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id."),
                 FlagSpec("fallback", takesValue: true, valueType: "id", summary: "Fallback worker id."),
                 FlagSpec("when", takesValue: true, valueType: "when", summary: "ready | away | manual."),
@@ -720,7 +720,7 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("prompt", takesValue: true, valueType: "string", summary: "Replacement prompt text."),
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Replacement prompt file."),
-                FlagSpec("worker", takesValue: true, valueType: "id", summary: "Target worker model id."),
+                FlagSpec("model", takesValue: true, valueType: "id", summary: "Target worker model id."),
                 FlagSpec("team", takesValue: true, valueType: "id", summary: "Team preset id."),
                 FlagSpec("fallback", takesValue: true, valueType: "id", summary: "Fallback worker id."),
                 FlagSpec("when", takesValue: true, valueType: "when", summary: "ready | away | manual."),
@@ -846,13 +846,13 @@ public extension ContractRegistry {
             outputSchema: .projectContextJSON
         ),
         CommandSpec(
-            "project workers", summary: "Show cached per-project worker readiness (read-only; never probes).", milestone: .m1,
+            "project models", summary: "Show cached per-project worker readiness (read-only; never probes).", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
             flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")],
             outputSchema: .projectWorkersJSON
         ),
         CommandSpec(
-            "project recheck-workers", summary: "Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config/auth.", milestone: .m1,
+            "project recheck-models", summary: "Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config/auth.", milestone: .m1,
             args: [ArgSpec("project", required: true, summary: "Project id or name.")],
             flags: [FlagSpec("json", summary: "Emit a ProjectWorkersJSON object.")],
             outputSchema: .projectWorkersJSON
@@ -1009,7 +1009,7 @@ public extension ContractRegistry {
             agentAction: "Run `alln menu --json` (or `alln menu show model:<id>`); pass a canonical model_* id. Never substitute a display name.",
             requiresManual: true,
             retryable: true,
-            explain: "An explicit `--worker` / `--dev-worker` request named a model that is disabled, notReady, unknown, or a display name. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10 / Menu_Not_Router MR-S04)."
+            explain: "An explicit `--model` / `--dev-model` request named a model that is disabled, notReady, unknown, or a display name. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10 / Menu_Not_Router MR-S04)."
         ),
         ErrorSpec("DEFAULT_TEAM_INVALID", ruleId: "team.default.invalid", agentAction: "Run `alln menu --json` / `alln teams show <id> --json`; fix unavailable workers.", requiresManual: true, retryable: false, explain: "The default team has no runnable workers. Inspect and repair the team lineup before running."),
         ErrorSpec("WORKER_FAILED", ruleId: "worker.failed", agentAction: "Inspect `workerId` and source error; failed worker remains visible.", requiresManual: false, retryable: true, explain: "One worker failed. The failure is shown, never hidden; other workers may still have answered. Retry the worker or proceed with partial results."),
@@ -1129,7 +1129,7 @@ public extension ContractRegistry {
         ErrorSpec("PROJECT_ROOT_UNAVAILABLE", ruleId: "project.root_unavailable", agentAction: "Restore the folder/permissions, then `alln project show <id>` to re-observe.", requiresManual: true, retryable: true, explain: "The project root is missing or permission-denied (rootState != available); mutating runs are blocked until the root is restored."),
         ErrorSpec("PROJECT_ARCHIVED", ruleId: "project.archived", agentAction: "Run `alln project unarchive <id>` before new runs.", requiresManual: true, retryable: false, explain: "The project is archived. Unarchive it before starting new runs; reads remain available."),
         ErrorSpec("THREAD_UNASSIGNED", ruleId: "thread.unassigned", agentAction: "Assign the thread/pending item to a project, then retry.", requiresManual: true, retryable: false, explain: "The thread or pending item has no project. Assign it to a project before a mutating run."),
-        ErrorSpec("WORKER_NOT_READY_IN_PROJECT", ruleId: "project.worker_not_ready", agentAction: "Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck.", requiresManual: true, retryable: true, explain: "The target worker's project readiness is not `ready` for this root. The run waits until the worker is ready here."),
+        ErrorSpec("WORKER_NOT_READY_IN_PROJECT", ruleId: "project.worker_not_ready", agentAction: "Run `alln project models <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck.", requiresManual: true, retryable: true, explain: "The target worker's project readiness is not `ready` for this root. The run waits until the worker is ready here."),
         ErrorSpec("RUN_WRITE_LOCK_BUSY", ruleId: "run.write_lock_busy", agentAction: "The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry.", requiresManual: false, retryable: true, explain: "At most one mutating run per canonical repo root. A second mutating run normally QUEUES (FIFO) behind the active one and runs when it finishes; this error is the safety valve — it fires only when the active run is still holding the lock after the wait bound (it is wedged), so the queued run is refused instead of hanging forever.", exitClass: .laneBusy),
         ErrorSpec(
             "EXECUTION_LANE_BUSY",
@@ -1261,7 +1261,7 @@ public extension ContractRegistry {
         ExampleRecipe("thread_send_json", title: "Send message with image and file reference to thread", command: "alln thread send latest \"describe this\" --image ./shot.png --ref Sources/App.swift:10-80 --json"),
         ExampleRecipe("thread_rename_json", title: "Rename a work thread", command: "alln thread rename latest \"Paste-image bug\" --json"),
         ExampleRecipe("serve_health_json", title: "Coordinator health", command: "alln serve --health --json"),
-        ExampleRecipe("pending_add_json", title: "Create a Draft Pending item", command: "alln pending add --worker model_opus --when ready --json \"Review this patch when Claude is available.\""),
+        ExampleRecipe("pending_add_json", title: "Create a Draft Pending item", command: "alln pending add --model model_opus --when ready --json \"Review this patch when Claude is available.\""),
         ExampleRecipe("pending_list_json", title: "List Pending items", command: "alln pending list --json"),
         ExampleRecipe("boost_window_show_json", title: "Show Boost window settings", command: "alln boost-window show --json"),
         ExampleRecipe("boost_window_set_json", title: "Enable Boost window for Claude and Codex", command: "alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex --json"),

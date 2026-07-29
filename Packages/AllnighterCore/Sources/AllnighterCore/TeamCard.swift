@@ -15,7 +15,7 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
     public var mutating: Bool
     public var executionSourceId: String?
     public var outputKind: String
-    public var workerCount: Int
+    public var agentCount: Int
     public var starterPrompts: [String]
     /// Derived gates that must hold before a run — not user-authored input asks.
     public var requirements: [String]
@@ -25,14 +25,14 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
     public var lastRunAt: Date?
 
     public init(id: String, teamId: String, displayName: String, family: String,
-                mutating: Bool, executionSourceId: String? = nil, outputKind: String, workerCount: Int,
+                mutating: Bool, executionSourceId: String? = nil, outputKind: String, agentCount: Int,
                 starterPrompts: [String] = [],
                 requirements: [String] = [], recommendedFor: [String] = [], pinned: Bool = false,
         pinnedReason: String? = nil, lastRunAt: Date? = nil) {
         self.id = id; self.teamId = teamId; self.displayName = displayName; self.family = family
         self.mutating = mutating; self.executionSourceId = executionSourceId
         self.outputKind = outputKind
-        self.workerCount = workerCount; self.starterPrompts = starterPrompts
+        self.agentCount = agentCount; self.starterPrompts = starterPrompts
         self.requirements = requirements; self.recommendedFor = recommendedFor
         self.pinned = pinned; self.pinnedReason = pinnedReason; self.lastRunAt = lastRunAt
     }
@@ -47,7 +47,7 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
             mutating: team.mutating,
             executionSourceId: team.executionSourceId,
             outputKind: team.outputKind.rawValue,
-            workerCount: team.runShape == .execution ? 1 : team.workerSpecs.count,
+            agentCount: team.runShape == .execution ? 1 : team.workerSpecs.count,
             starterPrompts: team.starterPrompts,
             requirements: derivedRequirements(team), recommendedFor: team.typeTags + team.purposeTags,
             pinned: pinned, pinnedReason: pinnedReason, lastRunAt: lastRunAt)
@@ -55,9 +55,9 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
 
     /// Structural run gates derived from the team — never an authored input ask.
     static func derivedRequirements(_ team: TeamPreset) -> [String] {
-        var reqs = ["Needs at least one ready \(team.lane.rawValue) worker."]
+        var reqs = ["Needs at least one ready \(team.lane.rawValue) agent."]
         if team.mutating {
-            reqs.append("Runs one mutating worker in the repo root.")
+            reqs.append("Runs one mutating agent in the repo root.")
             if let source = team.executionSourceId {
                 reqs.append("Runs on \(source) only.")
             }

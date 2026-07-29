@@ -134,17 +134,17 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// for mutating runs (they carry `repoDelta`) and for runs recorded before CR-S02.
     /// `changed == true` is a surfaced research-write violation; files are never reset.
     public var researchGitObservation: ResearchGitObservation? = nil
-    /// True when `--lane` was passed alongside an explicit `--worker` — lane is context
+    /// True when `--lane` was passed alongside an explicit `--model` — lane is context
     /// metadata on the run identity, not the router (`Field_Reports_3.md` FR7).
     public var laneContextOnly: Bool? = nil
-    /// ADP-S01 — the caller's explicit `--worker` selector(s) at run acceptance,
+    /// ADP-S01 — the caller's explicit `--model` selector(s) at run acceptance,
     /// canonicalized to the resolved worker id(s). Persisted so every replay surface
     /// (`reproduceCommand`) can round-trip the explicit selection that `workers` alone
     /// can't distinguish from default-team resolution. Optional so legacy `run.json`
-    /// (no key) decodes to `nil`; `nil`/empty means no explicit `--worker` was given.
+    /// (no key) decodes to `nil`; `nil`/empty means no explicit `--model` was given.
     public var explicitWorkerIds: [String]? = nil
     /// RSO-S01 — ordered explicit `--seat` model ids at run acceptance. Distinct from
-    /// `explicitWorkerIds` (single `--worker` pin) and from resolved `workers`.
+    /// `explicitWorkerIds` (single `--model` pin) and from resolved `workers`.
     public var explicitSeatModelIds: [String]? = nil
     /// Ready bench model ids the team was resolved against at acceptance.
     /// Additive audit field; legacy journals decode to `nil`.

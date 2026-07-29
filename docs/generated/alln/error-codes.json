@@ -129,7 +129,7 @@
     "agentAction" : "Run `alln menu --json` (or `alln menu show model:<id>`); pass a canonical model_* id. Never substitute a display name.",
     "code" : "WORKER_NOT_AVAILABLE",
     "exitClass" : "operational",
-    "explain" : "An explicit `--worker` \/ `--dev-worker` request named a model that is disabled, notReady, unknown, or a display name. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10 \/ Menu_Not_Router MR-S04).",
+    "explain" : "An explicit `--model` \/ `--dev-model` request named a model that is disabled, notReady, unknown, or a display name. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10 \/ Menu_Not_Router MR-S04).",
     "requiresManual" : true,
     "retryable" : true,
     "ruleId" : "run.worker_not_available"
@@ -990,7 +990,7 @@
     "ruleId" : "thread.unassigned"
   },
   {
-    "agentAction" : "Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust\/login, then recheck.",
+    "agentAction" : "Run `alln project models <id> --json`; open the CLI in the project folder and complete its trust\/login, then recheck.",
     "code" : "WORKER_NOT_READY_IN_PROJECT",
     "exitClass" : "operational",
     "explain" : "The target worker's project readiness is not `ready` for this root. The run waits until the worker is ready here.",

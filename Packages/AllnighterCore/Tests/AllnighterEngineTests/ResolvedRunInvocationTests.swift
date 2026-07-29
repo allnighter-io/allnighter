@@ -83,7 +83,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
             XCTAssertTrue(argv.contains(team), "dropped team id \(team)", file: file, line: line)
         }
         if let worker {
-            XCTAssertTrue(argv.contains("--worker"), "dropped --worker", file: file, line: line)
+            XCTAssertTrue(argv.contains("--model"), "dropped --model", file: file, line: line)
             XCTAssertTrue(argv.contains(worker), "dropped worker id \(worker)", file: file, line: line)
         }
         XCTAssertEqual(invocation.templateVariables["message"], "probe", file: file, line: line)
@@ -133,7 +133,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         let json = dry.makeDryRunJSON()
         XCTAssertEqual(json.counts.seatCount, 1)
         XCTAssertEqual(json.workerId, "model_sonnet")
-        XCTAssertTrue(json.nextAction.command.contains("--worker"))
+        XCTAssertTrue(json.nextAction.command.contains("--model"))
         XCTAssertTrue(json.nextAction.command.contains("model_sonnet"))
 
         assertNoDroppedSelectors(dry, worker: "model_sonnet")
@@ -479,8 +479,8 @@ final class ResolvedRunInvocationTests: XCTestCase {
         XCTAssertEqual(json.writePolicy, RunWritePolicy.mutating.rawValue)
     }
 
-    /// Explicit `--worker` bare ask still shows the steer AND the alternative
-    /// preserves the caller's `--worker` selector (answer team + pin = read-only).
+    /// Explicit `--model` bare ask still shows the steer AND the alternative
+    /// preserves the caller's `--model` selector (answer team + pin = read-only).
     func testExplicitWorkerBareAskTeachesSteerPreservingWorker() {
         let dry = resolve(flags: .init(workerId: "model_sonnet", json: true))
         XCTAssertTrue(dry.explicitWorkerChosen)
@@ -489,7 +489,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
 
         let alt = try? XCTUnwrap(json.alternatives?.first)
         XCTAssertEqual(alt?.kind, "readOnlyAnswerTeam")
-        XCTAssertTrue(alt?.argvTemplate.contains("--worker") ?? false,
+        XCTAssertTrue(alt?.argvTemplate.contains("--model") ?? false,
                       "answer-team alternative must preserve the explicit worker")
         XCTAssertTrue(alt?.argvTemplate.contains("model_sonnet") ?? false)
         XCTAssertTrue(alt?.argvTemplate.contains("code_plan") ?? false)

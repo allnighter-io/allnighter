@@ -60,7 +60,7 @@ final class ReproduceCommandTests: XCTestCase {
             switch t {
             case "--project": flags.projectId = next(); i += 1
             case "--team": flags.teamId = next(); i += 1
-            case "--worker": flags.workerId = next(); i += 1
+            case "--model": flags.workerId = next(); i += 1
             case "--seat":
                 var seats = flags.explicitSeatModelIds ?? []
                 if let seat = next() { seats.append(seat) }
@@ -100,7 +100,7 @@ final class ReproduceCommandTests: XCTestCase {
         let command = RunCLI.reproduceCommand(run, project: project())
         let argv = tokenize(command)
 
-        XCTAssertTrue(argv.contains("--worker"), "dropped --worker: \(command)")
+        XCTAssertTrue(argv.contains("--model"), "dropped --model: \(command)")
         XCTAssertTrue(argv.contains("model_sonnet"), "dropped worker id: \(command)")
         XCTAssertTrue(argv.contains("--project"), "dropped --project: \(command)")
         XCTAssertTrue(argv.contains("--effort") && argv.contains("high"), "dropped --effort: \(command)")
@@ -110,7 +110,7 @@ final class ReproduceCommandTests: XCTestCase {
     }
 
     func testRunCLIReproduceResolvesToSameSeatAndPolicy() {
-        // Original run: explicit --worker on Default Team, mutating-allowed.
+        // Original run: explicit --model on Default Team, mutating-allowed.
         let original = resolve("Fix the bug", RunInvocationNormalizedFlags(
             projectId: "proj_test", workerId: "model_sonnet", effort: .high))
         XCTAssertTrue(original.explicitWorkerChosen)
@@ -137,7 +137,7 @@ final class ReproduceCommandTests: XCTestCase {
             createdAt: Date(), effort: .med,
             explicitWorkerIds: ["model_sonnet"])
         let command = AllnighterCLI.reproduceCommand(run)
-        XCTAssertTrue(command.contains("--worker model_sonnet"), "legacy builder dropped --worker: \(command)")
+        XCTAssertTrue(command.contains("--model model_sonnet"), "legacy builder dropped --model: \(command)")
         XCTAssertTrue(command.contains("--team code_plan"), command)
         XCTAssertTrue(command.contains("\"Say hi\""), command)
     }
@@ -157,8 +157,8 @@ final class ReproduceCommandTests: XCTestCase {
 
         let decoded = try JSONDecoder().decode(TeamRun.self, from: json)
         XCTAssertNil(decoded.explicitWorkerIds)
-        // And the builders don't emit a spurious --worker for such a run.
-        XCTAssertFalse(AllnighterCLI.reproduceCommand(decoded).contains("--worker"))
+        // And the builders don't emit a spurious --model for such a run.
+        XCTAssertFalse(AllnighterCLI.reproduceCommand(decoded).contains("--model"))
 
         // A run WITH an explicit worker round-trips the key.
         let withWorker = TeamRun(

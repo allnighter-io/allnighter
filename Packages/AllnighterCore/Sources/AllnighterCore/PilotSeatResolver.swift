@@ -1,6 +1,6 @@
 import Foundation
 
-/// Resolves `--dev-worker` / panel `--seat` to a canonical model id (MR-S04).
+/// Resolves `--dev-model` / panel `--seat` to a canonical model id (MR-S04).
 /// Exact ids only — display names and fuzzy aliases never authorize dispatch.
 /// Unknown values fail with same-kind candidates via `ExactIdResolver`.
 public enum PilotSeatResolver {
@@ -14,7 +14,7 @@ public enum PilotSeatResolver {
 
     /// Honor an exact model id, or fail closed. Never matches display names.
     public static func resolve(alias raw: String, models: [Model]) -> Result<String, Error> {
-        switch ExactIdResolver.resolveWorker(raw, flag: "--dev-worker", models: models) {
+        switch ExactIdResolver.resolveWorker(raw, flag: "--dev-model", models: models) {
         case .success(let model):
             return .success(model.id)
         case .failure(let failure):

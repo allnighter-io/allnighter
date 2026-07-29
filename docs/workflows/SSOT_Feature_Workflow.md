@@ -94,7 +94,10 @@ polish. It is a **lie-prone layer in every packet by default**.
   resolve is a P0 bug, same class as GUI-only truth.
 - **Product vocabulary** for shipped capabilities belongs in
   `docs/workflows/Product_Vocabulary.md` at closeout (substitution tiers,
-  team depth, crafts, etc.) — not only in archived phase packets.
+  team depth, crafts, **agent / model / skill**, CLI `--model`, etc.) — not only
+  in archived phase packets. Retiring a noun (e.g. **worker**) requires the same
+  slice to sweep GUI, CLI flags, help, recipes, and `RetiredVocabulary` — never
+  a blind grep; **agents** count roster seats, **models** name CLI pins.
 - A phase doc may claim "shipped"/"verified" only for state that is committed
   AND observable on a binary built from committed HEAD. "Bumped in my working
   tree" is not shipped.

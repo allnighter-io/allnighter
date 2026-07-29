@@ -88,7 +88,7 @@ final class ProjectSpineTests: XCTestCase {
 
     func testCanonicalEnumRawValues() {
         XCTAssertEqual(NextActionKind.allCases.map(\.rawValue),
-                       ["addProject", "projectContext", "listThreads", "listPending", "recheckWorkers", "openProject"])
+                       ["addProject", "projectContext", "listThreads", "listPending", "recheckModels", "openProject"])
         XCTAssertEqual(WorkerReadinessStatus.allCases.count, 8)
     }
 

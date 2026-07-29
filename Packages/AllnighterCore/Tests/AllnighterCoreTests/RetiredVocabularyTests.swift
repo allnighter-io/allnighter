@@ -72,6 +72,7 @@ final class RetiredVocabularyTests: XCTestCase {
             "alln team hello", "alln route --for", "alln resolve --for",
             "alln commands --json", "alln team list", "alln team show",
             "alln team preflight", "alln team start",
+            "alln run --worker", "alln project workers",
         ]
         XCTAssertEqual(Set(RetiredVocabulary.livingDocDenyPatterns), expected)
     }

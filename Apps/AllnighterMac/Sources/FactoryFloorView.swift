@@ -228,7 +228,7 @@ struct FactoryFloorView: View {
                 Text("JD").font(ALFont.monoSm.weight(.semibold)).foregroundStyle(ALColor.textSecondary)
                     .frame(width: 26, height: 26).background(ALColor.surface, in: RoundedRectangle(cornerRadius: 7))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("YOU SENT · \(cast.count) WORKERS").font(ALFont.monoSm.weight(.semibold)).tracking(0.6)
+                    Text("YOU SENT · \(cast.count) AGENTS").font(ALFont.monoSm.weight(.semibold)).tracking(0.6)
                         .foregroundStyle(ALColor.textFaint)
                     Text(run.prompt).font(.system(size: 14)).foregroundStyle(ALColor.textSecondary)
                         .lineLimit(promptExpanded ? nil : 1)

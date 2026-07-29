@@ -73,7 +73,7 @@ struct TeamDraft: Equatable {
                                    uniquingKeysWith: { a, _ in a })
             let sources = Set(rows.compactMap { $0.modelId.flatMap { bench[$0] } })
             if sources.count > 1 {
-                throw CatalogError.teamInvalid("Execution teams run on one CLI. Pick one source for all workers.")
+                throw CatalogError.teamInvalid("Execution teams run on one CLI. Pick one source for all agents.")
             }
         }
         let fallback: ModelFallbackPolicy = allowSubstitutions ? .laneCapable : .exactOnly
@@ -83,7 +83,7 @@ struct TeamDraft: Equatable {
         let effectiveRows = mutating ? Array(rows.prefix(1)) : rows
         let specs: [TeamWorkerSpec] = try effectiveRows.map { row in
             guard !row.skillId.isEmpty else {
-                throw CatalogError.teamInvalid("every worker needs a skill")
+                throw CatalogError.teamInvalid("every agent needs a skill")
             }
             let original = base.workerSpecs.first { $0.id == row.id }
             return TeamWorkerSpec(

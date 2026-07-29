@@ -295,7 +295,7 @@ private struct StudioTeamListView: View {
                         if !TeamVisibility.isEnabled(team.id) { miniBadge("Off", ALPalette.yellow500) }
                         Spacer(minLength: 0)
                     }
-                    Text("\(team.defaultEffort.rawValue.capitalized) · \(team.runShape == .execution ? "1 agent" : "\(team.workerSpecs.count) workers")")
+                    Text("\(team.defaultEffort.rawValue.capitalized) · \(team.runShape == .execution ? "1 agent" : "\(team.workerSpecs.count) agents")")
                         .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

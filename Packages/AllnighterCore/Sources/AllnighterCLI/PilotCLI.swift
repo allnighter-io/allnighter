@@ -21,7 +21,7 @@ enum PilotCLI {
     struct StartRequest {
         var config: RelayCoordinator.Config
         var devWorkerId: String
-        /// The raw `--dev-worker` token when it differed from the resolved model id.
+        /// The raw `--dev-model` token when it differed from the resolved model id.
         var devWorkerAlias: String?
         var rememberedDevWorker: Bool
     }
@@ -42,7 +42,7 @@ enum PilotCLI {
     // MARK: - start
 
     static func runStart(_ args: [String], runtime: ToolRuntime) async {
-        guard !args.isEmpty else { usage("pilot start --doc <path> --project <id|path> [--dev-worker <seat|alias>] [--max-rounds N] [--idle-timeout <seconds>] [--json]") }
+        guard !args.isEmpty else { usage("pilot start --doc <path> --project <id|path> [--dev-model <seat|alias>] [--max-rounds N] [--idle-timeout <seconds>] [--json]") }
         let opts = Options(args)
         let request: StartRequest
         do {
@@ -114,7 +114,7 @@ enum PilotCLI {
         let devWorkerId: String
         let devWorkerAlias: String?
         let remembered: Bool
-        if let token = opts.value("dev-worker") {
+        if let token = opts.value("dev-model") {
             switch PilotSeatResolver.resolve(alias: token, models: catalogModels) {
             case .success(let resolved):
                 devWorkerId = resolved
@@ -1112,7 +1112,7 @@ enum PilotCLI {
         case .devWorkerNotFound(let alias, let readySeats):
             return ("CLI_USAGE_ERROR", "no dev seat matches \"\(alias)\" — ready seats: \(readySeats)")
         case .missingDevWorker(let readySeats):
-            return ("CLI_USAGE_ERROR", "--dev-worker <seat|alias> required (no remembered seat for this project) — ready seats: \(readySeats)")
+            return ("CLI_USAGE_ERROR", "--dev-model <seat|alias> required (no remembered seat for this project) — ready seats: \(readySeats)")
         case .noReadyDevSeats:
             return ("CLI_USAGE_ERROR", "no ready dev seats — run `alln doctor --full`")
         case .invalidMaxWait(let raw):

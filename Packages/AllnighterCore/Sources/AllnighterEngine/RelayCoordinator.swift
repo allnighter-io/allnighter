@@ -585,7 +585,7 @@ public struct RelayCoordinator: Sendable {
         case journalUnavailable
     }
 
-    /// `alln pair relay adopt --relay <id> --pm-worker <id>` (`docs/phases/
+    /// `alln pair relay adopt --relay <id> --pm-model <id>` (`docs/phases/
     /// Pilot_Relay.md` §5 "adopt (unattended handover) is the strategic unlock") —
     /// converts a PARKED pilot relay (`pmMode == .external`, `status == .awaitingPM`
     /// or `.escalated`) to `pmMode: .spawned` with `pmWorkerId` as the new PM seat,
@@ -1387,7 +1387,7 @@ public struct RelayCoordinator: Sendable {
             "dispatchDevTurn is relay/pilot only; panel seats must not acquire the lane"
         )
 
-        // PO-F10: explicit --dev-worker must resolve BEFORE lane wait / stall-retry.
+        // PO-F10: explicit --dev-model must resolve BEFORE lane wait / stall-retry.
         // An unresolvable worker escalates with WORKER_NOT_AVAILABLE — never 4 silent stalls.
         if let workerId = request.workerId, !workerId.isEmpty {
             if case .failure(let error) = await runService.resolveExplicitWorker(workerId) {

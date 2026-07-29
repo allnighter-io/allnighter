@@ -209,7 +209,7 @@ public enum NextActionKind: String, Codable, Sendable, CaseIterable {
     case projectContext
     case listThreads
     case listPending
-    case recheckWorkers
+    case recheckModels
     case openProject
 }
 

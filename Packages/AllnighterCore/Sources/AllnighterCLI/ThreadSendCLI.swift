@@ -30,7 +30,7 @@ enum ThreadSendCLI {
     static func runSend(_ args: [String], runtime: ToolRuntime) async {
         let opts = Options(args)
         guard let threadRef = opts.positional.first else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln thread send <thread-id|latest> [<message>] [--image path]... [--ref path[:start-end]]... [--worker id] [--idempotency-key key] [--json]")
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "usage: alln thread send <thread-id|latest> [<message>] [--image path]... [--ref path[:start-end]]... [--model id] [--idempotency-key key] [--json]")
         }
         let message = opts.positional.dropFirst().joined(separator: " ")
         let images = collectImagePaths(from: args)
@@ -64,7 +64,7 @@ enum ThreadSendCLI {
             ))
         }
 
-        let workerId = opts.value("worker")
+        let workerId = opts.value("model")
         AllnighterCLI.requireExactSelectors(
             workerId: workerId,
             teamId: nil,

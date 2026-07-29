@@ -12,7 +12,7 @@ final class TeamCardTests: XCTestCase {
         XCTAssertEqual(card.family, "signal")
         XCTAssertFalse(card.mutating)
         XCTAssertEqual(card.outputKind, "insight")
-        XCTAssertEqual(card.workerCount, team.workerSpecs.count)
+        XCTAssertEqual(card.agentCount, team.workerSpecs.count)
         XCTAssertFalse(card.starterPrompts.isEmpty)   // best-shot placeholder present
     }
 
@@ -20,10 +20,10 @@ final class TeamCardTests: XCTestCase {
         // A non-mutating scout card requires only a ready worker — never "attach a
         // screenshot" or any authored input gate.
         let signal = TeamCard.project(BuiltInTeams.team("signal_outside")!)
-        XCTAssertEqual(signal.requirements, ["Needs at least one ready signal worker."])
+        XCTAssertEqual(signal.requirements, ["Needs at least one ready signal agent."])
 
         let design = TeamCard.project(BuiltInTeams.team("design_polish")!)
-        XCTAssertEqual(design.requirements, ["Needs at least one ready design worker."])
+        XCTAssertEqual(design.requirements, ["Needs at least one ready design agent."])
         XCTAssertFalse(design.requirements.contains { $0.lowercased().contains("screenshot") || $0.lowercased().contains("image") })
     }
 
@@ -32,8 +32,8 @@ final class TeamCardTests: XCTestCase {
         team.mutating = true
         let card = TeamCard.project(team)
         XCTAssertTrue(card.mutating)
-        XCTAssertEqual(card.workerCount, 1)
-        XCTAssertTrue(card.requirements.contains { $0.contains("one mutating worker") })
+        XCTAssertEqual(card.agentCount, 1)
+        XCTAssertTrue(card.requirements.contains { $0.contains("one mutating agent") })
     }
 
     func testCatalogProjectionPinsRequestedTeams() {

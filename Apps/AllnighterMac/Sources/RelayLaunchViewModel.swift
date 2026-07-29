@@ -99,7 +99,7 @@ final class RelayLaunchViewModel {
             issues.append(.init(id: "dev", message: "Pick a dev seat."))
         }
         if let pmWorkerId, let devWorkerId, pmWorkerId == devWorkerId {
-            issues.append(.init(id: "same-seat", message: "PM and dev seats must be different workers."))
+            issues.append(.init(id: "same-seat", message: "PM and dev seats must be different models."))
         }
         if maxRounds < 1 {
             issues.append(.init(id: "max-rounds", message: "Max rounds must be at least 1."))

@@ -151,7 +151,7 @@ enum RunCLI {
         // MR-S04: exact-id choke point before dry-run soft path or any RunRecord mint.
         let seatModelIds = opts.valuesList("seat")
         AllnighterCLI.requireExactSelectors(
-            workerId: opts.value("worker"),
+            workerId: opts.value("model"),
             teamId: opts.value("team"),
             seatModelIds: seatModelIds,
             models: runtime.models,
@@ -188,7 +188,7 @@ enum RunCLI {
             repoRoot: project.normalizedRootPath,
             projectId: project.id,
             presetId: opts.value("team"),
-            workerId: opts.value("worker"),
+            workerId: opts.value("model"),
             effort: effort,
             lane: lane,
             type: opts.value("type"),
@@ -417,7 +417,7 @@ enum RunCLI {
             threadId: opts.value("thread-id"),
             projectId: project.id,
             presetId: opts.value("team"),
-            workerId: opts.value("worker"),
+            workerId: opts.value("model"),
             effort: opts.value("effort").flatMap(EffortLevel.init(rawValue:)),
             lane: opts.value("lane").flatMap(WorkLane.init(rawValue:)),
             type: opts.value("type"),
@@ -690,7 +690,7 @@ enum RunCLI {
     /// ADP-S01 — a runnable `alln run` replay that round-trips every explicit
     /// selector the original run resolved with, so re-running it lands on the same
     /// seats and write policy: the prompt, `--project`, `--team`, each explicit
-    /// `--worker`, `--effort`, `--lane` (only when it was explicit context alongside
+    /// `--model`, `--effort`, `--lane` (only when it was explicit context alongside
     /// a pinned worker), and `--no-commit` when the run was ordered to leave work
     /// uncommitted.
     static func reproduceCommand(_ run: TeamRun, project: Project) -> String {
@@ -699,7 +699,7 @@ enum RunCLI {
         parts.append(contentsOf: ["--project", project.id])
         if let team = run.presetId { parts.append(contentsOf: ["--team", team]) }
         for worker in run.explicitWorkerIds ?? [] where !worker.isEmpty {
-            parts.append(contentsOf: ["--worker", worker])
+            parts.append(contentsOf: ["--model", worker])
         }
         for seat in run.explicitSeatModelIds ?? [] where !seat.isEmpty {
             parts.append(contentsOf: ["--seat", seat])

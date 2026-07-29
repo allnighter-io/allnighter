@@ -103,7 +103,7 @@ public enum CommandProjection {
 
         `alln run` drives **subscription CLIs** the user already pays for. It does **not**
         expose model-API knobs such as `--temperature` or `--max-tokens` — Alln cannot
-        enforce those through every vendor CLI. Use `--effort` (`low|med|high`), `--worker`,
+        enforce those through every vendor CLI. Use `--effort` (`low|med|high`), `--model`,
         and the driver's own supported flags (via manifests) for controls that actually reach
         the selected CLI.
 

@@ -113,9 +113,9 @@ final class ThreadsPresenterTests: XCTestCase {
 
     func testBodyTextFallsBackToHonestFailureReason() {
         var failed = turn(.workerChat, .failed); failed.text = nil
-        XCTAssertEqual(ThreadsPresenter.bodyText(failed), "Worker failed.")
+        XCTAssertEqual(ThreadsPresenter.bodyText(failed), "Agent failed.")
         var timedOut = turn(.workerChat, .timedOut); timedOut.text = nil
-        XCTAssertEqual(ThreadsPresenter.bodyText(timedOut), "Worker timed out.")
+        XCTAssertEqual(ThreadsPresenter.bodyText(timedOut), "Agent timed out.")
         var done = turn(.workerChat, .done); done.text = "the answer"
         XCTAssertEqual(ThreadsPresenter.bodyText(done), "the answer")
     }

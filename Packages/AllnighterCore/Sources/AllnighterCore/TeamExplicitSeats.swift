@@ -41,9 +41,9 @@ public enum TeamExplicitSeats {
             case .requiresTeam:
                 return "--seat requires an explicit --team"
             case .conflictsWithWorker:
-                return "--seat and --worker are mutually exclusive"
+                return "--seat and --model are mutually exclusive"
             case .executionTeamNotAllowed(let id):
-                return "--seat is only valid on judgment teams; \(id) is an execution team — use --worker"
+                return "--seat is only valid on judgment teams; \(id) is an execution team — use --model"
             case .countMismatch(let expected, let received):
                 return "--seat count mismatch: team expects \(expected) crew seat(s), got \(received)"
             case .seatUnavailable(let index, let modelId, let reason):

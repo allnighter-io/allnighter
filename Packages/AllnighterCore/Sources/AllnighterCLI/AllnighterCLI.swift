@@ -112,7 +112,7 @@ struct AllnighterCLI {
 
     /// Replay grammar for legacy show/export paths — always `alln run` (MR-S02).
     /// ADP-S01 — round-trips every explicit selector: the prompt, `--team`, each
-    /// explicit `--worker`, `--effort`, `--lane` (only when it was explicit context
+    /// explicit `--model`, `--effort`, `--lane` (only when it was explicit context
     /// alongside a pinned worker, so an answer-team replay isn't given a redundant
     /// lane that could conflict with `--team`), and `--no-commit` when ordered.
     static func reproduceCommand(_ run: TeamRun) -> String {
@@ -172,7 +172,7 @@ struct AllnighterCLI {
         exit(ContractRegistry.milestone1.processExitCode(forErrorCode: code))
     }
 
-    /// MR-S04 — honor-or-fail every explicit `--worker` / `--team` / `--seat` before dispatch.
+    /// MR-S04 — honor-or-fail every explicit `--model` / `--team` / `--seat` before dispatch.
     static func requireExactSelectors(
         workerId: String?,
         teamId: String?,
@@ -182,7 +182,7 @@ struct AllnighterCLI {
     ) {
         if let workerId, !workerId.isEmpty {
             if case .failure(let failure) = ExactIdResolver.resolveWorker(
-                workerId, flag: "--worker", models: models
+                workerId, flag: "--model", models: models
             ) {
                 failExactId(failure)
             }

@@ -20,7 +20,7 @@ enum RelayCLI {
             await runAdopt(Array(args.dropFirst()), runtime: runtime)
             return
         }
-        guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-worker <modelId> --dev-worker <modelId> [--until HH:MM] [--max-rounds N] [--idle-timeout <seconds>] [--no-wait] [--json]") }
+        guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-model <modelId> --dev-model <modelId> [--until HH:MM] [--max-rounds N] [--idle-timeout <seconds>] [--no-wait] [--json]") }
         let opts = Options(args)
         let config: RelayCoordinator.Config
         do {
@@ -138,17 +138,17 @@ enum RelayCLI {
         await awaitDetachedAcceptance(cwd: config.projectRoot, json: opts.flag("json"))
     }
 
-    /// `pair relay adopt --relay <id> --pm-worker <id>` (docs/phases/Pilot_Relay.md
+    /// `pair relay adopt --relay <id> --pm-model <id>` (docs/phases/Pilot_Relay.md
     /// §5, PL-S06) — adopt (unattended handover): hands a parked Pilot relay to a
     /// spawned PM, then lets the loop run to a terminal state exactly like `relay`/
     /// `relay-resume`. `projectRoot`/`docPath`/`devWorkerId` are always read from the
     /// loaded relay (never from a flag here) — an adopt can never silently redirect a
     /// relay at a different doc or repo, same discipline `resume` already follows.
     static func runAdopt(_ args: [String], runtime: ToolRuntime) async {
-        guard !args.isEmpty else { usage("relay adopt --relay <id> --pm-worker <modelId> [--max-rounds N] [--until HH:MM] [--no-wait] [--json]") }
+        guard !args.isEmpty else { usage("relay adopt --relay <id> --pm-model <modelId> [--max-rounds N] [--until HH:MM] [--no-wait] [--json]") }
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        guard let pmWorkerId = opts.value("pm-worker") else { fail(.missingRequired("--pm-worker <modelId>")) }
+        guard let pmWorkerId = opts.value("pm-model") else { fail(.missingRequired("--pm-model <modelId>")) }
         guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else {
             fail(.invalidMaxRounds(opts.value("max-rounds") ?? ""))
         }
@@ -227,7 +227,7 @@ enum RelayCLI {
         case projectNotFound(String)
         case relayNotFound(String)
         case relayNotEscalated(status: String)
-        /// Structured exact-id failure (`--pm-worker` / `--dev-worker`) — carries the
+        /// Structured exact-id failure (`--pm-model` / `--dev-model`) — carries the
         /// same envelope `AllnighterCLI.failExactId` renders (candidates/suggestions/
         /// nextAction), so the entry point can render it byte-for-byte unchanged
         /// instead of losing that detail through the generic `errorEnvelope` mapping
@@ -243,16 +243,16 @@ enum RelayCLI {
         let opts = Options(args)
         guard let docPath = opts.value("doc") else { throw RelayCLIError.missingRequired("--doc <path>") }
         guard let projectToken = opts.value("project") else { throw RelayCLIError.missingRequired("--project <id|path>") }
-        guard let pmWorkerId = opts.value("pm-worker") else { throw RelayCLIError.missingRequired("--pm-worker <modelId>") }
-        guard let devWorkerId = opts.value("dev-worker") else { throw RelayCLIError.missingRequired("--dev-worker <modelId>") }
+        guard let pmWorkerId = opts.value("pm-model") else { throw RelayCLIError.missingRequired("--pm-model <modelId>") }
+        guard let devWorkerId = opts.value("dev-model") else { throw RelayCLIError.missingRequired("--dev-model <modelId>") }
         // Empty `models` (the default) falls back to the live catalog for real
         // invocations; tests inject a hermetic fixture instead (mirrors PilotCLI's
         // `parseStartConfig(models:)` seam) — never reads live user config in tests.
         let catalogModels = models.isEmpty ? ModelCatalog.resolvedModels(registry: DefaultConfig.registry) : models
-        if case .failure(let failure) = ExactIdResolver.resolveWorker(pmWorkerId, flag: "--pm-worker", models: catalogModels) {
+        if case .failure(let failure) = ExactIdResolver.resolveWorker(pmWorkerId, flag: "--pm-model", models: catalogModels) {
             throw RelayCLIError.workerNotAvailable(failure)
         }
-        if case .failure(let failure) = ExactIdResolver.resolveWorker(devWorkerId, flag: "--dev-worker", models: catalogModels) {
+        if case .failure(let failure) = ExactIdResolver.resolveWorker(devWorkerId, flag: "--dev-model", models: catalogModels) {
             throw RelayCLIError.workerNotAvailable(failure)
         }
         guard let project = AllnighterCLI.resolveProject(projectToken, store: projectStore) else {

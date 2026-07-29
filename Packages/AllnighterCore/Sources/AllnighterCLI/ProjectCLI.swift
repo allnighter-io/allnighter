@@ -4,8 +4,8 @@ import AllnighterEngine
 
 /// `alln project …` — the Project-first CLI foundation (PRJ-S07). Boring on
 /// purpose: list/add/show/archive the local work floors, and read the threads,
-/// pending, and on-demand context bound to one Project. Worker readiness
-/// (workers/recheck-workers) lands in the S07 follow-up. Every JSON envelope is a
+/// pending, and on-demand context bound to one Project. Model readiness uses
+/// `project models` / `project recheck-models`. Every JSON envelope is a
 /// projection of Core truth via `ProjectJSON` — the registry owns the contract.
 enum ProjectCLI {
     static func run(_ subcommand: String?, _ args: [String], runtime: ToolRuntime) async {
@@ -19,10 +19,10 @@ enum ProjectCLI {
         case "pending": runPending(args)
         case "stalled": runStalled(args)
         case "context": runContext(args)
-        case "workers": runWorkers(args)
-        case "recheck-workers": await runRecheck(args, runtime)
+        case "models": runWorkers(args)
+        case "recheck-models": await runRecheck(args, runtime)
         case nil:
-            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|workers|recheck-workers> ...\n".utf8))
+            FileHandle.standardError.write(Data("usage: alln project <list|add|show|archive|unarchive|threads|pending|stalled|context|models|recheck-models> ...\n".utf8))
             exit(2)
         default:
             FileHandle.standardError.write(Data("unknown project subcommand: \(subcommand!)\n".utf8))
@@ -178,7 +178,7 @@ enum ProjectCLI {
     /// Cached readiness — read-only, never probes (silent probes are background work).
     private static func runWorkers(_ args: [String]) {
         let opts = Options(args)
-        guard let idOrName = opts.positional.first else { usageError("usage: alln project workers <project-id-or-name> [--json]") }
+        guard let idOrName = opts.positional.first else { usageError("usage: alln project models <project-id-or-name> [--json]") }
         let store = ProjectStore()
         let project = resolve(idOrName, store)
         let cached = ProjectWorkerReadinessStore().load(projectId: project.id)
@@ -189,7 +189,7 @@ enum ProjectCLI {
     /// fresh facts. Never accepts trust prompts, logs in, or writes vendor config.
     private static func runRecheck(_ args: [String], _ runtime: ToolRuntime) async {
         let opts = Options(args)
-        guard let idOrName = opts.positional.first else { usageError("usage: alln project recheck-workers <project-id-or-name> [--json]") }
+        guard let idOrName = opts.positional.first else { usageError("usage: alln project recheck-models <project-id-or-name> [--json]") }
         let store = ProjectStore()
         let project = resolve(idOrName, store)
         let detector = ProjectWorkerReadinessDetector(runner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()))
@@ -314,11 +314,11 @@ enum ProjectCLI {
                 readinessSummary: summary,
                 cached: cached,
                 workers: rows,
-                nextActions: [.init(kind: .recheckWorkers, label: "Recheck workers", command: "alln project recheck-workers \(project.id) --json")]
+                nextActions: [.init(kind: .recheckModels, label: "Recheck models", command: "alln project recheck-models \(project.id) --json")]
             )
             print(AllnighterCLI.jsonString(payload))
         } else if workers.isEmpty {
-            print(cached ? "(no readiness cache — `alln project recheck-workers \(project.id)`)" : "(no workers probed)")
+            print(cached ? "(no readiness cache — `alln project recheck-models \(project.id)`)" : "(no models probed)")
         } else {
             print("\(project.displayName) — \(summary)\(cached ? " (cached)" : "")")
             for w in rows {

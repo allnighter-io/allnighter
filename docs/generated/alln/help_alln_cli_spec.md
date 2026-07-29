@@ -248,7 +248,7 @@ Arguments:
 Flags:
 - `--image <path>` — Attach an image (repeatable).
 - `--ref <path[:start-end]>` — Reference a project file or line range (repeatable).
-- `--worker <string>` — Requested worker/model id.
+- `--model <string>` — Requested worker/model id.
 - `--idempotency-key <string>` — Idempotency key (24h).
 - `--json` — Structured send result.
 
@@ -619,7 +619,7 @@ Arguments:
 Flags:
 - `--project <id>` — Project id, name, or repo path. When omitted, walk to the git root and match a registered project (AE-S05).
 - `--team <id>` — Team preset id; omit for Default Team.
-- `--worker <id>` — Override worker model id.
+- `--model <id>` — Override worker model id.
 - `--seat <id>` — Override one crew seat model id (repeatable, crew order; requires --team; judgment teams only).
 - `--message <string>` — Alias for the positional message.
 - `--effort <low|med|high>` — low | med | high.
@@ -651,7 +651,7 @@ Mutually exclusive: `--json`, `--stream`.
 
 Mutually exclusive: `--no-commit`, `--commit-message`.
 
-Mutually exclusive: `--worker`, `--seat`.
+Mutually exclusive: `--model`, `--seat`.
 
 Mutually exclusive: `--dry-run`, `--stream`.
 
@@ -699,8 +699,8 @@ Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, r
 Flags:
 - `--doc <path>` — Repo-relative spec doc path (required) — the PM re-reads it fresh each round.
 - `--project <id>` — Project id, name, or repo path (required).
-- `--pm-worker <id>` — PM seat model id (required).
-- `--dev-worker <id>` — Dev seat model id (required).
+- `--pm-model <id>` — PM seat model id (required).
+- `--dev-model <id>` — Dev seat model id (required).
 - `--until <time>` — Hard stop HH:MM (local).
 - `--max-rounds <integer>` — Round ceiling (default 20).
 - `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
@@ -741,7 +741,7 @@ Night-shift handover: converts a parked Pilot relay (awaitingPM or escalated) to
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--pm-worker <id>` — The spawned PM seat's model id (required).
+- `--pm-model <id>` — The spawned PM seat's model id (required).
 - `--max-rounds <integer>` — Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20).
 - `--until <time>` — Hard stop HH:MM (local) for the adopted stretch.
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
@@ -757,7 +757,7 @@ Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat 
 Flags:
 - `--doc <path>` — Repo-relative spec doc path (required) — the piloting session re-reads it fresh each round.
 - `--project <id>` — Project id, name, or repo path (required).
-- `--dev-worker <id|alias>` — Dev seat model id or alias (optional when a seat was remembered for this project).
+- `--dev-model <id|alias>` — Dev seat model id or alias (optional when a seat was remembered for this project).
 - `--max-rounds <integer>` — Round ceiling, set once here — Pilot has no long-lived process to re-supply it per handoff (default 20).
 - `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout), set once here and re-read from durable state at every later `pilot handoff`. Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
 - `--json` — Emit PilotStartJSON (relay + nextCommand + scaffoldPath).
@@ -953,7 +953,7 @@ Arguments:
 
 Flags:
 - `--file <path>` — Read prompt from a file.
-- `--worker <id>` — Target worker model id.
+- `--model <id>` — Target worker model id.
 - `--team <id>` — Team preset id.
 - `--fallback <id>` — Fallback worker id.
 - `--when <when>` — ready | away | manual.
@@ -1019,7 +1019,7 @@ Arguments:
 Flags:
 - `--prompt <string>` — Replacement prompt text.
 - `--file <path>` — Replacement prompt file.
-- `--worker <id>` — Target worker model id.
+- `--model <id>` — Target worker model id.
 - `--team <id>` — Team preset id.
 - `--fallback <id>` — Fallback worker id.
 - `--when <when>` — ready | away | manual.
@@ -1225,7 +1225,7 @@ Flags:
 
 Output schema: `projectContextJSON`.
 
-### `alln project workers`
+### `alln project models`
 
 Show cached per-project worker readiness (read-only; never probes).
 
@@ -1237,7 +1237,7 @@ Flags:
 
 Output schema: `projectWorkersJSON`.
 
-### `alln project recheck-workers`
+### `alln project recheck-models`
 
 Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config/auth.
 
@@ -1532,7 +1532,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `PROJECT_ROOT_UNAVAILABLE` | yes | yes | `operational` | Restore the folder/permissions, then `alln project show <id>` to re-observe. |
 | `PROJECT_ARCHIVED` | yes | no | `operational` | Run `alln project unarchive <id>` before new runs. |
 | `THREAD_UNASSIGNED` | yes | no | `operational` | Assign the thread/pending item to a project, then retry. |
-| `WORKER_NOT_READY_IN_PROJECT` | yes | yes | `operational` | Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck. |
+| `WORKER_NOT_READY_IN_PROJECT` | yes | yes | `operational` | Run `alln project models <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck. |
 | `RUN_WRITE_LOCK_BUSY` | no | yes | `laneBusy` | The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry. |
 | `EXECUTION_LANE_BUSY` | no | yes | `laneBusy` | Do not busy-loop or invent a private retry cadence. The harness owns the wait: poll relay/pilot status for laneBlocked (position, holder identity/kind/id, heldSinceSeconds) until the ticket clears, or let the harness grant the lane. Never start a second concurrent build-class turn on the same root. |
 | `WRITE_SCOPE_VIOLATION` | yes | no | `operational` | Inspect roundLog.scopeViolation (declared writeScope + outOfScopePaths). The harness rejected the turn's work fail-closed; endReason stays reported. Do not auto-revert — the PM decides whether to keep, amend, or reverse the commits. Next turn: stay inside the declared prefixes or re-declare a broader writeScope. |
@@ -1578,7 +1578,7 @@ On `run`, `--stream` is mutually exclusive with `--json`, `--dry-run`, and `--no
 
 `alln run` drives **subscription CLIs** the user already pays for. It does **not**
 expose model-API knobs such as `--temperature` or `--max-tokens` — Alln cannot
-enforce those through every vendor CLI. Use `--effort` (`low|med|high`), `--worker`,
+enforce those through every vendor CLI. Use `--effort` (`low|med|high`), `--model`,
 and the driver's own supported flags (via manifests) for controls that actually reach
 the selected CLI.
 ## Next-action kinds
@@ -1618,7 +1618,7 @@ the selected CLI.
 - `thread_send_json` — Send message with image and file reference to thread: `alln thread send latest "describe this" --image ./shot.png --ref Sources/App.swift:10-80 --json`
 - `thread_rename_json` — Rename a work thread: `alln thread rename latest "Paste-image bug" --json`
 - `serve_health_json` — Coordinator health: `alln serve --health --json`
-- `pending_add_json` — Create a Draft Pending item: `alln pending add --worker model_opus --when ready --json "Review this patch when Claude is available."`
+- `pending_add_json` — Create a Draft Pending item: `alln pending add --model model_opus --when ready --json "Review this patch when Claude is available."`
 - `pending_list_json` — List Pending items: `alln pending list --json`
 - `boost_window_show_json` — Show Boost window settings: `alln boost-window show --json`
 - `boost_window_set_json` — Enable Boost window for Claude and Codex: `alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex --json`
@@ -1630,7 +1630,7 @@ the selected CLI.
 
 - `effects.repoWrite` is **permission** after selectors resolve — the invocation *may* write and therefore uses write safety. It is not a prediction from prompt prose, and it is not an observed git delta.
 - Terminal `TeamRunJSON.repoDelta` reports whether a mutating run *did* write.
-- Research Teams are observational in the registered repository; they do not use copied files or vendor permission flags. Default Team and explicit `--worker` may be mutating.
+- Research Teams are observational in the registered repository; they do not use copied files or vendor permission flags. Default Team and explicit `--model` may be mutating.
 - Dry-run itself starts no worker and spends no quota; `effects.workerStart` / `effects.quotaSpend` describe the spend twin `nextAction` would run.
 
 ## Observed run timing

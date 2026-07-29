@@ -339,7 +339,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
     }
 
     /// Canonical read-only ask team the docs already reference (the Code lane
-    /// default answer team). Teaching this preserves the caller's `--worker`/`--effort`
+    /// default answer team). Teaching this preserves the caller's `--model`/`--effort`
     /// selectors while swapping to a team that is read-only by construction.
     static let readOnlyAnswerTeamId = "code_plan"
 
@@ -365,7 +365,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
             resolvedTeamId: answerTeam.id
         )
         let command = Self.shellJoin(altArgv)
-        let warning = "writePolicy is mutating because a bare prompt ask (Default Team / explicit --worker) is mutating-allowed. For a mechanical read-only guarantee, run an answer team instead — e.g. `--team \(answerTeam.id)` — which is read-only by construction and preserves your selectors. See `alternatives`."
+        let warning = "writePolicy is mutating because a bare prompt ask (Default Team / explicit --model) is mutating-allowed. For a mechanical read-only guarantee, run an answer team instead — e.g. `--team \(answerTeam.id)` — which is read-only by construction and preserves your selectors. See `alternatives`."
         let alternative = RunDryRunJSON.Alternative(
             kind: "readOnlyAnswerTeam",
             label: "Run as a read-only answer team (\(answerTeam.displayName))",
@@ -494,7 +494,7 @@ public enum RunInvocationResolver {
             }
         } else {
             // Unified Run Model: no `--team` → Default Team, even when `--lane` /
-            // `--worker` / `--type` are present (lane is context; type is Copy sugar
+            // `--model` / `--type` are present (lane is context; type is Copy sugar
             // only with an explicit team). Matches RunService.run.
             guard let team = TeamCatalog.defaultRunTeam()
                     ?? context.teams.first(where: { $0.id == "default_chat" }) else {
@@ -621,7 +621,7 @@ public enum RunInvocationResolver {
                 blockedSeatCount = 1
             }
         } else if explicitWorkerChosen, let pinnedId = workerId {
-            // Answer team + --worker → single pinned seat (matches RunService.runAnswer).
+            // Answer team + --model → single pinned seat (matches RunService.runAnswer).
             let skillId = teamResolved.answerWorkers.first?.skillId
             seats = [
                 ResolvedRunSeat(
@@ -723,7 +723,7 @@ public enum RunInvocationResolver {
         context: RunInvocationResolveContext
     ) -> Result<Model, RunServiceError> {
         switch ExactIdResolver.resolveWorker(
-            id, flag: "--worker", models: context.models, readyModelIds: context.readyModelIds
+            id, flag: "--model", models: context.models, readyModelIds: context.readyModelIds
         ) {
         case .failure(let failure):
             return .failure(.workerNotAvailable(failure.message))
@@ -813,7 +813,7 @@ public enum RunInvocationResolver {
             argv.append(contentsOf: ["--seat", seat])
         }
         if let worker = resolvedWorkerId ?? flags.workerId, !worker.isEmpty {
-            argv.append(contentsOf: ["--worker", worker])
+            argv.append(contentsOf: ["--model", worker])
         }
         if let effort = flags.effort {
             argv.append(contentsOf: ["--effort", effort.rawValue])

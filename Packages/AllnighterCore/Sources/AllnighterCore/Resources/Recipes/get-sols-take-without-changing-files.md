@@ -28,7 +28,7 @@ alln menu --json
 Paste-ready Codex Sol review (`--project` required; `--no-commit` reinforces no commit):
 
 ```bash
-alln run --project <id|path> --worker model_chatgpt --lane code --no-commit --stream \
+alln run --project <id|path> --model model_chatgpt --lane code --no-commit --stream \
   "Read-only review of <path/to/Doc_A.md> and <path/to/Doc_B.md>. Do not edit files. Return findings only."
 ```
 

@@ -19,6 +19,11 @@ public enum RetiredVocabulary {
         "fanout",
         "council",
         "judge panel",
+        "--worker",
+        "--dev-worker",
+        "--pm-worker",
+        "alln project workers",
+        "edit worker",
         // Invented MCP / dry-run grammar
         "dryrun",
         "dryRun",
@@ -63,6 +68,13 @@ public enum RetiredVocabulary {
         // it can never be re-taught in prose/next-actions; still fine as a
         // discovery-only HelpTopic alias pointing callers at the real flag.
         "--detach",
+        // Worker vocabulary retirement (2026-07-28): roster seats are agents; CLI pin is --model.
+        "--worker",
+        "--dev-worker",
+        "--pm-worker",
+        "edit worker",
+        "alln project workers",
+        "project recheck-workers",
     ]
 
     /// Underscore tool ids that must never appear as callable ids in agent-visible
@@ -108,6 +120,8 @@ public enum RetiredVocabulary {
         "alln team show",
         "alln team preflight",
         "alln team start",
+        "alln run --worker",
+        "alln project workers",
     ]
     /// END livingDocDenyPatterns
 

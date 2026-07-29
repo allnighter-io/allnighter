@@ -1,7 +1,7 @@
 import Foundation
 
 /// MR-S04 — one honor-or-fail choke point for every explicit identifier selector
-/// (`--worker`, `--team`, `--dev-worker`, panel `--team` / `--seat`, …).
+/// (`--model`, `--team`, `--dev-model`, panel `--team` / `--seat`, …).
 ///
 /// Canonical ids only. Display names and fuzzy matches never authorize dispatch.
 /// Unknown values return same-kind candidates + a paste-ready discovery command;
@@ -60,12 +60,12 @@ public enum ExactIdResolver {
         }
     }
 
-    // MARK: - Workers (`--worker`, `--dev-worker`, …)
+    // MARK: - Workers (`--model`, `--dev-model`, …)
 
     /// Honor an exact model id, or fail closed. Never matches `displayName`.
     public static func resolveWorker(
         _ raw: String,
-        flag: String = "--worker",
+        flag: String = "--model",
         models: [Model],
         readyModelIds: Set<String>? = nil
     ) -> Result<Model, Failure> {

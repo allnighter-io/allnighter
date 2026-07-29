@@ -6,7 +6,7 @@ import Foundation
 /// never hand-maintained one-off aliases alone.
 public enum HelpDiscoveryIndex {
     /// Topic that documents models, teams, and workers.
-    public static let discoveryTopicId = "teams_and_workers"
+    public static let discoveryTopicId = "teams_agents_and_skills"
 
     /// Terms too generic to own a catalog alias (would hijack ordinary help queries).
     private static let genericTerms: Set<String> = [

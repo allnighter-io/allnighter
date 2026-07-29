@@ -93,7 +93,7 @@ public enum ContractDocs {
         line()
         line("- `effects.repoWrite` is **permission** after selectors resolve — the invocation *may* write and therefore uses write safety. It is not a prediction from prompt prose, and it is not an observed git delta.")
         line("- Terminal `TeamRunJSON.repoDelta` reports whether a mutating run *did* write.")
-        line("- Research Teams are observational in the registered repository; they do not use copied files or vendor permission flags. Default Team and explicit `--worker` may be mutating.")
+        line("- Research Teams are observational in the registered repository; they do not use copied files or vendor permission flags. Default Team and explicit `--model` may be mutating.")
         line("- Dry-run itself starts no worker and spends no quota; `effects.workerStart` / `effects.quotaSpend` describe the spend twin `nextAction` would run.")
         line()
 

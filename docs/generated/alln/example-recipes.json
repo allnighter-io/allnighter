@@ -120,7 +120,7 @@
     "title" : "Coordinator health"
   },
   {
-    "command" : "alln pending add --worker model_opus --when ready --json \"Review this patch when Claude is available.\"",
+    "command" : "alln pending add --model model_opus --when ready --json \"Review this patch when Claude is available.\"",
     "id" : "pending_add_json",
     "title" : "Create a Draft Pending item"
   },

@@ -348,7 +348,7 @@ public enum MenuSelectionCopy {
     private static let recipes: [String: Pair] = [
         "ask-several-models-and-compare": Pair(
             useWhen: "Parallel options, multi-seat team",
-            dontUseWhen: "Not one worker; run --worker"
+            dontUseWhen: "Not one worker; run --model"
         ),
         "challenge-this-decision-before-i-commit": Pair(
             useWhen: "Blind-jury a decision pre-commit",
@@ -356,11 +356,11 @@ public enum MenuSelectionCopy {
         ),
         "get-another-model-to-implement-this": Pair(
             useWhen: "You PM; a model builds (Pilot)",
-            dontUseWhen: "Not single ask; run --worker"
+            dontUseWhen: "Not single ask; run --model"
         ),
         "get-sols-take-without-changing-files": Pair(
             useWhen: "Read-only Sol ask; no file changes",
-            dontUseWhen: "Not multi-seat; --worker model_chatgpt"
+            dontUseWhen: "Not multi-seat; --model model_chatgpt"
         ),
         "keep-working-while-im-away": Pair(
             useWhen: "Unattended PM↔dev relay loop",

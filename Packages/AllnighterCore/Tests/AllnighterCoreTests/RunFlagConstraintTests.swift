@@ -19,7 +19,7 @@ final class RunFlagConstraintTests: XCTestCase {
     func testRunDeclaresSeatFlagAndConstraints() {
         XCTAssertTrue(run.flags.contains { $0.name == "seat" })
         let groups = Set(run.mutuallyExclusiveFlags.map { Set($0) })
-        XCTAssertTrue(groups.contains(["worker", "seat"]))
+        XCTAssertTrue(groups.contains(["model", "seat"]))
         let kinds = Dictionary(uniqueKeysWithValues: run.flagConstraints.map { ($0.subject, $0) })
         XCTAssertEqual(kinds["seat"]?.kind, .requires)
         XCTAssertEqual(kinds["seat"]?.peers, ["team"])
@@ -36,7 +36,7 @@ final class RunFlagConstraintTests: XCTestCase {
     }
 
     func testWorkerSeatMutuallyExclusive() {
-        let err = constraintError(for: ["probe", "--worker", "model_chatgpt", "--seat", "model_grok"])
+        let err = constraintError(for: ["probe", "--model", "model_chatgpt", "--seat", "model_grok"])
         XCTAssertNotNil(err)
         XCTAssertTrue(err?.message.contains("mutually exclusive") == true)
     }
@@ -205,7 +205,7 @@ final class RunFlagConstraintTests: XCTestCase {
             ["probe", "--retry-of", "run_x", "--accept-survivors"],
             ["probe", "--no-commit"],
             ["probe", "--commit-message", "ship"],
-            ["probe", "--dry-run", "--worker", "model_sonnet", "--team", "code_bug_hunt", "--effort", "high"],
+            ["probe", "--dry-run", "--model", "model_sonnet", "--team", "code_bug_hunt", "--effort", "high"],
             ["probe", "--no-wait"],
             ["probe", "--no-wait", "--json"],
         ]

@@ -118,8 +118,8 @@ public enum HelpTopicRegistry {
             first — choose from useWhen/dontUseWhen and pass canonical ids only. Do not invent flags.
 
             Verb tree:
-            - `alln run` — single worker / chat / named-model ask in the project root \
-            (Default Team). One message; optional `--worker` or `--team`.
+            - `alln run` — single agent / chat / named-model ask in the project root \
+            (Default Team). One message; optional `--model` or `--team`.
             - `alln run --team <id>` — multi-seat team in the project root.
             - `alln run` — foreground Team run in the registered repository by default; \
             add `--no-wait` to return immediately and poll `alln run resume <id> --json`.
@@ -135,10 +135,10 @@ public enum HelpTopicRegistry {
                       "run vs team", "thread send", "command selection", "first contact",
                       "when to use run", "when to use team",
                       "ask a model", "which model", "resolve intent", "route", "resolve",
-                      "intent", "ask sonnet", "which worker"],
+                      "intent", "ask sonnet", "which model"],
             sections: [
                 .init("when-unsure", "When unsure", "Call `alln menu --json` before picking a verb."),
-                .init("run", "alln run", "Single worker / chat / named-model ask in the project root."),
+                .init("run", "alln run", "Single agent / chat / named-model ask in the project root."),
                 .init("run-team", "alln run --team", "Run the selected Team in the registered repository."),
                 .init("thread", "alln thread send", "Continue a work thread with `alln thread send`."),
                 .init("pending", "Pending", "Defer with `alln pending add`; execute later with `alln pending run`."),
@@ -181,7 +181,7 @@ public enum HelpTopicRegistry {
             that field over hunting `workerAnswers` or plan markdown.
 
             `alln run` does not expose `--temperature` or `--max-tokens`. Alln drives \
-            subscription CLIs; use `--effort`, `--worker`, and each driver's supported controls.
+            subscription CLIs; use `--effort`, `--model`, and each driver's supported controls.
             """,
             aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt",
                       "custom seats", "staff models once", "one-off team", "temporary team",
@@ -196,11 +196,11 @@ public enum HelpTopicRegistry {
                       "no-wait", "background run", "detach", "idempotency", "retry safely"],
             sections: [
                 .init("preflight", "Dry-run first", "Call `alln run --dry-run` before a foreground run so a bad lineup fails before quota is spent."),
-                .init("explicit-seats", "One-off crew staffing", "`alln run --team <built-in> --seat <model_id> --seat …` staffs crew seats in order without writing the catalog. Lead and scout stay on the Team. Mutating teams still use `--worker`."),
+                .init("explicit-seats", "One-off crew staffing", "`alln run --team <built-in> --seat <model_id> --seat …` staffs crew seats in order without writing the catalog. Lead and scout stay on the Team. Mutating teams still use `--model`."),
                 .init("write-policy", "Observation vs outcome", "`effects.repoWrite` means the resolved invocation may write. Research Teams are observational; terminal `repoDelta` reports whether a mutating run did write, and `researchGitObservation.changed` flags a read-only run that unexpectedly changed Git state (files are never reset)."),
                 .init("timing", "Observed timing", "`queueMs` / `ttftMs` / `durationMs` / `outcome.timing.wallMs` are recorded clocks. Null means unreported. Do not invent an orchestration tax by subtracting duration from wall."),
                 .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` on `run`."),
-                .init("vendor-controls", "Vendor CLI controls", "No `--temperature` / `--max-tokens` on `alln run`. Use `--effort`, `--worker`, and the selected subscription CLI's own supported flags."),
+                .init("vendor-controls", "Vendor CLI controls", "No `--temperature` / `--max-tokens` on `alln run`. Use `--effort`, `--model`, and the selected subscription CLI's own supported flags."),
                 .init("polling", "Polling", "Poll `alln team result` using the returned `nextPollAfterMs`; do not busy-loop."),
                 .init("no-wait", "Detached runs", "`alln run --no-wait` prints a run id at dispatch and returns immediately; `alln run resume <id> --json` attaches once the run settles. `--idempotency-key` is the explicit, deliberate retry-safety contract — it is opt-in, not derived, so two intentionally identical runs are never silently collapsed into one."),
             ],
@@ -256,9 +256,9 @@ public enum HelpTopicRegistry {
                 .init("gate", "Handover safety", "Every continue verdict's handover passes a danger scan before the dev seat ever sees it. Danger blocks and escalates; mere doubt does not block."),
                 .init("ceilings", "Stopping", "`--until HH:MM`, `--max-rounds`, and a stagnation cap (repeated no-change rounds) are hard stops — the relay always ends on done, escalate, or a ceiling."),
                 .init("resume", "Escalation is not failure", "An escalated relay is a real question for the founder, not an error. `alln pair relay-resume` injects the answer and the loop continues from there."),
-                .init("pilot", "Pilot: you hold the PM seat", "`pair pilot start|handoff|status|watch` — no `--pm-worker` (there is no PM model) and no `--until` (no clock). Long jobs: `handoff --no-wait` then poll `status` (watch optional/disposable). Orphan owner → inspect, never blind retry. `handoff` is the only mutation boundary: a parse failure or a gate block never escalates in Pilot, it just leaves the relay `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the relay exactly like a spawned round."),
-                .init("adopt", "Adopt: hand the SAME relay to a spawned PM (unattended)", "Pilot the first rounds yourself while context is hot, then `alln pair relay adopt --relay <id> --pm-worker <id>` converts a parked Pilot relay (`awaitingPM` or `escalated`) to a spawned PM relay and keeps going from the durable round log — same id, same rounds, same thread; the first spawned turn is told, once, that earlier rounds were externally piloted. `--max-rounds`/`--until` behave like a spawned run, and the round ceiling counts the piloted rounds too — an honest total, not a fresh budget. The reverse flip, `alln pair pilot adopt --relay <id>`, hands a parked spawned relay (escalated, or ceiling-stopped) back to Pilot — a plain state flip, no dispatch."),
-                .init("golden", "Golden paths (day one)", "Attended: `alln menu --json` → `alln team run` or `alln run` → `alln artifact show`. Unattended: `alln pair relay --doc …` → `alln pair relay-status --relay <id> --json` (or wait for a macOS notification). Status reads reconcile dead owners automatically — no manual `team reconcile` on the happy path. Default `alln ps` shows the alive floor; `alln ps --all` is history."),
+                .init("pilot", "Pilot: you hold the PM seat", "`pair pilot start|handoff|status|watch` — no `--pm-model` (there is no PM model) and no `--until` (no clock). Long jobs: `handoff --no-wait` then poll `status` (watch optional/disposable). Orphan owner → inspect, never blind retry. `handoff` is the only mutation boundary: a parse failure or a gate block never escalates in Pilot, it just leaves the relay `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the relay exactly like a spawned round."),
+                .init("adopt", "Adopt: hand the SAME relay to a spawned PM (unattended)", "Pilot the first rounds yourself while context is hot, then `alln pair relay adopt --relay <id> --pm-model <id>` converts a parked Pilot relay (`awaitingPM` or `escalated`) to a spawned PM relay and keeps going from the durable round log — same id, same rounds, same thread; the first spawned turn is told, once, that earlier rounds were externally piloted. `--max-rounds`/`--until` behave like a spawned run, and the round ceiling counts the piloted rounds too — an honest total, not a fresh budget. The reverse flip, `alln pair pilot adopt --relay <id>`, hands a parked spawned relay (escalated, or ceiling-stopped) back to Pilot — a plain state flip, no dispatch."),
+                .init("golden", "Golden paths (day one)", "Attended: `alln menu --json` → `alln run` → `alln artifact show`. Unattended: `alln pair relay --doc …` → `alln pair relay-status --relay <id> --json` (or wait for a macOS notification). Status reads reconcile dead owners automatically — no manual `team reconcile` on the happy path. Default `alln ps` shows the alive floor; `alln ps --all` is history."),
                 .init("notify", "You do not have to watch", "Dispatching `pair pilot handoff`, `pair relay`, `pair relay-resume`, or `pair relay adopt` auto-starts `alln serve` in the background (silent, opt out with `--no-auto-serve` or `ALLN_NO_AUTO_SERVE`). When the round lands or escalates — even with the Mac app closed and the CLI session that dispatched it long gone — a local notification fires: \"PM Relay needs an answer\" on escalation, or the normal completion notice when it settles. Stream silence on a running relay also notifies when worker output stalls. Neither you nor the human has to poll `pilot status` or build a watcher for this; `alln serve` already knows."),
                 .init("survive", "The round outlives your session", "`--no-wait` on `pair relay` / `pair relay-resume` / `pair relay adopt` dispatches, then returns immediately — poll `alln pair relay-status --relay <id> --json` for progress. A killed caller is not a killed relay: the round keeps advancing under its own process. A second dispatch against an already-active relay is refused with `RELAY_ALREADY_ACTIVE`, not raced onto the same doc."),
             ],
@@ -276,10 +276,10 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
-            id: "teams_and_workers", title: "Teams, Workers & Skills", audience: .both,
-            summary: "Teams are lane-scoped rosters of workers (a model + skill); skills are shared instruction profiles.",
+            id: "teams_agents_and_skills", title: "Teams, Agents & Skills", audience: .both,
+            summary: "Teams are lane-scoped rosters of agents (model + skill); skills are shared instruction profiles.",
             bodyMarkdown: """
-            A team is a lane-scoped roster of workers, each a model running a skill. \
+            A team is a lane-scoped roster of agents — each agent is a model wearing a skill. \
             Built-in teams and skills edit in place at the same id — use \
             `teams restore` / `skills restore` to drop overrides and reveal shipped seeds. \
             Customize a shipped team with `teams duplicate` → `teams definition` → \
@@ -288,18 +288,19 @@ public enum HelpTopicRegistry {
             duplicating. Create a novel manifest with \
             `teams definition` (or a hand-authored TeamPreset) → `teams new`. \
             Skills are shared `skill.md` bodies — edit with `alln skills edit <id>` or \
-            **Settings → Teams → edit worker** (no separate Skills settings page). \
+            **Settings → Teams → Edit skill** (no separate Skills settings page). \
             Editing an existing skill updates every team that references that id; \
-            `skills duplicate` mints an explicit new id. List and inspect with \
+            `skills duplicate` mints an explicit new id. Pin a single model on a run with \
+            `alln run --model <model_id>`. List and inspect with \
             `alln teams`, `alln skills`, and `alln models`; purge orphans with \
             `alln skills gc`. The Default Team (Auto) is the no-pick route. Looking for a \
             model or vendor by natural-language name? Use `alln menu --json` \
             — do not stop at a models/teams list miss.
             """,
             aliases: [
-                "teams", "workers", "skills", "roster", "catalog", "which model", "ask a model",
+                "teams", "agents", "skills", "roster", "catalog", "which model", "ask a model",
                 "create team", "custom team",
-                "edit skill", "shared skill", "restore skill", "skill.md", "worker skill",
+                "edit skill", "shared skill", "restore skill", "skill.md",
                 // ADP-S04: task-verb phrasing a caller actually types for team authoring
                 // must outrank the generic "team" overlap with team_run_loop (running a
                 // team), which otherwise wins ties on every bare "team" query.
@@ -353,16 +354,16 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "projects_and_threads", title: "Projects & Threads", audience: .both,
-            summary: "Projects bind a repo root; threads are the work conversations inside a project; `alln project workers` shows readiness.",
+            summary: "Projects bind a repo root; threads are the work conversations inside a project; `alln project models` shows readiness.",
             bodyMarkdown: """
             A project binds a local repo root. Work threads are the conversations bound to a \
             project. List projects with `alln project list`, read one with `alln project show`, \
             generate a context packet with `alln project context`, and check cached \
-            per-project worker readiness with `alln project workers`. Threads carry the \
+            per-project worker readiness with `alln project models`. Threads carry the \
             back-and-forth and the runs (`alln thread send` / `alln thread get`).
             """,
             aliases: ["project", "repo", "thread", "threads", "conversation"],
-            relatedCommandNames: ["project list", "project show", "project context", "project workers",
+            relatedCommandNames: ["project list", "project show", "project context", "project models",
                                   "thread send", "thread get", "thread rename", "stalled list"],
             schemaRefs: ["projectJSON", "projectListJSON", "projectContextJSON", "threadStatus"],
             errorRefs: ["PROJECT_NOT_FOUND"],

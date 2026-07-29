@@ -512,13 +512,13 @@ public struct PendingService: Sendable {
         let preferred = try primary.map { try resolveWorkerId($0) }.map { [$0] } ?? []
         let fb = try fallbacks.map { try resolveWorkerId($0) }
         if preferred.isEmpty && fb.isEmpty {
-            throw PendingServiceError.invalidWorker("no worker specified; use --worker")
+            throw PendingServiceError.invalidWorker("no worker specified; use --model")
         }
         return ResolvedWorkers(preferred: preferred.isEmpty ? (fb.first.map { [$0] } ?? []) : preferred, fallbacks: fb)
     }
 
     private func resolveWorkerId(_ token: String) throws -> String {
-        switch ExactIdResolver.resolveWorker(token, flag: "--worker", models: models) {
+        switch ExactIdResolver.resolveWorker(token, flag: "--model", models: models) {
         case .success(let model):
             return model.id
         case .failure(let failure):

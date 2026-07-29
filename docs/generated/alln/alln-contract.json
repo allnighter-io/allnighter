@@ -894,7 +894,7 @@
           "valueType" : "path[:start-end]"
         },
         {
-          "name" : "worker",
+          "name" : "model",
           "summary" : "Requested worker\/model id.",
           "takesValue" : true,
           "valueType" : "string"
@@ -2181,7 +2181,7 @@
           "valueType" : "id"
         },
         {
-          "name" : "worker",
+          "name" : "model",
           "summary" : "Override worker model id.",
           "takesValue" : true,
           "valueType" : "id"
@@ -2360,7 +2360,7 @@
           "commit-message"
         ],
         [
-          "worker",
+          "model",
           "seat"
         ],
         [
@@ -2496,13 +2496,13 @@
           "valueType" : "id"
         },
         {
-          "name" : "pm-worker",
+          "name" : "pm-model",
           "summary" : "PM seat model id (required).",
           "takesValue" : true,
           "valueType" : "id"
         },
         {
-          "name" : "dev-worker",
+          "name" : "dev-model",
           "summary" : "Dev seat model id (required).",
           "takesValue" : true,
           "valueType" : "id"
@@ -2687,7 +2687,7 @@
           "valueType" : "id"
         },
         {
-          "name" : "pm-worker",
+          "name" : "pm-model",
           "summary" : "The spawned PM seat's model id (required).",
           "takesValue" : true,
           "valueType" : "id"
@@ -2762,7 +2762,7 @@
           "valueType" : "id"
         },
         {
-          "name" : "dev-worker",
+          "name" : "dev-model",
           "summary" : "Dev seat model id or alias (optional when a seat was remembered for this project).",
           "takesValue" : true,
           "valueType" : "id|alias"
@@ -3484,7 +3484,7 @@
           "valueType" : "path"
         },
         {
-          "name" : "worker",
+          "name" : "model",
           "summary" : "Target worker model id.",
           "takesValue" : true,
           "valueType" : "id"
@@ -3718,7 +3718,7 @@
           "valueType" : "path"
         },
         {
-          "name" : "worker",
+          "name" : "model",
           "summary" : "Target worker model id.",
           "takesValue" : true,
           "valueType" : "id"
@@ -4468,7 +4468,7 @@
       "mutuallyExclusiveFlags" : [
 
       ],
-      "name" : "project workers",
+      "name" : "project models",
       "outputSchema" : "projectWorkersJSON",
       "spendsQuota" : false,
       "summary" : "Show cached per-project worker readiness (read-only; never probes).",
@@ -4507,7 +4507,7 @@
       "mutuallyExclusiveFlags" : [
 
       ],
-      "name" : "project recheck-workers",
+      "name" : "project recheck-models",
       "outputSchema" : "projectWorkersJSON",
       "spendsQuota" : false,
       "summary" : "Rerun driver-declared safe probes for a project and refresh the readiness cache. No auto-config\/auth.",
@@ -5353,7 +5353,7 @@
       "agentAction" : "Run `alln menu --json` (or `alln menu show model:<id>`); pass a canonical model_* id. Never substitute a display name.",
       "code" : "WORKER_NOT_AVAILABLE",
       "exitClass" : "operational",
-      "explain" : "An explicit `--worker` \/ `--dev-worker` request named a model that is disabled, notReady, unknown, or a display name. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10 \/ Menu_Not_Router MR-S04).",
+      "explain" : "An explicit `--model` \/ `--dev-model` request named a model that is disabled, notReady, unknown, or a display name. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10 \/ Menu_Not_Router MR-S04).",
       "requiresManual" : true,
       "retryable" : true,
       "ruleId" : "run.worker_not_available"
@@ -6214,7 +6214,7 @@
       "ruleId" : "thread.unassigned"
     },
     {
-      "agentAction" : "Run `alln project workers <id> --json`; open the CLI in the project folder and complete its trust\/login, then recheck.",
+      "agentAction" : "Run `alln project models <id> --json`; open the CLI in the project folder and complete its trust\/login, then recheck.",
       "code" : "WORKER_NOT_READY_IN_PROJECT",
       "exitClass" : "operational",
       "explain" : "The target worker's project readiness is not `ready` for this root. The run waits until the worker is ready here.",
@@ -6560,7 +6560,7 @@
       "title" : "Coordinator health"
     },
     {
-      "command" : "alln pending add --worker model_opus --when ready --json \"Review this patch when Claude is available.\"",
+      "command" : "alln pending add --model model_opus --when ready --json \"Review this patch when Claude is available.\"",
       "id" : "pending_add_json",
       "title" : "Create a Draft Pending item"
     },

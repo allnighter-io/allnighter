@@ -132,7 +132,7 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
     case executionLaneBusy(String)
     case teamResolution(String, code: String)
     case noWorker(String)
-    /// Explicit `--worker` / `--dev-worker` could not be honored (PO-F10).
+    /// Explicit `--model` / `--dev-model` could not be honored (PO-F10).
     case workerNotAvailable(String)
     /// The acceptance journal write failed — the run id never became durable,
     /// so acceptance is refused (RLR-L2: no id without a pollable journal).
@@ -284,7 +284,7 @@ public actor RunService {
     /// PO-F10 / MR-S04: honor an explicit worker id or fail with `WORKER_NOT_AVAILABLE`.
     /// Never returns a substitute model. Display names fail closed via ExactIdResolver.
     public func resolveExplicitWorker(_ id: String) -> Result<Model, RunServiceError> {
-        switch ExactIdResolver.resolveWorker(id, flag: "--worker", models: models, readyModelIds: Set(sourceReadyModelIds())) {
+        switch ExactIdResolver.resolveWorker(id, flag: "--model", models: models, readyModelIds: Set(sourceReadyModelIds())) {
         case .failure(let failure):
             return .failure(.workerNotAvailable(failure.message))
         case .success(let m):
@@ -733,9 +733,9 @@ public actor RunService {
         let effectiveWorkerId = invocation.workerId
         let explicitTeamChosen = invocation.explicitTeamChosen
         let laneContextOnly = request.lane != nil && !(request.workerId ?? "").isEmpty
-        // ADP-S01: the explicit `--worker` selection, canonicalized to the resolved
+        // ADP-S01: the explicit `--model` selection, canonicalized to the resolved
         // id so a `reproduceCommand` replay resolves to the same seat. Nil when the
-        // worker was default-team/Auto resolved (no explicit `--worker`).
+        // worker was default-team/Auto resolved (no explicit `--model`).
         let explicitWorkerIds: [String]? = invocation.explicitWorkerChosen
             ? (effectiveWorkerId.map { [$0] } ?? request.workerId.map { [$0] })
             : nil
@@ -1203,7 +1203,7 @@ public actor RunService {
                 )
                 model = m
             } else {
-                // PO-F10: explicit --worker / --dev-worker is honored or fails LOUD — never
+                // PO-F10: explicit --model / --dev-model is honored or fails LOUD — never
                 // silently substitute a different model when the named id is disabled,
                 // notReady, or unknown.
                 switch resolveExplicitWorker(override) {
@@ -1966,7 +1966,7 @@ public actor RunService {
             }
         }
 
-        // AE-S03 / PO-F10: explicit --worker on the answer path is honored or fails
+        // AE-S03 / PO-F10: explicit --model on the answer path is honored or fails
         // loud — never accepted into the idempotency payload and then dropped.
         if let override = workerOverride, !override.isEmpty {
             switch resolveExplicitWorker(override) {

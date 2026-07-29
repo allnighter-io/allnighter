@@ -20,7 +20,7 @@ paths.
 | **Chat** | The default turn surface inside a Project — a run of the Default Team. |
 | **Delegate** | Hand intent to a team. UI label: **Send to team** (retired: Fan out). |
 | **Execute** | Authorize a make-real / mutating send. **Not** a composer mode. |
-| **Team** | The actor noun — the worker lineup you send to. |
+| **Team** | The actor noun — the agent lineup you send to. |
 | **Crafts** | **Code · Design · Copy** (+ **Signal** scout). Code was: Build. |
 | **Signal** | Repo-aware scout: outside → insights (not “move cards”). |
 | **Project** | Local repo/folder floor where work happens. |
@@ -31,12 +31,11 @@ paths.
 
 One primitive: **run a team** (a solo agent is a team of one). A team carries
 `craft` + `mutating:bool`. No approval gate on mutating runs — `RunService`
-executes once the team resolves to one worker. Workers **implement** inside a
-run (internal word; not user-facing).
+executes once the team resolves to one agent seat.
 
 Retired ceremony (do not revive): propose → approve → dispatch → verify as a
 separate Project Manager spine; posture enum `propose|review|execute|scout` as
-product gates. Code stages use `WorkerStage` without an approval concept.
+product gates.
 
 ## Team model nouns
 
@@ -45,14 +44,29 @@ product gates. Code stages use `WorkerStage` without an approval concept.
 | **Source** | How Allnighter reaches a model (CLI/runtime). Setup/internal. |
 | **Execution source** | The single source/driver that owns a mutating run. |
 | **Bench** | Models the user has available. |
-| **Model** | Recognizable AI identity (Opus, Grok, …). User-facing roster noun: **Agent** — a model staffed on a team. |
-| **Skill** | Hat / instruction profile a model wears. Shared by `skillId` across teams; the editable body is **skill.md** (the `template` field in catalog JSON). Same-ID overrides edit in place; **Restore** drops the override. Drill-in title: **Edit skill**. |
-| **Worker** | Internal/runtime only: one model + skill for this dispatch (staffing row on a team). **Retired** from Mac UI copy — say **agent** on the roster, **skill** in the drill-in. |
+| **Model** | Recognizable AI identity (Opus, Grok, …). CLI pin: `--model <model_id>`. |
+| **Agent** | A staffed roster row: one **model** wearing one **skill** on a team. Count plural: **agents** (not models — four Auto seats are four agents, not four models). |
+| **Skill** | Hat / instruction profile a model wears. Shared by `skillId` across teams; the editable body is **skill.md** (the `template` field in catalog JSON). Same-ID overrides edit in place; **Restore** drops the override. Mac drill-in: **Edit skill**. |
 | **Type** | Optional subtype metadata inside a craft; not a Send-to-team selector. |
-| **Reasoning effort** | Per-worker model reasoning (`low|med|high` when supported). Never changes lineup, depth, or flavor. |
-| **TeamPreset** | Saved team definition (lane, workers, synthesis policy). UI says Team. |
+| **Reasoning effort** | Per-agent model reasoning (`low|med|high` when supported). Never changes lineup, depth, or flavor. |
+| **TeamPreset** | Saved team definition (lane, agents, synthesis policy). UI says Team. |
 
-Shortcut: *Model at rest. Model at work.*
+**Retired (user-facing):** **Worker** — do not use in GUI, CLI flags, help, or
+docs. Internal/runtime identifiers (`workerId`, `workers[]`, `TeamWorkerSpec`)
+may remain in machine JSON until a schema cutover; never teach them to humans.
+
+Shortcut: *Model at rest. Agent at work (model + skill).*
+
+### CLI pins (no aliases)
+
+| Flag | Meaning |
+| --- | --- |
+| `--model` | Pin which model runs (`alln run`, `alln thread send`, `alln pending add`, …). |
+| `--dev-model` / `--pm-model` | Relay/pilot seat model ids. |
+| `--seat` | Ordered model ids for one-off judgment-team staffing (not a synonym for `--model`). |
+
+Retired flags: `--worker`, `--dev-worker`, `--pm-worker`. Retired commands:
+`alln project workers` → `alln project models`.
 
 ### Execution source gate
 

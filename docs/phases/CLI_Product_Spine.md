@@ -768,9 +768,9 @@ Prerequisites:
 Commands:
 
 ```bash
-alln pending add --project <project> [prompt] [--file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--submit] [--json]
+alln pending add --project <project> [prompt] [--file <path>] [--model <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--submit] [--json]
 alln pending submit <pending-id> [--json]
-alln pending edit <pending-id> [--prompt <text> | --file <path>] [--worker <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--json]
+alln pending edit <pending-id> [--prompt <text> | --file <path>] [--model <id>] [--team <id>] [--fallback <id>] [--when ready|away|manual] [--json]
 alln pending reorder <pending-id> [--before <pending-id> | --after <pending-id> | --position <n>] [--json]
 alln pending list (--project <project> | --all) [--json]
 alln pending show <pending-id> [--json]
@@ -784,9 +784,9 @@ Works Test:
 
 ```bash
 alln serve
-alln pending add --project Allnighter --worker model_opus --when ready --json "Review this patch when Claude is available."
+alln pending add --project Allnighter --model model_opus --when ready --json "Review this patch when Claude is available."
 alln pending submit <pending-id> --json
-alln pending add --project Allnighter --submit --worker model_opus --when ready --json "Continue security review."
+alln pending add --project Allnighter --submit --model model_opus --when ready --json "Continue security review."
 alln pending reorder <pending-id> --before <other-pending-id> --json
 alln pending list --project Allnighter --json
 alln pending list --all --json

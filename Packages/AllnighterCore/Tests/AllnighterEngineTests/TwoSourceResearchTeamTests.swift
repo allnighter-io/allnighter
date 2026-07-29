@@ -241,7 +241,7 @@ final class TwoSourceResearchTeamTests: XCTestCase {
     /// from its own declaration, so a third ready model — even one placed first in
     /// the default tier — is never consulted. It does NOT prove the auto-selection
     /// substitution policy: `SubstitutionResolver` is reached only for the default
-    /// team route and for an explicit `--worker`, never for a `presetId` run, so
+    /// team route and for an explicit `--model`, never for a `presetId` run, so
     /// `allowHealthySubstitutions` is inert on this path by construction.
     /// Reseat-on-failure is covered by `BenchReadinessAndSeatReseatTests`.
     func testExplicitlySelectedRosterIgnoresOtherReadyBenchModels() async throws {

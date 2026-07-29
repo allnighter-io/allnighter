@@ -359,8 +359,8 @@ public enum DoctorReport {
             return .init(
                 name: "pilot",
                 status: .degraded,
-                detail: "pilot cannot start on \(project) — no remembered dev seat (pass `--dev-worker` on first `pilot start`)",
-                fixCommand: "alln pair pilot start --doc <spec> --project \(projectToken(from: pilot)) --dev-worker <seat>",
+                detail: "pilot cannot start on \(project) — no remembered dev seat (pass `--dev-model` on first `pilot start`)",
+                fixCommand: "alln pair pilot start --doc <spec> --project \(projectToken(from: pilot)) --dev-model <seat>",
                 requiresManual: true
             )
         }

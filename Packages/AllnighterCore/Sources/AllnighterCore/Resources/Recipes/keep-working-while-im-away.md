@@ -29,7 +29,7 @@ Pick ready seat ids, then start Relay:
 
 ```bash
 alln models --json
-alln pair relay --doc <path> --project <id|path> --pm-worker <pm-model-id> --dev-worker <dev-model-id> --json
+alln pair relay --doc <path> --project <id|path> --pm-model <pm-model-id> --dev-model <dev-model-id> --json
 ```
 
 Monitor / recover if the terminal is gone (status is also terminal truth):

@@ -629,8 +629,8 @@ public struct ThreadSendCoordinator: Sendable {
 
     private func resolveWorkerId(for thread: WorkThread, requested: String?) -> String? {
         if let requested, !requested.isEmpty {
-            // MR-S04: explicit --worker is honor-or-fail; never fall through to a default.
-            switch ExactIdResolver.resolveWorker(requested, flag: "--worker", models: models) {
+            // MR-S04: explicit --model is honor-or-fail; never fall through to a default.
+            switch ExactIdResolver.resolveWorker(requested, flag: "--model", models: models) {
             case .success(let model):
                 return model.id
             case .failure:

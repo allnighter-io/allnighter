@@ -30,7 +30,7 @@ final class ExactIdResolverTests: XCTestCase {
         ]
     }
 
-    // MARK: --worker
+    // MARK: --model
 
     func testWorkerHonorsExactId() {
         let result = ExactIdResolver.resolveWorker("model_sonnet", models: models())
@@ -42,7 +42,7 @@ final class ExactIdResolverTests: XCTestCase {
         let result = ExactIdResolver.resolveWorker("Sonnet 5", models: models())
         guard case .failure(let failure) = result else { return XCTFail("expected failure") }
         XCTAssertEqual(failure.code, "WORKER_NOT_AVAILABLE")
-        XCTAssertEqual(failure.flag, "--worker")
+        XCTAssertEqual(failure.flag, "--model")
         XCTAssertEqual(failure.provided, "Sonnet 5")
         XCTAssertTrue(failure.message.lowercased().contains("display"))
         XCTAssertFalse(failure.candidates.isEmpty)
@@ -91,7 +91,7 @@ final class ExactIdResolverTests: XCTestCase {
         XCTAssertEqual(failure.discoveryCommand, "alln menu --json")
     }
 
-    // MARK: --dev-worker / panel --seat (via PilotSeatResolver)
+    // MARK: --dev-model / panel --seat (via PilotSeatResolver)
 
     func testDevWorkerHonorsExactId() {
         XCTAssertEqual(

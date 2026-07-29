@@ -92,8 +92,8 @@ public struct ProjectPendingJSON: Codable, Equatable, Sendable {
     }
 }
 
-/// Per-project worker readiness — used by `project workers` (cached) and
-/// `project recheck-workers` (fresh probe). Only the canonical readiness facts;
+/// Per-project worker readiness — used by `project models` (cached) and
+/// `project recheck-models` (fresh probe). Only the canonical readiness facts;
 /// never vendor trust/auth state. `cached` is true for the read path.
 public struct ProjectWorkersJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int

@@ -96,8 +96,8 @@ final class MenuSelectionGradeTests: XCTestCase {
             let valVars = MenuSelectionCopy.templateVariables(in: model.validateTemplate)
             XCTAssertEqual(runVars.subtracting(declared), [], model.id)
             XCTAssertEqual(valVars.subtracting(declared), [], model.id)
-            XCTAssertTrue(model.runTemplate.contains("--worker \(model.id)"), model.id)
-            XCTAssertTrue(model.validateTemplate.contains("--worker \(model.id)"), model.id)
+            XCTAssertTrue(model.runTemplate.contains("--model \(model.id)"), model.id)
+            XCTAssertTrue(model.validateTemplate.contains("--model \(model.id)"), model.id)
             XCTAssertTrue(model.validateTemplate.contains("--dry-run"), model.id)
         }
     }

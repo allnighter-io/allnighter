@@ -116,8 +116,8 @@ public enum MenuCatalog {
                 blockedReason: modelBlockedReason(entry),
                 useWhen: copy.useWhen,
                 dontUseWhen: copy.dontUseWhen,
-                runTemplate: "alln run \"{message}\" --worker \(entry.id) --json",
-                validateTemplate: "alln run \"{message}\" --worker \(entry.id) --dry-run"
+                runTemplate: "alln run \"{message}\" --model \(entry.id) --json",
+                validateTemplate: "alln run \"{message}\" --model \(entry.id) --dry-run"
             )
         }
 
@@ -650,8 +650,8 @@ public enum MenuCatalog {
                 status: entry.status,
                 blockedReason: modelBlockedReason(entry),
                 capabilities: entry.capabilities,
-                runTemplate: "alln run \"{message}\" --worker \(entry.id) --json",
-                validateTemplate: "alln run \"{message}\" --worker \(entry.id) --dry-run"
+                runTemplate: "alln run \"{message}\" --model \(entry.id) --json",
+                validateTemplate: "alln run \"{message}\" --model \(entry.id) --dry-run"
             )
         )
     }

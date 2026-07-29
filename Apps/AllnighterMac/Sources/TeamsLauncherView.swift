@@ -340,7 +340,7 @@ private struct TeamCardTile: View {
                 Divider().overlay(ALColor.borderSubtle)
 
                 HStack(spacing: 8) {
-                    Text(card.mutating ? "1 agent" : "\(card.workerCount) workers")
+                    Text(card.mutating ? "1 agent" : "\(card.agentCount) agents")
                         .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
                     if card.mutating {
                         Text("· mutating").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)

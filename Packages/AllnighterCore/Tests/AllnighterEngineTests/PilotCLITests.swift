@@ -33,13 +33,13 @@ final class PilotCLITests: XCTestCase {
     // MARK: - parseStartConfig
 
     func testParseStartConfigMissingDocThrows() {
-        XCTAssertThrowsError(try PilotCLI.parseStartConfig(["--project", "x", "--dev-worker", "b"])) { error in
+        XCTAssertThrowsError(try PilotCLI.parseStartConfig(["--project", "x", "--dev-model", "b"])) { error in
             XCTAssertEqual(error as? PilotCLI.PilotCLIError, .missingRequired("--doc <path>"))
         }
     }
 
     func testParseStartConfigMissingProjectThrows() {
-        XCTAssertThrowsError(try PilotCLI.parseStartConfig(["--doc", "docs/spec.md", "--dev-worker", "b"])) { error in
+        XCTAssertThrowsError(try PilotCLI.parseStartConfig(["--doc", "docs/spec.md", "--dev-model", "b"])) { error in
             XCTAssertEqual(error as? PilotCLI.PilotCLIError, .missingRequired("--project <id|path>"))
         }
     }
@@ -47,7 +47,7 @@ final class PilotCLITests: XCTestCase {
     func testParseStartConfigUnknownProjectThrowsProjectNotFound() throws {
         let store = makeProjectStore()
         XCTAssertThrowsError(try PilotCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", "does_not_exist", "--dev-worker", "model_dev"],
+            ["--doc", "docs/spec.md", "--project", "does_not_exist", "--dev-model", "model_dev"],
             projectStore: store,
             models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
         )) { error in
@@ -59,7 +59,7 @@ final class PilotCLITests: XCTestCase {
         let store = makeProjectStore()
         try addProject(store)
         XCTAssertThrowsError(try PilotCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", "repo", "--dev-worker", "model_dev", "--max-rounds", "0"],
+            ["--doc", "docs/spec.md", "--project", "repo", "--dev-model", "model_dev", "--max-rounds", "0"],
             projectStore: store,
             models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
         )) { error in
@@ -106,7 +106,7 @@ final class PilotCLITests: XCTestCase {
         let store = makeProjectStore()
         let project = try addProject(store)
         let request = try PilotCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", project.id, "--dev-worker", "model_dev"], projectStore: store,
+            ["--doc", "docs/spec.md", "--project", project.id, "--dev-model", "model_dev"], projectStore: store,
             models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
         )
         let config = request.config
@@ -123,7 +123,7 @@ final class PilotCLITests: XCTestCase {
         let store = makeProjectStore()
         let project = try addProject(store)
         let request = try PilotCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", project.id, "--dev-worker", "model_dev", "--max-rounds", "7"],
+            ["--doc", "docs/spec.md", "--project", project.id, "--dev-model", "model_dev", "--max-rounds", "7"],
             projectStore: store,
             models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
         )
@@ -135,7 +135,7 @@ final class PilotCLITests: XCTestCase {
         let store = makeProjectStore()
         let project = try addProject(store)
         let request = try PilotCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", project.id, "--dev-worker", "model_dev", "--idle-timeout", "900"],
+            ["--doc", "docs/spec.md", "--project", project.id, "--dev-model", "model_dev", "--idle-timeout", "900"],
             projectStore: store,
             models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
         )
@@ -146,7 +146,7 @@ final class PilotCLITests: XCTestCase {
         let store = makeProjectStore()
         try addProject(store)
         XCTAssertThrowsError(try PilotCLI.parseStartConfig(
-            ["--doc", "docs/spec.md", "--project", "repo", "--dev-worker", "model_dev", "--idle-timeout", "0"],
+            ["--doc", "docs/spec.md", "--project", "repo", "--dev-model", "model_dev", "--idle-timeout", "0"],
             projectStore: store,
             models: [Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "claude_code", role: .both)]
         )) { error in

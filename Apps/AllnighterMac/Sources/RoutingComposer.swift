@@ -758,7 +758,7 @@ struct RoutingComposer: View {
             Image(systemName: "person.2").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
             Text(preset.displayName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
             Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
-            Text(teamWorkerLabel(preset)).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
+            Text(teamAgentLabel(preset)).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
         } else if pinnedWorker == nil {
             // Auto: name the mode AND the model it resolves to, so the user can tell
             // they're in Auto and not pinned to that model (founder: "Auto · <model>").
@@ -794,12 +794,11 @@ struct RoutingComposer: View {
         return appModel.composeBench.first { $0.id == id }?.name
     }
 
-    /// A team's honest size: execution teams are one agent; answer teams show their
-    /// worker count.
-    private func teamWorkerLabel(_ preset: TeamPreset) -> String {
+    /// A team's honest size: execution teams are one agent; answer teams show agent count.
+    private func teamAgentLabel(_ preset: TeamPreset) -> String {
         if preset.runShape == .execution { return "1 agent" }
         let n = preset.workerSpecs.count
-        return "\(n) \(n == 1 ? "worker" : "workers")"
+        return "\(n) \(n == 1 ? "agent" : "agents")"
     }
 
     // Round, small, and deliberately not bright-white — a soft circle, not a loud

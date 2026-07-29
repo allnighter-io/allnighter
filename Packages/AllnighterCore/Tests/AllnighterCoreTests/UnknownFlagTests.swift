@@ -38,7 +38,7 @@ final class UnknownFlagTests: XCTestCase {
     func testKnownFlagsStillPass() {
         XCTAssertNil(CLIUsage.validateFlags(args: ["--lane", "code", "--json"], commandName: "teams"))
         XCTAssertNil(CLIUsage.validateFlags(args: ["--json"], commandName: "version"))
-        XCTAssertNil(CLIUsage.validateFlags(args: ["probe", "--project", "/tmp", "--worker", "x"], commandName: "run"))
+        XCTAssertNil(CLIUsage.validateFlags(args: ["probe", "--project", "/tmp", "--model", "x"], commandName: "run"))
     }
 
     func testDryRunAcceptedAfterAE_S04() {

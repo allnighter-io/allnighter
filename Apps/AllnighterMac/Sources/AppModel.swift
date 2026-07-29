@@ -191,7 +191,7 @@ final class AppModel {
 
     var runSummary: String {
         let count = expandedWorkers.count
-        let noun = count == 1 ? "worker" : "workers"
+        let noun = count == 1 ? "agent" : "agents"
         var parts = ["\(count) \(noun)"]
         if let judge = planWriterModel?.displayName {
             parts.append("judge: \(judge)")
@@ -569,7 +569,7 @@ final class AppModel {
         let teams = catalog.filter { $0.lane == lane.workLane }
             .filter { !$0.isLabTeam && TeamVisibility.isEnabled($0.id) }.map { p -> ComposeTeam in
             let n = p.workerSpecs.count
-            let noun = lane == .design ? "mockups" : (lane == .copy ? "versions" : "workers")
+            let noun = lane == .design ? "mockups" : (lane == .copy ? "versions" : "agents")
             return ComposeTeam(id: p.id, name: p.displayName, summary: "\(n) \(noun)",
                                isFavorite: favorites.contains(p.id), lane: lane,
                                isFeatured: BuiltInTeams.team(p.id) != nil)

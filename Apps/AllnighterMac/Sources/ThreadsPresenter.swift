@@ -290,8 +290,8 @@ enum ThreadsPresenter {
     static func bodyText(_ turn: ThreadTurn) -> String? {
         if let text = turn.text, !text.isEmpty { return text }
         switch turn.status {
-        case .failed: return "Worker failed."
-        case .timedOut: return "Worker timed out."
+        case .failed: return "Agent failed."
+        case .timedOut: return "Agent timed out."
         case .cancelled: return "Cancelled."
         default: return nil
         }

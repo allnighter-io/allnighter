@@ -43,7 +43,7 @@ final class ContractRegistryTests: XCTestCase {
             "project list", "project add", "project show", "project archive", "project unarchive",
             "project threads", "project pending", "project stalled", "project context",
             "stalled list", "stalled check", "stalled wait", "stalled dismiss",
-            "project workers", "project recheck-workers",
+            "project models", "project recheck-models",
             "defaults show", "defaults tier", "defaults assign", "defaults unassign",
             "defaults substitutions", "defaults reset",
             "boost-window show", "boost-window set", "boost-window seed",

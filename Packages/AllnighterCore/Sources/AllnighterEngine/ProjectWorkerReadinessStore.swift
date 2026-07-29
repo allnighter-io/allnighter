@@ -4,7 +4,7 @@ import AllnighterCore
 /// PRJ-S07b: Allnighter's own cache of per-Project worker readiness — one JSON
 /// file per project, atomically written. This is the cache the spec allows
 /// ("Allnighter may write its own readiness cache; it must not write vendor
-/// config"). `project workers` reads it; `project recheck-workers` reruns the
+/// config"). `project models` reads it; `project recheck-models` reruns the
 /// declared safe probes and rewrites it. It holds only the canonical
 /// `ProjectWorkerReadiness` facts — never vendor trust/auth state.
 public final class ProjectWorkerReadinessStore: @unchecked Sendable {
