@@ -213,7 +213,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertTrue(outcome.committed)
         XCTAssertEqual(
             outcome.headline,
-            "agent model_grok · lane code · mutating · committed 2c07ad4: 11 files")
+            "model model_grok · lane code · mutating · committed 2c07ad4: 11 files")
     }
 
     func testOutcomePartialWhenSomeWorkersDone() throws {
@@ -222,7 +222,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         let outcome = try XCTUnwrap(trj.outcome)
         XCTAssertEqual(outcome.status, TeamRunJSON.Outcome.Status.partial)
         XCTAssertFalse(outcome.committed)
-        XCTAssertTrue(outcome.headline.contains("agent"))
+        XCTAssertTrue(outcome.headline.contains("model"))
     }
 
     func testOutcomeFailedWhenNoWorkersDone() throws {
