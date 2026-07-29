@@ -76,7 +76,7 @@ enum RelayCLI {
         guard !args.isEmpty else { usage("relay-status --relay <id> [--json]") }
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        guard let loaded = stateStore.load(id: relayId) else { fail(.relayNotFound(relayId)) }
+        let loaded = RelayCLILoad.requireState(id: relayId, store: stateStore)
         let state = RelayCoordinator.reconcileOrphan(
             loaded, stateStore: stateStore, threadProjector: threadProjector, now: Date.init)
 
@@ -156,7 +156,7 @@ enum RelayCLI {
         if let bad = untilParsed.invalid { fail(.invalidUntil(bad)) }
 
         let stateStore = RelayStateStore()
-        guard let priorState = stateStore.load(id: relayId) else { fail(.relayNotFound(relayId)) }
+        let priorState = RelayCLILoad.requireState(id: relayId, store: stateStore)
         let projectId = AllnighterCLI.resolveProject(priorState.projectRoot, store: ProjectStore())?.id
         let config = RelayCoordinator.Config(
             projectRoot: priorState.projectRoot, projectId: projectId, docPath: priorState.docPath,
@@ -226,6 +226,7 @@ enum RelayCLI {
         case invalidIdleTimeout(String)
         case projectNotFound(String)
         case relayNotFound(String)
+        case relayStateDecodeFailed(RelayStateStore.RelayLoadFailure.DecodeFailed)
         case relayNotEscalated(status: String)
         /// Structured exact-id failure (`--pm-model` / `--dev-model`) — carries the
         /// same envelope `AllnighterCLI.failExactId` renders (candidates/suggestions/
@@ -288,7 +289,15 @@ enum RelayCLI {
         guard let answer = opts.value("answer"), !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw RelayCLIError.missingRequired("--answer <text>")
         }
-        guard let priorState = stateStore.load(id: relayId) else { throw RelayCLIError.relayNotFound(relayId) }
+        let priorState: RelayState
+        switch stateStore.loadResult(id: relayId) {
+        case .success(let state):
+            priorState = state
+        case .failure(.notFound):
+            throw RelayCLIError.relayNotFound(relayId)
+        case .failure(.decodeFailed(let detail)):
+            throw RelayCLIError.relayStateDecodeFailed(detail)
+        }
         // `priorState` here is the raw persisted read — `RelayCoordinator.resume` (which
         // this request feeds) is what durably reconciles a dead-owner `.running` relay to
         // `.stopped`; this pre-check only needs to know THAT it would be eligible, via the
@@ -394,6 +403,8 @@ enum RelayCLI {
             return ("PROJECT_NOT_FOUND", "project not found: \(token)")
         case .relayNotFound(let id):
             return ("RELAY_NOT_FOUND", "relay not found: \(id)")
+        case .relayStateDecodeFailed(let detail):
+            return ("RELAY_STATE_DECODE_FAILED", detail.agentMessage)
         case .relayNotEscalated(let status):
             return ("RELAY_INVALID_STATE", "relay is \(status), not resumable — only an escalated relay, or one reconciled after its owner process died, can be resumed")
         }

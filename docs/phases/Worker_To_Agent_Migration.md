@@ -11,7 +11,7 @@ and floor reliability always win.
 **Historical execution record (S00–S08):** `docs/archive/phases/Worker_To_Agent_Migration.md`  
 **Meaning map (adjudicated):** `docs/archive/phases/Worker_To_Agent_Migration.md` → appendix S00 map  
 **Code SSOT:** `TeamRunJSON`, `TeamAgentSpec` / `TeamPreset.agentSpecs`,
-`RetiredWorkerKeysMigration`, `RetiredVocabulary`, `RunService.swift`
+`RetiredVocabulary`, `RunService.swift`
 
 Updated: 2026-07-29
 

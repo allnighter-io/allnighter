@@ -5980,6 +5980,15 @@
       "ruleId" : "relay.not_found"
     },
     {
+      "agentAction" : "The relay folder exists but relay.json cannot be read by this binary — rebuild from the current branch (`swift build --package-path Packages\/AllnighterCore` + `alln install-cli`). If the file uses retired devWorkerId\/pmWorkerId keys, delete the relay folder or rewrite seat keys to devModelId\/pmModelId.",
+      "code" : "RELAY_STATE_DECODE_FAILED",
+      "exitClass" : "operational",
+      "explain" : "A relay.json is present on disk but failed to decode — not the same as a missing id. Common during dogfood when a stale on-PATH alln binary predates the WTA seat-key rename.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "relay.state.decode_failed"
+    },
+    {
       "agentAction" : "Only an `escalated` relay can be resumed; check status first with `pair relay-status`.",
       "code" : "RELAY_INVALID_STATE",
       "exitClass" : "operational",

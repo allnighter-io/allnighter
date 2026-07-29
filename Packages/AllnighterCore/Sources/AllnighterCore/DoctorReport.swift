@@ -237,9 +237,9 @@ public enum DoctorReport {
         }
         return .init(
             name: "BINARY_STALE",
-            status: .degraded,
+            status: .critical,
             detail: "on-PATH binary gitSha \(binShort) ≠ workspace HEAD \(headShort)",
-            fixCommand: "alln install-cli",
+            fixCommand: "swift build --package-path Packages/AllnighterCore && alln install-cli",
             requiresManual: false
         )
     }

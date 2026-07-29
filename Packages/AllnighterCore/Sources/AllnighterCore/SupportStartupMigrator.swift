@@ -1,6 +1,6 @@
 import Foundation
 
-/// Runs one-time support-root migrations before stores read user history.
+/// Ensures the support root exists before stores read user history.
 public enum SupportStartupMigrator {
     private static let lock = NSLock()
     private nonisolated(unsafe) static var didRun = false
@@ -13,6 +13,5 @@ public enum SupportStartupMigrator {
         didRun = true
         let root = AllnighterSupportRoot.support
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        _ = try RetiredWorkerKeysMigration.migrate(supportRoot: root)
     }
 }

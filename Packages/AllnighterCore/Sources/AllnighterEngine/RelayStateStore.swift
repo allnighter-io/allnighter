@@ -6,10 +6,33 @@ import AllnighterCore
 /// `RelayCoordinator` saves after every round-level state change, so a relay is resumable
 /// from disk at any point mid-round, never only in memory.
 public struct RelayStateStore: Sendable {
+    public enum RelayLoadFailure: Sendable, Equatable, Error {
+        case notFound(id: String)
+        case decodeFailed(DecodeFailed)
+
+        public struct DecodeFailed: Sendable, Equatable {
+            public var id: String
+            public var path: String
+            /// True when `relay.json` still carries WTA-retired `devWorkerId`/`pmWorkerId` keys.
+            public var retiredWorkerKeys: Bool
+
+            public var agentMessage: String {
+                if retiredWorkerKeys {
+                    return "relay state at \(path) uses retired devWorkerId/pmWorkerId keys — rebuild alln from the current branch (`swift build` + `alln install-cli`); a stale on-PATH binary wrote or cannot read this relay"
+                }
+                return "relay state at \(path) could not be decoded — inspect relay.json or delete the relay folder"
+            }
+        }
+    }
+
     public let rootDirectory: URL
 
     public init(rootDirectory: URL? = nil) {
         self.rootDirectory = rootDirectory ?? AllnighterPaths.relays
+    }
+
+    private func relayJSONURL(id: String) -> URL {
+        rootDirectory.appendingPathComponent(id, isDirectory: true).appendingPathComponent("relay.json")
     }
 
     private func relayDirectory(id: String) throws -> URL {
@@ -50,10 +73,29 @@ public struct RelayStateStore: Sendable {
         return directory
     }
 
+    /// Distinguishes a missing relay from a present-but-unreadable `relay.json`.
+    public func loadResult(id: String) -> Result<RelayState, RelayLoadFailure> {
+        let url = relayJSONURL(id: id)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return .failure(.notFound(id: id))
+        }
+        guard let data = try? Data(contentsOf: url) else {
+            return .failure(.decodeFailed(.init(id: id, path: url.path, retiredWorkerKeys: false)))
+        }
+        do {
+            return .success(try CoreJSON.decode(RelayState.self, from: data))
+        } catch {
+            let raw = String(data: data, encoding: .utf8) ?? ""
+            let retired = Self.containsRetiredWorkerKeys(in: raw)
+            return .failure(.decodeFailed(.init(id: id, path: url.path, retiredWorkerKeys: retired)))
+        }
+    }
+
     public func load(id: String) -> RelayState? {
-        let url = rootDirectory.appendingPathComponent(id, isDirectory: true).appendingPathComponent("relay.json")
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? CoreJSON.decode(RelayState.self, from: data)
+        switch loadResult(id: id) {
+        case .success(let state): return state
+        case .failure: return nil
+        }
     }
 
     /// True when `id`'s `owner.pid` marker is missing/unparsable, or names a process
@@ -70,8 +112,8 @@ public struct RelayStateStore: Sendable {
 
     private static var currentPID: Int32 { ProcessInfo.processInfo.processIdentifier }
 
-    /// All relays, newest first. Skips any folder whose `relay.json` fails to decode rather
-    /// than failing the whole listing.
+    /// All relays, newest first. Skips folders whose `relay.json` fails to decode;
+    /// use `loadResult` or `RelayPersistenceDoctorCheck` to surface those rows.
     public func list() -> [RelayState] {
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: rootDirectory, includingPropertiesForKeys: nil
@@ -81,5 +123,11 @@ public struct RelayStateStore: Sendable {
         return entries
             .compactMap { load(id: $0.lastPathComponent) }
             .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Detects WTA-retired persisted seat keys at the JSON-object level (not prose in
+    /// handover text). Used by load failures and `alln doctor`.
+    public static func containsRetiredWorkerKeys(in jsonText: String) -> Bool {
+        jsonText.contains(#""devWorkerId""#) || jsonText.contains(#""pmWorkerId""#)
     }
 }

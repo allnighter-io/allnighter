@@ -177,7 +177,7 @@ enum PilotCLI {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--round must be a positive integer")
         }
         let stateStore = RelayStateStore()
-        guard stateStore.load(id: relayId) != nil else { fail(.relayNotFound(relayId)) }
+        RelayCLILoad.requirePresence(id: relayId, store: stateStore)
         let template = PilotHandoverScaffold.template(round: round)
         if opts.flag("json") {
             print(AllnighterCLI.jsonString(["relayId": relayId, "round": String(round), "template": template]))
@@ -218,7 +218,7 @@ enum PilotCLI {
         ServeAutoLaunchCLI.reportToStderr(autoLaunch)
 
         let stateStore = RelayStateStore()
-        guard stateStore.load(id: relayId) != nil else { fail(.relayNotFound(relayId)) }
+        RelayCLILoad.requirePresence(id: relayId, store: stateStore)
         let projectStore = ProjectStore()
         let projectId = projectStore.resolveFresh(
             loadedProjectRoot(relayId, stateStore: stateStore) ?? ""
@@ -369,24 +369,32 @@ enum PilotCLI {
         pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"],
         currentExecutablePath: () -> String? = ProcessOwnership.currentExecutablePath
     ) throws -> DetachedHandoffLaunch {
-        guard let state = stateStore.load(id: relayId) else {
+        switch stateStore.loadResult(id: relayId) {
+        case .success(let state):
+            guard !state.projectRoot.isEmpty else {
+                throw DetachedHandoffLaunchError.missingProjectRoot(relayId)
+            }
+            let executablePath = ProcessOwnership.resolveRunningExecutablePath(
+                argv0: argv0,
+                pathEnvironment: pathEnvironment,
+                currentExecutablePath: currentExecutablePath
+            )
+            guard let executablePath else {
+                throw DetachedHandoffLaunchError.unresolvedExecutable
+            }
+            return DetachedHandoffLaunch(
+                executableURL: URL(fileURLWithPath: executablePath),
+                currentDirectoryURL: URL(fileURLWithPath: state.projectRoot)
+            )
+        case .failure(.notFound):
             throw DetachedHandoffLaunchError.relayNotFound(relayId)
+        case .failure(.decodeFailed(let detail)):
+            AllnighterCLI.fail(
+                code: "RELAY_STATE_DECODE_FAILED",
+                message: detail.agentMessage,
+                supportDir: AllnighterCLI.effectiveSupportDir()
+            )
         }
-        guard !state.projectRoot.isEmpty else {
-            throw DetachedHandoffLaunchError.missingProjectRoot(relayId)
-        }
-        let executablePath = ProcessOwnership.resolveRunningExecutablePath(
-            argv0: argv0,
-            pathEnvironment: pathEnvironment,
-            currentExecutablePath: currentExecutablePath
-        )
-        guard let executablePath else {
-            throw DetachedHandoffLaunchError.unresolvedExecutable
-        }
-        return DetachedHandoffLaunch(
-            executableURL: URL(fileURLWithPath: executablePath),
-            currentDirectoryURL: URL(fileURLWithPath: state.projectRoot)
-        )
     }
 
     /// `--no-wait`: re-invokes THIS SAME executable as a detached background process
@@ -403,8 +411,21 @@ enum PilotCLI {
         serveAutoLaunch: ServeAutoLaunch.Outcome
     ) {
         let stateStore = RelayStateStore()
+        let loadedState: RelayState?
+        switch stateStore.loadResult(id: relayId) {
+        case .success(let state):
+            loadedState = state
+        case .failure(.notFound):
+            loadedState = nil
+        case .failure(.decodeFailed(let detail)):
+            AllnighterCLI.fail(
+                code: "RELAY_STATE_DECODE_FAILED",
+                message: detail.agentMessage,
+                supportDir: AllnighterCLI.effectiveSupportDir()
+            )
+        }
         switch RelayCoordinator.preflightExternalRound(
-            state: stateStore.load(id: relayId),
+            state: loadedState,
             submission: submission
         ) {
         case .failure(let error):
@@ -500,7 +521,20 @@ enum PilotCLI {
         threadProjector: RelayThreadProjector?,
         reconcileOrphans: Bool
     ) -> (state: RelayState, recovery: InFlightRecovery)? {
-        guard var state = stateStore.load(id: relayId) else { return nil }
+        let base: RelayState
+        switch stateStore.loadResult(id: relayId) {
+        case .success(let loaded):
+            base = loaded
+        case .failure(.notFound):
+            return nil
+        case .failure(.decodeFailed(let detail)):
+            AllnighterCLI.fail(
+                code: "RELAY_STATE_DECODE_FAILED",
+                message: detail.agentMessage,
+                supportDir: AllnighterCLI.effectiveSupportDir()
+            )
+        }
+        var state = base
         guard state.status == .running else { return (state, .none) }
         if stateStore.isOwnerDead(id: relayId) {
             if reconcileOrphans {
