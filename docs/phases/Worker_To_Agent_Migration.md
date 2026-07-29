@@ -264,7 +264,30 @@ grep -roE '<OldSymbol>' --include='*.swift' . | grep -v '/.build/' | wc -l   # =
 
 Anything less than all three = round rejected, no partial credit.
 
-### agy seats get edits only — the lead runs the gate
+### The seat's report is NEVER the completion signal — for any seat
+
+Originally filed as an agy quirk. It is not. **Sonnet hit the identical failure
+mode** on WTA-S01a: it backgrounded `swift test`, said it was waiting for the
+result, and its turn ended there — work done, nothing confirmed, nothing
+committed.
+
+The difference is only in how the failure presents:
+
+| seat | what you see |
+| --- | --- |
+| agy (relay-driven) | turn ends → relay restarts it → infinite loop, visible as burned sessions |
+| a subagent | turn just stops, quietly, with the work uncommitted |
+
+Both leave the same state: correct edits, no proof, no commit. So the rule is not
+"work around agy". The rule is:
+
+> A delegated seat's *report* is never the completion signal. **The commit is.**
+> The lead always runs the gate.
+
+Apply the commit-as-signal protocol below to every delegated seat regardless of
+vendor or tier.
+
+### Seats get edits only — the lead runs the gate
 
 **An agy (Gemini) seat cannot run the acceptance gate itself.** agy launches a
 long command (`swift build`, `swift test`) as a background task, emits "I will
