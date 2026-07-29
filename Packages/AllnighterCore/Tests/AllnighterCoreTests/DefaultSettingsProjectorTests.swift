@@ -15,6 +15,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
     /// Full catalog covering the fresh seed + one unassigned-on + one off-and-unassigned.
     private func catalog(ready: Set<String> = [
         "model_fable", "model_chatgpt_sol", "model_chatgpt", "model_chatgpt_terra", "model_opus", "model_sonnet",
+        "model_agy_opus", "model_agy_sonnet",
         "model_kimi_k3", "model_kimi_k27", "model_cursor_grok_45", "model_grok", "model_cursor_composer_25",
         "model_cursor_composer_25_fast", "model_gemini", "model_cursor_auto", "model_composer", "model_extra"
     ]) -> [ModelListJSON.Entry] {
@@ -26,6 +27,8 @@ final class DefaultSettingsProjectorTests: XCTestCase {
             entry("model_chatgpt_terra", "ChatGPT 5.6 Terra", driver: "codex", ready: ready.contains("model_chatgpt_terra")),
             entry("model_opus", "Opus 5", ready: ready.contains("model_opus")),
             entry("model_sonnet", "Sonnet 5", ready: ready.contains("model_sonnet")),
+            entry("model_agy_opus", "Opus 4.6", driver: "antigravity", ready: ready.contains("model_agy_opus")),
+            entry("model_agy_sonnet", "Sonnet 4.6", driver: "antigravity", ready: ready.contains("model_agy_sonnet")),
             entry("model_kimi_k3", "Kimi K3", driver: "kimi", ready: ready.contains("model_kimi_k3")),
             entry("model_kimi_k27", "Kimi K2.7 Code", driver: "kimi", ready: ready.contains("model_kimi_k27")),
             entry("model_cursor_grok_45", "Cursor Grok 4.5", driver: "cursor_agent",
@@ -62,7 +65,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
         // Gemini spans Balanced + Economy.
         let balanced = p.tiers[1]
         XCTAssertEqual(balanced.members.map(\.id), [
-            "model_chatgpt_terra", "model_opus", "model_cursor_grok_45",
+            "model_chatgpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         let gemini = balanced.members.first { $0.id == "model_gemini" }
@@ -70,9 +73,10 @@ final class DefaultSettingsProjectorTests: XCTestCase {
 
         let economy = p.tiers[2]
         XCTAssertEqual(economy.members.map(\.id), [
-            "model_kimi_k27", "model_cursor_composer_25", "model_cursor_auto", "model_gemini"
+            "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
+            "model_cursor_auto", "model_gemini"
         ])
-        XCTAssertEqual(economy.defaultModelId, "model_kimi_k27")
+        XCTAssertEqual(economy.defaultModelId, "model_agy_sonnet")
         let k27 = economy.members.first { $0.id == "model_kimi_k27" }
         XCTAssertEqual(k27?.tiers, ["economy"])
         let composer = economy.members.first { $0.id == "model_cursor_composer_25" }

@@ -18,6 +18,45 @@
       },
       "defaultOn": false
     },
+    "model_agy_opus": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "copy",
+          "localContext"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 75
+      },
+      "defaultOn": true
+    },
+    "model_agy_sonnet": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 74
+      },
+      "defaultOn": true
+    },
     "model_chatgpt": {
       "caliber": {
         "capabilityTags": [

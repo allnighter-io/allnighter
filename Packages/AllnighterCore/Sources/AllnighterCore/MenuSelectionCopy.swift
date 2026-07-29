@@ -343,6 +343,14 @@ public enum MenuSelectionCopy {
             useWhen: "GPT-OSS 120B, Antigravity",
             dontUseWhen: "Not Sol; model_chatgpt"
         ),
+        "model_agy_opus": Pair(
+            useWhen: "Opus 4.6, Antigravity Claude pool",
+            dontUseWhen: "Not Claude CLI; model_opus"
+        ),
+        "model_agy_sonnet": Pair(
+            useWhen: "Sonnet 4.6, Antigravity Claude pool",
+            dontUseWhen: "Not Claude CLI; model_sonnet"
+        ),
     ]
 
     private static let recipes: [String: Pair] = [

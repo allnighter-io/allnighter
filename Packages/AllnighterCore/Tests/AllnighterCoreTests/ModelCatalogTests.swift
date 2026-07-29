@@ -39,9 +39,12 @@ final class ModelCatalogTests: XCTestCase {
         // medium seat), taking the fresh-install count 10 → 11.
         // Kimi K2.7 Code added default-on 2026-07-27 (11 → 12).
         // Cursor Fable/Opus/Sonnet seats added default-on 2026-07-28 (12 → 15).
-        XCTAssertEqual(models.filter(\.enabled).count, 15)
-        XCTAssertNil(models.first { $0.id == "model_agy_opus" })
-        XCTAssertNil(models.first { $0.id == "model_agy_sonnet" })
+        // Antigravity Opus/Sonnet 4.6 re-added default-on for Claude quota harvest (15 → 17).
+        XCTAssertEqual(models.filter(\.enabled).count, 17)
+        XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")
+        XCTAssertEqual(models.first { $0.id == "model_agy_sonnet" }?.displayName, "Sonnet 4.6 (Antigravity)")
+        XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.modelLabel, "Claude Opus 4.6 (Thinking)")
+        XCTAssertEqual(models.first { $0.id == "model_agy_sonnet" }?.modelLabel, "Claude Sonnet 4.6 (Thinking)")
         XCTAssertTrue(models.first { $0.id == "model_fable" }?.enabled ?? false)
         XCTAssertFalse(models.first { $0.id == "model_chatgpt_sol" }?.enabled ?? true,
                        "Cursor Sol is never on-Bench by default")

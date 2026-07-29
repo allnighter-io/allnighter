@@ -49,6 +49,7 @@ public enum ModelCatalog {
     public static func modelFamily(_ modelId: String, driverId: String? = nil) -> String {
         switch modelId {
         case "model_fable", "model_opus", "model_sonnet",
+             "model_agy_opus", "model_agy_sonnet",
              "model_cursor_fable", "model_cursor_opus", "model_cursor_sonnet":
             return "claude"
         case "model_chatgpt", "model_chatgpt_sol", "model_chatgpt_terra",

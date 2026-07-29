@@ -14,11 +14,12 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(s.tiers.frontier, ["model_fable", "model_chatgpt", "model_kimi_k3"])
         XCTAssertFalse(s.tiers.frontier.contains("model_chatgpt_sol"))
         XCTAssertEqual(s.tiers.balanced, [
-            "model_chatgpt_terra", "model_opus", "model_cursor_grok_45",
+            "model_chatgpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         XCTAssertEqual(s.tiers.economy, [
-            "model_kimi_k27", "model_cursor_composer_25", "model_cursor_auto", "model_gemini"
+            "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
+            "model_cursor_auto", "model_gemini"
         ])
         for fastId in ["model_cursor_composer_25_fast", "model_composer"] {
             XCTAssertTrue(s.tiers.isUnassigned(fastId), "\(fastId) must stay unassigned in fresh seed")
@@ -95,14 +96,16 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testModelCanBelongToMultipleTiers() {
         let s = DefaultModelSettings.fresh
         // K3 is Frontier-only; medium Terra is in Balanced; Gemini spans Balanced + Economy;
-        // K2.7 is the Economy-tier default.
+        // Antigravity Sonnet 4.6 is the Economy-tier default; K2.7 is Economy-only.
         XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt"), [.frontier])
         XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k3"), [.frontier])
         XCTAssertEqual(s.tiers.highestTier(of: "model_kimi_k3"), .frontier)
         XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt_terra"), [.balanced])
         XCTAssertEqual(s.tiers.tiers(of: "model_gemini"), [.balanced, .economy])
+        XCTAssertEqual(s.tiers.tiers(of: "model_agy_sonnet"), [.economy])
         XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k27"), [.economy])
-        XCTAssertEqual(s.tierDefault(.economy), "model_kimi_k27")
+        XCTAssertEqual(s.tierDefault(.economy), "model_agy_sonnet")
+        XCTAssertEqual(s.tiers.tiers(of: "model_agy_opus"), [.balanced])
         XCTAssertTrue(s.tiers.isUnassigned("model_composer"))
         XCTAssertTrue(s.tiers.isUnassigned("model_cursor_composer_25_fast"))
         XCTAssertEqual(s.tiers.tiers(of: "model_cursor_composer_25"), [.balanced, .economy])

@@ -228,8 +228,9 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// substitution always has somewhere to go even when a user has only one or two
     /// CLIs. Each tier's default (index 0) is on-by-default, so Auto works day-one.
     /// Frontier: Fable, Codex Sol, Kimi K3. Balanced: everyday seats including
-    /// Composer 2.5 (not the vendor "Fast" SKUs) spans Balanced + Economy.
-    /// Economy: K2.7, Composer 2.5, Auto, Gemini.
+    /// Antigravity Opus 4.6 (separate Claude quota pool) and Composer 2.5 (not
+    /// the vendor "Fast" SKUs) spans Balanced + Economy. Economy: Antigravity
+    /// Sonnet 4.6, K2.7, Composer 2.5, Auto, Gemini.
     /// Vendor *Fast* model ids stay Unassigned — never tiered by default.
     /// Seed only — fully user-overridable.
     public static let fresh = DefaultModelSettings(
@@ -238,10 +239,13 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         tiers: TierMembership(
             frontier: ["model_fable", "model_chatgpt", "model_kimi_k3"],
             balanced: [
-                "model_chatgpt_terra", "model_opus", "model_cursor_grok_45",
+                "model_chatgpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
                 "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
             ],
-            economy: ["model_kimi_k27", "model_cursor_composer_25", "model_cursor_auto", "model_gemini"]))
+            economy: [
+                "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
+                "model_cursor_auto", "model_gemini"
+            ]))
 
     /// The tier's default model id (index 0), or nil when the tier is empty.
     public func tierDefault(_ tier: SubstitutionTier) -> ModelID? { tiers[tier].first }

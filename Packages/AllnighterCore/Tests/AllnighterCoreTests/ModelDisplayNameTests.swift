@@ -49,4 +49,13 @@ final class ModelDisplayNameTests: XCTestCase {
             ModelDisplayName.format(baseName: "Composer 2.5", modelId: "model_cursor_composer_25", driverId: "cursor_agent"),
             "Composer 2.5")
     }
+
+    func testAntigravityClaudeSeatsShowAntigravityParenthetical() {
+        XCTAssertEqual(
+            ModelDisplayName.format(baseName: "Opus 4.6", modelId: "model_agy_opus", driverId: "antigravity"),
+            "Opus 4.6 (Antigravity)")
+        XCTAssertEqual(
+            ModelDisplayName.format(baseName: "Sonnet 4.6", modelId: "model_agy_sonnet", driverId: "antigravity"),
+            "Sonnet 4.6 (Antigravity)")
+    }
 }

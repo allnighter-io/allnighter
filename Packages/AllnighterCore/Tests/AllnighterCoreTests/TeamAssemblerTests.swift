@@ -24,7 +24,7 @@ final class TeamAssemblerTests: XCTestCase {
     func testPlanWriterPrefersClaudeOpusOverAgyEvenWhenAgyListedFirst() {
         // Alphabetically model_agy_opus < model_opus; strength rank must still win.
         let mixed = [
-            Model(id: "model_agy_opus", displayName: "Claude Opus 4.6",
+            Model(id: "model_agy_opus", displayName: "Opus 4.6",
                   modelLabel: "Claude Opus 4.6 (Thinking)", driverId: "antigravity", role: .both),
             Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus",
                   driverId: "claude_code", role: .both),
@@ -36,7 +36,7 @@ final class TeamAssemblerTests: XCTestCase {
 
     func testPlanWriterFallsBackToAgyWhenClaudeUnavailable() {
         let onlyAgy = [
-            Model(id: "model_agy_opus", displayName: "Claude Opus 4.6",
+            Model(id: "model_agy_opus", displayName: "Opus 4.6",
                   modelLabel: "Claude Opus 4.6 (Thinking)", driverId: "antigravity", role: .both),
             Model(id: "model_sonnet", displayName: "Sonnet", modelLabel: "sonnet",
                   driverId: "claude_code", role: .answerer),

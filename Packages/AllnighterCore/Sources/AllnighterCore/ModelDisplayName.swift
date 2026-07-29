@@ -36,6 +36,7 @@ public enum ModelDisplayName {
     public static func defaultDriverId(for modelId: ModelID, driverId: String) -> String {
         switch modelId {
         case "model_fable", "model_opus", "model_sonnet",
+             "model_agy_opus", "model_agy_sonnet",
              "model_cursor_fable", "model_cursor_opus", "model_cursor_sonnet":
             return "claude_code"
         case "model_chatgpt", "model_chatgpt_sol", "model_chatgpt_terra",
