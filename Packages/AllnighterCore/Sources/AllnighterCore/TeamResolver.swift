@@ -147,7 +147,8 @@ public enum TeamResolver {
                 modelId: model.id, instanceIndex: index,
                 skillId: row.skillId, skillName: skillName, purpose: stage,
                 substitutedFromModelId: substitutedFrom,
-                seatingReason: seatingReason)
+                seatingReason: seatingReason,
+                agentId: row.id)
         }
 
         func disable(_ row: TeamAgentSpec, _ skillName: String, _ reason: String) {
@@ -273,6 +274,9 @@ public enum TeamResolver {
             let leadSkill = skill(lead.skillId)
             let index = nextIndex[pick.model.id, default: 0]
             nextIndex[pick.model.id] = index + 1
+            // `lead` is a `TeamLeadSpec`, not a `TeamAgentSpec` roster row — it has
+            // no `id`, so the plan writer has no roster seat to inherit. Leave
+            // `agentId` nil rather than inventing one.
             planWriter = Worker(
                 id: Worker.makeID(modelId: pick.model.id, instanceIndex: index),
                 modelId: pick.model.id, instanceIndex: index,

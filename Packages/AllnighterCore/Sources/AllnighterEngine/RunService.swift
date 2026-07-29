@@ -1181,8 +1181,11 @@ public actor RunService {
         // disabled/not-benched declared answer model would silently drop the skill
         // to the generic fallback. Read it from the preset's durable declaration
         // instead, so skill identity never depends on bench readiness.
-        let declaredAnswerSkillId = preset.workerSpecs.first(where: { $0.purpose == .answer })?.skillId
-            ?? "first_principles_builder"
+        let declaredAnswerRow = preset.workerSpecs.first(where: { $0.purpose == .answer })
+        let declaredAnswerSkillId = declaredAnswerRow?.skillId ?? "first_principles_builder"
+        // Same roster row as the skill above — carry its id forward so the seat
+        // identity is stable even though this whole branch pins the model explicitly.
+        let declaredAnswerAgentId = declaredAnswerRow?.id
         if let override = workerOverride {
             if existingRun != nil {
                 // A due same-source wake is the readiness probe. It must bypass
@@ -1199,7 +1202,8 @@ public actor RunService {
                     modelId: m.id,
                     instanceIndex: 0,
                     skillId: declaredAnswerSkillId,
-                    purpose: .answer
+                    purpose: .answer,
+                    agentId: declaredAnswerAgentId
                 )
                 model = m
             } else {
@@ -1220,7 +1224,8 @@ public actor RunService {
                         modelId: m.id,
                         instanceIndex: 0,
                         skillId: declaredAnswerSkillId,
-                        purpose: .answer
+                        purpose: .answer,
+                        agentId: declaredAnswerAgentId
                     )
                     model = m
                 }
@@ -1980,13 +1985,16 @@ public actor RunService {
                 }
                 let skillId = resolvedMut.answerWorkers.first?.skillId ?? "first_principles_builder"
                 let skillName = resolvedMut.answerWorkers.first?.skillName
+                // Same roster seat as before the pin — only the model changes.
+                let agentId = resolvedMut.answerWorkers.first?.agentId
                 let pinned = Worker(
                     id: Worker.makeID(modelId: m.id, instanceIndex: 0),
                     modelId: m.id,
                     instanceIndex: 0,
                     skillId: skillId,
                     skillName: skillName,
-                    purpose: .answer
+                    purpose: .answer,
+                    agentId: agentId
                 )
                 resolvedMut.scoutWorker = nil
                 resolvedMut.answerWorkers = [pinned]

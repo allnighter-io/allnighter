@@ -58,6 +58,42 @@ final class TeamResolverTests: XCTestCase {
         XCTAssertTrue(r.isRunnable)
     }
 
+    // MARK: - agentId: stable roster seat identity across model substitution (WTA-S01a)
+
+    func testAgentIdStaysStableAcrossModelSubstitution() {
+        let t = team(rows: [
+            TeamAgentSpec(id: "r1", skillId: "regression_guard",
+                           preferredModelId: "model_chatgpt", fallbackPolicy: .anyReady)
+        ])
+
+        // Preferred model ready: row resolves straight to it.
+        let direct = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low,
+                                           readyModels: [opus(), codex()])
+        let directWorker = direct.answerWorkers.first
+        XCTAssertEqual(directWorker?.modelId, "model_chatgpt")
+        XCTAssertEqual(directWorker?.agentId, "r1")
+
+        // Preferred is down; resolver substitutes another Codex model. modelId
+        // (and the derived id) change, but agentId is the SAME roster seat and
+        // must not move — that is the entire point of this field.
+        let chatgpt54 = Model(id: "model_chatgpt_54", displayName: "ChatGPT 5.4",
+                              modelLabel: "gpt-5.4", driverId: "codex", role: .answerer)
+        let substituted = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low,
+                                                readyModels: [opus(), chatgpt54])
+        let substitutedWorker = substituted.answerWorkers.first
+        XCTAssertEqual(substitutedWorker?.modelId, "model_chatgpt_54")
+        XCTAssertEqual(substitutedWorker?.substitutedFromModelId, "model_chatgpt")
+
+        XCTAssertEqual(substitutedWorker?.agentId, "r1",
+                       "agentId is the roster seat identity — stable across model substitution")
+        XCTAssertEqual(directWorker?.agentId, substitutedWorker?.agentId,
+                       "same seat across both resolutions, regardless of which model filled it")
+        XCTAssertNotEqual(directWorker?.modelId, substitutedWorker?.modelId,
+                          "modelId is the axis that DOES change")
+        XCTAssertNotEqual(directWorker?.id, substitutedWorker?.id,
+                          "id embeds the model, so it changes too — unlike agentId")
+    }
+
     func testPreferredUnavailableDoesNotCrossDriverWithoutOrderedFallback() {
         let t = team(rows: [
             TeamAgentSpec(id: "r1", skillId: "regression_guard",

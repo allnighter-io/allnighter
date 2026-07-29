@@ -206,13 +206,16 @@ public actor AsyncTeamService {
                 // Answer-team pin (matches RunService.runAnswer / dry-run seats).
                 let skillId = resolved.answerWorkers.first?.skillId ?? "first_principles_builder"
                 let skillName = resolved.answerWorkers.first?.skillName
+                // Same roster seat as before the pin — only the model changes.
+                let agentId = resolved.answerWorkers.first?.agentId
                 let pinned = Worker(
                     id: Worker.makeID(modelId: modelId, instanceIndex: 0),
                     modelId: modelId,
                     instanceIndex: 0,
                     skillId: skillId,
                     skillName: skillName,
-                    purpose: .answer
+                    purpose: .answer,
+                    agentId: agentId
                 )
                 resolved.scoutWorker = nil
                 resolved.answerWorkers = [pinned]
@@ -859,6 +862,9 @@ public actor AsyncTeamService {
         if worker.modelId == modelId {
             return pinned
         }
+        // Only modelId/id/substitutedFromModelId are rewritten here — `worker`
+        // is a copy of the already-resolved seat, so `agentId` (the roster row
+        // this seat came from) survives untouched (WTA-S01a).
         worker.substitutedFromModelId = worker.modelId
         worker.modelId = modelId
         worker.id = Worker.makeID(modelId: modelId, instanceIndex: worker.instanceIndex)

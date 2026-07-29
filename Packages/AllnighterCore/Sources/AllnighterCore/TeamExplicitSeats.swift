@@ -132,7 +132,8 @@ public enum TeamExplicitSeats {
                 skillId: slot.row.skillId,
                 skillName: skillName,
                 purpose: slot.stage,
-                seatingReason: explicitSeatingReason
+                seatingReason: explicitSeatingReason,
+                agentId: slot.row.id
             )
             switch slot.stage {
             case .answer: answerWorkers.append(worker)

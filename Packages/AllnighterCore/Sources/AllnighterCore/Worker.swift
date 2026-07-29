@@ -44,6 +44,13 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
     /// Why the resolver seated this model (dry-run + audit). Optional so
     /// legacy runs and non-catalog paths decode unchanged.
     public var seatingReason: String?
+    /// The roster seat/row (`TeamAgentSpec.id`) this worker was staffed from.
+    /// Unlike `id`/`modelId`, this is STABLE across model substitution — the
+    /// same seat keeps the same `agentId` even when the model behind it changes
+    /// (preferred-unavailable fallback, `applyModelPin`, an explicit `--model`
+    /// pin). `nil` when the worker was built without a roster row in scope
+    /// (the plan writer, an execution-shape single worker, legacy decode).
+    public var agentId: String?
 
     public init(
         id: String,
@@ -55,7 +62,8 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         purpose: WorkerStage? = nil,
         label: String? = nil,
         substitutedFromModelId: String? = nil,
-        seatingReason: String? = nil
+        seatingReason: String? = nil,
+        agentId: String? = nil
     ) {
         self.id = id
         self.modelId = modelId
@@ -67,6 +75,7 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         self.label = label
         self.substitutedFromModelId = substitutedFromModelId
         self.seatingReason = seatingReason
+        self.agentId = agentId
     }
 
     /// Canonical worker id for a model + instance index.
