@@ -266,12 +266,12 @@ public struct PendingService: Sendable {
 
         let timestamp = now()
         let attemptId = "attempt_\(UUID().uuidString.lowercased())"
-        let workerId = item.target.preferredModelIds.first ?? item.target.modelIds.first ?? ""
+        let modelId = item.target.preferredModelIds.first ?? item.target.modelIds.first ?? ""
         let attempt = PendingAttemptSummary(
             attemptId: attemptId,
             createdAt: timestamp,
             startedAt: timestamp,
-            modelIds: workerId.isEmpty ? [] : [workerId],
+            modelIds: modelId.isEmpty ? [] : [modelId],
             status: .running,
             reason: options.attemptReason
         )
