@@ -158,7 +158,7 @@ struct RoutingComposer: View {
     @State var team: String?
     /// An EXPLICIT worker override. `nil` (with no team) = **Auto** — the run resolves
     /// the Default-model tier and substitutes across CLIs.
-    @State private var pinnedWorker: String?
+    @State private var pinnedModelId: String?
     @State var effort: ComposeEffort
     @State var lane: ComposeLane
     /// Cached Default-model settings (refreshed on appear) — Auto's tier preview.
@@ -242,7 +242,7 @@ struct RoutingComposer: View {
         _targetOpen = State(initialValue: openTarget)
         _text = State(initialValue: initialText)
         _composerFocused = State(initialValue: !initialText.isEmpty)
-        _pinnedWorker = State(initialValue: continuationModelId)
+        _pinnedModelId = State(initialValue: continuationModelId)
         self.big = big
         self.locksTeam = locksTeam
         self.showsProject = showsProject
@@ -300,7 +300,7 @@ struct RoutingComposer: View {
         // Switching teams drops any explicit worker pin so the chip names THAT team's
         // worker, never a stale override.
         .onChange(of: team) { _, _ in
-            pinnedWorker = nil
+            pinnedModelId = nil
             modelEditWorkerId = nil
             if team == nil { effortOpen = false }
         }
@@ -312,7 +312,7 @@ struct RoutingComposer: View {
             defaultSettings = DefaultModelSettingsPersistence().load()
             targetHighlight = 0
             refreshPickerTeams()
-            unassignedSectionCollapsed = !(pinnedWorker.map { defaultSettings.tiers.isUnassigned($0) } ?? false)
+            unassignedSectionCollapsed = !(pinnedModelId.map { defaultSettings.tiers.isUnassigned($0) } ?? false)
             if targetTab == .model || locksTeam {
                 appModel.refreshCapacityCooldowns()
             }
@@ -334,7 +334,7 @@ struct RoutingComposer: View {
     private func adoptContinuationWorkerIfNeeded() {
         guard !locksTeam, team == nil, let id = continuationModelId,
               appModel.composeBench.contains(where: { $0.id == id }) else { return }
-        pinnedWorker = id
+        pinnedModelId = id
         targetTab = .model
     }
 
@@ -368,7 +368,7 @@ struct RoutingComposer: View {
     /// The model the route currently runs: an explicit pin, else the team's model,
     /// else the tier-resolved Auto model.
     private var selectedModelId: String? {
-        if let pinnedWorker { return pinnedWorker }
+        if let pinnedModelId { return pinnedModelId }
         if team != nil { return resolvedModelId(forTeam: team) }
         return autoModelId
     }
@@ -759,7 +759,7 @@ struct RoutingComposer: View {
             Text(preset.displayName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
             Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
             Text(teamAgentLabel(preset)).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
-        } else if pinnedWorker == nil {
+        } else if pinnedModelId == nil {
             // Auto: name the mode AND the model it resolves to, so the user can tell
             // they're in Auto and not pinned to that model (founder: "Auto · <model>").
             Image(systemName: "infinity").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
@@ -825,9 +825,9 @@ struct RoutingComposer: View {
         // concrete worker (exact, no substitution).
         let toSend: String
         if team != nil {
-            toSend = (pinnedWorker ?? resolvedModelId(forTeam: team)) ?? ""
+            toSend = (pinnedModelId ?? resolvedModelId(forTeam: team)) ?? ""
         } else {
-            toSend = pinnedWorker ?? ""
+            toSend = pinnedModelId ?? ""
         }
         onSend?(ComposeRouting(
             team: team,
@@ -1061,10 +1061,10 @@ struct RoutingComposer: View {
                 guard items.indices.contains(targetHighlight) else { return true }
                 switch items[targetHighlight] {
                 case .auto:
-                    team = nil; pinnedWorker = nil; targetOpen = false
+                    team = nil; pinnedModelId = nil; targetOpen = false
                 case .model(let id):
                     if bench.first(where: { $0.id == id })?.ready == true {
-                        pinnedWorker = id; if !locksTeam { team = nil }; targetOpen = false
+                        pinnedModelId = id; if !locksTeam { team = nil }; targetOpen = false
                     }
                 case .team(let id):
                     if let t = teams.first(where: { $0.id == id }) { selectTeam(t) }
@@ -1198,7 +1198,7 @@ struct RoutingComposer: View {
 
     /// Auto = the default model. Selected only in true Auto mode (no team, no pin) — a
     /// pinned model below must not leave Auto looking selected too.
-    private var isAutoSelected: Bool { team == nil && pinnedWorker == nil }
+    private var isAutoSelected: Bool { team == nil && pinnedModelId == nil }
 
     // MARK: target keyboard / hover navigation
 
@@ -1269,7 +1269,7 @@ struct RoutingComposer: View {
     private var defaultTeamRow: some View {
         let highlighted = highlightedTargetItem == .auto
         return HStack(spacing: 4) {
-            Button { team = nil; pinnedWorker = nil; targetOpen = false } label: {
+            Button { team = nil; pinnedModelId = nil; targetOpen = false } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "infinity").font(.system(size: 11)).foregroundStyle(ALColor.textSecondary)
                         .frame(width: 18, height: 18)
@@ -1391,7 +1391,7 @@ struct RoutingComposer: View {
         if let m = appModel.composeBench.first(where: { $0.id == id }) {
             HStack(spacing: 4) {
                 Button {
-                    if m.ready { pinnedWorker = id; if !locksTeam { team = nil }; targetOpen = false }
+                    if m.ready { pinnedModelId = id; if !locksTeam { team = nil }; targetOpen = false }
                 } label: { modelRow(m) }
                     .buttonStyle(.plain)
                     .disabled(!m.ready)
@@ -1417,7 +1417,7 @@ struct RoutingComposer: View {
             }
             Spacer(minLength: 8)
             if m.ready {
-                if pinnedWorker == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
+                if pinnedModelId == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
             } else if let reason = m.notReadyReason {
                 Badge(text: reason, tone: .warning)
             }
