@@ -142,9 +142,9 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// (`reproduceCommand`) can round-trip the explicit selection that `workers` alone
     /// can't distinguish from default-team resolution. Optional so legacy `run.json`
     /// (no key) decodes to `nil`; `nil`/empty means no explicit `--model` was given.
-    public var explicitWorkerIds: [String]? = nil
+    public var explicitModelIds: [String]? = nil
     /// RSO-S01 — ordered explicit `--seat` model ids at run acceptance. Distinct from
-    /// `explicitWorkerIds` (single `--model` pin) and from resolved `workers`.
+    /// `explicitModelIds` (single `--model` pin) and from resolved `workers`.
     public var explicitSeatModelIds: [String]? = nil
     /// Ready bench model ids the team was resolved against at acceptance.
     /// Additive audit field; legacy journals decode to `nil`.
@@ -217,7 +217,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         timing: RunTimingReport? = nil,
         repoDelta: RepoDelta? = nil,
         laneContextOnly: Bool? = nil,
-        explicitWorkerIds: [String]? = nil,
+        explicitModelIds: [String]? = nil,
         explicitSeatModelIds: [String]? = nil,
         resolvedBenchModelIds: [String]? = nil,
         requestedCommitMessage: String? = nil,
@@ -259,7 +259,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.timing = timing
         self.repoDelta = repoDelta
         self.laneContextOnly = laneContextOnly
-        self.explicitWorkerIds = explicitWorkerIds
+        self.explicitModelIds = explicitModelIds
         self.explicitSeatModelIds = explicitSeatModelIds
         self.resolvedBenchModelIds = resolvedBenchModelIds
         self.requestedCommitMessage = requestedCommitMessage

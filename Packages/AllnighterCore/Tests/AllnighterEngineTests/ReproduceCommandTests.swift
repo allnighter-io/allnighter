@@ -94,7 +94,7 @@ final class ReproduceCommandTests: XCTestCase {
         let run = TeamRun(
             id: "r1", prompt: "Fix the bug", presetId: nil,
             createdAt: Date(), lane: .code, effort: .high,
-            laneContextOnly: true, explicitWorkerIds: ["model_sonnet"],
+            laneContextOnly: true, explicitModelIds: ["model_sonnet"],
             noCommitOrdered: true)
 
         let command = RunCLI.reproduceCommand(run, project: project())
@@ -119,7 +119,7 @@ final class ReproduceCommandTests: XCTestCase {
         let run = TeamRun(
             id: "r1", prompt: "Fix the bug", presetId: nil,
             createdAt: Date(), effort: .high,
-            explicitWorkerIds: ["model_sonnet"])
+            explicitModelIds: ["model_sonnet"])
         let (msg, flags) = parse(RunCLI.reproduceCommand(run, project: project()))
         let replay = resolve(msg, flags)
 
@@ -135,36 +135,36 @@ final class ReproduceCommandTests: XCTestCase {
         let run = TeamRun(
             id: "r1", prompt: "Say hi", presetId: "code_plan",
             createdAt: Date(), effort: .med,
-            explicitWorkerIds: ["model_sonnet"])
+            explicitModelIds: ["model_sonnet"])
         let command = AllnighterCLI.reproduceCommand(run)
         XCTAssertTrue(command.contains("--model model_sonnet"), "legacy builder dropped --model: \(command)")
         XCTAssertTrue(command.contains("--team code_plan"), command)
         XCTAssertTrue(command.contains("\"Say hi\""), command)
     }
 
-    /// `explicitWorkerIds` is additive + optional: a run with no explicit worker
+    /// `explicitModelIds` is additive + optional: a run with no explicit worker
     /// encodes WITHOUT the key (so an old `run.json` predating it is byte-identical
     /// to a modern nil), and that key-less JSON decodes back to nil.
     func testExplicitWorkerIdsIsLegacySafeOptional() throws {
         let noWorker = TeamRun(
             id: "old-run", prompt: "hello", origin: .cli, createdAt: Date())
-        XCTAssertNil(noWorker.explicitWorkerIds)
+        XCTAssertNil(noWorker.explicitModelIds)
 
         let json = try JSONEncoder().encode(noWorker)
         let text = String(decoding: json, as: UTF8.self)
-        XCTAssertFalse(text.contains("explicitWorkerIds"),
+        XCTAssertFalse(text.contains("explicitModelIds"),
                        "a run with no explicit worker must not emit the key (legacy byte-parity)")
 
         let decoded = try JSONDecoder().decode(TeamRun.self, from: json)
-        XCTAssertNil(decoded.explicitWorkerIds)
+        XCTAssertNil(decoded.explicitModelIds)
         // And the builders don't emit a spurious --model for such a run.
         XCTAssertFalse(AllnighterCLI.reproduceCommand(decoded).contains("--model"))
 
         // A run WITH an explicit worker round-trips the key.
         let withWorker = TeamRun(
-            id: "r", prompt: "hi", createdAt: Date(), explicitWorkerIds: ["model_sonnet"])
+            id: "r", prompt: "hi", createdAt: Date(), explicitModelIds: ["model_sonnet"])
         let rt = try JSONDecoder().decode(
             TeamRun.self, from: try JSONEncoder().encode(withWorker))
-        XCTAssertEqual(rt.explicitWorkerIds, ["model_sonnet"])
+        XCTAssertEqual(rt.explicitModelIds, ["model_sonnet"])
     }
 }
