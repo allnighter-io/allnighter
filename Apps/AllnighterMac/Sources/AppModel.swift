@@ -385,8 +385,8 @@ final class AppModel {
         return RunMarkdown.plan(run)
     }
 
-    func seatDisplayName(_ workerId: String, in run: TeamRun) -> String {
-        guard let seat = run.workers.first(where: { $0.id == workerId }) else { return workerId }
+    func seatDisplayName(_ agentId: String, in run: TeamRun) -> String {
+        guard let seat = run.workers.first(where: { $0.id == agentId }) else { return agentId }
         let shares = run.workers.filter { $0.modelId == seat.modelId }.count > 1
         let name = models.first { $0.id == seat.modelId }?.displayName ?? seat.modelId
         return seat.displayName(modelName: name, sharesModel: shares)
