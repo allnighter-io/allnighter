@@ -62,7 +62,7 @@ final class ExecutionWriteLockTests: XCTestCase {
         let team = TeamPreset(
             id: "research_lock", displayName: "Research", lane: .code, outputKind: .plan,
             mutating: false,
-            workerSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer",
+            agentSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer",
                                          purpose: .answer, preferredModelId: "model_opus")],
             lead: TeamLeadSpec(skillId: "plan_writer_build"))
         return RunService(

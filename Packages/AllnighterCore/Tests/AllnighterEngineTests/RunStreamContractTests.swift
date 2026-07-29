@@ -212,7 +212,7 @@ final class RunStreamContractTests: XCTestCase {
         let team = TeamPreset(
             id: "custom_stream_activity_team", displayName: "Stream Activity Team", lane: .code,
             outputKind: .plan, mutating: true, defaultEffort: .low, isDefaultForLane: false,
-            workerSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, preferredModelId: "model_grok")],
+            agentSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer, preferredModelId: "model_grok")],
             lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_grok"),
             builtIn: false)
 
@@ -415,7 +415,7 @@ final class RunStreamContractTests: XCTestCase {
             let team = TeamPreset(
                 id: id, displayName: "Stream JSON Team", lane: .code, outputKind: .plan,
                 defaultEffort: .low, isDefaultForLane: false,
-                workerSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
+                agentSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
                 lead: TeamLeadSpec(skillId: "plan_writer_build"), builtIn: false)
             let teamsDir = support.appendingPathComponent("Catalogs/teams", isDirectory: true)
             try fm.createDirectory(at: teamsDir, withIntermediateDirectories: true)

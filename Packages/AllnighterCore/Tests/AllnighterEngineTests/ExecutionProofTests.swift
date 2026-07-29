@@ -100,7 +100,7 @@ final class ExecutionProofTests: XCTestCase {
         TeamPreset(
             id: "code_red_execution", displayName: "Code Red Execution", lane: .code,
             outputKind: .plan, mutating: true, executionSourceId: "claude_code",
-            workerSpecs: [TeamAgentSpec(id: "exec", skillId: "execution_playbook",
+            agentSpecs: [TeamAgentSpec(id: "exec", skillId: "execution_playbook",
                                          purpose: .answer, preferredModelId: "model_opus")],
             lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_opus"))
     }

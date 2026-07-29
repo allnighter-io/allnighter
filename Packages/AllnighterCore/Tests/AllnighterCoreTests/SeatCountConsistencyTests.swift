@@ -42,7 +42,7 @@ final class SeatCountConsistencyTests: XCTestCase {
 
         let custom = try TeamCatalog.duplicateBuiltIn("code_bug_hunt", name: "Seat Count Custom")
         var edited = custom
-        edited.workerSpecs = edited.workerSpecs.map { row in
+        edited.agentSpecs = edited.agentSpecs.map { row in
             var copy = row
             if copy.count == 1 { copy.count = 2 }
             return copy
@@ -67,7 +67,7 @@ final class SeatCountConsistencyTests: XCTestCase {
         XCTAssertEqual(show.seatCount, loaded.catalogSeatCount)
         XCTAssertEqual(list.teams.first?.seatCount, loaded.catalogSeatCount)
         XCTAssertEqual(menu.teams.first?.seatCount, loaded.catalogSeatCount)
-        XCTAssertGreaterThan(loaded.catalogSeatCount, loaded.workerSpecs.count + 1)
+        XCTAssertGreaterThan(loaded.catalogSeatCount, loaded.agentSpecs.count + 1)
     }
 
     func testMenuShowTeamDetailUsesSeatCount() throws {

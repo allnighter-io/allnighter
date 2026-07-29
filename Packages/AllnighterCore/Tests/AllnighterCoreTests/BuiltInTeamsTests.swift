@@ -44,14 +44,14 @@ final class BuiltInTeamsTests: XCTestCase {
             XCTAssertEqual(team.lead.skillId, "spec_review_writer")
             XCTAssertEqual(team.lead.preferredModelId, "model_fable")
         }
-        XCTAssertEqual(min.workerSpecs.map(\.skillId), [
+        XCTAssertEqual(min.agentSpecs.map(\.skillId), [
             "spec_first_principles_reviewer", "spec_proof_planner", "spec_scope_steward"
         ])
-        XCTAssertEqual(standard.workerSpecs.map(\.skillId), [
+        XCTAssertEqual(standard.agentSpecs.map(\.skillId), [
             "spec_first_principles_reviewer", "spec_doc_hygiene_reviewer",
             "spec_contract_auditor", "spec_proof_planner", "spec_contrarian_reviewer"
         ])
-        XCTAssertEqual(max.workerSpecs.map(\.skillId), [
+        XCTAssertEqual(max.agentSpecs.map(\.skillId), [
             "spec_first_principles_reviewer", "spec_doc_hygiene_reviewer",
             "spec_contract_auditor", "spec_proof_planner", "spec_scope_steward",
             "spec_hype_skeptic", "spec_contrarian_reviewer"
@@ -66,7 +66,7 @@ final class BuiltInTeamsTests: XCTestCase {
         // fills them from the ready bench. "No exemptions" applies to Spec
         // Review too, so every row here is capability-only, not a curated
         // per-team model list.
-        XCTAssertTrue([min, standard, max].flatMap(\.workerSpecs).allSatisfy {
+        XCTAssertTrue([min, standard, max].flatMap(\.agentSpecs).allSatisfy {
             $0.preferredModelId == nil && $0.requiredCapabilityTags.contains(.code)
         })
     }
@@ -121,7 +121,7 @@ final class BuiltInTeamsTests: XCTestCase {
             "code_release_proof": "acceptance_auditor",
         ]
         for (teamId, skillId) in tierOne {
-            let row = BuiltInTeams.team(teamId)?.workerSpecs.first { $0.skillId == skillId }
+            let row = BuiltInTeams.team(teamId)?.agentSpecs.first { $0.skillId == skillId }
             XCTAssertNil(row?.preferredModelId, "\(teamId) worker \(skillId) should express need, not identity")
             XCTAssertEqual(row?.requiredCapabilityTags, [.code], "\(teamId) worker \(skillId)")
         }
@@ -193,7 +193,7 @@ final class BuiltInTeamsTests: XCTestCase {
         let removed = Set(["model_agy_opus", "model_agy_sonnet"])
         for team in BuiltInTeams.all {
             XCTAssertFalse(removed.contains(team.lead.preferredModelId ?? ""), "\(team.id) lead")
-            for row in team.workerSpecs {
+            for row in team.agentSpecs {
                 XCTAssertFalse(removed.contains(row.preferredModelId ?? ""),
                                "\(team.id) worker \(row.id)")
             }
@@ -227,7 +227,7 @@ final class BuiltInTeamsTests: XCTestCase {
 
     func testEveryReferencedSkillExistsInCatalog() {
         for team in BuiltInTeams.all {
-            for row in team.workerSpecs {
+            for row in team.agentSpecs {
                 XCTAssertNotNil(SkillCatalog.skill(row.skillId),
                                 "team \(team.id) references unknown skill \(row.skillId)")
             }
@@ -250,7 +250,7 @@ final class BuiltInTeamsTests: XCTestCase {
                 XCTAssertTrue(team.id.hasPrefix(team.lane.rawValue), "\(team.id) prefix != lane")
             }
             // Answer/review rows should be skills tagged for the team's lane.
-            for row in team.workerSpecs {
+            for row in team.agentSpecs {
                 let skill = SkillCatalog.skill(row.skillId)
                 XCTAssertEqual(skill?.lane, team.lane,
                               "skill \(row.skillId) lane \(skill?.lane.rawValue ?? "?") != team lane \(team.lane.rawValue) in \(team.id)")
@@ -387,7 +387,7 @@ final class BuiltInTeamsTests: XCTestCase {
         let sourcePinnedExempt: Set<String> = ["default_chat", "build_slice"]
         for team in BuiltInTeams.all where team.lane != .signal {
             if sourcePinnedExempt.contains(team.id) { continue }
-            for row in team.workerSpecs {
+            for row in team.agentSpecs {
                 XCTAssertNil(row.preferredModelId,
                              "\(team.id) worker \(row.id) hardcodes model identity '\(row.preferredModelId ?? "")' outside the signal lane (Law 3)")
             }
@@ -410,7 +410,7 @@ final class BuiltInTeamsTests: XCTestCase {
         for team in BuiltInTeams.all {
             guard let leadId = team.lead.preferredModelId else { continue }
             let leadRank = rank(leadId)
-            var pinnedWorkerIds = team.workerSpecs.compactMap(\.preferredModelId)
+            var pinnedWorkerIds = team.agentSpecs.compactMap(\.preferredModelId)
             if let scoutId = team.scout?.preferredModelId { pinnedWorkerIds.append(scoutId) }
             for workerId in pinnedWorkerIds {
                 XCTAssertGreaterThanOrEqual(

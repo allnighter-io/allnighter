@@ -33,7 +33,7 @@ final class RunTerminalJournalFailureTests: XCTestCase {
         let team = TeamPreset(
             id: "research_journal", displayName: "Research", lane: .code, outputKind: .plan,
             mutating: false,
-            workerSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer",
+            agentSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer",
                                          purpose: .answer, preferredModelId: "model_opus")],
             lead: TeamLeadSpec(skillId: "plan_writer_build"))
         let service = RunService(
@@ -74,7 +74,7 @@ final class RunTerminalJournalFailureTests: XCTestCase {
         let team = TeamPreset(
             id: "execution_journal", displayName: "Execution", lane: .code, outputKind: .plan,
             mutating: true, executionSourceId: "claude_code",
-            workerSpecs: [TeamAgentSpec(id: "e1", skillId: "first_principles_builder",
+            agentSpecs: [TeamAgentSpec(id: "e1", skillId: "first_principles_builder",
                                          purpose: .answer, preferredModelId: "model_opus")],
             lead: TeamLeadSpec(skillId: "plan_writer_build"))
         let service = RunService(

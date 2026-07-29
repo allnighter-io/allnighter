@@ -22,7 +22,7 @@ final class SignalTriangulationTests: XCTestCase {
         TeamPreset(
             id: "signal_test", displayName: "Signal Test", lane: .signal, outputKind: .insight,
             defaultEffort: .med,
-            workerSpecs: [
+            agentSpecs: [
                 TeamAgentSpec(
                     id: "interpret", skillId: "signal_project_fit", purpose: .answer,
                     count: count, required: true, triangulate: true,

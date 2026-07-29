@@ -95,7 +95,7 @@ final class TwoSourceResearchTeamTests: XCTestCase {
         TeamPreset(
             id: id, displayName: "Code Red Two Source", lane: .code, outputKind: .bugPacket,
             mutating: false,
-            workerSpecs: crewSpecs ?? [
+            agentSpecs: crewSpecs ?? [
                 TeamAgentSpec(id: "bug_reproducer", skillId: "bug_reproducer",
                                purpose: .answer, preferredModelId: "model_chatgpt",
                                allowedModelIds: ["model_chatgpt"], fallbackPolicy: .exactOnly),
@@ -275,8 +275,8 @@ final class TwoSourceResearchTeamTests: XCTestCase {
         let siblingCodex = Model(id: "model_chatgpt_54", displayName: "ChatGPT 5.4",
                                  modelLabel: "gpt-54", driverId: "codex", role: .both)
         var team = twoSourceTeam(id: "code_red_two_source_exact")
-        team.workerSpecs[0].fallbackPolicy = .exactOnly
-        team.workerSpecs[0].allowedModelIds = ["model_chatgpt"]
+        team.agentSpecs[0].fallbackPolicy = .exactOnly
+        team.agentSpecs[0].allowedModelIds = ["model_chatgpt"]
         team.lead.fallbackPolicy = .exactOnly
 
         let svc = service(team: team, runner: recorder,

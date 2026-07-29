@@ -15,7 +15,7 @@ final class TeamsShowTests: XCTestCase {
         )
 
         XCTAssertNil(show.scout)
-        XCTAssertEqual(show.crew.count, team.workerSpecs.count)
+        XCTAssertEqual(show.crew.count, team.agentSpecs.count)
         XCTAssertEqual(show.lead.role, "lead")
         XCTAssertEqual(show.lead.skillId, team.lead.skillId)
         XCTAssertEqual(show.lead.count, 1)
@@ -50,7 +50,7 @@ final class TeamsShowTests: XCTestCase {
         XCTAssertEqual(scout.count, 1)
 
         XCTAssertFalse(show.crew.isEmpty)
-        for (row, spec) in zip(show.crew, team.workerSpecs) {
+        for (row, spec) in zip(show.crew, team.agentSpecs) {
             XCTAssertEqual(row.role, "crew")
             XCTAssertEqual(row.id, spec.id)
             XCTAssertEqual(row.skillId, spec.skillId)

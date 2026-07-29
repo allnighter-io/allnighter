@@ -40,7 +40,7 @@ final class SandboxFailFastTests: XCTestCase {
         let team = TeamPreset(
             id: "test_failfast", displayName: "Fail Fast", lane: .code, outputKind: .plan,
             defaultEffort: .low,
-            workerSpecs: [
+            agentSpecs: [
                 TeamAgentSpec(id: "seat_blocked", skillId: SkillCatalog.directChatSkillId,
                                purpose: .answer, preferredModelId: "model_blocked"),
                 TeamAgentSpec(id: "seat_slow", skillId: SkillCatalog.directChatSkillId,

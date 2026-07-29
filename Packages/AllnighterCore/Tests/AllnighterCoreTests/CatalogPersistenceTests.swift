@@ -51,7 +51,7 @@ final class CatalogPersistenceTests: XCTestCase {
     func testWrongLaneSkillRejectedAtTeamSave() throws {
         let skill = try SkillCatalog.duplicateBuiltIn("offer_strategist", name: "Wrong Lane")
         var team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Bad Team")
-        team.workerSpecs[0].skillId = skill.id
+        team.agentSpecs[0].skillId = skill.id
         XCTAssertThrowsError(try TeamCatalog.saveCustom(team)) { error in
             if case .skillLaneMismatch(let sid, _) = error as? CatalogError {
                 XCTAssertEqual(sid, skill.id)
@@ -64,7 +64,7 @@ final class CatalogPersistenceTests: XCTestCase {
     func testSkillDeleteBlockedWhenReferencedByTeam() throws {
         let skill = try SkillCatalog.duplicateBuiltIn("contrarian_reviewer", name: "In Use")
         var team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Uses Custom")
-        team.workerSpecs = [TeamAgentSpec(id: "row1", skillId: skill.id)]
+        team.agentSpecs = [TeamAgentSpec(id: "row1", skillId: skill.id)]
         try TeamCatalog.saveCustom(team)
         XCTAssertThrowsError(try SkillCatalog.deleteCustom(skill.id)) { error in
             if case .skillInUse(let ids) = error as? CatalogError {
@@ -79,7 +79,7 @@ final class CatalogPersistenceTests: XCTestCase {
         let orphan = try SkillCatalog.duplicateBuiltIn("contrarian_reviewer", name: "Orphan")
         let kept = try SkillCatalog.duplicateBuiltIn("bug_reproducer", name: "In Use")
         var team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Keeps Skill")
-        team.workerSpecs[0].skillId = kept.id
+        team.agentSpecs[0].skillId = kept.id
         try TeamCatalog.saveCustom(team)
 
         let deleted = try SkillCatalog.purgeUnreferencedCustomSkills()

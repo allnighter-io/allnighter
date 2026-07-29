@@ -18,7 +18,7 @@ final class CraftModelTests: XCTestCase {
         let team = TeamPreset(
             id: "signal_demo", displayName: "Demo", lane: .signal, outputKind: .insight,
             mutating: false,
-            workerSpecs: [TeamAgentSpec(id: "r", skillId: "s")],
+            agentSpecs: [TeamAgentSpec(id: "r", skillId: "s")],
             lead: TeamLeadSpec(skillId: "w"), builtIn: true)
         let data = try CoreJSON.encode(team)
         let back = try CoreJSON.decode(TeamPreset.self, from: data)
@@ -68,7 +68,7 @@ final class CraftModelTests: XCTestCase {
         // Signal skills are signal-lane, and signal-capable models exist so the teams
         // can actually resolve a worker.
         for team in BuiltInTeams.teams(in: .signal) {
-            for row in team.workerSpecs {
+            for row in team.agentSpecs {
                 XCTAssertEqual(SkillCatalog.skill(row.skillId)?.lane, .signal,
                                "\(team.id) row \(row.skillId) must be a signal skill")
             }

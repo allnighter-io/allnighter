@@ -18,7 +18,7 @@ final class TeamResolverTests: XCTestCase {
                       lead: TeamLeadSpec? = nil) -> TeamPreset {
         TeamPreset(
             id: "code_test", displayName: "Test", lane: lane, outputKind: .plan,
-            defaultEffort: .med, workerSpecs: rows,
+            defaultEffort: .med, agentSpecs: rows,
             lead: lead ?? leadSpec()
         )
     }
@@ -445,10 +445,10 @@ final class TeamResolverTests: XCTestCase {
         ])
         let bench = ["m_a", "m_b", "m_c", "m_d", "m_e"].map(mk)
         let secTeam = BuiltInTeams.buildSecurityReview
-        XCTAssertTrue(secTeam.workerSpecs.allSatisfy { $0.preferredCapabilityTags == [.security] },
+        XCTAssertTrue(secTeam.agentSpecs.allSatisfy { $0.preferredCapabilityTags == [.security] },
                       "precondition: the built-in Security Review rows declare a .security preference")
         var stripped = secTeam
-        stripped.workerSpecs = secTeam.workerSpecs.map {
+        stripped.agentSpecs = secTeam.agentSpecs.map {
             var s = $0; s.preferredCapabilityTags = []; return s
         }
         let withPref = TeamResolver.resolve(team: secTeam, requestLane: .code, requestEffort: .high,

@@ -12,7 +12,7 @@ final class TeamCatalogTests: XCTestCase {
             outputKind: .plan,
             defaultEffort: .med,
             isDefaultForLane: isDefault,
-            workerSpecs: [
+            agentSpecs: [
                 TeamAgentSpec(id: "row_a", skillId: "skill_a", purpose: .answer),
                 TeamAgentSpec(id: "row_b", skillId: "skill_b", purpose: .answer),
                 TeamAgentSpec(id: "row_c", skillId: "skill_c", purpose: .review,
@@ -44,16 +44,16 @@ final class TeamCatalogTests: XCTestCase {
         let data = try CoreJSON.encode(sampleTeam())
         var object = try XCTUnwrap(
             JSONSerialization.jsonObject(with: data) as? [String: Any])
-        var rows = try XCTUnwrap(object["workerSpecs"] as? [[String: Any]])
+        var rows = try XCTUnwrap(object["agentSpecs"] as? [[String: Any]])
         for index in rows.indices { rows[index].removeValue(forKey: "fallbackModelIds") }
-        object["workerSpecs"] = rows
+        object["agentSpecs"] = rows
         var lead = try XCTUnwrap(object["lead"] as? [String: Any])
         lead.removeValue(forKey: "fallbackModelIds")
         object["lead"] = lead
 
         let legacyData = try JSONSerialization.data(withJSONObject: object)
         let decoded = try CoreJSON.decode(TeamPreset.self, from: legacyData)
-        XCTAssertTrue(decoded.workerSpecs.allSatisfy { $0.fallbackModelIds == nil })
+        XCTAssertTrue(decoded.agentSpecs.allSatisfy { $0.fallbackModelIds == nil })
         XCTAssertNil(decoded.lead.fallbackModelIds)
     }
 

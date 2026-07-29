@@ -11,7 +11,7 @@ final class TeamServiceTests: XCTestCase {
         TeamPreset(
             id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
             isDefaultForLane: true,
-            workerSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
+            agentSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"),
             builtIn: true)
     }

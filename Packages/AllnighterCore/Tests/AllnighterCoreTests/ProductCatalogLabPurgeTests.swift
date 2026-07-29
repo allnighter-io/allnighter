@@ -95,11 +95,11 @@ final class ProductCatalogLabPurgeTests: XCTestCase {
     func testCatalogSeatCountIncludesLeadAndScout() {
         let min = try! XCTUnwrap(BuiltInTeams.team("code_bug_hunt_min"))
         XCTAssertNil(min.scout)
-        XCTAssertEqual(min.catalogSeatCount, min.workerSpecs.reduce(0) { $0 + max(1, $1.count) } + 1)
+        XCTAssertEqual(min.catalogSeatCount, min.agentSpecs.reduce(0) { $0 + max(1, $1.count) } + 1)
 
         let signal = try! XCTUnwrap(BuiltInTeams.team("signal_outside"))
         XCTAssertNotNil(signal.scout)
-        XCTAssertEqual(signal.catalogSeatCount, signal.workerSpecs.reduce(0) { $0 + max(1, $1.count) } + 2)
+        XCTAssertEqual(signal.catalogSeatCount, signal.agentSpecs.reduce(0) { $0 + max(1, $1.count) } + 2)
 
         let projected = TeamCatalogJSON.project(
             [min, signal], lane: nil, contractVersion: ContractRegistry.contractVersion
@@ -110,9 +110,9 @@ final class ProductCatalogLabPurgeTests: XCTestCase {
 
     func testCatalogSeatCountIncludesRowMultiplicity() {
         let growth = try! XCTUnwrap(BuiltInTeams.team("code_growth_min"))
-        XCTAssertEqual(growth.workerSpecs.first?.count, 4)
+        XCTAssertEqual(growth.agentSpecs.first?.count, 4)
         XCTAssertEqual(growth.catalogSeatCount, 5, "4 triangulated crew + lead")
-        XCTAssertNotEqual(growth.catalogSeatCount, growth.workerSpecs.count + 1,
+        XCTAssertNotEqual(growth.catalogSeatCount, growth.agentSpecs.count + 1,
                           "row count alone under-counts multiplicity")
     }
 }

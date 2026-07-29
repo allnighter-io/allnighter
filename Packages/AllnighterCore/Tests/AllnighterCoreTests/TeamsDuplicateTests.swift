@@ -30,7 +30,7 @@ final class TeamsDuplicateTests: XCTestCase {
         XCTAssertEqual(copy.id, "custom_code_my_bug_hunt")
         XCTAssertEqual(copy.displayName, "My Bug Hunt")
         XCTAssertFalse(copy.builtIn)
-        XCTAssertEqual(TeamCatalog.get(copy.id)?.workerSpecs.count, BuiltInTeams.team("code_bug_hunt")?.workerSpecs.count)
+        XCTAssertEqual(TeamCatalog.get(copy.id)?.agentSpecs.count, BuiltInTeams.team("code_bug_hunt")?.agentSpecs.count)
     }
 
     func testTeamsDuplicateOmittingIdKeepsGeneratedBehavior() throws {

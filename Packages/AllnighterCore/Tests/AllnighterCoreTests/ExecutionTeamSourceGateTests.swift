@@ -16,7 +16,7 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
         TeamPreset(
             id: "custom_mixed_review", displayName: "Mixed Review", lane: .code, outputKind: .plan,
             mutating: false,
-            workerSpecs: [
+            agentSpecs: [
                 TeamAgentSpec(id: "a", skillId: "first_principles_builder", purpose: .answer, preferredModelId: "model_opus"),
                 TeamAgentSpec(id: "b", skillId: "code_maintainer", purpose: .answer, preferredModelId: "model_chatgpt"),
             ],
@@ -33,7 +33,7 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
         TeamPreset(
             id: "custom_codex_execute", displayName: "Codex Execute", lane: .code, outputKind: .plan,
             mutating: true, executionSourceId: "codex",
-            workerSpecs: [
+            agentSpecs: [
                 TeamAgentSpec(id: "a", skillId: "first_principles_builder", purpose: .answer, preferredModelId: "model_chatgpt", fallbackPolicy: .exactOnly),
             ],
             lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_chatgpt", fallbackPolicy: .exactOnly))

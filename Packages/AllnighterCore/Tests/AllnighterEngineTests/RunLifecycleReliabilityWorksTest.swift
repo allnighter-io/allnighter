@@ -126,7 +126,7 @@ final class RunLifecycleReliabilityWorksTest: XCTestCase {
         let team = TeamPreset(
             id: "code_test", displayName: "Test", lane: .code, outputKind: .plan,
             defaultEffort: .low, isDefaultForLane: true,
-            workerSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
+            agentSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"),
             builtIn: true
         )
@@ -312,7 +312,7 @@ final class RunLifecycleReliabilityWorksTest: XCTestCase {
             let team = TeamPreset(
                 id: id, displayName: "RLR S06", lane: .code, outputKind: .plan,
                 defaultEffort: .low, isDefaultForLane: false,
-                workerSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
+                agentSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
                 lead: TeamLeadSpec(skillId: "plan_writer_build"),
                 builtIn: false
             )

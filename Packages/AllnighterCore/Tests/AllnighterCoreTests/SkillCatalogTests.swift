@@ -228,7 +228,7 @@ final class SkillCatalogTests: XCTestCase {
 
         for teamId in ["code_bug_hunt_min", "code_bug_hunt", "code_bug_hunt_max"] {
             let team = try XCTUnwrap(TeamCatalog.get(teamId))
-            XCTAssertTrue(team.workerSpecs.contains { $0.skillId == "bug_reproducer" })
+            XCTAssertTrue(team.agentSpecs.contains { $0.skillId == "bug_reproducer" })
             XCTAssertTrue(
                 SkillCatalog.assemblePrompt(skillId: "bug_reproducer", founderPrompt: "Q")
                     .contains("SHARED_BUG_SENTINEL"),

@@ -12,7 +12,7 @@ final class TeamCardTests: XCTestCase {
         XCTAssertEqual(card.family, "signal")
         XCTAssertFalse(card.mutating)
         XCTAssertEqual(card.outputKind, "insight")
-        XCTAssertEqual(card.agentCount, team.workerSpecs.count)
+        XCTAssertEqual(card.agentCount, team.agentSpecs.count)
         XCTAssertFalse(card.starterPrompts.isEmpty)   // best-shot placeholder present
     }
 

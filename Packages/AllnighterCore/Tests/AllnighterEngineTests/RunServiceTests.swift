@@ -379,7 +379,7 @@ final class RunServiceTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: repo) }
 
         guard let buildSlice = TeamCatalog.get("build_slice"),
-              let declaredAnswerRow = buildSlice.workerSpecs.first(where: { $0.purpose == .answer }) else {
+              let declaredAnswerRow = buildSlice.agentSpecs.first(where: { $0.purpose == .answer }) else {
             return XCTFail("build_slice must declare exactly one answer row for this gate")
         }
         XCTAssertEqual(declaredAnswerRow.skillId, "execution_playbook")

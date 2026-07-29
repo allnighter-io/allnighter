@@ -19,7 +19,7 @@ private enum AsyncTeamTestHarness {
         TeamPreset(
             id: "code_test", displayName: "Test", lane: .code, outputKind: .plan, defaultEffort: .low,
             isDefaultForLane: true,
-            workerSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
+            agentSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
             lead: TeamLeadSpec(skillId: "plan_writer_build"),
             builtIn: true)
     }
@@ -110,7 +110,7 @@ final class TeamStartTests: XCTestCase {
             let pinTeam = TeamPreset(
                 id: "pin_test", displayName: "Pin", lane: .code, outputKind: .plan,
                 mutating: true, executionSourceId: "claude_code", defaultEffort: .med,
-                workerSpecs: [
+                agentSpecs: [
                     TeamAgentSpec(id: "w1", skillId: SkillCatalog.directChatSkillId, purpose: .answer,
                                    preferredModelId: "model_opus")
                 ],

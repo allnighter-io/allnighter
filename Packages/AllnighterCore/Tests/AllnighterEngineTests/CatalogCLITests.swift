@@ -157,7 +157,7 @@ final class CatalogCLITests: XCTestCase {
         let fromDup = try AllnighterCLI.loadTeamDefinition(
             from: dupURL.path, expectedId: duplicated.id, verb: "edit")
         XCTAssertEqual(fromDup.id, duplicated.id)
-        XCTAssertEqual(fromDup.workerSpecs.count, duplicated.workerSpecs.count)
+        XCTAssertEqual(fromDup.agentSpecs.count, duplicated.agentSpecs.count)
 
         let seed = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
         let novel = seed.duplicated(newId: "custom_code_rt_new", newName: "RT New")
