@@ -108,7 +108,7 @@ public actor AgentChatCoordinator {
     public func beginSend(
         message: String,
         toThreadId threadId: String,
-        requestedWorkerId: String? = nil,
+        requestedModelId: String? = nil,
         contextOptions: ThreadContextBuilder.Options = ThreadContextBuilder.Options(),
         draftIds: [String] = [],
         images: [ThreadSendCoordinator.ImageInput] = [],
@@ -120,7 +120,7 @@ public actor AgentChatCoordinator {
                 draftIds: draftIds,
                 images: images,
                 fileReferences: fileReferences,
-                requestedWorkerId: requestedWorkerId,
+                requestedModelId: requestedModelId,
                 contextOptions: contextOptions
             ),
             toThreadId: threadId
@@ -139,7 +139,7 @@ public actor AgentChatCoordinator {
     public func send(
         message: String,
         toThreadId threadId: String,
-        requestedWorkerId: String? = nil,
+        requestedModelId: String? = nil,
         contextOptions: ThreadContextBuilder.Options = ThreadContextBuilder.Options(),
         draftIds: [String] = [],
         images: [ThreadSendCoordinator.ImageInput] = [],
@@ -148,7 +148,7 @@ public actor AgentChatCoordinator {
         switch try beginSend(
             message: message,
             toThreadId: threadId,
-            requestedWorkerId: requestedWorkerId,
+            requestedModelId: requestedModelId,
             contextOptions: contextOptions,
             draftIds: draftIds,
             images: images,

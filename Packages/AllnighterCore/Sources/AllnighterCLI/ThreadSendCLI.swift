@@ -110,7 +110,7 @@ enum ThreadSendCLI {
                     message: message,
                     images: frozenInputs,
                     fileReferences: fileReferences,
-                    requestedWorkerId: workerId
+                    requestedModelId: workerId
                 ),
                 toThreadId: threadId
             )

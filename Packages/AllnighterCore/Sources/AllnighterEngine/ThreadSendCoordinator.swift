@@ -27,7 +27,7 @@ public struct ThreadSendCoordinator: Sendable {
         public var draftIds: [String]
         public var images: [ImageInput]
         public var fileReferences: [FileReferenceInput]
-        public var requestedWorkerId: String?
+        public var requestedModelId: String?
         public var contextOptions: ThreadContextBuilder.Options
 
         public init(
@@ -35,14 +35,14 @@ public struct ThreadSendCoordinator: Sendable {
             draftIds: [String] = [],
             images: [ImageInput] = [],
             fileReferences: [FileReferenceInput] = [],
-            requestedWorkerId: String? = nil,
+            requestedModelId: String? = nil,
             contextOptions: ThreadContextBuilder.Options = .init()
         ) {
             self.message = message
             self.draftIds = draftIds
             self.images = images
             self.fileReferences = fileReferences
-            self.requestedWorkerId = requestedWorkerId
+            self.requestedModelId = requestedModelId
             self.contextOptions = contextOptions
         }
     }
@@ -374,7 +374,7 @@ public struct ThreadSendCoordinator: Sendable {
         guard var priorThread = store.get(threadId) else {
             throw AgentChatCoordinator.ChatError.threadNotFound(threadId)
         }
-        guard let workerId = resolveWorkerId(for: priorThread, requested: request.requestedWorkerId) else {
+        guard let workerId = resolveWorkerId(for: priorThread, requested: request.requestedModelId) else {
             throw AgentChatCoordinator.ChatError.noWorkerAvailable
         }
 

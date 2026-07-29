@@ -1232,7 +1232,7 @@ final class ThreadsViewModel {
                 let checkpoint = try await coordinator.beginSend(
                     message: message,
                     toThreadId: threadId,
-                    requestedWorkerId: workerId,
+                    requestedModelId: workerId,
                     fileReferences: fileReferences
                 )
                 refreshPublishedThread(threadId)
