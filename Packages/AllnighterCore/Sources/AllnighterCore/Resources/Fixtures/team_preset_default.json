@@ -1,7 +1,7 @@
 {
   "id" : "preset_six_default",
   "displayName" : "Founder's Six",
-  "agentSpecs" : [
+  "workerSpecs" : [
     { "modelId" : "model_chatgpt", "count" : 1 },
     { "modelId" : "model_opus", "count" : 1 },
     { "modelId" : "model_sonnet", "count" : 1 },

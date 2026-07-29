@@ -111,7 +111,7 @@ final class CatalogCLITests: XCTestCase {
         let json = AllnighterCLI.teamDefinitionJSONString(team)
         XCTAssertTrue(json.contains(team.id))
         XCTAssertTrue(json.contains("WT Code Team"))
-        XCTAssertTrue(json.contains("\"workerSpecs\""))
+        XCTAssertTrue(json.contains("\"agentSpecs\""))
         XCTAssertTrue(json.contains("\"lead\""))
         XCTAssertFalse(json.contains("\"seatCount\""), "authoring receipt is TeamPreset, not show projection")
         XCTAssertFalse(json.contains("\"crew\""), "authoring receipt is TeamPreset, not show projection")
@@ -133,7 +133,7 @@ final class CatalogCLITests: XCTestCase {
         let definitionJSON = AllnighterCLI.teamDefinitionJSONString(
             try XCTUnwrap(TeamCatalog.get(created.id)))
         for json in [createdJSON, duplicatedJSON, definitionJSON] {
-            XCTAssertTrue(json.contains("\"workerSpecs\""))
+            XCTAssertTrue(json.contains("\"agentSpecs\""))
             XCTAssertTrue(json.contains("\"lead\""))
             XCTAssertFalse(json.contains("\"seatCount\""))
             XCTAssertFalse(json.contains("\"crew\""))
@@ -200,7 +200,7 @@ final class CatalogCLITests: XCTestCase {
             try XCTUnwrap(TeamCatalog.get("default_chat")))
         XCTAssertTrue(setDefaultJSON.contains("\"seatCount\""))
         XCTAssertTrue(setDefaultJSON.contains("\"crew\""))
-        XCTAssertFalse(setDefaultJSON.contains("\"workerSpecs\""))
+        XCTAssertFalse(setDefaultJSON.contains("\"agentSpecs\""))
     }
 
     func testTeamsNewFileIdMismatch() throws {
@@ -255,7 +255,7 @@ final class CatalogCLITests: XCTestCase {
         }
     }
 
-    /// A team definition JSON with a `null` `workerSpecs[0].skillId` must surface
+    /// A team definition JSON with a `null` `agentSpecs[0].skillId` must surface
     /// as `TEAM_INVALID` naming the exact field path — not `INTERNAL_ERROR` with
     /// raw `DecodingError` internals.
     func testTeamsNewNullWorkerSkillIdIsTeamInvalid() throws {
@@ -280,7 +280,7 @@ final class CatalogCLITests: XCTestCase {
             guard case CatalogError.teamInvalid(let detail) = error else {
                 return XCTFail("expected teamInvalid, got \(error)")
             }
-            XCTAssertTrue(detail.contains("workerSpecs[0].skillId"), detail)
+            XCTAssertTrue(detail.contains("agentSpecs[0].skillId"), detail)
             XCTAssertFalse(detail.contains("valueNotFound"), "raw DecodingError internals must not leak: \(detail)")
             XCTAssertFalse(detail.contains("codingPath"), "raw DecodingError internals must not leak: \(detail)")
             let envelope = AllnighterCLI.catalogErrorEnvelope(.teamInvalid(detail))

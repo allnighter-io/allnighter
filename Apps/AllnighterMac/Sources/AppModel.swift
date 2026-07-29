@@ -568,7 +568,7 @@ final class AppModel {
         let favRank = Dictionary(uniqueKeysWithValues: favorites.enumerated().map { ($1, $0) })
         let teams = catalog.filter { $0.lane == lane.workLane }
             .filter { !$0.isLabTeam && TeamVisibility.isEnabled($0.id) }.map { p -> ComposeTeam in
-            let n = p.workerSpecs.count
+            let n = p.agentSpecs.count
             let noun = lane == .design ? "mockups" : (lane == .copy ? "versions" : "agents")
             return ComposeTeam(id: p.id, name: p.displayName, summary: "\(n) \(noun)",
                                isFavorite: favorites.contains(p.id), lane: lane,

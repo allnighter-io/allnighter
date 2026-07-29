@@ -198,7 +198,7 @@ private struct StudioTeamListView: View {
                                     preferredModelId: modelId, count: 1, fallbackPolicy: .laneCapable, required: true)
         let lead = TeamLeadSpec(skillId: skillId, preferredModelId: modelId, fallbackPolicy: .laneCapable)
         return TeamPreset(id: "new_\(lane.workLane.rawValue)_draft", displayName: "New \(lane.label) team",
-                          lane: lane.workLane, outputKind: .plan, workerSpecs: [worker], lead: lead, builtIn: false)
+                          lane: lane.workLane, outputKind: .plan, agentSpecs: [worker], lead: lead, builtIn: false)
     }
 
     /// The models confirmed ready on the bench — so the detail can show who would
@@ -295,7 +295,7 @@ private struct StudioTeamListView: View {
                         if !TeamVisibility.isEnabled(team.id) { miniBadge("Off", ALPalette.yellow500) }
                         Spacer(minLength: 0)
                     }
-                    Text("\(team.defaultEffort.rawValue.capitalized) · \(team.runShape == .execution ? "1 agent" : "\(team.workerSpecs.count) agents")")
+                    Text("\(team.defaultEffort.rawValue.capitalized) · \(team.runShape == .execution ? "1 agent" : "\(team.agentSpecs.count) agents")")
                         .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -868,16 +868,16 @@ struct AllnighterCLI {
     }
 
     /// `teams show` / `set-default` project `crew`/`seatCount`; authoring accepts only
-    /// `TeamPreset` (`workerSpecs`). Refuse the show shape by name so agents don't
+    /// `TeamPreset` (`agentSpecs`). Refuse the show shape by name so agents don't
     /// loop on a decode that can never succeed.
     static func teamShowProjectionRefusal(_ data: Data) -> String? {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
         }
         let hasShowMarkers = obj["crew"] != nil || obj["seatCount"] != nil
-        let hasEditableSpec = obj["workerSpecs"] != nil
+        let hasEditableSpec = obj["agentSpecs"] != nil
         guard hasShowMarkers, !hasEditableSpec else { return nil }
-        return "expected TeamPreset shape (workerSpecs + lead); got a teams show projection — use `alln teams definition <id> --json` or the JSON from teams duplicate/new/edit"
+        return "expected TeamPreset shape (agentSpecs + lead); got a teams show projection — use `alln teams definition <id> --json` or the JSON from teams duplicate/new/edit"
     }
 
     /// Translates a `TeamPreset` JSON `DecodingError` into an agent-actionable

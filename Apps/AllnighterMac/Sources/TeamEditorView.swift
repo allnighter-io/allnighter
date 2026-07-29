@@ -36,7 +36,7 @@ struct TeamDraft: Equatable {
         self.name = base.displayName
         self.allowSubstitutions = true
         self.mutating = base.mutating
-        self.rows = base.workerSpecs.map { spec in
+        self.rows = base.agentSpecs.map { spec in
             Row(id: spec.id, skillId: spec.skillId, modelId: spec.preferredModelId, purpose: spec.purpose)
         }
         // The Team Lead. Its Row.purpose is unused (the Lead is the synthesizer,
@@ -85,7 +85,7 @@ struct TeamDraft: Equatable {
             guard !row.skillId.isEmpty else {
                 throw CatalogError.teamInvalid("every agent needs a skill")
             }
-            let original = base.workerSpecs.first { $0.id == row.id }
+            let original = base.agentSpecs.first { $0.id == row.id }
             return TeamAgentSpec(
                 id: row.id, skillId: row.skillId,
                 purpose: row.purpose, preferredModelId: row.modelId,
@@ -133,7 +133,7 @@ struct TeamDraft: Equatable {
             duplicatedTeamId = team.id
         }
         team.displayName = saveName
-        team.workerSpecs = specs
+        team.agentSpecs = specs
         team.lead = leadSpec
         if let s = scout {
             let original = base.scout
@@ -266,7 +266,7 @@ struct TeamEditorView: View {
         for row in draft.rows + [draft.lead] + (draft.scout.map { [$0] } ?? []) where !row.skillId.isEmpty {
             refIds.insert(row.skillId)
         }
-        for spec in draft.base.workerSpecs where !spec.skillId.isEmpty { refIds.insert(spec.skillId) }
+        for spec in draft.base.agentSpecs where !spec.skillId.isEmpty { refIds.insert(spec.skillId) }
         if !draft.base.lead.skillId.isEmpty { refIds.insert(draft.base.lead.skillId) }
         draft.base.scout.map { if !$0.skillId.isEmpty { refIds.insert($0.skillId) } }
         return SkillCatalog.list(lane: lane).filter { skill in
@@ -589,10 +589,10 @@ struct TeamEditorView: View {
     }
 
     private func isTriangulated(_ rowId: String) -> Bool {
-        draft.base.workerSpecs.first { $0.id == rowId }?.triangulate ?? false
+        draft.base.agentSpecs.first { $0.id == rowId }?.triangulate ?? false
     }
     private func triangulateCount(_ rowId: String) -> Int {
-        max(1, draft.base.workerSpecs.first { $0.id == rowId }?.count ?? 3)
+        max(1, draft.base.agentSpecs.first { $0.id == rowId }?.count ?? 3)
     }
 
     /// Read-only model cell for a triangulated worker row — it runs on several

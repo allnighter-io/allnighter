@@ -378,7 +378,7 @@ struct RoutingComposer: View {
     /// Studio editor shows it. Returns nil only if the team pins nothing.
     private func resolvedWorkerId(forTeam team: String?) -> String? {
         let preset = team.flatMap { TeamCatalog.get($0) } ?? TeamCatalog.defaultRunTeam()
-        guard let id = preset?.workerSpecs.first?.preferredModelId ?? preset?.lead.preferredModelId else { return nil }
+        guard let id = preset?.agentSpecs.first?.preferredModelId ?? preset?.lead.preferredModelId else { return nil }
         // Only honor it if it's actually on the bench (else the chip would show a
         // model the user can't run); otherwise the ready-fallback applies.
         return appModel.composeBench.contains(where: { $0.id == id }) ? id : nil
@@ -797,7 +797,7 @@ struct RoutingComposer: View {
     /// A team's honest size: execution teams are one agent; answer teams show agent count.
     private func teamAgentLabel(_ preset: TeamPreset) -> String {
         if preset.runShape == .execution { return "1 agent" }
-        let n = preset.workerSpecs.count
+        let n = preset.agentSpecs.count
         return "\(n) \(n == 1 ? "agent" : "agents")"
     }
 

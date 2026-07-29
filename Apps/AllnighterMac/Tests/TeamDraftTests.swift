@@ -35,14 +35,14 @@ final class TeamDraftTests: XCTestCase {
         let d = TeamDraft(base: buildBase)
         XCTAssertEqual(d.name, buildBase.displayName)
         XCTAssertFalse(d.name.contains("(custom)"))
-        XCTAssertEqual(d.rows.map(\.modelId), buildBase.workerSpecs.map(\.preferredModelId))
+        XCTAssertEqual(d.rows.map(\.modelId), buildBase.agentSpecs.map(\.preferredModelId))
     }
 
     func testSavableAllowsAutoModel() throws {
         let pinned = try XCTUnwrap(
             TeamCatalog.list(lane: .code).first {
-                $0.builtIn && !$0.workerSpecs.isEmpty
-                    && $0.workerSpecs.allSatisfy { $0.preferredModelId != nil }
+                $0.builtIn && !$0.agentSpecs.isEmpty
+                    && $0.agentSpecs.allSatisfy { $0.preferredModelId != nil }
                     && $0.lead.preferredModelId != nil
             }
         )
@@ -77,7 +77,7 @@ final class TeamDraftTests: XCTestCase {
         let saved = TeamCatalog.get(id)
         XCTAssertEqual(id, base.id)
         XCTAssertEqual(saved?.builtIn, false)
-        XCTAssertEqual(saved?.workerSpecs.first?.preferredModelId, "model_opus")
+        XCTAssertEqual(saved?.agentSpecs.first?.preferredModelId, "model_opus")
         XCTAssertEqual(TeamCatalog.list(lane: .code).filter { $0.id == id }.count, 1)
 
         _ = try TeamCatalog.restore(id)
@@ -137,14 +137,14 @@ final class TeamDraftTests: XCTestCase {
     func testSavePreservesOrderedFallbackChainsTheEditorDoesNotExpose() throws {
         let base = try XCTUnwrap(BuiltInTeams.team("code_spec_review_max"))
         let workerChains = Dictionary(
-            uniqueKeysWithValues: base.workerSpecs.map { ($0.id, $0.fallbackModelIds ?? []) })
+            uniqueKeysWithValues: base.agentSpecs.map { ($0.id, $0.fallbackModelIds ?? []) })
         let leadChain = base.lead.fallbackModelIds
         let scoutChain = base.scout?.fallbackModelIds
 
         let id = try TeamDraft(base: base).commit()
         let saved = try XCTUnwrap(TeamCatalog.get(id))
 
-        for row in saved.workerSpecs {
+        for row in saved.agentSpecs {
             XCTAssertEqual(row.fallbackModelIds ?? [], workerChains[row.id] ?? [], row.id)
         }
         XCTAssertEqual(saved.lead.fallbackModelIds, leadChain)
@@ -177,12 +177,12 @@ final class TeamDraftTests: XCTestCase {
             dissentPolicy: .compareOptions)
         let base = TeamPreset(
             id: "code_metadata_test", displayName: "Metadata Test", lane: .code,
-            outputKind: .plan, scout: scout, workerSpecs: [worker], lead: lead)
+            outputKind: .plan, scout: scout, agentSpecs: [worker], lead: lead)
 
         let id = try TeamDraft(base: base).commit()
         let saved = try XCTUnwrap(TeamCatalog.get(id))
-        XCTAssertEqual(saved.workerSpecs.first?.fallbackModelIds, worker.fallbackModelIds)
-        XCTAssertEqual(saved.workerSpecs.first?.triangulate, worker.triangulate)
+        XCTAssertEqual(saved.agentSpecs.first?.fallbackModelIds, worker.fallbackModelIds)
+        XCTAssertEqual(saved.agentSpecs.first?.triangulate, worker.triangulate)
         XCTAssertEqual(saved.lead.fallbackModelIds, lead.fallbackModelIds)
         XCTAssertEqual(saved.scout?.fallbackModelIds, scout.fallbackModelIds)
     }
