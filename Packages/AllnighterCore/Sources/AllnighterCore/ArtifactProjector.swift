@@ -233,27 +233,27 @@ public enum ArtifactProjector {
   ) -> [Seat] {
     let seatWorkers = TeamRunSeatSet.workers(for: run)
     let modelCounts = Dictionary(grouping: seatWorkers, by: \.modelId).mapValues(\.count)
-    let mapped = seatWorkers.map { worker -> Seat in
-      let answer = run.workerAnswer(workerId: worker.id)
+    let mapped = seatWorkers.map { agent -> Seat in
+      let answer = run.workerAnswer(workerId: agent.id)
       let (status, durationMs) = resolvedSeatStatus(
-        worker: worker,
+        agent: agent,
         answer: answer,
         hoistedAnswer: hoistedAnswer
       )
-      let sharesModel = (modelCounts[worker.modelId] ?? 0) > 1
-      let modelLabel = worker.displayName(
-        modelName: context.modelDisplayName(worker.modelId),
+      let sharesModel = (modelCounts[agent.modelId] ?? 0) > 1
+      let modelLabel = agent.displayName(
+        modelName: context.modelDisplayName(agent.modelId),
         sharesModel: sharesModel
       )
       let markdown = seatMarkdown(
-        worker: worker, answer: answer, hoistedAnswer: hoistedAnswer
+        agent: agent, answer: answer, hoistedAnswer: hoistedAnswer
       )
-      let isLead = worker.purpose == .plan
+      let isLead = agent.purpose == .plan
       return Seat(
-        agentId: worker.id,
-        roleLabel: roleLabel(for: worker, isLead: isLead),
+        agentId: agent.id,
+        roleLabel: roleLabel(for: agent, isLead: isLead),
         modelLabel: modelLabel,
-        sourceId: context.sourceId(worker.modelId),
+        sourceId: context.sourceId(agent.modelId),
         status: status,
         durationMs: durationMs,
         oneLiner: isLead
@@ -280,8 +280,8 @@ public enum ArtifactProjector {
     func distinctNames(_ stage: AgentStage) -> [String] {
       var seen = Set<String>()
       var names: [String] = []
-      for worker in workers where worker.purpose == stage {
-        let name = context.modelDisplayName(worker.modelId)
+      for agent in workers where agent.purpose == stage {
+        let name = context.modelDisplayName(agent.modelId)
         if seen.insert(name).inserted { names.append(name) }
       }
       return names
@@ -293,15 +293,15 @@ public enum ArtifactProjector {
     return "Writer: \(writers.joined(separator: ", ")) · Reviewer: \(reviewers.joined(separator: ", "))"
   }
 
-  private static func roleLabel(for worker: Agent, isLead: Bool) -> String {
+  private static func roleLabel(for agent: Agent, isLead: Bool) -> String {
     if isLead { return "Lead" }
-    if let name = worker.skillName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+    if let name = agent.skillName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
       return shortRole(name)
     }
-    if let id = worker.skillId, !id.isEmpty {
+    if let id = agent.skillId, !id.isEmpty {
       return shortRole(SkillCatalog.displayName(for: id))
     }
-    switch worker.purpose {
+    switch agent.purpose {
     case .review: return "Review"
     case .answer: return "Seat"
     default: return "Seat"
@@ -338,7 +338,7 @@ public enum ArtifactProjector {
 
   /// Law-2 + trust: Lead chip must not stay `queued` when the synthesized answer exists.
   private static func resolvedSeatStatus(
-    worker: Agent,
+    agent: Agent,
     answer: TeamAnswer?,
     hoistedAnswer: TeamRunJSON.Answer?
   ) -> (String, Int?) {
@@ -346,7 +346,7 @@ public enum ArtifactProjector {
     var durationMs = answer?.result.timing.durationMs
     let emptyOutput = answer?.output?
       .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
-    if worker.purpose == .plan,
+    if agent.purpose == .plan,
        let hoisted = hoistedAnswer,
        (answer == nil || status == "queued" || emptyOutput) {
       status = hoisted.status.rawValue
@@ -358,13 +358,13 @@ public enum ArtifactProjector {
   }
 
   private static func seatMarkdown(
-    worker: Agent,
+    agent: Agent,
     answer: TeamAnswer?,
     hoistedAnswer: TeamRunJSON.Answer?
   ) -> String? {
     var markdown = answer?.output
     if markdown?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
-       hoistedAnswer?.source.agentId == worker.id {
+       hoistedAnswer?.source.agentId == agent.id {
       markdown = hoistedAnswer?.markdown
     }
     return markdown
@@ -402,10 +402,10 @@ public enum ArtifactProjector {
     hoistedAnswer: TeamRunJSON.Answer?
   ) -> [Evidence] {
     seats.map { seat in
-      let worker = run.workers.first { $0.id == seat.agentId }
+      let agent = run.workers.first { $0.id == seat.agentId }
       let answer = run.workerAnswer(workerId: seat.agentId)
       var markdown = seatMarkdown(
-        worker: worker ?? Agent(id: seat.agentId, modelId: "", instanceIndex: 0),
+        agent: agent ?? Agent(id: seat.agentId, modelId: "", instanceIndex: 0),
         answer: answer,
         hoistedAnswer: seat.isLead ? hoistedAnswer : nil
       )
