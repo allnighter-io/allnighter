@@ -369,14 +369,14 @@ struct RoutingComposer: View {
     /// else the tier-resolved Auto model.
     private var selectedModelId: String? {
         if let pinnedWorker { return pinnedWorker }
-        if team != nil { return resolvedWorkerId(forTeam: team) }
+        if team != nil { return resolvedModelId(forTeam: team) }
         return autoModelId
     }
 
     /// The model a team actually runs — its first worker's pinned model (or the
     /// lead's). This is the SSOT the composer chip must mirror, exactly as the Team
     /// Studio editor shows it. Returns nil only if the team pins nothing.
-    private func resolvedWorkerId(forTeam team: String?) -> String? {
+    private func resolvedModelId(forTeam team: String?) -> String? {
         let preset = team.flatMap { TeamCatalog.get($0) } ?? TeamCatalog.defaultRunTeam()
         guard let id = preset?.agentSpecs.first?.preferredModelId ?? preset?.lead.preferredModelId else { return nil }
         // Only honor it if it's actually on the bench (else the chip would show a
@@ -825,7 +825,7 @@ struct RoutingComposer: View {
         // concrete worker (exact, no substitution).
         let toSend: String
         if team != nil {
-            toSend = (pinnedWorker ?? resolvedWorkerId(forTeam: team)) ?? ""
+            toSend = (pinnedWorker ?? resolvedModelId(forTeam: team)) ?? ""
         } else {
             toSend = pinnedWorker ?? ""
         }
@@ -1189,8 +1189,8 @@ struct RoutingComposer: View {
         if t.name.lowercased().contains(q) { return true }
         if t.summary.lowercased().contains(q) { return true }
         if t.lane.label.lowercased().contains(q) { return true }
-        if let worker = resolvedWorkerId(forTeam: t.id),
-           let m = appModel.composeBench.first(where: { $0.id == worker }) {
+        if let modelId = resolvedModelId(forTeam: t.id),
+           let m = appModel.composeBench.first(where: { $0.id == modelId }) {
             if m.name.lowercased().contains(q) || m.cli.lowercased().contains(q) { return true }
         }
         return false
