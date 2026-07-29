@@ -13,7 +13,7 @@ import Foundation
 /// No filesystem writes — the CLI prints; the Mac app (ONB-S03) owns clicks.
 public enum TeachingSnippet {
     /// Marker schema version. Bump when the marker grammar or body contract changes.
-    public static let schemaVersion = 3
+    public static let schemaVersion = 4
 
     /// Open marker: `<!-- ALLNIGHTER:TEACHING v<N> hash=<hex> -->`
     public static let openMarkerPrefix = "<!-- ALLNIGHTER:TEACHING v"
@@ -28,7 +28,7 @@ public enum TeachingSnippet {
     public static let reflexLines = [
         "1. Before first Allnighter use in a session, read `alln menu --json`.",
         "2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.",
-        "3. Before an unfamiliar worker-starting action, run its validation template.",
+        "3. Before an unfamiliar agent-starting action, run its validation template.",
         "4. Re-read the live menu in a new session; never trust a pasted catalog.",
     ]
 

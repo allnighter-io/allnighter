@@ -10,10 +10,10 @@ One named worker, one read-only ask — use `alln run`, not a multi-seat team. P
 
 ## Teaching (keep in sync with TeachingSnippet)
 
-<!-- ALLNIGHTER:TEACHING v3 hash=428a37496be9dffc4070f094dfc4410b4fae625cb5c412e452e61df649a751ba -->
+<!-- ALLNIGHTER:TEACHING v4 hash=9e49c668915fdd9919d0c99681c0a88772b7b0f842afed680ebbf8be9d735c1f -->
 1. Before first Allnighter use in a session, read `alln menu --json`.
 2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.
-3. Before an unfamiliar worker-starting action, run its validation template.
+3. Before an unfamiliar agent-starting action, run its validation template.
 4. Re-read the live menu in a new session; never trust a pasted catalog.
 <!-- ALLNIGHTER:TEACHING:END -->
 
