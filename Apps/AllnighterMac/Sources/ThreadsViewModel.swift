@@ -746,11 +746,11 @@ final class ThreadsViewModel {
         let turnKind: ThreadTurnKind = preset.mutating ? .mutatingRun : (routing.lane == .design ? .designBoard : .teamRun)
         let runId = UUID().uuidString
         let startedAt = Date()
-        let resolvedWorkerId = effectiveWorkerId(for: routing, preset: preset)
+        let resolvedModelId = effectiveModelId(for: routing, preset: preset)
         let turn = ThreadTurn(
             id: UUID().uuidString, threadId: threadId, kind: turnKind, status: .running,
             createdAt: startedAt, author: .worker,
-            modelId: preset.mutating ? resolvedWorkerId : (routing.to.isEmpty ? nil : routing.to),
+            modelId: preset.mutating ? resolvedModelId : (routing.to.isEmpty ? nil : routing.to),
             runId: runId
         )
         guard (try? store.appendTurn(turn, toThreadId: threadId, now: startedAt)) != nil else { return }
@@ -931,7 +931,7 @@ final class ThreadsViewModel {
 
     /// Resolve the model a routing send will actually run — explicit pin, else Auto tier
     /// default for the default team, else the team's first resolved worker.
-    private func effectiveWorkerId(for routing: ComposeRouting, preset: TeamPreset) -> String? {
+    private func effectiveModelId(for routing: ComposeRouting, preset: TeamPreset) -> String? {
         if !routing.to.isEmpty { return routing.to }
         if preset.id == TeamCatalog.defaultRunTeam()?.id {
             let settings = DefaultModelSettingsPersistence().load()
