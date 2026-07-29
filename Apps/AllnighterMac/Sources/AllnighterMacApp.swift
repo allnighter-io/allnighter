@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AllnighterCore
 
 /// The bundle launches as an accessory (`LSUIElement` in Info.plist) so the
 /// hosted unit-test runner can connect without hanging. For a real launch we
@@ -20,6 +21,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // just beep in text fields). Install a real menu bar so editing shortcuts work.
         installMainMenu()
         MacNotificationDelivery.shared.configure()
+        do {
+            try SupportStartupMigrator.runOnce()
+        } catch {
+            NSLog("SupportStartupMigrator failed: \(error.localizedDescription)")
+        }
         // ONB-S02b: keep Application Support/Recipes in sync with the bundled cards
         // so Finder / agents find them without opening Settings.
         RecipeInstallMirror.sync()

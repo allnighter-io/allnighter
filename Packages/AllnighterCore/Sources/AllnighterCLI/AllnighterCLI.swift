@@ -8,6 +8,12 @@ import AllnighterEngine
 @main
 struct AllnighterCLI {
     static func main() async {
+        do {
+            try SupportStartupMigrator.runOnce()
+        } catch {
+            fail(code: "SUPPORT_MIGRATION_FAILED", message: error.localizedDescription)
+        }
+
         var args = Array(CommandLine.arguments.dropFirst())
         if args.first == "--version" {
             runVersion([])
