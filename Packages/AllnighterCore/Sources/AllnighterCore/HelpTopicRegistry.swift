@@ -458,7 +458,7 @@ public enum HelpTopicRegistry {
             aliases: ["error", "failed", "recovery", "retry"],
             relatedCommandNames: ["doctor explain", "docs"],
             schemaRefs: ["errorEnvelope"],
-            errorRefs: ["CLI_USAGE_ERROR", "WORKER_FAILED", "TEAM_RUN_FAILED"],
+            errorRefs: ["CLI_USAGE_ERROR", "AGENT_FAILED", "TEAM_RUN_FAILED"],
             needsLiveCheck: false),
 
         HelpTopic(

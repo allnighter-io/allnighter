@@ -129,9 +129,9 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         // otherwise) and the relay reached `done` only via round 2's verdict.
     }
 
-    /// PO-F10: unresolvable `--dev-model` escalates with WORKER_NOT_AVAILABLE before
+    /// PO-F10: unresolvable `--dev-model` escalates with AGENT_NOT_AVAILABLE before
     /// silent stall retries (no 4 stalls + devRunId:NONE).
-    func testUnresolvableDevWorkerEscalatesWithWorkerNotAvailable() async throws {
+    func testUnresolvableDevWorkerEscalatesWithAgentNotAvailable() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
@@ -155,7 +155,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         XCTAssertEqual(state.status, .escalated)
         XCTAssertTrue(
-            (state.note ?? "").contains("WORKER_NOT_AVAILABLE"),
+            (state.note ?? "").contains("AGENT_NOT_AVAILABLE"),
             "escalation note must surface typed code, got: \(state.note ?? "")"
         )
         XCTAssertEqual(state.rounds.count, 1)

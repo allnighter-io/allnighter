@@ -385,7 +385,7 @@ public enum TeamRunJSONMapper {
     private static func errorEnvelope(for a: TeamAnswer, runId: String) -> ErrorEnvelope? {
         guard a.result.status == .failed || a.result.status == .timedOut else { return nil }
         return ErrorEnvelope(
-            code: a.result.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "WORKER_FAILED",
+            code: a.result.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "AGENT_FAILED",
             message: a.result.errorReason ?? "worker did not produce an answer",
             requiresManual: false, retryable: true, runId: runId, workerId: a.memberId
         )

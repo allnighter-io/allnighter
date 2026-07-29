@@ -13,7 +13,7 @@ public enum ErrorDiscovery {
             return "alln menu --json"
         case "SKILL_NOT_FOUND":
             return "alln skills\(laneFlag) --json"
-        case "MODEL_NOT_FOUND", "WORKER_NOT_AVAILABLE":
+        case "MODEL_NOT_FOUND", "AGENT_NOT_AVAILABLE":
             return "alln menu --json"
         case "PROJECT_NOT_FOUND":
             return "alln project list --json"
@@ -66,7 +66,7 @@ public enum ErrorDiscovery {
         switch code {
         case "TEAM_NOT_FOUND": return "team"
         case "SKILL_NOT_FOUND": return "skill"
-        case "MODEL_NOT_FOUND", "WORKER_NOT_AVAILABLE": return "model"
+        case "MODEL_NOT_FOUND", "AGENT_NOT_AVAILABLE": return "model"
         case "PROJECT_NOT_FOUND": return "project"
         case "RUN_NOT_FOUND": return "run"
         case "THREAD_NOT_FOUND": return "thread"

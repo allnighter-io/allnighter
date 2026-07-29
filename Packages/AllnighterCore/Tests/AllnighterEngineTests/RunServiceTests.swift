@@ -230,14 +230,14 @@ final class RunServiceTests: XCTestCase {
             origin: .cli
         )
         guard case .failure(let err) = result else {
-            return XCTFail("expected WORKER_NOT_AVAILABLE, got success: \(result)")
+            return XCTFail("expected AGENT_NOT_AVAILABLE, got success: \(result)")
         }
-        XCTAssertEqual(err.code, "WORKER_NOT_AVAILABLE")
+        XCTAssertEqual(err.code, "AGENT_NOT_AVAILABLE")
         XCTAssertTrue(err.description.contains("model_cursor_grok_45"))
         XCTAssertTrue(err.description.contains("disabled"))
     }
 
-    func testExplicitWorkerUnknownFailsWithWorkerNotAvailable() async throws {
+    func testExplicitWorkerUnknownFailsWithAgentNotAvailable() async throws {
         let repo = FileManager.default.temporaryDirectory
             .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
@@ -265,13 +265,13 @@ final class RunServiceTests: XCTestCase {
             origin: .cli
         )
         guard case .failure(let err) = result else {
-            return XCTFail("expected WORKER_NOT_AVAILABLE, got \(result)")
+            return XCTFail("expected AGENT_NOT_AVAILABLE, got \(result)")
         }
-        XCTAssertEqual(err.code, "WORKER_NOT_AVAILABLE")
+        XCTAssertEqual(err.code, "AGENT_NOT_AVAILABLE")
         XCTAssertTrue(err.description.contains("unknown"))
     }
 
-    func testExplicitWorkerNotReadyFailsWithWorkerNotAvailable() async throws {
+    func testExplicitWorkerNotReadyFailsWithAgentNotAvailable() async throws {
         let repo = FileManager.default.temporaryDirectory
             .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
@@ -310,9 +310,9 @@ final class RunServiceTests: XCTestCase {
             origin: .cli
         )
         guard case .failure(let err) = result else {
-            return XCTFail("expected WORKER_NOT_AVAILABLE, got \(result)")
+            return XCTFail("expected AGENT_NOT_AVAILABLE, got \(result)")
         }
-        XCTAssertEqual(err.code, "WORKER_NOT_AVAILABLE")
+        XCTAssertEqual(err.code, "AGENT_NOT_AVAILABLE")
         XCTAssertTrue(err.description.contains("notReady"))
     }
 
@@ -433,7 +433,7 @@ final class RunServiceTests: XCTestCase {
 
     /// AE-S03: answer-path (non-mutating team) must fail closed on a bogus `--model`,
     /// never accept-and-drop.
-    func testAnswerPathBogusWorkerFailsWithWorkerNotAvailable() async throws {
+    func testAnswerPathBogusWorkerFailsWithAgentNotAvailable() async throws {
         let repo = FileManager.default.temporaryDirectory
             .appendingPathComponent("run-service-answer-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
@@ -473,9 +473,9 @@ final class RunServiceTests: XCTestCase {
             origin: .cli
         )
         guard case .failure(let err) = result else {
-            return XCTFail("expected WORKER_NOT_AVAILABLE on answer path, got success: \(result)")
+            return XCTFail("expected AGENT_NOT_AVAILABLE on answer path, got success: \(result)")
         }
-        XCTAssertEqual(err.code, "WORKER_NOT_AVAILABLE")
+        XCTAssertEqual(err.code, "AGENT_NOT_AVAILABLE")
         XCTAssertTrue(err.description.contains("model_bogus_id"))
     }
 }

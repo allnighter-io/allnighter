@@ -24,7 +24,7 @@ final class RelayResumeControllerTests: XCTestCase {
     /// A driver + two workers this test OWNS. Previously these tests seated
     /// `AppConfig.loadConfiguration().models[0..1]` — the user's live catalog —
     /// which made them fail for reasons that had nothing to do with the relay:
-    /// the first model was simply disabled (WORKER_NOT_AVAILABLE), and once that
+    /// the first model was simply disabled (AGENT_NOT_AVAILABLE), and once that
     /// was skipped the next two sat on WARM drivers (cursor/grok ACP, codex
     /// app-server, claude stream-json) that a canned-stdout stub cannot drive, so
     /// the PM turn was judged stalled. A plain headless driver is exactly what

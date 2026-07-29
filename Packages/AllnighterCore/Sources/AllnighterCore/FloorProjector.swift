@@ -136,8 +136,8 @@ public enum FloorProjector {
         // A failed worker is always visible, even when synthesis succeeded.
         run.failedWorkerAnswers.map { a in
             ErrorEnvelope(
-                code: "WORKER_FAILED",
-                ruleId: "worker.failed",
+                code: "AGENT_FAILED",
+                ruleId: "agent.failed",
                 message: a.result.errorReason ?? "worker \(a.memberId) failed",
                 requiresManual: false,
                 retryable: true,

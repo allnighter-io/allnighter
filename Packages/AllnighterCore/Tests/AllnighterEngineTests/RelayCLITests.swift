@@ -188,7 +188,7 @@ final class RelayCLITests: XCTestCase {
             guard case .workerNotAvailable(let failure) = error as? RelayCLI.RelayCLIError else {
                 return XCTFail("expected workerNotAvailable, got \(error)")
             }
-            XCTAssertEqual(failure.code, "WORKER_NOT_AVAILABLE")
+            XCTAssertEqual(failure.code, "AGENT_NOT_AVAILABLE")
             XCTAssertEqual(failure.flag, "--pm-model")
             XCTAssertEqual(failure.provided, "model_ghost")
         }
@@ -205,7 +205,7 @@ final class RelayCLITests: XCTestCase {
             guard case .workerNotAvailable(let failure) = error as? RelayCLI.RelayCLIError else {
                 return XCTFail("expected workerNotAvailable, got \(error)")
             }
-            XCTAssertEqual(failure.code, "WORKER_NOT_AVAILABLE")
+            XCTAssertEqual(failure.code, "AGENT_NOT_AVAILABLE")
             XCTAssertEqual(failure.flag, "--dev-model")
             XCTAssertEqual(failure.provided, "model_ghost")
         }
@@ -319,7 +319,7 @@ final class RelayCLITests: XCTestCase {
             .relayNotFound("relay_1"),
             .relayNotEscalated(status: "running"),
             .workerNotAvailable(ExactIdResolver.Failure(
-                code: "WORKER_NOT_AVAILABLE", kind: .worker, flag: "--pm-model", provided: "model_ghost",
+                code: "AGENT_NOT_AVAILABLE", kind: .worker, flag: "--pm-model", provided: "model_ghost",
                 message: "unknown worker id 'model_ghost'", candidates: [], discoveryCommand: "alln menu --json"
             )),
         ]

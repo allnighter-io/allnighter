@@ -185,7 +185,7 @@ public enum NDJSONStreamProjector {
                     return ("workerAnswered", runId, EventData(workerId: workerId, durationMs: intVal("durationMs")))
                 case WorkerAnswerStatus.failed.rawValue, WorkerAnswerStatus.timedOut.rawValue:
                     return ("workerFailed", runId, EventData(workerId: workerId, error: ErrorEnvelope(
-                        code: to == WorkerAnswerStatus.timedOut.rawValue ? "TEAM_RUN_TIMEOUT" : "WORKER_FAILED",
+                        code: to == WorkerAnswerStatus.timedOut.rawValue ? "TEAM_RUN_TIMEOUT" : "AGENT_FAILED",
                         message: str("reason") ?? "worker did not produce an answer",
                         requiresManual: false, retryable: true, runId: runId.isEmpty ? nil : runId, workerId: workerId)))
                 default:
@@ -308,7 +308,7 @@ public enum NDJSONStreamProjector {
 
     private static func workerError(_ a: TeamAnswer, runId: String) -> ErrorEnvelope {
         ErrorEnvelope(
-            code: a.result.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "WORKER_FAILED",
+            code: a.result.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "AGENT_FAILED",
             message: a.result.errorReason ?? "worker did not produce an answer",
             requiresManual: false, retryable: true, runId: runId, workerId: a.memberId
         )

@@ -41,7 +41,7 @@ final class ExactIdResolverTests: XCTestCase {
     func testWorkerRejectsDisplayName() {
         let result = ExactIdResolver.resolveWorker("Sonnet 5", models: models())
         guard case .failure(let failure) = result else { return XCTFail("expected failure") }
-        XCTAssertEqual(failure.code, "WORKER_NOT_AVAILABLE")
+        XCTAssertEqual(failure.code, "AGENT_NOT_AVAILABLE")
         XCTAssertEqual(failure.flag, "--model")
         XCTAssertEqual(failure.provided, "Sonnet 5")
         XCTAssertTrue(failure.message.lowercased().contains("display"))
@@ -56,7 +56,7 @@ final class ExactIdResolverTests: XCTestCase {
     func testWorkerRejectsTypoWithSuggestions() {
         let result = ExactIdResolver.resolveWorker("model_sonet", models: models())
         guard case .failure(let failure) = result else { return XCTFail("expected failure") }
-        XCTAssertEqual(failure.code, "WORKER_NOT_AVAILABLE")
+        XCTAssertEqual(failure.code, "AGENT_NOT_AVAILABLE")
         XCTAssertTrue(failure.suggestionIds.contains("model_sonnet"))
         XCTAssertTrue(failure.candidates.contains { $0.id == "model_sonnet" && $0.driverId == "claude_code" })
     }

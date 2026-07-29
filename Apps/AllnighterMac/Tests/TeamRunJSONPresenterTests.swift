@@ -43,7 +43,7 @@ final class TeamRunJSONPresenterTests: XCTestCase {
             workerAnswers: [
                 .init(workerId: "w_ok", status: .done, markdown: "ok"),
                 .init(workerId: "w_bad", status: .failed,
-                      error: .init(code: "WORKER_FAILED", message: "boom", requiresManual: false, retryable: true)),
+                      error: .init(code: "AGENT_FAILED", message: "boom", requiresManual: false, retryable: true)),
             ],
             answer: nil,
             stages: [.init(id: "s_plan", purpose: .plan, status: .failed)],

@@ -148,7 +148,7 @@ public enum ExactIdResolver {
                 + "see `alln menu --json` / `alln menu show model:<id>`."
         }
         return Failure(
-            code: "WORKER_NOT_AVAILABLE",
+            code: "AGENT_NOT_AVAILABLE",
             kind: .worker,
             flag: flag,
             provided: provided,

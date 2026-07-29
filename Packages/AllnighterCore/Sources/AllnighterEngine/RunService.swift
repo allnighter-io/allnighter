@@ -176,8 +176,8 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         case .writeLockBusy: return "RUN_WRITE_LOCK_BUSY"
         case .executionLaneBusy: return "EXECUTION_LANE_BUSY"
         case .teamResolution(_, let code): return code
-        case .noWorker: return "WORKER_NOT_READY"
-        case .workerNotAvailable: return "WORKER_NOT_AVAILABLE"
+        case .noWorker: return "AGENT_NOT_READY"
+        case .workerNotAvailable: return "AGENT_NOT_AVAILABLE"
         case .journalUnavailable: return "RUN_JOURNAL_UNAVAILABLE"
         }
     }
@@ -281,7 +281,7 @@ public actor RunService {
 
     private func readyModels() -> [Model] { models.filter(\.enabled) }
 
-    /// PO-F10 / MR-S04: honor an explicit worker id or fail with `WORKER_NOT_AVAILABLE`.
+    /// PO-F10 / MR-S04: honor an explicit worker id or fail with `AGENT_NOT_AVAILABLE`.
     /// Never returns a substitute model. Display names fail closed via ExactIdResolver.
     public func resolveExplicitWorker(_ id: String) -> Result<Model, RunServiceError> {
         switch ExactIdResolver.resolveWorker(id, flag: "--model", models: models, readyModelIds: Set(sourceReadyModelIds())) {
@@ -722,7 +722,7 @@ public actor RunService {
             let reason = invocation.blockedReason ?? "run cannot start"
             let explicitSeats = !(request.explicitSeatModelIds ?? []).isEmpty
             if invocation.explicitWorkerChosen || explicitSeats {
-                DetachedHandoff.reportRefused(code: "WORKER_NOT_AVAILABLE", message: reason)
+                DetachedHandoff.reportRefused(code: "AGENT_NOT_AVAILABLE", message: reason)
                 return .failure(.workerNotAvailable(reason))
             }
             DetachedHandoff.reportRefused(code: "DEFAULT_TEAM_INVALID", message: reason)
@@ -1958,7 +1958,7 @@ public actor RunService {
                 readyModels: bench
             ) {
             case .failure(let seatError):
-                return .failure(.teamResolution(seatError.description, code: "WORKER_NOT_AVAILABLE"))
+                return .failure(.teamResolution(seatError.description, code: "AGENT_NOT_AVAILABLE"))
             case .success(let resolved):
                 resolvedMut = resolved
             }
@@ -2106,8 +2106,8 @@ public actor RunService {
             run: parked
         ) else {
             return .failure(.teamResolution(
-                "original worker is not quiescent — substitution refused",
-                code: "WORKER_NOT_QUIESCENT"
+                "original agent's processes are still running — substitution refused",
+                code: "AGENT_NOT_QUIESCENT"
             ))
         }
 

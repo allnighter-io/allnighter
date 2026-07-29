@@ -1388,7 +1388,7 @@ public struct RelayCoordinator: Sendable {
         )
 
         // PO-F10: explicit --dev-model must resolve BEFORE lane wait / stall-retry.
-        // An unresolvable worker escalates with WORKER_NOT_AVAILABLE — never 4 silent stalls.
+        // An unresolvable worker escalates with AGENT_NOT_AVAILABLE — never 4 silent stalls.
         if let workerId = request.workerId, !workerId.isEmpty {
             if case .failure(let error) = await runService.resolveExplicitWorker(workerId) {
                 return DevTurnDispatch(
@@ -1844,7 +1844,7 @@ public struct RelayCoordinator: Sendable {
         persist(state)
     }
 
-    /// PO-F10: surface the typed error code (e.g. WORKER_NOT_AVAILABLE) in the
+    /// PO-F10: surface the typed error code (e.g. AGENT_NOT_AVAILABLE) in the
     /// escalation note so a failed explicit worker is never a silent stall.
     private static func serviceErrorEscalateNote(_ error: RunServiceError, turn: String) -> String {
         "\(error.code): \(turn) turn failed to dispatch: \(error.description)"

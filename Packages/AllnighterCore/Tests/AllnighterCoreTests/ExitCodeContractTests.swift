@@ -57,7 +57,7 @@ final class ExitCodeContractTests: XCTestCase {
 
     func testUsageErrorsExitTwoOperationalExitOne() {
         XCTAssertEqual(registry.processExitCode(forErrorCode: "CLI_USAGE_ERROR"), ExitCode.usageError)
-        XCTAssertEqual(registry.processExitCode(forErrorCode: "WORKER_FAILED"), ExitCode.runFailed)
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "AGENT_FAILED"), ExitCode.runFailed)
         XCTAssertEqual(registry.processExitCode(forErrorCode: "THREAD_NOT_FOUND"), ExitCode.runFailed)
         XCTAssertEqual(registry.processExitCode(forErrorCode: "MODEL_NOT_FOUND"), ExitCode.runFailed)
         XCTAssertEqual(registry.processExitCode(forErrorCode: "NO_PROJECT_SELECTED"), ExitCode.usageError)

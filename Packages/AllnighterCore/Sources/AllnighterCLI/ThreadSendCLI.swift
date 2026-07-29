@@ -143,7 +143,7 @@ enum ThreadSendCLI {
         } catch let error as FileReferenceError {
             AllnighterCLI.fail(code: error.code, message: error.description)
         } catch let error as WorkerChatCoordinator.ChatError {
-            AllnighterCLI.fail(code: "WORKER_FAILED", message: error.description)
+            AllnighterCLI.fail(code: "AGENT_FAILED", message: error.description)
         } catch {
             AllnighterCLI.fail(code: "THREAD_SEND_FAILED", message: error.localizedDescription)
         }
