@@ -65,7 +65,7 @@ public enum HelpTopicRegistry {
             Allnighter turns the AI CLIs you already have (Claude Code, Codex, Cursor, \
             Grok, Antigravity) into one team that works in a repo. A default run sends \
             your message to the Default model (Auto) in the project root. Pick a named \
-            team when you want a multi-worker pass.
+            team when you want a multi-agent pass.
 
             Other agents: run `alln bootstrap` for a paste-ready context snippet that teaches \
             the live-menu reflex (`alln menu --json`) in one paste (no MCP server, no config file edits).
@@ -87,7 +87,7 @@ public enum HelpTopicRegistry {
             block when `--host` is omitted. The block teaches the four-rule live-menu \
             reflex only: read `alln menu --json` before first use; choose from \
             useWhen/dontUseWhen with canonical ids; run the validation template before \
-            unfamiliar worker-starting actions; re-read the live menu in a new session \
+            unfamiliar agent-starting actions; re-read the live menu in a new session \
             and never trust a pasted catalog. It does not embed models, teams, recipes, \
             or command rows. Marker-delimited with schema version + content hash so \
             `alln doctor` can report teaching.installed. \
@@ -155,7 +155,7 @@ public enum HelpTopicRegistry {
             bodyMarkdown: """
             Sending work to a Team is dry-run → foreground run.             `alln run --dry-run` validates \
             the lineup before spending quota. Research Teams are observational in the real repository; \
-            execution Teams resolve to one selected mutating worker. For one-off crew staffing on a \
+            execution Teams resolve to one selected mutating agent. For one-off crew staffing on a \
             built-in judgment team, repeat `--seat <model_id>` in crew order with `--team` — no catalog \
             write. Durable custom rosters still use `teams duplicate` → `teams definition` → `teams edit`. \
             Inspect a finished run with \
@@ -168,7 +168,7 @@ public enum HelpTopicRegistry {
             Git state, `changed` is true (a surfaced research-write violation). Allnighter observes \
             only; it never resets or repairs your files.
 
-            Observed timing on the settled packet: per-worker `queueMs` (request→spawn), \
+            Observed timing on the settled packet: per-agent `queueMs` (request→spawn), \
             `ttftMs` (spawn→first token), `durationMs` (spawn→exit), plus terminal \
             `outcome.timing.wallMs` (createdAt→latest finishedAt). Null means unreported. \
             These are clock boundaries only — not forecasts, and not an invented orchestration tax.
@@ -259,7 +259,7 @@ public enum HelpTopicRegistry {
                 .init("pilot", "Pilot: you hold the PM seat", "`pair pilot start|handoff|status|watch` — no `--pm-model` (there is no PM model) and no `--until` (no clock). Long jobs: `handoff --no-wait` then poll `status` (watch optional/disposable). Orphan owner → inspect, never blind retry. `handoff` is the only mutation boundary: a parse failure or a gate block never escalates in Pilot, it just leaves the relay `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the relay exactly like a spawned round."),
                 .init("adopt", "Adopt: hand the SAME relay to a spawned PM (unattended)", "Pilot the first rounds yourself while context is hot, then `alln pair relay adopt --relay <id> --pm-model <id>` converts a parked Pilot relay (`awaitingPM` or `escalated`) to a spawned PM relay and keeps going from the durable round log — same id, same rounds, same thread; the first spawned turn is told, once, that earlier rounds were externally piloted. `--max-rounds`/`--until` behave like a spawned run, and the round ceiling counts the piloted rounds too — an honest total, not a fresh budget. The reverse flip, `alln pair pilot adopt --relay <id>`, hands a parked spawned relay (escalated, or ceiling-stopped) back to Pilot — a plain state flip, no dispatch."),
                 .init("golden", "Golden paths (day one)", "Attended: `alln menu --json` → `alln run` → `alln artifact show`. Unattended: `alln pair relay --doc …` → `alln pair relay-status --relay <id> --json` (or wait for a macOS notification). Status reads reconcile dead owners automatically — no manual `team reconcile` on the happy path. Default `alln ps` shows the alive floor; `alln ps --all` is history."),
-                .init("notify", "You do not have to watch", "Dispatching `pair pilot handoff`, `pair relay`, `pair relay-resume`, or `pair relay adopt` auto-starts `alln serve` in the background (silent, opt out with `--no-auto-serve` or `ALLN_NO_AUTO_SERVE`). When the round lands or escalates — even with the Mac app closed and the CLI session that dispatched it long gone — a local notification fires: \"PM Relay needs an answer\" on escalation, or the normal completion notice when it settles. Stream silence on a running relay also notifies when worker output stalls. Neither you nor the human has to poll `pilot status` or build a watcher for this; `alln serve` already knows."),
+                .init("notify", "You do not have to watch", "Dispatching `pair pilot handoff`, `pair relay`, `pair relay-resume`, or `pair relay adopt` auto-starts `alln serve` in the background (silent, opt out with `--no-auto-serve` or `ALLN_NO_AUTO_SERVE`). When the round lands or escalates — even with the Mac app closed and the CLI session that dispatched it long gone — a local notification fires: \"PM Relay needs an answer\" on escalation, or the normal completion notice when it settles. Stream silence on a running relay also notifies when agent output stalls. Neither you nor the human has to poll `pilot status` or build a watcher for this; `alln serve` already knows."),
                 .init("survive", "The round outlives your session", "`--no-wait` on `pair relay` / `pair relay-resume` / `pair relay adopt` dispatches, then returns immediately — poll `alln pair relay-status --relay <id> --json` for progress. A killed caller is not a killed relay: the round keeps advancing under its own process. A second dispatch against an already-active relay is refused with `RELAY_ALREADY_ACTIVE`, not raced onto the same doc."),
             ],
             relatedCommandNames: [
@@ -359,7 +359,7 @@ public enum HelpTopicRegistry {
             A project binds a local repo root. Work threads are the conversations bound to a \
             project. List projects with `alln project list`, read one with `alln project show`, \
             generate a context packet with `alln project context`, and check cached \
-            per-project worker readiness with `alln project models`. Threads carry the \
+            per-project agent readiness with `alln project models`. Threads carry the \
             back-and-forth and the runs (`alln thread send` / `alln thread get`).
             """,
             aliases: ["project", "repo", "thread", "threads", "conversation"],
