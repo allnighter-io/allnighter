@@ -127,7 +127,7 @@ public struct WorkflowPreset: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var displayName: String
     public var description: String
-    public var workerSpecs: [PinnedSeatSpec]
+    public var workerSpecs: [SeatSpec]
     public var synthesis: SynthesisConfig
     public var stages: [WorkflowStage]
     public var executionWorkerId: String?
@@ -136,7 +136,7 @@ public struct WorkflowPreset: Codable, Sendable, Equatable, Identifiable {
 
     public init(
         id: String, displayName: String, description: String = "",
-        workerSpecs: [PinnedSeatSpec], synthesis: SynthesisConfig,
+        workerSpecs: [SeatSpec], synthesis: SynthesisConfig,
         stages: [WorkflowStage] = [], executionWorkerId: String? = nil,
         isDefault: Bool = false, builtIn: Bool = false
     ) {

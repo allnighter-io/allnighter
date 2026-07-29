@@ -27,7 +27,7 @@ public enum DefaultConfig {
         func config(_ depth: AnalysisDepth) -> SynthesisConfig {
             SynthesisConfig(analysisDepth: depth, planWriterModelId: planWriter, analysisProfileId: analysisID, planProfileId: planID)
         }
-        func specs(_ ws: [Model]) -> [PinnedSeatSpec] { ws.map { PinnedSeatSpec(modelId: $0.id) } }
+        func specs(_ ws: [Model]) -> [SeatSpec] { ws.map { SeatSpec(modelId: $0.id) } }
 
         let six = models
         let fastThree = Array(models.prefix(3))
@@ -41,7 +41,7 @@ public enum DefaultConfig {
             PanelPreset(id: "preset_full", displayName: "Full Deliberation", workerSpecs: specs(six), synthesis: config(.separate), builtIn: true)
         ]
         if let strongest {
-            presets.append(PanelPreset(id: "preset_self_double", displayName: "Self-Double", workerSpecs: [PinnedSeatSpec(modelId: strongest.id, count: 3)], synthesis: config(.combined), builtIn: true))
+            presets.append(PanelPreset(id: "preset_self_double", displayName: "Self-Double", workerSpecs: [SeatSpec(modelId: strongest.id, count: 3)], synthesis: config(.combined), builtIn: true))
         }
         return presets
     }

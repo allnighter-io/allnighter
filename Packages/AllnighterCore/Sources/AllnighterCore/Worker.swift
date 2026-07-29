@@ -93,7 +93,7 @@ public struct Agent: Codable, Sendable, Equatable, Identifiable {
 }
 
 /// A preset's request for pinned seats. Expanded into concrete `Agent`s at run start.
-public struct PinnedSeatSpec: Codable, Sendable, Equatable {
+public struct SeatSpec: Codable, Sendable, Equatable {
     public var modelId: String
     public var count: Int
     public var skillId: String?
@@ -117,7 +117,7 @@ public struct PinnedSeatSpec: Codable, Sendable, Equatable {
     }
 }
 
-public extension Array where Element == PinnedSeatSpec {
+public extension Array where Element == SeatSpec {
     func expandedAgents() -> [Agent] {
         var nextIndex: [String: Int] = [:]
         var agents: [Agent] = []

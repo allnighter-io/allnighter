@@ -76,7 +76,7 @@ final class FixtureRoundTripTests: XCTestCase {
     }
 
     func testSelfDoubleSeatExpansion() {
-        let seats = [PinnedSeatSpec(modelId: "model_opus", count: 3)].expandedAgents()
+        let seats = [SeatSpec(modelId: "model_opus", count: 3)].expandedAgents()
         XCTAssertEqual(seats.map(\.id), ["model_opus#0", "model_opus#1", "model_opus#2"])
         XCTAssertEqual(Set(seats.map(\.id)).count, 3)
     }

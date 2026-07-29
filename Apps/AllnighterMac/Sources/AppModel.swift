@@ -18,7 +18,7 @@ final class AppModel {
     // Presets (Phase 06 tiered) + current (possibly hand-edited) selection.
     private(set) var presets: [PanelPreset] = []
     private(set) var activePresetId: String?
-    private(set) var currentPinnedSeatSpecs: [PinnedSeatSpec] = []
+    private(set) var currentPinnedSeatSpecs: [SeatSpec] = []
     private(set) var currentSynthesis: SynthesisConfig
 
     /// User-favorited team ids (persisted via `TeamFavorites`). Observable so every
@@ -123,7 +123,7 @@ final class AppModel {
         if let index = currentPinnedSeatSpecs.firstIndex(where: { $0.modelId == worker.id }) {
             currentPinnedSeatSpecs.remove(at: index)
         } else {
-            currentPinnedSeatSpecs.append(PinnedSeatSpec(modelId: worker.id))
+            currentPinnedSeatSpecs.append(SeatSpec(modelId: worker.id))
         }
         activePresetId = nil
     }
@@ -838,12 +838,12 @@ final class AppModel {
     func runAgain(_ source: TeamRun) {
         prompt = source.prompt
         // Reconstruct seats from the source panel.
-        var specs: [PinnedSeatSpec] = []
+        var specs: [SeatSpec] = []
         var counts: [String: Int] = [:]
         for seat in source.workers { counts[seat.modelId, default: 0] += 1 }
         var seen = Set<String>()
         for seat in source.workers where seen.insert(seat.modelId).inserted {
-            specs.append(PinnedSeatSpec(modelId: seat.modelId, count: counts[seat.modelId] ?? 1, skillId: seat.skillId))
+            specs.append(SeatSpec(modelId: seat.modelId, count: counts[seat.modelId] ?? 1, skillId: seat.skillId))
         }
         currentPinnedSeatSpecs = specs
         activePresetId = source.presetId
