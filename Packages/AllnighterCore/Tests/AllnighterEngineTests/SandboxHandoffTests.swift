@@ -33,10 +33,11 @@ private final class NoteSink: @unchecked Sendable {
     var text: String { lines.joined() }
 }
 
-final class SandboxHandoffTests: XCTestCase {
+final class SandboxHandoffTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("alln-handoff-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -44,6 +45,7 @@ final class SandboxHandoffTests: XCTestCase {
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     private func spool() -> SandboxHandoffSpool {

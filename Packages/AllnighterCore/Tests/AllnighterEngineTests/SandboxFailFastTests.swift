@@ -10,10 +10,11 @@ import AllnighterCore
 /// seat that could — and the entire run was handed to the app and re-run anyway.
 /// The caller paid 64 seconds for a result that was thrown away, which is why a
 /// ~75-second team took nearly three minutes.
-final class SandboxFailFastTests: XCTestCase {
+final class SandboxFailFastTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("alln-failfast-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -27,6 +28,7 @@ final class SandboxFailFastTests: XCTestCase {
     override func tearDownWithError() throws {
         unsetenv("CODEX_SANDBOX")
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     /// Two seats: one refused by the sandbox immediately, one that would take a long

@@ -3,10 +3,11 @@ import AllnighterCore
 @testable import AllnighterEngine
 
 /// FR12 commit-message fidelity + FR13 proof surfacing (Field_Reports_4.md).
-final class RunCommitProofTests: XCTestCase {
+final class RunCommitProofTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("alln-commit-proof-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -14,6 +15,7 @@ final class RunCommitProofTests: XCTestCase {
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     private func runGit(_ args: [String], cwd: URL) {

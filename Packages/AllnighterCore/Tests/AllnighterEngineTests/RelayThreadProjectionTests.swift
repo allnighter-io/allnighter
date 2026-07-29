@@ -8,16 +8,18 @@ import AllnighterCore
 /// new stored flag). Mirrors `RelayCoordinatorTests`' fixture shape (scripted
 /// `CommandRunner`, real git repo) so these tests exercise the SAME dispatch path, just
 /// asserting on the projected `WorkThread` instead of (or alongside) `RelayState`.
-final class RelayThreadProjectionTests: XCTestCase {
+final class RelayThreadProjectionTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relay-thread-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
     }
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     // MARK: - Fixtures (mirrors RelayCoordinatorTests)

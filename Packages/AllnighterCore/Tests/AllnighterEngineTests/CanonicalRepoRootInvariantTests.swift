@@ -5,10 +5,11 @@ import AllnighterCore
 /// CR-S02 proof wall: the registered canonical repository root is the one truth —
 /// resolved root == worker CWD == reported root == registered root — and no
 /// alternate-root field exists in the request/result schema.
-final class CanonicalRepoRootInvariantTests: XCTestCase {
+final class CanonicalRepoRootInvariantTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("alln-canon-root-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -16,6 +17,7 @@ final class CanonicalRepoRootInvariantTests: XCTestCase {
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     /// Records the working directory every spawn is handed.

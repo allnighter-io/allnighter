@@ -6,10 +6,11 @@ import AllnighterCore
 /// The direct CLI adapter only parses + hands off to `RunService` (run / dryRun),
 /// and contains no Team/root/write-lock resolution; dry-run and foreground resolve
 /// through the same owner and agree on write policy.
-final class SingleRunOwnerInvariantTests: XCTestCase {
+final class SingleRunOwnerInvariantTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("alln-single-owner-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -17,6 +18,7 @@ final class SingleRunOwnerInvariantTests: XCTestCase {
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     // MARK: - Source invariant: the CLI adapter holds no resolution logic

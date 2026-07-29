@@ -5,7 +5,7 @@ import AllnighterCore
 /// PO-S02 seam tests: identity-checked group kill, turn endReason stamping,
 /// relay-death reconcile reaps the recorded group. Never sends real signals to
 /// arbitrary pids — uses `ProcessOwnership.terminateSignalHook`.
-final class ProcessOwnershipTurnKillTests: XCTestCase {
+final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
 
     override func tearDown() {
         ProcessOwnership.terminateSignalHook = nil

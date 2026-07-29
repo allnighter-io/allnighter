@@ -3,7 +3,7 @@ import AllnighterCore
 @testable import AllnighterEngine
 
 /// FR2 — run identity tells the truth: worker · lane · mutating|readOnly; Default Team naming.
-final class RunIdentityTests: XCTestCase {
+final class RunIdentityTests: HermeticSupportTestCase {
     func testTeamDisplayNameHonestForDefaultRoute() {
         XCTAssertEqual(
             RunIdentity.teamDisplayName(

@@ -8,16 +8,18 @@ import AllnighterCore
 /// rounds, and `RelayCoordinator.runExternalRound` standing in for a spawned PM turn.
 /// Fixtures mirror `RelayCoordinatorTests` (real git repo, scripted dev CLI only — Pilot
 /// never dispatches a PM seat at all).
-final class PilotCoordinatorTests: XCTestCase {
+final class PilotCoordinatorTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-pilot-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
     }
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     // MARK: - Fixtures (mirrors RelayCoordinatorTests)

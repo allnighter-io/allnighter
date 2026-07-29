@@ -9,7 +9,7 @@ import AllnighterCore
 /// called more than once per relay) and (b) capture the args each call received so tests
 /// can assert on the ACTUAL prompt text a turn was given (e.g. that a resumed relay's
 /// founder note really reached the PM prompt).
-final class RelayCoordinatorTests: XCTestCase {
+final class RelayCoordinatorTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     /// `CoreJSON` encodes dates as ISO-8601 without fractional seconds, so a raw
@@ -21,12 +21,14 @@ final class RelayCoordinatorTests: XCTestCase {
     }
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relay-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
     }
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     // MARK: - Fixtures
@@ -1184,7 +1186,7 @@ private func pythonStringLiteral(_ raw: String) -> String {
 
 // MARK: - RelayStateStore
 
-final class RelayStateStoreTests: XCTestCase {
+final class RelayStateStoreTests: HermeticSupportTestCase {
     func testSaveLoadRoundTripAndList() throws {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relaystore-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -1269,7 +1271,7 @@ final class RelayStateStoreTests: XCTestCase {
 
 // MARK: - RelayTurnClassifier
 
-final class RelayTurnClassifierTests: XCTestCase {
+final class RelayTurnClassifierTests: HermeticSupportTestCase {
     func testDeliveredOnDoneWithOutput() {
         let outcome = WorkerRunOutcome(status: .done, output: "the answer")
         XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .delivered(output: "the answer"))

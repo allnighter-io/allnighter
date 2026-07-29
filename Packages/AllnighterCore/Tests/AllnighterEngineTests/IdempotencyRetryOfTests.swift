@@ -3,7 +3,7 @@ import AllnighterCore
 @testable import AllnighterEngine
 
 /// RLR-S05 / L9 — idempotency replay, conflict, expiry, and `--retry-of` gate.
-final class IdempotencyRetryOfTests: XCTestCase {
+final class IdempotencyRetryOfTests: HermeticSupportTestCase {
 
     private func harness() throws -> (
         repo: URL, runs: RunStore, idem: IdempotencyStore, service: RunService

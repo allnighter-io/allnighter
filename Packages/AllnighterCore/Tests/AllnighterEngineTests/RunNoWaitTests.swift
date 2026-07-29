@@ -5,10 +5,11 @@ import AllnighterCore
 
 /// RSC-HF: `alln run --no-wait` — public `--run-id` removed; child is the normal
 /// registered verb; parent acks only after `DetachedHandoff` acceptance.
-final class RunNoWaitTests: XCTestCase {
+final class RunNoWaitTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("alln-run-no-wait-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -16,6 +17,7 @@ final class RunNoWaitTests: XCTestCase {
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     func testMintRunIdProducesDistinctUUIDStrings() {

@@ -2,7 +2,7 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-final class VendorBackoffReconcilerTests: XCTestCase {
+final class VendorBackoffReconcilerTests: HermeticSupportTestCase {
     private final class ScriptRunner: CommandRunner, @unchecked Sendable {
         private let lock = NSLock()
         private var scripts: [MockCommandRunner.Script]

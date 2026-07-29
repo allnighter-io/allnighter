@@ -5,10 +5,11 @@ import AllnighterCore
 /// CR-S02 proof wall: one mutating owner per canonical root; a research
 /// (read-only) run takes no write lock. Uses real git fixtures + injected
 /// RunStore/RunWriteLockRegistry so nothing touches the live user catalog.
-final class ExecutionWriteLockTests: XCTestCase {
+final class ExecutionWriteLockTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("alln-exec-lock-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -16,6 +17,7 @@ final class ExecutionWriteLockTests: XCTestCase {
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     private func runGit(_ args: [String], cwd: URL) {

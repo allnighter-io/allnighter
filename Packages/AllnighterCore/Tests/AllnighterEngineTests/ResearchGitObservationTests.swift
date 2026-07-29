@@ -6,10 +6,11 @@ import AllnighterCore
 /// runs. Clean-unchanged / pre-existing-dirty-unchanged / new-tracked-change /
 /// new-untracked-path / violation-surfaced-with-files-preserved. Real git in a
 /// disposable fixture + injected RunStore so nothing touches the live catalog.
-final class ResearchGitObservationTests: XCTestCase {
+final class ResearchGitObservationTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("alln-research-git-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -17,6 +18,7 @@ final class ResearchGitObservationTests: XCTestCase {
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     private func runGit(_ args: [String], cwd: URL) {

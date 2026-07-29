@@ -8,16 +8,18 @@ import AllnighterCore
 /// the trivial reverse flip. Fixtures mirror `RelayCoordinatorTests`/`PilotCoordinatorTests`
 /// (real git repo, scripted CLIs only, `SequencedCommandRunner` from
 /// `RelayCoordinatorTests.swift` for per-call arg capture).
-final class RelayAdoptTests: XCTestCase {
+final class RelayAdoptTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relay-adopt-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
     }
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     // MARK: - Fixtures (mirrors RelayCoordinatorTests / PilotCoordinatorTests)

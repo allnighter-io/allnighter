@@ -6,7 +6,7 @@ import AllnighterCore
 /// emits a fenced fix-packet, the danger-not-doubt gate, and ONE child execution run that tries
 /// the top hypothesis — with the two runs linked diagnosis <-> fix-attempt. Uses a mock CLI so
 /// the writer's synthesis (the run plan) carries the packet block.
-final class FollowUpCoordinatorTests: XCTestCase {
+final class FollowUpCoordinatorTests: HermeticSupportTestCase {
 
     /// A Bug Packet writer's output: human markdown + the EXACT fenced block the parser lifts.
     private let writerOutput = """

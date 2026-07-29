@@ -6,10 +6,11 @@ import AllnighterCore
 /// the run journal cannot be written at terminal settlement, the run fails visibly
 /// with the stable RUN_JOURNAL_UNAVAILABLE code — it does not report success over a
 /// lost journal.
-final class RunTerminalJournalFailureTests: XCTestCase {
+final class RunTerminalJournalFailureTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("alln-journal-fail-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -17,6 +18,7 @@ final class RunTerminalJournalFailureTests: XCTestCase {
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     /// A RunStore whose root is a regular FILE — every `createDirectory` under it

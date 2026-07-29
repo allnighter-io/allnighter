@@ -3,16 +3,18 @@ import AllnighterCore
 @testable import AllnighterEngine
 
 /// FR6 — bare mutating `alln run` dispatch carries the provenance trailer ask once.
-final class RunProvenanceTests: XCTestCase {
+final class RunProvenanceTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-provenance-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
     }
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     private func runGit(_ args: [String], cwd: URL) {

@@ -10,16 +10,18 @@ import AllnighterCore
 /// attention); an in-flight dev turn renders `.running` exactly like today.
 /// Mirrors `RelayThreadProjectionTests`' fixture shape, dev CLI only (Pilot never
 /// dispatches a PM seat).
-final class PilotThreadProjectionTests: XCTestCase {
+final class PilotThreadProjectionTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
+        try super.setUpWithError()
         tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-pilot-thread-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
     }
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: tmp)
+        try super.tearDownWithError()
     }
 
     // MARK: - Fixtures
