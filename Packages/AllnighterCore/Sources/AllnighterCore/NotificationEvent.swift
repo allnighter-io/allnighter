@@ -25,7 +25,7 @@ public struct NotificationCandidate: Sendable, Equatable, Identifiable {
     public let turnId: String
     public let event: NotificationEventKind
     public let threadTitle: String
-    public let workerId: String?
+    public let modelId: String?
     /// Present for run-lifecycle events. It gives delivery a stable run-scoped
     /// once-each key without creating a parallel notification identity.
     public let runId: String?
@@ -38,7 +38,7 @@ public struct NotificationCandidate: Sendable, Equatable, Identifiable {
         turnId: String,
         event: NotificationEventKind,
         threadTitle: String,
-        workerId: String? = nil,
+        modelId: String? = nil,
         runId: String? = nil,
         vendorDisplayName: String? = nil,
         wakeAfter: Date? = nil,
@@ -48,7 +48,7 @@ public struct NotificationCandidate: Sendable, Equatable, Identifiable {
         self.turnId = turnId
         self.event = event
         self.threadTitle = threadTitle
-        self.workerId = workerId
+        self.modelId = modelId
         self.runId = runId
         self.vendorDisplayName = vendorDisplayName
         self.wakeAfter = wakeAfter

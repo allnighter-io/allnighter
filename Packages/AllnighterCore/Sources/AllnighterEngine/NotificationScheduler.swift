@@ -203,7 +203,7 @@ public struct NotificationScheduler: Sendable {
     }
 
     private func deliver(candidate: NotificationCandidate) async {
-        let workerName = candidate.workerId.map(driverDisplayName(for:))
+        let workerName = candidate.modelId.map(driverDisplayName(for:))
         let title = NotificationCopy.title(candidate: candidate, workerDisplayName: workerName)
         let body = NotificationCopy.body(candidate: candidate)
 

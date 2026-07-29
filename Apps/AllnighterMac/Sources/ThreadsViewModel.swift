@@ -1587,7 +1587,7 @@ final class ThreadsViewModel {
             if !NotificationDeliveryFilter.shouldDeliver(
                 candidate: candidate, policy: notificationPolicy, now: now
             ) { continue }
-            let workerName = candidate.workerId.map { driverName(for: $0) }
+            let workerName = candidate.modelId.map { driverName(for: $0) }
             await notificationDelivery.deliver(candidate: candidate, workerDisplayName: workerName)
             NotificationDeliveryFilter.recordDelivery(
                 candidate: candidate, policy: &notificationPolicy, now: now

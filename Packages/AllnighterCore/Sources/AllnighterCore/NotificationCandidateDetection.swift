@@ -129,7 +129,7 @@ public enum NotificationCandidateDetection {
                         turnId: turnId,
                         event: .threadNeedsAttention,
                         threadTitle: afterSnap.title,
-                        workerId: afterSnap.turns.first { $0.id == turnId }?.modelId,
+                        modelId: afterSnap.turns.first { $0.id == turnId }?.modelId,
                         occurredAt: now
                     ))
                 }
@@ -189,7 +189,7 @@ public enum NotificationCandidateDetection {
                     turnId: current.turnId,
                     event: .vendorParked,
                     threadTitle: current.threadTitle,
-                    workerId: current.modelId,
+                    modelId: current.modelId,
                     runId: current.runId,
                     vendorDisplayName: current.vendorDisplayName,
                     wakeAfter: current.wakeAfter,
@@ -201,7 +201,7 @@ public enum NotificationCandidateDetection {
                     turnId: current.turnId,
                     event: .vendorResumed,
                     threadTitle: current.threadTitle,
-                    workerId: current.modelId,
+                    modelId: current.modelId,
                     runId: current.runId,
                     vendorDisplayName: previous?.vendorDisplayName ?? current.vendorDisplayName,
                     occurredAt: now
@@ -246,7 +246,7 @@ public enum NotificationCandidateDetection {
                 turnId: relayId,
                 event: .relayStreamStalled,
                 threadTitle: snap.threadTitle,
-                workerId: snap.devModelId,
+                modelId: snap.devModelId,
                 occurredAt: now
             ))
         }
@@ -271,7 +271,7 @@ public enum NotificationCandidateDetection {
                         turnId: turn.id,
                         event: event,
                         threadTitle: after.title,
-                        workerId: turn.modelId,
+                        modelId: turn.modelId,
                         occurredAt: now
                     ))
                 }
@@ -282,7 +282,7 @@ public enum NotificationCandidateDetection {
                         turnId: turn.id,
                         event: event,
                         threadTitle: after.title,
-                        workerId: turn.modelId,
+                        modelId: turn.modelId,
                         occurredAt: now
                     ))
                 }
