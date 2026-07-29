@@ -48,7 +48,7 @@ final class TeamRunCoordinatorTests: XCTestCase {
     func testSelfFusionSeatsDoNotCollide() async {
         let coordinator = makeCoordinator(scripts: ["claude": .init(stdout: "an answer", exitCode: 0)])
         let opus = TestSupport.worker("model_opus", driverId: "claude_code")
-        let seats = ModelSpec(modelId: "model_opus", count: 3).expand(startingIndex: 0)
+        let seats = PinnedSeatSpec(modelId: "model_opus", count: 3).expand(startingIndex: 0)
 
         let run = await coordinator.runTeam(prompt: "p", teamWorkers: seats, models: [opus], runId: "run_sf")
         XCTAssertEqual(run.workerAnswers.count, 3)

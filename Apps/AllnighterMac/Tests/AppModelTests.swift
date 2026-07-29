@@ -19,7 +19,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(model.presets.contains { $0.id == "preset_fast" })
         XCTAssertTrue(model.presets.contains { $0.builtIn })
         // A preset is active by default and seats the panel.
-        XCTAssertFalse(model.expandedWorkers.isEmpty)
+        XCTAssertFalse(model.expandedAgents.isEmpty)
     }
 
     func testApplyPresetSetsSeatsSynthesisAndActiveId() {
@@ -28,15 +28,15 @@ final class AppModelTests: XCTestCase {
         model.apply(quality)
         XCTAssertEqual(model.activePresetId, "preset_quality")
         XCTAssertEqual(model.currentSynthesis.analysisDepth, .separate)
-        XCTAssertEqual(model.expandedWorkers.count, quality.workerSpecs.expandedWorkers().count)
+        XCTAssertEqual(model.expandedAgents.count, quality.workerSpecs.expandedAgents().count)
     }
 
     func testSelfDoublePresetExpandsToMultipleSeats() {
         let model = AppModel()
         guard let selfDouble = model.presets.first(where: { $0.id == "preset_self_double" }) else { return }
         model.apply(selfDouble)
-        XCTAssertEqual(model.expandedWorkers.count, 3)
-        XCTAssertEqual(Set(model.expandedWorkers.map(\.modelId)).count, 1)
+        XCTAssertEqual(model.expandedAgents.count, 3)
+        XCTAssertEqual(Set(model.expandedAgents.map(\.modelId)).count, 1)
     }
 
     func testToggleWorkerEditsSeatsAndClearsPreset() {
@@ -64,7 +64,7 @@ final class AppModelTests: XCTestCase {
         // copy in the vocab cutover. This assertion kept the old noun and had been
         // failing unnoticed, because the Mac test target is an Xcode target and is
         // not run by `swift test --package-path Packages/AllnighterCore`.
-        XCTAssertTrue(summary.contains("\(model.expandedWorkers.count) agent"), summary)
+        XCTAssertTrue(summary.contains("\(model.expandedAgents.count) agent"), summary)
         if model.currentSynthesis.analysisDepth == .combined {
             XCTAssertTrue(summary.contains("combined analysis + plan"))
         } else {

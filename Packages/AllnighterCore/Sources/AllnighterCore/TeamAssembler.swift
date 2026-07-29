@@ -10,12 +10,12 @@ public enum TeamAssembler {
         /// Models whose source is ready — the Bench.
         public var benchModelIds: [String]
         /// The default Team: one worker per ready model.
-        public var workerSpecs: [ModelSpec]
+        public var workerSpecs: [PinnedSeatSpec]
         /// A truthful plan writer chosen from ready eligible models (nil if none).
         public var planWriterModelId: String?
         public var assembledAt: Date?
 
-        public init(benchModelIds: [String] = [], workerSpecs: [ModelSpec] = [], planWriterModelId: String? = nil, assembledAt: Date? = nil) {
+        public init(benchModelIds: [String] = [], workerSpecs: [PinnedSeatSpec] = [], planWriterModelId: String? = nil, assembledAt: Date? = nil) {
             self.benchModelIds = benchModelIds
             self.workerSpecs = workerSpecs
             self.planWriterModelId = planWriterModelId
@@ -35,7 +35,7 @@ public enum TeamAssembler {
         let planWriter = strongestPlanWriter(in: ready) ?? ready.first
         return Assembled(
             benchModelIds: ready.map(\.id),
-            workerSpecs: ready.map { ModelSpec(modelId: $0.id) },
+            workerSpecs: ready.map { PinnedSeatSpec(modelId: $0.id) },
             planWriterModelId: planWriter?.id,
             assembledAt: now
         )

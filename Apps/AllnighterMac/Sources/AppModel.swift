@@ -18,7 +18,7 @@ final class AppModel {
     // Presets (Phase 06 tiered) + current (possibly hand-edited) selection.
     private(set) var presets: [PanelPreset] = []
     private(set) var activePresetId: String?
-    private(set) var currentWorkerSpecs: [ModelSpec] = []
+    private(set) var currentPinnedSeatSpecs: [PinnedSeatSpec] = []
     private(set) var currentSynthesis: SynthesisConfig
 
     /// User-favorited team ids (persisted via `TeamFavorites`). Observable so every
@@ -103,27 +103,27 @@ final class AppModel {
     /// Workers referenced by the current seats, in panel order.
     var rosterModelIds: [String] {
         var seen = Set<String>(); var ordered: [String] = []
-        for s in currentWorkerSpecs where seen.insert(s.modelId).inserted { ordered.append(s.modelId) }
+        for s in currentPinnedSeatSpecs where seen.insert(s.modelId).inserted { ordered.append(s.modelId) }
         return ordered
     }
 
-    var expandedWorkers: [Agent] { currentWorkerSpecs.expandedWorkers() }
+    var expandedAgents: [Agent] { currentPinnedSeatSpecs.expandedAgents() }
 
     func isSeated(_ worker: Model) -> Bool {
-        currentWorkerSpecs.contains { $0.modelId == worker.id }
+        currentPinnedSeatSpecs.contains { $0.modelId == worker.id }
     }
 
     func seatCount(for worker: Model) -> Int {
-        currentWorkerSpecs.first { $0.modelId == worker.id }?.count ?? 0
+        currentPinnedSeatSpecs.first { $0.modelId == worker.id }?.count ?? 0
     }
 
     /// Toggle a worker in/out of the current (ad-hoc) panel. Marks the panel as
     /// no longer matching a named preset.
     func toggle(_ worker: Model) {
-        if let index = currentWorkerSpecs.firstIndex(where: { $0.modelId == worker.id }) {
-            currentWorkerSpecs.remove(at: index)
+        if let index = currentPinnedSeatSpecs.firstIndex(where: { $0.modelId == worker.id }) {
+            currentPinnedSeatSpecs.remove(at: index)
         } else {
-            currentWorkerSpecs.append(ModelSpec(modelId: worker.id))
+            currentPinnedSeatSpecs.append(PinnedSeatSpec(modelId: worker.id))
         }
         activePresetId = nil
     }
@@ -143,7 +143,7 @@ final class AppModel {
     }
 
     func apply(_ preset: PanelPreset) {
-        currentWorkerSpecs = preset.workerSpecs
+        currentPinnedSeatSpecs = preset.workerSpecs
         currentSynthesis = preset.synthesis
         activePresetId = preset.id
     }
@@ -151,11 +151,11 @@ final class AppModel {
     @discardableResult
     func saveCurrentAsPreset(named name: String) -> PanelPreset? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !currentWorkerSpecs.isEmpty else { return nil }
+        guard !trimmed.isEmpty, !currentPinnedSeatSpecs.isEmpty else { return nil }
         let preset = PanelPreset(
             id: "preset_\(UUID().uuidString.prefix(8))",
             displayName: trimmed,
-            workerSpecs: currentWorkerSpecs,
+            workerSpecs: currentPinnedSeatSpecs,
             synthesis: currentSynthesis
         )
         try? presetStore.save(preset)
@@ -190,7 +190,7 @@ final class AppModel {
     // MARK: - Work shape
 
     var runSummary: String {
-        let count = expandedWorkers.count
+        let count = expandedAgents.count
         let noun = count == 1 ? "agent" : "agents"
         var parts = ["\(count) \(noun)"]
         if let judge = planWriterModel?.displayName {
@@ -207,7 +207,7 @@ final class AppModel {
     func runTeam() {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isRunning else { return }
-        let seats = expandedWorkers
+        let seats = expandedAgents
         guard !seats.isEmpty else { return }
 
         isRunning = true
@@ -838,14 +838,14 @@ final class AppModel {
     func runAgain(_ source: TeamRun) {
         prompt = source.prompt
         // Reconstruct seats from the source panel.
-        var specs: [ModelSpec] = []
+        var specs: [PinnedSeatSpec] = []
         var counts: [String: Int] = [:]
         for seat in source.workers { counts[seat.modelId, default: 0] += 1 }
         var seen = Set<String>()
         for seat in source.workers where seen.insert(seat.modelId).inserted {
-            specs.append(ModelSpec(modelId: seat.modelId, count: counts[seat.modelId] ?? 1, skillId: seat.skillId))
+            specs.append(PinnedSeatSpec(modelId: seat.modelId, count: counts[seat.modelId] ?? 1, skillId: seat.skillId))
         }
-        currentWorkerSpecs = specs
+        currentPinnedSeatSpecs = specs
         activePresetId = source.presetId
         historySelection = nil
         runTeam()

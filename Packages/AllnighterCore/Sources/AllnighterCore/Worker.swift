@@ -92,8 +92,8 @@ public struct Agent: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// A preset's request for workers. Expanded into concrete `Agent`s at run start.
-public struct ModelSpec: Codable, Sendable, Equatable {
+/// A preset's request for pinned seats. Expanded into concrete `Agent`s at run start.
+public struct PinnedSeatSpec: Codable, Sendable, Equatable {
     public var modelId: String
     public var count: Int
     public var skillId: String?
@@ -117,16 +117,16 @@ public struct ModelSpec: Codable, Sendable, Equatable {
     }
 }
 
-public extension Array where Element == ModelSpec {
-    func expandedWorkers() -> [Agent] {
+public extension Array where Element == PinnedSeatSpec {
+    func expandedAgents() -> [Agent] {
         var nextIndex: [String: Int] = [:]
-        var workers: [Agent] = []
+        var agents: [Agent] = []
         for spec in self {
             let start = nextIndex[spec.modelId, default: 0]
             let expanded = spec.expand(startingIndex: start)
-            workers.append(contentsOf: expanded)
+            agents.append(contentsOf: expanded)
             nextIndex[spec.modelId] = start + expanded.count
         }
-        return workers
+        return agents
     }
 }
