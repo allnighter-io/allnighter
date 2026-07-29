@@ -225,6 +225,9 @@ public actor RunService {
     /// RLR-L9 durable idempotency (same store as async `team start`). Injectable
     /// so tests isolate the claim file from the real config home.
     private let idempotency: IdempotencyStore
+    /// PTD-1c: the PM delivery receipt belongs beside this service's run journal.
+    /// Terminal persistence writes this receipt before the terminal `run.json`.
+    private let pmTurnStore: PMTurnStore
 
     /// How long a mutating run waits in the per-repo FIFO before refusing. Generous on purpose:
     /// normal queuing clears in seconds-to-minutes (and a stuck holder is killed by its own
@@ -256,7 +259,8 @@ public actor RunService {
         sessionStore: ExternalWorkerSessionStore = ExternalWorkerSessionStore(),
         warmPool: WarmWorkerPool = .shared,
         gitObserver: GitObserver = GitObserver(),
-        idempotency: IdempotencyStore = IdempotencyStore()
+        idempotency: IdempotencyStore = IdempotencyStore(),
+        pmTurnStore: PMTurnStore? = nil
     ) {
         self.models = models
         self.registry = registry
@@ -272,6 +276,7 @@ public actor RunService {
         self.warmPool = warmPool
         self.gitObserver = gitObserver
         self.idempotency = idempotency
+        self.pmTurnStore = pmTurnStore ?? PMTurnStore(runsRootDirectory: runStore.rootDirectory)
     }
 
     /// Bench display name for a model id — used by relay prompt assembly (FR4).
@@ -326,11 +331,73 @@ public actor RunService {
     @discardableResult
     public func save(_ run: TeamRun) -> Bool {
         do {
-            try runStore.save(run, models: models, forceArtifacts: run.status.isTerminal)
+            if run.status.isTerminal {
+                try persistTerminalRun(run)
+            } else {
+                try runStore.save(run, models: models)
+            }
             return true
         } catch {
             return false
         }
+    }
+
+    /// PTD-1c terminal boundary: publish the durable PM handoff before publishing
+    /// the terminal run state. A vendor park is queued, so it never reaches here.
+    private func persistTerminalRun(_ run: TeamRun) throws {
+        try writePMTurn(for: run)
+        try runStore.save(run, models: models)
+    }
+
+    private func writePMTurn(for run: TeamRun) throws {
+        guard run.status.isTerminal else { return }
+        if try pmTurnStore.load(kind: .run, subjectId: run.id) != nil {
+            // A retry after pm-turn.json landed but before run.json did must not
+            // create a second PM boundary or advance its delivery sequence.
+            return
+        }
+
+        let report = pmTurnReport(for: run)
+        let notes: [String]
+        if report == nil {
+            notes = ["run_report_missing"]
+                + run.answers.compactMap(\.result.errorReason).filter { !$0.isEmpty }
+                + run.warnings.filter { !$0.isEmpty }
+        } else {
+            notes = []
+        }
+        let lifecycle = run.status.lifecycle.rawValue
+        let turn = PMTurnJSON(
+            kind: .run,
+            subjectId: run.id,
+            sequence: try pmTurnStore.nextSequence(for: .run, subjectId: run.id),
+            createdAt: now(),
+            reason: lifecycle,
+            lifecycleStatus: lifecycle,
+            report: report,
+            workRecovery: nil,
+            nextCommands: [
+                "alln show \(run.id) --json",
+                "alln team result \(run.id) --json",
+            ],
+            notes: notes
+        )
+        try pmTurnStore.save(turn)
+    }
+
+    /// The PM receives the same primary answer a blocking run exposes: the
+    /// single worker's markdown, or the team's lead/synthesis markdown.
+    private func pmTurnReport(for run: TeamRun) -> String? {
+        let report: String?
+        if run.answers.count == 1 {
+            report = run.answers.first?.output
+        } else {
+            report = run.plan
+        }
+        guard let report, !report.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return report
     }
 
     /// RLR-S02a — enrich the durable blocker with the FIFO ticket facts while the mutating
@@ -599,7 +666,11 @@ public actor RunService {
             parked.blocker = nil
             parked.endReason = .failed
             parked.warnings.append("vendor wake could not reacquire the repository write lock")
-            try? runStore.save(parked, models: models)
+            do {
+                try persistTerminalRun(parked)
+            } catch {
+                return .failure(.journalUnavailable("terminal vendor wake result: \(error)"))
+            }
             return .failure(.writeLockBusy(root))
         }
 
@@ -662,7 +733,11 @@ public actor RunService {
             failed.blocker = nil
             failed.endReason = .failed
             failed.warnings.append("vendor resume failed: \(error.code)")
-            _ = try? runStore.save(failed, models: models)
+            do {
+                try persistTerminalRun(failed)
+            } catch {
+                return .failure(.journalUnavailable("terminal vendor resume result: \(error)"))
+            }
         }
         return result
     }
@@ -906,7 +981,11 @@ public actor RunService {
                 pending.phase = nil
                 pending.blocker = nil
                 pending.endReason = .failed
-                try? runStore.save(pending, models: models)
+                do {
+                    try persistTerminalRun(pending)
+                } catch {
+                    return .failure(.journalUnavailable("terminal write-lock wait result: \(error)"))
+                }
                 return .failure(.writeLockBusy(root))
             }
             lockToken = token
@@ -1702,7 +1781,11 @@ public actor RunService {
                 run.warnings.append(
                     "vendor capacity resume attempt limit reached; human attention required"
                 )
-                try? runStore.save(run, models: models)
+                do {
+                    try persistTerminalRun(run)
+                } catch {
+                    return .failure(.journalUnavailable("terminal vendor capacity result: \(error)"))
+                }
                 emit(RunEventKind.runStatusChanged, [
                     "runId": .string(runId),
                     "from": .string(RunStatus.running.rawValue),
@@ -1805,6 +1888,17 @@ public actor RunService {
             if let dir = try? runStore.runDirectory(forRunId: runId) {
                 // Persist the in-memory answer first so KillSettlement sees a live journal.
                 try? runStore.save(run, models: models)
+                // RunClockEnforcer persists its own timed-out terminal state. Publish
+                // the PM turn first so that terminal write keeps PTD-1c's order.
+                var terminalForPM = run
+                terminalForPM.status = .timedOut
+                terminalForPM.phase = nil
+                terminalForPM.endReason = .timedOut
+                do {
+                    try writePMTurn(for: terminalForPM)
+                } catch {
+                    return .failure(.journalUnavailable("timed-out PM Turn: \(error)"))
+                }
                 let clock = RunClockEnforcer.evaluate(
                     budgets: run.clockBudgets ?? clockBudgets ?? RunClockBudgets(),
                     createdAt: run.createdAt,
@@ -1913,7 +2007,7 @@ public actor RunService {
         // CR-S02: the terminal result is authoritative. A swallowed write here would
         // report success while the durable journal is lost — surface it (RUN_JOURNAL_UNAVAILABLE).
         do {
-            try runStore.save(run, models: models)
+            try persistTerminalRun(run)
         } catch {
             return .failure(.journalUnavailable("terminal execution result: \(error)"))
         }
@@ -2027,7 +2121,13 @@ public actor RunService {
             if r.clockBudgets == nil { r.clockBudgets = clockBudgets }
             return r
         }
-        let persist: @Sendable (TeamRun) -> Void = { try? store.save(stamped($0), models: allModels) }
+        let persist: @Sendable (TeamRun) -> Void = { snapshot in
+            let stampedRun = stamped(snapshot)
+            // The final terminal save belongs below, where RunService can write
+            // pm-turn.json before run.json and surface a failed delivery write.
+            guard !stampedRun.status.isTerminal else { return }
+            try? store.save(stampedRun, models: allModels)
+        }
 
         // CR-S02: observational (non-mutating) Teams are not mechanically read-only. Capture
         // the canonical repo's exact Git state before dispatch so an unexpected write by a
@@ -2060,7 +2160,7 @@ public actor RunService {
         run.timing = timing
         // CR-S02: authoritative terminal result — never swallow a failed journal write.
         do {
-            try runStore.save(run, models: models)
+            try persistTerminalRun(run)
         } catch {
             return .failure(.journalUnavailable("terminal research result: \(error)"))
         }
