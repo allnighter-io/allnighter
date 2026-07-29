@@ -124,25 +124,25 @@ public enum DesignBoardCapture: Sendable {
         var options: [DesignOption] = []
         options.reserveCapacity(answerWorkers.count)
 
-        for worker in answerWorkers {
-            let persona = worker.skillId ?? "design"
-            let answer = answerById[worker.id]
+        for agent in answerWorkers {
+            let persona = agent.skillId ?? "design"
+            let answer = answerById[agent.id]
             guard let source = locateArtifact(
-                agentId: worker.id,
+                agentId: agent.id,
                 runDirectory: runDirectory,
                 seatOutput: answer?.output
             ) else {
                 options.append(DesignOption(
-                    agentId: worker.id,
-                    modelId: worker.modelId,
+                    agentId: agent.id,
+                    modelId: agent.modelId,
                     persona: persona,
                     status: .failed,
-                    failureReason: "no captureable HTML/SVG for seat (expected option_\(sanitizeFileToken(worker.id)).html|.svg or a declared path)"
+                    failureReason: "no captureable HTML/SVG for seat (expected option_\(sanitizeFileToken(agent.id)).html|.svg or a declared path)"
                 ))
                 continue
             }
 
-            let relative = optionImageRelativeName(agentId: worker.id)
+            let relative = optionImageRelativeName(agentId: agent.id)
             let dest = runDirectory.appendingPathComponent(relative)
             try? FileManager.default.removeItem(at: dest)
 
@@ -150,8 +150,8 @@ public enum DesignBoardCapture: Sendable {
                 try await capture(sourceFile: source, destinationPNG: dest, viewport: viewport)
                 guard WorkerImageCapture.isValidImage(at: dest) else {
                     options.append(DesignOption(
-                        agentId: worker.id,
-                        modelId: worker.modelId,
+                        agentId: agent.id,
+                        modelId: agent.modelId,
                         persona: persona,
                         status: .failed,
                         failureReason: "WebKit capture produced no valid PNG"
@@ -159,24 +159,24 @@ public enum DesignBoardCapture: Sendable {
                     continue
                 }
                 options.append(DesignOption(
-                    agentId: worker.id,
-                    modelId: worker.modelId,
+                    agentId: agent.id,
+                    modelId: agent.modelId,
                     persona: persona,
                     imagePath: relative,
                     status: .done
                 ))
             } catch let error as CaptureError {
                 options.append(DesignOption(
-                    agentId: worker.id,
-                    modelId: worker.modelId,
+                    agentId: agent.id,
+                    modelId: agent.modelId,
                     persona: persona,
                     status: .failed,
                     failureReason: captureFailureReason(error)
                 ))
             } catch {
                 options.append(DesignOption(
-                    agentId: worker.id,
-                    modelId: worker.modelId,
+                    agentId: agent.id,
+                    modelId: agent.modelId,
                     persona: persona,
                     status: .failed,
                     failureReason: "WebKit capture failed: \(error.localizedDescription)"
