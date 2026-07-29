@@ -148,6 +148,50 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         XCTAssertEqual(stateStore.load(id: "relay_pilot_continue")?.status, .awaitingPM)
     }
 
+    func testRelayPMTurnWritesBeforePilotParksWithSettledReport() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmTurnStore = PMTurnStore(
+            runsRootDirectory: tmp.appendingPathComponent("runs"),
+            relaysRootDirectory: stateStore.rootDirectory
+        )
+        let (service, _) = makeService(
+            devScripts: [.init(stdout: "Implemented the requested fix.")], runStore: runStore
+        )
+        let coordinator = RelayCoordinator(
+            runService: service,
+            stateStore: stateStore,
+            runStore: runStore,
+            pmTurnStore: pmTurnStore,
+            idFactory: { "relay_pm_turn" }
+        )
+
+        _ = coordinator.startPilot(config: .init(
+            projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"
+        ))
+        let result = await coordinator.runExternalRound(
+            relayId: "relay_pm_turn",
+            submission: verdictJSON("continue", handover: "Implement the requested fix.")
+        )
+        guard case .success(let payload) = result else { return XCTFail("expected a parked relay") }
+
+        let turn = try XCTUnwrap(try pmTurnStore.load(kind: .relay, subjectId: "relay_pm_turn"))
+        XCTAssertEqual(payload.state.status, .awaitingPM)
+        XCTAssertEqual(stateStore.load(id: "relay_pm_turn")?.status, .awaitingPM)
+        XCTAssertEqual(turn.sequence, 1)
+        XCTAssertEqual(turn.reason, "awaitingPM")
+        XCTAssertEqual(turn.lifecycleStatus, "awaitingPM")
+        XCTAssertEqual(turn.report, "Implemented the requested fix.")
+        XCTAssertEqual(turn.workerRunId, payload.state.rounds.last?.devRunId)
+        XCTAssertNil(turn.workRecovery)
+        XCTAssertEqual(turn.notes, [])
+        XCTAssertEqual(turn.nextCommands, [
+            "alln pair pilot handoff --relay relay_pm_turn --verdict continue --handover-file order.md --json",
+            "alln pair relay-status --relay relay_pm_turn --json"
+        ])
+    }
+
     // MARK: - PO-F7 dev-turn idle-timeout override (pilot)
 
     /// `pilot start --idle-timeout` is persisted onto `RelayState.pilotDevTurnIdleTimeoutSeconds`

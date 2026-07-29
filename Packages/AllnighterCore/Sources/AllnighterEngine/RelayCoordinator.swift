@@ -142,6 +142,8 @@ public struct RelayCoordinator: Sendable {
     private let gitObserver: GitObserver
     private let stateStore: RelayStateStore
     private let runStore: RunStore
+    /// PTD-1b: durable delivery receipt written before a relay parks or settles.
+    private let pmTurnStore: PMTurnStore
     /// Optional (PM_Relay.md §6 R-S07): projects the relay onto a `WorkThread` so the
     /// Mac inbox shows the loop live. Pure composition — `nil` by default so every
     /// existing test/headless caller keeps working unchanged; CLI/MCP construct one via
@@ -167,6 +169,7 @@ public struct RelayCoordinator: Sendable {
         gitObserver: GitObserver = GitObserver(),
         stateStore: RelayStateStore = RelayStateStore(),
         runStore: RunStore = RunStore(),
+        pmTurnStore: PMTurnStore? = nil,
         threadProjector: RelayThreadProjector? = nil,
         executionLane: ExecutionLaneRegistry = .shared,
         proofCommandRunner: CommandRunner = ProcessGroupCommandRunner(
@@ -180,6 +183,10 @@ public struct RelayCoordinator: Sendable {
         self.gitObserver = gitObserver
         self.stateStore = stateStore
         self.runStore = runStore
+        // A supplied state-store root (the normal test seam) must carry its PM
+        // receipt beside it; production's default state store resolves to the same
+        // Allnighter relays root as `PMTurnStore()`.
+        self.pmTurnStore = pmTurnStore ?? PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
         self.threadProjector = threadProjector
         self.executionLane = executionLane
         self.proofCommandRunner = proofCommandRunner
@@ -556,7 +563,7 @@ public struct RelayCoordinator: Sendable {
                 // Back to parked — the piloting session reviews the dev report and
                 // calls `pilot handoff` again when ready. No clock, no auto-advance.
                 state.status = .awaitingPM
-                persist(state)
+                persistPMBoundary(state)
                 events?(.devTurnFinished(round: roundNumber))
                 return .success(PilotRoundResult(state: state, devReport: devOutput))
             }
@@ -1834,14 +1841,14 @@ public struct RelayCoordinator: Sendable {
         state.status = .stopped
         state.stoppedReason = reason
         state.finishedAt = now()
-        persist(state)
+        persistPMBoundary(state)
     }
 
     private func escalate(_ state: inout RelayState, note: String) {
         state.status = .escalated
         state.note = note
         state.finishedAt = now()
-        persist(state)
+        persistPMBoundary(state)
     }
 
     /// PO-F10: surface the typed error code (e.g. AGENT_NOT_AVAILABLE) in the
@@ -1854,7 +1861,61 @@ public struct RelayCoordinator: Sendable {
         state.status = .done
         state.note = note
         state.finishedAt = now()
+        persistPMBoundary(state)
+    }
+
+    /// PTD-1b write order: construct and atomically save the PM Turn before the
+    /// relay's parked or terminal state is persisted. Receipt persistence is a required
+    /// boundary invariant, so a failure stops instead of publishing an undeliverable
+    /// relay state.
+    private func persistPMBoundary(_ state: RelayState) {
+        let report = Self.settledDevReport(for: state, runStore: runStore)
+        do {
+            try writePMTurn(
+                for: state,
+                reason: state.status.rawValue,
+                report: report,
+                nextCommands: pmTurnNextCommands(for: state)
+            )
+        } catch {
+            preconditionFailure("failed to persist PM Turn for relay \(state.id): \(error)")
+        }
         persist(state)
+    }
+
+    private func writePMTurn(
+        for state: RelayState,
+        reason: String,
+        report: String?,
+        nextCommands: [String]
+    ) throws {
+        let turn = PMTurnJSON(
+            kind: .relay,
+            subjectId: state.id,
+            sequence: try pmTurnStore.nextSequence(for: .relay, subjectId: state.id),
+            round: state.rounds.last?.roundNumber,
+            createdAt: now(),
+            reason: reason,
+            lifecycleStatus: state.status.rawValue,
+            report: report,
+            workerRunId: state.rounds.last?.devRunId,
+            workRecovery: nil,
+            nextCommands: nextCommands,
+            notes: report == nil ? ["settled_dev_report_missing"] : [],
+            pmMode: state.pmMode.rawValue
+        )
+        try pmTurnStore.save(turn)
+    }
+
+    private func pmTurnNextCommands(for state: RelayState) -> [String] {
+        let status = "alln pair relay-status --relay \(state.id) --json"
+        guard state.status == .awaitingPM, state.pmMode == .external else {
+            return [status]
+        }
+        return [
+            "alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file order.md --json",
+            status
+        ]
     }
 
     /// The single choke point every `RelayState` mutation already runs through — the
