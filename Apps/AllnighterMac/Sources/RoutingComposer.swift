@@ -365,9 +365,9 @@ struct RoutingComposer: View {
         SubstitutionResolver.resolveAuto(settings: defaultSettings, readyModelIds: sourceReadyIds).resolvedModelId
     }
 
-    /// The worker the route currently runs: an explicit pin, else the team's worker,
+    /// The model the route currently runs: an explicit pin, else the team's model,
     /// else the tier-resolved Auto model.
-    private var selectedWorkerId: String? {
+    private var selectedModelId: String? {
         if let pinnedWorker { return pinnedWorker }
         if team != nil { return resolvedWorkerId(forTeam: team) }
         return autoModelId
@@ -703,7 +703,7 @@ struct RoutingComposer: View {
 
     private var autoModelSupportsEffort: Bool { benchModelSupportsEffort(autoModelId) }
 
-    private var selectedModelSupportsEffort: Bool { benchModelSupportsEffort(selectedWorkerId) }
+    private var selectedModelSupportsEffort: Bool { benchModelSupportsEffort(selectedModelId) }
 
     private var bar: some View {
         HStack(spacing: 9) {
@@ -784,7 +784,7 @@ struct RoutingComposer: View {
     /// The model the single-model route runs — the tier-resolved Auto model, or an
     /// explicit pin. Equals what the run will actually execute.
     private var singleModelName: String {
-        appModel.composeBench.first(where: { $0.id == selectedWorkerId })?.name ?? "Auto"
+        appModel.composeBench.first(where: { $0.id == selectedModelId })?.name ?? "Auto"
     }
 
     /// The model name Auto resolves to right now (nil when the tier is fully down and
