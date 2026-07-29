@@ -1541,7 +1541,7 @@ struct AllnighterCLI {
             let floor = FloorProjector.project(run)
             print("Floor \(run.id) · \(floor.run.status.rawValue) · \(floor.run.family ?? "?")")
             for lane in floor.workerLanes {
-                print("  \(lane.purpose.rawValue)\t\(lane.workerId)\t\(lane.status)")
+                print("  \(lane.purpose.rawValue)\t\(lane.agentId)\t\(lane.status)")
             }
             if let ret = floor.floorReturn { print("\nReturn (\(ret.kind.rawValue)): \(ret.title)") }
         }

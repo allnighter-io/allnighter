@@ -98,8 +98,8 @@ final class FloorArtifactTests: XCTestCase {
 
     func testFloorProjectionCarriesMatchingArtifactRefs() {
         let floor = FloorProjector.project(makeRun())
-        let laneA = floor.workerLanes.first { $0.workerId == "model_a#0" }
-        let laneC = floor.workerLanes.first { $0.workerId == "model_c#0" }
+        let laneA = floor.workerLanes.first { $0.agentId == "model_a#0" }
+        let laneC = floor.workerLanes.first { $0.agentId == "model_c#0" }
 
         XCTAssertEqual(laneA?.artifactRefs.contains { $0.kind == .workerAnswer && $0.relativePath == "workers/model_a_0.answer.md" }, true)
         XCTAssertEqual(laneA?.promptArtifactRef?.localOnly, true)

@@ -14,7 +14,7 @@ public enum FloorProjector {
         let lanes = workerLanes(for: run)
         let lead = run.workers.first { $0.purpose == .plan }
         let stageArtifacts = stageRefs(for: run)
-        let theReturn = floorReturn(for: run, leadWorkerId: lead?.id, stageArtifacts: stageArtifacts)
+        let theReturn = floorReturn(for: run, leadAgentId: lead?.id, stageArtifacts: stageArtifacts)
         let allArtifacts = lanes.flatMap { $0.artifactRefs + ($0.promptArtifactRef.map { [$0] } ?? []) }
             + stageArtifacts + [bundleRef(for: run)]
 
@@ -37,7 +37,7 @@ public enum FloorProjector {
             outputKind: run.outputKind?.rawValue,
             workerCount: run.workers.count,
             modelCount: Set(run.workers.map(\.modelId)).count,
-            leadWorkerId: lead?.id
+            leadAgentId: lead?.id
         )
 
         return FloorRun(
@@ -90,25 +90,25 @@ public enum FloorProjector {
                 id: "\(run.id)_\(stem)_meta", runId: run.id, kind: .workerMetadata,
                 title: "\(worker.skillName ?? worker.id) metadata",
                 relativePath: "workers/\(stem).metadata.json", mimeType: "application/json",
-                workerId: worker.id, createdAt: createdAt)]
+                agentId: worker.id, createdAt: createdAt)]
             // The durable answer markdown exists only when the worker produced output.
             if answer?.hasAnswer == true {
                 refs.append(RunArtifactRef(
                     id: "\(run.id)_\(stem)_answer", runId: run.id, kind: .workerAnswer,
                     title: "\(worker.skillName ?? worker.id) answer",
                     relativePath: "workers/\(stem).answer.md", mimeType: "text/markdown",
-                    workerId: worker.id, createdAt: createdAt))
+                    agentId: worker.id, createdAt: createdAt))
             }
             let promptRef: RunArtifactRef? = worker.resolvedWorkerPromptSnapshot.map { _ in
                 RunArtifactRef(
                     id: "\(run.id)_\(stem)_prompt", runId: run.id, kind: .workerPrompt,
                     title: "\(worker.skillName ?? worker.id) prompt",
                     relativePath: "workers/\(stem).prompt.md", mimeType: "text/markdown",
-                    workerId: worker.id, createdAt: createdAt, localOnly: true)
+                    agentId: worker.id, createdAt: createdAt, localOnly: true)
             }
 
             return FloorWorkerLane(
-                workerId: worker.id,
+                agentId: worker.id,
                 skillId: worker.skillId,
                 skillName: worker.skillName,
                 modelId: worker.modelId,
@@ -156,7 +156,7 @@ public enum FloorProjector {
         stage?.payload?.markdown   // board payloads are structured (options/chosen), not markdown
     }
 
-    private static func floorReturn(for run: TeamRun, leadWorkerId: String?,
+    private static func floorReturn(for run: TeamRun, leadAgentId: String?,
                                     stageArtifacts: [RunArtifactRef]) -> FloorReturn? {
         // The typed return, projected over the output stage (plan/board/final spec),
         // typed by output kind. F-S03 specializes Signal into a typed insight.
@@ -182,7 +182,7 @@ public enum FloorProjector {
             status: status(for: run.status).rawValue,
             title: title,
             summaryMarkdown: markdown,
-            producedByAgentId: leadWorkerId,
+            producedByAgentId: leadAgentId,
             stageId: stage?.id,
             artifactRefs: refs,
             insight: insight
@@ -250,12 +250,12 @@ public enum FloorProjector {
     /// event. Sorted chronologically.
     private static func timeline(for run: TeamRun) -> [FloorTimelineEvent] {
         var events: [FloorTimelineEvent] = []
-        func add(_ kind: FloorTimelineEvent.Kind, _ at: Date?, workerId: String? = nil,
+        func add(_ kind: FloorTimelineEvent.Kind, _ at: Date?, agentId: String? = nil,
                  stageId: String? = nil, status: String? = nil) {
             guard let at else { return }
-            let key = [kind.rawValue, workerId, stageId].compactMap { $0 }.joined(separator: "_")
+            let key = [kind.rawValue, agentId, stageId].compactMap { $0 }.joined(separator: "_")
             events.append(FloorTimelineEvent(id: "\(run.id)_\(key)", runId: run.id, kind: kind,
-                                             at: at, workerId: workerId, stageId: stageId, status: status))
+                                             at: at, agentId: agentId, stageId: stageId, status: status))
         }
 
         add(.runQueued, run.createdAt)
@@ -263,9 +263,9 @@ public enum FloorProjector {
         add(.runStarted, run.answers.compactMap(\.result.timing.startedAt).min())
 
         for a in run.answers {
-            add(.workerStarted, a.result.timing.startedAt, workerId: a.memberId)
+            add(.workerStarted, a.result.timing.startedAt, agentId: a.memberId)
             let returned: FloorTimelineEvent.Kind = (a.result.status == .failed || a.result.status == .timedOut) ? .workerFailed : .workerReturned
-            add(returned, a.result.timing.finishedAt, workerId: a.memberId, status: a.result.status.rawValue)
+            add(returned, a.result.timing.finishedAt, agentId: a.memberId, status: a.result.status.rawValue)
         }
 
         for stage in run.stages {

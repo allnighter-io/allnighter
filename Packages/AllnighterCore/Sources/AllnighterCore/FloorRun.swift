@@ -81,13 +81,13 @@ public struct FloorRun: Codable, Sendable, Equatable {
         public var outputKind: String?
         public var workerCount: Int
         public var modelCount: Int
-        public var leadWorkerId: String?
+        public var leadAgentId: String?
         public init(teamId: String? = nil, displayName: String? = nil, family: String? = nil,
                     outputKind: String? = nil, workerCount: Int = 0, modelCount: Int = 0,
-                    leadWorkerId: String? = nil) {
+                    leadAgentId: String? = nil) {
             self.teamId = teamId; self.displayName = displayName; self.family = family
             self.outputKind = outputKind; self.workerCount = workerCount
-            self.modelCount = modelCount; self.leadWorkerId = leadWorkerId
+            self.modelCount = modelCount; self.leadAgentId = leadAgentId
         }
     }
 
@@ -106,7 +106,7 @@ public struct FloorRun: Codable, Sendable, Equatable {
 /// (added in F-S01).
 public struct FloorWorkerLane: Codable, Sendable, Equatable, Identifiable {
     public enum Purpose: String, Codable, Sendable { case answer, review, lead, stage }
-    public var workerId: String
+    public var agentId: String
     public var skillId: String?
     public var skillName: String?
     public var modelId: String
@@ -125,15 +125,15 @@ public struct FloorWorkerLane: Codable, Sendable, Equatable, Identifiable {
     public var promptArtifactRef: RunArtifactRef?
     public var error: String?
 
-    public var id: String { workerId }
+    public var id: String { agentId }
 
-    public init(workerId: String, skillId: String? = nil, skillName: String? = nil,
+    public init(agentId: String, skillId: String? = nil, skillName: String? = nil,
                 modelId: String, purpose: Purpose, status: String,
                 startedAt: Date? = nil, finishedAt: Date? = nil, durationMs: Int? = nil,
                 exitCode: Int? = nil, summary: String? = nil,
                 artifactRefs: [RunArtifactRef] = [], promptArtifactRef: RunArtifactRef? = nil,
                 error: String? = nil) {
-        self.workerId = workerId; self.skillId = skillId; self.skillName = skillName
+        self.agentId = agentId; self.skillId = skillId; self.skillName = skillName
         self.modelId = modelId; self.purpose = purpose; self.status = status
         self.startedAt = startedAt; self.finishedAt = finishedAt; self.durationMs = durationMs
         self.exitCode = exitCode; self.summary = summary
@@ -155,18 +155,18 @@ public struct RunArtifactRef: Codable, Sendable, Equatable, Identifiable {
     public var title: String
     public var relativePath: String
     public var mimeType: String
-    public var workerId: String?
+    public var agentId: String?
     public var stageId: String?
     public var createdAt: Date
     public var contentSHA256: String?
     public var localOnly: Bool
 
     public init(id: String, runId: String, kind: Kind, title: String, relativePath: String,
-                mimeType: String, workerId: String? = nil, stageId: String? = nil,
+                mimeType: String, agentId: String? = nil, stageId: String? = nil,
                 createdAt: Date, contentSHA256: String? = nil, localOnly: Bool = false) {
         self.id = id; self.runId = runId; self.kind = kind; self.title = title
         self.relativePath = relativePath; self.mimeType = mimeType
-        self.workerId = workerId; self.stageId = stageId; self.createdAt = createdAt
+        self.agentId = agentId; self.stageId = stageId; self.createdAt = createdAt
         self.contentSHA256 = contentSHA256; self.localOnly = localOnly
     }
 
@@ -215,14 +215,14 @@ public struct FloorTimelineEvent: Codable, Sendable, Equatable, Identifiable {
     public var runId: String
     public var kind: Kind
     public var at: Date
-    public var workerId: String?
+    public var agentId: String?
     public var stageId: String?
     public var status: String?
 
     public init(id: String, runId: String, kind: Kind, at: Date,
-                workerId: String? = nil, stageId: String? = nil, status: String? = nil) {
+                agentId: String? = nil, stageId: String? = nil, status: String? = nil) {
         self.id = id; self.runId = runId; self.kind = kind; self.at = at
-        self.workerId = workerId; self.stageId = stageId; self.status = status
+        self.agentId = agentId; self.stageId = stageId; self.status = status
     }
 }
 

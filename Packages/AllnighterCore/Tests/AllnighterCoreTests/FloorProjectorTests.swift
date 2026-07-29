@@ -42,7 +42,7 @@ final class FloorProjectorTests: XCTestCase {
     func testWorkerLaneCountEqualsWorkerCount() {
         let floor = FloorProjector.project(signalRun())
         XCTAssertEqual(floor.workerLanes.count, 3)
-        XCTAssertEqual(Set(floor.workerLanes.map(\.workerId)),
+        XCTAssertEqual(Set(floor.workerLanes.map(\.agentId)),
                        ["model_grok#0", "model_opus#0", "model_opus#1"])
     }
 
@@ -53,13 +53,13 @@ final class FloorProjectorTests: XCTestCase {
         XCTAssertEqual(floor.run.status, .done)
         XCTAssertEqual(floor.run.reproduceCommand, "alln run ...")
         XCTAssertEqual(floor.team.outputKind, "insight")
-        XCTAssertEqual(floor.team.leadWorkerId, "model_opus#1")   // the .plan worker is the lead
+        XCTAssertEqual(floor.team.leadAgentId, "model_opus#1")   // the .plan worker is the lead
         XCTAssertEqual(floor.team.modelCount, 2)                   // grok + opus
     }
 
     func testFailedWorkerStaysVisible() {
         let floor = FloorProjector.project(signalRun())
-        let failedLane = floor.workerLanes.first { $0.workerId == "model_opus#0" }
+        let failedLane = floor.workerLanes.first { $0.agentId == "model_opus#0" }
         XCTAssertEqual(failedLane?.status, "failed")
         XCTAssertEqual(failedLane?.error, "auth expired")
         // And it surfaces as a sourced error envelope.
@@ -72,7 +72,7 @@ final class FloorProjectorTests: XCTestCase {
         XCTAssertEqual(floor.floorReturn?.producedByAgentId, "model_opus#1")
         XCTAssertEqual(floor.floorReturn?.summaryMarkdown, "# Insight\nNo move today.")
         // The done worker's lane carries a scan excerpt (truncated), not the full answer.
-        let reader = floor.workerLanes.first { $0.workerId == "model_grok#0" }
+        let reader = floor.workerLanes.first { $0.agentId == "model_grok#0" }
         XCTAssertEqual(reader?.summary?.hasSuffix("…"), true)
     }
 

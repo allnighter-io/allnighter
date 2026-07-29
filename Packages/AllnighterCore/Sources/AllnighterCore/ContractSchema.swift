@@ -469,16 +469,16 @@ public enum ContractSchema {
             "FloorTeam": obj([
                 "teamId": nullable("string"), "displayName": nullable("string"), "family": nullable("string"),
                 "outputKind": nullable("string"), "workerCount": int, "modelCount": int,
-                "leadWorkerId": nullable("string"),
+                "leadAgentId": nullable("string"),
             ], required: ["workerCount", "modelCount"]),
             "FloorWorkerLane": obj([
-                "workerId": str, "skillId": nullable("string"), "skillName": nullable("string"),
+                "agentId": str, "skillId": nullable("string"), "skillName": nullable("string"),
                 "modelId": str, "purpose": enumStr(["answer", "review", "lead", "stage"]),
                 "status": str, "startedAt": nullable("string"), "finishedAt": nullable("string"),
                 "durationMs": nullable("integer"), "exitCode": nullable("integer"),
                 "summary": nullable("string"), "artifactRefs": arr(ref("RunArtifactRef")),
                 "promptArtifactRef": nullableRef("RunArtifactRef"), "error": nullable("string"),
-            ], required: ["workerId", "modelId", "purpose", "status", "artifactRefs"]),
+            ], required: ["agentId", "modelId", "purpose", "status", "artifactRefs"]),
             "FloorReturn": obj([
                 "kind": enumStr(["insight", "plan", "board", "draft", "proposal", "proofPacket", "audit"]),
                 "status": str, "title": str, "summaryMarkdown": nullable("string"),
@@ -488,13 +488,13 @@ public enum ContractSchema {
             "RunArtifactRef": obj([
                 "id": str, "runId": str,
                 "kind": enumStr(["workerAnswer", "workerPrompt", "workerMetadata", "stageOutput", "receipt", "returnMarkdown", "insightJSON", "bundle", "source"]),
-                "title": str, "relativePath": str, "mimeType": str, "workerId": nullable("string"),
+                "title": str, "relativePath": str, "mimeType": str, "agentId": nullable("string"),
                 "stageId": nullable("string"), "createdAt": str, "contentSHA256": nullable("string"), "localOnly": bool,
             ], required: ["id", "runId", "kind", "title", "relativePath", "mimeType", "createdAt", "localOnly"]),
             "FloorTimelineEvent": obj([
                 "id": str, "runId": str,
                 "kind": enumStr(["runQueued", "runStarted", "workerStarted", "workerReturned", "workerFailed", "stageStarted", "stageFinished", "synthesisStarted", "synthesisFinished", "runFinished"]),
-                "at": str, "workerId": nullable("string"), "stageId": nullable("string"), "status": nullable("string"),
+                "at": str, "agentId": nullable("string"), "stageId": nullable("string"), "status": nullable("string"),
             ], required: ["id", "runId", "kind", "at"]),
             "FloorNextAction": obj([
                 "id": str,
