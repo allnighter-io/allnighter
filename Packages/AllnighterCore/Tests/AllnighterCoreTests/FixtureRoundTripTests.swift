@@ -1,5 +1,6 @@
 import XCTest
 @testable import AllnighterCore
+import AgentOSTeam
 
 /// Every bundled fixture must decode, and re-encode/decode to an equal value.
 final class FixtureRoundTripTests: XCTestCase {
@@ -213,5 +214,107 @@ final class FixtureRoundTripTests: XCTestCase {
     func testPendingItemJSONRoundTrips() throws {
         try assertRoundTrips(PendingItemJSON.self, .pendingItemJSON)
         try assertRoundTrips(PendingItemJSON.self, .pendingItemCoolingJSON)
+    }
+
+    /// WTA item 2: round-trip test asserting that encoding a TeamRun -> decoding
+    /// preserves agentId, modelId, and seat identity (workerId), and that a fixture
+    /// written in the OLD shape (without agentId) still decodes cleanly.
+    func testAnswerIdentityRoundTripAndOldShapeDecode() throws {
+        let agent = Agent(
+            id: "model_sonnet#0",
+            modelId: "model_sonnet",
+            instanceIndex: 0,
+            skillId: "code_review",
+            agentId: "seat_reviewer"
+        )
+        let answer = TeamAnswer(
+            memberId: "model_sonnet#0",
+            modelId: "model_sonnet",
+            role: "reviewer",
+            result: WorkerRunResult(
+                status: .done,
+                output: "Review complete",
+                timing: .init(startedAt: Date(), finishedAt: Date())
+            )
+        )
+        let run = TeamRun(
+            id: "run_test_wta",
+            prompt: "Review code",
+            status: .complete,
+            workers: [agent],
+            workerAnswers: [answer],
+            createdAt: Date()
+        )
+
+        let context = TeamRunJSONMapper.Context(runJournalPath: "/tmp/journal.json")
+        let jsonContract = TeamRunJSONMapper.map(run, models: [], manifests: [], context: context)
+
+        XCTAssertEqual(jsonContract.workerAnswers.count, 1)
+        let mappedAnswer = jsonContract.workerAnswers[0]
+        XCTAssertEqual(mappedAnswer.agentId, "seat_reviewer")
+        XCTAssertEqual(mappedAnswer.modelId, "model_sonnet")
+        XCTAssertEqual(mappedAnswer.workerId, "model_sonnet#0")
+
+        let encoded = try CoreJSON.encode(jsonContract)
+        let decoded = try CoreJSON.decode(TeamRunJSON.self, from: encoded)
+
+        XCTAssertEqual(decoded.workerAnswers.count, 1)
+        let roundTrippedAnswer = decoded.workerAnswers[0]
+        XCTAssertEqual(roundTrippedAnswer.agentId, "seat_reviewer")
+        XCTAssertEqual(roundTrippedAnswer.modelId, "model_sonnet")
+        XCTAssertEqual(roundTrippedAnswer.workerId, "model_sonnet#0")
+
+        let oldShapeJSON = """
+        {
+          "schemaVersion": 2,
+          "contractVersion": "5.2.0",
+          "teamRun": {
+            "id": "run_old",
+            "status": "done",
+            "origin": "cli",
+            "prompt": "Old run",
+            "promptSource": { "kind": "positional" },
+            "createdAt": "2026-07-28T00:00:00Z",
+            "attempts": []
+          },
+          "workers": [
+            {
+              "id": "model_sonnet#0",
+              "modelId": "model_sonnet",
+              "modelName": "Claude 3.5 Sonnet",
+              "sourceId": "claude",
+              "purpose": "answer",
+              "instanceIndex": 0
+            }
+          ],
+          "workerAnswers": [
+            {
+              "workerId": "model_sonnet#0",
+              "modelId": "model_sonnet",
+              "status": "done",
+              "markdown": "Old answer output"
+            }
+          ],
+          "answer": {
+            "status": "done",
+            "markdown": "Old answer output",
+            "source": { "kind": "worker", "workerId": "model_sonnet#0", "modelId": "model_sonnet" }
+          },
+          "stages": [],
+          "plan": null,
+          "usage": { "cliCalls": 1 },
+          "warnings": [],
+          "errors": [],
+          "nextActions": [],
+          "audit": { "traceId": "t1", "runJournalPath": "/tmp/j.json" }
+        }
+        """.data(using: .utf8)!
+
+        let oldDecoded = try CoreJSON.decode(TeamRunJSON.self, from: oldShapeJSON)
+        XCTAssertEqual(oldDecoded.workerAnswers.count, 1)
+        let oldAnswer = oldDecoded.workerAnswers[0]
+        XCTAssertEqual(oldAnswer.workerId, "model_sonnet#0")
+        XCTAssertEqual(oldAnswer.modelId, "model_sonnet")
+        XCTAssertNil(oldAnswer.agentId, "OLD shape fixture without agentId decodes with agentId == nil")
     }
 }
