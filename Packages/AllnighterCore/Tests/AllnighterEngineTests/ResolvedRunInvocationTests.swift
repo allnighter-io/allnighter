@@ -119,8 +119,8 @@ final class ResolvedRunInvocationTests: XCTestCase {
     }
 
     func testExplicitWorkerDoesNotProjectDefaultTeamRoster() {
-        let dry = resolve(flags: .init(workerId: "model_sonnet", json: true))
-        let fg = resolve(mode: .foreground, flags: .init(workerId: "model_sonnet", json: true))
+        let dry = resolve(flags: .init(pinnedModelId: "model_sonnet", json: true))
+        let fg = resolve(mode: .foreground, flags: .init(pinnedModelId: "model_sonnet", json: true))
 
         XCTAssertEqual(dry.workerId, "model_sonnet")
         XCTAssertTrue(dry.explicitModelChosen)
@@ -162,10 +162,10 @@ final class ResolvedRunInvocationTests: XCTestCase {
     }
 
     func testTeamPlusWorkerPinsSingleSeat() {
-        let dry = resolve(flags: .init(teamId: "code_bug_hunt", workerId: "model_sonnet", json: true))
+        let dry = resolve(flags: .init(teamId: "code_bug_hunt", pinnedModelId: "model_sonnet", json: true))
         let fg = resolve(
             mode: .foreground,
-            flags: .init(teamId: "code_bug_hunt", workerId: "model_sonnet", json: true)
+            flags: .init(teamId: "code_bug_hunt", pinnedModelId: "model_sonnet", json: true)
         )
 
         XCTAssertEqual(dry.seatCount, 1)
@@ -177,8 +177,8 @@ final class ResolvedRunInvocationTests: XCTestCase {
     }
 
     func testDetachSharesResolvedSelectorsWithForeground() {
-        let fg = resolve(mode: .foreground, flags: .init(workerId: "model_sonnet", json: true))
-        let detach = resolve(mode: .detach, flags: .init(workerId: "model_sonnet", json: true))
+        let fg = resolve(mode: .foreground, flags: .init(pinnedModelId: "model_sonnet", json: true))
+        let detach = resolve(mode: .detach, flags: .init(pinnedModelId: "model_sonnet", json: true))
 
         XCTAssertEqual(fg.teamPresetId, detach.teamPresetId)
         XCTAssertEqual(fg.workerId, detach.workerId)
@@ -193,7 +193,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         // Mode-scoped flags need companions; dry-run alone must not carry them.
         let dry = resolve(
             flags: .init(
-                workerId: "model_sonnet",
+                pinnedModelId: "model_sonnet",
                 effort: .high,
                 lane: .code,
                 type: nil,
@@ -243,7 +243,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         let detach = resolve(
             mode: .detach,
             flags: .init(
-                workerId: "model_sonnet",
+                pinnedModelId: "model_sonnet",
                 json: true,
                 threadId: "thread_1",
                 conversationId: "conv_1",
@@ -261,7 +261,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         let tryFix = resolve(
             mode: .tryFix,
             flags: .init(
-                workerId: "model_sonnet",
+                pinnedModelId: "model_sonnet",
                 json: true,
                 executorTeamId: "build_slice"
             )
@@ -276,7 +276,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
             let inv = resolve(
                 mode: mode,
                 flags: .init(
-                    workerId: "model_sonnet",
+                    pinnedModelId: "model_sonnet",
                     json: true,
                     acceptSurvivors: true,
                     retryOf: "run_prior"
@@ -290,7 +290,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
     func testBooleanFlagsSurviveInArgvTemplate() {
         let dry = resolve(
             flags: .init(
-                workerId: "model_sonnet",
+                pinnedModelId: "model_sonnet",
                 json: true,
                 noCommit: true,
                 acceptSurvivors: true,
@@ -304,7 +304,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
     }
 
     func testDryRunJSONProjectionKeepsSchemaV2Shape() throws {
-        let dry = resolve(flags: .init(workerId: "model_sonnet", json: true))
+        let dry = resolve(flags: .init(pinnedModelId: "model_sonnet", json: true))
         let json = dry.makeDryRunJSON()
         let data = try JSONEncoder().encode(json)
         let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -322,7 +322,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
     }
 
     func testMakeRunRequestPreservesSelectors() {
-        let dry = resolve(flags: .init(teamId: "code_bug_hunt", workerId: "model_sonnet", effort: .high, json: true))
+        let dry = resolve(flags: .init(teamId: "code_bug_hunt", pinnedModelId: "model_sonnet", effort: .high, json: true))
         let request = dry.makeRunRequest(message: "probe")
         XCTAssertEqual(request.presetId, "code_bug_hunt")
         XCTAssertEqual(request.pinnedModelId, "model_sonnet")
@@ -340,7 +340,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
 
     func testWriteLockProbeOnlyWhenMutating() {
         let mutating = resolve(
-            flags: .init(workerId: "model_sonnet", json: true),
+            flags: .init(pinnedModelId: "model_sonnet", json: true),
             writeLockHeld: true
         )
         XCTAssertEqual(mutating.writeLockHeld, true)
@@ -369,7 +369,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
             runEffects.resolve(spending: true, repoWritePermitted: true)
         )
 
-        let worker = resolve(flags: .init(workerId: "model_sonnet", json: true))
+        let worker = resolve(flags: .init(pinnedModelId: "model_sonnet", json: true))
         XCTAssertEqual(worker.writePolicy, .mutating)
         XCTAssertTrue(worker.effects.repoWrite)
         XCTAssertTrue(worker.effects.workerStart)
@@ -389,7 +389,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
         // Prompt prose must not flip write policy (Law 7).
         let qaLooking = resolve(
             message: "Just answer this Q&A — do not modify any files",
-            flags: .init(workerId: "model_sonnet", json: true)
+            flags: .init(pinnedModelId: "model_sonnet", json: true)
         )
         XCTAssertEqual(qaLooking.writePolicy, .mutating)
         XCTAssertTrue(qaLooking.effects.repoWrite)
@@ -402,7 +402,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
 
         let cases: [(String, RunInvocationNormalizedFlags)] = [
             ("default", .init(json: true)),
-            ("worker", .init(workerId: "model_sonnet", json: true)),
+            ("worker", .init(pinnedModelId: "model_sonnet", json: true)),
             ("answer", .init(teamId: "code_bug_hunt", json: true)),
             ("execution", .init(teamId: "build_slice", json: true)),
         ]
@@ -482,7 +482,7 @@ final class ResolvedRunInvocationTests: XCTestCase {
     /// Explicit `--model` bare ask still shows the steer AND the alternative
     /// preserves the caller's `--model` selector (answer team + pin = read-only).
     func testExplicitWorkerBareAskTeachesSteerPreservingWorker() {
-        let dry = resolve(flags: .init(workerId: "model_sonnet", json: true))
+        let dry = resolve(flags: .init(pinnedModelId: "model_sonnet", json: true))
         XCTAssertTrue(dry.explicitModelChosen)
         XCTAssertTrue(dry.mutating)
         let json = dry.makeDryRunJSON()

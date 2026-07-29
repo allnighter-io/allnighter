@@ -40,7 +40,7 @@ public struct ResolvedRunSeat: Sendable, Equatable {
 public struct RunInvocationNormalizedFlags: Sendable, Equatable {
     public var projectId: String?
     public var teamId: String?
-    public var workerId: String?
+    public var pinnedModelId: String?
     public var effort: EffortLevel?
     public var lane: WorkLane?
     public var type: String?
@@ -67,7 +67,7 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
     public init(
         projectId: String? = nil,
         teamId: String? = nil,
-        workerId: String? = nil,
+        pinnedModelId: String? = nil,
         effort: EffortLevel? = nil,
         lane: WorkLane? = nil,
         type: String? = nil,
@@ -92,7 +92,7 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
     ) {
         self.projectId = projectId
         self.teamId = teamId
-        self.workerId = workerId
+        self.pinnedModelId = pinnedModelId
         self.effort = effort
         self.lane = lane
         self.type = type
@@ -147,7 +147,7 @@ public struct RunInvocationInput: Sendable, Equatable {
         self.flags = RunInvocationNormalizedFlags(
             projectId: request.projectId,
             teamId: request.presetId,
-            workerId: request.pinnedModelId,
+            pinnedModelId: request.pinnedModelId,
             effort: request.effort,
             lane: request.lane,
             type: request.type,
@@ -178,7 +178,7 @@ public struct RunInvocationInput: Sendable, Equatable {
         self.flags = RunInvocationNormalizedFlags(
             projectId: nil,
             teamId: request.teamPresetId,
-            workerId: request.modelId,
+            pinnedModelId: request.modelId,
             effort: request.effort,
             lane: request.lane,
             type: request.type,
@@ -403,7 +403,7 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
             threadId: flags.threadId,
             projectId: projectId,
             presetId: explicitTeamChosen ? teamPresetId : flags.teamId,
-            pinnedModelId: explicitModelChosen ? workerId : flags.workerId,
+            pinnedModelId: explicitModelChosen ? workerId : flags.pinnedModelId,
             effort: flags.effort,
             lane: flags.lane,
             type: type,
@@ -456,7 +456,7 @@ public enum RunInvocationResolver {
         var blockedSeatCount = 0
 
         let explicitTeamChosen = !(input.flags.teamId ?? "").isEmpty
-        let explicitModelChosen = !(input.flags.workerId ?? "").isEmpty
+        let explicitModelChosen = !(input.flags.pinnedModelId ?? "").isEmpty
         let root = RunWriteLock.normalize(input.projectRoot) ?? input.projectRoot
 
         // --- Team (Default Team when no --team; matches RunService.run) ---
@@ -540,7 +540,7 @@ public enum RunInvocationResolver {
         var workerId: String? = nil
         var autoResolved = false
 
-        if explicitModelChosen, let raw = input.flags.workerId {
+        if explicitModelChosen, let raw = input.flags.pinnedModelId {
             switch resolveExplicitModel(raw, context: context) {
             case .failure(let error):
                 canStart = false
@@ -675,7 +675,7 @@ public enum RunInvocationResolver {
 
         var flags = input.flags
         // Canonicalize resolved worker id; type echoes only when valid for the team.
-        if explicitModelChosen { flags.workerId = workerId ?? input.flags.workerId }
+        if explicitModelChosen { flags.pinnedModelId = workerId ?? input.flags.pinnedModelId }
         flags.type = typeEcho ?? input.flags.type
 
         let (templateVariables, argvTemplate) = buildTemplate(
@@ -755,7 +755,7 @@ public enum RunInvocationResolver {
             message: input.message,
             flagMode: input.flagMode,
             flags: flags,
-            resolvedWorkerId: flags.workerId,
+            resolvedWorkerId: flags.pinnedModelId,
             resolvedTeamId: flags.teamId
         )
         return ResolvedRunInvocation(
@@ -768,7 +768,7 @@ public enum RunInvocationResolver {
                 explicitTeamChosen: explicitTeam),
             explicitTeamChosen: explicitTeam,
             explicitModelChosen: explicitWorker,
-            workerId: flags.workerId,
+            workerId: flags.pinnedModelId,
             autoResolved: false,
             lane: flags.lane ?? preset.lane,
             effort: flags.effort ?? preset.defaultEffort,
@@ -812,7 +812,7 @@ public enum RunInvocationResolver {
         for seat in flags.explicitSeatModelIds ?? [] where !seat.isEmpty {
             argv.append(contentsOf: ["--seat", seat])
         }
-        if let worker = resolvedWorkerId ?? flags.workerId, !worker.isEmpty {
+        if let worker = resolvedWorkerId ?? flags.pinnedModelId, !worker.isEmpty {
             argv.append(contentsOf: ["--model", worker])
         }
         if let effort = flags.effort {

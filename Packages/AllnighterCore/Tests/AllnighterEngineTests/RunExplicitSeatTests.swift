@@ -28,7 +28,7 @@ final class RunExplicitSeatTests: XCTestCase {
                 flagMode: .dryRun,
                 flags: .init(
                     teamId: teamId,
-                    workerId: workerId,
+                    pinnedModelId: workerId,
                     effort: nil,
                     lane: .code,
                     json: true,

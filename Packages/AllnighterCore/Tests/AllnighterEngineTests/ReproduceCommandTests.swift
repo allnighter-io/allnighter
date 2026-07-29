@@ -60,7 +60,7 @@ final class ReproduceCommandTests: XCTestCase {
             switch t {
             case "--project": flags.projectId = next(); i += 1
             case "--team": flags.teamId = next(); i += 1
-            case "--model": flags.workerId = next(); i += 1
+            case "--model": flags.pinnedModelId = next(); i += 1
             case "--seat":
                 var seats = flags.explicitSeatModelIds ?? []
                 if let seat = next() { seats.append(seat) }
@@ -112,7 +112,7 @@ final class ReproduceCommandTests: XCTestCase {
     func testRunCLIReproduceResolvesToSameSeatAndPolicy() {
         // Original run: explicit --model on Default Team, mutating-allowed.
         let original = resolve("Fix the bug", RunInvocationNormalizedFlags(
-            projectId: "proj_test", workerId: "model_sonnet", effort: .high))
+            projectId: "proj_test", pinnedModelId: "model_sonnet", effort: .high))
         XCTAssertTrue(original.explicitModelChosen)
         XCTAssertEqual(original.seats.map(\.modelId), ["model_sonnet"])
 

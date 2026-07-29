@@ -1055,7 +1055,7 @@ public actor RunService {
             flags: RunInvocationNormalizedFlags(
                 projectId: request.projectId,
                 teamId: request.presetId,
-                workerId: request.pinnedModelId,
+                pinnedModelId: request.pinnedModelId,
                 effort: request.effort,
                 lane: request.lane,
                 type: request.type,
