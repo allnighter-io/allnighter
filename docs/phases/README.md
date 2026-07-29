@@ -41,6 +41,7 @@ revive.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Observed_Usage_On_Receipts_And_Live_Status.md`](Observed_Usage_On_Receipts_And_Live_Status.md) | **OPEN — founder intake** | After AgentOS token capture: duration always + tokens when reported on every receipt; pilot/relay live status gets optional usage without coupling to liveness. Blame silent CLIs explicitly. Upstream: AgentOS `Observed_Token_Usage_Capture.md`. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
