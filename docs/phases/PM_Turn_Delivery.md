@@ -4,7 +4,8 @@ Status: **OPEN — implementation-ready, founder law (2026-07-29)**
 Owner: AllnighterEngine (`RelayCoordinator`, `ServeDaemon`) + AllnighterCLI
 (`PilotCLI`, `RelayCLI`)
 Created: 2026-07-29
-Revised: 2026-07-29 — spec-editor finalization
+Revised: 2026-07-29 — v3 Sonnet review pass (agent PM experience: sharpened
+moment-by-moment flow, default-path guidance, anti-patterns, Decision addendum)
 
 ## Product law
 
@@ -33,6 +34,141 @@ Related work, deliberately not duplicated:
 - [`Round_Survives_The_Caller.md`](../archive/phases/Round_Survives_The_Caller.md)
   owns detached dispatch survival, not completion delivery.
 
+## Why users curse today
+
+A founder or an agent PM starts a Pilot or Relay round, detaches with
+`--no-wait` because the round will take a while, and moves on. The dev seat
+finishes. Nothing is waiting for it. The terminal that dispatched the round is
+gone or has moved to another task. The only documented "next step" was
+"poll status" — which agents either skip (they don't spin their own poll loop
+unless told to) or do badly (a tight loop that burns turns and still misses the
+transition). The founder eventually notices the floor has gone quiet, opens a
+fresh PM session, and has to reconstruct what happened by hand: read
+`answer.md`, `git log`, or the relay directory, then re-paste the dev report
+into a new PM turn as if Allnighter had never run the round at all. Every
+minute of that reconstruction is a minute the "insanely good PM" story breaks —
+the agent that should have been the reliable middle layer between founder and
+dev seat instead became one more thing the founder had to babysit.
+
+This is the same shape as the WRC incident (PM hit a vendor outage mid-round,
+recovery required forensic git log), but PTD's version does not require a
+seat to have *died* — it happens on every ordinary detached round today,
+because there is no delivery contract, only a promise that whoever dispatched
+the round is still around to notice completion. That promise is the bug.
+
+## Agent PM experience
+
+This is what an agent PM (Opus, Sonnet, or any other CLI-driving model) sees,
+types, and decides at each moment of a delegated round. Read this section
+before touching help/teaching copy — it is the standard those files are
+graded against.
+
+### 1. Dispatch — pick a delivery path *before* you detach
+
+There are exactly three paths. Pick one at dispatch time, not after the round
+is already running.
+
+| Round shape | Path | What you do |
+| --- | --- | --- |
+| Short, you're staying at the terminal (~minutes) | **A — blocking** | Just run `pilot handoff` / `relay-resume` without `--no-wait`. The call returns the PM Turn when it lands. This is the default for a reason: it is the least that can go wrong. |
+| Longer, you're staying in this session but want to do other things meanwhile | **B — status wait** | Dispatch with `--no-wait`. The ack hands you back one exact `status --wait-for` command. Go do other work; when you return to this thread, run that one command with a timeout sized to the round — it blocks until `parked`/`terminal` or the timeout, then hands you the same PM Turn. |
+| This session may end before the round finishes (detached handoff, overnight, vendor-outage risk) | **C — wake** | Dispatch with `--no-wait --delivery wake`. Allnighter refuses up front if no receiver is configured — you find out *before* you commit to an unattended delegation, not after. |
+
+A **5-minute round almost always wants path A.** Blocking on five minutes of
+dev work is cheaper — in turns, in complexity, in things that can go wrong —
+than orchestrating a detach-and-wait dance for it. Reach for B or C only when
+the round is genuinely long or the session might not survive it.
+
+A **multi-hour round wants B (if you're staying) or C (if you might not be).**
+Never leave a multi-hour round on path A if you have other useful work to do —
+that is "I blocked" when you could have "delegated and kept working."
+
+### 2. Wait — one bounded call, not a loop
+
+The mental model is the same discipline used for any long-running background
+job: pick a single wait bounded to how long the thing actually takes, then
+come back once. Never chain short polls to fake a long wait.
+
+```bash
+alln pair pilot status --relay relay_abc --wait-for parked --timeout 7200 --json
+```
+
+This call blocks *this one invocation*, not your whole session — that's what
+makes "kept working" real. Dispatch, note the returned wait command, go do
+something else with your turn budget, and only re-enter this thread to run the
+wait command once, sized to your best guess of the round's duration. If it
+expires (`RELAY_WAIT_TIMEOUT`, exit 3), the fix is a longer timeout on the same
+command — never a switch to manual polling.
+
+### 3. Land — read `pmTurn`, not prose
+
+Whatever path you took, you land on the same shape. `devReport` and
+`nextCommands` live under `pmTurn` in the status/handoff response — nowhere
+else:
+
+```json
+{
+  "pmTurn": {
+    "sequence": 7,
+    "reason": "awaitingPM",
+    "devReport": "verbatim settledDevReport text",
+    "nextCommands": [
+      "alln pair pilot handoff --relay relay_abc --verdict continue --handover-file order.md --json"
+    ]
+  }
+}
+```
+
+You never need to open `answer.md`, grep a log directory, or trust a Mac
+banner to know what happened. If `devReport` is `null`, that's a real signal
+(see `notes[]`) — not evidence to go dig for the report yourself.
+
+### 4. Judge — the next command is already expanded
+
+`nextCommands` are copy-paste-ready with the real relay id and a status-valid
+verb for the current state — never a placeholder, never invented flags. Your
+job as PM is to read the dev report, decide `continue`/`escalate`/`stop`, and
+run the matching command from the array (or your own equivalent handoff). You
+should never have to hand-assemble a relay id or guess which verb is legal for
+the current state.
+
+### Anti-patterns — never do these
+
+- **Poll loop.** Calling `status --json` in a `while true; sleep N` shape
+  instead of `status --wait-for … --timeout …`. It burns turns, it can miss a
+  fast transition between polls, and it is exactly the behavior this packet
+  exists to make unnecessary.
+- **`--no-wait` with no follow-up.** Detaching and never running the returned
+  wait command and never configuring wake delivery. This is the single mistake
+  that causes the floor to go silent — the round completes and nobody is
+  listening. If you use `--no-wait`, you have committed to running path B's
+  wait command or having path C's wake configured. There is no third option.
+- **Trusting a Mac banner as delivery.** The banner (WRC-S01/URN) is a human
+  convenience notification. It is not agent-readable, not durable, not
+  retried, and never satisfies `pmTurnDelivery`. If your plan for "how will I
+  know the round finished" is "the founder will see a notification and tell
+  me," that plan fails the moment the founder is away from the Mac.
+- **Re-deriving the report.** Reading `answer.md`, a relay-directory file, or
+  raw logs to reconstruct what the dev seat said, when `pmTurn.devReport` was
+  the verbatim text the whole time.
+
+### Success, from the PM's chair
+
+Both of these must feel effortless — that is the actual bar, not just "delivery
+works":
+
+- **"I delegated and kept working."** Dispatch with `--no-wait`, do other
+  useful work, come back once with the right wait command, land the report.
+  No manual reconstruction, no second-guessing whether the round even
+  finished.
+- **"I blocked and got the report."** Dispatch without `--no-wait` on a short
+  round, get the PM Turn back in the same call. No ceremony for a five-minute
+  round.
+
+If either of those requires reading a second file, trusting a banner, or
+guessing a command, the contract has failed regardless of what the JSON
+schema says.
+
 ## Decision
 
 1. **One durable object; no inbox verb.** `pmTurn` is embedded in both status
@@ -52,6 +188,35 @@ Related work, deliberately not duplicated:
    success only on exit 0. Nonzero/launch failure is retried with durable,
    bounded backoff and remains visible as a delivery failure; it is never
    represented as delivered. The hook host owns the final IDE/session handoff.
+
+### Decision addendum — v3 deltas
+
+These resolve ambiguities the v2 review surfaced from the agent-PM lens. They
+sharpen the same architecture in Decision 1–4 above; nothing here reopens it.
+
+5. **`--no-wait` is not a complete instruction on its own.** It is only ever
+   valid paired with a follow-up: run the returned status waiter, or supply
+   `--delivery wake` with a working receiver. Help/teaching copy must present
+   `--no-wait` and its follow-up as one unit, never as two independently
+   optional flags. This is the codification of the incident in "Why users
+   curse today" — the gap was never a missing feature, it was `--no-wait`
+   being teachable in isolation.
+6. **`--timeout` stays required on `--wait-for`, no default.** A silent
+   default timeout would let a PM believe a bounded wait is happening when it
+   picked a value blind. Failing loud on a missing `--timeout` is cheaper than
+   a PM discovering thirty minutes in that it under-provisioned. Builders keep
+   the existing PTD-1 scope; this only confirms it is not weakened in v3.
+7. **Default-path guidance is a table, not a paragraph.** Help/Bootstrap
+   teaching copy must reproduce the "Round shape → Path" table from the Agent
+   PM experience section verbatim (or link to it), not restate it as prose
+   each time. Agents pattern-match a table faster than they parse guidance
+   sentences.
+8. **The wake receiver is judged only by exit code and idempotency, never by
+   IDE-specific behavior.** PTD does not know or care whether the receiver
+   resumes a Claude Code session, opens Cursor, or pages a human — only that
+   it exits 0 exactly once it has durably accepted the PM Turn for
+   `(relayId, sequence)`. Keep the hook contract host-agnostic; do not add
+   Allnighter-side knowledge of any specific agent host.
 
 ## Current gap
 
@@ -126,6 +291,8 @@ the latest PM Turn when present, including terminal states. `devReport` and
 No new flag or protocol. Blocking `pilot handoff`, `relay-resume`, `relay`, and
 `relay adopt` return the same PM Turn payload through their existing result
 envelopes when their round reaches a PM boundary. This return is delivery.
+Default here for any round short enough that the PM has nothing better to do
+than wait — see "Agent PM experience" §1.
 
 ### B. Status `--wait-for` — attended detached path
 
@@ -227,12 +394,18 @@ separate concern is an independent delivery process for a dead session.
 
 ## Teaching and contract flip (part of PTD-1)
 
-Replace every primary instruction of the form “`--no-wait`, then poll status”
-with:
+Replace every primary instruction of the form "`--no-wait`, then poll status"
+with the "Agent PM experience" §1 table (verbatim or linked, per Decision
+addendum item 7), plus this one-liner as the default framing:
 
-> Dispatch blocks by default. If you detach while still present, run the returned
-> `status --wait-for` command. If the PM session will be gone, use
-> `--no-wait --delivery wake` with a configured PM Turn receiver.
+> Dispatch blocks by default — fine for a short round. If you detach with
+> `--no-wait` because the round is long, you must do exactly one of two
+> things: run the returned `status --wait-for` command once you're back, or
+> have configured `--delivery wake` before you detached. `--no-wait` alone,
+> with neither, is the mistake that leaves the floor silent.
+
+Never teach, as a primary path: raw `poll status` loops, `pilot watch`, or
+trusting a Mac banner as delivery proof (see Anti-patterns above).
 
 Update these source files and regenerate derived contract/help artifacts; do not
 hand-edit `docs/generated/alln/*`:
@@ -283,10 +456,15 @@ WRC rewrite is authorized by this packet.
 - Storing a transcript, diff, or a second git model in `PMTurnJSON`.
 - Changing state-machine/write-lock safety; a `.running` relay still rejects a
   second mutating dispatch with `RELAY_ROUND_IN_FLIGHT`.
+- Allnighter-side knowledge of what a wake receiver does with the PM Turn
+  (resume a session, page a human, open an IDE) — see Decision addendum item 8.
 
 ## v1 exit gate
 
-All gates are required; this product law is not met by PTD-1 alone.
+All gates are required; this product law is not met by PTD-1 alone. Read each
+gate from the PM's chair (Agent PM experience §"Success"), not just as a
+schema check — a gate that passes technically but still leaves a PM guessing
+does not count.
 
 1. A blocking Pilot and Relay round returns the PM Turn report and exact next
    commands without regression.
@@ -300,13 +478,18 @@ All gates are required; this product law is not met by PTD-1 alone.
    once with the correct JSON; a failed hook is durably retried and visibly failed,
    never marked delivered.
 5. Help, Bootstrap, recipes/menu teaching, and `RELAY_ROUND_IN_FLIGHT` actions
-   name blocking, status wait, or explicit wake — never polling/watch as primary.
+   name blocking, status wait, or explicit wake — never polling/watch as primary
+   — and the round-shape → path table from Agent PM experience §1 appears
+   verbatim or linked in that teaching copy.
 6. Hermetic tests cover atomic/deduped PM Turn write, every reason, snapshot and
    waiter match/mismatch/timeout, no-wait delivery acknowledgement, wake
    config refusal, hook receipt/retry/dedupe, and the WRC composition null case.
 7. One dogfood Pilot and one dogfood Relay demonstrate the attended waiter and
-   dead-session wake path. Run `swift test --package-path Packages/AllnighterCore`,
-   `alln dev export-contracts --check`, and the architecture policy check.
+   dead-session wake path — one run playing a five-minute round on path A and
+   one playing a multi-hour round on path B or C, so both PM-chair success
+   criteria are proven, not just the schema. Run `swift test --package-path
+   Packages/AllnighterCore`, `alln dev export-contracts --check`, and the
+   architecture policy check.
 
 ## Builder routing
 
