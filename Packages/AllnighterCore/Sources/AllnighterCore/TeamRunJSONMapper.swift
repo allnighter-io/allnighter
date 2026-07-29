@@ -63,7 +63,7 @@ public enum TeamRunJSONMapper {
             }()
             let agentId = run.workers.first(where: { $0.id == a.memberId })?.agentId
             return TeamRunJSON.AnswerInfo(
-                workerId: a.memberId, agentId: agentId, modelId: a.modelId, status: mapWorker(a.result.status),
+                agentId: agentId ?? a.memberId, modelId: a.modelId, status: mapWorker(a.result.status),
                 queueMs: a.queueMs, ttftMs: a.result.timing.ttftMs,
                 durationMs: a.result.timing.durationMs, markdown: a.output,
                 outputAbsolutePath: outputAbsolute,
@@ -221,7 +221,7 @@ public enum TeamRunJSONMapper {
                 source: .init(
                     kind: .plan,
                     workerId: donePlan.writerWorkerId,
-                    modelId: answers.first { $0.workerId == donePlan.writerWorkerId }?.modelId,
+                    modelId: answers.first { $0.agentId == donePlan.writerWorkerId }?.modelId,
                     stageId: donePlan.stageId
                 )
             )
@@ -231,7 +231,7 @@ public enum TeamRunJSONMapper {
         let seats = answers.filter { $0.status != .skipped }
         if seats.count == 1, let only = seats.first, only.status == .done,
            let markdown = only.markdown, !markdown.isEmpty,
-           let idx = answers.firstIndex(where: { $0.workerId == only.workerId }) {
+           let idx = answers.firstIndex(where: { $0.agentId == only.agentId }) {
             answers[idx].markdown = nil
             return TeamRunJSON.Answer(
                 status: .done,
@@ -239,7 +239,7 @@ public enum TeamRunJSONMapper {
                 markdown: markdown,
                 source: .init(
                     kind: .worker,
-                    workerId: only.workerId,
+                    workerId: only.agentId,
                     modelId: only.modelId
                 )
             )

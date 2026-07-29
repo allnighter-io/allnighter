@@ -124,11 +124,11 @@ public enum ContractSchema {
                 "purpose": enumStr(["answer", "plan", "review"]), "instanceIndex": int,
             ], required: ["id", "modelId", "modelName", "sourceId", "purpose", "instanceIndex"]),
             "AnswerInfo": obj([
-                "workerId": str, "modelId": nullable("string"), "status": runStatus,
+                "agentId": str, "modelId": nullable("string"), "status": runStatus,
                 "queueMs": nullable("integer"), "ttftMs": nullable("integer"),
                 "durationMs": nullable("integer"), "markdown": nullable("string"),
                 "error": nullableRef("ErrorEnvelope"),
-            ], required: ["workerId", "status"]),
+            ], required: ["agentId", "status"]),
             "Answer": obj([
                 "status": runStatus,
                 "outputKind": nullable("string"),

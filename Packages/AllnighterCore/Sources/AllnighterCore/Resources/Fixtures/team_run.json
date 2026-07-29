@@ -41,7 +41,7 @@
   ],
   "answers": [
     {
-      "workerId": "model_sonnet#0",
+      "agentId": "model_sonnet#0",
       "modelId": "model_sonnet",
       "status": "done",
       "queueMs": 1000,

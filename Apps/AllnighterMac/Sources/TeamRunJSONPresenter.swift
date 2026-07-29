@@ -32,7 +32,7 @@ struct TeamRunJSONPresenter {
 
     var workerRows: [WorkerRow] {
         run.workers.map { worker in
-            let answer = run.answers.first { $0.workerId == worker.id }
+            let answer = run.answers.first { $0.agentId == worker.id || $0.agentId == worker.agentId }
             // One-worker canonical text lives on `run.answer`; surface it on that row.
             let seatMarkdown = answer?.markdown.flatMap { $0.isEmpty ? nil : $0 }
             let rowMarkdown = seatMarkdown

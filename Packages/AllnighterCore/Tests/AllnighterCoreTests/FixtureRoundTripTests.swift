@@ -216,10 +216,8 @@ final class FixtureRoundTripTests: XCTestCase {
         try assertRoundTrips(PendingItemJSON.self, .pendingItemCoolingJSON)
     }
 
-    /// WTA item 2: round-trip test asserting that encoding a TeamRun -> decoding
-    /// preserves agentId, modelId, and seat identity (workerId), and that a fixture
-    /// written in the OLD shape (without agentId) still decodes cleanly.
-    func testAnswerIdentityRoundTripAndOldShapeDecode() throws {
+    /// WTA: round-trip test asserting TeamRun → TeamRunJSON preserves agentId + modelId.
+    func testAnswerIdentityRoundTrip() throws {
         let agent = Agent(
             id: "model_sonnet#0",
             modelId: "model_sonnet",
@@ -253,7 +251,6 @@ final class FixtureRoundTripTests: XCTestCase {
         let mappedAnswer = jsonContract.answers[0]
         XCTAssertEqual(mappedAnswer.agentId, "seat_reviewer")
         XCTAssertEqual(mappedAnswer.modelId, "model_sonnet")
-        XCTAssertEqual(mappedAnswer.workerId, "model_sonnet#0")
 
         let encoded = try CoreJSON.encode(jsonContract)
         let decoded = try CoreJSON.decode(TeamRunJSON.self, from: encoded)
@@ -262,59 +259,5 @@ final class FixtureRoundTripTests: XCTestCase {
         let roundTrippedAnswer = decoded.answers[0]
         XCTAssertEqual(roundTrippedAnswer.agentId, "seat_reviewer")
         XCTAssertEqual(roundTrippedAnswer.modelId, "model_sonnet")
-        XCTAssertEqual(roundTrippedAnswer.workerId, "model_sonnet#0")
-
-        let oldShapeJSON = """
-        {
-          "schemaVersion": 2,
-          "contractVersion": "5.2.0",
-          "teamRun": {
-            "id": "run_old",
-            "status": "done",
-            "origin": "cli",
-            "prompt": "Old run",
-            "promptSource": { "kind": "positional" },
-            "createdAt": "2026-07-28T00:00:00Z",
-            "attempts": []
-          },
-          "workers": [
-            {
-              "id": "model_sonnet#0",
-              "modelId": "model_sonnet",
-              "modelName": "Claude 3.5 Sonnet",
-              "sourceId": "claude",
-              "purpose": "answer",
-              "instanceIndex": 0
-            }
-          ],
-          "answers": [
-            {
-              "workerId": "model_sonnet#0",
-              "modelId": "model_sonnet",
-              "status": "done",
-              "markdown": "Old answer output"
-            }
-          ],
-          "answer": {
-            "status": "done",
-            "markdown": "Old answer output",
-            "source": { "kind": "worker", "workerId": "model_sonnet#0", "modelId": "model_sonnet" }
-          },
-          "stages": [],
-          "plan": null,
-          "usage": { "cliCalls": 1 },
-          "warnings": [],
-          "errors": [],
-          "nextActions": [],
-          "audit": { "traceId": "t1", "runJournalPath": "/tmp/j.json" }
-        }
-        """.data(using: .utf8)!
-
-        let oldDecoded = try CoreJSON.decode(TeamRunJSON.self, from: oldShapeJSON)
-        XCTAssertEqual(oldDecoded.answers.count, 1)
-        let oldAnswer = oldDecoded.answers[0]
-        XCTAssertEqual(oldAnswer.workerId, "model_sonnet#0")
-        XCTAssertEqual(oldAnswer.modelId, "model_sonnet")
-        XCTAssertNil(oldAnswer.agentId, "OLD shape fixture without agentId decodes with agentId == nil")
     }
 }
