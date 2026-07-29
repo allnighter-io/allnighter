@@ -12,35 +12,35 @@ struct TeamRunJSONPresenter {
 
     var prompt: String { run.teamRun.prompt }
     var statusLabel: String { run.teamRun.status.rawValue }
-    /// Canonical result text. Prefer `answer.markdown`; plan/worker rows no longer duplicate it.
+    /// Canonical result text. Prefer `answer.markdown`; plan/agent rows no longer duplicate it.
     var planMarkdown: String? { run.answer?.markdown ?? run.plan?.markdown }
     var answerMarkdown: String? { run.answer?.markdown }
     var planWriterAgentId: String? { run.teamRun.planWriterAgentId }
     var stageSummaries: [String] { run.stages.map { "\($0.purpose.rawValue): \($0.status.rawValue)" } }
 
-    struct WorkerRow: Identifiable {
+    struct AgentRow: Identifiable {
         let id: String
         let modelName: String
         let skillName: String?
         let statusLabel: String
         let durationMs: Int?
         let answerMarkdown: String?
-        /// Honest failure surface — a failed worker is shown failed, never hidden.
+        /// Honest failure surface — a failed agent is shown failed, never hidden.
         let failureReason: String?
         var didFail: Bool { failureReason != nil }
     }
 
-    var workerRows: [WorkerRow] {
-        run.agents.map { worker in
-            let answer = run.answers.first { $0.agentId == worker.id }
-            // One-worker canonical text lives on `run.answer`; surface it on that row.
+    var agentRows: [AgentRow] {
+        run.agents.map { agent in
+            let answer = run.answers.first { $0.agentId == agent.id }
+            // One-agent canonical text lives on `run.answer`; surface it on that row.
             let seatMarkdown = answer?.markdown.flatMap { $0.isEmpty ? nil : $0 }
             let rowMarkdown = seatMarkdown
-                ?? (run.answer?.source.agentId == worker.id ? run.answer?.markdown : nil)
-            return WorkerRow(
-                id: worker.id,
-                modelName: worker.modelName,
-                skillName: worker.skillName,
+                ?? (run.answer?.source.agentId == agent.id ? run.answer?.markdown : nil)
+            return AgentRow(
+                id: agent.id,
+                modelName: agent.modelName,
+                skillName: agent.skillName,
                 statusLabel: (answer?.status ?? .queued).rawValue,
                 durationMs: answer?.durationMs,
                 answerMarkdown: rowMarkdown,
@@ -49,7 +49,7 @@ struct TeamRunJSONPresenter {
         }
     }
 
-    var failedWorkers: [WorkerRow] { workerRows.filter(\.didFail) }
+    var failedAgents: [AgentRow] { agentRows.filter(\.didFail) }
     var hasPlan: Bool { run.plan != nil || run.answer?.source.kind == .plan }
     var hasAnswer: Bool { run.answer?.markdown != nil }
 }
