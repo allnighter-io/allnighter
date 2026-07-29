@@ -29,7 +29,8 @@ public struct SandboxHandoffSpool: Sendable {
         public var message: String
         public var repoRoot: String
         public var presetId: String?
-        public var workerId: String?
+        /// CLI model pin (`RunRequest.pinnedModelId`) — a catalog id, not a seat.
+        public var modelId: String?
 
         // The rest of the caller's request. The mailbox used to carry four of the
         // ~26 fields on `RunRequest`, so the app silently ran a DIFFERENT request
@@ -80,7 +81,7 @@ public struct SandboxHandoffSpool: Sendable {
             message: String,
             repoRoot: String,
             presetId: String? = nil,
-            workerId: String? = nil,
+            modelId: String? = nil,
             effort: EffortLevel? = nil,
             lane: WorkLane? = nil,
             type: String? = nil,
@@ -114,7 +115,7 @@ public struct SandboxHandoffSpool: Sendable {
             self.message = message
             self.repoRoot = repoRoot
             self.presetId = presetId
-            self.workerId = workerId
+            self.modelId = modelId
             self.effort = effort
             self.lane = lane
             self.type = type
@@ -147,6 +148,17 @@ public struct SandboxHandoffSpool: Sendable {
         /// Hand-written so a request already sitting in the mailbox when this
         /// shipped — which has no `kind` key — still decodes, as `.run`. A
         /// request that fails to decode is a request that silently never runs.
+        private enum CodingKeys: String, CodingKey {
+            case id, runId, message, repoRoot, presetId, modelId
+            case workerId // legacy mailbox pin key (WTA — model catalog id)
+            case effort, lane, type, context, threadId, projectId, deliveries
+            case executorTeamId, advisoryReview, workerTimeoutSeconds
+            case handshakeTimeoutSeconds, firstActivityTimeoutSeconds, wallTimeoutSeconds
+            case spawnConcurrencyLimit, commitMessage, noCommit, proofCommand
+            case proofTimeoutSeconds, retryOf, acceptSurvivors, explicitSeatModelIds
+            case createdAt, kind, claimedAt, claimedBy, claimantPid, claimantStartTimeTicks
+        }
+
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             id = try c.decode(String.self, forKey: .id)
@@ -154,7 +166,8 @@ public struct SandboxHandoffSpool: Sendable {
             message = try c.decode(String.self, forKey: .message)
             repoRoot = try c.decode(String.self, forKey: .repoRoot)
             presetId = try c.decodeIfPresent(String.self, forKey: .presetId)
-            workerId = try c.decodeIfPresent(String.self, forKey: .workerId)
+            modelId = try c.decodeIfPresent(String.self, forKey: .modelId)
+                ?? c.decodeIfPresent(String.self, forKey: .workerId)
             effort = try c.decodeIfPresent(EffortLevel.self, forKey: .effort)
             lane = try c.decodeIfPresent(WorkLane.self, forKey: .lane)
             type = try c.decodeIfPresent(String.self, forKey: .type)
@@ -182,6 +195,43 @@ public struct SandboxHandoffSpool: Sendable {
             claimedBy = try c.decodeIfPresent(String.self, forKey: .claimedBy)
             claimantPid = try c.decodeIfPresent(Int32.self, forKey: .claimantPid)
             claimantStartTimeTicks = try c.decodeIfPresent(Int64.self, forKey: .claimantStartTimeTicks)
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(id, forKey: .id)
+            try c.encode(runId, forKey: .runId)
+            try c.encode(message, forKey: .message)
+            try c.encode(repoRoot, forKey: .repoRoot)
+            try c.encodeIfPresent(presetId, forKey: .presetId)
+            try c.encodeIfPresent(modelId, forKey: .modelId)
+            try c.encodeIfPresent(effort, forKey: .effort)
+            try c.encodeIfPresent(lane, forKey: .lane)
+            try c.encodeIfPresent(type, forKey: .type)
+            try c.encodeIfPresent(context, forKey: .context)
+            try c.encodeIfPresent(threadId, forKey: .threadId)
+            try c.encodeIfPresent(projectId, forKey: .projectId)
+            try c.encode(deliveries, forKey: .deliveries)
+            try c.encodeIfPresent(executorTeamId, forKey: .executorTeamId)
+            try c.encode(advisoryReview, forKey: .advisoryReview)
+            try c.encodeIfPresent(workerTimeoutSeconds, forKey: .workerTimeoutSeconds)
+            try c.encodeIfPresent(handshakeTimeoutSeconds, forKey: .handshakeTimeoutSeconds)
+            try c.encodeIfPresent(firstActivityTimeoutSeconds, forKey: .firstActivityTimeoutSeconds)
+            try c.encodeIfPresent(wallTimeoutSeconds, forKey: .wallTimeoutSeconds)
+            try c.encodeIfPresent(spawnConcurrencyLimit, forKey: .spawnConcurrencyLimit)
+            try c.encodeIfPresent(commitMessage, forKey: .commitMessage)
+            try c.encode(noCommit, forKey: .noCommit)
+            try c.encodeIfPresent(proofCommand, forKey: .proofCommand)
+            try c.encodeIfPresent(proofTimeoutSeconds, forKey: .proofTimeoutSeconds)
+            try c.encodeIfPresent(retryOf, forKey: .retryOf)
+            try c.encode(acceptSurvivors, forKey: .acceptSurvivors)
+            try c.encodeIfPresent(explicitSeatModelIds, forKey: .explicitSeatModelIds)
+            try c.encode(createdAt, forKey: .createdAt)
+            try c.encode(kind, forKey: .kind)
+            try c.encodeIfPresent(claimedAt, forKey: .claimedAt)
+            try c.encodeIfPresent(claimedBy, forKey: .claimedBy)
+            try c.encodeIfPresent(claimantPid, forKey: .claimantPid)
+            try c.encodeIfPresent(claimantStartTimeTicks, forKey: .claimantStartTimeTicks)
         }
     }
 

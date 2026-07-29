@@ -78,7 +78,7 @@ final class SandboxHandoffTests: HermeticSupportTestCase {
         // Inside the sandbox: drop the request with the run id the caller will poll.
         let runId = "handoff-run-1"
         try box.enqueue(.init(runId: runId, message: "do the thing", repoRoot: repo.path,
-                              workerId: "model_opus"))
+                              modelId: "model_opus"))
         XCTAssertEqual(try box.unclaimed().count, 1)
 
         // Outside the sandbox: run it.
@@ -110,7 +110,7 @@ final class SandboxHandoffTests: HermeticSupportTestCase {
         // which is the exact class that used to evaporate.
         let runId = "handoff-refused-1"
         try box.enqueue(.init(runId: runId, message: "do the thing", repoRoot: repo.path,
-                              workerId: "model_does_not_exist"))
+                              modelId: "model_does_not_exist"))
 
         let settled = await SandboxHandoffRunner(
             spool: box, runService: Self.makeService(runStore: runStore),
@@ -290,10 +290,10 @@ final class SandboxHandoffTests: HermeticSupportTestCase {
             runStore: runStore, owner: "test")
 
         try box.enqueue(.init(runId: "handoff-a", message: "m", repoRoot: "/tmp/x",
-                              workerId: "model_opus"))
+                              modelId: "model_opus"))
         await runner.drainOnce()
         try box.enqueue(.init(runId: "handoff-b", message: "m", repoRoot: "/tmp/x",
-                              workerId: "model_opus"))
+                              modelId: "model_opus"))
         await runner.drainOnce()
 
         XCTAssertEqual(builds.value, 2,
@@ -357,7 +357,7 @@ final class SandboxHandoffTests: HermeticSupportTestCase {
         let repo = tmp.appendingPathComponent("slow-repo", isDirectory: true)
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
         try box.enqueue(.init(runId: "handoff-slow-work", message: "m", repoRoot: repo.path,
-                              workerId: "model_opus"))
+                              modelId: "model_opus"))
         let loop = Task.detached { await runner.run { Task.isCancelled } }
         defer { loop.cancel() }
 
@@ -389,7 +389,7 @@ final class SandboxHandoffTests: HermeticSupportTestCase {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
         let box = spool()
         let request = try box.enqueue(.init(runId: "handoff-orphaned", message: "m",
-                                            repoRoot: "/tmp/x", workerId: "model_opus"))
+                                            repoRoot: "/tmp/x", modelId: "model_opus"))
         // A pid that cannot be alive, with a start time that cannot match.
         _ = try box.claim(id: request.id, by: "dead-host", pid: 2_000_000, startTimeTicks: 1)
         XCTAssertTrue(try box.unclaimed().isEmpty, "precondition: it is claimed")

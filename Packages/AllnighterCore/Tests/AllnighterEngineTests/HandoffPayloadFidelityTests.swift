@@ -75,7 +75,7 @@ final class HandoffPayloadFidelityTests: XCTestCase {
 
         try spool.enqueue(.init(
             runId: "handoff-fidelity", message: original.message, repoRoot: original.repoRoot,
-            presetId: original.presetId, workerId: original.pinnedModelId,
+            presetId: original.presetId, modelId: original.pinnedModelId,
             effort: original.effort, context: original.context,
             threadId: original.threadId, wallTimeoutSeconds: original.wallTimeoutSeconds,
             noCommit: original.noCommit))

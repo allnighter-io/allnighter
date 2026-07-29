@@ -98,7 +98,8 @@ public enum RetiredWorkerKeysMigration {
     static func migrateKey(
         _ key: String,
         parentKey: String?,
-        teamRunJSONRoot: Bool = false
+        teamRunJSONRoot: Bool = false,
+        handoffMailboxRoot: Bool = false
     ) -> (newKey: String, renamed: Bool) {
         switch key {
         case "producedByWorkerId":
@@ -145,6 +146,9 @@ public enum RetiredWorkerKeysMigration {
             if parentKey == "teamRun" || parentKey == "turns" {
                 return ("modelId", true)
             }
+            if handoffMailboxRoot && parentKey == nil {
+                return ("modelId", true)
+            }
             return ("agentId", true)
         default:
             return (key, false)
@@ -155,6 +159,10 @@ public enum RetiredWorkerKeysMigration {
         let teamRunJSONRoot = parentKey == nil
             && object["teamRun"] != nil
             && object["schemaVersion"] != nil
+        let handoffMailboxRoot = parentKey == nil
+            && object["message"] != nil
+            && object["repoRoot"] != nil
+            && object["teamRun"] == nil
         var replacements = 0
         var result: [String: Any] = [:]
         result.reserveCapacity(object.count)
@@ -163,7 +171,8 @@ public enum RetiredWorkerKeysMigration {
             let (newKey, renamed) = migrateKey(
                 key,
                 parentKey: parentKey,
-                teamRunJSONRoot: teamRunJSONRoot
+                teamRunJSONRoot: teamRunJSONRoot,
+                handoffMailboxRoot: handoffMailboxRoot
             )
             if renamed { replacements += 1 }
             let (newValue, childReplacements) = migrateJSONValue(value, parentKey: newKey)

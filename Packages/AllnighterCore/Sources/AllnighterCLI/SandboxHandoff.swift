@@ -82,7 +82,7 @@ enum SandboxHandoff {
             message: request.message,
             repoRoot: request.repoRoot,
             presetId: request.presetId,
-            workerId: request.pinnedModelId,
+            modelId: request.pinnedModelId,
             effort: request.effort,
             lane: request.lane,
             type: request.type,

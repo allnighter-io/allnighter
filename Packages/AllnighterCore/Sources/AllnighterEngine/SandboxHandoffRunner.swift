@@ -228,7 +228,7 @@ public extension SandboxHandoffSpool.Request {
             threadId: threadId,
             projectId: projectId,
             presetId: presetId,
-            pinnedModelId: workerId,
+            pinnedModelId: modelId,
             effort: effort,
             lane: lane,
             type: type,

@@ -78,6 +78,21 @@ final class RetiredWorkerKeysMigrationTests: XCTestCase {
         XCTAssertNil(root["defaultWorkerId"])
     }
 
+    func testHandoffMailboxWorkerIdBecomesModelId() throws {
+        let (migrated, replacements) = RetiredWorkerKeysMigration.migrateJSONObject([
+            "id": "req_1",
+            "runId": "handoff-1",
+            "message": "ping",
+            "repoRoot": "/repo",
+            "workerId": "model_opus",
+            "createdAt": "2026-01-01T00:00:00Z"
+        ], parentKey: nil)
+        XCTAssertEqual(replacements, 1)
+        let root = try XCTUnwrap(migrated as? [String: Any])
+        XCTAssertEqual(root["modelId"] as? String, "model_opus")
+        XCTAssertNil(root["workerId"])
+    }
+
     func testOnDiskMigrationIsIdempotentAndPathAware() throws {
         let fileManager = FileManager.default
         let tempDir = fileManager.temporaryDirectory
