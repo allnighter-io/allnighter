@@ -50,7 +50,7 @@ def test_blind() -> None:
 def test_blind_prompt_leaks_nothing() -> None:
     b = J.blind_pair("base text", "cand text", seed="z")
     p = J.worker_prompt("do the task", "Contrarian", b).lower()
-    leak = any(w in p for w in ("candidate", "incumbent", "baseline", "model_opus", "model_chatgpt"))
+    leak = any(w in p for w in ("candidate", "incumbent", "baseline", "model_opus", "model_gpt_sol"))
     check("blind.prompt_has_no_identity_leak", not leak)
 
 

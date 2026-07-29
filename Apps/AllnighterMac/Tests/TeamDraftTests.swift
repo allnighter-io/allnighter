@@ -171,7 +171,7 @@ final class TeamDraftTests: XCTestCase {
         let lead = TeamLeadSpec(
             skillId: "plan_writer_build",
             preferredModelId: "model_opus",
-            fallbackModelIds: ["model_chatgpt_sol", "model_kimi_k3"],
+            fallbackModelIds: ["model_cursor_gpt_sol", "model_kimi_k3"],
             requiredCapabilityTags: [.planner],
             fallbackPolicy: .laneCapable,
             dissentPolicy: .compareOptions)
@@ -191,7 +191,7 @@ final class TeamDraftTests: XCTestCase {
         var d = TeamDraft(base: buildBase)
         d.mutating = true
         if d.rows.count > 1 {
-            d.rows[1].modelId = "model_chatgpt"
+            d.rows[1].modelId = "model_gpt_sol"
         }
         XCTAssertThrowsError(try d.commit()) { error in
             guard case CatalogError.teamInvalid(let message) = error else {

@@ -2,10 +2,10 @@
   "id" : "preset_six_default",
   "displayName" : "Founder's Six",
   "workerSpecs" : [
-    { "modelId" : "model_chatgpt", "count" : 1 },
+    { "modelId" : "model_gpt_sol", "count" : 1 },
     { "modelId" : "model_opus", "count" : 1 },
     { "modelId" : "model_sonnet", "count" : 1 },
-    { "modelId" : "model_composer", "count" : 1 },
+    { "modelId" : "model_grok_composer_25_fast", "count" : 1 },
     { "modelId" : "model_gemini", "count" : 1 },
     { "modelId" : "model_grok", "count" : 1 }
   ],

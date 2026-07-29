@@ -10,7 +10,7 @@ final class ExactIdResolverTests: XCTestCase {
                   driverId: "claude_code", role: .both, enabled: true),
             Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus",
                   driverId: "claude_code", role: .both, enabled: true),
-            Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            Model(id: "model_gpt_sol", displayName: "GPT-5.6 Sol", modelLabel: "gpt-5.6-sol",
                   driverId: "codex", role: .both, enabled: false),
         ]
     }
@@ -112,12 +112,12 @@ final class ExactIdResolverTests: XCTestCase {
 
     func testWorkerCandidateStateReflectsEnabled() {
         let result = ExactIdResolver.resolveWorker(
-            "model_chatgp",
+            "model_gpt_so",
             models: models(),
             readyModelIds: ["model_sonnet", "model_opus"]
         )
         guard case .failure(let failure) = result else { return XCTFail("expected failure") }
-        let chatgpt = failure.candidates.first { $0.id == "model_chatgpt" }
+        let chatgpt = failure.candidates.first { $0.id == "model_gpt_sol" }
         XCTAssertEqual(chatgpt?.state, "disabled")
     }
 }

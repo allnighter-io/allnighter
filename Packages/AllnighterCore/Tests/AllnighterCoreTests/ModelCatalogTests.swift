@@ -32,7 +32,7 @@ final class ModelCatalogTests: XCTestCase {
     func testBuiltInsDefaultEnabledOnFreshInstall() {
         let registry = testRegistry()
         let models = ModelCatalog.resolvedModels(registry: registry)
-        // Fable, Opus, Sonnet 5, ChatGPT 5.6 Sol, ChatGPT 5.6 Terra,
+        // Fable, Opus, Sonnet 5, GPT-5.6 Sol, GPT-5.6 Terra,
         // Grok 4.5, Kimi K3, Kimi K2.7 Code, Cursor Auto, Composer 2.5, Cursor Grok 4.5, Gemini Flash.
         // Cursor Sol + Antigravity Opus stay default-off.
         // Terra medium seat was added default-on in eff7d44e (models: add Codex Terra
@@ -46,17 +46,17 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.modelLabel, "Claude Opus 4.6 (Thinking)")
         XCTAssertEqual(models.first { $0.id == "model_agy_sonnet" }?.modelLabel, "Claude Sonnet 4.6 (Thinking)")
         XCTAssertTrue(models.first { $0.id == "model_fable" }?.enabled ?? false)
-        XCTAssertFalse(models.first { $0.id == "model_chatgpt_sol" }?.enabled ?? true,
+        XCTAssertFalse(models.first { $0.id == "model_cursor_gpt_sol" }?.enabled ?? true,
                        "Cursor Sol is never on-Bench by default")
-        XCTAssertTrue(models.first { $0.id == "model_chatgpt" }?.enabled ?? false)
+        XCTAssertTrue(models.first { $0.id == "model_gpt_sol" }?.enabled ?? false)
         XCTAssertEqual(models.first { $0.id == "model_sonnet" }?.modelLabel, "claude-sonnet-5")
         XCTAssertEqual(models.first { $0.id == "model_opus" }?.displayName, "Opus 5")
         XCTAssertEqual(models.first { $0.id == "model_fable" }?.displayName, "Fable 5")
         XCTAssertEqual(models.first { $0.id == "model_cursor_fable" }?.displayName, "Fable 5 (Cursor)")
         XCTAssertEqual(models.first { $0.id == "model_cursor_opus" }?.displayName, "Opus 5 (Cursor)")
         XCTAssertEqual(models.first { $0.id == "model_opus" }?.modelLabel, "opus")
-        XCTAssertEqual(models.first { $0.id == "model_chatgpt" }?.displayName, "ChatGPT 5.6 Sol")
-        XCTAssertEqual(models.first { $0.id == "model_chatgpt_sol" }?.displayName, "ChatGPT 5.6 Sol (Cursor)")
+        XCTAssertEqual(models.first { $0.id == "model_gpt_sol" }?.displayName, "GPT-5.6 Sol")
+        XCTAssertEqual(models.first { $0.id == "model_cursor_gpt_sol" }?.displayName, "GPT-5.6 Sol (Cursor)")
     }
 
     func testDisableSonnetPersistsAcrossReload() throws {
@@ -207,7 +207,7 @@ final class ModelCatalogTests: XCTestCase {
     func testRecognizedModelInheritsDriverCapabilities() {
         // A default-off recognized model (no explicit tags) inherits its CLI's lane
         // capability, so enabling it makes it usable in team resolution.
-        let caps = ModelCatalog.capabilities("model_chatgpt_54")
+        let caps = ModelCatalog.capabilities("model_gpt_54")
         XCTAssertFalse(caps.laneTags.isEmpty, "gpt-5.4 inherits Codex lanes")
         XCTAssertTrue(caps.capabilityTags.contains(.code))
     }
@@ -244,10 +244,10 @@ final class ModelCatalogTests: XCTestCase {
     }
 
     func testFloorBuiltInsSitAtUnratedBand() {
-        XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt_54_mini").strengthRank, 40)
-        XCTAssertEqual(ModelCatalog.capabilities("model_codex_spark").strengthRank, 40)
-        XCTAssertLessThan(ModelCatalog.capabilities("model_chatgpt_54").strengthRank,
-                          ModelCatalog.capabilities("model_chatgpt").strengthRank)
+        XCTAssertEqual(ModelCatalog.capabilities("model_gpt_54_mini").strengthRank, 40)
+        XCTAssertEqual(ModelCatalog.capabilities("model_gpt_spark").strengthRank, 40)
+        XCTAssertLessThan(ModelCatalog.capabilities("model_gpt_54").strengthRank,
+                          ModelCatalog.capabilities("model_gpt_sol").strengthRank)
     }
 
     func testHighValueWorkerModelsOutrankSonnet() {

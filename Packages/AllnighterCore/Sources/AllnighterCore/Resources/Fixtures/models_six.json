@@ -1,6 +1,6 @@
 [
   {
-    "id": "model_chatgpt",
+    "id": "model_gpt_sol",
     "displayName": "ChatGPT 5.5",
     "modelLabel": "gpt-5.5",
     "driverId": "codex",
@@ -24,7 +24,7 @@
     "enabled": true
   },
   {
-    "id": "model_composer",
+    "id": "model_grok_composer_25_fast",
     "displayName": "Composer 2.5",
     "modelLabel": "Grok Composer 2.5 Fast",
     "driverId": "grok",

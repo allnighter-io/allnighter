@@ -50,7 +50,7 @@ final class AgentBootstrapTests: XCTestCase {
         let ready = [
             opus(),
             Model(id: "model_gemini", displayName: "Gemini", modelLabel: "g", driverId: "antigravity", role: .answerer),
-            Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt", driverId: "codex", role: .answerer),
+            Model(id: "model_gpt_sol", displayName: "ChatGPT", modelLabel: "gpt", driverId: "codex", role: .answerer),
             Model(id: "model_grok", displayName: "Grok", modelLabel: "grok", driverId: "grok", role: .answerer),
         ]
         let r = TeamPreflight.preflight(teams: teams, lane: .design, teamId: "design_design",

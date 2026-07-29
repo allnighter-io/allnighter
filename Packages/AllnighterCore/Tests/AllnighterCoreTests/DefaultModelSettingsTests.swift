@@ -11,36 +11,36 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertTrue(s.allowHealthySubstitutions)
         XCTAssertEqual(s.tierDefault(.frontier), "model_fable")
         // Frontier: Fable + Codex Sol + Kimi K3. Cursor Sol is never seeded.
-        XCTAssertEqual(s.tiers.frontier, ["model_fable", "model_chatgpt", "model_kimi_k3"])
-        XCTAssertFalse(s.tiers.frontier.contains("model_chatgpt_sol"))
+        XCTAssertEqual(s.tiers.frontier, ["model_fable", "model_gpt_sol", "model_kimi_k3"])
+        XCTAssertFalse(s.tiers.frontier.contains("model_cursor_gpt_sol"))
         XCTAssertEqual(s.tiers.balanced, [
-            "model_chatgpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
+            "model_gpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         XCTAssertEqual(s.tiers.economy, [
             "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
             "model_cursor_auto", "model_gemini"
         ])
-        for fastId in ["model_cursor_composer_25_fast", "model_composer"] {
+        for fastId in ["model_cursor_composer_25_fast", "model_grok_composer_25_fast"] {
             XCTAssertTrue(s.tiers.isUnassigned(fastId), "\(fastId) must stay unassigned in fresh seed")
         }
     }
 
     func testPickerSectionsDedupMultiTierModelsByHighestTier() {
         let bench = [
-            "model_fable", "model_chatgpt", "model_gemini", "model_cursor_composer_25",
-            "model_kimi_k27", "model_chatgpt_sol", "model_composer",
+            "model_fable", "model_gpt_sol", "model_gemini", "model_cursor_composer_25",
+            "model_kimi_k27", "model_cursor_gpt_sol", "model_grok_composer_25_fast",
         ]
         let sections = DefaultModelSettings.fresh.tiers.pickerSections(orderedBench: bench)
         XCTAssertEqual(sections.map(\.title), ["Frontier", "Balanced", "Economy", "Unassigned"])
-        XCTAssertEqual(sections[0].modelIds, ["model_fable", "model_chatgpt"])
+        XCTAssertEqual(sections[0].modelIds, ["model_fable", "model_gpt_sol"])
         XCTAssertEqual(sections[1].modelIds, ["model_cursor_composer_25", "model_gemini"])
         XCTAssertEqual(sections[2].modelIds, ["model_kimi_k27"])
-        XCTAssertEqual(sections[3].modelIds, ["model_chatgpt_sol", "model_composer"])
+        XCTAssertEqual(sections[3].modelIds, ["model_cursor_gpt_sol", "model_grok_composer_25_fast"])
     }
 
     func testPickerModelIdsOmitsCollapsedUnassigned() {
-        let bench = ["model_fable", "model_composer"]
+        let bench = ["model_fable", "model_grok_composer_25_fast"]
         let flat = DefaultModelSettings.fresh.tiers.pickerModelIds(orderedBench: bench, includeUnassigned: false)
         XCTAssertEqual(flat, ["model_fable"])
     }
@@ -48,7 +48,7 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testAutoPrefersFableOverCodexSolWhenBothReady() {
         let r = SubstitutionResolver.resolveAuto(
             settings: .fresh,
-            readyModelIds: ["model_fable", "model_chatgpt"])
+            readyModelIds: ["model_fable", "model_gpt_sol"])
         XCTAssertEqual(r.resolvedModelId, "model_fable")
         XCTAssertFalse(r.substituted)
     }
@@ -56,8 +56,8 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testAutoFallsBackToCodexSolWhenFableUnavailable() {
         let r = SubstitutionResolver.resolveAuto(
             settings: .fresh,
-            readyModelIds: ["model_chatgpt"])
-        XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
+            readyModelIds: ["model_gpt_sol"])
+        XCTAssertEqual(r.resolvedModelId, "model_gpt_sol")
         XCTAssertTrue(r.substituted)
         XCTAssertEqual(r.tier, .frontier)
     }
@@ -66,8 +66,8 @@ final class DefaultModelSettingsTests: XCTestCase {
         let r = SubstitutionResolver.resolveRequested(
             modelId: "model_fable",
             settings: .fresh,
-            readyModelIds: ["model_chatgpt"])
-        XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
+            readyModelIds: ["model_gpt_sol"])
+        XCTAssertEqual(r.resolvedModelId, "model_gpt_sol")
         XCTAssertTrue(r.substituted)
     }
 
@@ -75,8 +75,8 @@ final class DefaultModelSettingsTests: XCTestCase {
         let r = SubstitutionResolver.resolveRequested(
             modelId: "model_opus",
             settings: .fresh,
-            readyModelIds: ["model_chatgpt_terra"])
-        XCTAssertEqual(r.resolvedModelId, "model_chatgpt_terra")
+            readyModelIds: ["model_gpt_terra"])
+        XCTAssertEqual(r.resolvedModelId, "model_gpt_terra")
         XCTAssertTrue(r.substituted)
         XCTAssertEqual(r.tier, .balanced)
     }
@@ -97,19 +97,19 @@ final class DefaultModelSettingsTests: XCTestCase {
         let s = DefaultModelSettings.fresh
         // K3 is Frontier-only; medium Terra is in Balanced; Gemini spans Balanced + Economy;
         // Antigravity Sonnet 4.6 is the Economy-tier default; K2.7 is Economy-only.
-        XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt"), [.frontier])
+        XCTAssertEqual(s.tiers.tiers(of: "model_gpt_sol"), [.frontier])
         XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k3"), [.frontier])
         XCTAssertEqual(s.tiers.highestTier(of: "model_kimi_k3"), .frontier)
-        XCTAssertEqual(s.tiers.tiers(of: "model_chatgpt_terra"), [.balanced])
+        XCTAssertEqual(s.tiers.tiers(of: "model_gpt_terra"), [.balanced])
         XCTAssertEqual(s.tiers.tiers(of: "model_gemini"), [.balanced, .economy])
         XCTAssertEqual(s.tiers.tiers(of: "model_agy_sonnet"), [.economy])
         XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k27"), [.economy])
         XCTAssertEqual(s.tierDefault(.economy), "model_agy_sonnet")
         XCTAssertEqual(s.tiers.tiers(of: "model_agy_opus"), [.balanced])
-        XCTAssertTrue(s.tiers.isUnassigned("model_composer"))
+        XCTAssertTrue(s.tiers.isUnassigned("model_grok_composer_25_fast"))
         XCTAssertTrue(s.tiers.isUnassigned("model_cursor_composer_25_fast"))
         XCTAssertEqual(s.tiers.tiers(of: "model_cursor_composer_25"), [.balanced, .economy])
-        XCTAssertTrue(s.tiers.isUnassigned("model_chatgpt_sol"))
+        XCTAssertTrue(s.tiers.isUnassigned("model_cursor_gpt_sol"))
     }
 
     func testNormalizePreservesCrossTierAndDedupesWithinTier() {
@@ -127,14 +127,14 @@ final class DefaultModelSettingsTests: XCTestCase {
 
     func testAutoSubstitutionsOnPicksFirstReadyInTier() {
         let s = DefaultModelSettings.fresh   // Frontier: fable, chatgpt
-        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_chatgpt"])
-        XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
+        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_gpt_sol"])
+        XCTAssertEqual(r.resolvedModelId, "model_gpt_sol")
         XCTAssertTrue(r.substituted)
         XCTAssertEqual(r.tier, .frontier)
     }
 
     func testAutoSubstitutionsOnDefaultReadyIsNotASubstitution() {
-        let r = SubstitutionResolver.resolveAuto(settings: .fresh, readyModelIds: ["model_fable", "model_chatgpt"])
+        let r = SubstitutionResolver.resolveAuto(settings: .fresh, readyModelIds: ["model_fable", "model_gpt_sol"])
         XCTAssertEqual(r.resolvedModelId, "model_fable")
         XCTAssertFalse(r.substituted)
     }
@@ -143,7 +143,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         var s = DefaultModelSettings.fresh
         s.allowHealthySubstitutions = false
         // Fable (the default) down, Codex Sol ready — with substitutions OFF Auto must WAIT.
-        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_chatgpt"])
+        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_gpt_sol"])
         XCTAssertNil(r.resolvedModelId)
         XCTAssertEqual(r.blockedReason, .shelfEmpty)
     }
@@ -165,7 +165,7 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testAutoBlocksWhenTierEmpty() {
         var s = DefaultModelSettings.fresh
         s.tiers.frontier = []
-        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_chatgpt"])
+        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: ["model_gpt_sol"])
         XCTAssertNil(r.resolvedModelId)
         XCTAssertEqual(r.blockedReason, .tierEmpty)
     }
@@ -190,8 +190,8 @@ final class DefaultModelSettingsTests: XCTestCase {
 
     func testRequestedDownSubstitutesWithinHighestTier() {
         // Fable down, Codex Sol ready, both Frontier → substitute to Codex Sol.
-        let r = SubstitutionResolver.resolveRequested(modelId: "model_fable", settings: .fresh, readyModelIds: ["model_chatgpt"])
-        XCTAssertEqual(r.resolvedModelId, "model_chatgpt")
+        let r = SubstitutionResolver.resolveRequested(modelId: "model_fable", settings: .fresh, readyModelIds: ["model_gpt_sol"])
+        XCTAssertEqual(r.resolvedModelId, "model_gpt_sol")
         XCTAssertTrue(r.substituted)
         XCTAssertEqual(r.tier, .frontier)
     }
@@ -206,14 +206,14 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testRequestedMultiTierModelSubstitutesWithinHighestTier() {
         // ChatGPT spans Frontier + Balanced. Down → substitute within Frontier
         // (highest), never the lower tier.
-        let r = SubstitutionResolver.resolveRequested(modelId: "model_chatgpt", settings: .fresh, readyModelIds: ["model_fable", "model_sonnet"])
+        let r = SubstitutionResolver.resolveRequested(modelId: "model_gpt_sol", settings: .fresh, readyModelIds: ["model_fable", "model_sonnet"])
         XCTAssertEqual(r.resolvedModelId, "model_fable")
         XCTAssertEqual(r.tier, .frontier)
     }
 
     func testRequestedUnassignedDownNeverSubstitutes() {
         // Cursor Sol is Unassigned in the seed; down → wait, never substitute.
-        let r = SubstitutionResolver.resolveRequested(modelId: "model_chatgpt_sol", settings: .fresh, readyModelIds: ["model_fable"])
+        let r = SubstitutionResolver.resolveRequested(modelId: "model_cursor_gpt_sol", settings: .fresh, readyModelIds: ["model_fable"])
         XCTAssertNil(r.resolvedModelId)
         XCTAssertEqual(r.blockedReason, .unassigned)
     }
@@ -221,7 +221,7 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testRequestedDownSubstitutionsOffWaits() {
         var s = DefaultModelSettings.fresh
         s.allowHealthySubstitutions = false
-        let r = SubstitutionResolver.resolveRequested(modelId: "model_fable", settings: s, readyModelIds: ["model_chatgpt"])
+        let r = SubstitutionResolver.resolveRequested(modelId: "model_fable", settings: s, readyModelIds: ["model_gpt_sol"])
         XCTAssertNil(r.resolvedModelId)
     }
 
@@ -239,14 +239,14 @@ final class DefaultModelSettingsTests: XCTestCase {
         var s = DefaultModelSettings.fresh
         s.defaultTier = .balanced
         s.allowHealthySubstitutions = false
-        s.tiers.frontier = ["model_opus", "model_chatgpt", "model_opus"]  // intra-tier dup
+        s.tiers.frontier = ["model_opus", "model_gpt_sol", "model_opus"]  // intra-tier dup
         s.tiers.balanced = ["model_opus", "model_sonnet"]                  // model_opus also in Balanced
         try p.save(s)
 
         let loaded = p.load()
         XCTAssertEqual(loaded.defaultTier, .balanced)
         XCTAssertFalse(loaded.allowHealthySubstitutions)
-        XCTAssertEqual(loaded.tiers.frontier, ["model_opus", "model_chatgpt"], "intra-tier dup normalized away")
+        XCTAssertEqual(loaded.tiers.frontier, ["model_opus", "model_gpt_sol"], "intra-tier dup normalized away")
         XCTAssertEqual(loaded.tiers.balanced, ["model_opus", "model_sonnet"], "cross-tier membership preserved")
         XCTAssertNotNil(loaded.updatedAt)
     }
@@ -285,6 +285,6 @@ final class DefaultModelSettingsTests: XCTestCase {
         try p.save(s)
         let reset = try p.reset()
         XCTAssertEqual(reset.defaultTier, .frontier)
-        XCTAssertEqual(reset.tiers.frontier, ["model_fable", "model_chatgpt", "model_kimi_k3"])
+        XCTAssertEqual(reset.tiers.frontier, ["model_fable", "model_gpt_sol", "model_kimi_k3"])
     }
 }

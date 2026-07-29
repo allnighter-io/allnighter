@@ -7,7 +7,7 @@ final class RunExplicitSeatTests: XCTestCase {
 
     private func bench() -> [Model] {
         [
-            Model(id: "model_chatgpt", displayName: "GPT", modelLabel: "gpt",
+            Model(id: "model_gpt_sol", displayName: "GPT", modelLabel: "gpt",
                   driverId: "codex", role: .answerer, enabled: true),
             Model(id: "model_grok", displayName: "Grok", modelLabel: "grok",
                   driverId: "grok", role: .answerer, enabled: true),
@@ -47,16 +47,16 @@ final class RunExplicitSeatTests: XCTestCase {
 
     func testDryRunProjectsExplicitSeatsInOrder() {
         let invocation = resolve(seatIds: [
-            "model_chatgpt", "model_grok", "model_cursor_composer_25"
+            "model_gpt_sol", "model_grok", "model_cursor_composer_25"
         ])
         XCTAssertTrue(invocation.canStart)
         let json = invocation.makeDryRunJSON()
         let crew = json.seats?.filter { $0.stage == AgentStage.answer.rawValue } ?? []
         XCTAssertEqual(crew.map(\.modelId), [
-            "model_chatgpt", "model_grok", "model_cursor_composer_25"
+            "model_gpt_sol", "model_grok", "model_cursor_composer_25"
         ])
         XCTAssertTrue(invocation.teachingCommand.contains("--seat"))
-        XCTAssertTrue(invocation.teachingCommand.contains("model_chatgpt"))
+        XCTAssertTrue(invocation.teachingCommand.contains("model_gpt_sol"))
     }
 
     func testSeatRequiresTeam() {
@@ -65,7 +65,7 @@ final class RunExplicitSeatTests: XCTestCase {
                 message: "probe",
                 projectRoot: "/tmp/alln-rso",
                 flagMode: .dryRun,
-                flags: .init(json: true, explicitSeatModelIds: ["model_chatgpt"])
+                flags: .init(json: true, explicitSeatModelIds: ["model_gpt_sol"])
             ),
             context: RunInvocationResolveContext(
                 models: bench(),
@@ -81,15 +81,15 @@ final class RunExplicitSeatTests: XCTestCase {
 
     func testSeatConflictsWithWorker() {
         let invocation = resolve(
-            seatIds: ["model_chatgpt", "model_grok", "model_cursor_composer_25"],
-            workerId: "model_chatgpt"
+            seatIds: ["model_gpt_sol", "model_grok", "model_cursor_composer_25"],
+            workerId: "model_gpt_sol"
         )
         XCTAssertFalse(invocation.canStart)
         XCTAssertTrue(invocation.blockedReason?.contains("mutually exclusive") == true)
     }
 
     func testIdempotencyDigestIncludesExplicitSeats() {
-        let seats = ["model_chatgpt", "model_grok", "model_cursor_composer_25"]
+        let seats = ["model_gpt_sol", "model_grok", "model_cursor_composer_25"]
         let base = AsyncTeamCanonicalPayload(
             prompt: "p",
             lane: WorkLane.code.rawValue,

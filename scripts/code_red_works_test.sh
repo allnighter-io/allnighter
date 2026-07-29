@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # vendor sessions, and Code Red never accepts a mock as live proof.
 # See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
 CODE_RED_TEAM_ID="${CODE_RED_TEAM_ID:-code_red_two_source}"
-CODE_RED_CREW_MODEL="${CODE_RED_CREW_MODEL:-model_chatgpt}"   # codex
+CODE_RED_CREW_MODEL="${CODE_RED_CREW_MODEL:-model_gpt_sol}"   # codex
 CODE_RED_LEAD_MODEL="${CODE_RED_LEAD_MODEL:-model_opus}"      # claude_code
 CODE_RED_EXEC_TEAM_ID="${CODE_RED_EXEC_TEAM_ID:-code_red_execution}"
 CODE_RED_EXEC_MODEL="${CODE_RED_EXEC_MODEL:-model_opus}"      # claude_code

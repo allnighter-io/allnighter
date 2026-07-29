@@ -12,7 +12,7 @@ final class SignalTriangulationTests: XCTestCase {
     }
     private func opus() -> Model { m("model_opus", "claude_code", .both) }
     private func grok() -> Model { m("model_grok", "grok") }
-    private func chatgpt() -> Model { m("model_chatgpt", "codex") }
+    private func chatgpt() -> Model { m("model_gpt_sol", "codex") }
     private func gemini() -> Model { m("model_gemini", "antigravity") }
     private func sonnet() -> Model { m("model_sonnet", "claude_code") }
     private func cursorAuto() -> Model { m("model_cursor_auto", "cursor_agent") }
@@ -26,7 +26,7 @@ final class SignalTriangulationTests: XCTestCase {
                 TeamAgentSpec(
                     id: "interpret", skillId: "signal_project_fit", purpose: .answer,
                     count: count, required: true, triangulate: true,
-                    triangulatePreferenceIds: ["model_grok", "model_chatgpt", "model_gemini"])
+                    triangulatePreferenceIds: ["model_grok", "model_gpt_sol", "model_gemini"])
             ],
             lead: TeamLeadSpec(skillId: "insight_writer", requiredCapabilityTags: [.planner],
                                fallbackPolicy: .strongestReady))
@@ -38,15 +38,15 @@ final class SignalTriangulationTests: XCTestCase {
             team: signalTeam(), requestLane: .signal, requestEffort: .med,
             readyModels: bench)
         XCTAssertTrue(r.isRunnable)
-        // Strongest ready .planner is ChatGPT 5.6 Sol (rank 99 > Opus 90), so it is
+        // Strongest ready .planner is GPT-5.6 Sol (rank 99 > Opus 90), so it is
         // reserved for the Lead; the three interpreters spread across the distinct
         // drivers below it: Grok (pref #1), Gemini (pref #3; ChatGPT is reserved),
         // then the strongest remaining distinct-driver seat, Opus.
         XCTAssertEqual(r.answerWorkers.map(\.modelId), ["model_grok", "model_gemini", "model_opus"])
         XCTAssertEqual(Set(r.answerWorkers.map { w -> String in
             bench.first { $0.id == w.modelId }!.driverId }).count, 3)
-        XCTAssertEqual(r.planWriter?.modelId, "model_chatgpt")
-        XCTAssertFalse(r.answerWorkers.contains { $0.modelId == "model_chatgpt" }) // reserved for Lead
+        XCTAssertEqual(r.planWriter?.modelId, "model_gpt_sol")
+        XCTAssertFalse(r.answerWorkers.contains { $0.modelId == "model_gpt_sol" }) // reserved for Lead
         XCTAssertFalse(r.warnings.contains { $0.contains("degraded") })
     }
 

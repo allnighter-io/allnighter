@@ -2,7 +2,7 @@ import Foundation
 
 /// Owner-facing model labels. Append a source CLI in parentheses only when the
 /// seat runs on a non-default driver for its reasoning family — e.g.
-/// `ChatGPT 5.6 Sol` on Codex (default) vs `ChatGPT 5.6 Sol (Cursor)` on Cursor.
+/// `GPT-5.6 Sol` on Codex (default) vs `GPT-5.6 Sol (Cursor)` on Cursor.
 public enum ModelDisplayName {
     private static let knownCLILabels = ["Claude", "Codex", "Cursor", "Grok", "Antigravity", "Kimi"]
 
@@ -39,10 +39,10 @@ public enum ModelDisplayName {
              "model_agy_opus", "model_agy_sonnet",
              "model_cursor_fable", "model_cursor_opus", "model_cursor_sonnet":
             return "claude_code"
-        case "model_chatgpt", "model_chatgpt_sol", "model_chatgpt_terra",
-             "model_chatgpt_54", "model_chatgpt_54_mini", "model_codex_spark":
+        case "model_gpt_sol", "model_cursor_gpt_sol", "model_gpt_terra",
+             "model_gpt_54", "model_gpt_54_mini", "model_gpt_spark":
             return "codex"
-        case "model_grok", "model_composer":
+        case "model_grok", "model_grok_composer_25_fast":
             return "grok"
         case "model_cursor_grok_45":
             return "cursor_agent"

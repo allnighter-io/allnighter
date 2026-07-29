@@ -1,6 +1,6 @@
 # Get Sol's take without changing files
 
-One named worker, one read-only ask — use `alln run`, not a multi-seat team. Prefer Codex Sol (`model_chatgpt`) when the user says "Sol" without naming a host.
+One named worker, one read-only ask — use `alln run`, not a multi-seat team. Prefer Codex Sol (`model_gpt_sol`) when the user says "Sol" without naming a host.
 
 ## Example utterances
 
@@ -28,12 +28,12 @@ alln menu --json
 Paste-ready Codex Sol review (`--project` required; `--no-commit` reinforces no commit):
 
 ```bash
-alln run --project <id|path> --model model_chatgpt --lane code --no-commit --stream \
+alln run --project <id|path> --model model_gpt_sol --lane code --no-commit --stream \
   "Read-only review of <path/to/Doc_A.md> and <path/to/Doc_B.md>. Do not edit files. Return findings only."
 ```
 
 Notes:
 
-- `model_chatgpt` = Codex Sol; `model_chatgpt_sol` = Cursor Sol (different driver / quota).
+- `model_gpt_sol` = Codex Sol; `model_cursor_gpt_sol` = Cursor Sol (different driver / quota).
 - `--stream` for live control; swap to `--json` only when you want one final envelope.
 - Cancel if needed: `alln kill <run-id> --json`.

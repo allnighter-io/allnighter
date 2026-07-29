@@ -57,7 +57,7 @@
       },
       "defaultOn": true
     },
-    "model_chatgpt": {
+    "model_gpt_sol": {
       "caliber": {
         "capabilityTags": [
           "code",
@@ -79,7 +79,7 @@
       },
       "defaultOn": true
     },
-    "model_chatgpt_54": {
+    "model_gpt_54": {
       "caliber": {
         "capabilityTags": [
           "code",
@@ -96,7 +96,7 @@
       },
       "defaultOn": false
     },
-    "model_chatgpt_54_mini": {
+    "model_gpt_54_mini": {
       "caliber": {
         "capabilityTags": [
           "code",
@@ -111,7 +111,7 @@
       },
       "defaultOn": false
     },
-    "model_chatgpt_sol": {
+    "model_cursor_gpt_sol": {
       "caliber": {
         "capabilityTags": [
           "code",
@@ -132,7 +132,7 @@
       },
       "defaultOn": false
     },
-    "model_chatgpt_terra": {
+    "model_gpt_terra": {
       "caliber": {
         "capabilityTags": [
           "code",
@@ -152,7 +152,7 @@
       },
       "defaultOn": true
     },
-    "model_codex_spark": {
+    "model_gpt_spark": {
       "caliber": {
         "capabilityTags": [
           "code",
@@ -165,7 +165,7 @@
       },
       "defaultOn": false
     },
-    "model_composer": {
+    "model_grok_composer_25_fast": {
       "caliber": {
         "capabilityTags": [
           "code",

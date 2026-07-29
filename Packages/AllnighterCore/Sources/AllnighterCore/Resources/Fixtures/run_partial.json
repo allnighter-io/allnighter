@@ -9,8 +9,8 @@
   "createdAt": "2026-06-14T20:01:00Z",
   "workers": [
     {
-      "id": "model_chatgpt#0",
-      "modelId": "model_chatgpt",
+      "id": "model_gpt_sol#0",
+      "modelId": "model_gpt_sol",
       "instanceIndex": 0
     },
     {
@@ -24,8 +24,8 @@
       "instanceIndex": 0
     },
     {
-      "id": "model_composer#0",
-      "modelId": "model_composer",
+      "id": "model_grok_composer_25_fast#0",
+      "modelId": "model_grok_composer_25_fast",
       "instanceIndex": 0
     },
     {
@@ -41,8 +41,8 @@
   ],
   "answers": [
     {
-      "memberId": "model_chatgpt#0",
-      "modelId": "model_chatgpt",
+      "memberId": "model_gpt_sol#0",
+      "modelId": "model_gpt_sol",
       "role": "answer",
       "result": {
         "status": "done",
@@ -101,8 +101,8 @@
       }
     },
     {
-      "memberId": "model_composer#0",
-      "modelId": "model_composer",
+      "memberId": "model_grok_composer_25_fast#0",
+      "modelId": "model_grok_composer_25_fast",
       "role": "answer",
       "result": {
         "status": "skipped",
@@ -170,7 +170,7 @@
               "statement": "Team accounts come first.",
               "sourceAgentIds": [
                 "model_opus#0",
-                "model_chatgpt#0",
+                "model_gpt_sol#0",
                 "model_sonnet#0"
               ],
               "strength": "strong"
@@ -181,7 +181,7 @@
               "topic": "Analytics timing",
               "positions": [
                 {
-                  "agentId": "model_chatgpt#0",
+                  "agentId": "model_gpt_sol#0",
                   "summary": "analytics can wait"
                 },
                 {

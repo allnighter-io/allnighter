@@ -237,9 +237,9 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         defaultTier: .frontier,
         allowHealthySubstitutions: true,
         tiers: TierMembership(
-            frontier: ["model_fable", "model_chatgpt", "model_kimi_k3"],
+            frontier: ["model_fable", "model_gpt_sol", "model_kimi_k3"],
             balanced: [
-                "model_chatgpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
+                "model_gpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
                 "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
             ],
             economy: [

@@ -33,7 +33,7 @@ final class DesignModelsTests: XCTestCase {
                              imagePath: "option_model_grok#0.png", sessionId: "sess-1", status: .done),
                 DesignOption(agentId: "model_gemini#0", modelId: "model_gemini", persona: "minimal",
                              imagePath: "option_model_gemini#0.jpg", status: .done),
-                DesignOption(agentId: "model_chatgpt#0", modelId: "model_chatgpt", persona: "editorial",
+                DesignOption(agentId: "model_gpt_sol#0", modelId: "model_gpt_sol", persona: "editorial",
                              status: .failed, failureReason: "engine error: rate limited")
             ],
             chosen: ChosenOption(agentId: "model_grok#0", persona: "bold",

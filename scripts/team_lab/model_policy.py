@@ -42,14 +42,14 @@ def solo_model() -> str | None:
 CODE_ROTATING_WORKER_POOL = [
     "model_grok",
     "model_cursor_composer_25",
-    "model_chatgpt",
+    "model_gpt_sol",
     "model_cursor_auto",
 ]
 
 # Design lane lab fanouts — text/mockup workers only; no Gemini/AGY in lab.
 DESIGN_LAB_ROTATING_WORKER_POOL = [
     "model_grok",
-    "model_chatgpt",
+    "model_gpt_sol",
 ]
 
 # Claude Sonnet 4.6 — at most one code-lane seat per run for diversity.

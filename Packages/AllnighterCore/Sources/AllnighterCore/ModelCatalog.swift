@@ -12,13 +12,13 @@ public enum ModelCatalog {
     /// (or lists them in `fallbackModelIds`) after the user opted in.
     /// Ready ≠ automatic substitute.
     public static let neverAutomaticSubstituteIds: Set<String> = [
-        "model_chatgpt_sol", // ChatGPT 5.6 Sol via Cursor — paid Cursor quota
+        "model_cursor_gpt_sol", // GPT-5.6 Sol via Cursor — paid Cursor quota
     ]
 
     /// Same underlying model on another driver. Diversity must not seat both
     /// as "distinct" workers (Codex Sol + Cursor Sol is one Sol, not two).
     public static let automaticSubstituteAliases: [String: String] = [
-        "model_chatgpt_sol": "model_chatgpt",
+        "model_cursor_gpt_sol": "model_gpt_sol",
     ]
 
     /// True when this model may be picked by broad automatic policies
@@ -52,12 +52,12 @@ public enum ModelCatalog {
              "model_agy_opus", "model_agy_sonnet",
              "model_cursor_fable", "model_cursor_opus", "model_cursor_sonnet":
             return "claude"
-        case "model_chatgpt", "model_chatgpt_sol", "model_chatgpt_terra",
-             "model_chatgpt_54", "model_chatgpt_54_mini", "model_codex_spark":
+        case "model_gpt_sol", "model_cursor_gpt_sol", "model_gpt_terra",
+             "model_gpt_54", "model_gpt_54_mini", "model_gpt_spark":
             return "gpt"
         case "model_agy_gptoss":
             return "gpt_oss"
-        case "model_grok", "model_composer", "model_cursor_grok_45":
+        case "model_grok", "model_grok_composer_25_fast", "model_cursor_grok_45":
             return "grok"
         case "model_kimi_k3", "model_kimi_k27":
             return "kimi"

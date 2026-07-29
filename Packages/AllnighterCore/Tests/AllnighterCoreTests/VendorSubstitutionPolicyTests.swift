@@ -53,7 +53,7 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
         DefaultModelSettings(
             defaultTier: .frontier,
             allowHealthySubstitutions: true,
-            tiers: TierMembership(frontier: ["model_fable", "model_chatgpt"])
+            tiers: TierMembership(frontier: ["model_fable", "model_gpt_sol"])
         )
     }
 
@@ -61,7 +61,7 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
         let run = parkedRun(origin: RunSelectionOrigin.auto)
         let models = [
             model("model_fable", driver: "claude_code"),
-            model("model_chatgpt", driver: "codex"),
+            model("model_gpt_sol", driver: "codex"),
         ]
         let candidate = VendorSubstitutionPolicy.nextAutomaticCandidate(
             run: run,
@@ -73,7 +73,7 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
             coolingSourceIds: ["claude_code"],
             lane: .code
         )
-        XCTAssertEqual(candidate?.modelId, "model_chatgpt")
+        XCTAssertEqual(candidate?.modelId, "model_gpt_sol")
         XCTAssertEqual(candidate?.selectionOrigin, RunSelectionOrigin.automaticSubstitute)
     }
 
@@ -81,7 +81,7 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
         let run = parkedRun(origin: RunSelectionOrigin.explicit)
         let models = [
             model("model_fable", driver: "claude_code"),
-            model("model_chatgpt", driver: "codex"),
+            model("model_gpt_sol", driver: "codex"),
         ]
         XCTAssertNil(
             VendorSubstitutionPolicy.nextAutomaticCandidate(
@@ -103,9 +103,9 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
             RunAttempt(
                 attemptNumber: 2,
                 requestedSourceId: "codex",
-                requestedModelId: "model_chatgpt",
+                requestedModelId: "model_gpt_sol",
                 resolvedSourceId: "codex",
-                resolvedModelId: "model_chatgpt",
+                resolvedModelId: "model_gpt_sol",
                 startedAt: Date(),
                 endedAt: Date(),
                 selectionOrigin: RunSelectionOrigin.automaticSubstitute,
@@ -114,13 +114,13 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
         )
         let models = [
             model("model_fable", driver: "claude_code"),
-            model("model_chatgpt", driver: "codex"),
+            model("model_gpt_sol", driver: "codex"),
             model("model_opus", driver: "grok"),
         ]
         XCTAssertNil(
             VendorSubstitutionPolicy.nextAutomaticCandidate(
                 run: run,
-                failedModelId: "model_chatgpt",
+                failedModelId: "model_gpt_sol",
                 preset: TeamCatalog.defaultRunTeam()!,
                 settings: settings,
                 models: models,
@@ -135,7 +135,7 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
         let run = parkedRun(origin: RunSelectionOrigin.auto)
         let models = [
             model("model_fable", driver: "claude_code"),
-            model("model_chatgpt_sol", driver: "cursor_agent"),
+            model("model_cursor_gpt_sol", driver: "cursor_agent"),
         ]
         XCTAssertNil(
             VendorSubstitutionPolicy.nextAutomaticCandidate(
@@ -158,9 +158,9 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
                 RunAttempt(
                     attemptNumber: number,
                     requestedSourceId: "codex",
-                    requestedModelId: "model_chatgpt",
+                    requestedModelId: "model_gpt_sol",
                     resolvedSourceId: "codex",
-                    resolvedModelId: "model_chatgpt",
+                    resolvedModelId: "model_gpt_sol",
                     startedAt: Date(),
                     endedAt: Date(),
                     selectionOrigin: RunSelectionOrigin.automaticSubstitute,
@@ -170,14 +170,14 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
         }
         let models = [
             model("model_fable", driver: "claude_code"),
-            model("model_chatgpt", driver: "codex"),
+            model("model_gpt_sol", driver: "codex"),
             model("model_opus", driver: "grok"),
         ]
         XCTAssertFalse(VendorSubstitutionPolicy.canHopAgain(from: run.attempts))
         XCTAssertNil(
             VendorSubstitutionPolicy.nextAutomaticCandidate(
                 run: run,
-                failedModelId: "model_chatgpt",
+                failedModelId: "model_gpt_sol",
                 preset: TeamCatalog.defaultRunTeam()!,
                 settings: settings,
                 models: models,
@@ -216,7 +216,7 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
         let run = parkedRun(origin: RunSelectionOrigin.auto)
         let models = [
             model("model_fable", driver: "claude_code"),
-            model("model_chatgpt", driver: "codex"),
+            model("model_gpt_sol", driver: "codex"),
         ]
         XCTAssertNil(
             VendorSubstitutionPolicy.nextAutomaticCandidate(
@@ -236,7 +236,7 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
         let run = parkedRun(origin: RunSelectionOrigin.explicit)
         let models = [
             model("model_fable", driver: "claude_code"),
-            model("model_chatgpt", driver: "codex"),
+            model("model_gpt_sol", driver: "codex"),
             model("model_opus", driver: "grok"),
         ]
         let candidates = VendorSubstitutionPolicy.manualCandidates(
@@ -249,6 +249,6 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
             coolingSourceIds: ["claude_code"],
             lane: .code
         )
-        XCTAssertEqual(candidates.map(\.id), ["model_chatgpt", "model_opus"])
+        XCTAssertEqual(candidates.map(\.id), ["model_gpt_sol", "model_opus"])
     }
 }

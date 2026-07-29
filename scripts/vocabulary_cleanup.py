@@ -216,10 +216,10 @@ REPLACEMENTS: list[tuple[str, str]] = [
     ("Quality Team", "Quality Team"),
     ("Diverse Team", "Diverse Team"),
     # Model IDs worker_* -> model_*
-    ("model_chatgpt", "model_chatgpt"),
+    ("model_gpt_sol", "model_gpt_sol"),
     ("model_opus", "model_opus"),
     ("model_sonnet", "model_sonnet"),
-    ("model_composer", "model_composer"),
+    ("model_grok_composer_25_fast", "model_grok_composer_25_fast"),
     ("model_gemini", "model_gemini"),
     ("model_grok", "model_grok"),
     # Run status

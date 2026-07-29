@@ -53,7 +53,7 @@ final class CursorAgentTests: XCTestCase {
         XCTAssertTrue(ModelCatalog.builtIns.contains { $0.id == "model_cursor_auto" && $0.driverId == "cursor_agent" })
         XCTAssertTrue(ModelCatalog.builtIns.contains { $0.id == "model_cursor_composer_25" && $0.driverId == "cursor_agent" })
         XCTAssertTrue(ModelCatalog.builtIns.contains { $0.id == "model_cursor_grok_45" && $0.driverId == "cursor_agent" })
-        XCTAssertNotEqual("model_cursor_composer_25", "model_composer")
+        XCTAssertNotEqual("model_cursor_composer_25", "model_grok_composer_25_fast")
     }
 
     func testCursorGrok45EncodesEffortInModelLabel() {
@@ -82,7 +82,7 @@ final class CursorAgentTests: XCTestCase {
     }
 
     /// code_plan staffing on a Fable-absent bench: the plan/lead falls to the Codex
-    /// Sol deputy (model_chatgpt) per 25256441 (ChatGPT 5.6 Sol is the standard deputy
+    /// Sol deputy (model_gpt_sol) per 25256441 (GPT-5.6 Sol is the standard deputy
     /// lead when Fable is unavailable), and the strongest free answer seat is Opus
     /// (rank 90 after f4487278's restaffing, above Composer 2.5's 80). Composer is no
     /// longer preferred over Opus for a code answer seat.
@@ -94,11 +94,11 @@ final class CursorAgentTests: XCTestCase {
             Model(id: "model_cursor_composer_25", displayName: "Composer 2.5", modelLabel: "composer-2.5",
                   driverId: "cursor_agent", role: .answerer),
             Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code", role: .both),
-            Model(id: "model_chatgpt", displayName: "ChatGPT 5.6 Sol", modelLabel: "gpt-5.6-sol", driverId: "codex", role: .both),
+            Model(id: "model_gpt_sol", displayName: "GPT-5.6 Sol", modelLabel: "gpt-5.6-sol", driverId: "codex", role: .both),
         ]
         let resolved = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .med, readyModels: ready)
         XCTAssertTrue(resolved.isRunnable)
         XCTAssertEqual(resolved.answerWorkers.first?.modelId, "model_opus")
-        XCTAssertEqual(resolved.planWriter?.modelId, "model_chatgpt")
+        XCTAssertEqual(resolved.planWriter?.modelId, "model_gpt_sol")
     }
 }

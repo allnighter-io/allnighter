@@ -10,7 +10,7 @@ final class SignalTeamWiringTests: XCTestCase {
         Model(id: id, displayName: id, modelLabel: id, driverId: driver, role: role)
     }
     private func fullBench() -> [Model] {
-        [m("model_opus", "claude_code", .both), m("model_chatgpt", "codex"),
+        [m("model_opus", "claude_code", .both), m("model_gpt_sol", "codex"),
          m("model_gemini", "antigravity"), m("model_grok", "grok"),
          m("model_sonnet", "claude_code"), m("model_cursor_auto", "cursor_agent")]
     }
@@ -24,15 +24,15 @@ final class SignalTeamWiringTests: XCTestCase {
         XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
         XCTAssertEqual(r.scoutWorker?.purpose, .scout)
         // Stage 1: three interpreters on three distinct drivers. The Lead reserves
-        // the strongest ready flagship (ChatGPT 5.6 Sol, rank 99 — first in the
+        // the strongest ready flagship (GPT-5.6 Sol, rank 99 — first in the
         // synthesis fallback chain after the absent Fable), so the interpreters are
         // Grok, Gemini, then the strongest remaining distinct-driver seat, Opus.
         XCTAssertEqual(r.answerWorkers.count, 3)
         let drivers = Set(r.answerWorkers.map { w in fullBench().first { $0.id == w.modelId }!.driverId })
         XCTAssertEqual(drivers.count, 3)
         XCTAssertEqual(r.answerWorkers.map(\.modelId), ["model_grok", "model_gemini", "model_opus"])
-        // Lead: strongest ready flagship (ChatGPT 5.6 Sol), reserved from the worker pool.
-        XCTAssertEqual(r.planWriter?.modelId, "model_chatgpt")
+        // Lead: strongest ready flagship (GPT-5.6 Sol), reserved from the worker pool.
+        XCTAssertEqual(r.planWriter?.modelId, "model_gpt_sol")
     }
 
     func testScoutWarningSilentForBuiltInButFiresWhenGrokRemoved() {
@@ -45,7 +45,7 @@ final class SignalTeamWiringTests: XCTestCase {
 
         var swapped = team.duplicated(newId: "signal_custom_swapped")
         swapped.scout = TeamAgentSpec(id: "signal_source_reader", skillId: "signal_source_reader",
-                                       preferredModelId: "model_chatgpt", fallbackPolicy: .laneCapable)
+                                       preferredModelId: "model_gpt_sol", fallbackPolicy: .laneCapable)
         XCTAssertTrue(SignalScoutPolicy.scoutWarning(for: swapped)?.contains("Grok removed") == true)
 
         // Non-signal teams are never warned.

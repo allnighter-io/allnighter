@@ -68,7 +68,7 @@ final class RecipeCatalogTests: XCTestCase {
         let id = "get-sols-take-without-changing-files"
         let md = RecipeCatalog.markdown(id: id)
         XCTAssertNotNil(md)
-        XCTAssertTrue(md!.contains("model_chatgpt"))
+        XCTAssertTrue(md!.contains("model_gpt_sol"))
         XCTAssertTrue(md!.contains("alln run --project"))
         XCTAssertNil(RecipeCatalog.markdown(id: "no-such-recipe"))
     }

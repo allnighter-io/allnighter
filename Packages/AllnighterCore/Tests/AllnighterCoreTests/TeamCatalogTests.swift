@@ -22,7 +22,7 @@ final class TeamCatalogTests: XCTestCase {
             ],
             lead: TeamLeadSpec(
                 skillId: "plan_writer_build",
-                fallbackModelIds: ["model_chatgpt_sol", "model_opus"],
+                fallbackModelIds: ["model_cursor_gpt_sol", "model_opus"],
                 dissentPolicy: .riskRegister),
             typeTags: ["feature"],
             builtIn: true

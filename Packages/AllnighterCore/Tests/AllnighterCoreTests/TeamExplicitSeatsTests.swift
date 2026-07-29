@@ -6,7 +6,7 @@ final class TeamExplicitSeatsTests: XCTestCase {
 
     private func readyBench() -> [Model] {
         [
-            Model(id: "model_chatgpt", displayName: "GPT", modelLabel: "gpt",
+            Model(id: "model_gpt_sol", displayName: "GPT", modelLabel: "gpt",
                   driverId: "codex", role: .answerer, enabled: true),
             Model(id: "model_grok", displayName: "Grok", modelLabel: "grok",
                   driverId: "grok", role: .answerer, enabled: true),
@@ -23,7 +23,7 @@ final class TeamExplicitSeatsTests: XCTestCase {
     func testValidateFlagsRejectsExecutionTeam() {
         let team = BuiltInTeams.team("build_slice")!
         let err = TeamExplicitSeats.validateFlags(
-            seatModelIds: ["model_chatgpt"],
+            seatModelIds: ["model_gpt_sol"],
             explicitTeamChosen: true,
             explicitWorkerChosen: false,
             preset: team
@@ -34,7 +34,7 @@ final class TeamExplicitSeatsTests: XCTestCase {
     func testValidateFlagsRejectsWorkerPlusSeat() {
         let team = BuiltInTeams.team("code_spec_review_min")!
         let err = TeamExplicitSeats.validateFlags(
-            seatModelIds: ["model_chatgpt", "model_grok", "model_cursor_composer_25"],
+            seatModelIds: ["model_gpt_sol", "model_grok", "model_cursor_composer_25"],
             explicitTeamChosen: true,
             explicitWorkerChosen: true,
             preset: team
@@ -45,7 +45,7 @@ final class TeamExplicitSeatsTests: XCTestCase {
     func testValidateFlagsRejectsCountMismatch() {
         let team = BuiltInTeams.team("code_spec_review_min")!
         let err = TeamExplicitSeats.validateFlags(
-            seatModelIds: ["model_chatgpt", "model_grok"],
+            seatModelIds: ["model_gpt_sol", "model_grok"],
             explicitTeamChosen: true,
             explicitWorkerChosen: false,
             preset: team
@@ -60,7 +60,7 @@ final class TeamExplicitSeatsTests: XCTestCase {
             team: team,
             lane: .code,
             effort: .med,
-            seatModelIds: ["model_chatgpt", "model_grok", "model_cursor_composer_25"],
+            seatModelIds: ["model_gpt_sol", "model_grok", "model_cursor_composer_25"],
             models: bench,
             readyModels: bench
         )
@@ -69,7 +69,7 @@ final class TeamExplicitSeatsTests: XCTestCase {
         }
         XCTAssertEqual(
             resolved.answerWorkers.map(\.modelId),
-            ["model_chatgpt", "model_grok", "model_cursor_composer_25"]
+            ["model_gpt_sol", "model_grok", "model_cursor_composer_25"]
         )
         XCTAssertTrue(resolved.answerWorkers.allSatisfy {
             $0.seatingReason == TeamExplicitSeats.explicitSeatingReason

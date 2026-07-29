@@ -30,7 +30,7 @@ public enum BuiltInTeams {
     private static let opus = "model_opus"
     /// Default worker anchor for mutating Auto / Build a Slice (Cursor).
     private static let composer = "model_cursor_composer_25"
-    private static let chatgpt = "model_chatgpt"
+    private static let gptSol = "model_gpt_sol"
     private static let gemini = "model_gemini"
     private static let sonnet = "model_sonnet"
     private static let kimi = "model_kimi_k3"
@@ -85,7 +85,7 @@ public enum BuiltInTeams {
         specs.map { needRow($0.0, $0.1, tags: tags, preferred: preferred) }
     }
 
-    /// Fable synthesizes; when Fable is unavailable, **Codex Sol** (`model_chatgpt`)
+    /// Fable synthesizes; when Fable is unavailable, **Codex Sol** (`model_gpt_sol`)
     /// is the designated deputy lead for EVERY team. Cursor Sol is never in this
     /// chain (paid Cursor quota — manual opt-in only). Fallbacks stay on
     /// subscription CLI homes; broad `.strongestReady` still filters
@@ -95,7 +95,7 @@ public enum BuiltInTeams {
             skillId: writer,
             preferredModelId: leadFlagship,
             fallbackModelIds: [
-                chatgpt, opus, kimi, cursorGrok, grok,
+                gptSol, opus, kimi, cursorGrok, grok,
                 composer, sonnet, gemini, cursorAuto
             ],
             fallbackPolicy: .strongestReady,
@@ -129,8 +129,8 @@ public enum BuiltInTeams {
         id: "signal_source_reader", skillId: "signal_source_reader", purpose: .answer,
         preferredModelId: grok, fallbackModelIds: [cursorGrok], fallbackPolicy: .laneCapable)
 
-    /// Canonical interpreter preference: Grok (web-aware), ChatGPT 5.6, then Gemini.
-    static let signalInterpreterPreference = [grok, chatgpt, gemini]
+    /// Canonical interpreter preference: Grok (web-aware), GPT-5.6, then Gemini.
+    static let signalInterpreterPreference = [grok, gptSol, gemini]
 
     // MARK: - Code teams
 
@@ -294,7 +294,7 @@ public enum BuiltInTeams {
     static let buildGrowthMax = make(
         id: "code_growth_max", name: "Growth Max", lane: .code,
         output: .plan, defaultEffort: .high,
-        description: "Deep growth read: an X/web signal scout on what is spreading now, then up to 8 diverse models on the wedge — every flagship and idle model recruited when ready (Sol, ChatGPT 5.6, Opus, Sonnet, Composer…) — and a synthesizer that prizes the breakout outlier over safe consensus. Drops a seat rather than doubling up.",
+        description: "Deep growth read: an X/web signal scout on what is spreading now, then up to 8 diverse models on the wedge — every flagship and idle model recruited when ready (Sol, GPT-5.6, Opus, Sonnet, Composer…) — and a synthesizer that prizes the breakout outlier over safe consensus. Drops a seat rather than doubling up.",
         scout: row("signal_source_reader", .answer, preferred: grok,
                    fallbacks: [cursorGrok], fallback: .laneCapable),
         rows: [
@@ -554,7 +554,7 @@ public enum BuiltInTeams {
         description: "Scan what recently changed outside the repo and recommend the next build direction for this Project, with sourced reasoning, fit, and a skeptic pass.",
         rows: [
             row("signal_landscape_scanner", .answer, preferred: grok),
-            row("signal_project_fit", .answer, preferred: chatgpt),
+            row("signal_project_fit", .answer, preferred: gptSol),
             row("signal_product_ideas", .answer, preferred: gemini),
             row("signal_skeptic", .review, preferred: sonnet)
         ], writer: "insight_writer", dissent: .compareOptions,

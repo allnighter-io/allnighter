@@ -75,7 +75,7 @@ final class EffortRoutingTests: XCTestCase {
     func testSupportsEffortFlagBasedDrivers() {
         let opus = Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code")
         XCTAssertTrue(opus.supportsEffort(manifest: manifest("claude_code")))
-        let chatgpt = Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex")
+        let chatgpt = Model(id: "model_gpt_sol", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex")
         XCTAssertTrue(chatgpt.supportsEffort(manifest: manifest("codex")))
     }
 
@@ -88,7 +88,7 @@ final class EffortRoutingTests: XCTestCase {
     func testGrok45SupportsEffort() {
         let grok = Model(id: "model_grok", displayName: "Grok 4.5", modelLabel: "grok-4.5", driverId: "grok")
         XCTAssertTrue(grok.supportsEffort(manifest: manifest("grok")))
-        let composer = Model(id: "model_composer", displayName: "Grok Composer 2.5 Fast",
+        let composer = Model(id: "model_grok_composer_25_fast", displayName: "Grok Composer 2.5 Fast",
                              modelLabel: "grok-composer-2.5-fast", driverId: "grok")
         XCTAssertTrue(composer.supportsEffort(manifest: manifest("grok")))
     }

@@ -82,7 +82,7 @@ final class TwoSourceResearchTeamTests: XCTestCase {
 
     private let claude = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus",
                                driverId: "claude_code", role: .both)
-    private let codex = Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+    private let codex = Model(id: "model_gpt_sol", displayName: "ChatGPT", modelLabel: "gpt",
                               driverId: "codex", role: .both)
 
     /// crew seat -> codex, lead seat -> claude_code. Exactly two seats, two
@@ -97,8 +97,8 @@ final class TwoSourceResearchTeamTests: XCTestCase {
             mutating: false,
             agentSpecs: crewSpecs ?? [
                 TeamAgentSpec(id: "bug_reproducer", skillId: "bug_reproducer",
-                               purpose: .answer, preferredModelId: "model_chatgpt",
-                               allowedModelIds: ["model_chatgpt"], fallbackPolicy: .exactOnly),
+                               purpose: .answer, preferredModelId: "model_gpt_sol",
+                               allowedModelIds: ["model_gpt_sol"], fallbackPolicy: .exactOnly),
             ],
             lead: TeamLeadSpec(skillId: "bug_packet_writer", preferredModelId: "model_opus",
                                fallbackPolicy: .exactOnly))
@@ -175,7 +175,7 @@ final class TwoSourceResearchTeamTests: XCTestCase {
         XCTAssertEqual(RunWriteLock.normalize(run.repoRoot ?? ""), canonical)
 
         // The roster the run reports is the roster that was selected.
-        XCTAssertEqual(Set(run.workers.map(\.modelId)), ["model_chatgpt", "model_opus"],
+        XCTAssertEqual(Set(run.workers.map(\.modelId)), ["model_gpt_sol", "model_opus"],
                        "workers: \(run.workers.map(\.modelId))")
         XCTAssertEqual(run.workers.count, 2, "no duplicated seat")
         XCTAssertFalse(run.mutating, "the research Team must not be mutating")
@@ -191,7 +191,7 @@ final class TwoSourceResearchTeamTests: XCTestCase {
         // Crew seat: its answer carries its own real source identity and its own
         // text — the per-vendor sentinel proves it was not copied from the other CLI.
         XCTAssertEqual(run.answers.count, 1, "one crew answer for the one crew seat")
-        let crew = try XCTUnwrap(run.answers.first(where: { $0.modelId == "model_chatgpt" }),
+        let crew = try XCTUnwrap(run.answers.first(where: { $0.modelId == "model_gpt_sol" }),
                                  "no answer attributed to the codex crew seat")
         XCTAssertEqual(crew.result.status, .done)
         let crewText = crew.result.output ?? ""
@@ -251,14 +251,14 @@ final class TwoSourceResearchTeamTests: XCTestCase {
                          driverId: "grok", role: .both)
         let svc = service(team: twoSourceTeam(), runner: recorder,
                           bench: [grok, claude, codex],
-                          tiers: ["model_grok", "model_opus", "model_chatgpt"])
+                          tiers: ["model_grok", "model_opus", "model_gpt_sol"])
 
         let run = try await research(svc, repo: repo, id: "cr-s03-explicit-roster")
 
         XCTAssertFalse(recorder.vendorNames().contains("grok"),
                        "a ready bench mate must never appear in an explicitly selected roster")
         XCTAssertEqual(recorder.vendorNames().sorted(), ["claude", "codex"])
-        XCTAssertEqual(Set(run.workers.map(\.modelId)), ["model_chatgpt", "model_opus"])
+        XCTAssertEqual(Set(run.workers.map(\.modelId)), ["model_gpt_sol", "model_opus"])
         XCTAssertEqual(run.status, .complete, "the run reaches one terminal state")
     }
 
@@ -270,18 +270,18 @@ final class TwoSourceResearchTeamTests: XCTestCase {
         let recorder = SpawnRecorder()
         // The declared crew model is disabled; a same-vendor sibling and a
         // different vendor are both ready and would be tempting substitutes.
-        let downCodex = Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+        let downCodex = Model(id: "model_gpt_sol", displayName: "ChatGPT", modelLabel: "gpt",
                               driverId: "codex", role: .both, enabled: false)
-        let siblingCodex = Model(id: "model_chatgpt_54", displayName: "ChatGPT 5.4",
+        let siblingCodex = Model(id: "model_gpt_54", displayName: "GPT-5.4",
                                  modelLabel: "gpt-54", driverId: "codex", role: .both)
         var team = twoSourceTeam(id: "code_red_two_source_exact")
         team.agentSpecs[0].fallbackPolicy = .exactOnly
-        team.agentSpecs[0].allowedModelIds = ["model_chatgpt"]
+        team.agentSpecs[0].allowedModelIds = ["model_gpt_sol"]
         team.lead.fallbackPolicy = .exactOnly
 
         let svc = service(team: team, runner: recorder,
                           bench: [downCodex, siblingCodex, claude],
-                          tiers: ["model_chatgpt_54", "model_opus"])
+                          tiers: ["model_gpt_54", "model_opus"])
         let result = await svc.run(
             RunRequest(message: "research only", repoRoot: repo.path,
                        presetId: "code_red_two_source_exact"),
@@ -293,11 +293,11 @@ final class TwoSourceResearchTeamTests: XCTestCase {
             return XCTFail("a down exactOnly seat must fail closed, got: \(result)")
         }
         let text = String(describing: reason)
-        XCTAssertTrue(text.contains("exactOnly") && text.contains("model_chatgpt"),
+        XCTAssertTrue(text.contains("exactOnly") && text.contains("model_gpt_sol"),
                       "the failure must name the policy and the unavailable model, got: \(text)")
         XCTAssertTrue(recorder.vendorNames().isEmpty,
                       "nothing may spawn once a required seat cannot resolve: \(recorder.vendorNames())")
-        XCTAssertFalse(text.contains("model_chatgpt_54"),
+        XCTAssertFalse(text.contains("model_gpt_54"),
                        "the sibling model must not appear anywhere in the outcome")
     }
 
@@ -310,7 +310,7 @@ final class TwoSourceResearchTeamTests: XCTestCase {
         // sources, so identical skills must not be deduplicated into one seat.
         let team = twoSourceTeam(crewSpecs: [
             TeamAgentSpec(id: "crew_codex", skillId: "bug_reproducer",
-                           purpose: .answer, preferredModelId: "model_chatgpt"),
+                           purpose: .answer, preferredModelId: "model_gpt_sol"),
             TeamAgentSpec(id: "crew_claude", skillId: "bug_reproducer",
                            purpose: .answer, preferredModelId: "model_opus"),
         ])
@@ -320,7 +320,7 @@ final class TwoSourceResearchTeamTests: XCTestCase {
 
         XCTAssertEqual(run.workers.filter { $0.purpose == .answer }.count, 2,
                        "two selected crew seats stay two seats: \(run.workers.map(\.modelId))")
-        XCTAssertEqual(Set(run.workers.map(\.modelId)), ["model_chatgpt", "model_opus"])
+        XCTAssertEqual(Set(run.workers.map(\.modelId)), ["model_gpt_sol", "model_opus"])
         XCTAssertEqual(recorder.vendorNames().sorted(), ["claude", "claude", "codex"],
                        "two crew spawns plus the lead's own spawn")
     }

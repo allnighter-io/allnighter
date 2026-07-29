@@ -259,25 +259,25 @@ public enum MenuSelectionCopy {
             useWhen: "Claude Sonnet 5 fast review/code",
             dontUseWhen: "Pin seat; model_sonnet"
         ),
-        "model_chatgpt": Pair(
-            useWhen: "ChatGPT 5.6 Sol, Codex (default)",
-            dontUseWhen: "Not Cursor Sol; model_chatgpt_sol"
+        "model_gpt_sol": Pair(
+            useWhen: "GPT-5.6 Sol, Codex (default)",
+            dontUseWhen: "Not Cursor Sol; model_cursor_gpt_sol"
         ),
-        "model_chatgpt_terra": Pair(
-            useWhen: "ChatGPT 5.6 Terra, Codex (medium)",
-            dontUseWhen: "Not Sol; use model_chatgpt"
+        "model_gpt_terra": Pair(
+            useWhen: "GPT-5.6 Terra, Codex (medium)",
+            dontUseWhen: "Not Sol; use model_gpt_sol"
         ),
-        "model_chatgpt_54": Pair(
-            useWhen: "ChatGPT 5.4, Codex (non-Sol)",
-            dontUseWhen: "Not Sol; use model_chatgpt"
+        "model_gpt_54": Pair(
+            useWhen: "GPT-5.4, Codex (non-Sol)",
+            dontUseWhen: "Not Sol; use model_gpt_sol"
         ),
-        "model_chatgpt_54_mini": Pair(
-            useWhen: "ChatGPT 5.4 mini, Codex (lighter)",
-            dontUseWhen: "Not Sol; use model_chatgpt"
+        "model_gpt_54_mini": Pair(
+            useWhen: "GPT-5.4 mini, Codex (lighter)",
+            dontUseWhen: "Not Sol; use model_gpt_sol"
         ),
-        "model_codex_spark": Pair(
-            useWhen: "Codex Spark, fast Codex seat",
-            dontUseWhen: "Not Sol; use model_chatgpt"
+        "model_gpt_spark": Pair(
+            useWhen: "GPT Spark, fast Codex seat",
+            dontUseWhen: "Not Sol; use model_gpt_sol"
         ),
         "model_grok": Pair(
             useWhen: "Grok 4.5, web-aware, images",
@@ -295,7 +295,7 @@ public enum MenuSelectionCopy {
             useWhen: "Kimi K2.7 HighSpeed, plan-gated fast",
             dontUseWhen: "Prefer K3; model_kimi_k27_hs"
         ),
-        "model_composer": Pair(
+        "model_grok_composer_25_fast": Pair(
             useWhen: "Grok Composer 2.5 Fast (Grok)",
             dontUseWhen: "Not Cursor; model_cursor_composer_25"
         ),
@@ -305,7 +305,7 @@ public enum MenuSelectionCopy {
         ),
         "model_cursor_composer_25": Pair(
             useWhen: "Cursor Composer 2.5 impl seat",
-            dontUseWhen: "Not Grok Composer; model_composer"
+            dontUseWhen: "Not Grok Composer; model_grok_composer_25_fast"
         ),
         "model_cursor_grok_45": Pair(
             useWhen: "Cursor-hosted Grok 4.5 seat",
@@ -323,9 +323,9 @@ public enum MenuSelectionCopy {
             useWhen: "Sonnet 5 on Cursor",
             dontUseWhen: "Not Claude CLI; model_sonnet"
         ),
-        "model_chatgpt_sol": Pair(
-            useWhen: "ChatGPT 5.6 Sol, Cursor (paid)",
-            dontUseWhen: "Burns Cursor quota; model_chatgpt"
+        "model_cursor_gpt_sol": Pair(
+            useWhen: "GPT-5.6 Sol, Cursor (paid)",
+            dontUseWhen: "Burns Cursor quota; model_gpt_sol"
         ),
         "model_cursor_composer_25_fast": Pair(
             useWhen: "Cursor Composer 2.5 Fast, lighter",
@@ -341,7 +341,7 @@ public enum MenuSelectionCopy {
         ),
         "model_agy_gptoss": Pair(
             useWhen: "GPT-OSS 120B, Antigravity",
-            dontUseWhen: "Not Sol; model_chatgpt"
+            dontUseWhen: "Not Sol; model_gpt_sol"
         ),
         "model_agy_opus": Pair(
             useWhen: "Opus 4.6, Antigravity Claude pool",
@@ -368,7 +368,7 @@ public enum MenuSelectionCopy {
         ),
         "get-sols-take-without-changing-files": Pair(
             useWhen: "Read-only Sol ask; no file changes",
-            dontUseWhen: "Not multi-seat; --model model_chatgpt"
+            dontUseWhen: "Not multi-seat; --model model_gpt_sol"
         ),
         "keep-working-while-im-away": Pair(
             useWhen: "Unattended PM↔dev relay loop",

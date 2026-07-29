@@ -97,7 +97,7 @@ final class RunDryRunSeatsTests: XCTestCase {
                   driverId: "grok", role: .answerer),
             Model(id: "model_fable", displayName: "Fable", modelLabel: "fable",
                   driverId: "claude_code", role: .both),
-            Model(id: "model_chatgpt", displayName: "GPT", modelLabel: "gpt",
+            Model(id: "model_gpt_sol", displayName: "GPT", modelLabel: "gpt",
                   driverId: "codex", role: .answerer),
         ]
         let resolved = TeamResolver.resolve(

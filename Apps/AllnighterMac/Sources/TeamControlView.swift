@@ -407,8 +407,8 @@ extension AppModel {
         case "model_sonnet": return 1
         case "model_grok": return 2
         case "model_gemini": return 3
-        case "model_chatgpt": return 4
-        case "model_composer": return 5
+        case "model_gpt_sol": return 4
+        case "model_grok_composer_25_fast": return 5
         default:
             switch model.driverId {
             case "claude_code": return model.canWritePlan ? 0 : 1

@@ -36,7 +36,7 @@ class ModelPolicyTests(unittest.TestCase):
         team_def = {"lane": "design", "lead": {}, "workerSpecs": [{} for _ in range(3)]}
         patched, meta = apply_model_policy(team_def)
         mids = [s["preferredModelId"] for s in patched["workerSpecs"]]
-        self.assertTrue(all(m in ("model_grok", "model_chatgpt") for m in mids))
+        self.assertTrue(all(m in ("model_grok", "model_gpt_sol") for m in mids))
         self.assertEqual(meta["lane"], "design")
         self.assertNotIn("model_gemini", meta["workers"])
 

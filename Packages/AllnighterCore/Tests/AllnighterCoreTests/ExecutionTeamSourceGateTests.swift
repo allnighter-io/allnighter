@@ -9,7 +9,7 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
     }
 
     private func codex() -> Model {
-        Model(id: "model_chatgpt", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex", role: .answerer)
+        Model(id: "model_gpt_sol", displayName: "ChatGPT 5.5", modelLabel: "gpt-5.5", driverId: "codex", role: .answerer)
     }
 
     private func mixedReviewTeam() -> TeamPreset {
@@ -18,7 +18,7 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
             mutating: false,
             agentSpecs: [
                 TeamAgentSpec(id: "a", skillId: "first_principles_builder", purpose: .answer, preferredModelId: "model_opus"),
-                TeamAgentSpec(id: "b", skillId: "code_maintainer", purpose: .answer, preferredModelId: "model_chatgpt"),
+                TeamAgentSpec(id: "b", skillId: "code_maintainer", purpose: .answer, preferredModelId: "model_gpt_sol"),
             ],
             lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_opus"))
     }
@@ -34,9 +34,9 @@ final class ExecutionTeamSourceGateTests: XCTestCase {
             id: "custom_codex_execute", displayName: "Codex Execute", lane: .code, outputKind: .plan,
             mutating: true, executionSourceId: "codex",
             agentSpecs: [
-                TeamAgentSpec(id: "a", skillId: "first_principles_builder", purpose: .answer, preferredModelId: "model_chatgpt", fallbackPolicy: .exactOnly),
+                TeamAgentSpec(id: "a", skillId: "first_principles_builder", purpose: .answer, preferredModelId: "model_gpt_sol", fallbackPolicy: .exactOnly),
             ],
-            lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_chatgpt", fallbackPolicy: .exactOnly))
+            lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_gpt_sol", fallbackPolicy: .exactOnly))
     }
 
     // MARK: - WT-ETS01

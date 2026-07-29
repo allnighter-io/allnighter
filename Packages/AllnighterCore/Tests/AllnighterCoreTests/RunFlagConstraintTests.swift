@@ -26,17 +26,17 @@ final class RunFlagConstraintTests: XCTestCase {
     }
 
     func testSeatRequiresTeam() {
-        let bad = constraintError(for: ["probe", "--seat", "model_chatgpt"])
+        let bad = constraintError(for: ["probe", "--seat", "model_gpt_sol"])
         XCTAssertEqual(bad?.subject, "seat")
         XCTAssertTrue(bad?.message.contains("--team") == true)
         XCTAssertNil(constraintError(for: [
             "probe", "--team", "code_spec_review_min",
-            "--seat", "model_chatgpt", "--seat", "model_grok", "--seat", "model_cursor_composer_25"
+            "--seat", "model_gpt_sol", "--seat", "model_grok", "--seat", "model_cursor_composer_25"
         ]))
     }
 
     func testWorkerSeatMutuallyExclusive() {
-        let err = constraintError(for: ["probe", "--model", "model_chatgpt", "--seat", "model_grok"])
+        let err = constraintError(for: ["probe", "--model", "model_gpt_sol", "--seat", "model_grok"])
         XCTAssertNotNil(err)
         XCTAssertTrue(err?.message.contains("mutually exclusive") == true)
     }

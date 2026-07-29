@@ -21,14 +21,14 @@ final class BenchReadinessTests: XCTestCase {
     func testExcludesCoolingDriversEvenWhenProbeReady() {
         let models = [
             model("model_opus", driver: "claude_code"),
-            model("model_chatgpt", driver: "codex"),
+            model("model_gpt_sol", driver: "codex"),
         ]
         let ready = BenchReadiness.readyModels(
             models: models,
             probeRecords: [readyProbe("claude_code"), readyProbe("codex")],
             coolingDriverIds: ["claude_code"]
         )
-        XCTAssertEqual(ready.map(\.id), ["model_chatgpt"])
+        XCTAssertEqual(ready.map(\.id), ["model_gpt_sol"])
     }
 
     func testDisabledModelsNeverReady() {
@@ -123,7 +123,7 @@ final class SeatReseatTests: XCTestCase {
     func testLeadReseatSkipsFailedDriverAndPicksCodexSol() {
         let team = BuiltInTeams.team("code_spec_review_min")!
         let fable = model("model_fable", driver: "claude_code")
-        let chatgpt = model("model_chatgpt", driver: "codex")
+        let chatgpt = model("model_gpt_sol", driver: "codex")
         let opus = model("model_opus", driver: "claude_code")
         let writer = Agent(
             id: "model_fable#0", modelId: "model_fable", instanceIndex: 0,
@@ -139,15 +139,15 @@ final class SeatReseatTests: XCTestCase {
             lane: .code,
             ready: [fable, chatgpt, opus]
         )
-        XCTAssertEqual(next?.id, "model_chatgpt",
+        XCTAssertEqual(next?.id, "model_gpt_sol",
                        "Lead reseat must land on Codex Sol, not another Claude seat")
     }
 
     func testNeedRowReseatDoesNotPickCursorSol() {
         let team = BuiltInTeams.team("code_spec_review_min")!
         let opus = model("model_opus", driver: "claude_code")
-        let chatgpt = model("model_chatgpt", driver: "codex")
-        let cursorSol = model("model_chatgpt_sol", driver: "cursor_agent")
+        let chatgpt = model("model_gpt_sol", driver: "codex")
+        let cursorSol = model("model_cursor_gpt_sol", driver: "cursor_agent")
         let worker = Agent(
             id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
             skillId: "spec_scope_steward", purpose: .answer)
@@ -162,7 +162,7 @@ final class SeatReseatTests: XCTestCase {
             lane: .code,
             ready: [opus, chatgpt, cursorSol]
         )
-        XCTAssertEqual(next?.id, "model_chatgpt")
-        XCTAssertNotEqual(next?.id, "model_chatgpt_sol")
+        XCTAssertEqual(next?.id, "model_gpt_sol")
+        XCTAssertNotEqual(next?.id, "model_cursor_gpt_sol")
     }
 }

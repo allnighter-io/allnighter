@@ -74,11 +74,11 @@ final class BuiltInTeamsTests: XCTestCase {
     func testSynthesisTeamsPreferFableLeadAndDiverseWorkersOnFullBench() {
         let ready: [Model] = [
             fable(),
-            Model(id: "model_chatgpt_sol", displayName: "ChatGPT 5.6 Sol", modelLabel: "gpt-5.6-sol-high",
+            Model(id: "model_cursor_gpt_sol", displayName: "GPT-5.6 Sol", modelLabel: "gpt-5.6-sol-high",
                   driverId: "cursor_agent", role: .both),
             Model(id: "model_cursor_composer_25", displayName: "Composer 2.5", modelLabel: "composer-2.5",
                   driverId: "cursor_agent", role: .answerer),
-            Model(id: "model_chatgpt", displayName: "ChatGPT 5.6", modelLabel: "gpt-5.6", driverId: "codex", role: .answerer),
+            Model(id: "model_gpt_sol", displayName: "GPT-5.6", modelLabel: "gpt-5.6", driverId: "codex", role: .answerer),
             Model(id: "model_gemini", displayName: "Gemini 3.6 Flash", modelLabel: "g", driverId: "antigravity", role: .answerer),
             Model(id: "model_sonnet", displayName: "Sonnet 5", modelLabel: "claude-sonnet-5", driverId: "claude_code", role: .answerer),
             Model(id: "model_grok", displayName: "Grok 4.5", modelLabel: "grok-4.5", driverId: "grok", role: .answerer),
@@ -94,9 +94,9 @@ final class BuiltInTeamsTests: XCTestCase {
         let crew = r.answerWorkers + r.reviewWorkers
         // Law 3: no row pins Sol by identity. Codex Sol may be recruited once;
         // Cursor Sol is never an automatic substitute even if present on the bench.
-        let cursorSolWorkers = crew.filter { $0.modelId == "model_chatgpt_sol" }
+        let cursorSolWorkers = crew.filter { $0.modelId == "model_cursor_gpt_sol" }
         XCTAssertEqual(cursorSolWorkers.count, 0, "Cursor Sol must never auto-seat")
-        let codexSolWorkers = crew.filter { $0.modelId == "model_chatgpt" }
+        let codexSolWorkers = crew.filter { $0.modelId == "model_gpt_sol" }
         XCTAssertLessThanOrEqual(codexSolWorkers.count, 1, "Codex Sol at most once")
         XCTAssertGreaterThan(Set(crew.map(\.modelId)).count, 2, "fan-out should spread across multiple models")
         let composerHits = crew.filter { $0.modelId == "model_cursor_composer_25" }.count
@@ -104,7 +104,7 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     /// Law 3 (Team_Catalog_Normalization.md): the old "strategic seat" rows used
-    /// to pin `model_chatgpt_sol` by identity — a per-team hardcoded model, the
+    /// to pin `model_cursor_gpt_sol` by identity — a per-team hardcoded model, the
     /// exact anti-pattern the law forbids. These same rows now carry no
     /// identity at all: they express capability, and declaration order (this
     /// row is first among its purpose group) gives them first pick of the
@@ -138,7 +138,7 @@ final class BuiltInTeamsTests: XCTestCase {
         // Codex Sol is the designated deputy lead; Cursor Sol is never in the
         // automatic chain (paid Cursor quota — manual opt-in only).
         let expected = [
-            "model_chatgpt", "model_opus", "model_kimi_k3",
+            "model_gpt_sol", "model_opus", "model_kimi_k3",
             "model_cursor_grok_45", "model_grok",
             "model_cursor_composer_25", "model_sonnet", "model_gemini",
             "model_cursor_auto"
@@ -208,14 +208,14 @@ final class BuiltInTeamsTests: XCTestCase {
     func testLeadFallsBackStrongestWhenFableUnavailable() {
         let team = BuiltInTeams.team("code_plan")!
         let ready: [Model] = [
-            Model(id: "model_chatgpt", displayName: "ChatGPT 5.6", modelLabel: "gpt-5.6",
+            Model(id: "model_gpt_sol", displayName: "GPT-5.6", modelLabel: "gpt-5.6",
                   driverId: "codex", role: .answerer),
             Model(id: "model_cursor_composer_25", displayName: "Composer 2.5",
                   modelLabel: "composer-2.5", driverId: "cursor_agent", role: .answerer),
         ]
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .med, readyModels: ready)
         XCTAssertTrue(r.isRunnable)
-        XCTAssertEqual(r.planWriter?.modelId, "model_chatgpt")
+        XCTAssertEqual(r.planWriter?.modelId, "model_gpt_sol")
     }
 
     func testImplementationSourceChoicesDoNotAppearAsTeams() {

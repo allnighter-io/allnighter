@@ -138,10 +138,10 @@ final class RunServiceTests: XCTestCase {
         // Frontier = [Opus (claude_code, DOWN), ChatGPT (codex, ready)]. Auto must skip
         // the down default and run ChatGPT.
         let opus = Model(id: "model_opus", displayName: "Opus", modelLabel: "opus", driverId: "claude_code", role: .both)
-        let gpt = Model(id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt", driverId: "codex", role: .both)
+        let gpt = Model(id: "model_gpt_sol", displayName: "ChatGPT", modelLabel: "gpt", driverId: "codex", role: .both)
         let settings = DefaultModelSettings(
             defaultTier: .frontier, allowHealthySubstitutions: true,
-            tiers: TierMembership(frontier: ["model_opus", "model_chatgpt"]))
+            tiers: TierMembership(frontier: ["model_opus", "model_gpt_sol"]))
         // Only codex is probe-ready; claude_code has no ready record → Opus is down.
         let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
         let service = RunService(
@@ -159,7 +159,7 @@ final class RunServiceTests: XCTestCase {
 
         let result = await service.run(RunRequest(message: "hi", repoRoot: repo.path), origin: .cli)
         guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
-        XCTAssertEqual(run.answers.first?.modelId, "model_chatgpt", "Auto routed around the down Opus to ChatGPT")
+        XCTAssertEqual(run.answers.first?.modelId, "model_gpt_sol", "Auto routed around the down Opus to ChatGPT")
         XCTAssertEqual(run.executionSourceId, "codex", "run records the CLI it actually ran on, not the default team's declared source")
         XCTAssertEqual(run.status, .complete)
     }
@@ -203,12 +203,12 @@ final class RunServiceTests: XCTestCase {
             driverId: "cursor_agent", role: .both, enabled: false
         )
         let gpt = Model(
-            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            id: "model_gpt_sol", displayName: "ChatGPT", modelLabel: "gpt",
             driverId: "codex", role: .both, enabled: true
         )
         let settings = DefaultModelSettings(
             defaultTier: .frontier, allowHealthySubstitutions: true,
-            tiers: TierMembership(frontier: ["model_chatgpt"]))
+            tiers: TierMembership(frontier: ["model_gpt_sol"]))
         let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
         let service = RunService(
             models: [grok, gpt],
@@ -244,12 +244,12 @@ final class RunServiceTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: repo) }
 
         let gpt = Model(
-            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            id: "model_gpt_sol", displayName: "ChatGPT", modelLabel: "gpt",
             driverId: "codex", role: .both, enabled: true
         )
         let settings = DefaultModelSettings(
             defaultTier: .frontier, allowHealthySubstitutions: true,
-            tiers: TierMembership(frontier: ["model_chatgpt"]))
+            tiers: TierMembership(frontier: ["model_gpt_sol"]))
         let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
         let service = RunService(
             models: [gpt],
@@ -282,12 +282,12 @@ final class RunServiceTests: XCTestCase {
             driverId: "cursor_agent", role: .both, enabled: true
         )
         let gpt = Model(
-            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            id: "model_gpt_sol", displayName: "ChatGPT", modelLabel: "gpt",
             driverId: "codex", role: .both, enabled: true
         )
         let settings = DefaultModelSettings(
             defaultTier: .frontier, allowHealthySubstitutions: true,
-            tiers: TierMembership(frontier: ["model_chatgpt"]))
+            tiers: TierMembership(frontier: ["model_gpt_sol"]))
         // Only codex is probe-ready; explicit grok is enabled-but-notReady.
         let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
         let service = RunService(
@@ -327,12 +327,12 @@ final class RunServiceTests: XCTestCase {
             driverId: "cursor_agent", role: .both, enabled: true
         )
         let gpt = Model(
-            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            id: "model_gpt_sol", displayName: "ChatGPT", modelLabel: "gpt",
             driverId: "codex", role: .both, enabled: true
         )
         let settings = DefaultModelSettings(
             defaultTier: .frontier, allowHealthySubstitutions: true,
-            tiers: TierMembership(frontier: ["model_chatgpt"]))
+            tiers: TierMembership(frontier: ["model_gpt_sol"]))
         let probes = [
             ToolProbeRecord(driverId: "cursor_agent", status: .ready(version: "1"), lastProbeAt: .distantPast),
             ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast),
@@ -393,12 +393,12 @@ final class RunServiceTests: XCTestCase {
         )
         // A different, ready model pinned explicitly via `--model`.
         let gpt = Model(
-            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            id: "model_gpt_sol", displayName: "ChatGPT", modelLabel: "gpt",
             driverId: "codex", role: .both, enabled: true
         )
         let settings = DefaultModelSettings(
             defaultTier: .frontier, allowHealthySubstitutions: true,
-            tiers: TierMembership(frontier: ["model_chatgpt"]))
+            tiers: TierMembership(frontier: ["model_gpt_sol"]))
         let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
         let service = RunService(
             models: [composer, gpt],
@@ -417,14 +417,14 @@ final class RunServiceTests: XCTestCase {
         let result = await service.run(
             RunRequest(
                 message: "do the thing", repoRoot: repo.path,
-                presetId: "build_slice", pinnedModelId: "model_chatgpt"
+                presetId: "build_slice", pinnedModelId: "model_gpt_sol"
             ),
             origin: .cli
         )
         guard case .success(let run) = result else {
             return XCTFail("run failed: \(result)")
         }
-        XCTAssertEqual(run.workers.first?.modelId, "model_chatgpt")
+        XCTAssertEqual(run.workers.first?.modelId, "model_gpt_sol")
         XCTAssertEqual(
             run.workers.first?.skillId, "execution_playbook",
             "pinned worker must keep the preset's declared answer skill, never the generic fallback"
@@ -444,12 +444,12 @@ final class RunServiceTests: XCTestCase {
         }
 
         let gpt = Model(
-            id: "model_chatgpt", displayName: "ChatGPT", modelLabel: "gpt",
+            id: "model_gpt_sol", displayName: "ChatGPT", modelLabel: "gpt",
             driverId: "codex", role: .both, enabled: true
         )
         let settings = DefaultModelSettings(
             defaultTier: .frontier, allowHealthySubstitutions: true,
-            tiers: TierMembership(frontier: ["model_chatgpt"]))
+            tiers: TierMembership(frontier: ["model_gpt_sol"]))
         let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
         let service = RunService(
             models: [gpt],

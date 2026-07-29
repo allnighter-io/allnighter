@@ -17,7 +17,7 @@ final class FixtureRoundTripTests: XCTestCase {
         let models = try Fixtures.models()
         XCTAssertEqual(models.count, 6)
         XCTAssertEqual(models.first(where: { $0.id == "model_opus" })?.role, .both)
-        let composer = models.first { $0.id == "model_composer" }
+        let composer = models.first { $0.id == "model_grok_composer_25_fast" }
         let grok = models.first { $0.id == "model_grok" }
         XCTAssertEqual(composer?.driverId, "grok")
         XCTAssertEqual(grok?.driverId, "grok")

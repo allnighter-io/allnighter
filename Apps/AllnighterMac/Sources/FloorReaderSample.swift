@@ -13,7 +13,7 @@ enum FloorReaderSample {
             Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, skillId: "insight_writer", skillName: "Lead", purpose: .plan),
             Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0, skillId: "signal_source_reader", skillName: "Signal Scout", purpose: .answer),
             Agent(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "signal_landscape_scanner", skillName: "Market Analyst", purpose: .answer),
-            Agent(id: "model_chatgpt#0", modelId: "model_chatgpt", instanceIndex: 0, skillId: "signal_product_ideas", skillName: "Build Strategist", purpose: .answer),
+            Agent(id: "model_gpt_sol#0", modelId: "model_gpt_sol", instanceIndex: 0, skillId: "signal_product_ideas", skillName: "Build Strategist", purpose: .answer),
             Agent(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0, skillId: "signal_product_ideas", skillName: "Copy Strategist", purpose: .answer),
             Agent(id: "model_grok#1", modelId: "model_grok", instanceIndex: 1, skillId: "signal_skeptic", skillName: "Skeptic", purpose: .review),
         ]
@@ -25,7 +25,7 @@ enum FloorReaderSample {
             answer("model_opus#0", "model_opus", "plan", ""),
             answer("model_grok#0", "model_grok", "answer", scout),
             answer("model_gemini#0", "model_gemini", "answer", market),
-            answer("model_chatgpt#0", "model_chatgpt", "answer", build),
+            answer("model_gpt_sol#0", "model_gpt_sol", "answer", build),
             answer("model_sonnet#0", "model_sonnet", "answer", copy),
             answer("model_grok#1", "model_grok", "review", skeptic),
         ]

@@ -134,9 +134,9 @@ final class SkillCatalogTests: XCTestCase {
     func testModelCapabilitiesAreDeterministicAndRanked() {
         // Flagship-only seats top the ladder (Fable + Sol); Opus is a strong high seat.
         XCTAssertEqual(ModelCatalog.capabilities("model_fable").strengthRank, 100)
-        XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt_sol").strengthRank, 99)
-        XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt").strengthRank, 99)
-        XCTAssertEqual(ModelCatalog.capabilities("model_chatgpt_terra").strengthRank, 86)
+        XCTAssertEqual(ModelCatalog.capabilities("model_cursor_gpt_sol").strengthRank, 99)
+        XCTAssertEqual(ModelCatalog.capabilities("model_gpt_sol").strengthRank, 99)
+        XCTAssertEqual(ModelCatalog.capabilities("model_gpt_terra").strengthRank, 86)
         XCTAssertEqual(ModelCatalog.capabilities("model_opus").strengthRank, 90)
         XCTAssertLessThan(ModelCatalog.capabilities("model_gemini").strengthRank,
                           ModelCatalog.capabilities("model_opus").strengthRank)
@@ -146,8 +146,8 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertEqual(ModelCatalog.capabilities("ghost").strengthRank, 0)
         // Strict ordering by rank for the known bench (matches ModelCatalog.builtInCapabilities).
         let ranked = [
-            "model_fable", "model_chatgpt_sol", "model_chatgpt", "model_opus", "model_grok",
-            "model_chatgpt_terra", "model_sonnet", "model_gemini", "model_composer",
+            "model_fable", "model_cursor_gpt_sol", "model_gpt_sol", "model_opus", "model_grok",
+            "model_gpt_terra", "model_sonnet", "model_gemini", "model_grok_composer_25_fast",
         ]
             .map { ModelCatalog.capabilities($0).strengthRank }
         XCTAssertEqual(ranked, ranked.sorted(by: >))

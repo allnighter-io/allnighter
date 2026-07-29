@@ -37,12 +37,12 @@ final class PilotSeatResolverTests: XCTestCase {
     /// An exact model id must resolve to itself even when it is a substring of other ids.
     func testExactModelIdResolvesToItselfNotAFuzzyMatch() {
         let models = [
-            model("model_chatgpt", name: "ChatGPT 5.6 Sol"),
-            model("model_chatgpt_54", name: "ChatGPT 5.4"),
-            model("model_chatgpt_sol", name: "ChatGPT 5.6 Sol (Cursor)"),
+            model("model_gpt_sol", name: "GPT-5.6 Sol"),
+            model("model_gpt_54", name: "GPT-5.4"),
+            model("model_cursor_gpt_sol", name: "GPT-5.6 Sol (Cursor)"),
         ]
-        XCTAssertEqual(PilotSeatResolver.resolve(alias: "model_chatgpt", models: models), .success("model_chatgpt"))
-        XCTAssertEqual(PilotSeatResolver.resolve(alias: "model_chatgpt_sol", models: models), .success("model_chatgpt_sol"))
+        XCTAssertEqual(PilotSeatResolver.resolve(alias: "model_gpt_sol", models: models), .success("model_gpt_sol"))
+        XCTAssertEqual(PilotSeatResolver.resolve(alias: "model_cursor_gpt_sol", models: models), .success("model_cursor_gpt_sol"))
     }
 
     func testReadySeatsUsesGlobalProbe() {

@@ -59,7 +59,7 @@ enum IOSComposerCatalog {
     private static let modelIDs: [String] = [
         "model_opus",
         "model_sonnet",
-        "model_chatgpt",
+        "model_gpt_sol",
         "model_grok",
         "model_cursor_composer_25",
         "model_cursor_grok_45",
