@@ -292,7 +292,7 @@ public struct ThreadSendCoordinator: Sendable {
             )
 
             let invokeOutcome = await imageInvoker.invoke(
-                worker: model, manifest: manifest, designPrompt: designPrompt,
+                model: model, manifest: manifest, designPrompt: designPrompt,
                 scratchDir: scratch, imageOut: imageOut, workingDirectoryOverride: pending.workingDir
             )
 

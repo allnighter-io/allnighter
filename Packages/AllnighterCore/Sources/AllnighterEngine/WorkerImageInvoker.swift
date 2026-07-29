@@ -56,7 +56,7 @@ public struct WorkerImageInvoker: Sendable {
     }
 
     public func invoke(
-        worker: Model,
+        model: Model,
         manifest: DriverManifest,
         designPrompt: String,
         scratchDir: URL,
@@ -68,7 +68,7 @@ public struct WorkerImageInvoker: Sendable {
               let invoke = manifest.invoke else {
             let t = now()
             return WorkerImageInvokeOutcome(
-                launchError: "worker '\(worker.id)' cannot generate images headlessly",
+                launchError: "worker '\(model.id)' cannot generate images headlessly",
                 startedAt: t, finishedAt: t, durationMs: 0
             )
         }
@@ -79,7 +79,7 @@ public struct WorkerImageInvoker: Sendable {
         let wrapped = imageGen.promptTemplate
             .replacingOccurrences(of: "{{designPrompt}}", with: designPrompt)
             .replacingOccurrences(of: "{{imageOut}}", with: imageOut.path)
-        let args = Self.resolveArgs(imageGen.args, prompt: wrapped, model: worker.modelLabel, runDir: scratchDir.path)
+        let args = Self.resolveArgs(imageGen.args, prompt: wrapped, model: model.modelLabel, runDir: scratchDir.path)
 
         let workingDir = workingDirectoryOverride ?? invoke.workingDir
         let spawnWorkingDir = workingDir ?? AllnighterPaths.ensuredProbeScratchPath()
