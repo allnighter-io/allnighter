@@ -428,7 +428,7 @@ final class AppModel {
         }
     }
 
-    func diagnosis(for workerId: String) -> ModelDiagnosis? { diagnoses[workerId] }
+    func diagnosis(for modelId: String) -> ModelDiagnosis? { diagnoses[modelId] }
 
     // MARK: - Detection (CLIDetector → canonical per-tool status)
 
