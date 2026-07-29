@@ -96,7 +96,7 @@ public enum TeamResolver {
         }
 
         // Rules 3-4: all worker rows are active (no effort gate); split answer/review (declared order).
-        let active = team.workerSpecs
+        let active = team.agentSpecs
         let answerRows = active.filter { $0.purpose == .answer }
         let reviewRows = active.filter { $0.purpose == .review }
 

@@ -88,7 +88,7 @@ public enum SeatReseat {
                 scout.fallbackPolicy
             )
         }
-        if let row = team.workerSpecs.first(where: {
+        if let row = team.agentSpecs.first(where: {
             $0.skillId == worker.skillId || $0.id == worker.skillId
         }) {
             return (

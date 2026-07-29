@@ -1181,7 +1181,7 @@ public actor RunService {
         // disabled/not-benched declared answer model would silently drop the skill
         // to the generic fallback. Read it from the preset's durable declaration
         // instead, so skill identity never depends on bench readiness.
-        let declaredAnswerRow = preset.workerSpecs.first(where: { $0.purpose == .answer })
+        let declaredAnswerRow = preset.agentSpecs.first(where: { $0.purpose == .answer })
         let declaredAnswerSkillId = declaredAnswerRow?.skillId ?? "first_principles_builder"
         // Same roster row as the skill above — carry its id forward so the seat
         // identity is stable even though this whole branch pins the model explicitly.

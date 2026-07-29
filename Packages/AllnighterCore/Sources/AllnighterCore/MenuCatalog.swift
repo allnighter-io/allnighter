@@ -140,7 +140,7 @@ public enum MenuCatalog {
             preconditionFailure("MenuCatalog.project: no effective default team in catalog")
         }
         let resolvedWorker = defaultWorkerId
-            ?? defaultTeam.workerSpecs.first?.preferredModelId
+            ?? defaultTeam.agentSpecs.first?.preferredModelId
             ?? defaultTeam.lead.preferredModelId
 
         let revision = catalogRevision(

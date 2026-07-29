@@ -261,12 +261,12 @@ final class CatalogCLITests: XCTestCase {
     func testTeamsNewNullWorkerSkillIdIsTeamInvalid() throws {
         let seed = try XCTUnwrap(BuiltInTeams.team("code_bug_hunt"))
         let team = seed.duplicated(newId: "custom_code_null_skill", newName: "Null Skill")
-        XCTAssertFalse(team.workerSpecs.isEmpty, "fixture must have at least one worker row to null out")
+        XCTAssertFalse(team.agentSpecs.isEmpty, "fixture must have at least one worker row to null out")
         let data = try CoreJSON.encode(team)
         var obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        var workerSpecs = try XCTUnwrap(obj["workerSpecs"] as? [[String: Any]])
-        workerSpecs[0]["skillId"] = NSNull()
-        obj["workerSpecs"] = workerSpecs
+        var agentSpecs = try XCTUnwrap(obj["agentSpecs"] as? [[String: Any]])
+        agentSpecs[0]["skillId"] = NSNull()
+        obj["agentSpecs"] = agentSpecs
         let mutated = try JSONSerialization.data(withJSONObject: obj)
 
         let dir = teamsRoot.deletingLastPathComponent()

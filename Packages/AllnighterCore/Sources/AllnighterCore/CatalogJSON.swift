@@ -340,7 +340,7 @@ public struct TeamShowJSON: Codable, Sendable, Equatable {
         isDefaultForRun: Bool
     ) -> TeamShowJSON {
         let scout = team.scout.map { CrewSeat.from($0, role: "scout") }
-        let crew = team.workerSpecs.map { CrewSeat.from($0, role: "crew") }
+        let crew = team.agentSpecs.map { CrewSeat.from($0, role: "crew") }
         let lead = LeadSeat.from(team.lead)
         return TeamShowJSON(
             contractVersion: contractVersion,

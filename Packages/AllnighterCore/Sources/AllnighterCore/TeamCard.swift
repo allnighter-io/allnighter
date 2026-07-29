@@ -47,7 +47,7 @@ public struct TeamCard: Codable, Sendable, Equatable, Identifiable {
             mutating: team.mutating,
             executionSourceId: team.executionSourceId,
             outputKind: team.outputKind.rawValue,
-            agentCount: team.runShape == .execution ? 1 : team.workerSpecs.count,
+            agentCount: team.runShape == .execution ? 1 : team.agentSpecs.count,
             starterPrompts: team.starterPrompts,
             requirements: derivedRequirements(team), recommendedFor: team.typeTags + team.purposeTags,
             pinned: pinned, pinnedReason: pinnedReason, lastRunAt: lastRunAt)

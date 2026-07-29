@@ -259,7 +259,7 @@ public enum SkillCatalog {
 
     private static func teamIdsReferencingSkill(_ skillId: SkillID, in teams: [TeamPreset]) -> [TeamID] {
         teams.compactMap { team in
-            let rowHit = team.workerSpecs.contains { $0.skillId == skillId }
+            let rowHit = team.agentSpecs.contains { $0.skillId == skillId }
             let leadHit = team.lead.skillId == skillId
             let scoutHit = team.scout?.skillId == skillId
             return (rowHit || leadHit || scoutHit) ? team.id : nil

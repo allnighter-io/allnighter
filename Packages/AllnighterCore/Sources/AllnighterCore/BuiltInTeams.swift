@@ -117,7 +117,7 @@ public enum BuiltInTeams {
             id: id, displayName: name, lane: lane, description: description, outputKind: output,
             mutating: mutating,
             executionSourceId: executionSourceId,
-            defaultEffort: defaultEffort, isDefaultForLane: isDefault, scout: scout, workerSpecs: rows,
+            defaultEffort: defaultEffort, isDefaultForLane: isDefault, scout: scout, agentSpecs: rows,
             lead: lead ?? synthesisLead(writer, dissent: dissent),
             typeTags: typeTags, starterPrompts: starters, builtIn: true, version: 1)
     }

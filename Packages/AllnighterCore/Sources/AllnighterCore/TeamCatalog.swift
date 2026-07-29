@@ -271,7 +271,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     /// the team reads. nil = no scout (the team reads the prompt directly). Used by
     /// Signal teams so workers reason over the same distilled source.
     public var scout: TeamAgentSpec?
-    public var workerSpecs: [TeamAgentSpec]
+    public var agentSpecs: [TeamAgentSpec]
     /// The mandatory Team Lead (synthesizer). Exactly one.
     public var lead: TeamLeadSpec
     public var typeTags: [String]
@@ -293,7 +293,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         defaultEffort: EffortLevel = .med,
         isDefaultForLane: Bool = false,
         scout: TeamAgentSpec? = nil,
-        workerSpecs: [TeamAgentSpec],
+        agentSpecs: [TeamAgentSpec],
         lead: TeamLeadSpec,
         typeTags: [String] = [],
         purposeTags: [String] = [],
@@ -311,7 +311,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         self.defaultEffort = defaultEffort
         self.isDefaultForLane = isDefaultForLane
         self.scout = scout
-        self.workerSpecs = workerSpecs
+        self.agentSpecs = agentSpecs
         self.lead = lead
         self.typeTags = typeTags
         self.purposeTags = purposeTags
@@ -345,7 +345,7 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     /// re-derive at call sites. Public field name is `seatCount`.
     public var catalogSeatCount: Int {
         let scoutSeats = scout == nil ? 0 : 1
-        let crewSeats = workerSpecs.reduce(0) { $0 + max(1, $1.count) }
+        let crewSeats = agentSpecs.reduce(0) { $0 + max(1, $1.count) }
         return scoutSeats + crewSeats + 1
     }
 
@@ -536,7 +536,7 @@ public enum TeamCatalog {
         if !editsBuiltIn {
             guard CatalogIDValidator.isValid(team.id) else { throw CatalogError.idInvalid }
         }
-        guard !team.workerSpecs.isEmpty else { throw CatalogError.teamInvalid("team must have at least one worker row") }
+        guard !team.agentSpecs.isEmpty else { throw CatalogError.teamInvalid("team must have at least one worker row") }
         // Cap description so custom-team menu fallbacks stay bounded.
         let descriptionBound = MenuSelectionCopy.useWhenMax * 8
         if team.description.count > descriptionBound {
@@ -545,11 +545,11 @@ public enum TeamCatalog {
             )
         }
         if team.mutating {
-            guard team.workerSpecs.count == 1, team.workerSpecs.first?.count == 1 else {
+            guard team.agentSpecs.count == 1, team.agentSpecs.first?.count == 1 else {
                 throw CatalogError.teamInvalid("mutating teams run exactly one worker")
             }
         }
-        for row in team.workerSpecs {
+        for row in team.agentSpecs {
             guard let skill = SkillCatalog.get(row.skillId) else {
                 throw CatalogError.teamInvalid("unknown skill \(row.skillId)")
             }

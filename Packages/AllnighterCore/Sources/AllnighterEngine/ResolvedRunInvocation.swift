@@ -485,7 +485,7 @@ public enum RunInvocationResolver {
                 let fallback = TeamCatalog.get(teamId) ?? TeamCatalog.defaultRunTeam()
                     ?? TeamPreset(
                         id: teamId, displayName: teamId, lane: .code, outputKind: .plan,
-                        defaultEffort: .med, workerSpecs: [], lead: TeamLeadSpec(skillId: "plan_writer_build"))
+                        defaultEffort: .med, agentSpecs: [], lead: TeamLeadSpec(skillId: "plan_writer_build"))
                 return blocked(
                     input: input, root: root, preset: fallback,
                     reason: failure.message,
@@ -502,7 +502,7 @@ public enum RunInvocationResolver {
                     input: input, root: root,
                     preset: TeamPreset(
                         id: "default_chat", displayName: "Auto", lane: .code, outputKind: .plan,
-                        defaultEffort: .med, workerSpecs: [], lead: TeamLeadSpec(skillId: "plan_writer_build")),
+                        defaultEffort: .med, agentSpecs: [], lead: TeamLeadSpec(skillId: "plan_writer_build")),
                     reason: "no default team configured",
                     explicitTeam: false, explicitWorker: explicitWorkerChosen
                 )

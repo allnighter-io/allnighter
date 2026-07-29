@@ -11,13 +11,13 @@ public enum TeamExplicitSeats {
     }
 
     public static func crewSlotCount(team: TeamPreset) -> Int {
-        team.workerSpecs.reduce(0) { $0 + max(1, $1.count) }
+        team.agentSpecs.reduce(0) { $0 + max(1, $1.count) }
     }
 
     public static func expandedCrewSlots(team: TeamPreset) -> [CrewSlot] {
         var slots: [CrewSlot] = []
         var index = 0
-        for row in team.workerSpecs {
+        for row in team.agentSpecs {
             let stage: WorkerStage = row.purpose == .review ? .review : .answer
             let want = max(1, row.count)
             for _ in 0..<want {
