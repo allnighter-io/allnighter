@@ -20,11 +20,11 @@ final class ReviewCoordinatorTests: XCTestCase {
         return run
     }
 
-    private func lens(_ id: String, worker: Model, manifest: DriverManifest) -> ResolvedLens {
+    private func lens(_ id: String, model: Model, manifest: DriverManifest) -> ResolvedLens {
         ResolvedLens(
             lensId: id,
             profile: PromptProfile(id: id, displayName: id, purpose: .reviewLens, template: "Review as \(id)."),
-            model: worker, manifest: manifest,
+            model: model, manifest: manifest,
             inputSelectors: ReviewCoordinator.defaultSelectors(forLens: id)
         )
     }
@@ -35,7 +35,7 @@ final class ReviewCoordinatorTests: XCTestCase {
         let worker = TestSupport.worker("model_opus", driverId: "claude_code")
         let manifest = TestSupport.headlessManifest(id: "claude_code", command: "claude")
 
-        let lenses = ["security_privacy", "code_maintainer", "proof_qa"].map { lens($0, worker: worker, manifest: manifest) }
+        let lenses = ["security_privacy", "code_maintainer", "proof_qa"].map { lens($0, model: worker, manifest: manifest) }
         let stages = await coord.review(run: completedRun(), models: [worker], lenses: lenses)
 
         XCTAssertEqual(stages.count, 3)
@@ -55,7 +55,7 @@ final class ReviewCoordinatorTests: XCTestCase {
         let claudeM = TestSupport.headlessManifest(id: "claude_code", command: "claude")
         let grokM = TestSupport.headlessManifest(id: "grok", command: "grok")
 
-        let lenses = [lens("security_privacy", worker: opus, manifest: claudeM), lens("proof_qa", worker: grok, manifest: grokM)]
+        let lenses = [lens("security_privacy", model: opus, manifest: claudeM), lens("proof_qa", model: grok, manifest: grokM)]
         let stages = await coord.review(run: completedRun(), models: [opus, grok], lenses: lenses)
 
         XCTAssertEqual(stages.count, 2)
