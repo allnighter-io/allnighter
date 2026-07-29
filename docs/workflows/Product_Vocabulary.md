@@ -53,7 +53,9 @@ product gates.
 
 **Retired (user-facing):** **Worker** — do not use in GUI, CLI flags, help, or
 docs. Internal/runtime identifiers (`workerId`, `workers[]`, `TeamWorkerSpec`)
-may remain in machine JSON until a schema cutover; never teach them to humans.
+are **scaffolding only** until the machine layer matches these nouns — migration
+packet: `docs/phases/Worker_To_Agent_Migration.md` (hard cutover, one file /
+slice at a time; no global grep). Never teach `worker*` to humans.
 
 Shortcut: *Model at rest. Agent at work (model + skill).*
 
