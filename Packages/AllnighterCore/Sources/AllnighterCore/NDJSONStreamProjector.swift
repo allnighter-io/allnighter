@@ -52,7 +52,7 @@ public enum NDJSONStreamProjector {
         public var status: String?
         public var origin: String?
         public var teamPresetId: String?
-        public var workerId: String?
+        public var agentId: String?
         public var modelId: String?
         public var skillId: String?
         public var durationMs: Int?
@@ -88,23 +88,23 @@ public enum NDJSONStreamProjector {
         for worker in run.workers {
             let answer = run.workerAnswer(workerId: worker.id)
             let startedAt = answer?.result.timing.startedAt ?? created
-            add("workerStarted", startedAt, EventData(workerId: worker.id, modelId: worker.modelId, skillId: worker.skillId))
+            add("workerStarted", startedAt, EventData(agentId: worker.id, modelId: worker.modelId, skillId: worker.skillId))
             guard let answer else { continue }
             let endAt = answer.result.timing.finishedAt ?? startedAt
             switch answer.result.status {
             case .done:
-                add("workerAnswered", endAt, EventData(workerId: worker.id, durationMs: answer.result.timing.durationMs))
+                add("workerAnswered", endAt, EventData(agentId: worker.id, durationMs: answer.result.timing.durationMs))
             case .failed, .timedOut:
-                add("workerFailed", endAt, EventData(workerId: worker.id, error: workerError(answer, runId: run.id)))
+                add("workerFailed", endAt, EventData(agentId: worker.id, error: workerError(answer, runId: run.id)))
             default:
                 break   // queued/running/skipped/cancelled: no terminal worker event
             }
         }
 
         if let plan = run.latestStage(.plan) {
-            add("planStarted", lastFinish, EventData(workerId: plan.producedByAgentId, stageId: plan.id))
+            add("planStarted", lastFinish, EventData(agentId: plan.producedByAgentId, stageId: plan.id))
             if plan.status == .done {
-                add("planWritten", lastFinish, EventData(workerId: plan.producedByAgentId, stageId: plan.id))
+                add("planWritten", lastFinish, EventData(agentId: plan.producedByAgentId, stageId: plan.id))
             }
         }
 
@@ -180,11 +180,11 @@ public enum NDJSONStreamProjector {
                 let workerId = str("workerId")
                 switch to {
                 case WorkerAnswerStatus.running.rawValue:
-                    return ("workerStarted", runId, EventData(workerId: workerId, modelId: str("modelId"), skillId: str("skillId")))
+                    return ("workerStarted", runId, EventData(agentId: workerId, modelId: str("modelId"), skillId: str("skillId")))
                 case WorkerAnswerStatus.done.rawValue:
-                    return ("workerAnswered", runId, EventData(workerId: workerId, durationMs: intVal("durationMs")))
+                    return ("workerAnswered", runId, EventData(agentId: workerId, durationMs: intVal("durationMs")))
                 case WorkerAnswerStatus.failed.rawValue, WorkerAnswerStatus.timedOut.rawValue:
-                    return ("workerFailed", runId, EventData(workerId: workerId, error: ErrorEnvelope(
+                    return ("workerFailed", runId, EventData(agentId: workerId, error: ErrorEnvelope(
                         code: to == WorkerAnswerStatus.timedOut.rawValue ? "TEAM_RUN_TIMEOUT" : "AGENT_FAILED",
                         message: str("reason") ?? "worker did not produce an answer",
                         requiresManual: false, retryable: true, runId: runId.isEmpty ? nil : runId, agentId: workerId)))
@@ -192,9 +192,9 @@ public enum NDJSONStreamProjector {
                     return nil   // queued / skipped / cancelled — no terminal worker event
                 }
             case RunEventKind.stageStarted where str("purpose") == "plan":
-                return ("planStarted", runId, EventData(workerId: str("workerId"), stageId: str("stageId")))
+                return ("planStarted", runId, EventData(agentId: str("workerId"), stageId: str("stageId")))
             case RunEventKind.stageCompleted where str("purpose") == "plan":
-                return ("planWritten", runId, EventData(workerId: str("workerId"), stageId: str("stageId")))
+                return ("planWritten", runId, EventData(agentId: str("workerId"), stageId: str("stageId")))
             // RLR-S03c: the live tokens/output that used to fall through to `default`
             // (dropped) now project as bounded `workerActivity`/`stageActivity`
             // metadata. Shares the ONE classifier (`RunActivity.activityKind(for:)`)
@@ -206,7 +206,7 @@ public enum NDJSONStreamProjector {
                 guard let activity = RunActivity.activityKind(for: e) else { return nil }
                 let text = str("text")
                 return ("workerActivity", runId, EventData(
-                    workerId: str("workerId"),
+                    agentId: str("workerId"),
                     activityKind: activity.rawValue,
                     byteCount: text.map { $0.utf8.count },
                     charCount: text.map(\.count)
@@ -215,7 +215,7 @@ public enum NDJSONStreamProjector {
                 guard let activity = RunActivity.activityKind(for: e) else { return nil }
                 let text = str("text")
                 return ("stageActivity", runId, EventData(
-                    workerId: str("workerId"), stageId: str("stageId"),
+                    agentId: str("workerId"), stageId: str("stageId"),
                     activityKind: activity.rawValue,
                     byteCount: text.map { $0.utf8.count },
                     charCount: text.map(\.count)

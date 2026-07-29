@@ -213,7 +213,7 @@ final class NDJSONStreamProjectorTests: XCTestCase {
 
     /// `workerAnswerDelta`/`workerReasoningDelta` — previously dropped by `LiveMapper`
     /// (no case) — now project as `workerActivity` carrying ONLY bounded metadata:
-    /// `workerId`, `activityKind: "message"`, and a byte/char count of the delta —
+    /// `agentId`, `activityKind: "message"`, and a byte/char count of the delta —
     /// never the delta text itself (S03c non-goal).
     func testWorkerAnswerAndReasoningDeltaMapToWorkerActivityMessageBounded() throws {
         let mapper = NDJSONStreamProjector.LiveMapper()
@@ -221,7 +221,7 @@ final class NDJSONStreamProjectorTests: XCTestCase {
             let event = try XCTUnwrap(mapper.event(for: e), "delta kinds must no longer be dropped")
             XCTAssertEqual(event.event, "workerActivity")
             XCTAssertEqual(event.seq, Int(e.seq), "carries the durable seq, not a fresh counter")
-            XCTAssertEqual(event.data.workerId, "w1")
+            XCTAssertEqual(event.data.agentId, "w1")
             XCTAssertEqual(event.data.activityKind, RunActivityKind.message.rawValue)
             XCTAssertEqual(event.data.charCount, 5)
             XCTAssertEqual(event.data.byteCount, 5)
@@ -242,7 +242,7 @@ final class NDJSONStreamProjectorTests: XCTestCase {
         let out = try XCTUnwrap(mapper.event(for: workerOutput(seq: 20, "w1", text: "stdout chunk")))
         XCTAssertEqual(out.event, "workerActivity")
         XCTAssertEqual(out.data.activityKind, RunActivityKind.stdout.rawValue)
-        XCTAssertEqual(out.data.workerId, "w1")
+        XCTAssertEqual(out.data.agentId, "w1")
         XCTAssertEqual(out.data.charCount, "stdout chunk".count)
         XCTAssertFalse(NDJSONStreamProjector.encodeLine(out).contains("stdout chunk"))
 

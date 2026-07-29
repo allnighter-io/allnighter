@@ -9,6 +9,12 @@
             "null"
           ]
         },
+        "agentId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "candidates" : {
           "items" : {
             "additionalProperties" : false,
@@ -93,12 +99,6 @@
           ]
         },
         "traceId" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        },
-        "workerId" : {
           "type" : [
             "string",
             "null"
@@ -348,7 +348,7 @@
             "null"
           ]
         },
-        "leadWorkerId" : {
+        "leadAgentId" : {
           "type" : [
             "string",
             "null"
@@ -382,6 +382,12 @@
     "FloorTimelineEvent" : {
       "additionalProperties" : false,
       "properties" : {
+        "agentId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "at" : {
           "type" : "string"
         },
@@ -417,12 +423,6 @@
             "string",
             "null"
           ]
-        },
-        "workerId" : {
-          "type" : [
-            "string",
-            "null"
-          ]
         }
       },
       "required" : [
@@ -436,6 +436,9 @@
     "FloorWorkerLane" : {
       "additionalProperties" : false,
       "properties" : {
+        "agentId" : {
+          "type" : "string"
+        },
         "artifactRefs" : {
           "items" : {
             "$ref" : "#\/$defs\/RunArtifactRef"
@@ -514,13 +517,10 @@
             "string",
             "null"
           ]
-        },
-        "workerId" : {
-          "type" : "string"
         }
       },
       "required" : [
-        "workerId",
+        "agentId",
         "modelId",
         "purpose",
         "status",
@@ -531,6 +531,12 @@
     "RunArtifactRef" : {
       "additionalProperties" : false,
       "properties" : {
+        "agentId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "contentSHA256" : {
           "type" : [
             "string",
@@ -577,12 +583,6 @@
         },
         "title" : {
           "type" : "string"
-        },
-        "workerId" : {
-          "type" : [
-            "string",
-            "null"
-          ]
         }
       },
       "required" : [

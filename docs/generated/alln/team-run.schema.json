@@ -433,6 +433,12 @@
             "null"
           ]
         },
+        "agentId" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "candidates" : {
           "items" : {
             "additionalProperties" : false,
@@ -517,12 +523,6 @@
           ]
         },
         "traceId" : {
-          "type" : [
-            "string",
-            "null"
-          ]
-        },
-        "workerId" : {
           "type" : [
             "string",
             "null"

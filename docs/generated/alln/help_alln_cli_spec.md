@@ -1551,12 +1551,12 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | Event | Required data |
 | --- | --- |
 | `teamRunStarted` | `status`, `origin`, `teamPresetId` |
-| `workerStarted` | `workerId`, `modelId`, `skillId` |
-| `workerAnswered` | `workerId`, `durationMs` |
-| `workerFailed` | `workerId`, `error` |
-| `planStarted` | `workerId`, `stageId` |
-| `planWritten` | `workerId`, `stageId`, `durationMs` |
-| `workerActivity` | `workerId`, `activityKind` |
+| `workerStarted` | `agentId`, `modelId`, `skillId` |
+| `workerAnswered` | `agentId`, `durationMs` |
+| `workerFailed` | `agentId`, `error` |
+| `planStarted` | `agentId`, `stageId` |
+| `planWritten` | `agentId`, `stageId`, `durationMs` |
+| `workerActivity` | `agentId`, `activityKind` |
 | `stageActivity` | `stageId`, `activityKind` |
 | `teamRunCompleted` | `status`, `planStageId`, `durationMs` |
 | `teamRunFailed` | `status`, `error` |

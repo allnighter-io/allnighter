@@ -6343,7 +6343,7 @@
     {
       "name" : "workerStarted",
       "requiredData" : [
-        "workerId",
+        "agentId",
         "modelId",
         "skillId"
       ]
@@ -6351,28 +6351,28 @@
     {
       "name" : "workerAnswered",
       "requiredData" : [
-        "workerId",
+        "agentId",
         "durationMs"
       ]
     },
     {
       "name" : "workerFailed",
       "requiredData" : [
-        "workerId",
+        "agentId",
         "error"
       ]
     },
     {
       "name" : "planStarted",
       "requiredData" : [
-        "workerId",
+        "agentId",
         "stageId"
       ]
     },
     {
       "name" : "planWritten",
       "requiredData" : [
-        "workerId",
+        "agentId",
         "stageId",
         "durationMs"
       ]
@@ -6380,7 +6380,7 @@
     {
       "name" : "workerActivity",
       "requiredData" : [
-        "workerId",
+        "agentId",
         "activityKind"
       ]
     },

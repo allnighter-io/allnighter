@@ -1202,15 +1202,15 @@ public extension ContractRegistry {
 
     static let m1Events: [EventSpec] = [
         EventSpec("teamRunStarted", requiredData: ["status", "origin", "teamPresetId"]),
-        EventSpec("workerStarted", requiredData: ["workerId", "modelId", "skillId"]),
-        EventSpec("workerAnswered", requiredData: ["workerId", "durationMs"]),
-        EventSpec("workerFailed", requiredData: ["workerId", "error"]),
-        EventSpec("planStarted", requiredData: ["workerId", "stageId"]),
-        EventSpec("planWritten", requiredData: ["workerId", "stageId", "durationMs"]),
+        EventSpec("workerStarted", requiredData: ["agentId", "modelId", "skillId"]),
+        EventSpec("workerAnswered", requiredData: ["agentId", "durationMs"]),
+        EventSpec("workerFailed", requiredData: ["agentId", "error"]),
+        EventSpec("planStarted", requiredData: ["agentId", "stageId"]),
+        EventSpec("planWritten", requiredData: ["agentId", "stageId", "durationMs"]),
         // RLR-S03c: bounded projection of the live worker delta/output stream
         // (RunActivity.activityKind) — never the raw text (non-goal). Additive;
         // unknown-event-tolerant consumers skip it safely.
-        EventSpec("workerActivity", requiredData: ["workerId", "activityKind"]),
+        EventSpec("workerActivity", requiredData: ["agentId", "activityKind"]),
         EventSpec("stageActivity", requiredData: ["stageId", "activityKind"]),
         EventSpec("teamRunCompleted", requiredData: ["status", "planStageId", "durationMs"]),
         EventSpec("teamRunFailed", requiredData: ["status", "error"]),
