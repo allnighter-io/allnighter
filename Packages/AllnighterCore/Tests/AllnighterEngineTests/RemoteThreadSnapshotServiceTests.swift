@@ -76,11 +76,11 @@ final class RemoteThreadSnapshotServiceTests: XCTestCase {
             projectLabel: "Secret project label",
             projectId: "project_1",
             localRootPathSnapshot: "/Users/mike/private/repo-old",
-            defaultWorkerId: "secret_default_worker",
+            defaultModelId: "secret_default_worker",
             turns: [
                 turn("u1", kind: .userMessage, author: .user, createdAt: t0,
                      text: "private prompt with production token"),
-                turn("w1", status: .running, createdAt: t1, workerId: "public_worker",
+                turn("w1", status: .running, createdAt: t1, modelId: "public_worker",
                      text: "visible worker body", reasoningText: "private reasoning trace")
             ],
             readCursor: ThreadReadCursor(lastReadTurnId: "u1", lastReadTurnCreatedAt: t0, readAt: t0)
@@ -119,7 +119,7 @@ final class RemoteThreadSnapshotServiceTests: XCTestCase {
         projectLabel: String? = nil,
         projectId: String? = nil,
         localRootPathSnapshot: String? = nil,
-        defaultWorkerId: String? = nil,
+        defaultModelId: String? = nil,
         turns: [ThreadTurn] = [],
         readCursor: ThreadReadCursor? = .empty(at: Date(timeIntervalSince1970: 1_000))
     ) -> WorkThread {
@@ -133,7 +133,7 @@ final class RemoteThreadSnapshotServiceTests: XCTestCase {
             projectLabel: projectLabel,
             projectId: projectId,
             localRootPathSnapshot: localRootPathSnapshot,
-            defaultWorkerId: defaultWorkerId,
+            defaultModelId: defaultModelId,
             readCursor: readCursor,
             turns: turns
         )
@@ -145,7 +145,7 @@ final class RemoteThreadSnapshotServiceTests: XCTestCase {
         status: ThreadTurnStatus = .done,
         author: TurnAuthor = .worker,
         createdAt: Date? = nil,
-        workerId: String? = nil,
+        modelId: String? = nil,
         text: String? = nil,
         reasoningText: String? = nil
     ) -> ThreadTurn {
@@ -158,7 +158,7 @@ final class RemoteThreadSnapshotServiceTests: XCTestCase {
             completedAt: status.isTerminal ? (createdAt ?? t1) : nil,
             author: author,
             text: text ?? (author == .worker ? "reply" : "message"),
-            workerId: workerId,
+            modelId: modelId,
             reasoningText: reasoningText
         )
     }

@@ -19,20 +19,20 @@ public struct TurnNotificationSnapshot: Sendable, Equatable {
     public let id: String
     public let kind: ThreadTurnKind
     public let status: ThreadTurnStatus
-    public let workerId: String?
+    public let modelId: String?
     public let systemEvent: SystemEventKind?
 
     public init(
         id: String,
         kind: ThreadTurnKind,
         status: ThreadTurnStatus,
-        workerId: String?,
+        modelId: String?,
         systemEvent: SystemEventKind?
     ) {
         self.id = id
         self.kind = kind
         self.status = status
-        self.workerId = workerId
+        self.modelId = modelId
         self.systemEvent = systemEvent
     }
 }
@@ -43,7 +43,7 @@ public struct RunNotificationSnapshot: Sendable, Equatable {
     public let threadId: String
     public let turnId: String
     public let threadTitle: String
-    public let workerId: String?
+    public let modelId: String?
     public let vendorDisplayName: String
     public let wakeAfter: Date?
     public let waitingForVendor: Bool
@@ -53,7 +53,7 @@ public struct RunNotificationSnapshot: Sendable, Equatable {
         threadId: String,
         turnId: String,
         threadTitle: String,
-        workerId: String?,
+        modelId: String?,
         vendorDisplayName: String,
         wakeAfter: Date?,
         waitingForVendor: Bool
@@ -62,7 +62,7 @@ public struct RunNotificationSnapshot: Sendable, Equatable {
         self.threadId = threadId
         self.turnId = turnId
         self.threadTitle = threadTitle
-        self.workerId = workerId
+        self.modelId = modelId
         self.vendorDisplayName = vendorDisplayName
         self.wakeAfter = wakeAfter
         self.waitingForVendor = waitingForVendor
@@ -102,7 +102,7 @@ public enum NotificationCandidateDetection {
                     id: turn.id,
                     kind: turn.kind,
                     status: turn.status,
-                    workerId: turn.workerId,
+                    modelId: turn.modelId,
                     systemEvent: turn.systemEvent
                 )
             }
@@ -129,7 +129,7 @@ public enum NotificationCandidateDetection {
                         turnId: turnId,
                         event: .threadNeedsAttention,
                         threadTitle: afterSnap.title,
-                        workerId: afterSnap.turns.first { $0.id == turnId }?.workerId,
+                        workerId: afterSnap.turns.first { $0.id == turnId }?.modelId,
                         occurredAt: now
                     ))
                 }
@@ -160,7 +160,7 @@ public enum NotificationCandidateDetection {
                     threadId: thread.id,
                     turnId: turn.id,
                     threadTitle: thread.title,
-                    workerId: turn.workerId ?? run.workers.first?.modelId,
+                    modelId: turn.modelId ?? run.workers.first?.modelId,
                     vendorDisplayName: vendor,
                     wakeAfter: run.blocker?.wakeAfter,
                     waitingForVendor: run.status == .queued
@@ -189,7 +189,7 @@ public enum NotificationCandidateDetection {
                     turnId: current.turnId,
                     event: .vendorParked,
                     threadTitle: current.threadTitle,
-                    workerId: current.workerId,
+                    workerId: current.modelId,
                     runId: current.runId,
                     vendorDisplayName: current.vendorDisplayName,
                     wakeAfter: current.wakeAfter,
@@ -201,7 +201,7 @@ public enum NotificationCandidateDetection {
                     turnId: current.turnId,
                     event: .vendorResumed,
                     threadTitle: current.threadTitle,
-                    workerId: current.workerId,
+                    workerId: current.modelId,
                     runId: current.runId,
                     vendorDisplayName: previous?.vendorDisplayName ?? current.vendorDisplayName,
                     occurredAt: now
@@ -271,7 +271,7 @@ public enum NotificationCandidateDetection {
                         turnId: turn.id,
                         event: event,
                         threadTitle: after.title,
-                        workerId: turn.workerId,
+                        workerId: turn.modelId,
                         occurredAt: now
                     ))
                 }
@@ -282,7 +282,7 @@ public enum NotificationCandidateDetection {
                         turnId: turn.id,
                         event: event,
                         threadTitle: after.title,
-                        workerId: turn.workerId,
+                        workerId: turn.modelId,
                         occurredAt: now
                     ))
                 }

@@ -143,7 +143,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
         let pm1 = try XCTUnwrap(thread.turn(id: "\(state.id)_pm1"))
         XCTAssertEqual(pm1.status, .done)
         XCTAssertEqual(pm1.author, .worker)
-        XCTAssertEqual(pm1.workerId, "model_pm")
+        XCTAssertEqual(pm1.modelId, "model_pm")
         XCTAssertEqual(pm1.kind, .workerChat)
         XCTAssertEqual(pm1.runId, state.rounds[0].pmRunId)
         XCTAssertTrue(pm1.text?.contains("Round 1 review text.") ?? false, "PM turn text is verbatim, not summarized")
@@ -151,7 +151,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
 
         let dev1 = try XCTUnwrap(thread.turn(id: "\(state.id)_dev1"))
         XCTAssertEqual(dev1.status, .done)
-        XCTAssertEqual(dev1.workerId, "model_dev")
+        XCTAssertEqual(dev1.modelId, "model_dev")
         XCTAssertEqual(dev1.runId, state.rounds[0].devRunId)
         XCTAssertEqual(dev1.text, "Implemented exactly that. Committed.")
 

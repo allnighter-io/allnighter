@@ -31,7 +31,7 @@ final class TimelineReadClearanceTests: XCTestCase {
                 ),
                 ThreadTurn(
                     id: "w", threadId: "a", kind: .workerChat, status: .done,
-                    createdAt: .now, completedAt: .now, author: .worker, text: "r", workerId: "m"
+                    createdAt: .now, completedAt: .now, author: .worker, text: "r", modelId: "m"
                 ),
                 ThreadTurn(
                     id: "b", threadId: "a", kind: .teamRun, status: .done,

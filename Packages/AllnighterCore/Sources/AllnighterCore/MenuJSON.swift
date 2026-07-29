@@ -73,7 +73,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
 
     public struct Defaults: Codable, Sendable, Equatable {
         public var defaultTeamRef: String
-        public var defaultWorkerId: String?
+        public var defaultModelId: String?
     }
 
     public struct CollectionCompleteness: Codable, Sendable, Equatable {

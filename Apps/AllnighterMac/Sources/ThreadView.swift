@@ -242,7 +242,7 @@ private struct ThreadPaneHeader: View {
 
     private var routedWorkerIds: [String] {
         var seen = Set<String>()
-        return thread.turns.compactMap(\.workerId).filter { seen.insert($0).inserted }
+        return thread.turns.compactMap(\.modelId).filter { seen.insert($0).inserted }
     }
 
     /// Distinct model display names that have answered in this thread. A worker id is
@@ -641,7 +641,7 @@ private struct ThreadTurnRow: View {
 
     // CR4b — one model's reply.
     private var model: ComposeBenchModel? {
-        guard let id = turn.workerId else { return nil }
+        guard let id = turn.modelId else { return nil }
         return appModel.composeBench.first(where: { $0.id == id })
     }
 
@@ -667,7 +667,7 @@ private struct ThreadTurnRow: View {
             }
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
-                    Text(model?.name ?? turn.workerId ?? "Model")
+                    Text(model?.name ?? turn.modelId ?? "Model")
                         .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
                     Text(turn.createdAt, format: .dateTime.hour().minute())
                         .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
@@ -1116,7 +1116,7 @@ private struct ThreadMutatingRunRow: View {
         return run?.answers.first { ($0.output ?? "").isEmpty == false }?.output
     }
     private var model: ComposeBenchModel? {
-        guard let id = turn.workerId else { return nil }
+        guard let id = turn.modelId else { return nil }
         return appModel.composeBench.first { $0.id == id }
     }
 
@@ -1184,7 +1184,7 @@ private struct ThreadMutatingRunRow: View {
     /// raw worker id, then a bare "Agent" before anything has resolved.
     private var headerLabel: String {
         if let name = model?.name { return "Agent (\(name))" }
-        if let wid = turn.workerId, !wid.isEmpty { return "Agent (\(wid))" }
+        if let wid = turn.modelId, !wid.isEmpty { return "Agent (\(wid))" }
         return "Agent"
     }
 

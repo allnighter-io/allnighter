@@ -5,7 +5,7 @@ import AllnighterCore
 public struct ThreadImageSeed: Sendable, Equatable {
     public enum Source: Sendable, Equatable {
         case existingAttachment(TurnAttachmentRef, TurnAttachment)
-        case boardImage(runId: String, workerId: String, imageFileURL: URL)
+        case boardImage(runId: String, modelId: String, imageFileURL: URL)
     }
 
     public var source: Source
@@ -33,7 +33,7 @@ public struct ThreadImageSeedResolver: Sendable {
         }
         if let board = latestChosenBoardImage(thread: thread) {
             return ThreadImageSeed(source: .boardImage(
-                runId: board.runId, workerId: board.workerId, imageFileURL: board.imageURL
+                runId: board.runId, modelId: board.modelId, imageFileURL: board.imageURL
             ))
         }
         return nil
@@ -54,7 +54,7 @@ public struct ThreadImageSeedResolver: Sendable {
         return nil
     }
 
-    private func latestChosenBoardImage(thread: WorkThread) -> (runId: String, workerId: String, imageURL: URL)? {
+    private func latestChosenBoardImage(thread: WorkThread) -> (runId: String, modelId: String, imageURL: URL)? {
         for turn in thread.turns.reversed() where turn.kind == .designBoard {
             guard let runId = turn.runId,
                   let run = runStore.load(runId: runId),

@@ -33,7 +33,7 @@ final class ThreadsPresenterTests: XCTestCase {
     private func turn(_ kind: ThreadTurnKind, _ status: ThreadTurnStatus, systemEvent: SystemEventKind? = nil) -> ThreadTurn {
         ThreadTurn(id: "\(kind.rawValue)-\(status.rawValue)", threadId: "x", kind: kind, status: status,
                    createdAt: t0, completedAt: status.isTerminal ? t1 : nil,
-                   author: kind == .workerChat ? .worker : .system, workerId: "model_opus",
+                   author: kind == .workerChat ? .worker : .system, modelId: "model_opus",
                    systemEvent: systemEvent)
     }
 
@@ -269,12 +269,12 @@ final class ThreadsPresenterTests: XCTestCase {
     func testContinuationWorkerIdPrefersDefaultThenLast() {
         let bench: Set<String> = ["model_opus", "model_grok"]
         var grokTurn = turn(.workerChat, .done)
-        grokTurn.workerId = "model_grok"
+        grokTurn.modelId = "model_grok"
         var thread = thread("c", updatedAt: t0, turns: [grokTurn])
-        thread.defaultWorkerId = "model_opus"
+        thread.defaultModelId = "model_opus"
         XCTAssertEqual(ThreadsPresenter.continuationWorkerId(for: thread, benchModelIds: bench), "model_opus")
 
-        thread.defaultWorkerId = nil
+        thread.defaultModelId = nil
         XCTAssertEqual(ThreadsPresenter.continuationWorkerId(for: thread, benchModelIds: bench), "model_grok")
 
         XCTAssertNil(ThreadsPresenter.continuationWorkerId(for: thread, benchModelIds: ["model_sonnet"]))

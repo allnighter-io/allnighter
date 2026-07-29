@@ -23,7 +23,7 @@ final class StalledWorkDetectorTests: XCTestCase {
                     createdAt: old,
                     author: .worker,
                     text: "Working...",
-                    workerId: "model_opus"
+                    modelId: "model_opus"
                 )
             ]
         )
@@ -49,7 +49,7 @@ final class StalledWorkDetectorTests: XCTestCase {
                     status: .running,
                     createdAt: old,
                     author: .worker,
-                    workerId: "model_opus"
+                    modelId: "model_opus"
                 )
             ]
         )
@@ -194,7 +194,7 @@ final class StalledWorkDetectorTests: XCTestCase {
                     completedAt: old,
                     author: .worker,
                     text: "boom",
-                    workerId: "model_opus"
+                    modelId: "model_opus"
                 )
             ]
         )
@@ -220,7 +220,7 @@ final class StalledWorkDetectorTests: XCTestCase {
                     completedAt: now,
                     author: .worker,
                     text: "ok",
-                    workerId: "model_opus"
+                    modelId: "model_opus"
                 )
             ]
         )
@@ -260,7 +260,7 @@ final class StalledWorkDetectorTests: XCTestCase {
                     createdAt: old,
                     author: .worker,
                     text: "Reviewing...",
-                    workerId: "model_glm",
+                    modelId: "model_glm",
                     runId: "run-advisory"
                 )
             ]
@@ -301,7 +301,7 @@ final class StalledWorkDetectorTests: XCTestCase {
                     status: .running,
                     createdAt: veryOld,
                     author: .worker,
-                    workerId: "model_glm",
+                    modelId: "model_glm",
                     runId: "run-advisory"
                 )
             ]
@@ -330,7 +330,7 @@ final class StalledWorkDetectorTests: XCTestCase {
                     createdAt: old,
                     author: .worker,
                     text: "Thinking...",
-                    workerId: "model_opus"
+                    modelId: "model_opus"
                 )
             ]
         )
@@ -371,7 +371,7 @@ final class StalledWorkDetectorTests: XCTestCase {
                     status: .running,
                     createdAt: old,
                     author: .worker,
-                    workerId: "model_opus",
+                    modelId: "model_opus",
                     runId: "run1"
                 )
             ]
@@ -411,7 +411,7 @@ final class StalledWorkDetectorTests: XCTestCase {
                     status: .queued,
                     createdAt: old,
                     author: .worker,
-                    workerId: "model_opus",
+                    modelId: "model_opus",
                     runId: "run1"
                 )
             ]

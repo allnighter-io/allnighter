@@ -49,7 +49,7 @@ public struct ThreadSendCoordinator: Sendable {
 
     public struct Result: Sendable, Equatable {
         public var thread: WorkThread
-        public var workerId: String
+        public var modelId: String
         public var userTurnId: String
         public var workerTurnId: String
         public var contextPacketId: String
@@ -70,7 +70,7 @@ public struct ThreadSendCoordinator: Sendable {
     /// Optimistic turns are persisted; invoke has not started yet.
     public struct PendingSend: Sendable, Equatable {
         public var threadId: String
-        public var workerId: String
+        public var modelId: String
         public var userTurnId: String
         public var workerTurn: ThreadTurn
         public var contextPacketId: String
@@ -209,11 +209,11 @@ public struct ThreadSendCoordinator: Sendable {
     public func beginSend(request: Request, toThreadId threadId: String) throws -> SendCheckpoint {
         let prepared = try prepareSend(request: request, toThreadId: threadId)
 
-        guard let model = models.first(where: { $0.id == prepared.workerId }),
+        guard let model = models.first(where: { $0.id == prepared.modelId }),
               let manifest = registry.manifest(for: model),
               manifest.kind == .headlessCLI else {
             let result = try enterManualPaste(
-                threadId: threadId, workerId: prepared.workerId, userTurnId: prepared.userTurnId,
+                threadId: threadId, modelId: prepared.modelId, userTurnId: prepared.userTurnId,
                 workerTurnId: prepared.workerTurn.id, packetId: prepared.contextPacketId,
                 attachmentIds: prepared.attachmentIds, deliveries: prepared.deliveries,
                 fileReferenceRefs: prepared.fileReferenceRefs, fileReferences: prepared.fileReferences,
@@ -224,7 +224,7 @@ public struct ThreadSendCoordinator: Sendable {
 
         return .awaitingInvoke(PendingSend(
             threadId: threadId,
-            workerId: prepared.workerId,
+            modelId: prepared.modelId,
             userTurnId: prepared.userTurnId,
             workerTurn: prepared.workerTurn,
             contextPacketId: prepared.contextPacketId,
@@ -241,7 +241,7 @@ public struct ThreadSendCoordinator: Sendable {
     }
 
     public func completeSend(_ pending: PendingSend) async throws -> Result {
-        guard let model = models.first(where: { $0.id == pending.workerId }),
+        guard let model = models.first(where: { $0.id == pending.modelId }),
               let manifest = registry.manifest(for: model),
               manifest.kind == .headlessCLI else {
             throw AgentChatCoordinator.ChatError.noWorkerAvailable
@@ -268,7 +268,7 @@ public struct ThreadSendCoordinator: Sendable {
                 now: now()
             )
             return Result(
-                thread: thread, workerId: pending.workerId, userTurnId: pending.userTurnId,
+                thread: thread, modelId: pending.modelId, userTurnId: pending.userTurnId,
                 workerTurnId: pending.workerTurn.id, contextPacketId: pending.contextPacketId,
                 attachmentIds: pending.attachmentIds, deliveries: pending.deliveries,
                 fileReferenceIds: pending.fileReferenceRefs.map(\.referenceId),
@@ -330,7 +330,7 @@ public struct ThreadSendCoordinator: Sendable {
                 workerAttachmentRefs: workerRefs
             )
             return Result(
-                thread: thread, workerId: pending.workerId, userTurnId: pending.userTurnId,
+                thread: thread, modelId: pending.modelId, userTurnId: pending.userTurnId,
                 workerTurnId: pending.workerTurn.id, contextPacketId: pending.contextPacketId,
                 attachmentIds: pending.attachmentIds, deliveries: pending.deliveries,
                 fileReferenceIds: pending.fileReferenceRefs.map(\.referenceId),
@@ -345,7 +345,7 @@ public struct ThreadSendCoordinator: Sendable {
     // MARK: - Prepare send
 
     private struct PreparedSend {
-        var workerId: String
+        var modelId: String
         var userTurnId: String
         var workerTurn: ThreadTurn
         var contextPacketId: String
@@ -569,12 +569,12 @@ public struct ThreadSendCoordinator: Sendable {
 
         let workerTurn = ThreadTurn(
             id: workerTurnId, threadId: threadId, kind: .workerChat, status: .running,
-            createdAt: timestamp, author: .worker, workerId: workerId, contextPacketId: packetId
+            createdAt: timestamp, author: .worker, modelId: workerId, contextPacketId: packetId
         )
         try store.appendTurn(workerTurn, toThreadId: threadId, now: timestamp)
 
         return PreparedSend(
-            workerId: workerId,
+            modelId: workerId,
             userTurnId: userTurnId,
             workerTurn: workerTurn,
             contextPacketId: packetId,
@@ -637,7 +637,7 @@ public struct ThreadSendCoordinator: Sendable {
                 return nil
             }
         }
-        if let d = thread.defaultWorkerId, models.contains(where: { $0.id == d }) { return d }
+        if let d = thread.defaultModelId, models.contains(where: { $0.id == d }) { return d }
         if let last = thread.lastModelId, models.contains(where: { $0.id == last }) { return last }
         if let global = defaultDriverWorkerId, models.contains(where: { $0.id == global }) { return global }
         return models.first { $0.enabled && registry.manifest(for: $0)?.kind == .headlessCLI }?.id
@@ -776,7 +776,7 @@ public struct ThreadSendCoordinator: Sendable {
     }
 
     private func enterManualPaste(
-        threadId: String, workerId: String,
+        threadId: String, modelId: String,
         userTurnId: String, workerTurnId: String, packetId: String,
         attachmentIds: [String], deliveries: [IncludedAttachmentDelivery],
         fileReferenceRefs: [TurnFileReferenceRef], fileReferences: [IncludedFileReferenceDelivery],
@@ -786,12 +786,12 @@ public struct ThreadSendCoordinator: Sendable {
         let note = ThreadTurn(
             id: noteId, threadId: threadId, kind: .systemEvent, status: .running,
             createdAt: now(), author: .system,
-            text: "Paste \(workerId)'s reply to complete this turn.",
+            text: "Paste \(modelId)'s reply to complete this turn.",
             systemEvent: .manualPaste
         )
         let thread = try store.appendTurn(note, toThreadId: threadId, now: now())
         return Result(
-            thread: thread, workerId: workerId, userTurnId: userTurnId,
+            thread: thread, modelId: modelId, userTurnId: userTurnId,
             workerTurnId: workerTurnId, contextPacketId: packetId,
             attachmentIds: attachmentIds, deliveries: deliveries,
             fileReferenceIds: fileReferenceRefs.map(\.referenceId), fileReferences: fileReferences,

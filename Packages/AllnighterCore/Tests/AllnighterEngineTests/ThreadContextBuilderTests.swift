@@ -20,7 +20,7 @@ final class ThreadContextBuilderTests: XCTestCase {
 
     private func reply(_ id: String, _ text: String, worker: String = "model_opus") -> ThreadTurn {
         ThreadTurn(id: id, threadId: "t1", kind: .workerChat, status: .done,
-                   createdAt: now, author: .worker, text: text, workerId: worker)
+                   createdAt: now, author: .worker, text: text, modelId: worker)
     }
 
     func testRecentTurnsPreserveProvenance() {

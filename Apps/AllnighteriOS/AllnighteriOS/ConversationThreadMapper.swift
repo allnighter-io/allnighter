@@ -35,13 +35,13 @@ struct ConversationThreadMapper {
     }
 
     private func turn(from remoteTurn: RemoteThreadTurnDetail) -> ConversationThreadTurn {
-        let workerId = remoteTurn.author == .worker ? remoteTurn.workerId : nil
+        let workerId = remoteTurn.author == .worker ? remoteTurn.modelId : nil
         return ConversationThreadTurn(
             id: remoteTurn.id,
             role: role(from: remoteTurn),
             text: normalizedText(remoteTurn.text),
             runId: remoteTurn.runId,
-            workerId: workerId,
+            modelId: workerId,
             driverId: workerId.map { ConversationAgentPresentation.driverId(for: $0) },
             agentTitle: workerId.map { ConversationAgentPresentation.agentTitle(for: $0) },
             isPending: remoteTurn.status == .queued || remoteTurn.status == .running,

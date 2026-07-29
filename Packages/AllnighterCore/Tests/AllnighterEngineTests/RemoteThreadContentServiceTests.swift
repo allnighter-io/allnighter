@@ -141,7 +141,7 @@ final class RemoteThreadContentServiceTests: XCTestCase {
             completedAt: now.addingTimeInterval(-10),
             author: .worker,
             text: "private worker reply",
-            workerId: "codex",
+            modelId: "codex",
             reasoningText: "private reasoning trace"
         )
         return WorkThread(

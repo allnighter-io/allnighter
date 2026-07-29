@@ -36,7 +36,7 @@ final class StreamingSendCoordinatorTests: XCTestCase {
     func testStreamingSendSettlesWithFinalAnswer() async throws {
         let (store, root) = makeStore()
         defer { try? FileManager.default.removeItem(at: root) }
-        try store.create(id: "t1", title: "chat", now: clock, defaultWorkerId: "grok")
+        try store.create(id: "t1", title: "chat", now: clock, defaultModelId: "grok")
 
         let ndjson = """
         {"type":"text","data":"Hello"}
@@ -63,7 +63,7 @@ final class StreamingSendCoordinatorTests: XCTestCase {
     func testStreamingTimeoutPreservesPartialText() async throws {
         let (store, root) = makeStore()
         defer { try? FileManager.default.removeItem(at: root) }
-        try store.create(id: "t1", title: "chat", now: clock, defaultWorkerId: "grok")
+        try store.create(id: "t1", title: "chat", now: clock, defaultModelId: "grok")
 
         // A delta streamed, then a timeout — the partial must survive settlement.
         let partial = #"{"type":"text","data":"Half an answer"}"# + "\n"
@@ -84,7 +84,7 @@ final class StreamingSendCoordinatorTests: XCTestCase {
     func testNonStreamingWorkerStillSettles() async throws {
         let (store, root) = makeStore()
         defer { try? FileManager.default.removeItem(at: root) }
-        try store.create(id: "t1", title: "chat", now: clock, defaultWorkerId: "grok")
+        try store.create(id: "t1", title: "chat", now: clock, defaultModelId: "grok")
 
         // No streaming block on the manifest; `DefaultWorkerRunner` still drives the
         // one seam and settles from the single terminal event (F2_B.3c: there is no

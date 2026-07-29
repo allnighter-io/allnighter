@@ -224,7 +224,7 @@ final class ThreadsViewModel {
         return threads.first { $0.id == id }
     }
 
-    func driverName(for workerId: String) -> String {
+    func driverName(for modelId: String) -> String {
         guard let model = models.first(where: { $0.id == workerId }) else { return workerId }
         return registry.manifest(for: model)?.displayName ?? model.driverId
     }
@@ -750,7 +750,7 @@ final class ThreadsViewModel {
         let turn = ThreadTurn(
             id: UUID().uuidString, threadId: threadId, kind: turnKind, status: .running,
             createdAt: startedAt, author: .worker,
-            workerId: preset.mutating ? resolvedWorkerId : (routing.to.isEmpty ? nil : routing.to),
+            modelId: preset.mutating ? resolvedWorkerId : (routing.to.isEmpty ? nil : routing.to),
             runId: runId
         )
         guard (try? store.appendTurn(turn, toThreadId: threadId, now: startedAt)) != nil else { return }
@@ -767,7 +767,7 @@ final class ThreadsViewModel {
             threadId: threadId,
             projectId: projectId,
             presetId: routing.team,
-            workerId: routing.to.isEmpty ? nil : routing.to,
+            modelId: routing.to.isEmpty ? nil : routing.to,
             effort: effort,
             lane: routing.lane.workLane,
             context: context,
@@ -823,8 +823,8 @@ final class ThreadsViewModel {
             case .success(var run):
                 // RLS-S01: a terminal run MUST settle to a terminal turn — never .running.
                 settled.status = Self.settledStatus(forSuccessfulRun: run.status)
-                if settled.workerId == nil, let modelId = run.answers.first?.modelId {
-                    settled.workerId = modelId
+                if settled.modelId == nil, let modelId = run.answers.first?.modelId {
+                    settled.modelId = modelId
                 }
                 if preset.mutating, let stage = run.stages.last(where: { $0.purpose == .plan }) {
                     settled.stageId = stage.id
@@ -1224,7 +1224,7 @@ final class ThreadsViewModel {
     private func runChat(
         message: String,
         toThreadId threadId: String,
-        workerId: String,
+        modelId: String,
         fileReferences: [FileReferenceInput] = []
     ) {
         Task { @MainActor in

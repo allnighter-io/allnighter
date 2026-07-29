@@ -417,7 +417,7 @@ final class RemoteAppModel {
     var composerThreadId: String?
 
     struct ComposerContinuationAgent: Equatable {
-        var workerId: String
+        var modelId: String
         var driverId: String
         var title: String
     }
@@ -429,9 +429,9 @@ final class RemoteAppModel {
             return nil
         }
         if let workerTurn = snapshot.turns.last(where: { $0.role == .assistant }),
-           let workerId = workerTurn.workerId {
+           let workerId = workerTurn.modelId {
             return ComposerContinuationAgent(
-                workerId: workerId,
+                modelId: workerId,
                 driverId: workerTurn.driverId ?? ConversationAgentPresentation.driverId(for: workerId),
                 title: workerTurn.agentTitle ?? ConversationAgentPresentation.agentTitle(for: workerId)
             )
@@ -439,7 +439,7 @@ final class RemoteAppModel {
         if case .preview = connectionPhase {
             let workerId = ConversationAgentPresentation.previewWorkerId
             return ComposerContinuationAgent(
-                workerId: workerId,
+                modelId: workerId,
                 driverId: ConversationAgentPresentation.driverId(for: workerId),
                 title: ConversationAgentPresentation.agentTitle(for: workerId)
             )
@@ -1010,7 +1010,7 @@ final class RemoteAppModel {
             role: .user,
             text: prompt,
             runId: nil,
-            workerId: nil,
+            modelId: nil,
             driverId: nil,
             agentTitle: nil,
             isPending: false,
@@ -1025,7 +1025,7 @@ final class RemoteAppModel {
             role: .assistant,
             text: "Working on this on your Mac…",
             runId: runId,
-            workerId: workerId,
+            modelId: workerId,
             driverId: ConversationAgentPresentation.driverId(for: workerId),
             agentTitle: ConversationAgentPresentation.agentTitle(for: workerId),
             isPending: true,
@@ -1089,7 +1089,7 @@ final class RemoteAppModel {
             role: turn.role,
             text: text,
             runId: cancelled ? nil : turn.runId,
-            workerId: turn.workerId,
+            modelId: turn.modelId,
             driverId: turn.driverId,
             agentTitle: turn.agentTitle,
             isPending: false,
@@ -1164,7 +1164,7 @@ final class RemoteAppModel {
                         author: .worker,
                         createdAt: now,
                         text: "Working on this on your Mac…",
-                        workerId: workerId,
+                        modelId: workerId,
                         runId: runId,
                         partialOutputTruncated: false
                     ),
@@ -1325,7 +1325,7 @@ final class RemoteAppModel {
                     text: isRunning
                         ? "Working on this on your Mac…"
                         : "Done — open on your Mac for the full transcript.",
-                    workerId: ConversationAgentPresentation.previewWorkerId,
+                    modelId: ConversationAgentPresentation.previewWorkerId,
                     runId: runId,
                     partialOutputTruncated: false
                 ),

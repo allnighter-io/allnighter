@@ -68,7 +68,7 @@ final class ThreadSendCoordinatorAttachmentTests: XCTestCase {
 
         let threads = root.appendingPathComponent("threads")
         let store = ThreadStore(rootDirectory: threads)
-        try store.create(id: "t1", title: "img", now: clock, workingDir: repo.path, defaultWorkerId: "vision")
+        try store.create(id: "t1", title: "img", now: clock, workingDir: repo.path, defaultModelId: "vision")
 
         let png = try tinyPNGFile(in: root)
         let ingested = try AttachmentIngestor().ingest(fileURL: png, sourceKind: .cliFile)
@@ -110,7 +110,7 @@ final class ThreadSendCoordinatorAttachmentTests: XCTestCase {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("send2-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads"))
-        try store.create(id: "t1", title: "img", now: clock, defaultWorkerId: "vision")
+        try store.create(id: "t1", title: "img", now: clock, defaultModelId: "vision")
 
         let png = try tinyPNGFile(in: root)
         let frozen = root.appendingPathComponent("frozen.png")
@@ -198,7 +198,7 @@ final class ThreadSendCoordinatorAttachmentTests: XCTestCase {
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wio-send-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads"))
-        try store.create(id: "t1", title: "cat", now: clock, defaultWorkerId: "img")
+        try store.create(id: "t1", title: "cat", now: clock, defaultModelId: "img")
 
         let runner = ImageWritingRunner()
         let worker = TestSupport.worker("img", driverId: "fake_image")
@@ -237,7 +237,7 @@ final class ThreadSendCoordinatorAttachmentTests: XCTestCase {
         let runsRoot = root.appendingPathComponent("runs")
         let runStore = RunStore(rootDirectory: runsRoot)
         let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads"))
-        try store.create(id: "t1", title: "design", now: clock, defaultWorkerId: "img")
+        try store.create(id: "t1", title: "design", now: clock, defaultModelId: "img")
 
         let runId = "run-design-1"
         let runDir = try runStore.runDirectory(forRunId: runId)

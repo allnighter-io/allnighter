@@ -265,14 +265,14 @@ private struct ThreadTurnRow: View {
     private var workerBubble: some View {
         HStack(alignment: .top, spacing: IOSSpace.s3) {
             IOSDriverBrandGlyphView(
-                driverId: turn.driverId ?? ConversationAgentPresentation.driverId(for: turn.workerId),
+                driverId: turn.driverId ?? ConversationAgentPresentation.driverId(for: turn.modelId),
                 boxSize: 28,
                 iconSize: 14
             )
 
             VStack(alignment: .leading, spacing: IOSSpace.s2) {
                 HStack(spacing: IOSSpace.s2) {
-                    Text(turn.agentTitle ?? ConversationAgentPresentation.agentTitle(for: turn.workerId))
+                    Text(turn.agentTitle ?? ConversationAgentPresentation.agentTitle(for: turn.modelId))
                         .font(IOSFont.bodyStrong)
                         .foregroundStyle(IOSColor.textSecondary)
 

@@ -22,7 +22,7 @@ final class ThreadRailPerformanceTests: XCTestCase {
                 ThreadTurn(
                     id: "w1", threadId: "rail-1", kind: .workerChat, status: .done,
                     createdAt: now, completedAt: now, author: .worker,
-                    text: huge, workerId: "model_opus"
+                    text: huge, modelId: "model_opus"
                 ),
             ]
         )

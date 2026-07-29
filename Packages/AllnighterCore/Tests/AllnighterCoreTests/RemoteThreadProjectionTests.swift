@@ -36,7 +36,7 @@ final class RemoteThreadProjectionTests: XCTestCase {
             turns: [
                 turn("u1", kind: .userMessage, status: .done, author: .user, createdAt: t0),
                 turn("run_1", kind: .teamRun, status: .done, author: .worker, createdAt: t1,
-                     completedAt: t2, workerId: "codex", runId: "team_run_1", stageId: "stage_1")
+                     completedAt: t2, modelId: "codex", runId: "team_run_1", stageId: "stage_1")
             ],
             readCursor: ThreadReadCursor(lastReadTurnId: "run_1", lastReadTurnCreatedAt: t1, readAt: t2)
         )
@@ -54,7 +54,7 @@ final class RemoteThreadProjectionTests: XCTestCase {
         XCTAssertEqual(summary.latestTurn?.id, "run_1")
         XCTAssertEqual(summary.latestTurn?.kind, .teamRun)
         XCTAssertEqual(summary.latestTurn?.status, .done)
-        XCTAssertEqual(summary.latestTurn?.workerId, "codex")
+        XCTAssertEqual(summary.latestTurn?.modelId, "codex")
         XCTAssertEqual(summary.latestTurn?.runId, "team_run_1")
         XCTAssertEqual(summary.latestTurn?.stageId, "stage_1")
     }
@@ -71,11 +71,11 @@ final class RemoteThreadProjectionTests: XCTestCase {
             projectLabel: "Secret project label",
             projectId: "project_1",
             localRootPathSnapshot: "/Users/mike/private/repo-old",
-            defaultWorkerId: "secret_default_worker",
+            defaultModelId: "secret_default_worker",
             readCursor: ThreadReadCursor(lastReadTurnId: "u1", lastReadTurnCreatedAt: t0, readAt: t0),
             turns: [
                 turn("u1", kind: .userMessage, status: .done, author: .user, createdAt: t0, text: secretText),
-                turn("w1", status: .running, createdAt: t1, workerId: "public_worker",
+                turn("w1", status: .running, createdAt: t1, modelId: "public_worker",
                      text: "visible worker body", reasoningText: secretReasoning)
             ]
         )
@@ -146,7 +146,7 @@ final class RemoteThreadProjectionTests: XCTestCase {
         author: TurnAuthor = .worker,
         createdAt: Date? = nil,
         completedAt: Date? = nil,
-        workerId: String? = nil,
+        modelId: String? = nil,
         runId: String? = nil,
         stageId: String? = nil,
         text: String? = nil,
@@ -161,7 +161,7 @@ final class RemoteThreadProjectionTests: XCTestCase {
             completedAt: completedAt,
             author: author,
             text: text ?? (author == .worker ? "reply" : "message"),
-            workerId: workerId,
+            modelId: modelId,
             runId: runId,
             stageId: stageId,
             reasoningText: reasoningText

@@ -183,7 +183,7 @@ final class RemoteThreadPublisherTests: XCTestCase {
             completedAt: now.addingTimeInterval(-10),
             author: .worker,
             text: "private reply",
-            workerId: "codex"
+            modelId: "codex"
         )
         return WorkThread(
             id: "thread_1",

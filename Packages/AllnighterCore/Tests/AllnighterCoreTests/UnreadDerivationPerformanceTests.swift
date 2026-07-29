@@ -18,7 +18,7 @@ final class UnreadDerivationPerformanceTests: XCTestCase {
             turns.append(ThreadTurn(
                 id: "w\(i)", threadId: "t", kind: .workerChat, status: .done,
                 createdAt: at, completedAt: at, author: .worker,
-                text: "reply \(i)", workerId: "model_opus"
+                text: "reply \(i)", modelId: "model_opus"
             ))
         }
         return WorkThread(

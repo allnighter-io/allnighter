@@ -141,7 +141,7 @@ struct ThreadsFixtureSeeder {
         let base = Date()
         func workerDone(_ id: String, threadId: String, at: Date) -> ThreadTurn {
             ThreadTurn(id: id, threadId: threadId, kind: .workerChat, status: .done,
-                       createdAt: at, completedAt: at, author: .worker, text: "reply", workerId: "model_opus")
+                       createdAt: at, completedAt: at, author: .worker, text: "reply", modelId: "model_opus")
         }
 
         if (try? store.create(id: "th2-pinned", title: "Pinned planning thread", now: base.addingTimeInterval(-300))) != nil {
@@ -177,7 +177,7 @@ struct ThreadsFixtureSeeder {
             ThreadTurn(
                 id: id, threadId: threadId, kind: .workerChat, status: status,
                 createdAt: at, completedAt: status.isTerminal ? at : nil,
-                author: .worker, text: text, workerId: workerId
+                author: .worker, text: text, modelId: workerId
             )
         }
 
@@ -293,7 +293,7 @@ struct ThreadsFixtureSeeder {
             id: "fixture-chat-reply", threadId: id, kind: .workerChat, status: .done,
             createdAt: Date(), completedAt: Date(), author: .worker,
             text: "**Token bucket.** It allows short bursts (up to the bucket size) while holding the long-run average to the refill rate — which is what per-user API limits actually want. Sliding-window log is more precise but stores every timestamp per user (memory + GC churn); sliding-window counter approximates it but still smooths bursts away. For rate limiting, allow the burst: token bucket, refill = your sustained rate, capacity = your burst budget.",
-            workerId: workerId
+            modelId: workerId
         )
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
@@ -316,7 +316,7 @@ struct ThreadsFixtureSeeder {
             id: "fixture-streaming-reply", threadId: id, kind: .workerChat, status: .running,
             createdAt: Date(), author: .worker,
             text: "Backpressure is how a fast producer is slowed to a rate its slower consumer can actually keep up with, so queues don't grow without bound. The consumer signals demand upstream — pull-based or via a bounded buffer that blocks the produc",
-            workerId: workerId)
+            modelId: workerId)
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
         reload()
@@ -339,7 +339,7 @@ struct ThreadsFixtureSeeder {
             id: "fixture-streaming-build-turn", threadId: id, kind: .mutatingRun, status: .running,
             createdAt: Date(), author: .worker,
             text: "I'll add a `/health` route. Looking at the router setup in `app/server.swift`… adding a handler that returns `Response(status: .ok, body: \"OK\")`, wiring it into the route table, then I'll run `swift test` to confir",
-            workerId: workerId, runId: "fixture-streaming-build-run")
+            modelId: workerId, runId: "fixture-streaming-build-run")
         run.reasoningText = "The user wants a /health endpoint returning 200. Let me find the router — likely app/server.swift. I should match the existing handler style and add a test so I don't regress the suite. Checking how routes are registered first…"
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(run, toThreadId: id, now: Date())
@@ -363,7 +363,7 @@ struct ThreadsFixtureSeeder {
                             createdAt: now.addingTimeInterval(-58), completedAt: now.addingTimeInterval(-55),
                             author: .worker,
                             text: "**Token bucket** — it allows short bursts while holding the long-run average to the refill rate.",
-                            workerId: workerId)
+                            modelId: workerId)
         a1.reasoningText = "Per-user rate limiting. Trade-off is burst tolerance vs memory; sliding-window log stores every timestamp, token bucket is O(1) and allows bursts…"
 
         let q2 = ThreadTurn(id: "th-u2", threadId: id, kind: .userMessage, status: .done,
@@ -372,7 +372,7 @@ struct ThreadsFixtureSeeder {
         var a2 = ThreadTurn(id: "th-a2", threadId: id, kind: .workerChat, status: .running,
                             createdAt: now.addingTimeInterval(-6), author: .worker,
                             text: "Set the refill rate to your sustained per-user limit and the bucket capacity to the burst you're willing to al",
-                            workerId: workerId)
+                            modelId: workerId)
         a2.reasoningText = "Refill rate = sustained rate. Capacity = burst budget. I'll give concrete numbers so they can map it to their SLOs…"
 
         for turn in [q1, a1, q2, a2] {
@@ -474,7 +474,7 @@ struct ThreadsFixtureSeeder {
         let mutatingRun = ThreadTurn(
             id: "fixture-mutating-run-turn", threadId: id, kind: .mutatingRun, status: .done,
             createdAt: Date(), completedAt: Date(), author: .worker,
-            workerId: workerId, runId: run.id, stageId: "fixture-mutating-run-stage"
+            modelId: workerId, runId: run.id, stageId: "fixture-mutating-run-stage"
         )
         _ = try? store.appendTurn(user, toThreadId: id, now: Date())
         _ = try? store.appendTurn(mutatingRun, toThreadId: id, now: Date())
@@ -502,20 +502,20 @@ struct ThreadsFixtureSeeder {
             id: id, title: "PM Relay: Spec Review", now: base, workingDir: "/Users/you/code/allnighter"
         )) != nil else { return }
 
-        func turn(_ suffix: String, workerId: String, text: String, at offset: TimeInterval) -> ThreadTurn {
+        func turn(_ suffix: String, modelId: String, text: String, at offset: TimeInterval) -> ThreadTurn {
             ThreadTurn(
                 id: "\(id)_\(suffix)", threadId: id, kind: .workerChat, status: .done,
                 createdAt: base.addingTimeInterval(offset), completedAt: base.addingTimeInterval(offset + 20),
-                author: .worker, text: text, workerId: workerId
+                author: .worker, text: text, modelId: workerId
             )
         }
         _ = try? store.appendTurn(turn(
-            "pm1", workerId: pmModelId,
+            "pm1", modelId: pmModelId,
             text: "Reviewed baseline..HEAD — nothing to fix yet. Handover: implement §6 R-S08 per the slice table.",
             at: 0
         ), toThreadId: id, now: base)
         _ = try? store.appendTurn(turn(
-            "dev1", workerId: devModelId,
+            "dev1", modelId: devModelId,
             text: "Built the launch surface + escalation row. Committed 3f2a91c. Tests green (152/152).",
             at: 40
         ), toThreadId: id, now: base)
@@ -572,7 +572,7 @@ struct ThreadsFixtureSeeder {
                 id: "fixture-agent-image-reply", threadId: id, kind: .mutatingRun, status: .done,
                 createdAt: Date(), completedAt: Date(), author: .worker,
                 text: "Done! I've generated a super cute adorable cat for you.",
-                workerId: workerId,
+                modelId: workerId,
                 attachmentRefs: [ref]
             )
             _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
@@ -600,7 +600,7 @@ struct ThreadsFixtureSeeder {
                 id: "fixture-worker-image-reply", threadId: id, kind: .workerChat, status: .done,
                 createdAt: Date(), completedAt: Date(), author: .worker,
                 text: "Here's the photorealistic cat you asked for.",
-                workerId: workerId,
+                modelId: workerId,
                 attachmentRefs: [ref]
             )
             _ = try? store.appendTurn(reply, toThreadId: id, now: Date())
@@ -646,12 +646,12 @@ struct ThreadsFixtureSeeder {
                     payload: .board(BoardPayload(
                         targetShape: .mobile,
                         options: [
-                            DesignOption(workerId: w0.id, modelId: m0, persona: "bold", imagePath: path0, status: .done),
-                            DesignOption(workerId: w1.id, modelId: m1, persona: "minimal", imagePath: path1, status: .done),
-                            DesignOption(workerId: "failed-seat", modelId: m1, persona: "editorial",
+                            DesignOption(modelId: w0.id, modelId: m0, persona: "bold", imagePath: path0, status: .done),
+                            DesignOption(modelId: w1.id, modelId: m1, persona: "minimal", imagePath: path1, status: .done),
+                            DesignOption(modelId: "failed-seat", modelId: m1, persona: "editorial",
                                          status: .failed, failureReason: "Image gen timed out"),
                         ],
-                        chosen: ChosenOption(workerId: w1.id, persona: "minimal")
+                        chosen: ChosenOption(modelId: w1.id, persona: "minimal")
                     )),
                     startedAt: Date(), finishedAt: Date()
                 )

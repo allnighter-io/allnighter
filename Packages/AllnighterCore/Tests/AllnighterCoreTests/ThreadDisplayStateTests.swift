@@ -14,7 +14,7 @@ final class ThreadDisplayStateTests: XCTestCase {
         ThreadTurn(id: "turn_\(status.rawValue)_\(author.rawValue)", threadId: "t1",
                    kind: .workerChat, status: status, createdAt: epoch, author: author,
                    text: author == .worker ? "reply" : nil,
-                   workerId: author == .worker ? "model_opus" : nil)
+                   modelId: author == .worker ? "model_opus" : nil)
     }
 
     func testNewChatIsDraft() {

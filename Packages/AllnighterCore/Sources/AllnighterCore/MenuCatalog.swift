@@ -15,7 +15,7 @@ public enum MenuCatalog {
         teams: [TeamPreset]? = nil,
         modelEntries: [ModelListJSON.Entry]? = nil,
         recipes: [RecipeCatalog.Recipe]? = nil,
-        defaultWorkerId: String? = nil
+        defaultModelId: String? = nil
     ) -> MenuJSON {
         let teamList = (teams ?? TeamCatalog.all.filter { !$0.isLabTeam })
             .sorted { $0.id < $1.id }
@@ -139,7 +139,7 @@ public enum MenuCatalog {
         else {
             preconditionFailure("MenuCatalog.project: no effective default team in catalog")
         }
-        let resolvedWorker = defaultWorkerId
+        let resolvedWorker = defaultModelId
             ?? defaultTeam.agentSpecs.first?.preferredModelId
             ?? defaultTeam.lead.preferredModelId
 
@@ -172,7 +172,7 @@ public enum MenuCatalog {
             effectProfiles: effectProfiles,
             defaults: MenuJSON.Defaults(
                 defaultTeamRef: "team:\(defaultTeam.id)",
-                defaultWorkerId: resolvedWorker
+                defaultModelId: resolvedWorker
             ),
             completeness: completeness
         )

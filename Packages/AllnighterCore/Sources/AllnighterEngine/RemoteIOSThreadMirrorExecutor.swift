@@ -62,7 +62,7 @@ public actor RemoteIOSThreadMirrorExecutor: RemoteTeamCommandExecuting {
                     id: threadId,
                     title: threadTitle(from: prompt),
                     now: timestamp,
-                    defaultWorkerId: workerId
+                    defaultModelId: workerId
                 )
             }
 
@@ -86,7 +86,7 @@ public actor RemoteIOSThreadMirrorExecutor: RemoteTeamCommandExecuting {
                 createdAt: timestamp,
                 author: .worker,
                 text: "Working on this on your Mac…",
-                workerId: workerId,
+                modelId: workerId,
                 runId: runId
             )
             _ = try threadStore.appendTurn(workerTurn, toThreadId: threadId, now: timestamp)

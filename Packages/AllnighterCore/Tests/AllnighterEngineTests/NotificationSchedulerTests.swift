@@ -228,7 +228,7 @@ private func notifWorkerTurn(status: ThreadTurnStatus) -> ThreadTurn {
     ThreadTurn(
         id: "w1", threadId: "a", kind: .workerChat, status: status,
         createdAt: notifT0, completedAt: status.isTerminal ? notifT1 : nil,
-        author: .worker, text: "reply", workerId: "model_opus"
+        author: .worker, text: "reply", modelId: "model_opus"
     )
 }
 

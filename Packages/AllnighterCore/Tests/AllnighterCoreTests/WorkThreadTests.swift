@@ -39,7 +39,7 @@ final class WorkThreadTests: XCTestCase {
         let thread = try Fixtures.thread(.threadChat)
         XCTAssertEqual(thread.status, .active)
         XCTAssertEqual(thread.turns.count, 3)
-        XCTAssertEqual(thread.defaultWorkerId, "model_opus")
+        XCTAssertEqual(thread.defaultModelId, "model_opus")
         XCTAssertEqual(thread.workingDir, "/Users/mike/Code/acme")
         // The team turn references a run and carries no inline chat text.
         let teamRun = thread.turns.first { $0.kind == .teamRun }
@@ -164,7 +164,7 @@ final class WorkThreadTests: XCTestCase {
             createdAt: epoch,
             author: author,
             text: author == .worker ? "reply" : nil,
-            workerId: author == .worker ? "model_opus" : nil,
+            modelId: author == .worker ? "model_opus" : nil,
             systemEvent: systemEvent
         )
     }

@@ -42,7 +42,7 @@ final class ThreadStreamingPerformanceTests: XCTestCase {
         let thread = try store.create(id: UUID().uuidString, title: "t", now: Date(), workingDir: nil)
         let turn = ThreadTurn(
             id: UUID().uuidString, threadId: thread.id, kind: .workerChat, status: .running,
-            createdAt: Date(), author: .worker, workerId: "w")
+            createdAt: Date(), author: .worker, modelId: "w")
         _ = try store.appendTurn(turn, toThreadId: thread.id, now: Date())
         await vm.reloadAsync()
         return (thread.id, turn.id)

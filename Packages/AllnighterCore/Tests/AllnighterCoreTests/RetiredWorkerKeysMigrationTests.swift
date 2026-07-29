@@ -52,6 +52,32 @@ final class RetiredWorkerKeysMigrationTests: XCTestCase {
         XCTAssertNil(answers[0]["workerId"])
     }
 
+    func testTurnWorkerIdBecomesModelId() throws {
+        let (migrated, replacements) = RetiredWorkerKeysMigration.migrateJSONObject([
+            "id": "thread_1",
+            "turns": [
+                ["id": "turn_1", "workerId": "model_opus", "author": "worker"]
+            ]
+        ], parentKey: nil)
+        XCTAssertGreaterThan(replacements, 0)
+        let root = try XCTUnwrap(migrated as? [String: Any])
+        let turns = try XCTUnwrap(root["turns"] as? [[String: Any]])
+        XCTAssertEqual(turns[0]["modelId"] as? String, "model_opus")
+        XCTAssertNil(turns[0]["workerId"])
+    }
+
+    func testDefaultWorkerIdBecomesDefaultModelId() throws {
+        let (migrated, replacements) = RetiredWorkerKeysMigration.migrateJSONObject([
+            "id": "thread_1",
+            "defaultWorkerId": "model_sonnet",
+            "turns": []
+        ], parentKey: nil)
+        XCTAssertEqual(replacements, 1)
+        let root = try XCTUnwrap(migrated as? [String: Any])
+        XCTAssertEqual(root["defaultModelId"] as? String, "model_sonnet")
+        XCTAssertNil(root["defaultWorkerId"])
+    }
+
     func testOnDiskMigrationIsIdempotentAndPathAware() throws {
         let fileManager = FileManager.default
         let tempDir = fileManager.temporaryDirectory

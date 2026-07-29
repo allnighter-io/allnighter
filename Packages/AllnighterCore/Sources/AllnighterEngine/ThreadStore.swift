@@ -83,7 +83,7 @@ public struct ThreadStore: Sendable {
         now: Date,
         workingDir: String? = nil,
         projectLabel: String? = nil,
-        defaultWorkerId: String? = nil
+        defaultModelId: String? = nil
     ) throws -> WorkThread {
         try synchronized {
             let threadDirectory = rootDirectory.appendingPathComponent("thread_\(id)", isDirectory: true)
@@ -92,7 +92,7 @@ public struct ThreadStore: Sendable {
             }
             let thread = WorkThread(
                 id: id, title: title, status: .active, createdAt: now, updatedAt: now,
-                workingDir: workingDir, projectLabel: projectLabel, defaultWorkerId: defaultWorkerId,
+                workingDir: workingDir, projectLabel: projectLabel, defaultModelId: defaultModelId,
                 readCursor: .empty(at: now)
             )
             _ = try persistContent(thread)

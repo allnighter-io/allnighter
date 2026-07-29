@@ -280,7 +280,7 @@ enum ThreadsPresenter {
     static func authorLabel(_ turn: ThreadTurn) -> String {
         switch turn.author {
         case .user: return "You"
-        case .worker: return turn.workerId ?? "Agent"
+        case .worker: return turn.modelId ?? "Agent"
         case .system: return "Allnighter"
         }
     }
@@ -302,13 +302,13 @@ enum ThreadsPresenter {
     /// Model the docked composer should pin for session continuation — mirrors the
     /// worker-chat send resolver's thread-local picks (01_Work_Threads_MLP §Composer).
     static func continuationWorkerId(for thread: WorkThread, benchModelIds: Set<String>) -> String? {
-        if let d = thread.defaultWorkerId, benchModelIds.contains(d) { return d }
+        if let d = thread.defaultModelId, benchModelIds.contains(d) { return d }
         if let last = thread.lastModelId, benchModelIds.contains(last) { return last }
         return nil
     }
 
     /// The composer chip copy, e.g. "Replying as model_opus".
-    static func replyingAs(workerId: String?) -> String {
+    static func replyingAs(modelId: String?) -> String {
         guard let workerId else { return "No worker available" }
         return "Replying as \(workerId)"
     }

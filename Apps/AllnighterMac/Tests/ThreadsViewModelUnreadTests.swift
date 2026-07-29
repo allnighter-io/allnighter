@@ -49,7 +49,7 @@ final class ThreadsViewModelUnreadTests: XCTestCase {
         ThreadTurn(
             id: id, threadId: "a", kind: .workerChat, status: status,
             createdAt: at, completedAt: status.isTerminal ? at : nil,
-            author: .worker, text: "reply", workerId: "model_opus"
+            author: .worker, text: "reply", modelId: "model_opus"
         )
     }
 

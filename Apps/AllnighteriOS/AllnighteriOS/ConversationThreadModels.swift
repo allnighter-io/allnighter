@@ -36,7 +36,7 @@ struct ConversationThreadTurn: Identifiable, Equatable, Codable {
     let role: Role
     let text: String?
     let runId: String?
-    let workerId: String?
+    let modelId: String?
     let driverId: String?
     let agentTitle: String?
     let isPending: Bool

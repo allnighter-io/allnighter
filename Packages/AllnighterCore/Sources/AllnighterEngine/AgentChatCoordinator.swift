@@ -27,7 +27,7 @@ public actor AgentChatCoordinator {
     /// The outcome of a `send`, with everything the UI needs to focus the turn.
     public struct ChatResult: Sendable, Equatable {
         public var thread: WorkThread
-        public var workerId: String
+        public var modelId: String
         public var userTurnId: String
         public var workerTurnId: String
         public var contextPacketId: String
@@ -90,7 +90,7 @@ public actor AgentChatCoordinator {
     /// thread's last worker → global daily driver → first healthy headless CLI.
     public func resolveWorkerId(for thread: WorkThread, requested: String? = nil) -> String? {
         if let requested, hasRunnableOrManual(requested) { return requested }
-        if let d = thread.defaultWorkerId, hasRunnableOrManual(d) { return d }
+        if let d = thread.defaultModelId, hasRunnableOrManual(d) { return d }
         if let last = thread.lastModelId, hasRunnableOrManual(last) { return last }
         if let global = defaultDriverWorkerId, hasRunnableOrManual(global) { return global }
         return models.first { model in
@@ -164,7 +164,7 @@ public actor AgentChatCoordinator {
     private func chatResult(from result: ThreadSendCoordinator.Result) -> ChatResult {
         ChatResult(
             thread: result.thread,
-            workerId: result.workerId,
+            modelId: result.modelId,
             userTurnId: result.userTurnId,
             workerTurnId: result.workerTurnId,
             contextPacketId: result.contextPacketId,

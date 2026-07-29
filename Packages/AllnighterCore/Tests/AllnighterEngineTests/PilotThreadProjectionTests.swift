@@ -118,14 +118,14 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         let pmTurn = try XCTUnwrap(thread.turn(id: "\(relay.id)_pm1"))
         XCTAssertEqual(pmTurn.status, .done, "a pilot round is a complete record from the moment it lands — no running placeholder")
         XCTAssertEqual(pmTurn.author, .user, "distinct from a spawned PM turn's .worker author")
-        XCTAssertNil(pmTurn.workerId, "no PM model ever dispatches in Pilot")
+        XCTAssertNil(pmTurn.modelId, "no PM model ever dispatches in Pilot")
         XCTAssertEqual(pmTurn.text, submission, "verbatim, verdict tail included")
         XCTAssertEqual(pmTurn.kind, .workerChat)
 
         let devTurn = try XCTUnwrap(thread.turn(id: "\(relay.id)_dev1"))
         XCTAssertEqual(devTurn.status, .done)
         XCTAssertEqual(devTurn.author, .worker)
-        XCTAssertEqual(devTurn.workerId, "model_dev")
+        XCTAssertEqual(devTurn.modelId, "model_dev")
         XCTAssertEqual(devTurn.runId, payload.state.rounds.first?.devRunId)
         XCTAssertEqual(devTurn.text, "Implemented and committed.")
 

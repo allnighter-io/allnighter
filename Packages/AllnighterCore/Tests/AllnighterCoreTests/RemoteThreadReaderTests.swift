@@ -239,7 +239,7 @@ final class RemoteThreadReaderTests: XCTestCase {
                     createdAt: now.addingTimeInterval(-10),
                     completedAt: now.addingTimeInterval(-10),
                     text: workerText,
-                    workerId: "codex"
+                    modelId: "codex"
                 ),
             ]
         )
@@ -270,7 +270,7 @@ final class RemoteThreadReaderTests: XCTestCase {
                 author: .worker,
                 createdAt: now.addingTimeInterval(-10),
                 completedAt: now.addingTimeInterval(-10),
-                workerId: "codex"
+                modelId: "codex"
             )
         )
     }

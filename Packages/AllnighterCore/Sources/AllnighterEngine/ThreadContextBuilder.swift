@@ -252,7 +252,7 @@ public struct ThreadContextBuilder: Sendable {
     private func label(for turn: ThreadTurn) -> String {
         switch turn.author {
         case .user: return "User"
-        case .worker: return turn.workerId ?? "Agent"
+        case .worker: return turn.modelId ?? "Agent"
         case .system: return "System"
         }
     }

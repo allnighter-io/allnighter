@@ -38,7 +38,7 @@ final class UnreadDerivationTests: XCTestCase {
             completedAt: completedAt,
             author: author,
             text: author == .worker ? "reply" : "msg",
-            workerId: author == .worker ? "model_opus" : nil,
+            modelId: author == .worker ? "model_opus" : nil,
             supersedesTurnId: supersedesTurnId,
             systemEvent: systemEvent
         )

@@ -136,7 +136,7 @@ enum ThreadSendCLI {
                 )
                 print(AllnighterCLI.jsonString(response))
             } else {
-                print("sent to \(result.workerId): user=\(result.userTurnId) worker=\(result.workerTurnId) attachments=\(result.attachmentIds.count) fileRefs=\(result.fileReferenceIds.count) workerImages=\(result.workerAttachmentIds.count)")
+                print("sent to \(result.modelId): user=\(result.userTurnId) worker=\(result.workerTurnId) attachments=\(result.attachmentIds.count) fileRefs=\(result.fileReferenceIds.count) workerImages=\(result.workerAttachmentIds.count)")
             }
         } catch let error as AttachmentError {
             AllnighterCLI.fail(code: error.code, message: error.description)

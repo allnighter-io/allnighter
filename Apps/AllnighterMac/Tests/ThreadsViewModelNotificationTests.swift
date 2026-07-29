@@ -159,7 +159,7 @@ final class ThreadsViewModelNotificationTests: XCTestCase {
         ThreadTurn(
             id: id, threadId: "a", kind: .workerChat, status: status,
             createdAt: t1, completedAt: status.isTerminal ? t1 : nil,
-            author: .worker, text: "r", workerId: "model_opus"
+            author: .worker, text: "r", modelId: "model_opus"
         )
     }
 

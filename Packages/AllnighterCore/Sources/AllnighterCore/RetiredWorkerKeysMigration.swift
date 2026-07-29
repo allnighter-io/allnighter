@@ -25,7 +25,8 @@ public enum RetiredWorkerKeysMigration {
     }
 
     private static let retiredKeyMarkers = [
-        "producedByWorkerId", "devWorkerId", "pmWorkerId", "workerAnswers", "\"workerId\""
+        "producedByWorkerId", "devWorkerId", "pmWorkerId", "workerAnswers",
+        "defaultWorkerId", "\"workerId\""
     ]
 
     /// Run the on-disk migration against the specified support root URL.
@@ -132,8 +133,10 @@ public enum RetiredWorkerKeysMigration {
             return ("writerAgentId", true)
         case "planWriterWorkerId":
             return ("planWriterAgentId", true)
+        case "defaultWorkerId":
+            return ("defaultModelId", true)
         case "workerId":
-            if parentKey == "teamRun" {
+            if parentKey == "teamRun" || parentKey == "turns" {
                 return ("modelId", true)
             }
             return ("agentId", true)

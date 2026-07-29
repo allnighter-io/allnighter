@@ -33,7 +33,7 @@ public struct RemoteThreadTurnLight: Codable, Equatable, Identifiable, Sendable 
     public var author: TurnAuthor
     public var createdAt: Date
     public var completedAt: Date?
-    public var workerId: String?
+    public var modelId: String?
     public var runId: String?
     public var stageId: String?
 
@@ -44,7 +44,7 @@ public struct RemoteThreadTurnLight: Codable, Equatable, Identifiable, Sendable 
         author: TurnAuthor,
         createdAt: Date,
         completedAt: Date? = nil,
-        workerId: String? = nil,
+        modelId: String? = nil,
         runId: String? = nil,
         stageId: String? = nil
     ) {
@@ -54,7 +54,7 @@ public struct RemoteThreadTurnLight: Codable, Equatable, Identifiable, Sendable 
         self.author = author
         self.createdAt = createdAt
         self.completedAt = completedAt
-        self.workerId = workerId
+        self.modelId = modelId
         self.runId = runId
         self.stageId = stageId
     }
@@ -135,7 +135,7 @@ public struct RemoteThreadTurnDetail: Codable, Equatable, Identifiable, Sendable
     public var createdAt: Date
     public var completedAt: Date?
     public var text: String?
-    public var workerId: String?
+    public var modelId: String?
     public var runId: String?
     public var stageId: String?
     public var partialOutputTruncated: Bool
@@ -150,7 +150,7 @@ public struct RemoteThreadTurnDetail: Codable, Equatable, Identifiable, Sendable
         createdAt: Date,
         completedAt: Date? = nil,
         text: String? = nil,
-        workerId: String? = nil,
+        modelId: String? = nil,
         runId: String? = nil,
         stageId: String? = nil,
         partialOutputTruncated: Bool = false,
@@ -164,7 +164,7 @@ public struct RemoteThreadTurnDetail: Codable, Equatable, Identifiable, Sendable
         self.createdAt = createdAt
         self.completedAt = completedAt
         self.text = text
-        self.workerId = workerId
+        self.modelId = modelId
         self.runId = runId
         self.stageId = stageId
         self.partialOutputTruncated = partialOutputTruncated
@@ -205,7 +205,7 @@ public enum RemoteThreadProjection {
             author: turn.author,
             createdAt: turn.createdAt,
             completedAt: turn.completedAt,
-            workerId: turn.workerId,
+            modelId: turn.modelId,
             runId: turn.runId,
             stageId: turn.stageId
         )
@@ -236,7 +236,7 @@ public enum RemoteThreadProjection {
             createdAt: turn.createdAt,
             completedAt: turn.completedAt,
             text: turn.text,
-            workerId: turn.workerId,
+            modelId: turn.modelId,
             runId: turn.runId,
             stageId: turn.stageId,
             partialOutputTruncated: turn.partialOutputTruncated,

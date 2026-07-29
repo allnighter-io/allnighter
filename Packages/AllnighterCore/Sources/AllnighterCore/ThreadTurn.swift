@@ -16,8 +16,8 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
     public var author: TurnAuthor
     /// Chat text, user message, or system note. Nil for pure reference turns.
     public var text: String?
-    /// The worker that authored (or is running) this turn, when applicable.
-    public var workerId: String?
+    /// The model that authored (or is running) this turn, when applicable.
+    public var modelId: String?
     /// References a `TeamRun` for team/design/review/mutating-run turns.
     public var runId: String?
     /// A specific `StageOutput` within the referenced run, when applicable.
@@ -56,7 +56,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         completedAt: Date? = nil,
         author: TurnAuthor,
         text: String? = nil,
-        workerId: String? = nil,
+        modelId: String? = nil,
         runId: String? = nil,
         stageId: String? = nil,
         artifactRefs: [ArtifactRef] = [],
@@ -79,7 +79,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         self.completedAt = completedAt
         self.author = author
         self.text = text
-        self.workerId = workerId
+        self.modelId = modelId
         self.runId = runId
         self.stageId = stageId
         self.artifactRefs = artifactRefs
@@ -93,7 +93,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
 
     private enum CodingKeys: String, CodingKey {
         case id, threadId, kind, status, createdAt, completedAt, author, text,
-             workerId, runId, stageId, artifactRefs, attachmentRefs, fileReferenceRefs,
+             modelId, runId, stageId, artifactRefs, attachmentRefs, fileReferenceRefs,
              contextPacketId, supersedesTurnId, seedFromTurnId, systemEvent,
              partialOutputTruncated, reasoningText
     }
@@ -108,7 +108,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
         author = try c.decode(TurnAuthor.self, forKey: .author)
         text = try c.decodeIfPresent(String.self, forKey: .text)
-        workerId = try c.decodeIfPresent(String.self, forKey: .workerId)
+        modelId = try c.decodeIfPresent(String.self, forKey: .modelId)
         runId = try c.decodeIfPresent(String.self, forKey: .runId)
         stageId = try c.decodeIfPresent(String.self, forKey: .stageId)
         artifactRefs = try c.decodeIfPresent([ArtifactRef].self, forKey: .artifactRefs) ?? []
@@ -132,7 +132,7 @@ public struct ThreadTurn: Codable, Sendable, Equatable, Identifiable {
         try c.encodeIfPresent(completedAt, forKey: .completedAt)
         try c.encode(author, forKey: .author)
         try c.encodeIfPresent(text, forKey: .text)
-        try c.encodeIfPresent(workerId, forKey: .workerId)
+        try c.encodeIfPresent(modelId, forKey: .modelId)
         try c.encodeIfPresent(runId, forKey: .runId)
         try c.encodeIfPresent(stageId, forKey: .stageId)
         try c.encode(artifactRefs, forKey: .artifactRefs)

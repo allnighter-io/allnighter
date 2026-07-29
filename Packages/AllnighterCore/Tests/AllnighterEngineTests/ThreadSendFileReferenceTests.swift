@@ -19,7 +19,7 @@ final class ThreadSendFileReferenceTests: XCTestCase {
         )
 
         let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads"))
-        try store.create(id: "t1", title: "code", now: clock, workingDir: repo.path, defaultWorkerId: "code")
+        try store.create(id: "t1", title: "code", now: clock, workingDir: repo.path, defaultModelId: "code")
 
         let capture = PromptCapturingCommandRunner()
         let worker = TestSupport.worker("code", driverId: "fake_code")
@@ -74,7 +74,7 @@ final class ThreadSendFileReferenceTests: XCTestCase {
 
         try "hello from readme\n".write(to: repo.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
         let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads"))
-        try store.create(id: "t1", title: "docs", now: clock, workingDir: repo.path, defaultWorkerId: "code")
+        try store.create(id: "t1", title: "docs", now: clock, workingDir: repo.path, defaultModelId: "code")
 
         let capture = PromptCapturingCommandRunner()
         let worker = TestSupport.worker("code", driverId: "fake_code")

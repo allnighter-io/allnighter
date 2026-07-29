@@ -33,7 +33,7 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
     /// current Project scope — `projectId` is.
     public var localRootPathSnapshot: String?
     /// Composer default worker, if the user has fixed one for this thread.
-    public var defaultWorkerId: String?
+    public var defaultModelId: String?
     /// Append-only, in send order.
     public var turns: [ThreadTurn]
     /// Durable read position. `nil` means legacy/no-baseline until the store
@@ -52,7 +52,7 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         projectLabel: String? = nil,
         projectId: String? = nil,
         localRootPathSnapshot: String? = nil,
-        defaultWorkerId: String? = nil,
+        defaultModelId: String? = nil,
         readCursor: ThreadReadCursor? = nil,
         turns: [ThreadTurn] = []
     ) {
@@ -67,7 +67,7 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         self.projectLabel = projectLabel
         self.projectId = projectId
         self.localRootPathSnapshot = localRootPathSnapshot
-        self.defaultWorkerId = defaultWorkerId
+        self.defaultModelId = defaultModelId
         self.readCursor = readCursor
         self.turns = turns
     }
@@ -75,7 +75,7 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case formatVersion, id, title, status, createdAt, updatedAt, pinnedAt,
              workingDir, projectLabel, projectId, localRootPathSnapshot,
-             defaultWorkerId, readCursor, turns
+             defaultModelId, readCursor, turns
     }
 
     public init(from decoder: Decoder) throws {
@@ -91,7 +91,7 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         projectLabel = try container.decodeIfPresent(String.self, forKey: .projectLabel)
         projectId = try container.decodeIfPresent(String.self, forKey: .projectId)
         localRootPathSnapshot = try container.decodeIfPresent(String.self, forKey: .localRootPathSnapshot)
-        defaultWorkerId = try container.decodeIfPresent(String.self, forKey: .defaultWorkerId)
+        defaultModelId = try container.decodeIfPresent(String.self, forKey: .defaultModelId)
         readCursor = try container.decodeIfPresent(ThreadReadCursor.self, forKey: .readCursor)
         turns = try container.decode([ThreadTurn].self, forKey: .turns)
     }
@@ -109,7 +109,7 @@ public struct WorkThread: Codable, Sendable, Equatable, Identifiable {
         try container.encodeIfPresent(projectLabel, forKey: .projectLabel)
         try container.encodeIfPresent(projectId, forKey: .projectId)
         try container.encodeIfPresent(localRootPathSnapshot, forKey: .localRootPathSnapshot)
-        try container.encodeIfPresent(defaultWorkerId, forKey: .defaultWorkerId)
+        try container.encodeIfPresent(defaultModelId, forKey: .defaultModelId)
         try container.encodeIfPresent(readCursor, forKey: .readCursor)
         try container.encode(turns, forKey: .turns)
     }
@@ -151,7 +151,7 @@ public extension WorkThread {
 
     /// The model behind the most recent worker-authored turn.
     var lastModelId: String? {
-        turns.last { $0.author == .worker }?.workerId
+        turns.last { $0.author == .worker }?.modelId
     }
 
     /// The most recent meaningful message/reply excerpt for the list row.

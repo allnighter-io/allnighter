@@ -9,7 +9,7 @@ struct LiveArtifactPreviewView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       header
-      ForEach(state.seatList, id: \.workerId) { seat in
+      ForEach(state.seatList, id: \.modelId) { seat in
         LiveArtifactSeatRow(seat: seat, isLive: isLive)
       }
     }

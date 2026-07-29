@@ -18,7 +18,7 @@ public struct ThreadGetResponse: Codable, Sendable, Equatable {
     public var projectLabel: String?
     public var projectId: String?
     public var localRootPathSnapshot: String?
-    public var defaultWorkerId: String?
+    public var defaultModelId: String?
     public var readCursor: ThreadReadCursor?
     public var turns: [ThreadTurnProjection]
 
@@ -36,7 +36,7 @@ public struct ThreadGetResponse: Codable, Sendable, Equatable {
         projectLabel = thread.projectLabel
         projectId = thread.projectId
         localRootPathSnapshot = thread.localRootPathSnapshot
-        defaultWorkerId = thread.defaultWorkerId
+        defaultModelId = thread.defaultModelId
         readCursor = thread.readCursor
         self.turns = turns
     }
@@ -51,7 +51,7 @@ public struct ThreadTurnProjection: Codable, Sendable, Equatable, Identifiable {
     public var completedAt: Date?
     public var author: TurnAuthor
     public var text: String?
-    public var workerId: String?
+    public var modelId: String?
     public var runId: String?
     public var stageId: String?
     public var artifactRefs: [ArtifactRef]
@@ -74,7 +74,7 @@ public struct ThreadTurnProjection: Codable, Sendable, Equatable, Identifiable {
         completedAt = turn.completedAt
         author = turn.author
         text = turn.text
-        workerId = turn.workerId
+        modelId = turn.modelId
         runId = turn.runId
         stageId = turn.stageId
         artifactRefs = turn.artifactRefs

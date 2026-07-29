@@ -65,7 +65,7 @@ final class NotificationSuppressionTests: XCTestCase {
                 ),
                 ThreadTurn(
                     id: "w1", threadId: "t1", kind: .workerChat, status: .done,
-                    createdAt: t1, completedAt: t1, author: .worker, text: "a", workerId: "m"
+                    createdAt: t1, completedAt: t1, author: .worker, text: "a", modelId: "m"
                 ),
             ]
         )

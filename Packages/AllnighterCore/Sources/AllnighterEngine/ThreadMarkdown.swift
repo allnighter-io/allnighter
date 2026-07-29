@@ -31,7 +31,7 @@ public enum ThreadMarkdown {
         let who: String
         switch turn.author {
         case .user: who = "User"
-        case .worker: who = turn.workerId ?? "Agent"
+        case .worker: who = turn.modelId ?? "Agent"
         case .system: who = "System"
         }
         var label = "## \(who) · \(turn.kind.rawValue)"

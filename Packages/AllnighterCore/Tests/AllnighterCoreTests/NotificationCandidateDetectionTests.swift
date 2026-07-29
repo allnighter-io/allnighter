@@ -120,7 +120,7 @@ final class NotificationCandidateDetectionTests: XCTestCase {
         ThreadTurn(
             id: "w1", threadId: "t1", kind: .workerChat, status: status,
             createdAt: now, completedAt: status.isTerminal ? now : nil,
-            author: .worker, text: "reply", workerId: "model_opus"
+            author: .worker, text: "reply", modelId: "model_opus"
         )
     }
 

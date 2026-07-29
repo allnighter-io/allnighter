@@ -5,7 +5,7 @@
   "createdAt": "2026-06-15T09:00:00Z",
   "updatedAt": "2026-06-15T09:04:00Z",
   "workingDir": "/Users/mike/Code/acme",
-  "defaultWorkerId": "model_opus",
+  "defaultModelId": "model_opus",
   "turns": [
     {
       "id": "turn_01",
@@ -27,7 +27,7 @@
       "completedAt": "2026-06-15T09:00:42Z",
       "author": "worker",
       "text": "Start with a single owner-scoped flag before per-seat roles.",
-      "workerId": "model_opus",
+      "modelId": "model_opus",
       "contextPacketId": "packet_01",
       "artifactRefs": []
     },
