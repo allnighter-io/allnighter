@@ -27,6 +27,15 @@
     "ruleId" : "install_cli.target.unwritable"
   },
   {
+    "agentAction" : "Inspect the migration error, back up ~\/Library\/Application Support\/Allnighter if needed, then retry.",
+    "code" : "SUPPORT_MIGRATION_FAILED",
+    "exitClass" : "operational",
+    "explain" : "The one-time retired worker-key migration under the support root failed. Fix the reported filesystem\/JSON issue before continuing.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "support.migration.failed"
+  },
+  {
     "agentAction" : "Run `alln dev export-contracts`, then rebuild.",
     "code" : "CONTRACT_DRIFT",
     "exitClass" : "operational",

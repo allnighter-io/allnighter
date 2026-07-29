@@ -57,6 +57,12 @@
         "createdAt" : {
           "type" : "string"
         },
+        "modelIds" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
         "reason" : {
           "type" : [
             "string",
@@ -77,18 +83,12 @@
             "string",
             "null"
           ]
-        },
-        "workerIds" : {
-          "items" : {
-            "type" : "string"
-          },
-          "type" : "array"
         }
       },
       "required" : [
         "attemptId",
         "createdAt",
-        "workerIds",
+        "modelIds",
         "status"
       ],
       "type" : "object"
@@ -352,7 +352,7 @@
     "TargetInfo" : {
       "additionalProperties" : false,
       "properties" : {
-        "fallbackWorkerIds" : {
+        "fallbackModelIds" : {
           "items" : {
             "type" : "string"
           },
@@ -364,13 +364,19 @@
             "null"
           ]
         },
-        "preferredWorkerIds" : {
+        "modelIds" : {
           "items" : {
             "type" : "string"
           },
           "type" : "array"
         },
-        "requiredWorkerIds" : {
+        "preferredModelIds" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        },
+        "requiredModelIds" : {
           "items" : {
             "type" : "string"
           },
@@ -381,19 +387,13 @@
             "string",
             "null"
           ]
-        },
-        "workerIds" : {
-          "items" : {
-            "type" : "string"
-          },
-          "type" : "array"
         }
       },
       "required" : [
-        "workerIds",
-        "preferredWorkerIds",
-        "fallbackWorkerIds",
-        "requiredWorkerIds"
+        "modelIds",
+        "preferredModelIds",
+        "fallbackModelIds",
+        "requiredModelIds"
       ],
       "type" : "object"
     }

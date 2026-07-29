@@ -11,7 +11,7 @@ final class TeachingSnippetTests: XCTestCase {
     }
 
     func testBodyIsFourRuleReflexOnly() {
-        XCTAssertEqual(TeachingSnippet.schemaVersion, 3)
+        XCTAssertEqual(TeachingSnippet.schemaVersion, 4)
         XCTAssertEqual(TeachingSnippet.reflexLines.count, 4)
         XCTAssertEqual(TeachingSnippet.body, TeachingSnippet.reflexLines.joined(separator: "\n"))
         XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))

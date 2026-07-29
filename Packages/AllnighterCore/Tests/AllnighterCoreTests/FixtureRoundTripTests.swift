@@ -155,7 +155,7 @@ final class FixtureRoundTripTests: XCTestCase {
         XCTAssertEqual(trj.outcome?.timing?.wallMs, 5000)
         XCTAssertEqual(
             trj.outcome?.headline,
-            "worker model_sonnet · lane code · mutating · queue 1000ms · ttft 500ms · duration 4000ms · wall 5000ms"
+            "model model_sonnet · lane code · mutating · queue 1000ms · ttft 500ms · duration 4000ms · wall 5000ms"
         )
     }
 

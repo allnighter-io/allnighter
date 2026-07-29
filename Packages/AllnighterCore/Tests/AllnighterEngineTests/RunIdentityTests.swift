@@ -26,11 +26,11 @@ final class RunIdentityTests: HermeticSupportTestCase {
 
     func testIdentitySummaryFormat() {
         XCTAssertEqual(
-            RunIdentity.summary(workerId: "model_grok", lane: .code, mutating: true),
-            "agent model_grok · lane code · mutating")
+            RunIdentity.summary(modelId: "model_grok", lane: .code, mutating: true),
+            "model model_grok · lane code · mutating")
         XCTAssertEqual(
-            RunIdentity.summary(workerId: "model_opus", lane: .design, mutating: false),
-            "agent model_opus · lane design · readOnly")
+            RunIdentity.summary(modelId: "model_opus", lane: .design, mutating: false),
+            "model model_opus · lane design · readOnly")
     }
 
     func testExplicitWorkerMutatingRunIdentity() async throws {
@@ -76,14 +76,14 @@ final class RunIdentityTests: HermeticSupportTestCase {
         XCTAssertEqual(trj.teamRun.teamPresetId, "default_chat")
         XCTAssertEqual(trj.teamRun.modelId, "model_grok")
         XCTAssertEqual(trj.teamRun.writePolicy, "mutating")
-        XCTAssertEqual(trj.teamRun.identitySummary, "agent model_grok · lane code (context — --team routes) · mutating")
+        XCTAssertEqual(trj.teamRun.identitySummary, "model model_grok · lane code (context — --team routes) · mutating")
 
         // SH-S08 (a8fddec1) inserts measured single-seat timing (queue/duration/…)
         // into the outcome headline; this run executes live, so bracket the variable
         // timing with the stable identity prefix and the team/preset suffix.
         let footer = RunIdentity.cliFooter(run)
         XCTAssertTrue(
-            footer.hasPrefix("run identity-run · agent model_grok · lane code (context — --team routes) · mutating · no repo change"),
+            footer.hasPrefix("run identity-run · model model_grok · lane code (context — --team routes) · mutating · no repo change"),
             "footer identity prefix; got: \(footer)")
         XCTAssertTrue(
             footer.hasSuffix("· Default Team · preset default_chat"),

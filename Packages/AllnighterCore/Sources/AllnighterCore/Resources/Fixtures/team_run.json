@@ -20,7 +20,7 @@
     "outputKind": null,
     "modelId": "model_sonnet",
     "writePolicy": "mutating",
-    "identitySummary": "worker model_sonnet · lane code · mutating",
+    "identitySummary": "model model_sonnet · lane code · mutating",
     "planWriterAgentId": null,
     "reproduceCommand": "alln run --model model_sonnet \"Say success.\"",
     "endReason": "completed",
@@ -68,7 +68,7 @@
   "outcome": {
     "status": "completed",
     "committed": false,
-    "headline": "worker model_sonnet · lane code · mutating · queue 1000ms · ttft 500ms · duration 4000ms · wall 5000ms",
+    "headline": "model model_sonnet · lane code · mutating · queue 1000ms · ttft 500ms · duration 4000ms · wall 5000ms",
     "commitMessageMatched": null,
     "proof": null,
     "usage": null,

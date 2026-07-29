@@ -30,12 +30,12 @@ public enum RunIdentity {
         return "lane \(lane.rawValue)"
     }
 
-    /// Headline identity: `agent <id> · lane <lane> · mutating|readOnly`.
+    /// Headline identity: `model <id> · lane <lane> · mutating|readOnly`.
     public static func summary(
-        workerId: String?, lane: WorkLane?, mutating: Bool, laneContextOnly: Bool = false
+        modelId: String?, lane: WorkLane?, mutating: Bool, laneContextOnly: Bool = false
     ) -> String {
-        let worker = workerId ?? "?"
-        return "agent \(worker) · \(laneLabel(lane, contextOnly: laneContextOnly)) · \(writePolicyLabel(mutating: mutating))"
+        let model = modelId ?? "?"
+        return "model \(model) · \(laneLabel(lane, contextOnly: laneContextOnly)) · \(writePolicyLabel(mutating: mutating))"
     }
 
     public static func primaryWorkerModelId(_ run: TeamRun) -> String? {
@@ -48,7 +48,7 @@ public enum RunIdentity {
     public static func outcomeHeadline(_ run: TeamRun, wallMs: Int? = nil) -> String {
         var parts = [
             summary(
-                workerId: primaryWorkerModelId(run), lane: run.lane, mutating: run.mutating,
+                modelId: primaryWorkerModelId(run), lane: run.lane, mutating: run.mutating,
                 laneContextOnly: run.laneContextOnly == true)
         ]
         if run.mutating {

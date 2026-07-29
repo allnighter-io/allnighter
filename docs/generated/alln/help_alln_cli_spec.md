@@ -1425,6 +1425,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `CLI_USAGE_ERROR` | yes | no | `usage` | Re-run `alln docs <command>` and fix arguments. |
 | `UNKNOWN_FLAG` | yes | no | `usage` | Re-run `alln <command> --help` or `alln docs <command>`; fix or remove the unknown flag. |
 | `INSTALL_CLI_TARGET_UNWRITABLE` | yes | yes | `operational` | Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory. |
+| `SUPPORT_MIGRATION_FAILED` | yes | no | `operational` | Inspect the migration error, back up ~/Library/Application Support/Allnighter if needed, then retry. |
 | `CONTRACT_DRIFT` | yes | no | `operational` | Run `alln dev export-contracts`, then rebuild. |
 | `CONTRACT_VERSION_NOT_BUMPED` | yes | no | `usage` | Bump `ContractRegistry.contractVersion` (minor for additions, major for removals/renames), then run `alln dev export-contracts`. |
 | `CONTRACT_ARTIFACTS_NOT_FOUND` | yes | no | `operational` | Run `alln dev export-contracts` from inside the repo (repo root or a subdirectory). |

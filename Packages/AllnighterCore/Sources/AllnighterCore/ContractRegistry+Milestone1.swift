@@ -984,6 +984,7 @@ public extension ContractRegistry {
             exitClass: .usage
         ),
         ErrorSpec("INSTALL_CLI_TARGET_UNWRITABLE", ruleId: "install_cli.target.unwritable", agentAction: "Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory.", requiresManual: true, retryable: true, explain: "The install-cli target directory is missing or not writable. Use --path to a writable directory (e.g. ~/.local/bin) or fix permissions on /usr/local/bin."),
+        ErrorSpec("SUPPORT_MIGRATION_FAILED", ruleId: "support.migration.failed", agentAction: "Inspect the migration error, back up ~/Library/Application Support/Allnighter if needed, then retry.", requiresManual: true, retryable: false, explain: "The one-time retired worker-key migration under the support root failed. Fix the reported filesystem/JSON issue before continuing."),
         ErrorSpec("CONTRACT_DRIFT", ruleId: "contract.drift", agentAction: "Run `alln dev export-contracts`, then rebuild.", requiresManual: true, retryable: false, explain: "Generated artifacts no longer match the registry. Regenerate and rebuild before relying on output."),
         ErrorSpec(
             "CONTRACT_VERSION_NOT_BUMPED",

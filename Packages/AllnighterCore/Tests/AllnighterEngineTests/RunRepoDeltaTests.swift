@@ -101,7 +101,7 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
         // non-deterministic — assert the identity prefix exactly, then that the timing
         // summary is appended, rather than freezing measured milliseconds into a golden.
         let identityPrefix =
-            "worker model_grok · lane code (context — --team routes) · mutating · committed \(String(delta.head!.prefix(7))): 1 file"
+            "model model_grok · lane code (context — --team routes) · mutating · committed \(String(delta.head!.prefix(7))): 1 file"
         XCTAssertTrue(outcome.headline.hasPrefix(identityPrefix),
                       "headline must start with the run identity; got: \(outcome.headline)")
         XCTAssertTrue(outcome.headline.contains("wall") && outcome.headline.contains("ms"),
