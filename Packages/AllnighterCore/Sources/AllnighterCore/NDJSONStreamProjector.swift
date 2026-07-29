@@ -85,17 +85,17 @@ public enum NDJSONStreamProjector {
             teamPresetId: run.presetId
         ))
 
-        for worker in run.workers {
-            let answer = run.workerAnswer(workerId: worker.id)
+        for agent in run.workers {
+            let answer = run.workerAnswer(workerId: agent.id)
             let startedAt = answer?.result.timing.startedAt ?? created
-            add("workerStarted", startedAt, EventData(agentId: worker.id, modelId: worker.modelId, skillId: worker.skillId))
+            add("workerStarted", startedAt, EventData(agentId: agent.id, modelId: agent.modelId, skillId: agent.skillId))
             guard let answer else { continue }
             let endAt = answer.result.timing.finishedAt ?? startedAt
             switch answer.result.status {
             case .done:
-                add("workerAnswered", endAt, EventData(agentId: worker.id, durationMs: answer.result.timing.durationMs))
+                add("workerAnswered", endAt, EventData(agentId: agent.id, durationMs: answer.result.timing.durationMs))
             case .failed, .timedOut:
-                add("workerFailed", endAt, EventData(agentId: worker.id, error: workerError(answer, runId: run.id)))
+                add("workerFailed", endAt, EventData(agentId: agent.id, error: workerError(answer, runId: run.id)))
             default:
                 break   // queued/running/skipped/cancelled: no terminal worker event
             }
