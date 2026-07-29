@@ -730,14 +730,14 @@ public actor RunService {
         }
 
         let preset = invocation.preset
-        let effectiveWorkerId = invocation.pinnedModelId
+        let effectiveModelId = invocation.pinnedModelId
         let explicitTeamChosen = invocation.explicitTeamChosen
         let laneContextOnly = request.lane != nil && !(request.pinnedModelId ?? "").isEmpty
         // ADP-S01: the explicit `--model` selection, canonicalized to the resolved
         // id so a `reproduceCommand` replay resolves to the same seat. Nil when the
         // worker was default-team/Auto resolved (no explicit `--model`).
         let explicitModelIds: [String]? = invocation.explicitModelChosen
-            ? (effectiveWorkerId.map { [$0] } ?? request.pinnedModelId.map { [$0] })
+            ? (effectiveModelId.map { [$0] } ?? request.pinnedModelId.map { [$0] })
             : nil
         let explicitSeatModelIds: [String]? = {
             let ids = request.explicitSeatModelIds?.filter { !$0.isEmpty } ?? []
@@ -792,14 +792,14 @@ public actor RunService {
                 lane: effectiveLane.rawValue,
                 teamPresetId: preset.id,
                 effort: effort.rawValue,
-                modelId: effectiveWorkerId,
+                modelId: effectiveModelId,
                 type: request.type,
                 context: request.context,
                 repoRoot: root,
                 attachmentDigests: request.deliveries.map(\.storedSha256),
                 threadId: request.threadId,
                 resolvedTeamId: preset.id,
-                resolvedWorkerIds: effectiveWorkerId.map { [$0] } ?? [],
+                resolvedWorkerIds: effectiveModelId.map { [$0] } ?? [],
                 handshakeTimeout: Int(clockBudgets.handshakeTimeoutSeconds),
                 firstActivityTimeout: Int(clockBudgets.firstActivityTimeoutSeconds),
                 idleTimeout: request.workerTimeoutSeconds,
@@ -955,8 +955,8 @@ public actor RunService {
             let autoResolved = invocation.autoResolved
             let explicitPin = invocation.explicitModelChosen || laneContextOnly
             let provisionalWorker = Agent(
-                id: Agent.makeID(modelId: effectiveWorkerId ?? "unknown", instanceIndex: 0),
-                modelId: effectiveWorkerId ?? "unknown",
+                id: Agent.makeID(modelId: effectiveModelId ?? "unknown", instanceIndex: 0),
+                modelId: effectiveModelId ?? "unknown",
                 instanceIndex: 0,
                 skillId: "first_principles_builder",
                 purpose: .answer
@@ -975,7 +975,7 @@ public actor RunService {
                 effort: effort, repoRoot: root, requestLane: request.lane,
                 explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
                 explicitModelIds: explicitModelIds,
-                projectId: request.projectId, workerOverride: effectiveWorkerId,
+                projectId: request.projectId, workerOverride: effectiveModelId,
                 origin: origin, originAgent: originAgent, runId: id, runner: runner,
                 deliveries: request.deliveries, requestedAt: requestedAt, timing: timing, events: events,
                 workerTimeoutSeconds: request.workerTimeoutSeconds,
@@ -1005,7 +1005,7 @@ public actor RunService {
             explicitTeamChosen: explicitTeamChosen, laneContextOnly: laneContextOnly,
             explicitModelIds: explicitModelIds,
             explicitSeatModelIds: explicitSeatModelIds,
-            workerOverride: effectiveWorkerId,
+            workerOverride: effectiveModelId,
             origin: origin, originAgent: originAgent, runId: id, runner: runner,
             deliveries: request.deliveries, timing: timing, events: events,
             retryLinks: retryLinks,
