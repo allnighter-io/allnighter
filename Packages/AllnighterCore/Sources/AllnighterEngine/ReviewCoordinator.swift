@@ -6,14 +6,14 @@ import AllnighterCore
 public struct ResolvedLens: Sendable {
     public let lensId: String
     public let profile: PromptProfile
-    public let worker: Model
+    public let model: Model
     public let manifest: DriverManifest
     public let inputSelectors: [InputSelector]
 
-    public init(lensId: String, profile: PromptProfile, worker: Model, manifest: DriverManifest, inputSelectors: [InputSelector]) {
+    public init(lensId: String, profile: PromptProfile, model: Model, manifest: DriverManifest, inputSelectors: [InputSelector]) {
         self.lensId = lensId
         self.profile = profile
-        self.worker = worker
+        self.model = model
         self.manifest = manifest
         self.inputSelectors = inputSelectors
     }
@@ -50,7 +50,7 @@ public struct ReviewCoordinator: Sendable {
                         run: run, models: models
                     )
                     let stage = await runner.runMarkdown(
-                        purpose: .review, worker: lens.worker, manifest: lens.manifest,
+                        purpose: .review, worker: lens.model, manifest: lens.manifest,
                         prompt: prompt, promptProfileId: lens.lensId
                     ) { .review(ReviewResult(lensId: lens.lensId, markdown: $0)) }
                     return (index, stage)

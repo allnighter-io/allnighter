@@ -24,7 +24,7 @@ final class ReviewCoordinatorTests: XCTestCase {
         ResolvedLens(
             lensId: id,
             profile: PromptProfile(id: id, displayName: id, purpose: .reviewLens, template: "Review as \(id)."),
-            worker: worker, manifest: manifest,
+            model: worker, manifest: manifest,
             inputSelectors: ReviewCoordinator.defaultSelectors(forLens: id)
         )
     }
