@@ -60,7 +60,11 @@ final class AppModelTests: XCTestCase {
     func testTeamSummaryReflectsSeatsAndDepth() {
         let model = AppModel()
         let summary = model.runSummary
-        XCTAssertTrue(summary.contains("\(model.expandedWorkers.count) worker"))
+        // `runSummary` says "N agent(s)" — "worker" was retired from user-facing
+        // copy in the vocab cutover. This assertion kept the old noun and had been
+        // failing unnoticed, because the Mac test target is an Xcode target and is
+        // not run by `swift test --package-path Packages/AllnighterCore`.
+        XCTAssertTrue(summary.contains("\(model.expandedWorkers.count) agent"), summary)
         if model.currentSynthesis.analysisDepth == .combined {
             XCTAssertTrue(summary.contains("combined analysis + plan"))
         } else {
