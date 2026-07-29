@@ -68,7 +68,7 @@ public struct ProcessOwnershipSurface: Sendable {
 
     /// Alive + needs-action rows for default `alln ps` (CLP-S03).
     ///
-    /// Worker receipts (RLR-S04a) follow the same alive/history rule as every
+    /// Agent receipts (RLR-S04a) follow the same alive/history rule as every
     /// other kind — a historical (identity-dead) receipt is museum, hidden by
     /// default; a still identity-alive survivor (e.g. after a `partial` kill)
     /// must remain visible so the operator can see what is still running.

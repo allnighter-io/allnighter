@@ -21,11 +21,11 @@ final class FloorArtifactTests: XCTestCase {
 
     private func makeRun() -> TeamRun {
         let workers = [
-            Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0, skillId: "signal_source_reader",
+            Agent(id: "model_a#0", modelId: "model_a", instanceIndex: 0, skillId: "signal_source_reader",
                    skillName: "Source Reader", resolvedWorkerPromptSnapshot: "PROMPT", purpose: .answer),
-            Worker(id: "model_b#0", modelId: "model_b", instanceIndex: 0, skillId: "signal_skeptic",
+            Agent(id: "model_b#0", modelId: "model_b", instanceIndex: 0, skillId: "signal_skeptic",
                    skillName: "Skeptic", purpose: .review),
-            Worker(id: "model_c#0", modelId: "model_c", instanceIndex: 0, skillId: "signal_project_fit",
+            Agent(id: "model_c#0", modelId: "model_c", instanceIndex: 0, skillId: "signal_project_fit",
                    skillName: "Project Fit", purpose: .answer)
         ]
         let answers = [

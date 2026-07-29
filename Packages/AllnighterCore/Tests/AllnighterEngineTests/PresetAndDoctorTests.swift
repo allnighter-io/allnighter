@@ -77,7 +77,7 @@ final class PresetAndDoctorTests: XCTestCase {
 
         let preset = PanelPreset(
             id: "p1", displayName: "My panel",
-            workerSpecs: [WorkerSpec(modelId: "model_opus"), WorkerSpec(modelId: "model_grok")],
+            workerSpecs: [ModelSpec(modelId: "model_opus"), ModelSpec(modelId: "model_grok")],
             synthesis: SynthesisConfig(analysisDepth: .separate, planWriterModelId: "model_opus", analysisProfileId: "plan_analysis_v1", planProfileId: "plan_writer_v1")
         )
         try store.save(preset)

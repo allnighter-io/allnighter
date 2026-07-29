@@ -66,7 +66,7 @@ final class CanonicalRepoRootInvariantTests: HermeticSupportTestCase {
 
         guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
 
-        // Worker CWD == canonical registered root.
+        // Agent CWD == canonical registered root.
         let cwds = recorder.recorded().compactMap { $0 }
         XCTAssertFalse(cwds.isEmpty, "the worker must have spawned")
         for cwd in cwds {

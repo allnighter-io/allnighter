@@ -56,7 +56,7 @@ final class ContractSchemaTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let run = TeamRun(
             id: "r1", prompt: "p", status: .complete, origin: .cli, presetId: "signal_outside",
-            workers: [Worker(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .plan)],
+            workers: [Agent(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .plan)],
             workerAnswers: [TeamAnswer(memberId: "w#0", modelId: "m", role: "plan",
                                        result: WorkerRunResult(status: .done, output: "x", timing: RunTiming(finishedAt: now)))],
             stages: [StageOutput(id: "s1", purpose: .plan, status: .done, payload: .plan(markdown: "md"))],

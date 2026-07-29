@@ -18,7 +18,7 @@ final class ProcessOwnershipStageLeaseTests: XCTestCase {
     private func nonTerminalRun(id: String, createdAt: Date = Date()) -> TeamRun {
         TeamRun(
             id: id, prompt: "p", status: .fanningOut,
-            workers: [Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
+            workers: [Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
             workerAnswers: [TeamAnswer(
                 memberId: "model_opus#0", modelId: "model_opus", role: "answer",
                 result: WorkerRunResult(status: .queued)

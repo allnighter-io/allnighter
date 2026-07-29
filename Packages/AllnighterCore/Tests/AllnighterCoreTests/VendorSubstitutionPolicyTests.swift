@@ -19,7 +19,7 @@ final class VendorSubstitutionPolicyTests: XCTestCase {
             phase: .waitingForVendor,
             presetId: TeamCatalog.defaultRunTeam()?.id,
             workers: [
-                Worker(
+                Agent(
                     id: "model_fable#0",
                     modelId: failedModelId,
                     instanceIndex: 0,

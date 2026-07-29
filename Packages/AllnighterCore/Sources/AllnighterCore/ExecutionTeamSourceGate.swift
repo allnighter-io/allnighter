@@ -64,7 +64,7 @@ public struct ExecutionTeamSourceGateResult: Sendable, Equatable {
 
 /// Deterministic source/driver facts for a resolved team snapshot.
 public enum TeamSourceFacts {
-    public static func resolvedSourceIds(workers: [Worker], models: [Model]) -> [String] {
+    public static func resolvedSourceIds(workers: [Agent], models: [Model]) -> [String] {
         let byModel = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let ids = workers.compactMap { byModel[$0.modelId]?.driverId }
         return Array(Set(ids)).sorted()

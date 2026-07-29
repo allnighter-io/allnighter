@@ -10,12 +10,12 @@ enum FloorReaderSample {
     static let run: TeamRun = {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let workers = [
-            Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, skillId: "insight_writer", skillName: "Lead", purpose: .plan),
-            Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0, skillId: "signal_source_reader", skillName: "Signal Scout", purpose: .answer),
-            Worker(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "signal_landscape_scanner", skillName: "Market Analyst", purpose: .answer),
-            Worker(id: "model_chatgpt#0", modelId: "model_chatgpt", instanceIndex: 0, skillId: "signal_product_ideas", skillName: "Build Strategist", purpose: .answer),
-            Worker(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0, skillId: "signal_product_ideas", skillName: "Copy Strategist", purpose: .answer),
-            Worker(id: "model_grok#1", modelId: "model_grok", instanceIndex: 1, skillId: "signal_skeptic", skillName: "Skeptic", purpose: .review),
+            Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, skillId: "insight_writer", skillName: "Lead", purpose: .plan),
+            Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0, skillId: "signal_source_reader", skillName: "Signal Scout", purpose: .answer),
+            Agent(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "signal_landscape_scanner", skillName: "Market Analyst", purpose: .answer),
+            Agent(id: "model_chatgpt#0", modelId: "model_chatgpt", instanceIndex: 0, skillId: "signal_product_ideas", skillName: "Build Strategist", purpose: .answer),
+            Agent(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0, skillId: "signal_product_ideas", skillName: "Copy Strategist", purpose: .answer),
+            Agent(id: "model_grok#1", modelId: "model_grok", instanceIndex: 1, skillId: "signal_skeptic", skillName: "Skeptic", purpose: .review),
         ]
         func answer(_ memberId: String, _ modelId: String, _ role: String, _ output: String) -> TeamAnswer {
             TeamAnswer(memberId: memberId, modelId: modelId, role: role,

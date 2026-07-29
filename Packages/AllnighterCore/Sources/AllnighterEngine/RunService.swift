@@ -954,8 +954,8 @@ public actor RunService {
         if preset.runShape == .execution {
             let autoResolved = invocation.autoResolved
             let explicitPin = invocation.explicitWorkerChosen || laneContextOnly
-            let provisionalWorker = Worker(
-                id: Worker.makeID(modelId: effectiveWorkerId ?? "unknown", instanceIndex: 0),
+            let provisionalWorker = Agent(
+                id: Agent.makeID(modelId: effectiveWorkerId ?? "unknown", instanceIndex: 0),
                 modelId: effectiveWorkerId ?? "unknown",
                 instanceIndex: 0,
                 skillId: "first_principles_builder",
@@ -1174,7 +1174,7 @@ public actor RunService {
             }
         }
 
-        let worker: Worker
+        let worker: Agent
         var model: Model
         // A pinned worker (workerOverride) still needs the TEAM's intended skill, but
         // `resolved.answerWorkers` only contains rows that found a READY model — a
@@ -1197,8 +1197,8 @@ public actor RunService {
                         "\(override) is no longer an enabled runnable CLI"
                     ))
                 }
-                worker = Worker(
-                    id: Worker.makeID(modelId: m.id, instanceIndex: 0),
+                worker = Agent(
+                    id: Agent.makeID(modelId: m.id, instanceIndex: 0),
                     modelId: m.id,
                     instanceIndex: 0,
                     skillId: declaredAnswerSkillId,
@@ -1219,8 +1219,8 @@ public actor RunService {
                             "\(override) is not a runnable CLI — pick a ready worker; see `alln models` / `alln doctor`."
                         ))
                     }
-                    worker = Worker(
-                        id: Worker.makeID(modelId: m.id, instanceIndex: 0),
+                    worker = Agent(
+                        id: Agent.makeID(modelId: m.id, instanceIndex: 0),
                         modelId: m.id,
                         instanceIndex: 0,
                         skillId: declaredAnswerSkillId,
@@ -1310,7 +1310,7 @@ public actor RunService {
                 TeamAnswer(
                     memberId: worker.id,
                     modelId: model.id,
-                    role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                    role: worker.purpose?.rawValue ?? AgentStage.answer.rawValue,
                     result: WorkerRunResult(status: .running)
                 )
             ]
@@ -1337,7 +1337,7 @@ public actor RunService {
                 presetId: preset.id, workers: [worker],
                 workerAnswers: [TeamAnswer(
                     memberId: worker.id, modelId: model.id,
-                    role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                    role: worker.purpose?.rawValue ?? AgentStage.answer.rawValue,
                     result: WorkerRunResult(status: .running)
                 )],
                 createdAt: startedAt, lane: effectiveLane, effort: effort,
@@ -1593,7 +1593,7 @@ public actor RunService {
             let answer = TeamAnswer(
                 memberId: worker.id,
                 modelId: model.id,
-                role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                role: worker.purpose?.rawValue ?? AgentStage.answer.rawValue,
                 result: outcome,
                 queueMs: queueMs
             )
@@ -1758,7 +1758,7 @@ public actor RunService {
             return max(0, Int(startedAt.timeIntervalSince(requestedAt) * 1000))
         }()
         let answer = TeamAnswer(
-            memberId: worker.id, modelId: model.id, role: worker.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+            memberId: worker.id, modelId: model.id, role: worker.purpose?.rawValue ?? AgentStage.answer.rawValue,
             result: outcome, queueMs: queueMs
         )
         var workerPayload: [String: JSONValue] = [
@@ -1987,8 +1987,8 @@ public actor RunService {
                 let skillName = resolvedMut.answerWorkers.first?.skillName
                 // Same roster seat as before the pin — only the model changes.
                 let agentId = resolvedMut.answerWorkers.first?.agentId
-                let pinned = Worker(
-                    id: Worker.makeID(modelId: m.id, instanceIndex: 0),
+                let pinned = Agent(
+                    id: Agent.makeID(modelId: m.id, instanceIndex: 0),
                     modelId: m.id,
                     instanceIndex: 0,
                     skillId: skillId,

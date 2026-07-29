@@ -23,7 +23,7 @@ import AppKit
             IconButton(systemImage: "gearshape", accessibilityLabel: "Settings") {}
         }
         SegmentedTabs(items: [.init(id: "plan", label: "Plan"),
-                              .init(id: "members", label: "Worker answers", count: 6)],
+                              .init(id: "members", label: "Agent answers", count: 6)],
                       selection: .constant("plan"))
         VStack(spacing: 8) {
             WorkerChip(name: "Opus 5", model: "via claude-code", driverId: "claude_code",

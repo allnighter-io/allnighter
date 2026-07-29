@@ -76,7 +76,7 @@ public actor CatalogRunCoordinator {
             presetId: resolved.teamPresetId,
             workers: resolved.allWorkers,
             workerAnswers: seeded.map {
-                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? AgentStage.answer.rawValue,
                           result: WorkerRunResult(status: .queued))
             },
             createdAt: now(),
@@ -132,7 +132,7 @@ public actor CatalogRunCoordinator {
 
         // Stage 2 — review workers run after answers and may see them.
         if !resolved.reviewWorkers.isEmpty {
-            let reviewPrompt = downstreamPrompt + "\n\n# Worker answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
+            let reviewPrompt = downstreamPrompt + "\n\n# Agent answers so far\n\n" + answersBlock(answers, workers: resolved.answerWorkers)
             let (reviews, reviewSnapshots) = await runWorkers(
                 resolved.reviewWorkers, prompt: reviewPrompt, effort: resolved.effort,
                 modelByID: modelByID, run: &run, repoRoot: repoRoot, deliveries: deliveries,
@@ -222,7 +222,7 @@ public actor CatalogRunCoordinator {
     // MARK: - Stages
 
     private func runWorkers(
-        _ workers: [Worker],
+        _ workers: [Agent],
         prompt: String,
         effort: EffortLevel,
         modelByID: [String: Model],
@@ -254,7 +254,7 @@ public actor CatalogRunCoordinator {
             for worker in workers {
                 let model = modelByID[worker.modelId]
                 let manifest = model.flatMap { registry.manifest(for: $0) }
-                let role = worker.purpose?.rawValue ?? WorkerStage.answer.rawValue
+                let role = worker.purpose?.rawValue ?? AgentStage.answer.rawValue
                 let founderPrompt = workerPrompts?[worker.id] ?? prompt
                 let baseWorkerPrompt = SkillCatalog.assemblePrompt(
                     skillId: worker.skillId,
@@ -369,7 +369,7 @@ public actor CatalogRunCoordinator {
     }
 
     private func runWriter(
-        _ writer: Worker,
+        _ writer: Agent,
         resolved: ResolvedTeamRun,
         run: TeamRun,
         basePrompt: String,
@@ -377,13 +377,13 @@ public actor CatalogRunCoordinator {
         repoRoot: String?,
         team: TeamPreset? = nil,
         reseatPool: [Model] = []
-    ) async -> (stage: StageOutput, promptSnapshot: String?, writer: Worker) {
+    ) async -> (stage: StageOutput, promptSnapshot: String?, writer: Agent) {
         let stageId = idFactory()
         let startedAt = now()
         emitStage(RunEventKind.stageStarted, runId: run.id, stageId: stageId, workerId: writer.id)
         var writer = writer
 
-        func fail(_ reason: String) -> (StageOutput, String?, Worker) {
+        func fail(_ reason: String) -> (StageOutput, String?, Agent) {
             emitStage(RunEventKind.stageFailed, runId: run.id, stageId: stageId, workerId: writer.id)
             return (StageOutput(id: stageId, purpose: .plan, producedByWorkerId: writer.id,
                                promptProfileId: writer.skillId, status: .failed,
@@ -441,7 +441,7 @@ public actor CatalogRunCoordinator {
 
     // MARK: - Prompt assembly
 
-    private func answersBlock(_ answers: [TeamAnswer], workers: [Worker]) -> String {
+    private func answersBlock(_ answers: [TeamAnswer], workers: [Agent]) -> String {
         let nameById = Dictionary(workers.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         return answers.map { a in
             let w = nameById[a.memberId]
@@ -461,7 +461,7 @@ public actor CatalogRunCoordinator {
         let answers = run.workerAnswers.filter { answerIds.contains($0.memberId) }
         let reviews = run.workerAnswers.filter { reviewIds.contains($0.memberId) }
         // basePrompt carries the scout-distilled source so the Lead sees it too.
-        var parts = [basePrompt, "# Worker answers\n\n" + answersBlock(answers, workers: resolved.answerWorkers)]
+        var parts = [basePrompt, "# Agent answers\n\n" + answersBlock(answers, workers: resolved.answerWorkers)]
         if !reviews.isEmpty {
             parts.append("# Reviews\n\n" + answersBlock(reviews, workers: resolved.reviewWorkers))
         }

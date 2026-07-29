@@ -11,11 +11,11 @@ final class FloorProjectorTests: XCTestCase {
 
     private func signalRun(status: RunStatus = .complete) -> TeamRun {
         let workers = [
-            Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
+            Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
                    skillId: "signal_source_reader", skillName: "Source Reader", purpose: .answer),
-            Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
+            Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
                    skillId: "signal_skeptic", skillName: "Signal Skeptic", purpose: .review),
-            Worker(id: "model_opus#1", modelId: "model_opus", instanceIndex: 1,
+            Agent(id: "model_opus#1", modelId: "model_opus", instanceIndex: 1,
                    skillId: "insight_writer", skillName: "Insight Writer", purpose: .plan)
         ]
         let answers = [
@@ -123,7 +123,7 @@ final class FloorProjectorTests: XCTestCase {
         var run = signalRun(status: .planning)
         run.workerAnswers = [TeamAnswer(memberId: "w#0", modelId: "m", role: "answer",
                                         result: WorkerRunResult(status: .running, timing: RunTiming(startedAt: now)))]
-        run.workers = [Worker(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .answer)]
+        run.workers = [Agent(id: "w#0", modelId: "m", instanceIndex: 0, purpose: .answer)]
         run.stages = []
         let floor = FloorProjector.project(run)
         let kinds = floor.timeline.map(\.kind)

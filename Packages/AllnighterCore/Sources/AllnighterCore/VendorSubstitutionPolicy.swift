@@ -44,7 +44,7 @@ public enum VendorSubstitutionPolicy {
         return RunSelectionOrigin.auto
     }
 
-    public static func teamHasDeclaredFallbacks(worker: Worker, team: TeamPreset) -> Bool {
+    public static func teamHasDeclaredFallbacks(worker: Agent, team: TeamPreset) -> Bool {
         let chain = SeatReseat.chain(for: worker, team: team, isLead: false)
         if !chain.fallbacks.isEmpty { return true }
         return chain.policy != .exactOnly

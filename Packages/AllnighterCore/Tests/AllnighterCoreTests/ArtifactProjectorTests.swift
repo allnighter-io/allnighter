@@ -10,11 +10,11 @@ final class ArtifactProjectorTests: XCTestCase {
     status: RunStatus = .complete
   ) -> TeamRun {
     let workers = [
-      Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
+      Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
              skillId: "reader", skillName: "Reader", purpose: .answer),
-      Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
+      Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
              skillId: "skeptic", skillName: "Skeptic", purpose: .review),
-      Worker(id: "model_opus#1", modelId: "model_opus", instanceIndex: 1,
+      Agent(id: "model_opus#1", modelId: "model_opus", instanceIndex: 1,
              skillId: "lead", skillName: "Lead", purpose: .plan),
     ]
     let answers = [
@@ -89,9 +89,9 @@ final class ArtifactProjectorTests: XCTestCase {
 
   func testWriterReviewerLineNilWithoutReviewStageWorker() {
     let workers = [
-      Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
+      Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
              skillId: "reader", skillName: "Reader", purpose: .answer),
-      Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
+      Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
              skillId: "lead", skillName: "Lead", purpose: .plan),
     ]
     let answers = [
@@ -151,7 +151,7 @@ final class ArtifactProjectorTests: XCTestCase {
 
     Longer craft evidence stays below.
     """
-    let worker = Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0,
+    let worker = Agent(id: "model_a#0", modelId: "model_a", instanceIndex: 0,
                         skillId: "hierarchy_sculptor", skillName: "Hierarchy Sculptor",
                         purpose: .answer)
     let run = TeamRun(
@@ -188,7 +188,7 @@ final class ArtifactProjectorTests: XCTestCase {
   }
 
   func testMockupImageOpensLightboxNotEvidence() {
-    let worker = Worker(id: "model_k3#0", modelId: "model_k3", instanceIndex: 0,
+    let worker = Agent(id: "model_k3#0", modelId: "model_k3", instanceIndex: 0,
                         skillId: "visual_system_designer", skillName: "Visual System Designer",
                         purpose: .answer)
     let board = BoardPayload(targetShape: .desktop, options: [
@@ -228,7 +228,7 @@ final class ArtifactProjectorTests: XCTestCase {
   }
 
   func testNoSeatFenceMeansBlankOneLiner() {
-    let worker = Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0,
+    let worker = Agent(id: "model_a#0", modelId: "model_a", instanceIndex: 0,
                         skillId: "hierarchy_sculptor", skillName: "Hierarchy Sculptor",
                         purpose: .answer)
     let run = TeamRun(
@@ -252,7 +252,7 @@ final class ArtifactProjectorTests: XCTestCase {
     ### Mockup
     Real craft with a proper space after periods. Next sentence is fine.
     """
-    let worker = Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0,
+    let worker = Agent(id: "model_a#0", modelId: "model_a", instanceIndex: 0,
                         skillId: "visual_system_designer", skillName: "Visual System Designer",
                         purpose: .answer)
     let run = TeamRun(
@@ -293,8 +293,8 @@ final class ArtifactProjectorTests: XCTestCase {
   }
 
   func testLaw2SingleSeatHoistUsesAnswerMarkdownOnChip() {
-    // Worker row empty (Law-2 nulled); markdown lives on the synthesized answer via plan.
-    let worker = Worker(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0,
+    // Agent row empty (Law-2 nulled); markdown lives on the synthesized answer via plan.
+    let worker = Agent(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0,
                         skillId: "lead", skillName: "Lead", purpose: .plan)
     let answers = [
       TeamAnswer(memberId: "model_sonnet#0", modelId: "model_sonnet", role: "plan",
@@ -381,7 +381,7 @@ final class ArtifactProjectorTests: XCTestCase {
   }
 
   func testCallFallbackWhenNoLeadCallOrBody() {
-    let worker = Worker(id: "model_a#0", modelId: "model_a", instanceIndex: 0, purpose: .answer)
+    let worker = Agent(id: "model_a#0", modelId: "model_a", instanceIndex: 0, purpose: .answer)
     let run = TeamRun(
       id: "run_empty", prompt: "Empty?", status: .failed,
       workers: [worker],
@@ -412,7 +412,7 @@ final class ArtifactProjectorTests: XCTestCase {
   }
 
   func testLeadSeatNotQueuedWhenAnswerHoisted() {
-    let worker = Worker(id: "model_opus#1", modelId: "model_opus", instanceIndex: 1,
+    let worker = Agent(id: "model_opus#1", modelId: "model_opus", instanceIndex: 1,
                         skillId: "lead", skillName: "Lead", purpose: .plan)
     let answers = [
       TeamAnswer(memberId: "model_opus#1", modelId: "model_opus", role: "plan",
@@ -450,8 +450,8 @@ final class ArtifactProjectorTests: XCTestCase {
 
   func testScoutExcludedFromSeatSet() {
     let workers = [
-      Worker(id: "scout#0", modelId: "model_grok", instanceIndex: 0, purpose: .scout),
-      Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, purpose: .answer),
+      Agent(id: "scout#0", modelId: "model_grok", instanceIndex: 0, purpose: .scout),
+      Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, purpose: .answer),
     ]
     let run = TeamRun(
       id: "run_scout", prompt: "x", status: .done, workers: workers,

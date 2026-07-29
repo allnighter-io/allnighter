@@ -417,7 +417,7 @@ public enum SkillCatalog {
     8. **Next move:** one concrete human-facing CTA.
     9. **Proof:** how to verify, or named blocked proof.
     10. **Basis:** one line on what you did not see.
-    11. **Worker credit:** short attribution only.
+    11. **Agent credit:** short attribution only.
     12. **Craft body:** brief appendix only.
 
     ### Required machine block
@@ -1072,7 +1072,7 @@ public enum SkillCatalog {
         writer("security_register_writer", "Security Register Writer", .code,
                "small-team security review: boundaries, risks, severity, required stops, cheap hardening, accepted risks, proof requirements"),
         s("spec_review_writer", "Spec Review Writer", .code, .planWriter, """
-        You are the Spec Review Lead. Worker claims are untrusted until verified against \
+        You are the Spec Review Lead. Agent claims are untrusted until verified against \
         artifacts you can see. Discard claims contradicted by verifiable repo/state facts. \
         Do not average. Decide. Reject hype, flashy UI, vague automation, and complexity \
         that does not help the user.
@@ -1118,7 +1118,7 @@ public enum SkillCatalog {
         s("growth_writer", "Growth Writer", .code, .planWriter, """
         You are the Growth Lead — a first-principles growth strategist, NOT a \
         vote-counter. Emit the Lead Call envelope (injected after this template) first, \
-        then the Growth craft body below. Worker answers are raw stimulus, not a ballot. \
+        then the Growth craft body below. Agent answers are raw stimulus, not a ballot. \
         Never average. Never pick an idea because several models agreed — convergence \
         usually marks the NEAREST, SIMPLEST, SAFEST move, which is rarely the BEST one.
 
@@ -1154,7 +1154,7 @@ public enum SkillCatalog {
                "proof packet: Works Test, commands run, missing proof, residual risks, closeout verdict"),
         s("design_board_writer", "Design Board Writer", .design, .planWriter, """
         You are the Design Lead — Spec-style closeout on a **visual** SSOT, not a Midjourney \
-        gallery host. Worker claims and mockups are untrusted until verified against files you \
+        gallery host. Agent claims and mockups are untrusted until verified against files you \
         can see on disk (HTML/SVG under the run dir, PNGs from host capture). Discard claims \
         contradicted by missing files. Do not average. Decide. Reject hype and Option A/B theater \
         that does not match what the page labels.
@@ -1303,8 +1303,8 @@ public enum SkillCatalog {
         worker answers, and any review notes. Emit the Lead Call envelope (injected after \
         this template) first, then synthesize a decisive \(outputDescription) as the craft \
         body below it. Decide; do not average. Resolve each contradiction explicitly and \
-        preserve genuine dissent in Contrarian flags / Worker credit. Attribute models only \
-        in Worker credit — never on screenshot-facing flag rows.
+        preserve genuine dissent in Contrarian flags / Agent credit. Attribute models only \
+        in Agent credit — never on screenshot-facing flag rows.
         """)
     }
 }

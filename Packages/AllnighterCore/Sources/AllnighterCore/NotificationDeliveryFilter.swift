@@ -84,18 +84,18 @@ public enum NotificationCopy {
                 resumedAt: candidate.occurredAt
             )
         case .turnCompleted:
-            let who = workerDisplayName ?? "Worker"
+            let who = workerDisplayName ?? "Agent"
             return "\(who) replied in \(quoted)"
         case .teamRunCompleted:
             return "Team run complete: \(quoted)"
         case .turnFailed, .threadNeedsAttention:
-            return "\(workerDisplayName ?? "Worker") needs attention in \(quoted)"
+            return "\(workerDisplayName ?? "Agent") needs attention in \(quoted)"
         case .turnTimedOut:
             return "Timed out in \(quoted)"
         case .turnAwaitingManualPaste:
             return "Paste required in \(quoted)"
         case .turnAuthRequired:
-            return "\(workerDisplayName ?? "Worker") needs sign-in"
+            return "\(workerDisplayName ?? "Agent") needs sign-in"
         case .relayNeedsAnswer:
             return "PM Relay needs an answer"
         case .relayStopped:
@@ -124,7 +124,7 @@ public enum NotificationCopy {
         case .relayStopped:
             return "Check the relay's final state."
         case .relayStreamStalled:
-            return "Worker output has been silent — inspect with `alln pair pilot status` or `alln ps`."
+            return "Agent output has been silent — inspect with `alln pair pilot status` or `alln ps`."
         }
     }
 

@@ -51,7 +51,7 @@ final class RunExplicitSeatTests: XCTestCase {
         ])
         XCTAssertTrue(invocation.canStart)
         let json = invocation.makeDryRunJSON()
-        let crew = json.seats?.filter { $0.stage == WorkerStage.answer.rawValue } ?? []
+        let crew = json.seats?.filter { $0.stage == AgentStage.answer.rawValue } ?? []
         XCTAssertEqual(crew.map(\.modelId), [
             "model_chatgpt", "model_grok", "model_cursor_composer_25"
         ])

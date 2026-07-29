@@ -111,7 +111,7 @@ public enum DissentPolicy: String, Codable, Sendable, CaseIterable {
 // MARK: - Team worker row
 
 /// One worker row in a lane-scoped team. References a `skillId`; resolved against
-/// the ready bench at run start into one or more `Worker`s (self-fusion when one
+/// the ready bench at run start into one or more `Agent`s (self-fusion when one
 /// model fills several rows). `count > 1` makes multiple workers with the same
 /// skill and distinct `instanceIndex`.
 public struct TeamAgentSpec: Codable, Sendable, Equatable, Identifiable {

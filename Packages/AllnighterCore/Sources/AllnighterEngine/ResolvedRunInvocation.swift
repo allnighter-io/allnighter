@@ -536,7 +536,7 @@ public enum RunInvocationResolver {
             warnings.append("repo write lock is currently held")
         }
 
-        // --- Worker ---
+        // --- Agent ---
         var workerId: String? = nil
         var autoResolved = false
 
@@ -603,10 +603,10 @@ public enum RunInvocationResolver {
                 let skillId = teamResolved.answerWorkers.first?.skillId
                 seats = [
                     ResolvedRunSeat(
-                        workerId: Worker.makeID(modelId: modelId, instanceIndex: 0),
+                        workerId: Agent.makeID(modelId: modelId, instanceIndex: 0),
                         modelId: modelId,
                         skillId: skillId,
-                        purpose: WorkerStage.answer.rawValue,
+                        purpose: AgentStage.answer.rawValue,
                         sourceId: context.models.first { $0.id == modelId }?.driverId
                     )
                 ]
@@ -625,10 +625,10 @@ public enum RunInvocationResolver {
             let skillId = teamResolved.answerWorkers.first?.skillId
             seats = [
                 ResolvedRunSeat(
-                    workerId: Worker.makeID(modelId: pinnedId, instanceIndex: 0),
+                    workerId: Agent.makeID(modelId: pinnedId, instanceIndex: 0),
                     modelId: pinnedId,
                     skillId: skillId,
-                    purpose: WorkerStage.answer.rawValue,
+                    purpose: AgentStage.answer.rawValue,
                     sourceId: context.models.first { $0.id == pinnedId }?.driverId
                 )
             ]

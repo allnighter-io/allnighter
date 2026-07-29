@@ -11,9 +11,9 @@ final class LiveArtifactProjectorTests: XCTestCase {
 
   private func teamRun() -> TeamRun {
     let workers = [
-      Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
+      Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
              skillId: "reader", skillName: "Reader", purpose: .answer),
-      Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
+      Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
              skillId: "lead", skillName: "Lead", purpose: .plan),
     ]
     let answers = workers.map {

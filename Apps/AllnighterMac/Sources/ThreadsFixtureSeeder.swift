@@ -389,11 +389,11 @@ struct ThreadsFixtureSeeder {
         let picks = models.filter { $0.enabled }.prefix(2)
         let m0 = picks.first?.id ?? "model_opus"
         let m1 = picks.dropFirst().first?.id ?? "model_grok"
-        let w0 = Worker(id: Worker.makeID(modelId: m0, instanceIndex: 0), modelId: m0,
+        let w0 = Agent(id: Agent.makeID(modelId: m0, instanceIndex: 0), modelId: m0,
                         instanceIndex: 0, skillId: "answer", skillName: "Answer", purpose: .answer)
-        let w1 = Worker(id: Worker.makeID(modelId: m1, instanceIndex: 0), modelId: m1,
+        let w1 = Agent(id: Agent.makeID(modelId: m1, instanceIndex: 0), modelId: m1,
                         instanceIndex: 0, skillId: "answer", skillName: "Answer", purpose: .answer)
-        let writer = Worker(id: Worker.makeID(modelId: m0, instanceIndex: 1), modelId: m0,
+        let writer = Agent(id: Agent.makeID(modelId: m0, instanceIndex: 1), modelId: m0,
                             instanceIndex: 1, skillId: "plan_writer", skillName: "Plan writer", purpose: .plan)
 
         var run = TeamRun(
@@ -445,12 +445,12 @@ struct ThreadsFixtureSeeder {
 
         var run = TeamRun(id: "fixture-mutating-run-run", prompt: "Add retry to the upload client",
                           status: .complete, origin: .gui,
-                          workers: [Worker(id: Worker.makeID(modelId: workerId, instanceIndex: 0),
+                          workers: [Agent(id: Agent.makeID(modelId: workerId, instanceIndex: 0),
                                            modelId: workerId, instanceIndex: 0,
                                            skillId: "first_principles_builder", purpose: .answer)],
                           workerAnswers: [
                               TeamAnswer(
-                                  memberId: Worker.makeID(modelId: workerId, instanceIndex: 0),
+                                  memberId: Agent.makeID(modelId: workerId, instanceIndex: 0),
                                   modelId: workerId, role: "answer",
                                   result: WorkerRunResult(status: .done,
                                      output: "Added exponential backoff (3 attempts, jitter) to `UploadClient.send`. Updated tests: `UploadClientTests.testRetriesOnTransient` passes. Ran `swift test` — 42 passing.")
@@ -614,9 +614,9 @@ struct ThreadsFixtureSeeder {
         _ = try? store.create(id: id, title: "Profile screen options", now: Date())
         let m0 = models.first?.id ?? "model_grok"
         let m1 = models.dropFirst().first?.id ?? "model_gemini"
-        let w0 = Worker(id: Worker.makeID(modelId: m0, instanceIndex: 0), modelId: m0,
+        let w0 = Agent(id: Agent.makeID(modelId: m0, instanceIndex: 0), modelId: m0,
                         instanceIndex: 0, skillId: "bold", skillName: "Bold", purpose: .answer)
-        let w1 = Worker(id: Worker.makeID(modelId: m1, instanceIndex: 0), modelId: m1,
+        let w1 = Agent(id: Agent.makeID(modelId: m1, instanceIndex: 0), modelId: m1,
                         instanceIndex: 0, skillId: "minimal", skillName: "Minimal", purpose: .answer)
         let runId = "fixture-design-run"
         do {

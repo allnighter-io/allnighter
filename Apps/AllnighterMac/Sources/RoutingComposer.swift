@@ -193,7 +193,7 @@ struct RoutingComposer: View {
     @State private var adoptedContextId: UUID?
     /// Which form the route popover shows — never both at once.
     // Model is the default (the 95% case: chat with a model); Team is the deliberate
-    // "delegate to a team" choice. "Model" reads clearer than the old "Worker".
+    // "delegate to a team" choice. "Model" reads clearer than the old "Agent".
     @State private var targetTab: TargetTab = .model
     enum TargetTab { case model, team }
 
@@ -1074,7 +1074,7 @@ struct RoutingComposer: View {
         }
     }
 
-    // One toggle, two forms — Team OR Worker. Lightened from the boxed segmented control
+    // One toggle, two forms — Team OR Agent. Lightened from the boxed segmented control
     // to two quiet text tabs (no outer track/border); the selected one carries a subtle
     // pill. The WHOLE tab is the hit target — `Color.clear` isn't hit-tested, so without
     // an explicit `contentShape` only the glyph was tappable.

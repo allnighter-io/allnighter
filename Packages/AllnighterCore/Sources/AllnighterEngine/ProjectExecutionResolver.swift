@@ -2,7 +2,7 @@ import Foundation
 import AllnighterCore
 
 /// PRJ-S06: resolves the single Project root that a mutating run must use
-/// and evaluates the deterministic dirty-state mutation gate. Worker cwd,
+/// and evaluates the deterministic dirty-state mutation gate. Agent cwd,
 /// proof cwd, and the attachment mirror all derive from this one root — never an
 /// ad hoc `workingDir`. Read-only: it observes the root and git state, never
 /// mutating either.

@@ -144,7 +144,7 @@ public enum RelayDevPrompt {
         public var handover: String
         public var docPath: String
         public var roundNumber: Int
-        /// Worker display name for the provenance trailer (FR4).
+        /// Agent display name for the provenance trailer (FR4).
         public var workerDisplayName: String
 
         public init(handover: String, docPath: String, roundNumber: Int, workerDisplayName: String) {

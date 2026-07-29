@@ -25,10 +25,10 @@ public struct ResolvedTeamRun: Sendable, Equatable {
     public var mutating: Bool
     public var effort: EffortLevel
     /// Optional Stage-0 scout that runs first and distills the source for the crew.
-    public var scoutWorker: Worker?
-    public var answerWorkers: [Worker]
-    public var reviewWorkers: [Worker]
-    public var planWriter: Worker?
+    public var scoutWorker: Agent?
+    public var answerWorkers: [Agent]
+    public var reviewWorkers: [Agent]
+    public var planWriter: Agent?
     /// How the output writer treats disagreement (from the synthesis policy).
     public var dissentPolicy: DissentPolicy
     public var disabledRows: [DisabledRow]
@@ -42,7 +42,7 @@ public struct ResolvedTeamRun: Sendable, Equatable {
     public var executionSourceId: String? = nil
 
     /// Scout + answer + review + plan-writer, in execution order.
-    public var allWorkers: [Worker] {
+    public var allWorkers: [Agent] {
         (scoutWorker.map { [$0] } ?? []) + answerWorkers + reviewWorkers + (planWriter.map { [$0] } ?? [])
     }
 
@@ -50,8 +50,8 @@ public struct ResolvedTeamRun: Sendable, Equatable {
         teamPresetId: String, teamDisplayName: String, lane: WorkLane,
         outputKind: TeamOutputKind, mutating: Bool = false,
         effort: EffortLevel,
-        scoutWorker: Worker? = nil,
-        answerWorkers: [Worker] = [], reviewWorkers: [Worker] = [], planWriter: Worker? = nil,
+        scoutWorker: Agent? = nil,
+        answerWorkers: [Agent] = [], reviewWorkers: [Agent] = [], planWriter: Agent? = nil,
         dissentPolicy: DissentPolicy = .preserveDissent,
         disabledRows: [DisabledRow] = [], warnings: [String] = [],
         isRunnable: Bool = false, blockReason: String? = nil,
@@ -100,7 +100,7 @@ public enum TeamResolver {
         let answerRows = active.filter { $0.purpose == .answer }
         let reviewRows = active.filter { $0.purpose == .review }
 
-        // Resolve the Lead first. Worker rows avoid the model that actually won
+        // Resolve the Lead first. Agent rows avoid the model that actually won
         // Lead resolution when alternatives exist; this also works when the Lead
         // came from an ordered cross-source fallback chain.
         let lead = team.lead
@@ -136,14 +136,14 @@ public enum TeamResolver {
         var diversityUsed: Set<String> = []
 
         func makeWorker(
-            _ model: Model, row: TeamAgentSpec, skillName: String, stage: WorkerStage,
+            _ model: Model, row: TeamAgentSpec, skillName: String, stage: AgentStage,
             seatingReason: String? = nil
-        ) -> Worker {
+        ) -> Agent {
             let index = nextIndex[model.id, default: 0]
             nextIndex[model.id] = index + 1
             let substitutedFrom = row.preferredModelId.flatMap { $0 != model.id ? $0 : nil }
-            return Worker(
-                id: Worker.makeID(modelId: model.id, instanceIndex: index),
+            return Agent(
+                id: Agent.makeID(modelId: model.id, instanceIndex: index),
                 modelId: model.id, instanceIndex: index,
                 skillId: row.skillId, skillName: skillName, purpose: stage,
                 substitutedFromModelId: substitutedFrom,
@@ -176,7 +176,7 @@ public enum TeamResolver {
         }
 
         // Stage 0 scout runs before the crew and seeds diversity sets.
-        var scoutWorker: Worker?
+        var scoutWorker: Agent?
         if let scoutSpec = team.scout {
             let scoutSkillName = skill(scoutSpec.skillId)?.displayName ?? scoutSpec.skillId
             if let model = selectModel(
@@ -198,8 +198,8 @@ public enum TeamResolver {
             }
         }
 
-        func resolveRows(_ rows: [TeamAgentSpec], stage: WorkerStage) -> [Worker] {
-            var workers: [Worker] = []
+        func resolveRows(_ rows: [TeamAgentSpec], stage: AgentStage) -> [Agent] {
+            var workers: [Agent] = []
             for row in rows {
                 let skillName = skill(row.skillId)?.displayName ?? row.skillId
                 let want = max(1, row.count)
@@ -262,7 +262,7 @@ public enum TeamResolver {
         // Rule 9: the mandatory Team Lead (synthesizer) — exactly one worker, from
         // `team.lead` (effort-independent). Resolves its model by name like a row.
         result.dissentPolicy = lead.dissentPolicy
-        var planWriter: Worker?
+        var planWriter: Agent?
         if let pick = selectModel(
             preferredModelId: lead.preferredModelId,
             fallbackModelIds: lead.fallbackModelIds ?? [],
@@ -277,8 +277,8 @@ public enum TeamResolver {
             // `lead` is a `TeamLeadSpec`, not a `TeamAgentSpec` roster row — it has
             // no `id`, so the plan writer has no roster seat to inherit. Leave
             // `agentId` nil rather than inventing one.
-            planWriter = Worker(
-                id: Worker.makeID(modelId: pick.model.id, instanceIndex: index),
+            planWriter = Agent(
+                id: Agent.makeID(modelId: pick.model.id, instanceIndex: index),
                 modelId: pick.model.id, instanceIndex: index,
                 skillId: lead.skillId,
                 skillName: leadSkill?.displayName ?? lead.skillId,

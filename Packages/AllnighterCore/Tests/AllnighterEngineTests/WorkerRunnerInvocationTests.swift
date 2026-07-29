@@ -15,7 +15,7 @@ final class WorkerRunnerInvocationTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url) }
         let store = SetupStore(fileURL: url)
         let assembled = TeamAssembler.Assembled(
-            benchModelIds: ["model_opus"], workerSpecs: [WorkerSpec(modelId: "model_opus")],
+            benchModelIds: ["model_opus"], workerSpecs: [ModelSpec(modelId: "model_opus")],
             planWriterModelId: "model_opus", assembledAt: Date(timeIntervalSince1970: 0))
         try store.save(.init(records: [], setupCompletedAt: nil, assembledTeam: assembled))
         XCTAssertEqual(store.load().assembledTeam, assembled)

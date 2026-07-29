@@ -6,7 +6,7 @@ public enum TeamExplicitSeats {
 
     public struct CrewSlot: Sendable, Equatable {
         public var row: TeamAgentSpec
-        public var stage: WorkerStage
+        public var stage: AgentStage
         public var slotIndex: Int
     }
 
@@ -18,7 +18,7 @@ public enum TeamExplicitSeats {
         var slots: [CrewSlot] = []
         var index = 0
         for row in team.agentSpecs {
-            let stage: WorkerStage = row.purpose == .review ? .review : .answer
+            let stage: AgentStage = row.purpose == .review ? .review : .answer
             let want = max(1, row.count)
             for _ in 0..<want {
                 slots.append(CrewSlot(row: row, stage: stage, slotIndex: index))
@@ -96,8 +96,8 @@ public enum TeamExplicitSeats {
         let readyIds = Set(readyModels.filter(\.enabled).map(\.id))
         let slots = expandedCrewSlots(team: team)
         var nextIndex: [String: Int] = [:]
-        var answerWorkers: [Worker] = []
-        var reviewWorkers: [Worker] = []
+        var answerWorkers: [Agent] = []
+        var reviewWorkers: [Agent] = []
 
         for (offset, slot) in slots.enumerated() {
             let modelId = seatModelIds[offset]
@@ -125,8 +125,8 @@ public enum TeamExplicitSeats {
             let skillName = skill(slot.row.skillId)?.displayName ?? slot.row.skillId
             let instance = nextIndex[modelId, default: 0]
             nextIndex[modelId] = instance + 1
-            let worker = Worker(
-                id: Worker.makeID(modelId: modelId, instanceIndex: instance),
+            let worker = Agent(
+                id: Agent.makeID(modelId: modelId, instanceIndex: instance),
                 modelId: modelId,
                 instanceIndex: instance,
                 skillId: slot.row.skillId,

@@ -125,7 +125,7 @@ public enum AllnighterPaths {
     /// processes. Setup/health probes must NOT inherit the repo or app-bundle
     /// CWD: in dev that is the checkout under `~/Documents`, so a child CLI that
     /// reads its working dir trips a TCC prompt attributed to the GUI app.
-    /// (Launch Authority TCC hotfix, slice H3.) Worker/repo runs keep their
+    /// (Launch Authority TCC hotfix, slice H3.) Agent/repo runs keep their
     /// own explicit working dirs; this is only for setup/health probes.
     public static var probeScratch: URL {
         support.appendingPathComponent("ProbeScratch", isDirectory: true)

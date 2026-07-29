@@ -32,9 +32,9 @@ final class TeamRunAttachmentDeliveryTests: XCTestCase {
         ])
         let coord = CatalogRunCoordinator(workerRunner: runner, registry: registry, idFactory: { UUID().uuidString })
 
-        let visionW = Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, skillId: nil, purpose: .answer)
-        let blindW = Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0, skillId: nil, purpose: .answer)
-        let writer = Worker(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "insight_writer", purpose: .plan)
+        let visionW = Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, skillId: nil, purpose: .answer)
+        let blindW = Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0, skillId: nil, purpose: .answer)
+        let writer = Agent(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "insight_writer", purpose: .plan)
         let resolved = ResolvedTeamRun(
             teamPresetId: "t", teamDisplayName: "Bug Hunt", lane: .code, outputKind: .plan,
             effort: .med, scoutWorker: nil, answerWorkers: [visionW, blindW], planWriter: writer, isRunnable: true)
@@ -73,9 +73,9 @@ final class TeamRunAttachmentDeliveryTests: XCTestCase {
             TestSupport.headlessManifest(id: "antigravity", command: "gemini")
         ])
         let coord = CatalogRunCoordinator(workerRunner: runner, registry: registry, idFactory: { UUID().uuidString })
-        let visionW = Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, skillId: nil, purpose: .answer)
-        let blindW = Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0, skillId: nil, purpose: .answer)
-        let writer = Worker(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "insight_writer", purpose: .plan)
+        let visionW = Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, skillId: nil, purpose: .answer)
+        let blindW = Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0, skillId: nil, purpose: .answer)
+        let writer = Agent(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "insight_writer", purpose: .plan)
         let resolved = ResolvedTeamRun(
             teamPresetId: "t", teamDisplayName: "T", lane: .code, outputKind: .plan,
             effort: .med, scoutWorker: nil, answerWorkers: [visionW, blindW], planWriter: writer, isRunnable: true)
@@ -115,8 +115,8 @@ final class TeamRunAttachmentDeliveryTests: XCTestCase {
             TestSupport.headlessManifest(id: "antigravity", command: "gemini")
         ])
         let coord = CatalogRunCoordinator(workerRunner: runner, registry: registry, idFactory: { UUID().uuidString })
-        let answerW = Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, skillId: nil, purpose: .answer)
-        let writer = Worker(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "insight_writer", purpose: .plan)
+        let answerW = Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0, skillId: nil, purpose: .answer)
+        let writer = Agent(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "insight_writer", purpose: .plan)
         let resolved = ResolvedTeamRun(
             teamPresetId: "t", teamDisplayName: "T", lane: .code, outputKind: .plan,
             effort: .med, scoutWorker: nil, answerWorkers: [answerW], planWriter: writer, isRunnable: true)

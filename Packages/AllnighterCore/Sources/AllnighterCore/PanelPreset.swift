@@ -40,8 +40,8 @@ public struct SynthesisConfig: Codable, Sendable, Equatable {
 public struct PanelPreset: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var displayName: String
-    /// Worker requests, expanded into `Worker`s at run start.
-    public var workerSpecs: [WorkerSpec]
+    /// Agent requests, expanded into `Agent`s at run start.
+    public var workerSpecs: [ModelSpec]
     public var synthesis: SynthesisConfig
     /// True for the app-bundled defaults the user did not author.
     public var builtIn: Bool
@@ -49,7 +49,7 @@ public struct PanelPreset: Codable, Sendable, Equatable, Identifiable {
     public init(
         id: String,
         displayName: String,
-        workerSpecs: [WorkerSpec],
+        workerSpecs: [ModelSpec],
         synthesis: SynthesisConfig,
         builtIn: Bool = false
     ) {
@@ -85,7 +85,7 @@ public struct PanelPreset: Codable, Sendable, Equatable, Identifiable {
         return PanelPreset(
             id: id,
             displayName: displayName,
-            workerSpecs: models.map { WorkerSpec(modelId: $0.id) },
+            workerSpecs: models.map { ModelSpec(modelId: $0.id) },
             synthesis: SynthesisConfig(
                 analysisDepth: .combined,
                 planWriterModelId: planWriter,

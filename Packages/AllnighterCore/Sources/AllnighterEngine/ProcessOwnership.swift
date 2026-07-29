@@ -173,7 +173,7 @@ public enum ProcessOwnership {
         try? writeTurnOwner(identity, in: directory)
     }
 
-    // MARK: - Worker runtimeOwnership (RLR-L5, S04a)
+    // MARK: - Agent runtimeOwnership (RLR-L5, S04a)
 
     /// Process-global context naming the run dir a process-group worker spawn
     /// should record its `runtimeOwnership` receipt under. Mirrors

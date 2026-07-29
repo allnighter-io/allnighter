@@ -193,7 +193,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
     ) -> TeamRun {
         TeamRun(
             id: "outcome-\(status.rawValue)", prompt: "p", status: status,
-            workers: [Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0)],
+            workers: [Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0)],
             workerAnswers: answers,
             createdAt: Date(), lane: lane, mutating: mutating, repoDelta: repoDelta)
     }
@@ -266,7 +266,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         let finished = started.addingTimeInterval(4)
         let run = TeamRun(
             id: "timing-one", prompt: "Say success.", status: .complete,
-            workers: [Worker(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0)],
+            workers: [Agent(id: "model_sonnet#0", modelId: "model_sonnet", instanceIndex: 0)],
             workerAnswers: [
                 TeamAnswer(
                     memberId: "model_sonnet#0", modelId: "model_sonnet", role: "answer",
@@ -315,8 +315,8 @@ final class TeamRunJSONMapperTests: XCTestCase {
         let run = TeamRun(
             id: "timing-multi", prompt: "p", status: .complete,
             workers: [
-                Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0),
-                Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0),
+                Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0),
+                Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0),
             ],
             workerAnswers: [
                 TeamAnswer(

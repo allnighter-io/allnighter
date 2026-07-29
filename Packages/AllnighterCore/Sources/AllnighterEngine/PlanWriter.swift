@@ -184,13 +184,13 @@ public enum PlanOutputParser {
 
 /// Assembles prompts for the plan writer: worker answers labeled by worker id.
 public enum SynthesisPromptBuilder {
-    public static func workerLabel(_ assignment: Worker, model: Model?, sharesModel: Bool) -> String {
+    public static func workerLabel(_ assignment: Agent, model: Model?, sharesModel: Bool) -> String {
         let modelName = model?.displayName ?? assignment.modelId
         let workerTag = model.map { " [model \($0.id)]" } ?? ""
         return "\(assignment.displayName(modelName: modelName, sharesModel: sharesModel))\(workerTag)"
     }
 
-    private static func sharesModel(_ assignment: Worker, in teamWorkers: [Worker]) -> Bool {
+    private static func sharesModel(_ assignment: Agent, in teamWorkers: [Agent]) -> Bool {
         teamWorkers.filter { $0.modelId == assignment.modelId }.count > 1
     }
 

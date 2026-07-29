@@ -114,7 +114,7 @@ public enum DesignBoardCapture: Sendable {
     /// Capture every answer seat into a `BoardPayload`. Failed / missing artifacts
     /// become gray tiles — never diffusion fallback.
     public static func captureBoard(
-        answerWorkers: [Worker],
+        answerWorkers: [Agent],
         answers: [TeamAnswer],
         runDirectory: URL,
         targetShape: TargetShape = .desktop

@@ -6,7 +6,7 @@ import Foundation
 /// workers run after answers and may see them; `plan` is the synthetic plan/output
 /// writer that runs last. (Catalog answer/review rows map to `answer`/`review`; the
 /// scout is a separate `TeamPreset.scout` spec; `plan` is only the synthetic writer.)
-public enum WorkerStage: String, Codable, Sendable, CaseIterable {
+public enum AgentStage: String, Codable, Sendable, CaseIterable {
     case scout
     case answer
     case review
@@ -16,7 +16,7 @@ public enum WorkerStage: String, Codable, Sendable, CaseIterable {
 /// One runtime worker assignment: a model wearing a skill for this team run.
 /// The same model may appear multiple times with different skills or instance
 /// indices (self-fusion).
-public struct Worker: Codable, Sendable, Equatable, Identifiable {
+public struct Agent: Codable, Sendable, Equatable, Identifiable {
     /// Stable worker id, e.g. `model_opus#0`, `model_opus#1`.
     public var id: String
     /// Bench model that runs this worker.
@@ -33,7 +33,7 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
     public var resolvedWorkerPromptSnapshot: String?
     /// Stage this worker runs in: answer (blind), review (after answers), or plan
     /// (the synthetic output writer). `nil` on legacy runs → treated as answer.
-    public var purpose: WorkerStage?
+    public var purpose: AgentStage?
     /// Display override, e.g. `Opus (A)`.
     public var label: String?
     /// The model the team row ASKED for, when the resolver substituted a different ready
@@ -59,7 +59,7 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
         skillId: String? = nil,
         skillName: String? = nil,
         resolvedWorkerPromptSnapshot: String? = nil,
-        purpose: WorkerStage? = nil,
+        purpose: AgentStage? = nil,
         label: String? = nil,
         substitutedFromModelId: String? = nil,
         seatingReason: String? = nil,
@@ -92,8 +92,8 @@ public struct Worker: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// A preset's request for workers. Expanded into concrete `Worker`s at run start.
-public struct WorkerSpec: Codable, Sendable, Equatable {
+/// A preset's request for workers. Expanded into concrete `Agent`s at run start.
+public struct ModelSpec: Codable, Sendable, Equatable {
     public var modelId: String
     public var count: Int
     public var skillId: String?
@@ -104,11 +104,11 @@ public struct WorkerSpec: Codable, Sendable, Equatable {
         self.skillId = skillId
     }
 
-    public func expand(startingIndex start: Int) -> [Worker] {
+    public func expand(startingIndex start: Int) -> [Agent] {
         (0..<max(1, count)).map { offset in
             let index = start + offset
-            return Worker(
-                id: Worker.makeID(modelId: modelId, instanceIndex: index),
+            return Agent(
+                id: Agent.makeID(modelId: modelId, instanceIndex: index),
                 modelId: modelId,
                 instanceIndex: index,
                 skillId: skillId
@@ -117,10 +117,10 @@ public struct WorkerSpec: Codable, Sendable, Equatable {
     }
 }
 
-public extension Array where Element == WorkerSpec {
-    func expandedWorkers() -> [Worker] {
+public extension Array where Element == ModelSpec {
+    func expandedWorkers() -> [Agent] {
         var nextIndex: [String: Int] = [:]
-        var workers: [Worker] = []
+        var workers: [Agent] = []
         for spec in self {
             let start = nextIndex[spec.modelId, default: 0]
             let expanded = spec.expand(startingIndex: start)

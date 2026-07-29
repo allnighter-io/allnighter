@@ -67,7 +67,7 @@ public enum ArtifactProjector {
     public var seats: [Seat]
     /// CMR-S05 (Cross_Model_Review_Hardening.md) — which model(s) drafted
     /// (`.answer`) vs reviewed (`.review`) this run's crew, when the team
-    /// carries both roles. Derived from existing `Worker.purpose`; nil when
+    /// carries both roles. Derived from existing `Agent.purpose`; nil when
     /// the team has no review-stage seat (nothing to pair against a writer).
     public var writerReviewerLine: String?
     public var evidence: [Evidence]
@@ -272,12 +272,12 @@ public enum ArtifactProjector {
   /// CMR-S05 (Cross_Model_Review_Hardening.md) — pairs the run's writer(s)
   /// (`.answer`-stage workers) against its reviewer(s) (`.review`-stage
   /// workers), by distinct model display name in declaration order. Reuses
-  /// data already carried on `Worker.purpose` — no new stored field, no
+  /// data already carried on `Agent.purpose` — no new stored field, no
   /// contract/schema change. Returns nil when the team has no review-stage
   /// seat (e.g. answer-only or plan-only teams — no pairing to report).
   private static func writerReviewerPairingLine(for run: TeamRun, context: Context) -> String? {
     let workers = TeamRunSeatSet.workers(for: run)
-    func distinctNames(_ stage: WorkerStage) -> [String] {
+    func distinctNames(_ stage: AgentStage) -> [String] {
       var seen = Set<String>()
       var names: [String] = []
       for worker in workers where worker.purpose == stage {
@@ -293,7 +293,7 @@ public enum ArtifactProjector {
     return "Writer: \(writers.joined(separator: ", ")) · Reviewer: \(reviewers.joined(separator: ", "))"
   }
 
-  private static func roleLabel(for worker: Worker, isLead: Bool) -> String {
+  private static func roleLabel(for worker: Agent, isLead: Bool) -> String {
     if isLead { return "Lead" }
     if let name = worker.skillName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
       return shortRole(name)
@@ -338,7 +338,7 @@ public enum ArtifactProjector {
 
   /// Law-2 + trust: Lead chip must not stay `queued` when the synthesized answer exists.
   private static func resolvedSeatStatus(
-    worker: Worker,
+    worker: Agent,
     answer: TeamAnswer?,
     hoistedAnswer: TeamRunJSON.Answer?
   ) -> (String, Int?) {
@@ -358,7 +358,7 @@ public enum ArtifactProjector {
   }
 
   private static func seatMarkdown(
-    worker: Worker,
+    worker: Agent,
     answer: TeamAnswer?,
     hoistedAnswer: TeamRunJSON.Answer?
   ) -> String? {
@@ -405,7 +405,7 @@ public enum ArtifactProjector {
       let worker = run.workers.first { $0.id == seat.workerId }
       let answer = run.workerAnswer(workerId: seat.workerId)
       var markdown = seatMarkdown(
-        worker: worker ?? Worker(id: seat.workerId, modelId: "", instanceIndex: 0),
+        worker: worker ?? Agent(id: seat.workerId, modelId: "", instanceIndex: 0),
         answer: answer,
         hoistedAnswer: seat.isLead ? hoistedAnswer : nil
       )

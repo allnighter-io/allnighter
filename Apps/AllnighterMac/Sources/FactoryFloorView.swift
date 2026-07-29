@@ -393,7 +393,7 @@ struct FloorCastMember: Identifiable {
         for worker in run.workers where worker.purpose != .plan {
             let answer = run.workerAnswer(workerId: worker.id)
             members.append(FloorCastMember(
-                id: worker.id, role: title(worker.skillName, worker.skillId, fallback: "Worker"), isLead: false,
+                id: worker.id, role: title(worker.skillName, worker.skillId, fallback: "Agent"), isLead: false,
                 modelName: modelName(worker.modelId), driverId: driverId(worker.modelId),
                 gist: previewLine(answer?.output ?? ""),
                 markdown: answer?.output ?? "(no reply)", status: (answer?.result.status ?? .queued).rawValue,
@@ -461,7 +461,7 @@ private struct CastCard: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
-                        // Worker JOB/TITLE first (bug #1).
+                        // Agent JOB/TITLE first (bug #1).
                         Text(member.role).font(.system(size: 13, weight: .semibold)).foregroundStyle(ALColor.textPrimary).lineLimit(1)
                         if member.isLead {
                             Text("synthesis").font(.system(size: 8.5, weight: .semibold))

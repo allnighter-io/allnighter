@@ -23,11 +23,11 @@ final class SignalScoutCoordinatorTests: XCTestCase {
             "gemini": .init(stdout: "interpretation", exitCode: 0),
             "claude": .init(stdout: "# Insight\n\nthe move", exitCode: 0)
         ])
-        let scout = Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
+        let scout = Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
                            skillId: "signal_source_reader", skillName: "Source Reader", purpose: .scout)
-        let interp = Worker(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0,
+        let interp = Agent(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0,
                             skillId: "signal_project_fit", skillName: "Project Fit", purpose: .answer)
-        let lead = Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
+        let lead = Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
                           skillId: "insight_writer", skillName: "Insight Writer", purpose: .plan)
         let resolved = ResolvedTeamRun(
             teamPresetId: "signal_outside", teamDisplayName: "Signal", lane: .signal,
@@ -61,9 +61,9 @@ final class SignalScoutCoordinatorTests: XCTestCase {
             "gemini": .init(stdout: "interp", exitCode: 0),
             "claude": .init(stdout: "# Insight", exitCode: 0)
         ])
-        let interp = Worker(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0,
+        let interp = Agent(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0,
                             skillId: "signal_project_fit", skillName: "Project Fit", purpose: .answer)
-        let lead = Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
+        let lead = Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
                           skillId: "insight_writer", skillName: "Insight Writer", purpose: .plan)
         let resolved = ResolvedTeamRun(
             teamPresetId: "t", teamDisplayName: "Signal", lane: .signal, outputKind: .insight,

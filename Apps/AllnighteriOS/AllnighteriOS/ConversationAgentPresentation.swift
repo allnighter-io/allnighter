@@ -2,7 +2,7 @@
 //  ConversationAgentPresentation.swift
 //  AllnighteriOS
 //
-//  Worker / driver labels for thread transcript + composer continuity.
+//  Agent / driver labels for thread transcript + composer continuity.
 //
 
 import Foundation

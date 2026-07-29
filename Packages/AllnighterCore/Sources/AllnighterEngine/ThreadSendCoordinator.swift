@@ -58,7 +58,7 @@ public struct ThreadSendCoordinator: Sendable {
         public var deliveries: [IncludedAttachmentDelivery]
         public var fileReferenceIds: [String]
         public var fileReferences: [IncludedFileReferenceDelivery]
-        /// Worker-produced image attachment ids when capture lands (WIO).
+        /// Agent-produced image attachment ids when capture lands (WIO).
         public var workerAttachmentIds: [String]
         public var workerDeliveries: [IncludedAttachmentDelivery]
         public var outcome: WorkerRunOutcome?

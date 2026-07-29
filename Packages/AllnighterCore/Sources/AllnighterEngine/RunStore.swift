@@ -105,7 +105,7 @@ public struct RunStore: Sendable {
             // RLC-S02: a vendor park is intentionally ownerless. The exited
             // transport/session id is the checkpoint; stamping this coordinator
             // as owner would make a later process project the quiet park as an
-            // orphan. Worker ownership receipts remain for audit/contradiction.
+            // orphan. Agent ownership receipts remain for audit/contradiction.
             try CoreJSON.encode(run).write(to: runURL, options: .atomic)
             try? FileManager.default.removeItem(at: ProcessOwnership.ownerURL(in: directory))
             try? FileManager.default.removeItem(at: ProcessOwnership.legacyOwnerURL(in: directory))

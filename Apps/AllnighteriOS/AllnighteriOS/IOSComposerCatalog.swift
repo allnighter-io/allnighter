@@ -45,7 +45,7 @@ struct IOSComposerDraft: Equatable, Sendable {
         return nil
     }
 
-    /// Worker instance id for optimistic transcript rows and display continuity.
+    /// Agent instance id for optimistic transcript rows and display continuity.
     func workerIdForSend(continuationWorkerId: String?) -> String {
         if let modelId = modelIdForSend(continuationWorkerId: continuationWorkerId) {
             return ConversationAgentPresentation.workerInstanceId(for: modelId)

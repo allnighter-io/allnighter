@@ -20,7 +20,7 @@ final class RunActivityTests: XCTestCase {
     }
 
     func testWorkerAndRunTerminalMapToExit() {
-        // Worker statuses use snake_case raw values (`timed_out`).
+        // Agent statuses use snake_case raw values (`timed_out`).
         for status in ["done", "failed", "timed_out", "cancelled"] {
             XCTAssertEqual(
                 RunActivity.activityKind(for: event(RunEventKind.workerStatusChanged, ["to": .string(status)])),

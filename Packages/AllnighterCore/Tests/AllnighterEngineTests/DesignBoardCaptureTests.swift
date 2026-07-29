@@ -52,7 +52,7 @@ final class DesignBoardCaptureTests: XCTestCase {
     }
 
     func testMissingArtifactFailsClosedWithoutImageGen() async {
-        let worker = Worker(
+        let worker = Agent(
             id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
             skillId: "visual_system_designer", purpose: .answer)
         let board = await DesignBoardCapture.captureBoard(
@@ -108,7 +108,7 @@ final class DesignBoardCaptureTests: XCTestCase {
         let html = tempRoot.appendingPathComponent("option_model_fable-0.html")
         try fixtureHTML.write(to: html, atomically: true, encoding: .utf8)
 
-        let worker = Worker(
+        let worker = Agent(
             id: workerId, modelId: "model_fable", instanceIndex: 0,
             skillId: "visual_system_designer", purpose: .answer)
         let board = await DesignBoardCapture.captureBoard(
@@ -181,10 +181,10 @@ final class DesignBoardCaptureTests: XCTestCase {
             registry: registry,
             idFactory: { "id-\(UUID().uuidString)" }
         )
-        let answer = Worker(
+        let answer = Agent(
             id: workerId, modelId: "model_opus", instanceIndex: 0,
             skillId: "visual_system_designer", skillName: "Visual", purpose: .answer)
-        let lead = Worker(
+        let lead = Agent(
             id: "model_writer#0", modelId: "model_writer", instanceIndex: 0,
             skillId: "design_board_writer", skillName: "Board Writer", purpose: .plan)
         let resolved = ResolvedTeamRun(
@@ -239,10 +239,10 @@ final class DesignBoardCaptureTests: XCTestCase {
             workerRunner: DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(mock)),
             registry: registry
         )
-        let answer = Worker(
+        let answer = Agent(
             id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
             skillId: "visual_system_designer", purpose: .answer)
-        let lead = Worker(
+        let lead = Agent(
             id: "model_writer#0", modelId: "model_writer", instanceIndex: 0,
             skillId: "design_board_writer", purpose: .plan)
         let resolved = ResolvedTeamRun(

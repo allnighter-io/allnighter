@@ -27,7 +27,7 @@ final class RunJournalSilenceTelemetryTests: XCTestCase {
             id: "idle-fixture",
             prompt: "p",
             status: .timedOut,
-            workers: [Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
+            workers: [Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
             workerAnswers: [
                 TeamAnswer(
                     memberId: "model_opus#0",
@@ -83,7 +83,7 @@ final class RunJournalSilenceTelemetryTests: XCTestCase {
             id: "idle-hist-1",
             prompt: "quiet",
             status: .timedOut,
-            workers: [Worker(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0)],
+            workers: [Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0)],
             workerAnswers: [
                 TeamAnswer(
                     memberId: "model_grok#0",

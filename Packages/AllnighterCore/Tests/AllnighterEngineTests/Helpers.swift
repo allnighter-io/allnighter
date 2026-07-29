@@ -27,11 +27,11 @@ enum TestSupport {
         Model(id: id, displayName: id, modelLabel: model, driverId: driverId, role: role, enabled: enabled)
     }
 
-    static func seat(_ modelId: String, index: Int = 0, skillId: String? = nil) -> Worker {
-        Worker(id: Worker.makeID(modelId: modelId, instanceIndex: index), modelId: modelId, instanceIndex: index, skillId: skillId)
+    static func seat(_ modelId: String, index: Int = 0, skillId: String? = nil) -> Agent {
+        Agent(id: Agent.makeID(modelId: modelId, instanceIndex: index), modelId: modelId, instanceIndex: index, skillId: skillId)
     }
 
-    static func workers(_ workerIds: [String]) -> [Worker] {
+    static func workers(_ workerIds: [String]) -> [Agent] {
         workerIds.map { seat($0) }
     }
 

@@ -88,7 +88,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// The team this run was launched from (the catalog `TeamPreset.id`).
     public var presetId: String?
     /// The workers the prompt was sent to, in display order.
-    public var workers: [Worker]
+    public var workers: [Agent]
     /// One result per answer/review worker (keyed by `memberId`, F2_B.3c: was
     /// `[WorkerAnswer]`, now AgentOSTeam's `[TeamAnswer]` — same shape, `result:
     /// WorkerRunResult` instead of the flat inline fields).
@@ -198,7 +198,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         origin: RunOrigin = .gui,
         originAgent: String? = nil,
         presetId: String? = nil,
-        workers: [Worker] = [],
+        workers: [Agent] = [],
         workerAnswers: [TeamAnswer] = [],
         stages: [StageOutput] = [],
         createdAt: Date,

@@ -1416,14 +1416,14 @@ final class ThreadsViewModel {
         let m0 = picks.indices.contains(0) ? picks[0].id : "model_opus"
         let m1 = picks.indices.contains(1) ? picks[1].id : "model_grok"
         let m2 = picks.indices.contains(2) ? picks[2].id : "model_gemini"
-        let w0 = Worker(
-            id: Worker.makeID(modelId: m0, instanceIndex: 0), modelId: m0, instanceIndex: 0,
+        let w0 = Agent(
+            id: Agent.makeID(modelId: m0, instanceIndex: 0), modelId: m0, instanceIndex: 0,
             skillId: "reader", skillName: "Reader", purpose: .answer)
-        let w1 = Worker(
-            id: Worker.makeID(modelId: m1, instanceIndex: 0), modelId: m1, instanceIndex: 0,
+        let w1 = Agent(
+            id: Agent.makeID(modelId: m1, instanceIndex: 0), modelId: m1, instanceIndex: 0,
             skillId: "scout", skillName: "Scout", purpose: .answer)
-        let w2 = Worker(
-            id: Worker.makeID(modelId: m2, instanceIndex: 1), modelId: m2, instanceIndex: 1,
+        let w2 = Agent(
+            id: Agent.makeID(modelId: m2, instanceIndex: 1), modelId: m2, instanceIndex: 1,
             skillId: "lead", skillName: "Lead", purpose: .plan)
 
         let started = Date().addingTimeInterval(-12)

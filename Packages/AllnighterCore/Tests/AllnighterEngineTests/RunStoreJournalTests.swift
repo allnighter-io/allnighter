@@ -15,7 +15,7 @@ final class RunStoreJournalTests: XCTestCase {
 
     private func run(_ id: String, status: RunStatus) -> TeamRun {
         TeamRun(id: id, prompt: "p", status: status,
-                workers: [Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
+                workers: [Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
                 workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
                                            result: WorkerRunResult(status: status.isTerminal ? .done : .running))],
                 createdAt: Date())
@@ -276,7 +276,7 @@ final class RunStoreJournalTests: XCTestCase {
         let runDir = try store.runDirectory(forRunId: "async-orphan")
         try CoreJSON.encode(TeamRun(
             id: "async-orphan", prompt: "p", status: .fanningOut,
-            workers: [Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
+            workers: [Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
             workerAnswers: [TeamAnswer(memberId: "model_opus#0", modelId: "model_opus", role: "answer",
                                        result: WorkerRunResult(status: .running))],
             createdAt: Date()

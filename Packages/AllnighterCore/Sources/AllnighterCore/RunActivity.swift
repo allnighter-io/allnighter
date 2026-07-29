@@ -57,7 +57,7 @@ public enum RunActivity {
                   let status = WorkerAnswerStatus(rawValue: to) else { return nil }
             switch status {
             case .running, .queued, .skipped:
-                // Worker spawn / admission — advances startedAt/ownership, never activity.
+                // Agent spawn / admission — advances startedAt/ownership, never activity.
                 return nil
             case .done, .failed, .timedOut, .cancelled:
                 return .exit

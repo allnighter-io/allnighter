@@ -20,7 +20,7 @@ final class TeamRunJSONPresenterTests: XCTestCase {
         XCTAssertNotNil(run.answer?.markdown)
         XCTAssertEqual(p.answerMarkdown, run.answer?.markdown)
         XCTAssertEqual(p.planMarkdown, run.answer?.markdown)
-        // Worker answers come from `workerAnswers` (new vocab), keyed by workerId;
+        // Agent answers come from `workerAnswers` (new vocab), keyed by workerId;
         // one-worker canonical text is on `answer` and surfaced on that row.
         XCTAssertTrue(p.workerRows.contains { $0.answerMarkdown != nil })
         let encoded = try CoreJSON.encode(run)

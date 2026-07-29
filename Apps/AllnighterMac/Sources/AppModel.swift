@@ -18,7 +18,7 @@ final class AppModel {
     // Presets (Phase 06 tiered) + current (possibly hand-edited) selection.
     private(set) var presets: [PanelPreset] = []
     private(set) var activePresetId: String?
-    private(set) var currentWorkerSpecs: [WorkerSpec] = []
+    private(set) var currentWorkerSpecs: [ModelSpec] = []
     private(set) var currentSynthesis: SynthesisConfig
 
     /// User-favorited team ids (persisted via `TeamFavorites`). Observable so every
@@ -107,7 +107,7 @@ final class AppModel {
         return ordered
     }
 
-    var expandedWorkers: [Worker] { currentWorkerSpecs.expandedWorkers() }
+    var expandedWorkers: [Agent] { currentWorkerSpecs.expandedWorkers() }
 
     func isSeated(_ worker: Model) -> Bool {
         currentWorkerSpecs.contains { $0.modelId == worker.id }
@@ -123,7 +123,7 @@ final class AppModel {
         if let index = currentWorkerSpecs.firstIndex(where: { $0.modelId == worker.id }) {
             currentWorkerSpecs.remove(at: index)
         } else {
-            currentWorkerSpecs.append(WorkerSpec(modelId: worker.id))
+            currentWorkerSpecs.append(ModelSpec(modelId: worker.id))
         }
         activePresetId = nil
     }
@@ -220,7 +220,7 @@ final class AppModel {
             origin: .gui, presetId: activePresetId,
             workers: seats,
             workerAnswers: seats.map {
-                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? AgentStage.answer.rawValue,
                           result: WorkerRunResult(status: .queued))
             },
             createdAt: Date()
@@ -838,12 +838,12 @@ final class AppModel {
     func runAgain(_ source: TeamRun) {
         prompt = source.prompt
         // Reconstruct seats from the source panel.
-        var specs: [WorkerSpec] = []
+        var specs: [ModelSpec] = []
         var counts: [String: Int] = [:]
         for seat in source.workers { counts[seat.modelId, default: 0] += 1 }
         var seen = Set<String>()
         for seat in source.workers where seen.insert(seat.modelId).inserted {
-            specs.append(WorkerSpec(modelId: seat.modelId, count: counts[seat.modelId] ?? 1, skillId: seat.skillId))
+            specs.append(ModelSpec(modelId: seat.modelId, count: counts[seat.modelId] ?? 1, skillId: seat.skillId))
         }
         currentWorkerSpecs = specs
         activePresetId = source.presetId

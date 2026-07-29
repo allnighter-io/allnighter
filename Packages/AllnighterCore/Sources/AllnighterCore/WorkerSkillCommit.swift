@@ -1,6 +1,6 @@
 import Foundation
 
-/// Worker Done catalog writes — separate from roster-only `TeamDraft.commit()`.
+/// Agent Done catalog writes — separate from roster-only `TeamDraft.commit()`.
 public enum WorkerSkillCommit {
     public struct Request: Sendable, Equatable {
         public var skillId: String
@@ -40,7 +40,7 @@ public enum WorkerSkillCommit {
         }
     }
 
-    /// Commit Worker Done: create a new skill or save an existing body at the same id.
+    /// Commit Agent Done: create a new skill or save an existing body at the same id.
     public static func apply(_ request: Request) throws -> Result {
         let trimmed = request.template.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {

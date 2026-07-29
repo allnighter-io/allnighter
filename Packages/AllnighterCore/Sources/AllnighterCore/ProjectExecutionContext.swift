@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - PRJ-S06: Project-scoped mutating runs
 
-/// The resolved roots a Project-scoped run must use. Worker cwd, proof cwd, and
+/// The resolved roots a Project-scoped run must use. Agent cwd, proof cwd, and
 /// the attachment mirror all derive from ONE Project root — never an ad hoc
 /// `workingDir`. When the root is unavailable the run roots are `nil`, so a
 /// missing root structurally blocks mutating runs.

@@ -6,7 +6,7 @@ import AllnighterCore
 /// PO-S05: `alln ps` / `alln kill` — observable ownership from durable state.
 /// Real signals only to processes this suite spawns; otherwise uses the
 /// `ProcessOwnership.terminateSignalHook` spy.
-final class ProcessOwnershipSurfaceTests: XCTestCase {
+final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
 
     override func tearDown() {
         ProcessOwnership.terminateSignalHook = nil
@@ -45,7 +45,7 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
     private func nonTerminalRun(id: String, repoRoot: String? = "/tmp/repo") -> TeamRun {
         TeamRun(
             id: id, prompt: "p", status: .fanningOut,
-            workers: [Worker(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
+            workers: [Agent(id: "model_opus#0", modelId: "model_opus", instanceIndex: 0)],
             workerAnswers: [TeamAnswer(
                 memberId: "model_opus#0", modelId: "model_opus",
                 role: "answer", result: WorkerRunResult(status: .queued)

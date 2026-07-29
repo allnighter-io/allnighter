@@ -36,12 +36,12 @@ final class TeamRunOpenPerformanceTests: XCTestCase {
 
     private func fatTerminalRun(id: String) -> TeamRun {
         let now = Date()
-        let fat = String(repeating: "# Worker answer\n\n" + String(repeating: "markdown body. ", count: 80) + "\n", count: 12)
-        var workers: [Worker] = []
+        let fat = String(repeating: "# Agent answer\n\n" + String(repeating: "markdown body. ", count: 80) + "\n", count: 12)
+        var workers: [Agent] = []
         var answers: [TeamAnswer] = []
         for i in 0..<11 {
             let memberId = "model_opus#\(i)"
-            workers.append(Worker(
+            workers.append(Agent(
                 id: memberId, modelId: "model_opus", instanceIndex: i,
                 skillId: "code_review", skillName: "Reviewer \(i)", purpose: .answer
             ))

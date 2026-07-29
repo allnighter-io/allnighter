@@ -31,7 +31,7 @@ public actor TeamRunCoordinator {
 
     public func runTeam(
         prompt: String,
-        teamWorkers: [Worker],
+        teamWorkers: [Agent],
         models: [Model],
         origin: RunOrigin = .gui,
         originAgent: String? = nil,
@@ -49,7 +49,7 @@ public actor TeamRunCoordinator {
             presetId: presetId,
             workers: teamWorkers,
             workerAnswers: teamWorkers.map {
-                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? AgentStage.answer.rawValue,
                           result: WorkerRunResult(status: .queued))
             },
             createdAt: now()
@@ -84,7 +84,7 @@ public actor TeamRunCoordinator {
                     skillId: assignment.skillId,
                     founderPrompt: prompt
                 )
-                let role = assignment.purpose?.rawValue ?? WorkerStage.answer.rawValue
+                let role = assignment.purpose?.rawValue ?? AgentStage.answer.rawValue
                 group.addTask {
                     guard let model else {
                         return TeamAnswer(

@@ -3,7 +3,7 @@ import Foundation
 /// Parsed `seat` fenced JSON — elevator one-liner from a crew seat (not a mini Lead Call).
 public struct SeatSummary: Codable, Equatable, Sendable {
     public var schemaVersion: Int?
-    /// One plain sentence — the chip headline. Worker-authored; never projector-invented.
+    /// One plain sentence — the chip headline. Agent-authored; never projector-invented.
     public var summary: String?
 }
 

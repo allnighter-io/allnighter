@@ -1,7 +1,7 @@
 // ============================================================
 //  TeamState.swift
 //  Legacy visual reference only. Product vocabulary is now
-//  Team/Model/Skill/Worker/Plan; do not copy Team/team/
+//  Team/Model/Skill/Agent/Plan; do not copy Team/team/
 //  plan writer labels into new UI.
 //  The team screen's state machine, as a SwiftUI-ready model.
 //  Mirrors the prototype in ui_kits/team/index.html (TeamApp).
@@ -106,7 +106,7 @@ final class TeamModel {
    View plan (.ready)    → .plan
  within .plan
    New run                      → .compose (reset)
-   Tabs                         → segmented "Plan" / "Worker answers"
+   Tabs                         → segmented "Plan" / "Agent answers"
  ──────────────────────────────────────────────────────────────────────
  HONESTY RULE: a worker that did not return is shown .failed with its real
  reason ("auth expired"), never hidden or faked. Surface it in Doctor too.

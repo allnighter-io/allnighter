@@ -47,7 +47,7 @@ public enum StalledWorkDetector {
         return episodes
     }
 
-    // MARK: - Worker chat turns
+    // MARK: - Agent chat turns
 
     private static func scanWorkerTurns(
         input: StalledWorkScanInput,
@@ -222,7 +222,7 @@ public enum StalledWorkDetector {
         return false
     }
 
-    // MARK: - Worker-turn context (WATCHDOG-S01)
+    // MARK: - Agent-turn context (WATCHDOG-S01)
 
     /// Pair slice envelopes, slice attempts, and advisory review prompts run longer than default chat.
     public static func isLongRunningWorkerContext(run: TeamRun) -> Bool {

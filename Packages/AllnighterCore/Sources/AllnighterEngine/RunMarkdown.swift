@@ -61,10 +61,10 @@ public enum RunMarkdown {
     /// plan (RB appends reviews → final spec → return).
     public static func bundle(_ run: TeamRun, models: [Model]) -> String {
         let workerByID = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        func sharesModel(_ seat: Worker) -> Bool {
+        func sharesModel(_ seat: Agent) -> Bool {
             run.workers.filter { $0.modelId == seat.modelId }.count > 1
         }
-        func seatName(_ seat: Worker) -> String {
+        func seatName(_ seat: Agent) -> String {
             let modelName = workerByID[seat.modelId]?.displayName ?? seat.modelId
             return seat.displayName(modelName: modelName, sharesModel: sharesModel(seat))
         }
@@ -80,7 +80,7 @@ public enum RunMarkdown {
             lines.append(contentsOf: ["---", "", plan, ""])
         }
 
-        lines.append(contentsOf: ["---", "", "## Worker answers", ""])
+        lines.append(contentsOf: ["---", "", "## Agent answers", ""])
         for seat in run.workers {
             let member = run.workerAnswer(workerId: seat.id)
             lines.append("### \(seatName(seat))")

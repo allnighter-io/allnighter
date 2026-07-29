@@ -28,17 +28,17 @@ final class WorkflowTests: XCTestCase {
     // MARK: - Validation
 
     func testValidPresetOrderPasses() throws {
-        let preset = WorkflowPreset(id: "p", displayName: "p", workerSpecs: [WorkerSpec(modelId: "model_opus")], synthesis: config(), stages: [reviewStage(), finalStage()])
+        let preset = WorkflowPreset(id: "p", displayName: "p", workerSpecs: [ModelSpec(modelId: "model_opus")], synthesis: config(), stages: [reviewStage(), finalStage()])
         XCTAssertNoThrow(try preset.validate())
     }
 
     func testReviewAfterFinalIsRejected() {
-        let preset = WorkflowPreset(id: "p", displayName: "p", workerSpecs: [WorkerSpec(modelId: "model_opus")], synthesis: config(), stages: [finalStage(), reviewStage()])
+        let preset = WorkflowPreset(id: "p", displayName: "p", workerSpecs: [ModelSpec(modelId: "model_opus")], synthesis: config(), stages: [finalStage(), reviewStage()])
         XCTAssertThrowsError(try preset.validate())
     }
 
     func testMultipleFinalStagesRejected() {
-        let preset = WorkflowPreset(id: "p", displayName: "p", workerSpecs: [WorkerSpec(modelId: "model_opus")], synthesis: config(), stages: [finalStage(), finalStage()])
+        let preset = WorkflowPreset(id: "p", displayName: "p", workerSpecs: [ModelSpec(modelId: "model_opus")], synthesis: config(), stages: [finalStage(), finalStage()])
         XCTAssertThrowsError(try preset.validate())
     }
 
@@ -117,7 +117,7 @@ final class WorkflowTests: XCTestCase {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("wp-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmp) }
         let store = WorkflowPresetStore(rootDirectory: tmp)
-        let good = WorkflowPreset(id: "g", displayName: "g", workerSpecs: [WorkerSpec(modelId: "model_opus")], synthesis: config(), stages: [reviewStage(), finalStage()])
+        let good = WorkflowPreset(id: "g", displayName: "g", workerSpecs: [ModelSpec(modelId: "model_opus")], synthesis: config(), stages: [reviewStage(), finalStage()])
         XCTAssertNoThrow(try store.save(good))
         XCTAssertEqual(store.load().count, 1)
         let bad = WorkflowPreset(id: "b", displayName: "b", workerSpecs: [], synthesis: config(), stages: [finalStage(), reviewStage()])

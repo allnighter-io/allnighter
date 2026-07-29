@@ -7,7 +7,7 @@ import AllnighterCore
 // picked by NAME — never "strongest" (founder ICP rule).
 
 /// In-memory edit state for one team. Pure of UI; `commit()` writes roster only.
-/// Skill bodies commit separately via `WorkerSkillCommit` on Worker Done.
+/// Skill bodies commit separately via `WorkerSkillCommit` on Agent Done.
 struct TeamDraft: Equatable {
     let base: TeamPreset
     var name: String
@@ -17,7 +17,7 @@ struct TeamDraft: Equatable {
     var allowSubstitutions: Bool
     var mutating: Bool
 
-    /// One worker's roster row (skill + model). Skill catalog writes happen on Worker Done.
+    /// One worker's roster row (skill + model). Skill catalog writes happen on Agent Done.
     struct Row: Identifiable, Equatable {
         let id: String
         var skillId: String
@@ -65,7 +65,7 @@ struct TeamDraft: Equatable {
     }
 
     /// Persist roster facts only (skill ids + model picks). Skill bodies are committed
-    /// on Worker Done via `WorkerSkillCommit`, not here.
+    /// on Agent Done via `WorkerSkillCommit`, not here.
     @discardableResult
     func commit() throws -> TeamID {
         if mutating {

@@ -246,7 +246,7 @@ private struct ThreadPaneHeader: View {
     }
 
     /// Distinct model display names that have answered in this thread. A worker id is
-    /// `modelId#instanceIndex` (Worker.makeID), so strip the suffix before resolving.
+    /// `modelId#instanceIndex` (Agent.makeID), so strip the suffix before resolving.
     /// Resolve against the full model catalog (not just the live bench) so the name
     /// shows even for a model that isn't currently benched — and dedupe by name.
     private var routedModelNames: [String] {
@@ -841,7 +841,7 @@ private struct ThreadBoardRow: View {
     @Environment(ThreadsViewModel.self) private var threads
     @Environment(\.openFloor) private var openFloor
     let turn: ThreadTurn
-    /// Worker answers render lazily — only an expanded card parses/lays out its full
+    /// Agent answers render lazily — only an expanded card parses/lays out its full
     /// markdown, so first paint of a big terminal team run stays fast (perf doc).
     @State private var expanded: Set<String> = []
 
@@ -999,7 +999,7 @@ private struct ThreadBoardRow: View {
         if let id = worker?.skillId, !id.isEmpty {
             return id.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
         }
-        return "Worker"
+        return "Agent"
     }
 
     /// One-glance plain-text preview for a collapsed answer (no markdown layout cost).
@@ -1015,7 +1015,7 @@ private struct ThreadBoardRow: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 if let bench { DriverBrandGlyph(driverId: bench.driverId, boxSize: 18, iconSize: 9, cornerRadius: 5) }
-                // Worker JOB/TITLE first, then the model (bug #1) — so you can tell who did
+                // Agent JOB/TITLE first, then the model (bug #1) — so you can tell who did
                 // what, not just which model ran.
                 VStack(alignment: .leading, spacing: 1) {
                     Text(workerTitle(answer))

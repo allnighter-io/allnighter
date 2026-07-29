@@ -68,7 +68,7 @@ public enum RetiredVocabulary {
         // it can never be re-taught in prose/next-actions; still fine as a
         // discovery-only HelpTopic alias pointing callers at the real flag.
         "--detach",
-        // Worker vocabulary retirement (2026-07-28): roster seats are agents; CLI pin is --model.
+        // Agent vocabulary retirement (2026-07-28): roster seats are agents; CLI pin is --model.
         "--worker",
         "--dev-worker",
         "--pm-worker",

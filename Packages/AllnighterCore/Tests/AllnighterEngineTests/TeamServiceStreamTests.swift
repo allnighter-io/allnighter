@@ -80,7 +80,7 @@ final class TeamServiceStreamTests: XCTestCase {
         }
         let runTask = Task { await service.run(TeamRequest(question: "actor or queue?", lane: .code, teamPresetId: "code_test", effort: .low), origin: .cli, events: continuation) }
 
-        // Worker is now running and blocked.
+        // Agent is now running and blocked.
         for await _ in gated.started { break }
         try await waitUntil { await collected.contains("workerStarted") }
 

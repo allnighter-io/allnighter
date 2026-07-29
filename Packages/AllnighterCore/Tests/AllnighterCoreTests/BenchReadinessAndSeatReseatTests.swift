@@ -54,7 +54,7 @@ final class BenchReadinessTests: XCTestCase {
             id: "old-run",
             prompt: "p",
             status: .failed,
-            workers: [Worker(id: "w", modelId: "m", instanceIndex: 0)],
+            workers: [Agent(id: "w", modelId: "m", instanceIndex: 0)],
             workerAnswers: [
                 TeamAnswer(
                     memberId: "w",
@@ -125,7 +125,7 @@ final class SeatReseatTests: XCTestCase {
         let fable = model("model_fable", driver: "claude_code")
         let chatgpt = model("model_chatgpt", driver: "codex")
         let opus = model("model_opus", driver: "claude_code")
-        let writer = Worker(
+        let writer = Agent(
             id: "model_fable#0", modelId: "model_fable", instanceIndex: 0,
             skillId: team.lead.skillId, purpose: .plan)
         let chain = SeatReseat.chain(for: writer, team: team, isLead: true)
@@ -148,7 +148,7 @@ final class SeatReseatTests: XCTestCase {
         let opus = model("model_opus", driver: "claude_code")
         let chatgpt = model("model_chatgpt", driver: "codex")
         let cursorSol = model("model_chatgpt_sol", driver: "cursor_agent")
-        let worker = Worker(
+        let worker = Agent(
             id: "model_opus#0", modelId: "model_opus", instanceIndex: 0,
             skillId: "spec_scope_steward", purpose: .answer)
         let chain = SeatReseat.chain(for: worker, team: team, isLead: false)

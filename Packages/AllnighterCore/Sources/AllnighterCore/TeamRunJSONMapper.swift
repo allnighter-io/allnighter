@@ -264,7 +264,7 @@ public enum TeamRunJSONMapper {
         return nil
     }
 
-    /// Worker terminal states → mechanical outcome status (never a correctness verdict).
+    /// Agent terminal states → mechanical outcome status (never a correctness verdict).
     static func mapOutcomeStatus(_ run: TeamRun) -> TeamRunJSON.Outcome.Status {
         let answers = run.workerAnswers.filter { $0.result.status != .skipped }
         guard !answers.isEmpty else { return .failed }
@@ -347,8 +347,8 @@ public enum TeamRunJSONMapper {
         }
     }
 
-    /// Worker stage → public worker purpose. Legacy runs (nil) are answer workers.
-    static func workerPurpose(_ stage: WorkerStage?) -> TeamRunJSON.WorkerPurpose {
+    /// Agent stage → public worker purpose. Legacy runs (nil) are answer workers.
+    static func workerPurpose(_ stage: AgentStage?) -> TeamRunJSON.WorkerPurpose {
         switch stage {
         case .review: return .review
         case .plan: return .plan

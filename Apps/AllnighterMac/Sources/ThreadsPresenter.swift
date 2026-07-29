@@ -280,7 +280,7 @@ enum ThreadsPresenter {
     static func authorLabel(_ turn: ThreadTurn) -> String {
         switch turn.author {
         case .user: return "You"
-        case .worker: return turn.workerId ?? "Worker"
+        case .worker: return turn.workerId ?? "Agent"
         case .system: return "Allnighter"
         }
     }

@@ -108,7 +108,7 @@ public struct Project: Codable, Sendable, Equatable, Identifiable {
 
 }
 
-// Worker readiness types (`WorkerReadinessStatus`, `ProbeKind`,
+// Agent readiness types (`WorkerReadinessStatus`, `ProbeKind`,
 // `ProjectWorkerReadiness`) and probe records live in AgentOSCLI — hard cut,
 // no local twins. See AgentOS `docs/phases/CLI_Detector_Promotion.md`.
 

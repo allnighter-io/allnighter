@@ -4,11 +4,11 @@ import Foundation
 /// Seat chips include answer, review, and plan workers in `workers[]` declaration
 /// order; scout and other stages are excluded from the card seat set.
 public enum TeamRunSeatSet {
-    public static func workers(for run: TeamRun) -> [Worker] {
+    public static func workers(for run: TeamRun) -> [Agent] {
         run.workers.filter(isSeatWorker)
     }
 
-    public static func isSeatWorker(_ worker: Worker) -> Bool {
+    public static func isSeatWorker(_ worker: Agent) -> Bool {
         guard let purpose = worker.purpose else { return true } // legacy → answer
         switch purpose {
         case .answer, .review, .plan: return true

@@ -208,8 +208,8 @@ public actor AsyncTeamService {
                 let skillName = resolved.answerWorkers.first?.skillName
                 // Same roster seat as before the pin — only the model changes.
                 let agentId = resolved.answerWorkers.first?.agentId
-                let pinned = Worker(
-                    id: Worker.makeID(modelId: modelId, instanceIndex: 0),
+                let pinned = Agent(
+                    id: Agent.makeID(modelId: modelId, instanceIndex: 0),
                     modelId: modelId,
                     instanceIndex: 0,
                     skillId: skillId,
@@ -318,7 +318,7 @@ public actor AsyncTeamService {
             presetId: resolved.teamPresetId,
             workers: resolved.allWorkers,
             workerAnswers: answerAndReview.map {
-                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? WorkerStage.answer.rawValue,
+                TeamAnswer(memberId: $0.id, modelId: $0.modelId, role: $0.purpose?.rawValue ?? AgentStage.answer.rawValue,
                           result: WorkerRunResult(status: .queued))
             },
             createdAt: acceptedAt,
@@ -867,7 +867,7 @@ public actor AsyncTeamService {
         // this seat came from) survives untouched (WTA-S01a).
         worker.substitutedFromModelId = worker.modelId
         worker.modelId = modelId
-        worker.id = Worker.makeID(modelId: modelId, instanceIndex: worker.instanceIndex)
+        worker.id = Agent.makeID(modelId: modelId, instanceIndex: worker.instanceIndex)
         pinned.answerWorkers[0] = worker
         TeamSourceFacts.enrich(&pinned, models: readyModels)
         return pinned

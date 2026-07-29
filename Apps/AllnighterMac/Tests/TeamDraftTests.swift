@@ -3,7 +3,7 @@ import AllnighterCore
 @testable import AllnighterMac
 
 /// The Customize editor's write path. Team Save is roster-only; skill bodies commit on
-/// Worker Done via `WorkerSkillCommit`. Catalog is isolated to a temp dir.
+/// Agent Done via `WorkerSkillCommit`. Catalog is isolated to a temp dir.
 final class TeamDraftTests: XCTestCase {
 
     override func setUp() {

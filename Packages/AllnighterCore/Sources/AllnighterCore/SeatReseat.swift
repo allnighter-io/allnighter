@@ -64,7 +64,7 @@ public enum SeatReseat {
 
     /// Resolve preferred / fallback chain for a worker (or Lead) from the team preset.
     public static func chain(
-        for worker: Worker,
+        for worker: Agent,
         team: TeamPreset,
         isLead: Bool
     ) -> (preferred: String?, fallbacks: [String], tags: [ModelCapabilityTag],

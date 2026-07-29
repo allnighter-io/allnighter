@@ -500,7 +500,7 @@ public struct PendingService: Sendable {
         return PendingQueueJSON(contractVersion: ContractRegistry.contractVersion, totalPending: total, projects: projects)
     }
 
-    // MARK: - Worker resolution
+    // MARK: - Agent resolution
 
     private struct ResolvedWorkers {
         var preferred: [String]

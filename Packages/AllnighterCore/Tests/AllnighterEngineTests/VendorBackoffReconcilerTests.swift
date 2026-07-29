@@ -294,7 +294,7 @@ final class VendorBackoffReconcilerTests: HermeticSupportTestCase {
                 prompt: "work",
                 status: .queued,
                 phase: .waitingForVendor,
-                workers: [Worker(
+                workers: [Agent(
                     id: "worker-\(id)",
                     modelId: "model_opus",
                     instanceIndex: 0

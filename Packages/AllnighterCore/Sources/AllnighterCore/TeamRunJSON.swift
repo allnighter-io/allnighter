@@ -9,7 +9,7 @@ import Foundation
 /// this public contract is versioned via `schemaVersion`/`contractVersion`.
 ///
 /// Sub-types are nested so the public surface reads as one contract and does not
-/// collide with the internal `Model`/`Worker`/`TeamRun`/`StageOutput` types.
+/// collide with the internal `Model`/`Agent`/`TeamRun`/`StageOutput` types.
 public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var contractVersion: String
