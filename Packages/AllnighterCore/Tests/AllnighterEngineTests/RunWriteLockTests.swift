@@ -2,6 +2,37 @@ import XCTest
 @testable import AllnighterEngine
 
 final class RunWriteLockTests: XCTestCase {
+    /// Hermetic support root so lane/flock tests never touch
+    /// `~/Library/Application Support/Allnighter/Lanes/`. `RunWriteLockRegistry`
+    /// is a typealias for `ExecutionLaneRegistry`, which persists holders and
+    /// flocks under the support root — `ExecutionLaneTests` already isolates for
+    /// exactly this reason; this class drove the same registry unisolated.
+    ///
+    /// Without this, an interrupted run leaves a live `xctest` holding the real
+    /// `v1:test` lane. `isIdentityAlive` then correctly refuses to reap a live
+    /// holder, so the lane stays held and every LATER run's first `acquire`
+    /// returns nil — poisoning the suite on this machine until the directory is
+    /// deleted by hand.
+    private var hermeticSupportDir: URL!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        let support = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-write-lock-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        hermeticSupportDir = support
+        setenv("ALLNIGHTER_SUPPORT_DIR", support.path, 1)
+    }
+
+    override func tearDownWithError() throws {
+        unsetenv("ALLNIGHTER_SUPPORT_DIR")
+        if let hermeticSupportDir {
+            try? FileManager.default.removeItem(at: hermeticSupportDir)
+        }
+        hermeticSupportDir = nil
+        try super.tearDownWithError()
+    }
+
     func testNormalizeCollapsesTrailingSlash() {
         XCTAssertEqual(RunWriteLock.normalize("/tmp/repo/"), "/tmp/repo")
         XCTAssertEqual(RunWriteLock.normalize("/tmp/repo"), "/tmp/repo")
@@ -80,14 +111,17 @@ final class RunWriteLockTests: XCTestCase {
                           "a non-existent path is not case-folded — the frozen fallback is preserved")
     }
 
-    func testRegistryRefusesSecondAcquire() async {
+    func testRegistryRefusesSecondAcquire() async throws {
         let registry = RunWriteLockRegistry()
         let key = "v1:test"
         let first = await registry.acquire(key)
         let second = await registry.acquire(key)
-        XCTAssertNotNil(first)
+        // XCTUnwrap, not `!`: a force-unwrap here is a FATAL error that kills the
+        // whole xctest process, destroying the results of all ~2400 tests rather
+        // than failing this one. Degrade to a single test failure instead.
+        let firstToken = try XCTUnwrap(first, "first acquire must succeed on a hermetic lane root")
         XCTAssertNil(second)
-        await registry.release(key, token: first!)
+        await registry.release(key, token: firstToken)
         let third = await registry.acquire(key)
         XCTAssertNotNil(third)
     }
