@@ -264,6 +264,82 @@ grep -roE '<OldSymbol>' --include='*.swift' . | grep -v '/.build/' | wc -l   # =
 
 Anything less than all three = round rejected, no partial credit.
 
+### agy seats get edits only — the lead runs the gate
+
+**An agy (Gemini) seat cannot run the acceptance gate itself.** agy launches a
+long command (`swift build`, `swift test`) as a background task, emits "I will
+wait for it to complete", and the turn then ENDS — agy has nothing further to
+stream. Under `alln pair pilot` the relay restarts the dev turn from scratch,
+forever.
+
+Measured on WTA-S02a (2026-07-28): one round burned **4 agy sessions on a
+5-minute restart cadence**, 1182s elapsed, `commitsSinceBaseline: 0` — while the
+code edits themselves had been completed correctly in the first few minutes. The
+seat could never reach its own verify-and-commit step.
+
+Symptom to recognise fast: repeated new session dirs under
+`~/.gemini/antigravity-cli/brain/` at a fixed interval, all starting from the
+same prompt, with `commitsSinceBaseline` stuck at 0.
+
+#### The fix: one task, commit as the completion signal, watcher on git
+
+Do **not** solve this by having the executor produce edits and leaving the lead
+to poll a dirty working tree — that leaves no completion signal at all, and a
+paused seat is indistinguishable from a finished one.
+
+Instead (founder, 2026-07-28):
+
+```text
+1. Give the agy seat exactly ONE task, with no verification burden.
+2. Its last instruction is: git add <explicit paths> && git commit.
+3. A watcher watches git. The COMMIT is the completion signal.
+4. On commit, the LEAD runs the gate: swift build + swift test + grep count.
+```
+
+Why this works: `git commit` is instantaneous, so nothing long-running is left in
+the seat's critical path and the turn completes naturally instead of dying
+mid-wait. The commit is durable, atomic, and observable without the seat
+reporting anything — which matters precisely because the seat's reporting is the
+unreliable part.
+
+Committing before verification is normally wrong; here it is correct, because the
+seat *cannot* verify, this is a feature branch, and the lead gates within
+minutes. A broken commit caught immediately beats an unobservable working tree.
+
+Watcher (one notification, ends on its own):
+
+```bash
+BASE=$(git rev-parse HEAD)
+until [ "$(git rev-parse HEAD)" != "$BASE" ]; do sleep 10; done
+```
+
+Consequences for every delegated order:
+
+- The work order must **not** ask the executor to run the build, the suite, or
+  any multi-minute command.
+- The executor's final step is the commit, and nothing after it.
+- The acceptance gate stays lead-owned — enforced structurally, not by asking.
+
+#### Third failure mode: orphaned builds deadlock the SwiftPM lock
+
+Each restarted agy turn left its background `swift build`/`swift test` running.
+Those orphans (`ppid 1`) survive the seat and **hold the SwiftPM lock**, so the
+lead's own gate run then blocks indefinitely at 0% CPU — looking exactly like a
+slow build rather than a deadlock. Measured: 7 swift processes, all 0.0% CPU,
+oldest 21m52s, blocking a gate that should take ~4 minutes.
+
+Before gating any agy round, sweep orphans first:
+
+```bash
+ps -eo pid,ppid,etime,%cpu,comm | grep swift    # orphans = ppid 1, 0.0% CPU
+pkill -9 -f swift-build; pkill -9 -f swift-test
+```
+
+This is the third distinct failure mode from one root cause (agy's async
+background-task model), after the discarded answer (`eac238ec`) and the infinite
+restart loop. Treat "agy launched something in the background" as always leaving
+debris.
+
 ### Executor guardrails (state these verbatim in every delegated order)
 
 A cheap model told "make it green" will find a way to make it green. Three of
