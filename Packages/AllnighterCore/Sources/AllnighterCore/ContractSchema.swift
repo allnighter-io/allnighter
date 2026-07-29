@@ -72,7 +72,7 @@ public enum ContractSchema {
                 "createdAt": str, "startedAt": nullable("string"), "completedAt": nullable("string"),
                 "threadId": nullable("string"), "teamPresetId": nullable("string"),
                 "teamDisplayName": nullable("string"), "outputKind": nullable("string"),
-                "workerId": nullable("string"), "writePolicy": nullable("string"),
+                "modelId": nullable("string"), "writePolicy": nullable("string"),
                 "identitySummary": nullable("string"),
                 "planWriterWorkerId": nullable("string"), "reproduceCommand": nullable("string"),
                 "endReason": nullable("string"), "blocker": nullableRef("BlockerJSON"),

@@ -171,8 +171,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var teamPresetId: String?
         public var teamDisplayName: String?
         public var outputKind: String?
-        /// Primary worker model id — the model that ran (or leads identity for multi-worker teams).
-        public var workerId: String?
+        /// Primary model id — the model that ran (or leads identity for multi-worker teams).
+        public var modelId: String?
         /// `mutating` or `readOnly` — captured at run start.
         public var writePolicy: String?
         /// Headline identity: `worker <id> · lane <lane> · mutating|readOnly`.
@@ -195,7 +195,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             prompt: String, promptSource: PromptSource, createdAt: String,
             startedAt: String? = nil, completedAt: String? = nil, threadId: String? = nil,
             teamPresetId: String? = nil, teamDisplayName: String? = nil, outputKind: String? = nil,
-            workerId: String? = nil, writePolicy: String? = nil, identitySummary: String? = nil,
+            modelId: String? = nil, writePolicy: String? = nil, identitySummary: String? = nil,
             planWriterWorkerId: String? = nil, reproduceCommand: String? = nil,
             endReason: String? = nil, blocker: BlockerJSON? = nil,
             attempts: [AttemptJSON] = []
@@ -206,7 +206,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             self.createdAt = createdAt; self.startedAt = startedAt
             self.completedAt = completedAt; self.threadId = threadId
             self.teamPresetId = teamPresetId; self.teamDisplayName = teamDisplayName
-            self.outputKind = outputKind; self.workerId = workerId
+            self.outputKind = outputKind; self.modelId = modelId
             self.writePolicy = writePolicy; self.identitySummary = identitySummary
             self.planWriterWorkerId = planWriterWorkerId
             self.reproduceCommand = reproduceCommand
@@ -218,7 +218,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         private enum CodingKeys: String, CodingKey {
             case id, status, origin, originAgent, lane, type, effort, prompt, promptSource
             case createdAt, startedAt, completedAt, threadId, teamPresetId, teamDisplayName
-            case outputKind, workerId, writePolicy, identitySummary, planWriterWorkerId
+            case outputKind, modelId, writePolicy, identitySummary, planWriterWorkerId
             case reproduceCommand, endReason, blocker, attempts
         }
 
@@ -240,7 +240,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             teamPresetId = try c.decodeIfPresent(String.self, forKey: .teamPresetId)
             teamDisplayName = try c.decodeIfPresent(String.self, forKey: .teamDisplayName)
             outputKind = try c.decodeIfPresent(String.self, forKey: .outputKind)
-            workerId = try c.decodeIfPresent(String.self, forKey: .workerId)
+            modelId = try c.decodeIfPresent(String.self, forKey: .modelId)
             writePolicy = try c.decodeIfPresent(String.self, forKey: .writePolicy)
             identitySummary = try c.decodeIfPresent(String.self, forKey: .identitySummary)
             planWriterWorkerId = try c.decodeIfPresent(String.self, forKey: .planWriterWorkerId)

@@ -18,7 +18,7 @@
     "teamPresetId": null,
     "teamDisplayName": null,
     "outputKind": null,
-    "workerId": "model_sonnet",
+    "modelId": "model_sonnet",
     "writePolicy": "mutating",
     "identitySummary": "worker model_sonnet · lane code · mutating",
     "planWriterWorkerId": null,

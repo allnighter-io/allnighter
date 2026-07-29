@@ -74,7 +74,7 @@ final class RunIdentityTests: HermeticSupportTestCase {
             run, models: [model], manifests: [], context: .init(runJournalPath: "/tmp/run.json"))
         XCTAssertEqual(trj.teamRun.teamDisplayName, "Default Team")
         XCTAssertEqual(trj.teamRun.teamPresetId, "default_chat")
-        XCTAssertEqual(trj.teamRun.workerId, "model_grok")
+        XCTAssertEqual(trj.teamRun.modelId, "model_grok")
         XCTAssertEqual(trj.teamRun.writePolicy, "mutating")
         XCTAssertEqual(trj.teamRun.identitySummary, "agent model_grok · lane code (context — --team routes) · mutating")
 

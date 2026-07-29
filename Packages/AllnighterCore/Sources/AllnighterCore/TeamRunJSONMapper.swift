@@ -146,7 +146,7 @@ public enum TeamRunJSONMapper {
             createdAt: isoString(run.createdAt), startedAt: iso(started), completedAt: iso(completed),
             threadId: run.threadId, teamPresetId: run.presetId,
             teamDisplayName: run.teamDisplayName, outputKind: run.outputKind?.rawValue,
-            workerId: workerModelId,
+            modelId: workerModelId,
             writePolicy: RunIdentity.writePolicyLabel(mutating: run.mutating),
             identitySummary: RunIdentity.summary(
                 workerId: workerModelId, lane: run.lane, mutating: run.mutating,
