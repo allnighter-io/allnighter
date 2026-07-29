@@ -410,12 +410,12 @@ final class BuiltInTeamsTests: XCTestCase {
         for team in BuiltInTeams.all {
             guard let leadId = team.lead.preferredModelId else { continue }
             let leadRank = rank(leadId)
-            var pinnedWorkerIds = team.agentSpecs.compactMap(\.preferredModelId)
-            if let scoutId = team.scout?.preferredModelId { pinnedWorkerIds.append(scoutId) }
-            for workerId in pinnedWorkerIds {
+            var pinnedModelIds = team.agentSpecs.compactMap(\.preferredModelId)
+            if let scoutId = team.scout?.preferredModelId { pinnedModelIds.append(scoutId) }
+            for modelId in pinnedModelIds {
                 XCTAssertGreaterThanOrEqual(
-                    leadRank, rank(workerId),
-                    "\(team.id) lead \(leadId) (rank \(leadRank)) is lower caliber than pinned worker \(workerId) (rank \(rank(workerId)))")
+                    leadRank, rank(modelId),
+                    "\(team.id) lead \(leadId) (rank \(leadRank)) is lower caliber than pinned model \(modelId) (rank \(rank(modelId)))")
             }
         }
     }
