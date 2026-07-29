@@ -47,7 +47,7 @@ public enum TeamRunJSONMapper {
         let planStage = run.latestStage(.plan)
 
         let workers = run.workers.map { w in
-            TeamRunJSON.WorkerInfo(
+            TeamRunJSON.AgentInfo(
                 id: w.id, skillId: w.skillId, skillName: w.skillName ?? w.label ?? w.skillId,
                 resolvedWorkerPromptSnapshot: context.includeWorkerPromptSnapshots ? w.resolvedWorkerPromptSnapshot : nil,
                 modelId: w.modelId, modelName: modelName(w.modelId), sourceId: sourceId(w.modelId),

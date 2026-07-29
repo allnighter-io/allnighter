@@ -14,7 +14,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var contractVersion: String
     public var teamRun: RunInfo
-    public var workers: [WorkerInfo]
+    public var workers: [AgentInfo]
     public var workerAnswers: [AnswerInfo]
     /// Canonical result text. Always serialized (JSON `null` while non-terminal or
     /// when no canonical result exists). See `TeamRunJSONMapper.deriveAnswer`.
@@ -39,7 +39,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         schemaVersion: Int = 2,
         contractVersion: String,
         teamRun: RunInfo,
-        workers: [WorkerInfo],
+        workers: [AgentInfo],
         workerAnswers: [AnswerInfo],
         answer: Answer? = nil,
         designBoard: DesignBoard? = nil,
@@ -84,7 +84,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
         contractVersion = try c.decode(String.self, forKey: .contractVersion)
         teamRun = try c.decode(RunInfo.self, forKey: .teamRun)
-        workers = try c.decode([WorkerInfo].self, forKey: .workers)
+        workers = try c.decode([AgentInfo].self, forKey: .workers)
         workerAnswers = try c.decode([AnswerInfo].self, forKey: .workerAnswers)
         // Required on the wire (null while non-terminal / no canonical result).
         answer = try c.decode(Answer?.self, forKey: .answer)
@@ -401,7 +401,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         }
     }
 
-    public struct WorkerInfo: Codable, Equatable, Sendable {
+    public struct AgentInfo: Codable, Equatable, Sendable {
         public var id: String
         public var skillId: String?
         public var skillName: String?
