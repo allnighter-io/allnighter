@@ -85,7 +85,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         XCTAssertEqual(state.pmMode, .external)
         XCTAssertEqual(state.status, .awaitingPM)
-        XCTAssertEqual(state.pmModelId, RelayState.externalPMWorkerId)
+        XCTAssertEqual(state.pmModelId, RelayState.externalPMModelId)
         XCTAssertEqual(state.devModelId, "model_dev")
         XCTAssertTrue(state.rounds.isEmpty)
         XCTAssertEqual(state.pilotMaxRounds, 7)
@@ -331,7 +331,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testPreflightBlocksCredentialTokenHandoverSameAsBlockingPath() throws {
         let state = RelayState(
             id: "relay_preflight_cred", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
             status: .awaitingPM, pmMode: .external, createdAt: Date()
         )
         // Same shape as the founder detour / HandoverGateTests: imperative credential exposure.
@@ -357,7 +357,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testPreflightAllowsSafeContinueAndDone() throws {
         let state = RelayState(
             id: "relay_preflight_ok", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
             status: .awaitingPM, pmMode: .external, createdAt: Date()
         )
         let continueOK = RelayCoordinator.preflightExternalRound(
@@ -376,7 +376,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testPreflightRefusesRoundInFlightAndUnparseable() throws {
         var running = RelayState(
             id: "relay_preflight_run", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
             status: .running, pmMode: .external, createdAt: Date()
         )
         guard case .failure(.roundInFlight) = RelayCoordinator.preflightExternalRound(
@@ -410,7 +410,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         let running = RelayState(
             id: "relay_pilot_inflight", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
             status: .running, pmMode: .external, createdAt: Date()
         )
         try stateStore.save(running)
@@ -429,7 +429,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         let done = RelayState(
             id: "relay_pilot_done_already", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
             status: .done, pmMode: .external, createdAt: Date(), note: "Shipped."
         )
         try stateStore.save(done)
@@ -545,7 +545,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let parked = RelayState(
             id: "relay_pilot_parked", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
             status: .awaitingPM, pmMode: .external, createdAt: Date()
         )
         try stateStore.save(parked)

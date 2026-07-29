@@ -261,7 +261,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let running = RelayState(
             id: "relay_adopt_inflight", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
             status: .running, pmMode: .external, createdAt: Date()
         )
         try stateStore.save(running)
@@ -279,7 +279,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let done = RelayState(
             id: "relay_adopt_done", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
             status: .done, pmMode: .external, createdAt: Date(), note: "Shipped."
         )
         try stateStore.save(done)
@@ -297,7 +297,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let stopped = RelayState(
             id: "relay_adopt_stopped", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
             status: .stopped, pmMode: .external, createdAt: Date(), stoppedReason: "reached --max-rounds (3)"
         )
         try stateStore.save(stopped)
@@ -326,7 +326,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         guard case .success(let flipped) = result else { return XCTFail("expected success") }
         XCTAssertEqual(flipped.pmMode, .external)
         XCTAssertEqual(flipped.status, .awaitingPM)
-        XCTAssertEqual(flipped.pmModelId, RelayState.externalPMWorkerId)
+        XCTAssertEqual(flipped.pmModelId, RelayState.externalPMModelId)
         XCTAssertNil(flipped.finishedAt)
         XCTAssertEqual(flipped.rounds.count, 1, "round log carries over untouched")
 
@@ -399,7 +399,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let parked = RelayState(
             id: "relay_reverse_already_pilot", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMWorkerId, devModelId: "model_dev",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
             status: .awaitingPM, pmMode: .external, createdAt: Date()
         )
         try stateStore.save(parked)

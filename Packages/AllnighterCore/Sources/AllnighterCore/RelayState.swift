@@ -288,7 +288,7 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// there is no PM model to dispatch (the piloting session IS the PM), so this
     /// documents the field's meaning rather than leaving it a real, dispatchable
     /// worker id. Never resolved through `RunService`.
-    public static let externalPMWorkerId = "external"
+    public static let externalPMModelId = "external"
 
     // Lenient decode: tolerates relays persisted before later fields existed
     // (mirrors `FixPacket.init(from:)`'s partial-model tolerance).

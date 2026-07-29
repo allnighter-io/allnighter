@@ -1106,7 +1106,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-\(label)"))
             let parked = RelayState(
                 id: "relay_parked_\(label)", projectRoot: repo.path, docPath: "docs/spec.md",
-                pmModelId: pmMode == .external ? RelayState.externalPMWorkerId : "model_pm",
+                pmModelId: pmMode == .external ? RelayState.externalPMModelId : "model_pm",
                 devModelId: "model_dev", status: status, pmMode: pmMode, createdAt: Date(),
                 note: status == .escalated ? "which env?" : nil
             )

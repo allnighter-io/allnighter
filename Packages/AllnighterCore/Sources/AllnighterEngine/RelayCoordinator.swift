@@ -299,14 +299,14 @@ public struct RelayCoordinator: Sendable {
     /// because, unlike a spawned relay's `run`/`resume`, there is no long-lived process
     /// to re-supply them at every later round — each `pilot handoff` is a fresh CLI
     /// invocation. `config.pmModelId` is ignored; the durable `pmModelId` is always
-    /// `RelayState.externalPMWorkerId` (there is no PM model to dispatch).
+    /// `RelayState.externalPMModelId` (there is no PM model to dispatch).
     public func startPilot(config: Config) -> Result<RelayState, PilotStartError> {
         guard config.until == nil else { return .failure(.untilNotSupported) }
         let state = RelayState(
             id: idFactory(),
             projectRoot: config.projectRoot,
             docPath: config.docPath,
-            pmModelId: RelayState.externalPMWorkerId,
+            pmModelId: RelayState.externalPMModelId,
             devModelId: config.devModelId,
             status: .awaitingPM,
             pmMode: .external,
@@ -720,7 +720,7 @@ public struct RelayCoordinator: Sendable {
     /// relay (`RelayState.isResumable`: `escalated`, or ceiling-`stopped` and
     /// reconciled) is EXACTLY the set `relay-resume` already accepts, so this simply
     /// re-labels it `pmMode: .external`, `status: .awaitingPM`,
-    /// `pmModelId: RelayState.externalPMWorkerId` and persists — the round log and
+    /// `pmModelId: RelayState.externalPMModelId` and persists — the round log and
     /// thread carry over untouched, and the piloting session picks it up with an
     /// ordinary `pilot handoff` next. `static` for the same reason `reconcileOrphan`
     /// is: a plain state mutation shouldn't need a full `RelayCoordinator` (and the
@@ -737,7 +737,7 @@ public struct RelayCoordinator: Sendable {
 
         var state = reconciled
         state.pmMode = .external
-        state.pmModelId = RelayState.externalPMWorkerId
+        state.pmModelId = RelayState.externalPMModelId
         state.status = .awaitingPM
         state.finishedAt = nil
         state.stoppedReason = nil
