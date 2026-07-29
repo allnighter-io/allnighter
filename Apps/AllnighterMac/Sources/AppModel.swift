@@ -294,10 +294,10 @@ final class AppModel {
         persist()
     }
 
-    func setManualAnswer(workerId: String, text: String) {
+    func setManualAnswer(agentId: String, text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, var current = run,
-              let index = current.answers.firstIndex(where: { $0.memberId == workerId }) else { return }
+              let index = current.answers.firstIndex(where: { $0.memberId == agentId }) else { return }
         current.answers[index].result.status = .done
         current.answers[index].result.output = trimmed
         current.answers[index].result.timing.finishedAt = Date()

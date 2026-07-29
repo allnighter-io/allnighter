@@ -87,7 +87,7 @@ final class AppModelTests: XCTestCase {
 
     func testManualAnswerNoOpWithoutRun() {
         let model = AppModel()
-        model.setManualAnswer(workerId: "model_opus#0", text: "hi")
+        model.setManualAnswer(agentId: "model_opus#0", text: "hi")
         XCTAssertNil(model.run)
     }
 
