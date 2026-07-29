@@ -171,7 +171,7 @@ struct RoutingComposer: View {
     /// Hover highlight in the effort popover (nil = show the current selection).
     @State private var effortHighlight: ComposeEffort?
     /// Model-row effort popover — effort for a specific bench seat (nil = closed).
-    @State private var modelEditWorkerId: String?
+    @State private var modelEditModelId: String?
     @State private var fileSearchOpen = false
     @State private var fileSearchQuery = ""
     /// Project corpus size (cached per @-session) for the "N / total" scope hint.
@@ -301,12 +301,12 @@ struct RoutingComposer: View {
         // worker, never a stale override.
         .onChange(of: team) { _, _ in
             pinnedModelId = nil
-            modelEditWorkerId = nil
+            modelEditModelId = nil
             if team == nil { effortOpen = false }
         }
         .onChange(of: targetOpen) { _, open in
             guard open else {
-                modelEditWorkerId = nil
+                modelEditModelId = nil
                 return
             }
             defaultSettings = DefaultModelSettingsPersistence().load()
@@ -1432,7 +1432,7 @@ struct RoutingComposer: View {
     /// Model-row effort pill — shows Low/Med/High and opens the picker without
     /// selecting the row. Fast stays a separate catalog seat; no speed toggle here.
     private func modelEffortPill(for modelId: String) -> some View {
-        Button { modelEditWorkerId = modelId } label: {
+        Button { modelEditModelId = modelId } label: {
             HStack(spacing: 3) {
                 Text(effort.label).font(.system(size: 11, weight: .medium))
                 Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
@@ -1445,10 +1445,10 @@ struct RoutingComposer: View {
         .buttonStyle(.plain)
         .help("Reasoning effort for the next send")
         .alPopover(isPresented: Binding(
-            get: { modelEditWorkerId == modelId },
-            set: { if !$0 { modelEditWorkerId = nil } }
+            get: { modelEditModelId == modelId },
+            set: { if !$0 { modelEditModelId = nil } }
         ), arrowEdge: .trailing) {
-            effortEditPanel(onDismiss: { modelEditWorkerId = nil })
+            effortEditPanel(onDismiss: { modelEditModelId = nil })
         }
     }
 
