@@ -41,6 +41,7 @@ revive.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
+| [`Worker_To_Agent_Migration.md`](Worker_To_Agent_Migration.md) | **CLOSED — optional hygiene only** | Ship line complete (2026-07-29): living contracts + teaching use `agentId` + `modelId`. **Do not start** unless founder allocates time. Backlog: journal rename, lying locals, S07. SSOT: `Product_Vocabulary.md`; history: [`archive`](../archive/phases/Worker_To_Agent_Migration.md). |
 | [`Observed_Usage_On_Receipts_And_Live_Status.md`](Observed_Usage_On_Receipts_And_Live_Status.md) | **OPEN — founder intake** | After AgentOS token capture: duration always + tokens when reported on every receipt; pilot/relay live status gets optional usage without coupling to liveness. Blame silent CLIs explicitly. Upstream: AgentOS `Observed_Token_Usage_Capture.md`. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
 

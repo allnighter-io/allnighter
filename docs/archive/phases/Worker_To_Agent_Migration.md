@@ -1,5 +1,10 @@
 # Worker → Agent Migration
 
+> **Router:** optional future work and standing status live in
+> [`docs/phases/Worker_To_Agent_Migration.md`](../../phases/Worker_To_Agent_Migration.md).
+> This file is the **historical execution record** (S00–S08). Do not treat it as
+> an active work order.
+
 Status: **Complete — 2026-07-29** (machine contracts + teaching scrub shipped; Layer E
 exceptions documented in `Product_Vocabulary.md`)
 Owner: code SSOT for runs (`RunService.swift`, `TeamCatalog` / `TeamAgentSpec`,
