@@ -132,8 +132,8 @@ final class AppModel {
         registry.manifest(for: worker)?.displayName ?? worker.driverId
     }
 
-    func isManual(_ worker: Model) -> Bool {
-        registry.manifest(for: worker)?.kind == .manualPaste
+    func isManual(_ model: Model) -> Bool {
+        registry.manifest(for: model)?.kind == .manualPaste
     }
 
     // MARK: - Presets
