@@ -54,7 +54,7 @@ public actor RemoteIOSThreadMirrorExecutor: RemoteTeamCommandExecuting {
         let threadId = normalizedThreadId(request.threadId) ?? idFactory()
         let userTurnId = idFactory()
         let workerTurnId = idFactory()
-        let workerId = resolvedWorkerId(from: request)
+        let modelId = resolvedModelId(from: request)
 
         do {
             if threadStore.get(threadId) == nil {
@@ -62,7 +62,7 @@ public actor RemoteIOSThreadMirrorExecutor: RemoteTeamCommandExecuting {
                     id: threadId,
                     title: threadTitle(from: prompt),
                     now: timestamp,
-                    defaultModelId: workerId
+                    defaultModelId: modelId
                 )
             }
 
@@ -86,7 +86,7 @@ public actor RemoteIOSThreadMirrorExecutor: RemoteTeamCommandExecuting {
                 createdAt: timestamp,
                 author: .worker,
                 text: "Working on this on your Mac…",
-                modelId: workerId,
+                modelId: modelId,
                 runId: runId
             )
             _ = try threadStore.appendTurn(workerTurn, toThreadId: threadId, now: timestamp)
@@ -185,7 +185,7 @@ public actor RemoteIOSThreadMirrorExecutor: RemoteTeamCommandExecuting {
         }
     }
 
-    private func resolvedWorkerId(from request: AsyncTeamStartRequest) -> String? {
+    private func resolvedModelId(from request: AsyncTeamStartRequest) -> String? {
         guard let modelId = request.modelId?.trimmingCharacters(in: .whitespacesAndNewlines),
               !modelId.isEmpty else {
             return nil
