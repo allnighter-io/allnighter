@@ -437,7 +437,7 @@ final class RemoteAppModel {
             )
         }
         if case .preview = connectionPhase {
-            let workerId = ConversationAgentPresentation.previewWorkerId
+            let workerId = ConversationAgentPresentation.previewAgentInstanceId
             return ComposerContinuationAgent(
                 modelId: workerId,
                 driverId: ConversationAgentPresentation.driverId(for: workerId),
@@ -1325,7 +1325,7 @@ final class RemoteAppModel {
                     text: isRunning
                         ? "Working on this on your Mac…"
                         : "Done — open on your Mac for the full transcript.",
-                    modelId: ConversationAgentPresentation.previewWorkerId,
+                    modelId: ConversationAgentPresentation.previewAgentInstanceId,
                     runId: runId,
                     partialOutputTruncated: false
                 ),
