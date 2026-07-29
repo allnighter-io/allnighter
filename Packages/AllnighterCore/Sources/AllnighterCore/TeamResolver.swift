@@ -136,7 +136,7 @@ public enum TeamResolver {
         var diversityUsed: Set<String> = []
 
         func makeWorker(
-            _ model: Model, row: TeamWorkerSpec, skillName: String, stage: WorkerStage,
+            _ model: Model, row: TeamAgentSpec, skillName: String, stage: WorkerStage,
             seatingReason: String? = nil
         ) -> Worker {
             let index = nextIndex[model.id, default: 0]
@@ -150,7 +150,7 @@ public enum TeamResolver {
                 seatingReason: seatingReason)
         }
 
-        func disable(_ row: TeamWorkerSpec, _ skillName: String, _ reason: String) {
+        func disable(_ row: TeamAgentSpec, _ skillName: String, _ reason: String) {
             disabled.append(DisabledRow(rowId: row.id, skillId: row.skillId, skillName: skillName, required: row.required, reason: reason))
             if row.required {
                 requiredBlock = requiredBlock ?? "required worker \(skillName) could not resolve: \(reason)"
@@ -197,7 +197,7 @@ public enum TeamResolver {
             }
         }
 
-        func resolveRows(_ rows: [TeamWorkerSpec], stage: WorkerStage) -> [Worker] {
+        func resolveRows(_ rows: [TeamAgentSpec], stage: WorkerStage) -> [Worker] {
             var workers: [Worker] = []
             for row in rows {
                 let skillName = skill(row.skillId)?.displayName ?? row.skillId

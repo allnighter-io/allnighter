@@ -91,12 +91,12 @@ final class TwoSourceResearchTeamTests: XCTestCase {
     /// skills, same outputKind, same pinned models — so the two proofs describe
     /// one team rather than two lookalikes.
     private func twoSourceTeam(id: String = "code_red_two_source",
-                               crewSpecs: [TeamWorkerSpec]? = nil) -> TeamPreset {
+                               crewSpecs: [TeamAgentSpec]? = nil) -> TeamPreset {
         TeamPreset(
             id: id, displayName: "Code Red Two Source", lane: .code, outputKind: .bugPacket,
             mutating: false,
             workerSpecs: crewSpecs ?? [
-                TeamWorkerSpec(id: "bug_reproducer", skillId: "bug_reproducer",
+                TeamAgentSpec(id: "bug_reproducer", skillId: "bug_reproducer",
                                purpose: .answer, preferredModelId: "model_chatgpt",
                                allowedModelIds: ["model_chatgpt"], fallbackPolicy: .exactOnly),
             ],
@@ -309,9 +309,9 @@ final class TwoSourceResearchTeamTests: XCTestCase {
         // Same skill on both crew rows: the roster is defined by the SELECTED
         // sources, so identical skills must not be deduplicated into one seat.
         let team = twoSourceTeam(crewSpecs: [
-            TeamWorkerSpec(id: "crew_codex", skillId: "bug_reproducer",
+            TeamAgentSpec(id: "crew_codex", skillId: "bug_reproducer",
                            purpose: .answer, preferredModelId: "model_chatgpt"),
-            TeamWorkerSpec(id: "crew_claude", skillId: "bug_reproducer",
+            TeamAgentSpec(id: "crew_claude", skillId: "bug_reproducer",
                            purpose: .answer, preferredModelId: "model_opus"),
         ])
 

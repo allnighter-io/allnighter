@@ -152,7 +152,7 @@ final class TeamDraftTests: XCTestCase {
     }
 
     func testSavePreservesAllHiddenRoutingMetadata() throws {
-        let worker = TeamWorkerSpec(
+        let worker = TeamAgentSpec(
             id: "meta_worker", skillId: buildSkill, purpose: .answer,
             preferredModelId: "model_opus",
             fallbackModelIds: ["model_kimi_k3", "model_grok"],
@@ -161,7 +161,7 @@ final class TeamDraftTests: XCTestCase {
             count: 2, fallbackPolicy: .laneCapable, required: false,
             triangulate: true,
             triangulatePreferenceIds: ["model_grok", "model_kimi_k3"])
-        let scout = TeamWorkerSpec(
+        let scout = TeamAgentSpec(
             id: "meta_scout", skillId: buildSkill, purpose: .answer,
             preferredModelId: "model_grok",
             fallbackModelIds: ["model_kimi_k3"],

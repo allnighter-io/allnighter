@@ -50,7 +50,7 @@ public enum TeamOutputKind: String, Codable, Sendable, CaseIterable {
 
 /// Stage a worker row runs in. Answer workers run blind in parallel; review
 /// workers run after answer workers and may see answer outputs.
-public enum TeamWorkerPurpose: String, Codable, Sendable, CaseIterable {
+public enum TeamAgentPurpose: String, Codable, Sendable, CaseIterable {
     case answer
     case review
 }
@@ -114,10 +114,10 @@ public enum DissentPolicy: String, Codable, Sendable, CaseIterable {
 /// the ready bench at run start into one or more `Worker`s (self-fusion when one
 /// model fills several rows). `count > 1` makes multiple workers with the same
 /// skill and distinct `instanceIndex`.
-public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
+public struct TeamAgentSpec: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var skillId: String
-    public var purpose: TeamWorkerPurpose
+    public var purpose: TeamAgentPurpose
     public var preferredModelId: String?
     /// Ordered cross-source substitutes tried after `preferredModelId` and before
     /// the broad fallback policy. `nil` preserves catalogs written before ordered
@@ -155,7 +155,7 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
     public init(
         id: String,
         skillId: String,
-        purpose: TeamWorkerPurpose = .answer,
+        purpose: TeamAgentPurpose = .answer,
         preferredModelId: String? = nil,
         fallbackModelIds: [String]? = nil,
         allowedModelIds: [String] = [],
@@ -197,7 +197,7 @@ public struct TeamWorkerSpec: Codable, Sendable, Equatable, Identifiable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         skillId = try c.decode(String.self, forKey: .skillId)
-        purpose = try c.decode(TeamWorkerPurpose.self, forKey: .purpose)
+        purpose = try c.decode(TeamAgentPurpose.self, forKey: .purpose)
         preferredModelId = try c.decodeIfPresent(String.self, forKey: .preferredModelId)
         fallbackModelIds = try c.decodeIfPresent([String].self, forKey: .fallbackModelIds)
         allowedModelIds = try c.decode([String].self, forKey: .allowedModelIds)
@@ -270,8 +270,8 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     /// X-capable model grabbing a post's content) into neutral context the rest of
     /// the team reads. nil = no scout (the team reads the prompt directly). Used by
     /// Signal teams so workers reason over the same distilled source.
-    public var scout: TeamWorkerSpec?
-    public var workerSpecs: [TeamWorkerSpec]
+    public var scout: TeamAgentSpec?
+    public var workerSpecs: [TeamAgentSpec]
     /// The mandatory Team Lead (synthesizer). Exactly one.
     public var lead: TeamLeadSpec
     public var typeTags: [String]
@@ -292,8 +292,8 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
         executionSourceId: String? = nil,
         defaultEffort: EffortLevel = .med,
         isDefaultForLane: Bool = false,
-        scout: TeamWorkerSpec? = nil,
-        workerSpecs: [TeamWorkerSpec],
+        scout: TeamAgentSpec? = nil,
+        workerSpecs: [TeamAgentSpec],
         lead: TeamLeadSpec,
         typeTags: [String] = [],
         purposeTags: [String] = [],

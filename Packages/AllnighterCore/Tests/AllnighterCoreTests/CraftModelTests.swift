@@ -18,7 +18,7 @@ final class CraftModelTests: XCTestCase {
         let team = TeamPreset(
             id: "signal_demo", displayName: "Demo", lane: .signal, outputKind: .insight,
             mutating: false,
-            workerSpecs: [TeamWorkerSpec(id: "r", skillId: "s")],
+            workerSpecs: [TeamAgentSpec(id: "r", skillId: "s")],
             lead: TeamLeadSpec(skillId: "w"), builtIn: true)
         let data = try CoreJSON.encode(team)
         let back = try CoreJSON.decode(TeamPreset.self, from: data)

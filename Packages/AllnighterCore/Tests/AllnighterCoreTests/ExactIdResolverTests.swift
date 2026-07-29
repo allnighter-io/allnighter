@@ -19,12 +19,12 @@ final class ExactIdResolverTests: XCTestCase {
         [
             TeamPreset(
                 id: "code_growth", displayName: "Growth", lane: .code, outputKind: .plan,
-                workerSpecs: [TeamWorkerSpec(id: "w", skillId: "product_architect", purpose: .answer)],
+                workerSpecs: [TeamAgentSpec(id: "w", skillId: "product_architect", purpose: .answer)],
                 lead: TeamLeadSpec(skillId: "plan_writer_build"), builtIn: true
             ),
             TeamPreset(
                 id: "code_plan", displayName: "Plan", lane: .code, outputKind: .plan,
-                workerSpecs: [TeamWorkerSpec(id: "w", skillId: "product_architect", purpose: .answer)],
+                workerSpecs: [TeamAgentSpec(id: "w", skillId: "product_architect", purpose: .answer)],
                 lead: TeamLeadSpec(skillId: "plan_writer_build"), builtIn: true
             ),
         ]

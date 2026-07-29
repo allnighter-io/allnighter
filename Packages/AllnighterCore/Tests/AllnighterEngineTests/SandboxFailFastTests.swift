@@ -41,9 +41,9 @@ final class SandboxFailFastTests: XCTestCase {
             id: "test_failfast", displayName: "Fail Fast", lane: .code, outputKind: .plan,
             defaultEffort: .low,
             workerSpecs: [
-                TeamWorkerSpec(id: "seat_blocked", skillId: SkillCatalog.directChatSkillId,
+                TeamAgentSpec(id: "seat_blocked", skillId: SkillCatalog.directChatSkillId,
                                purpose: .answer, preferredModelId: "model_blocked"),
-                TeamWorkerSpec(id: "seat_slow", skillId: SkillCatalog.directChatSkillId,
+                TeamAgentSpec(id: "seat_slow", skillId: SkillCatalog.directChatSkillId,
                                purpose: .answer, preferredModelId: "model_slow"),
             ],
             lead: TeamLeadSpec(skillId: "plan_writer_build"))

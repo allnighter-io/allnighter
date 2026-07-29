@@ -13,9 +13,9 @@ final class TeamCatalogTests: XCTestCase {
             defaultEffort: .med,
             isDefaultForLane: isDefault,
             workerSpecs: [
-                TeamWorkerSpec(id: "row_a", skillId: "skill_a", purpose: .answer),
-                TeamWorkerSpec(id: "row_b", skillId: "skill_b", purpose: .answer),
-                TeamWorkerSpec(id: "row_c", skillId: "skill_c", purpose: .review,
+                TeamAgentSpec(id: "row_a", skillId: "skill_a", purpose: .answer),
+                TeamAgentSpec(id: "row_b", skillId: "skill_b", purpose: .answer),
+                TeamAgentSpec(id: "row_c", skillId: "skill_c", purpose: .review,
                                preferredModelId: "model_opus",
                                fallbackModelIds: ["model_kimi_k3", "model_grok"],
                                fallbackPolicy: .anyReady, required: false)

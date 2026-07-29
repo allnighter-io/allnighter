@@ -13,7 +13,7 @@ final class TeamResolverTests: XCTestCase {
         TeamLeadSpec(skillId: skill, requiredCapabilityTags: tags, fallbackPolicy: .strongestReady)
     }
 
-    private func team(rows: [TeamWorkerSpec],
+    private func team(rows: [TeamAgentSpec],
                       lane: WorkLane = .code,
                       lead: TeamLeadSpec? = nil) -> TeamPreset {
         TeamPreset(
@@ -27,9 +27,9 @@ final class TeamResolverTests: XCTestCase {
 
     func testOneModelFillsManyRowsWithDistinctInstanceIndices() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer"),
-            TeamWorkerSpec(id: "r2", skillId: "correct_fix_planner"),
-            TeamWorkerSpec(id: "r3", skillId: "regression_guard")
+            TeamAgentSpec(id: "r1", skillId: "bug_reproducer"),
+            TeamAgentSpec(id: "r2", skillId: "correct_fix_planner"),
+            TeamAgentSpec(id: "r3", skillId: "regression_guard")
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
         XCTAssertTrue(r.isRunnable)
@@ -44,7 +44,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testPreferredUnavailableFallsBackAndWarns() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
+            TeamAgentSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: "model_chatgpt", fallbackPolicy: .anyReady)
         ])
         // Codex preferred but down; another Codex seat ready → home-driver fill.
@@ -60,7 +60,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testPreferredUnavailableDoesNotCrossDriverWithoutOrderedFallback() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
+            TeamAgentSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: "model_chatgpt", fallbackPolicy: .anyReady)
         ])
         // Codex preferred/down; only Claude ready → seat blocks (no silent paid/cross-CLI swap).
@@ -98,7 +98,7 @@ final class TeamResolverTests: XCTestCase {
         let cursorSol = Model(id: "model_chatgpt_sol", displayName: "ChatGPT 5.6 Sol (Cursor)",
                               modelLabel: "gpt-5.6-sol-high", driverId: "cursor_agent", role: .both)
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
+            TeamAgentSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: "model_chatgpt_sol",
                            allowedModelIds: ["model_chatgpt_sol"],
                            fallbackPolicy: .exactOnly)
@@ -113,7 +113,7 @@ final class TeamResolverTests: XCTestCase {
     func testPreferredUsedWhenReady() {
         let t = team(
             rows: [
-                TeamWorkerSpec(id: "r1", skillId: "regression_guard",
+                TeamAgentSpec(id: "r1", skillId: "regression_guard",
                                preferredModelId: "model_chatgpt", fallbackPolicy: .anyReady)
             ],
             lead: TeamLeadSpec(
@@ -130,7 +130,7 @@ final class TeamResolverTests: XCTestCase {
         let kimi = Model(id: "model_kimi_k3", displayName: "Kimi K3",
                          modelLabel: "kimi-code/k3", driverId: "kimi", role: .both)
         let t = team(rows: [
-            TeamWorkerSpec(
+            TeamAgentSpec(
                 id: "r1",
                 skillId: "regression_guard",
                 preferredModelId: "model_chatgpt_sol",
@@ -154,7 +154,7 @@ final class TeamResolverTests: XCTestCase {
                          modelLabel: "kimi-code/k3", driverId: "kimi", role: .both)
         let t = team(
             rows: [
-                TeamWorkerSpec(
+                TeamAgentSpec(
                     id: "r1",
                     skillId: "regression_guard",
                     preferredModelId: "missing",
@@ -179,8 +179,8 @@ final class TeamResolverTests: XCTestCase {
 
     func testOptionalRowDisablesWithWarningButRuns() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer"),
-            TeamWorkerSpec(id: "r2", skillId: "outlier_direction",
+            TeamAgentSpec(id: "r1", skillId: "bug_reproducer"),
+            TeamAgentSpec(id: "r2", skillId: "outlier_direction",
                            requiredCapabilityTags: [.image], fallbackPolicy: .anyReady, required: false)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
@@ -192,8 +192,8 @@ final class TeamResolverTests: XCTestCase {
 
     func testRequiredRowUnavailableBlocksTeam() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer"),
-            TeamWorkerSpec(id: "r2", skillId: "outlier_direction",
+            TeamAgentSpec(id: "r1", skillId: "bug_reproducer"),
+            TeamAgentSpec(id: "r2", skillId: "outlier_direction",
                            requiredCapabilityTags: [.image], fallbackPolicy: .anyReady, required: true)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
@@ -206,7 +206,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testPlanWriterUnavailableBlocksRun() {
         let t = team(
-            rows: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer")],
+            rows: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer")],
             lead: leadSpec(tags: [.image]) // no ready model has .image
         )
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
@@ -218,7 +218,7 @@ final class TeamResolverTests: XCTestCase {
     // MARK: - Lane mismatch rejects before running
 
     func testLaneMismatchBlocks() {
-        let t = team(rows: [TeamWorkerSpec(id: "r1", skillId: "bug_reproducer")])
+        let t = team(rows: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer")])
         let r = TeamResolver.resolve(team: t, requestLane: .design, requestEffort: .low, readyModels: [opus()])
         XCTAssertFalse(r.isRunnable)
         XCTAssertTrue(r.blockReason?.contains("is a code team") ?? false)
@@ -232,7 +232,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testDisabledPreferredFallsBackWithWarning() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
+            TeamAgentSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: "model_sonnet", fallbackPolicy: .anyReady)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [opus()])
@@ -243,7 +243,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testExactOnlyBlocksWhenPreferredDisabled() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
+            TeamAgentSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: "model_sonnet", allowedModelIds: ["model_sonnet"],
                            fallbackPolicy: .exactOnly)
         ])
@@ -253,7 +253,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testExactOnlyDoesNotUseOrderedFallbackChain() {
         let t = team(rows: [
-            TeamWorkerSpec(
+            TeamAgentSpec(
                 id: "r1",
                 skillId: "regression_guard",
                 preferredModelId: "model_sonnet",
@@ -271,7 +271,7 @@ final class TeamResolverTests: XCTestCase {
 
     func testDesignRowResolvesWhenCapableModelReady() {
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "visual_system_designer",
+            TeamAgentSpec(id: "r1", skillId: "visual_system_designer",
                            requiredCapabilityTags: [.design], fallbackPolicy: .anyReady, required: true)
         ], lane: .design, lead: leadSpec("design_board_writer", tags: [.design]))
         let r = TeamResolver.resolve(team: t, requestLane: .design, requestEffort: .low, readyModels: [opus(), gemini()])
@@ -283,8 +283,8 @@ final class TeamResolverTests: XCTestCase {
         let composer = Model(id: "model_cursor_composer_25", displayName: "Composer 2.5", modelLabel: "composer-2.5",
                              driverId: "cursor_agent", role: .answerer)
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "bug_reproducer"),
-            TeamWorkerSpec(id: "r2", skillId: "correct_fix_planner"),
+            TeamAgentSpec(id: "r1", skillId: "bug_reproducer"),
+            TeamAgentSpec(id: "r2", skillId: "correct_fix_planner"),
         ], lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_opus", fallbackPolicy: .strongestReady))
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low,
                                      readyModels: [opus(), codex(), composer])
@@ -312,7 +312,7 @@ final class TeamResolverTests: XCTestCase {
             role: .answerer, enabled: true, registry: registry)
         let customModel = ModelCatalog.resolvedModels(registry: registry).first { $0.id == custom.id }!
         let t = team(rows: [
-            TeamWorkerSpec(id: "r1", skillId: "regression_guard",
+            TeamAgentSpec(id: "r1", skillId: "regression_guard",
                            preferredModelId: custom.id, fallbackPolicy: .exactOnly)
         ])
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low, readyModels: [customModel])
@@ -340,7 +340,7 @@ final class TeamResolverTests: XCTestCase {
             "m_sec":  ModelCapabilities(laneTags: [.code], capabilityTags: [.code, .security], strengthRank: 88),
         ])
         let t = team(
-            rows: [TeamWorkerSpec(id: "sec_seat", skillId: "secrets_reviewer",
+            rows: [TeamAgentSpec(id: "sec_seat", skillId: "secrets_reviewer",
                                   preferredCapabilityTags: [.security], fallbackPolicy: .anyReady)],
             lead: TeamLeadSpec(skillId: "security_register_writer",
                                preferredModelId: "m_lead", fallbackPolicy: .strongestReady))
@@ -362,7 +362,7 @@ final class TeamResolverTests: XCTestCase {
             "m_sec":  ModelCapabilities(laneTags: [.code], capabilityTags: [.code, .security], strengthRank: 87),
         ])
         let t = team(
-            rows: [TeamWorkerSpec(id: "sec_seat", skillId: "secrets_reviewer",
+            rows: [TeamAgentSpec(id: "sec_seat", skillId: "secrets_reviewer",
                                   preferredCapabilityTags: [.security], fallbackPolicy: .anyReady)],
             lead: TeamLeadSpec(skillId: "security_register_writer",
                                preferredModelId: "m_lead", fallbackPolicy: .strongestReady))
@@ -383,7 +383,7 @@ final class TeamResolverTests: XCTestCase {
             "m_sec":  ModelCapabilities(laneTags: [.code], capabilityTags: [.code, .security], strengthRank: 80),
         ])
         let t = team(
-            rows: [TeamWorkerSpec(id: "sec_seat", skillId: "secrets_reviewer",
+            rows: [TeamAgentSpec(id: "sec_seat", skillId: "secrets_reviewer",
                                   preferredCapabilityTags: [.security], fallbackPolicy: .anyReady)],
             lead: TeamLeadSpec(skillId: "security_register_writer",
                                preferredModelId: "m_lead", fallbackPolicy: .strongestReady))
@@ -424,17 +424,17 @@ final class TeamResolverTests: XCTestCase {
         XCTAssertEqual(withPref.allWorkers.map(\.id), withoutPref.allWorkers.map(\.id))
     }
 
-    /// #4 Round-trip decode: a TeamWorkerSpec JSON persisted before the new field
+    /// #4 Round-trip decode: a TeamAgentSpec JSON persisted before the new field
     /// existed decodes with an empty `preferredCapabilityTags` (decode-tolerant).
     func testDecodeToleratesMissingPreferredCapabilityTags() throws {
-        let spec = TeamWorkerSpec(id: "r1", skillId: "secrets_reviewer",
+        let spec = TeamAgentSpec(id: "r1", skillId: "secrets_reviewer",
                                   requiredCapabilityTags: [.code])
         let data = try JSONEncoder().encode(spec)
         var obj = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         obj.removeValue(forKey: "preferredCapabilityTags") // simulate old persisted JSON
         XCTAssertNil(obj["preferredCapabilityTags"])
         let legacy = try JSONSerialization.data(withJSONObject: obj)
-        let decoded = try JSONDecoder().decode(TeamWorkerSpec.self, from: legacy)
+        let decoded = try JSONDecoder().decode(TeamAgentSpec.self, from: legacy)
         XCTAssertEqual(decoded.preferredCapabilityTags, [])
         XCTAssertEqual(decoded.skillId, "secrets_reviewer")
         XCTAssertEqual(decoded.requiredCapabilityTags, [.code])
@@ -602,8 +602,8 @@ final class TeamResolverTests: XCTestCase {
         ]
         let t = team(
             rows: [
-                TeamWorkerSpec(id: "r1", skillId: "seat_a"), // claims chatgpt (unused family)
-                TeamWorkerSpec(
+                TeamAgentSpec(id: "r1", skillId: "seat_a"), // claims chatgpt (unused family)
+                TeamAgentSpec(
                     id: "r2", skillId: "seat_b",
                     preferredModelId: "model_opus", fallbackPolicy: .anyReady),
             ],
@@ -636,7 +636,7 @@ final class TeamResolverTests: XCTestCase {
                   driverId: "codex", role: .both),
         ]
         let t = team(
-            rows: [TeamWorkerSpec(id: "r1", skillId: "seat_a")],
+            rows: [TeamAgentSpec(id: "r1", skillId: "seat_a")],
             lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_fable",
                                fallbackPolicy: .strongestReady))
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .med, readyModels: ready)

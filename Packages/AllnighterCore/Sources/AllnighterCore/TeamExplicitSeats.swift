@@ -5,7 +5,7 @@ public enum TeamExplicitSeats {
     public static let explicitSeatingReason = "explicit"
 
     public struct CrewSlot: Sendable, Equatable {
-        public var row: TeamWorkerSpec
+        public var row: TeamAgentSpec
         public var stage: WorkerStage
         public var slotIndex: Int
     }

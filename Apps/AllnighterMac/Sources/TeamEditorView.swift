@@ -22,7 +22,7 @@ struct TeamDraft: Equatable {
         let id: String
         var skillId: String
         var modelId: String?
-        var purpose: TeamWorkerPurpose
+        var purpose: TeamAgentPurpose
     }
 
     /// Seed from a base team. The name stays the base team's real name — selecting a
@@ -81,12 +81,12 @@ struct TeamDraft: Equatable {
         var duplicatedTeamId: TeamID?
 
         let effectiveRows = mutating ? Array(rows.prefix(1)) : rows
-        let specs: [TeamWorkerSpec] = try effectiveRows.map { row in
+        let specs: [TeamAgentSpec] = try effectiveRows.map { row in
             guard !row.skillId.isEmpty else {
                 throw CatalogError.teamInvalid("every agent needs a skill")
             }
             let original = base.workerSpecs.first { $0.id == row.id }
-            return TeamWorkerSpec(
+            return TeamAgentSpec(
                 id: row.id, skillId: row.skillId,
                 purpose: row.purpose, preferredModelId: row.modelId,
                 fallbackModelIds: original?.fallbackModelIds,
@@ -137,7 +137,7 @@ struct TeamDraft: Equatable {
         team.lead = leadSpec
         if let s = scout {
             let original = base.scout
-            team.scout = TeamWorkerSpec(
+            team.scout = TeamAgentSpec(
                 id: s.id, skillId: s.skillId, purpose: .answer,
                 preferredModelId: s.modelId,
                 fallbackModelIds: original?.fallbackModelIds,
@@ -167,7 +167,7 @@ struct TeamDraft: Equatable {
         }
     }
 
-    private static func resolvedExecutionSourceId(from specs: [TeamWorkerSpec], lead: TeamLeadSpec) throws -> String? {
+    private static func resolvedExecutionSourceId(from specs: [TeamAgentSpec], lead: TeamLeadSpec) throws -> String? {
         let bench = Dictionary(ModelCatalog.list().map { ($0.id, $0.driverId) }, uniquingKeysWith: { a, _ in a })
         var sources = Set<String>()
         for row in specs {

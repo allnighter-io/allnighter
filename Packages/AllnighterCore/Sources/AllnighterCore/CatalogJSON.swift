@@ -246,7 +246,7 @@ public struct TeamShowJSON: Codable, Sendable, Equatable {
             self.required = required
         }
 
-        public static func from(_ row: TeamWorkerSpec, role: String) -> CrewSeat {
+        public static func from(_ row: TeamAgentSpec, role: String) -> CrewSeat {
             CrewSeat(
                 role: role, id: row.id, skillId: row.skillId, purpose: row.purpose.rawValue,
                 count: max(1, row.count), preferredModelId: row.preferredModelId,

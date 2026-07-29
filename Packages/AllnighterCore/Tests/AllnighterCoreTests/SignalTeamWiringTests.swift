@@ -44,7 +44,7 @@ final class SignalTeamWiringTests: XCTestCase {
         XCTAssertTrue(SignalScoutPolicy.scoutWarning(for: noScout)?.contains("No scout") == true)
 
         var swapped = team.duplicated(newId: "signal_custom_swapped")
-        swapped.scout = TeamWorkerSpec(id: "signal_source_reader", skillId: "signal_source_reader",
+        swapped.scout = TeamAgentSpec(id: "signal_source_reader", skillId: "signal_source_reader",
                                        preferredModelId: "model_chatgpt", fallbackPolicy: .laneCapable)
         XCTAssertTrue(SignalScoutPolicy.scoutWarning(for: swapped)?.contains("Grok removed") == true)
 

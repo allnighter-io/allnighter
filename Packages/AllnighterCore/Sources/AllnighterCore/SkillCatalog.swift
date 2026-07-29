@@ -1,7 +1,7 @@
 import Foundation
 
 /// A skill's primary role, used as catalog metadata. The worker row
-/// (`TeamWorkerSpec.purpose`) is what actually drives staging; this is the skill's
+/// (`TeamAgentSpec.purpose`) is what actually drives staging; this is the skill's
 /// intended use so the library can group/filter.
 public enum SkillPurpose: String, Codable, Sendable, CaseIterable {
     case answer

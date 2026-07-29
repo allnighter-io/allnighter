@@ -64,7 +64,7 @@ final class CatalogPersistenceTests: XCTestCase {
     func testSkillDeleteBlockedWhenReferencedByTeam() throws {
         let skill = try SkillCatalog.duplicateBuiltIn("contrarian_reviewer", name: "In Use")
         var team = try TeamCatalog.duplicateBuiltIn("code_plan", name: "Uses Custom")
-        team.workerSpecs = [TeamWorkerSpec(id: "row1", skillId: skill.id)]
+        team.workerSpecs = [TeamAgentSpec(id: "row1", skillId: skill.id)]
         try TeamCatalog.saveCustom(team)
         XCTAssertThrowsError(try SkillCatalog.deleteCustom(skill.id)) { error in
             if case .skillInUse(let ids) = error as? CatalogError {

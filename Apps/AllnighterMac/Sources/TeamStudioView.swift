@@ -194,7 +194,7 @@ private struct StudioTeamListView: View {
     private func blankBase() -> TeamPreset {
         let skillId = SkillCatalog.list(lane: lane.workLane).first?.id ?? ""
         let modelId = readyModels.first?.id ?? appModel.models.first?.id
-        let worker = TeamWorkerSpec(id: UUID().uuidString, skillId: skillId, purpose: .answer,
+        let worker = TeamAgentSpec(id: UUID().uuidString, skillId: skillId, purpose: .answer,
                                     preferredModelId: modelId, count: 1, fallbackPolicy: .laneCapable, required: true)
         let lead = TeamLeadSpec(skillId: skillId, preferredModelId: modelId, fallbackPolicy: .laneCapable)
         return TeamPreset(id: "new_\(lane.workLane.rawValue)_draft", displayName: "New \(lane.label) team",

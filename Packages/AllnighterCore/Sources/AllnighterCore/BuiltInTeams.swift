@@ -43,12 +43,12 @@ public enum BuiltInTeams {
 
     /// One worker row. Row id defaults to the skill id (unique within a team).
     private static func row(
-        _ skillId: String, _ purpose: TeamWorkerPurpose,
+        _ skillId: String, _ purpose: TeamAgentPurpose,
         preferred: String? = nil, required: Bool = true,
         fallbacks: [String] = [],
         tags: [ModelCapabilityTag] = [], fallback: ModelFallbackPolicy = .anyReady
-    ) -> TeamWorkerSpec {
-        TeamWorkerSpec(id: skillId, skillId: skillId, purpose: purpose,
+    ) -> TeamAgentSpec {
+        TeamAgentSpec(id: skillId, skillId: skillId, purpose: purpose,
                        preferredModelId: preferred,
                        fallbackModelIds: fallbacks.isEmpty ? nil : fallbacks,
                        requiredCapabilityTags: tags,
@@ -69,19 +69,19 @@ public enum BuiltInTeams {
     /// ahead of an equal-caliber generalist — but NEVER filter and NEVER beat
     /// caliber. Empty = no preference (identical staffing to today).
     private static func needRow(
-        _ skillId: String, _ purpose: TeamWorkerPurpose,
+        _ skillId: String, _ purpose: TeamAgentPurpose,
         tags: [ModelCapabilityTag], required: Bool = true,
         preferred: [ModelCapabilityTag] = []
-    ) -> TeamWorkerSpec {
+    ) -> TeamAgentSpec {
         var spec = row(skillId, purpose, required: required, tags: tags, fallback: .anyReady)
         spec.preferredCapabilityTags = preferred
         return spec
     }
 
     private static func needRows(
-        _ specs: [(String, TeamWorkerPurpose)], tags: [ModelCapabilityTag],
+        _ specs: [(String, TeamAgentPurpose)], tags: [ModelCapabilityTag],
         preferred: [ModelCapabilityTag] = []
-    ) -> [TeamWorkerSpec] {
+    ) -> [TeamAgentSpec] {
         specs.map { needRow($0.0, $0.1, tags: tags, preferred: preferred) }
     }
 
@@ -107,8 +107,8 @@ public enum BuiltInTeams {
     private static func make(
         id: String, name: String, lane: WorkLane, output: TeamOutputKind,
         defaultEffort: EffortLevel, isDefault: Bool = false, description: String,
-        scout: TeamWorkerSpec? = nil,
-        rows: [TeamWorkerSpec], writer: String, dissent: DissentPolicy = .preserveDissent,
+        scout: TeamAgentSpec? = nil,
+        rows: [TeamAgentSpec], writer: String, dissent: DissentPolicy = .preserveDissent,
         lead: TeamLeadSpec? = nil,
         mutating: Bool = false, executionSourceId: String? = nil,
         typeTags: [String] = [], starters: [String] = []
@@ -125,7 +125,7 @@ public enum BuiltInTeams {
     /// The Signal scout row: Grok reads / researches X and public web sources first.
     /// Cursor Grok is an explicit ordered fallback (same mind, Cursor route) when
     /// the Grok CLI seat is down — never a silent broad cross-CLI fill.
-    static let signalScoutGrok = TeamWorkerSpec(
+    static let signalScoutGrok = TeamAgentSpec(
         id: "signal_source_reader", skillId: "signal_source_reader", purpose: .answer,
         preferredModelId: grok, fallbackModelIds: [cursorGrok], fallbackPolicy: .laneCapable)
 
@@ -254,7 +254,7 @@ public enum BuiltInTeams {
         output: .plan, defaultEffort: .high,
         description: "Fast growth read: up to 4 diverse models (a flagship when you have one) hunt the wedge that makes X builders love it — kept simple and on-core. Runs on whatever's ready; drops a seat rather than doubling up.",
         rows: [
-            TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
+            TeamAgentSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
                            requiredCapabilityTags: [.code],
                            count: 4, triangulate: true)
         ],
@@ -275,7 +275,7 @@ public enum BuiltInTeams {
         output: .plan, defaultEffort: .high,
         description: "Make X builders and influencers LOVE a feature: up to 6 diverse models — flagships recruited as workers when ready (never benched for the Lead) — swing big on the same growth question; Fable synthesizes and picks the highest-leverage wedge that stays on-core and simple, valuing the breakout outlier over safe consensus. Runs on whatever's ready; drops a seat rather than doubling up.",
         rows: [
-            TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
+            TeamAgentSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
                            requiredCapabilityTags: [.code],
                            count: 6, triangulate: true)
         ],
@@ -298,7 +298,7 @@ public enum BuiltInTeams {
         scout: row("signal_source_reader", .answer, preferred: grok,
                    fallbacks: [cursorGrok], fallback: .laneCapable),
         rows: [
-            TeamWorkerSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
+            TeamAgentSpec(id: "growth_seats", skillId: "growth_hacker", purpose: .answer,
                            requiredCapabilityTags: [.code],
                            count: 8, triangulate: true)
         ],
@@ -540,7 +540,7 @@ public enum BuiltInTeams {
         description: "Paste an X post, YouTube video, article, or release note and get what it actually means for THIS project — what happened, why it matters here, and what to do about it, with source receipts and a freshness check. One model fetches and distills the source (Grok reads X; `vvx` reads video transcripts), then several different models read that same distilled source independently, so you get a triangulated read instead of one model's opinion, plus a skeptic pass that argues against it.",
         scout: signalScoutGrok,
         rows: [
-            TeamWorkerSpec(id: "signal_interpret", skillId: "signal_interpret", purpose: .answer,
+            TeamAgentSpec(id: "signal_interpret", skillId: "signal_interpret", purpose: .answer,
                            count: 3, triangulate: true, triangulatePreferenceIds: signalInterpreterPreference),
             row("signal_skeptic", .review, preferred: sonnet)
         ], writer: "insight_writer", dissent: .preserveDissent,

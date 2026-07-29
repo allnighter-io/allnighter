@@ -23,7 +23,7 @@ final class SignalTriangulationTests: XCTestCase {
             id: "signal_test", displayName: "Signal Test", lane: .signal, outputKind: .insight,
             defaultEffort: .med,
             workerSpecs: [
-                TeamWorkerSpec(
+                TeamAgentSpec(
                     id: "interpret", skillId: "signal_project_fit", purpose: .answer,
                     count: count, required: true, triangulate: true,
                     triangulatePreferenceIds: ["model_grok", "model_chatgpt", "model_gemini"])
