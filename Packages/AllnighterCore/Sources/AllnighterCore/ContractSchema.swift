@@ -138,7 +138,7 @@ public enum ContractSchema {
             ], required: ["status", "source"]),
             "AnswerSource": obj([
                 "kind": enumStr(["plan", "worker", "typed"]),
-                "workerId": nullable("string"),
+                "agentId": nullable("string"),
                 "modelId": nullable("string"),
                 "stageId": nullable("string"),
             ], required: ["kind"]),

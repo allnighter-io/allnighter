@@ -383,18 +383,18 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
                 case plan, worker, typed
             }
             public var kind: Kind
-            public var workerId: String?
+            public var agentId: String?
             public var modelId: String?
             public var stageId: String?
 
             public init(
                 kind: Kind,
-                workerId: String? = nil,
+                agentId: String? = nil,
                 modelId: String? = nil,
                 stageId: String? = nil
             ) {
                 self.kind = kind
-                self.workerId = workerId
+                self.agentId = agentId
                 self.modelId = modelId
                 self.stageId = stageId
             }

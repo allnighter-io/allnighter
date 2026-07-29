@@ -364,7 +364,7 @@ public enum ArtifactProjector {
   ) -> String? {
     var markdown = answer?.output
     if markdown?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
-       hoistedAnswer?.source.workerId == worker.id {
+       hoistedAnswer?.source.agentId == worker.id {
       markdown = hoistedAnswer?.markdown
     }
     return markdown

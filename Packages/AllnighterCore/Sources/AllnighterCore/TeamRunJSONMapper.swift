@@ -220,7 +220,7 @@ public enum TeamRunJSONMapper {
                 markdown: markdown,
                 source: .init(
                     kind: .plan,
-                    workerId: donePlan.writerWorkerId,
+                    agentId: donePlan.writerWorkerId,
                     modelId: answers.first { $0.agentId == donePlan.writerWorkerId }?.modelId,
                     stageId: donePlan.stageId
                 )
@@ -239,7 +239,7 @@ public enum TeamRunJSONMapper {
                 markdown: markdown,
                 source: .init(
                     kind: .worker,
-                    workerId: only.agentId,
+                    agentId: only.agentId,
                     modelId: only.modelId
                 )
             )

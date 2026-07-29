@@ -57,7 +57,7 @@
     "markdown": "success",
     "source": {
       "kind": "worker",
-      "workerId": "model_sonnet#0",
+      "agentId": "model_sonnet#0",
       "modelId": "model_sonnet",
       "stageId": null
     },

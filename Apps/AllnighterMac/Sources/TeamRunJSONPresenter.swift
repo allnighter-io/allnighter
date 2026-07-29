@@ -36,7 +36,7 @@ struct TeamRunJSONPresenter {
             // One-worker canonical text lives on `run.answer`; surface it on that row.
             let seatMarkdown = answer?.markdown.flatMap { $0.isEmpty ? nil : $0 }
             let rowMarkdown = seatMarkdown
-                ?? (run.answer?.source.workerId == worker.id ? run.answer?.markdown : nil)
+                ?? (run.answer?.source.agentId == worker.id ? run.answer?.markdown : nil)
             return WorkerRow(
                 id: worker.id,
                 modelName: worker.modelName,
