@@ -10,8 +10,8 @@ import Foundation
 enum ConversationAgentPresentation {
     static let previewWorkerId = "model_opus#0"
 
-    static func modelId(fromWorkerId workerId: String) -> String {
-        workerId.split(separator: "#").first.map(String.init) ?? workerId
+    static func modelId(fromAgentInstanceId agentInstanceId: String) -> String {
+        agentInstanceId.split(separator: "#").first.map(String.init) ?? agentInstanceId
     }
 
     static func workerInstanceId(for modelId: String) -> String {

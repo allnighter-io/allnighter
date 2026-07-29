@@ -40,7 +40,7 @@ struct IOSComposerDraft: Equatable, Sendable {
     func modelIdForSend(continuationModelId: String?) -> String? {
         if let selectedModelId { return selectedModelId }
         if let continuationModelId {
-            return ConversationAgentPresentation.modelId(fromWorkerId: continuationModelId)
+            return ConversationAgentPresentation.modelId(fromAgentInstanceId: continuationModelId)
         }
         return nil
     }
