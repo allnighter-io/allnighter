@@ -119,11 +119,11 @@ final class AppModel {
 
     /// Toggle a worker in/out of the current (ad-hoc) panel. Marks the panel as
     /// no longer matching a named preset.
-    func toggle(_ worker: Model) {
-        if let index = currentPinnedSeatSpecs.firstIndex(where: { $0.modelId == worker.id }) {
+    func toggle(_ model: Model) {
+        if let index = currentPinnedSeatSpecs.firstIndex(where: { $0.modelId == model.id }) {
             currentPinnedSeatSpecs.remove(at: index)
         } else {
-            currentPinnedSeatSpecs.append(SeatSpec(modelId: worker.id))
+            currentPinnedSeatSpecs.append(SeatSpec(modelId: model.id))
         }
         activePresetId = nil
     }
