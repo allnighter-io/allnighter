@@ -326,7 +326,7 @@ final class AppModel {
             guard let profile = profileByID[lensId], profile.purpose == .reviewLens else { continue }
             let model = pool[i % pool.count]
             guard let manifest = registry.manifest(for: model) else { continue }
-            lenses.append(ResolvedLens(lensId: lensId, profile: profile, worker: model, manifest: manifest,
+            lenses.append(ResolvedLens(lensId: lensId, profile: profile, model: model, manifest: manifest,
                                        inputSelectors: ReviewCoordinator.defaultSelectors(forLens: lensId)))
         }
         guard !lenses.isEmpty else { return }

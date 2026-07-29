@@ -9,7 +9,7 @@ import AllnighterCore
 /// exact context and stores the pasted reply as the worker turn.
 ///
 /// `TeamRun` is never touched here; chat turns own their text.
-public actor WorkerChatCoordinator {
+public actor AgentChatCoordinator {
     public enum ChatError: Error, Equatable, CustomStringConvertible {
         case threadNotFound(String)
         case noWorkerAvailable

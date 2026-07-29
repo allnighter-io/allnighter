@@ -206,7 +206,7 @@ public struct RelayThreadProjector: Sendable {
     /// moment this lands, no new stored liveness field. Cleared to `.done` the next time
     /// `sync` observes `state.status != .escalated` (i.e. right after
     /// `RelayCoordinator.resume` flips it back to `.running`) — mirroring
-    /// `WorkerChatCoordinator.completeManualPaste`'s "resolve the open note" shape.
+    /// `AgentChatCoordinator.completeManualPaste`'s "resolve the open note" shape.
     private func syncEscalation(round: RelayRound, state: RelayState, thread: inout WorkThread, now: Date) {
         guard round.outcome == .escalated else { return }
         let turnId = "\(state.id)_escalate\(round.roundNumber)"

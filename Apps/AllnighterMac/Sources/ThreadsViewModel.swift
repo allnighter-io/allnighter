@@ -5,8 +5,8 @@ import AllnighterCore
 import AllnighterEngine
 import AgentOSTeam
 
-/// The Work Threads surface's observable truth. Owns a `ThreadStore` and a
-/// `WorkerChatCoordinator`, mirrors `AppModel`'s pattern (@Observable +
+/// The Work Threads surface's observable truth. Owns a `ThreadStore` and an
+/// `AgentChatCoordinator`, mirrors `AppModel`'s pattern (@Observable +
 /// @MainActor, engine work in detached Tasks). UI reads this; it never mutates
 /// thread truth directly — every change goes through the store/coordinator.
 @MainActor
@@ -47,7 +47,7 @@ final class ThreadsViewModel {
     let models: [Model]
     private let store: ThreadStore
     private let runStore: RunStore
-    private let coordinator: WorkerChatCoordinator
+    private let coordinator: AgentChatCoordinator
     /// Shared sink for default-chat streaming flushes (PERF-S04a). Wired after init.
     private let chatLivePartialObserver = ThreadSendCoordinator.LivePartialObserver()
     private let registry: DriverRegistry
@@ -193,7 +193,7 @@ final class ThreadsViewModel {
         self.notificationPolicy = notificationPolicyStore.load()
         self.notificationDelivery = notificationDelivery ?? NoOpThreadNotificationDelivery()
         self.serveDaemonProbe = serveDaemonProbe
-        self.coordinator = WorkerChatCoordinator(
+        self.coordinator = AgentChatCoordinator(
             store: store, runner: runner, imageInvoker: imageInvoker,
             registry: registry, models: models,
             livePartialObserver: chatLivePartialObserver

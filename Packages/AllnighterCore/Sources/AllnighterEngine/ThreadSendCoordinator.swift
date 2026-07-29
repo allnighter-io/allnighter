@@ -244,7 +244,7 @@ public struct ThreadSendCoordinator: Sendable {
         guard let model = models.first(where: { $0.id == pending.workerId }),
               let manifest = registry.manifest(for: model),
               manifest.kind == .headlessCLI else {
-            throw WorkerChatCoordinator.ChatError.noWorkerAvailable
+            throw AgentChatCoordinator.ChatError.noWorkerAvailable
         }
 
         switch pending.invokeProfile {
@@ -280,7 +280,7 @@ public struct ThreadSendCoordinator: Sendable {
 
         case .imageGen:
             guard let imageGen = manifest.imageGen else {
-                throw WorkerChatCoordinator.ChatError.noWorkerAvailable
+                throw AgentChatCoordinator.ChatError.noWorkerAvailable
             }
             let threadDir = try store.threadDirectory(forThreadId: pending.threadId)
             let scratch = threadDir.appendingPathComponent("worker_scratch/\(pending.workerTurn.id)", isDirectory: true)
@@ -372,10 +372,10 @@ public struct ThreadSendCoordinator: Sendable {
         }
 
         guard var priorThread = store.get(threadId) else {
-            throw WorkerChatCoordinator.ChatError.threadNotFound(threadId)
+            throw AgentChatCoordinator.ChatError.threadNotFound(threadId)
         }
         guard let workerId = resolveWorkerId(for: priorThread, requested: request.requestedWorkerId) else {
-            throw WorkerChatCoordinator.ChatError.noWorkerAvailable
+            throw AgentChatCoordinator.ChatError.noWorkerAvailable
         }
 
         let fileInputs = (request.fileReferences + FileReferenceTokenParser.parse(message: trimmed))
