@@ -292,4 +292,3 @@ instead of learning limits only when a run dies.
 
 Never claim capacity we did not sample. Never blame Alln when a CLI is silent —
 show **unknown** and keep the reactive path.
-`}
