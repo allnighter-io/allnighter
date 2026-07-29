@@ -390,16 +390,16 @@ struct FloorCastMember: Identifiable {
                 substitutedFrom: lead.substitutedFromModelId.map(modelName),
                 failureCause: failureCause(leadAnswer)))
         }
-        for worker in run.workers where worker.purpose != .plan {
-            let answer = run.workerAnswer(workerId: worker.id)
+        for agent in run.workers where agent.purpose != .plan {
+            let answer = run.workerAnswer(workerId: agent.id)
             members.append(FloorCastMember(
-                id: worker.id, role: title(worker.skillName, worker.skillId, fallback: "Agent"), isLead: false,
-                modelName: modelName(worker.modelId), driverId: driverId(worker.modelId),
+                id: agent.id, role: title(agent.skillName, agent.skillId, fallback: "Agent"), isLead: false,
+                modelName: modelName(agent.modelId), driverId: driverId(agent.modelId),
                 gist: previewLine(answer?.output ?? ""),
                 markdown: answer?.output ?? "(no reply)", status: (answer?.result.status ?? .queued).rawValue,
                 startedAt: answer?.result.timing.startedAt, finishedAt: answer?.result.timing.finishedAt,
                 durationMs: answer?.result.timing.durationMs,
-                substitutedFrom: worker.substitutedFromModelId.map(modelName),
+                substitutedFrom: agent.substitutedFromModelId.map(modelName),
                 failureCause: failureCause(answer)))
         }
         return members
