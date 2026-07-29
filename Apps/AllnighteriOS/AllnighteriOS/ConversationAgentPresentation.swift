@@ -18,9 +18,9 @@ enum ConversationAgentPresentation {
         "\(modelId)#0"
     }
 
-    static func driverId(for workerId: String?) -> String {
-        guard let workerId else { return "claude_code" }
-        let modelPart = modelPart(from: workerId).lowercased()
+    static func driverId(for agentInstanceId: String?) -> String {
+        guard let agentInstanceId else { return "claude_code" }
+        let modelPart = modelPart(from: agentInstanceId).lowercased()
         if modelPart.contains("claude") || modelPart.contains("opus") || modelPart.contains("sonnet") || modelPart.contains("fable") {
             return "claude_code"
         }
@@ -33,9 +33,9 @@ enum ConversationAgentPresentation {
         return "claude_code"
     }
 
-    static func modelDisplayName(for workerId: String?) -> String {
-        guard let workerId else { return "Agent" }
-        let modelPart = modelPart(from: workerId).lowercased()
+    static func modelDisplayName(for agentInstanceId: String?) -> String {
+        guard let agentInstanceId else { return "Agent" }
+        let modelPart = modelPart(from: agentInstanceId).lowercased()
         if let opus = opusLabel(from: modelPart) { return opus }
         if modelPart.contains("sonnet") { return "Sonnet" }
         if modelPart.contains("haiku") { return "Haiku" }
@@ -50,12 +50,12 @@ enum ConversationAgentPresentation {
             .capitalized
     }
 
-    static func agentTitle(for workerId: String?) -> String {
-        "Agent (\(modelDisplayName(for: workerId)))"
+    static func agentTitle(for agentInstanceId: String?) -> String {
+        "Agent (\(modelDisplayName(for: agentInstanceId)))"
     }
 
-    private static func modelPart(from workerId: String) -> String {
-        workerId.split(separator: "#").first.map(String.init) ?? workerId
+    private static func modelPart(from agentInstanceId: String) -> String {
+        agentInstanceId.split(separator: "#").first.map(String.init) ?? agentInstanceId
     }
 
     private static func opusLabel(from modelPart: String) -> String? {
@@ -71,9 +71,9 @@ enum ConversationAgentPresentation {
         return version.isEmpty ? "Opus" : "Opus \(version)"
     }
 
-    static func composerChipTitle(for workerId: String?) -> String {
-        guard let workerId else { return "Auto" }
-        return modelDisplayName(for: workerId)
+    static func composerChipTitle(for agentInstanceId: String?) -> String {
+        guard let agentInstanceId else { return "Auto" }
+        return modelDisplayName(for: agentInstanceId)
     }
 
     static func composerChipTitle(fromAgentTitle title: String) -> String {
