@@ -43,7 +43,7 @@ public enum NotificationDeliveryFilter {
             return policy.notifyTeamRunComplete
         case .turnFailed, .turnTimedOut, .turnAwaitingManualPaste, .turnAuthRequired,
              .threadNeedsAttention, .vendorParked, .vendorResumed,
-             .relayNeedsAnswer, .relayStopped:
+             .relayNeedsAnswer, .relayStopped, .relayStreamStalled:
             return policy.notifyFailuresAndBlocked
         }
     }
@@ -100,6 +100,8 @@ public enum NotificationCopy {
             return "PM Relay needs an answer"
         case .relayStopped:
             return "PM Relay stopped"
+        case .relayStreamStalled:
+            return "Relay worker stream stalled"
         }
     }
 
@@ -121,6 +123,8 @@ public enum NotificationCopy {
             return "Open Allnighter to answer."
         case .relayStopped:
             return "Check the relay's final state."
+        case .relayStreamStalled:
+            return "Worker output has been silent — inspect with `alln pair pilot status` or `alln ps`."
         }
     }
 

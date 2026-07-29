@@ -128,8 +128,8 @@ final class ProcessOwnershipReconcileTests: XCTestCase {
         defer { ProcessOwnership.terminateSignalHook = nil }
 
         let reaped = try XCTUnwrap(store.reconcileRunDetailed(runId: "recycled"))
-        XCTAssertTrue(reaped.reaped)
-        XCTAssertEqual(reaped.run.endReason, .reconciledOrphan)
+        XCTAssertFalse(reaped.reaped, "recycled pid must not be reconciled — identity mismatch")
+        XCTAssertNil(reaped.run.endReason)
         XCTAssertTrue(signals.isEmpty,
                       "recycled pid (alive but wrong startTime) must NEVER be signalled")
     }

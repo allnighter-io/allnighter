@@ -69,6 +69,21 @@ public struct RunNotificationSnapshot: Sendable, Equatable {
     }
 }
 
+/// Relay stream stall snapshot for URN (CLP-S08).
+public struct RelayStreamNotificationSnapshot: Sendable, Equatable {
+    public let relayId: String
+    public let threadTitle: String
+    public let devWorkerId: String
+    public let streamSilenceWarning: Bool
+
+    public init(relayId: String, threadTitle: String, devWorkerId: String, streamSilenceWarning: Bool) {
+        self.relayId = relayId
+        self.threadTitle = threadTitle
+        self.devWorkerId = devWorkerId
+        self.streamSilenceWarning = streamSilenceWarning
+    }
+}
+
 /// Pure detection of notification candidates from thread state diffs (NOTIF-S02).
 public enum NotificationCandidateDetection {
     public static func snapshots(from threads: [WorkThread]) -> [String: ThreadNotificationSnapshot] {
@@ -194,6 +209,48 @@ public enum NotificationCandidateDetection {
             }
         }
         return candidates
+    }
+
+    /// CLP-S08: emit when a running relay's dev stream crosses the silence warning threshold.
+    public static func relayStreamSnapshots(
+        relays: [RelayState],
+        runStore: RunStoreReading,
+        threadTitles: [String: String],
+        now: Date
+    ) -> [String: RelayStreamNotificationSnapshot] {
+        Dictionary(uniqueKeysWithValues: relays.compactMap { relay in
+            guard relay.status == .running else { return nil }
+            let last = StreamLiveness.relayStreamLastActivityAt(state: relay, runStore: runStore)
+            let warning = StreamLiveness.streamSilenceWarning(lastActivityAt: last, now: now)
+            let title = threadTitles[relay.id] ?? relay.docPath
+            return (relay.id, RelayStreamNotificationSnapshot(
+                relayId: relay.id,
+                threadTitle: title,
+                devWorkerId: relay.devWorkerId,
+                streamSilenceWarning: warning
+            ))
+        })
+    }
+
+    public static func relayStreamCandidates(
+        before: [String: RelayStreamNotificationSnapshot]?,
+        after: [String: RelayStreamNotificationSnapshot],
+        now: Date
+    ) -> [NotificationCandidate] {
+        guard let before else { return [] }
+        var out: [NotificationCandidate] = []
+        for (relayId, snap) in after where snap.streamSilenceWarning {
+            if before[relayId]?.streamSilenceWarning == true { continue }
+            out.append(NotificationCandidate(
+                threadId: relayId,
+                turnId: relayId,
+                event: .relayStreamStalled,
+                threadTitle: snap.threadTitle,
+                workerId: snap.devWorkerId,
+                occurredAt: now
+            ))
+        }
+        return out
     }
 
     private static func turnCandidates(

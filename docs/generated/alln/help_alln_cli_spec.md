@@ -576,9 +576,10 @@ Flags:
 
 ### `alln ps`
 
-List the process trees Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing. Defaults to the caller's project scope; --all-projects is the explicit machine-wide fleet view.
+List owned process trees (runs, relays, pilots, proofs). Reconciles identity-dead owners on read (CLP-S02) — no manual `team reconcile` on the happy path. PRIMARY liveness is stream silence (`run.lastActivityAt`), same as `pair pilot status` — not relay heartbeat/pgid. Default shows alive + needs-action only; `--all` includes terminal history. Scoped to caller's project; `--all-projects` is machine-wide.
 
 Flags:
+- `--all` — Include terminal/history rows (museum view). Default is alive + needs-action floor only.
 - `--all-projects` — Machine-wide fleet view instead of the caller's project scope.
 - `--json` — Structured OwnershipPsJSON inventory.
 
@@ -711,7 +712,7 @@ Output schema: `relayJSON`.
 
 ### `alln pair relay-status`
 
-Read a PM Relay's durable state — rounds, verdicts, gate decisions.
+Read a PM Relay's durable state — rounds, verdicts, gate decisions. Reconciles identity-dead `.running` owners on read (no manual reconcile).
 
 Flags:
 - `--relay <id>` — Relay id (required).

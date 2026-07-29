@@ -494,8 +494,10 @@ public enum ProcessOwnership {
         case staged
         /// Owner identity written and identity-alive.
         case ownedLive
-        /// Owner identity written, then identity-verified dead (incl. recycled
-        /// pid) — reclaimable.
+        /// Recorded pid is live but startTimeTicks do not match (recycled pid).
+        /// Never reclaimable — same refusal as `kill` identity mismatch.
+        case identityMismatch
+        /// Owner identity written, then identity-verified dead (pid gone or zombie).
         case ownerDead
         /// Missing/unreadable identity with no live lease cover — reclaimable.
         case unownedReclaimable
@@ -518,6 +520,11 @@ public enum ProcessOwnership {
         let lease = readStageLease(in: directory)
         if let lease, !lease.isExpired(at: now) { return .staged }
         if let identity = readOwnerIdentity(in: directory) {
+            if processAlive(identity.pid),
+               let liveTicks = processStartTimeTicks(identity.pid),
+               liveTicks != identity.startTimeTicks {
+                return .identityMismatch
+            }
             return isIdentityAlive(identity) ? .ownedLive : .ownerDead
         }
         if lease != nil { return .unownedReclaimable }
@@ -535,7 +542,7 @@ public enum ProcessOwnership {
     ) -> Bool {
         switch livenessVerdict(in: directory, runCreatedAt: runCreatedAt, now: now) {
         case .ownerDead, .unownedReclaimable: return true
-        case .staged, .ownedLive: return false
+        case .staged, .ownedLive, .identityMismatch: return false
         }
     }
 

@@ -64,6 +64,10 @@ revive.
 > (Complete 2026-07-28 — PLS-S01/S02: `pilot status` stream-primary liveness +
 > `streamSilenceWarning`, early `devRunId` stamp; PLS-S03 deferred; code SSOT
 > `PilotCLI.resolveLastProgressAt`, `RelayCoordinator` early `persistDeliveredDevRun`);
+> [`Core_Loop_Improvements.md`](../archive/phases/Core_Loop_Improvements.md)
+> (Complete 2026-07-28 — CLP-S01 stream liveness on `ps`/status, S02 reconcile-on-read,
+> S03 default `ps` floor + `--all`, S05 golden-path teaching, S08 stream-stall URN;
+> code SSOT `StreamLiveness`, `ProcessOwnershipSurface`, `NotificationScheduler`);
 > [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md)
 > (Code Complete 2026-07-27 — URN-S01/S02/S03 shipped: `alln serve` posts local
 > notifications for relay/pilot/team-run state and auto-launches itself, silent
@@ -150,7 +154,6 @@ law. Shipped subsections already belong to code; do not cite these paths as
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Core_Loop_Improvements.md`](Core_Loop_Improvements.md) | **Authorized — one PR** | CLP-S01 liveness everywhere + S02/S07 reconcile-on-read + S03 ps filter; passengers S05 teaching + S08 URN wire-up; S04/S06/S09 killed; unified status projector deferred v2 |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open / M1 built — **archive when no forward CLI naming work remains** | `alln` agent-first naming while still evolving. Code owns shipped contract bits. |
 
 ### Team catalog & delegation (forward)

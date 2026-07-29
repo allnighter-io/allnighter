@@ -3,13 +3,13 @@ import AllnighterCore
 
 /// Observable ownership surface for `alln ps` / `alln kill` (PO-S05).
 ///
-/// Reads durable state only — run dirs, relay dirs, lane `holder.json` files —
+/// Reads durable state — run dirs, relay dirs, lane `holder.json` files —
 /// via existing ProcessOwnership / RunStore / RelayStateStore / ExecutionLaneFlock
 /// readers. No new process machinery.
 ///
 /// Law:
-/// - `list` is **read-only**: reports what reconcile WOULD reap (`wouldReconcile`);
-///   never signals, never writes.
+/// - `list` **reconciles on read** (CLP-S02): identity-dead owners are settled
+///   before rows are returned. Default view shows the floor only (`--all` for history).
 /// - `kill` is the big red button: identity-checked total group kill
 ///   (`ProcessOwnership.terminateOwnerIdentityIfSafe`) + one atomic terminal
 ///   write `endReason: killed`. Refuses on identity mismatch (recycled pid).
@@ -17,21 +17,24 @@ public struct ProcessOwnershipSurface: Sendable {
     public var runStore: RunStore
     public var relayStore: RelayStateStore
     public var lanesRoot: URL
+    public var threadProjector: RelayThreadProjector?
     public var now: @Sendable () -> Date
 
     public init(
         runStore: RunStore = RunStore(),
         relayStore: RelayStateStore = RelayStateStore(),
         lanesRoot: URL? = nil,
+        threadProjector: RelayThreadProjector? = RelayThreadProjector(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.runStore = runStore
         self.relayStore = relayStore
         self.lanesRoot = lanesRoot ?? AllnighterPaths.lanes
+        self.threadProjector = threadProjector
         self.now = now
     }
 
-    // MARK: - ps (read-only)
+    // MARK: - ps
 
     /// Enumerate the process trees Allnighter owns. Stable order: kind, then id.
     ///
@@ -40,7 +43,11 @@ public struct ProcessOwnershipSurface: Sendable {
     /// Fail closed — rows with an unresolvable root (nil, e.g. proof holders)
     /// are excluded from a scoped listing. `nil` is the explicit machine-wide
     /// fleet view (`alln ps --all-projects`).
-    public func list(scopeRoot: String? = nil) -> OwnershipPsJSON {
+    ///
+    /// `includeHistory`: when false (default), only alive + needs-action rows
+    /// (CLP-S03). Pass true via `alln ps --all` for the full museum.
+    public func list(scopeRoot: String? = nil, includeHistory: Bool = false) -> OwnershipPsJSON {
+        reconcileOnRead(scopeRoot: scopeRoot)
         let countedAt = now()
         var rows: [OwnershipProcessJSON] = []
         rows.append(contentsOf: listRuns(now: countedAt))
@@ -49,11 +56,42 @@ public struct ProcessOwnershipSurface: Sendable {
         if let scopeRoot {
             rows = rows.filter { ProjectScope.matches(scopeRoot: scopeRoot, recordRoot: $0.projectRoot) }
         }
+        if !includeHistory {
+            rows = rows.filter { Self.isFloorVisible($0) }
+        }
         rows.sort { lhs, rhs in
             if lhs.kind != rhs.kind { return lhs.kind < rhs.kind }
             return lhs.id < rhs.id
         }
         return OwnershipPsJSON(countedAt: countedAt, processes: rows)
+    }
+
+    /// Alive + needs-action rows for default `alln ps` (CLP-S03).
+    public static func isFloorVisible(_ row: OwnershipProcessJSON) -> Bool {
+        if row.kind == "worker" { return false }
+        if row.identityAlive { return true }
+        switch row.status {
+        case RelayState.Status.awaitingPM.rawValue, RelayState.Status.escalated.rawValue:
+            return true
+        default:
+            break
+        }
+        if row.phase == RunPhase.waitingForVendor.rawValue { return true }
+        return false
+    }
+
+    /// Eager reconcile before status inventory (CLP-S02).
+    private func reconcileOnRead(scopeRoot: String?) {
+        for relay in relayStore.list() {
+            if let scopeRoot,
+               !ProjectScope.matches(scopeRoot: scopeRoot, recordRoot: relay.projectRoot) {
+                continue
+            }
+            _ = RelayCoordinator.reconcileOrphan(
+                relay, stateStore: relayStore, threadProjector: threadProjector, now: now
+            )
+        }
+        _ = runStore.reconcileAll(scopeRoot: scopeRoot)
     }
 
     /// Human-readable table for `alln ps` without `--json`.
@@ -329,11 +367,12 @@ public struct ProcessOwnershipSurface: Sendable {
             let terminal = relay.status != .running
             // Would reconcile: .running + owner dead (same guard as reconcileOrphan).
             let would = relay.status == .running && relayStore.isOwnerDead(id: relay.id)
-            let last = ProcessOwnership.lastProgressAt(in: dir)
-            let age = last.map { now.timeIntervalSince($0) }
+            // CLP-S01: stream-primary liveness — dev journal only, not relay heartbeat.
+            let streamLast = StreamLiveness.relayStreamLastActivityAt(state: relay, runStore: runStore)
+            let age = streamLast.map { now.timeIntervalSince($0) }
             let stale = terminal
                 ? nil
-                : ProcessOwnership.isProgressStale(in: dir, now: now)
+                : streamLast.map { RunActivity.progressStale(lastActivityAt: $0, now: now) } ?? true
             let endReason: String?
             if let stamped = relay.rounds.last?.devTurnEndReason {
                 endReason = stamped.rawValue
@@ -359,14 +398,14 @@ public struct ProcessOwnershipSurface: Sendable {
                             ticketPosition: ticket.position
                         )
                     },
-                lastProgressAt: last,
+                lastProgressAt: streamLast,
                 heartbeatAgeSeconds: age,
                 progressStale: stale,
                 endReason: endReason,
                 status: relay.status.rawValue,
                 silenceStatus: OwnershipSilencePresentation.silenceStatusLine(
                     identityAlive: alive,
-                    lastProgressAt: last,
+                    lastProgressAt: streamLast,
                     now: now,
                     stallSummary: {
                         if let persisted = ProcessOwnership.readStallDiagnosis(in: dir)?.summary {

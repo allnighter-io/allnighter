@@ -904,7 +904,7 @@ enum PilotCLI {
         let elapsed = startedAt.map { max(0, Int(now.timeIntervalSince($0))) }
         let lastProgress = resolveLastProgressAt(state: state, runStore: runStore)
         let silence = lastProgress.map { max(0, Int(now.timeIntervalSince($0))) }
-        let warnThreshold = Int(statusWaitHintSeconds * streamSilenceWarningMultiplier)
+        let warnThreshold = Int(StreamLiveness.waitHintSeconds * StreamLiveness.warningMultiplier)
         let streamWarning = silence.map { $0 > warnThreshold } ?? false
         let commits = commitsSinceBaseline(state: state, gitObserver: gitObserver)
         return (
@@ -926,8 +926,7 @@ enum PilotCLI {
         state: RelayState,
         runStore: RunStore
     ) -> Date? {
-        guard let runId = state.rounds.last?.devRunId else { return nil }
-        return runStore.load(runId: runId)?.lastActivityAt
+        StreamLiveness.relayStreamLastActivityAt(state: state, runStore: runStore)
     }
 
     /// SUPPLEMENTARY only — not liveness. Nil when no baseline/HEAD to observe.

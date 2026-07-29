@@ -66,6 +66,20 @@ final class NotificationCandidateDetectionTests: XCTestCase {
         XCTAssertTrue(candidates.isEmpty)
     }
 
+    func testRelayStreamStallEmitsOnceOnTransition() {
+        let before = ["relay_1": RelayStreamNotificationSnapshot(
+            relayId: "relay_1", threadTitle: "Smoke", devWorkerId: "model_dev", streamSilenceWarning: false
+        )]
+        let after = ["relay_1": RelayStreamNotificationSnapshot(
+            relayId: "relay_1", threadTitle: "Smoke", devWorkerId: "model_dev", streamSilenceWarning: true
+        )]
+        let candidates = NotificationCandidateDetection.relayStreamCandidates(
+            before: before, after: after, now: now
+        )
+        XCTAssertEqual(candidates.count, 1)
+        XCTAssertEqual(candidates[0].event, .relayStreamStalled)
+    }
+
     func testTeamRunCompleteEvent() {
         var before = sampleThread(workerStatus: .done)
         var after = sampleThread(workerStatus: .done)

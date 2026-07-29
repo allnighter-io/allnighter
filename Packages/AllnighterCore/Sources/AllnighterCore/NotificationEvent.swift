@@ -13,6 +13,7 @@ public enum NotificationEventKind: String, Codable, Sendable, CaseIterable {
     case vendorResumed = "team_run.vendor_resumed"
     case relayNeedsAnswer = "relay.needs_answer"
     case relayStopped = "relay.stopped"
+    case relayStreamStalled = "relay.stream_stalled"
 }
 
 /// A notification-worthy state transition on a thread turn.

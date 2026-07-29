@@ -390,8 +390,9 @@ public extension ContractRegistry {
         ),
         // Process ownership observability (docs/phases/Process_Ownership.md PO-S05)
         CommandSpec(
-            "ps", summary: "List the process trees Allnighter owns (runs, relays, pilots, proofs) from durable state. Read-only: reports what reconcile WOULD reap; kills nothing, writes nothing. Defaults to the caller's project scope; --all-projects is the explicit machine-wide fleet view.", milestone: .m1,
+            "ps", summary: "List owned process trees (runs, relays, pilots, proofs). Reconciles identity-dead owners on read (CLP-S02) — no manual `team reconcile` on the happy path. PRIMARY liveness is stream silence (`run.lastActivityAt`), same as `pair pilot status` — not relay heartbeat/pgid. Default shows alive + needs-action only; `--all` includes terminal history. Scoped to caller's project; `--all-projects` is machine-wide.", milestone: .m1,
             flags: [
+                FlagSpec("all", summary: "Include terminal/history rows (museum view). Default is alive + needs-action floor only."),
                 FlagSpec("all-projects", summary: "Machine-wide fleet view instead of the caller's project scope."),
                 FlagSpec("json", summary: "Structured OwnershipPsJSON inventory."),
             ],
@@ -503,7 +504,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair relay-status", summary: "Read a PM Relay's durable state — rounds, verdicts, gate decisions.", milestone: .m1,
+            "pair relay-status", summary: "Read a PM Relay's durable state — rounds, verdicts, gate decisions. Reconciles identity-dead `.running` owners on read (no manual reconcile).", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("json", summary: "Emit RelayJSON."),

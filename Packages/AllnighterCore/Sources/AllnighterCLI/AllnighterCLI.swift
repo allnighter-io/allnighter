@@ -1290,21 +1290,26 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln ps [--all-projects] [--json]` — read-only ownership inventory
-    /// (PO-S05). Reports what reconcile WOULD reap; kills nothing. Defaults to
-    /// the caller's project scope (Concurrent Invocation Isolation F1);
-    /// `--all-projects` is the explicit machine-wide fleet view.
+    /// `alln ps [--all] [--all-projects] [--json]` — ownership inventory with
+    /// reconcile-on-read (CLP-S02). Default shows alive + needs-action only;
+    /// `--all` includes terminal history.
     static func runOwnershipPs(_ args: [String]) async {
         let opts = Options(args)
         let allProjects = opts.flag("all-projects")
+        let includeHistory = opts.flag("all")
         let scopeRoot = allProjects ? nil : FileManager.default.currentDirectoryPath
-        let envelope = ProcessOwnershipSurface(runStore: RunStore()).list(scopeRoot: scopeRoot)
+        let envelope = ProcessOwnershipSurface(runStore: RunStore()).list(
+            scopeRoot: scopeRoot, includeHistory: includeHistory
+        )
         if opts.flag("json") {
             print(jsonString(envelope))
         } else {
             print(ProcessOwnershipSurface.humanTable(envelope))
             if !allProjects {
                 print("(project scope: \(FileManager.default.currentDirectoryPath) — `alln ps --all-projects` for the fleet view)")
+            }
+            if !includeHistory {
+                print("(`alln ps --all` for terminal/history rows)")
             }
         }
     }

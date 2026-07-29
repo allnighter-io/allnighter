@@ -1,7 +1,6 @@
 # Core Loop Improvements — honest status, zero archaeology
 
-Status: **Authorized — one PR** (CLP-S01 + S02/S07 + S03) + passengers (S05
-teaching, S08 notification wire-up). Phase doc, not SSOT.
+Status: **Complete** — CLP-S01/S02/S03 + S05/S08 shipped 2026-07-28. Archived phase doc; code SSOT.
 Owner: AllnighterCLI + AllnighterEngine
 Created: 2026-07-28
 Finalized: 2026-07-28 (founder + review convergence)
@@ -191,16 +190,16 @@ Smoke-test overfits removed with CLP-S04 kill — git policy is work-order scope
 
 ## Closeout checklist
 
-- [ ] CLP-S01 contract tests green
-- [ ] CLP-S02 reconcile-on-read on ps, relay-status, pilot status
-- [ ] CLP-S03 default ps filter + `--all` documented
-- [ ] CLP-S07 mid-flight `devRunId` tests green
-- [ ] `ContractRegistry` teaching updated (help closeout law)
-- [ ] `alln dev export-contracts --check`
-- [ ] CLP-S05 teaching snippets (0 LOC)
-- [ ] CLP-S08 `streamSilenceWarning` → URN (optional same PR)
-- [ ] Works test: kill -9 owner → status terminal without manual reconcile
-- [ ] Archive this packet when merged; promote standing ops note if needed
+- [x] CLP-S01 contract tests green
+- [x] CLP-S02 reconcile-on-read on ps, relay-status, pilot status
+- [x] CLP-S03 default ps filter + `--all` documented
+- [x] CLP-S07 mid-flight `devRunId` tests green (PLS-S02)
+- [x] `ContractRegistry` teaching updated (help closeout law)
+- [x] `alln dev export-contracts --check`
+- [x] CLP-S05 teaching snippets (0 LOC)
+- [x] CLP-S08 `streamSilenceWarning` → URN
+- [x] Works test: reconcile-on-read + stream-primary ps relay rows
+- [x] Archive this packet when merged
 
 ## What would falsify v1
 

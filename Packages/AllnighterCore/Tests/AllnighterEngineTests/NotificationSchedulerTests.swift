@@ -23,7 +23,10 @@ final class NotificationSchedulerTests: XCTestCase {
         let recorder = RecordingCommandRunner()
         let scheduler = makeScheduler(root: root, threadStore: threadStore, commandRunner: recorder, now: { notifT0 })
 
-        let result = await scheduler.tick(previousThreads: nil, previousRuns: nil, ledger: .init(), tickTime: notifT0)
+        let result = await scheduler.tick(
+            previousThreads: nil, previousRuns: nil, previousRelayStreams: nil,
+            ledger: .init(), tickTime: notifT0
+        )
 
         XCTAssertTrue(recorder.calls.isEmpty)
         XCTAssertFalse(result.threads.isEmpty)
@@ -40,12 +43,16 @@ final class NotificationSchedulerTests: XCTestCase {
         let recorder = RecordingCommandRunner()
         let scheduler = makeScheduler(root: root, threadStore: threadStore, commandRunner: recorder, now: { notifT1 })
 
-        let cold = await scheduler.tick(previousThreads: nil, previousRuns: nil, ledger: .init(), tickTime: notifT0)
+        let cold = await scheduler.tick(
+            previousThreads: nil, previousRuns: nil, previousRelayStreams: nil,
+            ledger: .init(), tickTime: notifT0
+        )
 
         _ = try threadStore.updateTurn(notifWorkerTurn(status: .done), inThreadId: "a", now: notifT1)
 
         let warm = await scheduler.tick(
-            previousThreads: cold.threads, previousRuns: cold.runs, ledger: cold.ledger, tickTime: notifT1
+            previousThreads: cold.threads, previousRuns: cold.runs,
+            previousRelayStreams: cold.relayStreams, ledger: cold.ledger, tickTime: notifT1
         )
 
         XCTAssertEqual(recorder.calls.count, 1)
@@ -93,7 +100,10 @@ final class NotificationSchedulerTests: XCTestCase {
             now: { notifT1 }
         )
 
-        _ = await scheduler.tick(previousThreads: nil, previousRuns: nil, ledger: ledgerStore.load(), tickTime: notifT1)
+        _ = await scheduler.tick(
+            previousThreads: nil, previousRuns: nil, previousRelayStreams: nil,
+            ledger: ledgerStore.load(), tickTime: notifT1
+        )
 
         XCTAssertTrue(recorder.calls.isEmpty)
     }

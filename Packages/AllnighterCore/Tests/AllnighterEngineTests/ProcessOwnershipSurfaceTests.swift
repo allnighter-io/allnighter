@@ -120,7 +120,7 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
             options: .atomic
         )
 
-        let envelope = surface.list()
+        let envelope = surface.list(includeHistory: true)
         XCTAssertGreaterThanOrEqual(envelope.processCount, 4)
         XCTAssertEqual(envelope.schemaVersion, 1)
 
@@ -140,7 +140,8 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
         let dead = try XCTUnwrap(byId["run-dead"])
         XCTAssertEqual(dead.kind, "run")
         XCTAssertFalse(dead.identityAlive)
-        XCTAssertTrue(dead.wouldReconcile, "ps reports what reconcile WOULD reap")
+        XCTAssertFalse(dead.wouldReconcile, "reconcile-on-read reaps identity-dead runs")
+        XCTAssertEqual(dead.endReason, RunEndReason.reconciledOrphan.rawValue)
 
         let relayRow = try XCTUnwrap(byId["relay_live_1"])
         XCTAssertEqual(relayRow.kind, "relay")
@@ -159,7 +160,13 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
     func testPsHumanTableIsNonEmptyForInventory() throws {
         let (support, runs, _, _, surface) = try tempTree()
         defer { try? FileManager.default.removeItem(at: support) }
-        try runs.save(nonTerminalRun(id: "run-table"), models: [])
+        var live = nonTerminalRun(id: "run-table")
+        live.lastActivityAt = Date()
+        try runs.save(live, models: [])
+        try ProcessOwnership.writeOwnerIdentity(
+            try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner)),
+            in: try runs.runDirectory(forRunId: "run-table")
+        )
         let table = ProcessOwnershipSurface.humanTable(surface.list())
         XCTAssertTrue(table.contains("run-table"))
         XCTAssertTrue(table.contains("KIND"))
@@ -174,12 +181,21 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
         try runs.save(nonTerminalRun(id: "run-a", repoRoot: "/tmp/repo-a"), models: [])
         try runs.save(nonTerminalRun(id: "run-b", repoRoot: "/tmp/repo-b"), models: [])
         try runs.save(nonTerminalRun(id: "run-noroot", repoRoot: nil), models: [])
+        let liveIdentity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner))
+        try ProcessOwnership.writeOwnerIdentity(liveIdentity, in: try runs.runDirectory(forRunId: "run-a"))
+        try ProcessOwnership.writeOwnerIdentity(liveIdentity, in: try runs.runDirectory(forRunId: "run-b"))
         var relay = RelayState(
             id: "relay_b_1", projectRoot: "/tmp/repo-b", docPath: "d.md",
             pmWorkerId: "pm", devWorkerId: "dev", status: .running, createdAt: Date()
         )
         relay.rounds = [RelayRound(roundNumber: 1, startedAt: Date())]
         _ = try relays.save(relay)
+        let relayDir = try relays.directory(for: relay.id)
+        try Data("\(ProcessInfo.processInfo.processIdentifier)".utf8)
+            .write(to: relayDir.appendingPathComponent("owner.pid"), options: .atomic)
+        try ProcessOwnership.writeTurnOwner(
+            try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .devTurn)), in: relayDir
+        )
 
         // Scoped: only project A's run. Other projects and unresolved roots are
         // excluded (fail closed — they must never join an implicit aggregate).
@@ -190,9 +206,94 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
         let aliased = surface.list(scopeRoot: "/tmp/../tmp/repo-a/")
         XCTAssertEqual(Set(aliased.processes.map(\.id)), ["run-a"])
 
-        // Machine-wide is the explicit opt-in: everything is listed.
-        let fleet = surface.list()
+        // Machine-wide with history includes every row (museum view).
+        let fleet = surface.list(includeHistory: true)
         XCTAssertTrue(Set(fleet.processes.map(\.id)).isSuperset(of: ["run-a", "run-b", "run-noroot", "relay_b_1"]))
+    }
+
+    func testPsDefaultFloorHidesTerminalMuseum() throws {
+        let (support, runs, relays, _, surface) = try tempTree()
+        defer { try? FileManager.default.removeItem(at: support) }
+
+        var done = nonTerminalRun(id: "run-done")
+        done.status = .done
+        done.endReason = .completed
+        try runs.save(done, models: [])
+
+        var live = nonTerminalRun(id: "run-live")
+        live.lastActivityAt = Date()
+        try runs.save(live, models: [])
+        let liveDir = try runs.runDirectory(forRunId: "run-live")
+        try ProcessOwnership.writeOwnerIdentity(
+            try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner)), in: liveDir
+        )
+
+        var stoppedRelay = RelayState(
+            id: "relay_stopped", projectRoot: "/tmp/r", docPath: "d.md",
+            pmWorkerId: "pm", devWorkerId: "dev", status: .stopped, createdAt: Date()
+        )
+        stoppedRelay.stoppedReason = "done"
+        _ = try relays.save(stoppedRelay)
+
+        let floor = surface.list()
+        XCTAssertEqual(Set(floor.processes.map(\.id)), ["run-live"])
+        let museum = surface.list(includeHistory: true)
+        XCTAssertTrue(Set(museum.processes.map(\.id)).isSuperset(of: ["run-done", "run-live", "relay_stopped"]))
+    }
+
+    func testPsRelayStreamPrimaryIgnoresHeartbeat() throws {
+        let (support, runs, relays, _, surface) = try tempTree()
+        defer { try? FileManager.default.removeItem(at: support) }
+
+        let devRunId = "run_stream_primary"
+        let frozen = Date().addingTimeInterval(-600)
+        let freshHeartbeat = Date()
+        var run = nonTerminalRun(id: devRunId)
+        run.lastActivityAt = frozen
+        run.lastActivityKind = .message
+        try runs.save(run, models: [])
+
+        var relay = RelayState(
+            id: "relay_stream", projectRoot: "/tmp/r", docPath: "d.md",
+            pmWorkerId: "pm", devWorkerId: "dev", status: .running, createdAt: Date()
+        )
+        var round = RelayRound(roundNumber: 1, startedAt: Date())
+        round.devRunId = devRunId
+        relay.rounds = [round]
+        _ = try relays.save(relay)
+        let relayDir = try relays.directory(for: relay.id)
+        try ProcessOwnership.recordProgress(in: relayDir, phase: "pgid_activity", now: freshHeartbeat)
+        try Data("\(ProcessInfo.processInfo.processIdentifier)".utf8)
+            .write(to: relayDir.appendingPathComponent("owner.pid"), options: .atomic)
+        try ProcessOwnership.writeTurnOwner(
+            try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .devTurn)), in: relayDir
+        )
+
+        let row = try XCTUnwrap(surface.list().processes.first { $0.id == "relay_stream" })
+        let progress = try XCTUnwrap(row.lastProgressAt)
+        XCTAssertEqual(progress.timeIntervalSince1970, frozen.timeIntervalSince1970, accuracy: 1)
+        XCTAssertGreaterThan(row.heartbeatAgeSeconds ?? 0, 500)
+    }
+
+    func testPsReconcilesDeadRelayOnRead() throws {
+        let (support, _, relays, _, surface) = try tempTree()
+        defer { try? FileManager.default.removeItem(at: support) }
+
+        var relay = RelayState(
+            id: "relay_orphan", projectRoot: "/tmp/r", docPath: "d.md",
+            pmWorkerId: "pm", devWorkerId: "dev", status: .running, createdAt: Date()
+        )
+        relay.rounds = [RelayRound(roundNumber: 1, startedAt: Date())]
+        _ = try relays.save(relay)
+        let relayDir = try relays.directory(for: relay.id)
+        try Data("999999".utf8).write(to: relayDir.appendingPathComponent("owner.pid"), options: .atomic)
+
+        let row = try XCTUnwrap(surface.list(includeHistory: true).processes.first { $0.id == "relay_orphan" })
+        XCTAssertEqual(row.status, RelayState.Status.stopped.rawValue)
+        XCTAssertFalse(row.identityAlive)
+        let stored = try XCTUnwrap(relays.load(id: "relay_orphan"))
+        XCTAssertEqual(stored.status, .stopped)
+        XCTAssertEqual(stored.stoppedReason, RelayState.orphanReconciledReason)
     }
 
     func testKillAllScopedKillsOnlyCallerProject() throws {
@@ -288,7 +389,7 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
         XCTAssertEqual(after.endReason, .killed)
 
         // ps after kill shows terminal endReason.
-        let row = try XCTUnwrap(surface.list().processes.first { $0.id == "kill-me" })
+        let row = try XCTUnwrap(surface.list(includeHistory: true).processes.first { $0.id == "kill-me" })
         XCTAssertEqual(row.endReason, "killed")
         XCTAssertFalse(row.identityAlive)
         XCTAssertFalse(row.wouldReconcile, "terminal work is not would-reconcile")
@@ -434,7 +535,7 @@ final class ProcessOwnershipSurfaceTests: XCTestCase {
         XCTAssertEqual(after.status, .stopped)
         XCTAssertEqual(after.rounds.last?.devTurnEndReason, .killed)
 
-        let ps = try XCTUnwrap(surface.list().processes.first { $0.id == "relay_kill_1" })
+        let ps = try XCTUnwrap(surface.list(includeHistory: true).processes.first { $0.id == "relay_kill_1" })
         XCTAssertEqual(ps.endReason, "killed")
     }
 

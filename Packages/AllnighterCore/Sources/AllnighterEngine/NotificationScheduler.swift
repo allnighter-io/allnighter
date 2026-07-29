@@ -57,6 +57,7 @@ public struct DeliveredNotificationLedgerStore: Sendable {
 public struct NotificationScheduler: Sendable {
     public var threadStore: ThreadStore
     public var runStore: RunStore
+    public var relayStore: RelayStateStore
     public var policyStore: NotificationPolicyStore
     public var ledgerStore: DeliveredNotificationLedgerStore
     public var commandRunner: CommandRunner
@@ -69,6 +70,7 @@ public struct NotificationScheduler: Sendable {
     public init(
         threadStore: ThreadStore = ThreadStore(),
         runStore: RunStore = RunStore(),
+        relayStore: RelayStateStore = RelayStateStore(),
         policyStore: NotificationPolicyStore = NotificationPolicyStore(),
         ledgerStore: DeliveredNotificationLedgerStore = DeliveredNotificationLedgerStore(),
         commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
@@ -80,6 +82,7 @@ public struct NotificationScheduler: Sendable {
     ) {
         self.threadStore = threadStore
         self.runStore = runStore
+        self.relayStore = relayStore
         self.policyStore = policyStore
         self.ledgerStore = ledgerStore
         self.commandRunner = commandRunner
@@ -98,6 +101,7 @@ public struct NotificationScheduler: Sendable {
     public func run(isCancelled: @escaping @Sendable () -> Bool) async {
         var previousThreads: [String: ThreadNotificationSnapshot]?
         var previousRuns: [String: RunNotificationSnapshot]?
+        var previousRelayStreams: [String: RelayStreamNotificationSnapshot]?
         var ledger = ledgerStore.load()
 
         while !isCancelled() {
@@ -105,11 +109,13 @@ public struct NotificationScheduler: Sendable {
             let result = await tick(
                 previousThreads: previousThreads,
                 previousRuns: previousRuns,
+                previousRelayStreams: previousRelayStreams,
                 ledger: ledger,
                 tickTime: tickTime
             )
             previousThreads = result.threads
             previousRuns = result.runs
+            previousRelayStreams = result.relayStreams
             ledger = result.ledger
 
             guard !isCancelled() else { break }
@@ -130,21 +136,34 @@ public struct NotificationScheduler: Sendable {
     func tick(
         previousThreads: [String: ThreadNotificationSnapshot]?,
         previousRuns: [String: RunNotificationSnapshot]?,
+        previousRelayStreams: [String: RelayStreamNotificationSnapshot]?,
         ledger: DeliveredNotificationLedger,
         tickTime: Date
-    ) async -> (threads: [String: ThreadNotificationSnapshot], runs: [String: RunNotificationSnapshot], ledger: DeliveredNotificationLedger) {
+    ) async -> (
+        threads: [String: ThreadNotificationSnapshot],
+        runs: [String: RunNotificationSnapshot],
+        relayStreams: [String: RelayStreamNotificationSnapshot],
+        ledger: DeliveredNotificationLedger
+    ) {
         let threads = threadStore.list()
         let runs = runStore.list()
         let runsById = Dictionary(uniqueKeysWithValues: runs.map { ($0.id, $0) })
+        let threadTitles = Dictionary(uniqueKeysWithValues: threads.map { ($0.id, $0.title) })
 
         let threadSnapshots = NotificationCandidateDetection.snapshots(from: threads)
         let runSnapshots = NotificationCandidateDetection.runSnapshots(from: threads, runsById: runsById)
+        let relaySnapshots = NotificationCandidateDetection.relayStreamSnapshots(
+            relays: relayStore.list(), runStore: runStore, threadTitles: threadTitles, now: tickTime
+        )
 
         var candidates = NotificationCandidateDetection.candidates(
             before: previousThreads, after: threadSnapshots, now: tickTime
         )
         candidates += NotificationCandidateDetection.runCandidates(
             before: previousRuns, after: runSnapshots, now: tickTime
+        )
+        candidates += NotificationCandidateDetection.relayStreamCandidates(
+            before: previousRelayStreams, after: relaySnapshots, now: tickTime
         )
 
         var updatedLedger = ledger
@@ -163,7 +182,7 @@ public struct NotificationScheduler: Sendable {
             }
         }
 
-        return (threadSnapshots, runSnapshots, updatedLedger)
+        return (threadSnapshots, runSnapshots, relaySnapshots, updatedLedger)
     }
 
     /// Pure filter: a candidate is deliverable when it has not already been
