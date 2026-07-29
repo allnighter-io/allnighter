@@ -141,7 +141,7 @@ public enum FloorProjector {
                 message: a.result.errorReason ?? "worker \(a.memberId) failed",
                 requiresManual: false,
                 retryable: true,
-                workerId: a.memberId
+                agentId: a.memberId
             )
         }
     }

@@ -257,7 +257,7 @@ public enum ContractSchema {
             "agentAction": nullable("string"), "fixCommand": nullable("string"),
             "requiresManual": bool, "retryable": bool, "traceId": nullable("string"),
             "runId": nullable("string"), "sourceId": nullable("string"),
-            "modelId": nullable("string"), "workerId": nullable("string"),
+            "modelId": nullable("string"), "agentId": nullable("string"),
             "supportDir": nullable("string"),
             "suggestions": arr(str),
             "candidates": arr(candidate),

@@ -44,7 +44,7 @@
       "runId": null,
       "sourceId": "claude_code",
       "modelId": null,
-      "workerId": null
+      "agentId": null
     }
   ],
   "models": [

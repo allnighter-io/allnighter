@@ -20,7 +20,7 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
     public var runId: String?
     public var sourceId: String?
     public var modelId: String?
-    public var workerId: String?
+    public var agentId: String?
     /// Effective `ALLNIGHTER_SUPPORT_DIR` at the time of a not-found / kill
     /// failure (RLR-L1). Set on `RUN_NOT_FOUND` so a machine caller can see which
     /// support root was searched (RCA class 5 — wrong/isolated config home).
@@ -44,7 +44,7 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         runId: String? = nil,
         sourceId: String? = nil,
         modelId: String? = nil,
-        workerId: String? = nil,
+        agentId: String? = nil,
         supportDir: String? = nil,
         suggestions: [String] = [],
         candidates: [ExactIdResolver.Candidate] = [],
@@ -61,7 +61,7 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         self.runId = runId
         self.sourceId = sourceId
         self.modelId = modelId
-        self.workerId = workerId
+        self.agentId = agentId
         self.supportDir = supportDir
         self.suggestions = suggestions
         self.candidates = candidates
@@ -70,7 +70,7 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case code, ruleId, message, agentAction, fixCommand, requiresManual, retryable
-        case traceId, runId, sourceId, modelId, workerId, supportDir, suggestions, candidates, nextAction
+        case traceId, runId, sourceId, modelId, agentId, supportDir, suggestions, candidates, nextAction
     }
 
     public init(from decoder: Decoder) throws {
@@ -86,7 +86,7 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         runId = try c.decodeIfPresent(String.self, forKey: .runId)
         sourceId = try c.decodeIfPresent(String.self, forKey: .sourceId)
         modelId = try c.decodeIfPresent(String.self, forKey: .modelId)
-        workerId = try c.decodeIfPresent(String.self, forKey: .workerId)
+        agentId = try c.decodeIfPresent(String.self, forKey: .agentId)
         supportDir = try c.decodeIfPresent(String.self, forKey: .supportDir)
         suggestions = try c.decodeIfPresent([String].self, forKey: .suggestions) ?? []
         candidates = try c.decodeIfPresent([ExactIdResolver.Candidate].self, forKey: .candidates) ?? []

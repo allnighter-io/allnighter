@@ -187,7 +187,7 @@ public enum NDJSONStreamProjector {
                     return ("workerFailed", runId, EventData(workerId: workerId, error: ErrorEnvelope(
                         code: to == WorkerAnswerStatus.timedOut.rawValue ? "TEAM_RUN_TIMEOUT" : "AGENT_FAILED",
                         message: str("reason") ?? "worker did not produce an answer",
-                        requiresManual: false, retryable: true, runId: runId.isEmpty ? nil : runId, workerId: workerId)))
+                        requiresManual: false, retryable: true, runId: runId.isEmpty ? nil : runId, agentId: workerId)))
                 default:
                     return nil   // queued / skipped / cancelled — no terminal worker event
                 }
@@ -310,7 +310,7 @@ public enum NDJSONStreamProjector {
         ErrorEnvelope(
             code: a.result.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "AGENT_FAILED",
             message: a.result.errorReason ?? "worker did not produce an answer",
-            requiresManual: false, retryable: true, runId: runId, workerId: a.memberId
+            requiresManual: false, retryable: true, runId: runId, agentId: a.memberId
         )
     }
 }

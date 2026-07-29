@@ -388,7 +388,7 @@ public enum TeamRunJSONMapper {
         return ErrorEnvelope(
             code: a.result.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "AGENT_FAILED",
             message: a.result.errorReason ?? "worker did not produce an answer",
-            requiresManual: false, retryable: true, runId: runId, workerId: a.memberId
+            requiresManual: false, retryable: true, runId: runId, agentId: a.memberId
         )
     }
 

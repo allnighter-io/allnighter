@@ -63,7 +63,7 @@ final class FloorProjectorTests: XCTestCase {
         XCTAssertEqual(failedLane?.status, "failed")
         XCTAssertEqual(failedLane?.error, "auth expired")
         // And it surfaces as a sourced error envelope.
-        XCTAssertTrue(floor.errors.contains { $0.code == "AGENT_FAILED" && $0.workerId == "model_opus#0" })
+        XCTAssertTrue(floor.errors.contains { $0.code == "AGENT_FAILED" && $0.agentId == "model_opus#0" })
     }
 
     func testReturnIsTypedInsightWithSummary() {
