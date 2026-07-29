@@ -552,17 +552,71 @@ enum PilotCLI {
         stateStore: RelayStateStore = RelayStateStore(),
         threadProjector: RelayThreadProjector? = RelayThreadProjector()
     ) {
-        guard !args.isEmpty else { usage("pilot status --relay <id> [--json]") }
+        guard !args.isEmpty else { usage("pilot status --relay <id> [--wait-for parked --timeout <seconds>] [--json]") }
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        guard let loaded = loadRelayState(
-            relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: true
-        ) else { fail(.relayNotFound(relayId)) }
+        let wait = parseStatusWait(opts, relayId: relayId)
+        func load() -> (state: RelayState, recovery: InFlightRecovery) {
+            guard let loaded = loadRelayState(
+                relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: true
+            ) else { fail(.relayNotFound(relayId)) }
+            return loaded
+        }
+
+        let loaded: (state: RelayState, recovery: InFlightRecovery)
+        let waitOutcome: PMTurnStatusWait.Outcome?
+        if let wait {
+            var observed: (state: RelayState, recovery: InFlightRecovery)?
+            let result = PMTurnStatusWait.wait(
+                target: wait.target,
+                timeout: wait.timeout,
+                readStatus: {
+                    let loaded = load()
+                    observed = loaded
+                    return loaded.state.status
+                }
+            )
+            guard let observed else {
+                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "pilot status waiter returned without observing relay state")
+            }
+            loaded = observed
+            waitOutcome = result.outcome
+        } else {
+            loaded = load()
+            waitOutcome = nil
+        }
         refreshPilotProjectGit(relayId: relayId, stateStore: stateStore)
         emitStatusResult(
             loaded.state, recovery: loaded.recovery, json: opts.flag("json"),
-            stateStore: stateStore
+            stateStore: stateStore, waitOutcome: waitOutcome
         )
+        if waitOutcome == .timedOut {
+            exit(ContractRegistry.milestone1.processExitCode(forErrorCode: "PM_TURN_WAIT_TIMEOUT"))
+        }
+    }
+
+    private static func parseStatusWait(
+        _ opts: Options, relayId: String
+    ) -> (target: PMTurnStatusWait.Target, timeout: TimeInterval)? {
+        let waitRaw = opts.value("wait-for")
+        let timeoutRaw = opts.value("timeout")
+        if waitRaw == nil && timeoutRaw == nil { return nil }
+        guard let waitRaw else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--timeout requires --wait-for parked")
+        }
+        guard let timeoutRaw else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--wait-for requires --timeout <seconds>")
+        }
+        guard waitRaw == PMTurnStatusWait.Target.parked.rawValue else {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "pilot status only supports --wait-for parked; use `alln pair pilot status --relay \(relayId) --wait-for parked --timeout <seconds> --json`"
+            )
+        }
+        guard let timeout = TimeInterval(timeoutRaw), timeout >= 0 else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--timeout must be a non-negative number of seconds")
+        }
+        return (.parked, timeout)
     }
 
     // MARK: - watch
@@ -859,19 +913,24 @@ enum PilotCLI {
         recovery: InFlightRecovery,
         json: Bool,
         stateStore: RelayStateStore,
-        runStore: RunStore = RunStore()
+        runStore: RunStore = RunStore(),
+        waitOutcome: PMTurnStatusWait.Outcome? = nil
     ) {
         let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         let recoveryLine = recoveryActionLine(for: state, recovery: recovery)
         if json {
-            print(AllnighterCLI.jsonString(makeStatusJSON(
+            var status = makeStatusJSON(
                 state: state, recovery: recovery, stateStore: stateStore, runStore: runStore
-            )))
+            )
+            status.waitOutcome = waitOutcome?.rawValue
+            status.relay.waitOutcome = waitOutcome?.rawValue
+            print(AllnighterCLI.jsonString(status))
         } else {
             print(RelayDispatch.humanRelaySummary(relayJSON))
             let log = RelayDispatch.humanRoundLog(relayJSON)
             if !log.isEmpty { print(log) }
             if let recoveryLine { print(recoveryLine) }
+            if let waitOutcome { print("wait outcome: \(waitOutcome.rawValue)") }
             print(nextActionLine(for: state))
         }
     }
@@ -1254,7 +1313,7 @@ struct PilotHandoffJSON: Encodable {
 /// `streamSilenceWarning` when silence exceeds 6×`waitHintSeconds`; `commitsSinceBaseline`
 /// is SUPPLEMENTARY only (not proof of life).
 struct PilotStatusJSON: Encodable {
-    let relay: RelayJSON
+    var relay: RelayJSON
     let pmTurn: PMTurnJSON?
     let notes: [String]
     let recovery: String?
@@ -1267,6 +1326,7 @@ struct PilotStatusJSON: Encodable {
     let commitsSinceBaseline: Int?
     let waitHintSeconds: Double?
     let watcherDisposable: Bool?
+    var waitOutcome: String?
 
     init(
         relay: RelayJSON,
@@ -1281,7 +1341,8 @@ struct PilotStatusJSON: Encodable {
         streamSilenceWarning: Bool? = nil,
         commitsSinceBaseline: Int? = nil,
         waitHintSeconds: Double? = nil,
-        watcherDisposable: Bool? = nil
+        watcherDisposable: Bool? = nil,
+        waitOutcome: String? = nil
     ) {
         self.relay = relay
         self.pmTurn = pmTurn
@@ -1296,6 +1357,7 @@ struct PilotStatusJSON: Encodable {
         self.commitsSinceBaseline = commitsSinceBaseline
         self.waitHintSeconds = waitHintSeconds
         self.watcherDisposable = watcherDisposable
+        self.waitOutcome = waitOutcome
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1313,12 +1375,14 @@ struct PilotStatusJSON: Encodable {
         try c.encodeIfPresent(commitsSinceBaseline, forKey: .commitsSinceBaseline)
         try c.encodeIfPresent(waitHintSeconds, forKey: .waitHintSeconds)
         try c.encodeIfPresent(watcherDisposable, forKey: .watcherDisposable)
+        try c.encodeIfPresent(waitOutcome, forKey: .waitOutcome)
     }
 
     private enum CodingKeys: String, CodingKey {
         case relay, pmTurn, notes, recovery, nextActions
         case elapsedSeconds, ownerAlive, lastProgressAt, silenceAgeSeconds
         case streamSilenceWarning, commitsSinceBaseline, waitHintSeconds, watcherDisposable
+        case waitOutcome
     }
 }
 

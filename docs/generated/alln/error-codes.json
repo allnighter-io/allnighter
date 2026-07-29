@@ -189,6 +189,24 @@
     "ruleId" : "team.status.wait_timeout"
   },
   {
+    "agentAction" : "Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command.",
+    "code" : "PM_TURN_WAIT_TIMEOUT",
+    "exitClass" : "timeout",
+    "explain" : "The relay PM boundary did not reach the requested target before --timeout. The status response carries waitOutcome: timedOut.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "pm_turn.status.wait_timeout"
+  },
+  {
+    "agentAction" : "Alias of PM_TURN_WAIT_TIMEOUT: re-run the same waiter with a longer --timeout.",
+    "code" : "RELAY_WAIT_TIMEOUT",
+    "exitClass" : "timeout",
+    "explain" : "Compatibility alias for PM_TURN_WAIT_TIMEOUT.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "relay.status.wait_timeout"
+  },
+  {
     "agentAction" : "Inspect failed workers and stages; retry or adjust the team.",
     "code" : "TEAM_RUN_FAILED",
     "exitClass" : "operational",

@@ -37,6 +37,8 @@ public struct RelayJSON: Codable, Equatable, Sendable {
     public var pmTurn: PMTurnJSON?
     /// Status-level notes; `pm_turn_missing` marks the receipt crash window.
     public var notes: [String]
+    /// Present only for `--wait-for`: matched, timedOut, or terminalMismatch.
+    public var waitOutcome: String?
 
     public init(
         schemaVersion: Int = 1,
@@ -54,7 +56,8 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         stoppedReason: String? = nil,
         laneBlocked: ExecutionLaneTicket? = nil,
         pmTurn: PMTurnJSON? = nil,
-        notes: [String] = []
+        notes: [String] = [],
+        waitOutcome: String? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -72,6 +75,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         self.laneBlocked = laneBlocked
         self.pmTurn = pmTurn
         self.notes = notes
+        self.waitOutcome = waitOutcome
     }
 
     /// Projects a durable `RelayState` to its wire shape. The one place CLI and MCP
@@ -104,7 +108,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, relayId, status, pmMode, rounds, verdict, note
-        case roundLog, docPath, pmModelId, devModelId, stoppedReason, laneBlocked, pmTurn, notes
+        case roundLog, docPath, pmModelId, devModelId, stoppedReason, laneBlocked, pmTurn, notes, waitOutcome
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -125,6 +129,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         try c.encodeIfPresent(laneBlocked, forKey: .laneBlocked)
         try c.encode(pmTurn, forKey: .pmTurn)
         try c.encode(notes, forKey: .notes)
+        try c.encodeIfPresent(waitOutcome, forKey: .waitOutcome)
     }
 }
 

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 6.1.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 6.2.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -712,10 +712,12 @@ Output schema: `relayJSON`.
 
 ### `alln pair relay-status`
 
-Read a PM Relay's durable state — rounds, verdicts, gate decisions. Reconciles identity-dead `.running` owners on read (no manual reconcile).
+Read a PM Relay's durable state, or wait for its parked or terminal PM boundary. Reconciles identity-dead `.running` owners on read (no manual reconcile).
 
 Flags:
 - `--relay <id>` — Relay id (required).
+- `--wait-for <string>` — Wait for parked (awaitingPM|escalated) or terminal (done|stopped); requires --timeout.
+- `--timeout <number>` — Non-negative wait limit in seconds; required with --wait-for.
 - `--json` — Emit RelayJSON.
 
 Output schema: `relayJSON`.
@@ -789,10 +791,12 @@ Output schema: `relayJSON`.
 
 ### `alln pair pilot status`
 
-Read a Pilot relay's durable state — agent truth for in-flight rounds; poll with waitHintSeconds until awaitingPM. While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.
+Read a Pilot relay's durable state, or wait for its parked PM boundary (awaitingPM|escalated). While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.
 
 Flags:
 - `--relay <id>` — Relay id (required).
+- `--wait-for <string>` — Wait for parked (awaitingPM|escalated); requires --timeout. terminal is not valid for Pilot.
+- `--timeout <number>` — Non-negative wait limit in seconds; required with --wait-for.
 - `--json` — Emit PilotStatusJSON (relay + recovery nextActions; while running adds elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds as primary stream liveness, streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline as supplementary/not liveness, waitHintSeconds 45, watcherDisposable).
 
 Output schema: `relayJSON`.
@@ -1443,6 +1447,8 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `PLAN_WRITER_FAILED` | no | yes | `operational` | Retry with a ready plan writer or export worker answers. |
 | `TEAM_RUN_TIMEOUT` | no | yes | `timeout` | Retry with lower effort or fewer workers. |
 | `STATUS_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run `alln team status <id> --wait-for <state> --timeout <s> --json` with a longer timeout, or poll with waitHintSeconds; do not busy-loop. |
+| `PM_TURN_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command. |
+| `RELAY_WAIT_TIMEOUT` | no | yes | `timeout` | Alias of PM_TURN_WAIT_TIMEOUT: re-run the same waiter with a longer --timeout. |
 | `TEAM_RUN_FAILED` | no | yes | `operational` | Inspect failed workers and stages; retry or adjust the team. |
 | `NESTED_TEAM_BLOCKED` | yes | no | `operational` | Do not recursively spawn teams without explicit depth budget. |
 | `TEAM_GOVERNOR_BUSY` | no | yes | `operational` | Wait or retry after current team run completes. |

@@ -2577,6 +2577,18 @@
           "valueType" : "id"
         },
         {
+          "name" : "wait-for",
+          "summary" : "Wait for parked (awaitingPM|escalated) or terminal (done|stopped); requires --timeout.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "timeout",
+          "summary" : "Non-negative wait limit in seconds; required with --wait-for.",
+          "takesValue" : true,
+          "valueType" : "number"
+        },
+        {
           "name" : "json",
           "summary" : "Emit RelayJSON.",
           "takesValue" : false
@@ -2590,7 +2602,7 @@
       "name" : "pair relay-status",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Read a PM Relay's durable state — rounds, verdicts, gate decisions. Reconciles identity-dead `.running` owners on read (no manual reconcile).",
+      "summary" : "Read a PM Relay's durable state, or wait for its parked or terminal PM boundary. Reconciles identity-dead `.running` owners on read (no manual reconcile).",
       "visibility" : "public"
     },
     {
@@ -2917,6 +2929,18 @@
           "valueType" : "id"
         },
         {
+          "name" : "wait-for",
+          "summary" : "Wait for parked (awaitingPM|escalated); requires --timeout. terminal is not valid for Pilot.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "timeout",
+          "summary" : "Non-negative wait limit in seconds; required with --wait-for.",
+          "takesValue" : true,
+          "valueType" : "number"
+        },
+        {
           "name" : "json",
           "summary" : "Emit PilotStatusJSON (relay + recovery nextActions; while running adds elapsedSeconds, ownerAlive, lastProgressAt\/silenceAgeSeconds as primary stream liveness, streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline as supplementary\/not liveness, waitHintSeconds 45, watcherDisposable).",
           "takesValue" : false
@@ -2930,7 +2954,7 @@
       "name" : "pair pilot status",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Read a Pilot relay's durable state — agent truth for in-flight rounds; poll with waitHintSeconds until awaitingPM. While running: elapsedSeconds, ownerAlive, lastProgressAt\/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat\/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.",
+      "summary" : "Read a Pilot relay's durable state, or wait for its parked PM boundary (awaitingPM|escalated). While running: elapsedSeconds, ownerAlive, lastProgressAt\/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat\/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.",
       "visibility" : "public"
     },
     {
@@ -5139,7 +5163,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "6.1.0",
+  "contractVersion" : "6.2.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5411,6 +5435,24 @@
       "requiresManual" : false,
       "retryable" : true,
       "ruleId" : "team.status.wait_timeout"
+    },
+    {
+      "agentAction" : "Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command.",
+      "code" : "PM_TURN_WAIT_TIMEOUT",
+      "exitClass" : "timeout",
+      "explain" : "The relay PM boundary did not reach the requested target before --timeout. The status response carries waitOutcome: timedOut.",
+      "requiresManual" : false,
+      "retryable" : true,
+      "ruleId" : "pm_turn.status.wait_timeout"
+    },
+    {
+      "agentAction" : "Alias of PM_TURN_WAIT_TIMEOUT: re-run the same waiter with a longer --timeout.",
+      "code" : "RELAY_WAIT_TIMEOUT",
+      "exitClass" : "timeout",
+      "explain" : "Compatibility alias for PM_TURN_WAIT_TIMEOUT.",
+      "requiresManual" : false,
+      "retryable" : true,
+      "ruleId" : "relay.status.wait_timeout"
     },
     {
       "agentAction" : "Inspect failed workers and stages; retry or adjust the team.",

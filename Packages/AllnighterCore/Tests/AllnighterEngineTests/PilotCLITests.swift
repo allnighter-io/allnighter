@@ -58,6 +58,33 @@ final class PilotCLITests: XCTestCase {
         XCTAssertTrue(json.relay.notes.isEmpty)
     }
 
+    func testStatusWaitMatchEncodesPMTurnAndOutcome() throws {
+        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let state = RelayState(
+            id: "relay_wait_match", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, pmMode: .external, createdAt: Date()
+        )
+        let turnStore = PMTurnStore(relaysRootDirectory: relayStore.rootDirectory)
+        try turnStore.save(PMTurnJSON(
+            kind: .relay, subjectId: state.id, sequence: 1, createdAt: Date(),
+            reason: "awaitingPM", lifecycleStatus: "awaitingPM", report: "Ready for PM.",
+            nextCommands: ["alln pair pilot handoff --relay relay_wait_match --verdict continue --handover-file order.md --json"]
+        ))
+
+        var status = PilotCLI.makeStatusJSON(
+            state: state, recovery: .none, stateStore: relayStore, pmTurnStore: turnStore
+        )
+        status.waitOutcome = PMTurnStatusWait.Outcome.matched.rawValue
+        status.relay.waitOutcome = PMTurnStatusWait.Outcome.matched.rawValue
+
+        let data = try JSONEncoder().encode(status)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["waitOutcome"] as? String, "matched")
+        XCTAssertEqual((json["relay"] as? [String: Any])?["waitOutcome"] as? String, "matched")
+        XCTAssertEqual((json["pmTurn"] as? [String: Any])?["report"] as? String, "Ready for PM.")
+    }
+
     func testStatusMarksMissingPMTurnAtParkedBoundary() throws {
         let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let state = RelayState(

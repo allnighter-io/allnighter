@@ -73,12 +73,38 @@ enum RelayCLI {
         stateStore: RelayStateStore = RelayStateStore(),
         threadProjector: RelayThreadProjector? = RelayThreadProjector()
     ) {
-        guard !args.isEmpty else { usage("relay-status --relay <id> [--json]") }
+        guard !args.isEmpty else { usage("relay-status --relay <id> [--wait-for parked|terminal --timeout <seconds>] [--json]") }
         let opts = Options(args)
         guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        let loaded = RelayCLILoad.requireState(id: relayId, store: stateStore)
-        let state = RelayCoordinator.reconcileOrphan(
-            loaded, stateStore: stateStore, threadProjector: threadProjector, now: Date.init)
+        let wait = parseStatusWait(opts, relayId: relayId)
+        func load() -> RelayState {
+            let loaded = RelayCLILoad.requireState(id: relayId, store: stateStore)
+            return RelayCoordinator.reconcileOrphan(
+                loaded, stateStore: stateStore, threadProjector: threadProjector, now: Date.init)
+        }
+
+        let state: RelayState
+        let waitOutcome: PMTurnStatusWait.Outcome?
+        if let wait {
+            var observed: RelayState?
+            let result = PMTurnStatusWait.wait(
+                target: wait.target,
+                timeout: wait.timeout,
+                readStatus: {
+                    let state = load()
+                    observed = state
+                    return state.status
+                }
+            )
+            guard let observed else {
+                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "relay-status waiter returned without observing relay state")
+            }
+            state = observed
+            waitOutcome = result.outcome
+        } else {
+            state = load()
+            waitOutcome = nil
+        }
 
         let pmTurn = PMTurnStatusProjection.load(
             kind: .relay,
@@ -86,19 +112,48 @@ enum RelayCLI {
             atPMBoundary: PMTurnStatusProjection.isRelayPMBoundary(state.status),
             store: PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
         )
-        let json = RelayJSON.project(
+        var json = RelayJSON.project(
             state,
             contractVersion: ContractRegistry.contractVersion,
             pmTurn: pmTurn.pmTurn,
             notes: pmTurn.notes
         )
+        json.waitOutcome = waitOutcome?.rawValue
         if opts.flag("json") {
             print(AllnighterCLI.jsonString(json))
         } else {
             print(RelayDispatch.humanRelaySummary(json))
             let log = RelayDispatch.humanRoundLog(json)
             if !log.isEmpty { print(log) }
+            if let waitOutcome { print("wait outcome: \(waitOutcome.rawValue)") }
         }
+        if waitOutcome == .timedOut {
+            exit(ContractRegistry.milestone1.processExitCode(forErrorCode: "PM_TURN_WAIT_TIMEOUT"))
+        }
+    }
+
+    private static func parseStatusWait(
+        _ opts: Options, relayId: String
+    ) -> (target: PMTurnStatusWait.Target, timeout: TimeInterval)? {
+        let waitRaw = opts.value("wait-for")
+        let timeoutRaw = opts.value("timeout")
+        if waitRaw == nil && timeoutRaw == nil { return nil }
+        guard let waitRaw else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--timeout requires --wait-for parked|terminal")
+        }
+        guard let timeoutRaw else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--wait-for requires --timeout <seconds>")
+        }
+        guard let target = PMTurnStatusWait.Target(rawValue: waitRaw) else {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "relay-status supports --wait-for parked|terminal; use `alln pair relay-status --relay \(relayId) --wait-for parked|terminal --timeout <seconds> --json`"
+            )
+        }
+        guard let timeout = TimeInterval(timeoutRaw), timeout >= 0 else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--timeout must be a non-negative number of seconds")
+        }
+        return (target, timeout)
     }
 
     static func runResume(_ args: [String], runtime: ToolRuntime) async {

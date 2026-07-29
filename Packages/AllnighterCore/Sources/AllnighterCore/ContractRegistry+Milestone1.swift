@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "6.1.0"
+    static let contractVersion = "6.2.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -504,9 +504,11 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair relay-status", summary: "Read a PM Relay's durable state — rounds, verdicts, gate decisions. Reconciles identity-dead `.running` owners on read (no manual reconcile).", milestone: .m1,
+            "pair relay-status", summary: "Read a PM Relay's durable state, or wait for its parked or terminal PM boundary. Reconciles identity-dead `.running` owners on read (no manual reconcile).", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
+                FlagSpec("wait-for", takesValue: true, valueType: "string", summary: "Wait for parked (awaitingPM|escalated) or terminal (done|stopped); requires --timeout."),
+                FlagSpec("timeout", takesValue: true, valueType: "number", summary: "Non-negative wait limit in seconds; required with --wait-for."),
                 FlagSpec("json", summary: "Emit RelayJSON."),
             ],
             outputSchema: .relayJSON
@@ -566,9 +568,11 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot status", summary: "Read a Pilot relay's durable state — agent truth for in-flight rounds; poll with waitHintSeconds until awaitingPM. While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.", milestone: .m1,
+            "pair pilot status", summary: "Read a Pilot relay's durable state, or wait for its parked PM boundary (awaitingPM|escalated). While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
+                FlagSpec("wait-for", takesValue: true, valueType: "string", summary: "Wait for parked (awaitingPM|escalated); requires --timeout. terminal is not valid for Pilot."),
+                FlagSpec("timeout", takesValue: true, valueType: "number", summary: "Non-negative wait limit in seconds; required with --wait-for."),
                 FlagSpec("json", summary: "Emit PilotStatusJSON (relay + recovery nextActions; while running adds elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds as primary stream liveness, streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline as supplementary/not liveness, waitHintSeconds 45, watcherDisposable)."),
             ],
             outputSchema: .relayJSON
@@ -1017,6 +1021,8 @@ public extension ContractRegistry {
         ErrorSpec("PLAN_WRITER_FAILED", ruleId: "plan_writer.failed", agentAction: "Retry with a ready plan writer or export worker answers.", requiresManual: false, retryable: true, explain: "The plan-writer stage failed. Retry with a ready plan writer, or export the worker answers and synthesize later."),
         ErrorSpec("TEAM_RUN_TIMEOUT", ruleId: "team.run.timeout", agentAction: "Retry with lower effort or fewer workers.", requiresManual: false, retryable: true, explain: "The team run exceeded its time budget. Reduce effort or the worker count and retry.", exitClass: .timeout),
         ErrorSpec("STATUS_WAIT_TIMEOUT", ruleId: "team.status.wait_timeout", agentAction: "Re-run `alln team status <id> --wait-for <state> --timeout <s> --json` with a longer timeout, or poll with waitHintSeconds; do not busy-loop.", requiresManual: false, retryable: true, explain: "`team status --wait-for` did not observe the target state before --timeout. The response carries current status, nextAction, and waitHintSeconds.", exitClass: .timeout),
+        ErrorSpec("PM_TURN_WAIT_TIMEOUT", ruleId: "pm_turn.status.wait_timeout", agentAction: "Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command.", requiresManual: false, retryable: true, explain: "The relay PM boundary did not reach the requested target before --timeout. The status response carries waitOutcome: timedOut.", exitClass: .timeout),
+        ErrorSpec("RELAY_WAIT_TIMEOUT", ruleId: "relay.status.wait_timeout", agentAction: "Alias of PM_TURN_WAIT_TIMEOUT: re-run the same waiter with a longer --timeout.", requiresManual: false, retryable: true, explain: "Compatibility alias for PM_TURN_WAIT_TIMEOUT.", exitClass: .timeout),
         ErrorSpec("TEAM_RUN_FAILED", ruleId: "team.run.failed", agentAction: "Inspect failed workers and stages; retry or adjust the team.", requiresManual: false, retryable: true, explain: "The team run ended without a usable result (e.g. failed or cancelled). Inspect the failed workers/stages in the run, then retry or change the team."),
         ErrorSpec("NESTED_TEAM_BLOCKED", ruleId: "team.nested.blocked", agentAction: "Do not recursively spawn teams without explicit depth budget.", requiresManual: true, retryable: false, explain: "A worker tried to start another team run beyond the allowed depth. Set an explicit depth budget if nesting is intended."),
         ErrorSpec("TEAM_GOVERNOR_BUSY", ruleId: "team.governor.busy", agentAction: "Wait or retry after current team run completes.", requiresManual: false, retryable: true, explain: "The concurrency governor is at capacity. Wait for a slot and retry; this is a real busy state, not a fake queue."),
