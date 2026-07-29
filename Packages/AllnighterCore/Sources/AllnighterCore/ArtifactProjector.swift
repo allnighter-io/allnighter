@@ -614,9 +614,9 @@ public enum ArtifactProjector {
     return parts.joined(separator: "\n")
   }
 
-  /// Stable HTML id / fragment for a seat (worker ids contain `#`).
-  public static func seatAnchorId(_ workerId: String) -> String {
-    "seat-" + workerId
+  /// Stable HTML id / fragment for a seat (agent ids contain `#`).
+  public static func seatAnchorId(_ agentId: String) -> String {
+    "seat-" + agentId
       .replacingOccurrences(of: "#", with: "-")
       .replacingOccurrences(of: "/", with: "-")
   }
@@ -633,8 +633,8 @@ public enum ArtifactProjector {
   }
 
   /// Fragment id for the full-bleed mockup lightbox (not the Evidence seat).
-  public static func mockupLightboxId(_ workerId: String) -> String {
-    "mockup-" + seatAnchorId(workerId)
+  public static func mockupLightboxId(_ agentId: String) -> String {
+    "mockup-" + seatAnchorId(agentId)
   }
 
   private static func mockupsHTML(_ mockups: [Mockup]) -> String {
