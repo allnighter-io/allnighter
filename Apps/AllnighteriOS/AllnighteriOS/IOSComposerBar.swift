@@ -67,9 +67,9 @@ struct IOSComposerBar: View {
         }
         .sheet(isPresented: $showsModelPicker) {
             IOSComposerModelPickerSheet(
-                selectedWorkerId: draft.selectedWorkerId ?? continuationWorkerId
-            ) { workerId in
-                draft.selectedWorkerId = workerId
+                selectedModelId: draft.selectedModelId ?? continuationWorkerId
+            ) { modelId in
+                draft.selectedModelId = modelId
             }
             .presentationDetents([.medium, .large])
             .accessibilityIdentifier("model-picker-sheet")
@@ -177,7 +177,7 @@ struct IOSComposerBar: View {
 }
 
 private struct IOSComposerModelPickerSheet: View {
-    let selectedWorkerId: String?
+    let selectedModelId: String?
     let onSelect: (String?) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -186,7 +186,7 @@ private struct IOSComposerModelPickerSheet: View {
         NavigationStack {
             List {
                 Section {
-                    pickerRow(title: "Auto", subtitle: "", isSelected: selectedWorkerId == nil) {
+                    pickerRow(title: "Auto", subtitle: "", isSelected: selectedModelId == nil) {
                         onSelect(nil)
                         dismiss()
                     }
@@ -197,7 +197,7 @@ private struct IOSComposerModelPickerSheet: View {
                         pickerRow(
                             title: model.title,
                             subtitle: "",
-                            isSelected: selectedWorkerId == model.id,
+                            isSelected: selectedModelId == model.id,
                             driverId: model.driverId
                         ) {
                             onSelect(model.id)

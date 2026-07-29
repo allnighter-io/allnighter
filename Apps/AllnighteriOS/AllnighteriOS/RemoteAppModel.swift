@@ -236,7 +236,7 @@ final class RemoteAppModel {
                 let edit = try await sender.editPendingItem(
                     id: id,
                     prompt: prompt,
-                    workerToken: draft.selectedWorkerId,
+                    workerToken: draft.selectedModelId,
                     teamPresetId: draft.selectedTeam.presetId
                 )
                 guard edit.commandResult.ack.accepted else { return }
@@ -295,7 +295,7 @@ final class RemoteAppModel {
                 item.pendingItem.promptExcerpt = excerpt
                 item.pendingItem.title = title
                 item.target.teamPresetId = draft.selectedTeam.presetId
-                if let modelId = draft.selectedWorkerId {
+                if let modelId = draft.selectedModelId {
                     item.target.modelIds = [modelId]
                     item.target.preferredModelIds = [modelId]
                 }
@@ -309,7 +309,7 @@ final class RemoteAppModel {
                 prompt: prompt,
                 projectId: group.projectId,
                 teamPresetId: draft.selectedTeam.presetId,
-                modelId: draft.selectedWorkerId
+                modelId: draft.selectedModelId
             )
             group.pending.append(item)
             projects[0] = group

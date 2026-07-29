@@ -23,13 +23,13 @@ struct IOSComposerTeamOption: Identifiable, Equatable, Sendable {
 }
 
 struct IOSComposerDraft: Equatable, Sendable {
-    var selectedWorkerId: String?
+    var selectedModelId: String?
     var selectedTeamId: String = IOSComposerCatalog.defaultTeam.id
     var effort: EffortLevel = .med
 
     var selectedModel: IOSComposerModelOption? {
-        guard let selectedWorkerId else { return nil }
-        return IOSComposerCatalog.models.first { $0.id == selectedWorkerId }
+        guard let selectedModelId else { return nil }
+        return IOSComposerCatalog.models.first { $0.id == selectedModelId }
     }
 
     var selectedTeam: IOSComposerTeamOption {
@@ -38,7 +38,7 @@ struct IOSComposerDraft: Equatable, Sendable {
 
     /// Bench model id for the sealed remote payload; nil leaves Auto resolution to the Mac.
     func modelIdForSend(continuationWorkerId: String?) -> String? {
-        if let selectedWorkerId { return selectedWorkerId }
+        if let selectedModelId { return selectedModelId }
         if let continuationWorkerId {
             return ConversationAgentPresentation.modelId(fromWorkerId: continuationWorkerId)
         }

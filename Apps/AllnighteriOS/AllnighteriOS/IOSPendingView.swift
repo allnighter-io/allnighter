@@ -241,7 +241,7 @@ private struct IOSPendingReviewSheet: View {
         _composerText = State(initialValue: initialPrompt)
         var draft = IOSComposerDraft()
         if let workerId = target.item.target.preferredModelIds.first ?? target.item.target.modelIds.first {
-            draft.selectedWorkerId = workerId
+            draft.selectedModelId = workerId
         }
         if let teamId = target.item.target.teamPresetId,
            let option = IOSComposerCatalog.teams.first(where: { $0.presetId == teamId || $0.id == teamId }) {
