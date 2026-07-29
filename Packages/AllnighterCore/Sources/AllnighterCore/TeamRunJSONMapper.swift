@@ -185,7 +185,7 @@ public enum TeamRunJSONMapper {
         return TeamRunJSON(
             schemaVersion: 2,
             contractVersion: ContractRegistry.contractVersion,
-            teamRun: info, workers: workers, answers: projectedAnswers,
+            teamRun: info, agents: workers, answers: projectedAnswers,
             answer: answer,
             designBoard: designBoard,
             repoDelta: run.mutating ? run.repoDelta : nil,

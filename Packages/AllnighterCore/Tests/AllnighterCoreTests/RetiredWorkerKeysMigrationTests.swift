@@ -14,6 +14,32 @@ final class RetiredWorkerKeysMigrationTests: XCTestCase {
         XCTAssertNil(teamRun["agentId"])
     }
 
+    func testTeamRunJSONRootWorkersBecomeAgents() throws {
+        let (migrated, replacements) = RetiredWorkerKeysMigration.migrateJSONObject([
+            "schemaVersion": 2,
+            "contractVersion": "3.0.0",
+            "teamRun": ["id": "run_1", "status": "done", "origin": "cli", "prompt": "p",
+                        "promptSource": ["kind": "positional"], "createdAt": "2026-01-01T00:00:00Z"],
+            "workers": [["id": "model_opus#0", "modelId": "model_opus", "instanceIndex": 0]]
+        ], parentKey: nil)
+        XCTAssertGreaterThan(replacements, 0)
+        let root = try XCTUnwrap(migrated as? [String: Any])
+        XCTAssertNotNil(root["agents"])
+        XCTAssertNil(root["workers"])
+    }
+
+    func testJournalRootWorkersAreNotRenamed() throws {
+        let (migrated, replacements) = RetiredWorkerKeysMigration.migrateJSONObject([
+            "id": "run_1",
+            "status": "complete",
+            "workers": [["id": "model_opus#0", "modelId": "model_opus", "instanceIndex": 0]]
+        ], parentKey: nil)
+        XCTAssertEqual(replacements, 0)
+        let root = try XCTUnwrap(migrated as? [String: Any])
+        XCTAssertNotNil(root["workers"])
+        XCTAssertNil(root["agents"])
+    }
+
     func testWorkerAnswersRowsBecomeAgentId() throws {
         let (migrated, _) = RetiredWorkerKeysMigration.migrateJSONObject([
             "workerAnswers": [

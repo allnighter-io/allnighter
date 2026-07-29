@@ -14,7 +14,7 @@ final class TeamRunJSONPresenterTests: XCTestCase {
 
         XCTAssertEqual(p.statusLabel, "done")
         XCTAssertFalse(p.prompt.isEmpty)
-        XCTAssertEqual(p.workerRows.count, run.workers.count)
+        XCTAssertEqual(p.workerRows.count, run.agents.count)
         XCTAssertTrue(p.workerRows.allSatisfy { !$0.modelName.isEmpty })   // model name straight from `workers`
         XCTAssertEqual(run.schemaVersion, 2)
         XCTAssertNotNil(run.answer?.markdown)
@@ -36,13 +36,13 @@ final class TeamRunJSONPresenterTests: XCTestCase {
             contractVersion: "3.0.0",
             teamRun: .init(id: "run_x", status: .done, origin: .cli, prompt: "p",
                            promptSource: .init(kind: .positional), createdAt: "2026-06-15T00:00:00Z"),
-            workers: [
+            agents: [
                 .init(id: "w_ok", modelId: "m", modelName: "Opus 5", sourceId: "claude_code", purpose: .answer, instanceIndex: 0),
                 .init(id: "w_bad", modelId: "m", modelName: "Opus 5", sourceId: "claude_code", purpose: .answer, instanceIndex: 1),
             ],
             answers: [
-                .init(workerId: "w_ok", status: .done, markdown: "ok"),
-                .init(workerId: "w_bad", status: .failed,
+                .init(agentId: "w_ok", status: .done, markdown: "ok"),
+                .init(agentId: "w_bad", status: .failed,
                       error: .init(code: "AGENT_FAILED", message: "boom", requiresManual: false, retryable: true)),
             ],
             answer: nil,

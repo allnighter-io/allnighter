@@ -27,7 +27,7 @@
     "blocker": null,
     "attempts": []
   },
-  "workers": [
+  "agents": [
     {
       "id": "model_sonnet#0",
       "skillId": null,

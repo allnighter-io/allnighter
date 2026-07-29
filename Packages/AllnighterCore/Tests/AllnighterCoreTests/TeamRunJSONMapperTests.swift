@@ -12,10 +12,10 @@ final class TeamRunJSONMapperTests: XCTestCase {
         var run = try Fixtures.run(.runComplete)
         run.workers[0].resolvedWorkerPromptSnapshot = "SNAPSHOT_MARKER"
         let defaultMap = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
-        XCTAssertNil(defaultMap.workers.first?.resolvedWorkerPromptSnapshot)
+        XCTAssertNil(defaultMap.agents.first?.resolvedWorkerPromptSnapshot)
         let fullCtx = TeamRunJSONMapper.Context(runJournalPath: "/tmp/run.json", includeWorkerPromptSnapshots: true)
         let fullMap = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: fullCtx)
-        XCTAssertEqual(fullMap.workers.first?.resolvedWorkerPromptSnapshot, "SNAPSHOT_MARKER")
+        XCTAssertEqual(fullMap.agents.first?.resolvedWorkerPromptSnapshot, "SNAPSHOT_MARKER")
     }
 
     func testCompleteRunMapsToDoneWithPlan() throws {
@@ -25,7 +25,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertEqual(trj.contractVersion, ContractRegistry.contractVersion)
         XCTAssertEqual(trj.schemaVersion, 2)
         XCTAssertEqual(trj.teamRun.status, .done)           // .complete -> done
-        XCTAssertEqual(trj.workers.count, run.workers.count)
+        XCTAssertEqual(trj.agents.count, run.workers.count)
         XCTAssertEqual(trj.answers.count, run.answers.count)
         // Plan produced → plan-writer invariant holds; markdown moved to answer.
         XCTAssertEqual(trj.plan?.status, .done)

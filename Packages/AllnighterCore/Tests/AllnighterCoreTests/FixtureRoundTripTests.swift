@@ -125,7 +125,7 @@ final class FixtureRoundTripTests: XCTestCase {
         XCTAssertEqual(trj.contractVersion, "5.2.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
-        XCTAssertEqual(trj.workers.count, 1)
+        XCTAssertEqual(trj.agents.count, 1)
         XCTAssertEqual(trj.answers.count, 1)
         XCTAssertNil(trj.answers.first?.markdown)  // Law 2: markdown moved to answer
         let answer = try XCTUnwrap(trj.answer)

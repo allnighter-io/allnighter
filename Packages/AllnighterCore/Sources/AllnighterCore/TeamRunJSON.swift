@@ -14,7 +14,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var contractVersion: String
     public var teamRun: RunInfo
-    public var workers: [AgentInfo]
+    public var agents: [AgentInfo]
     public var answers: [AnswerInfo]
     /// Canonical result text. Always serialized (JSON `null` while non-terminal or
     /// when no canonical result exists). See `TeamRunJSONMapper.deriveAnswer`.
@@ -39,7 +39,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         schemaVersion: Int = 2,
         contractVersion: String,
         teamRun: RunInfo,
-        workers: [AgentInfo],
+        agents: [AgentInfo],
         answers: [AnswerInfo],
         answer: Answer? = nil,
         designBoard: DesignBoard? = nil,
@@ -57,7 +57,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
         self.teamRun = teamRun
-        self.workers = workers
+        self.agents = agents
         self.answers = answers
         self.answer = answer
         self.designBoard = designBoard
@@ -74,7 +74,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, contractVersion, teamRun, workers, answers, answer
+        case schemaVersion, contractVersion, teamRun, agents, answers, answer
         case designBoard, repoDelta, researchGitObservation, outcome, stages, plan, usage, warnings, errors
         case nextActions, audit
     }
@@ -84,7 +84,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
         contractVersion = try c.decode(String.self, forKey: .contractVersion)
         teamRun = try c.decode(RunInfo.self, forKey: .teamRun)
-        workers = try c.decode([AgentInfo].self, forKey: .workers)
+        agents = try c.decode([AgentInfo].self, forKey: .agents)
         answers = try c.decode([AnswerInfo].self, forKey: .answers)
         // Required on the wire (null while non-terminal / no canonical result).
         answer = try c.decode(Answer?.self, forKey: .answer)
@@ -107,7 +107,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         try c.encode(schemaVersion, forKey: .schemaVersion)
         try c.encode(contractVersion, forKey: .contractVersion)
         try c.encode(teamRun, forKey: .teamRun)
-        try c.encode(workers, forKey: .workers)
+        try c.encode(agents, forKey: .agents)
         try c.encode(answers, forKey: .answers)
         // Law 2: always serialize `answer` (including JSON null).
         try c.encode(answer, forKey: .answer)

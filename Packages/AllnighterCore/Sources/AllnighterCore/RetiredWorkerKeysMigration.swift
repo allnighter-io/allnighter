@@ -8,6 +8,7 @@ import Foundation
 /// - `producedByWorkerId` → `producedByAgentId`
 /// - `devWorkerId` → `devModelId`
 /// - `pmWorkerId` → `pmModelId`
+/// - TeamRunJSON root `workers` → `agents` (when `schemaVersion` + `teamRun` present)
 ///
 /// Idempotent (safe to run multiple times). Skips files with no retired keys.
 public enum RetiredWorkerKeysMigration {
@@ -93,7 +94,11 @@ public enum RetiredWorkerKeysMigration {
 
     // MARK: - JSON migration (path-aware)
 
-    static func migrateKey(_ key: String, parentKey: String?) -> (newKey: String, renamed: Bool) {
+    static func migrateKey(
+        _ key: String,
+        parentKey: String?,
+        teamRunJSONRoot: Bool = false
+    ) -> (newKey: String, renamed: Bool) {
         switch key {
         case "producedByWorkerId":
             return ("producedByAgentId", true)
@@ -103,6 +108,11 @@ public enum RetiredWorkerKeysMigration {
             return ("pmModelId", true)
         case "workerAnswers":
             return ("answers", true)
+        case "workers":
+            if teamRunJSONRoot {
+                return ("agents", true)
+            }
+            return (key, false)
         case "workerId":
             if parentKey == "teamRun" {
                 return ("modelId", true)
@@ -114,12 +124,19 @@ public enum RetiredWorkerKeysMigration {
     }
 
     static func migrateJSONObject(_ object: [String: Any], parentKey: String?) -> ([String: Any], Int) {
+        let teamRunJSONRoot = parentKey == nil
+            && object["teamRun"] != nil
+            && object["schemaVersion"] != nil
         var replacements = 0
         var result: [String: Any] = [:]
         result.reserveCapacity(object.count)
 
         for (key, value) in object {
-            let (newKey, renamed) = migrateKey(key, parentKey: parentKey)
+            let (newKey, renamed) = migrateKey(
+                key,
+                parentKey: parentKey,
+                teamRunJSONRoot: teamRunJSONRoot
+            )
             if renamed { replacements += 1 }
             let (newValue, childReplacements) = migrateJSONValue(value, parentKey: newKey)
             replacements += childReplacements

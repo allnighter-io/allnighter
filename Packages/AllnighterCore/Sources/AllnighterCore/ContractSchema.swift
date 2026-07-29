@@ -47,7 +47,7 @@ public enum ContractSchema {
         let top = obj([
             "schemaVersion": int, "contractVersion": str,
             "teamRun": ref("RunInfo"),
-            "workers": arr(ref("WorkerInfo")), "answers": arr(ref("AnswerInfo")),
+            "agents": arr(ref("WorkerInfo")), "answers": arr(ref("AnswerInfo")),
             "answer": nullableRef("Answer"),
             "stages": arr(ref("StageInfo")), "plan": nullableRef("Plan"),
             "designBoard": nullableRef("DesignBoard"),
@@ -58,7 +58,7 @@ public enum ContractSchema {
             "errors": arr(ref("ErrorEnvelope")), "nextActions": arr(ref("NextAction")),
             "audit": ref("Audit"),
         ], required: [
-            "schemaVersion", "contractVersion", "teamRun", "workers",
+            "schemaVersion", "contractVersion", "teamRun", "agents",
             "answers", "answer", "stages", "plan", "usage", "warnings", "errors", "nextActions", "audit",
         ])
         schema.merge(top) { _, new in new }
