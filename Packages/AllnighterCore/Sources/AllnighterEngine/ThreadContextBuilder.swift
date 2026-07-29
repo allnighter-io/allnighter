@@ -252,7 +252,18 @@ public struct ThreadContextBuilder: Sendable {
     private func label(for turn: ThreadTurn) -> String {
         switch turn.author {
         case .user: return "User"
-        case .worker: return turn.modelId ?? "Agent"
+        case .worker:
+            let agentLabel = ThreadAgentPresentation.make(
+                threadId: turn.threadId,
+                turnId: turn.id,
+                modelId: turn.modelId,
+                modelDisplayName: nil,
+                driverId: nil
+            )
+            if let secondary = agentLabel.secondary {
+                return "\(agentLabel.primary) · \(secondary)"
+            }
+            return agentLabel.primary
         case .system: return "System"
         }
     }

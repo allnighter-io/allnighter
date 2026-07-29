@@ -121,7 +121,7 @@ final class ThreadsPresenterTests: XCTestCase {
     }
 
     func testAuthorLabel() {
-        XCTAssertEqual(ThreadsPresenter.authorLabel(turn(.workerChat, .done)), "model_opus")
+        XCTAssertEqual(ThreadsPresenter.authorLabel(turn(.workerChat, .done)), "Agent · model_opus")
         var user = turn(.userMessage, .done); user.author = .user
         XCTAssertEqual(ThreadsPresenter.authorLabel(user), "You")
     }

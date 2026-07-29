@@ -607,6 +607,53 @@ private struct CopyButton: View {
     }
 }
 
+/// Driver glyph for an agent turn — brand when source is known, terminal fallback otherwise.
+private struct ThreadAgentGlyph: View {
+    let driverId: String?
+
+    var body: some View {
+        Group {
+            if let driverId {
+                DriverBrandGlyph(driverId: driverId, boxSize: 28, iconSize: 14, cornerRadius: 7)
+            } else {
+                Image(systemName: "terminal.fill").font(.system(size: 13)).foregroundStyle(ALColor.accent)
+                    .frame(width: 28, height: 28).background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 7))
+            }
+        }
+    }
+}
+
+/// Plain chat: `Agent · Opus 5`. Relay: bold `Agent` + faint `Opus 5 · Claude · PM`.
+private struct ThreadAgentHeader: View {
+    let label: ThreadAgentPresentation.Label
+    let timestamp: Date
+
+    var body: some View {
+        HStack(spacing: 6) {
+            switch label.layout {
+            case .plain:
+                Text(label.primary)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(ALColor.textSecondary)
+            case .relay:
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(label.primary)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(ALColor.textSecondary)
+                    if let secondary = label.secondary {
+                        Text(secondary)
+                            .font(ALFont.monoSm)
+                            .foregroundStyle(ALColor.textFaint)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            Text(timestamp, format: .dateTime.hour().minute())
+                .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
+        }
+    }
+}
+
 private struct ThreadTurnRow: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
@@ -640,9 +687,8 @@ private struct ThreadTurnRow: View {
     }
 
     // CR4b — one model's reply.
-    private var model: ComposeBenchModel? {
-        guard let id = turn.modelId else { return nil }
-        return appModel.composeBench.first(where: { $0.id == id })
+    private var agentLabel: ThreadAgentPresentation.Label {
+        appModel.threadAgentLabel(for: turn)
     }
 
     private var resolvedAttachments: [ResolvedThreadAttachment] {
@@ -661,17 +707,9 @@ private struct ThreadTurnRow: View {
 
     private var workerBubble: some View {
         HStack(alignment: .top, spacing: 10) {
-            Group {
-                if let model { DriverBrandGlyph(driverId: model.driverId, boxSize: 28, iconSize: 14, cornerRadius: 7) }
-                else { Image(systemName: "cpu").font(.system(size: 13)).foregroundStyle(ALColor.textSecondary).frame(width: 28, height: 28).background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 7)) }
-            }
+            ThreadAgentGlyph(driverId: agentLabel.driverId)
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Text(model?.name ?? turn.modelId ?? "Model")
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
-                    Text(turn.createdAt, format: .dateTime.hour().minute())
-                        .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
-                }
+                ThreadAgentHeader(label: agentLabel, timestamp: turn.createdAt)
                 // Thinking persists across running → done (never removed → no jump);
                 // expanded on the latest turn, collapsed to one line on prior turns.
                 ThreadThinkingBlock(
@@ -1115,9 +1153,9 @@ private struct ThreadMutatingRunRow: View {
         if let markdown = run?.latestStage(.plan)?.payload?.markdown, !markdown.isEmpty { return markdown }
         return run?.answers.first { ($0.output ?? "").isEmpty == false }?.output
     }
-    private var model: ComposeBenchModel? {
-        guard let id = turn.modelId else { return nil }
-        return appModel.composeBench.first { $0.id == id }
+
+    private var agentLabel: ThreadAgentPresentation.Label {
+        appModel.threadAgentLabel(for: turn)
     }
 
     private var resolvedAttachments: [ResolvedThreadAttachment] {
@@ -1141,9 +1179,9 @@ private struct ThreadMutatingRunRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            glyph
+            ThreadAgentGlyph(driverId: agentLabel.driverId)
             VStack(alignment: .leading, spacing: 6) {
-                header
+                ThreadAgentHeader(label: agentLabel, timestamp: turn.createdAt)
                 // Persistent thinking surface — expanded on the latest turn, collapsed
                 // to one line on prior turns. Never removed (no jump at settlement).
                 ThreadThinkingBlock(
@@ -1168,34 +1206,6 @@ private struct ThreadMutatingRunRow: View {
         if let out = runOutput, !out.isEmpty { return out }
         if let t = turn.text, !t.isEmpty { return t }
         return nil
-    }
-
-    @ViewBuilder private var glyph: some View {
-        if let model {
-            DriverBrandGlyph(driverId: model.driverId, boxSize: 28, iconSize: 14, cornerRadius: 7)
-        } else {
-            Image(systemName: "terminal.fill").font(.system(size: 13)).foregroundStyle(ALColor.accent)
-                .frame(width: 28, height: 28).background(ALColor.subtle, in: RoundedRectangle(cornerRadius: 7))
-        }
-    }
-
-    /// Name the agent you were talking to — "Agent (Composer 2.5)" — since a run can be
-    /// orchestrated across many CLIs/agents and users need the reminder. Falls back to the
-    /// raw worker id, then a bare "Agent" before anything has resolved.
-    private var headerLabel: String {
-        if let name = model?.name { return "Agent (\(name))" }
-        if let wid = turn.modelId, !wid.isEmpty { return "Agent (\(wid))" }
-        return "Agent"
-    }
-
-    private var header: some View {
-        HStack(spacing: 6) {
-            Text(headerLabel)
-                .font(.system(size: 12, weight: .semibold)).foregroundStyle(ALColor.textSecondary)
-            Text(turn.createdAt, format: .dateTime.hour().minute())
-                .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
-            Spacer(minLength: 8)
-        }
     }
 
     @ViewBuilder private var parkBanner: some View {

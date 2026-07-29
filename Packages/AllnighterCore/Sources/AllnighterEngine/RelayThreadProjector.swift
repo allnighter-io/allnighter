@@ -128,6 +128,7 @@ public struct RelayThreadProjector: Sendable {
                 settled.status = (outcome == .stopped) ? .cancelled : .failed
                 settled.completedAt = round.finishedAt ?? now
                 settled.text = text
+                if settled.modelId?.isEmpty != false { settled.modelId = state.pmModelId }
                 if let updated = try? store.updateTurn(settled, inThreadId: thread.id, now: now) { thread = updated }
             }
         }
@@ -195,6 +196,7 @@ public struct RelayThreadProjector: Sendable {
                 settled.status = (outcome == .stopped) ? .cancelled : .failed
                 settled.completedAt = round.finishedAt ?? now
                 settled.text = text
+                if settled.modelId?.isEmpty != false { settled.modelId = state.devModelId }
                 if let updated = try? store.updateTurn(settled, inThreadId: thread.id, now: now) { thread = updated }
             }
         }

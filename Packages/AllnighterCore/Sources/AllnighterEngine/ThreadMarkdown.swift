@@ -31,17 +31,25 @@ public enum ThreadMarkdown {
         let who: String
         switch turn.author {
         case .user: who = "User"
-        case .worker: who = turn.modelId ?? "Agent"
+        case .worker:
+            let label = ThreadAgentPresentation.make(
+                threadId: turn.threadId,
+                turnId: turn.id,
+                modelId: turn.modelId,
+                modelDisplayName: nil,
+                driverId: nil
+            )
+            who = label.secondary.map { sec in "\(label.primary) · \(sec)" } ?? label.primary
         case .system: who = "System"
         }
-        var label = "## \(who) · \(turn.kind.rawValue)"
+        var header = "## \(who) · \(turn.kind.rawValue)"
         if turn.status != .done {
-            label += " · \(turn.status.rawValue)"
+            header += " · \(turn.status.rawValue)"
         }
         if let runId = turn.runId {
-            label += " → run \(runId)"
+            header += " → run \(runId)"
         }
-        return label
+        return header
     }
 
     private static func artifactLine(_ ref: ArtifactRef) -> String {
